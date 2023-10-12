@@ -1,9 +1,9 @@
-#!/usr/bin/env perl 
+#!/usr/bin/env perl
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 use strict;
@@ -59,11 +59,6 @@ print FILE <<EOF;
 #define ERLANG_OTP_RELEASE "$release"
 #define ERLANG_OTP_VERSION "$otp_version"
 #define ERLANG_VERSION "$version"
-#if ERTS_SAVED_COMPILE_TIME
-#  define ERLANG_COMPILE_DATE "$time_str"
-#else
-#  define ERLANG_COMPILE_DATE ""
-#endif
 #define ERLANG_ARCHITECTURE "$architecture"
 EOF
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,81 +18,94 @@
 %% %CopyrightEnd%
 %%
 
+-module(relay).
+
 %%
 %% An example Diameter relay agent.
 %%
-%% Usage to connect to a server listening on the default port over TCP
-%% and to listen on the default port over SCTP is as follows, assuming
-%% diameter is already started (eg. diameter:start()).
+%% Simplets usage to connect to a server listening on TCP at
+%% 127.0.0.1:3868 and listen for connections on TCP at the same
+%% endpoint:
 %%
-%% Eg.  relay:start().
-%%      relay:connect(tcp).
-%%      relay:listen(sctp).
+%%   relay:start().
+%%   relay:connect(tcp).
+%%   relay:listen(sctp).
 %%
 
--module(relay).
-
+%% Interface.
 -export([start/1,
          start/2,
          listen/2,
          connect/2,
          stop/1]).
 
+%% Convenience functions using the default service name.
 -export([start/0,
          listen/1,
          connect/1,
          stop/0]).
 
+%% Default service name.
 -define(DEF_SVC_NAME, ?MODULE).
 
-%% The service configuration.
+%% Service configuration.
 -define(SERVICE(Name), [{'Origin-Host', atom_to_list(Name) ++ ".example.com"},
                         {'Origin-Realm', "example.com"},
                         {'Vendor-Id', 193},
                         {'Product-Name', "RelayAgent"},
                         {'Auth-Application-Id', [16#FFFFFFFF]},
+                        {decode_format, map},
+                        {restrict_connections, false},
                         {string_decode, false},
+                        {strict_mbit, false},
                         {application, [{alias, relay},
                                        {dictionary, diameter_gen_relay},
-                                       {module, relay_cb}]}]).
-
-%% start/1
-
-start(Name)
-  when is_atom(Name) ->
-    start(Name, []).
-
-%% start/1
-
-start() ->
-    start(?DEF_SVC_NAME).
+                                       {module, relay_cb},
+                                       {call_mutates_state, false}]}]).
 
 %% start/2
 
 start(Name, Opts) ->
-    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
-                                   false == lists:keymember(K, 1, Opts)]).
+    Defaults = [T || {K,_} = T <- ?SERVICE(Name),
+                     not lists:keymember(K, 1, Opts)],
+    diameter:start_service(Name, Opts ++ Defaults).
+
+%% start/1
+
+start(Opts) ->
+    start(?DEF_SVC_NAME, Opts).
+
+%% start/0
+
+start() ->
+    start(?DEF_SVC_NAME, []).
 
 %% listen/2
 
-listen(Name, T) ->
-    node:listen(Name, T).
+listen(Name, Opts) ->
+    server:listen(Name, Opts).
 
-listen(T) ->
-    listen(?DEF_SVC_NAME, T).
+%% listen/1
+
+listen(Opts) ->
+    listen(?DEF_SVC_NAME, Opts).
 
 %% connect/2
 
-connect(Name, T) ->
-    node:connect(Name, T).
+connect(Name, Opts) ->
+    client:connect(Name, Opts).
 
-connect(T) ->
-    connect(?DEF_SVC_NAME, T).
+%% connect/1
+
+connect(Opts) ->
+    connect(?DEF_SVC_NAME, Opts).
 
 %% stop/1
 
 stop(Name) ->
-    node:stop(Name).
+    diameter:stop_service(Name).
+
+%% stop/0
 
 stop() ->
     stop(?DEF_SVC_NAME).

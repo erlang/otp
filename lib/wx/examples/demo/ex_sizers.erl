@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ do_init(Config) ->
 	       "Weighting Factor",
 	       "Edge Affinity",
 	       "Spacer",
-	       "Centering In Avalible Space",
+	       "Centering In Available Space",
 	       "Simple Border",
 	       "East And West Border",
 	       "North And South Border",
@@ -149,7 +149,7 @@ create_example(Parent, Example) ->
 		north_and_south_border(Panel);
 	    "Simple Border" ->
 		simple_border(Panel);
-	    "Centering In Avalible Space" ->
+	    "Centering In Available Space" ->
 		centering_in_avalible_space(Panel);
 	    "Spacer" ->
 		spacer(Panel);

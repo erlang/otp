@@ -5,14 +5,14 @@ A super carrier is large memory area, allocated at VM start, which can
 be used during runtime to allocate normal carriers from.
 
 The super carrier feature was introduced in OTP R16B03. It is
-enabled with command line option +MMscs <size in Mb>
+enabled with command line option +MMscs &lt;size in Mb&gt;
 and can be configured with other options.
 
 Problem
 -------
 
 The initial motivation for this feature was customers asking for a way
-to pre-allocate physcial memory at VM start for it to use.
+to pre-allocate physical memory at VM start for it to use.
 
 Other problems were different experienced limitations of the OS
 implementation of mmap:
@@ -29,7 +29,7 @@ fragmentation increased.
 Solution
 --------
 
-Allocate one large continious area of address space at VM start and
+Allocate one large continuous area of address space at VM start and
 then use that area to satisfy our dynamic memory need during
 runtime. In other words: implement our own mmap.
 
@@ -65,12 +65,12 @@ carrier is full.
 
 ### Implementation ###
 
-The entire super carrier implementation is kept in erl_mmap.c. The
+The entire super carrier implementation is kept in erl\_mmap.c. The
 name suggest that it can be viewed as our own mmap implementation.
 
 A super carrier needs to satisfy two slightly different kinds of
 allocation requests; multi block carriers (MBC) and single block
-carriers (SBC). They are both rather large blocks of continious
+carriers (SBC). They are both rather large blocks of continuous
 memory, but MBCs and SBCs have different demands on alignment and
 size.
 
@@ -79,13 +79,13 @@ alignment.
 
 MBCs are more restricted. They can only have a number of fixed
 sizes that are powers of 2. The start address need to have a very
-large aligment (currently 256 kb, called "super alignment"). This is a
+large alignment (currently 256 kb, called "super alignment"). This is a
 design choice that allows very low overhead per allocated block in the
 MBC.
 
 To reduce fragmentation within the super carrier, it is good to keep SBCs
 and MBCs apart. MBCs with their uniform alignment and sizes can be
-packed very efficiently together. SBCs without demand for aligment can
+packed very efficiently together. SBCs without demand for alignment can
 also be allocated quite efficiently together. But mixing them can lead
 to a lot of memory wasted when we need to create large holes of
 padding to the next alignment limit.
@@ -98,13 +98,13 @@ other.
 
 ### Data structures ###
 
-The MBC area is called **sa** as in super aligned and the SBC area is
-called **sua** as in super un-aligned.
+The MBC area is called *sa* as in super aligned and the SBC area is
+called *sua* as in super un-aligned.
 
 Note that the "super" in super alignment and the "super" in super
-carrier has nothing to do with each other. We could have choosen
+carrier has nothing to do with each other. We could have chosen
 another naming to avoid confusion, such as "meta" carrier or "giant"
-aligment.
+alignment.
 
 	+-------+ <---- sua.top
 	|  sua  |
@@ -128,7 +128,7 @@ down or up.
 We need to keep track of all the free segments in order to reuse them
 for new carrier allocations. One initial idea was to use the same
 mechanism that is used to keep track of free blocks within MBCs
-(alloc_util and the different strategies). However, that would not be
+(alloc\_util and the different strategies). However, that would not be
 as straight forward as one can think and can also waste quite a lot of
 memory as it uses prepended block headers. The granularity of the
 super carrier is one memory page (usually 4kb). We want to allocate

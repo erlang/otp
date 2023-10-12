@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,29 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Target Specs
 # ----------------------------------------------------
 
+SOCKET_MODULES = \
+	socket_test_lib \
+	socket_test_logger \
+	socket_test_evaluator \
+	socket_test_ttest_lib \
+	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_gs \
+	socket_test_ttest_tcp_socket \
+	socket_test_ttest_tcp_client \
+	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_gs \
+	socket_test_ttest_tcp_client_socket \
+	socket_test_ttest_tcp_server \
+	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_gs \
+	socket_test_ttest_tcp_server_socket \
+	socket_SUITE
+
 MODULES= \
+	kernel_test_lib \
+	kernel_test_global_sys_monitor \
+	kernel_test_sys_monitor \
+	erpc_SUITE \
 	rpc_SUITE \
 	pdict_SUITE \
 	bif_SUITE \
@@ -49,6 +71,7 @@ MODULES= \
 	erl_distribution_SUITE \
 	erl_distribution_wb_SUITE \
 	erl_prim_loader_SUITE \
+	erl_uds_dist \
 	error_handler_SUITE \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
@@ -57,6 +80,7 @@ MODULES= \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
+	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
 	gen_tcp_misc_SUITE \
 	gen_udp_SUITE \
@@ -76,17 +100,22 @@ MODULES= \
 	logger_filters_SUITE \
 	logger_formatter_SUITE \
 	logger_legacy_SUITE \
+	logger_olp_SUITE \
+	logger_proxy_SUITE \
 	logger_simple_h_SUITE \
 	logger_std_h_SUITE \
+	logger_stress_SUITE \
 	logger_test_lib \
+	net_SUITE \
 	os_SUITE \
-	pg2_SUITE \
+	pg_SUITE \
+	rtnode \
 	seq_trace_SUITE \
+	$(SOCKET_MODULES) \
 	wrap_log_reader_SUITE \
 	cleanup \
 	ignore_cores \
 	zlib_SUITE \
-	loose_node \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
@@ -105,13 +134,26 @@ APP_FILES = \
 	topApp2.app \
 	topApp3.app
 
-ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl
+SASL_MODULES= otp_vsns
+STDLIB_MODULES= error_info_lib
+
+ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl \
+	$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
+	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
+
+HRL_FILES= \
+	kernel_test_lib.hrl \
+	socket_test_evaluator.hrl \
+	socket_test_ttest.hrl \
+	socket_test_ttest_client.hrl
+
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover logger.cover
+COVERFILE=kernel.cover logger.cover tty.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -124,20 +166,32 @@ RELSYSDIR = $(RELEASE_PATH)/kernel_test
 
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
+
+TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
+
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-make_emakefile:
+gen_tcp_dist.erl: ../examples/gen_tcp_dist/src/gen_tcp_dist.erl
+	cp $< $@
+
+erl_uds_dist.erl: ../examples/erl_uds_dist/src/erl_uds_dist.erl
+	cp $< $@
+
+make_emakefile: $(ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' \
 	> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
+	  $(MODULES) $(SASL_MODULES) $(STDLIB_MODULES) \
 	>> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -146,6 +200,10 @@ clean:
 	rm -f core
 
 docs:
+
+targets: $(TARGETS)
+socket_targets: $(SOCKET_TARGETS)
+
 
 # ----------------------------------------------------
 # Release Target
@@ -156,12 +214,14 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(APP_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(APP_FILES) $(EXTRA_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) \
-		kernel.spec kernel_smoke.spec kernel_bench.spec logger.spec \
+		kernel.spec kernel_smoke.spec kernel_bench.spec kernel_gh.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
+	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
 
 release_docs_spec:

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,15 +42,11 @@ typedef struct {
 
 typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
-    Sint lock_statistics;
+    erts_atomic_t lock_statistics;
     int is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
-    struct DbTableCATreeNode * next; /* Used when gradually deleting */
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    DbRouteKey lc_key;
-#endif
     char end_of_struct__;
 } DbTableCATreeBaseNode;
 
@@ -86,19 +82,55 @@ typedef struct db_table_catree {
     /* CA Tree-specific fields */
     erts_atomic_t root;         /* The tree root (DbTableCATreeNode*) */
     Uint deletion;		/* Being deleted */
-    DbTreeStack free_stack_elems;/* Used for deletion ...*/
-    CATreeNodeStack free_stack_rnodes;
-    DbTableCATreeNode *base_nodes_to_free_list;
     int is_routing_nodes_freed;
+    /* The fields below are used by delete_all_objects and
+       select_delete(DeleteAll)*/
+    Uint nr_of_deleted_items;
+    Binary* nr_of_deleted_items_wb;
 } DbTableCATree;
+
+typedef struct {
+    DbTableCATree* tb;
+    Eterm next_route_key;
+    DbTableCATreeNode* locked_bnode;
+    DbTableCATreeNode* bnode_parent;
+    int bnode_level;
+    int read_only;
+    DbRouteKey* search_key;
+} CATreeRootIterator;
+
 
 void db_initialize_catree(void);
 
 int db_create_catree(Process *p, DbTable *tbl);
 
+TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
+
+TreeDbTerm** catree_find_next_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator*, int next, Eterm* keyp);
+TreeDbTerm** catree_find_next_root(CATreeRootIterator*, Eterm* keyp);
+TreeDbTerm** catree_find_prev_root(CATreeRootIterator*, Eterm* keyp);
+TreeDbTerm** catree_find_first_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_last_root(CATreeRootIterator*);
+
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable);
 #endif
+
+void db_catree_force_split(DbTableCATree*, int on);
+void db_catree_debug_random_split_join(DbTableCATree*, int on);
+
+typedef struct {
+    Uint route_nodes;
+    Uint base_nodes;
+    Uint max_depth;
+} DbCATreeStats;
+void db_calc_stats_catree(DbTableCATree*, DbCATreeStats*);
+void
+erts_db_foreach_thr_prgr_offheap_catree(void (*func)(ErlOffHeap *, void *),
+                                        void *arg);
+
 
 #endif /* _DB_CATREE_H */

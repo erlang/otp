@@ -134,3 +134,24 @@ t16(A) when ((A =:= a) orelse (A =:= b)) andalso
 	    ((A =:= b) orelse (A =:= c)) -> ok.
 
 t16_a() -> t16(a), t16(b), t16(c).
+
+%% Should give a warning
+
+t17(X) when #{x => X} ->
+    ok.
+
+%% Should give a warning
+
+t18(X) when <<X>> ->
+    ok.
+
+%% Coverage
+
+cover1() when 1 < 2; 1 > 2 ->
+    ok.
+
+cover2() when is_atom(1 < 2); is_atom(1 > 2) ->
+    ok.
+
+cover3() when not(1 < 2); not(1 > 2) ->
+    ok.

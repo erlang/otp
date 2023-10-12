@@ -1,0 +1,41 @@
+
+  [;1m-spec erlang:dist_ctrl_set_opt(DHandle, get_size, Value) -> OldValue[0m
+  [;1m                                  when[0m
+  [;1m                                      DHandle :: dist_handle(),[0m
+  [;1m                                      Value :: boolean(),[0m
+  [;1m                                      OldValue :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP 22.0
+
+  Sets the value of the [;;4mget_size[0m option on the distribution
+  channel identified by [;;4mDHandle[0m. This option controls the return
+  value of calls to erlang:dist_ctrl_get_data(DHandle) where [;;4m[0m
+  [;;4mDHandle[0m equals [;;4mDHandle[0m used when setting this option. When the [;;4m[0m
+  [;;4mget_size[0m option is:
+
+  [;;4m[;;4mfalse[0m[0m:
+    and there are distribution data available, a call to [;;4m[0m
+    [;;4merlang:dist_ctrl_get_data(DHandle)[0m will just return [;;4mData[0m to
+    pass over the channel. This is the default value of the [;;4m[0m
+    [;;4mget_size[0m option.
+
+  [;;4m[;;4mtrue[0m[0m:
+    and there are distribution data available, a call to [;;4m[0m
+    [;;4merlang:dist_ctrl_get_data(DHandle)[0m will return [;;4mData[0m to pass
+    over the channel as well as the [;;4mSize[0m of [;;4mData[0m in bytes.
+    This is returned as a tuple on the form [;;4m{Size, Data}[0m.
+
+  All options are set to default when a channel is closed.
+
+  Note:
+    Only the process registered as distribution controller for the
+    distribution channel identified by [;;4mDHandle[0m is allowed to
+    call this function.
+
+  This function is used when implementing an alternative
+  distribution carrier using processes as distribution controllers. [;;4m[0m
+  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
+  More information can be found in the documentation of ERTS User's
+  Guide ➜ How to implement an Alternative Carrier for the Erlang
+  Distribution ➜ Distribution Module.

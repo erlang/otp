@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ TESTMODS = \
 	ex_htmlWindow \
 	ex_listCtrl \
 	ex_notebook \
+	ex_notificationMessage \
 	ex_pickers \
 	ex_popupMenu \
 	ex_radioBox \
@@ -53,14 +54,15 @@ TESTMODS = \
 	ex_static \
 	ex_textCtrl \
 	ex_treeCtrl \
-	ex_graphicsContext
+	ex_graphicsContext \
+	ex_webview
 
 
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
 # Targets
-opt debug:	$(TESTTARGETS)
+$(TYPES):	$(TESTTARGETS)
 clean:
 	rm -f $(TESTTARGETS)
 	rm -f *~ core erl_crash.dump

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,9 +38,13 @@ MODULES= \
 	run_erl_SUITE \
 	erlexec_SUITE \
 	z_SUITE \
-	upgrade_SUITE
+	upgrade_SUITE \
+	parallel_messages_SUITE
 
-ERL_FILES= $(MODULES:%=%.erl)
+ERTS_MODULES= erts_test_utils
+
+ERL_FILES= $(MODULES:%=%.erl) \
+           $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -84,6 +88,8 @@ release_tests_spec: opt
 	$(INSTALL_DATA) system.spec system.dynspec system_smoke.spec \
 		$(ERL_FILES) $(TARGET_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
+	cp "$(ERL_TOP)/otp_versions.table" "$(ERL_TOP)/erts/test/otp_SUITE_data"
+	cp "$(ERL_TOP)/make/otp_version_tickets" "$(ERL_TOP)/erts/test/otp_SUITE_data"
 	tar cf - *_SUITE_data utils | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

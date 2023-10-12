@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -355,7 +355,7 @@ usage() ->
 	      "~n                              For example snmp/mibs/ "
 	      "~n                              The current workin dir and the "
 	      "~n                              <snmp-home>/priv/mibs "
-	      "~n                              are always listed last the includ path. "
+	      "~n                              are always listed last the include path. "
 	      "~n   --db <DB>                - Database to used for the default instrumentation."
 	      "~n                              Defaults to volatile."
 	      "~n   --sgc                    - This option (skip group check), if present, "

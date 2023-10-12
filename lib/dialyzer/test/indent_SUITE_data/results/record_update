@@ -1,0 +1,7 @@
+
+record_update.erl:7:2: Invalid type specification for function record_update:quux/2.
+ The success typing is record_update:quux
+          (#foo{bar :: atom()}, atom()) -> #foo{bar :: atom()}
+ But the spec is record_update:quux
+          (#foo{}, string()) -> #foo{}
+ They do not overlap in the 2nd argument

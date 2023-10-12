@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@
 
 -author('bjorn@erix.ericsson.se').
 -export([all/0, suite/0,
-	 aligned/1,unaligned/1,zero_tail/1]).
+	 aligned/1,unaligned/1,zero_tail/1,huge_tail/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [aligned, unaligned, zero_tail].
+    [aligned, unaligned, zero_tail, huge_tail].
 
 
 %% Test aligned tails.
@@ -86,4 +86,39 @@ test_zero_tail(<<A:8>>) -> A.
 
 test_zero_tail2(<<_A:4,_B:4>>) -> ok.
 
-mkbin(L) when is_list(L) -> list_to_binary(L).
+huge_tail(_Config) ->
+    42 = huge_tail_1(id(<<42,0:16#1001>>)),
+    {'EXIT',{function_clause,_}} = catch huge_tail_1(id(<<0:8,0:10>>)),
+
+    {'EXIT',{function_clause,_}} = catch huge_tail_2(id(<<0:8,0:100>>)),
+
+    {'EXIT',{function_clause,_}} = catch huge_tail_3(id(<<0:8,0:200>>)),
+
+    %% The following code is commented out by default because it
+    %% constructs a 2Gb binary.
+
+    %% try huge_tail_2(id(<<100, 0:16#8000_0000>>)) of
+    %%     100 ->
+    %%         ok
+    %% catch
+    %%     error:function_clause ->
+    %%         ct:fail(not_supposed_to_fail)
+    %% end,
+
+    ok.
+
+%% On AArch64, the immediate for the `cmp` instruction is 12 bits (unsigned).
+huge_tail_1(<<B:8,_:16#1001>>) -> B.
+
+%% On x86_64, the immediate for the `cmp` instruction is 32 bits (signed).
+huge_tail_2(<<B:8, _:16#8000_0000>>) -> B.
+
+%% Matching will fail on all platforms.
+huge_tail_3(<<B:8, _:16#1_0000_0000_0000_0000>>) -> B.
+
+%%%
+%%% Common utilities.
+%%%
+mkbin(L) when is_list(L) -> list_to_binary(id(L)).
+
+id(I) -> I.

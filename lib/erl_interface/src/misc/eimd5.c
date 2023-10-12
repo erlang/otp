@@ -161,7 +161,7 @@ void ei_MD5Update (MD5_CTX *context, unsigned char *input,
 }
 
 /*
- * MD5 finalization. Ends an MD5 message-digest operation, writing the
+ * MD5 finalization. Ends an MD5 message-digest operation, writing
   the message digest and zeroizing the context.
  */
 void ei_MD5Final (unsigned char digest[16], MD5_CTX *context)

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ int ei_skip_term(const char* buf, int* index)
 
     /* ASSERT(ep != NULL); */
 
-    ei_get_type_internal(buf, index, &ty, &n);
+    ei_get_type(buf, index, &ty, &n);
     switch (ty) {
     case ERL_ATOM_EXT:
 	/* FIXME: what if some weird locale is in use? */
@@ -54,7 +54,7 @@ int ei_skip_term(const char* buf, int* index)
 	if (ei_decode_list_header(buf, index, &n) < 0) return -1;
 	for (i = 0; i < n; ++i)
 	    ei_skip_term(buf, index);
-	if (ei_get_type_internal(buf, index, &ty, &n) < 0) return -1;
+	if (ei_get_type(buf, index, &ty, &n) < 0) return -1;
 	if (ty != ERL_NIL_EXT)
 	    ei_skip_term(buf, index);
 	else
@@ -79,6 +79,10 @@ int ei_skip_term(const char* buf, int* index)
 	if (ei_decode_binary(buf, index, NULL, NULL) < 0)
 	    return -1;
 	break;
+    case ERL_BIT_BINARY_EXT:
+        if (ei_decode_bitstring(buf, index, NULL, NULL, NULL) < 0)
+            return -1;
+        break;
     case ERL_SMALL_INTEGER_EXT:
     case ERL_INTEGER_EXT:
 	if (ei_decode_long(buf, index, NULL) < 0) return -1;
@@ -93,6 +97,7 @@ int ei_skip_term(const char* buf, int* index)
 	break;
     case ERL_FUN_EXT:
     case ERL_NEW_FUN_EXT:
+    case ERL_EXPORT_EXT:
 	if (ei_decode_fun(buf, index, NULL) < 0) return -1;
 	break;
     default:

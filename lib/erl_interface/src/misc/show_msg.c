@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,19 +29,9 @@
 
 #include "eidef.h"
 
-#ifndef __WIN32__
-#  ifdef TIME_WITH_SYS_TIME
-#    include <sys/time.h>
-#    include <time.h>
-#  else
-#    ifdef HAVE_SYS_TIME_H
-#       include <sys/time.h>
-#    else
-#       include <time.h>
-#    endif
-#  endif
-#else
-#  include <time.h>
+#include <time.h>
+#ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
 #endif
 
 #include "eiext.h"
@@ -129,9 +119,9 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 
     /* skip five bytes */
     index = 5;
-    ei_decode_version(header,&index,&version);
-    ei_decode_tuple_header(header,&index,&arity);
-    ei_decode_long(header,&index,&msg.msgtype);
+    if (ei_decode_version(header,&index,&version)
+        || ei_decode_tuple_header(header,&index,&arity)
+        || ei_decode_long(header,&index,&msg.msgtype)) return -1;
 
     switch (msg.msgtype) {
     case ERL_SEND:
@@ -342,7 +332,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
     int i, len;
     char *s;
 
-    ei_get_type_internal(termbuf,index,&type,&len);
+    ei_get_type(termbuf,index,&type,&len);
   
     switch (type) {
     case ERL_VERSION_MAGIC:
@@ -447,7 +437,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
     case ERL_PORT_EXT:
     case ERL_NEW_PORT_EXT:
 	ei_decode_port(termbuf,index,&port);
-	fprintf(stream,"#Port<%s.%u.%u>",port.node,port.id,port.creation);
+	fprintf(stream,"#Port<%s.%llu.%u>",port.node,port.id,port.creation);
 	break;
       
     case ERL_BINARY_EXT:
@@ -455,6 +445,12 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	fprintf(stream,"#Bin<%ld>",num);
 	break;
     
+    case ERL_BIT_BINARY_EXT: {
+        size_t bits;
+        ei_decode_bitstring(termbuf, index, NULL, NULL, &bits);
+        fprintf(stream, "#Bits<%lu>", (unsigned long)bits);
+        break;
+    }
     case ERL_LARGE_BIG_EXT:
 	/* doesn't actually decode - just skip over it */
 	/* FIXME if GMP, what to do here?? */

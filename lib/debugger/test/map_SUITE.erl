@@ -88,7 +88,10 @@
 
 	%% misc
 	t_pdict/1,
-	t_ets/1
+        t_ets/1,
+
+        %% new in OTP 23
+        t_key_expressions/1
     ]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -150,7 +153,10 @@ all() -> [
 
         %% Other functions
 	t_pdict,
-	t_ets
+	t_ets,
+
+        %% new in OTP 23
+        t_key_expressions
     ].
 
 groups() -> [].
@@ -2233,6 +2239,48 @@ validate_frequency([{T,C}|Fs],Tf) ->
     end;
 validate_frequency([], _) -> ok.
 
+t_key_expressions(_Config) ->
+    Int = id(42),
+    #{{tag,Int} := 42} = id(#{{tag,Int} => 42}),
+    #{{tag,Int+1} := 42} = id(#{{tag,Int+1} => 42}),
+    #{{a,b} := x, {tag,Int} := 42, Int := 0} =
+        id(#{{a,b} => x, {tag,Int} => 42, Int => 0}),
+
+    F1 = fun(#{Int + 1 := Val}) -> Val end,
+    val = F1(#{43 => val}),
+    {'EXIT',_} = (catch F1(a)),
+
+    F2 = fun(M, X, Y) ->
+                 case M of
+                     #{element(X, Y) := <<Sz:16,Bin:Sz/binary>>} ->
+                         Bin;
+                     #{} ->
+                         not_found;
+                     {A,B} ->
+                         A + B
+                 end
+         end,
+    <<"xyz">> = F2(#{b => <<3:16,"xyz">>}, 2, {a,b,c}),
+    not_found = F2(#{b => <<3:16,"xyz">>}, 999, {a,b,c}),
+    13 = F2({6,7}, 1, 2),
+
+    #{<<"Спутник"/utf8>> := 1} = id(#{<<"Спутник"/utf8>> => 1}),
+
+    F3 = fun(Arg) ->
+                 erase(once),
+                 RunOnce = fun(I) ->
+                                   undefined = put(once, twice),
+                                   id(I)
+                           end,
+                 case RunOnce(Arg) of
+                     #{{tag,<<Int:42>>} := Value} -> Value;
+                     {X,Y} -> X + Y
+                 end
+         end,
+    10 = F3({7,3}),
+    whatever = F3(#{{tag,<<Int:42>>} => whatever}),
+
+    ok.
 
 %% aux
 

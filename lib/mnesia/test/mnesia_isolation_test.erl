@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 -export([no_conflict/1, simple_queue_conflict/1,
          advanced_queue_conflict/1, simple_deadlock_conflict/1,
          advanced_deadlock_conflict/1, schema_deadlock/1, lock_burst/1,
-         nasty/1, basic_sticky_functionality/1,
+         nasty/1, basic_sticky_functionality/1, sticky_sync/1,
          unbound1/1, unbound2/1,
          create_table/1, delete_table/1, move_table_copy/1,
          add_table_index/1, del_table_index/1, transform_table/1,
@@ -71,7 +71,8 @@ groups() ->
        advanced_deadlock_conflict, schema_deadlock, lock_burst,
        {group, sticky_locks}, {group, unbound_locking},
        {group, admin_conflict}, nasty]},
-     {sticky_locks, [], [basic_sticky_functionality]},
+     {sticky_locks, [],
+      [basic_sticky_functionality,sticky_sync]},
      {unbound_locking, [], [unbound1, unbound2]},
      {admin_conflict, [],
       [create_table, delete_table, move_table_copy,
@@ -594,9 +595,49 @@ get_held() ->
     mnesia_locker ! {get_table, self(), mnesia_sticky_locks},
     receive {mnesia_sticky_locks, Locks} -> Locks end.
 
+sticky_sync(suite) -> [];
+sticky_sync(Config) when is_list(Config) ->
+    %% BUG ERIERL-768
+    Nodes = [N1, N2] = ?acquire_nodes(2, Config),
+
+    mnesia:create_table(dc, [{type, ordered_set}, {disc_copies, Nodes}]),
+    mnesia:create_table(ec, [{type, ordered_set}, {ram_copies, [N2]}]),
+
+    TestFun =
+        fun(I) ->
+                %% In first transaction we initialise {dc, I} record with value 0
+                First = fun() ->
+                                %% Do a lot of writes into ram copies table
+                                %% which on the N2 in do_commit will be
+                                %% processed first
+                                lists:foreach(fun(J) -> ok = mnesia:write(ec, {ec, J, 0}, write) end,
+                                              lists:seq(1, 750)),
+                                %% Then set initial value of {dc, I} record to 0 with sticky_write
+                                mnesia:write(dc, {dc, I, 0}, sticky_write)
+                        end,
+                ok = mnesia:activity(transaction, First),
+                %% In second transaction we set value of {dc, I} record to 1
+                Upd = fun() ->
+                              %% Modify a single ram copies record with ensured lock grant
+                              %% (key not used in previous transactions)
+                              %% we use this second table only to force asym_trans protocol
+                              mnesia:write(ec, {ec, 1001 + I, 0}, write),
+                              %% And set final version of {dc, I} record to 1 with sticky_write
+                              mnesia:write(dc, {dc, I, 1}, sticky_write)
+                    end,
+                ok = mnesia:activity(transaction, Upd)
+        end,
+
+    %% Fill 1000 dc records. At the end all dc records should have value 1.
+    {Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
+    io:format("Written, check content~n",[]),
+    All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
+    ?match({atomic, []}, rpc:call(N1, mnesia, sync_transaction, [All])),
+    ?match({atomic, []}, rpc:call(N2, mnesia, sync_transaction, [All])),
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 unbound1(suite) -> [];
 unbound1(Config) when is_list(Config) ->
@@ -921,7 +962,7 @@ snmp_open_table(Config) when is_list(Config) ->
     A ! end_trans,             %% Kill A, locks should be released
     ?match_receive({A,{atomic,end_trans}}),     
     
-    %% Locks released! op should be exec. Can take a while (thats the timeout)
+    %% Locks released! op should be exec. Can take a while (that's the timeout)
     receive 
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
@@ -953,7 +994,7 @@ snmp_close_table(Config) when is_list(Config) ->
     A ! end_trans,             %% Kill A, locks should be released
     ?match_receive({A,{atomic,end_trans}}),     
     
-    %% Locks released! op should be exec. Can take a while (thats the timeout)
+    %% Locks released! op should be exec. Can take a while (that's the timeout)
     receive 
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
@@ -1036,29 +1077,63 @@ add_table_copy(Config) when is_list(Config) ->
     Def = [{ram_copies, [ThisNode]}, {attributes, [key, attr1, attr2]}],
     ?match({atomic, ok}, mnesia:create_table(Tab, Def)),
     insert(Tab, 50),
-    {success, [A]} = ?start_activities([ThisNode]), 
+    {success, [A]} = ?start_activities([ThisNode]),
     mnesia_test_lib:start_sync_transactions([A], 0),
 
     A ! fun() -> mnesia:write({Tab, 1, 1, updated}) end,
     ?match_receive({A, ok}),   %% A is executed
 
-    Pid = spawn_link(?MODULE, op, [self(), mnesia, add_table_copy, 
+    Pid = spawn_link(?MODULE, op, [self(), mnesia, add_table_copy,
 				   [Tab, Node2, ram_copies]]),
-   
+
     ?match_receive(timeout),   %% op waits for locks occupied by A
 
     A ! end_trans,             %% Kill A, locks should be released
-    ?match_receive({A,{atomic,end_trans}}),     
-    
-    receive 
+    ?match_receive({A,{atomic,end_trans}}),
+
+    receive
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
 	timer:seconds(20) -> ?error("Operation timed out", [])
     end,
+    ?match_receive({'EXIT', Pid, normal}),
 
     sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
-    ?match([], mnesia:system_info(held_locks)), 
-    ?match([], mnesia:system_info(lock_queue)), 
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
+
+    {atomic, ok} = mnesia:del_table_copy(Tab, Node2),
+    Self = self(),
+    New = spawn_link(Node2,
+                     fun () ->
+                             application:stop(mnesia),
+                             Self ! {self(), ok},
+                             io:format(user, "restart mnesia~n", []),
+                             Self ! {self(), catch application:start(mnesia)}
+                     end),
+    receive {New,ok} -> ok end,
+
+    Add = fun Add(N) ->
+                  case mnesia:add_table_copy(Tab, Node2, disc_copies) of
+                      {atomic, ok} -> ok;
+                      _R ->
+                          case N > 0 of
+                              true ->
+                                  timer:sleep(25),
+                                  Add(N-1);
+                              false ->
+                                  io:format(user, "aborted with reason ~p~n", [_R]),
+                                  fail
+                          end
+                  end
+          end,
+    
+    ?match(ok, Add(200)),
+    ?match_receive({New,ok}),
+
+    sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
     ok.
 
 del_table_copy(suite) -> [];
@@ -1649,7 +1724,7 @@ write_shadows(Config) when is_list(Config) ->
     ?match({atomic, ok}, mnesia:transaction(Fun1)), 
 
     Fun2 = fun() ->
-		  %% write shadow old write - is the confirmed value visable
+		  %% write shadow old write - is the confirmed value visible
 		  %%                          in the shadow ?
 		  ?match([RecA1], mnesia:read({Tab, a})), 
 		  ?match([RecA1], mnesia:wread({Tab, a})), 
@@ -1658,14 +1733,14 @@ write_shadows(Config) when is_list(Config) ->
 		  ?match([RecA1], mnesia:index_match_object(PatA1, ValPos)), 
 		  ?match([RecA1], mnesia:index_read(Tab, 1, ValPos)), 
 
-		  %% write shadow new write - is a new value visable instead
+		  %% write shadow new write - is a new value visible instead
 		  %%                          of the old value ?
 		  ?match(ok, mnesia:write(RecA2)), 
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
 		   ?match([],      mnesia:match_object(PatA1)), %% delete shadow old but not new write
-		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visable
+		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visible
 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 
@@ -1718,7 +1793,7 @@ delete_shadows(Config) when is_list(Config) ->
 		  ?match([], mnesia:index_match_object(PatA1, ValPos)), 
 		  ?match([], mnesia:index_read(Tab, 1, ValPos)), 
 
-		  %% delete shadow old but not new write - is the new value visable
+		  %% delete shadow old but not new write - is the new value visible
 		  %%                           when the old one was deleted ?
 		  ?match(ok, mnesia:write(RecA2)), 
 
@@ -1803,7 +1878,7 @@ write_delete_shadows_bag(Config) when is_list(Config) ->
 		   ?match([], mnesia:index_match_object(PatA1, ValPos)), 
 		   ?match([], mnesia:index_read(Tab, 1, ValPos)), 
 
-		   %% delete shadow old but not new write - are both new value visable
+		   %% delete shadow old but not new write - are both new value visible
 		   %%                           when the old one was deleted ?
 		   ?match(ok, mnesia:write(RecA2)), 
 		   ?match(ok, mnesia:write(RecA3)), 
@@ -2063,7 +2138,7 @@ removed_resources([_N1,N2,N3], DeleteRes) ->
 nasty(suite) -> [];
 
 nasty(doc) ->
-    ["Tries to fullfill a rather nasty locking scenario, where we have had "
+    ["Tries to fulfill a rather nasty locking scenario, where we have had "
      "bugs, the testcase tries a combination of locks in locker queue"];
 
 %%  This testcase no longer works as it was intended to show errors when 

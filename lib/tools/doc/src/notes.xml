@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,449 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Tools application.</p>
+
+<section><title>Tools 3.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Map comprehensions as suggested in EEP 58 has now been
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
+        </item>
+        <item>
+	    <p>The <c>instrument</c> module has been moved from
+	    <c>tools</c> to <c>runtime_tools</c>.</p>
+          <p>
+	    Own Id: OTP-18487 Aux Id: PR-6829 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed the previously undocumented and unsupported
+	    <c>emem</c> tool.</p>
+          <p>
+	    Own Id: OTP-17892 Aux Id: PR-5591 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Erlang-mode fixed for newer versions of xref using CL-Lib
+	    structures instead of EIEIO classes.</p>
+          <p>
+	    Own Id: OTP-17746 Aux Id: GH-5314, PR-5324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>cover</c> tool would not work on modules
+	    compiled with the <c>tuple_calls</c> option.</p>
+          <p>
+	    Own Id: OTP-17440 Aux Id: GH-4796 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For cover-compiled code, the error behaviour of list
+	    and binary comprehensions that used
+	    <c>andalso</c>/<c>orelse</c> in guards could be changed
+	    so that a filter that was supposed be evaluated in guard
+	    context was evaluated in body context. That is, there was
+	    a possibility that comprehensions that did not raise
+	    exceptions could raise exceptions when being run using
+	    <c>cover</c>.</p>
+          <p>
+	    Own Id: OTP-17221 Aux Id: PR-4547 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for handling abstract code created before OTP R15
+	    has been dropped.</p>
+          <p>
+	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
+        </item>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-16957</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would crash when compiling a module
+	    having an exported function named <c>clauses</c>.</p>
+          <p>
+	    Own Id: OTP-17162 Aux Id: GH-4549, PR-2997, PR-4555,
+	    elixir-lang/elixir#10666 </p>
+        </item>
+        <item>
+	    <p>If <c>beam_lib</c> is asked to return abstract code
+	    for a BEAM file produced by Elixir and Elixir is not
+	    installed on the computer, <c>beam_lib</c> will no longer
+	    crash, but will return an error tuple. The
+	    <c>cover:compile_beam()</c> and
+	    <c>cover:compile_beam_directory()</c> functions have been
+	    updated to also return an error tuple in that
+	    situation.</p>
+          <p>
+	    Own Id: OTP-17194 Aux Id: GH-4353 </p>
+        </item>
+        <item>
+          <p>
+	    Make emacs mode work on emacs-27.</p>
+          <p>
+	    Own Id: OTP-17225 Aux Id: PR-4542, GH-4451 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>undefined_functions</c> to
+	    not report internally generated behaviour_info/1.</p>
+          <p>
+	    Own Id: OTP-17191 Aux Id: OTP-16922, ERL-1476, GH-4192 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>exports_not_used</c> to not
+	    report internally generated <c>behaviour_info/1</c>.</p>
+          <p>
+	    Own Id: OTP-16922 Aux Id: PR-2752 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the Xref analysis <c>locals_not_used</c> to find
+	    functions called exclusively from <c>on_load</c>
+	    functions.</p>
+          <p>
+	    Own Id: OTP-16854 Aux Id: PR-2750 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updates for new <c>erlang:term_to_iovec()</c> BIF.</p>
+          <p>
+	    Own Id: OTP-16128 Aux Id: OTP-15618 </p>
+        </item>
+        <item>
+	    <p>Improved the presentation of allocations and carriers
+	    in the <c>instrument</c> module.</p>
+          <p>
+	    Own Id: OTP-16327</p>
+        </item>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would crash when compiling a module
+	    having an exported function named <c>clauses</c>.</p>
+          <p>
+	    Own Id: OTP-17162 Aux Id: GH-4549, PR-2997, PR-4555,
+	    elixir-lang/elixir#10666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An Emacs warning due to lacking type in defcustom
+	    declaration has been fixed.</p>
+          <p>
+	    Own Id: OTP-16356</p>
+        </item>
+        <item>
+          <p>
+	    Improve emacs indentation.</p>
+          <p>
+	    Own Id: OTP-16472 Aux Id: ERL-1140 </p>
+        </item>
+        <item>
+	    <p>The cover tool could generate instrumented code for a
+	    module that would cause warnings to be issued.</p>
+          <p>
+	    Own Id: OTP-16476 Aux Id: ERL-1147 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed generated <seeerl
+	    marker="tools:fprof#analysis">fprof analysis
+	    format</seeerl> to also handle data in maps.</p>
+          <p>
+	    Own Id: OTP-16498 Aux Id: ERL-814 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve <c>-spec</c> indentation in emacs mode.</p>
+          <p>
+	    Own Id: OTP-16164</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Emacs erlang-mode function that lets the user open
+	    the documentation for an Erlang/OTP function in an Emacs
+	    buffer has been improved. Bugs in this function has been
+	    fixed and and the user will now be asked if the man pages
+	    should be downloaded automatically by Emacs when they
+	    can't be found on the system. To test this functionality,
+	    put the cursor over the function name in a call to an
+	    Erlang/OTP function (e.g., "io:format("arg")") and type
+	    C-c C-d (i.e., Ctrl-key and c-key and then Ctrl-key and
+	    d-key). There is also a new menu item under the Erlang
+	    menu (labeled "Man - Function Under Cursor").</p>
+          <p>
+	    Own Id: OTP-16174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would fail to start if two processes
+	    tried to start it at the exact same time.</p>
+          <p>
+	    Own Id: OTP-15813 Aux Id: ERL-943 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>cprof</c> and <c>tags</c> modules to .app file so
+	    that they are included in releases.</p>
+          <p>
+	    Own Id: OTP-15534 Aux Id: PR-2078 </p>
+        </item>
+        <item>
+          <p>
+	    Improved documentation parsing in emacs erldoc
+	    functionality.</p>
+          <p>
+	    Own Id: OTP-15699 Aux Id: PR-2184 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>cover</c> tool now uses the <c>counters</c>
+	    module instead of <c>ets</c> for updating the counters
+	    for how many times a line has been executed. By default,
+	    Cover will work with distributed nodes, but a new
+	    function <c>cover:local_only/0</c> allows running the
+	    Cover in a restricted but faster local-only mode.</p>
+	    <p>The increase in speed will vary depending on the type
+	    of code being cover-compiled, but as an example, the
+	    compiler test suite runs more than twice as fast with the
+	    new Cover.</p>
+          <p>
+	    Own Id: OTP-15575</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would fail to start if two processes
+	    tried to start it at the exact same time.</p>
+          <p>
+	    Own Id: OTP-15813 Aux Id: ERL-943 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor fixes for <c>make clean</c>.</p>
+          <p>
+	    Own Id: OTP-15657</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In the HTML file generated by
+	    <c>cover:analyse_to_file/1,2</c>, a link is now added to
+	    the line number. This makes it easier to share pointers
+	    to specific lines.</p>
+          <p>
+	    Own Id: OTP-15541</p>
+        </item>
+        <item>
+          <p>
+	    Uncovered lines are now marked with a sad face,
+	    <c>:-(</c>, in the HTML output from
+	    <c>cover:analyse_to_file/1,2</c>. This is to make these
+	    lines easier to find by search.</p>
+          <p>
+	    Own Id: OTP-15542</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 3.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove emacs warnings and added more tests.</p>
+          <p>
+	    Own Id: OTP-15476</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Tools 3.0.1</title>
 
@@ -68,6 +511,36 @@
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
 	    Own Id: OTP-14961</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.11.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would fail to start if two processes
+	    tried to start it at the exact same time.</p>
+          <p>
+	    Own Id: OTP-15813 Aux Id: ERL-943 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.11.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor fixes for <c>make clean</c>.</p>
+          <p>
+	    Own Id: OTP-15657</p>
         </item>
       </list>
     </section>
@@ -490,10 +963,10 @@
 	    Earlier, supervisor flags and child specs were given as
 	    tuples. While this is kept for backwards compatibility,
 	    it is now also allowed to give these parameters as maps,
-	    see <seealso
-	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
-	    and <seealso
-	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+	    see <seeerl
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seeerl>
+	    and <seeerl
+	    marker="stdlib:supervisor#child_spec">child_spec</seeerl>.</p>
           <p>
 	    Own Id: OTP-11043</p>
         </item>
@@ -1851,4 +2324,3 @@
     </section>
   </section>
 </chapter>
-

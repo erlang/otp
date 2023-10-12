@@ -1,0 +1,4 @@
+
+  [;1m-type byte() :: 0..255.[0m
+
+  A byte of data represented by an integer.

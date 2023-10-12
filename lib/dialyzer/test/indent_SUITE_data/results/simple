@@ -1,0 +1,305 @@
+
+exact_api.erl:17:14: The call exact_api:set_type
+         (A ::
+              #digraph{vtab :: 'notable',
+                       etab :: 'notable',
+                       ntab :: 'notable',
+                       cyclic :: 'true'}) does not have an opaque term of type 
+          digraph:graph() as 1st argument
+exact_api.erl:23:20: The call digraph:delete
+         (G ::
+              #digraph{vtab :: 'notable',
+                       etab :: 'notable',
+                       ntab :: 'notable',
+                       cyclic :: 'true'}) does not have an opaque term of type 
+          digraph:graph() as 1st argument
+exact_api.erl:55:5: The attempt to match a term of type 
+          exact_adt:exact_adt() against the pattern 
+          {'exact_adt'} breaks the opacity of the term
+exact_api.erl:59:39: The call exact_adt:exact_adt_set_type2
+         (A :: #exact_adt{}) does not have an opaque term of type 
+          exact_adt:exact_adt() as 1st argument
+is_rec.erl:10:5: The call erlang:is_record
+         (simple1_adt:d1(),
+          'r',
+          2) contains an opaque term as 1st argument when terms of different types are expected in these positions
+is_rec.erl:15:15: The call erlang:is_record
+         (A :: simple1_adt:d1(),
+          'r',
+          I :: 1 | 2 | 3) contains an opaque term as 1st argument when terms of different types are expected in these positions
+is_rec.erl:19:18: Guard test is_record
+         (A :: simple1_adt:d1(),
+          'r',
+          2) breaks the opacity of its argument
+is_rec.erl:23:18: Guard test is_record
+         ({simple1_adt:d1(), 1},
+          'r',
+          2) breaks the opacity of its argument
+is_rec.erl:41:15: The call erlang:is_record
+         (A :: simple1_adt:d1(),
+          R :: 'a') contains an opaque term as 1st argument when terms of different types are expected in these positions
+is_rec.erl:45:18: The call erlang:is_record
+         (A :: simple1_adt:d1(),
+          A :: simple1_adt:d1(),
+          1) contains an opaque term as 2nd argument when terms of different types are expected in these positions
+is_rec.erl:49:15: The call erlang:is_record
+         (A :: simple1_adt:d1(),
+          any(),
+          1) contains an opaque term as 1st argument when terms of different types are expected in these positions
+is_rec.erl:53:18: The call erlang:is_record
+         (A :: simple1_adt:d1(),
+          A :: simple1_adt:d1(),
+          any()) contains an opaque term as 2nd argument when terms of different types are expected in these positions
+is_rec.erl:57:18: Guard test is_record
+         (A :: simple1_adt:d1(),
+          'r',
+          2) breaks the opacity of its argument
+is_rec.erl:61:8: The record 
+          #r{f1 :: simple1_adt:d1()} violates the declared type for #r{}
+is_rec.erl:65:5: The call erlang:is_record
+         ({simple1_adt:d1(), 1},
+          'r',
+          2) contains an opaque term as 1st argument when terms of different types are expected in these positions
+rec_api.erl:104:5: Matching of pattern 
+          {'r2', 10} tagged with a record name violates the declared type of 
+          #r2{f1 :: 10}
+rec_api.erl:113:5: The attempt to match a term of type 
+          #r3{f1 :: queue:queue(_)} against the pattern 
+          {'r3', 'a'} breaks the opacity of 
+          queue:queue(_)
+rec_api.erl:118:18: Record construction 
+          #r3{f1 :: 10} violates the declared type of field f1 ::
+          queue:queue(_)
+rec_api.erl:123:5: The attempt to match a term of type 
+          #r3{f1 :: 10} against the pattern 
+          {'r3', 10} breaks the opacity of 
+          queue:queue(_)
+rec_api.erl:24:18: Record construction 
+          #r1{f1 :: 10} violates the declared type of field f1 ::
+          rec_api:a()
+rec_api.erl:29:5: Matching of pattern 
+          {'r1', 10} tagged with a record name violates the declared type of 
+          #r1{f1 :: 10}
+rec_api.erl:33:5: The attempt to match a term of type 
+          rec_adt:r1() against the pattern 
+          {'r1', 'a'} breaks the opacity of the term
+rec_api.erl:35:2: Invalid type specification for function rec_api:adt_t1/1.
+ The success typing is rec_api:adt_t1
+          (#r1{f1 :: 'a'}) -> #r1{f1 :: 'a'}
+ But the spec is rec_api:adt_t1
+          (rec_adt:r1()) -> rec_adt:r1()
+ They do not overlap in the 1st argument, and the return types do not overlap
+rec_api.erl:40:2: The specification for rec_api:adt_r1/0 has an opaque subtype 
+          rec_adt:r1() which is violated by the success typing 
+          () -> #r1{f1 :: 'a'}
+rec_api.erl:85:13: The attempt to match a term of type 
+          rec_adt:f() against the record field 'f' declared to be of type 
+          rec_api:f() breaks the opacity of the term
+rec_api.erl:99:18: Record construction 
+          #r2{f1 :: 10} violates the declared type of field f1 ::
+          rec_api:a()
+simple1_api.erl:113:5: The test 
+          simple1_api:d1() =:= 
+          simple1_api:d2() can never evaluate to 'true'
+simple1_api.erl:118:5: Guard test 
+          simple1_api:d2() =:= 
+          A :: simple1_api:d1() can never succeed
+simple1_api.erl:142:5: Attempt to test for equality between a term of type 
+          simple1_adt:o2() and a term of opaque type 
+          simple1_adt:o1()
+simple1_api.erl:148:5: Guard test 
+          simple1_adt:o2() =:= 
+          A :: simple1_adt:o1() contains opaque terms as 1st and 2nd arguments
+simple1_api.erl:154:5: Attempt to test for inequality between a term of type 
+          simple1_adt:o2() and a term of opaque type 
+          simple1_adt:o1()
+simple1_api.erl:160:5: Attempt to test for inequality between a term of type 
+          simple1_adt:o2() and a term of opaque type 
+          simple1_adt:o1()
+simple1_api.erl:165:5: Attempt to test for equality between a term of type 
+          simple1_adt:c2() and a term of opaque type 
+          simple1_adt:c1()
+simple1_api.erl:181:8: Guard test 
+          A :: simple1_adt:d1() =< 
+          B :: simple1_adt:d2() contains opaque terms as 1st and 2nd arguments
+simple1_api.erl:185:13: Guard test 
+          'a' =< 
+          B :: simple1_adt:d2() contains an opaque term as 2nd argument
+simple1_api.erl:189:8: Guard test 
+          A :: simple1_adt:d1() =< 
+          'd' contains an opaque term as 1st argument
+simple1_api.erl:197:5: The type test is_integer
+         (A :: simple1_adt:d1()) breaks the opacity of the term A::
+          simple1_adt:d1()
+simple1_api.erl:221:8: Guard test 
+          A :: simple1_api:i1() > 
+          3 can never succeed
+simple1_api.erl:225:8: Guard test 
+          A :: simple1_adt:i1() > 
+          3 contains an opaque term as 1st argument
+simple1_api.erl:233:8: Guard test 
+          A :: simple1_adt:i1() < 
+          3 contains an opaque term as 1st argument
+simple1_api.erl:239:8: Guard test 
+          A :: 1 > 
+          3 can never succeed
+simple1_api.erl:243:8: Guard test 
+          A :: 1 > 
+          3 can never succeed
+simple1_api.erl:257:8: Guard test is_function
+         (T :: simple1_api:o1()) can never succeed
+simple1_api.erl:265:20: Guard test is_function
+         (T :: simple1_adt:o1()) breaks the opacity of its argument
+simple1_api.erl:269:5: The type test is_function
+         (T :: simple1_adt:o1()) breaks the opacity of the term T::
+          simple1_adt:o1()
+simple1_api.erl:274:8: Guard test is_function
+         (T :: simple1_api:o1(),
+          A :: simple1_api:i1()) can never succeed
+simple1_api.erl:284:20: Guard test is_function
+         (T :: simple1_adt:o1(),
+          A :: simple1_adt:i1()) breaks the opacity of its argument
+simple1_api.erl:289:5: The type test is_function
+         (T :: simple1_adt:o1(),
+          A :: simple1_adt:i1()) breaks the opacity of the term T::
+          simple1_adt:o1()
+simple1_api.erl:294:20: The call erlang:is_function
+         (T :: simple1_api:o1(),
+          A :: simple1_adt:i1()) contains an opaque term as 2nd argument when terms of different types are expected in these positions
+simple1_api.erl:300:5: The type test is_function
+         (T :: simple1_adt:o1(),
+          A :: simple1_api:i1()) breaks the opacity of the term T::
+          simple1_adt:o1()
+simple1_api.erl:306:8: Guard test 
+          B :: simple1_api:b2() =:= 
+          'true' can never succeed
+simple1_api.erl:315:8: Guard test 
+          A :: simple1_api:b1() =:= 
+          'false' can never succeed
+simple1_api.erl:319:16: Guard test not(and
+         ('true',
+          'true')) can never succeed
+simple1_api.erl:337:8: Clause guard cannot succeed.
+simple1_api.erl:342:8: Guard test 
+          B :: simple1_adt:b2() =:= 
+          'true' contains an opaque term as 1st argument
+simple1_api.erl:347:8: Guard test 
+          A :: simple1_adt:b1() =:= 
+          'true' contains an opaque term as 1st argument
+simple1_api.erl:355:2: Invalid type specification for function simple1_api:bool_adt_t6/1.
+ The success typing is simple1_api:bool_adt_t6
+          ('true') -> 1
+ But the spec is simple1_api:bool_adt_t6
+          (simple1_adt:b1()) -> integer()
+ They do not overlap in the 1st argument
+simple1_api.erl:365:8: Clause guard cannot succeed.
+simple1_api.erl:368:2: Invalid type specification for function simple1_api:bool_adt_t8/2.
+ The success typing is simple1_api:bool_adt_t8
+          (boolean(), boolean()) -> 1
+ But the spec is simple1_api:bool_adt_t8
+          (simple1_adt:b1(), simple1_adt:b2()) -> integer()
+ They do not overlap in the 1st and 2nd arguments
+simple1_api.erl:378:8: Clause guard cannot succeed.
+simple1_api.erl:381:2: Invalid type specification for function simple1_api:bool_adt_t9/2.
+ The success typing is simple1_api:bool_adt_t9
+          ('false', 'false') -> 1
+ But the spec is simple1_api:bool_adt_t9
+          (simple1_adt:b1(), simple1_adt:b2()) -> integer()
+ They do not overlap in the 1st and 2nd arguments
+simple1_api.erl:407:12: The size 
+          simple1_adt:i1() breaks the opacity of A
+simple1_api.erl:418:9: The attempt to match a term of type 
+          non_neg_integer() against the variable A breaks the opacity of 
+          simple1_adt:i1()
+simple1_api.erl:425:9: The attempt to match a term of type 
+          non_neg_integer() against the variable B breaks the opacity of 
+          simple1_adt:i1()
+simple1_api.erl:432:9: The pattern 
+          <<_:B>> can never match the type 
+          any()
+simple1_api.erl:448:9: The attempt to match a term of type 
+          non_neg_integer() against the variable Sz breaks the opacity of 
+          simple1_adt:i1()
+simple1_api.erl:460:9: The attempt to match a term of type 
+          simple1_adt:bit1() against the pattern 
+          <<_/binary>> breaks the opacity of the term
+simple1_api.erl:478:9: The call 'foo':A
+         (A :: simple1_adt:a()) breaks the opacity of the term A :: 
+          simple1_adt:a()
+simple1_api.erl:486:5: The call A:'foo'
+         (A :: simple1_adt:a()) breaks the opacity of the term A :: 
+          simple1_adt:a()
+simple1_api.erl:499:9: The call 'foo':A
+         (A :: simple1_api:i()) requires that A is of type 
+          atom() not 
+          simple1_api:i()
+simple1_api.erl:503:9: The call 'foo':A
+         (A :: simple1_adt:i()) requires that A is of type 
+          atom() not 
+          simple1_adt:i()
+simple1_api.erl:507:5: The call A:'foo'
+         (A :: simple1_api:i()) requires that A is of type 
+          atom() not 
+          simple1_api:i()
+simple1_api.erl:511:5: The call A:'foo'
+         (A :: simple1_adt:i()) requires that A is of type 
+          atom() not 
+          simple1_adt:i()
+simple1_api.erl:519:9: Guard test 
+          A :: simple1_adt:d2() == 
+          B :: simple1_adt:d1() contains opaque terms as 1st and 2nd arguments
+simple1_api.erl:534:9: Guard test 
+          A :: simple1_adt:d1() >= 
+          3 contains an opaque term as 1st argument
+simple1_api.erl:536:9: Guard test 
+          A :: simple1_adt:d1() == 
+          3 contains an opaque term as 1st argument
+simple1_api.erl:538:9: Guard test 
+          A :: simple1_adt:d1() =:= 
+          3 contains an opaque term as 1st argument
+simple1_api.erl:548:5: The call erlang:'<'
+         (A :: simple1_adt:d1(),
+          3) contains an opaque term as 1st argument when terms of different types are expected in these positions
+simple1_api.erl:558:5: The call erlang:'=<'
+         (A :: simple1_adt:d1(),
+          B :: simple1_adt:d2()) contains opaque terms as 1st and 2nd arguments when terms of different types are expected in these positions
+simple1_api.erl:565:17: Guard test 
+          {digraph:graph(), 3} > 
+          {digraph:graph(), atom() | ets:tid()} contains an opaque term as 2nd argument
+simple1_api.erl:91:2: The specification for simple1_api:tup/0 has an opaque subtype 
+          simple1_adt:tuple1() which is violated by the success typing 
+          () -> {'a', 'b'}
+simple2_api.erl:100:19: The call lists:flatten
+         (A :: simple1_adt:tuple1()) contains an opaque term as 1st argument when a structured term of type 
+          [any()] is expected
+simple2_api.erl:116:19: The call lists:flatten
+         ({simple1_adt:tuple1()}) will never return since it differs in the 1st argument from the success typing arguments: 
+         ([any()])
+simple2_api.erl:121:16: Guard test 
+          {simple1_adt:d1(), 3} > 
+          {simple1_adt:d1(), simple1_adt:tuple1()} contains an opaque term as 2nd argument
+simple2_api.erl:125:19: The call erlang:tuple_to_list
+         (B :: simple1_adt:tuple1()) contains an opaque term as 1st argument when a structured term of type 
+          tuple() is expected
+simple2_api.erl:31:5: The call erlang:'!'
+         (A :: simple1_adt:d1(),
+          'foo') contains an opaque term as 1st argument when terms of different types are expected in these positions
+simple2_api.erl:35:17: The call erlang:send
+         (A :: simple1_adt:d1(),
+          'foo') contains an opaque term as 1st argument when terms of different types are expected in these positions
+simple2_api.erl:51:5: The call erlang:'<'
+         (A :: simple1_adt:d1(),
+          3) contains an opaque term as 1st argument when terms of different types are expected in these positions
+simple2_api.erl:59:24: The call lists:keysearch
+         (1,
+          A :: simple1_adt:d1(),
+          []) contains an opaque term as 2nd argument when terms of different types are expected in these positions
+simple2_api.erl:67:29: The call lists:keysearch
+         ('key',
+          1,
+          A :: simple1_adt:tuple1()) contains an opaque term as 3rd argument when terms of different types are expected in these positions
+simple2_api.erl:96:37: The call lists:keyreplace
+         ('a',
+          1,
+          [{1, 2}],
+          A :: simple1_adt:tuple1()) contains an opaque term as 4th argument when terms of different types are expected in these positions

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,12 @@
 
 -module(ssh_key_cb_engine_keys).
 -behaviour(ssh_server_key_api).
--compile(export_all).
+
+-export([
+         host_key/2,
+         is_auth_key/3
+        ]).
+
 
 host_key(SshAlg, Options) ->
     KBopts = proplists:get_value(key_cb_private, Options, []),

@@ -1,0 +1,21 @@
+
+  [;1m-spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer()[0m
+  [;1m                              when[0m
+  [;1m                                  MFA ::[0m
+  [;1m                                      trace_pattern_mfa() |[0m
+  [;1m                                      send | 'receive',[0m
+  [;1m                                  MatchSpec ::[0m
+  [;1m                                      (MatchSpecList ::[0m
+  [;1m                                           trace_match_spec()) |[0m
+  [;1m                                      boolean() |[0m
+  [;1m                                      restart | pause.[0m
+
+  Types:
+    -type match_variable() :: atom().
+      Approximation of '$1' | '$2' | '$3' | ...
+    -type trace_match_spec() ::
+          [{[term()] | '_' | match_variable(), [term()], [term()]}].
+    -type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'} | on_load.
+
+  The same as [;;4merlang:trace_pattern(Event, MatchSpec, [])[0m, retained
+  for backward compatibility.

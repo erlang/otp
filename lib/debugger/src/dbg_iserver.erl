@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -233,6 +233,14 @@ handle_call({load, Mod, Src, Bin}, _From, State) ->
     {reply, {module, Mod}, State};
 
 %% Module database
+handle_call({get_module_db, Mod}, _From, State) ->
+    Db = State#state.db,
+    Reply = case ets:lookup(Db, {Mod, refs}) of
+		[] -> not_found;
+		[{{Mod, refs}, [ModDb|_ModDbs]}] ->
+		    ModDb
+	    end,
+    {reply, Reply, State};
 handle_call({get_module_db, Mod, Pid}, _From, State) ->
     Db = State#state.db,
     Reply = case ets:lookup(Db, {Mod, refs}) of

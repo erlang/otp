@@ -1,0 +1,25 @@
+
+  [;1m-spec list_to_atom(String) -> atom() when String :: string().[0m
+
+  Returns the atom whose text representation is [;;4mString[0m.
+
+  As from Erlang/OTP 20, [;;4mString[0m may contain any Unicode character.
+  Earlier versions allowed only ISO-latin-1 characters as the
+  implementation did not allow Unicode characters above 255.
+
+  Note:
+    The number of characters that are permitted in an atom name is
+    limited. The default limits can be found in the efficiency
+    guide (section Advanced).
+
+  Note:
+    There is configurable limit on how many atoms that can exist
+    and atoms are not garbage collected. Therefore, it is
+    recommended to consider if [;;4mlist_to_existing_atom/1[0m is a
+    better option than [;;4mlist_to_atom/1[0m. The default limits can be
+    found in the efficiency guide (section Advanced).
+
+  Example:
+
+    > list_to_atom("Erlang").
+    'Erlang'

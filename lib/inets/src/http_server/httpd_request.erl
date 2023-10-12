@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
 	 whole_body/2, 
 	 validate/3, 
 	 update_mod_data/5,
-	 body_data/2
+	 body_data/2,
+	 default_version/0
 	]).
 
 %% Callback API - used for example if the header/body is received a
@@ -44,14 +45,12 @@
 %%%  Internal application API
 %%%=========================================================================
 parse([Bin, Options]) ->
-    ?hdrt("parse", [{bin, Bin}, {max_sizes, Options}]),    
     parse_method(Bin, [], 0, proplists:get_value(max_method, Options), Options, []);
 parse(Unknown) ->
-    ?hdrt("parse", [{unknown, Unknown}]),
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
-%% if the input data is incompleate. 
+%% if the input data is incomplete. 
 parse_method([Bin, Method, Current, Max, Options, Result]) ->
     parse_method(Bin, Method, Current, Max, Options, Result).
 
@@ -72,9 +71,9 @@ whole_body([Bin, Body, Length])  ->
 
 %% Separate the body for this request from a possible piplined new 
 %% request and convert the body data to "string" format.
-body_data(Headers, Body) ->    
+body_data(Headers, Body) when is_binary(Body)->
     ContentLength = list_to_integer(Headers#http_request_h.'content-length'),
-    case size(Body) - ContentLength of
+    case byte_size(Body) - ContentLength of
  	0 ->
  	    {Body, <<>>};
  	_ ->
@@ -92,10 +91,6 @@ body_data(Headers, Body) ->
 %% Description: Checks that HTTP-request-line is valid.
 %%------------------------------------------------------------------------- 
 validate("HEAD", Uri, "HTTP/1." ++ _N) ->
-    validate_uri(Uri);
-validate("GET", Uri, []) -> %% Simple HTTP/0.9 
-    validate_uri(Uri);
-validate("GET", Uri, "HTTP/0.9") ->
     validate_uri(Uri);
 validate("GET", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
@@ -148,23 +143,22 @@ parse_method(_, _, _, Max, _, _) ->
     %% We do not know the version of the client as it comes after the
     %% method send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {size_error, Max, 413, "Method unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Method unreasonably long"}, default_version()}.
 
-parse_uri(_, _, Current, MaxURI, _, _) 
+parse_uri(_, _, Current, MaxURI, _, _)
   when (Current > MaxURI) andalso (MaxURI =/= nolimit) -> 
     %% We do not know the version of the client as it comes after the
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {size_error, MaxURI, 414, "URI unreasonably long"},lowest_version()};
+    {error, {size_error, MaxURI, 414, "URI unreasonably long"}, default_version()};
 parse_uri(<<>>, URI, Current, Max, Options, Result) ->
     {?MODULE, parse_uri, [URI, Current, Max, Options, Result]};
 parse_uri(<<?SP, Rest/binary>>, URI, _, _, Options, Result) -> 
     parse_version(Rest, [], 0, proplists:get_value(max_version, Options), Options, 
 		  [string:strip(lists:reverse(URI)) | Result]);
 %% Can happen if it is a simple HTTP/0.9 request e.i "GET /\r\n\r\n"
-parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, _, Options, Result) ->
-    parse_version(Data, [], 0, proplists:get_value(max_version, Options), Options, 
-		  [string:strip(lists:reverse(URI)) | Result]);
+parse_uri(<<?CR, _Rest/binary>>, _, _, _, _, _) ->
+    {error, {version_error, 505, "HTTP Version not supported"}, default_version()};
 parse_uri(<<Octet, Rest/binary>>, URI, Current, Max, Options, Result) ->
     parse_uri(Rest, [Octet | URI], Current + 1, Max, Options, Result).
 
@@ -181,7 +175,7 @@ parse_version(<<?CR>> = Data, Version, Current, Max, Options, Result) ->
 parse_version(<<Octet, Rest/binary>>, Version, Current, Max, Options, Result)  when Current =< Max ->
     parse_version(Rest, [Octet | Version], Current + 1, Max, Options, Result);
 parse_version(_, _, _, Max,_,_) ->
-    {error, {size_error, Max, 413, "Version string unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Version string unreasonably long"}, default_version()}.
 
 parse_headers(_, _, _, Current, Max, _, Result) 
   when Max =/= nolimit andalso Current > Max -> 
@@ -196,9 +190,9 @@ parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, Options, Result
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max,  
 		  Options, Result);
 
-parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  Options, Result) ->
+parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers, Current, Max,  Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max, 
+    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, Current, Max, 
 		  Options, Result);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
@@ -209,7 +203,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      Options, Result) ->
     Customize = proplists:get_value(customize, Options),
     case http_request:key_value(lists:reverse(Header)) of
-	undefined -> %% Skip headers with missing :
+	undefined -> %% Skip invalid headers
 	    FinalHeaders = lists:filtermap(fun(H) ->
 						   httpd_custom:customize_headers(Customize, request_header, H)
 					   end,
@@ -311,24 +305,24 @@ body_chunk(Body, Length, nolimit) ->
 body_chunk(<<>> = Body, Length, MaxChunk) ->
     {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}};
 
-body_chunk(Body, Length, MaxChunk) when Length > MaxChunk ->
-    case size(Body) >= MaxChunk of 
+body_chunk(Body, Length, MaxChunk) when Length > MaxChunk, is_binary(Body) ->
+    case byte_size(Body) >= MaxChunk of
         true ->
             <<Chunk:MaxChunk/binary, Rest/binary>> = Body,
             {ok, {{continue, Chunk}, ?MODULE, add_chunk, [Rest, Length - MaxChunk, MaxChunk]}};
         false ->
             {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
     end;
-body_chunk(Body, Length, MaxChunk) ->
-    case size(Body) of
+body_chunk(Body, Length, MaxChunk) when is_binary(Body)->
+    case byte_size(Body) of
         Length ->
             {ok, {last, Body}};
         _ ->
             {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
     end.
 
-whole_body(Body, Length) ->
-    case size(Body) of
+whole_body(Body, Length) when is_binary(Body)->
+    case byte_size(Body) of
 	N when N < Length, Length > 0 ->
 	  {?MODULE, add_chunk, [Body, Length, nolimit]};
 	N when N >= Length, Length >= 0 ->  
@@ -342,41 +336,22 @@ whole_body(Body, Length) ->
 %% Prevent people from trying to access directories/files
 %% relative to the ServerRoot.
 validate_uri(RequestURI) ->
-    UriNoQueryNoHex = 
-	case string:str(RequestURI, "?") of
-	    0 ->
-		(catch http_uri:decode(RequestURI));
-	    Ndx ->
-		(catch http_uri:decode(string:left(RequestURI, Ndx)))
-	end,
-    case UriNoQueryNoHex of
-	{'EXIT', _Reason} ->
-	    {error, {bad_request, {malformed_syntax, RequestURI}}};
-	_ ->
-	    Path  = format_request_uri(UriNoQueryNoHex),
-	    Path2 = [X||X<-string:tokens(Path, "/"),X=/="."], %% OTP-5938
-	    validate_path(Path2, 0, RequestURI)
+    case uri_string:normalize(RequestURI) of
+        {error, _, _} ->
+            {error, {bad_request, {malformed_syntax, RequestURI}}};
+        URI ->
+            {ok, URI}
     end.
-
-validate_path([], _, _) ->
-    ok;
-validate_path([".." | _], 0, RequestURI) ->
-    {error, {bad_request, {forbidden, RequestURI}}};
-validate_path([".." | Rest], N, RequestURI) ->
-    validate_path(Rest, N - 1, RequestURI);
-validate_path([_ | Rest], N, RequestURI) ->
-    validate_path(Rest, N + 1, RequestURI).
-
+   
 validate_version("HTTP/1.1") ->
     true;
 validate_version("HTTP/1.0") ->
     true;
-validate_version("HTTP/0.9") ->
-    true;
 validate_version(_) ->
     false.
+
 %%----------------------------------------------------------------------
-%% There are 3 possible forms of the reuqest URI 
+%% There are 3 possible forms of the request URI 
 %%
 %%  1. * When the request is not for a special assset. is is instead
 %%     to the server itself
@@ -427,7 +402,7 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
     case httpd_util:lookup(ConfigDB, keep_alive, true) of
 	true->
 	    case HTTPVersion of
-		%%If it is version prio to 1.1 kill the conneciton
+		%%If it is version prio to 1.1 kill the connection
 		"HTTP/1." ++ NList ->
 		    case proplists:get_value("connection", ParsedHeader,
 					     "keep-alive") of  
@@ -436,27 +411,23 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 			%%older http/1.1 might be older Clients that
 			%%use it.
 			"keep-alive" when hd(NList) >= 49 ->
-			    ?DEBUG("CONNECTION MODE: ~p",[true]),  
 			    true;
 			"close" ->
-			    ?DEBUG("CONNECTION MODE: ~p",[false]),  
-			    false;
+                            false;
 			_Connect ->
-  			    ?DEBUG("CONNECTION MODE: ~p VALUE: ~p",
-				   [false, _Connect]),  
-			    false
+                            false
 		    end; 
 		_ ->
-		    ?DEBUG("CONNECTION MODE: ~p VERSION: ~p",
-			   [false, HTTPVersion]),  
 		    false
 	    end;
 	_ ->
 	    false
     end.
 
-lowest_version()->    
-    "HTTP/0.9".
+%% rfc2145, an HTTP server SHOULD send a response version equal to the highest
+%% version for which the server is at least conditionally compliant
+default_version()->
+    "HTTP/1.1".
 
 check_header({"content-length", Value}, Maxsizes) ->
     Max = proplists:get_value(max_content_length, Maxsizes),

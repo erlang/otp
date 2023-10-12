@@ -6,7 +6,7 @@ Introduction
 
 This document describes how to build and install Erlang/OTP-%OTP-REL%.
 Erlang/OTP should be possible to build from source on any Unix/Linux system,
-including OS X. You are advised to read the whole document
+including macOS. You are advised to read the whole document
 before attempting to build and install Erlang/OTP.
 
 The source code can be downloaded from the official site of Erlang/OTP or GitHub.
@@ -28,8 +28,6 @@ These are the tools you need in order to unpack and build Erlang/OTP.
 *   GNU `make`
 *   Compiler -- GNU C Compiler, `gcc` or the C compiler frontend for LLVM, `clang`.
 *   Perl 5
-*   GNU `m4` -- If HiPE (native code) support is enabled. HiPE can be
-    disabled using `--disable-hipe`
 *   `ncurses`, `termcap`, or `termlib` -- The development headers and
     libraries are needed, often known as `ncurses-devel`. Use
     `--without-termcap` to build without any of these libraries. Note that
@@ -38,10 +36,9 @@ These are the tools you need in order to unpack and build Erlang/OTP.
 
 #### Building in Git ####
 
-*   GNU `autoconf` of at least version 2.59. Note that `autoconf` is not
-    needed when building an unmodified version of the released source.
+Build the same way as when building the unpacked tar file.
 
-#### Building on OS X ####
+#### Building on macOS ####
 
 *   Xcode -- Download and install via the Mac App Store.
     Read about [Building on a Mac][] before proceeding.
@@ -49,7 +46,6 @@ These are the tools you need in order to unpack and build Erlang/OTP.
 ### Installing ###
 
 *   An `install` program that can take multiple file names.
-
 
 Optional Utilities
 ------------------
@@ -88,8 +84,6 @@ also find the utilities needed for building the documentation.
 
     Further instructions on wxWidgets, read [Building with wxErlang][].
 
-
-
 ### Building Documentation ###
 
 *   `xsltproc` -- A command line XSLT processor.
@@ -101,8 +95,6 @@ also find the utilities needed for building the documentation.
 *   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded
     from <http://xmlgraphics.apache.org/fop>.
 
-
-
 How to Build and Install Erlang/OTP
 -----------------------------------
 
@@ -110,9 +102,7 @@ The following instructions are for building [the released source tar ball][].
 
 The variable `$ERL_TOP` will be mentioned a lot of times. It refers to
 the top directory in the source tree. More information about `$ERL_TOP`
-can be found in the [make and $ERL_TOP][] section below. If you are
-building in git you probably want to take a look at the [Building in Git][]
-section below before proceeding.
+can be found in the [make and $ERL_TOP][] section below.
 
 ### Unpacking ###
 
@@ -132,9 +122,6 @@ Run the following commands to configure the build:
 
     $ ./configure [ options ]
 
-> *NOTE*: If you are building Erlang/OTP from git you will need to run `./otp_build autoconf` to generate
-> the configure scripts.
-
 By default, Erlang/OTP release will be installed in `/usr/local/{bin,lib/erlang}`.
 If you for instance don't have the permission to install in the standard location,
  you can install Erlang/OTP somewhere else. For example, to install in
@@ -145,13 +132,11 @@ set. If you get errors when building, try setting the LANG variable:
 
     $ export LANG=C   # Assuming bash/sh
 
-
 ### Building ###
 
 Build the Erlang/OTP release.
 
     $ make
-
 
 ### Testing ###
 
@@ -181,12 +166,10 @@ The following command will install the release on your system.
 
     $ make install
 
-
 ### Running ###
 
 You should now have a working release of Erlang/OTP!
 Jump to [System Principles][] for instructions on running Erlang/OTP.
-
 
 ### How to Build the Documentation ###
 
@@ -216,6 +199,12 @@ For the FOP print formatter, two steps must be taken:
 Build the documentation.
 
     $ make docs
+
+It is possible to limit which types of documentation is build by passing the `DOC_TARGETS`
+environment variable to `make docs`. The currently available types are: `html`, `pdf`, `man` and
+`chunks`. Example:
+
+    $ make docs DOC_TARGETS=chunks
 
 #### Build Issues ####
 
@@ -247,6 +236,8 @@ or using the `release_docs` target.
 
         $ make release_docs RELEASE_ROOT=<release dir>
 
+It is possible to limit which types of documentation is released using the same `DOC_TARGETS`
+environment variable as when building documentation.
 
 ### Accessing the Documentation ###
 
@@ -261,6 +252,8 @@ After installation you can access the documentation by
 *   Browsing the html pages by loading the page `/usr/local/lib/erlang/doc/erlang/index.html`
     or `<BaseDir>/lib/erlang/doc/erlang/index.html` if the prefix option has been used.
 
+*   Read the embedded documentation by using the built-in shell functions `h/1,2,3` or
+    `ht/1,2,3`.
 
 ### How to Install the Pre-formatted Documentation ###
 
@@ -340,19 +333,14 @@ Some of the available `configure` options are:
 *   `--prefix=PATH` - Specify installation prefix.
 *   `--disable-parallel-configure` - Disable parallel execution of
     `configure` scripts (parallel execution is enabled by default)
+*   `--{enable,disable}-jit` - Force enabling or disabling of the JIT.
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
-*   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported
-    platforms)
-*   `--{enable,disable}-fp-exceptions` - Floating point exceptions (an
-    optimization for floating point operations). The default differs
-    depending on operating system and hardware platform. Note that by
-    enabling this you might get a seemingly working system that sometimes
-    fail on floating point operations.
 *   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
     `(g)cc`
+*   `--{enable,disable}-pie` - Build position independent executable binaries.
 *   `--with-assumed-cache-line-size=SIZE` - Set assumed cache-line size in
     bytes. Default is 64. Valid values are powers of two between and
     including 16 and 8192. The runtime system use this value in order to
@@ -363,17 +351,25 @@ Some of the available `configure` options are:
 *   `--with-javac=JAVAC` - Specify Java compiler to use
 *   `--{with,without}-javac` - Java compiler (without implies that the
     `jinterface` application won't be built)
-*   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
 *   `--{enable,disable}-builtin-zlib` - Use the built-in source for zlib.
+*   `--{enable,disable}-dynamic-ssl-lib` - Enable or disable dynamic OpenSSL
+    libraries when linking the crypto NIF. By default dynamic linking is
+    done unless it does not work or is if it is a Windows system.
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
-*   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
-*   `--with-ssl-incl=PATH` - Location of OpenSSL `include` directory,
-    if different than specified by `--with-ssl=PATH`
+*   `--with-ssl=PATH` - Specify base location of OpenSSL include and lib
+    directories.
+*   `--with-ssl-incl=PATH` - Specify base location of OpenSSL `include`
+    directory (if different than base location specified by --with-ssl=PATH).
+*   `--with-ssl-zlib=PATH` - Path to static zlib library to link the
+    crypto NIF with. This zlib library is most often not necessary but
+    might be needed in order to link the NIF in some cases.
+*   `--with-ssl-lib-subdir=RELATIVE_PATH` - Specify extra OpenSSL lib
+    sub-directory to search in (relative to base directory).
 *   `--with-ssl-rpath=yes|no|PATHS` - Runtime library path for OpenSSL.
     Default is `yes`, which equates to a number of standard locations. If
     `no`, then no runtime library paths will be used. Anything else should be
-    a comma separated list of paths.
+    a comma or colon separated list of paths.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the
@@ -391,11 +387,10 @@ Some of the available `configure` options are:
     that do not support dynamic linking of libraries it is possible to statically
     link nifs and drivers with the main Erlang VM binary. This is done by passing
     a comma separated list to the archives that you want to statically link. e.g.
-    `--enable-static-nifs=/home/$USER/my_nif.a`. The path has to be absolute and the
-    name of the archive has to be the same as the module, i.e. `my_nif` in the
-    example above. This is also true for drivers, but then it is the driver name
-    that has to be the same as the filename. You also have to define
-    `STATIC_ERLANG_{NIF,DRIVER}` when compiling the .o files for the nif/driver.
+    `--enable-static-nifs=/home/$USER/my_nif.a`. The paths have to be absolute.
+    For drivers, the driver name has to be the same as the filename. You also
+    have to define `STATIC_ERLANG_NIF_LIBNAME` (see `erl_nif` documentation) or
+    `STATIC_ERLANG_DRIVER` when compiling the .o files for the nif/driver.
     If your nif/driver depends on some other dynamic library, you now have to link
     that to the Erlang VM binary. This is easily achieved by passing `LIBS=-llibname`
     to configure.
@@ -404,7 +399,7 @@ Some of the available `configure` options are:
 	should be compiled without one or more applications, i.e. `--without-wx`. There is
 	no automatic dependency handling between applications. If you disable
 	an application that another application depends on, you also have to disable the
-	dependant application.
+	dependent application.
 *   `--enable-gettimeofday-as-os-system-time` - Force usage of `gettimeofday()` for
     OS system time.
 *   `--enable-prefer-elapsed-monotonic-time-during-suspend` - Prefer an OS monotonic
@@ -417,9 +412,71 @@ Some of the available `configure` options are:
     and scalability compared to the default clock sources chosen.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
+*   `--enable-ei-dynamic-lib` - Make erl\_interface build a shared library in addition
+    to the archive normally built.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
+
+#### Important Variables Inspected by configure ####
+
+##### Compiler and Linker #####
+
+*   `CC` - C compiler.
+*   `CFLAGS` - C compiler flags. Defaults to "-g -O2". If you set it,
+    these will be removed.
+*   `STATIC_CFLAGS` - Static C compiler flags.
+*   `CFLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
+    search path for the shared libraries. Note that this actually is a
+    linker flag, but it needs to be passed via the compiler.
+*   `CPP` - C pre-processor.
+*   `CPPFLAGS` - C pre-processor flags.
+*   `CXX` - C++ compiler.
+*   `CXXFLAGS` - C++ compiler flags.
+*   `LD` - Linker.
+*   `LDFLAGS` - Linker flags.
+*   `LIBS` - Libraries.
+
+##### Dynamic Erlang Driver Linking #####
+
+> *NOTE*: Either set all or none of the `DED_LD*` variables (with the exception
+> of `DED_LDFLAGS_CONFTEST`).
+
+*   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
+*   `DED_LDFLAGS` - Linker flags to use with `DED_LD`.
+*   `DED_LDFLAGS_CONFTEST` - Linker flags to use with `DED_LD` in configure
+    link tests if `DED_LDFLAGS` cannot be used in such tests. If not set,
+    `DED_LDFLAGS` will be used in configure tests.
+*   `DED_LD_FLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
+    search path for shared libraries when linking with `DED_LD`.
+
+##### Large File Support #####
+
+> *NOTE*: Either set all or none of the `LFS_*` variables.
+
+*   `LFS_CFLAGS` - Large file support C compiler flags.
+*   `LFS_LDFLAGS` - Large file support linker flags.
+*   `LFS_LIBS` - Large file support libraries.
+
+##### Other Tools #####
+
+*   `RANLIB` - `ranlib` archive index tool.
+*   `AR` - `ar` archiving tool.
+*   `GETCONF` - `getconf` system configuration inspection tool. `getconf` is
+    currently used for finding out large file support flags to use, and
+    on Linux systems for finding out if we have an NPTL thread library or
+    not.
+
+#### Updating configure Scripts ####
+
+Generated `configure` scripts are nowadays included in the git repository.
+
+If you modify any `configure.in` files or the `erts/aclocal.m4` file, you need
+to regenerate `configure` scripts before the changes will take effect. First
+ensure that you have GNU `autoconf` of version 2.69 in your path. Then execute
+`./otp_build update_configure [--no-commit]` in the `$ERL_TOP` directory. The
+`otp_build` script will verify that `autoconf` is of correct version and will
+refuse to update the `configure` scripts if it is of any other version.
 
 #### Atomic Memory Operations and the VM ####
 
@@ -469,27 +526,14 @@ If you've upgraded the source with a patch you may need to clean up from previou
 builds before the new build.
 Make sure to read the [Pre-built Source Release][] section below before doing a `make clean`.
 
+Other useful information can be found at our GitHub wiki:
+* <https://github.com/erlang/otp/wiki>
+
 #### Within Git ####
 
-When building in a Git working directory you also have to have a GNU `autoconf`
-of at least version 2.59 on your system, because you need to generate the
-`configure` scripts before you can start building.
+Build the same way as when building the unpacked tar file.
 
-The `configure` scripts are generated by invoking `./otp_build autoconf` in
-the `$ERL_TOP` directory. The `configure` scripts also have to be regenerated
-when a `configure.in` or `aclocal.m4` file has been modified. Note that when
-checking out a branch a `configure.in` or `aclocal.m4` file may change
-content, and you may therefore have to regenerate the `configure` scripts
-when checking out a branch. Regenerated `configure` scripts imply that you
-have to run `configure` and build again.
-
-> *NOTE*: Running `./otp_build autoconf` is **not** needed when building
-> an unmodified version of the released source.
-
-Other useful information can be found at our GitHub wiki:
-* <http://wiki.github.com/erlang/otp>
-
-#### OS X (Darwin) ####
+#### macOS (Darwin) ####
 
 Make sure that the command `hostname` returns a valid fully qualified host
 name (this is configured in `/etc/hostconfig`). Otherwise you might experience
@@ -505,21 +549,24 @@ If you have Xcode 4.3, or later, you will also need to download
 
 #### Building with wxErlang ####
 
-If you want to build the `wx` application, you will need to get wxWidgets-3.0
-(`wxWidgets-3.0.3.tar.bz2` from <https://github.com/wxWidgets/wxWidgets/releases/download/v3.0.3/wxWidgets-3.0.3.tar.bz2>) or get it from github with bug fixes:
+wxWidgets-3.2.x is recommended for building the `wx` application
+(wxWidgets-3.0.x will also work). Download it from
+<https://www.wxwidgets.org/downloads> or from
+<https://github.com/wxWidgets/wxWidgets>. It is recommended to use the
+latest release in the 3.2 series, which at the time of writing
+is 3.2.2.1.
 
-    $ git clone --branch WX_3_0_BRANCH git@github.com:wxWidgets/wxWidgets.git
+Note that the wxWidgets-3.3 versions are experimental, but they should
+also work if 3.0 compatibility is enabled by adding
+`--enable-compat30` to the `configure` commands below.
 
-The wxWidgets-3.1 version should also work if 2.8 compatibility is enabled,
-add `--enable-compat28` to configure commands below.
-
-Configure and build wxWidgets (shared library on linux):
+On all other platforms, a shared library is built as follows:
 
     $ ./configure --prefix=/usr/local
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Configure and build wxWidgets (static library on linux):
+On Linux, a static library is built as follows:
 
     $ export CFLAGS=-fPIC
     $ export CXXFLAGS=-fPIC
@@ -527,26 +574,28 @@ Configure and build wxWidgets (static library on linux):
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Configure and build wxWidgets (on Mavericks - 10.9):
+On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+as follows:
 
-    $ ./configure --with-cocoa --prefix=/usr/local
-    or without support for old versions and with static libs
-    $ ./configure --with-cocoa --prefix=/usr/local --with-macosx-version-min=10.9 --disable-shared
+    $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared
     $ make
     $ sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-Check that you got the correct wx-config
+Verify that the build and installation succeeded:
 
     $ which wx-config && wx-config --version-full
 
-Build Erlang/OTP
+Expected output is `/usr/local/bin/wx-config` on one line, followed by the full
+version number. For example, if you built version 3.2.2.1, the expected output is:
 
-    $ export PATH=/usr/local/bin:$PATH
-    $ cd $ERL_TOP
-    $ ./configure
-    $ make
-    $ sudo make install
+    /usr/local/bin/wx-config
+    3.2.2.1
+
+Build Erlang/OTP in the usual way. To verify that `wx` application is
+working run the following command:
+
+    $ erl -run wx demo
 
 
 #### Pre-built Source Release ####
@@ -596,7 +645,7 @@ using the similar steps just described.
 
     $ (cd $ERL_TOP/erts/emulator && make $TYPE)
 
-where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, or `lcnt`.
+where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, `asan` or `lcnt`.
 These different beam types are useful for debugging and profiling
 purposes.
 
@@ -697,87 +746,29 @@ passed to `configure`. One can force relative, or absolute links by passing
 phase. Note that such a request might cause a failure if the request cannot
 be satisfied.
 
+## Erlang/OTP test architectures ##
 
-### Running ###
+Erlang/OTP are currently tested on the following hardware and operating systems.
+This is not an exhaustive list, but we try to keep it as up to date as possible.
 
-#### Using HiPE ####
+Architecture
 
-HiPE supports the following system configurations:
+* x86, x86-64
+* Aarch32, Aarch64
+* powerpc, powerpc64le
 
-*   x86: All 32-bit and 64-bit mode processors should work.
+Operating system
 
-    *   Linux: Fedora Core is supported. Both 32-bit and 64-bit modes are
-        supported.
-
-        NPTL glibc is strongly preferred, or a LinuxThreads
-        glibc configured for "floating stacks". Old non-floating
-        stacks glibcs have a fundamental problem that makes HiPE
-        support and threads support mutually exclusive.
-
-    *   Solaris: Solaris 10 (32-bit and 64-bit) and 9 (32-bit) are supported.
-        The build requires a version of the GNU C compiler (gcc)
-        that has been configured to use the GNU assembler (gas).
-        Sun's x86 assembler is emphatically **not** supported.
-
-    *   FreeBSD: FreeBSD 6.1 and 6.2 in 32-bit and 64-bit modes should work.
-
-    *   OS X/Darwin: Darwin 9.8.0 in 32-bit mode should work.
-
-*   PowerPC: All 32-bit 6xx/7xx(G3)/74xx(G4) processors should work. 32-bit
-    mode on 970 (G5) and POWER5 processors should work.
-
-    * Linux (Yellow Dog) and OS X 10.4 are supported.
-
-*   SPARC: All UltraSPARC processors running 32-bit user code should work.
-
-    *   Solaris 9 is supported. The build requires a `gcc` that has been
-        configured to use Sun's assembler and linker. Using the GNU assembler
-        but Sun's linker has been known to cause problems.
-
-    *   Linux (Aurora) is supported.
-
-*   ARM: ARMv5TE (i.e. XScale) processors should work. Both big-endian and
-    little-endian modes are supported.
-
-    * Linux is supported.
-
-HiPE is automatically enabled on the following systems:
-
-*   x86 in 32-bit mode: Linux, Solaris, FreeBSD
-*   x86 in 64-bit mode: Linux, Solaris, FreeBSD
-*   PowerPC: Linux, Mac OSX
-*   SPARC: Linux
-*   ARM: Linux
-
-On other supported systems, see [Advanced Configure][] on how to enable HiPE.
-
-If you are running on a platform supporting HiPE and if you have not disabled
-HiPE, you can compile a module into native code like this from the Erlang
-shell:
-
-    1> c(Module, native).
-
-or
-
-    1> c(Module, [native|OtherOptions]).
-
-Using the erlc program, write like this
-
-    $ erlc +native Module.erl
-
-The native code will be placed into the beam file and automatically loaded
-when the beam file is loaded.
-
-To add hipe options, write like this from the Erlang shell:
-
-    1> c(Module, [native,{hipe,HipeOptions}|MoreOptions]).
-
-Use `hipe:help_options/0` to print out the available options.
-
-    1> hipe:help_options().
-
-
-
+* Fedora 31
+* FreeBSD
+* macOS 10.4 - 11.2
+* MontaVista 4
+* NetBSD
+* OpenBSD
+* SLES 10, 11, 12
+* SunOS 5.11
+* Ubuntu 10.04 - 20.04
+* Windows 10, Windows Server 2019
 
    [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
    [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
@@ -786,14 +777,14 @@ Use `hipe:help_options/0` to print out the available options.
    [Advanced Configure]: #Advanced-configuration-and-build-of-ErlangOTP_Configuring
    [Pre-built Source Release]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Prebuilt-Source-Release
    [make and $ERL_TOP]: #Advanced-configuration-and-build-of-ErlangOTP_make-and-ERLTOP
-   [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-VSN%.tar.gz
-   [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
-   [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
-   [System Principles]: ../system_principles/system_principles
+   [html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
+   [man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
+   [the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
+   [System Principles]: system/system_principles:system_principles
    [native build]: #How-to-Build-and-Install-ErlangOTP
    [cross build]: INSTALL-CROSS.md
    [Required Utilities]: #Required-Utilities
    [Optional Utilities]: #Optional-Utilities
-   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_OS-X-Darwin
+   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_macOS-Darwin
    [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
    [libatomic_ops]: https://github.com/ivmai/libatomic_ops/

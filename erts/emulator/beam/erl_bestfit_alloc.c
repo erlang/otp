@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@
 #endif
 
 #define MIN_MBC_SZ		(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 #define TREE_NODE_FLG		(((Uint) 1) << 0)
 #define RED_FLG			(((Uint) 1) << 1)
@@ -122,8 +121,8 @@ typedef struct {
     RBTree_t *next;
 } RBTreeList_t;
 
-#define LIST_NEXT(N) (((RBTreeList_t *) (N))->next)
-#define LIST_PREV(N) (((RBTreeList_t *) (N))->t.parent)
+#define BF_LIST_NEXT(N) (((RBTreeList_t *) (N))->next)
+#define BF_LIST_PREV(N) (((RBTreeList_t *) (N))->t.parent)
 
 
 #ifdef DEBUG
@@ -179,7 +178,6 @@ erts_bfalc_start(BFAllctr_t *bfallctr,
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= (bfinit->ao
 					   ? sizeof(RBTree_t)
 					   : sizeof(RBTreeList_t));
@@ -209,6 +207,8 @@ erts_bfalc_start(BFAllctr_t *bfallctr,
     allctr->add_mbc                     = NULL;
     allctr->remove_mbc		        = NULL;
     allctr->largest_fblk_in_mbc         = NULL;
+    allctr->first_fblk_in_mbc           = NULL;
+    allctr->next_fblk_in_mbc            = NULL;
     allctr->init_atoms			= init_atoms;
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -432,7 +432,8 @@ tree_delete(Allctr_t *allctr, Block_t *del)
 	y = z;
     else
 	/* Set y to z:s successor */
-	for(y = z->right; y->left; y = y->left);
+	for (y = z->right; y->left; y = y->left)
+            ;
     /* splice out y */
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);
@@ -593,7 +594,6 @@ aobf_link_free_block(Allctr_t *allctr, Block_t *block)
     RBTree_t *blk = (RBTree_t *) block;
     Uint blk_sz = BF_BLK_SZ(blk);
 
-    
 
     blk->flags	= 0;
     blk->left	= NULL;
@@ -673,7 +673,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 	    x = x->left;
 	}
     }
-    
+
     if (!blk)
 	return NULL;
 
@@ -729,13 +729,13 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block)
 	    if (blk_sz == size) {
 
 		SET_LIST_ELEM(blk);
-		LIST_NEXT(blk) = LIST_NEXT(x);
-		LIST_PREV(blk) = x;
-		if (LIST_NEXT(x))
-		    LIST_PREV(LIST_NEXT(x)) = blk;
-		LIST_NEXT(x) = blk;
+		BF_LIST_NEXT(blk) = BF_LIST_NEXT(x);
+		BF_LIST_PREV(blk) = x;
+		if (BF_LIST_NEXT(x))
+		    BF_LIST_PREV(BF_LIST_NEXT(x)) = blk;
+		BF_LIST_NEXT(x) = blk;
 
-		return; /* Finnished */
+		return; /* Finished */
 	    }
 	    else if (blk_sz < size) {
 		if (!x->left) {
@@ -764,7 +764,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block)
     }
 
     SET_TREE_NODE(blk);
-    LIST_NEXT(blk) = NULL;
+    BF_LIST_NEXT(blk) = NULL;
 
 #ifdef HARD_DEBUG
     check_tree(root, 0, 0);
@@ -780,22 +780,22 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 
     if (IS_LIST_ELEM(x)) {
 	/* Remove from list */
-	ASSERT(LIST_PREV(x));
-	LIST_NEXT(LIST_PREV(x)) = LIST_NEXT(x);
-	if (LIST_NEXT(x))
-	    LIST_PREV(LIST_NEXT(x)) = LIST_PREV(x);
+	ASSERT(BF_LIST_PREV(x));
+	BF_LIST_NEXT(BF_LIST_PREV(x)) = BF_LIST_NEXT(x);
+	if (BF_LIST_NEXT(x))
+	    BF_LIST_PREV(BF_LIST_NEXT(x)) = BF_LIST_PREV(x);
     }
-    else if (LIST_NEXT(x)) {
+    else if (BF_LIST_NEXT(x)) {
 	/* Replace tree node by next element in list... */
 
-	ASSERT(BF_BLK_SZ(LIST_NEXT(x)) == BF_BLK_SZ(x));
+	ASSERT(BF_BLK_SZ(BF_LIST_NEXT(x)) == BF_BLK_SZ(x));
 	ASSERT(IS_TREE_NODE(x));
-	ASSERT(IS_LIST_ELEM(LIST_NEXT(x)));
+	ASSERT(IS_LIST_ELEM(BF_LIST_NEXT(x)));
 
 #ifdef HARD_DEBUG
 	check_tree(root, 0, 0);
 #endif
-	replace(root, x, LIST_NEXT(x));
+	replace(root, x, BF_LIST_NEXT(x));
 
 #ifdef HARD_DEBUG
 	check_tree(bfallctr, 0);
@@ -834,7 +834,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 	    x = x->left;
 	}
     }
-    
+
     if (!blk)
 	return NULL;
 
@@ -853,7 +853,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 
     /* Use next block if it exist in order to avoid replacing
        the tree node */
-    blk = LIST_NEXT(blk) ? LIST_NEXT(blk) : blk;
+    blk = BF_LIST_NEXT(blk) ? BF_LIST_NEXT(blk) : blk;
 
     bf_unlink_free_block(allctr, (Block_t *) blk);
     return (Block_t *) blk;
@@ -938,7 +938,7 @@ info_options(Allctr_t *allctr,
     }
 
     if (hpp || szp) {
-	
+
 	if (!atoms_initialized)
 	    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error: Atoms not initialized",
 		     __FILE__, __LINE__);;
@@ -969,12 +969,12 @@ erts_bfalc_test(UWord op, UWord a1, UWord a2)
     case 0x202:	return (UWord) ((RBTree_t *) a1)->parent;
     case 0x203:	return (UWord) ((RBTree_t *) a1)->left;
     case 0x204:	return (UWord) ((RBTree_t *) a1)->right;
-    case 0x205:	return (UWord) LIST_NEXT(a1);
+    case 0x205:	return (UWord) BF_LIST_NEXT(a1);
     case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
     case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
     case 0x208:	return (UWord) 1; /* IS_BF_ALGO */
     case 0x20a: return (UWord) !((BFAllctr_t *) a1)->address_order; /* IS_BF */
-    case 0x20b:	return (UWord) LIST_PREV(a1);
+    case 0x20b:	return (UWord) BF_LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }
@@ -1009,11 +1009,11 @@ static void print_tree(RBTree_t *, int);
 
 /*
  * Checks that the order between parent and children are correct,
- * and that the Red-Black Tree properies are satisfied. if size > 0,
+ * and that the Red-Black Tree properties are satisfied. if size > 0,
  * check_tree() returns a node that satisfies "best fit" resp.
  * "address order best fit".
  *
- * The Red-Black Tree properies are:
+ * The Red-Black Tree properties are:
  *   1. Every node is either red or black.
  *   2. Every leaf (NIL) is black.
  *   3. If a node is red, then both its children are black.

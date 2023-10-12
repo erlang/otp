@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,7 +76,9 @@
 -import(lists,[member/2]).
 -compile({no_auto_import,[length/1]}).
 -compile({inline, [btoken/2, rev/1, append/2, stack/2, search_compile/1]}).
--define(ASCII_LIST(CP1,CP2), CP1 < 256, CP2 < 256, CP1 =/= $\r).
+-define(ASCII_LIST(CP1,CP2),
+        is_integer(CP1), 0 =< CP1, CP1 < 256,
+        is_integer(CP2), 0 =< CP2, CP2 < 256, CP1 =/= $\r).
 
 -export_type([grapheme_cluster/0]).
 
@@ -104,8 +106,33 @@ list_to_float(_) ->
       Rest :: string(),
       Reason :: 'no_integer' | 'not_a_list'.
 
-list_to_integer(_) ->
-    erlang:nif_error(undef).
+list_to_integer(String) ->
+    Base = 10,
+    case erts_internal:list_to_integer(String, Base) of
+        {_, _}=Result ->
+            Result;
+        big ->
+            {Binary, Tail} = split_string(String),
+            try binary_to_integer(Binary) of
+                N ->
+                    {N, Tail}
+            catch
+                error:system_limit ->
+                    {error, system_limit}
+            end;
+        Reason ->
+            {error, Reason}
+    end.
+
+split_string([C|Cs]) when C =:= $+; C =:= $- ->
+    split_string(Cs, [C]);
+split_string(Cs) ->
+    split_string(Cs, []).
+
+split_string([C|Cs], Acc) when is_integer(C), $0 =< C, C =< $9 ->
+    split_string(Cs, [C|Acc]);
+split_string(Cs, Acc) ->
+    {list_to_binary(lists:reverse(Acc)),Cs}.
 
 %%% End of BIFs
 
@@ -128,7 +155,8 @@ length(CD) ->
 to_graphemes(CD0) ->
     case unicode_util:gc(CD0) of
         [GC|CD] -> [GC|to_graphemes(CD)];
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end.
 
 %% Compare two strings return boolean, assumes that the input are
@@ -197,7 +225,7 @@ slice(CD, N, Length)
         [] when is_binary(CD) -> <<>>;
         L -> slice_trail(L, Length)
     end;
-slice(CD, N, infinity) ->
+slice(CD, N, infinity) when is_integer(N), N >= 0 ->
     case slice_l0(CD, N) of
         [] when is_binary(CD) -> <<>>;
         Res -> Res
@@ -260,11 +288,13 @@ trim(Str, Dir) ->
       Dir :: direction() | 'both',
       Characters :: [grapheme_cluster()].
 trim(Str, _, []) -> Str;
-trim(Str, leading, [Sep]) when is_list(Str), Sep < 256 ->
+trim(Str, leading, [Sep])
+  when is_list(Str), is_integer(Sep), 0 =< Sep, Sep < 256 ->
     trim_ls(Str, Sep);
 trim(Str, leading, Sep) when is_list(Sep) ->
     trim_l(Str, Sep);
-trim(Str, trailing, [Sep]) when is_list(Str), Sep < 256 ->
+trim(Str, trailing, [Sep])
+  when is_list(Str), is_integer(Sep), 0 =< Sep, Sep < 256 ->
     trim_ts(Str, Sep);
 trim(Str, trailing, Seps0) when is_list(Seps0) ->
     Seps = search_pattern(Seps0),
@@ -332,7 +362,10 @@ uppercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 uppercase(<<>>) ->
-    <<>>.
+    <<>>;
+uppercase(Bin) ->
+    error({badarg, Bin}).
+
 
 %% Lowercase all chars in Str
 -spec lowercase(String::unicode:chardata()) -> unicode:chardata().
@@ -346,7 +379,10 @@ lowercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 lowercase(<<>>) ->
-    <<>>.
+    <<>>;
+lowercase(Bin) ->
+    error({badarg, Bin}).
+
 
 %% Make a titlecase of the first char in Str
 -spec titlecase(String::unicode:chardata()) -> unicode:chardata().
@@ -375,7 +411,9 @@ casefold(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 casefold(<<>>) ->
-    <<>>.
+    <<>>;
+casefold(Bin) ->
+    error({badarg, Bin}).
 
 -spec to_integer(String) -> {Int, Rest} | {'error', Reason} when
       String :: unicode:chardata(),
@@ -544,7 +582,8 @@ length_1([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2) ->
 length_1(Str, N) ->
     case unicode_util:gc(Str) of
         [] -> N;
-        [_|Rest] -> length_1(Rest, N+1)
+        [_|Rest] -> length_1(Rest, N+1);
+        {error, Err} -> error({badarg, Err})
     end.
 
 length_b(<<CP2/utf8, Rest/binary>>, CP1, N)
@@ -554,7 +593,8 @@ length_b(Bin0, CP1, N) ->
     [_|Bin1] = unicode_util:gc([CP1|Bin0]),
     case unicode_util:cp(Bin1) of
         [] -> N+1;
-        [CP3|Bin] -> length_b(Bin, CP3, N+1)
+        [CP3|Bin] -> length_b(Bin, CP3, N+1);
+        {error, Err} -> error({badarg, Err})
     end.
 
 equal_1([A|AR], [B|BR]) when is_integer(A), is_integer(B) ->
@@ -599,7 +639,8 @@ reverse_1([CP1|[CP2|_]=Cont], Acc) when ?ASCII_LIST(CP1,CP2) ->
 reverse_1(CD, Acc) ->
     case unicode_util:gc(CD) of
         [GC|Rest] -> reverse_1(Rest, [GC|Acc]);
-        [] -> Acc
+        [] -> Acc;
+        {error, Err} -> error({badarg, Err})
     end.
 
 reverse_b(<<CP2/utf8, Rest/binary>>, CP1, Acc)
@@ -609,7 +650,8 @@ reverse_b(Bin0, CP1, Acc) ->
     [GC|Bin1] = unicode_util:gc([CP1|Bin0]),
     case unicode_util:cp(Bin1) of
         [] -> [GC|Acc];
-        [CP3|Bin] -> reverse_b(Bin, CP3, [GC|Acc])
+        [CP3|Bin] -> reverse_b(Bin, CP3, [GC|Acc]);
+        {error, Err} -> error({badarg, Err})
     end.
 
 slice_l0(<<CP1/utf8, Bin/binary>>, N) when N > 0 ->
@@ -617,24 +659,28 @@ slice_l0(<<CP1/utf8, Bin/binary>>, N) when N > 0 ->
 slice_l0(L, N) ->
     slice_l(L, N).
 
-slice_l([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2),N > 0 ->
+slice_l([CP1|[CP2|_]=Cont], N)
+  when ?ASCII_LIST(CP1,CP2), is_integer(N), N > 0 ->
     slice_l(Cont, N-1);
-slice_l(CD, N) when N > 0 ->
+slice_l(CD, N) when is_integer(N), N > 0 ->
     case unicode_util:gc(CD) of
         [_|Cont] -> slice_l(Cont, N-1);
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end;
 slice_l(Cont, 0) ->
     Cont.
 
-slice_lb(<<CP2/utf8, Bin/binary>>, CP1, N) when ?ASCII_LIST(CP1,CP2), N > 1 ->
+slice_lb(<<CP2/utf8, Bin/binary>>, CP1, N)
+  when ?ASCII_LIST(CP1,CP2), is_integer(N), N > 1 ->
     slice_lb(Bin, CP2, N-1);
 slice_lb(Bin, CP1, N) ->
     [_|Rest] = unicode_util:gc([CP1|Bin]),
     if N > 1 ->
             case unicode_util:cp(Rest) of
                 [CP2|Cont] -> slice_lb(Cont, CP2, N-1);
-                [] -> <<>>
+                [] -> <<>>;
+                {error, Err} -> error({badarg, Err})
             end;
        N =:= 1 ->
             Rest
@@ -647,7 +693,10 @@ slice_trail(Orig, N) when is_binary(Orig) ->
             Sz = byte_size(Orig) - Length,
             <<Keep:Sz/binary, _/binary>> = Orig,
             Keep;
-        _ -> <<>>
+        <<_, _/binary>> when N > 0 ->
+            error({badarg, Orig});
+        _ ->
+            <<>>
     end;
 slice_trail(CD, N) when is_list(CD) ->
     slice_list(CD, N).
@@ -657,7 +706,8 @@ slice_list([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2),N > 0 ->
 slice_list(CD, N) when N > 0 ->
     case unicode_util:gc(CD) of
         [GC|Cont] -> append(GC, slice_list(Cont, N-1));
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end;
 slice_list(_, 0) ->
     [].
@@ -668,14 +718,19 @@ slice_bin(CD, CP1, N) when N > 0 ->
     [_|Bin] = unicode_util:gc([CP1|CD]),
     case unicode_util:cp(Bin) of
         [CP2|Cont] -> slice_bin(Cont, CP2, N-1);
-        [] -> 0
+        [] -> 0;
+        {error, Err} -> error({badarg, Err})
     end;
 slice_bin(CD, CP1, 0) ->
     byte_size(CD)+byte_size(<<CP1/utf8>>).
 
-uppercase_list([CP1|[CP2|_]=Cont], _Changed) when $a =< CP1, CP1 =< $z, CP2 < 256 ->
+uppercase_list([CP1|[CP2|_]=Cont], _Changed)
+  when is_integer(CP1), $a =< CP1, CP1 =< $z,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1-32|uppercase_list(Cont, true)];
-uppercase_list([CP1|[CP2|_]=Cont], Changed) when CP1 < 128, CP2 < 256 ->
+uppercase_list([CP1|[CP2|_]=Cont], Changed)
+  when is_integer(CP1), 0 =< CP1, CP1 < 128,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1|uppercase_list(Cont, Changed)];
 uppercase_list([], true) ->
     [];
@@ -689,34 +744,42 @@ uppercase_list(CPs0, Changed) ->
     end.
 
 uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when $a =< CP1, CP1 =< $z, CP2 < 256 ->
+  when is_integer(CP1), $a =< CP1, CP1 =< $z, CP2 < 256 ->
     [CP1-32|uppercase_bin(CP2, Bin, true)];
 uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
     [CP1|uppercase_bin(CP2, Bin, Changed)];
 uppercase_bin(CP1, Bin, Changed) ->
     case unicode_util:uppercase([CP1|Bin]) of
         [CP1|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [CP1|uppercase_bin(Next, Rest, Changed)];
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [Char|uppercase_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
-lowercase_list([CP1|[CP2|_]=Cont], _Changed) when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+lowercase_list([CP1|[CP2|_]=Cont], _Changed)
+  when is_integer(CP1), $A =< CP1, CP1 =< $Z,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1+32|lowercase_list(Cont, true)];
-lowercase_list([CP1|[CP2|_]=Cont], Changed) when CP1 < 128, CP2 < 256 ->
+lowercase_list([CP1|[CP2|_]=Cont], Changed)
+  when is_integer(CP1), 0 =< CP1, CP1 < 128,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1|lowercase_list(Cont, Changed)];
 lowercase_list([], true) ->
     [];
@@ -730,34 +793,42 @@ lowercase_list(CPs0, Changed) ->
     end.
 
 lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+  when is_integer(CP1), $A =< CP1, CP1 =< $Z, CP2 < 256 ->
     [CP1+32|lowercase_bin(CP2, Bin, true)];
 lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
     [CP1|lowercase_bin(CP2, Bin, Changed)];
 lowercase_bin(CP1, Bin, Changed) ->
     case unicode_util:lowercase([CP1|Bin]) of
         [CP1|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [CP1|lowercase_bin(Next, Rest, Changed)];
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [Char|lowercase_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
-casefold_list([CP1|[CP2|_]=Cont], _Changed) when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+casefold_list([CP1|[CP2|_]=Cont], _Changed)
+  when is_integer(CP1), $A =< CP1, CP1 =< $Z,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1+32|casefold_list(Cont, true)];
-casefold_list([CP1|[CP2|_]=Cont], Changed) when CP1 < 128, CP2 < 256 ->
+casefold_list([CP1|[CP2|_]=Cont], Changed)
+  when is_integer(CP1), 0 =< CP1, CP1 < 128,
+       is_integer(CP2), 0 =< CP2, CP2 < 256 ->
     [CP1|casefold_list(Cont, Changed)];
 casefold_list([], true) ->
     [];
@@ -771,28 +842,32 @@ casefold_list(CPs0, Changed) ->
     end.
 
 casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
-  when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
+  when is_integer(CP1), $A =< CP1, CP1 =< $Z, CP2 < 256 ->
     [CP1+32|casefold_bin(CP2, Bin, true)];
 casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
-  when CP1 < 128, CP2 < 256 ->
+  when is_integer(CP1), 0 =< CP1, CP1 < 128, CP2 < 256 ->
     [CP1|casefold_bin(CP2, Bin, Changed)];
 casefold_bin(CP1, Bin, Changed) ->
     case unicode_util:casefold([CP1|Bin]) of
         [CP1|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [CP1|casefold_bin(Next, Rest, Changed)];
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
-                [Next|Rest] ->
+                [Next|Rest] when is_integer(Next), Next >= 0 ->
                     [Char|casefold_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
@@ -1247,18 +1322,20 @@ split_1(Bin, [_C|_]=Needle, Start, Where, Curr0, Acc) ->
             end
     end.
 
-lexemes_m([CP|_]=Cs0, {GCs,CPs,_}=Seps, Ts) when is_integer(CP) ->
+lexemes_m([CP|_]=Cs0, {GCs,CPs,_}=Seps0, Ts) when is_integer(CP) ->
     case lists:member(CP, CPs) of
         true ->
             [GC|Cs2] = unicode_util:gc(Cs0),
             case lists:member(GC, GCs) of
                 true ->
-                    lexemes_m(Cs2, Seps, Ts);
+                    lexemes_m(Cs2, Seps0, Ts);
                 false ->
+                    Seps = search_compile(Seps0),
                     {Lexeme,Rest} = lexeme_pick(Cs0, Seps, []),
                     lexemes_m(Rest, Seps, [Lexeme|Ts])
             end;
         false ->
+            Seps = search_compile(Seps0),
             {Lexeme,Rest} = lexeme_pick(Cs0, Seps, []),
             lexemes_m(Rest, Seps, [Lexeme|Ts])
     end;
@@ -1632,7 +1709,9 @@ bin_search_inv_1(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Sep) ->
 bin_search_inv_1(<<>>, Cont, _Sep) ->
     {nomatch, Cont};
 bin_search_inv_1([], Cont, _Sep) ->
-    {nomatch, Cont}.
+    {nomatch, Cont};
+bin_search_inv_1(Bin, _, _) ->
+    error({badarg, Bin}).
 
 
 bin_search_inv_n(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Seps) ->
@@ -1664,7 +1743,9 @@ bin_search_inv_n(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Seps) ->
 bin_search_inv_n(<<>>, Cont, _Sep) ->
     {nomatch, Cont};
 bin_search_inv_n([], Cont, _Sep) ->
-    {nomatch, Cont}.
+    {nomatch, Cont};
+bin_search_inv_n(Bin, _, _) ->
+    error({badarg, Bin}).
 
 bin_search_str(Bin0, Start, [], SearchCPs) ->
     Compiled = binary:compile_pattern(unicode:characters_to_binary(SearchCPs)),
@@ -1696,7 +1777,7 @@ bin_search_str_2(Bin0, Start, Cont, First, SearchCPs) ->
     <<_:Start/binary, Bin/binary>> = Bin0,
     case binary:match(Bin, First) of
         nomatch -> {nomatch, byte_size(Bin0), Cont};
-        {Where0, _} ->
+        {Where0, _} when is_integer(Where0) ->
             Where = Start+Where0,
             <<Keep:Where/binary, Cs0/binary>> = Bin0,
             [GC|Cs]=unicode_util:gc(Cs0),
@@ -1941,7 +2022,7 @@ chars(C, N) -> chars(C, N, []).
       Tail :: string(),
       String :: string().
 
-chars(C, N, Tail) when N > 0 ->
+chars(C, N, Tail) when is_integer(N), N > 0 ->
     chars(C, N-1, [C|Tail]);
 chars(C, 0, Tail) when is_integer(C) ->
     Tail.
@@ -2071,7 +2152,7 @@ left(String, Len) when is_integer(Len) -> left(String, Len, $\s).
       Number :: non_neg_integer(),
       Character :: char().
 
-left(String, Len, Char) when is_integer(Char) ->
+left(String, Len, Char) when is_integer(Len), is_integer(Char) ->
     Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, 1, Len);
@@ -2096,7 +2177,7 @@ right(String, Len) when is_integer(Len) -> right(String, Len, $\s).
       Number :: non_neg_integer(),
       Character :: char().
 
-right(String, Len, Char) when is_integer(Char) ->
+right(String, Len, Char) when is_integer(Len), is_integer(Char) ->
     Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, Slen-Len+1);
@@ -2123,7 +2204,7 @@ centre(String, Len) when is_integer(Len) -> centre(String, Len, $\s).
 
 centre(String, 0, Char) when is_list(String), is_integer(Char) ->
     [];                       % Strange cases to centre string
-centre(String, Len, Char) when is_integer(Char) ->
+centre(String, Len, Char) when is_integer(Len), is_integer(Char) ->
     Slen = erlang:length(String),
     if
 	Slen > Len -> substr(String, (Slen-Len) div 2 + 1, Len);
@@ -2148,7 +2229,8 @@ sub_string(String, Start) -> substr(String, Start).
       Start :: pos_integer(),
       Stop :: pos_integer().
 
-sub_string(String, Start, Stop) -> substr(String, Start, Stop - Start + 1).
+sub_string(String, Start, Stop) when is_integer(Start), is_integer(Stop) ->
+    substr(String, Start, Stop - Start + 1).
 
 %% ISO/IEC 8859-1 (latin1) letters are converted, others are ignored
 %%

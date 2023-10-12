@@ -1,0 +1,42 @@
+#!/bin/bash
+
+
+#Code to find directory of this file from https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+
+FOUND="no"
+
+for FILE in "$@"
+do
+    if [ "${FILE: -2}" == ".c" ]
+    then
+        if ! cc -c $FILE -o $DIR/a.out ; then
+            echo "$0: error: Could not compile file with cc"
+            exit 1
+        fi
+        rm $DIR/a.out
+        if [ $1 == "-rr" ]
+        then
+            rr record $DIR/yielding_c_fun.bin "${@:2}" > $DIR/TMP_OUT_WITH_RR
+            # rr does not print when stdout is redirected
+            cat $DIR/TMP_OUT_WITH_RR
+            rm $DIR/TMP_OUT_WITH_RR
+        else
+            $DIR/yielding_c_fun.bin $@
+        fi
+    fi
+    FOUND="yes"
+done
+
+if [ $FOUND == "no" ]
+then
+    echo "$0: error: Expected a file name with .c ending"
+    exit 1
+fi

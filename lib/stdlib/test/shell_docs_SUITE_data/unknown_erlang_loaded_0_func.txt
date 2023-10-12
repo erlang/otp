@@ -1,0 +1,7 @@
+
+  [;1m-spec erlang:loaded() -> [Module] when Module :: module().[0m
+
+  Returns a list of all loaded Erlang modules (current and old
+  code), including preloaded modules.
+
+  See also [;;4mcode(3)[0m.

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2015</year>
-      <year>2018</year>
+      <year>2021</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -49,7 +49,7 @@
     <title>Prerequisites</title>
     <p>It is assumed that the reader is familiar with the Erlang
     programming language, the concepts of OTP, and has a basic
-    understanding of SSL/TLS/DTLS.</p>
+    understanding of TLS/DTLS.</p>
   </section>
 
 </chapter>

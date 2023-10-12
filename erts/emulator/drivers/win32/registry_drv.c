@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ reg_from_erlang(ErlDrvData clientData, char* buf, ErlDrvSizeT count)
 	     * [HKEY(DWORD), KeyString(string)]
 	     */
 
-	    hkey = (HKEY) get_int32(buf+0);
+	    hkey = (HKEY)(SWord) get_int32(buf+0);
 	    rp->hkey_root = hkey;
 	    key = buf+4;
 	    result = RegOpenKeyEx(hkey, key, 0, rp->sam, &newKey);
@@ -217,7 +217,7 @@ reg_from_erlang(ErlDrvData clientData, char* buf, ErlDrvSizeT count)
 	    HKEY newKey;
 	    DWORD disposition;
 
-	    hkey = (HKEY) get_int32(buf+0);
+	    hkey = (HKEY)(SWord) get_int32(buf+0);
 	    rp->hkey_root = hkey;
 	    key = buf+4;
 	    result = RegCreateKeyEx(hkey, key, 0, "", 0, rp->sam, NULL,
@@ -318,8 +318,12 @@ reg_from_erlang(ErlDrvData clientData, char* buf, ErlDrvSizeT count)
 	}
 	break;
     case CMD_DELETE_KEY:
-	result = RegDeleteKey(rp->hkey, NULL);
-	reply(rp, result);
+	{
+	    char* key = buf;
+
+	    result = RegDeleteKey(rp->hkey, key);
+	    reply(rp, result);
+	}
 	break;
     case CMD_DELETE_VALUE:
 	result = RegDeleteValue(rp->hkey, buf);
@@ -512,7 +516,7 @@ state_reply(RegPort* rp,	/* Pointer to port structure. */
 
     s[0] = 's';
     i = 1;
-    put_int32((DWORD) root, s+i);
+    put_int32((DWORD)(SWord) root, s+i);
     i += 4;
     memcpy(s+i, name, nameSize);
     ASSERT(i+nameSize == needed);

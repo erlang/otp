@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,28 +26,36 @@
 #include "erl_vm.h"
 #include "global.h"
 
+/* Use the same signed long long for both call_time and call_memory.
+* There is not much value in future-proofing until there is a need
+* to support anything other than a simple 8-byte number. When such
+* a use-case is identified, this type could be turned into a union.
+*/
+typedef ErtsMonotonicTime BpDataAccumulator;
+
 typedef struct {
     Eterm pid;
     Sint  count;
-    ErtsMonotonicTime time;
-} bp_data_time_item_t;
+    BpDataAccumulator accumulator;
+} bp_data_trace_item_t;
 
 typedef struct {
     Uint n;
     Uint used;
-    bp_data_time_item_t *item;
-} bp_time_hash_t;
+    bp_data_trace_item_t *item;
+} bp_trace_hash_t;
 
-typedef struct bp_data_time {     /* Call time */
+typedef struct bp_data_time {     /* Call time, Memory trace */
     Uint n;
-    bp_time_hash_t *hash;
+    bp_trace_hash_t *hash;
     erts_refc_t refc;
-} BpDataTime;
+} BpDataCallTrace;
 
 typedef struct {
-    ErtsMonotonicTime time;
-    ErtsCodeInfo *ci;
-} process_breakpoint_time_t; /* used within psd */
+    const ErtsCodeInfo *ci;
+    BpDataAccumulator accumulator;
+    BpDataAccumulator allocated;        /* adjustment for GC and messages on the heap */
+} process_breakpoint_trace_t; /* used within psd */
 
 typedef struct {
     erts_atomic_t acount;
@@ -65,7 +73,8 @@ typedef struct generic_bp_data {
     Binary* meta_ms;		/* Match spec for meta trace */
     BpMetaTracer* meta_tracer;	/* Meta tracer */
     BpCount* count;		/* For call count */
-    BpDataTime* time;		/* For time trace */
+    BpDataCallTrace* time;	/* For time trace */
+    BpDataCallTrace* memory;	/* For memory trace */
 } GenericBpData;
 
 #define ERTS_NUM_BP_IX 2
@@ -91,7 +100,7 @@ enum erts_break_op{
 typedef Uint32 ErtsBpIndex;
 
 typedef struct {
-    ErtsCodeInfo *ci;
+    const ErtsCodeInfo *code_info;
     Module* mod;
 } BpFunction;
 
@@ -118,21 +127,19 @@ void erts_bp_free_matched_functions(BpFunctions* f);
 
 void erts_install_breakpoints(BpFunctions* f);
 void erts_uninstall_breakpoints(BpFunctions* f);
-void erts_consolidate_bp_data(BpFunctions* f, int local);
-void erts_consolidate_bif_bp_data(void);
+
+void erts_consolidate_local_bp_data(BpFunctions* f);
+void erts_consolidate_export_bp_data(BpFunctions* f);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_call_trace_bif(ErtsCodeInfo *ci, Binary *match_spec, int local);
-void erts_clear_call_trace_bif(ErtsCodeInfo *ci, int local);
+void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec, int local);
+void erts_clear_export_trace(ErtsCodeInfo *ci, int local);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
 			  ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
-void erts_set_mtrace_bif(ErtsCodeInfo *ci, Binary *match_spec,
-			 ErtsTracer tracer);
-void erts_clear_mtrace_bif(ErtsCodeInfo *ci);
 
 void erts_set_debug_break(BpFunctions *f);
 void erts_clear_debug_break(BpFunctions *f);
@@ -142,32 +149,29 @@ void erts_clear_count_break(BpFunctions *f);
 
 void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
-void erts_clear_export_break(Module *modp, ErtsCodeInfo* ci);
+void erts_clear_export_break(Module *modp, Export *ep);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *ci, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 
-int erts_is_trace_break(ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
-int erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
+int erts_is_trace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
+int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
 			 ErtsTracer *tracer_ret);
-int erts_is_mtrace_bif(ErtsCodeInfo *ci, Binary **match_spec_ret,
-		       ErtsTracer *tracer_ret);
-int erts_is_native_break(ErtsCodeInfo *ci);
-int erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret);
-int erts_is_time_break(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
 
-void erts_trace_time_call(Process* c_p, ErtsCodeInfo *ci, BpDataTime* bdt);
-void erts_trace_time_return(Process* c_p, ErtsCodeInfo *ci);
+int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
+int erts_is_call_break(Process *p, int is_time, const ErtsCodeInfo *ci, Eterm *call_time);
+
+void erts_call_trace_return(Process* c_p, const ErtsCodeInfo *ci, Eterm bp_flags_term);
 void erts_schedule_time_break(Process *p, Uint out);
+ERTS_GLB_INLINE void erts_adjust_memory_break(Process *p, Sint adjustment);
+ERTS_GLB_INLINE void erts_adjust_message_break(Process *p, Eterm message);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);
+void erts_set_memory_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
+void erts_clear_memory_break(BpFunctions *f);
 
-int erts_is_time_trace_bif(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
-void erts_set_time_trace_bif(ErtsCodeInfo *ci, enum erts_break_op);
-void erts_clear_time_trace_bif(ErtsCodeInfo *ci);
-
-ErtsCodeInfo *erts_find_local_func(ErtsCodeMFA *mfa);
+const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -183,6 +187,23 @@ ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 {
     return erts_atomic32_read_nob(&erts_staging_bp_index);
 }
+
+ERTS_GLB_INLINE
+void erts_adjust_memory_break(Process *p, Sint adjustment)
+{
+    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
+    if (pbt)
+        pbt->allocated += adjustment;
+}
+
+ERTS_GLB_INLINE
+void erts_adjust_message_break(Process *p, Eterm message)
+{
+    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
+    if (pbt)
+        pbt->allocated += size_object(message);
+}
+
 #endif
 
 #endif /* _BEAM_BP_H */

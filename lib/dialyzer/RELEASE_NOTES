@@ -257,7 +257,7 @@ Version 1.5.1 (in Erlang/OTP R11B-3)
 Version 1.5.0 (in Erlang/OTP R11B-2)
 ------------------------------------
  - Dialyzer's building of PLT is based on a different type inference algorithm.
-   More specifically, Dialyzer uses inferrence of refined success typings to
+   More specifically, Dialyzer uses inference of refined success typings to
    infer function prototypes.  As a result, Dialyzer bases its analysis on a
    significantly more powerful basis and thus is able to detect more
    discrepancies.  The downside is that building the PLT is a considerably

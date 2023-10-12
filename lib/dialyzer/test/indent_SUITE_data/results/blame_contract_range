@@ -1,0 +1,8 @@
+
+blame_contract_range.erl:14:2: The contract blame_contract_range:bar
+          (atom()) -> 'a' cannot be right because the inferred return for bar
+         ('b') on position 12:3 is 
+          'b'
+blame_contract_range.erl:15:1: The pattern 
+          'a' can never match the type 
+          'b'

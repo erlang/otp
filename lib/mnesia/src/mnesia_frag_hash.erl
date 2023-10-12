@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 %header_doc_include
 -module(mnesia_frag_hash).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Fragmented Table Hashing callback functions
 -export([

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 ** erlang process is run as a service.
 ** Note that this entry point is only for 
 ** Console programs, Windowing programs can just route the WM_QUERYENDSESSION
-** and WM_ENDSESSION to the default window procedure to aquire the same 
+** and WM_ENDSESSION to the default window procedure to acquire the same 
 ** functionality.
 **
 ** Creator Patrik Nyblom

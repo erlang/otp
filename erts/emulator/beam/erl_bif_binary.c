@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,7 @@
 #include "global.h"
 #include "erl_process.h"
 #include "error.h"
-#define ERL_WANT_HIPE_BIF_WRAPPER__
 #include "bif.h"
-#undef ERL_WANT_HIPE_BIF_WRAPPER__
 #include "big.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
@@ -648,7 +646,7 @@ static BFReturn ac_find_first_match(BinaryFindContext *ctx, byte *haystack)
     register Uint reds = *reductions;
 
     while (i < len) {
-	if (--reds == 0) {
+	if (reds == 0) {
 	    state->q = q;
 	    state->pos = i;
 	    state->len = len;
@@ -656,6 +654,8 @@ static BFReturn ac_find_first_match(BinaryFindContext *ctx, byte *haystack)
 	    state->candidate_start = candidate_start;
 	    return BF_RESTART;
 	}
+
+    reds--;
 
 	while (q->g[haystack[i]] == NULL && q->h != q) {
 	    q = q->h;
@@ -846,22 +846,21 @@ static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
     Sint mem_read = len - needle_last - j;
 
     if (mem_read <= 0) {
-	return BF_NOT_FOUND;
+        return BF_NOT_FOUND;
     }
-    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+
+    /* Save at least one reduction for the loop below. */
+    mem_read = MIN(mem_read, 1 + (reds - 1) * MC_LOOP_FACTOR);
     ASSERT(mem_read > 0);
 
     pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
     if (pos_pointer == NULL) {
-	reds -= mem_read / MC_LOOP_FACTOR;
-	j += mem_read;
+        reds -= mem_read / MC_LOOP_FACTOR;
+        j += mem_read;
     } else {
-	reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
-	j = pos_pointer - haystack - needle_last;
+        reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+        j = pos_pointer - haystack - needle_last;
     }
-
-    // Ensure we have at least one reduction before entering the loop
-    ++reds;
 
     for(;;) {
 	if (j > len - blen) {
@@ -936,7 +935,8 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 	    if(mem_read <= 0) {
 		goto done;
 	    }
-	    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+            /* Save at least one reduction for the loop below. */
+	    mem_read = MIN(mem_read, 1 + (reds - 1) * MC_LOOP_FACTOR);
 	    ASSERT(mem_read > 0);
 	    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
 	    if (pos_pointer == NULL) {
@@ -946,8 +946,6 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 		reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
 		j = pos_pointer - haystack - needle_last;
 	    }
-	    // Ensure we have at least one reduction when resuming the loop
-	    ++reds;
 	}
 	if (j > len - blen) {
 	    goto done;
@@ -1051,14 +1049,13 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	Uint bitoffs, bitsize;
 	byte *temp_alloc = NULL;
 	MyAllocator my;
-	BMData *bmd;
 	Binary *bin;
 
 	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
 	if (bitoffs != 0) {
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
-	bmd = create_bmdata(&my, bytes, characters, &bin);
+        create_bmdata(&my, bytes, characters, &bin);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
 	*tag = am_bm;
@@ -1278,7 +1275,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	*endp = binary_size(bin);
 	return 0;
     } else if (is_list(l)) {
-	while(is_list(l)) {
+	do {
 	    Eterm t = CAR(list_val(l));
 	    Uint orig_size;
 	    if (!is_tuple(t)) {
@@ -1321,10 +1318,13 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 		goto badarg;
 	    }
 	    l = CDR(list_val(l));
-	}
+	} while (is_list(l));
 	return 0;
     } else {
     badarg:
+        /* Ensure initialization. */
+	*posp = 0;
+	*endp = 0;
 	return 1;
     }
 }
@@ -1463,7 +1463,6 @@ static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ct
 	    }
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    *res_term = THE_NON_VALUE;
-	    BUMP_ALL_REDS(p);
 	    return BF_RESTART;
 	} else {
 	    *res_term = ctx->found(p, subject, &ctx);
@@ -1474,7 +1473,6 @@ static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ct
 	    if (is_first_call) {
 		erts_set_gc_state(p, 0);
 	    }
-	    BUMP_ALL_REDS(p);
 	    return BF_RESTART;
 	}
 	if (ctx->search->done != NULL) {
@@ -1494,7 +1492,6 @@ static BFReturn do_binary_find(Process *p, Eterm subject, BinaryFindContext **ct
 	    if (is_first_call) {
 		erts_set_gc_state(p, 0);
 	    }
-	    BUMP_ALL_REDS(p);
 	    return BF_RESTART;
 	}
 	if (ctx->search->done != NULL) {
@@ -1538,10 +1535,6 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
     if (parse_match_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend))) {
 	goto badarg;
     }
-    if (ctx->hsend == 0) {
-	result = do_match_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
-    }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
     }
@@ -1555,6 +1548,7 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
     case BF_OK:
 	BIF_RET(result);
     case BF_RESTART:
+        BUMP_ALL_REDS(p);
 	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
 	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
@@ -1599,10 +1593,6 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (parse_split_opts_list(arg3, arg1, &(ctx->hsstart), &(ctx->hsend), &(ctx->flags))) {
 	goto badarg;
     }
-    if (ctx->hsend == 0) {
-	result = do_split_not_found_result(p, arg1, &ctx);
-	BIF_RET(result);
-    }
     if (maybe_binary_match_compile(ctx, arg2, &pat_bin) != BF_OK) {
 	goto badarg;
     }
@@ -1616,6 +1606,7 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     case BF_OK:
 	BIF_RET(result);
     case BF_RESTART:
+        BUMP_ALL_REDS(p);
 	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
 	BIF_TRAP3(&binary_find_trap_export, p, arg1, ctx->trap_term, ctx->pat_term);
     default:
@@ -1751,9 +1742,8 @@ static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb1;
-    ErlSubBin *sb2;
-    Eterm *hp;
+    Uint hp_need;
+    Eterm *hp, *hp_end;
     Eterm ret;
 
     pos = ff->pos;
@@ -1766,57 +1756,58 @@ static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindContext
 	if (pos == 0) {
 	    ret = NIL;
 	} else {
-	    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = bit_size;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
+	    Eterm extracted;
 
-	    ret = CONS(hp, make_binary(sb1), NIL);
+	    hp_need = EXTRACT_SUB_BIN_HEAP_NEED + 2;
+
+	    hp = HAlloc(p, hp_need);
+	    hp_end = hp + hp_need;
+
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    extracted = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+	                                        offset * 8 + bit_offset,
+	                                        pos * 8 + bit_size);
+
+	    ret = CONS(hp, extracted, NIL);
 	    hp += 2;
+
+	    HRelease(p, hp_end, hp);
+
+	    return ret;
 	}
     } else {
-	if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
-	    hp = HAlloc(p, 1 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = NULL;
-	} else {
-	    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
-	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
-	    sb1 = (ErlSubBin *) hp;
-	    sb1->thing_word = HEADER_SUB_BIN;
-	    sb1->size = pos;
-	    sb1->offs = offset;
-	    sb1->orig = orig;
-	    sb1->bitoffs = bit_offset;
-	    sb1->bitsize = 0;
-	    sb1->is_writable = 0;
-	    hp += ERL_SUB_BIN_SIZE;
-	}
+        Eterm first, rest;
 
-	sb2 = (ErlSubBin *) hp;
-	sb2->thing_word = HEADER_SUB_BIN;
-	sb2->size = orig_size - pos - len;
-	sb2->offs = offset + pos + len;
-	sb2->orig = orig;
-	sb2->bitoffs = bit_offset;
-	sb2->bitsize = bit_size;
-	sb2->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
+        hp_need = (EXTRACT_SUB_BIN_HEAP_NEED + 2) * 2;
 
-	ret = CONS(hp, make_binary(sb2), NIL);
-	hp += 2;
-	if (sb1 != NULL) {
-	    ret = CONS(hp, make_binary(sb1), ret);
-	    hp += 2;
-	}
+        hp = HAlloc(p, hp_need);
+        hp_end = hp + hp_need;
+
+        ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+
+        if ((ctx->flags & BF_FLAG_SPLIT_TRIM_ALL) && (pos == 0)) {
+            first = NIL;
+        } else {
+            first = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                            offset * 8 + bit_offset,
+                                            pos * 8);
+        }
+
+        rest = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                       (offset + pos + len) * 8 + bit_offset,
+                                       (orig_size - pos - len) * 8 + bit_size);
+
+        ret = CONS(hp, rest, NIL);
+        hp += 2;
+
+        if (first != NIL) {
+            ret = CONS(hp, first, ret);
+            hp += 2;
+        }
+
+        HRelease(p, hp_end, hp);
     }
+
     return ret;
 }
 
@@ -1830,7 +1821,9 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    ErlSubBin *sb;
+    Uint extracted_offset;
+    Uint extracted_size;
+    Eterm extracted;
     Uint do_trim;
     Sint i;
     register Uint reds = ctx->reds;
@@ -1853,7 +1846,8 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    *ctxp = ctx;
 	    fa = &(ctx->u.fa);
 	}
-	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) * (ERL_SUB_BIN_SIZE + 2));
+	erts_factory_proc_prealloc_init(&(fa->factory), p, (fa->size + 1) *
+	                                (EXTRACT_SUB_BIN_HEAP_NEED + 2));
 	ctx->state = BFResult;
     }
 
@@ -1872,39 +1866,39 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 	    }
 	    return THE_NON_VALUE;
 	}
-	sb = (ErlSubBin *)(fa->factory.hp);
-	sb->size = fa->end_pos - (fad[i].pos + fad[i].len);
-	if (!(sb->size == 0 && do_trim)) {
-	    sb->thing_word = HEADER_SUB_BIN;
-	    sb->offs = offset + fad[i].pos + fad[i].len;
-	    sb->orig = orig;
-	    sb->bitoffs = bit_offset;
-	    sb->bitsize = 0;
-	    sb->is_writable = 0;
-	    fa->factory.hp += ERL_SUB_BIN_SIZE;
-	    fa->term = CONS(fa->factory.hp, make_binary(sb), fa->term);
-	    fa->factory.hp += 2;
-	    do_trim &= ~BF_FLAG_SPLIT_TRIM;
-	}
-	fa->end_pos = fad[i].pos;
+
+        extracted_offset = (offset + fad[i].pos + fad[i].len) * 8 + bit_offset;
+        extracted_size = (fa->end_pos - (fad[i].pos + fad[i].len)) * 8;
+
+        if (!(extracted_size == 0 && do_trim)) {
+            extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                                binary_bytes(orig),
+                                                extracted_offset,
+                                                extracted_size);
+            fa->term = CONS(fa->factory.hp, extracted, fa->term);
+            fa->factory.hp += 2;
+
+            do_trim &= ~BF_FLAG_SPLIT_TRIM;
+        }
+
+        fa->end_pos = fad[i].pos;
     }
 
     fa->head = i;
     ctx->reds = reds;
 
-    sb = (ErlSubBin *)(fa->factory.hp);
-    sb->size = fad[0].pos;
-    if (!(sb->size == 0 && do_trim)) {
-	sb->thing_word = HEADER_SUB_BIN;
-	sb->offs = offset;
-	sb->orig = orig;
-	sb->bitoffs = bit_offset;
-	sb->bitsize = 0;
-	sb->is_writable = 0;
-	fa->factory.hp += ERL_SUB_BIN_SIZE;
-	fa->term = CONS(fa->factory.hp, make_binary(sb), fa->term);
-	fa->factory.hp += 2;
+    extracted_offset = offset * 8 + bit_offset;
+    extracted_size = fad[0].pos * 8;
+
+    if (!(extracted_size == 0 && do_trim)) {
+        extracted = erts_extract_sub_binary(&fa->factory.hp, orig,
+                                            binary_bytes(orig),
+                                            extracted_offset,
+                                            extracted_size);
+        fa->term = CONS(fa->factory.hp, extracted, fa->term);
+        fa->factory.hp += 2;
     }
+
     erts_factory_close(&(fa->factory));
 
     return fa->term;
@@ -1913,7 +1907,7 @@ static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindContext
 static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
 {
     int runres;
-    Eterm result;
+    Eterm result = THE_NON_VALUE; /* Used in debug build. */
     Binary *ctx_bin = erts_magic_ref2bin(BIF_ARG_2);
     Binary *pat_bin = erts_magic_ref2bin(BIF_ARG_3);
     BinaryFindContext *ctx = NULL;
@@ -1921,10 +1915,10 @@ static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(ctx_bin) == bf_context_destructor);
     runres = do_binary_find(BIF_P, BIF_ARG_1, &ctx, pat_bin, ctx_bin, &result);
     if (runres == BF_OK) {
-	ASSERT(result != THE_NON_VALUE);
+	ASSERT(is_value(result));
 	BIF_RET(result);
     } else {
-	ASSERT(result == THE_NON_VALUE && ctx->trap_term != result && ctx->pat_term != result);
+	ASSERT(is_non_value(result) && ctx->trap_term != result && ctx->pat_term != result);
 	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 }
@@ -1938,8 +1932,8 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     Uint offset;
     Uint bit_offset;
     Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
+    Eterm *hp, *hp_end;
+    Eterm result;
 
     if (is_not_binary(binary)) {
 	goto badarg;
@@ -1971,120 +1965,27 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
-
-
-    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
-
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
 
-    BIF_RET(make_binary(sb));
+    if (bit_size != 0) {
+        goto badarg;
+    }
+
+    hp = HeapFragOnlyAlloc(p, EXTRACT_SUB_BIN_HEAP_NEED);
+    hp_end = hp + EXTRACT_SUB_BIN_HEAP_NEED;
+
+    result = erts_extract_sub_binary(&hp, orig, binary_bytes(orig),
+                                     (offset + pos) * 8 + bit_offset,
+                                     len * 8);
+
+    HRelease(p, hp_end, hp);
+
+    BIF_RET(result);
 
  badarg:
     BIF_ERROR(p, BADARG);
 }
 
-#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
-
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple)
-{
-    Uint pos;
-    Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
-    Eterm binary;
-    Eterm *tp;
-    Eterm epos, elen;
-    int extra_args;
-
-
-    if (range_is_tuple) {
-	Eterm tpl = reg[live];
-	extra_args = 1;
-	if (is_not_tuple(tpl)) {
-	    goto badarg;
-	}
-	tp = tuple_val(tpl);
-	if (arityval(*tp) != 2) {
-	    goto badarg;
-	}
-
-	epos = tp[1];
-	elen = tp[2];
-    } else {
-	extra_args = 2;
-	epos = reg[live-1];
-	elen = reg[live];
-    }
-    binary = reg[live-extra_args];
-
-    if (is_not_binary(binary)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
-    if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
-    }
-    /* overflow */
-    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
-	goto badarg;
-    }
-    if ((orig_size = binary_size(binary)) < pos ||
-	orig_size < (pos + len)) {
-	goto badarg;
-    }
-
-    if (ERTS_NEED_GC(p, ERL_SUB_BIN_SIZE)) {
-	erts_garbage_collect(p, ERL_SUB_BIN_SIZE, reg, live+1-extra_args); /* I don't need the tuple
-									      or indices any more */
-	binary = reg[live-extra_args];
-    }
-
-    hp = p->htop;
-    p->htop += ERL_SUB_BIN_SIZE;
-
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
-
-    BIF_RET(make_binary(sb));
-
- badarg:
-    BIF_ERROR(p, BADARG);
-}
 /*************************************************************
  * The actual guard BIFs are in erl_bif_guard.c
  * but the implementation of both the non-gc and the gc
@@ -2504,11 +2405,9 @@ BIF_RETTYPE binary_at_2(BIF_ALIST_2)
     BIF_ERROR(BIF_P,BADARG);
 }
 
-HIPE_WRAPPER_BIF_DISABLE_GC(binary_list_to_bin, 1)
-
 BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
 {
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, bif_export[BIF_binary_list_to_bin_1]);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, BIF_TRAP_EXPORT(BIF_binary_list_to_bin_1));
 }
 
 typedef struct {
@@ -2576,13 +2475,13 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
     if (!term_to_Uint(en, &n)) {
 	goto badarg;
     }
-    if (!n) {
-	Eterm res_term = erts_new_heap_binary(p,NULL,0,&bytes);
-	BIF_RET(res_term);
-    }
     ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
     if (bit_size != 0) {
 	goto badarg;
+    }
+    if (n == 0) {
+        Eterm res_term = erts_new_heap_binary(p, NULL, 0, &bytes);
+        BIF_RET(res_term);
     }
 
     size = binary_size(bin);
@@ -2832,7 +2731,7 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	dsize_t num_parts = BIG_SIZE(bigp);
 	Eterm res;
 	byte *b;
-	ErtsDigit d;
+	ErtsDigit d = 0;
 
 	if(BIG_SIGN(bigp)) {
 	    goto badarg;
@@ -2848,26 +2747,22 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	if (endianess == am_big) {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=n-1;i>=0;--i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 	} else {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=0;i<n;++i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 
 	}

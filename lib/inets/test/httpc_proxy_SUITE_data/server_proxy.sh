@@ -5,7 +5,7 @@
 ##
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2012-2016. All Rights Reserved.
+## Copyright Ericsson AB 2012-2022. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ IFS='
 	 '
 
 APACHE_MODS_AVAILABLE_DIR="/etc/apache2/mods-available"
-MODS="authz_host.load mime.conf mime.load ssl.conf ssl.load"
+MODS="access_compat.load authz_core.load authz_host.load mime.conf mime.load mpm_event.conf mpm_event.load socache_shmcb.load ssl.conf ssl.load"
 
 APACHE_HTTP_PORT=8080
 APACHE_HTTPS_PORT=8443

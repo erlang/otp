@@ -1,0 +1,10 @@
+
+  [;1m-spec spawn_link(Node, Fun) -> pid()[0m
+  [;1m                    when Node :: node(), Fun :: function().[0m
+
+  Returns the process identifier (pid) of a new process started by
+  the application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. A link
+  is created between the calling process and the new process,
+  atomically. If [;;4mNode[0m does not exist, a useless pid is returned
+  and an exit signal with reason [;;4mnoconnection[0m is sent to the
+  calling process. Otherwise works like [;;4mspawn/3[0m.

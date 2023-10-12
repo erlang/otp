@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,15 +20,19 @@
 -module(float_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
+	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
+         subtract_number_type/1,float_followed_by_guard/1,
+         fconv_line_numbers/1,float_zero/1,exception_signals/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [pending, bif_calls, math_functions,
-     mixed_float_and_int].
+all() ->
+    [pending, bif_calls, math_functions, float_zero,
+     mixed_float_and_int, subtract_number_type,
+     float_followed_by_guard,fconv_line_numbers,
+     exception_signals].
 
 groups() -> 
     [].
@@ -46,6 +50,12 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+float_zero(Config) when is_list(Config) ->
+    <<16#0000000000000000:64>> = match_on_zero_and_to_binary(1*0.0),
+    <<16#8000000000000000:64>> = match_on_zero_and_to_binary(-1*0.0),
+    ok.
+
+match_on_zero_and_to_binary(0.0 = X) -> <<X/float>>.
 
 %% Thanks to Tobias Lindahl <tobias.lindahl@it.uu.se>
 %% Shows the effect of pending exceptions on the x86.
@@ -171,10 +181,76 @@ math_functions(Config) when is_list(Config) ->
 
 mixed_float_and_int(Config) when is_list(Config) ->
     129.0 = pc(77, 23, 5),
+
+    {'EXIT',{badarith,_}} = catch mixed_1(id({a,b,c})),
+    {'EXIT',{{badarg,1/42},_}} = catch mixed_1(id(42)),
+
     ok.
 
 pc(Cov, NotCov, X) ->
     round(Cov/(Cov+NotCov)*100) + 42 + 2.0*X.
+
+mixed_1(V) ->
+    {is_tuple(V) orelse 1 / V,
+     1 / V andalso true}.
+
+subtract_number_type(Config) when is_list(Config) ->
+    120 = fact(5).
+
+fact(N) ->
+    fact(N, 1).
+
+fact(0, P) -> P;
+fact(1, P) -> P;
+fact(N, P) -> fact(N-1, P*N).
+
+float_followed_by_guard(Config) when is_list(Config) ->
+    true = ffbg_1(5, 1),
+    false = ffbg_1(1, 5),
+    ok.
+
+ffbg_1(A, B0) ->
+    %% This is a non-guard block followed by a *guard block* that starts with a
+    %% floating point operation, and the compiler erroneously assumed that it
+    %% was safe to skip fcheckerror because the next block started with a float
+    %% op.
+    B = id(B0) / 1.0,
+    if
+        A - B > 0.0 -> true;
+        A - B =< 0.0 -> false
+    end.
+
+%% ERL-1178: fconv instructions didn't inherit line numbers from their
+%% respective BIF calls.
+fconv_line_numbers(Config) when is_list(Config) ->
+    fconv_line_numbers_1(id(gurka)),
+    ok.
+
+fconv_line_numbers_1(A) ->
+    %% The ?LINE macro must be on the same line as the division.
+    {'EXIT',{badarith, Stacktrace}} = (catch 10 / A), Line = ?LINE,
+    true = lists:any(fun({?MODULE,?FUNCTION_NAME,1,[{file,_},{line,L}]}) ->
+                             L =:= Line;
+                        (_) ->
+                             false
+                     end, Stacktrace).
+
+%% ERL-1471: compiler generated invalid 'fclearerror' / 'fcheckerror'
+%% sequences.
+exception_signals(Config) when is_list(Config) ->
+    2.0 = exception_signals_1(id(25), id(true), []),
+    2.0 = exception_signals_1(id(25), id(false), []),
+    2.0 = exception_signals_1(id(25.0), id(true), []),
+    2.0 = exception_signals_1(id(25.0), id(false), []),
+    ok.
+
+exception_signals_1(Width, Value, _Opts) ->
+    Height = Width / 25.0,
+    _Middle = case Value of
+                  true -> Width / 2.0;
+                  false -> 0
+              end,
+    _More = Height + 1.
 
 id(I) -> I.
 

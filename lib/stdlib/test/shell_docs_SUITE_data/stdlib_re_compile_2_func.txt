@@ -1,0 +1,188 @@
+
+  [;1m-spec compile(Regexp, Options) -> {ok, MP} | {error, ErrSpec}[0m
+  [;1m                 when[0m
+  [;1m                     Regexp :: iodata() | unicode:charlist(),[0m
+  [;1m                     Options :: [Option],[0m
+  [;1m                     Option :: compile_option(),[0m
+  [;1m                     MP :: mp(),[0m
+  [;1m                     ErrSpec ::[0m
+  [;1m                         {ErrString :: string(),[0m
+  [;1m                          Position :: non_neg_integer()}.[0m
+
+  Compiles a regular expression, with the syntax described below,
+  into an internal format to be used later as a parameter to [;;4mrun/2[0m
+  and [;;4mrun/3[0m.
+
+  Compiling the regular expression before matching is useful if the
+  same expression is to be used in matching against multiple
+  subjects during the lifetime of the program. Compiling once and
+  executing many times is far more efficient than compiling each
+  time one wants to match.
+
+  When option [;;4municode[0m is specified, the regular expression is to
+  be specified as a valid Unicode [;;4mcharlist()[0m, otherwise as any
+  valid [;;4miodata()[0m.
+
+  Options:
+
+  [;;4m[;;4municode[0m[0m:
+    The regular expression is specified as a Unicode [;;4mcharlist()[0m
+    and the resulting regular expression code is to be run against
+    a valid Unicode [;;4mcharlist()[0m subject. Also consider option [;;4m[0m
+    [;;4mucp[0m when using Unicode characters.
+
+  [;;4m[;;4manchored[0m[0m:
+    The pattern is forced to be "anchored", that is, it is
+    constrained to match only at the first matching point in the
+    string that is searched (the "subject string"). This effect
+    can also be achieved by appropriate constructs in the pattern
+    itself.
+
+  [;;4m[;;4mcaseless[0m[0m:
+    Letters in the pattern match both uppercase and lowercase
+    letters. It is equivalent to Perl option [;;4m/i[0m and can be
+    changed within a pattern by a [;;4m(?i)[0m option setting. Uppercase
+    and lowercase letters are defined as in the ISO 8859-1
+    character set.
+
+  [;;4m[;;4mdollar_endonly[0m[0m:
+    A dollar metacharacter in the pattern matches only at the end
+    of the subject string. Without this option, a dollar also
+    matches immediately before a newline at the end of the string
+    (but not before any other newlines). This option is ignored if
+    option [;;4mmultiline[0m is specified. There is no equivalent option
+    in Perl, and it cannot be set within a pattern.
+
+  [;;4m[;;4mdotall[0m[0m:
+    A dot in the pattern matches all characters, including those
+    indicating newline. Without it, a dot does not match when the
+    current position is at a newline. This option is equivalent to
+    Perl option [;;4m/s[0m and it can be changed within a pattern by a [;;4m[0m
+    [;;4m(?s)[0m option setting. A negative class, such as [;;4m[^a][0m, always
+    matches newline characters, independent of the setting of this
+    option.
+
+  [;;4m[;;4mextended[0m[0m:
+    If this option is set, most white space characters in the
+    pattern are totally ignored except when escaped or inside a
+    character class. However, white space is not allowed within
+    sequences such as [;;4m(?>[0m that introduce various parenthesized
+    subpatterns, nor within a numerical quantifier such as [;;4m{1,3}[0m.
+    However, ignorable white space is permitted between an item
+    and a following quantifier and between a quantifier and a
+    following + that indicates possessiveness.
+
+    White space did not used to include the VT character (code
+    11), because Perl did not treat this character as white space.
+    However, Perl changed at release 5.18, so PCRE followed at
+    release 8.34, and VT is now treated as white space.
+
+    This also causes characters between an unescaped # outside a
+    character class and the next newline, inclusive, to be
+    ignored. This is equivalent to Perl's [;;4m/x[0m option, and it can
+    be changed within a pattern by a [;;4m(?x)[0m option setting.
+
+    With this option, comments inside complicated patterns can be
+    included. However, notice that this applies only to data
+    characters. Whitespace characters can never appear within
+    special character sequences in a pattern, for example within
+    sequence [;;4m(?([0m that introduces a conditional subpattern.
+
+  [;;4m[;;4mfirstline[0m[0m:
+    An unanchored pattern is required to match before or at the
+    first newline in the subject string, although the matched text
+    can continue over the newline.
+
+  [;;4m[;;4mmultiline[0m[0m:
+    By default, PCRE treats the subject string as consisting of a
+    single line of characters (even if it contains newlines). The
+    "start of line" metacharacter ([;;4m^[0m) matches only at the start
+    of the string, while the "end of line" metacharacter ([;;4m$[0m)
+    matches only at the end of the string, or before a terminating
+    newline (unless option [;;4mdollar_endonly[0m is specified). This is
+    the same as in Perl.
+
+    When this option is specified, the "start of line" and "end of
+    line" constructs match immediately following or immediately
+    before internal newlines in the subject string, respectively,
+    as well as at the very start and end. This is equivalent to
+    Perl option [;;4m/m[0m and can be changed within a pattern by a [;;4m[0m
+    [;;4m(?m)[0m option setting. If there are no newlines in a subject
+    string, or no occurrences of [;;4m^[0m or [;;4m$[0m in a pattern, setting [;;4m[0m
+    [;;4mmultiline[0m has no effect.
+
+  [;;4m[;;4mno_auto_capture[0m[0m:
+    Disables the use of numbered capturing parentheses in the
+    pattern. Any opening parenthesis that is not followed by [;;4m?[0m
+    behaves as if it is followed by [;;4m?:[0m. Named parentheses can
+    still be used for capturing (and they acquire numbers in the
+    usual way). There is no equivalent option in Perl.
+
+  [;;4m[;;4mdupnames[0m[0m:
+    Names used to identify capturing subpatterns need not be
+    unique. This can be helpful for certain types of pattern when
+    it is known that only one instance of the named subpattern can
+    ever be matched. More details of named subpatterns are
+    provided below.
+
+  [;;4m[;;4mungreedy[0m[0m:
+    Inverts the "greediness" of the quantifiers so that they are
+    not greedy by default, but become greedy if followed by "?".
+    It is not compatible with Perl. It can also be set by a [;;4m(?U)[0m
+    option setting within the pattern.
+
+  [;;4m[;;4m{newline, NLSpec}[0m[0m:
+    Overrides the default definition of a newline in the subject
+    string, which is LF (ASCII 10) in Erlang.
+
+    [;;4m[;;4mcr[0m[0m:
+      Newline is indicated by a single character [;;4mcr[0m (ASCII
+      13).
+
+    [;;4m[;;4mlf[0m[0m:
+      Newline is indicated by a single character LF (ASCII 10),
+      the default.
+
+    [;;4m[;;4mcrlf[0m[0m:
+      Newline is indicated by the two-character CRLF (ASCII 13
+      followed by ASCII 10) sequence.
+
+    [;;4m[;;4manycrlf[0m[0m:
+      Any of the three preceding sequences is to be recognized.
+
+    [;;4m[;;4many[0m[0m:
+      Any of the newline sequences above, and the Unicode
+      sequences VT (vertical tab, U+000B), FF (formfeed,
+      U+000C), NEL (next line, U+0085), LS (line separator,
+      U+2028), and PS (paragraph separator, U+2029).
+
+  [;;4m[;;4mbsr_anycrlf[0m[0m:
+    Specifies specifically that \R is to match only the CR, LF, or
+    CRLF sequences, not the Unicode-specific newline characters.
+
+  [;;4m[;;4mbsr_unicode[0m[0m:
+    Specifies specifically that \R is to match all the Unicode
+    newline characters (including CRLF, and so on, the default).
+
+  [;;4m[;;4mno_start_optimize[0m[0m:
+    Disables optimization that can malfunction if "Special
+    start-of-pattern items" are present in the regular expression.
+    A typical example would be when matching "DEFABC" against
+    "(*COMMIT)ABC", where the start optimization of PCRE would
+    skip the subject up to "A" and never realize that the
+    (*COMMIT) instruction is to have made the matching fail. This
+    option is only relevant if you use "start-of-pattern items",
+    as discussed in section PCRE Regular Expression Details.
+
+  [;;4m[;;4mucp[0m[0m:
+    Specifies that Unicode character properties are to be used
+    when resolving \B, \b, \D, \d, \S, \s, \W and \w. Without this
+    flag, only ISO Latin-1 properties are used. Using Unicode
+    properties hurts performance, but is semantically correct when
+    working with Unicode characters beyond the ISO Latin-1 range.
+
+  [;;4m[;;4mnever_utf[0m[0m:
+    Specifies that the (*UTF) and/or (*UTF8) "start-of-pattern
+    items" are forbidden. This flag cannot be combined with option [;;4m[0m
+    [;;4municode[0m. Useful if ISO Latin-1 patterns from an external
+    source are to be compiled.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,109 +28,134 @@
 
 -module(diameter_codec_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2]).
-
-%% testcases
--export([base/1,
+         base/1,
          gen/1,
          lib/1,
          unknown/1,
-         success/1,
-         grouped_error/1,
-         failed_error/1]).
+         recode/1]).
 
--include("diameter_ct.hrl").
 -include("diameter.hrl").
 
+-define(util, diameter_util).
 -define(L, atom_to_list).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
-    [base, gen, lib, unknown, {group, recode}].
+    [base, gen, lib, unknown, recode].
 
-groups() ->
-    [{recode, [], [success,
-                   grouped_error,
-                   failed_error]}].
+base(_Config) ->
+    run(base).
 
-init_per_suite(Config) ->
-    Config.
+gen(_Config) ->
+    run(gen).
 
-end_per_suite(_Config) ->
-    ok.
+lib(_Config) ->
+    run(lib).
 
-init_per_group(recode, Config) ->
-    ok = diameter:start(),
-    Config.
+unknown(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    unknown(Priv, Data).
 
-end_per_group(_, _) ->
-    ok =  diameter:stop().
+recode(_Config) ->
+    run(recode).
 
-init_per_testcase(gen, Config) ->
-    [{application, ?APP, App}] = diameter_util:consult(?APP, app),
+%% ===========================================================================
+
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1
+
+run(base) ->
+    diameter_codec_test:base();
+
+run(gen) ->
+    [{application, diameter, App}] = diameter_util:consult(diameter, app),
     {modules, Ms} = lists:keyfind(modules, 1, App),
     [_|_] = Gs = lists:filter(fun(M) ->
                                       lists:prefix("diameter_gen_", ?L(M))
                               end,
                               Ms),
-    [{dicts, Gs} | Config];
+    lists:foreach(fun diameter_codec_test:gen/1, Gs);
 
-init_per_testcase(_Name, Config) ->
-    Config.
+run(lib) ->
+    diameter_codec_test:lib();
 
-end_per_testcase(_, _) ->
-    ok.
+%% Have a separate AVP dictionary just to exercise more code.
+run(unknown) ->
+    PD = ?util:mktemp("diameter_codec"),
+    DD = filename:join([code:lib_dir(diameter),
+                        "test",
+                        "diameter_codec_SUITE_data"]),
+    try
+        unknown(PD, DD)
+    after
+        file:del_dir_r(PD)
+    end;
+
+run(success) ->
+    success();
+
+run(grouped_error) ->
+    grouped_error();
+
+run(failed_error) ->
+    failed_error();
+
+run(recode) ->
+    ok = diameter:start(),
+    try
+        ?util:run([{?MODULE, run, [F]} || F  <- [success,
+                                                 grouped_error,
+                                                 failed_error]])
+    after
+        ok = diameter:stop()
+    end;
+
+run(List) ->
+    ?util:run([{{?MODULE, run, [F]}, 10000} || F <- List]).
 
 %% ===========================================================================
 
-base(_Config) ->
-    diameter_codec_test:base().
-
-gen([{dicts, Ms} | _]) ->
-    lists:foreach(fun diameter_codec_test:gen/1, Ms).
-
-lib(_Config) ->
-    diameter_codec_test:lib().
-
-%% Have a separate AVP dictionary just to exercise more code.
-unknown(Config) ->
-    Priv = proplists:get_value(priv_dir, Config),
-    Data = proplists:get_value(data_dir, Config),
-    ok = make(Data, "recv.dia"),
-    ok = make(Data, "avps.dia"),
-    {ok, _, _} = compile("diameter_test_avps.erl"),
-    ok = make(Data, "send.dia"),
-    {ok, _, _} = compile("diameter_test_send.erl"),
-    {ok, _, _} = compile("diameter_test_recv.erl"),
-    {ok, _, _} = compile(filename:join([Data, "diameter_test_unknown.erl"]),
+unknown(Priv, Data) ->
+    ok = make(Data, "recv.dia", Priv),
+    ok = make(Data, "avps.dia", Priv),
+    {ok, _, _} = compile(Priv, "diameter_test_avps.erl"),
+    ok = make(Data, "send.dia", Priv),
+    {ok, _, _} = compile(Priv, "diameter_test_send.erl"),
+    {ok, _, _} = compile(Priv, "diameter_test_recv.erl"),
+    {ok, _, _} = compile(Priv,
+                         filename:join([Data, "diameter_test_unknown.erl"]),
                          [{i, Priv}]),
     diameter_test_unknown:run().
 
-make(Dir, File) ->
-    diameter_make:codec(filename:join([Dir, File])).
+make(Dir, File, Out) ->
+    diameter_make:codec(filename:join(Dir, File), [{outdir, Out}]).
 
-compile(File) ->
-    compile(File, []).
+compile(Dir, File) ->
+    compile(Dir, File, []).
 
-compile(File, Opts) ->
-    compile:file(File, [return | Opts]).
+compile(Dir, File, Opts) ->
+    compile:file(filename:join(Dir, File), [return | Opts]).
 
 %% ===========================================================================
 
 %% Ensure a Grouped AVP is represented by a list in the avps field.
-success(_) ->
+success() ->
     Avps = [{295, <<1:32>>},  %% Termination-Cause
             {284, [{280, "Proxy-Host"}, %% Proxy-Info
                    {33, "Proxy-State"}, %%
@@ -145,13 +170,13 @@ success(_) ->
                                             value = 2,
                                             data = <<2:32>>}]],
                      errors = []}
-        = str(recode(str(Avps))).
+        = str(repkg(str(Avps))).
 
 %% ===========================================================================
 
 %% Ensure a Grouped AVP is represented by a list in the avps field
 %% even in the case of a decode error on a component AVP.
-grouped_error(_) ->
+grouped_error() ->
     Avps = [{295, <<1:32>>},  %% Termination-Cause
             {284, [{295, <<0:32>>},      %% Proxy-Info, Termination-Cause
                    {280, "Proxy-Host"},
@@ -166,13 +191,13 @@ grouped_error(_) ->
                               #diameter_avp{code = 280},
                               #diameter_avp{code = 33}]],
                      errors = [{5004, #diameter_avp{code = 284}}]}
-        = str(recode(str(Avps))).
+        = str(repkg(str(Avps))).
 
 %% ===========================================================================
 
 %% Ensure that a failed decode in Failed-AVP is acceptable, and that
 %% the component AVPs are decoded if possible.
-failed_error(_) ->
+failed_error() ->
     Avps = [{279, [{295, <<0:32>>},    %% Failed-AVP, Termination-Cause
                    {258, <<1:32>>},             %% Auth-Application-Id
                    {284, [{280, "Proxy-Host"},  %% Proxy-Info
@@ -195,7 +220,7 @@ failed_error(_) ->
                                              value = 2,
                                              data = <<2:32>>}]]],
                      errors = []}
-        = sta(recode(sta(Avps))).
+        = sta(repkg(sta(Avps))).
 
 %% ===========================================================================
 
@@ -279,9 +304,9 @@ avp([{_,_} | _] = Avps) ->
 avp(V) ->
     V.
 
-%% recode/1
+%% repkg/1
 
-recode(Msg) ->
+repkg(Msg) ->
     recode(Msg, diameter_gen_base_rfc6733).
 
 recode(#diameter_packet{} = Pkt, Dict) ->

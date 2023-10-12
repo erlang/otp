@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 -module(logger_simple_h).
 
 -export([adding_handler/1, removing_handler/1, log/2]).
+
+-behaviour(logger_handler).
 
 %% This module implements a simple handler for logger. It is the
 %% default used during system start.
@@ -50,7 +52,6 @@ removing_handler(#{id:=simple}) ->
             ok;
         Pid ->
             Ref = erlang:monitor(process,Pid),
-            unlink(Pid),
             Pid ! stop,
             receive {'DOWN',Ref,process,Pid,_} ->
                     ok
@@ -62,16 +63,21 @@ log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}},_Config)
     %% Skip info reports that are not 'std_info' (ref simple logger in
     %% error_logger)
     ok;
-log(#{msg:=_,meta:=#{time:=_}}=Log,_Config) ->
+log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
     _ = case whereis(?MODULE) of
             undefined ->
                 %% Is the node on the way down? Real emergency?
                 %% Log directly from client just to get it out
-                do_log(
-                  #{level=>error,
-                    msg=>{report,{error,simple_handler_process_dead}},
-                    meta=>#{time=>erlang:system_time(microsecond)}}),
-                do_log(Log);
+                case maps:get(internal_log_event, M, false) of
+                    false ->
+                        do_log(simple,
+                          #{level=>error,
+                            msg=>{report,{error,simple_handler_process_dead}},
+                            meta=>#{time=>logger:timestamp()}});
+                    true ->
+                        ok
+                end,
+                do_log(simple,Log);
             _ ->
                 ?MODULE ! {log,Log}
         end,
@@ -86,12 +92,12 @@ log(_,_) ->
 init(Starter) ->
     register(?MODULE,self()),
     Starter ! {self(),started},
-    loop(#{buffer_size=>10,dropped=>0,buffer=>[]}).
+    loop(rich, #{buffer_size=>10,dropped=>0,buffer=>[]}).
 
-loop(Buffer) ->
+loop(Mode, Buffer) ->
     receive
         stop ->
-            %% We replay the logger messages of there is
+            %% We replay the logger messages if there is
             %% a default handler when the simple handler
             %% is removed.
             case logger:get_handler_config(default) of
@@ -99,13 +105,17 @@ loop(Buffer) ->
                     replay_buffer(Buffer);
                 _ ->
                     ok
-            end;
+            end,
+            %% Before stopping, we unlink the logger process to avoid
+            %% an unexpected EXIT message
+            unlink(whereis(logger)),
+            ok;
         {log,#{msg:=_,meta:=#{time:=_}}=Log} ->
-            do_log(Log),
-            loop(update_buffer(Buffer,Log));
+            NewMode = do_log(Mode, Log),
+            loop(NewMode, update_buffer(Buffer,Log));
         _ ->
             %% Unexpected message - flush it!
-            loop(Buffer)
+            loop(Mode, Buffer)
     end.
 
 update_buffer(#{buffer_size:=0,dropped:=D}=Buffer,_Log) ->
@@ -126,18 +136,54 @@ drop_msg(0) ->
 drop_msg(N) ->
     [#{level=>info,
        msg=>{"Simple handler buffer full, dropped ~w messages",[N]},
-       meta=>#{time=>erlang:system_time(microsecond)}}].
+       meta=>#{time=>logger:timestamp()}}].
 
 %%%-----------------------------------------------------------------
 %%% Internal
 
-%% Can't do io_lib:format
+%% If the init process is busy (for instance doing a shutdown)
+%% we can get blocked while trying to load code. So we spawn a process
+%% for each log message that can potentially block. If the logging cannot
+%% be done within 300ms, we instead log the raw log message to stdout
+%% and switch mode to always log using the raw format.
+do_log(simple, Log) ->
+    display_log(Log), simple;
+do_log(rich = Mode, Log) ->
 
-do_log(#{msg:={report,Report},
+    {Pid, Ref} =
+        spawn_monitor(
+          fun() ->
+                  Str = logger_formatter:format(
+                          Log,
+                          #{ legacy_header => true, single_line => false,
+                             depth => unlimited, time_offset => ""
+                           }),
+                  erlang:display_string(stdout, lists:flatten(unicode:characters_to_list(Str)))
+          end),
+    receive
+        {'DOWN', Ref, _, _, normal} ->
+            Mode;
+        {'DOWN', Ref, _, _, _Else} ->
+            display_log(Log),
+            Mode
+    after 300 ->
+            %% init:terminate/3 sleeps for 500 ms before exiting,
+            %% so we wait for 300 ms for the log to happen
+            exit(Pid, kill),
+            receive
+                {'DOWN', Ref, _, _, normal} ->
+                    Mode;
+                {'DOWN', Ref, _, _, _Else} ->
+                    display_log(Log),
+                    simple
+            end
+    end.
+
+display_log(#{msg:={report,Report},
          meta:=#{time:=T,error_logger:=#{type:=Type}}}) ->
     display_date(T),
     display_report(Type,Report);
-do_log(#{msg:=Msg,meta:=#{time:=T}}) ->
+display_log(#{msg:=Msg,meta:=#{time:=T}}) ->
     display_date(T),
     display(Msg).
 
@@ -147,6 +193,7 @@ display_date(Timestamp) when is_integer(Timestamp) ->
     {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime_to_localtime(
                             erlang:posixtime_to_universaltime(Sec)),
     erlang:display_string(
+      stdout,
       integer_to_list(Y) ++ "-" ++
 	  pad(Mo,2) ++ "-" ++
 	  pad(D,2)  ++ " " ++
@@ -164,7 +211,8 @@ pad(Str,Size) ->
 
 display({string,Chardata}) ->
     try unicode:characters_to_list(Chardata) of
-        String -> erlang:display_string(String), erlang:display_string("\n")
+        String -> erlang:display_string(stdout, String),
+                  erlang:display_string(stdout, "\n")
     catch _:_ -> erlang:display(Chardata)
     end;
 display({report,Report}) when is_map(Report) ->
@@ -172,9 +220,9 @@ display({report,Report}) when is_map(Report) ->
 display({report,Report}) ->
     display_report(Report);
 display({F, A}) when is_list(F), is_list(A) ->
-    erlang:display_string(F ++ "\n"),
+    erlang:display_string(stdout, F ++ "\n"),
     [begin
-	 erlang:display_string("\t"),
+	 erlang:display_string(stdout, "\t"),
 	 erlang:display(Arg)
      end || Arg <- A],
     ok.
@@ -185,24 +233,25 @@ display_report(Atom, A) when is_atom(Atom) ->
     AtomString = atom_to_list(Atom),
     AtomLength = length(AtomString),
     Padding = lists:duplicate(ColumnWidth - AtomLength, $\s),
-    erlang:display_string(AtomString ++ Padding),
+    erlang:display_string(stdout, AtomString ++ Padding),
     display_report(A);
 display_report(F, A) ->
     erlang:display({F, A}).
 
+display_report(#{ report := Report }) ->
+    display_report(Report);
 display_report([A, []]) ->
     %% Special case for crash reports when process has no links
     display_report(A);
 display_report(A = [_|_]) ->
     case lists:all(fun({Key,_Value}) -> is_atom(Key); (_) -> false end, A) of
 	true ->
-	    erlang:display_string("\n"),
+	    erlang:display_string(stdout, "\n"),
 	    lists:foreach(
 	      fun({Key, Value}) ->
 		      erlang:display_string(
-			"    " ++
-			    atom_to_list(Key) ++
-			    ": "),
+                        stdout,
+                        "    " ++ atom_to_list(Key) ++ ": "),
 		      erlang:display(Value)
 	      end, A);
 	false ->

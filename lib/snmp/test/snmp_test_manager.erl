@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ parse_opts(Opts) ->
     MgrDir  = get_opt(dir, get_opt(config,  MgrOpts, [])),
     
     
-    %% Retreive the agent configuration
+    %% Retrieve the agent configuration
     AgentConf   = get_opt(agent_config, Opts),
     AgentTarget = get_opt(agent_target, Opts),
     {MgrDir, MgrConf, MgrOpts, AgentTarget, AgentConf}.
@@ -193,22 +193,22 @@ handle_call(stop, _From, S) ->
 
 handle_call({sync_get, Oids}, _From, 
 	    #state{agent_target_name = TargetName} = S) ->
-    Reply = (catch snmpm:sync_get(?USER, TargetName, Oids)),
+    Reply = (catch snmpm:sync_get2(?USER, TargetName, Oids)),
     {reply, Reply, S};
 
 handle_call({sync_get_next, Oids}, _From, 
 	    #state{agent_target_name = TargetName} = S) ->
-    Reply = (catch snmpm:sync_get_next(?USER, TargetName, Oids)),
+    Reply = (catch snmpm:sync_get_next2(?USER, TargetName, Oids)),
     {reply, Reply, S};
 
 handle_call({sync_get_bulk, NR, MR, Oids}, _From, 
 	    #state{agent_target_name = TargetName} = S) ->
-    Reply = (catch snmpm:sync_get_bulk(?USER, TargetName, NR, MR, Oids)),
+    Reply = (catch snmpm:sync_get_bulk2(?USER, TargetName, NR, MR, Oids)),
     {reply, Reply, S};
 
 handle_call({sync_set, VarsAndVals}, _From, 
 	    #state{agent_target_name = TargetName} = S) ->
-    Reply = (catch snmpm:sync_set(?USER, TargetName, VarsAndVals)),
+    Reply = (catch snmpm:sync_set2(?USER, TargetName, VarsAndVals)),
     {reply, Reply, S};
 
 handle_call(Req, From, State) ->

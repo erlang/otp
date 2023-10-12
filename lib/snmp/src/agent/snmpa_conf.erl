@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +81,99 @@
  	 read_vacm_config/1
 	]).
 
+
+
+-export_type([
+              usm_entry/0,
+              transportDomain/0,
+              transportAddress/0,
+              transportAddressWithPort/0,
+              transportAddressWithoutPort/0,
+              transportAddressMask/0
+             ]).
+
+-type transportDomain() :: snmp:tdomain().
+
+-type transportAddress() ::
+    transportAddressIPv4() | transportAddressIPv6().
+
+-type transportAddressWithPort() ::
+        transportAddressIPv4WithPort() | transportAddressIPv6WithPort().
+
+-type transportAddressWithoutPort() ::
+        transportAddressIPv4WithoutPort() | transportAddressIPv6WithoutPort().
+
+-type transportAddressIPv4() ::
+        transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort().
+
+-type transportAddressIPv4WithPort() ::
+   {transportAddressIPv4WithoutPort(), inet:port_number()} |
+   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
+    PortA :: byte() |  PortB :: byte()].
+
+-type transportAddressIPv4WithoutPort() ::
+   inet:ip4_address() | [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte()].
+
+-type transportAddressIPv6() ::
+    transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort().
+
+-type transportAddressIPv6WithPort() ::
+   {transportAddressIPv6WithoutPort(), inet:port_number()} |
+   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
+    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
+    inet:port_number()] |
+   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
+    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
+    PortA :: byte() |  PortB :: byte()] |
+   {IPA :: byte(),IPB :: byte(),IPC :: byte(),IPD :: byte(),
+    IPE :: byte(),IPF :: byte(),IPG :: byte(),IPH :: byte(),
+    IPI :: byte(),IPJ :: byte(),IPK :: byte(),IPL :: byte(),
+    IPM :: byte(),IPN :: byte(),IPO :: byte(),IPP :: byte(),
+    PortA :: byte(), PortB :: byte()}.
+-type transportAddressIPv6WithoutPort() ::
+   inet:ip6_address() |
+   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
+    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word()] |
+   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
+    IPE :: byte() | IPF :: byte() | IPG :: byte() | IPH :: byte() |
+    IPI :: byte() | IPJ :: byte() | IPK :: byte() | IPL :: byte() |
+    IPM :: byte() | IPN :: byte() | IPO :: byte() | IPP :: byte()].
+
+-type transportAddressMask() ::
+    [] | transportAddressWithPort().
+
+-type word() :: 0..65535.
+
+-type usm_entry() :: {
+                      EngineID    :: string(),
+                      UserName    :: string(),
+                      SecName     :: string(),
+                      Clone       :: zeroDotZero | [non_neg_integer()],
+                      AuthP       :: usmNoAuthProtocol |
+                                     usmHMACMD5AuthProtocol |
+                                     usmHMACSHAAuthProtocol |
+                                     usmHMAC128SHA224AuthProtocol |
+                                     usmHMAC192SHA256AuthProtocol |
+                                     usmHMAC256SHA384AuthProtocol |
+                                     usmHMAC384SHA512AuthProtocol,
+                      AuthKeyC    :: string(),
+                      OwnAuthKeyC :: string(),
+                      PrivP       :: usmNoPrivProtocol |
+                                     usmDESPrivProtocol |
+                                     usmAesCfb128Protocol,
+                      PrivKeyC    :: string(),
+                      OwnPrivKeyC :: string(),
+                      Public      :: string(),
+                      %% Size 16 for usmHMACMD5AuthProtocol
+                      %% Size 20 for usmHMACSHAAuthProtocol
+                      %% Size 28 for usmHMAC128SHA224AuthProtocol
+                      %% Size 32 for usmHMAC192SHA256AuthProtocol
+                      %% Size 48 for usmHMAC256SHA384AuthProtocol
+                      %% Size 64 for usmHMAC384SHA512AuthProtocol
+                      AuthKey     :: [non_neg_integer()],
+                      %% Size 16 for usmDESPrivProtocol | usmAesCfb128Protocol
+                      PrivKey     :: [non_neg_integer()]
+                     }.
 
 
 %%

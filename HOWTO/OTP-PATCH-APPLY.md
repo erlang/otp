@@ -49,11 +49,6 @@ the updated applications.
 > *NOTE*: Before applying a patch you need to do a *full* build
 > of OTP in the source directory.
 
-If you are building in `git` you first need to generate the
-`configure` scripts:
-
-	$ ./otp_build autoconf
-
 Configure and build all applications in OTP:
 
 	$ configure
@@ -137,8 +132,8 @@ dependencies among applications actually loaded.
 Please take a look at the reference of [sanity_check()][] for more
 information.
 
-[application resource file]: kernel:app
-[runtime_dependencies]: kernel:app#runtime_dependencies
+[application resource file]: seefile/kernel:app
+[runtime_dependencies]: seefile/kernel:app#runtime_dependencies
 [building and installing Erlang/OTP]: INSTALL.md
-[version handling]: ../system_principles/versions
-[sanity_check()]: runtime_tools:system_information#sanity_check-0
+[version handling]: system/system_principles:versions
+[sanity_check()]: seemfa/runtime_tools:system_information#sanity_check/0

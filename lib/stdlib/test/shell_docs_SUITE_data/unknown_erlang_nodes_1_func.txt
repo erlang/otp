@@ -1,0 +1,36 @@
+
+  [;1m-spec nodes(Arg) -> Nodes[0m
+  [;1m               when[0m
+  [;1m                   Arg :: NodeType | [NodeType],[0m
+  [;1m                   NodeType ::[0m
+  [;1m                       visible | hidden | connected | this | known,[0m
+  [;1m                   Nodes :: [node()].[0m
+
+  Returns a list of nodes according to the argument specified. The
+  returned result, when the argument is a list, is the list of nodes
+  satisfying the disjunction(s) of the list elements.
+
+  [;;4mNodeType[0ms:
+
+  [;;4m[;;4mvisible[0m[0m:
+    Nodes connected to this node through normal connections.
+
+  [;;4m[;;4mhidden[0m[0m:
+    Nodes connected to this node through hidden connections.
+
+  [;;4m[;;4mconnected[0m[0m:
+    All nodes connected to this node.
+
+  [;;4m[;;4mthis[0m[0m:
+    This node.
+
+  [;;4m[;;4mknown[0m[0m:
+    Nodes that are known to this node. That is, connected nodes
+    and nodes referred to by process identifiers, port
+    identifiers, and references located on this node. The set of
+    known nodes is garbage collected. Notice that this garbage
+    collection can be delayed. For more information, see [;;4m[0m
+    [;;4merlang:system_info(delayed_node_table_gc)[0m.
+
+  Some equalities: [;;4m[node()] = nodes(this)[0m, [;;4mnodes(connected) =[0m
+  [;;4mnodes([visible, hidden])[0m, and [;;4mnodes() = nodes(visible)[0m.

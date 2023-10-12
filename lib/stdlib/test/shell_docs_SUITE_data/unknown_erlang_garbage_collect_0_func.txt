@@ -1,0 +1,10 @@
+
+  [;1m-spec garbage_collect() -> true.[0m
+
+  Forces an immediate garbage collection of the executing process.
+  The function is not to be used unless it has been noticed (or
+  there are good reasons to suspect) that the spontaneous garbage
+  collection will occur too late or not at all.
+
+  Warning:
+    Improper use can seriously degrade system performance.

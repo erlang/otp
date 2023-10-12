@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1273,7 +1273,7 @@ int interactive_main(int argc, wchar_t **argv){
   _setmode(_fileno(stderr), _O_U8TEXT); /* set stderr to UTF8 */
 
   if (take_lock() != 0) {
-    fwprintf(stderr,L"%s: unable to acquire global lock (%s).\n",argv[0],
+    fwprintf(stderr,L"%s: unable to acquire global lock (%S).\n",argv[0],
 	    ERLSRV_INTERACTIVE_GLOBAL_SEMAPHORE);
     return 1;
   }

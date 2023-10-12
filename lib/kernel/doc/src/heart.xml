@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1998-01-28</date>
     <rev>A</rev>
   </header>
-  <module>heart</module>
+  <module since="">heart</module>
   <modulesummary>Heartbeat monitoring of an Erlang runtime system.</modulesummary>
   <description>
     <p>This modules contains the interface to the <c>heart</c> process.
@@ -40,7 +40,7 @@
       (defaults to 60 seconds), the system can be rebooted.</p>
     <p>An Erlang runtime system to be monitored by a heart program
       is to be started with command-line flag <c>-heart</c> (see
-      also <seealso marker="erts:erl"><c>erl(1)</c></seealso>).
+      also <seecom marker="erts:erl"><c>erl(1)</c></seecom>).
       The <c>heart</c> process is then started automatically:</p>
     <pre>
 % <input>erl -heart ...</input></pre>
@@ -98,7 +98,7 @@
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
       <item><p>Setting the environment variable to a negative value does not
-        reboot the runtime system until the crash dump file is completly
+        reboot the runtime system until the crash dump file is completely
         written.</p>
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
@@ -119,7 +119,7 @@
 
   <funcs>
     <func>
-      <name name="set_cmd" arity="1"/>
+      <name name="set_cmd" arity="1" since=""/>
       <fsummary>Set a temporary reboot command.</fsummary>
       <desc>
         <p>Sets a temporary reboot command. This command is used if
@@ -130,13 +130,13 @@
         <p>Limitations: Command string <c><anno>Cmd</anno></c> is sent to the
           <c>heart</c> program as an ISO Latin-1 or UTF-8 encoded binary,
           depending on the filename encoding mode of the emulator (see
-          <seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>).
+          <seemfa marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>).
           The size of the encoded binary must be less than 2047 bytes.</p>
       </desc>
     </func>
 
     <func>
-      <name name="clear_cmd" arity="0"/>
+      <name name="clear_cmd" arity="0" since=""/>
       <fsummary>Clear the temporary boot command.</fsummary>
       <desc>
         <p>Clears the temporary boot command. If the system terminates,
@@ -145,7 +145,7 @@
     </func>
 
     <func>
-      <name name="get_cmd" arity="0"/>
+      <name name="get_cmd" arity="0" since=""/>
       <fsummary>Get the temporary reboot command.</fsummary>
       <desc>
         <p>Gets the temporary reboot command. If the command is cleared,
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name name="set_callback" arity="2"/>
+      <name name="set_callback" arity="2" since="OTP 18.3"/>
       <fsummary>Set a validation callback</fsummary>
       <desc>
           <p> This validation callback will be executed before any
@@ -166,14 +166,14 @@
       </desc>
     </func>
     <func>
-      <name name="clear_callback" arity="0"/>
+      <name name="clear_callback" arity="0" since="OTP 18.3"/>
       <fsummary>Clear the validation callback</fsummary>
       <desc>
           <p>Removes the validation callback call before heartbeats.</p>
       </desc>
     </func>
     <func>
-      <name name="get_callback" arity="0"/>
+      <name name="get_callback" arity="0" since="OTP 18.3"/>
       <fsummary>Get the validation callback</fsummary>
       <desc>
           <p>Get the validation callback. If the callback is cleared, <c>none</c> will be returned.</p>
@@ -181,7 +181,7 @@
     </func>
 
     <func>
-        <name name="set_options" arity="1"/>
+        <name name="set_options" arity="1" since="OTP 18.3"/>
         <fsummary>Set a list of options</fsummary>
         <desc>
             <p> Valid options <c>set_options</c> are: </p>
@@ -199,7 +199,7 @@
         </desc>
     </func>
     <func>
-      <name name="get_options" arity="0"/>
+      <name name="get_options" arity="0" since="OTP 18.3"/>
       <fsummary>Get the temporary reboot command</fsummary>
       <desc>
           <p>Returns <c>{ok, Options}</c> where <c>Options</c> is a list of current options enabled for heart.

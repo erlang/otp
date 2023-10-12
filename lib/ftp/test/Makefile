@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,7 +98,6 @@ FTP_FLAGS += -pa ../ftp/ebin
 FTP_ROOT = ../ftp
 
 MODULES =                 		\
-	erl_make_certs                  \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE                \
 	ftp_test_lib
@@ -115,7 +114,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-FTP_SPECS = ftp.spec ftp_bench.spec
+FTP_SPECS = ftp.spec
 COVER_FILE = ftp.cover
 FTP_FILES = ftp.config $(FTP_SPECS)
 
@@ -153,6 +152,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
 	$(FTP_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets
@@ -162,7 +162,7 @@ ERL_COMPILE_FLAGS += \
 # 1) FTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

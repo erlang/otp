@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ multiple_mix()->
 fixed_char_min() ->
     1.
 fixed_char_max() ->
-    2000. %% Should be 255 acording to manual but empirical tests say 2000
+    2000. %% Should be 255 according to manual but empirical tests say 2000
 
 create_fixed_char_table(Size) ->
     " (FIELD char(" ++ integer_to_list(Size) ++ "))".

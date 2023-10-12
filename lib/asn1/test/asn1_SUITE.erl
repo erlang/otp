@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,10 +45,113 @@ all() ->
     [xref,
      xref_export_all,
 
-     {group, compile},
-     {group, parallel},
+     c_string,
+     constraint_equivalence,
 
-     % TODO: Investigate parallel running of these:
+     ber_decode_invalid_length,
+     ber_choiceinseq,
+     ber_optional,
+     tagdefault_automatic,
+
+     cover,
+
+     parse,
+     test_undecoded_rest,
+     specialized_decodes,
+     special_decode_performance,
+
+     testMegaco,
+     testConstraints,
+     testCompactBitString,
+     default,
+     testPrim,
+     rtUI,
+     testPrimStrings,
+
+     per,
+     ber,
+     der,
+
+     h323test,
+     testExtensibilityImplied,
+     testChoice,
+     testDefaultOctetString,
+     testMultipleLevels,
+     testOpt,
+     testSeqDefault,
+     testMaps,
+
+     testTypeValueNotation,
+
+     testExternal,
+
+     testSeqExtension,
+     testSeqOptional,
+     testSeqPrim,
+     testSeqTypeRefCho,
+     testSeqTypeRefPrim,
+     testSeqTypeRefSeq,
+     testSeqTypeRefSet,
+
+     testSeqOf,
+     testSeqOfIndefinite,
+     testSeqOfCho,
+     testSeqOfChoExt,
+
+     testExtensionAdditionGroup,
+
+     testSet,
+     testSetOf,
+
+     testEnumExt,
+     value_test,
+     testSeq2738,
+     constructed,
+     ber_decode_error,
+     otp_14440,
+     testSeqSetIndefinite,
+     testChoiceIndefinite,
+     per_open_type,
+     testInfObjectClass,
+     testUniqueObjectSets,
+     testInfObjExtract,
+     testParam,
+     testFragmented,
+     testMergeCompile,
+     testobj,
+     testDeepTConstr,
+     testImport,
+     testDER,
+     testDEFAULT,
+     testExtensionDefault,
+     testMvrasn6,
+     testContextSwitchingTypes,
+     testOpenTypeImplicitTag,
+     testROSE,
+     testINSTANCE_OF,
+     testTCAP,
+     test_ParamTypeInfObj,
+     test_Defed_ObjectIdentifier,
+     testSelectionType,
+     testSSLspecs,
+     testNortel,
+     test_WS_ParamClass,
+     test_modified_x420,
+     testContaining,
+
+     %% Some heavy tests.
+     testTcapsystem,
+     testNBAPsystem,
+     testS1AP,
+     testRfcs,
+
+     test_compile_options,
+     testDoubleEllipses,
+     test_x691,
+     ticket_6143,
+     test_OTP_9688,
+     testValueTest,
+
      testComment,
      testName2Number,
      ticket_7407,
@@ -57,126 +160,7 @@ all() ->
      {group, performance}].
 
 groups() ->
-    Parallel = asn1_test_lib:parallel(),
-    [{compile, Parallel,
-      [c_string,
-       constraint_equivalence]},
-
-     {ber, Parallel,
-      [ber_choiceinseq,
-       % Uses 'SOpttest'
-       ber_optional,
-       tagdefault_automatic]},
-
-     {parallel, Parallel,
-      [cover,
-       {group, ber},
-       % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
-       {group, [], [parse,
-                    test_undecoded_rest,
-                    specialized_decodes,
-                    special_decode_performance,
-                    testMegaco,
-                    testConstraints,
-                    testCompactBitString]},
-       default,
-       % Uses 'Def', 'MULTIMEDIA-SYSTEM-CONTROL', 'H323-MESSAGES', 'Prim',
-       %   'Real'
-       {group, [], [testPrim,
-                    rtUI,
-                    testPrimStrings,
-                    per,
-                    ber_other,
-		    der,
-                    h323test]},
-       testExtensibilityImplied,
-       testChoPrim,
-       testChoExtension,
-       testChoOptional,
-       testChoRecursive,
-       testChoTypeRefCho,
-       testChoTypeRefPrim,
-       testChoTypeRefSeq,
-       testChoTypeRefSet,
-       testMultipleLevels,
-       testOpt,
-       testSeqDefault,
-       testMaps,
-       % Uses 'External'
-       {group, [], [testExternal,
-                    testSeqExtension]},
-       testSeqOptional,
-       testSeqPrim,
-       testSeqTypeRefCho,
-       % Uses 'SeqTypeRefPrim'
-       {group, [], [testSeqTypeRefPrim,
-                    testTypeValueNotation]},
-       testSeqTypeRefSeq,
-       testSeqTypeRefSet,
-       % Uses 'SeqOf'
-       {group, [], [testSeqOf,
-                    testSeqOfIndefinite]}, % Uses 'Mvrasn*'
-       testSeqOfCho,
-       testSetDefault,
-       testExtensionAdditionGroup,
-       testSetOptional,
-       testSetPrim,
-       testSetTypeRefCho,
-       testSetTypeRefPrim,
-       testSetTypeRefSeq,
-       testSetTypeRefSet,
-       testSetOf,
-       testSetOfCho,
-       testEnumExt,
-       value_test,
-       testSeq2738,
-       % Uses 'Constructed'
-       {group, [], [constructed,
-                    ber_decode_error,
-                    otp_14440]},
-       testSeqSetIndefinite,
-       testChoiceIndefinite,
-       per_open_type,
-       testInfObjectClass,
-       testUniqueObjectSets,
-       testInfObjExtract,
-       testParam,
-       testFragmented,
-       testMergeCompile,
-       testobj,
-       testDeepTConstr,
-       testImport,
-       testDER,
-       testDEFAULT,
-       testExtensionDefault,
-       testMvrasn6,
-       testContextSwitchingTypes,
-       testOpenTypeImplicitTag,
-       testROSE,
-       testINSTANCE_OF,
-       testTCAP,
-       test_ParamTypeInfObj,
-       test_Defed_ObjectIdentifier,
-       testSelectionType,
-       testSSLspecs,
-       testNortel,
-       % Uses 'PKCS7', 'InformationFramework'
-       {group, [], [test_WS_ParamClass,
-		    test_modified_x420]},
-       %% Don't run all these at the same time.
-       {group, [],
-	[testTcapsystem,
-	 testNBAPsystem,
-	 testS1AP,
-	 testRfcs]},
-       test_compile_options,
-       testDoubleEllipses,
-       test_x691,
-       ticket_6143,
-       test_OTP_9688,
-       testValueTest]},
-
-     {performance, [],
+    [{performance, [],
       [testTimer_ber,
        testTimer_ber_maps,
        testTimer_per,
@@ -208,17 +192,48 @@ init_per_testcase(Func, Config) ->
 
 end_per_testcase(_Func, Config) ->
     CaseDir = proplists:get_value(case_dir, Config),
+    unload_modules(CaseDir),
     asn1_test_lib:rm_dirs([CaseDir]),
     code:del_path(CaseDir).
+
+unload_modules(CaseDir) ->
+    F = fun(Name0, Acc) ->
+                Name1 = filename:rootname(filename:basename(Name0)),
+                Name = list_to_existing_atom(Name1),
+                [Name|Acc]
+        end,
+    Beams1 = lists:usort(filelib:fold_files(CaseDir, "[.]beam\$", true, F, [])),
+    Beams = [M || M <- Beams1, code:is_loaded(M) =/= false],
+    _ = [begin
+             code:purge(M),
+             code:delete(M),
+             code:purge(M),
+             io:format("Unloaded ~p", [M])
+         end || M <- Beams],
+    ok.
 
 %%------------------------------------------------------------------------------
 %% Test runners
 %%------------------------------------------------------------------------------
 
+have_jsonlib() ->
+    case code:which(jsx) of
+        non_existing -> false;
+    _ -> true
+    end.
+
 test(Config, TestF) ->
+    TestJer = case have_jsonlib() of
+                  true -> [jer];
+                  false -> []
+              end,
     test(Config, TestF, [per,
                          uper,
-                         ber]).
+                         ber] ++ TestJer),
+    case TestJer of
+        [] -> {comment,"skipped JER"};
+        _ -> ok
+    end.
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -311,34 +326,30 @@ do_test_prim(Rule, NoOkWrapper) ->
     testPrim:obj_id(Rule),
     testPrim:rel_oid(Rule),
     testPrim:null(Rule),
-    testPrim:real(Rule).
+    Rule =/= jer andalso testPrim:real(Rule). %% Temporary workaround for JER
 
 testCompactBitString(Config) -> test(Config, fun testCompactBitString/3).
 testCompactBitString(Config, Rule, Opts) ->
-    asn1_test_lib:compile("PrimStrings", Config,
-                          [Rule, compact_bit_string|Opts]),
+    Files = ["PrimStrings", "Constraints"],
+    asn1_test_lib:compile_all(Files, Config, [Rule, compact_bit_string|Opts]),
     testCompactBitString:compact_bit_string(Rule),
     testCompactBitString:bit_string_unnamed(Rule),
     testCompactBitString:bit_string_unnamed(Rule),
     testCompactBitString:ticket_7734(Rule),
-    asn1_test_lib:compile("Constraints", Config,
-			  [Rule, compact_bit_string|Opts]),
     testCompactBitString:otp_4869(Rule).
 
 testPrimStrings(Config) ->
     test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
 testPrimStrings(Config, Rule, Opts) ->
     LegacyOpts = [legacy_erlang_types|Opts],
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-			      [Rule|LegacyOpts]),
+    Files = ["PrimStrings", "BitStr"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|LegacyOpts]),
     testPrimStrings_cases(Rule, LegacyOpts),
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testPrimStrings_cases(Rule, Opts),
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-			      [legacy_bit_string,Rule|Opts]),
+    asn1_test_lib:compile_all(Files, Config, [legacy_bit_string,Rule|Opts]),
     testPrimStrings:bit_string(Rule, Opts),
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-			      [compact_bit_string,Rule|Opts]),
+    asn1_test_lib:compile_all(Files, Config, [compact_bit_string,Rule|Opts]),
     testPrimStrings:bit_string(Rule, Opts),
     testPrimStrings:more_strings(Rule).
 
@@ -385,49 +396,34 @@ testExtensibilityImplied(Config) ->
 testExtensibilityImplied(Config, Rule, Opts) ->
     asn1_test_lib:compile("ExtensibilityImplied", Config,
 			  [Rule,no_ok_wrapper|Opts]),
-    testExtensibilityImplied:main().
+    testExtensibilityImplied:main(Rule).
 
-testChoPrim(Config) -> test(Config, fun testChoPrim/3).
-testChoPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoPrim", Config, [Rule|Opts]),
+testChoice(Config) -> test(Config, fun testChoice/3).
+testChoice(Config, Rule, Opts) ->
+    Files = ["ChoPrim",
+             "ChoExtension",
+             "ChoOptional",
+             "ChoOptionalImplicitTag",
+             "ChoRecursive",
+             "ChoTypeRefCho",
+             "ChoTypeRefPrim",
+             "ChoTypeRefSeq",
+             "ChoTypeRefSet"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testChoPrim:bool(Rule),
-    testChoPrim:int(Rule).
-
-testChoExtension(Config) -> test(Config, fun testChoExtension/3).
-testChoExtension(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoExtension", Config, [Rule|Opts]),
-    testChoExtension:extension(Rule).
-
-testChoOptional(Config) -> test(Config, fun testChoOptional/3).
-testChoOptional(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["ChoOptional",
-			       "ChoOptionalImplicitTag"], Config, [Rule|Opts]),
-    testChoOptional:run().
-
-testChoRecursive(Config) -> test(Config, fun testChoRecursive/3).
-testChoRecursive(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoRecursive", Config, [Rule|Opts]),
-    testChoRecursive:recursive(Rule).
-
-testChoTypeRefCho(Config) -> test(Config, fun testChoTypeRefCho/3).
-testChoTypeRefCho(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoTypeRefCho", Config, [Rule|Opts]),
-    testChoTypeRefCho:choice(Rule).
-
-testChoTypeRefPrim(Config) -> test(Config, fun testChoTypeRefPrim/3).
-testChoTypeRefPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoTypeRefPrim", Config, [Rule|Opts]),
-    testChoTypeRefPrim:prim(Rule).
-
-testChoTypeRefSeq(Config) -> test(Config, fun testChoTypeRefSeq/3).
-testChoTypeRefSeq(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoTypeRefSeq", Config, [Rule|Opts]),
-    testChoTypeRefSeq:seq(Rule).
-
-testChoTypeRefSet(Config) -> test(Config, fun testChoTypeRefSet/3).
-testChoTypeRefSet(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
+    testChoPrim:int(Rule),
+    testChoExtension:extension(Rule),
+    testChoOptional:run(),
+    testChoRecursive:recursive(Rule),
+    testChoTypeRefCho:choice(Rule),
+    testChoTypeRefPrim:prim(Rule),
+    testChoTypeRefSeq:seq(Rule),
     testChoTypeRefSet:set(Rule).
+
+testDefaultOctetString(Config) -> test(Config, fun testDefaultOctetString/3).
+testDefaultOctetString(Config, Rule, Opts) ->
+    asn1_test_lib:compile("DefaultOctetString", Config, [Rule|Opts]),
+    testDefaultOctetString:dos(Rule).
 
 testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
 testMultipleLevels(Config, Rule, Opts) ->
@@ -452,11 +448,21 @@ testExtensionDefault(Config, Rule, Opts) ->
     testExtensionDefault:main(Rule).
 
 testMaps(Config) ->
-    test(Config, fun testMaps/3,
+    Jer = case have_jsonlib() of
+        true -> [{jer,[maps,no_ok_wrapper]}];
+        false -> []
+    end,
+    RulesAndOptions = 
          [{ber,[maps,no_ok_wrapper]},
           {ber,[maps,der,no_ok_wrapper]},
           {per,[maps,no_ok_wrapper]},
-          {uper,[maps,no_ok_wrapper]}]).
+          {uper,[maps,no_ok_wrapper]}] ++ Jer,
+    test(Config, fun testMaps/3, RulesAndOptions),
+    case Jer of
+        [] -> {comment,"skipped JER"};
+        _ -> ok
+    end.
+
 testMaps(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
     testMaps:main(Rule).
@@ -534,6 +540,11 @@ testSeqOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqOfCho", Config, [Rule|Opts]),
     testSeqOfCho:main(Rule).
 
+testSeqOfChoExt(Config) -> test(Config, fun testSeqOfChoExt/3).
+testSeqOfChoExt(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SeqOfChoExt", Config, [Rule|Opts]),
+    testSeqOfChoExt:main(Rule).
+
 testSeqOfIndefinite(Config) ->
     test(Config, fun testSeqOfIndefinite/3, [ber]).
 testSeqOfIndefinite(Config, Rule, Opts) ->
@@ -543,50 +554,33 @@ testSeqOfIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testSeqOfIndefinite:main().
 
-testSetDefault(Config) -> test(Config, fun testSetDefault/3).
-testSetDefault(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetDefault", Config, [Rule|Opts]),
-    testSetDefault:main(Rule).
+testSet(Config) -> test(Config, fun testSet/3).
+testSet(Config, Rule, Opts) ->
+    Files = ["SetDefault",
+             "SetOptional",
+             "SetPrim",
+             "SetTypeRefCho",
+             "SetTypeRefPrim",
+             "SetTypeRefSeq",
+             "SetTypeRefSet"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
 
-testSetOptional(Config) -> test(Config, fun testSetOptional/3).
-testSetOptional(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetOptional", Config, [Rule|Opts]),
+    testSetDefault:main(Rule),
     testSetOptional:ticket_7533(Rule),
-    testSetOptional:main(Rule).
+    testSetOptional:main(Rule),
 
-testSetPrim(Config) -> test(Config, fun testSetPrim/3).
-testSetPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetPrim", Config, [Rule|Opts]),
-    testSetPrim:main(Rule).
-
-testSetTypeRefCho(Config) -> test(Config, fun testSetTypeRefCho/3).
-testSetTypeRefCho(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetTypeRefCho", Config, [Rule|Opts]),
-    testSetTypeRefCho:main(Rule).
-
-testSetTypeRefPrim(Config) -> test(Config, fun testSetTypeRefPrim/3).
-testSetTypeRefPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetTypeRefPrim", Config, [Rule|Opts]),
-    testSetTypeRefPrim:main(Rule).
-
-testSetTypeRefSeq(Config) -> test(Config, fun testSetTypeRefSeq/3).
-testSetTypeRefSeq(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetTypeRefSeq", Config, [Rule|Opts]),
-    testSetTypeRefSeq:main(Rule).
-
-testSetTypeRefSet(Config) -> test(Config, fun testSetTypeRefSet/3).
-testSetTypeRefSet(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetTypeRefSet", Config, [Rule|Opts]),
+    testSetPrim:main(Rule),
+    testSetTypeRefCho:main(Rule),
+    testSetTypeRefPrim:main(Rule),
+    testSetTypeRefSeq:main(Rule),
     testSetTypeRefSet:main(Rule).
 
 testSetOf(Config) -> test(Config, fun testSetOf/3).
 testSetOf(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetOf", Config, [Rule|Opts]),
-    testSetOf:main(Rule).
-
-testSetOfCho(Config) -> test(Config, fun testSetOfCho/3).
-testSetOfCho(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SetOfCho", Config, [Rule|Opts]),
+    Files = ["SetOf",
+             "SetOfCho"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    testSetOf:main(Rule),
     testSetOfCho:main(Rule).
 
 c_string(Config) ->
@@ -627,28 +621,33 @@ constraint_equivalence_abs(Config) ->
 	[_|_] ->
 	    io:put_chars("Not equivalent:\n"),
 	    [io:format("~s: ~p\n", [N,D]) || {N,D} <- Diff],
-	    test_server:fail(length(Diff))
+	    ct:fail(length(Diff))
     end.
 
 parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per,uper,{per,[maps]},{uper,[maps]}]).
+    test(Config, fun per/3,
+         [per,uper,{per,[maps]},{uper,[maps]},{per,[jer]}]).
 per(Config, Rule, Opts) ->
-    [module_test(M, Config, Rule, Opts) || M <- per_modules()].
+    module_test(per_modules(), Config, Rule, Opts).
 
-ber_other(Config) ->
-    test(Config, fun ber_other/3, [ber,{ber,[maps]}]).
+ber(Config) ->
+    test(Config, fun ber/3, [ber,{ber,[maps]}]).
 
-ber_other(Config, Rule, Opts) ->
-    [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
+ber(Config, Rule, Opts) ->
+    module_test(ber_modules(), Config, Rule, Opts).
 
 der(Config) ->
     asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
-module_test(M0, Config, Rule, Opts) ->
-    asn1_test_lib:compile(M0, Config, [Rule,?NO_MAPS_MODULE|Opts]),
+module_test(Modules, Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(Modules, Config, [Rule,?NO_MAPS_MODULE|Opts]),
+    _ = [do_module_test(M, Config, Opts) || M <- Modules],
+    ok.
+
+do_module_test(M0, Config, Opts) ->
     case list_to_atom(M0) of
 	'LDAP' ->
 	    %% Because of the recursive definition of 'Filter' in
@@ -665,6 +664,19 @@ module_test(M0, Config, Rule, Opts) ->
 	    end
     end.
 
+ber_decode_invalid_length(_Config) ->
+    Bin = <<48,129,157,48,0,2,1,2,164,0,48,129,154,49,24,48,22,6,
+            3,85,4,10,19,15,69,120,97,109,112,108,101,32,67,111,
+            109,112,97,110,121,49,29,48,27,6,9,42,134,72,134,247,
+            13,1,9,1,22,14,99,97,64,101,120,97,109,112,108,101,46,
+            99,111,109,49,13,48,11,6,3,85,4,7,19,4,79,117,108,117,
+            49,26,48,24,6,3,85,4,8,19,17,80,111,104,106,111,105,
+            115,45,80,111,104,106,97,110,109,97,97,49,11,48,9,6,3,
+            85,4,6,19,2,70,73,49,19,48,17,6,3,85,4,3,19,10,69,120,
+            97,109,112,108,101,32,67,65,49,11,48,16,6,3,85,4,11,
+            19,9,84,101>>,
+    {'EXIT',{error,{asn1,{invalid_value,12}}}} = (catch asn1rt_nif:decode_ber_tlv(Bin)),
+    ok.
 
 ber_choiceinseq(Config) ->
     test(Config, fun ber_choiceinseq/3, [ber]).
@@ -738,19 +750,18 @@ ber_decode_error(Config, Rule, Opts) ->
     ber_decode_error:run(Opts).
 
 otp_14440(_Config) ->
-    Args = " -pa \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
-    {ok,N} = slave:start(hostname(), otp_14440, Args),
+    {ok, Peer, N} = ?CT_PEER(),
     Result = rpc:call(N, ?MODULE, otp_14440_decode, []),
     io:format("Decode result = ~p~n", [Result]),
+    peer:stop(Peer),
     case Result of
         {exit,{error,{asn1,{invalid_value,5}}}} ->
-            ok = slave:stop(N);
+            ok;
         %% We get this if stack depth limit kicks in:
         {exit,{error,{asn1,{unknown,_}}}} ->
-            ok = slave:stop(N);
+            ok;
         _ ->
-            _ = slave:stop(N),
-            ?t:fail(Result)
+            ct:fail(Result)
     end.
 %%
 otp_14440_decode() ->
@@ -781,11 +792,12 @@ per_open_type(Config, Rule, Opts) ->
 
 testConstraints(Config) -> test(Config, fun testConstraints/3).
 testConstraints(Config, Rule, Opts) ->
-    asn1_test_lib:compile("Constraints", Config, [Rule|Opts]),
-    asn1_test_lib:compile("LargeConstraints", Config, [Rule|Opts]),
+    Files = ["Constraints", "LargeConstraints"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testConstraints:int_constraints(Rule),
     case Rule of
 	ber -> ok;
+        jer -> ok; % subtype constraint is not checked
 	_ -> testConstraints:refed_NNL_name(Rule)
     end.
 
@@ -823,7 +835,7 @@ testUniqueObjectSets(Config, Rule, Opts) ->
 testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
 testInfObjExtract(Config, Rule, Opts) ->
     asn1_test_lib:compile("InfObjExtract", Config, [Rule|Opts]),
-    testInfObjExtract:main().
+    testInfObjExtract:main(Rule).
 
 testParam(Config) ->
     test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
@@ -851,6 +863,7 @@ testMergeCompile(Config, Rule, Opts) ->
     testMergeCompile:mvrasn(Rule).
 
 testobj(Config) -> test(Config, fun testobj/3).
+testobj(_Config, jer, _Opts) -> ok;
 testobj(Config, Rule, Opts) ->
     asn1_test_lib:compile("RANAP", Config, [legacy_erlang_types,
 					    Rule|Opts]),
@@ -871,7 +884,7 @@ testImport(Config, Rule, Opts) ->
 	     "Importing","Exporting"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     42 = 'ImportsFrom':i(),
-    testImporting:main(),
+    testImporting:main(Rule),
     ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
@@ -891,7 +904,7 @@ testContextSwitchingTypes(Config) ->
     test(Config, fun testContextSwitchingTypes/3).
 testContextSwitchingTypes(Config, Rule, Opts) ->
     asn1_test_lib:compile("ContextSwitchingTypes", Config, [Rule|Opts]),
-    testContextSwitchingTypes:test(Config).
+    testContextSwitchingTypes:test(Rule,Config).
 
 testTypeValueNotation(Config) -> test(Config, fun testTypeValueNotation/3).
 testTypeValueNotation(Config, Rule, Opts) ->
@@ -953,7 +966,8 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecSeq3.asn",
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
-                               "P-Record"],
+                               "P-Record",
+                               "PartialDecChoExtension.asn"],
                               Config,
 			      [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
@@ -999,6 +1013,8 @@ testNortel(Config, Rule, Opts) ->
     asn1_test_lib:compile("Nortel", Config, [Rule|Opts]).
 
 test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
+test_undecoded_rest(_Config,jer,_Opts) ->
+    ok; % not relevant for JER
 test_undecoded_rest(Config, Rule, Opts) ->
     do_test_undecoded_rest(Config, Rule, Opts),
     do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
@@ -1039,7 +1055,9 @@ testS1AP(Config, Rule, Opts) ->
 	uper ->
 	    ok;
 	ber ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end.
 
 testRfcs() ->
@@ -1063,7 +1081,8 @@ test_compile_options(Config) ->
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
     ok = test_compile_options:verbose(Config),
-    ok = test_compile_options:maps(Config).
+    ok = test_compile_options:maps(Config),
+    ok = test_compile_options:determinism(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
@@ -1122,8 +1141,19 @@ testExtensionAdditionGroup(Config, Rule, Opts) ->
 			  [Rule,{record_name_prefix,"RRC-"}|Opts]),
     extensionAdditionGroup:run(Rule).
 
-% parse_modules() ->
-%   ["ImportsFrom"].
+testContaining(Config) ->
+    test(Config, fun testContaining/3).
+testContaining(Config, Rule, Opts) ->
+    asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
+    testContaining:containing(Rule),
+    case {Rule,have_jsonlib()} of
+        {per,true} ->
+            io:format("Testing with both per and jer...\n"),
+            asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
+            testContaining:containing(per_jer);
+        _ ->
+            ok
+    end.
 
 per_modules() ->
     [X || X <- test_modules()].
@@ -1364,8 +1394,7 @@ xref(_Config) ->
 	{ok,[]} ->
 	    ok;
 	{ok,[_|_]=Res} ->
-	    io:format("Exported, but unused: ~p\n", [Res]),
-	    ?t:fail()
+	    ct:fail("Exported, but unused: ~p\n", [Res])
     end.
 
 %% Ensure that all functions that are implicitly exported by
@@ -1386,8 +1415,7 @@ xref_export_all(_Config) ->
             ok;
         [_|_] ->
             Msg = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
-            io:format("There are unused functions:\n\n~s\n", [Msg]),
-            ?t:fail(unused_functions)
+            ct:fail("There are unused functions:\n\n~s\n", [Msg])
     end.
 
 %% Collect all functions that common_test will call in this module.
@@ -1416,11 +1444,3 @@ all_called_1([F|T]) when is_atom(F) ->
     L ++ all_called_1(T);
 all_called_1([]) ->
     [].
-
-hostname() ->
-    hostname(atom_to_list(node())).
-
-hostname([$@ | Hostname]) ->
-    list_to_atom(Hostname);
-hostname([_C | Cs]) ->
-    hostname(Cs).

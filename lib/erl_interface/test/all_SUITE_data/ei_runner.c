@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@
  * %CopyrightEnd%
  */
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ctype.h>
 #ifndef __WIN32__
 #include <unistd.h>
 #endif
@@ -272,7 +274,7 @@ void do_fail(const char* file, int line, const char* reason, ...)
 /*
  * This function sends a message to the Erlang side.
  * The message will be written to the test servers log file,
- * but will otherwise be completly ignored.
+ * but will otherwise be completely ignored.
  */
 
 void message(char* format, ...)

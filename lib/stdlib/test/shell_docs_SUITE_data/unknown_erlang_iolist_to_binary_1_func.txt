@@ -1,0 +1,15 @@
+
+  [;1m-spec iolist_to_binary(IoListOrBinary) -> binary()[0m
+  [;1m                          when IoListOrBinary :: iolist() | binary().[0m
+
+  Returns a binary that is made from the integers and binaries in [;;4m[0m
+  [;;4mIoListOrBinary[0m, for example:
+
+    > Bin1 = <<1,2,3>>.
+    <<1,2,3>>
+    > Bin2 = <<4,5>>.
+    <<4,5>>
+    > Bin3 = <<6>>.
+    <<6>>
+    > iolist_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).
+    <<1,2,3,1,2,3,4,5,4,6>>

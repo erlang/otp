@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -export([all/0, suite/0,
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
-	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
+	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -32,15 +33,15 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,10}}].
 
-all() -> 
+all() ->
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
-     longest_common_trap].
+     longest_common_trap, check_no_invalid_read_bug,
+     error_info, hex_encoding].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
-
 
 %% Test various badarg exceptions in the module.
 badargs(Config) when is_list(Config) ->
@@ -77,6 +78,15 @@ badargs(Config) when is_list(Config) ->
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FFFFFFFFFFFFFFFF,
 				 16#7FFFFFFFFFFFFFFF}}])),
+    badarg = ?MASK_ERROR(binary:match(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:match(<<"abc">>,foobar,
+                                      [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:matches(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:matches(<<"abc">>,foobar,
+                                        [{scope,{0,0}}])),
+    badarg = ?MASK_ERROR(binary:replace(<<>>,foobar,<<>>)),
+    badarg = ?MASK_ERROR(binary:replace(<<"abc">>,foobar,<<>>,
+                                        [{scope,{0,0}}])),
     badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FF,
@@ -115,6 +125,11 @@ badargs(Config) when is_list(Config) ->
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
 						  -16#7FFF})),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id({0,0}))),
+    badarg = ?MASK_ERROR(binary:part(<<1:1>>, id(0), 0)),
+    badarg = ?MASK_ERROR(binary_part(<<1:1>>, id(0), 0)),
+
     badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FF,
@@ -236,6 +251,15 @@ badargs(Config) when is_list(Config) ->
     badarg =
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
+
+    badarg = ?MASK_ERROR(binary:split(<<>>,foobar)),
+    badarg = ?MASK_ERROR(binary:split(<<"abc">>,foobar,[{scope,{0,0}}])),
+
+    badarg = ?MASK_ERROR(binary:encode_hex("abc")),
+    badarg = ?MASK_ERROR(binary:encode_hex(123)),
+    badarg = ?MASK_ERROR(binary:encode_hex([])),
+    badarg = ?MASK_ERROR(binary:encode_hex(#{})),
+    badarg = ?MASK_ERROR(binary:encode_hex(foo)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -488,26 +512,49 @@ do_interesting(Module) ->
     [] = binary:split(<<>>, <<",">>, [global,trim]),
     [] = binary:split(<<>>, <<",">>, [global,trim_all]),
 
+    ReplaceFn = fun(Match) -> << <<(B + 1)>> || <<B>> <= Match >> end,
     badarg = ?MASK_ERROR(
 		Module:replace(<<1,2,3,4,5,6,7,8>>,
 			       [<<4,5>>,<<7>>,<<8>>],<<99>>,
 			       [global,trim,{scope,{0,5}}])),
+    badarg = ?MASK_ERROR(
+		Module:replace(<<1,2,3,4,5,6,7,8>>,
+			       [<<4,5>>,<<7>>,<<8>>],ReplaceFn,
+			       [global,trim,{scope,{0,5}}])),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,[]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,[]),
     <<1,2,3,99,6,99,99>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					  [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					  [global]),
+    <<1,2,3,5,6,6,8,9>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					  [<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					  [global]),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
 					[global,{scope,{0,5}}]),
-    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}}]),
     <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,5,6,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}}]),
     badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
 					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}},
+					 {insert,1}])),
+    badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],ReplaceFn,
 					[global,{scope,{0,5}},
 					 {insert,1}])),
     <<1,2,3,99,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
@@ -715,22 +762,22 @@ referenced(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
     badarg = ?MASK_ERROR(binary:referenced_byte_size({})),
     badarg = ?MASK_ERROR(binary:referenced_byte_size(1)),
-    A = <<1,2,3>>,
-    B = binary:copy(A,1000),
-    3 = binary:referenced_byte_size(A),
-    3000 = binary:referenced_byte_size(B),
-    <<_:8,C:2/binary>> = A,
-    3 = binary:referenced_byte_size(C),
-    2 = binary:referenced_byte_size(binary:copy(C)),
-    <<_:7,D:2/binary,_:1>> = A,
-    2 = binary:referenced_byte_size(binary:copy(D)),
-    3 = binary:referenced_byte_size(D),
-    <<_:8,E:2/binary,_/binary>> = B,
-    3000 = binary:referenced_byte_size(E),
-    2 = binary:referenced_byte_size(binary:copy(E)),
-    <<_:7,F:2/binary,_:1,_/binary>> = B,
-    2 = binary:referenced_byte_size(binary:copy(F)),
-    3000 = binary:referenced_byte_size(F),
+    A = <<0:(1024 * 8)>>,
+    B = binary:copy(A, 1000),
+    1024 = binary:referenced_byte_size(A),
+    1024000 = binary:referenced_byte_size(B),
+    <<_:8,C:1023/binary>> = A,
+    1024 = binary:referenced_byte_size(C),
+    1023 = binary:referenced_byte_size(binary:copy(C)),
+    <<_:7,D:1023/binary,_:1>> = A,
+    1023 = binary:referenced_byte_size(binary:copy(D)),
+    1024 = binary:referenced_byte_size(D),
+    <<_:8,E:128/binary,_/binary>> = B,
+    1024000 = binary:referenced_byte_size(E),
+    128 = binary:referenced_byte_size(binary:copy(E)),
+    <<_:7,F:128/binary,_:1,_/binary>> = B,
+    128 = binary:referenced_byte_size(binary:copy(F)),
+    1024000 = binary:referenced_byte_size(F),
     ok.
 
 
@@ -754,9 +801,12 @@ list_to_bin(Config) when is_list(Config) ->
 copy(Config) when is_list(Config) ->
     <<1,2,3>> = binary:copy(<<1,2,3>>),
     RS = random_string({1,10000}),
-    RS = RS2 = binary:copy(RS),
-    false = erts_debug:same(RS,RS2),
+    RS2 = binary:copy(RS),
+    true = RS =:= RS2,
+    false = erts_debug:same(RS, RS2),
     <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1:1>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,0)),
     badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
     badarg = ?MASK_ERROR(binary:copy([],0)),
     <<>> = ?MASK_ERROR(binary:copy(<<>>,0)),
@@ -1359,5 +1409,180 @@ make_unaligned2(Bin0) when is_binary(Bin0) ->
     Sz = byte_size(Bin0),
     <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
     Bin.
+
+check_no_invalid_read_bug(Config) when is_list(Config) ->
+    check_no_invalid_read_bug(24);
+check_no_invalid_read_bug(60) ->
+    ok;
+check_no_invalid_read_bug(I) ->
+    N = 1 bsl I,
+    binary:encode_unsigned(N+N),
+    binary:encode_unsigned(N+N, little),
+    check_no_invalid_read_bug(I+1).
+
+error_info(_Config) ->
+    L = [{at, [[no,binary], bad_pos],[{1,".*"},{2,".*"}]},
+         {at, [<<77:7>>, -1],[{1,".*"},{2,".*"}]},
+
+         {bin_to_list, [{no,binary}]},
+         {bin_to_list, [<<1:1>>]},
+
+         {bin_to_list,[<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
+         {bin_to_list,[<<"abc">>, {0, 99}]},
+
+         {bin_to_list,[<<1,2,3>>, {1,4}]},
+         {bin_to_list,[<<1,2,3>>, 1, 4]},
+         {bin_to_list,[<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
+         {bin_to_list,[<<1,2,3>>, a, 0]},
+         {bin_to_list,[<<1,2,3>>, 1, -10]},
+
+         {compile_pattern,[42]},
+         {copy,[no_binary]},
+         {copy,[no_binary,-42],[{1,".*"},{2,".*"}]},
+         {copy,[<<1:1>>,no_integer],[{1,".*"},{2,".*"}]},
+
+         {decode_unsigned,[<<1:1>>]},
+         {decode_unsigned,[<<0,42>>, middle]},
+
+         {encode_unsigned,[abc]},
+         {encode_unsigned,[42, middle]},
+         {encode_unsigned,[abc, big]},
+
+         {first,[<<1:1>>]},
+         {first,[<<>>]},
+
+         {last,[<<1:1>>]},
+         {last,[<<>>]},
+
+         {list_to_bin,[<<1,2,3>>]},
+         {list_to_bin,[{1,2,3}]},
+
+         {longest_common_prefix, [abc]},
+         {longest_common_suffix, [abc]},
+
+         {match, [<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {match, [<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
+         {match, [<<"abc">>, no_pattern]},
+
+         {match, [<<"abc">>, <<"a">>, [{scope,{2,-8}}]]},
+         {match, [<<"abc">>, <<"a">>, [bad_option]]},
+
+         {matches,[<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {matches,[<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
+         {matches,[<<"abc">>, no_pattern]},
+
+         {matches, [<<"abc">>, <<"a">>, [{scope,{0,-1}}]]},
+         {matches, [<<"abc">>, <<"a">>, [bad_option]]},
+
+         {bin_to_list, [{no,binary}]},
+         {bin_to_list, [<<1:1>>]},
+
+         {part, [<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
+         {part, [<<"abc">>, {0, 99}]},
+
+         {part, [<<1,2,3>>, {1,4}]},
+         {part, [<<1,2,3>>, 1, 4]},
+         {part, [<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
+         {part, [<<1,2,3>>, a, 0]},
+         {part, [<<1,2,3>>, 1, -10]},
+
+         {referenced_byte_size, [a]},
+
+         {replace, [<<"xyz">>, <<"x">>, <<1:1>>]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>]},
+         {replace, [<<"xyz">>, {bm,make_ref()}, <<"y">>]},
+
+         {replace, [<<"xyz">>, <<"x">>, <<1:1>>, []]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, []]},
+         {replace, [<<"xyz">>, {bm,make_ref()}, <<"y">>, []]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, [bad_option]],[{1,".*"},{4,".*"}]},
+
+         {split, [<<1:15>>, <<"a">>]},
+         {split, [<<1,2,3>>, {bm,make_ref()}]},
+
+         {split, [<<1:15>>, <<"a">>, []]},
+         {split, [<<1,2,3>>, {bm,make_ref()}, []]},
+         {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
+
+         {encode_hex, [{no,binary}]},
+         {encode_hex, [{no,binary}, lowercase]},
+         {encode_hex, [<<"foobar">>, othercase]},
+         {encode_hex, [no_binary, othercase], [{1,".*"}, {2,".*"}]},
+
+         {decode_hex, [{no,binary}]},
+         {decode_hex, [<<"000">>]},
+         {decode_hex, [<<"GG">>]},
+         {decode_hex, [<<255>>]}
+        ],
+    error_info_lib:test_error_info(binary, L).
+
+hex_encoding(Config) when is_list(Config) ->
+    %% Vector test imported from the RFC 4648 section 10.
+    <<>> = binary:encode_hex(<<>>),
+    <<"66">> = binary:encode_hex(<<"f">>),
+    <<"666F">> = binary:encode_hex(<<"fo">>),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>),
+
+
+    <<>> = binary:encode_hex(<<>>, uppercase),
+    <<"66">> = binary:encode_hex(<<"f">>, uppercase),
+    <<"666F">> = binary:encode_hex(<<"fo">>, uppercase),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>, uppercase),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>, uppercase),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>, uppercase),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>, uppercase),
+
+    <<>> = binary:encode_hex(<<>>, lowercase),
+    <<"66">> = binary:encode_hex(<<"f">>, lowercase),
+    <<"666f">> = binary:encode_hex(<<"fo">>, lowercase),
+    <<"666f6f">> = binary:encode_hex(<<"foo">>, lowercase),
+    <<"666f6f62">> = binary:encode_hex(<<"foob">>, lowercase),
+    <<"666f6f6261">> = binary:encode_hex(<<"fooba">>, lowercase),
+    <<"666f6f626172">> = binary:encode_hex(<<"foobar">>, lowercase),
+
+    <<>> = binary:decode_hex(<<>>),
+    <<"f">> = binary:decode_hex(<<"66">>),
+    <<"fo">> = binary:decode_hex(<<"666F">>),
+    <<"foo">> = binary:decode_hex(<<"666F6F">>),
+    <<"foob">> = binary:decode_hex(<<"666F6F62">>),
+    <<"fooba">> = binary:decode_hex(<<"666F6F6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666F6F626172">>),
+
+    <<"fo">> = binary:decode_hex(<<"666f">>),
+    <<"foo">> = binary:decode_hex(<<"666f6f">>),
+    <<"foob">> = binary:decode_hex(<<"666f6f62">>),
+    <<"fooba">> = binary:decode_hex(<<"666f6f6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666f6f626172">>),
+
+    <<"foobar">> = binary:decode_hex(<<"666f6F626172">>),
+
+    rand:seed(default),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
+    Bytes = iolist_to_binary([rand:bytes(256), lists:seq(0, 255)]),
+    do_hex_roundtrip(Bytes),
+
+    ok.
+
+do_hex_roundtrip(Bytes) ->
+    UpperHex = binary:encode_hex(Bytes),
+    UpperHex = binary:encode_hex(Bytes, uppercase),
+    LowerHex = binary:encode_hex(Bytes, lowercase),
+
+    Bytes = binary:decode_hex(UpperHex),
+    Bytes = binary:decode_hex(LowerHex),
+
+    case Bytes of
+        <<_, Rest/binary>> ->
+            do_hex_roundtrip(Rest);
+        <<>> ->
+            ok
+    end.
+
+%%%
+%%% Utilities.
+%%%
 
 id(I) -> I.

@@ -1,0 +1,4 @@
+
+  [;1m-type port() :: port().[0m
+
+  An Erlang port identifier.

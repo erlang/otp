@@ -1,0 +1,55 @@
+
+  [;1m-spec erlang:load_nif(Path, LoadInfo) -> ok | Error[0m
+  [;1m                         when[0m
+  [;1m                             Path :: string(),[0m
+  [;1m                             LoadInfo :: term(),[0m
+  [;1m                             Error ::[0m
+  [;1m                                 {error, {Reason, Text :: string()}},[0m
+  [;1m                             Reason ::[0m
+  [;1m                                 load_failed | bad_lib | load | reload |[0m
+  [;1m                                 upgrade | old_code.[0m
+
+  Loads and links a dynamic library containing native implemented
+  functions (NIFs) for a module. [;;4mPath[0m is a file path to the
+  shareable object/dynamic library file minus the OS-dependent file
+  extension ([;;4m.so[0m for Unix and [;;4m.dll[0m for Windows). Notice that on
+  most OSs the library has to have a different name on disc when an
+  upgrade of the nif is done. If the name is the same, but the
+  contents differ, the old library may be loaded instead. For
+  information on how to implement a NIF library, see [;;4merl_nif(3)[0m.
+
+  [;;4mLoadInfo[0m can be any term. It is passed on to the library as part
+  of the initialization. A good practice is to include a module
+  version number to support future code upgrade scenarios.
+
+  The call to [;;4mload_nif/2[0m must be made directly from the Erlang
+  code of the module that the NIF library belongs to. It returns
+  either [;;4mok[0m, or [;;4m{error,{Reason,Text}}[0m if loading fails. [;;4mReason[0m
+  is one of the following atoms while [;;4mText[0m is a human readable
+  string that can give more information about the failure:
+
+  [;;4m[;;4mload_failed[0m[0m:
+    The OS failed to load the NIF library.
+
+  [;;4m[;;4mbad_lib[0m[0m:
+    The library did not fulfill the requirements as a NIF library
+    of the calling module.
+
+  [;;4m[;;4mload | upgrade[0m[0m:
+    The corresponding library callback was unsuccessful.
+
+  [;;4m[;;4mreload[0m[0m:
+    A NIF library is already loaded for this module instance. The
+    previously deprecated [;;4mreload[0m feature was removed in OTP 20.
+
+  [;;4m[;;4mold_code[0m[0m:
+    The call to [;;4mload_nif/2[0m was made from the old code of a
+    module that has been upgraded; this is not allowed.
+
+  If the [;;4m-nifs()[0m attribute is used (which is recommended), all
+  NIFs in the dynamic library much be declared as such for [;;4m[0m
+  [;;4mload_nif/2[0m to succeed. On the other hand, all functions declared
+  with the [;;4m-nifs()[0m attribute do not have to be implemented by the
+  dynamic library. This allows a target independent Erlang file to
+  contain fallback implementations for functions that may lack NIF
+  support depending on target OS/hardware platform.

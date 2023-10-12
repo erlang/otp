@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 all() ->
-    [{group,unicode},{group,base64},{group,binary},
+    [{group,unicode},{group,base64},{group,binary},{group, io},
      {group,gen_server},{group,gen_statem},
      {group,gen_server_comparison},{group,gen_statem_comparison}].
 
@@ -38,7 +38,9 @@ groups() ->
       [norm_nfc_list, norm_nfc_deep_l, norm_nfc_binary,
        string_lexemes_list, string_lexemes_binary
       ]},
-     {binary, [{repeat, 5}],
+     %% Only run 1 binary match repeat as it is very slow pre OTP-22.
+     %% The results seem to be stable enough anyway
+     {binary, [{repeat, 1}],
       [match_single_pattern_no_match,
        matches_single_pattern_no_match,
        matches_single_pattern_eventual_match,
@@ -50,6 +52,7 @@ groups() ->
        encode_list, encode_list_to_string,
        mime_binary_decode, mime_binary_decode_to_string,
        mime_list_decode, mime_list_decode_to_string]},
+     {io, [{repeat, 5}], [double_random_to_list, double_random_to_list_array]},
      {gen_server, [{repeat,5}], cases(gen_server)},
      {gen_statem, [{repeat,3}], cases(gen_statem)},
      {gen_server_comparison, [],
@@ -65,9 +68,9 @@ cases(gen_server) ->
       [simple, simple_timer, simple_mon, simple_timer_mon,
        generic, generic_timer];
 cases(gen_statem) ->
-    [generic, generic_fsm, generic_fsm_transit,
-     generic_statem, generic_statem_transit,
-     generic_statem_complex].
+    [generic, generic_log, generic_log100, generic_fsm, generic_fsm_transit,
+     generic_statem, generic_statem_log, generic_statem_log100,
+     generic_statem_transit, generic_statem_complex].
 
 init_per_group(gen_server, Config) ->
     compile_servers(Config),
@@ -164,19 +167,19 @@ norm_data(Config) ->
 
 match_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
-    comment(test(binary, match, [Binary, <<"o">>])).
+    comment(test(100, binary, match, [Binary, <<"o">>])).
 
 matches_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"o">>])).
+    comment(test(100, binary, matches, [Binary, <<"o">>])).
 
 matches_single_pattern_eventual_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsal\n">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"\n">>])).
+    comment(test(100, binary, matches, [Binary, <<"\n">>])).
 
 matches_single_pattern_frequent_match(_Config) ->
     Binary = binary:copy(<<"abc\n">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"abc">>])).
+    comment(test(100, binary, matches, [Binary, <<"abc">>])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -233,9 +236,11 @@ list() ->
     random_byte_list(?SIZE).
 
 test(Mod, Fun, Args) ->
-    F = fun() -> loop(?N, Mod, Fun, Args) end,
+    test(?N, Mod, Fun, Args).
+test(Iter, Mod, Fun, Args) ->
+    F = fun() -> loop(Iter, Mod, Fun, Args) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
-    report_mfa(Time, Mod).
+    report_mfa(Iter, Time, Mod).
 
 loop(0, _M, _F, _A) -> garbage_collect(), ok;
 loop(N, M, F, A) ->
@@ -248,8 +253,8 @@ lspawn(Fun) ->
         {'DOWN', Ref, process, Pid, Rep} -> Rep
     end.
 
-report_mfa(Time, Mod) ->
-    Tps = round((?N*1000000)/Time),
+report_mfa(Iter, Time, Mod) ->
+    Tps = round((Iter*1000000)/Time),
     ct_event:notify(#event{name = benchmark_data,
                            data = [{suite, "stdlib_" ++ atom_to_list(Mod)},
                                    {value, Tps}]}),
@@ -275,6 +280,79 @@ mbb(N, Acc) ->
     B = list_to_binary(lists:seq(0, N-1)),
     lists:reverse(Acc, B).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(MAX_DOUBLE, (1 bsl 62) - 1).
+-define(DOUBLE_SAMPLE, 100000).
+-define(SMALL_DIGITS, 6).
+
+double_random_to_list(_Config) ->
+    comment(test_double(0)).
+
+double_random_to_list_array(_Config) ->
+    comment(test_double_array(0)).
+
+double_small_digit_to_list(_Config) ->
+    comment(test_double(?SMALL_DIGITS)).
+
+double(0) ->
+    Int = rand:uniform(?MAX_DOUBLE),
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F;
+% Example:
+% SmallDigits is 3
+% Lower is 100
+% Upper is 1000
+% R % (1000 - 100) + 100;
+% R % 900 + 100;
+% R1 is [0, 899] + 100
+% R1 is [100, 999]
+% R1 / 100 is [1.00, 9.99]
+double(SmallDigits) ->
+    F = double(0),
+    Lower = exp10(SmallDigits),
+    Upper = Lower * 10,
+    F1 = (F rem (Upper - Lower)) + Lower,
+    F1 / float(Lower).
+
+exp10(X) ->
+    exp10(1, X).
+exp10(Acc, 0) ->
+    Acc;
+exp10(Acc, X) ->
+    exp10(Acc, X - 1).
+
+test_double(Samples) when is_list(Samples) ->
+    F = fun() -> loop_double(Samples) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    report_mfa(?DOUBLE_SAMPLE, Time, io_lib_format);
+test_double(SmallDigits) when is_integer(SmallDigits) ->
+    rand:seed(exsplus, {1201,855653,380975}),
+    Samples = [double(SmallDigits) || _ <- lists:seq(1, ?DOUBLE_SAMPLE)],
+    test_double(Samples).
+
+loop_double([]) -> garbage_collect(), ok;
+loop_double([Sample | Rest]) ->
+    _ = io_lib_format:fwrite_g(Sample),
+    loop_double(Rest).
+
+test_double_array(SmallDigits) when is_integer(SmallDigits) ->
+    rand:seed(exsplus, {1201,855653,380975}),
+    Samples = [double(SmallDigits) || _ <- lists:seq(1, ?DOUBLE_SAMPLE)],
+    Samples_array = array:from_list(Samples),
+    test_double_array(?DOUBLE_SAMPLE - 1, Samples_array).
+test_double_array(Iter, Samples_array) ->
+    F = fun() -> loop_double_array(Iter, Samples_array) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    report_mfa(?DOUBLE_SAMPLE, Time, io_lib_format).
+
+loop_double_array(0, _Samples_array) -> garbage_collect(), ok;
+loop_double_array(Iter, Samples_array) ->
+    _ = io_lib_format:fwrite_g(array:get(Iter, Samples_array)),
+    loop_double_array(Iter - 1, Samples_array).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 simple(Config) when is_list(Config) ->
     comment(do_tests(simple, single_small, Config)).
 
@@ -290,11 +368,23 @@ simple_timer_mon(Config) when is_list(Config) ->
 generic(Config) when is_list(Config) ->
     comment(do_tests(generic, single_small, Config)).
 
+generic_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_log, single_small, Config)).
+
+generic_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_log100, single_small, Config)).
+
 generic_timer(Config) when is_list(Config) ->
     comment(do_tests(generic_timer, single_small, Config)).
 
 generic_statem(Config) when is_list(Config) ->
     comment(do_tests(generic_statem, single_small, Config)).
+
+generic_statem_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log, single_small, Config)).
+
+generic_statem_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log100, single_small, Config)).
 
 generic_statem_transit(Config) when is_list(Config) ->
     comment(do_tests(generic_statem_transit, single_small, Config)).
@@ -361,15 +451,15 @@ norm(T, Ref) ->
             "---"
     end.
 
--define(MAX_TIME_SECS, 3).   % s
+-define(MAX_TIME_SECS, 1).   % s
 -define(MAX_TIME, 1000 * ?MAX_TIME_SECS). % ms
 -define(CALLS_PER_LOOP, 5).
 
 do_tests(Test, ParamSet, Config) ->
     BenchmarkSuite = ?config(benchmark_suite, Config),
-    {Client, ServerMod} = bench(Test),
+    {Client, ServerMod, ServerArg} = bench(Test),
     {Parallelism, Message} = bench_params(ParamSet),
-    Fun = create_clients(Message, ServerMod, Client, Parallelism),
+    Fun = create_clients(Message, ServerMod, ServerArg, Client, Parallelism),
     {TotalLoops, AllPidTime} = run_test(Fun),
     try ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime) of
         PerSecond ->
@@ -484,27 +574,35 @@ generic_fsm_transit_client(N, M, P) ->
     generic_fsm_transit_client(N+1, M, P).
 
 bench(simple) ->
-    {fun simple_client/3, simple_server};
+    {fun simple_client/3, simple_server, term};
 bench(simple_timer) ->
-    {fun simple_client_timer/3, simple_server_timer};
+    {fun simple_client_timer/3, simple_server_timer, term};
 bench(simple_mon) ->
-    {fun simple_client_mon/3, simple_server_mon};
+    {fun simple_client_mon/3, simple_server_mon, term};
 bench(simple_timer_mon) ->
-    {fun simple_client_timer_mon/3, simple_server_timer_mon};
+    {fun simple_client_timer_mon/3, simple_server_timer_mon, term};
 bench(generic) ->
-    {fun generic_client/3, generic_server};
+    {fun generic_client/3, generic_server, [term]};
+bench(generic_log) ->
+    {fun generic_client/3, generic_server, [term,{debug,[log]}]};
+bench(generic_log100) ->
+    {fun generic_client/3, generic_server, [term,{debug,[{log,100}]}]};
 bench(generic_timer) ->
-    {fun generic_timer_client/3, generic_server_timer};
+    {fun generic_timer_client/3, generic_server_timer, term};
 bench(generic_statem) ->
-    {fun generic_statem_client/3, generic_statem};
+    {fun generic_statem_client/3, generic_statem, [term]};
+bench(generic_statem_log) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[log]}]};
+bench(generic_statem_log100) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[{log,100}]}]};
 bench(generic_statem_transit) ->
-    {fun generic_statem_transit_client/3, generic_statem};
+    {fun generic_statem_transit_client/3, generic_statem, [term]};
 bench(generic_statem_complex) ->
-    {fun generic_statem_complex_client/3, generic_statem_complex};
+    {fun generic_statem_complex_client/3, generic_statem_complex, term};
 bench(generic_fsm) ->
-    {fun generic_fsm_client/3, generic_fsm};
+    {fun generic_fsm_client/3, generic_fsm, term};
 bench(generic_fsm_transit) ->
-    {fun generic_fsm_transit_client/3, generic_fsm}.
+    {fun generic_fsm_transit_client/3, generic_fsm, term}.
 
 %% -> {Parallelism, MessageTerm}
 bench_params(single_small) -> {1, small()};
@@ -532,10 +630,9 @@ parallelism() ->
         _ -> 1
     end.
 
-create_clients(M, ServerMod, Client, Parallel) ->
+create_clients(M, ServerMod, ServerArg, Client, Parallel) ->
     fun() ->
-            State = term,
-            ServerPid = ServerMod:start(State),
+            ServerPid = ServerMod:start(ServerArg),
             PidRefs = [spawn_monitor(fun() -> Client(0, M, ServerPid) end) ||
                           _ <- lists:seq(1, Parallel)],
             timer:sleep(?MAX_TIME),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server callbacks
--export([suite/0, all/0]).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
 
 %% Test cases
 -export([
@@ -48,6 +48,17 @@ suite() -> [
 	{timetrap,{minutes,1}},
 	{ct_hooks,[ts_install_cth]}
     ].
+
+init_per_suite(Config) ->
+    try erlang:statistics(microstate_accounting) of
+        _ ->
+            Config
+    catch _:_ ->
+            {skip, "Microstate accouning not available"}
+    end.
+
+end_per_suite(_Config) ->
+    ok.
 
 %%--------------------------------------------------------------------
 %% TEST CASES

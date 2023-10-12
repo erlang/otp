@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2018. All Rights Reserved.
+# Copyright Ericsson AB 2003-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,9 +76,6 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
-+if exec_alloc
-allocator	EXEC     	true	        exec_alloc
-+endif
 
 allocator	BINARY		true		binary_alloc
 allocator	DRIVER		true		driver_alloc
@@ -127,6 +124,7 @@ type	HEAP		EHEAP		PROCESSES	heap
 type	OLD_HEAP	EHEAP		PROCESSES	old_heap
 type	HEAP_FRAG	EHEAP		PROCESSES	heap_frag
 type	TMP_HEAP	TEMPORARY	PROCESSES	tmp_heap
+type	RECV_MARK_BLK	FIXED_SIZE	PROCESSES	receive_marker_block
 type	MSG_REF		FIXED_SIZE	PROCESSES	msg_ref
 type	MSG		EHEAP		PROCESSES	message
 type	MSGQ_CHNG	SHORT_LIVED	PROCESSES	messages_queue_change
@@ -144,11 +142,11 @@ type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
 type	NODE_TABLE	STANDARD	SYSTEM		node_tab
 type	ATOM_TABLE	LONG_LIVED	ATOM		atom_tab
-type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
 type	MODULE_TABLE	LONG_LIVED	CODE		module_tab
 type	TAINT		LONG_LIVED	CODE		taint_list
 type	MODULE_REFS	STANDARD	CODE		module_refs
 type	NC_TMP		TEMPORARY	SYSTEM		nc_tmp
+type	NC_STD		STANDARD	SYSTEM		nc_std
 type	TMP		TEMPORARY	SYSTEM		tmp
 type	UNDEF		SYSTEM		SYSTEM		undefined
 type	DCACHE		STANDARD	SYSTEM		dcache
@@ -194,6 +192,8 @@ type	DB_DMC_ERR_INFO	ETS		ETS		db_dmc_error_info
 type	DB_TERM		ETS		ETS		db_term
 type	DB_PROC_CLEANUP SHORT_LIVED	ETS		db_proc_cleanup_state
 type	ETS_ALL_REQ	SHORT_LIVED	ETS		ets_all_request
+type	ETS_CTRS	ETS             ETS		ets_decentralized_ctrs
+type	ETS_I_LST_TRAP	SHORT_LIVED	ETS		ets_insert_list_bif_trap_state
 type	LOGGER_DSBUF	TEMPORARY	SYSTEM		logger_dsbuf
 type	TMP_DSBUF	TEMPORARY	SYSTEM		tmp_dsbuf
 type	INFO_DSBUF	SYSTEM		SYSTEM		info_dsbuf
@@ -245,10 +245,16 @@ type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
 type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
 type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
 type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
+type    PREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_pid_ref_entry
+type    PREF_ENT	STANDARD	SYSTEM		pid_ref_entry
+type	PREF_TAB_BKTS	STANDARD	SYSTEM		pid_ref_table_buckets
+type	PREF_TAB	LONG_LIVED	SYSTEM		pid_ref_table
 type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 type	BINARY_FIND	SHORT_LIVED	PROCESSES	binary_find
 type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
 type	DIST_TRANSCODE  SHORT_LIVED	SYSTEM		dist_transcode_context
+type	RLA_BLOCK_CNTRS	LONG_LIVED	SYSTEM		release_literal_area_block_counters
+type	SIGQ_BUFFERS	FIXED_SIZE	PROCESSES	process_signal_queue_buffers
 
 type	THR_Q_EL	STANDARD   	SYSTEM		thr_q_element
 type	THR_Q_EL_SL	FIXED_SIZE	SYSTEM		sl_thr_q_element
@@ -268,18 +274,26 @@ type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
 type	SIG_DATA	SHORT_LIVED	PROCESSES	signal_data
+type	SIG_YIELD_DATA	SHORT_LIVED	PROCESSES	signal_yield_data
 type	DIST_DEMONITOR	SHORT_LIVED	PROCESSES	dist_demonitor
 type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
 type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
+type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
+type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
+type    SEQ_YIELD_STATE SHORT_LIVED     SYSTEM          dist_seq_yield_state
+type    PHASH2_TRAP     SHORT_LIVED     PROCESSES       phash2_trap_state
+type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
-#
-# Types used for special emulators
-#
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persistent_term
+type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
+type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
+
+type	T2B_VEC	  	SHORT_LIVED	PROCESSES	term_to_binary_vector 
 
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
@@ -290,16 +304,20 @@ type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
-+if hipe
+type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
 
-type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
-type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
-type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
+type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_notification
 
-+if exec_alloc
-type	HIPE_EXEC	EXEC            CODE		hipe_code
-+endif
+#
+# Types used for special emulators
+#
 
+type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
+type	EXPORT		LONG_LIVED	CODE		export_entry
+type	CATCHES		LONG_LIVED	CODE		catches
+
++ifnot beamasm
+type	CODE		LONG_LIVED	CODE		code
 +endif
 
 +if lcnt
@@ -314,7 +332,6 @@ type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_EXT	STANDARD	PROCESSES	monitor_extended
 type	LINK_EXT	STANDARD	PROCESSES	link_extended
-type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
 type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
@@ -322,10 +339,10 @@ type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 
-type	NIF_TRAP_EXPORT	STANDARD	PROCESSES	nif_trap_export_entry
-type	NIF_EXP_TRACE	FIXED_SIZE	PROCESSES	nif_export_trace
-type	EXPORT		LONG_LIVED	CODE		export_entry
+type	NFUNC_TRAP_WRAPPER	STANDARD	PROCESSES	nfunc_trap_wrapper
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	MONITOR_TAG	STANDARD	PROCESSES	monitor_tag
+type	ALIAS		STANDARD	PROCESSES	alias
 type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
 type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
@@ -334,12 +351,15 @@ type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
 type    MSACC           DRIVER          SYSTEM          microstate_accounting
 type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
+type	ATOMICS		STANDARD	SYSTEM		erl_bif_atomics
+type	COUNTERS	STANDARD	SYSTEM		erl_bif_counters
 
 #
 # Types used by system specific code
 #
 
-type  	TEMP_TERM 	TEMPORARY	SYSTEM		temp_term
+type  	TEMP_TERM       TEMPORARY	SYSTEM		temp_term
+type  	SHORT_LIVED_TERM SHORT_LIVED	SYSTEM		short_lived_term
 type	DRV_TAB		LONG_LIVED	SYSTEM		drv_tab
 type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state
 type	DRV_SEL_D_STATE	FIXED_SIZE	SYSTEM		driver_select_data_state
@@ -347,6 +367,7 @@ type	NIF_SEL_D_STATE	FIXED_SIZE	SYSTEM		enif_select_data_state
 type	POLLSET		LONG_LIVED	SYSTEM		pollset
 type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
 type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
+type	BLOCK_PTHR_DATA	LONG_LIVED	SYSTEM		block_poll_thread_data
 type	FD_STATUS	LONG_LIVED	SYSTEM		fd_status
 type	SELECT_FDS	LONG_LIVED	SYSTEM		select_fds
 

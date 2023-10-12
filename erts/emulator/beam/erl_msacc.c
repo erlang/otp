@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 #include "erl_msacc.h"
 #include "erl_bif_table.h"
 
-#if ERTS_ENABLE_MSACC
+#ifdef ERTS_ENABLE_MSACC
 
 static Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory);
 static void erts_msacc_reset(ErtsMsAcc *msacc);
@@ -120,13 +120,23 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 #endif
 }
 
+void erts_msacc_update_cache(ErtsMsAcc **cache) {
+    if (erts_msacc_enabled) {
+        *cache = ERTS_MSACC_TSD_GET();
+    } else {
+        *cache = NULL;
+    }
+}
+
 #ifdef ERTS_MSACC_EXTENDED_STATES
 
-void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn) {
+const void *erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache,
+                                     Eterm mod,
+                                     const void *bif) {
 
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	       \
-    if (fn == &BifFuncAddr) {                                             \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)                     \
+    if (bif == &BifFuncAddr) {                                                \
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATIC_STATE_COUNT + Num); \
     } else
 #include "erl_bif_list.h"
@@ -142,6 +152,8 @@ void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
     }
 #endif
+
+    return bif;
 }
 
 #endif
@@ -356,20 +368,17 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     msaccrp->ref = STORE_NC(&hp, NULL, ref);
     msaccrp->req_sched = esdp->no;
 
-    *threads = erts_no_schedulers;
-    *threads += 1; /* aux thread */
+    *threads = erts_no_aux_work_threads;
 
     erts_atomic32_init_nob(&msaccrp->refc,(erts_aint32_t)*threads);
 
     erts_proc_add_refc(c_p, *threads);
 
-    if (erts_no_schedulers > 1)
-	erts_schedule_multi_misc_aux_work(1,
-                                          erts_no_schedulers,
-                                          reply_msacc,
-                                          (void *) msaccrp);
-    /* aux thread */
-    erts_schedule_misc_aux_work(0, reply_msacc, (void *) msaccrp);
+    erts_schedule_multi_misc_aux_work(1,
+                                      0,
+                                      erts_no_aux_work_threads-1,
+                                      reply_msacc,
+                                      (void *) msaccrp);
 
     /* Manage unmanaged threads */
     switch (action) {

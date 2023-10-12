@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,9 +94,9 @@ init_per_suite(Config0) ->
 							    [Opts3],Config)
 		  end),
 	    %% The time to compare with here must match the timeout value
-	    %% in the test suite. Accept 30% logging overhead (26 sec total).
-	    if T > 26000000 ->
-		    ct:pal("Timing test took ~w sec (< 27 sec expected). "
+	    %% in the test suite. Accept some overhead
+	    if T > 5000 ->
+		    ct:pal("Timing test took ~w sec (< 5 sec expected). "
 			   "Skipping the suite!",
 			   [trunc(T/1000000)]),
 		    ct_test_support:end_per_suite(Config),

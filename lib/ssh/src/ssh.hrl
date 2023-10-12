@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@
 
 -define(DEFAULT_SHELL, {shell, start, []} ).
 
+-define(DEFAULT_TIMEOUT, 5000).
+
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
@@ -48,9 +50,10 @@
 -define(UINT16(X),   (X):16/unsigned-big-integer).
 -define(UINT32(X),   (X):32/unsigned-big-integer).
 -define(UINT64(X),   (X):64/unsigned-big-integer).
--define(STRING(X),   ?UINT32((size(X))), (X)/binary).
+-define(STRING(X),   ?UINT32((byte_size(X))), (X)/binary).
 
 -define(DEC_BIN(X,Len),   ?UINT32(Len), X:Len/binary ).
+-define(DEC_INT(I,Len),   ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 -define(DEC_MPINT(I,Len), ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 
 %% building macros
@@ -67,6 +70,28 @@
 -define(string_utf8(X), << ?STRING(unicode:characters_to_binary(X)) >> ).
 -define(string(X), ?string_utf8(X)).
 -define(binary(X), << ?STRING(X) >>).
+
+-define('2bin'(X), (if is_binary(X) -> X;
+		       is_list(X) -> list_to_binary(X);
+		       X==undefined -> <<>>
+		    end) ).
+
+%% encoding macros
+-define('E...'(X),    ?'2bin'(X)/binary ).
+-define(Eboolean(X),  ?BOOLEAN(case X of
+				   true -> ?TRUE;
+				   false -> ?FALSE
+			       end) ).
+-define(Ebyte(X),        ?BYTE(X) ).
+-define(Euint32(X),      ?UINT32(X) ).
+-define(Estring(X),      ?STRING(?'2bin'(X)) ).
+-define(Estring_utf8(X), ?string_utf8(X)/binary ).
+-define(Ename_list(X),   ?STRING(ssh_bits:name_list(X)) ).
+-define(Empint(X),       (ssh_bits:mpint(X))/binary ).
+-define(Ebinary(X),      ?STRING(X) ).
+
+%% Other macros
+-define(to_binary(X), (try iolist_to_binary(X) catch _:_ -> unicode:characters_to_binary(X) end) ).
 
 %% Cipher details
 -define(SSH_CIPHER_NONE, 0).
@@ -129,6 +154,8 @@
 -type pubkey_alg()       :: 'ecdsa-sha2-nistp256' |
                             'ecdsa-sha2-nistp384' |
                             'ecdsa-sha2-nistp521' |
+                            'ssh-ed25519'  |
+                            'ssh-ed448'  |
                             'rsa-sha2-256' |
                             'rsa-sha2-512' |
                             'ssh-dss' |
@@ -142,6 +169,8 @@
                             'aes128-ctr' |
                             'aes128-gcm@openssh.com' |
                             'aes192-ctr' |
+                            'aes192-cbc' |
+                            'aes256-cbc' |
                             'aes256-ctr' |
                             'aes256-gcm@openssh.com' |
                             'chacha20-poly1305@openssh.com'
@@ -150,8 +179,12 @@
 -type mac_alg()          :: 'AEAD_AES_128_GCM' |
                             'AEAD_AES_256_GCM' |
                             'hmac-sha1' |
+                            'hmac-sha1-etm@openssh.com' |
+                            'hmac-sha1-96' |
                             'hmac-sha2-256' |
-                            'hmac-sha2-512'
+                            'hmac-sha2-512' |
+                            'hmac-sha2-256-etm@openssh.com' |
+                            'hmac-sha2-512-etm@openssh.com'
                             .
 
 -type compression_alg()  :: 'none' |
@@ -173,15 +206,17 @@
 
 -type common_options() :: [ common_option() ].
 -type common_option() :: 
-        user_dir_common_option()
+        ssh_file:user_dir_common_option()
       | profile_common_option()
       | max_idle_time_common_option()
+      | max_log_item_len_common_option()
       | key_cb_common_option()
       | disconnectfun_common_option()
       | unexpectedfun_common_option()
       | ssh_msg_debug_fun_common_option()
       | rekey_limit_common_option()
       | id_string_common_option()
+      | pref_public_key_algs_common_option()
       | preferred_algorithms_common_option()
       | modify_algorithms_common_option()
       | auth_methods_common_option()
@@ -191,13 +226,12 @@
 
 -define(COMMON_OPTION, common_option()).
 
-
--type user_dir_common_option()      :: {user_dir,  false | string()}.
 -type profile_common_option()       :: {profile,   atom() }.
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
 -type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
                                                      {Minutes::limit_time(), Bytes::limit_bytes()}
                                        }.
+-type max_log_item_len_common_option() :: {max_log_item_len, limit_bytes()} .
 
 -type limit_bytes() :: non_neg_integer() | infinity .  % non_neg_integer due to compatibility
 -type limit_time()  :: pos_integer() | infinity .
@@ -211,6 +245,7 @@
         {ssh_msg_debug_fun, fun((ssh:connection_ref(),AlwaysDisplay::boolean(),Msg::binary(),LanguageTag::binary()) -> any()) } .
 
 -type id_string_common_option()           :: {id_string,  string() | random | {random,Nmin::pos_integer(),Nmax::pos_integer()} }.
+-type pref_public_key_algs_common_option() :: {pref_public_key_algs, [pubkey_alg()] } .
 -type preferred_algorithms_common_option():: {preferred_algorithms, algs_list()}.
 -type modify_algorithms_common_option()   :: {modify_algorithms,    modify_algs_list()}.
 -type auth_methods_common_option()        :: {auth_methods,         string() }.
@@ -223,14 +258,13 @@
         {transport, {atom(),atom(),atom()} }
       | {vsn, {non_neg_integer(),non_neg_integer()} }
       | {tstflg, list(term())}
-      | {user_dir_fun, fun()}
+      | ssh_file:user_dir_fun_common_option()
       | {max_random_length_padding, non_neg_integer()} .
 
 
 
 -type client_option()         ::
-        pref_public_key_algs_client_option()
-      | pubkey_passphrase_client_options()
+        ssh_file:pubkey_passphrase_client_options()
       | host_accepting_client_options()
       | authentication_client_options()
       | diffie_hellman_group_exchange_client_option()
@@ -241,14 +275,13 @@
       | ?COMMON_OPTION .
 
 -type opaque_client_options() ::
-        {keyboard_interact_fun, fun((term(),term(),term()) -> term())}
+        {keyboard_interact_fun, fun((Name::iodata(),
+                                     Instruction::iodata(),
+                                     Prompts::[{Prompt::iodata(),Echo::boolean()}]
+                                    ) ->
+                                      [Response::iodata()]
+                                   )} 
         | opaque_common_options().
-
--type pref_public_key_algs_client_option() :: {pref_public_key_algs, [pubkey_alg()] } .
-
--type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
-                                            | {rsa_pass_phrase,      string()}
-                                            | {ecdsa_pass_phrase,    string()} .
 
 -type host_accepting_client_options() ::
         {silently_accept_hosts, accept_hosts()}
@@ -262,7 +295,9 @@
 
 -type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
 
--type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) .
+-type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) % Old style
+                         | fun((PeerName::string(), Port::inet:port_number(), fingerprint() ) -> boolean()) % New style
+                           .
 -type fingerprint() :: string() | [string()].
 
 -type authentication_client_options() ::
@@ -283,9 +318,13 @@
       | shell_daemon_option()
       | exec_daemon_option()
       | ssh_cli_daemon_option()
+      | tcpip_tunnel_out_daemon_option()
+      | tcpip_tunnel_in_daemon_option()
       | authentication_daemon_options()
       | diffie_hellman_group_exchange_daemon_option()
+      | max_initial_idle_time_daemon_option()
       | negotiation_timeout_daemon_option()
+      | hello_timeout_daemon_option()
       | hardening_daemon_options()
       | callbacks_daemon_options()
       | send_ext_info_daemon_option()
@@ -293,41 +332,54 @@
       | gen_tcp:listen_option()
       | ?COMMON_OPTION .
 
--type subsystem_daemon_option() :: {subsystems, subsystem_spec()}.
+-type subsystem_daemon_option() :: {subsystems, subsystem_specs()}.
+-type subsystem_specs() :: [ subsystem_spec() ].
 
--type shell_daemon_option()     :: {shell, mod_fun_args() | 'shell_fun/1'()  | 'shell_fun/2'() }.
+-type shell_daemon_option()     :: {shell, shell_spec()} .
+-type shell_spec() :: mod_fun_args() | shell_fun() | disabled .
+-type shell_fun() :: 'shell_fun/1'()  | 'shell_fun/2'() .
 -type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
 -type 'shell_fun/2'() :: fun((User::string(),  PeerAddr::inet:ip_address()) -> pid()).
 
--type exec_daemon_option()      :: {exec, 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'() }.
-
+-type exec_daemon_option()      :: {exec, exec_spec()} .
+-type exec_spec()               :: {direct, exec_fun()} | disabled | deprecated_exec_opt().
+-type exec_fun()                :: 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'().
 -type 'exec_fun/1'() :: fun((Cmd::string()) -> exec_result()) .
 -type 'exec_fun/2'() :: fun((Cmd::string(), User::string()) -> exec_result()) .
 -type 'exec_fun/3'() :: fun((Cmd::string(), User::string(), ClientAddr::ip_port()) -> exec_result()) .
 -type exec_result()  :: {ok,Result::term()} | {error,Reason::term()} .
+-type deprecated_exec_opt() :: fun() | mod_fun_args() .
 
 -type ssh_cli_daemon_option()   :: {ssh_cli, mod_args() | no_cli }.
+
+-type tcpip_tunnel_out_daemon_option() :: {tcpip_tunnel_out, boolean()} .
+-type tcpip_tunnel_in_daemon_option() :: {tcpip_tunnel_in, boolean()} .
 
 -type send_ext_info_daemon_option() :: {send_ext_info, boolean()} .
 
 -type authentication_daemon_options() ::
-        {system_dir, string()}
+        ssh_file:system_dir_daemon_option()
       | {auth_method_kb_interactive_data, prompt_texts() }
       | {user_passwords, [{UserName::string(),Pwd::string()}]}
+      | {pk_check_user, boolean()}  
       | {password, string()}
-      | {pwdfun, pwdfun_2() | pwdfun_4()} .
+      | {pwdfun, pwdfun_2() | pwdfun_4()}
+      | {no_auth_needed, boolean()}
+        .
 
 -type prompt_texts() ::
         kb_int_tuple()
       | kb_int_fun_3()
+      | kb_int_fun_4()
       .
 
 -type kb_int_fun_3() :: fun((Peer::ip_port(), User::string(), Service::string()) -> kb_int_tuple()).
+-type kb_int_fun_4() :: fun((Peer::ip_port(), User::string(), Service::string(), State::any()) -> kb_int_tuple()).
 -type kb_int_tuple() :: {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}.
 
--type pwdfun_2() :: fun((User::string(), Password::string()) -> boolean()) .
+-type pwdfun_2() :: fun((User::string(), Password::string()|pubkey) -> boolean()) .
 -type pwdfun_4() :: fun((User::string(),
-                         Password::string(),
+                         Password::string()|pubkey,
                          PeerAddress::ip_port(),
                          State::any()) ->
                                boolean() | disconnect | {boolean(),NewState::any()}
@@ -341,7 +393,9 @@
 -type explicit_group_file() :: {file,string()} .
 -type ssh_moduli_file() :: {ssh_moduli_file,string()}.
 
+-type max_initial_idle_time_daemon_option() :: {max_initial_idle_time, timeout()} .
 -type negotiation_timeout_daemon_option() :: {negotiation_timeout, timeout()} .
+-type hello_timeout_daemon_option() :: {hello_timeout, timeout()} .
 
 -type hardening_daemon_options() ::
         {max_sessions, pos_integer()}
@@ -364,6 +418,11 @@
 
 
 %% Records
+-record(address, {address,
+                  port,
+                  profile
+                 }).
+
 -record(ssh,
 	{
 	  role :: client | role(),
@@ -386,9 +445,6 @@
 
 	  algorithms,   %% #alg{}
 	  
-	  key_cb,       %% Private/Public key callback module
-	  io_cb,        %% Interaction callback module
-
 	  send_mac = none, %% send MAC algorithm
 	  send_mac_key,  %% key used in send MAC algorithm
 	  send_mac_size = 0,
@@ -398,11 +454,13 @@
 	  recv_mac_size = 0,
 
 	  encrypt = none,       %% encrypt algorithm
+          encrypt_cipher,       %% cipher. could be different from the algorithm
 	  encrypt_keys,         %% encrypt keys
 	  encrypt_block_size = 8,
 	  encrypt_ctx,
 
 	  decrypt = none,       %% decrypt algorithm
+          decrypt_cipher,       %% cipher. could be different from the algorithm
 	  decrypt_keys,         %% decrypt keys
 	  decrypt_block_size = 8,
 	  decrypt_ctx,          %% Decryption context   
@@ -459,27 +517,13 @@
           recv_ext_info
 	 }).
 
--record(ssh_key,
-	{
-	  type,
-	  public,
-	  private,
-	  comment = ""
-	 }).
-
--record(ssh_pty, {term = "", % e.g. "xterm"
+-record(ssh_pty, {c_version = "", % client version string, e.g "SSH-2.0-Erlang/4.10.5"
+                  term = "",      % e.g. "xterm"
 		  width = 80,
 		  height = 25,
 		  pixel_width = 1024,
 		  pixel_height = 768,
 		  modes = <<>>}).
-
-%% assertion macro
--define(ssh_assert(Expr, Reason),
-	case Expr of
-	    true -> ok;
-	    _ -> exit(Reason)
-	end).
 
 
 %% dbg help macros

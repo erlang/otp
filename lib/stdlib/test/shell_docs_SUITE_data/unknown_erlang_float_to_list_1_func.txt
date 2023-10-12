@@ -1,0 +1,4 @@
+
+  [;1m-spec float_to_list(Float) -> string() when Float :: float().[0m
+
+  The same as [;;4mfloat_to_list(Float,[{scientific,20}])[0m.

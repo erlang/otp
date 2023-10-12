@@ -1,0 +1,20 @@
+
+  [;1m-spec error(Reason) -> no_return() when Reason :: term().[0m
+
+  Raises an exception of class [;;4merror[0m with the reason [;;4mReason[0m. As
+  evaluating this function causes an exception to be thrown, it has
+  no return value.
+
+  The intent of the exception class [;;4merror[0m is to signal that an
+  unexpected error has happened (for example, a function is called
+  with a parameter that has an incorrect type). See the guide about 
+  errors and error handling for additional information. Example:
+
+    > catch error(foobar).
+    {'EXIT',{foobar,[{shell,apply_fun,3,
+                            [{file,"shell.erl"},{line,906}]},
+                     {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,677}]},
+                     {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,430}]},
+                     {shell,exprs,7,[{file,"shell.erl"},{line,687}]},
+                     {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
+                     {shell,eval_loop,3,[{file,"shell.erl"},{line,627}]}]}}

@@ -1,0 +1,48 @@
+
+  [;1m-spec substitution(SetFun, Set1) -> Set2[0m
+  [;1m                      when[0m
+  [;1m                          SetFun :: set_fun(),[0m
+  [;1m                          Set1 :: a_set(),[0m
+  [;1m                          Set2 :: a_set().[0m
+
+  Returns a function, the domain of which is [;;4mSet1[0m. The value of an
+  element of the domain is the result of applying [;;4mSetFun[0m to the
+  element.
+
+    1> L = [{a,1},{b,2}].
+    [{a,1},{b,2}]
+    2> sofs:to_external(sofs:projection(1,sofs:relation(L))).
+    [a,b]
+    3> sofs:to_external(sofs:substitution(1,sofs:relation(L))).
+    [{{a,1},a},{{b,2},b}]
+    4> SetFun = {external, fun({A,_}=E) -> {E,A} end},
+    sofs:to_external(sofs:projection(SetFun,sofs:relation(L))).
+    [{{a,1},a},{{b,2},b}]
+
+  The relation of equality between the elements of {a,b,c}:
+
+    1> I = sofs:substitution(fun(A) -> A end, sofs:set([a,b,c])),
+    sofs:to_external(I).
+    [{a,a},{b,b},{c,c}]
+
+  Let [;;4mSetOfSets[0m be a set of sets and [;;4mBinRel[0m a binary relation.
+  The function that maps each element [;;4mSet[0m of [;;4mSetOfSets[0m onto the 
+  image of [;;4mSet[0m under [;;4mBinRel[0m is returned by the following
+  function:
+
+    images(SetOfSets, BinRel) ->
+       Fun = fun(Set) -> sofs:image(BinRel, Set) end,
+       sofs:substitution(Fun, SetOfSets).
+
+  External unordered sets are represented as sorted lists. So,
+  creating the image of a set under a relation R can traverse all
+  elements of R (to that comes the sorting of results, the image).
+  In [;;4mimage/2[0m, [;;4mBinRel[0m is traversed once for each element of [;;4m[0m
+  [;;4mSetOfSets[0m, which can take too long. The following efficient
+  function can be used instead under the assumption that the image
+  of each element of [;;4mSetOfSets[0m under [;;4mBinRel[0m is non-empty:
+
+    images2(SetOfSets, BinRel) ->
+       CR = sofs:canonical_relation(SetOfSets),
+       R = sofs:relative_product1(CR, BinRel),
+       sofs:relation_to_family(R).

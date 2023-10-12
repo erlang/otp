@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 # Macros
 #
-ifeq ($(findstring win32,$(TARGET)),win32)
-SUB_DIRECTORIES = src c_src mibs doc/src
-else
-SUB_DIRECTORIES = src c_src mibs doc/src
-endif
+SUB_DIRECTORIES = src c_src doc/src
 
 include vsn.mk
 VSN = $(OS_MON_VSN)
@@ -39,3 +35,4 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+include $(ERL_TOP)/make/app_targets.mk

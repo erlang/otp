@@ -1,0 +1,72 @@
+
+  [;1m-spec exit(Pid, Reason) -> true[0m
+  [;1m              when Pid :: pid() | port(), Reason :: term().[0m
+
+  Sends an exit signal with exit reason [;;4mReason[0m to the process or
+  port identified by [;;4mPid[0m.
+
+  The following behavior applies if [;;4mReason[0m is any term, except [;;4m[0m
+  [;;4mnormal[0m or [;;4mkill[0m, and [;;4mP[0m is the process or port identified by [;;4m[0m
+  [;;4mPid[0m:
+
+   • If [;;4mP[0m is not trapping exits, [;;4mP[0m exits with exit reason [;;4m[0m
+     [;;4mReason[0m.
+
+   • If [;;4mP[0m is trapping exits, the exit signal is transformed
+     into a message [;;4m{'EXIT', From, Reason}[0m, where [;;4mFrom[0m is the
+     process identifier of the process that sent the exit signal,
+     and delivered to the message queue of [;;4mP[0m.
+
+  The following behavior applies if [;;4mReason[0m is the term [;;4mnormal[0m
+  and [;;4mPid[0m is the identifier of a process [;;4mP[0m which is not the same
+  as the process that invoked [;;4merlang:exit(Pid, normal)[0m (the
+  behavior when a process sends a signal with the [;;4mnormal[0m reason to
+  itself is described in the warning):
+
+   • If [;;4mP[0m is trapping exits, the exit signal is transformed
+     into a message [;;4m{'EXIT', From, normal}[0m, where [;;4mFrom[0m is the
+     process identifier of the process that sent the exit signal,
+     and delivered to [;;4mP[0m's message queue.
+
+   • The signal has no effect if [;;4mP[0m is not trapping exits.
+
+  If [;;4mReason[0m is the atom [;;4mkill[0m, that is, if [;;4mexit(Pid, kill)[0m is
+  called, an untrappable exit signal is sent to the process that is
+  identified by [;;4mPid[0m, which unconditionally exits with exit reason [;;4m[0m
+  [;;4mkilled[0m. The exit reason is changed from [;;4mkill[0m to [;;4mkilled[0m to
+  hint to linked processes that the killed process got killed by a
+  call to [;;4mexit(Pid, kill)[0m.
+
+  Note:
+    The functions [;;4merlang:exit/1[0m and [;;4merlang:exit/2[0m are named
+    similarly but provide very different functionalities. The [;;4m[0m
+    [;;4merlang:exit/1[0m function should be used when the intent is to
+    stop the current process while [;;4merlang:exit/2[0m should be used
+    when the intent is to send an exit signal to another process.
+    Note also that [;;4merlang:exit/1[0m raises an exception that can be
+    caught while [;;4merlang:exit/2[0m does not cause any exception to
+    be raised.
+
+  Warning:
+    The only scenario that has not been covered by the description
+    above is when a process [;;4mP[0m sends an exit signal with reason [;;4m[0m
+    [;;4mnormal[0m to itself, that is [;;4merlang:exit(self(), normal)[0m. The
+    behavior in this scenario is as follows:
+
+     • If [;;4mP[0m is trapping exits, the exit signal is
+       transformed into a message [;;4m{'EXIT', From, normal}[0m,
+       where [;;4mFrom[0m is [;;4mP[0m's process identifier, and delivered
+       to [;;4mP[0m's message queue.
+
+     • [;;4mP[0m exits with reason [;;4mnormal[0m if [;;4mP[0m is not trapping
+       exits.
+
+    Note that the behavior described above is different from when
+    a process sends an exit signal with reason [;;4mnormal[0m to another
+    process. This is arguably strange but this behavior is kept
+    for backward compatibility reasons.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

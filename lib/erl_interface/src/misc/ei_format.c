@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,6 @@
  * Function:
  * ei_format to build binary format terms a bit like printf
  */
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,6 +62,7 @@ static int pquotedatom(const char** fmt, ei_x_buff* x);
 static int pdigit(const char** fmt, ei_x_buff* x);
 static int patom(const char** fmt, ei_x_buff* x);
 static int pstring(const char** fmt, ei_x_buff* x);
+static int pmap(const char ** fmt, union arg **, ei_x_buff * x);
 
 /* format a string into an ei_x_buff, except the version token */
 static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
@@ -106,6 +103,19 @@ static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
     case '\'':
 	res = pquotedatom(&p, x);
 	break;
+    case '#':
+	if (*(p + 1) == '{') {
+            p += 2;
+	    res = ei_x_new(&x2);
+	    if (res >= 0)
+                res = pmap(&p, args, &x2);
+	    if (res >= 0)
+		res = ei_x_encode_map_header(x, res);
+	    if (res >= 0)
+		res = ei_x_append(x, &x2);
+	    ei_x_free(&x2);
+	    break;
+	}
     default:
 	if (isdigit((int)*p))
 	    res = pdigit(&p, x);
@@ -238,6 +248,9 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
 static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 {
     int res = 0;
+
+    ASSERT(args && *args);
+
     ++(*fmt);	/* skip tilde */
     switch (*(*fmt)++) {
     case 'a': 
@@ -373,6 +386,50 @@ static int plist(const char** fmt, union arg** args, ei_x_buff* x, int size)
     }
     *fmt = p;
     return res;
+}
+
+/* encode a map */
+static int pmap(const char ** fmt, union arg ** args, ei_x_buff * x)
+{
+    const char * p = *fmt;
+    int size = 0;
+
+    while (isspace(*p))
+        ++p;
+
+    if (*p == '}') {
+	*fmt = p+1;
+	return size;
+    }
+
+    for(;;) {
+        /* Key */
+        if (eiformat(&p, args, x) < 0)
+            return -1;
+        while (isspace(*p))
+            ++p;
+
+        if (!(p[0] == '=' && p[1] == '>')) {
+            return -1;
+        }
+        p += 2;
+
+        /* Value */
+        if (eiformat(&p, args, x) < 0)
+            return -1;
+        while (isspace(*p))
+            ++p;
+
+        ++size;
+        if (*p == '}') {
+            *fmt = p+1;
+            return size;
+        }
+        if (*p++ != ',')
+            return -1;
+        while (isspace((int)*p))
+            ++p;
+    }
 }
 
 static int read_args(const char* fmt, va_list ap, union arg **argp)

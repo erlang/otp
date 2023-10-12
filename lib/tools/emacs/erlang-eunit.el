@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2009-2016. All Rights Reserved.
+;; Copyright Ericsson AB 2009-2022. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 ;;; Author: Klas Johansson
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-lib))
 (require 'erlang)
 
 (defvar erlang-eunit-src-candidate-dirs '("../src" ".")
@@ -36,7 +36,7 @@ a source file.  The first directory in the list will be used,
 if there is no match.")
 
 (defvar erlang-eunit-autosave nil
-  "*Set to non-nil to automtically save unsaved buffers before running tests.
+  "*Set to non-nil to automatically save unsaved buffers before running tests.
 This is useful, reducing the save-compile-load-test cycle to one keychord.")
 
 (defvar erlang-eunit-recent-info '((mode . nil) (module . nil) (test . nil) (cover . nil))
@@ -216,7 +216,7 @@ buffer and vice versa"
 
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
-  (case (erlang-eunit-recent 'mode)
+  (cl-case (erlang-eunit-recent 'mode)
     ('test-mode
      (erlang-eunit-compile-and-test
       'erlang-eunit-run-test (list (erlang-eunit-recent 'module)
@@ -319,7 +319,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
     ;; instead of possibly several: one for each file to compile,
     ;; for instance for both x.erl and x_tests.erl.
     (save-some-buffers erlang-eunit-autosave)
-    (flet ((save-some-buffers (&optional any) nil))
+    (cl-letf (((symbol-function 'save-some-buffers) #'ignore))
 
       ;; Compilation of the source file is mandatory (the file must
       ;; exist, otherwise the procedure is aborted).  Compilation of the

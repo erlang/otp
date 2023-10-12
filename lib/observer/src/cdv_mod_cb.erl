@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,8 @@ init_old_comp_page(Parent, Info) ->
 init_info_page(Parent, undefined) ->
     init_info_page(Parent, "");
 init_info_page(Parent, String) ->
-    cdv_html_wx:start_link(Parent,observer_html_lib:plain_page(String)).
+    Cs = observer_lib:colors(Parent),
+    cdv_html_wx:start_link(Parent,observer_html_lib:plain_page(String,Cs)).
 
 format({Bin,q}) when is_binary(Bin) ->
     [$'|binary_to_list(Bin)];

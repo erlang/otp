@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,13 +30,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
-	 leaked_processes/1, long_timers/1, pollset_size/1]).
+	 leaked_processes/1, long_timers/1, pollset_size/1,
+         used_thread_specific_events/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [leaked_processes, long_timers, pollset_size].
+    [leaked_processes, long_timers, pollset_size, used_thread_specific_events].
 
 %% Start some system servers now to avoid having them
 %% reported as leaks.
@@ -45,6 +46,18 @@ init_per_suite(Config) when is_list(Config) ->
     %% Ensure inet_gethost_native port program started, in order to
     %% allow other suites to use it...
     inet_gethost_native:gethostbyname("localhost"),
+
+    %% Trigger usage of large pids and ports in 64-bit case...
+    case erlang:system_info(wordsize) of
+        4 ->
+            ok;
+        8 ->
+            erts_debug:set_internal_state(available_internal_state,true),
+            erts_debug:set_internal_state(next_pid, 1 bsl 32),
+            erts_debug:set_internal_state(next_port, 1 bsl 32),
+            erts_debug:set_internal_state(available_internal_state,false),
+            ok
+    end,
 
     %% Start the timer server.
     timer:start(),
@@ -94,6 +107,25 @@ pollset_size(Config) when is_list(Config) ->
     receive Go -> ok end,
     {comment, "Testcase started! This test will run in parallel with the "
      "erts testsuite and ends in the z_SUITE:pollset_size/1 testcase."}.
+
+used_thread_specific_events(Config) when is_list(Config) ->
+    Parent = self(),
+    Go = make_ref(),
+    spawn(fun () ->
+                  Name = used_thread_specific_events_holder,
+                  true = register(Name, self()),
+                  UsedTSE = erlang:system_info(ethread_used_tse),
+                  io:format("UsedTSE: ~p~n", [UsedTSE]),
+                  Parent ! Go,
+                  receive
+                      {get_used_tse, Pid} ->
+                          Pid ! {used_tse, UsedTSE}
+                  end
+          end),
+    receive Go -> ok end,
+    {comment, "Testcase started! This test will run in parallel with the "
+     "erts testsuite and ends in the z_SUITE:used_thread_specific_events/1 testcase."}.
+
 
 %%
 %% Internal functions...

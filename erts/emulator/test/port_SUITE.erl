@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,6 +140,21 @@
     win_massive_client/1
 ]).
 
+-export([port_exit_monitor_race/1,
+         port_exit_demonitor_race/1,
+         port_exit_link_race/1,
+         port_exit_unlink_race/1,
+         port_exit_command_race/1,
+         port_exit_connect_race/1,
+         port_exit_close_race/1,
+         port_exit_exit_race/1,
+         port_exit_command_request_race/1,
+         port_exit_connect_request_race/1,
+         port_exit_close_request_race/1,
+         port_exit_control_request_race/1,
+         port_exit_call_request_race/1,
+         port_exit_info_request_race/1]).
+
 -export([do_iter_max_ports/2, relative_cd/0]).
 
 %% Internal exports.
@@ -179,14 +194,28 @@ all() ->
      mon_port_bad_named,
      mon_port_pid_demonitor,
      mon_port_name_demonitor,
-     mon_port_driver_die
-    ].
+     mon_port_driver_die,
+     {group, port_exit_signal_race}].
 
 groups() ->
     [{stream, [], [stream_small, stream_big]},
      {options, [], [t_binary, eof, input_only, output_only]},
      {multiple_packets, [], [mul_basic, mul_slow_writes]},
-     {tps, [], [tps_16_bytes, tps_1K]}].
+     {tps, [], [tps_16_bytes, tps_1K]},
+     {port_exit_signal_race, [], [port_exit_monitor_race,
+                                  port_exit_demonitor_race,
+                                  port_exit_link_race,
+                                  port_exit_unlink_race,
+                                  port_exit_command_race,
+                                  port_exit_connect_race,
+                                  port_exit_close_race,
+                                  port_exit_exit_race,
+                                  port_exit_command_request_race,
+                                  port_exit_connect_request_race,
+                                  port_exit_close_request_race,
+                                  port_exit_control_request_race,
+                                  port_exit_call_request_race,
+                                  port_exit_info_request_race]}].
 
 init_per_testcase(Case, Config) when Case =:= mon_port_driver_die;
                                      Case =:= mon_port_driver_die_demonitor ->
@@ -197,8 +226,8 @@ init_per_testcase(Case, Config) when Case =:= mon_port_driver_die;
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
-end_per_testcase(_Case, _Config) ->
-    ok.
+end_per_testcase(_Case, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 init_per_suite(Config) when is_list(Config) ->
     ignore_cores:init(Config).
@@ -221,15 +250,9 @@ win_massive(Config) when is_list(Config) ->
 
 do_win_massive() ->
     ct:timetrap({minutes, 6}),
-    SuiteDir = filename:dirname(code:which(?MODULE)),
-    Ports = " +Q 8192",
-    {ok, Node} =
-    test_server:start_node(win_massive,
-                           slave,
-                           [{args, " -pa " ++ SuiteDir ++ Ports}]),
+    {ok, Peer, Node} = ?CT_PEER(["+Q", "8192"]),
     ok = rpc:call(Node,?MODULE,win_massive_client,[3000]),
-    test_server:stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 win_massive_client(N) ->
     {ok,P}=gen_tcp:listen(?WIN_MASSIVE_PORT,[{reuseaddr,true}]),
@@ -737,13 +760,11 @@ iter_max_ports_test(Config) ->
                 _ -> 10
             end,
     %% Run on a different node in order to limit the effect if this test fails.
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_iter_max_socks,slave,
-                                       [{args,"+Q 2048 -pa " ++ Dir}]),
+    {ok, Peer, Node} = ?CT_PEER(["+Q", "2048"]),
     L = rpc:call(Node,?MODULE,do_iter_max_ports,[Iters, Command]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
 
-    io:format("Result: ~p",[L]),
+    ct:log("Result: ~p",[L]),
     all_equal(L),
     all_equal(L),
     {comment, "Max ports: " ++ integer_to_list(hd(L))}.
@@ -780,7 +801,7 @@ open_ports(Name, Settings) ->
     case os:type() of
         {unix, freebsd} ->
             %% FreeBsd has issues with sendmsg/recvmsg in fork
-            %% implementation and we therefor have to spawn
+            %% implementation and we therefore have to spawn
             %% slower to make sure that we always hit the same
             %% make roof.
             test_server:sleep(10);
@@ -1052,7 +1073,9 @@ huge_env(Config) when is_list(Config) ->
 %% Test to spawn program with command payload buffer
 %% just around pipe capacity (9f779819f6bda734c5953468f7798)
 pipe_limit_env(Config) when is_list(Config) ->
+    WSL = os:getenv("WSLENV") =/= false,
     Cmd = case os:type() of
+              {win32,_} when WSL -> "cmd.exe /q /c wsl true";
               {win32,_} -> "cmd /q /c true";
               _ -> "true"
           end,
@@ -1276,18 +1299,12 @@ otp_3906(Config)  when is_list(Config) ->
 
 otp_3906(Config, OSName) ->
     DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
-    {ok, Variables} = file:consult(
-                        filename:join([DataDir,"..","..",
-                                       "test_server","variables"])),
+    {ok, Variables, _} = file:path_consult(code:get_path(),"variables"),
     case lists:keysearch('CC', 1, Variables) of
         {value,{'CC', CC}} ->
-            SuiteDir = filename:dirname(code:which(?MODULE)),
             PrivDir = proplists:get_value(priv_dir, Config),
             Prog = otp_3906_make_prog(CC, PrivDir),
-            {ok, Node} = test_server:start_node(otp_3906,
-                                                slave,
-                                                [{args, " -pa " ++ SuiteDir},
-                                                 {linked, false}]),
+            {ok, Peer, Node} = ?CT_PEER(),
             OP = process_flag(priority, max),
             OTE = process_flag(trap_exit, true),
             FS = spawn_link(Node,
@@ -1299,11 +1316,11 @@ otp_3906(Config, OSName) ->
                              {failed, Reason};
                          {emulator_pid, EmPid} ->
                              case otp_3906_wait_result(FS, 0, 0) of
-                                 {succeded,
+                                 {succeeded,
                                   ?OTP_3906_CHILDREN,
                                   ?OTP_3906_CHILDREN} ->
-                                     succeded;
-                                 {succeded, Forked, Exited} ->
+                                     succeeded;
+                                 {succeeded, Forked, Exited} ->
                                      otp_3906_list_defunct(EmPid, OSName),
                                      {failed,
                                       {mismatch,
@@ -1316,9 +1333,9 @@ otp_3906(Config, OSName) ->
                      end,
             process_flag(trap_exit, OTE),
             process_flag(priority, OP),
-            test_server:stop_node(Node),
+            peer:stop(Peer),
             case Result of
-                succeded ->
+                succeeded ->
                     ok;
                 _ ->
                     ct:fail(Result)
@@ -1382,8 +1399,8 @@ otp_3906_wait_result(ForkerStarter, F, E) ->
             otp_3906_wait_result(ForkerStarter, F, E+1);
         tick ->
             otp_3906_wait_result(ForkerStarter, F, E);
-        succeded ->
-            {succeded, F, E}
+        succeeded ->
+            {succeeded, F, E}
     after
         ?OTP_3906_TICK_TIMEOUT ->
             unlink(ForkerStarter),
@@ -1420,7 +1437,7 @@ otp_3906_start_forker_starter(N, RefList, Sup, Prog) ->
 otp_3906_forker_starter(0, RefList, Sup, _) ->
     otp_3906_collect(RefList, Sup),
     unlink(Sup),
-    Sup ! succeded;
+    Sup ! succeeded;
 otp_3906_forker_starter(N, RefList, Sup, Prog)
   when length(RefList) >= ?OTP_3906_MAX_CONC_OSP ->
     otp_3906_forker_starter(N, otp_3906_collect_one(RefList, Sup), Sup, Prog);
@@ -1462,6 +1479,8 @@ otp_4389(Config)  when is_list(Config) ->
         {unix, _} ->
             ct:timetrap({minutes, 4}),
             TCR = self(),
+            %% On MacOS Catalina libc can return enoent instead of emfile for cwd
+            BrokenCWD = (os:type() =:= {unix,darwin}) andalso element(1,os:version()) == 19,
             case get_true_cmd() of
                 True when is_list(True) ->
                     lists:foreach(
@@ -1482,16 +1501,20 @@ otp_4389(Config)  when is_list(Config) ->
                                                   receive
                                                       {P,{exit_status,_}} ->
                                                           TCR ! {self(),ok};
-                                                      {'EXIT',_,{R2,_}} when R2 == emfile;
-                                                                             R2 == eagain;
-                                                                             R2 == enomem ->
+                                                      {'EXIT',_,{R2,_}}
+                                                        when R2 == emfile;
+                                                             R2 == eagain;
+                                                             R2 == enomem;
+                                                             R2 == enoent andalso BrokenCWD ->
                                                           TCR ! {self(),ok};
                                                       Err2 ->
                                                           TCR ! {self(),{msg,Err2}}
                                                   end;
-                                              {'EXIT',{R1,_}} when R1 == emfile;
-                                                                   R1 == eagain;
-                                                                   R1 == enomem ->
+                                              {'EXIT',{R1,_}}
+                                                when R1 == emfile;
+                                                     R1 == eagain;
+                                                     R1 == enomem;
+                                                     R1 == enoent andalso BrokenCWD ->
                                                   TCR ! {self(),ok};
                                               Err1 ->
                                                   TCR ! {self(), {open_port,Err1}}
@@ -1706,7 +1729,11 @@ spawn_executable(Config) when is_list(Config) ->
     ok.
 
 unregister_name(Config) when is_list(Config) ->
-    true = register(crash, open_port({spawn, "sleep 100"}, [])),
+    Cmd = case os:getenv("WSLENV") of
+              false -> "sleep 5";
+              _ -> "wsl.exe sleep 5"
+          end,
+    true = register(crash, open_port({spawn, Cmd}, [])),
     true = unregister(crash).
 
 test_bat_file(Dir) ->
@@ -1732,7 +1759,7 @@ test_bat_file(Dir) ->
     [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   [default,"hello","world"]),
-    %% The arg0 argumant should be ignored when running batch files
+    %% The arg0 argument should be ignored when running batch files
     [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   ["knaskurt","hello","world"]),
@@ -1888,6 +1915,7 @@ otp_5112(Config) when is_list(Config) ->
     true = lists:member(Port, Links1),
     Port ! {self(), {command, ""}},
     wait_until(fun () -> lists:member(Port, erlang:ports()) == false end),
+    receive after 1000 -> ok end, %% Give signal some time to propagate...
     {links, Links2} = process_info(self(),links),
     io:format("Links2: ~p~n",[Links2]),
     false = lists:member(Port, Links2), %% This used to fail
@@ -2215,7 +2243,7 @@ port_expect(Config, Actions, HSize, CmdLine, Options0) ->
         _ -> {packet, HSize}
     end,
     Options = [PortType|Options0],
-    io:format("open_port({spawn, ~p}, ~p)", [Cmd, Options]),
+    ct:log("open_port({spawn, ~p}, ~p)", [Cmd, Options]),
     Port = open_port({spawn, Cmd}, Options),
     port_expect(Port, Actions, Options),
     Port.
@@ -2858,3 +2886,331 @@ port_is_monitored(Pid, PortName) when is_pid(Pid), is_atom(PortName) ->
                 end
         end,
     {proc_monitors, A, port_monitored_by, B}.
+
+%%
+%%
+%% Test cases testing for races when an exiting port receives a signal
+%% (port_exit_signal_race group).
+%%
+%%
+
+-record(esrt, {repeat = 1000,
+               owner_sched = 0,
+               prep_owner = fun (Prt) -> Prt end,
+               post_owner = fun (_) -> ok end,
+               send_sched_start = 0,
+               senders = 1,
+               prep_signal = fun (Prt, PrtOwn) -> {Prt, PrtOwn} end,
+               signal,
+               post_signal = fun (_) -> ok end}).
+
+port_exit_monitor_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PrtOwn}) ->
+                                       {Port, erlang:monitor(port, Port)}
+                               end,
+                      post_signal = fun ({Port, Mon}) ->
+                                            receive
+                                                {'DOWN', Mon, port, Port, Reason} ->
+                                                    if Reason == noproc -> ok;
+                                                       Reason == normal -> ok;
+                                                       true -> exit({unexpected_reason, Reason})
+                                                    end
+                                            after
+                                                1000 ->
+                                                    exit(missing_down_message)
+                                            end
+                                    end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_demonitor_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{prep_signal = fun (Port, _PrtOwn) ->
+                                            erlang:monitor(port, Port)
+                                    end,
+                      signal = fun (Mon) ->
+                                       erlang:demonitor(Mon, [flush])
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_link_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{prep_signal = fun (Port, _PrtOwn) ->
+                                            process_flag(trap_exit, true),
+                                            Port
+                                    end,
+                      signal = fun (Port) ->
+                                       link(Port),
+                                       Port
+                               end,
+                      post_signal = fun (Port) ->
+                                            receive
+                                                {'EXIT', Port, Reason} ->
+                                                    if Reason == noproc -> ok;
+                                                       Reason == normal -> ok;
+                                                       true -> exit({unexpected_reason, Reason})
+                                                    end
+                                            after
+                                                1000 ->
+                                                    exit(missing_exit_message)
+                                            end
+                                    end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_unlink_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{prep_signal = fun (Port, _PrtOwn) ->
+                                            process_flag(trap_exit, true),
+                                            link(Port),
+                                            Port
+                                    end,
+                      signal = fun (Port) ->
+                                       unlink(Port),
+                                       Port
+                               end,
+                      post_signal = fun (Port) ->
+                                            receive
+                                                {'EXIT', Port, Reason} ->
+                                                    if Reason == noproc -> ok;
+                                                       Reason == normal -> ok;
+                                                       true -> exit({unexpected_reason, Reason})
+                                                    end
+                                            after
+                                                0 ->
+                                                    ok
+                                            end
+                                    end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_command_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, PortOwner}) ->
+                                       Port ! {PortOwner, {command, "halloj"}},
+                                       Port
+                               end,
+                      post_signal = fun (Port) ->
+                                            receive
+                                                {Port, Data} ->
+                                                    {data, "halloj"} = Data
+                                            after
+                                                0 ->
+                                                    ok
+                                            end
+                                    end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_connect_race(Config) when is_list(Config) ->
+    %% We connect the port to the same port owner that it already has
+    %% otherwise we will get badsig issues since the owner close the
+    %% port as itself. The port owner will be spammed by {Port,
+    %% connected} messages but we ignore those...
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, PortOwner}) ->
+                                       Port ! {PortOwner, {connect, PortOwner}},
+                                       Port
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+
+port_exit_close_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, PortOwner}) ->
+                                       Port ! {PortOwner, close},
+                                       Port
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_exit_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PortOwner}) ->
+                                       exit(Port, normal)
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_command_request_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PortOwner}) ->
+                                       true = try
+                                                  erlang:port_command(Port, "hejsan")
+                                              catch
+                                                  error:badarg ->
+                                                      true
+                                              end,
+                                       Port
+                               end,
+                      post_signal = fun (Port) ->
+                                            receive
+                                                {Port, Data} ->
+                                                    {data, "hejsan"} = Data
+                                            after
+                                                0 ->
+                                                    ok
+                                            end
+                                    end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_connect_request_race(Config) when is_list(Config) ->
+    %% We connect the port to the same port owner that it already has
+    %% otherwise we will get badsig issues since the owner close the
+    %% port as itself.
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, PortOwner}) ->
+                                       true = try
+                                                  erlang:port_connect(Port, PortOwner)
+                                              catch
+                                                  error:badarg ->
+                                                      true
+                                              end
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_close_request_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PortOwner}) ->
+                                       true = try
+                                                  erlang:port_close(Port)
+                                              catch
+                                                  error:badarg ->
+                                                      true
+                                              end,
+                                       Port
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_control_request_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PortOwner}) ->
+                                       [] = try
+                                                erlang:port_control(Port, 0, [])
+                                            catch
+                                                error:badarg ->
+                                                    []
+                                            end
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_call_request_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, _PortOwner}) ->
+                                       [] = try
+                                                erlang:port_call(Port, 0, term_to_binary([]))
+                                            catch
+                                                error:badarg ->
+                                                    []
+                                            end
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+port_exit_info_request_race(Config) when is_list(Config) ->
+    ESRT0 = prepare_port_exit_signal_race_test(Config),
+    ESRT = ESRT0#esrt{signal = fun ({Port, PortOwner}) ->
+                                       case erlang:port_info(Port, connected) of
+                                           {connected, PortOwner} -> ok;
+                                           undefined -> ok;
+                                           Unexpected -> exit({unexpected_info, Unexpected})
+                                       end
+                               end},
+    repeat_port_exit_signal_race_test(ESRT).
+
+
+prepare_port_exit_signal_race_test(Config) ->
+    Path = proplists:get_value(data_dir, Config),
+    ok = load_driver(Path, "echo_drv"),
+    process_flag(scheduler, 1),
+    case erlang:system_info(schedulers_online) of
+        1 ->
+            #esrt{};
+        2 ->
+            #esrt{owner_sched = 2,
+                  send_sched_start = 1,
+                  senders = 1};
+        3 ->
+            #esrt{owner_sched = 2,
+                  send_sched_start = 3,
+                  senders = 1};
+        N ->
+            #esrt{owner_sched = 2,
+                  send_sched_start = 3,
+                  senders = N - 3}
+    end.
+
+repeat_port_exit_signal_race_test(#esrt{repeat = N} = ESRT) ->
+    repeat_port_exit_signal_race_test(N, ESRT).
+
+repeat_port_exit_signal_race_test(0, #esrt{}) ->
+    ok;
+repeat_port_exit_signal_race_test(N, #esrt{} = ESRT) ->
+    port_exit_signal_race_test(ESRT),
+    repeat_port_exit_signal_race_test(N-1, ESRT).
+
+port_exit_signal_race_test(#esrt{owner_sched = OwnSched,
+                                 prep_owner = PrepOwner,
+                                 post_owner = PostOwner,
+                                 send_sched_start = SendSchedStart,
+                                 senders = Senders,
+                                 prep_signal = PrepSignal,
+                                 signal = Signal,
+                                 post_signal = PostSignal}) ->
+    %% Send a close signal to the port simultaneously as another signal
+    %% is sent (from multiple senders). We try to provoke races between
+    %% the port entering an exiting state and handling of the signal. Such
+    %% races have shown themselves as either stray messages to signal
+    %% sender or runtime system crashes.
+    Parent = self(),
+    {PrtOwn,
+     PrtOwnMon} = spawn_opt(fun () ->
+                                    Prt = erlang:open_port({spawn_driver, "echo_drv"}, []),
+                                    true = is_port(Prt),
+                                    OwnState = PrepOwner(Prt),
+                                    Prt ! {self(), {command, "hej"}},
+                                    receive
+                                        {Prt, Data} ->
+                                            {data, "hej"} = Data
+                                    end,
+                                    Parent ! {prepared, self(), Prt},
+                                    receive {go, Parent} -> ok end,
+                                    Prt ! {self(), close},
+                                    PostOwner(OwnState)
+                            end,
+                            [link, monitor, {scheduler, OwnSched}]),
+    Port = receive {prepared, PrtOwn, Prt} -> Prt end,
+    PMs = lists:map(fun (SendSched) ->
+                            spawn_opt(fun () ->
+                                              PrtMon = erlang:monitor(port, Port),
+                                              SigState1 = PrepSignal(Port, PrtOwn),
+                                              Parent ! {prepared, self()},
+                                              receive {go, Parent} -> ok end,
+                                              SigState2 = Signal(SigState1),
+                                              receive {'DOWN', PrtMon, port, Port, _} -> ok end,
+                                              receive {bye, Parent} -> ok end,
+                                              PostSignal(SigState2),
+                                              receive Msg -> exit({unexpected_msg, Msg})
+                                              after 0 -> ok
+                                              end
+                                      end,
+                                      [link, monitor, {scheduler, SendSched}])
+                    end,
+                    lists:seq(SendSchedStart, SendSchedStart + Senders - 1)), 
+    lists:foreach(fun ({P, _M}) -> receive {prepared, P} -> ok end end, PMs),
+    PrtOwn ! {go, self()},
+    lists:foreach(fun ({P, _M}) -> P ! {go, self()} end, PMs),
+    receive
+        {'DOWN', PrtOwnMon, process, PrtOwn, OwnReason} ->
+            normal = OwnReason
+    end,
+    lists:foreach(fun ({P, _M}) -> P ! {bye, self()} end, PMs),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, SigSndReason} ->
+                                  normal = SigSndReason
+                          end
+                  end,
+                  PMs),
+    ok.
+
+%%
+%%
+%% End of test cases testing for races when an exiting port receives a signal
+%% (port_exit_signal_race group).
+%%
+%%

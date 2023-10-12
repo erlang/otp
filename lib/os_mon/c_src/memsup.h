@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@
 /* Extended memory statistics */
 /*IG*/ #define SHOW_SYSTEM_MEM 2
 
+#define EXIT 3
+
 /* Tags for the extended statistics */
 /*IG*/ #define SHOW_SYSTEM_MEM_END 0
 /*IG*/ #define MEM_SYSTEM_TOTAL 1
@@ -43,5 +45,7 @@
 /*IG*/ #define MEM_SHARED 8
 /*IG*/ #define SWAP_TOTAL 9
 /*IG*/ #define SWAP_FREE 10
+/*IG*/ #define MEM_CACHED_X 11
+/*IG*/ #define MEM_AVAIL 12
 
 #endif

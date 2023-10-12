@@ -280,21 +280,6 @@ obj:*/ssleay.*
 }
 
 {
-erts_bits_init_state; Why is this needed?
-Memcheck:Leak
-PossiblyLost
-fun:malloc
-fun:erts_sys_alloc
-...
-fun:erts_alloc
-fun:erts_bits_init_state
-fun:erts_init_scheduling
-fun:erl_init
-fun:erl_start
-fun:main
-}
-
-{
 Prebuilt constant terms in os_info_init
 Memcheck:Leak
 PossiblyLost
@@ -371,7 +356,7 @@ fun:erts_print_scheduler_info
 fun:erts_exit
 fun:broken_halt_test
 fun:erts_debug_set_internal_state_2
-fun:process_main
+...
 }
 
 {

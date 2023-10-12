@@ -113,7 +113,7 @@ load_driver() ->
 find_priv_lib() ->
     PrivDir = case (catch code:priv_dir(uds_dist)) of
 		  {'EXIT', _} ->
-		      %% Code server probably not startet yet
+		      %% Code server probably not started yet
 		      {ok, P} = erl_prim_loader:get_path(),
 		      ModuleFile = atom_to_list(?MODULE) ++ extension(),
 		      Pd = (catch lists:foldl

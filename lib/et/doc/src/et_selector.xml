@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>et_selector.xml</file>
   </header>
-  <module>et_selector</module>
+  <module since="">et_selector</module>
   <modulesummary>Define event transforms and trace patterns</modulesummary>
   <description>
     <p></p>
@@ -40,7 +40,7 @@
   
   <funcs>
     <func>
-      <name>make_pattern(RawPattern) -> TracePattern</name>
+      <name since="">make_pattern(RawPattern) -> TracePattern</name>
       <fsummary>Makes a trace pattern suitable to feed change_pattern/1</fsummary>
 
       <type>
@@ -61,7 +61,7 @@
     </func>
 
     <func>
-      <name>change_pattern(Pattern) -> ok</name>
+      <name since="">change_pattern(Pattern) -> ok</name>
 
       <fsummary>Activates/deactivates tracing by changing the current trace pattern</fsummary>
 
@@ -85,7 +85,7 @@
       </desc>
     </func>
     <func>
-      <name>parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
+      <name since="">parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
 
       <fsummary>Transforms trace data and makes an event record out of it</fsummary>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -275,7 +275,7 @@ hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked
                 _ ->
                     {_, RunTime} = statistics(runtime),
                     io:format("RunTime=~p~n", [RunTime]),
-                    true = RunTime < 700,
+                    true = RunTime < max(700, Onln*12),
                     {comment,
                      "Run-time during test was "
                      ++ integer_to_list(RunTime)
@@ -477,8 +477,7 @@ handicap() ->
         opt ->
             X0;
         ReallySlow when ReallySlow == debug;
-                        ReallySlow == valgrind;
-                        ReallySlow == purify ->
+                        ReallySlow == valgrind ->
             X0*3;
         _Slow ->
             X0*2

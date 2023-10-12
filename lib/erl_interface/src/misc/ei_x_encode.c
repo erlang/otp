@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,6 @@
 /*
  * ei_x_encode to encode in a self-expanding buffer
  */
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,6 +111,16 @@ int ei_x_encode_binary(ei_x_buff* x, const void* p, int len)
     if (!x_fix_buff(x, i))
 	return -1;
     return ei_encode_binary(x->buff, &x->index, p, len);
+}
+
+int ei_x_encode_bitstring(ei_x_buff* x, const char* p, size_t bitoffs, size_t bits)
+{
+    int i = x->index;
+    if (ei_encode_bitstring(NULL, &i, p, bitoffs, bits) == -1)
+      return -1;
+    if (!x_fix_buff(x, i))
+	return -1;
+    return ei_encode_bitstring(x->buff, &x->index, p, bitoffs, bits);
 }
 
 int ei_x_encode_long(ei_x_buff* x, long n)

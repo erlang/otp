@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 -module(uri_string_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
+-compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
 
 -export([all/0, suite/0,groups/0,
          normalize/1, normalize_map/1, normalize_return_map/1, normalize_negative/1,
@@ -29,6 +31,7 @@
          normalize_pct_encoded_userinfo/1,
          normalize_pct_encoded_query/1,
          normalize_pct_encoded_fragment/1,
+         normalize_pct_encoded_negative/1,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
          parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
@@ -44,11 +47,16 @@
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
          recompose_autogen/1, parse_recompose_autogen/1,
+         resolve_normal_examples/1, resolve_abnormal_examples/1,
+         resolve_base_uri/1, resolve_return_map/1,
          transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
          dissect_query/1, dissect_query_negative/1,
          interop_query_latin1/1, interop_query_utf8/1,
-         regression_parse/1, regression_recompose/1, regression_normalize/1
+         regression_parse/1, regression_recompose/1, regression_normalize/1,
+         recompose_host_relative_path/1,
+         recompose_host_absolute_path/1,
+         quote/1
         ]).
 
 
@@ -84,6 +92,7 @@ all() ->
      normalize_pct_encoded_userinfo,
      normalize_pct_encoded_query,
      normalize_pct_encoded_fragment,
+     normalize_pct_encoded_negative,
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_pct_encoded_userinfo,
@@ -123,6 +132,10 @@ all() ->
      recompose_parse_path,
      recompose_autogen,
      parse_recompose_autogen,
+     resolve_normal_examples,
+     resolve_abnormal_examples,
+     resolve_base_uri,
+     resolve_return_map,
      transcode_basic,
      transcode_options,
      transcode_mixed,
@@ -136,7 +149,10 @@ all() ->
      interop_query_utf8,
      regression_parse,
      regression_recompose,
-     regression_normalize
+     regression_normalize,
+     recompose_host_relative_path,
+     recompose_host_absolute_path,
+     quote
     ].
 
 groups() ->
@@ -575,18 +591,22 @@ parse_host_ipv6(_Config) ->
     {error,invalid_uri,"G"} = uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]").
 
 parse_port(_Config) ->
-    #{path:= "/:8042"} =
-        uri_string:parse("/:8042"),
-    #{host:= "", port := 8042} =
-        uri_string:parse("//:8042"),
-    #{host := "example.com", port:= 8042} =
-        uri_string:parse("//example.com:8042"),
-    #{scheme := "foo", path := "/:8042"} =
-        uri_string:parse("foo:/:8042"),
-    #{scheme := "foo", host := "", port := 8042} =
-        uri_string:parse("foo://:8042"),
-    #{scheme := "foo", host := "example.com", port := 8042} =
-        uri_string:parse("foo://example.com:8042").
+    parse_port_with_param("8042", 8042),
+    parse_port_with_param("", undefined).
+
+parse_port_with_param(PortString, Expected) ->
+    #{path:= "/:" ++ PortString} =
+        uri_string:parse("/:" ++ PortString),
+    #{host:= "", port := Expected} =
+        uri_string:parse("//:" ++ PortString),
+    #{host := "example.com", port:= Expected} =
+        uri_string:parse("//example.com:" ++ PortString),
+    #{scheme := "foo", path := "/:" ++ PortString} =
+        uri_string:parse("foo:/:" ++ PortString),
+    #{scheme := "foo", host := "", port := Expected} =
+        uri_string:parse("foo://:" ++ PortString),
+    #{scheme := "foo", host := "example.com", port := Expected} =
+        uri_string:parse("foo://example.com:" ++ PortString).
 
 parse_path(_Config) ->
     #{path := "over/there"} = uri_string:parse("over/there"),
@@ -825,6 +845,68 @@ parse_recompose_autogen(_Config) ->
     Tests = generate_test_vectors(uri_combinations()),
     lists:map(fun run_test_parse_recompose/1, Tests).
 
+resolve_normal_examples(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    <<"g:h">> = uri_string:resolve(<<"g:h">>, BaseURI),
+    <<"http://a/b/c/g">> = uri_string:resolve(<<"g">>, BaseURI),
+    <<"http://a/b/c/g">> = uri_string:resolve(<<"./g">>, BaseURI),
+    <<"http://a/b/c/g/">> = uri_string:resolve(<<"g/">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/g">>, BaseURI),
+    <<"http://g">> = uri_string:resolve(<<"//g">>, BaseURI),
+    <<"http://a/b/c/d;p?y">> = uri_string:resolve(<<"?y">>, BaseURI),
+    <<"http://a/b/c/g?y">> = uri_string:resolve(<<"g?y">>, BaseURI),
+    <<"http://a/b/c/d;p?q#s">> = uri_string:resolve(<<"#s">>, BaseURI),
+    <<"http://a/b/c/g#s">> = uri_string:resolve(<<"g#s">>, BaseURI),
+    <<"http://a/b/c/g?y#s">> = uri_string:resolve(<<"g?y#s">>, BaseURI),
+    <<"http://a/b/c/;x">> = uri_string:resolve(<<";x">>, BaseURI),
+    <<"http://a/b/c/g;x">> = uri_string:resolve(<<"g;x">>, BaseURI),
+    <<"http://a/b/c/g;x?y#s">> = uri_string:resolve(<<"g;x?y#s">>, BaseURI),
+    <<"http://a/b/c/d;p?q">> = uri_string:resolve(<<"">>, BaseURI),
+    <<"http://a/b/c/">> = uri_string:resolve(<<".">>, BaseURI),
+    <<"http://a/b/c/">> = uri_string:resolve(<<"./">>, BaseURI),
+    <<"http://a/b/">> = uri_string:resolve(<<"..">>, BaseURI),
+    <<"http://a/b/">> = uri_string:resolve(<<"../">>, BaseURI),
+    <<"http://a/b/g">> = uri_string:resolve(<<"../g">>, BaseURI),
+    <<"http://a/">> = uri_string:resolve(<<"../..">>, BaseURI),
+    <<"http://a/">> = uri_string:resolve(<<"../../">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"../../g">>, BaseURI).
+
+resolve_abnormal_examples(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    <<"http://a/g">> = uri_string:resolve(<<"../../../g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"../../../../g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/./g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/../g">>, BaseURI),
+    <<"http://a/b/c/g.">> = uri_string:resolve(<<"g.">>, BaseURI),
+    <<"http://a/b/c/.g">> = uri_string:resolve(<<".g">>, BaseURI),
+    <<"http://a/b/c/g..">> = uri_string:resolve(<<"g..">>, BaseURI),
+    <<"http://a/b/c/..g">> = uri_string:resolve(<<"..g">>, BaseURI),
+    <<"http://a/b/g">> = uri_string:resolve(<<"./../g">>, BaseURI),
+    <<"http://a/b/c/g/">> = uri_string:resolve(<<"./g/.">>, BaseURI),
+    <<"http://a/b/c/g/h">> = uri_string:resolve(<<"g/./h">>, BaseURI),
+    <<"http://a/b/c/h">> = uri_string:resolve(<<"g/../h">>, BaseURI),
+    <<"http://a/b/c/g;x=1/y">> = uri_string:resolve(<<"g;x=1/./y">>, BaseURI),
+    <<"http://a/b/c/y">> = uri_string:resolve(<<"g;x=1/../y">>, BaseURI),
+    <<"http://a/b/c/g?y/./x">> = uri_string:resolve(<<"g?y/./x">>, BaseURI),
+    <<"http://a/b/c/g?y/../x">> = uri_string:resolve(<<"g?y/../x">>, BaseURI),
+    <<"http://a/b/c/g#s/./x">> = uri_string:resolve(<<"g#s/./x">>, BaseURI),
+    <<"http://a/b/c/g#s/../x">> = uri_string:resolve(<<"g#s/../x">>, BaseURI),
+    <<"http:g">> = uri_string:resolve(<<"http:g">>, BaseURI). %% for strict parsers
+
+resolve_base_uri(_Config) ->
+    %% The scheme is required (RFC3986 5.2.1).
+    {error,invalid_scheme,""} = uri_string:resolve("g", #{}),
+    {error,invalid_scheme,""} = uri_string:resolve("g", "/b/c/d"),
+    "foo:g" = uri_string:resolve("g", "foo:"),
+    "foo://a/g" = uri_string:resolve("g", "foo://a"),
+    "foo:/g" = uri_string:resolve("g", "foo:/a"),
+    "foo://a/b/c/g" = uri_string:resolve("g", "foo://a/b/c/d;p?y#f").
+
+resolve_return_map(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    #{scheme := <<"http">>,host := <<"a">>,path := <<"/b/c/g">>} =
+        uri_string:resolve(<<"g">>, BaseURI, [return_map]).
+
 transcode_basic(_Config) ->
     <<"foo%C3%B6bar"/utf8>> =
         uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>, [{in_encoding, utf32},{out_encoding, utf8}]),
@@ -942,7 +1024,19 @@ normalize(_Config) ->
     <<"tftp://localhost">> =
         uri_string:normalize(<<"tftp://localhost:69">>),
     <<"/foo/%2F/bar">> =
-        uri_string:normalize(<<"/foo/%2f/%62ar">>).
+        uri_string:normalize(<<"/foo/%2f/%62ar">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:">>),
+    <<"yeti://localhost/">> =
+        uri_string:normalize(<<"yeti://localhost:/">>),
+    <<"yeti://localhost">> =
+        uri_string:normalize(<<"yeti://localhost:">>).
 
 normalize_map(_Config) ->
     "/a/g" = uri_string:normalize(#{path => "/a/b/c/./../../g"}),
@@ -973,18 +1067,30 @@ normalize_map(_Config) ->
         uri_string:normalize(#{scheme => <<"tftp">>,port => 69,path => <<>>,
                                host => <<"localhost">>}),
     "/foo/%2F/bar" =
-        uri_string:normalize(#{path => "/foo/%2f/%62ar"}).
+        uri_string:normalize(#{path => "/foo/%2f/%62ar"}),
+    <<"https://localhost/">> =
+        uri_string:normalize(#{scheme => <<"https">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"yeti://localhost">> =
+        uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}).
 
 normalize_return_map(_Config) ->
     #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
-        uri_string:normalize("http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g",
-                                   [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            "http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g",
+            [return_map])),
     #{scheme := <<"http">>,path := <<"/a/g">>, host := <<"localhost-örebro"/utf8>>} =
-        uri_string:normalize(<<"http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g">>,
-                                   [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"http://localhos%74-%c3%b6rebro:80/a/b/c/./../../g">>,
+            [return_map])),
     #{scheme := <<"https">>,path := <<"/">>, host := <<"localhost">>} =
-        uri_string:normalize(#{scheme => <<"https">>,port => 443,path => <<>>,
-                               host => <<"localhost">>}, [return_map]).
+        uri_string:percent_decode(
+          uri_string:normalize(
+            #{scheme => <<"https">>,port => 443,path => <<>>,
+              host => <<"localhost">>}, [return_map])).
 
 normalize_negative(_Config) ->
     {error,invalid_uri,":"} =
@@ -995,64 +1101,103 @@ normalize_negative(_Config) ->
         uri_string:normalize("http://[192.168.0.1]", [return_map]),
     {error,invalid_uri,":"} =
         uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]),
-    {error,invalid_utf8,<<0,0,0,246>>} = uri_string:normalize("//%00%00%00%F6").
+    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
+        uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")).
 
 normalize_binary_pct_encoded_userinfo(_Config) ->
     #{scheme := <<"user">>, path := <<"合@気道"/utf8>>} =
-        uri_string:normalize(<<"user:%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"user:%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map])),
     #{path := <<"合気道@"/utf8>>} =
-        uri_string:normalize(<<"%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map])),
     #{path := <<"/合気道@"/utf8>>} =
-        uri_string:normalize(<<"/%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"/%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map])),
     #{path := <<"合@気道"/utf8>>} =
-        uri_string:normalize(<<"%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map])),
     #{userinfo := <<"合"/utf8>>, host := <<"気道"/utf8>>} =
-        uri_string:normalize(<<"//%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"//%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map])),
     #{userinfo := <<"合:気"/utf8>>, host := <<"道"/utf8>>} =
-        uri_string:normalize(<<"//%E5%90%88:%E6%B0%97@%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"//%E5%90%88:%E6%B0%97@%E9%81%93">>, [return_map])),
     #{scheme := <<"foo">>, path := <<"/合気道@"/utf8>>} =
-        uri_string:normalize(<<"foo:/%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"foo:/%E5%90%88%E6%B0%97%E9%81%93@">>, [return_map])),
     #{scheme := <<"foo">>, userinfo := <<"合"/utf8>>, host := <<"気道"/utf8>>} =
-        uri_string:normalize(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"foo://%E5%90%88@%E6%B0%97%E9%81%93">>, [return_map])),
     #{scheme := <<"foo">>, userinfo := <<"合:気"/utf8>>, host := <<"道"/utf8>>} =
-        uri_string:normalize(<<"foo://%E5%90%88:%E6%B0%97@%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"foo://%E5%90%88:%E6%B0%97@%E9%81%93">>, [return_map])),
     {error,invalid_uri,"@"} =
-        uri_string:normalize(<<"//%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]),
+          uri_string:normalize(
+            <<"//%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]),
     {error,invalid_uri,":"} =
-        uri_string:normalize(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]).
+          uri_string:normalize(
+            <<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>, [return_map]).
 
 normalize_binary_pct_encoded_query(_Config) ->
     #{scheme := <<"foo">>, host := <<"example.com">>, path := <<"/">>,
       query := <<"name=合気道"/utf8>>} =
-        uri_string:normalize(<<"foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>,
+            [return_map])),
     #{host := <<"example.com">>, path := <<"/">>, query := <<"name=合気道"/utf8>>} =
-        uri_string:normalize(<<"//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>, [return_map]).
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>, [return_map])).
 
 normalize_binary_pct_encoded_fragment(_Config) ->
     #{scheme := <<"foo">>, host := <<"example.com">>, fragment := <<"合気道"/utf8>>} =
-        uri_string:normalize(<<"foo://example.com#%E5%90%88%E6%B0%97%E9%81%93">>, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"foo://example.com#%E5%90%88%E6%B0%97%E9%81%93">>, [return_map])),
     #{host := <<"example.com">>, path := <<"/">>, fragment := <<"合気道"/utf8>>} =
-        uri_string:normalize(<<"//example.com/#%E5%90%88%E6%B0%97%E9%81%93">>, [return_map]).
+        uri_string:percent_decode(
+          uri_string:normalize(
+            <<"//example.com/#%E5%90%88%E6%B0%97%E9%81%93">>, [return_map])).
 
 normalize_pct_encoded_userinfo(_Config) ->
     #{scheme := "user", path := "合@気道"} =
-        uri_string:normalize("user:%E5%90%88@%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("user:%E5%90%88@%E6%B0%97%E9%81%93", [return_map])),
     #{path := "合気道@"} =
-        uri_string:normalize("%E5%90%88%E6%B0%97%E9%81%93@", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("%E5%90%88%E6%B0%97%E9%81%93@", [return_map])),
     #{path := "/合気道@"} =
-        uri_string:normalize("/%E5%90%88%E6%B0%97%E9%81%93@", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("/%E5%90%88%E6%B0%97%E9%81%93@", [return_map])),
     #{path := "合@気道"} =
-        uri_string:normalize("%E5%90%88@%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("%E5%90%88@%E6%B0%97%E9%81%93", [return_map])),
     #{userinfo := "合", host := "気道"} =
-        uri_string:normalize("//%E5%90%88@%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("//%E5%90%88@%E6%B0%97%E9%81%93", [return_map])),
     #{userinfo := "合:気", host := "道"} =
-        uri_string:normalize("//%E5%90%88:%E6%B0%97@%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("//%E5%90%88:%E6%B0%97@%E9%81%93", [return_map])),
     #{scheme := "foo", path := "/合気道@"} =
-        uri_string:normalize("foo:/%E5%90%88%E6%B0%97%E9%81%93@", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("foo:/%E5%90%88%E6%B0%97%E9%81%93@", [return_map])),
     #{scheme := "foo", userinfo := "合", host := "気道"} =
-        uri_string:normalize("foo://%E5%90%88@%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("foo://%E5%90%88@%E6%B0%97%E9%81%93", [return_map])),
     #{scheme := "foo", userinfo := "合:気", host := "道"} =
-        uri_string:normalize("foo://%E5%90%88:%E6%B0%97@%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize("foo://%E5%90%88:%E6%B0%97@%E9%81%93", [return_map])),
     {error,invalid_uri,"@"} =
         uri_string:normalize("//%E5%90%88@%E6%B0%97%E9%81%93@", [return_map]),
     {error,invalid_uri,":"} =
@@ -1061,15 +1206,37 @@ normalize_pct_encoded_userinfo(_Config) ->
 normalize_pct_encoded_query(_Config) ->
     #{scheme := "foo", host := "example.com", path := "/",
       query := "name=合気道"} =
-        uri_string:normalize("foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            "foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93", [return_map])),
     #{host := "example.com", path := "/", query := "name=合気道"} =
-        uri_string:normalize("//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93", [return_map]).
+        uri_string:percent_decode(
+          uri_string:normalize(
+            "//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93", [return_map])).
 
 normalize_pct_encoded_fragment(_Config) ->
     #{scheme := "foo", host := "example.com", fragment := "合気道"} =
-        uri_string:normalize("foo://example.com#%E5%90%88%E6%B0%97%E9%81%93", [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(
+            "foo://example.com#%E5%90%88%E6%B0%97%E9%81%93", [return_map])),
     #{host := "example.com", path := "/", fragment := "合気道"} =
-        uri_string:normalize("//example.com/#%E5%90%88%E6%B0%97%E9%81%93", [return_map]).
+        uri_string:percent_decode(
+          uri_string:normalize(
+            "//example.com/#%E5%90%88%E6%B0%97%E9%81%93", [return_map])).
+
+normalize_pct_encoded_negative(_Config) ->
+    {error,{invalid,{host,{invalid_utf8,<<0,0,0,246>>}}}} =
+        uri_string:percent_decode(
+          uri_string:normalize(#{host => "%00%00%00%F6",path => []}, [return_map])),
+    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
+        uri_string:percent_decode(
+          uri_string:normalize(#{host => "%00%00%00%F6",path => []}, [])),
+    {error,{invalid,{host,{invalid_utf8,<<0,0,0,246>>}}}} =
+        uri_string:percent_decode(
+          uri_string:normalize("//%00%00%00%F6", [return_map])),
+    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
+        uri_string:percent_decode(
+          uri_string:normalize("//%00%00%00%F6", [])).
 
 interop_query_utf8(_Config) ->
     Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
@@ -1134,8 +1301,8 @@ regression_normalize(_Config) ->
     "foo://%C3%B6" =
         uri_string:normalize("FOo://%C3%B6"),
     #{host := "ö",path := [],scheme := "foo"} =
-        uri_string:normalize("FOo://%C3%B6", [return_map]),
-
+        uri_string:percent_decode(
+          uri_string:normalize("FOo://%C3%B6", [return_map])),
 
     "foo://bar" =
         uri_string:normalize(#{host => "Bar",path => [],scheme => "FOo"}),
@@ -1160,9 +1327,163 @@ regression_normalize(_Config) ->
     "foo://%C3%B6" =
         uri_string:normalize(#{host => "%C3%B6",path => [],scheme => "FOo"}),
     #{host := "ö",path := [],scheme := "foo"} =
-        uri_string:normalize(#{host => "%C3%B6",path => [],scheme => "FOo"}, [return_map]),
+        uri_string:percent_decode(
+          uri_string:normalize(#{host => "%C3%B6",path => [],scheme => "FOo"},
+                               [return_map])),
 
     "foo://%C3%B6" =
         uri_string:normalize(#{host => "ö",path => [],scheme => "FOo"}),
     #{host := "ö",path := [],scheme := "foo"} =
         uri_string:normalize(#{host => "ö",path => [],scheme => "FOo"}, [return_map]).
+
+recompose_host_relative_path(_Config) ->
+    "//example.com/.foo" =
+        uri_string:recompose(#{host => "example.com", path => ".foo"}),
+    <<"//example.com/foo">> =
+        uri_string:recompose(#{host => <<"example.com">>, path => <<"foo">>}),
+    ok.
+
+recompose_host_absolute_path(_Config) ->
+    "//example.com/foo" =
+        uri_string:recompose(#{host => "example.com",
+                               path => ["/", "foo"]}),
+    "//example.com/foo" =
+        uri_string:recompose(#{host => <<"example.com">>,
+                               path => [<<"/">>,<<"foo">>]}),
+    "//example.com/foo" =
+        uri_string:recompose(#{host => "example.com",
+                               path => ["/f", "oo"]}),
+    "//example.com/foo" =
+        uri_string:recompose(#{host => <<"example.com">>,
+                               path => [<<"/f">>,<<"oo">>]}),
+    ok.
+
+%%-------------------------------------------------------------------------
+%% Quote tests
+%%-------------------------------------------------------------------------
+quote(_Config) ->
+    TestQuote =
+        fun(Unquoted, Quoted) ->
+                Quoted = uri_string:quote(Unquoted)
+        end,
+
+    [TestQuote(U, Q) || #{unquoted := U, quoted := Q} <- get_quote_data()],
+    [TestQuote(U, Q) || #{unquoted_b := U, quoted_b := Q} <- get_quote_data()],
+
+    Head = fun([H | _]) -> H;
+               (<<H, _/binary>>) -> H
+           end,
+
+    TestQuoteUnquote =
+        fun(Unquoted) ->
+                %% case below should be removed when functions used are removed
+                case Head(Unquoted) =< 127 of
+                    true ->
+                        Unquoted = http_uri:decode(http_uri:encode(Unquoted));
+                    _ ->
+                        ok
+                end,
+                Unquoted = uri_string:unquote(uri_string:quote(Unquoted))
+        end,
+    [TestQuoteUnquote(U) || #{unquoted := U} <- get_quote_data()],
+    [TestQuoteUnquote(U) || #{unquoted_b := U} <- get_quote_data()],
+
+    TestQuoteWithSafeList =
+        fun(Unquoted, Quoted) ->
+                Safe = "!$()*", %% characters not encoded by old http_uri:encode
+                Result = uri_string:quote(Unquoted, Safe),
+                %% case below should be removed when function used are removed
+                case Head(Unquoted) =< 127 of
+                    true ->
+                        Result = http_uri:encode(Unquoted);
+                    _ ->
+                        ok
+                end,
+                case lists:member(Head(Unquoted), Safe) of
+                    true ->
+                        Unquoted = Result;
+                    false ->
+                        Quoted = Result
+                end
+        end,
+    [TestQuoteWithSafeList(U, Q) || #{unquoted := U, quoted := Q} <- get_quote_data()],
+    [TestQuoteWithSafeList(U, Q) || #{unquoted_b := U, quoted_b := Q} <- get_quote_data()],
+
+
+    ComposePath = fun (PathSegments, Safe) ->
+                          lists:join("/", [uri_string:quote(S, Safe) ||
+                                              S <- PathSegments])
+                  end,
+
+    %% / used as data see GH-5368
+    ExampleURI1 = "https://internal.api.com/devices/Ethernet0%2F4",
+    ExampleURI1 = uri_string:recompose(
+                    #{scheme => "https",
+                      host => "internal.api.com",
+                      path => ComposePath(["devices", "Ethernet0/4"],
+                                          "")}),
+
+    %% sub-delims as data
+    %% in this example ComposePath must treat sub-delims and '%' as safe character
+    %% to avoid re-encoding encoded characters
+    ExampleURI2 = "yeti://localhost/folder/file.txt,version=1%2C1",
+    ExampleURI2 = uri_string:recompose(
+                    #{scheme => "yeti",
+                      host => "localhost",
+                      path => ComposePath(["folder", "file.txt,version=" ++
+                                           uri_string:quote("1,1")],
+                                          ",=%")}),
+
+    %% percent character as data
+    ExampleURI3 = "yeti://localhost/folder/file_with_%25.txt",
+    ExampleURI3 = uri_string:recompose(
+                    #{scheme => "yeti",
+                      host => "localhost",
+                      path => ComposePath(["folder", "file_with_" ++
+                                               uri_string:quote("%") ++ ".txt"],
+                                          "%")}),
+    ok.
+
+get_quote_data() ->
+    [%% reserved/gen-delims
+     #{unquoted => ":", quoted => "%3A", unquoted_b =><<":">>, quoted_b=> <<"%3A">>},
+     #{unquoted => "/", quoted => "%2F", unquoted_b =><<"/">>, quoted_b=> <<"%2F">>},
+     #{unquoted => "?", quoted => "%3F", unquoted_b =><<"?">>, quoted_b=> <<"%3F">>},
+     #{unquoted => "#", quoted => "%23", unquoted_b =><<"#">>, quoted_b=> <<"%23">>},
+     #{unquoted => "[", quoted => "%5B", unquoted_b =><<"[">>, quoted_b=> <<"%5B">>},
+     #{unquoted => "]", quoted => "%5D", unquoted_b =><<"]">>, quoted_b=> <<"%5D">>},
+     #{unquoted => "@", quoted => "%40", unquoted_b =><<"@">>, quoted_b=> <<"%40">>},
+     %% reserved/sub-delims
+     #{unquoted => "!", quoted => "%21", unquoted_b =><<"!">>, quoted_b=> <<"%21">>},
+     #{unquoted => "$", quoted => "%24", unquoted_b =><<"$">>, quoted_b=> <<"%24">>},
+     #{unquoted => "&", quoted => "%26", unquoted_b =><<"&">>, quoted_b=> <<"%26">>},
+     #{unquoted => "'", quoted => "%27", unquoted_b =><<"'">>, quoted_b=> <<"%27">>},
+     #{unquoted => "(", quoted => "%28", unquoted_b =><<"(">>, quoted_b=> <<"%28">>},
+     #{unquoted => ")", quoted => "%29", unquoted_b =><<")">>, quoted_b=> <<"%29">>},
+     #{unquoted => "*", quoted => "%2A", unquoted_b =><<"*">>, quoted_b=> <<"%2A">>},
+     #{unquoted => "+", quoted => "%2B", unquoted_b =><<"+">>, quoted_b=> <<"%2B">>},
+     #{unquoted => ",", quoted => "%2C", unquoted_b =><<",">>, quoted_b=> <<"%2C">>},
+     #{unquoted => ";", quoted => "%3B", unquoted_b =><<";">>, quoted_b=> <<"%3B">>},
+     #{unquoted => "=", quoted => "%3D", unquoted_b =><<"=">>, quoted_b=> <<"%3D">>},
+     %% other not unreserved
+     #{unquoted => "<", quoted => "%3C", unquoted_b =><<"<">>, quoted_b=> <<"%3C">>},
+     #{unquoted => ">", quoted => "%3E", unquoted_b =><<">">>, quoted_b=> <<"%3E">>},
+     #{unquoted => "\"", quoted => "%22", unquoted_b =><<"\"">>, quoted_b=> <<"%22">>},
+     #{unquoted => "{", quoted => "%7B", unquoted_b =><<"{">>, quoted_b=> <<"%7B">>},
+     #{unquoted => "}", quoted => "%7D", unquoted_b =><<"}">>, quoted_b=> <<"%7D">>},
+     #{unquoted => "|", quoted => "%7C", unquoted_b =><<"|">>, quoted_b=> <<"%7C">>},
+     #{unquoted => "\\", quoted => "%5C", unquoted_b =><<"\\">>, quoted_b=> <<"%5C">>},
+     #{unquoted => "^", quoted => "%5E", unquoted_b =><<"^">>, quoted_b=> <<"%5E">>},
+     #{unquoted => "%", quoted => "%25", unquoted_b =><<"%">>, quoted_b=> <<"%25">>},
+     #{unquoted => " ", quoted => "%20", unquoted_b =><<" ">>, quoted_b=> <<"%20">>},
+     %% non-ASCII
+     #{unquoted => "örebro", quoted => "%C3%B6rebro",
+       unquoted_b =><<"örebro"/utf8>>, quoted_b=> <<"%C3%B6rebro">>},
+     #{unquoted => "Łódź", quoted => "%C5%81%C3%B3d%C5%BA",
+       unquoted_b =><<"Łódź"/utf8>>, quoted_b=> <<"%C5%81%C3%B3d%C5%BA">>},
+     %% unreserved non alpha, non digit characters
+     #{unquoted => "-", quoted => "-", unquoted_b =><<"-">>, quoted_b=> <<"-">>},
+     #{unquoted => ".", quoted => ".", unquoted_b =><<".">>, quoted_b=> <<".">>},
+     #{unquoted => "_", quoted => "_", unquoted_b =><<"_">>, quoted_b=> <<"_">>},
+     #{unquoted => "~", quoted => "~", unquoted_b =><<"~">>, quoted_b=> <<"~">>}
+    ].

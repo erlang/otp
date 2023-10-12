@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@
 /*
  * Module: elog_pipe_stdin
  * Purpouse: Read data from stdin when stdin is a pipe
- * and deliver events only when data is really availabel or 
+ * and deliver events only when data is really available or 
  * end of file is reached.
  * If we would wait on an ordinary pipe handle, we 
  * would return immediately as it's always "signaled".
- * some kind of asyncronous I/O in the win32 way is 
+ * some kind of asynchronous I/O in the win32 way is 
  * not possible as it's not supported on anonymous pipes
  * (besides we have not opened the file ourselves so we 
  *  cannot specify that we want async I/O...).
@@ -66,7 +66,7 @@ BOOL setup_pipe_stdin(void);
 /*
  * Initializes the module, returns TRUE if OK.
  * If stdin is a console, no thread is created
- * and the event objet returned by get_Stdin_event 
+ * and the event object returned by get_Stdin_event 
  * will be the console handle.
  * Check if stdin was a console with the console_stdin() 
  * function.

@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,10 +35,12 @@
   <xi:include href="modules.xml"/>
   <xi:include href="functions.xml"/>
   <xi:include href="typespec.xml"/>
+  <xi:include href="opaques.xml"/>
   <xi:include href="expressions.xml"/>
   <xi:include href="macros.xml"/>
   <xi:include href="records.xml"/>
   <xi:include href="errors.xml"/>
+  <xi:include href="features.xml"/>
   <xi:include href="processes.xml"/>
   <xi:include href="distributed.xml"/>
   <xi:include href="code_loading.xml"/>

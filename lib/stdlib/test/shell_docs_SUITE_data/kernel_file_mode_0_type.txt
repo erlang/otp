@@ -1,0 +1,13 @@
+
+  [;1m-type mode() ::[0m
+  [;1m          read | write | append | exclusive | raw | binary |[0m
+  [;1m          {delayed_write,[0m
+  [;1m           Size :: non_neg_integer(),[0m
+  [;1m           Delay :: non_neg_integer()} |[0m
+  [;1m          delayed_write |[0m
+  [;1m          {read_ahead, Size :: pos_integer()} |[0m
+  [;1m          read_ahead | compressed | compressed_one |[0m
+  [;1m          {encoding, unicode:encoding()} |[0m
+  [;1m          sync.[0m
+
+  There is no documentation for mode/0

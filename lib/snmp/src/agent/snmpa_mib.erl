@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,9 +40,8 @@
 	 which_cache_size/1
 	]).
 
-%% <BACKWARD-COMPAT>
--export([load_mibs/2, unload_mibs/2]).
-%% </BACKWARD-COMPAT>
+%% Utility exports
+-export([subscribe_gc_events/1, unsubscribe_gc_events/1]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -55,14 +54,15 @@
 -include("snmp_debug.hrl").
 
 
--define(SERVER,                ?MODULE).
--define(NO_CACHE,              no_mibs_cache).
--define(DEFAULT_CACHE_USAGE,   true).
--define(CACHE_GC_TICKTIME,     timer:minutes(1)).
--define(DEFAULT_CACHE_AUTOGC,  true).
--define(DEFAULT_CACHE_GCLIMIT, 100).
--define(DEFAULT_CACHE_AGE,     timer:minutes(10)).
--define(CACHE_GC_TRIGGER,      cache_gc_trigger).
+-define(SERVER,                  ?MODULE).
+-define(NO_CACHE,                no_mibs_cache).
+-define(DEFAULT_CACHE_USAGE,     true).
+-define(CACHE_GC_TICKTIME,       timer:minutes(1)).
+-define(DEFAULT_CACHE_AUTOGC,    true).
+-define(DEFAULT_CACHE_GCLIMIT,   infinity). % 100).
+-define(DEFAULT_CACHE_GCVERBOSE, false).
+-define(DEFAULT_CACHE_AGE,       timer:minutes(10)).
+-define(CACHE_GC_TRIGGER,        cache_gc_trigger).
 
 
 
@@ -85,7 +85,8 @@
 %%-----------------------------------------------------------------
 -record(state, 
 	{data, meo, teo, backup, 
-	 cache, cache_tmr, cache_autogc, cache_gclimit, cache_age, 
+	 cache, cache_tmr, cache_autogc, cache_gclimit, cache_age,
+         cache_sub, cache_gcverbose = false,
 	 data_mod}).
 
 
@@ -153,6 +154,13 @@ update_cache_opts(MibServer, Key, Value) ->
     call(MibServer, {update_cache_opts, Key, Value}).
 
 
+subscribe_gc_events(MibServer) ->
+    call(MibServer, {subscribe_gc_events, self()}).
+
+unsubscribe_gc_events(MibServer) ->
+    call(MibServer, {unsubscribe_gc_events, self()}).
+
+
 %%-----------------------------------------------------------------
 %% Func: lookup/2
 %% Purpose: Finds the mib entry corresponding to the Oid. If it is a
@@ -191,11 +199,6 @@ next(MibServer, Oid, MibView) ->
 %% Returns: ok | {error, Reason}
 %%----------------------------------------------------------------------
 
-%% <BACKWARD-COMPAT>
-load_mibs(MibServer, Mibs) ->
-    load_mibs(MibServer, Mibs, false).
-%% </BACKWARD-COMPAT>
-
 load_mibs(MibServer, Mibs, Force) ->
     call(MibServer, {load_mibs, Mibs, Force}).
 
@@ -206,10 +209,6 @@ load_mibs(MibServer, Mibs, Force) ->
 %%       Force is a boolean
 %% Returns: ok | {error, Reason}
 %%----------------------------------------------------------------------
-%% <BACKWARD-COMPAT>
-unload_mibs(MibServer, Mibs) ->
-    unload_mibs(MibServer, Mibs, false).
-%% </BACKWARD-COMPAT>
 
 unload_mibs(MibServer, Mibs, Force) ->
     call(MibServer, {unload_mibs, Mibs, Force}).
@@ -277,7 +276,7 @@ do_init(Prio, Mibs, Opts) ->
     process_flag(trap_exit, true),
     put(sname, ms),
     put(verbosity, ?vvalidate(get_verbosity(Opts))),
-    ?vlog("starting",[]),
+    ?vlog("starting", []),
 
     %% Extract the cache options
     {Cache, CacheOptions} = 
@@ -291,9 +290,10 @@ do_init(Prio, Mibs, Opts) ->
 	    Bad ->
 		throw({error, {bad_option, {cache, Bad}}})
 	end,
-    CacheAutoGC  = get_cacheopt_autogc(Cache,  CacheOptions), 
-    CacheGcLimit = get_cacheopt_gclimit(Cache, CacheOptions), 
-    CacheAge     = get_cacheopt_age(Cache,     CacheOptions), 
+    CacheAutoGC  = get_cacheopt_autogc(Cache,    CacheOptions), 
+    CacheGcLimit = get_cacheopt_gclimit(Cache,   CacheOptions), 
+    CacheAge     = get_cacheopt_age(Cache,       CacheOptions), 
+    CacheGcVerb  = get_cacheopt_gcverbose(Cache, CacheOptions), 
     
     %% Maybe start the cache gc timer
     CacheGcTimer = 
@@ -322,15 +322,16 @@ do_init(Prio, Mibs, Opts) ->
 	    ?vdebug("started",[]),
 	    MibDataMod:sync(Data2),
 	    ?vdebug("mib data synced",[]),
-	    {ok, #state{data          = Data2, 
-			teo           = TeOverride, 
-			meo           = MeOverride,
-			cache         = Cache, 
-			cache_tmr     = CacheGcTimer, 
-			cache_autogc  = CacheAutoGC,
-			cache_gclimit = CacheGcLimit,
-			cache_age     = CacheAge, 
-			data_mod      = MibDataMod}};
+	    {ok, #state{data            = Data2, 
+			teo             = TeOverride, 
+			meo             = MeOverride,
+			cache           = Cache, 
+			cache_tmr       = CacheGcTimer, 
+			cache_autogc    = CacheAutoGC,
+			cache_gclimit   = CacheGcLimit,
+			cache_age       = CacheAge, 
+			cache_gcverbose = CacheGcVerb,
+			data_mod        = MibDataMod}};
 	{'aborted at', Mib, _NewData, Reason} ->
 	    ?vinfo("failed loading mib ~p: ~p",[Mib,Reason]),
 	    {error, {Mib, Reason}}
@@ -418,9 +419,43 @@ handle_call({update_cache_opts, Key, Value}, _From, State) ->
     {Result, NewState} = handle_update_cache_opts(Key, Value, State),
     {reply, Result, NewState};
 
+
+handle_call({subscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Sub} = State)
+  when (Sub =:= undefined) ->
+    ?vdebug("subscribe_gc_events: ~p => ok", [Pid]), 
+    {reply, ok, State#state{cache_sub = Pid}};
+handle_call({subscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Pid} = State) ->
+    ?vinfo("subscribe_gc_events: ~p => error:already-subscribed", [Pid]), 
+    {reply, {error, already_subscribed}, State};
+handle_call({subscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Sub} = State)
+  when is_pid(Sub) andalso (Pid =/= Sub) ->
+    ?vinfo("subscribe_gc_events: ~p => error:already-subscribed ~p",
+           [Pid, Sub]), 
+    {reply, {error, {already_subscribed, Sub}}, State};
+
+handle_call({unsubscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Pid} = State) ->
+    ?vdebug("unsubscribe_gc_events: ~p => ok", [Pid]), 
+    {reply, ok, State#state{cache_sub = undefined}};
+handle_call({unsubscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Sub} = State)
+  when (Sub =:= undefined) ->
+    ?vinfo("unsubscribe_gc_events: ~p => error:not-subscribed", [Pid]), 
+    {reply, {error, not_subscribed}, State};
+handle_call({unsubscribe_gc_events, Pid}, _From,
+            #state{cache_sub = Sub} = State)
+  when is_pid(Sub) andalso (Pid =/= Sub) ->
+    ?vinfo("unsubscribe_gc_events: ~p => error:not-subscribed ~p",
+           [Pid, Sub]), 
+    {reply, {error, {not_subscribed, Sub}}, State};
+
+
 handle_call({lookup, Oid}, _From, 
 	    #state{data = Data, cache = Cache, data_mod = Mod} = State) ->
-    ?vlog("lookup ~p", [Oid]), 
+    ?vlog("lookup ~p", [Oid]),
     Key = {lookup, Oid}, 
     {Reply, NewState} = 
 	case maybe_cache_lookup(Cache, Key) of
@@ -431,7 +466,7 @@ handle_call({lookup, Oid}, _From,
 		ets:insert(Cache, {Key, Rep, timestamp()}),
 		{Rep, maybe_start_cache_gc_timer(State)};
 	    [{Key, Rep, _}] ->
-		?vdebug("lookup -> found in cache", []), 
+		?vtrace("lookup -> found in cache - update timestamp", []),
 		ets:update_element(Cache, Key, {3, timestamp()}),
 		{Rep, State}
 	end,
@@ -458,17 +493,12 @@ handle_call({next, Oid, MibView}, _From,
 		ets:insert(Cache, {Key, Rep, timestamp()}),
 		{Rep, maybe_start_cache_gc_timer(State)};
 	    [{Key, Rep, _}] ->
-		?vdebug("lookup -> found in cache", []), 
+		?vdebug("lookup -> found in cache - update timestamp", []),
 		ets:update_element(Cache, Key, {3, timestamp()}),
 		{Rep, State}
 	end,
     ?vdebug("next -> Reply: ~p", [Reply]), 
     {reply, Reply, NewState};
-
-%% <BACKWARD-COMPAT>
-handle_call({load_mibs, Mibs}, From, State) ->
-    handle_call({load_mibs, Mibs, false}, From, State);
-%% </BACKWARD-COMPAT>
 
 handle_call({load_mibs, Mibs, Force}, _From, 
 	    #state{data         = Data, 
@@ -490,11 +520,6 @@ handle_call({load_mibs, Mibs, Force}, _From,
 	end,
     Mod:sync(NData),
     {reply, Reply, State#state{data = NData, cache = NewCache}};
-
-%% <BACKWARD-COMPAT>
-handle_call({unload_mibs, Mibs}, From, State) ->
-    handle_call({unload_mibs, Mibs, false}, From, State);
-%% </BACKWARD-COMPAT>
 
 handle_call({unload_mibs, Mibs, Force}, _From, 
 	    #state{data         = Data, 
@@ -570,7 +595,7 @@ handle_call(info, _From, #state{data     = Data,
     Reply = 
 	case (catch Mod:info(Data)) of
 	    Info when is_list(Info) ->
-		[{cache, size_cache(Cache)} | Info];
+		[{cache, cache_info(Cache)} | Info];
 	    E ->
 		    [{error, E}]
 	    end,
@@ -664,13 +689,21 @@ handle_info({backup_done, Reply}, #state{backup = {_, From}} = S) ->
     gen_server:reply(From, Reply),
     {noreply, S#state{backup = undefined}};
 
-handle_info(?CACHE_GC_TRIGGER, #state{cache         = Cache, 
-				      cache_age     = Age, 
-				      cache_gclimit = GcLimit, 
-				      cache_autogc  = true} = S) 
+handle_info(?CACHE_GC_TRIGGER, #state{cache           = Cache, 
+				      cache_age       = Age, 
+				      cache_gclimit   = GcLimit, 
+				      cache_autogc    = true,
+                                      cache_gcverbose = GcVerbose} = S) 
   when (Cache =/= ?NO_CACHE) ->
-    ?vlog("cache gc trigger event", []),
-    maybe_gc_cache(Cache, Age, GcLimit), 
+    gcvprint(GcVerbose, "GC: begin"),
+    case maybe_gc_cache(Cache, Age, GcLimit) of
+        {ok, NumDeleted} = Result when (NumDeleted > 0) ->
+            gcvprint(GcVerbose,
+                     "GC: ~w elements deleted from cache", [NumDeleted]),
+            maybe_send_gc_result(S, Result);
+        _ ->
+            ok
+    end,
     Tmr = start_cache_gc_timer(),
     {noreply, S#state{cache_tmr = Tmr}};
 
@@ -749,14 +782,15 @@ get_cacheopt_autogc(Cache, CacheOpts) ->
 		 IsValid).
 
 get_cacheopt_gclimit(Cache, CacheOpts) ->
-    IsValid = fun(Limit) when ((is_integer(Limit) andalso (Limit > 0)) orelse 
-			       (Limit =:= infinity)) ->
+    IsValid = fun(Limit) when ((is_integer(Limit) andalso
+                               (Limit > 0)) orelse
+                              (Limit =:= infinity)) ->
 		      true;
 		 (_) ->
 		      false
 	      end,
-    get_cacheopt(Cache, gclimit, CacheOpts, 
-		 infinity, ?DEFAULT_CACHE_GCLIMIT, 
+    get_cacheopt(Cache, gclimit, CacheOpts,
+		 infinity, ?DEFAULT_CACHE_GCLIMIT,
 		 IsValid).
 
 get_cacheopt_age(Cache, CacheOpts) ->
@@ -765,8 +799,18 @@ get_cacheopt_age(Cache, CacheOpts) ->
 		 (_) ->
 		      false
 	      end,
-    get_cacheopt(Cache, age, CacheOpts, 
-		 ?DEFAULT_CACHE_AGE, ?DEFAULT_CACHE_AGE, 
+    get_cacheopt(Cache, age, CacheOpts,
+		 ?DEFAULT_CACHE_AGE, ?DEFAULT_CACHE_AGE,
+		 IsValid).
+
+get_cacheopt_gcverbose(Cache, CacheOpts) ->
+    IsValid = fun(Verbosity) when is_boolean(Verbosity) ->
+		      true;
+		 (_) ->
+		      false
+	      end,
+    get_cacheopt(Cache, gcverbose, CacheOpts,
+		 ?DEFAULT_CACHE_GCVERBOSE, ?DEFAULT_CACHE_GCVERBOSE,
 		 IsValid).
 
 get_cacheopt(?NO_CACHE, _, _, NoCacheVal, _, _) ->
@@ -843,21 +887,28 @@ start_cache_gc_timer() ->
 
 %% ----------------------------------------------------------------
 
+gcvprint(GcVerbose, F) ->
+    gcvprint(GcVerbose, F, []).
+
+gcvprint(true, F, A) ->
+    ?vinfo(F, A);
+gcvprint(_, _, _) ->
+    ok.
+
 maybe_gc_cache(?NO_CACHE, _Age) ->
     ?vtrace("cache not enabled", []),
     ok;
 maybe_gc_cache(Cache, Age) ->
-    MatchSpec = gc_cache_matchspec(Age), 
-    Keys = ets:select(Cache, MatchSpec),
-    do_gc_cache(Cache, Keys),
-    {ok, length(Keys)}.
+    MatchSpec  = gc_cache_matchspec_del(Age),
+    NumDeleted = ets:select_delete(Cache, MatchSpec),
+    {ok, NumDeleted}.
 
 maybe_gc_cache(?NO_CACHE, _Age, _GcLimit) ->
     ok;
 maybe_gc_cache(Cache, Age, infinity = _GcLimit) ->
     maybe_gc_cache(Cache, Age);
 maybe_gc_cache(Cache, Age, GcLimit) ->
-    MatchSpec = gc_cache_matchspec(Age), 
+    MatchSpec = gc_cache_matchspec_key(Age), 
     Keys = 
 	case ets:select(Cache, MatchSpec, GcLimit) of
 	    {Match, _Cont} ->
@@ -868,13 +919,25 @@ maybe_gc_cache(Cache, Age, GcLimit) ->
     do_gc_cache(Cache, Keys),
     {ok, length(Keys)}.
 
-gc_cache_matchspec(Age) ->
-    Oldest    = timestamp() - Age,
+gc_cache_matchspec_del(Age) ->
+    %% The entry is a 3-tuple: {Key, Value, Timestamp}
+    MatchHead = {'_', '_', '$2'}, 
+    Return    = true,
+    gc_cache_matchspec(Age, MatchHead, Return).
+
+gc_cache_matchspec_key(Age) ->
+    %% The entry is a 3-tuple: {Key, Value, Timestamp}
     MatchHead = {'$1', '_', '$2'}, 
+    Return    = '$1',
+    gc_cache_matchspec(Age, MatchHead, Return).
+
+gc_cache_matchspec(Age, MatchHead, Return) ->
+    Oldest    = timestamp() - Age,
     Guard     = [{'<', '$2', Oldest}], 
-    MatchFunc = {MatchHead, Guard, ['$1']},
+    MatchFunc = {MatchHead, Guard, [Return]},
     MatchSpec = [MatchFunc],
     MatchSpec.
+
 
 do_gc_cache(_, []) ->
     ok;
@@ -906,18 +969,35 @@ maybe_cache_lookup(?NO_CACHE, _) ->
 maybe_cache_lookup(Cache, Key) ->
     ets:lookup(Cache, Key).
 
-size_cache(?NO_CACHE) ->
+
+cache_info(?NO_CACHE) ->
     undefined;
-size_cache(Cache) ->
-    case (catch ets:info(Cache, memory)) of
-	Sz when is_integer(Sz) ->
-	    Sz;
-	_ ->
-	    undefined
+cache_info(Cache) ->
+    try
+        begin
+            [
+             {memory, ets:info(Cache, memory)},
+             {size,   ets:info(Cache, size)},
+             {stats,  ets:info(Cache, stats)}
+            ]
+        end
+    catch
+        _:_:_ ->
+            undefined
     end.
+
 
 timestamp() ->
     snmp_misc:now(ms).
+
+
+maybe_send_gc_result(S, Result) ->
+    maybe_send_gc_event(S, gc_result, Result).
+
+maybe_send_gc_event(#state{cache_sub = Sub}, Ev, Info) when is_pid(Sub) ->
+    Sub ! {self(), Ev, Info};
+maybe_send_gc_event(_, _, _) ->
+    ok.
 
 
 %% ----------------------------------------------------------------

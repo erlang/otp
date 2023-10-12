@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,8 +66,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
-     timetrap_fun, timetrap_fun_group, misc_errors,
-     config_restored, config_func_errors].
+     timetrap_fun, timetrap_fun_group, timetrap_with_float_mult,
+     misc_errors, config_restored, config_func_errors].
 
 groups() -> 
     [].
@@ -271,6 +271,28 @@ timetrap_fun_group(Config) when is_list(Config) ->
 			       Opts),
 
     TestEvents = events_to_check(timetrap_fun_group),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+timetrap_with_float_mult(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suite = Join(DataDir, "timetrap_9_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {multiply_timetraps,0.5},
+			  {userconfig,{ct_userconfig_callback,
+				       "multiply 0.5"}}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_with_float_mult,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(timetrap_with_float_mult),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -592,7 +614,7 @@ test_events(cfg_error) ->
      {?eh,test_stats,{9,1,{0,18}}},
      {?eh,tc_start,{cfg_error_9_SUITE,tc6}},
      %%! we get ok with tc_done since it's only afterwards
-     %%! end_tc failes the testcase
+     %%! end_tc fails the testcase
      {?eh,tc_done,{cfg_error_9_SUITE,tc6,ok}},
      {?eh,test_stats,{9,2,{0,18}}},
      {?eh,tc_start,{cfg_error_9_SUITE,tc7}},
@@ -648,33 +670,35 @@ test_events(cfg_error) ->
      {?eh,tc_start,{cfg_error_11_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_11_SUITE,end_per_suite,ok}},
      {?eh,tc_start,{cfg_error_12_SUITE,tc1}},
-     {?eh,tc_done,{ct_framework,init_tc,{framework_error,{timetrap,500}}}},
-     {?eh,test_stats,{13,8,{0,19}}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc1,
+                   {auto_skipped,
+                    {failed,{ct_framework,init_tc,{timetrap,500}}}}}},
+     {?eh,test_stats,{13,7,{0,20}}},
      {?eh,tc_start,{cfg_error_12_SUITE,tc2}},
      {?eh,tc_done,{cfg_error_12_SUITE,tc2,{failed,
 					   {cfg_error_12_SUITE,end_per_testcase,
 					    {timetrap_timeout,500}}}}},
-     {?eh,test_stats,{14,8,{0,19}}},
+     {?eh,test_stats,{14,7,{0,20}}},
      {?eh,tc_start,{cfg_error_12_SUITE,tc3}},
      {?eh,tc_done,{cfg_error_12_SUITE,tc3,ok}},
-     {?eh,test_stats,{15,8,{0,19}}},
+     {?eh,test_stats,{15,7,{0,20}}},
      {?eh,tc_start,{cfg_error_12_SUITE,tc4}},
      {?eh,tc_done,{cfg_error_12_SUITE,tc4,{failed,
 					   {cfg_error_12_SUITE,end_per_testcase,
 					    {timetrap_timeout,500}}}}},
-     {?eh,test_stats,{16,8,{0,19}}},
+     {?eh,test_stats,{16,7,{0,20}}},
      {?eh,tc_start,{cfg_error_13_SUITE,init_per_suite}},
      {?eh,tc_done,{cfg_error_13_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{cfg_error_13_SUITE,tc1}},
      {?eh,tc_done,{cfg_error_13_SUITE,tc1,ok}},
-     {?eh,test_stats,{17,8,{0,19}}},
+     {?eh,test_stats,{17,7,{0,20}}},
      {?eh,tc_start,{cfg_error_13_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_13_SUITE,end_per_suite,ok}},
      {?eh,tc_start,{cfg_error_14_SUITE,init_per_suite}},
      {?eh,tc_done,{cfg_error_14_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{cfg_error_14_SUITE,tc1}},
      {?eh,tc_done,{cfg_error_14_SUITE,tc1,ok}},
-     {?eh,test_stats,{18,8,{0,19}}},
+     {?eh,test_stats,{18,7,{0,20}}},
      {?eh,tc_start,{cfg_error_14_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_14_SUITE,end_per_suite,
 		   {comment,
@@ -705,9 +729,8 @@ test_events(lib_error) ->
       {lib_error_1_SUITE,lines_hang,{failed,{timetrap_timeout,3000}}}},
      {?eh,test_stats,{0,3,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,lines_throw}},
-     {?eh,tc_done,
-      {lib_error_1_SUITE,lines_throw,
-       {failed,{error,{thrown,catch_me_if_u_can}}}}},
+     {?eh,tc_done,{lib_error_1_SUITE,lines_throw,{failed,
+        {error,{thrown,{catch_me_if_u_can,'_'}}}}}},
      {?eh,test_stats,{0,4,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,no_lines_error}},
      {?eh,tc_done,
@@ -724,29 +747,34 @@ test_events(lib_error) ->
       {lib_error_1_SUITE,no_lines_hang,{failed,{timetrap_timeout,3000}}}},
      {?eh,test_stats,{0,7,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,no_lines_throw}},
-     {?eh,tc_done,
-      {lib_error_1_SUITE,no_lines_throw,{failed,{error,{thrown,catch_me_if_u_can}}}}},
+     {?eh,tc_done,{lib_error_1_SUITE,no_lines_throw,{failed,
+        {error,{thrown,{catch_me_if_u_can,'_'}}}}}},
      {?eh,test_stats,{0,8,{0,0}}},
      {?eh,tc_start,{lib_error_1_SUITE,init_tc_error}},
-     {?eh,tc_done,{ct_framework,init_tc,
-         {framework_error,{{badmatch,[1,2]},'_'}}}},
-     {?eh,test_stats,{0,9,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,init_tc_error,
+                   {auto_skipped,
+                    {failed,
+                     {ct_framework,init_tc,
+                      {{badmatch,[1,2]},'_'}}}}}},
+     {?eh,test_stats,{0,8,{0,1}}},
      {?eh,tc_start,{lib_error_1_SUITE,init_tc_exit}},
-     {?eh,tc_done,{ct_framework,init_tc,{framework_error,byebye}}},
-     {?eh,test_stats,{0,10,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,init_tc_exit,
+                   {auto_skipped,{failed,{ct_framework,init_tc,byebye}}}}},
+     {?eh,test_stats,{0,8,{0,2}}},
      {?eh,tc_start,{lib_error_1_SUITE,init_tc_throw}},
-     {?eh,tc_done,{ct_framework,init_tc,{framework_error,catch_me_if_u_can}}},
-     {?eh,test_stats,{0,11,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,init_tc_throw,
+                   {auto_skipped,{failed,{ct_framework,init_tc,
+                                          catch_me_if_u_can}}}}},
+     {?eh,test_stats,{0,8,{0,3}}},
      {?eh,tc_start,{lib_error_1_SUITE,end_tc_error}},
-     {?eh,tc_done,{ct_framework,end_tc,
-		   {framework_error,{{badmatch,[1,2]},'_'}}}},
-     {?eh,test_stats,{0,12,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,end_tc_error,ok}}, % warning in comment
+     {?eh,test_stats,{1,8,{0,3}}},
      {?eh,tc_start,{lib_error_1_SUITE,end_tc_exit}},
-     {?eh,tc_done,{ct_framework,end_tc,{framework_error,byebye}}},
-     {?eh,test_stats,{0,13,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,end_tc_exit,ok}}, % warning in comment
+     {?eh,test_stats,{2,8,{0,3}}},
      {?eh,tc_start,{lib_error_1_SUITE,end_tc_throw}},
-     {?eh,tc_done,{ct_framework,end_tc,{framework_error,catch_me_if_u_can}}},
-     {?eh,test_stats,{0,14,{0,0}}},
+     {?eh,tc_done,{lib_error_1_SUITE,end_tc_throw,ok}}, % warning in comment
+     {?eh,test_stats,{3,8,{0,3}}},
      {?eh,tc_start,{lib_error_1_SUITE,end_per_suite}},
      {?eh,tc_done,{lib_error_1_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
@@ -1439,6 +1467,21 @@ test_events(timetrap_fun_group) ->
 
      {?eh,tc_start,{timetrap_8_SUITE,end_per_suite}},
      {?eh,tc_done,{timetrap_8_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(timetrap_with_float_mult) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{timetrap_9_SUITE,init_per_suite}},
+     {?eh,tc_done,{timetrap_9_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_9_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_9_SUITE,tc0,{failed,{timetrap_timeout,1500}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];

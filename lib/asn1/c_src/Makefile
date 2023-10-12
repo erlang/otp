@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2016. All Rights Reserved.
+# Copyright Ericsson AB 2002-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ LN=cp
 else
 NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1rt_nif.so
 NIF_LIB_FILE = $(LIBDIR)/asn1rt_nif.a
-CLIB_FLAGS = -lc
+CLIB_FLAGS =
 LN= ln -s
 endif
 
@@ -99,7 +99,8 @@ _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 opt: $(NIF_SHARED_OBJ_FILE)
 
-debug: opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 static_lib: $(NIF_LIB_FILE)
 

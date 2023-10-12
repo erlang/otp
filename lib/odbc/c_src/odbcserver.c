@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
   by sendig a shutdown request to the supervisor thread.
 
   Erlang will start this c-process as a port-program and send information
-  regarding inet-port nummbers through the erlang-port.
+  regarding inet-port numbers through the erlang-port.
   After that c-process will communicate via sockets with erlang. The
   reason for this is that some odbc-drivers do unexpected things with
   stdin/stdout messing up the erlang-port communication.
@@ -41,7 +41,7 @@
    Bytes, StringTerminator]
    
    CommandByte - constants between 0 and 255
-   identifing the request defined in odbc_internal.hrl and odbcserver.h
+   identifying the request defined in odbc_internal.hrl and odbcserver.h
 
    Bytes - How to interpret this sequence of bytes depends on the
    CommandByte.
@@ -178,7 +178,7 @@ static void encode_column_dyn(db_column column, int column_nr,
 			      db_state *state);
 static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 			     SQLSMALLINT decimal_digits, db_state *state);
-static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
+static Boolean decode_params(db_state *state, char *buffer, int *index, param_array **params,
 			     int i, int j, int num_param_values);
 
 /*------------- Erlang port communication functions ----------------------*/
@@ -208,7 +208,7 @@ static void tcp_nodelay(int sock);
 #endif
 static void clean_socket_lib(void);
 
-/*------------- Memory handling funtions --------------------------------*/
+/*------------- Memory handling functions --------------------------------*/
 
 static void * safe_malloc(int size);
 static void * safe_realloc(void * ptr, int size);
@@ -218,11 +218,11 @@ static void free_params(param_array **params, int cols);
 static void clean_state(db_state *state);
 static SQLLEN* alloc_strlen_indptr(int n, int val);
 
-/* ------------- Init/map/bind/retrive functions -------------------------*/
+/* ------------- Init/map/bind/retrieve functions -------------------------*/
 
 static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 			   db_state *state);
-static void init_param_column(param_array *params, byte *buffer, int *index,
+static void init_param_column(param_array *params, char *buffer, int *index,
 			      int num_param_values, db_state* state);
 
 static void init_param_statement(int cols,
@@ -235,7 +235,7 @@ static void map_dec_num_2_c_column(col_type *type, int precision,
 static db_result_msg map_sql_2_c_column(db_column* column, db_state *state);
 
 
-static param_array * bind_parameter_arrays(byte *buffer, int *index,
+static param_array * bind_parameter_arrays(char *buffer, int *index,
 					   int cols,
 					   int num_param_values,
 					   db_state *state);
@@ -259,10 +259,10 @@ static void str_tolower(char *str, int len);
 /* ----------------------------- CODE ------------------------------------*/
 
 #if defined(WIN32)
-#  define DO_EXIT(code) do { ExitProcess((code)); exit((code));} while (0)
-/* exit() called only to avoid a warning */
+#  define DO_EXIT(code) do { ExitProcess((code)); _exit((code));} while (0)
+/* _exit() called only to avoid a warning */
 #else
-#  define DO_EXIT(code) exit((code))
+#  define DO_EXIT(code) _exit((code))
 #endif
 
 /* ----------------- Main functions --------------------------------------*/
@@ -278,7 +278,7 @@ int main(void)
     
     msg = receive_erlang_port_msg();
 
-    temp = strtok(msg, ";");
+    temp = strtok((char*)msg, ";");
     if (temp == NULL)
 	DO_EXIT(EXIT_STDIN_BODY);
     length = strlen(temp);
@@ -304,7 +304,7 @@ int main(void)
 static void spawn_sup(const char *port)
 {
     DWORD threadId;
-    (HANDLE)_beginthreadex(NULL, 0, supervise, port, 0, &threadId);
+    _beginthreadex(NULL, 0, supervise, port, 0, &threadId);
 }
 #elif defined(UNIX)
 static void spawn_sup(const char *port)
@@ -396,7 +396,7 @@ DWORD WINAPI database_handler(const char *port)
 }
  
 /* Description: Calls the appropriate function to handle the database
-   request recived from the erlang-process. Returns a message to send back
+   request received from the erlang-process. Returns a message to send back
    to erlang. */
 static db_result_msg handle_db_request(byte *reqstring, db_state *state)
 {
@@ -509,7 +509,9 @@ static db_result_msg db_connect(byte *args, db_state *state)
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
 	strcat((char *)diagnos.error_msg,
 	       " Connection to database failed.");
-	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError );
+	msg = encode_error_message((char *)diagnos.error_msg,
+                                   extended_error(state, diagnos.sqlState),
+                                   diagnos.nativeError );
     
 	if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
 				      connection_handle(state))))
@@ -544,7 +546,9 @@ static db_result_msg db_connect(byte *args, db_state *state)
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
 	strcat((char *)diagnos.error_msg, " Set autocommit mode failed.");
 
-	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	msg = encode_error_message((char*)diagnos.error_msg,
+                                   extended_error(state, diagnos.sqlState),
+                                   diagnos.nativeError);
 
 	if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
 				      connection_handle(state))))
@@ -576,7 +580,9 @@ static db_result_msg db_close_connection(db_state *state)
                        
     if (!sql_success(result)) {
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
-	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	return encode_error_message((char *)diagnos.error_msg,
+                                    extended_error(state, diagnos.sqlState),
+                                    diagnos.nativeError);
     }
 
     if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
@@ -603,7 +609,9 @@ static db_result_msg db_end_tran(byte compleationtype, db_state *state)
 
     if (!sql_success(result)) {
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
-	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	return encode_error_message((char *)diagnos.error_msg,
+                                    extended_error(state, diagnos.sqlState),
+                                    diagnos.nativeError);
     } else {
 	return encode_atom_message("ok");
     }
@@ -645,7 +653,7 @@ static db_result_msg db_query(byte *sql, db_state *state)
 		       it as we want a nice and clean Erlang API  */
 		    if((strcmp((char *)is_error, "error") == 0))
 		    { 
-			    msg = encode_error_message((char *)diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+			    msg = encode_error_message((char *)diagnos.error_msg,extended_error(state, diagnos.sqlState), diagnos.nativeError);
  			    clean_state(state); 
 			    return msg;
 		    }  
@@ -666,12 +674,12 @@ static db_result_msg db_query(byte *sql, db_state *state)
 	do {
 	    ei_x_encode_list_header(&dynamic_buffer(state), 1);
 	    msg = encode_result(state);
-	    /* We don't want to continue if an error occured */
+	    /* We don't want to continue if an error occurred */
 	    if (msg.length != 0) { 
 		break;
 	    }
 	    msg = more_result_sets(state);
-	    /* We don't want to continue if an error occured */
+	    /* We don't want to continue if an error occurred */
 	    if (msg.length != 0) { 
 		break;
 	    }
@@ -686,7 +694,7 @@ static db_result_msg db_query(byte *sql, db_state *state)
 	ei_x_free(&(dynamic_buffer(state))); 
 	return msg;
     } else {
-	msg.buffer = dynamic_buffer(state).buff;
+	msg.buffer = (byte*)dynamic_buffer(state).buff;
 	msg.length = dynamic_buffer(state).index;
 	msg.dyn_alloc = TRUE;
 	return msg;
@@ -722,7 +730,9 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
     if(!sql_success(SQLExecDirect(statement_handle(state), (SQLCHAR *)sql, SQL_NTS))) {
 	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	clean_state(state);
-	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	return encode_error_message((char *)diagnos.error_msg,
+                                    extended_error(state, diagnos.sqlState),
+                                    diagnos.nativeError);
     }
   
     if(!sql_success(SQLNumResultCols(statement_handle(state),
@@ -739,7 +749,7 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
 }
 
 /* Description: Fetches rows from the result set associated with the
-   connection by db_select_count. The method of seletion will be according
+   connection by db_select_count. The method of selection will be according
    too <args> */
 static db_result_msg db_select(byte *args, db_state *state)
 {
@@ -810,7 +820,7 @@ static db_result_msg db_select(byte *args, db_state *state)
 	ei_x_free(&(dynamic_buffer(state))); 
 	return msg;
     } else {
-	msg.buffer = dynamic_buffer(state).buff;
+	msg.buffer = (byte*)dynamic_buffer(state).buff;
   	msg.length = dynamic_buffer(state).index; 
 	msg.dyn_alloc = TRUE;
 	return msg;
@@ -819,9 +829,10 @@ static db_result_msg db_select(byte *args, db_state *state)
 
 /* Description: Handles parameterized queries ex:
    INSERT INTO FOO VALUES(?, ?) */
-static db_result_msg db_param_query(byte *buffer, db_state *state)
+static db_result_msg db_param_query(byte *byte_buffer, db_state *state)
 {
-    byte *sql; 
+    char *sql;
+    char *buffer = (char *)byte_buffer;
     db_result_msg msg;
     SQLLEN num_param_values;
     int i, ver = 0,
@@ -847,7 +858,7 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 
     ei_get_type(buffer, &index, &erl_type, &size);
 
-    sql = (byte*)safe_malloc((sizeof(byte) * (size + 1)));
+    sql = safe_malloc((sizeof(byte) * (size + 1)));
     ei_decode_string(buffer, &index, sql); 
 
     ei_decode_long(buffer, &index, &long_num_param_values);
@@ -871,7 +882,9 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 	   updates/deletes that affect no rows */
 	if(!sql_success(result) &&
 	   !(result == SQL_NO_DATA && !strcmp((char *)diagnos.sqlState, INFO))) {
-		msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+            msg = encode_error_message((char*)diagnos.error_msg,
+                                       extended_error(state, diagnos.sqlState),
+                                       diagnos.nativeError);
 	} else {
 	    for (i = 0; i < param_status.params_processed; i++) {
 		switch (param_status.param_status_array[i]) {
@@ -886,7 +899,9 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 		default:
 		    diagnos =
 			get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-		    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+		    msg = encode_error_message((char*)diagnos.error_msg,
+                                               extended_error(state, diagnos.sqlState),
+                                               diagnos.nativeError);
 		    i = param_status.params_processed;
 		    break;
 		}
@@ -899,7 +914,7 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
                     msg = encode_result(state);
                 }
 		if(msg.length == 0) {
-		    msg.buffer = dynamic_buffer(state).buff;
+		    msg.buffer = (byte *)dynamic_buffer(state).buff;
   		    msg.length = dynamic_buffer(state).index; 
 		    msg.dyn_alloc = TRUE;
 		} else { /* Error occurred */
@@ -956,7 +971,9 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
     
     if (!sql_success(SQLPrepare(statement_handle(state), (SQLCHAR *)sql, SQL_NTS))){
 	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	msg = encode_error_message((char *)diagnos.error_msg,
+                                   extended_error(state, diagnos.sqlState),
+                                   diagnos.nativeError);
 	clean_state(state);
 	return msg;
     }
@@ -964,7 +981,9 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
     if(!sql_success(SQLNumResultCols(statement_handle(state),
 				     &num_of_columns))) {
 	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	msg = encode_error_message((char *)diagnos.error_msg,
+                                   extended_error(state, diagnos.sqlState),
+                                   diagnos.nativeError);
 	clean_state(state);
 	return msg;
     }
@@ -992,7 +1011,7 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
     ei_x_encode_empty_list(&dynamic_buffer(state));
     
     clean_state(state);
-    msg.buffer = dynamic_buffer(state).buff;
+    msg.buffer = (byte *)dynamic_buffer(state).buff;
     msg.length = dynamic_buffer(state).index; 
     msg.dyn_alloc = TRUE;
     return msg;
@@ -1049,7 +1068,7 @@ static db_result_msg encode_error_message(char *reason, char *errCode, SQLINTEGE
     return msg;
 }
 
-/* Description: Encode a messge that is a erlang atom */
+/* Description: Encode a message that is a erlang atom */
 static db_result_msg encode_atom_message(char* atom)
 {
     int index;
@@ -1088,7 +1107,9 @@ static db_result_msg encode_result(db_state *state)
     if(!sql_success(SQLNumResultCols(statement_handle(state), 
   				     &num_of_columns))) { 
 	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-	    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	    msg = encode_error_message((char *)diagnos.error_msg,
+                                       extended_error(state, diagnos.sqlState),
+                                       diagnos.nativeError);
 	    clean_state(state);
 	    return msg;
     } 
@@ -1105,7 +1126,9 @@ static db_result_msg encode_result(db_state *state)
     
     if(!sql_success(SQLRowCount(statement_handle(state), &RowCountPtr))) { 
 	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-	    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	    msg = encode_error_message((char *)diagnos.error_msg,
+                                       extended_error(state, diagnos.sqlState),
+                                       diagnos.nativeError);
 	    clean_state(state);
 	    return msg;
     }
@@ -1125,7 +1148,7 @@ static db_result_msg encode_result(db_state *state)
 	    do {
 		num_of_rows = num_of_rows + (int)RowCountPtr;
 		msg = more_result_sets(state);
-		/* We don't want to continue if an error occured */
+		/* We don't want to continue if an error occurred */
 		if (msg.length != 0) { 
 		    return msg;
 		}
@@ -1305,7 +1328,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 				       &nullable)))
 	    DO_EXIT(EXIT_DESC);
 
-	if(sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY || sql_type == SQL_WLONGVARCHAR)
+	if(size == 0 && (sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY || sql_type == SQL_WLONGVARCHAR))
 	    size = MAXCOLSIZE;
     
 	(columns(state)[i]).type.decimal_digits = dec_digits;
@@ -1321,7 +1344,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 		    (char *)safe_malloc(columns(state)[i].type.len);
 	
 		if (columns(state)[i].type.c == SQL_C_BINARY) {
-		    /* retrived later by retrive_binary_data */
+		    /* retrieved later by retrive_binary_data */
 		} else {
 		    if(!sql_success(
 			SQLBindCol
@@ -1652,7 +1675,7 @@ static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
     }
 }
 
-static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
+static Boolean decode_params(db_state *state, char *buffer, int *index, param_array **params,
 			     int i, int j, int num_param_values)
 {
     int erl_type, size;
@@ -1688,7 +1711,7 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 		    if(erl_type != ERL_STRING_EXT) {
 			    return FALSE;
 		    }
-		    ei_decode_string(buffer, index, &(param->values.string[param->offset]));
+		    ei_decode_string(buffer, index, (char*)&(param->values.string[param->offset]));
 		    param->offset += param->type.len;
 	    }
 	    break;
@@ -1747,9 +1770,9 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 		return FALSE;
 	}
 	if (strncmp((char*)atomarray,"true",4) == 0)
-	    param->values.bool[j] = TRUE;
+	    param->values.boolean[j] = TRUE;
 	else if (strncmp((char*)atomarray,"false",5) == 0)
-	    param->values.bool[j] = FALSE;
+	    param->values.boolean[j] = FALSE;
 	else
 	    return -1;
 	break;
@@ -2052,7 +2075,7 @@ static void clean_socket_lib(void)
 }
     
 
-/*------------- Memmory handling funtions -------------------------------*/
+/*------------- Memory handling functions -------------------------------*/
 static void *safe_malloc(int size)
 {
     void *memory;
@@ -2149,7 +2172,7 @@ static SQLLEN* alloc_strlen_indptr(int n, int val)
     return arr;
 }
 
-/* ------------- Init/map/bind/retrive functions  ------------------------*/
+/* ------------- Init/map/bind/retrieve functions  ------------------------*/
 
 /* Prepare the state for a connection */
 static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
@@ -2197,7 +2220,7 @@ static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 	    DO_EXIT(EXIT_CONNECTION);
 }
 
-static void init_param_column(param_array *params, byte *buffer, int *index,
+static void init_param_column(param_array *params, char *buffer, int *index,
 			      int num_param_values, db_state* state)
 {
     long user_type, precision, scale, length;
@@ -2337,7 +2360,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	params->type.c = SQL_C_BIT;
 	params->type.len = sizeof(byte);
 	params->type.col_size = params->type.len;
-	params->values.bool =
+	params->values.boolean =
 		(byte *)safe_malloc(num_param_values * params->type.len);
 	break;
     }
@@ -2387,7 +2410,7 @@ static void init_param_statement(int cols, SQLLEN num_param_values,
     }
 
     /* Note the (SQLLEN *) cast is correct as the API function SQLSetStmtAttr
-       takes either an interger or a pointer depending on the attribute */
+       takes either an integer or a pointer depending on the attribute */
     if(!sql_success(SQLSetStmtAttr(statement_handle(state),
 				   SQL_ATTR_PARAMSET_SIZE,
 				   (SQLLEN *)num_param_values,
@@ -2509,7 +2532,7 @@ static db_result_msg map_sql_2_c_column(db_column* column, db_state *state)
     return msg;
 }
 
-static param_array * bind_parameter_arrays(byte *buffer, int *index,
+static param_array * bind_parameter_arrays(char *buffer, int *index,
 					   int cols, int num_param_values,
 					   db_state *state)
 {
@@ -2581,7 +2604,7 @@ static void * retrive_param_values(param_array *Param)
     case SQL_C_DOUBLE: 
 	return (void *)Param->values.floating;
     case SQL_C_BIT:
-	return (void *)Param->values.bool;
+	return (void *)Param->values.boolean;
     default:
 	DO_EXIT(EXIT_FAILURE); /* Should not happen */
     }
@@ -2669,7 +2692,7 @@ static db_result_msg retrive_scrollable_cursor_support_info(db_state *state)
 	ei_x_encode_atom(&dynamic_buffer(state), "false");  
 	ei_x_encode_atom(&dynamic_buffer(state), "false");
     } 
-    msg.buffer = dynamic_buffer(state).buff;
+    msg.buffer = (byte *)dynamic_buffer(state).buff;
     msg.length = dynamic_buffer(state).index; 
     msg.dyn_alloc = TRUE;
     return msg;
@@ -2700,7 +2723,9 @@ static db_result_msg more_result_sets(db_state *state)
 	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	strcat((char *)diagnos.error_msg,
 	       "Failed to create on of the result sets");
-	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
+	msg = encode_error_message((char*)diagnos.error_msg,
+                                   extended_error(state, diagnos.sqlState),
+                                   diagnos.nativeError);
 	return msg;
     }
 }
@@ -2714,8 +2739,8 @@ static Boolean sql_success(SQLRETURN result)
 
 /* Description: An ODBC function can post zero or more diagnostic records
    each time it is called. This function loops through the current set of
-   diagnostic records scaning for error messages and the sqlstate.
-   If this function is called when no error has ocurred only the sqlState
+   diagnostic records scanning for error messages and the sqlstate.
+   If this function is called when no error has occurred only the sqlState
    field may be referenced.*/
 static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean extendedErrors)
 {
@@ -2749,6 +2774,11 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean ext
 	    errmsg_buffer_size = errmsg_buffer_size - errmsg_size;
 	    acc_errmsg_size = acc_errmsg_size + errmsg_size;
 	    current_errmsg_pos = current_errmsg_pos + errmsg_size;
+	} else if(result == SQL_SUCCESS_WITH_INFO && errmsg_size >= errmsg_buffer_size) {
+	    memcpy(diagnos.sqlState, current_sql_state, SQL_STATE_SIZE);
+	    diagnos.nativeError = nativeError;
+	    acc_errmsg_size = errmsg_buffer_size;
+	    break;
 	} else {
 	    break;
 	}

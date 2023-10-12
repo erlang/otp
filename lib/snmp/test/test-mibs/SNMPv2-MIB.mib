@@ -221,7 +221,7 @@ sysORUpTime OBJECT-TYPE
     STATUS     current
     DESCRIPTION
             "The value of sysUpTime at the time this conceptual row was
-            last instanciated."
+            last instantiated."
     ::= { sysOREntry 4 }
 
 
@@ -375,7 +375,7 @@ tst      OBJECT IDENTIFIER ::= { system 0 }
 testTrapv22 NOTIFICATION-TYPE
     STATUS  current
     DESCRIPTION
-            "This trap is exactly the v2 correspondance of testTrap2 in
+            "This trap is exactly the v2 correspondence of testTrap2 in
             TestTrap mib."
     ::= { system 0 1 }
 

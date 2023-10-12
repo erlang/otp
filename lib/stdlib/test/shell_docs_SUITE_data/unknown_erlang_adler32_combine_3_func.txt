@@ -1,0 +1,22 @@
+
+  [;1m-spec erlang:adler32_combine(FirstAdler, SecondAdler, SecondSize) ->[0m
+  [;1m                                non_neg_integer()[0m
+  [;1m                                when[0m
+  [;1m                                    FirstAdler :: non_neg_integer(),[0m
+  [;1m                                    SecondAdler :: non_neg_integer(),[0m
+  [;1m                                    SecondSize :: non_neg_integer().[0m
+
+  Combines two previously computed adler32 checksums. This
+  computation requires the size of the data object for the second
+  checksum to be known.
+
+  The following code:
+
+    Y = erlang:adler32(Data1),
+    Z = erlang:adler32(Y,Data2).
+
+  assigns the same value to [;;4mZ[0m as this:
+
+    X = erlang:adler32(Data1),
+    Y = erlang:adler32(Data2),
+    Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).

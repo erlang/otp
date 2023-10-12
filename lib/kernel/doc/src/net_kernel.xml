@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-09-10</date>
     <rev>A</rev>
   </header>
-  <module>net_kernel</module>
+  <module since="">net_kernel</module>
   <modulesummary>Erlang networking kernel.</modulesummary>
   <description>
     <p>The net kernel is a system process, registered as
@@ -40,10 +40,11 @@
       <c>-name</c> or <c>-sname</c>:</p>
      <pre>
 $ <input>erl -sname foobar</input></pre>
-    <p>It is also possible to call <c>net_kernel:start([foobar])</c>
+    <p>It is also possible to call
+      <seemfa marker="#start/2"><c>net_kernel:start(foobar, #{})</c></seemfa>
       directly from the normal Erlang shell prompt:</p>
     <pre>
-1> <input>net_kernel:start([foobar, shortnames]).</input>
+1> <input>net_kernel:start(foobar, #{name_domain => shortnames}).</input>
 {ok,&lt;0.64.0>}
 (foobar@gringotts)2></pre>
     <p>If the node is started with command-line flag <c>-sname</c>,
@@ -52,28 +53,28 @@ $ <input>erl -sname foobar</input></pre>
       If started with flag <c>-name</c>, the node name is <c>foobar@Host</c>,
       where <c>Host</c> is the fully qualified domain name.
       For more information, see
-      <seealso marker="erts:erl"><c>erl</c></seealso>.</p>
+      <seecom marker="erts:erl"><c>erl</c></seecom>.</p>
     <p>Normally, connections are established automatically when
       another node is referenced. This functionality can be disabled
       by setting Kernel configuration parameter
       <c>dist_auto_connect</c> to <c>never</c>, see
-      <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
+      <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>. In this case,
       connections must be established explicitly by calling
-      <seealso marker="#connect_node/1"><c>connect_node/1</c></seealso>.</p>
+      <seemfa marker="#connect_node/1"><c>connect_node/1</c></seemfa>.</p>
     <p>Which nodes that are allowed to communicate with each other is handled
       by the magic cookie system, see section
-      <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso>
+      <seeguide marker="system/reference_manual:distributed">Distributed Erlang</seeguide>
       in the Erlang Reference Manual.</p>
     <warning>
       <p>
         Starting a distributed node without also specifying
-        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        <seecom marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seecom>
         will expose the node to attacks that may give the attacker
         complete access to the node and in extension the cluster.
         When using un-secure distributed nodes, make sure that the
         network is configured to keep potential attackers out.
-        See the <seealso marker="ssl:ssl_distribution">
-        Using SSL for Erlang Distribution</seealso> User's Guide
+        See the <seeguide marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seeguide> User's Guide
         for details on how to setup a secure distributed node.
       </p>
     </warning>
@@ -81,7 +82,7 @@ $ <input>erl -sname foobar</input></pre>
 
   <funcs>
     <func>
-      <name name="allow" arity="1"/>
+      <name name="allow" arity="1" since=""/>
       <fsummary>Permit access to a specified set of nodes</fsummary>
       <desc>
         <p>Permits access to the specified set of nodes.</p>
@@ -98,7 +99,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="connect_node" arity="1"/>
+      <name name="connect_node" arity="1" since=""/>
       <fsummary>Establish a connection to a node.</fsummary>
       <desc>
         <p>Establishes a connection to <c><anno>Node</anno></c>. Returns
@@ -110,11 +111,14 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="get_net_ticktime" arity="0"/>
+      <name name="get_net_ticktime" arity="0" since=""/>
       <fsummary>Get <c>net_ticktime</c>.</fsummary>
       <desc>
-        <p>Gets <c>net_ticktime</c> (see
-          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>).</p>
+        <p>Returns currently used net tick time in seconds. For more information
+        see the
+        <seeapp marker="kernel_app#net_ticktime"><c>net_ticktime</c></seeapp>
+        <c>kernel(6)</c> parameter.</p>
+
         <p>Defined return values (<c><anno>Res</anno></c>):</p>
         <taglist>
           <tag><c><anno>NetTicktime</anno></c></tag>
@@ -131,14 +135,14 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="getopts" arity="2"/>
+      <name name="getopts" arity="2" since="OTP 19.1"/>
       <fsummary>Get distribution socket options.</fsummary>
       <desc>
         <p>Get one or more options for the distribution socket
 	connected to <c><anno>Node</anno></c>.</p>
         <p>If <c><anno>Node</anno></c> is a connected node
 	the return value is the same as from
-	<seealso marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seealso>
+	<seemfa marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seemfa>
 	where <c>Sock</c> is the distribution socket for <c><anno>Node</anno></c>.</p>
 	<p>Returns <c>ignored</c> if the local node is not alive or
 	<c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not connected.</p>
@@ -146,8 +150,85 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="monitor_nodes" arity="1"/>
-      <name name="monitor_nodes" arity="2"/>
+      <name name="get_state" arity="0" since="OTP 25.0"/>
+      <fsummary>Get various distribution state.</fsummary>
+      <desc>
+        <p>Get the current state of the distribution for the local node.</p>
+        <p>Returns a map with (at least) the following key-value pairs:</p>
+        <taglist>
+          <tag><c>started => Started</c></tag>
+          <item>
+            <p>Valid values for <c>Started</c>:</p>
+            <taglist>
+              <tag><c>no</c></tag>
+              <item>
+                <p>The distribution is not started. In this state none of
+                the other keys below are present in the map.</p>
+              </item>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The distribution was started with command line arguments
+                <seecom marker="erts:erl#name"><c>-name</c></seecom> or
+                <seecom marker="erts:erl#sname"><c>-sname</c></seecom>.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started with
+                <seemfa marker="#start/1"><c>net_kernel:start/1</c></seemfa>
+                and can be stopped with
+                <seemfa marker="#start/1"><c>net_kernel:stop/0</c></seemfa>.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name => Name</c></tag>
+          <item>
+            <p>The name of the node. Same as returned by
+            <seemfa marker="erts:erlang#node/0"><c>erlang:node/0</c></seemfa>
+            except when <c>name_type</c> is <c>dynamic</c> in which case
+            <c>Name</c> may be <c>undefined</c> (instead of <c>nonode@nohost</c>).
+            </p>
+          </item>
+          <tag><c>name_type => NameType</c></tag>
+          <item>
+            <p>Valid values for <c>NameType</c>:</p>
+            <taglist>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The node has a static node name set by the node itself.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started in
+                <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+                dynamic node name</seeguide> mode, and will get its node name assigned
+                from the first node it connects to. If key <c>name</c> has value
+                <c>undefined</c> that has not happened yet.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name_domain => NameDomain</c></tag>
+          <item>
+            <p>Valid values for <c>NameDomain</c>:</p>
+            <taglist>
+              <tag><c>shortnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a short
+                host portion (not fully qualified).</p>
+              </item>
+              <tag><c>longnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a long
+                fully qualified host portion.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor_nodes" arity="1" since=""/>
+      <name name="monitor_nodes" arity="2" since=""/>
       <fsummary>Subscribe to node status change messages.</fsummary>
       <desc>
         <p>The calling process subscribes or unsubscribes to node
@@ -161,82 +242,121 @@ $ <input>erl -sname foobar</input></pre>
           are stopped. Two
           option lists are considered the same if they contain the same
           set of options.</p>
-        <p>As from Kernel version 2.11.4, and ERTS version
-          5.5.4, the following is guaranteed:</p>
-        <list type="bulleted">
-          <item><p><c>nodeup</c> messages are delivered before delivery
-            of any message from the remote node passed through the
-            newly established connection.</p></item>
-          <item><p><c>nodedown</c> messages are not delivered until all
-            messages from the remote node that have been passed
-            through the connection have been delivered.</p></item>
-        </list>
-        <p>Notice that this is <em>not</em> guaranteed for Kernel
-          versions before 2.11.4.</p>
-        <p>As from Kernel version 2.11.4, subscriptions can also be
-          made before the <c>net_kernel</c> server is started, that is,
-          <c>net_kernel:monitor_nodes/[1,2]</c> does not return
-          <c>ignored</c>.</p>
-        <p>As from Kernel version 2.13, and ERTS version
-          5.7, the following is guaranteed:</p>
-        <list type="bulleted">
-          <item><p><c>nodeup</c> messages are delivered after the
+        <p>Delivery guarantees of <c>nodeup</c>/<c>nodedown</c> messages:</p>
+        <list>
+          <item><p>
+            <c>nodeup</c> messages are delivered before delivery
+            of any signals from the remote node through the newly
+            established connection.
+          </p></item>
+          <item>
+            <p><c>nodedown</c> messages are delivered after all
+            the signals from the remote node over the connection
+            have been delivered.
+          </p></item>
+          <item><p>
+            <c>nodeup</c> messages are delivered after the
 	    corresponding node appears in results from
-	    <c>erlang:nodes/X</c>.</p></item>
-          <item><p><c>nodedown</c> messages are delivered after the
+	    <c>erlang:nodes()</c>.
+          </p></item>
+          <item>
+            <p><c>nodedown</c> messages are delivered after the
 	    corresponding node has disappeared in results from
-	    <c>erlang:nodes/X</c>.</p></item>
+	    <c>erlang:nodes()</c>.
+          </p></item>
+          <item><p>
+            As of OTP 23.0, a <c>nodedown</c> message for a
+            connection being taken down will be delivered before a
+            <c>nodeup</c> message due to a new connection to the
+            same node. Prior to OTP 23.0, this was not
+            guaranteed to be the case.
+          </p></item>
         </list>
-        <p>Notice that this is <em>not</em> guaranteed for Kernel
-          versions before 2.13.</p>
         <p>The format of the node status change messages depends on
           <c><anno>Options</anno></c>. If <c><anno>Options</anno></c> is
-          <c>[]</c>, which is the default, the format is as follows:</p>
-        <code type="none">
+          the empty list or if <c>net_kernel:monitor_nodes/1</c> is called,
+          the format is as follows:</p>
+        <code type="erl">
 {nodeup, Node} | {nodedown, Node}
   Node = node()</code>
-        <p>If <c><anno>Options</anno></c> is not <c>[]</c>, the format is
-          as follows:</p>
-        <code type="none">
-{nodeup, Node, InfoList} | {nodedown, Node, InfoList}
+        <p>
+          When <c><anno>Options</anno></c> is the empty map or empty
+          list, the caller will only subscribe for status change messages
+          for visible nodes. That is, only nodes that appear in the
+          result of
+          <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>.
+        </p>
+        <p>
+          If <c><anno>Options</anno></c> equals anything other than the
+          empty list, the format of the status change messages is as follows:
+        </p>
+        <code type="erl">
+{nodeup, Node, Info} | {nodedown, Node, Info}
   Node = node()
-  InfoList = [{Tag, Val}]</code>
-        <p><c>InfoList</c> is a list of tuples. Its contents depends on
-          <c><anno>Options</anno></c>, see below.</p>
-        <p>Also, when <c>OptionList == []</c>, only visible nodes, that
-          is, nodes that appear in the result of
-          <seealso marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seealso>,
-          are monitored.</p>
-        <p><c><anno>Option</anno></c> can be any of the following:</p>
+  Info = #{Tag => Val} | [{Tag, Val}]</code>
+        <p>
+          <c>Info</c> is either a map or a list of 2-tuples. Its content
+          depends on <c><anno>Options</anno></c>. If <c><anno>Options</anno></c>
+          is a map, <c>Info</c> will also be a map. If <c><anno>Options</anno></c>
+          is a list, <c>Info</c> will also be a list.
+        </p>
+        <p>
+          When <c><anno>Options</anno></c> is a map, currently
+          the following associations are allowed:
+        </p>
         <taglist>
-          <tag><c>{node_type, NodeType}</c></tag>
+          <tag><c>connection_id => boolean()</c></tag>
+          <item>
+            <p>
+              If the value of the association equals <c>true</c>, a
+              <c>connection_id => ConnectionId</c> association will be
+              included in the <c>Info</c> map where <c>ConnectionId</c>
+              is the connection identifier of the connection coming up
+              or going down. For more info about this connection
+              identifier see the documentation of
+              <seeerl marker="erts:erlang#connection_id">erlang:nodes/2</seeerl>.
+            </p>
+          </item>
+          <tag><c>node_type => <anno>NodeType</anno></c></tag>
           <item>
             <p>Valid values for <c>NodeType</c>:</p>
             <taglist>
               <tag><c>visible</c></tag>
               <item><p>Subscribe to node status change messages for visible
-               nodes only. The tuple <c>{node_type, visible}</c> is
-               included in <c>InfoList</c>.</p></item>
+               nodes only. The association <c>node_type => visible</c> will
+               be included in the <c>Info</c> map.</p></item>
               <tag><c>hidden</c></tag>
               <item><p>Subscribe to node status change messages for hidden
-               nodes only. The tuple <c>{node_type, hidden}</c> is
-               included in <c>InfoList</c>.</p></item>
+               nodes only. The association <c>node_type => hidden</c> will
+               be included in the <c>Info</c> map.</p></item>
               <tag><c>all</c></tag>
               <item><p>Subscribe to node status change messages for both
-               visible and hidden nodes. The tuple
-               <c>{node_type, visible | hidden}</c> is included in
-               <c>InfoList</c>.</p></item>
+               visible and hidden nodes. The association
+               <c>node_type => visible | hidden</c> will be included in
+               the <c>Info</c> map.</p></item>
             </taglist>
+            <p>
+              If no <c>node_type => <anno>NodeType</anno></c> association
+              is included in the <c><anno>Options</anno></c> map, the
+              caller will subscribe for status change messages for visible
+              nodes only, but <i>no</i> <c>node_type => visible</c>
+              association will be included in the <c>Info</c> map.
+            </p>
           </item>
-          <tag><c>nodedown_reason</c></tag>
+          <tag><c>nodedown_reason => boolean()</c></tag>
           <item>
-            <p>The tuple <c>{nodedown_reason, Reason}</c> is included in
-              <c>InfoList</c> in <c>nodedown</c> messages.</p>
+            <p>
+              If the value of the association equals <c>true</c>, a
+              <c>nodedown_reason => Reason</c> association will be
+              included in the <c>Info</c> map for <c>nodedown</c>
+              messages.
+            </p>
+            <marker id="nodedown_reasons"/>
             <p>
 	      <c>Reason</c> can, depending on which
-	      distribution module or process that is used be any term,
+	      distribution module or process that is used, be any term,
 	      but for the standard TCP distribution module it is
-	      any of the following:
+	      one of the following:
 	    </p>
             <taglist>
               <tag><c>connection_setup_failed</c></tag>
@@ -263,16 +383,92 @@ $ <input>erl -sname foobar</input></pre>
             </taglist>
           </item>
         </taglist>
+        <p>
+          When <c><anno>Options</anno></c> is a list, currently
+          <c><anno>ListOption</anno></c> can be one of the following:
+        </p>
+        <taglist>
+          <tag><c>connection_id</c></tag>
+          <item>
+            <p>
+              A <c>{connection_id, ConnectionId}</c> tuple will be
+              included in <c>Info</c> where <c>ConnectionId</c> is the
+              connection identifier of the connection coming up or
+              going down. For more info about this connection identifier
+              see the documentation of
+              <seeerl marker="erts:erlang#connection_id">erlang:nodes/2</seeerl>.
+            </p>
+          </item>
+          <tag><c>{node_type, <anno>NodeType</anno>}</c></tag>
+          <item>
+            <p>Valid values for <c><anno>NodeType</anno></c>:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>Subscribe to node status change messages for visible
+               nodes only. The tuple <c>{node_type, visible}</c> will be
+               included in the <c>Info</c> list.</p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>Subscribe to node status change messages for hidden
+               nodes only. The tuple <c>{node_type, hidden}</c> will be
+               included in the <c>Info</c> list.</p></item>
+              <tag><c>all</c></tag>
+              <item><p>Subscribe to node status change messages for both
+               visible and hidden nodes. The tuple
+               <c>{node_type, visible | hidden}</c> will be included in
+               the <c>Info</c> list.</p></item>
+            </taglist>
+            <p>
+              If no <c>{node_type, <anno>NodeType</anno>}</c> option
+              has been given. The caller will subscribe for status
+              change messages for visible nodes only, but <i>no</i>
+              <c>{node_type, visible}</c> tuple will be included in the
+              <c>Info</c> list.
+            </p>
+          </item>
+          <tag><c>nodedown_reason</c></tag>
+          <item>
+            <p>
+              The tuple <c>{nodedown_reason, Reason}</c> will be included
+              in the <c>Info</c> list for <c>nodedown</c> messages.
+            </p>
+            <p>
+              See the documentation of the
+              <seeerl marker="#nodedown_reasons"><c>nodedown_reason
+              => boolean()</c></seeerl> association above for information
+              about possible <c>Reason</c> values.
+	    </p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="erl">
+(a@localhost)1> net_kernel:monitor_nodes(true, #{connection_id=>true, node_type=>all, nodedown_reason=>true}).
+ok
+(a@localhost)2> flush().
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067552,node_type => visible}}
+Shell got {nodeup,c@localhost,
+                  #{connection_id => 13892107,node_type => hidden}}
+Shell got {nodedown,b@localhost,
+                    #{connection_id => 3067552,node_type => visible,
+                      nodedown_reason => connection_closed}}
+Shell got {nodedown,c@localhost,
+                    #{connection_id => 13892107,node_type => hidden,
+                      nodedown_reason => net_tick_timeout}}
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067553,node_type => visible}}
+ok
+(a@localhost)3> 
+        </code>
       </desc>
     </func>
 
     <func>
-      <name name="set_net_ticktime" arity="1"/>
-      <name name="set_net_ticktime" arity="2"/>
+      <name name="set_net_ticktime" arity="1" since=""/>
+      <name name="set_net_ticktime" arity="2" since=""/>
       <fsummary>Set <c>net_ticktime</c>.</fsummary>
       <desc>
         <p>Sets <c>net_ticktime</c> (see
-          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>) to
+          <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>) to
           <c><anno>NetTicktime</anno></c> seconds.
           <c><anno>TransitionPeriod</anno></c> defaults to <c>60</c>.</p>
         <p>Some definitions:</p>
@@ -324,7 +520,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since="OTP 19.1"/>
       <fsummary>Set distribution socket options.</fsummary>
       <desc>
         <p>Set one or more options for distribution sockets.
@@ -332,49 +528,157 @@ $ <input>erl -sname foobar</input></pre>
 	or the atom <c>new</c> to affect the distribution sockets of all
 	future connected nodes.</p>
         <p>The return value is the same as from
-	<seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+	<seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>
 	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
 	a connected node or <c>new</c>.</p>
 	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
-	will then also be added to kernel configration parameters
-	<seealso marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seealso>
+	will then also be added to kernel configuration parameters
+	<seeapp marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seeapp>
 	and
-	<seealso marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seealso>.</p>
+	<seeapp marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seeapp>.</p>
 	<p>Returns <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
 
     <func>
-      <name>start([Name]) -> {ok, pid()} | {error, Reason}</name>
-      <name>start([Name, NameType]) -> {ok, pid()} | {error, Reason}</name>
-      <name>start([Name, NameType, Ticktime]) -> {ok, pid()} | {error, Reason}</name>
+      <name name="start" arity="2" since="OTP 24.3"/>
       <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>NameType = shortnames | longnames</v>
-        <v>Reason = {already_started, pid()} | term()</v>
-      </type>
       <desc>
-        <p>Turns a non-distributed node into a distributed node by
-          starting <c>net_kernel</c> and other necessary processes.</p>
-        <p>Notice that the argument is a list with exactly one, two, or
-          three arguments. <c>NameType</c> defaults to <c>longnames</c>
-          and <c>Ticktime</c> to <c>15000</c>.</p>
+        <p>
+          Turns a non-distributed node into a distributed node by
+          starting <c>net_kernel</c> and other necessary processes.
+        </p>
+
+        <p>
+          If <c><anno>Name</anno></c> is set to <em><c>undefined</c></em> the
+          distribution will be started to request a dynamic node name from the
+          first node it connects to. See
+          <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+            Dynamic Node Name</seeguide>. Setting <c><anno>Name</anno></c> to
+            <c>undefined</c> implies options <c>dist_listen => false</c> and
+            <c>hidden => true</c>.
+        </p>
+
+        <p>Currently supported options:</p>
+        <taglist>
+          <tag><c>name_domain => <anno>NameDomain</anno></c></tag>
+          <item><p>
+            Determines the host name part of the node name. If
+            <c><anno>NameDomain</anno></c> equals <c>longnames</c>, fully
+            qualified domain names will be used which also is the default.
+            If <c><anno>NameDomain</anno></c> equals <c>shortnames</c>, only the
+            short name of the host will be used.
+          </p></item>
+          <tag><c>net_ticktime => <anno>NetTickTime</anno></c></tag>
+          <item><p>
+            <i>Net tick time</i> to use in seconds. Defaults to the value of the
+            <seeapp marker="kernel_app#net_ticktime"><c>net_ticktime</c></seeapp>
+            <c>kernel(6)</c> parameter. For more information about <i>net tick
+            time</i>, see the <c>kernel</c> parameter. However, note that if the
+            value of the <c>kernel</c> parameter is invalid, it will silently be
+            replaced by a valid value, but if an invalid
+            <c><anno>NetTickTime</anno></c> value is passed as option value to
+            this function, the call will fail.
+          </p></item>
+          <tag><c>net_tickintensity => <anno>NetTickIntensity</anno></c></tag>
+          <item><p>
+            <i>Net tick intensity</i> to use. Defaults to the value of the
+            <seeapp marker="kernel_app#net_tickintensity"><c>net_tickintensity</c></seeapp>
+            <c>kernel(6)</c> parameter. For more information about <i>net tick
+            intensity</i>, see the <c>kernel</c> parameter. However, note that if
+            the value of the <c>kernel</c> parameter is invalid, it will silently
+            be replaced by a valid value, but if an invalid
+            <c><anno>NetTickIntensity</anno></c> value is passed as option value
+            to this function, the call will fail.
+          </p></item>
+          <tag><c>dist_listen => boolean()</c></tag>
+          <item><p>
+            Enable or disable listening for incoming connections. Defaults to
+            the value of the
+            <seecom marker="erts:erl#dist_listen"><c>-dist_listen</c></seecom>
+            <c>erl</c> command line argument. Note that
+            <c>dist_listen => false</c> implies <c>hidden => true</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            the <c>dist_listen</c> option will be overridden with
+            <c>dist_listen => false</c>.
+          </p></item>
+          <tag><c>hidden => boolean()</c></tag>
+          <item><p>
+            Enable or disable hidden node. Defaults to <c>true</c> if the
+            <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom> <c>erl</c>
+            command line argument has been passed; otherwise <c>false</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            or the option <c>dist_listen</c> equals <c>false</c>, the
+            <c>hidden</c> option will be overridden with <c>hidden => true</c>.
+          </p></item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="1" since=""/>
+      <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
+      <desc>
+        <warning><p>
+          <c>start/1</c> is deprecated. Use
+          <seemfa marker="#start/2"><c>start/2</c></seemfa> instead.
+        </p></warning>
+        <p>
+          Turns a non-distributed node into a distributed node by
+          starting <c>net_kernel</c> and other necessary processes.
+        </p>
+        <p>
+          <c><anno>Options</anno></c> list can only be exactly one of
+          the following lists (order is imporant):
+        </p>
+        <taglist>
+          <tag><c>[<anno>Name</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <c>net_kernel:start([<anno>Name</anno>,
+              longnames, 15000])</c>.
+            </p>
+          </item>
+          <tag><c>[<anno>Name</anno>, <anno>NameDomain</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <c>net_kernel:start([<anno>Name</anno>,
+              <anno>NameDomain</anno>, 15000])</c>.
+            </p>
+          </item>
+          <tag><c>[<anno>Name</anno>, <anno>NameDomain</anno>,
+                   <anno>TickTime</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <seemfa marker="#start/2">
+              <c>net_kernel:start(<anno>Name</anno>, #{name_domain =>
+              <anno>NameDomain</anno>, net_ticktime =>
+              ((<anno>TickTime</anno>*4-1) div 1000) + 1,
+              net_tickintensity => 4})</c></seemfa>.
+              Note that <c><anno>TickTime</anno></c> is <i>not</i> the same
+              as net tick time expressed in milliseconds.
+              <c><anno>TickTime</anno></c> is the time between ticks when
+              net tick intensity equals <c>4</c>.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Turn a node into a non-distributed Erlang runtime system.</fsummary>
       <desc>
         <p>Turns a distributed node into a non-distributed node. For
           other nodes in the network, this is the same as the node
           going down. Only possible when the net kernel was started using
-          <seealso marker="#start/1"><c>start/1</c></seealso>,
+          <seemfa marker="#start/2"><c>start/2</c></seemfa>,
           otherwise <c>{error, not_allowed}</c> is returned. Returns
           <c>{error, not_found}</c> if the local node is not alive.</p>
       </desc>
     </func>
   </funcs>
 </erlref>
-

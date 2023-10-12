@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -180,7 +180,6 @@ suite_order(test_server) -> 1;
 suite_order(kernel) -> 4;
 suite_order(stdlib) -> 6;
 suite_order(compiler) -> 8;
-suite_order(hipe) -> 9;
 suite_order(erl_interface) -> 12;
 suite_order(jinterface) -> 14;
 suite_order(sasl) -> 16;

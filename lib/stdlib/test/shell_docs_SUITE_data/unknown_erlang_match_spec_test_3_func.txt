@@ -1,0 +1,49 @@
+
+  [;1m-spec erlang:match_spec_test(MatchAgainst, MatchSpec, Type) ->[0m
+  [;1m                                TestResult[0m
+  [;1m                                when[0m
+  [;1m                                    MatchAgainst :: [term()] | tuple(),[0m
+  [;1m                                    MatchSpec :: term(),[0m
+  [;1m                                    Type :: table | trace,[0m
+  [;1m                                    TestResult ::[0m
+  [;1m                                        {ok,[0m
+  [;1m                                         term(),[0m
+  [;1m                                         [return_trace],[0m
+  [;1m                                         [{error | warning, string()}]} |[0m
+  [;1m                                        {error,[0m
+  [;1m                                         [{error | warning, string()}]}.[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Tests a match specification used in calls to [;;4mets:select/2[0m and [;;4m[0m
+  [;;4merlang:trace_pattern/3[0m. The function tests both a match
+  specification for "syntactic" correctness and runs the match
+  specification against the object. If the match specification
+  contains errors, the tuple [;;4m{error, Errors}[0m is returned, where [;;4m[0m
+  [;;4mErrors[0m is a list of natural language descriptions of what was
+  wrong with the match specification.
+
+  If [;;4mType[0m is [;;4mtable[0m, the object to match against is to be a
+  tuple. The function then returns [;;4m{ok,Result,[],Warnings}[0m, where [;;4m[0m
+  [;;4mResult[0m is what would have been the result in a real [;;4mets:select/2[0m
+  call, or [;;4mfalse[0m if the match specification does not match the
+  object tuple.
+
+  If [;;4mType[0m is [;;4mtrace[0m, the object to match against is to be a list.
+  The function returns [;;4m{ok, Result, Flags, Warnings}[0m, where [;;4m[0m
+  [;;4mResult[0m is one of the following:
+
+   • [;;4mtrue[0m if a trace message is to be emitted
+
+   • [;;4mfalse[0m if a trace message is not to be emitted
+
+   • The message term to be appended to the trace message
+
+  [;;4mFlags[0m is a list containing all the trace flags to be enabled,
+  currently this is only [;;4mreturn_trace[0m.
+
+  This is a useful debugging and test tool, especially when writing
+  complicated match specifications.
+
+  See also [;;4mets:test_ms/2[0m.

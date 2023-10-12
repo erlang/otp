@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ start() ->
 
 do_it() ->
     {ok, _} = net_kernel:start([fideridum,shortnames]),
-    {ok, Node} = slave:start(host(), heppel),
+    {ok, _Peer, Node} = peer:start(#{name => peer:random_name(heppel)}),
     P = spawn(Node, net_kernel, stop, []),
     B1 = term_to_binary(P),
     N1 = node(P),

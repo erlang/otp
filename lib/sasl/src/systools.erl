@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent | local where path sets
-%% the search path, silent supresses error message printing on console,
+%% the search path, silent suppresses error message printing on console,
 %% local generates a script with references to the directories there
 %% the applications are found.
 %%-----------------------------------------------------------------
@@ -57,13 +57,37 @@ make_script(RelName, Opt) ->
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent |
 %%    {dirs, [src,include,examples,..]} | {erts, ErtsDir} where path
-%% sets the search path, silent supresses error message printing on console,
+%% sets the search path, silent suppresses error message printing on console,
 %% dirs includes the specified directories (per application) in the
 %% release package and erts specifies that the erts-Vsn/bin directory
 %% should be included in the release package and there it can be found.
 %%-----------------------------------------------------------------
+-spec make_tar(Name) -> Result when
+      Name :: string(),
+      Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
+                {error, Module :: module(), Error :: term()}.
 make_tar(RelName) -> make_tar(RelName, []).
 
+-spec make_tar(Name, Opts) -> Result when
+      Name :: string(),
+      Opts :: [Opt],
+      Opt :: {dirs,[IncDir]} | {path,[Dir]} |
+             {variables,[Var]} | {var_tar,VarTar} |
+             {erts,Dir} | erts_all | src_tests | exref |
+             {exref,[App]} | silent | {outdir,Dir} |
+             no_warn_sasl | warnings_as_errors |
+             {extra_files, ExtraFiles},
+      Dir :: file:filename_all(),
+      IncDir :: src | include | atom(),
+      Var :: {VarName,PreFix},
+      VarName :: string(),
+      PreFix :: string(),
+      VarTar :: include | ownfile | omit,
+      App :: atom(),
+      Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
+                {error, Module :: module(), Error :: term()},
+      ExtraFiles :: [{NameInArchive, file:filename_all()}],
+      NameInArchive :: string().
 make_tar(RelName, Opt) ->
     systools_make:make_tar(RelName, Opt).
 
@@ -73,7 +97,7 @@ make_tar(RelName, Opt) ->
 script2boot(File) ->
     case systools_lib:file_term2binary(File ++ ".script", File ++ ".boot") of
 	{error,Error} ->
-	    io:format(systools_make:format_error(Error)),
+	    io:format("~ts", [systools_make:format_error(Error)]),
 	    error;
 	_ ->
 	    ok
@@ -84,7 +108,7 @@ script2boot(File, Output0, _Opt) ->
     Output = Output0++".boot",
     case systools_lib:file_term2binary(Input, Output) of
 	{error,Error} ->
-	    io:format(systools_make:format_error(Error)),
+	    io:format("~ts", [systools_make:format_error(Error)]),
 	    error;
 	_ ->
 	    ok
@@ -92,8 +116,8 @@ script2boot(File, Output0, _Opt) ->
 
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent | noexec where path sets
-%% search path, silent supresses error message printing on console,
-%% noexec supresses writing the output "relup" file
+%% search path, silent suppresses error message printing on console,
+%% noexec suppresses writing the output "relup" file
 %%-----------------------------------------------------------------
 make_relup(ReleaseName, UpNameList, DownNameList) ->
     systools_relup:mk_relup(ReleaseName, UpNameList, DownNameList, []).

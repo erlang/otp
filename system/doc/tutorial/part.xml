@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,5 +36,6 @@
   <xi:include href="c_portdriver.xml"/>
   <xi:include href="cnode.xml"/>
   <xi:include href="nif.xml"/>
+  <xi:include href="debugging.xml"/>
 </part>
 

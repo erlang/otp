@@ -53,21 +53,25 @@ table thead {
   display: none;
 }
 table td.line,
+table td.line a,
 table td.hits {
   width: 20px;
   background: #eaeaea;
   text-align: center;
+  text-decoration: none;
   font-size: 11px;
   padding: 0 10px;
   color: #949494;
 }
 table td.hits {
   width: 10px;
+  text-align: right;
   padding: 2px 5px;
   color: rgba(0, 0, 0, 0.6);
   background-color: #f0f0f0;
 }
 tr.miss td.line,
+tr.miss td.line a,
 tr.miss td.hits {
   background-color: #ffdce0;
   border-color: #fdaeb7;
@@ -76,6 +80,7 @@ tr.miss td {
   background-color: #ffeef0;
 }
 tr.hit td.line,
+tr.hit td.line a,
 tr.hit td.hits {
   background-color: #cdffd8;
   border-color: #bef5cb;

@@ -1,0 +1,16 @@
+
+  [;1m-spec is_record(Term, RecordTag) -> boolean()[0m
+  [;1m                   when Term :: term(), RecordTag :: atom().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a tuple and its first element is [;;4m[0m
+  [;;4mRecordTag[0m. Otherwise returns [;;4mfalse[0m.
+
+  Note:
+    Normally the compiler treats calls to [;;4mis_record/2[0m
+    especially. It emits code to verify that [;;4mTerm[0m is a tuple,
+    that its first element is [;;4mRecordTag[0m, and that the size is
+    correct. However, if [;;4mRecordTag[0m is not a literal atom, the
+    BIF [;;4mis_record/2[0m is called instead and the size of the tuple
+    is not verified.
+
+  Allowed in guard tests, if [;;4mRecordTag[0m is a literal atom.

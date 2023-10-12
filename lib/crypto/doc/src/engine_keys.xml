@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2017</year><year>2018</year>
+      <year>2017</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,7 +35,7 @@
       <url href="https://www.openssl.org/">OpenSSL</url> exposes an Engine API, which makes 
       it possible to plug in alternative implementations for some of the cryptographic
       operations implemented by OpenSSL.
-      See the chapter <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
+      See the chapter <seeguide marker="crypto:engine_load#engine_load">Engine Load</seeguide>
       for details and how to load an Engine.
     </p>
     <p>
@@ -51,18 +51,18 @@
     <p>
       OTP/Crypto requires that the user provides two or three items of information about the key. The application used
       by the user is usually on a higher level, for example in
-      <seealso marker="ssl:ssl#key_option_def">SSL</seealso>. If using
+      <seetype marker="ssl:ssl#key">SSL</seetype>. If using
       the crypto application directly, it is required that:
     </p>
     <list>
-      <item>an Engine is loaded, see the chapter on <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
-      or the <seealso marker="crypto:crypto#engine_load-3">Reference Manual</seealso>
+      <item>an Engine is loaded, see the chapter on <seeguide marker="crypto:engine_load#engine_load">Engine Load</seeguide>
+      or the <seemfa marker="crypto:crypto#engine_load/3">Reference Manual</seemfa>
       </item>
       <item>a reference to a key in the Engine is available. This should be an Erlang string or binary and depends
       on the Engine loaded
       </item>
       <item>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if
-      needed by the Engine. See the <seealso marker="crypto:crypto#type-engine_key_ref">Reference Manual</seealso> for
+      needed by the Engine. See the <seetype marker="crypto:crypto#engine_key_ref">Reference Manual</seetype> for
       details of the map.
       </item>
     </list>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 %% reorder keys within a bucket.
 
 -module(dict).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
 -export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).

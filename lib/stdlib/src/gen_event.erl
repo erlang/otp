@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,13 +31,24 @@
 %%% Re-written by Joe with new functional interface !
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
 
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
+         start_monitor/0, start_monitor/1, start_monitor/2,
          stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
-	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/5]).
+	 swap_sup_handler/3, which_handlers/1, call/3, call/4,
+         send_request/3, send_request/5,
+         wait_response/2, receive_response/2, check_response/2,
+         wait_response/3, receive_response/3, check_response/3,
+         reqids_new/0, reqids_size/1,
+         reqids_add/3, reqids_to_list/1,
+         wake_hib/5]).
 
 -export([init_it/6,
 	 system_continue/3,
@@ -47,11 +58,14 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+-behaviour(sys).
+
 %% logger callback
--export([format_log/1]).
+-export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
-              del_handler_ret/0]).
+              del_handler_ret/0, request_id/0, request_id_collection/0,
+              format_status/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -111,9 +125,17 @@
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-type format_status() ::
+        #{ state => term(),
+           message => term(),
+           reason => term(),
+           log => [sys:system_event()] }.
+-callback format_status(Status) -> NewStatus when
+      Status    :: format_status(),
+      NewStatus :: format_status().
 
 -optional_callbacks(
-    [handle_info/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, terminate/2, code_change/3, format_status/1, format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -128,11 +150,19 @@
                     | {'logfile', string()}.
 -type option() :: {'timeout', timeout()}
                 | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'spawn_opt', [proc_lib:start_spawn_option()]}
                 | {'hibernate_after', timeout()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
+-type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
+
+-opaque request_id() :: gen:request_id().
+
+-opaque request_id_collection() :: gen:request_id_collection().
+
+-type response_timeout() ::
+        timeout() | {abs, integer()}.
 
 %%---------------------------------------------------------------------------
 
@@ -183,6 +213,20 @@ start_link(Options) when is_list(Options) ->
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
+-spec start_monitor() -> start_mon_ret().
+start_monitor() ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
+
+-spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+start_monitor(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
+start_monitor(Options) when is_list(Options) ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
+
+-spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+start_monitor(Name, Options) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
+
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
@@ -212,6 +256,184 @@ call(M, Handler, Query) -> call1(M, Handler, Query).
 
 -spec call(emgr_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
+
+-spec send_request(EventMgrRef::emgr_ref(), Handler::handler(), Request::term()) ->
+          ReqId::request_id().
+send_request(M, Handler, Request) ->
+    try
+        gen:send_request(M, self(), {call, Handler, Request})
+    catch
+        error:badarg ->
+            error(badarg, [M, Handler, Request])
+    end.
+
+-spec send_request(EventMgrRef::emgr_ref(),
+                   Handler::handler(),
+                   Request::term(),
+                   Label::term(),
+                   ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+send_request(M, Handler, Request, Label, ReqIdCol) ->
+    try
+        gen:send_request(M, self(), {call, Handler, Request}, Label, ReqIdCol)
+    catch
+        error:badarg ->
+            error(badarg, [M, Handler, Request, Label, ReqIdCol])
+    end.
+
+-spec wait_response(ReqId, WaitTime) -> Result when
+      ReqId :: request_id(),
+      WaitTime :: response_timeout(),
+      Response :: {reply, Reply::term()}
+                | {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'timeout'.
+
+wait_response(ReqId, WaitTime) ->
+    try gen:wait_response(ReqId, WaitTime) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, WaitTime])
+    end.
+
+-spec wait_response(ReqIdCollection, WaitTime, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      WaitTime :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+wait_response(ReqIdCol, WaitTime, Delete) ->
+    try gen:wait_response(ReqIdCol, WaitTime, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, WaitTime, Delete])
+    end.
+
+-spec receive_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'timeout'.
+
+receive_response(ReqId, Timeout) ->
+    try gen:receive_response(ReqId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, Timeout])
+    end.
+
+-spec receive_response(ReqIdCollection, Timeout, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+receive_response(ReqIdCol, Timeout, Delete) ->
+    try gen:receive_response(ReqIdCol, Timeout, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, Timeout, Delete])
+    end.
+
+-spec check_response(Msg, ReqId) -> Result when
+      Msg :: term(),
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'no_reply'.
+
+check_response(Msg, ReqId) ->
+    try gen:check_response(Msg, ReqId) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqId])
+    end.
+
+-spec check_response(Msg, ReqIdCollection, Delete) -> Result when
+      Msg :: term(),
+      ReqIdCollection :: request_id_collection(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'no_reply'.
+
+check_response(Msg, ReqIdCol, Delete) ->
+    try gen:check_response(Msg, ReqIdCol, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqIdCol, Delete])
+    end.
+
+-spec reqids_new() ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_new() ->
+    gen:reqids_new().
+
+-spec reqids_size(ReqIdCollection::request_id_collection()) ->
+          non_neg_integer().
+
+reqids_size(ReqIdCollection) ->
+    try
+        gen:reqids_size(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
+
+-spec reqids_add(ReqId::request_id(), Label::term(),
+                 ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_add(ReqId, Label, ReqIdCollection) ->
+    try
+        gen:reqids_add(ReqId, Label, ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
+    end.
+
+-spec reqids_to_list(ReqIdCollection::request_id_collection()) ->
+          [{ReqId::request_id(), Label::term()}].
+
+reqids_to_list(ReqIdCollection) ->
+    try
+        gen:reqids_to_list(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
 
 -spec delete_handler(emgr_ref(), handler(), term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).
@@ -279,19 +501,25 @@ wake_hib(Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
 
 fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
     receive
+	Msg ->
+	    decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib)
+    after HibernateAfterTimeout ->
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
+    end.
+
+decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
+    case Msg of
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [ServerName, MSL, HibernateAfterTimeout, Hib],Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate_server(Reason, Parent, MSL, ServerName);
-	Msg when Debug =:= [] ->
+	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, []);
-	Msg ->
+	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug1)
-    after HibernateAfterTimeout ->
-	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
     end.
 
 handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
@@ -353,9 +581,8 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     do_unlink(Parent, MSL),
     exit(Reason).
 
-reply({From, Ref}, Msg) ->
-    From ! {Ref, Msg},
-    ok.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
@@ -590,8 +817,10 @@ server_update(Handler1, Func, Event, SName) ->
                            module=>Mod1,
                            message=>Event},
                          #{domain=>[otp],
-                           report_cb=>fun gen_event:format_log/1,
-                           error_logger=>#{tag=>warning_msg}}), % warningmap??
+                           report_cb=>fun gen_event:format_log/2,
+                           error_logger=>
+                               #{tag=>warning_msg, % warningmap??
+                                 report_cb=>fun gen_event:format_log/1}}),
             {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
@@ -724,6 +953,8 @@ do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
 	    ok
     end.
 
+-spec report_terminate(_, How, _, _, _, _, _) -> ok when
+      How :: crash | normal | shutdown | {swapped, handler(), false | pid()}.
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);
 report_terminate(Handler, How, _, State, LastIn, SName, _) ->
@@ -743,55 +974,194 @@ report_terminate(Handler, Reason, State, LastIn, SName) ->
 report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
-report_error(Handler, Reason, State, LastIn, SName) ->
+report_error(Handler, Exit, State, LastIn, SName) ->
+
+    %% The reason comes from a catch expression, so we remove
+    %% the 'EXIT' and stacktrace from it so that the format_status
+    %% callback does not have deal with that.
+    {Reason, ReasonFun} =
+        case Exit of
+            {'EXIT',{R,ST}} ->
+                {R, fun(Reason) -> {'EXIT',{Reason,ST}} end};
+            {'EXIT',R} ->
+                {R, fun(Reason) -> {'EXIT',Reason} end};
+            R ->
+                {R, fun(Reason) -> Reason end}
+        end,
+    Status = gen:format_status(
+               Handler#handler.module,
+               terminate,
+               #{ state => State,
+                  message => LastIn,
+                  reason => Reason
+                },
+               [get(), State]),
     ?LOG_ERROR(#{label=>{gen_event,terminate},
                  handler=>handler(Handler),
                  name=>SName,
-                 last_message=>LastIn,
-                 state=>format_status(terminate,Handler#handler.module,
-                                      get(),State),
-                 reason=>Reason},
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get('$status',Status,maps:get(state,Status)),
+                 reason=>ReasonFun(maps:get(reason,Status))},
                #{domain=>[otp],
-                 report_cb=>fun gen_event:format_log/1,
-                 error_logger=>#{tag=>error}}).
+                 report_cb=>fun gen_event:format_log/2,
+                 error_logger=>#{tag=>error,
+                                 report_cb=>fun gen_event:format_log/1}}).
 
-format_log(#{label:={gen_event,terminate},
-             handler:=Handler,
-             name:=SName,
-             last_message:=LastIn,
-             state:=State,
-             reason:=Reason}) ->
-    Reason1 =
-	case Reason of
-	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
-		case code:is_loaded(M) of
-		    false ->
-			{'module could not be loaded',[{M,F,A,L}|MFAs]};
-		    _ ->
-			case erlang:function_exported(M, F, length(A)) of
-			    true ->
-				{undef,[{M,F,A,L}|MFAs]};
-			    false ->
-				{'function not exported',[{M,F,A,L}|MFAs]}
-			end
-		end;
-	    {'EXIT',Why} ->
-		Why;
-	    _ ->
-		Reason
-	end,
-    {"** gen_event handler ~p crashed.~n"
-     "** Was installed in ~tp~n"
-     "** Last event was: ~tp~n"
-     "** When handler state == ~tp~n"
-     "** Reason == ~tp~n",
-     [Handler,SName,LastIn,State,Reason1]};
-format_log(#{label:={gen_event,no_handle_info},
-             module:=Mod,
-             message:=Msg}) ->
-    {"** Undefined handle_info in ~tp~n"
-     "** Unhandled message: ~tp~n",
-     [Mod, Msg]}.
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(Report) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(Report, Depth), FormatOpts).
+
+limit_report(Report, unlimited) ->
+    Report;
+limit_report(#{label:={gen_event,terminate},
+               last_message:=LastIn,
+               state:=State,
+               reason:=Reason}=Report,
+             Depth) ->
+    Report#{last_message => io_lib:limit_term(LastIn, Depth),
+            state => io_lib:limit_term(State, Depth),
+            reason => io_lib:limit_term(Reason, Depth)};
+limit_report(#{label:={gen_event,no_handle_info},
+               message:=Msg}=Report,
+             Depth) ->
+    Report#{message => io_lib:limit_term(Msg, Depth)}.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={gen_event,terminate},
+                    handler:=Handler,
+                    name:=SName,
+                    last_message:=LastIn,
+                    state:=State,
+                    reason:=Reason},
+                  #{single_line:=true, depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Reason1 = fix_reason(Reason),
+    Format1 = lists:append(["Generic event handler ",P," crashed. "
+                            "Installed: ",P,". Last event: ",P,
+                            ". State: ",P,". Reason: ",P,"."]),
+    Args1 =
+        case Depth of
+            unlimited ->
+                [Handler,SName,LastIn,State,Reason1];
+            _ ->
+                [Handler,Depth,SName,Depth,LastIn,Depth,
+                 State,Depth,Reason1,Depth]
+        end,
+    {Format1, Args1};
+format_log_single(#{label:={gen_event,no_handle_info},
+                    module:=Mod,
+                    message:=Msg},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Undefined handle_info in ",P,
+                           ". Unhandled message: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Depth,Msg,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={gen_event,terminate},
+                   handler:=Handler,
+                   name:=SName,
+                   last_message:=LastIn,
+                   state:=State,
+                   reason:=Reason},
+                 #{depth:=Depth}=FormatOpts) ->
+    Reason1 = fix_reason(Reason),
+    P = p(FormatOpts),
+    Format =
+        lists:append(["** gen_event handler ",P," crashed.\n",
+                      "** Was installed in ",P,"\n",
+                      "** Last event was: ",P,"\n",
+                      "** When handler state == ",P,"\n",
+                      "** Reason == ",P,"\n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Handler,SName,LastIn,State,Reason1];
+            _ ->
+                [Handler,Depth,SName,Depth,LastIn,Depth,State,Depth,
+                 Reason1,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={gen_event,no_handle_info},
+                   module:=Mod,
+                   message:=Msg},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        "** Undefined handle_info in ~p\n"
+        "** Unhandled message: "++P++"\n",
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Msg,Depth]
+        end,
+    {Format,Args}.
+
+fix_reason({'EXIT',{undef,[{M,F,A,_L}|_]=MFAs}=Reason}) ->
+    case code:is_loaded(M) of
+        false ->
+            {'module could not be loaded',MFAs};
+        _ ->
+            case erlang:function_exported(M, F, length(A)) of
+                true ->
+                    Reason;
+                false ->
+                    {'function not exported',MFAs}
+            end
+    end;
+fix_reason({'EXIT',Reason}) ->
+    Reason;
+fix_reason(Reason) ->
+    Reason.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;
@@ -821,24 +1191,19 @@ get_modules(MSL) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
-    Header = gen:format_status_header("Status for event handler",
-                                      ServerName),
-    FmtMSL = [MS#handler{state=format_status(Opt, Mod, PDict, State)}
-              || #handler{module = Mod, state = State} = MS <- MSL],
+    [PDict, SysState, Parent, Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
+    Header = gen:format_status_header("Status for event handler", ServerName),
+    {FmtMSL, Logs} =
+        lists:mapfoldl(
+          fun(#handler{module = Mod, state = State} = MS, Logs) ->
+                  Status = gen:format_status(
+                             Mod, Opt, #{ log => Logs, state => State },
+                             [PDict, State]),
+                  {MS#handler{state=maps:get('$status',Status,maps:get(state,Status))},
+                   maps:get(log,Status)}
+          end, sys:get_log(Debug), MSL),
     [{header, Header},
      {data, [{"Status", SysState},
+             {"Logged Events", Logs},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
-
-format_status(Opt, Mod, PDict, State) ->
-    case erlang:function_exported(Mod, format_status, 2) of
-        true ->
-            Args = [PDict, State],
-            case catch Mod:format_status(Opt, Args) of
-                {'EXIT', _} -> State;
-                Else -> Else
-            end;
-        false ->
-            State
-    end.

@@ -1,0 +1,31 @@
+
+  [;1m-spec write_file(Filename, Bytes) -> ok | {error, Reason}[0m
+  [;1m                    when[0m
+  [;1m                        Filename :: name_all(),[0m
+  [;1m                        Bytes :: iodata(),[0m
+  [;1m                        Reason ::[0m
+  [;1m                            posix() | badarg | terminated | system_limit.[0m
+
+  Writes the contents of the [;;4miodata[0m term [;;4mBytes[0m to file [;;4mFilename[0m.
+  The file is created if it does not exist. If it exists, the
+  previous contents are overwritten. Returns [;;4mok[0m if successful,
+  otherwise [;;4m{error, Reason}[0m.
+
+  Typical error reasons:
+
+  [;;4m[;;4menoent[0m[0m:
+    A component of the filename does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.
+
+  [;;4m[;;4menospc[0m[0m:
+    No space is left on the device.
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing permission for writing the file or searching one of
+    the parent directories.
+
+  [;;4m[;;4meisdir[0m[0m:
+    The named file is a directory.

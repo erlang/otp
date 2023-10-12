@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@
 ** Internal functions and macros used by both the CA tree and the AVL tree
 */
 
+
+#if defined(ARCH_32)
 /*
 ** A stack of this size is enough for an AVL tree with more than
 ** 0xFFFFFFFF elements. May be subject to change if
@@ -34,8 +36,19 @@
 ** Where n denotes the number of nodes, h(n) the height of the tree
 ** with n nodes and log is the binary logarithm.
 */
-  
 #define STACK_NEED 50
+#elif defined(ARCH_64)
+/*
+** A stack of this size is enough for an AVL tree with more than
+** 2^61 elements. 
+** The Maximal height of an AVL tree is calculated as above.
+*/
+#define STACK_NEED 90
+#else
+#error "Unsported architecture"
+#endif
+
+
 
 #define PUSH_NODE(Dtt, Tdt)                     \
     ((Dtt)->array[(Dtt)->pos++] = Tdt)
@@ -49,6 +62,9 @@
       (Dtt)->array[(Dtt)->pos - 1] : NULL)
 
 #define EMPTY_NODE(Dtt) (TOP_NODE(Dtt) == NULL)
+
+#define DEC_NITEMS(DB)                                                  \
+    erts_flxctr_dec(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 
 static ERTS_INLINE void free_term(DbTable *tb, TreeDbTerm* p)
 {
@@ -92,49 +108,54 @@ int db_erase_object_tree_common(DbTable *tbl, TreeDbTerm **root, Eterm object,
                                 Eterm *ret, DbTableTree *stack_container);
 int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
                         Eterm slot_term, Eterm *ret,
-                        DbTableTree *stack_container);
-int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                        DbTableTree *stack_container,
+                        CATreeRootIterator*);
+int db_select_chunk_tree_common(Process *p, DbTable *tb,
                                 Eterm tid, Eterm pattern, Sint chunk_size,
                                 int reverse, Eterm *ret,
-                                DbTableTree *stack_container);
-int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                DbTableTree *stack_container,
+                                CATreeRootIterator*);
+int db_select_tree_common(Process *p, DbTable *tb,
                           Eterm tid, Eterm pattern, int reverse, Eterm *ret,
-                          DbTableTree *stack_container);
+                          DbTableTree *stack_container,
+                          CATreeRootIterator*);
 int db_select_delete_tree_common(Process *p, DbTable *tbl,
-                                 TreeDbTerm **root,
                                  Eterm tid, Eterm pattern,
                                  Eterm *ret,
-                                 DbTreeStack* stack);
+                                 DbTreeStack* stack,
+                                 CATreeRootIterator* iter);
 int db_select_continue_tree_common(Process *p, 
                                    DbTableCommon *tb,
-                                   TreeDbTerm **root,
                                    Eterm continuation,
                                    Eterm *ret,
-                                   DbTableTree *stack_container);
+                                   DbTableTree *stack_container,
+                                   CATreeRootIterator* iter);
 int db_select_delete_continue_tree_common(Process *p, 
                                           DbTable *tbl,
-                                          TreeDbTerm **root,
                                           Eterm continuation,
                                           Eterm *ret,
-                                          DbTreeStack* stack);
-int db_select_count_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                          DbTreeStack* stack,
+                                          CATreeRootIterator* iter);
+int db_select_count_tree_common(Process *p, DbTable *tb,
                                 Eterm tid, Eterm pattern, Eterm *ret,
-                                DbTableTree *stack_container);
+                                DbTableTree *stack_container,
+                                CATreeRootIterator* iter);
 int db_select_count_continue_tree_common(Process *p,
-                                         DbTableCommon *tb,
-                                         TreeDbTerm **root,
+                                         DbTable *tb,
                                          Eterm continuation,
                                          Eterm *ret,
-                                         DbTableTree *stack_container);
-int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                         DbTableTree *stack_container,
+                                         CATreeRootIterator* iter);
+int db_select_replace_tree_common(Process *p, DbTable*,
                                   Eterm tid, Eterm pattern, Eterm *ret,
-                                  DbTableTree *stack_container);
+                                  DbTableTree *stack_container,
+                                  CATreeRootIterator* iter);
 int db_select_replace_continue_tree_common(Process *p,
-                                           DbTableCommon *tb,
-                                           TreeDbTerm **root,
+                                           DbTable*,
                                            Eterm continuation,
                                            Eterm *ret,
-                                           DbTableTree *stack_container);
+                                           DbTableTree *stack_container,
+                                           CATreeRootIterator* iter);
 int db_take_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                         Eterm key, Eterm *ret,
                         DbTreeStack *stack /* NULL if no static stack */);
@@ -146,6 +167,21 @@ void db_foreach_offheap_tree_common(TreeDbTerm *root,
 int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  Eterm key, Eterm obj, DbUpdateHandle* handle,
                                  DbTableTree *stack_container);
-void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
+void db_finalize_dbterm_tree_common(int cret,
+                                    DbUpdateHandle *handle,
+                                    TreeDbTerm **root,
                                     DbTableTree *stack_container);
+void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj);
+void* db_dbterm_list_append_tree_common(void* last_term, void* db_term);
+void* db_dbterm_list_remove_first_tree_common(void **list);
+int db_put_dbterm_tree_common(DbTableCommon *tb, TreeDbTerm **root, TreeDbTerm *value_to_insert,
+                              int key_clash_fail, DbTableTree *stack_container);
+void db_free_dbterm_tree_common(int compressed, void* obj);
+Eterm db_get_dbterm_key_tree_common(DbTable* tb, void* db_term);
+Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
+
+TreeDbTerm *db_find_tree_node_common(DbTableCommon*, TreeDbTerm *root,
+                                     Eterm key);
+Eterm db_binary_info_tree_common(Process*, TreeDbTerm*);
+
 #endif /* _DB_TREE_UTIL_H */

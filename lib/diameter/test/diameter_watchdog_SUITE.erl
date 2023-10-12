@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,18 +25,22 @@
 
 -module(diameter_watchdog_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         init_per_suite/1,
-         end_per_suite/1]).
+         reopen/1,
+         suspect/1,
+         okay/1]).
 
-%% testcases
--export([reopen/0, reopen/1, reopen/4, reopen/6,
-         suspect/1, suspect/4,
-         okay/1, okay/4]).
-
--export([id/1,    %% jitter callback
-         run1/1,
+%% internal callbacks
+-export([reopen/4, reopen/6,
+         suspect/4,
+         okay/4,
+         id/1,    %% jitter callback
          abuse/1,
          abuse/2]).
 
@@ -48,7 +52,6 @@
 -export([message/3]).
 
 -include("diameter.hrl").
--include("diameter_ct.hrl").
 
 %% ===========================================================================
 
@@ -105,49 +108,72 @@
               [])).
 
 %% Log to make failures identifiable.
--define(LOG(T),     ?LOG("~p", [T])).
--define(LOG(F,A),   ct:pal("~p: " ++ F, [self() | A])).
--define(WARN(F,A),  ct:pal(error, "~p: " ++ F, [self() | A])).
+-define(LOG(F,A),   io:format("~p: " ++ F ++ "~n", [self() | A])).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 90}}].
+    [{timetrap, {seconds, 315}}].
 
 all() ->
-    [reopen,
-     suspect,
-     okay].
+    [reopen, suspect, okay].
 
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
+reopen(_Config) ->
+    run([reopen]).
 
-end_per_suite(_Config) ->
-    ok = diameter:stop().
+suspect(_Config) ->
+    run([suspect]).
+
+okay(_Config) ->
+    run([okay]).
 
 %% ===========================================================================
-%% # reopen/1
+
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1.
+
+run(reopen) ->
+    reopen();   %% 20 watchdogs @ 15 sec
+
+run(suspect) ->
+    suspect();
+
+run(okay) ->
+    okay();
+
+run(List) ->
+    ok = diameter:start(),
+    try
+        ?util:run([{[fun run/1, T], maps:get(T, #{reopen => 300000}, 90000)}
+                   || T <- List])
+    after
+        ok = diameter:stop()
+    end.
+
+%% ===========================================================================
+%% # reopen/0
 %% ===========================================================================
 
 %% Test the watchdog state machine for the required failover, failback
 %% and reopen behaviour by examining watchdog events.
 
 reopen() ->
-    [{timetrap, {minutes, 5}}]. %% 20 watchdogs @ 15 sec
-
-reopen(_) ->
-    [] = run([[reopen, T, W, N, M]
-              || T <- [listen, connect], %% watchdog to test
-                 W <- ?WD_TIMERS,        %% watchdog_timer value
-                 N <- [0,1,2],           %% DWR's to answer before ignoring
-                 M <- ['DWR', 'DWA', 'RAA']]). %% how to induce failback
+    ?util:run([{?MODULE, reopen, [T, W, N, M]}
+               || T <- [listen, connect], %% watchdog to test
+                  W <- ?WD_TIMERS,        %% watchdog_timer value
+                  N <- [0,1,2],           %% DWR's to answer before ignoring
+                  M <- ['DWR', 'DWA', 'RAA']]). %% how to induce failback
 
 reopen(Test, Wd, N, M) ->
     %% Publish a ref ensure the connecting transport is added only
     %% once events from the listening transport are subscribed to.
     Ref = make_ref(),
-    [] = run([[reopen, T, Test, Ref, Wd, N, M] || T <- [listen, connect]]).
+    ?util:run([{?MODULE, reopen, [T, Test, Ref, Wd, N, M]}
+               || T <- [listen, connect]]).
 
 %% reopen/6
 
@@ -377,14 +403,14 @@ tpid(Ref, [[{ref, Ref},
     TPid.
 
 %% ===========================================================================
-%% # suspect/1
+%% # suspect/0
 %% ===========================================================================
 
 %% Configure transports to require a set number of watchdog timeouts
 %% before moving from OKAY to SUSPECT.
 
-suspect(_) ->
-    [] = run([[abuse, [suspect, N]] || N <- [0,1,3]]).
+suspect() ->
+    ?util:run([{?MODULE, abuse, [[suspect, N]]} || N <- [0,1,3]]).
 
 suspect(Type, Fake, Ref, N)
   when is_reference(Ref) ->
@@ -417,7 +443,7 @@ suspect(TRef, false, SvcName, N) ->
 %% abuse/1
 
 abuse(F) ->
-    [] = run([[abuse, F, T] || T <- [listen, connect]]).
+    ?util:run([{?MODULE, abuse, [F, T]} || T <- [listen, connect]]).
 
 abuse(F, [_,_,_|_] = Args) ->
     ?LOG("~p", [Args]),
@@ -425,21 +451,21 @@ abuse(F, [_,_,_|_] = Args) ->
 
 abuse([F|A], Test) ->
     Ref = make_ref(),
-    [] = run([[abuse, F, [T, T == Test, Ref] ++ A]
-              || T <- [listen, connect]]);
+    ?util:run([{?MODULE, abuse, [F, [T, T == Test, Ref] ++ A]}
+               || T <- [listen, connect]]);
 
 abuse(F, Test) ->
     abuse([F], Test).
 
 %% ===========================================================================
-%% # okay/1
+%% # okay/0
 %% ===========================================================================
 
 %% Configure the number of watchdog exchanges before moving from
 %% REOPEN to OKAY.
 
-okay(_) ->
-    [] = run([[abuse, [okay, N]] || N <- [0,2,3]]).
+okay() ->
+    ?util:run([{?MODULE, abuse, [[okay, N]]} || N <- [0,2,3]]).
 
 okay(Type, Fake, Ref, N)
   when is_reference(Ref) ->
@@ -625,23 +651,6 @@ choose(false, _, X) -> X.
 
 id(T) ->
     T.
-
-%% run/1
-%%
-%% A more useful badmatch in case of failure.
-
-run(Fs) ->
-    ?util:run([{?MODULE, [run1, F]} || F <- Fs]).
-
-run1([F|A]) ->
-    ok = try
-             apply(?MODULE, F, A),
-             ok
-         catch
-             E:R:Stack ->
-                 ?WARN("~p", [{A, E, R, Stack}]),
-                 Stack
-         end.
 
 %% jitter/2
 

@@ -1,0 +1,159 @@
+
+  [;1m-spec erlang:trace_info(PidPortFuncEvent, Item) -> Res[0m
+  [;1m                           when[0m
+  [;1m                               PidPortFuncEvent ::[0m
+  [;1m                                   pid() |[0m
+  [;1m                                   port() |[0m
+  [;1m                                   new | new_processes | new_ports |[0m
+  [;1m                                   {Module, Function, Arity} |[0m
+  [;1m                                   on_load | send | 'receive',[0m
+  [;1m                               Module :: module(),[0m
+  [;1m                               Function :: atom(),[0m
+  [;1m                               Arity :: arity(),[0m
+  [;1m                               Item ::[0m
+  [;1m                                   flags | tracer | traced |[0m
+  [;1m                                   match_spec | meta | meta_match_spec |[0m
+  [;1m                                   call_count | call_time |[0m
+  [;1m                                   call_memory | all,[0m
+  [;1m                               Res :: trace_info_return().[0m
+
+  Types:
+    -type match_variable() :: atom().
+      Approximation of '$1' | '$2' | '$3' | ...
+    -type trace_info_flag() ::
+          send | 'receive' | set_on_spawn | call | return_to | procs |
+          set_on_first_spawn | set_on_link | running |
+          garbage_collection | timestamp | monotonic_timestamp |
+          strict_monotonic_timestamp | arity.
+    -type trace_info_item_result() ::
+          {traced, global | local | false | undefined} |
+          {match_spec, trace_match_spec() | false | undefined} |
+          {meta, pid() | port() | false | undefined | []} |
+          {meta, module(), term()} |
+          {meta_match_spec, trace_match_spec() | false | undefined} |
+          {call_count, non_neg_integer() | boolean() | undefined} |
+          {call_time | call_memory,
+           [{pid(),
+             non_neg_integer(),
+             non_neg_integer(),
+             non_neg_integer()}] |
+           boolean() |
+           undefined}.
+    -type trace_info_return() ::
+          undefined |
+          {flags, [trace_info_flag()]} |
+          {tracer, pid() | port() | []} |
+          {tracer, module(), term()} |
+          trace_info_item_result() |
+          {all, [trace_info_item_result()] | false | undefined}.
+    -type trace_match_spec() ::
+          [{[term()] | '_' | match_variable(), [term()], [term()]}].
+
+  Returns trace information about a port, process, function, or
+  event.
+
+  To get information about a port or process, [;;4mPidPortFuncEvent[0m is
+  to be a process identifier (pid), port identifier, or one of the
+  atoms [;;4mnew[0m, [;;4mnew_processes[0m, or [;;4mnew_ports[0m. The atom [;;4mnew[0m or [;;4m[0m
+  [;;4mnew_processes[0m means that the default trace state for processes to
+  be created is returned. The atom [;;4mnew_ports[0m means that the
+  default trace state for ports to be created is returned.
+
+  Valid [;;4mItem[0ms for ports and processes:
+
+  [;;4m[;;4mflags[0m[0m:
+    Returns a list of atoms indicating what kind of traces is
+    enabled for the process. The list is empty if no traces are
+    enabled, and one or more of the following atoms if traces are
+    enabled: [;;4msend[0m, [;;4m'receive'[0m, [;;4mset_on_spawn[0m, [;;4mcall[0m, [;;4m[0m
+    [;;4mreturn_to[0m, [;;4mprocs[0m, [;;4mports[0m, [;;4mset_on_first_spawn[0m, [;;4m[0m
+    [;;4mset_on_link[0m, [;;4mrunning[0m, [;;4mrunning_procs[0m, [;;4mrunning_ports[0m, [;;4m[0m
+    [;;4msilent[0m, [;;4mexiting[0m, [;;4mmonotonic_timestamp[0m, [;;4m[0m
+    [;;4mstrict_monotonic_timestamp[0m, [;;4mgarbage_collection[0m, [;;4mtimestamp[0m,
+    and [;;4marity[0m. The order is arbitrary.
+
+  [;;4m[;;4mtracer[0m[0m:
+    Returns the identifier for process, port, or a tuple
+    containing the tracer module and tracer state tracing this
+    process. If this process is not traced, the return value is [;;4m[0m
+    [;;4m[][0m.
+
+  To get information about a function, [;;4mPidPortFuncEvent[0m is to be
+  the three-element tuple [;;4m{Module, Function, Arity}[0m or the atom [;;4m[0m
+  [;;4mon_load[0m. No wildcards are allowed. Returns [;;4mundefined[0m if the
+  function does not exist, or [;;4mfalse[0m if the function is not traced.
+  If [;;4mPidPortFuncEvent[0m is [;;4mon_load[0m, the information returned
+  refers to the default value for code that will be loaded.
+
+  Valid [;;4mItem[0ms for functions:
+
+  [;;4m[;;4mtraced[0m[0m:
+    Returns [;;4mglobal[0m if this function is traced on global function
+    calls, [;;4mlocal[0m if this function is traced on local function
+    calls (that is, local and global function calls), and [;;4mfalse[0m
+    if local or global function calls are not traced.
+
+  [;;4m[;;4mmatch_spec[0m[0m:
+    Returns the match specification for this function, if it has
+    one. If the function is locally or globally traced but has no
+    match specification defined, the returned value is [;;4m[][0m.
+
+  [;;4m[;;4mmeta[0m[0m:
+    Returns the meta-trace tracer process, port, or trace module
+    for this function, if it has one. If the function is not
+    meta-traced, the returned value is [;;4mfalse[0m. If the function is
+    meta-traced but has once detected that the tracer process is
+    invalid, the returned value is [;;4m[][0m.
+
+  [;;4m[;;4mmeta_match_spec[0m[0m:
+    Returns the meta-trace match specification for this function,
+    if it has one. If the function is meta-traced but has no match
+    specification defined, the returned value is [;;4m[][0m.
+
+  [;;4m[;;4mcall_count[0m[0m:
+    Returns the call count value for this function or [;;4mtrue[0m for
+    the pseudo function [;;4mon_load[0m if call count tracing is active.
+    Otherwise [;;4mfalse[0m is returned.
+
+    See also [;;4merlang:trace_pattern/3[0m.
+
+  [;;4m[;;4mcall_time[0m[0m:
+    Returns the call time values for this function or [;;4mtrue[0m for
+    the pseudo function [;;4mon_load[0m if call time tracing is active.
+    Otherwise [;;4mfalse[0m is returned. The call time values returned, [;;4m[0m
+    [;;4m[{Pid, Count, S, Us}][0m, is a list of each process that
+    executed the function and its specific counters.
+
+    See also [;;4merlang:trace_pattern/3[0m.
+
+  [;;4m[;;4mcall_memory[0m[0m:
+    Returns the accumulated number of words allocated by this
+    function. Accumulation stops at the next memory traced
+    function: if there are [;;4mouter[0m, [;;4mmiddle[0m and [;;4minner[0m functions
+    each allocating 3 words, but only [;;4mouter[0m is traced, it will
+    report 9 allocated words. If [;;4mouter[0m and [;;4minner[0m are traced, 6
+    words are reported for [;;4mouter[0m and 3 for [;;4minner[0m. When
+    function is not traced, [;;4mfalse[0m is returned. Returned tuple is [;;4m[0m
+    [;;4m[{Pid, Count, Words}][0m, for each process that executed the
+    function.
+
+    See also [;;4merlang:trace_pattern/3[0m.
+
+  [;;4m[;;4mall[0m[0m:
+    Returns a list containing the [;;4m{Item, Value}[0m tuples for all
+    other items, or returns [;;4mfalse[0m if no tracing is active for
+    this function.
+
+  To get information about an event, [;;4mPidPortFuncEvent[0m is to be
+  one of the atoms [;;4msend[0m or [;;4m'receive'[0m.
+
+  One valid [;;4mItem[0m for events exists:
+
+  [;;4m[;;4mmatch_spec[0m[0m:
+    Returns the match specification for this event, if it has one,
+    or [;;4mtrue[0m if no match specification has been set.
+
+  The return value is [;;4m{Item, Value}[0m, where [;;4mValue[0m is the
+  requested information as described earlier. If a pid for a dead
+  process was specified, or the name of a non-existing function, [;;4m[0m
+  [;;4mValue[0m is [;;4mundefined[0m.

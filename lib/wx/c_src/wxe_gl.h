@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,24 @@
 #ifndef _WXE_GL_H
 #define _WXE_GL_H
 
-#include "egl_impl.h"
-#include "wxe_return.h"
+// #include "egl_impl.h"
 
-void activateGL(ErlDrvTermData caller);
-void setActiveGL(ErlDrvTermData caller, wxGLCanvas *canvas);
+void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLContext *context);
 void deleteActiveGL(wxGLCanvas *canvas);
-void wxe_initOpenGL(wxeReturn *, char*);
-void gl_dispatch(int op, char *bp, ErlDrvTermData caller, WXEBinRef *bins);
+void gl_dispatch(wxeCommand *);
+extern "C" {
+    void wxe_initOpenGL(void * fptr, void *name_fptr);
+}
 
-WX_DECLARE_HASH_MAP(ErlDrvTermData, wxGLCanvas*, wxIntegerHash, wxIntegerEqual, wxeGLC);
+
+typedef struct _wxe_glc
+{
+    wxGLCanvas *canvas;
+    wxGLContext *context;
+} wxe_glc;
+
+
+WX_DECLARE_HASH_MAP(ErlNifUInt64, wxe_glc*, wxIntegerHash, wxIntegerEqual, wxeGLC);
 extern wxeGLC glc;
 
 #endif

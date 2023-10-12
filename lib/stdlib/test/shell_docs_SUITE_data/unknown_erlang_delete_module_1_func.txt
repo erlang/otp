@@ -1,0 +1,12 @@
+
+  [;1m-spec delete_module(Module) -> true | undefined when Module :: module().[0m
+
+  Makes the current code for [;;4mModule[0m become old code and deletes
+  all references for this module from the export table. Returns [;;4m[0m
+  [;;4mundefined[0m if the module does not exist, otherwise [;;4mtrue[0m.
+
+  Warning:
+    This BIF is intended for the code server (see [;;4mcode(3)[0m) and
+    is not to be used elsewhere.
+
+  Failure: [;;4mbadarg[0m if there already is an old version of [;;4mModule[0m.

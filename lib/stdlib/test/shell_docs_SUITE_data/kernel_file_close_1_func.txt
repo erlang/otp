@@ -1,0 +1,12 @@
+
+  [;1m-spec close(IoDevice) -> ok | {error, Reason}[0m
+  [;1m               when[0m
+  [;1m                   IoDevice :: io_device(),[0m
+  [;1m                   Reason :: posix() | badarg | terminated.[0m
+
+  Closes the file referenced by [;;4mIoDevice[0m. It mostly returns [;;4mok[0m,
+  except for some severe errors such as out of memory.
+
+  Notice that if option [;;4mdelayed_write[0m was used when opening the
+  file, [;;4mclose/1[0m can return an old write error and not even try to
+  close the file. See [;;4mopen/2[0m.

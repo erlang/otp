@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,21 +22,21 @@
 #define __MODULE_H__
 
 #include "index.h"
-
-#ifdef HIPE
-#include "hipe_module.h"
-#endif
+#include "beam_code.h"
 
 struct erl_module_instance {
-    BeamCodeHeader* code_hdr;
+    const BeamCodeHeader* code_hdr;
     int code_length;		/* Length of loaded code in bytes. */
     unsigned catches;
     struct erl_module_nif* nif;
     int num_breakpoints;
     int num_traced_exports;
-#ifdef HIPE
-    HipeModule *hipe_code;
-#endif
+
+    const void *executable_region;
+    void *writable_region;
+
+    /* Protected by code modification permission. */
+    int unsealed;
 };
 
 typedef struct erl_module {
@@ -52,6 +52,25 @@ typedef struct erl_module {
 void erts_module_instance_init(struct erl_module_instance* modi);
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
+
+/** @brief Converts the given code pointer into a writable one. The module must
+ * have been made writable through \ref erts_unseal_module.
+ *
+ * @param[in] ptr Pointer to convert. Must point within the given module. */
+void *erts_writable_code_ptr(struct erl_module_instance* modi,
+                             const void *ptr);
+
+/** @brief Opens a module for modification.
+ *
+ * This may only be used for one module at a time. Remember to call
+ * \ref erts_seal_module before returning to Erlang code or unsealing another
+ * module. */
+void erts_unseal_module(struct erl_module_instance *modi);
+
+/** @brief Seals a previously unsealed module, changing page permissions,
+ * flushing code cache, et cetera as needed. The caller is responsible for
+ * setting up a code barrier. */
+void erts_seal_module(struct erl_module_instance *modi);
 
 void init_module_table(void);
 void module_start_staging(void);

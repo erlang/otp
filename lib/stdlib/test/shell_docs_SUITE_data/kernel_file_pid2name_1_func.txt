@@ -1,0 +1,26 @@
+
+  [;1m-spec pid2name(Pid) -> {ok, Filename} | undefined[0m
+  [;1m                  when Filename :: filename_all(), Pid :: pid().[0m
+
+[;;4mDeprecated[0m:
+  file:pid2name/1 is deprecated and will be removed in OTP 27; this
+  functionality is no longer supported
+
+  Change:
+    This function is deprecated and will be removed in Erlang/OTP
+    27.
+
+  If [;;4mPid[0m is an I/O device, that is, a pid returned from [;;4mopen/2[0m,
+  this function returns the filename, or rather:
+
+  [;;4m[;;4m{ok, Filename}[0m[0m:
+    If the file server of this node is not a slave, the file was
+    opened by the file server of this node (this implies that [;;4mPid[0m
+    must be a local pid) and the file is not closed. [;;4mFilename[0m is
+    the filename in flat string format.
+
+  [;;4m[;;4mundefined[0m[0m:
+    In all other cases.
+
+  Warning:
+    This function is intended for debugging only.

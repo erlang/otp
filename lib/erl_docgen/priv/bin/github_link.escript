@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ sub([], _Pat, _Fn, _Sha, _Cnt) ->
 sub([H|T], Pat, Fn, Sha, Cnt) ->
     %% We use the maint branch here, it is not as exact as the tag,
     %% but it is the best we can do as github does not allow doing
-    %% pullrequests on anything but branches.
+    %% pull requests on anything but branches.
     [re:replace(H,["<",Pat,">"],
                     ["<",Pat," ghlink=\"maint/",Fn,"#L",
                      integer_to_list(Cnt),"\">"],[{return,list}]) |

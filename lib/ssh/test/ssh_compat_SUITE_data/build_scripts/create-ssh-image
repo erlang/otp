@@ -1,8 +1,6 @@
 #!/bin/sh
 
-# ./create-image openssh 7.3p1 openssl 1.0.2m
-
-set -x
+# ./create-image openssh 7.3p1 openssl 1.0.2m [in-file]
 
 case $1 in
     openssh)
@@ -19,6 +17,8 @@ esac
 
 FAMssl=$3
 VERssl=$4
+
+INPUT_FILE=$5
 
 VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}
 
@@ -62,7 +62,16 @@ EOF
 
 # Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
 # but then we hit the proxy problem...
-wget -O $TMP $PFX$VERssh$SFX
+
+if [ "x$INPUT_FILE" = "x" ]
+then
+    wget -O $TMP $PFX$VERssh$SFX
+
+elif [ "x$INPUT_FILE" != "x$TMP" ]
+then
+    echo "Use $INPUT_FILE for input"
+    cp $INPUT_FILE $TMP
+fi
 
 # Build the image:
 docker build -t  ssh_compat_suite-ssh:$VER -f ./TempDockerFile .

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ char *format_message(MessageFiles mf, DWORD id,
  * Formats an eventlog message with the messagefiles
  * in mf, the ID id, the stringarray strings, 
  * containing numstrings strings into buff.
- * if bufflen is to small or anything else failes, 
+ * if bufflen is to small or anything else fails, 
  * the return value is NULL.
  */
 

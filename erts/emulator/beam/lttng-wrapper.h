@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,18 +58,21 @@
 #define lttng_mfa_to_str(m,f,a, Name) \
     erts_snprintf(Name, LTTNG_MFA_BUFFER_SZ, "%T:%T/%lu", (Eterm)(m), (Eterm)(f), (Uint)(a))
 
-#define lttng_proc_to_mfa_str(p, Name)                              \
-    do {                                                            \
-        if (ERTS_PROC_IS_EXITING((p))) {                            \
-            sys_strcpy(Name, "<exiting>");                              \
-        } else {                                                    \
-            BeamInstr *_fptr = find_function_from_pc((p)->i);       \
-            if (_fptr) {                                            \
-                lttng_mfa_to_str(_fptr[0],_fptr[1],_fptr[2], Name); \
-            } else {                                                \
-                sys_strcpy(Name, "<unknown>");                          \
-            }                                                       \
-        }                                                           \
+#define lttng_proc_to_mfa_str(p, Name)                                      \
+    do {                                                                    \
+        if (ERTS_PROC_IS_EXITING((p))) {                                    \
+            sys_strcpy(Name, "<exiting>");                                  \
+        } else {                                                            \
+            const ErtsCodeMFA* _mfa = erts_find_function_from_pc((p)->i);   \
+            if (_fptr) {                                                    \
+                lttng_mfa_to_str(_mfa->module,                              \
+                                 _mfa->function,                            \
+                                 _mfa->arity,                               \
+                                 Name);                                     \
+            } else {                                                        \
+                sys_strcpy(Name, "<unknown>");                              \
+            }                                                               \
+        }                                                                   \
     } while(0)
 
 /* ErtsRunQueue->ErtsSchedulerData->Uint */

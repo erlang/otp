@@ -1,0 +1,18 @@
+
+  [;1m-spec purge_module(Module) -> true when Module :: atom().[0m
+
+  Removes old code for [;;4mModule[0m. Before this BIF is used, [;;4m[0m
+  [;;4mcheck_process_code/2[0m is to be called to check that no processes
+  execute old code in the module.
+
+  Warning:
+    This BIF is intended for the code server (see [;;4mcode(3)[0m) and
+    is not to be used elsewhere.
+
+  Change:
+    As from ERTS 8.0 (Erlang/OTP 19), any lingering processes that
+    still execute the old code is killed by this function. In
+    earlier versions, such incorrect use could cause much more
+    fatal failures, like emulator crash.
+
+  Failure: [;;4mbadarg[0m if there is no old code for [;;4mModule[0m.

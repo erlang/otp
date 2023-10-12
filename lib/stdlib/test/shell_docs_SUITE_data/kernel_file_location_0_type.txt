@@ -1,0 +1,9 @@
+
+  [;1m-type location() ::[0m
+  [;1m          integer() |[0m
+  [;1m          {bof, Offset :: integer()} |[0m
+  [;1m          {cur, Offset :: integer()} |[0m
+  [;1m          {eof, Offset :: integer()} |[0m
+  [;1m          bof | cur | eof.[0m
+
+  There is no documentation for location/0

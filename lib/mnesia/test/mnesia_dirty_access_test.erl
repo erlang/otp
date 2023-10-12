@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@
          del_table_copy_1/1, del_table_copy_2/1, del_table_copy_3/1,
          add_table_copy_1/1, add_table_copy_2/1, add_table_copy_3/1,
          add_table_copy_4/1, move_table_copy_1/1, move_table_copy_2/1,
-         move_table_copy_3/1, move_table_copy_4/1]).
+         move_table_copy_3/1, move_table_copy_4/1, dirty_error_stacktrace/1]).
 
 -export([update_trans/3]).
 
@@ -64,7 +64,7 @@ all() ->
      {group, dirty_update_counter}, {group, dirty_delete},
      {group, dirty_delete_object},
      {group, dirty_match_object}, {group, dirty_index},
-     {group, dirty_iter}, {group, admin_tests}].
+     {group, dirty_iter}, {group, admin_tests}, dirty_error_stacktrace].
 
 groups() -> 
     [{dirty_write, [],
@@ -114,6 +114,36 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Errors in dirty activity should have stacktrace
+dirty_error_stacktrace(_Config) ->
+    %% Custom errors should have stacktrace
+    try
+        mnesia:async_dirty(fun() -> error(custom_error) end)
+    catch
+        exit:{custom_error, _} -> ok
+    end,
+
+    %% Undef error should have unknown module and function in the stacktrace
+    try
+        mnesia:async_dirty(fun() -> unknown_module:unknown_fun(arg) end)
+    catch
+        exit:{undef, [{unknown_module, unknown_fun, [arg], []} | _]} -> ok
+    end,
+
+    %% Exists don't have stacktrace
+    try
+        mnesia:async_dirty(fun() -> exit(custom_error) end)
+    catch
+        exit:custom_error -> ok
+    end,
+
+    %% Aborts don't have a stacktrace (unfortunately)
+    try
+        mnesia:async_dirty(fun() -> mnesia:abort(custom_abort) end)
+    catch
+        exit:{aborted, custom_abort} -> ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Write records dirty
@@ -761,7 +791,9 @@ update_trans(Tab, Key, Acc) ->
 		Res = (catch mnesia:read({Tab, Key})),
 		case Res of 
 		    [{Tab, Key, Extra, Acc}] ->
-			mnesia:write({Tab,Key,Extra, Acc+1});
+                        Meta = {mnesia:table_info(Tab, where_to_commit),
+                                mnesia:table_info(Tab, commit_work)},
+			mnesia:write({Tab, Key, [Meta|Extra], Acc+1});
 		    Val ->
 			{read, Val, {acc, Acc}}
 		end
@@ -812,12 +844,12 @@ del_table(CallFrom, DelNode, [Node1, Node2, Node3]) ->
     Pid3 = spawn_link(Node3, ?MODULE, update_trans, [Tab, 3, 0]),
 
 
-    dbg:tracer(process, {fun(Msg,_) -> tracer(Msg) end, void}),          
+    %% dbg:tracer(process, {fun(Msg,_) -> tracer(Msg) end, void}),
     %%    dbg:n(Node2),
     %%    dbg:n(Node3),
     %% dbg:tp('_', []),     
     %% dbg:tpl(dets, [timestamp]), 
-    dbg:p(Pid1, [m,c,timestamp]),  
+    %% dbg:p(Pid1, [m,c,timestamp]),  
     
     ?match({atomic, ok}, 
 	   rpc:call(CallFrom, mnesia, del_table_copy, [Tab, DelNode])),
@@ -840,17 +872,6 @@ del_table(CallFrom, DelNode, [Node1, Node2, Node3]) ->
     verify_oids(Tab, Node1, Node2, Node3, R1, R2, R3),
     ?verify_mnesia([Node1, Node2, Node3], []).
     
-tracer({trace_ts, _, send, Msg, Pid, {_,S,Ms}}) ->
-    io:format("~p:~p ~p >> ~w ~n",[S,Ms,Pid,Msg]);
-tracer({trace_ts, _, 'receive', Msg, {_,S,Ms}}) ->
-    io:format("~p:~p << ~w ~n",[S,Ms,Msg]);
-
-
-tracer(Msg) ->
-    io:format("UMsg ~p ~n",[Msg]),
-    ok.
-
-
 
 add_table_copy_1(suite) -> [];
 add_table_copy_1(Config) when is_list(Config) ->
@@ -896,6 +917,22 @@ add_table(CallFrom, AddNode, [Node1, Node2, Node3], Def) ->
     Pid3 ! {self(), quit}, R3 = receive {Pid3, Res3} -> Res3 after 5000 -> error end,
     verify_oids(Tab, Node1, Node2, Node3, R1, R2, R3),
     ?verify_mnesia([Node1, Node2, Node3], []).
+
+
+tracer({trace_ts, From, send, Msg, To, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) >>~p ~w ~n",[S,Ms,From,node(From),To,Msg]);
+tracer({trace_ts, Pid, 'receive', Msg, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) << ~w ~n",[S,Ms,Pid,node(Pid),Msg]);
+
+tracer({trace_ts, Pid, call, MFA, ST, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) ~w ~w ~n",[S,Ms,Pid,node(Pid),MFA, ST]);
+tracer({trace_ts, Pid, return_from, MFA, Ret, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) ~w => ~w ~n",[S,Ms,Pid,node(Pid),MFA,Ret]);
+
+tracer(Msg) ->
+    io:format("UMsg ~p ~n",[Msg]),
+    ok.
+
 
 move_table_copy_1(suite) -> [];
 move_table_copy_1(Config) when is_list(Config) ->
@@ -947,6 +984,10 @@ move_table(CallFrom, FromNode, ToNode, [Node1, Node2, Node3], Def) ->
 % Due to limitations in the current dirty_ops this can wrong from time to time!
 verify_oids(Tab, N1, N2, N3, R1, R2, R3) ->
     io:format("DEBUG 1=>~p 2=>~p 3=>~p~n", [R1,R2,R3]),
+    {info,_,_} = rpc:call(N1, mnesia_tm, get_info, [2000]),
+    {info,_,_} = rpc:call(N2, mnesia_tm, get_info, [2000]),
+    {info,_,_} = rpc:call(N3, mnesia_tm, get_info, [2000]),
+
     ?match([{_, _, _, R1}], rpc:call(N1, mnesia, dirty_read, [{Tab, 1}])),
     ?match([{_, _, _, R1}], rpc:call(N2, mnesia, dirty_read, [{Tab, 1}])),
     ?match([{_, _, _, R1}], rpc:call(N3, mnesia, dirty_read, [{Tab, 1}])),
@@ -959,7 +1000,7 @@ verify_oids(Tab, N1, N2, N3, R1, R2, R3) ->
 
 insert(_Tab, 0) -> ok;
 insert(Tab, N) when N > 0 ->
-    ok = mnesia:sync_dirty(fun() -> false = mnesia:is_transaction(), mnesia:write({Tab, N, N, 0}) end),
+    ok = mnesia:sync_dirty(fun() -> false = mnesia:is_transaction(), mnesia:write({Tab, N, [], 0}) end),
     insert(Tab, N-1).
 
 

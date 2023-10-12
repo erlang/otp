@@ -1,0 +1,4 @@
+
+  [;1m-type type() :: term().[0m
+
+  A type.

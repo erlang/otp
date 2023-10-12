@@ -286,7 +286,7 @@ F-OPEN-response ::= SEQUENCE {
   -- This flag is set if the responder is going to follow this response
   -- by a P-ALTER-CONTEXT exchange.
   --The following are conditional on the negotiation of the concecutive access
-  -- or concurent access functional units.
+  -- or concurrent access functional units.
   degree-of-overlap       Degree-Of-Overlap OPTIONAL,
   transfer-window         [7] IMPLICIT INTEGER OPTIONAL
 }
@@ -571,7 +571,7 @@ Change-Attributes ::= [APPLICATION 8] IMPLICIT SEQUENCE {
 
 -- This Parameter tan only be sent when the
 -- enhanced-filestore-management functional unit is available.
--- Atleast one attribute shall be present in the Change-Attributes
+-- At least one attribute shall be present in the Change-Attributes
 -- Parameter on the request PDU.
 Charging ::=
   [APPLICATION 9] IMPLICIT
@@ -1350,7 +1350,7 @@ Attribute-Extensions-Pattern ::=
                                                 {@.extension-attribute-identifier})
                                }}
 
--- conjunction with the extention attribute in Order to
+-- conjunction with the extension attribute in Order to
 -- perform Pattern matthing operations on it. it may be
 -- defined in terms of other Patterns within this
 -- Standard.

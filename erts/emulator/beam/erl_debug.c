@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -144,7 +144,7 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	break;
     case PORT_DEF:
     case EXTERNAL_PORT_DEF:
-	erts_print(to, to_arg, "#Port<%lu.%lu>",
+	erts_print(to, to_arg, "#Port<%lu.%b64u>",
 		   port_channel_no(obj),
 		   port_number(obj));
 	break;
@@ -469,7 +469,7 @@ void print_untagged_memory(Eterm *pos, Eterm *end)
  * is).  This function knows about forwarding pointers to be able to
  * print a heap during garbage collection. erts_printf("%T",val)
  * do not know about forwarding pointers though, so it will still
- * crash if they are encoutered...
+ * crash if they are encountered...
  */
 void print_tagged_memory(Eterm *pos, Eterm *end)
 {

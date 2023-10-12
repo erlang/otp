@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,47 +32,11 @@ VSN = $(FTP_VSN)
 
 SPECIAL_TARGETS = 
 
-DIA_PLT      = ./priv/plt/$(APPLICATION).plt
-DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
-
-
 # ----------------------------------------------------
 # Default Subdir Targets
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
-.PHONY: info gclean dialyzer dialyzer_plt dclean
+DIA_PLT_APPS = runtime_tools ssl
 
-info:
-	@echo "OS:        $(OS)"
-	@echo "DOCB:      $(DOCB)"
-	@echo ""
-	@echo "FTP_VSN:   $(FTP_VSN)"
-	@echo "APP_VSN:   $(APP_VSN)"
-	@echo ""
-	@echo "DIA_PLT:      $(DIA_PLT)"
-	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
-	@echo ""
-
-gclean: 
-	git clean -fXd
-
-dclean:
-	rm -f $(DIA_PLT)
-	rm -f $(DIA_ANALYSIS)
-
-dialyzer_plt: $(DIA_PLT)
-
-$(DIA_PLT): 
-	@echo "Building $(APPLICATION) plt file"
-	@dialyzer --build_plt \
-                  --output_plt $@ \
-                  -r ../$(APPLICATION)/ebin \
-                  --output $(DIA_ANALYSIS) \
-                  --verbose
-
-dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(APPLICATION)"
-	@dialyzer --plt $< \
-                  ../$(APPLICATION)/ebin \
-                  --verbose
+include $(ERL_TOP)/make/app_targets.mk

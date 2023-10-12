@@ -1,0 +1,23 @@
+
+  [;1m-spec is_process_alive(Pid) -> boolean() when Pid :: pid().[0m
+
+  [;;4mPid[0m must refer to a process at the local node.
+
+  Returns [;;4mtrue[0m if the process exists and is alive, that is, is not
+  exiting and has not exited. Otherwise returns [;;4mfalse[0m.
+
+  If process [;;4mP1[0m calls [;;4mis_process_alive(P2Pid)[0m it is guaranteed
+  that all signals, sent from [;;4mP1[0m to [;;4mP2[0m ([;;4mP2[0m is the process with
+  identifier [;;4mP2Pid[0m) before the call, will be delivered to [;;4mP2[0m
+  before the aliveness of [;;4mP2[0m is checked. This guarantee means that
+  one can use [;;4mis_process_alive/1[0m to let a process [;;4mP1[0m wait until
+  a process [;;4mP2[0m, which has got an exit signal with reason [;;4mkill[0m
+  from P1, is killed. Example:
+
+    exit(P2Pid, kill),
+    % P2 might not be killed
+    is_process_alive(P2Pid),
+    % P2 is not alive (the call above always return false)
+
+  See the documentation about signals and erlang:exit/2 for more
+  information about signals and exit signals.

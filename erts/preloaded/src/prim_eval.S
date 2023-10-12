@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,6 +42,10 @@
   {label,3}.
     {loop_rec,{f,5},{x,0}}.
     {move,{y,1},{x,1}}.
+    %% Tell the validator that it's safe to pass the message as an argument,
+    %% as the match fun is "known" not to build a term with it, and the
+    %% loop_rec instruction has disabled the GC.
+    {'%', {remove_fragility, {x,0}}}.
     {call_fun,1}.
     {test,is_ne_exact,{f,4},[{x,0},{atom,nomatch}]}.
     remove_message.

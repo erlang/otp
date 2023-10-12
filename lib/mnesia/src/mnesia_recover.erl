@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ allow_garb() ->
     cast(allow_garb).
 
 
-%% The transaction log has either been swiched (latest -> previous) or
+%% The transaction log has either been switched (latest -> previous) or
 %% there is nothing to be dumped. This means that the previous
 %% transaction log only may contain commit records which refers to
 %% transactions noted in the last two of the 'Prev' tables. All other
@@ -428,7 +428,7 @@ check_what_happened([H | T], Aborts, Commits) ->
 check_what_happened([], Aborts, Commits) ->
     if
 	Aborts == 0, Commits == 0 -> aborted;  % None of the active nodes knows
-	Aborts > 0 -> aborted;                 % Someody has aborted
+	Aborts > 0 -> aborted;                 % Somebody has aborted
 	Aborts == 0, Commits > 0 -> committed  % All has committed
     end.
 
@@ -449,6 +449,9 @@ wait_for_decision(D, InitBy, N) ->
     if 
 	Outcome =:= committed -> {Tid, committed};
 	Outcome =:= aborted   -> {Tid, aborted};
+	InitBy == startup ->
+	    {ok, Res} = call({wait_for_decision, D}),
+	    {Tid, Res};
 	Outcome =:= presume_abort -> 
 	    case N > Max of
 		true -> {Tid, aborted};
@@ -460,10 +463,7 @@ wait_for_decision(D, InitBy, N) ->
 	    %% Wait a while for active transactions
 	    %% to end and try again
 	    timer:sleep(100), 
-	    wait_for_decision(D, InitBy, N);
-	InitBy == startup ->
-	    {ok, Res} = call({wait_for_decision, D}),
-	    {Tid, Res}
+	    wait_for_decision(D, InitBy, N)
     end.
 
 still_pending([Tid | Pending]) ->
@@ -674,7 +674,7 @@ handle_call({connect_nodes, Ns}, From, State) ->
 	    erlang:send_after(2, self(), {connect_nodes,Ns,From}),
 	    {noreply, State};
 	[] ->
-	    %% No good noodes to connect to!
+	    %% No good nodes to connect to!
 	    %% We can't use reply here because this function can be
 	    %% called from handle_info
 	    gen_server:reply(From, {[], AlreadyConnected}),
@@ -1083,7 +1083,7 @@ merge_decisions(Node, D, NewD0) ->
 		NewD#decision.outcome == aborted ->
 		    %% Interesting! We have already committed,
 		    %% but someone else has aborted. Now we
-		    %% have a nice little inconcistency. The
+		    %% have a nice little inconsistency. The
 		    %% other guy (or some one else) has 
 		    %% enforced a recovery decision when
 		    %% max_wait_for_decision was exceeded.
@@ -1096,11 +1096,11 @@ merge_decisions(Node, D, NewD0) ->
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		NewD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == committed,
@@ -1236,7 +1236,7 @@ arrange([To | ToNodes], D, Acc, ForceSend) when is_record(D, decision) ->
 
 arrange([To | ToNodes], {trans_tid, serial, Serial}, Acc, ForceSend) ->
     %% Do the lamport thing plus release the others
-    %% from uncertainity.
+    %% from uncertainty.
     Acc2 = add_decision(To, {trans_tid, serial, Serial}, Acc),
     arrange(ToNodes, {trans_tid, serial, Serial}, Acc2, ForceSend);
 

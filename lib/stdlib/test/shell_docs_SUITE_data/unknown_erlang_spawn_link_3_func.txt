@@ -1,0 +1,11 @@
+
+  [;1m-spec spawn_link(Module, Function, Args) -> pid()[0m
+  [;1m                    when[0m
+  [;1m                        Module :: module(),[0m
+  [;1m                        Function :: atom(),[0m
+  [;1m                        Args :: [term()].[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mModule:Function[0m to [;;4mArgs[0m. A link is created
+  between the calling process and the new process, atomically.
+  Otherwise works like [;;4mspawn/3[0m.

@@ -1,0 +1,34 @@
+[;1m	sofs[0m
+
+These types are documented in this module:
+
+  [;1m-type anyset() :: ordset() | a_set().[0m
+
+  [;1m-type binary_relation() :: relation().[0m
+
+  [;1m-type external_set() :: term().[0m
+
+  [;1m-type family() :: a_function().[0m
+
+  [;1m-type a_function() :: relation().[0m
+
+  [;1m-opaque ordset() [0m
+
+  [;1m-type relation() :: a_set().[0m
+
+  [;1m-opaque a_set() [0m
+
+  [;1m-type set_of_sets() :: a_set().[0m
+
+  [;1m-type set_fun() ::[0m
+  [;1m          pos_integer() |[0m
+  [;1m          {external, fun((external_set()) -> external_set())} |[0m
+  [;1m          fun((anyset()) -> anyset()).[0m
+
+  [;1m-type spec_fun() ::[0m
+  [;1m          {external, fun((external_set()) -> boolean())} |[0m
+  [;1m          fun((anyset()) -> boolean()).[0m
+
+  [;1m-type type() :: term().[0m
+
+[;1m  tuple_of(T)[0m

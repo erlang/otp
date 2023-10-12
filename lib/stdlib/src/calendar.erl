@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@
 	 valid_date/1,
 	 valid_date/3]).
 
--deprecated([{local_time_to_universal_time,1}]).
+-deprecated([{local_time_to_universal_time,1,
+              "use calendar:local_time_to_universal_time_dst/1 instead"}]).
 
 -define(SECONDS_PER_MINUTE, 60).
 -define(SECONDS_PER_HOUR, 3600).
@@ -93,11 +94,11 @@
 -type yearweeknum()    :: {year(),weeknum()}.
 
 -type rfc3339_string() :: [byte(), ...].
-%% By design 'native' is not supported:
 -type rfc3339_time_unit() :: 'microsecond'
                            | 'millisecond'
                            | 'nanosecond'
-                           | 'second'.
+                           | 'second'
+                           | 'native'.
 
 %%----------------------------------------------------------------------
 
@@ -325,7 +326,7 @@ local_time_to_universal_time_dst(DateTime) ->
 -spec now_to_datetime(Now) -> datetime1970() when
       Now :: erlang:timestamp().
 now_to_datetime({MSec, Sec, _uSec}) ->
-    system_time_to_datetime(MSec*1000000 + Sec).
+    system_time_to_datetime(MSec*1_000_000 + Sec).
 
 -spec now_to_universal_time(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -357,15 +358,19 @@ rfc3339_to_system_time(DateTimeString) ->
 rfc3339_to_system_time(DateTimeString, Options) ->
     Unit = proplists:get_value(unit, Options, second),
     %% _T is the character separating the date and the time:
-    {DateStr, [_T|TimeStr]} = lists:split(10, DateTimeString),
-    {TimeStr2, TimeStr3} = lists:split(8, TimeStr),
-    {ok, [Hour, Min, Sec], []} = io_lib:fread("~d:~d:~d", TimeStr2),
-    {ok, [Year, Month, Day], []} = io_lib:fread("~d-~d-~d", DateStr),
+    [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString,
+    Hour = list_to_integer([H1, H2]),
+    Min = list_to_integer([Min1, Min2]),
+    Sec = list_to_integer([S1, S2]),
+    Year = list_to_integer([Y1, Y2, Y3, Y4]),
+    Month = list_to_integer([Mon1, Mon2]),
+    Day = list_to_integer([D1, D2]),
     DateTime = {{Year, Month, Day}, {Hour, Min, Sec}},
     IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
-    {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr3),
+    {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr),
     Time = datetime_to_system_time(DateTime),
-    Secs = Time - offset_adjustment(Time, second, UtcOffset),
+    Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
     check(DateTimeString, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
     ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
@@ -439,7 +444,23 @@ system_time_to_rfc3339(Time) ->
 
 system_time_to_rfc3339(Time, Options) ->
     Unit = proplists:get_value(unit, Options, second),
-    OffsetOption = proplists:get_value(offset, Options, ""),
+    OffsetOpt0 = proplists:get_value(offset, Options, ""),
+    case Unit of
+        native ->
+            TimeMS = erlang:convert_time_unit(Time, native, millisecond),
+            OffsetOpt1 =
+                if is_integer(OffsetOpt0) ->
+                        erlang:convert_time_unit(OffsetOpt0, native,
+                                                 millisecond);
+                   true ->
+                        OffsetOpt0
+                end,
+            system_time_to_rfc3339_do(TimeMS, Options, millisecond, OffsetOpt1);
+        _ ->
+            system_time_to_rfc3339_do(Time, Options, Unit, OffsetOpt0)
+    end.
+
+system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     T = proplists:get_value(time_designator, Options, $T),
     AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption),
     Offset = offset(OffsetOption, AdjustmentSecs),
@@ -451,8 +472,9 @@ system_time_to_rfc3339(Time, Options) ->
     DateTime = system_time_to_datetime(Secs),
     {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
     FractionStr = fraction_str(Factor, AdjustedTime),
-    flat_fwrite("~4.10.0B-~2.10.0B-~2.10.0B~c~2.10.0B:~2.10.0B:~2.10.0B~s~s",
-                [Year, Month, Day, T, Hour, Min, Sec, FractionStr, Offset]).
+    L = [pad4(Year), "-", pad2(Month), "-", pad2(Day), [T],
+         pad2(Hour), ":", pad2(Min), ":", pad2(Sec), FractionStr, Offset],
+    lists:append(L).
 
 %% time_difference(T1, T2) = Tdiff
 %%
@@ -529,24 +551,41 @@ valid_date({Y, M, D}) ->
 
 %% day_to_year(DayOfEpoch) = {Year, DayOfYear}
 %%
-%% The idea here is to first guess a year, and then adjust. Although
-%% the implementation is recursive, at most 1 or 2 recursive steps
+%% The idea here is to first set the upper and lower bounds for a year,
+%% and then adjust a range by interpolation search. Although complexity
+%% of the algorithm is log(log(n)), at most 1 or 2 recursive steps
 %% are taken.
-%% If DayOfEpoch is very large, we need far more than 1 or 2 iterations,
-%% since we just subtract a yearful of days at a time until we're there.
 %%
 -spec day_to_year(non_neg_integer()) -> {year(), day_of_year()}.
 day_to_year(DayOfEpoch) when DayOfEpoch >= 0 ->
-    Y0 = DayOfEpoch div ?DAYS_PER_YEAR,
-    {Y1, D1} = dty(Y0, DayOfEpoch, dy(Y0)),
+    YMax = DayOfEpoch div ?DAYS_PER_YEAR,
+    YMin = DayOfEpoch div ?DAYS_PER_LEAP_YEAR,
+    {Y1, D1} = dty(YMin, YMax, DayOfEpoch, dy(YMin), dy(YMax)),
     {Y1, DayOfEpoch - D1}.
 
--spec dty(year(), non_neg_integer(), non_neg_integer()) ->
+-spec dty(year(), year(), non_neg_integer(), non_neg_integer(),
+    non_neg_integer()) ->
 		{year(), non_neg_integer()}.
-dty(Y, D1, D2) when D1 < D2 -> 
-    dty(Y-1, D1, dy(Y-1));
-dty(Y, _D1, D2) ->
-    {Y, D2}.
+dty(Min, Max, _D1, DMin, _DMax) when Min == Max ->
+    {Min, DMin};
+dty(Min, Max, D1, DMin, DMax) ->
+    Diff = Max - Min,
+    Mid = Min + (Diff * (D1 - DMin)) div (DMax - DMin),
+    MidLength =
+        case is_leap_year(Mid) of
+            true -> ?DAYS_PER_LEAP_YEAR;
+            false -> ?DAYS_PER_YEAR
+        end,
+    case dy(Mid) of
+        D2 when D1 < D2 ->
+            NewMax = Mid - 1,
+            dty(Min, NewMax, D1, DMin, dy(NewMax));
+        D2 when D1 - D2 >= MidLength ->
+            NewMin = Mid + 1,
+            dty(NewMin, Max, D1, dy(NewMin), DMax);
+        D2 ->
+            {Mid, D2}
+    end.
 
 %%
 %% The Gregorian days of the iso week 01 day 1 for a given year.
@@ -663,23 +702,30 @@ offset(OffsetOption, Secs0) when OffsetOption =:= "";
     Secs = abs(Secs0),
     Hour = Secs div 3600,
     Min = (Secs rem 3600) div 60,
-    io_lib:fwrite("~c~2.10.0B:~2.10.0B", [Sign, Hour, Min]);
+    [Sign | lists:append([pad2(Hour), ":", pad2(Min)])];
 offset(OffsetOption, _Secs) ->
     OffsetOption.
 
+offset_adjustment(Time, Unit, "") ->
+    local_offset(Time, Unit);
 offset_adjustment(Time, Unit, OffsetString) when is_list(OffsetString) ->
     offset_string_adjustment(Time, Unit, OffsetString);
 offset_adjustment(_Time, Unit, Offset) when is_integer(Offset) ->
     erlang:convert_time_unit(Offset, Unit, second).
 
-offset_string_adjustment(Time, Unit, "") ->
-    local_offset(Time, Unit);
 offset_string_adjustment(_Time, _Unit, "Z") ->
     0;
 offset_string_adjustment(_Time, _Unit, "z") ->
     0;
-offset_string_adjustment(_Time, _Unit, [Sign|Tz]) ->
-    {ok, [Hour, Min], []} = io_lib:fread("~d:~d", Tz),
+offset_string_adjustment(_Time, _Unit, Tz) ->
+    [Sign, H1, H2 | MinutesDiff] = Tz,
+    Hour = list_to_integer([H1, H2]),
+    Min = case MinutesDiff of
+              [$:, M1, M2] ->
+                  list_to_integer([M1, M2]);
+              [] ->
+                  0
+          end,
     Adjustment = 3600 * Hour + 60 * Min,
     case Sign of
         $- -> -Adjustment;
@@ -687,20 +733,19 @@ offset_string_adjustment(_Time, _Unit, [Sign|Tz]) ->
     end.
 
 local_offset(SystemTime, Unit) ->
-    LocalTime = system_time_to_local_time(SystemTime, Unit),
+    %% Not optimized for special cases.
     UniversalTime = system_time_to_universal_time(SystemTime, Unit),
+    LocalTime = erlang:universaltime_to_localtime(UniversalTime),
     LocalSecs = datetime_to_gregorian_seconds(LocalTime),
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
 
+fraction_str(1, _Time) ->
+    "";
 fraction_str(Factor, Time) ->
-    case Time rem Factor of
-        0 ->
-            "";
-        Fraction ->
-            FS = io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]),
-            string:trim(FS, trailing, "0")
-    end.
+    Fraction = Time rem Factor,
+    S = integer_to_list(abs(Fraction)),
+    [$. | pad(log10(Factor) - length(S), S)].
 
 fraction(second, _) ->
     0;
@@ -714,12 +759,29 @@ copy_sign(N1, _N2) -> N1.
 
 factor(second)      -> 1;
 factor(millisecond) -> 1000;
-factor(microsecond) -> 1000000;
-factor(nanosecond)  -> 1000000000.
+factor(microsecond) -> 1_000_000;
+factor(nanosecond)  -> 1_000_000_000;
+factor(native)      -> erlang:convert_time_unit(1, second, native).
 
 log10(1000) -> 3;
-log10(1000000) -> 6;
-log10(1000000000) -> 9.
+log10(1_000_000) -> 6;
+log10(1_000_000_000) -> 9.
 
-flat_fwrite(F, S) ->
-    lists:flatten(io_lib:fwrite(F, S)).
+pad(0, S) ->
+    S;
+pad(I, S) ->
+    [$0 | pad(I - 1, S)].
+
+pad2(N) when N < 10 ->
+    [$0 | integer_to_list(N)];
+pad2(N) ->
+    integer_to_list(N).
+
+pad4(N) when N < 10 ->
+    [$0, $0, $0 | integer_to_list(N)];
+pad4(N) when N < 100 ->
+    [$0, $0 | integer_to_list(N)];
+pad4(N) when N < 1000 ->
+    [$0 | integer_to_list(N)];
+pad4(N) ->
+    integer_to_list(N).

@@ -1,0 +1,14 @@
+
+  [;1m-spec get_keys() -> [Key] when Key :: term().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Returns a list of all keys present in the process dictionary. The
+  items in the returned list can be in any order. Example:
+
+    > put(dog, {animal,1}),
+    put(cow, {animal,2}),
+    put(lamb, {animal,3}),
+    get_keys().
+    [dog,cow,lamb]

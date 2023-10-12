@@ -1,0 +1,10 @@
+
+  [;1m-type iolist() ::[0m
+  [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
+  [;1m                              binary() | []).[0m
+
+  A list containing bytes and/or iodata. This datatype is used to
+  represent data that is meant to be output using any I/O module.
+  For example: file:write/2 or gen_tcp:send/2.
+
+  In most use cases you want to use iodata() instead of this type.

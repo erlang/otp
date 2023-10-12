@@ -1,0 +1,9 @@
+
+
+#define ERTS_VERSION_INTS %ERTS_VERSION_INTS%
+#define ERTS_VERSION_STR  "%ERTS_VERSION%\0"
+
+#define OTP_VERSION_INTS  %OTP_VERSION_INTS%
+#define OTP_VERSION_STR   "%OTP_VERSION%\0"
+
+#define OTP_LEGAL_STR     "Copyright Ericsson AB 2010-%YEAR%. All Rights Reserved.\0"

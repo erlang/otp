@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@
 -define(FAMILY, inet6).
 -define(PROTO, tcp).
 -define(TYPE, stream).
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 
 %% my address family
 family() -> ?FAMILY.
@@ -104,8 +107,10 @@ controlling_process(Socket, NewOwner) ->
 %%
 %% Connect
 %%
-connect(Address, Port, Opts) ->
-    do_connect(Address, Port, Opts, infinity).
+connect(Address, Port, Opts) when is_integer(Port) andalso is_list(Opts) ->
+    do_connect(Address, Port, Opts, infinity);
+connect(SockAddr, Opts, Time) when is_map(SockAddr) andalso is_list(Opts) ->
+    do_connect(SockAddr, Opts, Time).
 
 connect(Address, Port, Opts, infinity) ->
     do_connect(Address, Port, Opts, infinity);
@@ -113,20 +118,51 @@ connect(Address, Port, Opts, Timeout)
   when is_integer(Timeout), Timeout >= 0 ->
     do_connect(Address, Port, Opts, Timeout).
 
+do_connect(#{addr := {A,B,C,D,E,F,G,H},
+             port := Port} = SockAddr, Opts, Time)
+  when ?ip6(A,B,C,D,E,F,G,H) andalso ?port(Port) ->
+    case inet:connect_options(Opts, ?MODULE) of
+	{error, Reason} -> exit(Reason);
+	{ok,
+	 #connect_opts{fd     = Fd,
+                       ifaddr = BAddr,
+                       port   = BPort,
+                       opts   = SockOpts}}
+          when is_map(BAddr); % sockaddr_in6()
+               ?port(BPort), ?ip6(BAddr);
+               ?port(BPort), BAddr =:= undefined ->
+	    case
+                inet:open(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
+		{ok, S} ->
+		    case prim_inet:connect(S, SockAddr, Time) of
+			ok -> {ok,S};
+			Error -> prim_inet:close(S), Error
+		    end;
+		Error -> Error
+	    end;
+	{ok, _} -> exit(badarg)
+    end.
+
 do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
+  when ?ip6(A,B,C,D,E,F,G,H) andalso ?port(Port) ->
     case inet:connect_options(Opts, ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
 	 #connect_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-	when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb), ?port(BPort) ->
-	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+          when ?port(BPort), ?ip6(BAddr);
+               ?port(BPort), BAddr =:= undefined ->
+	    case
+                inet:open(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
 			ok -> {ok,S};
@@ -137,30 +173,49 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	{ok, _} -> exit(badarg)
     end.
 
+
 %% 
 %% Listen
 %%
 listen(Port, Opts) ->
+    %% ?DBG([{port, Port}, {opts, Opts}]),
     case inet:listen_options([{port,Port} | Opts], ?MODULE) of
-	{error, Reason} -> exit(Reason);
+	{error, Reason} ->
+            %% ?DBG([{reason, Reason}]),
+            exit(Reason);
 	{ok,
 	 #listen_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D,E,F,G,H},
+	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts} = R}
-	when ?ip6(A,B,C,D,E,F,G,H), ?port(BPort) ->
-	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+          when is_map(BAddr); % sockaddr_in6()
+               ?ip6(BAddr), ?port(BPort);
+               BAddr =:= undefined, ?port(BPort) ->
+            %% ?DBG([{fd, Fd},
+            %%       {baddr, BAddr},
+            %%       {bport, BPort},
+            %%       {sock_opts, SockOpts}]),
+	    case
+                inet:open_bind(
+                  Fd, BAddr, BPort, SockOpts,
+                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+            of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
-			ok -> {ok, S};
-			Error -> prim_inet:close(S), Error
+			ok ->
+                            {ok, S};
+			Error ->
+                            %% ?DBG(["prim inet listen error", {error, Error}]),
+                            prim_inet:close(S), Error
 		    end;
-		Error -> Error
+		Error ->
+                    %% ?DBG(["open bind error", {error, Error}]),
+                    Error
 	    end;
-	{ok, _} -> exit(badarg)
+	{ok, _LO} ->
+            %% ?DBG([{bad_listen_opts, _LO}]),
+            exit(badarg)
     end.
 
 %%

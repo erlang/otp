@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,14 +24,13 @@
 open(Filename, Modes) ->
     %% Layers are applied in this order, and the listed modules will call this
     %% function again as necessary. eg. a raw compressed delayed file in list
-    %% mode will walk through [_list -> _compressed -> _delayed -> _raw].
+    %% mode will walk through [_list -> _compressed -> _delayed].
     ModuleOrder = [{raw_file_io_list, fun match_list/1},
                    {raw_file_io_compressed, fun match_compressed/1},
-                   {raw_file_io_delayed, fun match_delayed/1},
-                   {raw_file_io_raw, fun match_raw/1}],
+                   {raw_file_io_delayed, fun match_delayed/1}],
     open_1(ModuleOrder, Filename, add_implicit_modes(Modes)).
-open_1([], _Filename, _Modes) ->
-    error(badarg);
+open_1([], Filename, Modes) ->
+    prim_file:open(Filename, Modes);
 open_1([{Module, Match} | Rest], Filename, Modes) ->
     case lists:any(Match, Modes) of
         true ->
@@ -57,14 +56,12 @@ match_list(list) -> true;
 match_list(_Other) -> false.
 
 match_compressed(compressed) -> true;
+match_compressed(compressed_one) -> true;
 match_compressed(_Other) -> false.
 
 match_delayed({delayed_write, _Size, _Timeout}) -> true;
 match_delayed(delayed_write) -> true;
 match_delayed(_Other) -> false.
-
-match_raw(raw) -> true;
-match_raw(_Other) -> false.
 
 match_writable(write) -> true;
 match_writable(append) -> true;

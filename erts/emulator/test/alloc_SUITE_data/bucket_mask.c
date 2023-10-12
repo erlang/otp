@@ -24,7 +24,7 @@
 #include <stdio.h>
 
 #if defined(__WIN32__) && SIZEOF_VOID_P == 8
-/* Use larger threashold for win64 as block alignment
+/* Use larger threshold for win64 as block alignment
    is 16 bytes and not 8 */
 #define SBCT ((1024*1024))
 #else

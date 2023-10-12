@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,32 +22,38 @@
 {application, dialyzer,
  [{description, "DIscrepancy AnaLYZer of ERlang programs, version %VSN%"},
   {vsn, "%VSN%"},
-  {modules, [dialyzer,
+  {modules, [cerl_prettypr,
+	     dialyzer,
 	     dialyzer_analysis_callgraph,
 	     dialyzer_behaviours,
 	     dialyzer_callgraph,
+	     dialyzer_typegraph,
 	     dialyzer_cl,
 	     dialyzer_cl_parse,
+             dialyzer_clean_core,
 	     dialyzer_codeserver,
 	     dialyzer_contracts,
 	     dialyzer_coordinator,
 	     dialyzer_dataflow,
 	     dialyzer_dep,
-	     dialyzer_explanation,
-	     dialyzer_gui_wx,
+	     dialyzer_dot,
+	     dialyzer_incremental,
 	     dialyzer_options,
 	     dialyzer_plt,
-	     dialyzer_race_data_server,
-	     dialyzer_races,
+	     dialyzer_cplt,
+	     dialyzer_iplt,
 	     dialyzer_succ_typings,
 	     dialyzer_typesig,
 	     dialyzer_utils,
              dialyzer_timing,
              dialyzer_worker,
-             typer]},
+             erl_bif_types,
+             erl_types,
+             typer,
+             typer_core]},
   {registered, []},
-  {applications, [compiler, hipe, kernel, stdlib, wx]},
+  {applications, [compiler, kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","syntax_tools-2.0","stdlib-3.4",
-			  "kernel-5.3","hipe-3.16.1","erts-9.0",
-			  "compiler-7.0"]}]}.
+  {runtime_dependencies, ["syntax_tools-2.0","stdlib-5.0",
+			  "kernel-8.0","erts-12.0",
+			  "compiler-8.0"]}]}.

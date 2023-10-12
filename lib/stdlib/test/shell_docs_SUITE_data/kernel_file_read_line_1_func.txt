@@ -1,0 +1,56 @@
+
+  [;1m-spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason}[0m
+  [;1m                   when[0m
+  [;1m                       IoDevice :: io_device() | io:device(),[0m
+  [;1m                       Data :: string() | binary(),[0m
+  [;1m                       Reason ::[0m
+  [;1m                           posix() |[0m
+  [;1m                           badarg | terminated |[0m
+  [;1m                           {no_translation, unicode, latin1}.[0m
+
+  Reads a line of bytes/characters from the file referenced by [;;4m[0m
+  [;;4mIoDevice[0m. Lines are defined to be delimited by the linefeed (LF, [;;4m[0m
+  [;;4m\n[0m) character, but any carriage return (CR, [;;4m\r[0m) followed by a
+  newline is also treated as a single LF character (the carriage
+  return is silently ignored). The line is returned including the
+  LF, but excluding any CR immediately followed by an LF. This
+  behaviour is consistent with the behaviour of [;;4mio:get_line/2[0m. If
+  end of file is reached without any LF ending the last line, a line
+  with no trailing LF is returned.
+
+  The function can be used on files opened in [;;4mraw[0m mode. However,
+  it is inefficient to use it on [;;4mraw[0m files if the file is not
+  opened with option [;;4m{read_ahead, Size}[0m specified. Thus, combining [;;4m[0m
+  [;;4mraw[0m and [;;4m{read_ahead, Size}[0m is highly recommended when opening a
+  text file for raw line-oriented reading.
+
+  If [;;4mencoding[0m is set to something else than [;;4mlatin1[0m, the [;;4m[0m
+  [;;4mread_line/1[0m call fails if the data contains characters larger
+  than 255, why [;;4mio:get_line/2[0m is to be preferred when reading such
+  a file.
+
+  The function returns:
+
+  [;;4m[;;4m{ok, Data}[0m[0m:
+    One line from the file is returned, including the trailing LF,
+    but with CRLF sequences replaced by a single LF (see above).
+
+    If the file is opened in binary mode, the read bytes are
+    returned in a binary, otherwise in a list.
+
+  [;;4m[;;4meof[0m[0m:
+    Returned if end of file was reached before anything at all
+    could be read.
+
+  [;;4m[;;4m{error, Reason}[0m[0m:
+    An error occurred.
+
+  Typical error reasons:
+
+  [;;4m[;;4mebadf[0m[0m:
+    The file is not opened for reading.
+
+  [;;4m[;;4m{no_translation, unicode, latin1}[0m[0m:
+    The file is opened with another [;;4mencoding[0m than [;;4mlatin1[0m and
+    the data on the file cannot be translated to the byte-oriented
+    data that this function returns.

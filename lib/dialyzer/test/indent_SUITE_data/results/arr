@@ -1,0 +1,4 @@
+
+arr.erl:14: Type specification arr:test2(array:array(T),non_neg_integer(),T) -> array:array(T) is a supertype of the success typing: arr:test2(array:array(_),pos_integer(),_) -> array:array(_)
+arr.erl:24: Type specification arr:test4(array:array(T),non_neg_integer(),_) -> array:array(T) is a supertype of the success typing: arr:test4(array:array(_),pos_integer(),_) -> array:array(_)
+arr.erl:29: Type specification arr:test5(array:array(T),non_neg_integer(),T) -> array:array(T) is a supertype of the success typing: arr:test5(array:array(_),non_neg_integer(),integer()) -> array:array(_)

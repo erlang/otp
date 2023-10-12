@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
-	 is_set/1,is_empty/1,fold/1,filter/1,
-	 take_smallest/1,take_largest/1, iterate/1]).
+	 is_equal/1, is_disjoint/1,is_set/1,is_empty/1,fold/1,filter/1,
+	 map/1, filtermap/1, take_smallest/1,take_largest/1, iterate/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,8 +47,9 @@ suite() ->
 
 all() -> 
     [create, add_element, del_element, subtract,
-     intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest, iterate, is_empty].
+     intersection, union, is_subset, is_set, fold, filter, map,
+     filtermap, take_smallest, take_largest, iterate, is_empty,
+     is_disjoint, is_equal].
 
 groups() -> 
     [].
@@ -93,13 +94,13 @@ add_element_1(List, M) ->
     %% elements one at the time.
     S2 = foldl(fun(El, Set) -> M(add_element, {El,Set}) end,
 	       M(empty, []), List),
-    true = M(equal, {S,S2}),
+    true = M(is_equal, {S,S2}),
 
     %% Insert elements, randomly delete inserted elements,
     %% and re-inserted all deleted elements at the end.
     S3 = add_element_del(List, M, M(empty, []), [], []),
-    true = M(equal, {S2,S3}),
-    true = M(equal, {S,S3}),
+    true = M(is_equal, {S2,S3}),
+    true = M(is_equal, {S,S3}),
     S.
 
 add_element_del([H|T], M, S, Del, []) ->
@@ -123,12 +124,12 @@ del_element(Config) when is_list(Config) ->
 del_element_1(List, M) ->    
     S0 = M(from_list, List),
     Empty = foldl(fun(El, Set) -> M(del_element, {El,Set}) end, S0, List),
-    Empty = M(empty, []),
+    true = M(is_equal, {Empty,M(empty, [])}),
     true = M(is_empty, Empty),
     S1 = foldl(fun(El, Set) ->
 		       M(add_element, {El,Set})
 	       end, S0, reverse(List)),
-    true = M(equal, {S0,S1}),
+    true = M(is_equal, {S0,S1}),
     S1.
 
 subtract(Config) when is_list(Config) ->
@@ -148,7 +149,7 @@ subtract_1(List, M) ->
 
     %% Trivial cases.
     true = M(is_empty, M(subtract, {Empty,S0})),
-    true = M(equal, {S0,M(subtract, {S0,Empty})}),
+    true = M(is_equal, {S0,M(subtract, {S0,Empty})}),
 
     %% Not so trivial.
     subtract_check(List, mutate_some(remove_some(List, 0.4)), M),
@@ -167,7 +168,7 @@ one_subtract_check(A, B, M) ->
     BSet = M(from_list, B),
     DiffSet = M(subtract, {ASet,BSet}),
     Diff = ASorted -- BSorted,
-    true = M(equal, {DiffSet,M(from_list, Diff)}),
+    true = M(is_equal, {DiffSet,M(from_list, Diff)}),
     Diff = lists:sort(M(to_list, DiffSet)),
     DiffSet.
 
@@ -179,15 +180,15 @@ intersection_1(List, M) ->
     S0 = M(from_list, List),
 
     %% Intersection with self.
-    true = M(equal, {S0,M(intersection, {S0,S0})}),
-    true = M(equal, {S0,M(intersection, [S0,S0])}),
-    true = M(equal, {S0,M(intersection, [S0,S0,S0])}),
-    true = M(equal, {S0,M(intersection, [S0])}),
+    true = M(is_equal, {S0,M(intersection, {S0,S0})}),
+    true = M(is_equal, {S0,M(intersection, [S0,S0])}),
+    true = M(is_equal, {S0,M(intersection, [S0,S0,S0])}),
+    true = M(is_equal, {S0,M(intersection, [S0])}),
 
     %% Intersection with empty.
     Empty = M(empty, []),
-    true = M(equal, {Empty,M(intersection, {S0,Empty})}),
-    true = M(equal, {Empty,M(intersection, [S0,Empty,S0,Empty])}),
+    true = M(is_equal, {Empty,M(intersection, {S0,Empty})}),
+    true = M(is_equal, {Empty,M(intersection, [S0,Empty,S0,Empty])}),
 
     %% The intersection of no sets is undefined.
     {'EXIT',_} = (catch M(intersection, [])),
@@ -228,7 +229,7 @@ check_intersection(Orig, Mutated, M) ->
     Intersection = [El || El <- Mutated, not is_tuple(El)],
     SortedIntersection = lists:usort(Intersection),
     IntersectionSet = M(intersection, {OrigSet,MutatedSet}),
-    true = M(equal, {IntersectionSet,M(from_list, SortedIntersection)}),
+    true = M(is_equal, {IntersectionSet,M(from_list, SortedIntersection)}),
     SortedIntersection = lists:sort(M(to_list, IntersectionSet)),
 
     IntersectionSet.
@@ -243,12 +244,12 @@ union_1(List, M) ->
 
     %% Union with self and empty.
     Empty = M(empty, []),
-    true = M(equal, {S,M(union, {S,S})}),
-    true = M(equal, {S,M(union, [S,S])}),
-    true = M(equal, {S,M(union, [S,S,Empty])}),
-    true = M(equal, {S,M(union, [S,Empty,S])}),
-    true = M(equal, {S,M(union, {S,Empty})}),
-    true = M(equal, {S,M(union, [S])}),
+    true = M(is_equal, {S,M(union, {S,S})}),
+    true = M(is_equal, {S,M(union, [S,S])}),
+    true = M(is_equal, {S,M(union, [S,S,Empty])}),
+    true = M(is_equal, {S,M(union, [S,Empty,S])}),
+    true = M(is_equal, {S,M(union, {S,Empty})}),
+    true = M(is_equal, {S,M(union, [S])}),
     true = M(is_empty, M(union, [])),
 
     %% Partial overlap.
@@ -271,8 +272,25 @@ check_union(Orig, Other, M) ->
     SortedUnion = lists:usort(Union),
     UnionSet = M(union, {OrigSet,OtherSet}),
     SortedUnion = lists:sort(M(to_list, UnionSet)),
-    M(equal, {UnionSet,M(from_list, Union)}),
+    M(is_equal, {UnionSet,M(from_list, Union)}),
     UnionSet.
+
+is_equal(Config) when is_list(Config) ->
+    test_all([{1,132},{253,270},{299,311}], fun is_equal_1/2).
+
+is_equal_1(List, M) ->
+    S = M(from_list, List),
+    Empty = M(empty, []),
+
+    true = M(is_equal, {Empty, Empty}),
+    false = M(is_equal, {Empty, S}) andalso List =/= [],
+    false = M(is_equal, {S, Empty}) andalso List =/= [],
+    true = M(is_equal, {S, S}),
+
+    S1 = M(from_list, [make_ref()|List]),
+    false = M(is_equal, {S, S1}),
+
+    S.
 
 is_subset(Config) when is_list(Config) ->
     test_all([{1,132},{253,270},{299,311}], fun is_subset_1/2).
@@ -298,6 +316,22 @@ is_subset_1(List, M) ->
 	   subtract_check(List, rnd_list(length(List) div 7 + 9), M)
 	  ],
     res_to_set(Res, M, 0, []).
+
+is_disjoint(Config) when is_list(Config) ->
+    test_all([{1,132},{253,270},{299,311}], fun is_disjoint_1/2).
+
+is_disjoint_1(List, M) ->
+    S = M(from_list, List),
+    Empty = M(empty, []),
+
+    true = M(is_disjoint, {Empty,Empty}),
+    true = M(is_disjoint, {Empty,S}),
+    true = M(is_disjoint, {S,Empty}),
+    false = M(is_disjoint, {S,S}),
+
+    true = M(is_disjoint, {M(singleton, make_ref()),S}),
+    true = M(is_disjoint, {S,M(singleton, make_ref())}),
+    S.
 
 check_subset(X, Y, M) ->
     check_one_subset(Y, X, M),
@@ -373,9 +407,35 @@ filter(Config) when is_list(Config) ->
 filter_1(List, M) ->
     S = M(from_list, List),
     IsNumber = fun(X) -> is_number(X) end,
-    M(equal, {M(from_list, lists:filter(IsNumber, List)),
+    M(is_equal, {M(from_list, lists:filter(IsNumber, List)),
 	      M(filter, {IsNumber,S})}),
     M(filter, {fun(X) -> is_atom(X) end,S}).
+
+map(Config) when is_list(Config) ->
+    test_all([{0,69},{126,130},{254,259},{510,513},{1023,1025},{7999,8000}],
+	     fun map_1/2).
+
+map_1(List, M) ->
+    S = M(from_list, List),
+    ToTuple = fun(X) -> {X} end,
+    M(is_equal, {M(from_list, lists:map(ToTuple, List)),
+	         M(map, {ToTuple, S})}),
+    M(map, {fun(_) -> x end, S}).
+
+filtermap(Config) when is_list(Config) ->
+    test_all([{0,69},{126,130},{254,259},{510,513},{1023,1025},{7999,8000}],
+	     fun filtermap_1/2).
+
+filtermap_1(List, M) ->
+    S = M(from_list, List),
+    FMFun = fun
+                (X) when is_float(X) -> false;
+		(X) when is_integer(X) -> true;
+		(X) -> {true, {X}}
+            end,
+    M(is_equal, {M(from_list, lists:filtermap(FMFun, List)),
+	         M(filtermap, {FMFun, S})}),
+    M(empty, []).
 
 %%%
 %%% Test specifics for gb_sets.
@@ -481,13 +541,37 @@ iterate_set_1(M, {E, I}, R) ->
 
 sets_mods() ->
     Ordsets = sets_test_lib:new(ordsets, fun(X, Y) -> X == Y end),
-    Sets = sets_test_lib:new(sets, fun(X, Y) ->
-					   lists:sort(sets:to_list(X)) == 
-					       lists:sort(sets:to_list(Y)) end),
+
+    NewSets = sets_test_lib:new(sets, fun(X, Y) -> X == Y end,
+				fun() -> sets:new([{version,2}]) end,
+				fun(X) -> sets:from_list(X, [{version,2}]) end),
+
+    MixSets = sets_test_lib:new(sets, fun(X, Y) ->
+				           lists:sort(sets:to_list(X)) ==
+				               lists:sort(sets:to_list(Y)) end,
+				fun mixed_new/0, fun mixed_from_list/1),
+
+    OldSets = sets_test_lib:new(sets, fun(X, Y) ->
+					   lists:sort(sets:to_list(X)) ==
+					       lists:sort(sets:to_list(Y)) end,
+				fun sets:new/0, fun sets:from_list/1),
+
     Gb = sets_test_lib:new(gb_sets, fun(X, Y) ->
-					    gb_sets:to_list(X) == 
+					    gb_sets:to_list(X) ==
 						gb_sets:to_list(Y) end),
-    [Ordsets,Sets,Gb].
+    [Ordsets,OldSets,MixSets,NewSets,Gb].
+
+mixed_new() ->
+    case erlang:erase(sets_type) of
+        undefined -> erlang:put(sets_type, deprecated), sets:new([{version,2}]);
+        deprecated -> sets:new()
+    end.
+
+mixed_from_list(L) ->
+    case erlang:erase(sets_type) of
+        undefined -> erlang:put(sets_type, deprecated), sets:from_list(L, [{version,2}]);
+        deprecated -> sets:from_list(L)
+    end.
 
 test_all(Tester) ->
     Res = [begin

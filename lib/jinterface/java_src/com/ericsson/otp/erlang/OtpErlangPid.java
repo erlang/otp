@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     // don't change this!
     private static final long serialVersionUID = 1664394142301803659L;
 
-    private final int tag;
     private final String node;
     private final int id;
     private final int serial;
@@ -45,7 +44,6 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     public OtpErlangPid(final OtpLocalNode self) {
         final OtpErlangPid p = self.createPid();
 
-	tag = p.tag;
         id = p.id;
         serial = p.serial;
         creation = p.creation;
@@ -67,7 +65,6 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
             throws OtpErlangDecodeException {
         final OtpErlangPid p = buf.read_pid();
 
-	tag = p.tag;
         node = p.node();
         id = p.id();
         serial = p.serial();
@@ -88,12 +85,11 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
      *            used.
      *
      * @param creation
-     *            yet another arbitrary number. Ony the low order 2 bits will
-     *            be used.
+	 *  		  node incarnation number. Avoid values 0 to 3.
      */
     public OtpErlangPid(final String node, final int id, final int serial,
 			final int creation) {
-	this(OtpExternal.pidTag, node, id, serial, creation);
+		this(OtpExternal.newPidTag, node, id, serial, creation);
     }
 
     /**
@@ -118,7 +114,6 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
      */
     protected OtpErlangPid(final int tag, final String node, final int id,
 			   final int serial, final int creation) {
-	this.tag = tag;
 	this.node = node;
 	if (tag == OtpExternal.pidTag) {
 	    this.id = id & 0x7fff; // 15 bits
@@ -133,7 +128,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     }
 
     protected int tag() {
-	return tag;
+	return OtpExternal.newPidTag;
     }
 
     /**

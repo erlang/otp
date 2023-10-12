@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2009-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -220,6 +220,11 @@ copy_latest_vsn(char *latest_vsn, char *next_vsn)
     char *np;
     BOOL greater;
 
+    if (latest_vsn[0] == '\0') {
+        strcpy(latest_vsn, next_vsn);
+        return;
+    }
+
     /* Find vsn */
     for (lp = latest_vsn+strlen(latest_vsn)-1 ;lp > latest_vsn && *lp != DIRSEPCHAR; --lp)
 	;
@@ -230,7 +235,7 @@ copy_latest_vsn(char *latest_vsn, char *next_vsn)
 
     /* np =+ length("erts-"); */
     while (TRUE) {
-        if (*lp != *np) {
+        if (*lp != *np || *lp == '\0') {
 	    if (*np > *lp) {
 		greater = TRUE;
 	    } else {
@@ -357,6 +362,15 @@ main(int argc, char **argv)
     char progname[PATH_MAX]; /* Name of this program. */
     char erlexec[PATH_MAX];  /* Path to erlexec */
 
+    if (argc == 2 && strcmp(argv[1], "--realpath") == 0) {
+        abspath = find_prog(argv[0]);
+        /* Remove program name from output */
+        for (p = abspath+strlen(abspath)-1;p >= abspath && *p != '/'; --p)
+            ;
+        *p = '\0';
+        printf("%s", abspath);
+        return 0;
+    }
     /* Determine progname */
     abspath = find_prog(argv[0]);
     strcpy(progname, abspath);

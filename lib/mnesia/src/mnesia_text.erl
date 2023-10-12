@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ read_terms(Stream, File, Line, L) ->
     end.
 
 read_term_from_stream(Stream, File, Line) ->
-    R = io:request(Stream, {get_until,'',erl_scan,tokens,[Line]}),
+    R = io:request(Stream, {get_until,latin1,'',erl_scan,tokens,[Line]}),
     case R of
 	{ok,Toks,EndLine} ->
 	    case erl_parse:parse_term(Toks) of

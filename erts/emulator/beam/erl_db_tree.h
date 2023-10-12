@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,5 +52,9 @@ typedef struct db_table_tree {
 void db_initialize_tree(void);
 
 int db_create_tree(Process *p, DbTable *tbl);
+
+void
+erts_db_foreach_thr_prgr_offheap_tree(void (*func)(ErlOffHeap *, void *),
+                                      void *arg);
 
 #endif /* _DB_TREE_H */

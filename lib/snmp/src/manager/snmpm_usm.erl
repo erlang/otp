@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@
 
 -module(snmpm_usm).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% Avoid warning for local functions error/1,2,3 clashing with
+%% autoimported BIFs.
+-compile({no_auto_import, [error/1, error/2, error/3]}).
+
 -export([init/0, 
 	 reset/0, 
 	 process_incoming_msg/4, generate_outgoing_msg/5]).
@@ -60,7 +60,7 @@ init() ->
 %% Func: process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 %%       {ok, {SecEngineID, SecName, ScopedPDUBytes, SecData}} |
 %%       {error, Reason} | {error, Reason, ErrorInfo}
-%%       Return value may be throwed.
+%%       Return value may be thrown.
 %% Types: Reason -> term()
 %% Purpose: 
 %%-----------------------------------------------------------------
@@ -70,6 +70,8 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
     UsmSecParams =
 	case (catch snmp_pdus:dec_usm_security_parameters(SecParams)) of
 	    {'EXIT', Reason} ->
+                ?vlog("Failed decode USM security parameters: "
+                      "~n      ~p", [Reason]),
 		inc(snmpInASNParseErrs),
 		error({parseError, Reason}, []);
 	    Res ->
@@ -80,8 +82,8 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
     #usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
 			   msgUserName = MsgUserName} = UsmSecParams,
     ?vlog("process_incoming_msg -> [3.2.2]"
-	  "~n   authEngineID: ~p"
-	  "~n   userName:     ~p", [MsgAuthEngineID, MsgUserName]),
+	  "~n      authEngineID: ~p"
+	  "~n      userName:     ~p", [MsgAuthEngineID, MsgUserName]),
 
     %% 3.2.3 (b)
     ?vtrace("process_incoming_msg -> [3.2.3-b] check engine id",[]),
@@ -89,6 +91,8 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 	true ->
 	    ok;
 	false ->
+            ?vlog("Unknown USM engine id: "
+                  "~n      ~p", [MsgAuthEngineID]),
 	    SecData1 = [MsgUserName],
 	    error(usmStatsUnknownEngineIDs, 
 		  ?usmStatsUnknownEngineIDs_instance,
@@ -102,6 +106,9 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 	    {ok, User} ->
 		User;
 	    _ -> % undefined user
+                ?vlog("Unknown USM user: "
+                      "~n      Auth Engine ID: ~p"
+                      "~n      User Name:      ~p", [MsgAuthEngineID, MsgUserName]),
 		SecData2 = [MsgUserName],
 		error(usmStatsUnknownUserNames, 
 		      ?usmStatsUnknownUserNames_instance, %% OTP-3542
@@ -132,14 +139,21 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 
 authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel) ->
     %% 3.2.6
-    ?vtrace("authenticate incoming: 3.2.6",[]),
+    ?vtrace("authenticate incoming -> 3.2.6"
+            "~n      SecLevel: ~p", [SecLevel]),
     #usmSecurityParameters{msgAuthoritativeEngineID    = MsgAuthEngineID,
 			   msgAuthoritativeEngineBoots = MsgAuthEngineBoots,
 			   msgAuthoritativeEngineTime  = MsgAuthEngineTime,
 			   msgAuthenticationParameters = MsgAuthParams} =
 	UsmSecParams,
+    ?vtrace("authenticate_incoming -> Sec params: "
+	    "~n      MsgAuthEngineID:    ~w"
+	    "~n      MsgAuthEngineBoots: ~p"
+	    "~n      MsgAuthEngineTime:  ~p",
+	    [MsgAuthEngineID, MsgAuthEngineBoots, MsgAuthEngineTime]),
     case snmp_misc:is_auth(SecLevel) of
 	true ->
+            ?vtrace("authenticate_incoming -> authenticate"),
 	    SecName = UsmUser#usm_user.sec_name,
 	    case is_auth(UsmUser#usm_user.auth, 
 			 UsmUser#usm_user.auth_key,
@@ -152,16 +166,21 @@ authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel) ->
 		true -> 
 		    ok;
 		false -> 
+                    ?vlog("Not authenticated: "
+                          "~n      Sec Name: ~p", [SecName]),
 		    error(usmStatsWrongDigests,
 			  ?usmStatsWrongDigests_instance, SecName)
 	    end;
 	false ->  % noAuth
+            ?vtrace("authenticate_incoming -> don't authenticate"),
 	    ok
     end.
 
 
 	    
 is_auth(usmNoAuthProtocol, _, _, _, SecName, _, _, _) -> % 3.2.5
+    ?vlog("auth: Unsupported security levels: "
+          "~n      Sec Name: ~p", [SecName]),
     error(usmStatsUnsupportedSecLevels,
 	  ?usmStatsUnsupportedSecLevels_instance, SecName);
 is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
@@ -192,19 +211,21 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 			    true;
 			%% OTP-4090 (OTP-3542)
 			false -> 
+                            ?vlog("Not in time window: "
+                                  "~n      Sec Name: ~p", [SecName]),
 			    error(usmStatsNotInTimeWindows,
 				  ?usmStatsNotInTimeWindows_instance,
 				  SecName,
 				  [{securityLevel, 1}]) % authNoPriv
 		    end;
 		_ -> %% 3.2.7b - we're non-authoritative
-		    ?vtrace("we are non-authoritative: 3.2.7b",[]),
+		    ?vtrace("is_auth -> we are non-authoritative: 3.2.7b"),
 		    SnmpEngineBoots = get_engine_boots(MsgAuthEngineID),
-		    ?vtrace("SnmpEngineBoots: ~p",[SnmpEngineBoots]),
+		    ?vtrace("is_auth -> SnmpEngineBoots: ~p", [SnmpEngineBoots]),
 		    SnmpEngineTime = get_engine_time(MsgAuthEngineID),
-		    ?vtrace("SnmpEngineTime: ~p",[SnmpEngineTime]),
+		    ?vtrace("is_auth -> SnmpEngineTime: ~p", [SnmpEngineTime]),
 		    LatestRecvTime = get_engine_latest_time(MsgAuthEngineID),
-		    ?vtrace("LatestRecvTime: ~p",[LatestRecvTime]),
+		    ?vtrace("is_auth -> LatestRecvTime: ~p", [LatestRecvTime]),
 		    UpdateLCD =
 			if
 			    MsgAuthEngineBoots > SnmpEngineBoots -> true;
@@ -212,10 +233,11 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 			    MsgAuthEngineTime > LatestRecvTime -> true;
 			    true -> false
 			end,
+		    ?vtrace("is_auth -> UpdateLCD: ~p", [UpdateLCD]),
 		    case UpdateLCD of
 			true -> %% 3.2.7b1
-			    ?vtrace("update msgAuthoritativeEngineID: 3.2.7b1",
-				    []),
+			    ?vtrace("is_auth -> "
+                                    "[3.2.7b1] update msgAuthoritativeEngineID"),
 			    set_engine_boots(MsgAuthEngineID,
 					     MsgAuthEngineBoots),
 			    set_engine_time(MsgAuthEngineID,
@@ -226,8 +248,7 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 			    ok
 		    end,
 		    %% 3.2.7.b2
-		    ?vtrace("check if message is outside time window: 3.2.7b2",
-			    []),
+		    ?vtrace("is_auth -> [3.2.7b2] is message outside time window"),
 		    InTimeWindow =
 			if
 			    SnmpEngineBoots == 2147483647 ->
@@ -242,6 +263,7 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 					 {time,   MsgAuthEngineTime}]};
 			    true -> true
 			end,
+		    ?vtrace("is_auth -> InTimeWindow: ~p", [InTimeWindow]),
 		    case InTimeWindow of
 			{false, Reason} ->
 			    ?vinfo("not in time window[3.2.7b2]: ~p", 
@@ -268,19 +290,25 @@ decrypt(Data, UsmUser, UsmSecParams, SecLevel) ->
 do_decrypt(Data, #usm_user{sec_name = SecName,
 			   priv     = PrivP,
 			   priv_key = PrivKey}, 
-	   #usmSecurityParameters{msgPrivacyParameters = PrivParms}) ->
+	   UsmSecParams) ->
     EncryptedPDU = snmp_pdus:dec_scoped_pdu_data(Data),
-    try_decrypt(PrivP, PrivKey, PrivParms, EncryptedPDU, SecName).
+    try_decrypt(PrivP, PrivKey, UsmSecParams, EncryptedPDU, SecName).
 
 try_decrypt(usmNoPrivProtocol, _, _, _, SecName) -> % 3.2.5
+    ?vlog("decrypt: Unsupported security levels: "
+          "~n      Sec Name: ~p", [SecName]),
     error(usmStatsUnsupportedSecLevels, 
 	  ?usmStatsUnsupportedSecLevels_instance, SecName);
 try_decrypt(usmDESPrivProtocol, 
-	    PrivKey, MsgPrivParams, EncryptedPDU, SecName) ->
+	    PrivKey, UsmSecParams, EncryptedPDU, SecName) ->
+    #usmSecurityParameters{msgPrivacyParameters = MsgPrivParams} = UsmSecParams,
     case (catch des_decrypt(PrivKey, MsgPrivParams, EncryptedPDU)) of
 	{ok, DecryptedData} ->
 	    DecryptedData;
-	_ ->
+	_Error ->
+            ?vlog("USM DES decrypt failed: "
+                  "~n      Sec Name: ~p"
+                  "~n      Error:    ~p", [SecName, _Error]),
 	    error(usmStatsDecryptionErrors, 
 		  ?usmStatsDecryptionErrors, SecName)
     end;
@@ -289,7 +317,10 @@ try_decrypt(usmAesCfb128Protocol,
     case (catch aes_decrypt(PrivKey, UsmSecParams, EncryptedPDU)) of
 	{ok, DecryptedData} ->
 	    DecryptedData;
-	_ ->
+	_Error ->
+            ?vlog("USM AES-CFB-128 decrypt failed: "
+                  "~n      Sec Name: ~p"
+                  "~n      Error:    ~p", [SecName, _Error]),
 	    error(usmStatsDecryptionErrors, 
 		  ?usmStatsDecryptionErrors, SecName)
     end.
@@ -300,18 +331,24 @@ try_decrypt(usmAesCfb128Protocol,
 %%                            SecData, SecLevel) ->
 %%       {ok, {SecEngineID, SecName, ScopedPDUBytes, SecData}} |
 %%       {error, Reason} | {error, Reason, ErrorInfo}
-%%       Return value may be throwed.
+%%       Return value may be thrown.
 %% Types: Reason -> term()
 %% Purpose: 
 %%-----------------------------------------------------------------
 generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
     %% 3.1.1
-    ?vtrace("generate_outgoing_msg -> entry (3.1.1)",[]),
+    ?vtrace("generate_outgoing_msg -> entry (3.1.1) when"
+            "~n      SecEngineID: ~p"
+            "~n      SecName:     ~p"
+            "~n      SecData:     ~p"
+            "~n      SecLevel:    ~p", [SecEngineID, SecName, SecData, SecLevel]),
     {UserName, AuthProtocol, AuthKey, PrivProtocol, PrivKey} = 
 	case SecData of
 	    [] -> % 3.1.1b
+                ?vdebug("generate_outgoing_msg -> "
+                        "[(3.1.1b] not a response - read from LCD"),
 		%% Not a response - read from LCD
-		case snmpm_config:get_usm_user_from_sec_name(SecEngineID, 
+		case snmpm_config:get_usm_user_from_sec_name(SecEngineID,
 							     SecName) of
 		    {ok, User} ->
  			{User#usm_user.name, 
@@ -320,6 +357,9 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
 			 User#usm_user.priv,
  			 User#usm_user.priv_key};
 		    _ ->
+                        ?vlog("[outgoing] Failed get USM User from sec name: "
+                              "~n      Sec Engine ID: ~p"
+                              "~n      Sec Name:      ~p", [SecEngineID, SecName]),
 			error(unknownSecurityName)
 		end;
 	    [MsgUserName] ->
@@ -328,25 +368,32 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
 	    _ -> % 3.1.1a
 		SecData
 	end,
-    %% 3.1.4
-    ?vtrace("generate_outgoing_msg -> (3.1.4)",[]),
-    ScopedPduBytes = Message#message.data,
-    {ScopedPduData, MsgPrivParams} =
-	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel),
     SnmpEngineID = get_engine_id(),
-    ?vtrace("SnmpEngineID: ~p (3.1.6)",[SnmpEngineID]),
+    ?vtrace("generate_outgoing_msg -> [3.1.6] SnmpEngineID: ~p", [SnmpEngineID]),
     %% 3.1.6
     {MsgAuthEngineBoots, MsgAuthEngineTime} =
 	case snmp_misc:is_auth(SecLevel) of
 	    false when SecData == [] -> % not a response
 		{0, 0}; 
 	    true when SecEngineID /= SnmpEngineID ->
+                ?vtrace("generate_outgoing_msg -> "
+                        "~n      SecEngineID:  ~p"
+                        "~n      SnmpEngineID: ~p",
+                        [SecEngineID, SnmpEngineID]),
 		{get_engine_boots(SecEngineID), get_engine_time(SecEngineID)};
 	    _ ->
+                ?vtrace("generate_outgoing_msg -> use local boots and time"),
 		{get_engine_boots(), get_engine_time()}
 	end,
+    %% 3.1.4
+    ?vtrace("generate_outgoing_msg -> [3.1.4]"),
+    ScopedPduBytes = Message#message.data,
+    {ScopedPduData, MsgPrivParams} = encrypt(ScopedPduBytes,
+                                             PrivProtocol, PrivKey,
+                                             SecLevel, MsgAuthEngineBoots,
+        MsgAuthEngineTime),
     %% 3.1.5 - 3.1.7
-    ?vtrace("generate_outgoing_msg -> (3.1.5 - 3.1.7)",[]),
+    ?vtrace("generate_outgoing_msg -> [3.1.5 - 3.1.7]",[]),
     UsmSecParams =
 	#usmSecurityParameters{msgAuthoritativeEngineID = SecEngineID,
 			       msgAuthoritativeEngineBoots = MsgAuthEngineBoots,
@@ -361,27 +408,38 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
 
 
 %% Ret: {ScopedPDU, MsgPrivParams} - both are already encoded as OCTET STRINGs
-encrypt(Data, PrivProtocol, PrivKey, SecLevel) ->
+encrypt(Data, PrivProtocol, PrivKey, SecLevel, EngineBoots, EngineTime) ->
     case snmp_misc:is_priv(SecLevel) of
 	false -> % 3.1.4b
+            ?vtrace("encrypt -> [3.1.4b]"),
 	    {Data, []};
 	true -> % 3.1.4a
-	    case (catch try_encrypt(PrivProtocol, PrivKey, Data)) of
+            ?vtrace("encrypt -> [3.1.4a]"),
+	    case (catch try_encrypt(PrivProtocol, PrivKey, Data, EngineBoots, EngineTime)) of
 		{ok, ScopedPduData, MsgPrivParams} ->
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
 		{error, Reason} ->
+                    ?vlog("try encrypt error: "
+                          "~n      Protocol: ~p"
+                          "~n      Reason:   ~p", [PrivProtocol, Reason]),
 		    error(Reason);
-		_ ->
+		_Error ->
+                    ?vlog("try encrypt unexpected failure: "
+                          "~n      Protocol: ~p"
+                          "~n      Error:    ~p", [PrivProtocol, _Error]),
 		    error(encryptionError)
 	    end
     end.
 
-try_encrypt(usmNoPrivProtocol, _PrivKey, _Data) -> % 3.1.2
+try_encrypt(usmNoPrivProtocol, _PrivKey, _Data, _EngineBoots, _EngineTime) -> % 3.1.2
+    ?vlog("encrypt: Unsupported security levels: "
+          "~n      Engine Boots: ~p"
+          "~n      Engine Time:  ~p", [_EngineBoots, _EngineTime]),
     error(unsupportedSecurityLevel);
-try_encrypt(usmDESPrivProtocol, PrivKey, Data) ->
+try_encrypt(usmDESPrivProtocol, PrivKey, Data, _EngineBoots, _EngineTime) ->
     des_encrypt(PrivKey, Data);
-try_encrypt(usmAesCfb128Protocol, PrivKey, Data) ->
-    aes_encrypt(PrivKey, Data).
+try_encrypt(usmAesCfb128Protocol, PrivKey, Data, EngineBoots, EngineTime) ->
+    aes_encrypt(PrivKey, Data, EngineBoots, EngineTime).
 
 authenticate_outgoing(Message, UsmSecParams, 
 		      AuthKey, AuthProtocol, SecLevel) ->
@@ -419,11 +477,8 @@ get_des_salt() ->
     EngineBoots = get_engine_boots(),
     [?i32(EngineBoots), ?i32(SaltInt)].
 
-aes_encrypt(PrivKey, Data) ->
-    EngineBoots = get_engine_boots(), 
-    EngineTime  = get_engine_time(), 
-    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0, 
-			 EngineBoots, EngineTime).
+aes_encrypt(PrivKey, Data, EngineBoots, EngineTime) ->
+    snmp_usm:aes_encrypt(PrivKey, Data, fun get_aes_salt/0, EngineBoots, EngineTime).
 
 aes_decrypt(PrivKey, UsmSecParams, EncData) ->
     #usmSecurityParameters{msgPrivacyParameters        = MsgPrivParams,

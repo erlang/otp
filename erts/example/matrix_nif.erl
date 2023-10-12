@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@
 -module(matrix_nif).
 
 -export([create/3, pos/3, add/2, size_of/1, to_term/1]).
+
+-nifs([create/3, pos/3, add/2, size_of/1, to_term/1]).
+
 
 -define(nif, nif_error(?LINE)). 
 

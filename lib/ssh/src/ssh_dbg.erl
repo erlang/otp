@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,20 +54,26 @@
          start_tracer/0, start_tracer/1,
          on/1,  on/0,
          off/1, off/0,
+         is_on/0,
+         is_off/0,
          go_on/0,
          %% Circular buffer
          cbuf_start/0, cbuf_start/1,
          cbuf_stop_clear/0,
          cbuf_in/1,
          cbuf_list/0,
+         hex_dump/1, hex_dump/2,
          fmt_cbuf_items/0, fmt_cbuf_item/1
 	]).
 
 -export([shrink_bin/1,
-         reduce_state/1,
+         reduce_state/2, reduce_state/3,
          wr_record/3]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
+
+%% Internal apply_after:
+-export([ets_delete/2]).
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
@@ -78,6 +84,19 @@
 -define(SERVER, ?MODULE).
 
 -define(CALL_TIMEOUT, 15000). % 3x the default
+
+-type trace_point() :: atom().
+-type trace_points() :: [trace_point()].
+-type stack() :: list(term()).
+
+-callback ssh_dbg_trace_points() -> trace_points().
+-callback ssh_dbg_flags(trace_point()) -> [atom()].
+-callback ssh_dbg_on(trace_point() | trace_points()) -> term().
+-callback ssh_dbg_off(trace_point() | trace_points()) -> term().
+-callback ssh_dbg_format(trace_point(), term()) -> iolist() | skip.
+-callback ssh_dbg_format(trace_point(), term(), stack()) -> {iolist() | skip, stack()}.
+
+-optional_callbacks([ssh_dbg_format/2, ssh_dbg_format/3]).  % At least one of them are to be used
 
 %%%================================================================
 
@@ -94,7 +113,7 @@ start(IoFmtFun) when is_function(IoFmtFun,2) ; is_function(IoFmtFun,3) ->
 
 stop() ->
     try
-        dbg:stop_clear(),
+        dbg:stop(),
         gen_server:stop(?SERVER)
     catch
         _:_ -> ok
@@ -124,38 +143,46 @@ start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
 %%%----------------------------------------------------------------
 on() -> on(?ALL_DBG_TYPES).
 on(Type) -> switch(on, Type).
-
+is_on() -> gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT).
+    
 
 off() -> off(?ALL_DBG_TYPES). % A bit overkill...
 off(Type) -> switch(off, Type).
+is_off() -> ?ALL_DBG_TYPES -- is_on().
+    
     
 go_on() ->
     IsOn = gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
     on(IsOn).
 
 %%%----------------------------------------------------------------
-shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
-						 size(B),
-						 element(1,split_binary(B,64)),
-						 '...',
-						 element(2,split_binary(B,size(B)-64))
-						};
+shrink_bin(B) when is_binary(B), byte_size(B)>256 -> {'*** SHRUNK BIN',
+                                              byte_size(B),
+                                              element(1,split_binary(B,64)),
+                                              '...',
+                                              element(2,split_binary(B,byte_size(B)-64))
+                                             };
 shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.
 
 %%%----------------------------------------------------------------    
-%% Replace last element (the state) with "#<state-name>{}"
-reduce_state(T) ->
-    try
-        erlang:setelement(size(T), 
-                          T,
-                          lists:concat(['#',element(1,element(size(T),T)),'{}'])
-                         )
-    catch
-        _:_ ->
-            T
-    end.
+%% Replace any occurrence of {Name,...}, with "#Name{}"
+reduce_state(T, RecordExample) ->
+    Name = element(1, RecordExample),
+    Arity = tuple_size(RecordExample),
+    reduce_state(T, Name, Arity).
+
+%% Replace any occurrence of {Name,...}, with "#Name{}"
+reduce_state(T, Name, Arity) when element(1,T) == Name,
+                                  tuple_size(T) == Arity ->
+    lists:concat(['#',Name,'{}']);
+reduce_state(L, Name, Arity) when is_list(L) ->
+    [reduce_state(E,Name,Arity) || E <- L];
+reduce_state(T, Name, Arity) when is_tuple(T) ->
+    list_to_tuple( reduce_state(tuple_to_list(T),Name,Arity) );
+reduce_state(X, _, _) ->
+    X.
 
 %%%================================================================
 -record(data, {
@@ -164,18 +191,52 @@ reduce_state(T) ->
 
 %%%----------------------------------------------------------------
 init(_) ->
+    new_table(),
     {ok, #data{}}.
+
+
+new_table() ->
+    try 
+        ets:new(?MODULE, [public, named_table]),
+        ok
+    catch
+        exit:badarg ->
+            ok
+    end.
+
+
+get_proc_stack(Pid) when is_pid(Pid) ->
+    try ets:lookup_element(?MODULE, Pid, 2)
+    catch
+        error:badarg ->
+            %% Non-existing item
+            new_proc(Pid),
+            ets:insert(?MODULE, {Pid,[]}),
+            []
+    end.
+
+
+put_proc_stack(Pid, Data) when is_pid(Pid),
+                               is_list(Data) ->
+    ets:insert(?MODULE, {Pid,Data}).
+
+
+new_proc(Pid) when is_pid(Pid) ->
+    gen_server:cast(?SERVER, {new_proc,Pid}).
+
+ets_delete(Tab, Key) ->
+    catch ets:delete(Tab, Key).
 
 %%%----------------------------------------------------------------
 handle_call({switch,on,Types}, _From, D) ->
     NowOn = lists:usort(Types ++ D#data.types_on),
-    call_modules(on, Types, NowOn),
+    call_modules(on, Types),
     {reply, {ok,NowOn}, D#data{types_on = NowOn}};
 
 handle_call({switch,off,Types}, _From, D) ->
     StillOn = D#data.types_on -- Types,
-    call_modules(off, Types, StillOn),
-    call_modules(on, StillOn, StillOn),
+    call_modules(off, Types),
+    call_modules(on, StillOn),
     {reply, {ok,StillOn}, D#data{types_on = StillOn}};
 
 handle_call(get_on, _From, D) ->
@@ -186,10 +247,20 @@ handle_call(C, _From, D) ->
     {reply, {error,{unknown_call,C}}, D}.
     
 
+handle_cast({new_proc,Pid}, D) ->
+    monitor(process, Pid),
+    {noreply, D};
+
 handle_cast(C, D) ->
     io:format('*** Unknown cast: ~p~n',[C]),
     {noreply, D}.
     
+
+handle_info({'DOWN', _MonitorRef, process, Pid, _Info}, D) ->
+    %% Universal real-time synchronization (there might be dbg msgs in the queue to the tracer):
+    timer:apply_after(20000, ?MODULE, ets_delete, [?MODULE, Pid]),
+    {noreply, D};
+
 handle_info(C, D) ->
     io:format('*** Unknown info: ~p~n',[C]),
     {noreply, D}.
@@ -201,52 +272,54 @@ handle_info(C, D) ->
 ssh_modules_with_trace() ->
     {ok,AllSshModules} = application:get_key(ssh, modules),
     [M || M <- AllSshModules,
-          lists:member({dbg_trace,3}, M:module_info(exports))].
+          {behaviour,Bs} <- M:module_info(attributes),
+          lists:member(?MODULE, Bs)
+    ].
 
 %%%----------------------------------------------------------------
 get_all_trace_flags() ->
-    get_all_trace_flags(ssh_modules_with_trace()).
-
-get_all_trace_flags(Modules) ->
     lists:usort(
-      lists:flatten(
-        lists:foldl(
-          fun(Type, Acc) ->
-                  call_modules(flags, Type, undefined, Acc, Modules)
-          end, [timestamp], ?ALL_DBG_TYPES))).
+      lists:flatten([timestamp |  call_modules(flags, ?ALL_DBG_TYPES)]
+                   )).
 
 %%%----------------------------------------------------------------
 get_all_dbg_types() ->
     lists:usort(
       lists:flatten(
-        call_modules(points, undefined) )).
+        call_modules(points) )).
 
 %%%----------------------------------------------------------------
-call_modules(Cmnd, Type) ->
-    call_modules(Cmnd, Type, undefined).
+call_modules(points) ->
+    F = fun(Mod) -> Mod:ssh_dbg_trace_points() end,
+    fold_modules(F, [], ssh_modules_with_trace()).
 
-call_modules(Cmnd, Type, Arg) ->
-    call_modules(Cmnd, Type, Arg, []).
+call_modules(Cmnd, Types) when is_list(Types) ->
+    F = case Cmnd of
+            flags -> fun(Type) ->
+                             fun(Mod) -> Mod:ssh_dbg_flags(Type) end
+                     end;
+            on -> fun(Type) ->
+                          fun(Mod) -> Mod:ssh_dbg_on(Type) end
+                  end;
+            off -> fun(Type) ->
+                           fun(Mod) -> Mod:ssh_dbg_off(Type) end
+                   end
+        end,
+    lists:foldl(fun(T, Acc) ->
+                        fold_modules(F(T), Acc, ssh_modules_with_trace())
+                end, [], Types).
 
-call_modules(Cmnd, Type, Arg, Acc0) ->
-    call_modules(Cmnd, Type, Arg, Acc0, ssh_modules_with_trace()).
 
-call_modules(Cmnd, Types, Arg, Acc0, Modules) when is_list(Types) ->
-    lists:foldl(
-       fun(Type, Acc) ->
-               call_modules(Cmnd, Type, Arg, Acc, Modules)
-       end, Acc0, Types);
 
-call_modules(Cmnd, Type, Arg, Acc0, Modules) ->
-    lists:foldl(
-      fun(Mod, Acc) ->
-              try Mod:dbg_trace(Cmnd, Type, Arg)
-              of
-                  Result -> [Result|Acc]
-              catch
-                  _:_ -> Acc
-              end
-      end, Acc0, Modules).
+fold_modules(F, Acc0, Modules) ->
+     lists:foldl(
+       fun(Mod, Acc) ->
+               try F(Mod) of
+                   Result -> [Result|Acc]
+               catch
+                   _:_ -> Acc
+               end
+       end, Acc0, Modules).
 
 %%%----------------------------------------------------------------
 switch(X, Type) when is_atom(Type) ->
@@ -273,34 +346,22 @@ switch(X, Types) when is_list(Types) ->
 %%%   {send,Msg,To}
 %%%   {'receive',Msg}
 
-trace_pid({trace,Pid,_}) -> Pid;
-trace_pid({trace,Pid,_,_}) -> Pid;
-trace_pid({trace,Pid,_,_,_}) -> Pid;
-trace_pid({trace,Pid,_,_,_,_}) -> Pid;
-trace_pid({trace,Pid,_,_,_,_,_}) -> Pid;
-trace_pid({trace_ts,Pid,_,_TS}) -> Pid;
-trace_pid({trace_ts,Pid,_,_,_TS}) -> Pid;
-trace_pid({trace_ts,Pid,_,_,_,_TS}) -> Pid;
-trace_pid({trace_ts,Pid,_,_,_,_,_TS}) -> Pid;
-trace_pid({trace_ts,Pid,_,_,_,_,_,_TS}) -> Pid.
+%% Pick 2nd element, the Pid
+trace_pid(T) when element(1,T)==trace
+                  ; element(1,T)==trace_ts ->
+    element(2,T).
 
-trace_ts({trace_ts,_Pid,_,TS}) -> ts(TS);
-trace_ts({trace_ts,_Pid,_,_,TS}) -> ts(TS);
-trace_ts({trace_ts,_Pid,_,_,_,TS}) -> ts(TS);
-trace_ts({trace_ts,_Pid,_,_,_,_,TS}) -> ts(TS);
-trace_ts({trace_ts,_Pid,_,_,_,_,_,TS}) -> ts(TS);
-trace_ts(_) -> "-".
+%% Pick last element, the Time Stamp, and format it
+trace_ts(T) when  element(1,T)==trace_ts ->
+    ts( element(tuple_size(T), T) ).
 
-trace_info({trace,_Pid,A}) -> A;
-trace_info({trace,_Pid,A,B}) -> {A,B};
-trace_info({trace,_Pid,A,B,C}) -> {A,B,C};
-trace_info({trace,_Pid,A,B,C,D}) -> {A,B,C,D};
-trace_info({trace,_Pid,A,B,C,D,E}) -> {A,B,C,D,E};
-trace_info({trace_ts,_Pid,A,_TS}) -> A;
-trace_info({trace_ts,_Pid,A,B,_TS}) -> {A,B};
-trace_info({trace_ts,_Pid,A,B,C,_TS}) -> {A,B,C};
-trace_info({trace_ts,_Pid,A,B,C,D,_TS}) -> {A,B,C,D};
-trace_info({trace_ts,_Pid,A,B,C,D,E,_TS}) -> {A,B,C,D,E}.
+%% Make a tuple of all elements but the 1st, 2nd and last
+trace_info(T) ->
+    case tuple_to_list(T) of
+        [trace,_Pid | Info] -> list_to_tuple(Info);
+        [trace_ts,_Pid | InfoTS] -> list_to_tuple(
+                                      lists:droplast(InfoTS))
+    end.
 
 
 try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
@@ -308,18 +369,60 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
     TS = trace_ts(Arg),
     PID = trace_pid(Arg),
     INFO = trace_info(Arg),
-    lists:foldl(
-      fun(Type, Acc1) ->
-              lists:foldl(
-                fun(SshMod,Acc) ->
-                        try WriteFun("~n~s ~p ~s~n", 
-                                     [lists:flatten(TS), PID, lists:flatten(SshMod:dbg_trace(format,Type,INFO))],
-                                     Acc)
-                        catch
-                            _:_ -> Acc
-                        end
-                end, Acc1, SshModules)
-      end, Acc0, TypesOn).
+    Acc =
+        lists:foldl(
+          fun(Type, Acc1) ->
+                  lists:foldl(
+                    fun(SshMod,Acc) ->
+                            try
+                                %% First, call without stack
+                                SshMod:ssh_dbg_format(Type, INFO)
+                            of
+                                skip ->
+                                    %% Don't try to print this later
+                                    written;
+                                Txt when is_list(Txt) ->
+                                    write_txt(WriteFun, TS, PID, Txt)
+                            catch
+                                error:E when E==undef ; E==function_clause ; element(1,E)==case_clause ->
+                                    try 
+                                        %% then, call with stack
+                                        STACK = get_proc_stack(PID),
+                                        SshMod:ssh_dbg_format(Type, INFO, STACK)
+                                    of
+                                        {skip, NewStack} ->
+                                            %% Don't try to print this later
+                                            put_proc_stack(PID, NewStack),
+                                            written;
+                                        {Txt, NewStack} when is_list(Txt) ->
+                                            put_proc_stack(PID, NewStack),
+                                            write_txt(WriteFun, TS, PID, Txt)
+                                    catch
+                                        _:_ ->
+                                            %% and finally, signal for special formatting
+                                            %% if no one else formats it
+                                            Acc
+                                    end
+                            end
+                    end, Acc1, SshModules)
+          end, Acc0, TypesOn),
+    case Acc of
+        Acc0 ->
+            %% INFO :: any()
+            WriteFun("~n~s ~p DEBUG~n~p~n", [lists:flatten(TS),PID,INFO], Acc0);
+        written ->
+            Acc0
+    end.
+
+
+
+write_txt(WriteFun, TS, PID, Txt) when is_list(Txt) ->
+    WriteFun("~n~s ~p ~ts~n", 
+             [lists:flatten(TS),
+              PID,
+              lists:flatten(Txt)],
+             written % this is returned
+            ).
 
 %%%----------------------------------------------------------------
 wr_record(T, Fs, BL) when is_tuple(T) ->
@@ -439,3 +542,75 @@ fmt_value(#circ_buf_entry{module = M,
     io_lib:format("~p:~p  ~p/~p ~p~n~s",[M,L,F,A,Pid,fmt_value(V)]);
 fmt_value(Value) ->
     io_lib:format("~p",[Value]).
+
+%%%================================================================
+
+-record(h, {max_bytes = 65536,
+            bytes_per_line = 16,
+            address_len = 4
+           }).
+
+
+hex_dump(Data) -> hex_dump1(Data, hd_opts([])).
+
+hex_dump(X, Max) when is_integer(Max) ->
+    hex_dump(X, [{max_bytes,Max}]);
+hex_dump(X, OptList) when is_list(OptList) ->
+    hex_dump1(X, hd_opts(OptList)).
+
+hex_dump1(B, Opts) when is_binary(B) -> hex_dump1(binary_to_list(B), Opts);
+hex_dump1(L, Opts) when is_list(L), length(L) > Opts#h.max_bytes ->
+    io_lib:format("~s---- skip ~w bytes----~n", [hex_dump1(lists:sublist(L,Opts#h.max_bytes), Opts),
+                                                 length(L) - Opts#h.max_bytes
+                                                ]);
+hex_dump1(L, Opts0) when is_list(L) ->
+    Opts = Opts0#h{address_len = num_hex_digits(Opts0#h.max_bytes)},
+    Result = hex_dump(L, [{0,[],[]}], Opts),
+    [io_lib:format("~*.s | ~*s | ~s~n"
+                   "~*.c-+-~*c-+-~*c~n",
+                   [Opts#h.address_len, lists:sublist("Address",Opts#h.address_len),
+                    -3*Opts#h.bytes_per_line, lists:sublist("Hexdump",3*Opts#h.bytes_per_line),
+                    "ASCII",
+                    Opts#h.address_len, $-,
+                    3*Opts#h.bytes_per_line, $-,
+                    Opts#h.bytes_per_line, $-
+                   ]) |
+     [io_lib:format("~*.16.0b | ~s~*c | ~s~n",[Opts#h.address_len, N*Opts#h.bytes_per_line,
+                                               lists:reverse(Hexs),
+                                               3*(Opts#h.bytes_per_line-length(Hexs)), $ ,
+                                               lists:reverse(Chars)])
+      || {N,Hexs,Chars}  <- lists:reverse(Result)
+     ]
+    ].
+
+
+hd_opts(L) -> lists:foldl(fun hd_opt/2, #h{}, L).
+
+hd_opt({max_bytes,M},      O) -> O#h{max_bytes=M};
+hd_opt({bytes_per_line,M}, O) -> O#h{bytes_per_line=M}.
+
+
+num_hex_digits(N) when N<16 -> 1;
+num_hex_digits(N) -> trunc(math:ceil(math:log2(N)/4)).
+    
+
+hex_dump([L|Cs], Result0, Opts) when is_list(L) ->
+    Result = hex_dump(L,Result0, Opts),
+    hex_dump(Cs, Result, Opts);
+
+hex_dump(Cs, [{N0,_,Chars}|_]=Lines, Opts) when length(Chars) == Opts#h.bytes_per_line ->
+    hex_dump(Cs, [{N0+1,[],[]}|Lines], Opts);
+
+hex_dump([C|Cs], [{N,Hexs,Chars}|Lines], Opts) ->
+    Asc = if
+              16#20 =< C,C =< 16#7E -> C;
+              true -> $.
+          end,
+    Hex = io_lib:format("~2.16.0b ", [C]),
+    hex_dump(Cs, [{N, [Hex|Hexs], [Asc|Chars]} | Lines], Opts);
+
+hex_dump([], Result, _) ->
+    Result.
+
+    
+    

@@ -47,8 +47,7 @@
  */
 
 char *
-erl_errno_id(error)
-    int error;			/* Posix error number (as from errno). */
+erl_errno_id(int error /* Posix error number (as from errno). */)
 {
     switch (error) {
 #ifdef E2BIG
@@ -170,6 +169,9 @@ erl_errno_id(error)
 #endif
 #if defined(EIDRM) && (!defined(EINPROGRESS) || (EIDRM != EINPROGRESS))
     case EIDRM: return "eidrm";
+#endif
+#ifdef EILSEQ
+    case EILSEQ: return "eilseq";
 #endif
 #ifdef EINIT
     case EINIT: return "einit";

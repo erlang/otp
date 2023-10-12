@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,10 +43,10 @@
 #endif
 #ifdef HAVE_WORKING_POSIX_OPENPT
 #  ifndef _XOPEN_SOURCE
-     /* On OS X and BSD, we must leave _XOPEN_SOURCE undefined in order for
-      * the prototype of vsyslog() to be included.
+     /* On OS X, BSD and Solaris, we must leave _XOPEN_SOURCE undefined in order
+      * for the prototype of vsyslog() to be included.
       */
-#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__))
+#    if !(defined(__APPLE__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
 #      define _XOPEN_SOURCE 600
 #    endif
 #  endif
@@ -89,6 +89,12 @@
 #endif
 #if defined(__sun) && defined(__SVR4)
 #  include <stropts.h>
+#endif
+
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
 #include "run_erl.h"
@@ -822,7 +828,7 @@ static int find_next_log_num(void) {
 
 /* open_log()
  * Opens a log file (with given index) for writing. Writing may be
- * at the end or a trucnating write, according to flags.
+ * at the end or a truncating write, according to flags.
  * A LOGGING STARTED and time stamp message is inserted into the log file
  */
 static int open_log(int log_num, int flags)
@@ -982,7 +988,7 @@ static int open_pty_master(char **ptyslave, int *sfdp)
   /* X is in "pqrs" and Y in "0123456789abcdef" but FreeBSD */
   /* and some Linux version has extended this. */
 
-  /* This code could probebly be improved alot. For example look at */
+  /* This code could probebly be improved a lot. For example look at */
   /* http://www.xcf.berkeley.edu/~ali/K0D/UNIX/PTY/code/pty.c.html */
   /* http://www.xcf.berkeley.edu/~ali/K0D/UNIX/PTY/code/upty.h.html */
 
@@ -1201,7 +1207,19 @@ static void error_logf(int priority, int line, const char *format, ...)
 
 #ifdef HAVE_SYSLOG_H
     if (run_daemon) {
+#ifdef HAVE_VSYSLOG
 	vsyslog(priority,format,args);
+#else
+	/* Some OSes like AIX lack vsyslog. */
+	va_list ap;
+	char message[900]; /* AIX man page says truncation past this */
+
+	va_start (ap, format);
+	vsnprintf(message, 900, format, ap);
+	va_end(ap);
+
+	syslog(priority, message);
+#endif
     }
     else
 #endif
@@ -1350,7 +1368,7 @@ static int sf_close(int fd) {
     return close(fd);
 }
 
-/* Extract any control sequences that are ment only for run_erl
+/* Extract any control sequences that are meant only for run_erl
  * and should not be forwarded to the pty.
  */
 static int extract_ctrl_seq(char* buf, int len)

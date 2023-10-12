@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,8 @@
          inet}).
 
 -record(opt, {sort_key=2,
-	      sort_incr=true
+	      sort_incr=true,
+              odd_bg
 	     }).
 
 -record(state,
@@ -96,11 +97,12 @@ init([Notebook, Parent, Config]) ->
 			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
 			   Col + 1
 		   end,
-    ListItems = [{"Id", ?wxLIST_FORMAT_LEFT,  150},
-		 {"Connected", ?wxLIST_FORMAT_LEFT, 150},
-		 {"Name", ?wxLIST_FORMAT_LEFT, 150},
-		 {"Controls", ?wxLIST_FORMAT_LEFT, 200},
-		 {"Slot", ?wxLIST_FORMAT_RIGHT, 50}],
+    Scale = observer_wx:get_scale(),
+    ListItems = [{"Id", ?wxLIST_FORMAT_LEFT,  Scale*150},
+		 {"Connected", ?wxLIST_FORMAT_LEFT, Scale*150},
+		 {"Name", ?wxLIST_FORMAT_LEFT, Scale*150},
+		 {"Controls", ?wxLIST_FORMAT_LEFT, Scale*200},
+		 {"Slot", ?wxLIST_FORMAT_RIGHT, Scale*50}],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 
@@ -110,7 +112,10 @@ init([Notebook, Parent, Config]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config}}.
+    Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
+    Odd = observer_lib:mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
+    Opt = #opt{odd_bg=Odd},
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config, opt=Opt}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -142,12 +147,19 @@ handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
-handle_event(#wx{event=#wxList{type=command_list_item_activated,
-			       itemIndex=Index}},
-	     State=#state{grid=Grid, ports=Ports, open_wins=Opened}) ->
-    Port = lists:nth(Index+1, Ports),
-    NewOpened = display_port_info(Grid, Port, Opened),
-    {noreply, State#state{open_wins=NewOpened}};
+handle_event(#wx{event = #wxList{type      = command_list_item_activated,
+                                 itemIndex = Index}},
+	     State = #state{grid      = Grid,
+                            ports     = Ports,
+                            open_wins = Opened}) ->
+    if
+        length(Ports) >= (Index+1) ->
+            Port      = lists:nth(Index+1, Ports),
+            NewOpened = display_port_info(Grid, Port, Opened),
+            {noreply, State#state{open_wins=NewOpened}};
+        true -> % Race - should we do somthing here?
+            {noreply, State}
+    end;
 
 handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 			       itemIndex=Index}},
@@ -461,10 +473,11 @@ display_port_info(Parent, PortRec, Opened) ->
 do_display_port_info(Parent0, PortRec) ->
     Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Port Info: " ++ PortRec#port.id_str,
+    Scale = observer_wx:get_scale(),
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
 			    [{style, ?wxSYSTEM_MENU bor ?wxCAPTION
 				  bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER},
-                             {size,{600,400}}]),
+                             {size,{Scale * 600, Scale * 400}}]),
     ScrolledWin = wxScrolledWindow:new(Frame,[{style,?wxHSCROLL bor ?wxVSCROLL}]),
     wxScrolledWindow:enableScrolling(ScrolledWin,true,true),
     wxScrolledWindow:setScrollbars(ScrolledWin,20,20,0,0),
@@ -551,7 +564,7 @@ filter_monitor_info() ->
 
 update_grid(Grid, Sel, Opt, Ports) ->
     wx:batch(fun() -> update_grid2(Grid, Sel, Opt, Ports) end).
-update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
+update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir, odd_bg=BG}, Ports) ->
     wxListCtrl:deleteAllItems(Grid),
     Update =
 	fun(#port{id = Id,
@@ -561,8 +574,8 @@ update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 		  controls = Ctrl},
 	    Row) ->
 		_Item = wxListCtrl:insertItem(Grid, Row, ""),
-		if (Row rem 2) =:= 0 ->
-			wxListCtrl:setItemBackgroundColour(Grid, Row, ?BG_EVEN);
+		if (Row rem 2) =:= 1 ->
+			wxListCtrl:setItemBackgroundColour(Grid, Row, BG);
 		   true -> ignore
 		end,
 

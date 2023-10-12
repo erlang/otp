@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ t_float(Config) when is_list(Config) ->
     fcmp(F, match_float(<<1:13,F:32/float,127:3>>, 32, 13)),
     fcmp(F, match_float(<<1:13,F:64/float,127:3>>, 64, 13)),
 
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16, 0)),
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
 
     ok.

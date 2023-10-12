@@ -1,0 +1,6 @@
+
+  [;1m-type monitor_option() ::[0m
+  [;1m          {alias, explicit_unalias | demonitor | reply_demonitor} |[0m
+  [;1m          {tag, term()}.[0m
+
+  See [;;4mmonitor/3[0m.

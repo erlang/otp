@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ get_tick_count(void)
 
 /* 
  * init timers, chose a tick length, and return it.
- * Unix is priviliged when it comes to time, as erl_time_sup.c 
+ * Unix is privileged when it comes to time, as erl_time_sup.c 
  * does almost everything. Other platforms have to
  * emulate Unix in this sense.
  */
@@ -219,7 +219,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 #endif
 
     init_resp->os_monotonic_time_info.resolution = (Uint64) 1000*1000*1000;
-#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
+#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
     init_resp->os_monotonic_time_info.resolution
 	= mach_clock_getres(&internal_state.r.o.mach.clock.monotonic);
 #elif defined(HAVE_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
@@ -379,7 +379,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
     init_resp->os_system_time_info.locked_use = 0;
     init_resp->os_system_time_info.resolution = (Uint64) 1000*1000*1000;
-#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
+#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME)
     init_resp->os_system_time_info.resolution
 	= mach_clock_getres(&internal_state.r.o.mach.clock.wall);
 #elif defined(HAVE_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
@@ -453,7 +453,7 @@ posix_clock_gettime(clockid_t id, char *name)
 
     if (clock_gettime(id, &ts) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 name, errstr, err);
@@ -498,13 +498,13 @@ posix_clock_gettime_times(clockid_t mid, char *mname,
     serr = errno;
     
     if (mres != 0) {
-	char *errstr = merr ? strerror(merr) : "unknown";
+	const char *errstr = merr ? strerror(merr) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 mname, errstr, merr);
     }
     if (sres != 0) {
-	char *errstr = serr ? strerror(serr) : "unknown";
+	const char *errstr = serr ? strerror(serr) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 sname, errstr, serr);
@@ -698,7 +698,7 @@ mach_clocks_init(void)
 
     if (atexit(mach_clocks_fini) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "Failed to register mach_clocks_fini() "
 		 "for call at exit: %s (%d)\n",
@@ -853,7 +853,7 @@ erts_os_system_time(void)
 
     if (gettimeofday(&tv, NULL) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "gettimeofday(_, NULL) failed: %s (%d)\n",
 		 errstr, err);
@@ -1003,6 +1003,8 @@ static ErtsSysPerfCounter rdtsc(void)
 #elif defined(__i386__)
     __asm__ __volatile__ ("rdtsc\n\t"
                            : "=A" (ts) );
+#else
+    ts = 0;
 #endif
     return ts;
 }

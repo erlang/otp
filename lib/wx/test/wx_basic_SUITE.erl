@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([silent_start/1, create_window/1, several_apps/1, wx_api/1, wx_misc/1,
-         data_types/1, wx_object/1, undef_in_handle_info/1, undef_in_terminate/1,
+         data_types/1, enums/1, wx_object/1, undef_in_handle_info/1, undef_in_terminate/1,
          undef_handle_event/1, undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
          undef_code_change/1, undef_terminate1/1, undef_terminate2/1
         ]).
@@ -53,7 +53,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
     [silent_start, create_window, several_apps, wx_api, wx_misc,
-     data_types, wx_object, {group, undef_callbacks},
+     data_types, enums, wx_object, {group, undef_callbacks},
      undef_in_handle_info, undef_in_terminate].
 
 groups() -> 
@@ -159,8 +159,8 @@ wx_api(Config) ->
     Env = ?mr(wx_env, wx:get_env()),
     %% Test some error cases 
     erase(wx_env),
-    ?m({'EXIT', {{wxe,unknown_port},_}},wxWindow:show(Frame, [])),
-    ?m({'EXIT', {{wxe,unknown_port},_}},wx:debug(2)),
+    ?m({'EXIT', {{wx,unknown_env},_}},wxWindow:show(Frame, [])),
+    ?m({'EXIT', {{wx,unknown_env},_}},wx:debug(2)),
     
     ?m(ok,wx:set_env(Env)),
     ?m(ok,wx:debug(1)),
@@ -169,16 +169,18 @@ wx_api(Config) ->
     ?m(ok,wx:debug(none)),
     ?m(ok,wx:debug(verbose)),
     ?m(ok,wx:debug(trace)),
+    ?m(ok,wx:debug(driver)),
     
     Mem = ?mr(wx_mem, wx:create_memory(10)),
     ?m(true, is_binary(wx:get_memory_bin(Mem))),
     ?mt(foo, wx:typeCast(Frame, foo)),
 
-    RecBatch = fun() -> 
-		       wx:batch(fun() -> create_menus(Frame) end)
-	       end,
+    %% wx:debug(16),
+    RecBatch = fun() ->
+        	       wx:batch(fun() -> create_menus(Frame) end)
+               end,
     ?m(batch_ret, wx:batch(fun() -> RecBatch(), batch_ret end)),
-    ?m(ok, wx:foreach(fun(A) -> true = lists:member(A,[1,2,3,4,5]) end, 
+    ?m(ok, wx:foreach(fun(A) -> true = lists:member(A,[1,2,3,4,5]) end,
 		      lists:seq(1,5))),
     ?m([2,3,4,5,6], wx:map(fun(A) -> A+1 end, lists:seq(1,5))),
     ?m({5,15}, wx:foldl(fun(A,{_,Acc}) -> {A,A+Acc} end, {0,0},
@@ -314,7 +316,7 @@ data_types(_Config) ->
 	    wxGraphicsContext:setFont(GC, ?wxITALIC_FONT, {0, 0, 50}),
 	    Ws = wxGraphicsContext:getPartialTextExtents(GC, "a String With More Than 16 Characters"),
 	    _ = lists:foldl(fun(Width, {Index, Acc}) ->
-				    if Width >= Acc, Width < 500 -> {Index+1, Width};
+				    if Width >= Acc, Width < 600 -> {Index+1, Width};
 				       true -> throw({bad_float, Width, Index, Acc})
 				    end
 			    end, {0,0.0}, Ws),
@@ -338,7 +340,7 @@ data_types(_Config) ->
     
     %% wxSize
     ?m({_,_}, wxWindow:getSize(Frame)),
-
+    wx:debug(none),
     %% DateTime 
     DateTime = {Date, _Time} = calendar:now_to_datetime(os:timestamp()),
     io:format("DateTime ~p ~n",[DateTime]),
@@ -365,6 +367,11 @@ data_types(_Config) ->
     %%wx_test_lib:wx_destroy(Frame,Config).
     wx:destroy().
 
+enums(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+enums(_Config) ->
+    %% Test that all needed enums are available and have not changed value
+    wx_test_enums:test().
+
 wx_object(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 wx_object(Config) ->
     wx:new(),
@@ -388,26 +395,36 @@ wx_object(Config) ->
     Me = self(),
     ?m({call, foobar, {Me, _}}, wx_object:call(Frame, foobar)),
     ?m(ok, wx_object:cast(Frame, foobar2)),
-    ?m([{cast, foobar2}|_], flush()),
+    ?m([{cast, foobar2}|_], flush(true)),
 
     ?m(Frame, wx_obj_test:who_are_you(Frame)),
     {call, {Frame,Panel}, _} = wx_object:call(Frame, fun(US) -> US end),
     ?m(false, wxWindow:getParent(Panel) =:= Frame),
     ?m(true, wx:equal(wxWindow:getParent(Panel),Frame)),
+    flush(),
+    ReqId = wx_object:send_request(Frame, fun(_US) -> timer:sleep(10), yes1 end),
+    timeout = wx_object:wait_response(ReqId, 0),
+    {reply, {call, yes1, {Me,_}}} = wx_object:wait_response(ReqId, 1000),
+    ReqId2 = wx_object:send_request(Frame, yes2),
+    [Msg] = flush(true),
+    no_reply = wx_object:check_response(Msg, ReqId),
+    {reply, {call, yes2, {Me,_}}} = wx_object:check_response(Msg, ReqId2),
+
     FramePid = wx_object:get_pid(Frame),
     io:format("wx_object pid ~p~n",[FramePid]),
     FramePid ! foo3,
-    ?m([{info, foo3}|_], flush()),
+    ?m([{info, foo3}], flush(true)),
 
     ?m(ok, wx_object:cast(Frame, fun(_) -> hehe end)),
-    ?m([{cast, hehe}|_], flush()),
+    ?m([{cast, hehe}|_], flush(true)),
     wxWindow:refresh(Frame),
     ?m([{sync_event, #wx{event=#wxPaint{}}, _}|_], flush()),
-    ?m(ok, wx_object:cast(Frame, fun(_) -> timer:sleep(200), slept end)),
+    ?m(ok, wx_object:cast(Frame, fun(_) -> timer:sleep(500), slept end)),
     %% The sleep above should not hinder the Paint event below
     %% Which it did in my buggy handling of the sync_callback
-    wxWindow:refresh(Frame),
-    timer:sleep(500),
+    wxWindow:refresh(Panel),
+    wxWindow:update(Panel),
+    timer:sleep(700),
     ?m([{sync_event, #wx{event=#wxPaint{}}, _}, {cast, slept}|_], flush()),
 
     Monitor = erlang:monitor(process, FramePid),
@@ -424,7 +441,7 @@ wx_object(Config) ->
     end,
     ?m(ok, receive
 	       {'DOWN', Monitor, _, _, _} ->
-		   ?m([{terminate, wx_deleted}], flush()),
+		   ?m([{terminate, wx_deleted}], flush(true)),
 		   ok
 	   after 1000 ->
 		   Msgs = flush(),
@@ -590,17 +607,23 @@ check_events([{sync_event, #wx{event=#wxPaint{}}, Obj}|Rest], Async, Sync) ->
     ?mt(wxPaintEvent, Obj),
     check_events(Rest, Async, Sync+1);
 check_events([], Async, Sync) ->
-    case Async > 0 of  %% Test sync explictly
+    case Async > 0 of  %% Test sync explicitly
 	true -> ok;
 	false -> {Async, Sync}
     end.
 
 flush() ->
-    flush([], 1500).
+    flush([], false, 1500).
 
-flush(Acc, Wait) ->
+flush(FilterSync) ->
+    flush([], FilterSync, 1500).
+
+flush(Acc, FilterSync, Wait) ->
     receive
-	Msg -> flush([Msg|Acc], Wait div 10)
+        {sync_event, _} when FilterSync ->
+            flush(Acc, FilterSync, Wait);
+	Msg ->
+            flush([Msg|Acc], FilterSync, Wait div 10)
     after Wait ->
 	    lists:reverse(Acc)
     end.

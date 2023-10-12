@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 gregorian_days/1,
+	 big_gregorian_days/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
 	 day_of_the_week_calibrate/1,
@@ -36,13 +37,16 @@
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
 
+-define(BIG_START_YEAR, 20000000).
+-define(BIG_END_YEAR, 20000020).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
-     iso_week_number, system_time, rfc3339].
+     iso_week_number, system_time, rfc3339, big_gregorian_days].
 
 groups() -> 
     [].
@@ -65,6 +69,14 @@ end_per_group(_GroupName, Config) ->
 gregorian_days(Config) when is_list(Config) ->
     Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
+    check_gregorian_days(Days, MaxDays).
+
+%% Tests that date_to_gregorian_days and gregorian_days_to_date
+%% are each others inverses from ?BIG_START_YEAR-01-01 up to ?BIG_END_YEAR-01-01.
+%% At the same time valid_date is tested.
+big_gregorian_days(Config) when is_list(Config) ->
+    Days = calendar:date_to_gregorian_days({?BIG_START_YEAR, 1, 1}),
+    MaxDays = calendar:date_to_gregorian_days({?BIG_END_YEAR, 1, 1}),
     check_gregorian_days(Days, MaxDays).
 
 %% Tests that datetime_to_gregorian_seconds and
@@ -100,21 +112,23 @@ leap_years(Config) when is_list(Config) ->
 last_day_of_the_month(Config) when is_list(Config) ->
     check_last_day_of_the_month({?START_YEAR, 1}, {?END_YEAR, 1}).
 
-%% Tests local_time_to_universal_time_dst for MET.
+%% Tests local_time_to_universal_time_dst for CET/CEST/MET/MEST.
 local_time_to_universal_time_dst(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
 	    case os:cmd("date '+%Z'") of
-		"SAST"++_ ->
-		    {comment, "Spoky time zone with zero-set DST, skipped"};
+                "ME"++_ -> %% covers MET/MEST
+                    local_time_to_universal_time_dst_x(Config);
+                "CE"++_ -> %% covers CET/CEST
+                    local_time_to_universal_time_dst_x(Config);
 		_ ->
-		    local_time_to_universal_time_dst_x(Config)
+                    {skip, "This test runs only for MET/MEST/CET/CEST"}
 	    end;
 	_ ->
 	    local_time_to_universal_time_dst_x(Config)
     end.
 local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
-    %% Assumes MET (UTC+1 / UTC+2(dst)
+    %% Assumes CET (UTC+1 / UTC+2(dst) or MET (same as CET)
     LtW   = {{2003,01,15},{14,00,00}}, % Winter
     UtW   = {{2003,01,15},{13,00,00}}, %
     UtWd  = {{2003,01,15},{12,00,00}}, % dst
@@ -180,17 +194,22 @@ rfc3339(Config) when is_list(Config) ->
     Mys = [{unit, microsecond}],
     Ns = [{unit, nanosecond}],
     S = [{unit, second}],
+    Na = [{unit, native}],
     D = [{time_designator, $\s}],
     Z = [{offset, "Z"}],
 
-    "1985-04-12T23:20:50.52Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
-    "1985-04-12T23:20:50.52Z" = test_parse("1985-04-12t23:20:50.52z", Ms),
-    "1985-04-12T21:20:50.52Z" =
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12t23:20:50.52z", Na),
+    "1985-04-12T21:20:50.520Z" =
         test_parse("1985-04-12T23:20:50.52+02:00", Ms),
+    "1985-04-12T21:20:50.520Z" =
+        test_parse("1985-04-12T23:20:50.52+02:00", Na),
     "1985-04-12T23:20:50Z" = test_parse("1985-04-12T23:20:50.52Z", S),
-    "1985-04-12T23:20:50.52Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
-    "1985-04-12T23:20:50.52Z" = test_parse("1985-04-12t23:20:50.52z", Mys),
-    "1985-04-12 21:20:50.52Z" =
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12T23:20:50.52Z", Na),
+    "1985-04-12T23:20:50.520000Z" =
+        test_parse("1985-04-12t23:20:50.52z", Mys),
+    "1985-04-12 21:20:50.520000000Z" =
         test_parse("1985-04-12 23:20:50.52+02:00", Ns++D),
     "1985-04-12T23:20:50Z" = test_parse("1985-04-12T23:20:50.52Z"),
     "1996-12-20T00:39:57Z" = test_parse("1996-12-19T16:39:57-08:00"),
@@ -203,13 +222,16 @@ rfc3339(Config) when is_list(Config) ->
 
     "9999-12-31T23:59:59Z" = do_format_z(253402300799, []),
     "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*1000+999, Ms),
+    NaPerSec = erlang:convert_time_unit(1, second, native),
+    "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*NaPerSec+(NaPerSec-1), Na),
     "9999-12-31T23:59:59.999999Z" =
-        do_format_z(253402300799*1000000+999999, Mys),
+        do_format_z(253402300799*1_000_000+999_999, Mys),
     "9999-12-31T23:59:59.999999999Z" =
-        do_format_z(253402300799*1000000000+999999999, Ns),
+        do_format_z(253402300799*1_000_000_000+999_999_999, Ns),
     {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
     {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
-    {'EXIT', _} = (catch do_format_z(253402300799*1000000000+999999999+1, Ns)),
+    {'EXIT', _} = (catch do_format_z(253402300799*1_000_000_000+999_999_999+1, Ns)),
+    {'EXIT', _} = (catch do_parse("2010-04-11T22:35:41", [])), % OTP-16514
     253402300799 = do_parse("9999-12-31T23:59:59Z", []),
 
     "0000-01-01T00:00:00Z" = test_parse("0000-01-01T00:00:00.0+00:00"),
@@ -221,17 +243,21 @@ rfc3339(Config) when is_list(Config) ->
     "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60Z"),
     "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60.5Z"),
     "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60.55Z"),
-    "1970-01-02T00:00:00.55Z" = test_parse("1970-01-01T23:59:60.55Z", Ms),
-    "1970-01-02T00:00:00.55Z" = test_parse("1970-01-01T23:59:60.55Z", Mys),
-    "1970-01-02T00:00:00.55Z" = test_parse("1970-01-01T23:59:60.55Z", Ns),
+    "1970-01-02T00:00:00.550Z" = test_parse("1970-01-01T23:59:60.55Z", Ms),
+    "1970-01-02T00:00:00.550Z" = test_parse("1970-01-01T23:59:60.55Z", Na),
+    "1970-01-02T00:00:00.550000Z" =
+        test_parse("1970-01-01T23:59:60.55Z", Mys),
+    "1970-01-02T00:00:00.550000000Z" =
+        test_parse("1970-01-01T23:59:60.55Z", Ns),
     "1970-01-02T00:00:00.999999Z" =
         test_parse("1970-01-01T23:59:60.999999Z", Mys),
-    "1970-01-02T00:00:01Z" =
+    "1970-01-02T00:00:01.000Z" =
         test_parse("1970-01-01T23:59:60.999999Z", Ms),
     "1970-01-01T00:00:00Z" = test_parse("1970-01-01T00:00:00+00:00"),
     "1970-01-01T00:00:00Z" = test_parse("1970-01-01T00:00:00-00:00"),
     "1969-12-31T00:01:00Z" = test_parse("1970-01-01T00:00:00+23:59"),
-    "1918-11-11T09:00:00Z" = test_parse("1918-11-11T11:00:00+02:00", Mys),
+    "1918-11-11T09:00:00.000000Z" =
+        test_parse("1918-11-11T11:00:00+02:00", Mys),
     "1970-01-01T00:00:00.000001Z" =
         test_parse("1970-01-01T00:00:00.000001Z", Mys),
 
@@ -242,54 +268,66 @@ rfc3339(Config) when is_list(Config) ->
     test_time(erlang:system_time(millisecond), Ms),
     test_time(erlang:system_time(microsecond), Mys++[{offset, "-02:20"}]),
 
-    T = erlang:system_time(second),
-    TS = do_format(T, []),
-    TS = do_format(T * 1000, Ms),
-    TS = do_format(T * 1000 * 1000, Mys),
-    TS = do_format(T * 1000 * 1000 * 1000, Ns),
-
     946720800 = TO = do_parse("2000-01-01 10:00:00Z", []),
     Str = "2000-01-01T10:02:00+00:02",
     Str = do_format(TO, [{offset, 120}]),
-    Str = do_format(TO * 1000, [{offset, 120 * 1000}]++Ms),
-    Str = do_format(TO * 1000 * 1000, [{offset, 120 * 1000 * 1000}]++Mys),
-    Str = do_format(TO * 1000 * 1000 * 1000,
-                    [{offset, 120 * 1000 * 1000 * 1000}]++Ns),
+    "2000-01-01T10:02:00.000+00:02" =
+        do_format(TO * 1000, [{offset, 120_000}]++Ms),
+    "2000-01-01T10:02:00.000000+00:02" =
+        do_format(TO * 1_000_000, [{offset, 120_000_000}]++Mys),
+    "2000-01-01T10:02:00.000000000+00:02" =
+        do_format(TO * 1_000_000_000,
+                  [{offset, 120_000_000_000}]++Ns),
+    "2000-01-01T10:02:00.000+00:02" =
+        do_format(TO * NaPerSec, [{offset, 120 * NaPerSec}]++Na),
+
+    1656147840 = do_parse("2022-06-25 11:04:00+02", []),
+    1656155040 = do_parse("2022-06-25 11:04:00-00", []),
+
 
     NStr = "2000-01-01T09:58:00-00:02",
     NStr = do_format(TO, [{offset, -120}]),
-    NStr = do_format(TO * 1000, [{offset, -120 * 1000}]++Ms),
-    NStr = do_format(TO * 1000 * 1000, [{offset, -120 * 1000 * 1000}]++Mys),
-    NStr = do_format(TO * 1000 * 1000 * 1000,
-                     [{offset, -120 * 1000 * 1000 * 1000}]++Ns),
+    "2000-01-01T09:58:00.000-00:02" =
+        do_format(TO * 1000, [{offset, -120_000}]++Ms),
+    "2000-01-01T09:58:00.000-00:02" =
+        do_format(TO * NaPerSec, [{offset, -120 * NaPerSec}]++Na),
+    "2000-01-01T09:58:00.000000-00:02" =
+        do_format(TO * 1_000_000, [{offset, -120_000_000}]++Mys),
+    "2000-01-01T09:58:00.000000000-00:02" =
+        do_format(TO * 1_000_000_000,
+                  [{offset, -120_000_000_000}]++Ns),
+    "2000-01-01T09:58:00.000-00:02" =
+        do_format(TO * 1000, [{offset, -120_000}]++Ms),
+    "2000-01-01T09:58:00.000-00:02" =
+        do_format(TO * NaPerSec, [{offset, -120 * NaPerSec}]++Na),
 
-    543210000 = do_parse("1970-01-01T00:00:00.54321Z", Ns),
-    54321000 = do_parse("1970-01-01T00:00:00.054321Z", Ns),
-    543210 = do_parse("1970-01-01T00:00:00.54321Z", Mys),
+    543_210_000 = do_parse("1970-01-01T00:00:00.54321Z", Ns),
+    543_210_00 = do_parse("1970-01-01T00:00:00.054321Z", Ns),
+    543_210 = do_parse("1970-01-01T00:00:00.54321Z", Mys),
     543 = do_parse("1970-01-01T00:00:00.54321Z", Ms),
     0 = do_parse("1970-01-01T00:00:00.000001Z", Ms),
     1 = do_parse("1970-01-01T00:00:00.000001Z", Mys),
     1000 = do_parse("1970-01-01T00:00:00.000001Z", Ns),
     0 = do_parse("1970-01-01Q00:00:00.00049Z", Ms),
     1 = do_parse("1970-01-01Q00:00:00.0005Z", Ms),
-    6543210 = do_parse("1970-01-01T00:00:06.54321Z", Mys),
+    6543_210 = do_parse("1970-01-01T00:00:06.54321Z", Mys),
     298815132000000 = do_parse("1979-06-21T12:12:12Z", Mys),
     -1613826000000000 = do_parse("1918-11-11T11:00:00Z", Mys),
     -1613833200000000 = do_parse("1918-11-11T11:00:00+02:00", Mys),
     -1613833200000000 = do_parse("1918-11-11T09:00:00Z", Mys),
 
-    "1970-01-01T00:00:00Z" = do_format_z(0, Mys),
+    "1970-01-01T00:00:00.000000Z" = do_format_z(0, Mys),
     "1970-01-01T00:00:01Z" = do_format_z(1, S),
     "1970-01-01T00:00:00.001Z" = do_format_z(1, Ms),
     "1970-01-01T00:00:00.000001Z" = do_format_z(1, Mys),
     "1970-01-01T00:00:00.000000001Z" = do_format_z(1, Ns),
-    "1970-01-01T00:00:01Z" = do_format_z(1000000, Mys),
-    "1970-01-01T00:00:00.54321Z" = do_format_z(543210, Mys),
+    "1970-01-01T00:00:01.000000Z" = do_format_z(1_000_000, Mys),
+    "1970-01-01T00:00:00.543210Z" = do_format_z(543_210, Mys),
     "1970-01-01T00:00:00.543Z" = do_format_z(543, Ms),
-    "1970-01-01T00:00:00.54321Z" = do_format_z(543210000, Ns),
-    "1970-01-01T00:00:06.54321Z" = do_format_z(6543210, Mys),
-    "1979-06-21T12:12:12Z" = do_format_z(298815132000000, Mys),
-    "1918-11-11T13:00:00Z" = do_format_z(-1613818800000000, Mys),
+    "1970-01-01T00:00:00.543210000Z" = do_format_z(543_210_000, Ns),
+    "1970-01-01T00:00:06.543210Z" = do_format_z(6_543_210, Mys),
+    "1979-06-21T12:12:12.000000Z" = do_format_z(298815132000000, Mys),
+    "1918-11-11T13:00:00.000000Z" = do_format_z(-1613818800000000, Mys),
     ok.
 
 %%

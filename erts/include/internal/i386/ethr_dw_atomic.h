@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,13 +67,13 @@ typedef volatile ethr_native_sint128_t__ * ethr_native_dw_ptr_t;
  * This code assumes 8 byte aligned memory in 64-bit mode, and 4 byte
  * aligned memory in 32-bit mode. A malloc implementation that does
  * not adhere to these alignment requirements is seriously broken,
- * and we wont bother trying to work around it.
+ * and we won't bother trying to work around it.
  *
  * Since memory alignment may be off by one word we need to align at
  * runtime. We, therefore, need an extra word allocated.
  */
 #define ETHR_DW_NATMC_MEM__(VAR) \
-   (&var->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
+   (&(VAR)->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
 typedef union {
 #ifdef ETHR_NATIVE_SU_DW_SINT_T
     volatile ETHR_NATIVE_SU_DW_SINT_T dw_sint;
@@ -137,7 +137,7 @@ ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 #if ETHR_NO_CLOBBER_EBX__ && !defined(ETHR_CMPXCHG8B_REGISTER_SHORTAGE)
 /* When no optimization is on, we'll run into a register shortage */
 #  if defined(ETHR_DEBUG) || defined(DEBUG) || defined(VALGRIND) \
-      || defined(GCOV) || defined(PURIFY) || defined(PURECOV)
+      || defined(GCOV)
 #    define ETHR_CMPXCHG8B_REGISTER_SHORTAGE 1
 #  else
 #    define ETHR_CMPXCHG8B_REGISTER_SHORTAGE 0
@@ -149,7 +149,7 @@ ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 
 static ETHR_INLINE int
 ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				 ethr_sint_t *new,
+				 ethr_sint_t *new_value,
 				 ethr_sint_t *xchg)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
@@ -159,7 +159,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 
 #if ETHR_NO_CLOBBER_EBX__ && ETHR_CMPXCHG8B_REGISTER_SHORTAGE
     /*
-     * gcc wont let us use ebx as input and we
+     * gcc won't let us use ebx as input and we
      * get a register shortage
      */
 
@@ -171,12 +171,12 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"setz %3\n\t"
 	"popl %%ebx\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new_value)
 	: "cc", "memory");
 
 #elif ETHR_NO_CLOBBER_EBX__
     /*
-     * gcc wont let us use ebx as input
+     * gcc won't let us use ebx as input
      */
 
     __asm__ __volatile__(
@@ -186,7 +186,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"setz %3\n\t"
 	"popl %%ebx\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new_value[1]), "r"(new_value[0])
 	: "cc", "memory");
 
 #else
@@ -199,7 +199,7 @@ ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 	"lock; cmpxchg" ETHR_DW_CMPXCHG_SFX__ " %0\n\t"
 	"setz %3\n\t"
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new_value[1]), "b"(new_value[0])
 	: "cc", "memory");
 
 #endif
@@ -224,10 +224,10 @@ ethr_native_su_dw_atomic_read(ethr_native_dw_atomic_t *var)
     if (ETHR_X86_RUNTIME_CONF_HAVE_SSE2__)
 	return ethr_sse2_native_su_dw_atomic_read(var);
     else {
-	ethr_sint_t new[2];
+	ethr_sint_t new_value[2];
 	ethr_dw_atomic_no_sse2_convert_t xchg;
-	new[0] = new[1] = xchg.sint[0] = xchg.sint[1] = 0x83838383;
-	(void) ethr_native_dw_atomic_cmpxchg_mb(var, new, xchg.sint);
+	new_value[0] = new_value[1] = xchg.sint[0] = xchg.sint[1] = 0x83838383;
+	(void) ethr_native_dw_atomic_cmpxchg_mb(var, new_value, xchg.sint);
 	return xchg.sint64;
     }
 }
@@ -242,9 +242,9 @@ ethr_native_su_dw_atomic_set(ethr_native_dw_atomic_t *var,
 	ethr_sse2_native_su_dw_atomic_set(var, val);
     else {
 	ethr_sint_t xchg[2] = {0, 0};
-	ethr_dw_atomic_no_sse2_convert_t new;
-	new.sint64 = val;
-	while (!ethr_native_dw_atomic_cmpxchg_mb(var, new.sint, xchg));
+	ethr_dw_atomic_no_sse2_convert_t new_value;
+	new_value.sint64 = val;
+	while (!ethr_native_dw_atomic_cmpxchg_mb(var, new_value.sint, xchg));
     }
 }
 

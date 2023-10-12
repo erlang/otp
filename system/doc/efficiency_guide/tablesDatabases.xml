@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -137,7 +137,7 @@ print_person(PersonId) ->
             io:format("No person with ID = ~p~n", [PersonID])
     end.
 
-%%% Internal functionss
+%%% Internal functions
 print_name(PersonID) -> 
     [Person] = ets:lookup(person, PersonId),
     io:format("No person ~p~n", [Person#person.name]).

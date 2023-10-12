@@ -1,0 +1,56 @@
+
+  [;1m-spec port_command(Port, Data, OptionList) -> boolean()[0m
+  [;1m                      when[0m
+  [;1m                          Port :: port() | atom(),[0m
+  [;1m                          Data :: iodata(),[0m
+  [;1m                          Option :: force | nosuspend,[0m
+  [;1m                          OptionList :: [Option].[0m
+
+  Sends data to a port. [;;4mport_command(Port, Data, [])[0m equals [;;4m[0m
+  [;;4mport_command(Port, Data)[0m.
+
+  If the port command is aborted, [;;4mfalse[0m is returned, otherwise [;;4m[0m
+  [;;4mtrue[0m.
+
+  If the port is busy, the calling process is suspended until the
+  port is not busy anymore.
+
+  [;;4mOption[0ms:
+
+  [;;4m[;;4mforce[0m[0m:
+    The calling process is not suspended if the port is busy,
+    instead the port command is forced through. The call fails
+    with a [;;4mnotsup[0m exception if the driver of the port does not
+    support this. For more information, see driver flag [;;4m[0m
+    [;;4mERL_DRV_FLAG_SOFT_BUSY[0m.
+
+  [;;4m[;;4mnosuspend[0m[0m:
+    The calling process is not suspended if the port is busy,
+    instead the port command is aborted and [;;4mfalse[0m is returned.
+
+  Change:
+    More options can be added in a future release.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPort[0m is not an identifier of an open port, or the
+    registered name of an open port. If the calling process was
+    previously linked to the closed port, identified by [;;4mPort[0m,
+    the exit signal from the port is guaranteed to be delivered
+    before this [;;4mbadarg[0m exception occurs.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mData[0m is an invalid I/O list.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOptionList[0m is an invalid option list.
+
+  [;;4m[;;4mnotsup[0m[0m:
+    If option [;;4mforce[0m has been passed, but the driver of the port
+    does not allow forcing through a busy port.
+
+  Warning:
+    Do not send data to an unknown port. Any undefined behavior is
+    possible (including node crash) depending on how the port
+    driver interprets the data.

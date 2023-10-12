@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@
 -record(state, {nodes = [], 
 		dumped_core = false,  %% only dump fatal core once
 		args}).
+
+-include("mnesia.hrl").
 
 %%%----------------------------------------------------------------
 %%% Callback functions from gen_server
@@ -131,14 +133,14 @@ handle_system_event({mnesia_down, Node}, State) ->
 			"must be restarted. Forcing shutdown "
 			"after mnesia_down from ~p...~n",
 		    report_fatal(Msg, [Node], nocore, State#state.dumped_core),
-		    catch exit(whereis(mnesia_monitor), fatal),
+		    ?SAFE(exit(whereis(mnesia_monitor), fatal)),
 		    {ok, State};
 		{UserMod, UserFunc} ->
 		    Msg = "Warning: A fallback is installed and Mnesia got mnesia_down "
 			"from ~p. ~n",
 		    report_info(Msg, [Node]),
-		    case catch apply(UserMod, UserFunc, [Node]) of
-			{'EXIT', {undef, _Reason}} ->
+		    case ?CATCH(apply(UserMod, UserFunc, [Node])) of
+			{'EXIT', {undef, _R}} ->
 			    %% Backward compatibility
 			    apply(UserMod, UserFunc, []);
 			{'EXIT', Reason} ->

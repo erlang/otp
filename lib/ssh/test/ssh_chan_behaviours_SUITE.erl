@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,24 @@
 -module(ssh_chan_behaviours_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh.hrl").
+-include("ssh.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         defined_subsystem/1,
+         noexist_subsystem/1,
+         subsystem_client/1,
+         undefined_subsystem/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -72,12 +85,11 @@ end_per_testcase(_TC, Config) ->
     ct:log("Stop daemon: ~p ms",[(100*(Time div 1000)) / 100]),
     case flush() of
         [] -> ok;
-        Msgs -> ct:pal("Unhandled messages:~n~p", [Msgs])
+        Msgs -> ct:log("Unhandled messages:~n~p", [Msgs])
     end.
     
 
 -define(EXPECT(What, Bind),
-        Bind =
             (fun() ->
                      receive What ->
                              ct:log("~p:~p ~p got ~p",[?MODULE,?LINE,self(),What]),
@@ -92,7 +104,7 @@ end_per_testcase(_TC, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-%% Try start a subsystem whos name is not known by the server
+%% Try start a subsystem whose name is not known by the server
 noexist_subsystem(Config) ->
     C = proplists:get_value(connref, Config),
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
@@ -116,20 +128,20 @@ defined_subsystem(Config) ->
     {ok, Ch1} = ssh_connection:session_channel(C, infinity),
 
     success = ssh_connection:subsystem(C, Ch1, "ch1", infinity),
-    IDsrv = ?EXPECT({{_Csrv,_Ch1srv}, {ssh_channel_up,_Ch1srv,_Csrv}}, {_Csrv,_Ch1srv}),
+    IDsrv = ?EXPECT({{Csrv,Ch1srv}, {ssh_channel_up,Ch1srv,Csrv}}, {Csrv,Ch1srv}),
 
     ok = ssh_connection:close(C, Ch1),
     ?EXPECT({IDsrv, {terminate,normal}}, []),
     ?EXPECT({ssh_cm, C, {closed,Ch1}}, []), % self() is instead of a proper channel handler
     ok.
 
-%% Try to start and stop a subsystem from a ssh_client_channel behviour
+%% Try to start and stop a subsystem from a ssh_client_channel behaviour
 subsystem_client(Config) ->
     C = proplists:get_value(connref, Config),
 
     {ok,ChRef} = ssh_chan_behaviours_client:start_link(C),
-    IDclt = ?EXPECT({{C,Ch1clt},     {ssh_channel_up,Ch1clt,C}},     {C,Ch1clt}),
-    IDsrv = ?EXPECT({{_Csrv,Ch1srv}, {ssh_channel_up,Ch1srv,_Csrv}}, {_Csrv,Ch1srv}),
+    IDclt = ?EXPECT({{C,Ch1clt},     {ssh_channel_up,_C1clt,C}},     {C,Ch1clt}),
+    IDsrv = ?EXPECT({{Csrv,_h1srv}, {ssh_channel_up,Ch1srv,Csrv}}, {Csrv,Ch1srv}),
 
     ok = ssh_chan_behaviours_client:stop(ChRef),
     ?EXPECT({IDclt, {terminate,normal}}, []), % From the proper channel handler

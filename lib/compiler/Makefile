@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,3 +36,13 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+DIA_PLT_APPS=crypto
+
+NO_TEST_TARGET:=1 # Avoid warning about ignoring old recipe for target 'test'
+include $(ERL_TOP)/make/app_targets.mk
+
+# Enable feature maybe_expr in runtime when running tests
+# Note: this overrides, and uses, test target in app_targets.mk
+.PHONY: test
+test:
+	$(MAKE) ERL_ARGS="-enable-feature maybe_expr $(ERL_ARGS)" -f $(ERL_TOP)/make/app_targets.mk $@

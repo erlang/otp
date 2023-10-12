@@ -1,0 +1,9 @@
+
+binary_redef2.erl:15:2: Invalid type specification for function binary_redef2:t1/1.
+ The success typing is binary_redef2:t1(3) -> 6
+ But the spec is binary_redef2:t1(nonempty_bitstring()) -> nonempty_bitstring()
+ They do not overlap in the 1st argument, and the return types do not overlap
+binary_redef2.erl:20:2: Invalid type specification for function binary_redef2:new/0.
+ The success typing is binary_redef2:new() -> 3
+ But the spec is binary_redef2:new() -> nonempty_binary()
+ The return types do not overlap

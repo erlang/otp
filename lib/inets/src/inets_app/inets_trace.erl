@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2011-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 %% Parameters:
 %% Level -> max | min | integer()
 %% Destination -> File | Port | io | HandlerSpec
-%% Service -> httpc | httpd | ftpc | tftp | all
+%% Service -> httpc | httpd | all
 %% File -> string()
 %% Port -> integer()
 %% Verbosity -> true | false
@@ -56,7 +56,7 @@
 %% Note that it starts a tracer server.
 %% When Destination is the atom io (or the tuple {io, Verbosity}),
 %% all (printable) inets trace events (trace_ts events which has
-%% Severity withing Limit) will be written to stdout using io:format.
+%% Severity within Limit) will be written to stdout using io:format.
 %%
 %%-----------------------------------------------------------------
 enable(Level, Dest) ->
@@ -99,7 +99,7 @@ do_enable(Level, Type, HandleSpec) ->
 valid_trace_service(all) ->
     true;
 valid_trace_service(Service) ->
-    lists:member(Service, [httpc, httpd, ftpc, tftp]).
+    lists:member(Service, [httpc, httpd]).
 
 
 %%-----------------------------------------------------------------
@@ -188,7 +188,7 @@ error_to_exit(Where, {error, Reason}) ->
 %% Parameters:
 %% Severity -> 0 =< integer() =< 100
 %% Label -> string()
-%% Service -> httpd | httpc | ftp | tftp
+%% Service -> httpd | httpc
 %% Content -> [{tag, term()}]
 %%
 %% Description:

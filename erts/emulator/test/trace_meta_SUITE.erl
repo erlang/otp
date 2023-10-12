@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ config(priv_dir,_) ->
 -else.
 %% When run in test server.
 -export([all/0, suite/0,
-	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
@@ -82,17 +82,9 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 5}}].
 
-all() -> 
-case test_server:is_native(trace_meta_SUITE) of
-  true -> [not_run];
-  false ->
-      [basic, return, on_and_off, stack_grow, info, tracer,
-       combo, nosilent]
-end.
-
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
+all() ->
+    [basic, return, on_and_off, stack_grow, info, tracer,
+     combo, nosilent].
 
 %% Tests basic meta trace
 basic(Config) when is_list(Config) ->

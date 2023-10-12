@@ -127,7 +127,7 @@ xmerl_scan:file(Filename [ , Options ]) -> #xmlElement{}. </programlisting>
 	e.g. <computeroutput>xmerl_eventp.erl</computeroutput>) is for
 	customization functions to share one of the local states (in
 	<computeroutput>xmerl_eventp.erl</computeroutput>, the
-	continuation function and the fetch function both acces the
+	continuation function and the fetch function both access the
 	<computeroutput>cont_state</computeroutput>.)</para>
 
 	<para>Functions to access user state:</para>
@@ -357,7 +357,7 @@ Occurrence  ::= '*' | '?' | '+'
 
 	<para>The accumulator function is called to accumulate the
 	contents of an entity.When parsing very large files, it may
-	not be desireable to do so.In this case, an acc function can
+	not be desirable to do so.In this case, an acc function can
 	be provided that simply doesn't accumulate.</para>
 
 	<para>Note that it is possible to even modify the parsed

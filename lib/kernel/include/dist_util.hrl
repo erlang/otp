@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,11 @@
           f_handshake_complete, %% Notify handshake complete
           add_flags,         %% dflags to add
           reject_flags,      %% dflags not to use (not all can be rejected)
-          require_flags     %% dflags that are required
+          require_flags,     %% dflags that are required
+
+          %% New in kernel-@master@ (OTP-23.0)
+          this_creation,
+          other_creation
 }).
 	  
 

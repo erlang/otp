@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,9 +35,12 @@
       and has several features not found in Javadoc.</p>
   </description>
   <xi:include href="edoc.xml"/>
+  <xi:include href="edoc_cmd.xml"/>
   <xi:include href="edoc_doclet.xml"/>
+  <xi:include href="edoc_doclet_chunks.xml"/>
   <xi:include href="edoc_extract.xml"/>
   <xi:include href="edoc_layout.xml"/>
+  <xi:include href="edoc_layout_chunks.xml"/>
   <xi:include href="edoc_lib.xml"/>
   <xi:include href="edoc_run.xml"/>
 </application>

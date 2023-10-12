@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2015-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ void erts_cancel_proc_timer(Process *);
 void erts_set_port_timer(Port *, Sint64);
 void erts_cancel_port_timer(Port *);
 Sint64 erts_read_port_timer(Port *);
-int erts_cancel_bif_timers(Process *, ErtsBifTimers **, void **);
+int erts_cancel_bif_timers(Process *, ErtsBifTimers **, void **, int);
 int erts_detach_accessor_bif_timers(Process *, ErtsBifTimers *, void **);
 ErtsHLTimerService *erts_create_timer_service(void);
 void erts_hl_timer_init(void);

@@ -1,0 +1,1 @@
+-type connect_opts() :: foo:bar().              %unknown type here

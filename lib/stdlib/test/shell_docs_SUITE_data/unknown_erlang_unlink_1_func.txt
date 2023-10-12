@@ -1,0 +1,49 @@
+
+  [;1m-spec unlink(Id) -> true when Id :: pid() | port().[0m
+
+  Removes a link between the calling process and another process or
+  a port identified by [;;4mId[0m. We will from here on call the
+  identified process or port unlinkee.
+
+  A link can be set up using the [;;4mlink/1[0m BIF. For more information
+  on links and exit signals due to links, see the Processes
+  chapter in the Erlang Reference Manual:
+
+   • Links
+
+   • Sending Exit Signals
+
+   • Receiving Exit Signals
+
+  Once [;;4munlink(Id)[0m has returned, it is guaranteed that the link
+  between the caller and the unlinkee has no effect on the caller in
+  the future (unless the link is setup again). Note that if the
+  caller is trapping exits, an [;;4m{'EXIT', Id, ExitReason}[0m message
+  due to the link may have been placed in the message queue of the
+  caller before the [;;4munlink(Id)[0m call completed. Also note that the [;;4m[0m
+  [;;4m{'EXIT', Id, ExitReason}[0m message may be the result of the link,
+  but may also be the result of the unlikee sending the caller an
+  exit signal by calling the [;;4mexit/2[0m BIF. Therefore, it may or may
+  not be appropriate to clean up the message queue after a call to [;;4m[0m
+  [;;4munlink(Id)[0m as follows, when trapping exits:
+
+    unlink(Id),
+    receive
+        {'EXIT', Id, _} ->
+            true
+    after 0 ->
+            true
+    end
+
+  The link removal is performed asynchronously. If such a link does
+  not exist, nothing is done. A detailed description of the link
+  protocol can be found in the Distribution Protocol chapter of
+  the ERTS User's Guide.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
+  Failure: [;;4mbadarg[0m if [;;4mId[0m does not identify a process or a node
+  local port.

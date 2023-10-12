@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,13 +22,16 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
-         add_handler/3, remove_handler/1,
+-export([start_link/0, add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
          set_module_level/2, unset_module_level/0,
-         unset_module_level/1, cache_module_level/1,
-         set_config/2, set_config/3, update_config/2,
+         unset_module_level/1,
+         set_config/2, set_config/3,
+         update_config/2, update_config/3,
          update_formatter_config/2]).
+
+%% Helper
+-export([diff_maps/2,do_internal_log/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -39,7 +42,7 @@
 -define(SERVER, logger).
 -define(LOGGER_SERVER_TAG, '$logger_cb_process').
 
--record(state, {tid, async_req, async_req_queue}).
+-record(state, {tid, async_req, async_req_queue, remote_logger}).
 
 %%%===================================================================
 %%% API
@@ -101,16 +104,26 @@ unset_module_level(Modules) when is_list(Modules) ->
 unset_module_level(Modules) ->
     {error,{not_a_list_of_modules,Modules}}.
 
-cache_module_level(Module) ->
-    gen_server:cast(?SERVER,{cache_module_level,Module}).
-
 set_config(Owner,Key,Value) ->
-    update_config(Owner,#{Key=>Value}).
+    case sanity_check(Owner,Key,Value) of
+        ok ->
+            call({change_config,set,Owner,Key,Value});
+        Error ->
+            Error
+    end.
 
 set_config(Owner,Config) ->
     case sanity_check(Owner,Config) of
         ok ->
-            call({set_config,Owner,Config});
+            call({change_config,set,Owner,Config});
+        Error ->
+            Error
+    end.
+
+update_config(Owner,Key,Value) ->
+    case sanity_check(Owner,Key,Value) of
+        ok ->
+            call({change_config,update,Owner,Key,Value});
         Error ->
             Error
     end.
@@ -118,7 +131,7 @@ set_config(Owner,Config) ->
 update_config(Owner, Config) ->
     case sanity_check(Owner,Config) of
         ok ->
-            call({update_config,Owner,Config});
+            call({change_config,update,Owner,Config});
         Error ->
             Error
     end.
@@ -138,6 +151,8 @@ init([]) ->
     process_flag(trap_exit, true),
     put(?LOGGER_SERVER_TAG,true),
     Tid = logger_config:new(?LOGGER_TABLE),
+    %% Store initial proxy config. logger_proxy reads config from here at startup.
+    logger_config:create(Tid,proxy,logger_proxy:get_default_config()),
     PrimaryConfig = maps:merge(default_config(primary),
                               #{handlers=>[simple]}),
     logger_config:create(Tid,primary,PrimaryConfig),
@@ -204,46 +219,90 @@ handle_call({add_filter,Id,Filter}, _From,#state{tid=Tid}=State) ->
 handle_call({remove_filter,Id,FilterId}, _From, #state{tid=Tid}=State) ->
     Reply = do_remove_filter(Tid,Id,FilterId),
     {reply,Reply,State};
-handle_call({update_config,primary,NewConfig}, _From, #state{tid=Tid}=State) ->
-    {ok,OldConfig} = logger_config:get(Tid,primary),
-    Config = maps:merge(OldConfig,NewConfig),
-    {reply,logger_config:set(Tid,primary,Config),State};
-handle_call({update_config,HandlerId,NewConfig}, From, #state{tid=Tid}=State) ->
-    case logger_config:get(Tid,HandlerId) of
-        {ok,#{module:=Module}=OldConfig} ->
-            Config = maps:merge(OldConfig,NewConfig),
-            call_h_async(
-              fun() ->
-                      call_h(Module,changing_config,[OldConfig,Config],
-                             {ok,Config})
-              end,
-              fun({ok,Config1}) ->
-                      logger_config:set(Tid,HandlerId,Config1);
-                 (Error) ->
-                      Error
-              end,From,State);
-        Error ->
-            {reply,Error,State}
-    end;
-handle_call({set_config,primary,Config0}, _From, #state{tid=Tid}=State) ->
-    Config = maps:merge(default_config(primary),Config0),
-    {ok,#{handlers:=Handlers}} = logger_config:get(Tid,primary),
+handle_call({change_config,SetOrUpd,proxy,Config0},_From,#state{tid=Tid}=State) ->
+    Default =
+        case SetOrUpd of
+            set ->
+                logger_proxy:get_default_config();
+            update ->
+                {ok,OldConfig} = logger_config:get(Tid,proxy),
+                OldConfig
+        end,
+    Config = maps:merge(Default,Config0),
+    Reply =
+        case logger_olp:set_opts(logger_proxy,Config) of
+            ok ->
+                logger_config:set(Tid,proxy,Config);
+            Error ->
+                Error
+        end,
+    {reply,Reply,State};
+handle_call({change_config,SetOrUpd,primary,Config0}, _From,
+            #state{tid=Tid}=State) ->
+    {ok,#{handlers:=Handlers}=OldConfig} = logger_config:get(Tid,primary),
+    Default =
+        case SetOrUpd of
+            set -> default_config(primary);
+            update -> OldConfig
+        end,
+    Config = maps:merge(Default,Config0),
     Reply = logger_config:set(Tid,primary,Config#{handlers=>Handlers}),
     {reply,Reply,State};
-handle_call({set_config,HandlerId,Config0}, From, #state{tid=Tid}=State) ->
+handle_call({change_config,_SetOrUpd,primary,Key,Value}, _From,
+            #state{tid=Tid}=State) ->
+    {ok,OldConfig} = logger_config:get(Tid,primary),
+    Reply = logger_config:set(Tid,primary,OldConfig#{Key=>Value}),
+    {reply,Reply,State};
+handle_call({change_config,SetOrUpd,HandlerId,Config0}, From,
+            #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
         {ok,#{module:=Module}=OldConfig} ->
-            Config = maps:merge(default_config(HandlerId,Module),Config0),
-            call_h_async(
-              fun() ->
-                      call_h(Module,changing_config,[OldConfig,Config],
-                             {ok,Config})
-              end,
-              fun({ok,Config1}) ->
-                      logger_config:set(Tid,HandlerId,Config1);
-                 (Error) ->
-                      Error
-              end,From,State);
+            Default =
+                case SetOrUpd of
+                    set -> default_config(HandlerId,Module);
+                    update -> OldConfig
+                end,
+            Config = maps:merge(Default,Config0),
+            case check_config_change(OldConfig,Config) of
+                ok ->
+                    call_h_async(
+                      fun() ->
+                              call_h(Module,changing_config,
+                                     [SetOrUpd,OldConfig,Config],
+                                     {ok,Config})
+                      end,
+                      fun({ok,Config1}) ->
+                              logger_config:set(Tid,HandlerId,Config1);
+                         (Error) ->
+                              Error
+                      end,From,State);
+                Error ->
+                    {reply,Error,State}
+            end;
+        _ ->
+            {reply,{error,{not_found,HandlerId}},State}
+    end;
+handle_call({change_config,SetOrUpd,HandlerId,Key,Value}, From,
+            #state{tid=Tid}=State) ->
+    case logger_config:get(Tid,HandlerId) of
+        {ok,#{module:=Module}=OldConfig} ->
+            Config = OldConfig#{Key=>Value},
+            case check_config_change(OldConfig,Config) of
+                ok ->
+                    call_h_async(
+                      fun() ->
+                              call_h(Module,changing_config,
+                                     [SetOrUpd,OldConfig,Config],
+                                     {ok,Config})
+                      end,
+                      fun({ok,Config1}) ->
+                              logger_config:set(Tid,HandlerId,Config1);
+                         (Error) ->
+                              Error
+                      end,From,State);
+                Error ->
+                    {reply,Error,State}
+            end;
         _ ->
             {reply,{error,{not_found,HandlerId}},State}
     end;
@@ -263,18 +322,15 @@ handle_call({update_formatter_config,HandlerId,NewFConfig},_From,
             {error,{not_found,HandlerId}}
         end,
     {reply,Reply,State};
-handle_call({set_module_level,Modules,Level}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:set_module_level(Tid,Modules,Level),
+handle_call({set_module_level,Modules,Level}, _From, State) ->
+    Reply = logger_config:set_module_level(Modules,Level),
     {reply,Reply,State};
-handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
-    Reply = logger_config:unset_module_level(Tid,Modules),
+handle_call({unset_module_level,Modules}, _From, State) ->
+    Reply = logger_config:unset_module_level(Modules),
     {reply,Reply,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
-    call_h_reply(Reply,State);
-handle_cast({cache_module_level,Module}, #state{tid=Tid}=State) ->
-    logger_config:cache_module_level(Tid,Module),
-    {noreply, State}.
+    call_h_reply(Reply,State).
 
 %% Interface for those who can't call the API - e.g. the emulator, or
 %% places related to code loading.
@@ -297,12 +353,14 @@ handle_info(Unexpected,State) when element(1,Unexpected) == 'EXIT' ->
     %% The simple handler will send an 'EXIT' message when it is replaced
     %% We may as well ignore all 'EXIT' messages that we get
     ?LOG_INTERNAL(debug,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
     {noreply,State};
 handle_info(Unexpected,State) ->
     ?LOG_INTERNAL(info,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
@@ -314,17 +372,18 @@ terminate(_Reason, _State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-call(Request) ->
+call(Request) when is_tuple(Request) ->
     Action = element(1,Request),
     case get(?LOGGER_SERVER_TAG) of
         true when
               Action == add_handler; Action == remove_handler;
               Action == add_filter; Action == remove_filter;
-              Action == update_config; Action == set_config ->
+              Action == change_config ->
             {error,{attempting_syncronous_call_to_self,Request}};
         _ ->
             gen_server:call(?SERVER,Request,?DEFAULT_LOGGER_CALL_TIMEOUT)
     end.
+
 
 do_add_filter(Tid,Id,{FId,_} = Filter) ->
     case logger_config:get(Tid,Id) of
@@ -356,6 +415,7 @@ do_remove_filter(Tid,Id,FilterId) ->
 
 default_config(primary) ->
     #{level=>notice,
+      metadata=>#{},
       filters=>[],
       filter_default=>log};
 default_config(Id) ->
@@ -370,11 +430,13 @@ default_config(Id,Module) ->
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).
 
-sanity_check(HandlerId,Config) when is_map(Config) ->
-    sanity_check_1(HandlerId,maps:to_list(Config));
+sanity_check(Owner,Config) when is_map(Config) ->
+    sanity_check_1(Owner,maps:to_list(Config));
 sanity_check(_,Config) ->
     {error,{invalid_config,Config}}.
 
+sanity_check_1(proxy,_Config) ->
+    ok; % Details are checked by logger_olp:set_opts/2
 sanity_check_1(Owner,Config) when is_list(Config) ->
     try
         Type = get_type(Owner),
@@ -400,6 +462,8 @@ check_config(Owner,[{filter_default,FD}|Config]) ->
 check_config(handler,[{formatter,Formatter}|Config]) ->
     check_formatter(Formatter),
     check_config(handler,Config);
+check_config(primary,[{metadata,Meta}|Config]) when is_map(Meta) ->
+    check_config(primary,Config);
 check_config(primary,[C|_]) ->
     throw({invalid_primary_config,C});
 check_config(handler,[{_,_}|Config]) ->
@@ -458,6 +522,15 @@ check_formatter({Mod,Config}) ->
 check_formatter(Formatter) ->
     throw({invalid_formatter,Formatter}).
 
+%% When changing configuration for a handler, the id and module fields
+%% can not be changed.
+check_config_change(#{id:=Id,module:=Module},#{id:=Id,module:=Module}) ->
+    ok;
+check_config_change(OldConfig,NewConfig) ->
+    {Old,New} = logger_server:diff_maps(maps:with([id,module],OldConfig),
+                                        maps:with([id,module],NewConfig)),
+    {error,{illegal_config_change,Old,New}}.
+
 call_h(Module, Function, Args, DefRet) ->
     %% Not calling code:ensure_loaded + erlang:function_exported here,
     %% since in some rare terminal cases, the code_server might not
@@ -466,11 +539,17 @@ call_h(Module, Function, Args, DefRet) ->
     catch
         C:R:S ->
             case {C,R,S} of
+                {error,undef,[{Module,Function=changing_config,Args,_}|_]}
+                  when length(Args)=:=3 ->
+                    %% Backwards compatible call, if changing_config/3
+                    %% did not exist.
+                    call_h(Module, Function, tl(Args), DefRet);
                 {error,undef,[{Module,Function,Args,_}|_]} ->
                     DefRet;
                 _ ->
                     ST = logger:filter_stacktrace(?MODULE,S),
                     ?LOG_INTERNAL(error,
+                                  #{},
                                   [{logger,callback_crashed},
                                    {process,?SERVER},
                                    {reason,{C,R,ST}}]),
@@ -513,6 +592,7 @@ call_h_reply({'DOWN',Ref,_Proc,Pid,Reason}, #state{ async_req = {Ref,_PostFun,_F
     %% to the spawned process. It is only here to make sure that the logger_server does
     %% not deadlock if that happens.
     ?LOG_INTERNAL(error,
+                  #{},
                   [{logger,process_exited},
                    {process,Pid},
                    {reason,Reason}]),
@@ -521,7 +601,34 @@ call_h_reply({'DOWN',Ref,_Proc,Pid,Reason}, #state{ async_req = {Ref,_PostFun,_F
       State);
 call_h_reply(Unexpected,State) ->
     ?LOG_INTERNAL(info,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
     {noreply,State}.
+
+%% Return two maps containing only the fields that differ.
+diff_maps(M1,M2) ->
+    diffs(lists:sort(maps:to_list(M1)),lists:sort(maps:to_list(M2)),#{},#{}).
+
+diffs([H|T1],[H|T2],D1,D2) ->
+    diffs(T1,T2,D1,D2);
+diffs([{K,V1}|T1],[{K,V2}|T2],D1,D2) ->
+    diffs(T1,T2,D1#{K=>V1},D2#{K=>V2});
+diffs([],[],D1,D2) ->
+    {D1,D2}.
+
+do_internal_log(Level,Location,Log,[Report] = Data) ->
+    do_internal_log(Level,Location,Log,Data,{report,Report});
+do_internal_log(Level,Location,Log,[Fmt,Args] = Data) ->
+    do_internal_log(Level,Location,Log,Data,{Fmt,Args}).
+do_internal_log(Level,Location,Log,Data,Msg) ->
+    Meta = logger:add_default_metadata(Location),
+    %% Spawn these to avoid deadlocks
+    case Log of
+        #{ meta := #{ internal_log_event := true } } ->
+            _ = spawn(logger_simple_h,log,[#{level=>Level,msg=>Msg,meta=>Meta},#{}]);
+        _ ->
+            _ = spawn(logger,macro_log,[Location,Level|Data]++
+                          [Meta#{internal_log_event=>true}])
+    end.

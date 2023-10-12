@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,20 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r16).
-
-%%%
-%%% The same compiled code for this module must be possible to load
-%%% in R16B and later.
-%%%
+-compile(r24).
 
 %% Test Controller interface
--export([is_release_available/1]).
--export([start_tracer_node/2,trace_nodes/2,stop_tracer_node/1]).
+-export([is_release_available/1, find_release/1]).
 -export([start_node/5, stop_node/1]).
 -export([kill_nodes/0, nodedown/1]).
 %% Internal export
--export([node_started/1,trc/1,handle_debug/4]).
+-export([node_started/1]).
 
 -include("test_server_internal.hrl").
 -record(slave_info, {name,socket,client}).
@@ -39,7 +33,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                                                  %%%
 %%% All code in this module executes on the test_server_ctrl process %%%
-%%% except for node_started/1 and trc/1 which execute on a new node. %%%
+%%% except for node_started/1  which execute on a new node.          %%%
 %%%                                                                  %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -67,211 +61,6 @@ nodedown(Sock) ->
 	[] ->
 	    ok
     end.
-
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Start trace node
-%%%
-start_tracer_node(TraceFile,TI) ->
-    Match = #slave_info{name='$1',_='_'},
-    SlaveNodes = lists:map(fun([N]) -> [" ",N] end,
-			   ets:match(slave_tab,Match)),
-    TargetNode = node(),
-    Cookie = TI#target_info.cookie,
-    {ok,LSock} = gen_tcp:listen(0,[binary,{reuseaddr,true},{packet,2}]),
-    {ok,TracePort} = inet:port(LSock),
-    Prog = quote_progname(pick_erl_program(default)),
-    Cmd = lists:concat([Prog, " -sname tracer -hidden -setcookie ", Cookie, 
-			" -s ", ?MODULE, " trc ", TraceFile, " ", 
-			TracePort, " ", TI#target_info.os_family]),
-    spawn(fun() -> print_data(open_port({spawn,Cmd},[stream])) end),
-%!    open_port({spawn,Cmd},[stream]),
-    case gen_tcp:accept(LSock,?ACCEPT_TIMEOUT) of
-	{ok,Sock} -> 
-	    gen_tcp:close(LSock),
-	    receive 
-		{tcp,Sock,Result} when is_binary(Result) ->
-		    case unpack(Result) of
-			error ->
-			    gen_tcp:close(Sock),
-			    {error,timeout};
-			{ok,started} ->
-			    trace_nodes(Sock,[TargetNode | SlaveNodes]),
-			    {ok,Sock};
-			{ok,Error} -> Error
-		    end;
-		{tcp_closed,Sock} ->
-		    gen_tcp:close(Sock),
-		    {error,could_not_start_tracernode}
-	    after ?ACCEPT_TIMEOUT ->
-		    gen_tcp:close(Sock),
-		    {error,timeout}
-	    end;
-	Error -> 
-	    gen_tcp:close(LSock),
-	    {error,{could_not_start_tracernode,Error}}
-    end.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Start a tracer on each of these nodes and set flags and patterns
-%%%
-trace_nodes(Sock,Nodes) ->
-    Bin = term_to_binary({add_nodes,Nodes}),
-    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
-    receive_ack(Sock).
-
-
-receive_ack(Sock) ->
-    receive
-	{tcp,Sock,Bin} when is_binary(Bin) ->
-	    case unpack(Bin) of
-		error -> receive_ack(Sock);
-		{ok,_} -> ok
-	    end;
-	_ ->
-	    receive_ack(Sock)
-    end.
-    
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Stop trace node
-%%%
-stop_tracer_node(Sock) ->
-    Bin = term_to_binary(id(stop)),
-    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
-    receive {tcp_closed,Sock} -> gen_tcp:close(Sock) end,
-    ok.
-    
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% trc([TraceFile,Nodes]) -> ok
-%%
-%% Start tracing on the given nodes
-%%
-%% This function executes on the new node
-%%
-trc([TraceFile, PortAtom, Type]) ->
-    {Result,Patterns} = 
-	case file:consult(TraceFile) of
-	    {ok,TI} ->
-		Pat = parse_trace_info(lists:flatten(TI)),
-		{started,Pat};
-	    Error ->
-		{Error,[]}
-	end,
-    Port = list_to_integer(atom_to_list(PortAtom)),
-    case catch gen_tcp:connect("localhost", Port, [binary, 
-						   {reuseaddr,true}, 
-						   {packet,2}]) of
-	{ok,Sock} -> 
-	    BinResult = term_to_binary(Result),
-	    ok = gen_tcp:send(Sock,tag_trace_message(BinResult)),
-	    trc_loop(Sock,Patterns,Type);
-	_else ->
-	    ok
-    end,
-    erlang:halt().
-trc_loop(Sock,Patterns,Type) ->
-    receive
-	{tcp,Sock,Bin} ->
-	    case unpack(Bin) of
-		error ->
-		    ttb:stop(),
-		    gen_tcp:close(Sock);
-		{ok,{add_nodes,Nodes}} -> 
-		    add_nodes(Nodes,Patterns,Type),
-		    Bin = term_to_binary(id(ok)),
-		    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
-		    trc_loop(Sock,Patterns,Type);
-		{ok,stop} -> 
-		    ttb:stop(),
-		    gen_tcp:close(Sock)
-	    end;
-	{tcp_closed,Sock} ->
-	    ttb:stop(),
-	    gen_tcp:close(Sock)
-    end.
-add_nodes(Nodes,Patterns,_Type) ->
-    {ok, _} = ttb:tracer(Nodes,[{file,{local, test_server}},
-			        {handler, {{?MODULE,handle_debug},initial}}]),
-    {ok, _} = ttb:p(all,[call,timestamp]),
-    lists:foreach(fun({TP,M,F,A,Pat}) -> ttb:TP(M,F,A,Pat);
-		     ({CTP,M,F,A}) -> ttb:CTP(M,F,A) 
-		  end,
-		  Patterns).
-
-parse_trace_info([{TP,M,Pat}|Pats]) when TP=:=tp; TP=:=tpl ->
-    [{TP,M,'_','_',Pat}|parse_trace_info(Pats)];
-parse_trace_info([{TP,M,F,Pat}|Pats]) when TP=:=tp; TP=:=tpl ->
-    [{TP,M,F,'_',Pat}|parse_trace_info(Pats)];
-parse_trace_info([{TP,M,F,A,Pat}|Pats]) when TP=:=tp; TP=:=tpl ->
-    [{TP,M,F,A,Pat}|parse_trace_info(Pats)];
-parse_trace_info([CTP|Pats]) when CTP=:=ctp; CTP=:=ctpl; CTP=:=ctpg ->
-    [{CTP,'_','_','_'}|parse_trace_info(Pats)];
-parse_trace_info([{CTP,M}|Pats]) when CTP=:=ctp; CTP=:=ctpl; CTP=:=ctpg ->
-    [{CTP,M,'_','_'}|parse_trace_info(Pats)];
-parse_trace_info([{CTP,M,F}|Pats]) when CTP=:=ctp; CTP=:=ctpl; CTP=:=ctpg ->
-    [{CTP,M,F,'_'}|parse_trace_info(Pats)];
-parse_trace_info([{CTP,M,F,A}|Pats]) when CTP=:=ctp; CTP=:=ctpl; CTP=:=ctpg ->
-    [{CTP,M,F,A}|parse_trace_info(Pats)];
-parse_trace_info([]) ->
-    [];
-parse_trace_info([_other|Pats]) -> % ignore
-    parse_trace_info(Pats).
-
-handle_debug(Out,Trace,TI,initial) ->
-    handle_debug(Out,Trace,TI,0);
-handle_debug(_Out,end_of_trace,_TI,N) ->
-    N;
-handle_debug(Out,Trace,_TI,N) ->
-    print_trc(Out,Trace,N),
-    N+1.
-
-print_trc(Out,{trace_ts,P,call,{M,F,A},C,Ts},N) ->
-    io:format(Out,
-	      "~w: ~s~n"
-	      "Process   : ~w~n"
-	      "Call      : ~w:~tw/~w~n"
-	      "Arguments : ~tp~n"
-	      "Caller    : ~tw~n~n",
-	      [N,ts(Ts),P,M,F,length(A),A,C]);
-print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
-    io:format(Out,
-	      "~w: ~s~n"
-	      "Process   : ~w~n"
-	      "Call      : ~w:~tw/~w~n"
-	      "Arguments : ~tp~n~n",
-	      [N,ts(Ts),P,M,F,length(A),A]);
-print_trc(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
-    io:format(Out,
-	      "~w: ~s~n"
-	      "Process      : ~w~n"
-	      "Return from  : ~w:~tw/~w~n"
-	      "Return value : ~tp~n~n",
-	      [N,ts(Ts),P,M,F,A,R]);
-print_trc(Out,{drop,X},N) ->
-    io:format(Out,
-	      "~w: Tracer dropped ~w messages - too busy~n~n",
-	      [N,X]);
-print_trc(Out,Trace,N) ->
-    Ts = element(size(Trace),Trace),
-    io:format(Out,
-	      "~w: ~s~n"
-	      "Trace        : ~tp~n~n",
-	      [N,ts(Ts),Trace]).
-ts({_, _, Micro} = Now) ->
-    {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(Now),
-    io_lib:format("~4.4.0w-~2.2.0w-~2.2.0w ~2.2.0w:~2.2.0w:~2.2.0w,~6.6.0w",
-		  [Y,M,D,H,Min,S,Micro]).
-
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Start slave/peer nodes (initiated by test_server:start_node/5)
@@ -313,7 +102,8 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
     FailOnError = start_node_get_option_value(fail_on_error, OptList, true),
     Prog0 = start_node_get_option_value(erl, OptList, default),
-    Prog = quote_progname(pick_erl_program(Prog0)),
+    {ClearAFlags, Prog1} = pick_erl_program(Prog0),
+    Prog = quote_progname(Prog1),
     Args = 
 	case string:find(SuppliedArgs,"-setcookie") of
 	    nomatch ->
@@ -327,9 +117,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 			NodeStarted,
 			CrashArgs,
 			" ", Args]),
-    Opts = case start_node_get_option_value(env, OptList, []) of
-	       [] -> [];
-	       Env -> [{env, Env}]
+    Opts = case {ClearAFlags, start_node_get_option_value(env, OptList, [])} of
+	       {false, []} -> [];
+	       {false, Env} -> [{env, Env}];
+               {true, []} -> [{env, [{"ERL_AFLAGS", false}]}];
+	       {true, Env} -> [{env, [{"ERL_AFLAGS", false} | Env]}]
 	   end,
     %% peer is always started on localhost
     %%
@@ -382,33 +174,63 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
     Args = lists:concat([" ", SuppliedArgs, CrashArgs]),
 
     Prog0 = start_node_get_option_value(erl, OptList, default),
-    Prog = pick_erl_program(Prog0),
+    {ClearAFlags, Prog} = pick_erl_program(Prog0),
     Ret = 
 	case start_which_node(OptList) of
 	    {error,Reason} -> {{error,Reason},undefined,undefined};
-	    Host0 -> do_start_node_slave(Host0,SlaveName,Args,Prog,Cleanup)
+	    Host0 -> do_start_node_slave(Host0,SlaveName,Args,Prog,Cleanup,
+                                         ClearAFlags)
 	end,
     gen_server:reply(From,Ret).
 
+%% Temporary suppression, to avoid a warning calling undocumented
+%%  but deprecated function.
+-compile([{nowarn_deprecated_function,[{slave,start,5}]}]).
 
-do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup) ->
+do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup, ClearAFlags) ->
     Host =
 	case Host0 of
 	    local -> test_server_sup:hoststr();
 	    _ -> cast_to_list(Host0)
 	end,
     Cmd = Prog ++ " " ++ Args,
-    case slave:start(Host, SlaveName, Args, no_link, Prog) of
-	{ok,Nodename} ->
-	    case Cleanup of
-		true -> ets:insert(slave_tab,#slave_info{name=Nodename});
-		false -> ok
-	    end,
-	    {{ok,Nodename}, Host, Cmd, [], []};
-	Ret ->
-	    {Ret, Host, Cmd}
+    SavedAFlags = save_clear_aflags(ClearAFlags),
+    Res = case slave:start(Host, SlaveName, Args, no_link, Prog) of
+              {ok,Nodename} ->
+                  case Cleanup of
+                      true -> ets:insert(slave_tab,#slave_info{name=Nodename});
+                      false -> ok
+                  end,
+                  {{ok,Nodename}, Host, Cmd, [], []};
+              Ret ->
+                  {Ret, Host, Cmd}
+          end,
+    restore_aflags(SavedAFlags),
+    Res.
+
+%%
+%% This saving/clearing/restoring is not free from races, but since
+%% there are no slave:start() that has an option for setting environment
+%% this is the best we can do without improving the slave module. Since
+%% the slave module is about to be replaced by the new peer module, we
+%% do not bother...
+%%
+save_clear_aflags(false) ->
+    false;
+save_clear_aflags(true) ->
+    case os:getenv("ERL_AFLAGS") of
+        false ->
+            false;
+        ErlAFlags ->
+            os:unsetenv("ERL_AFLAGS"),
+            ErlAFlags
     end.
 
+restore_aflags(false) ->
+    ok;
+restore_aflags(ErlAFlags) ->
+    true = os:putenv("ERL_AFLAGS", ErlAFlags),
+    ok.
 
 wait_for_node_started(LSock,Timeout,Client,Cleanup,TI,CtrlPid) ->
     case gen_tcp:accept(LSock,Timeout) of
@@ -590,24 +412,31 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 %%%  {release, Rel} where Rel = String | latest | previous
 %%%  this
 %%%
+%%% First element of returned tuple answers the question
+%%% "Do we need to clear ERL_AFLAGS?":
+%%% When starting a node with a previous release, options in
+%%% ERL_AFLAGS could prevent the node from starting. For example,
+%%% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
+%%% start if the previous release happens to also have a lock
+%%% counter emulator installed (unlikely).
 pick_erl_program(default) ->
-    ct:get_progname();
+    {false, ct:get_progname()};
 pick_erl_program(L) ->
     P = random_element(L),
     case P of
 	{prog, S} ->
-	    S;
+	    {false, S};
 	{release, S} ->
-	    find_release(S);
+	    {true, find_release(S)};
 	this ->
-	    ct:get_progname()
+	    {false, ct:get_progname()}
     end.
 
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to
 %% allow spaces in the path.
 %%
-%% Arguments could exist either if the executable is excplicitly given
+%% Arguments could exist either if the executable is explicitly given
 %% ({prog,String}) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same
@@ -631,17 +460,72 @@ do_quote_progname([Prog,Arg|Args]) ->
 random_element(L) ->
     lists:nth(rand:uniform(length(L)), L).
 
+otp_release_path(RelPath) ->
+    filename:join(otp_release_root(), RelPath).
+
+otp_release_root() ->
+    case get(test_server_release_root) of
+        undefined ->
+            Root = os:getenv("TEST_SERVER_RELEASE_ROOT",
+                             "/usr/local/otp/releases"),
+            put(test_server_release_root, Root),
+            Root;
+        Cached ->
+            Cached
+    end.
+
 find_release(latest) ->
-    "/usr/local/otp/releases/latest/bin/erl";
+    otp_release_path("latest/bin/erl");
 find_release(previous) ->
     "kaka";
 find_release(Rel) ->
-    find_release(os:type(), Rel).
+    case find_release(os:type(), Rel) of
+        none ->
+            case find_release_path(Rel) of
+                none ->
+                    case string:take(Rel,"_",true) of
+                        {Rel,[]} ->
+                            none;
+                        {RelNum,_} ->
+                            find_release_path(RelNum)
+                    end;
+                Release ->
+                    Release
+            end;
+        Else ->
+            Else
+    end.
+
+find_release_path(Rel) ->
+    Paths = string:lexemes(os:getenv("PATH"), ":"),
+    find_release_path(Paths, Rel).
+find_release_path([Path|T], Rel) ->
+    case os:find_executable("erl", Path) of
+        false ->
+            find_release_path(T, Rel);
+        ErlExec ->
+            QuotedExec = "\""++ErlExec++"\"",
+            Release = os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~ts\", [erlang:system_info(otp_release)])' -s init stop"),
+            case Release =:= Rel of
+                true ->
+                    %% Check is the release is a source tree release,
+                    %% if so we should not use it.
+                    case os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~p\",[filelib:is_file(filename:join([code:root_dir(),\"OTP_VERSION\"]))]).' -s init stop") of
+                        "true" ->
+                            find_release_path(T, Rel);
+                        "false" ->
+                            ErlExec
+                    end;
+                false -> find_release_path(T, Rel)
+            end
+    end;
+find_release_path([], _) ->
+    none.
 
 find_release({unix,sunos}, Rel) ->
     case os:cmd("uname -p") of
 	"sparc" ++ _ ->
-	    "/usr/local/otp/releases/otp_beam_solaris8_" ++ Rel ++ "/bin/erl";
+            otp_release_path("otp_beam_solaris8_" ++ Rel ++ "/bin/erl");
 	_ ->
 	    none
     end;
@@ -656,13 +540,23 @@ find_release({unix,linux}, Rel) ->
 find_release(_, _) -> none.
 
 find_rel_linux(Rel) ->
-    case suse_release() of
-	none -> [];
-	SuseRel -> find_rel_suse(Rel, SuseRel)
+    try
+        case ubuntu_release() of
+            none -> none;
+            [UbuntuRel |_] -> throw(find_rel_ubuntu(Rel, UbuntuRel))
+        end,
+        case suse_release() of
+            none -> none;
+            SuseRel -> throw(find_rel_suse(Rel, SuseRel))
+        end,
+        []
+    catch
+        throw:Result ->
+            Result
     end.
 
 find_rel_suse(Rel, SuseRel) ->
-    Root = "/usr/local/otp/releases/sles",
+    Root = otp_release_path("sles"),
     case SuseRel of
 	"11" ->
 	    %% Try both SuSE 11, SuSE 10 and SuSe 9 in that order.
@@ -735,6 +629,93 @@ suse_release(Fd) ->
 	    end
     end.
 
+find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 16 ->
+    [];
+find_rel_ubuntu(Rel, UbuntuRel) when is_integer(UbuntuRel) ->
+    Root = otp_release_path("ubuntu"),
+    lists:foldl(fun (ChkUbuntuRel, Acc) ->
+                        find_rel_ubuntu_aux1(Rel, Root++integer_to_list(ChkUbuntuRel))
+                            ++ Acc
+                end,
+                [],
+                lists:seq(16, UbuntuRel)).
+
+find_rel_ubuntu_aux1(Rel, RootWc) ->
+    case erlang:system_info(wordsize) of
+	4 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_32");
+	8 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_64") ++
+		find_rel_ubuntu_aux2(Rel, RootWc++"_32")
+    end.
+
+find_rel_ubuntu_aux2(Rel, RootWc) ->
+    RelDir = filename:dirname(RootWc),
+    Pat = filename:basename(RootWc ++ "_" ++ Rel) ++ ".*",
+    case file:list_dir(RelDir) of
+	{ok,Dirs} ->
+	    case lists:filter(fun(Dir) ->
+				      case re:run(Dir, Pat, [unicode]) of
+					  nomatch -> false;
+					  _       -> true
+				      end
+			      end, Dirs) of
+		[] ->
+		    [];
+		[R|_] ->
+		    [filename:join([RelDir,R,"bin","erl"])]
+	    end;
+	_ ->
+	    []
+    end.
+
+ubuntu_release() ->
+    case file:open("/etc/lsb-release", [read]) of
+	{ok,Fd} ->
+	    try
+		ubuntu_release(Fd, undefined, undefined)
+	    after
+		file:close(Fd)
+	    end;
+	{error,_} -> none
+    end.
+
+ubuntu_release(_Fd, DistrId, Rel) when DistrId /= undefined,
+                                      Rel /= undefined ->
+    Ubuntu = case DistrId of
+                 "Ubuntu" -> true;
+                 "ubuntu" -> true;
+                 _ -> false
+             end,
+    case Ubuntu of
+        false -> none;
+        true -> Rel
+    end;
+ubuntu_release(Fd, DistroId, Rel) ->
+    case io:get_line(Fd, '') of
+	eof ->
+            none;
+	Line when is_list(Line) ->
+	    case re:run(Line, "^DISTRIB_ID=(\\w+)$",
+                        [{capture,all_but_first,list}]) of
+		{match,[NewDistroId]} ->
+                    ubuntu_release(Fd, NewDistroId, Rel);
+                nomatch ->
+                    case re:run(Line, "^DISTRIB_RELEASE=(\\d+(?:\\.\\d+)*)$",
+                                [{capture,all_but_first,list}]) of
+                        {match,[RelList]} ->
+                            NewRel = lists:map(fun (N) ->
+                                                       list_to_integer(N)
+                                               end,
+                                               string:lexemes(RelList, ".")),
+                            ubuntu_release(Fd, DistroId, NewRel);
+                        nomatch ->
+                            ubuntu_release(Fd, DistroId, Rel)
+                    end
+            end
+    end.
+
+
 unpack(Bin) ->
     {One,Term} = split_binary(Bin, 1),
     case binary_to_list(One) of
@@ -746,24 +727,3 @@ unpack(Bin) ->
 	_ -> error
     end.
 
-id(I) -> I.
-   
-print_data(Port) ->
-    ct_util:mark_process(),
-    receive
-	{Port, {data, Bytes}} ->
-	    io:put_chars(Bytes),
-	    print_data(Port);
-	{Port, eof} ->
-	    Port ! {self(), close}, 
-	    receive
-		{Port, closed} ->
-		    true
-	    end, 
-	    receive
-		{'EXIT',  Port,  _} -> 
-		    ok
-	    after 1 ->				% force context switch
-		    ok
-	    end
-    end.

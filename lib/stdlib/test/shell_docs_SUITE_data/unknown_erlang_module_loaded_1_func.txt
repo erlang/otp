@@ -1,0 +1,5 @@
+
+  [;1m-spec module_loaded(Module) -> boolean() when Module :: module().[0m
+
+  Returns [;;4mtrue[0m if the module [;;4mModule[0m is loaded as current code;
+  otherwise, [;;4mfalse[0m. It does not attempt to load the module.

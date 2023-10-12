@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,10 @@
 %%
 -module(rpc).
 
+%%
+%% As of OTP 25 the rpc module require server side support for erpc.
+%%
+
 %% General rpc, broadcast,multicall, promise and parallel evaluator
 %% facility
 
@@ -26,6 +30,7 @@
 %% a separate module.
 
 -define(NAME, rex).
+-define(TAB_NAME, rex_nodes_observer).
 
 -behaviour(gen_server).
 
@@ -61,12 +66,23 @@
 
 -export_type([key/0]).
 
+%% Removed functions
+
+-removed([{safe_multi_server_call,2,"use rpc:multi_server_call/2 instead"},
+          {safe_multi_server_call,3,"use rpc:multi_server_call/3 instead"}]).
+
 %%------------------------------------------------------------------------
 
 -type state() :: map().
 
 %%------------------------------------------------------------------------
 
+-define(MAX_INT_TIMEOUT, 4294967295).
+-define(TIMEOUT_TYPE, 0..?MAX_INT_TIMEOUT | 'infinity').
+-define(IS_VALID_TMO_INT(TI_), (is_integer(TI_)
+                                andalso (0 =< TI_)
+                                andalso (TI_ =< ?MAX_INT_TIMEOUT))).
+-define(IS_VALID_TMO(T_), ((T_ == infinity) orelse ?IS_VALID_TMO_INT(T_))).
 
 %% The rex server may receive a huge amount of
 %% messages. Make sure that they are stored off heap to
@@ -101,25 +117,48 @@ stop(Rpc) ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    {ok, maps:new()}.
+    {ok, #{nodes_observer => start_nodes_observer()}}.
 
--spec handle_call(term(), term(), state()) ->
-        {'noreply', state()} |
-	{'reply', term(), state()} |
-	{'stop', 'normal', 'stopped', state()}.
+-spec handle_call(
+        term(),
+        gen_server:from() | {?NAME,term()},
+        state()) ->
+                         {'noreply', state()} |
+                         {'reply', term(), state()} |
+                         {'stop', 'normal', 'stopped', state()}.
 
 handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
-    handle_call_call(Mod, Fun, Args, Gleader, To, S);
+    %% Spawn not to block the rex server.
+    ExecCall = fun () ->
+                       set_group_leader(Gleader),
+                       GleaderBeforeCall = group_leader(),
+                       Reply = execute_call(Mod, Fun, Args),
+                       case Gleader of
+                           {send_stdout_to_caller, _} ->
+                               %% The group leader sends the response
+                               %% to make sure that the client gets
+                               %% all stdout that it should get before
+                               %% the response
+                               Ref = erlang:make_ref(),
+                               GleaderBeforeCall ! {stop, self(), Ref, To, Reply},
+                               receive
+                                   Ref -> ok
+                               end;
+                           _ ->
+                               reply(To, Reply)
+                       end
+               end,
+    try
+        {_,Mon} = spawn_monitor(ExecCall),
+        {noreply, maps:put(Mon, To, S)}
+    catch
+        error:system_limit ->
+            {reply, {badrpc, {'EXIT', system_limit}}, S}
+    end;
 handle_call({block_call, Mod, Fun, Args, Gleader}, _To, S) ->
     MyGL = group_leader(),
     set_group_leader(Gleader),
-    Reply = 
-	case catch apply(Mod,Fun,Args) of
-	    {'EXIT', _} = Exit ->
-		{badrpc, Exit};
-	    Other ->
-		Other
-	end,
+    Reply = execute_call(Mod, Fun, Args),
     group_leader(MyGL, self()), % restore
     {reply, Reply, S};
 handle_call(stop, _To, S) ->
@@ -130,25 +169,32 @@ handle_call(_, _To, S) ->
 -spec handle_cast(term(), state()) -> {'noreply', state()}.
 
 handle_cast({cast, Mod, Fun, Args, Gleader}, S) ->
-    spawn(fun() ->
-		  set_group_leader(Gleader),
-		  apply(Mod, Fun, Args)
-	  end),
+    _ = try
+            spawn(fun() ->
+                          set_group_leader(Gleader),
+                          erpc:execute_cast(Mod, Fun, Args)
+                  end)
+        catch
+            error:system_limit ->
+                ok
+        end,
     {noreply, S};
 handle_cast(_, S) ->
     {noreply, S}.  % Ignore !
 
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
-handle_info({'DOWN', _, process, Caller, normal}, S) ->
-    {noreply, maps:remove(Caller, S)};
-handle_info({'DOWN', _, process, Caller, Reason}, S) ->
-    case maps:get(Caller, S, undefined) of
+handle_info({'DOWN', M, process, P, _}, #{nodes_observer := {P,M}} = S) ->
+    {noreply, S#{nodes_observer => start_nodes_observer()}};
+handle_info({'DOWN', M, process, _, normal}, S) ->
+    {noreply, maps:remove(M, S)};
+handle_info({'DOWN', M, process, _, Reason}, S) ->
+    case maps:get(M, S, undefined) of
 	undefined ->
 	    {noreply, S};
 	{_, _} = To ->
-	    gen_server:reply(To, {badrpc, {'EXIT', Reason}}),
-	    {noreply, maps:remove(Caller, S)}
+	    reply(To, {badrpc, {'EXIT', Reason}}),
+	    {noreply, maps:remove(M, S)}
     end;
 handle_info({From, {sbcast, Name, Msg}}, S) ->
     _ = case catch Name ! Msg of  %% use catch to get the printout
@@ -166,9 +212,27 @@ handle_info({From, {send, Name, Msg}}, S) ->
                 ok    %% It's up to Name to respond !!!!!
         end,
     {noreply, S};
-handle_info({From, {call,Mod,Fun,Args,Gleader}}, S) ->
+handle_info({From, {call, Mod, Fun, Args, Gleader}}, S) ->
     %% Special for hidden C node's, uugh ...
-    handle_call_call(Mod, Fun, Args, Gleader, {From,?NAME}, S);
+    To = {?NAME, From},
+    NewGleader =
+        case Gleader of
+            send_stdout_to_caller ->
+                {send_stdout_to_caller, From};
+            _ ->
+                Gleader
+        end,
+    Request = {call, Mod, Fun, Args, NewGleader},
+    case handle_call(Request, To, S) of
+        {noreply, _NewS} = Return ->
+            Return;
+        {reply, Reply, NewS} ->
+            reply(To, Reply),
+            {noreply, NewS}
+    end;
+handle_info({From, features_request}, S) ->
+    From ! {features_reply, node(), [erpc]},
+    {noreply, S};
 handle_info(_, S) ->
     {noreply, S}.
 
@@ -182,33 +246,39 @@ terminate(_, _S) ->
 code_change(_, S, _) ->
     {ok, S}.
 
-%%
-%% Auxiliary function to avoid a false dialyzer warning -- do not inline
-%%
-handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
-    %% Spawn not to block the rpc server.
-    {Caller,_} =
-	erlang:spawn_monitor(
-	  fun () ->
-		  set_group_leader(Gleader),
-		  Reply = 
-		      %% in case some sucker rex'es 
-		      %% something that throws
-		      case catch apply(Mod, Fun, Args) of
-			  {'EXIT', _} = Exit ->
-			      {badrpc, Exit};
-			  Result ->
-			      Result
-		      end,
-		  gen_server:reply(To, Reply)
-	  end),
-    {noreply, maps:put(Caller, To, S)}.
-
 
 %% RPC aid functions ....
 
+reply({?NAME, From}, Reply) ->
+    From ! {?NAME, Reply},
+    ok;
+reply({From, _} = To, Reply) when is_pid(From) ->
+    gen_server:reply(To, Reply).
+
+
+execute_call(Mod, Fun, Args) ->
+    try
+        {return, Return} = erpc:execute_call(Mod, Fun, Args),
+        Return
+    catch
+        throw:Result ->
+            Result;
+        exit:Reason ->
+            {badrpc, {'EXIT', Reason}};
+        error:Reason:Stack ->
+            case erpc:is_arg_error(Reason, Mod, Fun, Args) of
+                true ->
+                    {badrpc, {'EXIT', Reason}};
+                false ->
+                    RpcStack = erpc:trim_stack(Stack, Mod, Fun, Args),
+                    {badrpc, {'EXIT', {Reason, RpcStack}}}
+            end
+    end.
+
 set_group_leader(Gleader) when is_pid(Gleader) -> 
     group_leader(Gleader, self());
+set_group_leader({send_stdout_to_caller, CallerPid}) ->
+    group_leader(cnode_call_group_leader_start(CallerPid), self());
 set_group_leader(user) -> 
     %% For example, hidden C nodes doesn't want any I/O.
     Gleader = case whereis(user) of
@@ -254,8 +324,57 @@ proxy_user_flush() ->
     end,
     proxy_user_flush().
 
+start_nodes_observer() ->
+    Init = fun () ->
+                   process_flag(priority, high),
+                   process_flag(trap_exit, true),
+                   Tab = ets:new(?TAB_NAME,
+                                 [{read_concurrency, true},
+                                  protected]),
+                   persistent_term:put(?TAB_NAME, Tab),
+                   ok = net_kernel:monitor_nodes(true),
+                   lists:foreach(fun (N) ->
+                                         self() ! {nodeup, N}
+                                 end,
+                                 [node()|nodes()]),
+                   nodes_observer_loop(Tab)
+        end,
+    spawn_monitor(Init).
+
+nodes_observer_loop(Tab) ->
+    receive
+        {nodeup, nonode@nohost} ->
+            ok;
+        {nodeup, N} ->
+            {?NAME, N} ! {self(), features_request};
+        {nodedown, N} ->
+            ets:delete(Tab, N);
+        {features_reply, N, FeatureList} ->
+            try
+                SpawnRpc = lists:member(erpc, FeatureList),
+                ets:insert(Tab, {N, SpawnRpc})
+            catch
+                _:_ -> ets:insert(Tab, {N, false})
+            end;
+        _ ->
+            ignore
+    end,
+    nodes_observer_loop(Tab).
 
 %% THE rpc client interface
+
+%% Call
+
+-define(RPCIFY(ERPC_),
+        try ERPC_ of
+            {'EXIT', _} = BadRpc_ ->
+                {badrpc, BadRpc_};
+            Result_ ->
+                Result_
+        catch
+            Class_:Reason_ ->
+                rpcify_exception(Class_, Reason_)
+        end).
 
 -spec call(Node, Module, Function, Args) -> Res | {badrpc, Reason} when
       Node :: node(),
@@ -265,10 +384,8 @@ proxy_user_flush() ->
       Res :: term(),
       Reason :: term().
 
-call(N,M,F,A) when node() =:= N ->  %% Optimize local call
-    local_call(M, F, A);
 call(N,M,F,A) ->
-    do_call(N, {call,M,F,A,group_leader()}, infinity).
+    call(N,M,F,A,infinity).
 
 -spec call(Node, Module, Function, Args, Timeout) ->
                   Res | {badrpc, Reason} when
@@ -278,14 +395,10 @@ call(N,M,F,A) ->
       Args :: [term()],
       Res :: term(),
       Reason :: term(),
-      Timeout :: timeout().
+      Timeout :: ?TIMEOUT_TYPE.
 
-call(N,M,F,A,infinity) when node() =:= N ->  %% Optimize local call
-    local_call(M,F,A);
-call(N,M,F,A,infinity) ->
-    do_call(N, {call,M,F,A,group_leader()}, infinity);
-call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
-    do_call(N, {call,M,F,A,group_leader()}, Timeout).
+call(N,M,F,A,T) ->
+    ?RPCIFY(erpc:call(N, M, F, A, T)).
 
 -spec block_call(Node, Module, Function, Args) -> Res | {badrpc, Reason} when
       Node :: node(),
@@ -295,10 +408,8 @@ call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
       Res :: term(),
       Reason :: term().
 
-block_call(N,M,F,A) when node() =:= N -> %% Optimize local call
-    local_call(M,F,A);
 block_call(N,M,F,A) ->
-    do_call(N, {block_call,M,F,A,group_leader()}, infinity).
+    block_call(N,M,F,A,infinity).
 
 -spec block_call(Node, Module, Function, Args, Timeout) ->
                   Res | {badrpc, Reason} when
@@ -308,24 +419,45 @@ block_call(N,M,F,A) ->
       Args :: [term()],
       Res :: term(),
       Reason :: term(),
-      Timeout :: timeout().
+      Timeout :: ?TIMEOUT_TYPE.
 
-block_call(N,M,F,A,_Timeout) when node() =:= N ->  %% Optimize local call
-    local_call(M, F, A);
-block_call(N,M,F,A,infinity) ->
-    do_call(N, {block_call,M,F,A,group_leader()}, infinity);
-block_call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
-    do_call(N, {block_call,M,F,A,group_leader()}, Timeout).
+block_call(N,M,F,A,Timeout) when is_atom(N),
+                                 is_atom(M),
+                                 is_list(A),
+                                 ?IS_VALID_TMO(Timeout) ->
+    do_srv_call(N, {block_call,M,F,A,group_leader()}, Timeout).
+    
 
-local_call(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
-    case catch apply(M, F, A) of
-	{'EXIT',_}=V -> {badrpc, V};
-	Other -> Other
-    end.
+%% call() implementation utilizing erpc:call()...
 
-do_call(Node, Request, infinity) ->
+rpcify_exception(throw, {'EXIT', _} = BadRpc) ->
+    {badrpc, BadRpc};
+rpcify_exception(throw, Return) ->
+    Return;
+rpcify_exception(exit, {exception, Exit}) ->
+    {badrpc, {'EXIT', Exit}};
+rpcify_exception(exit, {signal, Reason}) ->
+    {badrpc, {'EXIT', Reason}};
+rpcify_exception(exit, Reason) ->
+    exit(Reason);
+rpcify_exception(error, {exception, Error, Stack}) ->
+    {badrpc, {'EXIT', {Error, Stack}}};
+rpcify_exception(error, {erpc, badarg}) ->
+    error(badarg);
+rpcify_exception(error, {erpc, noconnection}) ->
+    {badrpc, nodedown};
+rpcify_exception(error, {erpc, timeout}) ->
+    {badrpc, timeout};
+rpcify_exception(error, {erpc, notsup}) ->
+    {badrpc, notsup};
+rpcify_exception(error, {erpc, Error}) ->
+    {badrpc, {'EXIT', Error}};
+rpcify_exception(error, Reason) ->
+    error(Reason).
+
+do_srv_call(Node, Request, infinity) ->
     rpc_check(catch gen_server:call({?NAME,Node}, Request, infinity));
-do_call(Node, Request, Timeout) ->
+do_srv_call(Node, Request, Timeout) ->
     Tag = make_ref(),
     {Receiver,Mref} =
 	erlang:spawn_monitor(
@@ -346,6 +478,7 @@ do_call(Node, Request, Timeout) ->
     end.
 
 rpc_check_t({'EXIT', {timeout,_}}) -> {badrpc, timeout};
+rpc_check_t({'EXIT', {timeout_value,_}}) -> error(badarg);
 rpc_check_t(X) -> rpc_check(X).
 	    
 rpc_check({'EXIT', {{nodedown,_},_}}) ->
@@ -395,13 +528,14 @@ server_call(Node, Name, ReplyWrapper, Msg)
       Function :: atom(),
       Args :: [term()].
 
-cast(Node, Mod, Fun, Args) when Node =:= node() ->
-    catch spawn(Mod, Fun, Args),
-    true;
 cast(Node, Mod, Fun, Args) ->
-    gen_server:cast({?NAME,Node}, {cast,Mod,Fun,Args,group_leader()}),
+    try
+        ok = erpc:cast(Node, Mod, Fun, Args)
+    catch
+        error:{erpc, badarg} ->
+            error(badarg)
+    end,
     true.
-
 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
 -spec abcast(Name, Msg) -> abcast when
@@ -423,9 +557,9 @@ abcast([Node|Tail], Name, Mess) ->
 abcast([], _,_) -> abcast.
 
 
-%% Syncronous broadcast, returns a list of the nodes which had Name
+%% Synchronous broadcast, returns a list of the nodes which had Name
 %% as a registered server. Returns {Goodnodes, Badnodes}.
-%% Syncronous in the sense that we know that all servers have received the
+%% Synchronous in the sense that we know that all servers have received the
 %% message when we return from the call, we can't know that they have
 %% processed the message though.
 
@@ -464,8 +598,11 @@ eval_everywhere(Mod, Fun, Args) ->
       Args :: [term()].
 
 eval_everywhere(Nodes, Mod, Fun, Args) ->
-    gen_server:abcast(Nodes, ?NAME, {cast,Mod,Fun,Args,group_leader()}).
-
+    lists:foreach(fun (Node) ->
+                          cast(Node, Mod, Fun, Args)
+                  end,
+                  Nodes),
+    abcast.
 
 send_nodes([Node|Tail], Name, Msg, Monitors) when is_atom(Node) ->
     Monitor = start_monitor(Node, Name),
@@ -489,7 +626,6 @@ start_monitor(Node, Name) ->
 	    {Node,erlang:monitor(process, {Name, Node})}
     end.
 
-
 %% Call apply(M,F,A) on all nodes in parallel
 -spec multicall(Module, Function, Args) -> {ResL, BadNodes} when
       Module :: module(),
@@ -500,6 +636,7 @@ start_monitor(Node, Name) ->
 
 multicall(M, F, A) -> 
     multicall(M, F, A, infinity).
+
 
 -spec multicall(Nodes, Module, Function, Args) -> {ResL, BadNodes} when
                   Nodes :: [node()],
@@ -512,7 +649,7 @@ multicall(M, F, A) ->
                   Module :: module(),
                   Function :: atom(),
                   Args :: [term()],
-                  Timeout :: timeout(),
+                  Timeout :: ?TIMEOUT_TYPE,
                   ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
                   BadNodes :: [node()].
 
@@ -527,24 +664,39 @@ multicall(M, F, A, Timeout) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Timeout :: timeout(),
+      Timeout :: ?TIMEOUT_TYPE,
       ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
       BadNodes :: [node()].
 
-multicall(Nodes, M, F, A, infinity)
-  when is_list(Nodes), is_atom(M), is_atom(F), is_list(A) ->
-    do_multicall(Nodes, M, F, A, infinity);
-multicall(Nodes, M, F, A, Timeout) 
-  when is_list(Nodes), is_atom(M), is_atom(F), is_list(A), is_integer(Timeout), 
-       Timeout >= 0 ->
-    do_multicall(Nodes, M, F, A, Timeout).
+multicall(Nodes, M, F, A, Timeout) ->
+    %%
+    %% We want to use erpc:multicall() and then convert the result
+    %% instead of using erpc:send_request()/erpc:receive_response()
+    %% directly. This since erpc:multicall() is able to utilize the
+    %% selective receive optimization when all clauses match on the
+    %% same reference. erpc:send_request()/erpc:receive_response()
+    %% is not able to utilize such optimizations.
+    %%
+    ERpcRes = try
+                  erpc:multicall(Nodes, M, F, A, Timeout)
+              catch
+                  error:{erpc, badarg} ->
+                      error(badarg)
+              end,
+    rpcmulticallify(Nodes, ERpcRes, [], []).
 
-do_multicall(Nodes, M, F, A, Timeout) ->
-    {Rep,Bad} = gen_server:multi_call(Nodes, ?NAME, 
-				      {call, M,F,A, group_leader()}, 
-				      Timeout),
-    {lists:map(fun({_,R}) -> R end, Rep), Bad}.
 
+rpcmulticallify([], [], Ok, Err) ->
+    {lists:reverse(Ok), lists:reverse(Err)};
+rpcmulticallify([_N|Ns], [{ok, {'EXIT', _} = Exit}|Rlts], Ok, Err) ->
+    rpcmulticallify(Ns, Rlts, [{badrpc, Exit}|Ok], Err);
+rpcmulticallify([_N|Ns], [{ok, Return}|Rlts], Ok, Err) ->
+    rpcmulticallify(Ns, Rlts, [Return|Ok], Err);
+rpcmulticallify([N|Ns], [{error, {erpc, Reason}}|Rlts], Ok, Err)
+  when Reason == timeout; Reason == noconnection ->
+    rpcmulticallify(Ns, Rlts, Ok, [N|Err]);
+rpcmulticallify([_N|Ns], [{Class, Reason}|Rlts], Ok, Err) ->
+    rpcmulticallify(Ns, Rlts, [rpcify_exception(Class, Reason)|Ok], Err).
 
 %% Send Msg to Name on all nodes, and collect the answers.
 %% Return {Replies, Badnodes} where Badnodes is a list of the nodes
@@ -599,11 +751,11 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
     end.
 
 %% Now for an asynchronous rpc.
-%% An asyncronous version of rpc that is faster for series of
+%% An asynchronous version of rpc that is faster for series of
 %% rpc's towards the same node. I.e. it returns immediately and 
 %% it returns a Key that can be used in a subsequent yield(Key).
 
--opaque key() :: pid().
+-opaque key() :: erpc:request_id().
 
 -spec async_call(Node, Module, Function, Args) -> Key when
       Node :: node(),
@@ -613,49 +765,45 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
       Key :: key().
 
 async_call(Node, Mod, Fun, Args) ->
-    ReplyTo = self(),
-    spawn(
-      fun() ->
-	      R = call(Node, Mod, Fun, Args),         %% proper rpc
-	      ReplyTo ! {self(), {promise_reply, R}}  %% self() is key
-      end).
+    try
+        erpc:send_request(Node, Mod, Fun, Args)
+    catch
+        error:{erpc, badarg} ->
+            error(badarg)
+    end.
 
 -spec yield(Key) -> Res | {badrpc, Reason} when
       Key :: key(),
       Res :: term(),
       Reason :: term().
 
-yield(Key) when is_pid(Key) ->
-    {value,R} = do_yield(Key, infinity),
-    R.
+yield(Key) ->
+    ?RPCIFY(erpc:receive_response(Key)).
 
 -spec nb_yield(Key, Timeout) -> {value, Val} | timeout when
       Key :: key(),
-      Timeout :: timeout(),
+      Timeout :: ?TIMEOUT_TYPE,
       Val :: (Res :: term()) | {badrpc, Reason :: term()}.
 
-nb_yield(Key, infinity=Inf) when is_pid(Key) ->
-    do_yield(Key, Inf);
-nb_yield(Key, Timeout) when is_pid(Key), is_integer(Timeout), Timeout >= 0 ->
-    do_yield(Key, Timeout).
+nb_yield(Key, Tmo) ->
+    try erpc:wait_response(Key, Tmo) of
+        no_response ->
+            timeout;
+        {response, {'EXIT', _} = BadRpc} ->
+            {value, {badrpc, BadRpc}};
+        {response, R} ->
+            {value, R}
+    catch
+        Class:Reason ->
+            {value, rpcify_exception(Class, Reason)}
+    end.
 
 -spec nb_yield(Key) -> {value, Val} | timeout when
       Key :: key(),
       Val :: (Res :: term()) | {badrpc, Reason :: term()}.
 
-nb_yield(Key) when is_pid(Key) ->
-    do_yield(Key, 0).
-
--spec do_yield(pid(), timeout()) -> {'value', _} | 'timeout'.
-
-do_yield(Key, Timeout) ->
-    receive
-        {Key,{promise_reply,R}} ->
-            {value,R}
-        after Timeout ->
-            timeout
-    end.
-
+nb_yield(Key) ->
+    nb_yield(Key, 0).
 
 %% A parallel network evaluator
 %% ArgL === [{M,F,Args},........]
@@ -730,3 +878,114 @@ pinfo(Pid, Item) when node(Pid) =:= node() ->
     process_info(Pid, Item);
 pinfo(Pid, Item) ->
     block_call(node(Pid), erlang, process_info, [Pid, Item]).
+
+%% The following functions with the cnode_call_group_leader_ prefix
+%% are used for RPC requests with the group leader field set to
+%% send_stdout_to_caller. The group leader that these functions
+%% implement sends back data that are written to stdout during the
+%% call. The group leader implementation is heavily inspired by the
+%% example from the documentation of "The Erlang I/O Protocol".
+
+
+%% A record is used for the state even though it consists of only one
+%% pid to make future extension easier
+-record(cnode_call_group_leader_state,
+        {
+         caller_pid :: pid()
+        }).
+
+-spec cnode_call_group_leader_loop(State :: #cnode_call_group_leader_state{}) -> ok | no_return().
+
+cnode_call_group_leader_loop(State) ->
+    receive
+	{io_request, From, ReplyAs, Request} ->
+	    {_, Reply, NewState}
+                = cnode_call_group_leader_request(Request, State),
+            From ! {io_reply, ReplyAs, Reply},
+            cnode_call_group_leader_loop(NewState);
+        {stop, StopRequesterPid, Ref, To, Reply} ->
+            reply(To, Reply),
+            StopRequesterPid ! Ref,
+            ok;
+	_Unknown ->
+            cnode_call_group_leader_loop(State)
+    end.
+
+-spec cnode_call_group_leader_request(Request, State) -> Result when
+      Request :: any(),
+      State :: #cnode_call_group_leader_state{},
+      Result :: {ok | error, Reply, NewState},
+      Reply :: term(),
+      NewState :: #cnode_call_group_leader_state{}.
+
+cnode_call_group_leader_request({put_chars, Encoding, Chars},
+                                State) ->
+    cnode_call_group_leader_put_chars(Chars, Encoding, State);
+cnode_call_group_leader_request({put_chars, Encoding, Module, Function, Args},
+                                State) ->
+    try
+	cnode_call_group_leader_request({put_chars,
+                                         Encoding,
+                                         apply(Module, Function, Args)},
+                                        State)
+    catch
+	_:_ ->
+	    {error, {error, Function}, State}
+    end;
+cnode_call_group_leader_request({requests, Reqs}, State) ->
+     cnode_call_group_leader_multi_request(Reqs, {ok, ok, State});
+cnode_call_group_leader_request({get_until, _, _, _, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_chars, _, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_line, _, _}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({get_geometry,_}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request({setopts, _Opts}, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request(getopts, State) ->
+    {error, {error,enotsup}, State};
+cnode_call_group_leader_request(_Other, State) ->
+    {error, {error,request}, State}.
+
+-spec cnode_call_group_leader_multi_request(Requests, PrevResponse) -> Result when
+      Requests :: list(),
+      PrevResponse :: {ok | error, Reply, State :: #cnode_call_group_leader_state{}},
+      Result :: {ok | error, Reply, NewState :: #cnode_call_group_leader_state{}},
+      Reply :: term().
+
+cnode_call_group_leader_multi_request([R|Rs], {ok, _Res, State}) ->
+    cnode_call_group_leader_multi_request(Rs, cnode_call_group_leader_request(R, State));
+cnode_call_group_leader_multi_request([_|_], Error) ->
+    Error;
+cnode_call_group_leader_multi_request([], Result) ->
+    Result.
+
+-spec cnode_call_group_leader_put_chars(Chars, Encoding, State) -> Result when
+      Chars :: unicode:latin1_chardata() | unicode:chardata() | unicode:external_chardata(),
+      Encoding :: unicode:encoding(),
+      State :: #cnode_call_group_leader_state{},
+      Result :: {ok | error, term(), NewState},
+      NewState :: #cnode_call_group_leader_state{}.
+
+cnode_call_group_leader_put_chars(Chars, Encoding, State) ->
+    CNodePid = State#cnode_call_group_leader_state.caller_pid,
+    case unicode:characters_to_binary(Chars,Encoding,utf8) of
+        Data when is_binary(Data) ->
+            CNodePid ! {rex_stdout, Data},
+            {ok, ok, State};
+        Error ->
+            {error, {error, Error}, state}
+    end.
+
+-spec cnode_call_group_leader_init(CallerPid :: pid()) -> ok | no_return().
+
+cnode_call_group_leader_init(CallerPid) ->
+    State = #cnode_call_group_leader_state{caller_pid = CallerPid},
+    cnode_call_group_leader_loop(State).
+
+-spec cnode_call_group_leader_start(CallerPid :: pid()) -> pid().
+
+cnode_call_group_leader_start(CallerPid) ->
+    spawn_link(fun() -> cnode_call_group_leader_init(CallerPid) end).

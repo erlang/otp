@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,8 @@
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.OtpErlangAtom;
-import com.ericsson.otp.erlang.OtpErlangLong;
-import com.ericsson.otp.erlang.OtpErlangObject;
-import com.ericsson.otp.erlang.OtpErlangPid;
-import com.ericsson.otp.erlang.OtpErlangTuple;
-import com.ericsson.otp.erlang.OtpMbox;
-import com.ericsson.otp.erlang.OtpNode;
+import java.util.Arrays;
+import com.ericsson.otp.erlang.*;
 
 class MboxSendReceive {
 
@@ -61,9 +56,9 @@ class MboxSendReceive {
 	    // Send the pid of mbox to erlang and wait for test case
 	    // instruction: {TestCaseTag, Pid}
 	    mbox.send("erl_send_receive_server", erlNode, mbox.self());
-	    OtpErlangObject o = mbox.receive(recTime);
-	    if (o == null) System.exit(1);
-	    OtpErlangTuple testCase = (OtpErlangTuple)o;
+	    OtpErlangObject obj = mbox.receive(recTime);
+	    if (obj == null) System.exit(1);
+	    OtpErlangTuple testCase = (OtpErlangTuple)obj;
 	    dbg("mbox received " + testCase);
 	    int tag = (int)((OtpErlangLong)testCase.elementAt(0)).longValue();
 	    OtpErlangPid erlangPid = (OtpErlangPid)testCase.elementAt(1);
@@ -86,10 +81,10 @@ class MboxSendReceive {
 		dbg("java_echo_server sending " + msg);
 		mbox.send(erlangPid,msg);
 
-		o = mbox.receive(recTime);
-		dbg("java_echo_server received " + o);
-		if (o == null) System.exit(2);
-		if (!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(3);
+		obj = mbox.receive(recTime);
+		dbg("java_echo_server received " + obj);
+		if (obj == null) System.exit(2);
+		if (!obj.equals(msgArray[1])) System.exit(3);
 
 		// Test3: Same as Test2, but using a new mbox2 which
 		// got its name already when it is created - i.e. not
@@ -100,10 +95,47 @@ class MboxSendReceive {
 		dbg("java_echo_server2 sending " + msg);
 		mbox2.send(erlangPid,msg);
 
-		o = mbox2.receive(recTime);
-		dbg("java_echo_server received " + o);
-		if (o == null) System.exit(4);
-		if (!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(5);
+		obj = mbox2.receive(recTime);
+		dbg("java_echo_server received " + obj);
+		if (obj == null) System.exit(4);
+		if (!obj.equals(msgArray[1])) System.exit(5);
+
+                // Test4: Test all term types
+                byte[] bytes = {1,2,3};
+                int[] ints = {11,22,33};
+                OtpErlangObject[] elements = {
+                    new OtpErlangAtom("atom"),
+                    new OtpErlangString("string"),
+                    new OtpErlangLong(17),
+                };
+                OtpErlangObject[] terms = {
+                    new OtpErlangBitstr(bytes, 5),
+                    new OtpErlangDouble(3.141592),
+                    new OtpErlangExternalFun("lists", "length", 1),
+                    //new OtpErlangFun(...),
+                    new OtpErlangList(elements),
+                    new OtpErlangLong(-1742),
+                    new OtpErlangMap(Arrays.copyOfRange(elements,0,elements.length-1),
+                                     Arrays.copyOfRange(elements,1,elements.length)),
+                    new OtpErlangPid(node.node(), 1372, 1742, 98765),
+                    new OtpErlangPort(node.node(), 1372, 87654),
+                    new OtpErlangRef(node.node(), ints, 76543),
+                    new OtpErlangString("This is an OtpErlangString"),
+                    new OtpErlangTuple(elements),
+                };
+                for (int i=0; i < terms.length; i++) {
+                    msgArray[1] = terms[i];
+                    msg = new OtpErlangTuple(msgArray);
+
+                    dbg("java_echo_server2 sending " + msg);
+                    mbox2.send(erlangPid,msg);
+
+                    obj = mbox2.receive(recTime);
+                    dbg("java_echo_server received " + obj);
+                    if (obj == null) System.exit(4);
+                    if (!obj.equals(msgArray[1])) System.exit(5);
+                }
+
 
 		break;
 
@@ -112,34 +144,34 @@ class MboxSendReceive {
 		// Test1: Sending message between mboxes on same node
 		// given registered name and node without host.
 		mbox.send("java_echo_server2","javanode",msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(6);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(7);
+		obj = mbox2.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(6);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(7);
 
 		// Test2: Sending message between mboxes on same node
 		// given registered name and node with host.
 		mbox.send("java_echo_server2",mbox2.self().node(),msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(8);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(9);
+		obj = mbox2.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(8);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(9);
 
 		// Test3: Sending message between mboxes on same node
 		// given registered name but not node.
 		mbox.send("java_echo_server2",msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(10);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(11);
+		obj = mbox2.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(10);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(11);
 
 		// Test4: Sending message between mboxes on same node
 		// given pid.
 		mbox.send(mbox2.self(),msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(12);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(13);
+		obj = mbox2.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(12);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(13);
 
 		break;
 
@@ -151,27 +183,27 @@ class MboxSendReceive {
 		// Test1: Sending message between mboxes on different
 		// nodes given registered name and node without host.
 		mbox.send("mboxOtherNode","javanode2",msgArray[1]);
-		o = mboxOtherNode.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(14);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(15);
+		obj = mboxOtherNode.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(14);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(15);
 
 		// Test2: Sending message between mboxes on different
 		// nodes given registered name and node with host.
 		mbox.send("mboxOtherNode",mboxOtherNode.self().node(),
 			  msgArray[1]);
-		o = mboxOtherNode.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(16);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(17);
+		obj = mboxOtherNode.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(16);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(17);
 
 		// Test3: Sending message between mboxes on different
 		// nodes given pid.
 		mbox.send(mboxOtherNode.self(),msgArray[1]);
-		o = mboxOtherNode.receive(recTime);
-		dbg("Mbox at same node: " + o);
-		if (o == null) System.exit(18);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(19);
+		obj = mboxOtherNode.receive(recTime);
+		dbg("Mbox at same node: " + obj);
+		if (obj == null) System.exit(18);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(19);
 
 		break;
 
@@ -181,33 +213,33 @@ class MboxSendReceive {
 		// Test1: Sending message to myself given registered
 		// name and node without host.
 		mbox2.send("java_echo_server2","javanode",msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Self: " + o);
-		if (o == null) System.exit(18);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(19);
+		obj = mbox2.receive(recTime);
+		dbg("Self: " + obj);
+		if (obj == null) System.exit(18);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(19);
 
 		// Test2: Sending message to myself given registered
 		// name and node with host.
 		mbox2.send("java_echo_server2",mbox2.self().node(),msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Self: " + o);
-		if (o == null) System.exit(20);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(21);
+		obj = mbox2.receive(recTime);
+		dbg("Self: " + obj);
+		if (obj == null) System.exit(20);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(21);
 
 		// Test3: Sending message to myself given registered
 		// name but not host.
 		mbox2.send("java_echo_server2",msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Self: " + o);
-		if (o == null) System.exit(22);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(23);
+		obj = mbox2.receive(recTime);
+		dbg("Self: " + obj);
+		if (obj == null) System.exit(22);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(23);
 
 		// Test4: Sending message to myself given pid.
 		mbox2.send(mbox2.self(),msgArray[1]);
-		o = mbox2.receive(recTime);
-		dbg("Self: " + o);
-		if (o == null) System.exit(24);
-		if(!((OtpErlangAtom)o).equals(msgArray[1])) System.exit(25);
+		obj = mbox2.receive(recTime);
+		dbg("Self: " + obj);
+		if (obj == null) System.exit(24);
+		if(!((OtpErlangAtom)obj).equals(msgArray[1])) System.exit(25);
 
 		break;
 

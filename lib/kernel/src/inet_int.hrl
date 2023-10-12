@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 -define(INET_AF_LOOPBACK,     4). % Fake for LOOPBACK in any address family
 -define(INET_AF_LOCAL,        5). % For Unix Domain address family
 -define(INET_AF_UNDEFINED,    6). % For any unknown address family
+-define(INET_AF_LIST,         7). % List of addresses for sctp connectx
 
 %% type codes to open and gettype - INET_REQ_GETTYPE
 -define(INET_TYPE_STREAM,     1).
@@ -134,6 +135,9 @@
 -define(UDP_OPT_ADD_MEMBERSHIP,  14).
 -define(UDP_OPT_DROP_MEMBERSHIP, 15).
 -define(INET_OPT_IPV6_V6ONLY,    16).
+-define(INET_OPT_REUSEPORT,      17).
+-define(INET_OPT_REUSEPORT_LB,   18).
+-define(INET_OPT_EXCLUSIVEADDRUSE, 19).
 % "Local" options: codes start from 20:
 -define(INET_LOPT_BUFFER,        20).
 -define(INET_LOPT_HEADER,        21).
@@ -162,6 +166,8 @@
 -define(INET_OPT_PKTOPTIONS,      45).
 -define(INET_OPT_TTL,             46).
 -define(INET_OPT_RECVTTL,         47).
+-define(TCP_OPT_NOPUSH,           48).
+-define(INET_OPT_DEBUG,           99).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).
@@ -369,13 +375,26 @@
 	(?u8(X0) -
 	 (if (X0) > 127 -> 16#100; true -> 0 end))).
 
-%% macro for use in guard for checking ip address {A,B,C,D}
+%% macro for guards only that checks IP address {A,B,C,D}
+%% that returns true for an IP address, but returns false
+%% or crashes for other terms
 -define(ip(A,B,C,D),
 	(((A) bor (B) bor (C) bor (D)) band (bnot 16#ff)) =:= 0).
-
+%% d:o for IP address as one term
+-define(ip(Addr),
+        (tuple_size(Addr) =:= 4 andalso
+         ?ip(element(1, (Addr)), element(2, (Addr)),
+             element(3, (Addr)), element(4, (Addr))))).
+%% d:o IPv6 address
 -define(ip6(A,B,C,D,E,F,G,H), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F) bor (G) bor (H)) 
 	 band (bnot 16#ffff)) =:= 0).
+-define(ip6(Addr),
+        (tuple_size(Addr) =:= 8 andalso
+         ?ip6(element(1, (Addr)), element(2, (Addr)),
+              element(3, (Addr)), element(4, (Addr)),
+              element(5, (Addr)), element(6, (Addr)),
+              element(7, (Addr)), element(8, (Addr))))).
 
 -define(ether(A,B,C,D,E,F), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F)) 
@@ -394,7 +413,7 @@
 %%
 -record(connect_opts, 
 	{ 
-	  ifaddr = any,     %% bind to interface address
+	  ifaddr,           %% don't bind explicitly, let connect decide
 	  port   = 0,       %% bind to port (default is dynamic port)
 	  fd     = -1,      %% fd >= 0 => already bound
 	  opts   = []       %% [{active,true}] added in inet:connect_options
@@ -402,7 +421,7 @@
 
 -record(listen_opts, 
 	{ 
-	  ifaddr = any,              %% bind to interface address
+	  ifaddr,                    %% interpreted as 'any' in *_tcp.erl
 	  port   = 0,                %% bind to port (default is dynamic port)
 	  backlog = ?LISTEN_BACKLOG, %% backlog
 	  fd      = -1,              %% %% fd >= 0 => already bound
@@ -412,14 +431,13 @@
 
 -record(udp_opts,
 	{
-	  ifaddr = any,
+	  ifaddr,
 	  port   = 0,
 	  fd     = -1,
-	  opts   = [{active,true}]
+	  opts   = [{active, true}]
 	 }).
 
 -define(SCTP_DEF_BUFSZ, 65536).
--define(SCTP_DEF_IFADDR, any).
 -record(sctp_opts,
 	{
 	  ifaddr,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,38 +42,23 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-
 init([]) ->    
-  
-    TLSConnetionManager = tls_connection_manager_child_spec(),
-    %% Handles emulated options so that they inherited by the accept
-    %% socket, even when setopts is performed on the listen socket
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
-    
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
-				    ListenOptionsTracker
-				   ]}}.
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [tls_sup_child_spec()], 
+    {ok, {SupFlags, ChildSpecs}}.
 
-    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_connection_manager_child_spec() ->
-    Name = dist_tls_connection,  
-    StartFunc = {tls_connection_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = dist_tls_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_socket],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+tls_sup_child_spec() ->
+    #{id       => tls_dist_sup,
+      start    => {tls_dist_sup, start_link, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [tls_dist_sup],
+      type     => supervisor
+     }.

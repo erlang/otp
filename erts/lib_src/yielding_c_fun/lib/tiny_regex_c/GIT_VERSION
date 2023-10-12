@@ -1,0 +1,468 @@
+origin	https://github.com/kokke/tiny-regex-c.git (fetch)
+origin	https://github.com/kokke/tiny-regex-c.git (push)
+commit d3058f271f7a06ff298dff0a6a9a1e0753a5fa17
+Merge: 28882c4 c2ed772
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Oct 26 23:20:07 2018 +0200
+
+    Merge pull request #22 from monolifed/master
+    
+    Update re.c for #20
+
+commit c2ed77267c86e30aa342f48528e5ffce6ab4d103
+Author: monolifed <6624464+monolifed@users.noreply.github.com>
+Date:   Thu Oct 25 19:19:24 2018 +0300
+
+    Update re.c
+
+commit 28882c4a39fbc9ddd44e69caa22aac4c4a208934
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Oct 23 11:27:23 2018 +0200
+
+    Update README.md
+
+commit 4583018febd2d28277b512f09427e2ba01b4cbd5
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Oct 23 11:26:47 2018 +0200
+
+    Update README.md
+
+commit 2211111107da75f5574d5f0140e4396ae701d947
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Oct 22 16:04:02 2018 +0200
+
+    Update test1.c
+    
+    Adding failing test-case for question-mark '?', brought to my attention by @tobermory in https://github.com/kokke/tiny-regex-c/issues/20
+
+commit 679aebd38a245afb9f9d107d066b68765b94865b
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Oct 22 15:41:33 2018 +0200
+
+    Update re.c
+    
+    fixing typo, noticed by @tobermory -> https://github.com/kokke/tiny-regex-c/issues/19
+
+commit 2f225fa5e355ad3a99cdd5e953768399fe0b6607
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Jun 6 18:15:48 2018 +0200
+
+    Update test1.c
+
+commit b587a65abf0f1347a3b7c7050b73c5dbb94d9cb7
+Merge: 89a479f 96a8f77
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Jun 6 18:10:57 2018 +0200
+
+    Merge pull request #17 from monolifed/patch-1
+    
+    Update re.c
+
+commit 96a8f770c2922505699c9a4d6ba9b9584be5ee29
+Author: monolifed <6624464+monolifed@users.noreply.github.com>
+Date:   Thu May 31 02:06:49 2018 +0300
+
+    Update re.c
+    
+    hopefully fixes #12
+
+commit 89a479f985cb25284c4e11870c1531c299255790
+Merge: bf9b2f0 e5f3564
+Author: kokke <spam@rowdy.dk>
+Date:   Tue May 15 11:25:53 2018 +0200
+
+    Merge pull request #16 from TermoSINteZ/master
+    
+    Fix pattern ".?" issues
+
+commit e5f3564a1de7230cec207cb6aec3866b0b7931e0
+Author: TermoSINteZ <termo.sintez@gmail.com>
+Date:   Tue May 15 10:41:17 2018 +0300
+
+    Remove tabs
+
+commit acb0a441470808c99a08ecc8d8716d258866835c
+Author: TermoSINteZ <termo.sintez@gmail.com>
+Date:   Tue May 15 00:10:55 2018 +0300
+
+    Fix pattern ".?" issues
+
+commit bf9b2f0c5e91dd12e1fea8cbc7ae7a6193e7b4ed
+Merge: cb80dee 84af23d
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 17 14:09:03 2018 +0200
+
+    Merge pull request #14 from roflcopter4/master
+    
+    Check for correct python2 binary in Makefile
+
+commit 84af23dde1c6785ca680d5aced93e20e484efa8d
+Author: roflcopter4 <brendan.leason.4@gmail.com>
+Date:   Mon Apr 16 14:45:34 2018 -0600
+
+    Fix dumb typos
+
+commit 0cb0b1348392b795971be9472d8dd2854403a2cb
+Author: roflcopter4 <brendan.leason.4@gmail.com>
+Date:   Mon Apr 16 14:42:13 2018 -0600
+
+    Add back '@' signs I accidentally removed
+
+commit 81d12dfd3de805d0969e66650731e4df9158169c
+Author: roflcopter4 <brendan.leason.4@gmail.com>
+Date:   Mon Apr 16 14:26:28 2018 -0600
+
+    Check for correct python2 binry in Makefile
+
+commit cb80dee0644f41df67b1740fefd8573d18d84a53
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 15:39:17 2018 +0100
+
+    Update README.md
+
+commit 005de160fa2d8796eb2bce75b52eeaac3ac13d8d
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 15:32:37 2018 +0100
+
+    Update Makefile
+
+commit 9ec0029e83e7cba718f6b6f8b107a0133d22b4a7
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 15:31:40 2018 +0100
+
+    Create regex_test_neg.py
+
+commit 960dd3ebec78d2ac61969840d4e23c97d443bdc9
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 15:31:11 2018 +0100
+
+    Create test_rand_neg.c
+
+commit 3d472f3d78d9702ffcdf4439ac842e3250da7c49
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 14:02:23 2018 +0100
+
+    Update README.md
+
+commit cdf61829adc1c94a9f2d019b2683c34c7732ca60
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 13:06:49 2018 +0100
+
+    Update Makefile
+
+commit 98812bdcafa58c7f35fc40fae9ba64d6d2a9eac1
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 12:52:34 2018 +0100
+
+    Update README.md
+
+commit 9c192d4199e4e1e6a764f1b1699deb5b159b161e
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 12:47:27 2018 +0100
+
+    Update re.c
+
+commit fb677f315fd159e13c2c2fc5b40f199148c0fb0f
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 12:45:20 2018 +0100
+
+    Update test1.c
+
+commit dc1b3ee8fc4354e5dfa1846ee6b778452609d50e
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Mar 23 12:08:34 2018 +0100
+
+    Update README.md
+
+commit eac0cef080a32c4b606bd10994ddcf8a72249d78
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Dec 11 23:26:53 2017 +0100
+
+    Update README.md
+
+commit dc9f34d74b6ac80cd0bed17fca76ef35fca3b101
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Dec 11 23:23:40 2017 +0100
+
+    Update re.c
+
+commit d76301fa18f3575cca94816cff291a01fda58ad7
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Dec 11 23:23:22 2017 +0100
+
+    Update test1.c
+
+commit b72898ef7a67a0650c7d00b7a09f36abc1fa57a1
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Dec 11 21:35:55 2017 +0100
+
+    Update re.c
+
+commit 3cd275c9c55ec51a01ad01c317232247aeec9bab
+Merge: baf3a15 881f634
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Dec 11 21:32:26 2017 +0100
+
+    Merge pull request #9 from mrigger/out-of-bounds-fixes
+    
+    Out of bounds fixes.
+
+commit 881f634e9a905933d1889a4e0b9b09920337478a
+Author: Manuel Rigger <manuel.rigger@jku.at>
+Date:   Sun Dec 10 11:42:17 2017 +0100
+
+    Fix out-of-bunds access found by AFL (input: [00000000000000000000000000000000000000][).
+
+commit e6c91ab986f1ed7d7e39d58e6fdfae44d3110c99
+Author: Manuel Rigger <manuel.rigger@jku.at>
+Date:   Sun Dec 10 10:30:06 2017 +0100
+
+    Fix out-of-bounds accesses found by AFL (input: [00000000000000000000000000000000000000).
+
+commit 619a9c654df6a471d7e043081b3fb4bf0e1cd642
+Author: Manuel Rigger <manuel.rigger@jku.at>
+Date:   Sat Dec 9 22:56:12 2017 +0100
+
+    Fix out-of-bounds access found by AFL.
+
+commit 43051e257141740e99c32f1cffea78d2a72fe10e
+Author: Manuel Rigger <manuel.rigger@jku.at>
+Date:   Fri Dec 8 21:25:01 2017 +0100
+
+    Fix out-of-bounds access found by AFL.
+
+commit baf3a15d7b99b856e82d3dd69555d3bac6750049
+Author: kokke <spam@rowdy.dk>
+Date:   Thu Oct 12 00:54:16 2017 +0200
+
+    Update re.h
+    
+    To make the C++ crowd and their compilers happy ;)
+
+commit 107352174172b05f25d153c651b327890ab3b574
+Author: kokke <spam@rowdy.dk>
+Date:   Sat Jul 8 03:32:29 2017 +0200
+
+    Update re.c
+
+commit ef6b2416b17388da413d3b9cce95ef6897255970
+Author: kokke <spam@rowdy.dk>
+Date:   Sat Jul 8 03:26:59 2017 +0200
+
+    Update test1.c
+
+commit b8446ecba1c59b7a9f29e7d8174661deb38a74a5
+Author: kokke <spam@rowdy.dk>
+Date:   Wed May 3 22:55:11 2017 +0200
+
+    Update README.md
+
+commit 1600de0a66b11610183c02c4f778866dce6927af
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:43:47 2017 +0200
+
+    Update regex_test.py
+
+commit e5dafc83fe1672de45ab1bc40e7f34876e2d1d15
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:34:22 2017 +0200
+
+    Update test_rand.c
+
+commit a39262a534a628d7c07bbb753a66d031a4b4a43a
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:27:17 2017 +0200
+
+    Update test_print.c
+
+commit 96b9af356129a263ef60355426de0c339308cd26
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:25:11 2017 +0200
+
+    Update re.c
+
+commit 529889acae614c91697af87feba5abe5334a4274
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:18:40 2017 +0200
+
+    Update README.md
+
+commit 1afc07dc2936f17dc0df5178ef61caeb19d2c5b1
+Author: kokke <spam@rowdy.dk>
+Date:   Mon May 1 21:17:57 2017 +0200
+
+    Update README.md
+
+commit 407f4fe08fb219d68026817d47d1a453a0b6c1ba
+Author: kokke <spam@rowdy.dk>
+Date:   Fri Apr 28 17:27:12 2017 +0200
+
+    Update README.md
+
+commit 2d2ebe66d55349ba6add2a4335b24b0a13fb26d2
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Apr 24 23:48:18 2017 +0200
+
+    Update README.md
+
+commit 5c76b8cc4e77af9c4a3cb1bbd1cfda3e73e1be56
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Apr 24 23:33:34 2017 +0200
+
+    Update README.md
+
+commit e4c7cb9d63d1b284f92053f535402738ee2c3a6a
+Author: kokke <spam@rowdy.dk>
+Date:   Mon Apr 24 09:28:24 2017 +0200
+
+    Update README.md
+
+commit 1e694fe184be1261e9f684ea3556103e45649c3b
+Author: kokke <spam@rowdy.dk>
+Date:   Thu Apr 20 17:58:33 2017 +0200
+
+    Update README.md
+
+commit 52810460dd877f337e23d58e627b5ae3fbbee430
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 02:38:00 2017 +0200
+
+    Update Makefile
+
+commit d44fb891007d56e0344f7372521f3ff583630d61
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 01:19:38 2017 +0200
+
+    Update README.md
+
+commit af6e7b642b75255bc2a608383a1b0969816bbd83
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 01:16:23 2017 +0200
+
+    Update README.md
+
+commit 858d217db95390b6e7bd1fd1ba7be950142852c9
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 00:32:20 2017 +0200
+
+    Update README.md
+
+commit 28fffd4d32b56cd9b318091cacc8a5c71fbfffed
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 00:31:44 2017 +0200
+
+    Update README.md
+
+commit bd874728041ad0444744a9e739dd5d078f249150
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 00:28:26 2017 +0200
+
+    Update README.md
+
+commit 02110e89252e76c1a2b2a44430f0f402e523f50a
+Author: kokke <spam@rowdy.dk>
+Date:   Wed Apr 19 00:26:41 2017 +0200
+
+    Update test1.c
+
+commit 939bc7572148c77d398b22892857b769ec63ac54
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 23:31:14 2017 +0200
+
+    Update README.md
+
+commit 5fef3901aabb6100b28460dccf3154d3e1cc18e7
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 23:09:12 2017 +0200
+
+    Update README.md
+
+commit cae4b96ced1679ea703890eff00deefb0b80cc16
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 23:08:34 2017 +0200
+
+    Update README.md
+
+commit 72398075ee66c49e3e804be94146956dc8bafff6
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:58:10 2017 +0200
+
+    Update Makefile
+
+commit 2994559b99506b35e71c8e18aa99dd706f3b7e38
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:53:05 2017 +0200
+
+    Update re.c
+
+commit 124052b32f302c5a570e79089f951a7d1d56cb38
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:52:01 2017 +0200
+
+    Update Makefile
+
+commit ba8caa931b36b6c274c82214b636770857f7872d
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:50:11 2017 +0200
+
+    Create regex_test.py
+
+commit 9630b56d1faffea799575bb9a81f9c0278906a16
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:49:39 2017 +0200
+
+    Create exrex.py
+
+commit 7da49b443622deaaa472d233a80c58a378fb8646
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:47:37 2017 +0200
+
+    Create test_rand.c
+
+commit 29384927296062ecf0fec81a1c7e35d315b5d84a
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:47:09 2017 +0200
+
+    Create test_print.c
+
+commit 475c199a1b1af4fdd8422b8639117ec97f53b350
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:46:34 2017 +0200
+
+    Create test2.c
+
+commit 2e6e69622061daa740fa03c726f4cc66c5fbc38c
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:45:08 2017 +0200
+
+    Create test1.c
+
+commit e9e4ce1b91609d839a2996bb918397b502f908b7
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:44:33 2017 +0200
+
+    Create Makefile
+
+commit 5a8f0e60718fbfdca7c1fc079a77051af68bdc87
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:41:01 2017 +0200
+
+    Create re.c
+
+commit 52b0aeb459cf1682b636fabe01a97de17579b036
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:38:55 2017 +0200
+
+    Create re.h
+
+commit d061985f504096a59e320a4760784a4090eaf1e4
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:38:01 2017 +0200
+
+    Update README.md
+
+commit 32cbf08728415efb96a3f562f31b780c024502ff
+Author: kokke <spam@rowdy.dk>
+Date:   Tue Apr 18 22:37:02 2017 +0200
+
+    Initial commit

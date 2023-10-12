@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2017. All Rights Reserved.
+# Copyright Ericsson AB 2006-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,32 +46,38 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES =  \
+MODULES = \
+	cerl_prettypr \
 	dialyzer \
 	dialyzer_analysis_callgraph \
 	dialyzer_behaviours \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
+	dialyzer_clean_core \
 	dialyzer_codeserver \
 	dialyzer_contracts \
 	dialyzer_dataflow \
 	dialyzer_dep \
-	dialyzer_explanation \
-	dialyzer_gui_wx \
+	dialyzer_dot \
+	dialyzer_incremental \
 	dialyzer_options \
+	dialyzer_iplt \
+	dialyzer_cplt \
 	dialyzer_plt \
-	dialyzer_race_data_server \
-	dialyzer_races \
 	dialyzer_succ_typings \
 	dialyzer_timing \
 	dialyzer_typesig \
+	dialyzer_typegraph \
 	dialyzer_coordinator \
 	dialyzer_worker \
 	dialyzer_utils \
-	typer
+	erl_bif_types \
+	erl_types \
+	typer \
+	typer_core
 
-HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
+HRL_FILES= dialyzer.hrl
 ERL_FILES= $(MODULES:%=%.erl)
 INSTALL_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 TARGET_FILES= $(INSTALL_FILES)
@@ -88,16 +94,14 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-endif
-ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_untyped_record +warn_missing_spec +warnings_as_errors
+ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_missing_spec
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 docs:
 
@@ -115,8 +119,11 @@ $(EBIN)/dialyzer_cl_parse.$(EMULATOR): dialyzer_cl_parse.erl ../vsn.mk
 $(EBIN)/dialyzer_plt.$(EMULATOR): dialyzer_plt.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_plt.erl
 
-$(EBIN)/dialyzer_gui_wx.$(EMULATOR): dialyzer_gui_wx.erl ../vsn.mk
-	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_gui_wx.erl
+$(EBIN)/dialyzer_cplt.$(EMULATOR): dialyzer_cplt.erl ../vsn.mk
+	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_cplt.erl
+
+$(EBIN)/dialyzer_iplt.$(EMULATOR): dialyzer_iplt.erl ../vsn.mk
+	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) dialyzer_iplt.erl
 
 $(EBIN)/typer.$(EMULATOR): typer.erl ../vsn.mk
 	$(erlc_verbose)erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer.erl
@@ -141,19 +148,18 @@ $(EBIN)/dialyzer_codeserver.beam: dialyzer.hrl
 $(EBIN)/dialyzer_contracts.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dataflow.beam: dialyzer.hrl
 $(EBIN)/dialyzer_dep.beam: dialyzer.hrl
-$(EBIN)/dialyzer_explanation.beam: dialyzer.hrl
-$(EBIN)/dialyzer_gui_wx.beam: dialyzer.hrl dialyzer_gui_wx.hrl
 $(EBIN)/dialyzer_options.beam: dialyzer.hrl
 $(EBIN)/dialyzer_plt.beam: dialyzer.hrl
 $(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
 $(EBIN)/dialyzer_races.beam: dialyzer.hrl
 $(EBIN)/dialyzer_succ_typings.beam: dialyzer.hrl
 $(EBIN)/dialyzer_typesig.beam: dialyzer.hrl
+$(EBIN)/dialyzer_typegraph.beam: dialyzer.hrl
 $(EBIN)/dialyzer_utils.beam: dialyzer.hrl
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt

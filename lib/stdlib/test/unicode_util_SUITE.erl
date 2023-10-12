@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
          nfd/1, nfc/1, nfkd/1, nfkc/1,
          whitespace/1,
          get/1,
+         lookup/1,
          count/1]).
 
 -export([debug/0, id/1, bin_split/1, uc_loaded_size/0,
@@ -45,6 +46,7 @@ all() ->
      nfd, nfc, nfkd, nfkc,
      whitespace,
      get,
+     lookup,
      count
     ].
 
@@ -90,7 +92,7 @@ casefold(_) ->
 whitespace(_) ->
     WS = unicode_util:whitespace(),
     WS = lists:filter(fun unicode_util:is_whitespace/1, WS),
-    %% TODO add more tests
+    false = unicode_util:is_whitespace($A),
     ok.
 
 cp(_) ->
@@ -101,6 +103,15 @@ cp(_) ->
     "hejsan" = fetch(["hej"|<<"san">>], Get),
     {error, <<128>>} = Get(<<128>>),
     {error, [<<128>>, 0]} = Get([<<128>>, 0]),
+
+    {'EXIT', _} = catch Get([-1]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([foo, $a]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([[], -1]),
+    {'EXIT', _} = catch Get([[-1], $a]),
+    {'EXIT', _} = catch Get([[-1, $a], $a]),
+
     ok.
 
 gc(Config) ->
@@ -112,6 +123,15 @@ gc(Config) ->
     "hejsan" = fetch(["hej"|<<"san">>], Get),
     {error, <<128>>} = Get(<<128>>),
     {error, [<<128>>, 0]} = Get([<<128>>, 0]),
+
+    {'EXIT', _} = catch Get([-1]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([foo, $a]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([[], -1]),
+    {'EXIT', _} = catch Get([[-1], $a]),
+    {'EXIT', _} = catch Get([[-1, $a], $a]),
+    {'EXIT', _} = catch Get([<<$a>>, [-1, $a], $a]), %% Current impl
 
     0 = fold(fun verify_gc/3, 0, DataDir ++ "/GraphemeBreakTest.txt"),
     ok.
@@ -126,17 +146,30 @@ verify_gc(Line0, N, Acc) ->
 
     %io:format("Line: ~s~n",[Line]),
     [Data|_Comments] = string:tokens(Line, "#"),
-    %io:format("Data: ~w~n",[string:tokens(Data, " \t")]),
+    %% io:format("Data: ~w~n",[string:tokens(Data, " \t")]),
     {Str,Res} = gc_test_data(string:tokens(Data, " \t"), [], [[]]),
-    try
-        Res = fetch(Str, fun unicode_util:gc/1),
-        Acc
-    catch _Cl:{badmatch, Other} ->
+    %% io:format("InputStr: ~w ~w~n",[Str,unicode:characters_to_binary(Str)]),
+    case verify_gc(Str, Res, N, Line) andalso
+        verify_gc(unicode:characters_to_binary(Str), Res, N, Line0) of
+        true -> Acc;
+        false -> Acc+1
+    end.
+
+verify_gc({error,_,[CP|_]}=Err, _Res, N, Line) ->
+    IsSurrogate = 16#D800 =< CP andalso CP =< 16#DFFF,
+    %% Surrogat is not valid in utf8 encoding only utf16
+    IsSurrogate orelse
+        io:format("~w: ~ts~n Error in unicode:characters_to_binary ~w~n", [N, Line, Err]),
+    IsSurrogate;
+verify_gc(Str, Res, N, Line) ->
+    try fetch(Str, fun unicode_util:gc/1) of
+        Res -> true;
+        Other ->
             io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[N, Line, Str, Str]),
             io:format("Expected: ~p~n", [Res]),
             io:format("Got: ~w~n", [Other]),
-            Acc+1;
-          Cl:R:Stacktrace ->
+            false
+    catch Cl:R:Stacktrace ->
             io:format("~p: ~ts => |~tp|~n",[N, Line, Str]),
             io:format("Expected: ~p~n", [Res]),
             erlang:raise(Cl,R,Stacktrace)
@@ -311,6 +344,29 @@ verify_nfkc(Data0, LineNo, _Acc) ->
 get(_) ->
     add_get_tests.
 
+lookup(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok, Bin} = file:read_file(filename:join(DataDir, "unicode_table.bin")),
+    0 = check_category(0,  binary_to_term(Bin), 0),
+    ok.
+
+check_category(Id, [{Id, {_, _, _, What}}|Rest], Es) ->
+    case maps:get(category, unicode_util:lookup(Id)) of
+        What -> check_category(Id+1, Rest, Es);
+        _Err ->
+            io:format("~w Exp: ~w Got ~w~n",[Id, What, _Err]), exit(_Err),
+            check_category(Id+1, Rest, Es+1)
+    end;
+check_category(Id, [{Next,_}|_] = Rest, Es) ->
+    case maps:get(category, unicode_util:lookup(Id)) of
+        {other, not_assigned} -> check_category(max(Id+1,Next-1), Rest, Es);
+        Err ->  io:format("~w Exp: {other, not_assigned} Got ~w~n",[Id,Err]),
+                check_category(max(Id+1,Next-1), Rest, Es+1)
+    end;
+check_category(_Id, [], Es) ->
+    Es.
+
+
 count(Config) ->
     Parent = self(),
     Exec = fun() ->
@@ -415,7 +471,15 @@ mode(deep_l, Bin) -> [unicode:characters_to_list(Bin)].
 fetch(Str, F) ->
     case F(Str) of
         [] -> [];
-        [CP|R] -> [CP|fetch(R,F)]
+        [CP|R] ->
+            %% If input is a binary R should be binary
+            if is_binary(Str) == false -> ok;
+               is_binary(R); R =:= [] -> ok;
+               true ->
+                    io:format("Char: ~tc Tail:~tP~n", [CP,R,10]),
+                    exit({bug, F})
+            end,
+            [CP|fetch(R,F)]
     end.
 
 %% *Test.txt file helpers

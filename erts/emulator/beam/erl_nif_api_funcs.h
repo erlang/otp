@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 */
 #ifdef ERL_NIF_API_FUNC_DECL
 ERL_NIF_API_FUNC_DECL(void*,enif_priv_data,(ErlNifEnv*));
-ERL_NIF_API_FUNC_DECL(void*,enif_alloc,(size_t size));
+ERL_NIF_API_FUNC_DECL(void*,enif_alloc,(size_t size) ERL_NAPI_ATTR_MALLOC_USD(1,enif_free,1));
 ERL_NIF_API_FUNC_DECL(void,enif_free,(void* ptr));
 ERL_NIF_API_FUNC_DECL(int,enif_is_atom,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_is_binary,(ErlNifEnv*, ERL_NIF_TERM term));
@@ -60,17 +60,17 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_list_cell,(ErlNifEnv* env, ERL_NIF_
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_string,(ErlNifEnv* env, const char* string, ErlNifCharEncoding));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_ref,(ErlNifEnv* env));
 
-ERL_NIF_API_FUNC_DECL(ErlNifMutex*,enif_mutex_create,(char *name));
+ERL_NIF_API_FUNC_DECL(ErlNifMutex*,enif_mutex_create,(char *name) ERL_NAPI_ATTR_MALLOC_D(enif_mutex_destroy,1));
 ERL_NIF_API_FUNC_DECL(void,enif_mutex_destroy,(ErlNifMutex *mtx));
 ERL_NIF_API_FUNC_DECL(int,enif_mutex_trylock,(ErlNifMutex *mtx));
 ERL_NIF_API_FUNC_DECL(void,enif_mutex_lock,(ErlNifMutex *mtx));
 ERL_NIF_API_FUNC_DECL(void,enif_mutex_unlock,(ErlNifMutex *mtx));
-ERL_NIF_API_FUNC_DECL(ErlNifCond*,enif_cond_create,(char *name));
+ERL_NIF_API_FUNC_DECL(ErlNifCond*,enif_cond_create,(char *name) ERL_NAPI_ATTR_MALLOC_D(enif_cond_destroy,1));
 ERL_NIF_API_FUNC_DECL(void,enif_cond_destroy,(ErlNifCond *cnd));
 ERL_NIF_API_FUNC_DECL(void,enif_cond_signal,(ErlNifCond *cnd));
 ERL_NIF_API_FUNC_DECL(void,enif_cond_broadcast,(ErlNifCond *cnd));
 ERL_NIF_API_FUNC_DECL(void,enif_cond_wait,(ErlNifCond *cnd, ErlNifMutex *mtx));
-ERL_NIF_API_FUNC_DECL(ErlNifRWLock*,enif_rwlock_create,(char *name));
+ERL_NIF_API_FUNC_DECL(ErlNifRWLock*,enif_rwlock_create,(char *name) ERL_NAPI_ATTR_MALLOC_D(enif_rwlock_destroy,1));
 ERL_NIF_API_FUNC_DECL(void,enif_rwlock_destroy,(ErlNifRWLock *rwlck));
 ERL_NIF_API_FUNC_DECL(int,enif_rwlock_tryrlock,(ErlNifRWLock *rwlck));
 ERL_NIF_API_FUNC_DECL(void,enif_rwlock_rlock,(ErlNifRWLock *rwlck));
@@ -82,7 +82,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_tsd_key_create,(char *name, ErlNifTSDKey *key));
 ERL_NIF_API_FUNC_DECL(void,enif_tsd_key_destroy,(ErlNifTSDKey key));
 ERL_NIF_API_FUNC_DECL(void,enif_tsd_set,(ErlNifTSDKey key, void *data));
 ERL_NIF_API_FUNC_DECL(void*,enif_tsd_get,(ErlNifTSDKey key));
-ERL_NIF_API_FUNC_DECL(ErlNifThreadOpts*,enif_thread_opts_create,(char *name));
+ERL_NIF_API_FUNC_DECL(ErlNifThreadOpts*,enif_thread_opts_create,(char *name) ERL_NAPI_ATTR_MALLOC_D(enif_thread_opts_destroy,1));
 ERL_NIF_API_FUNC_DECL(void,enif_thread_opts_destroy,(ErlNifThreadOpts *opts));
 ERL_NIF_API_FUNC_DECL(int,enif_thread_create,(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts));
 ERL_NIF_API_FUNC_DECL(ErlNifTid,enif_thread_self,(void));
@@ -90,7 +90,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_equal_tids,(ErlNifTid tid1, ErlNifTid tid2));
 ERL_NIF_API_FUNC_DECL(void,enif_thread_exit,(void *resp));
 ERL_NIF_API_FUNC_DECL(int,enif_thread_join,(ErlNifTid, void **respp));
 
-ERL_NIF_API_FUNC_DECL(void*,enif_realloc,(void* ptr, size_t size));
+ERL_NIF_API_FUNC_DECL(void*,enif_realloc,(void* ptr, size_t size) ERL_NAPI_ATTR_ALLOC_SIZE(2));
 ERL_NIF_API_FUNC_DECL(void,enif_system_info,(ErlNifSysInfo *sip, size_t si_size));
 ERL_NIF_API_FUNC_DECL(int,enif_fprintf,(FILE* filep, const char *format, ...));
 ERL_NIF_API_FUNC_DECL(int,enif_inspect_iolist_as_binary,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifBinary* bin));
@@ -108,7 +108,7 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_tuple_from_array,(ErlNifEnv*, const
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_list_from_array,(ErlNifEnv*, const ERL_NIF_TERM arr[], unsigned cnt));
 ERL_NIF_API_FUNC_DECL(int,enif_is_empty_list,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type,(ErlNifEnv*, const char* module_str, const char* name_str, void (*dtor)(ErlNifEnv*,void *), ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
-ERL_NIF_API_FUNC_DECL(void*,enif_alloc_resource,(ErlNifResourceType* type, size_t size));
+ERL_NIF_API_FUNC_DECL(void *, enif_alloc_resource, (ErlNifResourceType *type, size_t size) ERL_NAPI_ATTR_MALLOC_US(2));
 ERL_NIF_API_FUNC_DECL(void,enif_release_resource,(void* obj));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_resource,(ErlNifEnv*, void* obj));
 ERL_NIF_API_FUNC_DECL(int,enif_get_resource,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp));
@@ -121,7 +121,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_get_list_length,(ErlNifEnv* env, ERL_NIF_TERM ter
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_atom_len,(ErlNifEnv* env, const char* name, size_t len));
 ERL_NIF_API_FUNC_DECL(int, enif_make_existing_atom_len,(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_string_len,(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding));
-ERL_NIF_API_FUNC_DECL(ErlNifEnv*,enif_alloc_env,(void));
+ERL_NIF_API_FUNC_DECL(ErlNifEnv*,enif_alloc_env,(void) ERL_NAPI_ATTR_WUR);
 ERL_NIF_API_FUNC_DECL(void,enif_free_env,(ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(void,enif_clear_env,(ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(int,enif_send,(ErlNifEnv* env, const ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg));
@@ -184,7 +184,7 @@ ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term
 ERL_NIF_API_FUNC_DECL(int, enif_whereis_pid, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid));
 ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port));
 
-ERL_NIF_API_FUNC_DECL(ErlNifIOQueue *,enif_ioq_create,(ErlNifIOQueueOpts opts));
+ERL_NIF_API_FUNC_DECL(ErlNifIOQueue *,enif_ioq_create,(ErlNifIOQueueOpts opts) ERL_NAPI_ATTR_MALLOC_D(enif_ioq_destroy,1));
 ERL_NIF_API_FUNC_DECL(void,enif_ioq_destroy,(ErlNifIOQueue *q));
 
 ERL_NIF_API_FUNC_DECL(int,enif_ioq_enq_binary,(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip));
@@ -209,6 +209,20 @@ ERL_NIF_API_FUNC_DECL(int,enif_vfprintf,(FILE*, const char *fmt, va_list));
 ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_list));
 
 ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TERM keys[], ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out));
+
+ERL_NIF_API_FUNC_DECL(int,enif_select_x,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const ErlNifMonitor*));
+ERL_NIF_API_FUNC_DECL(void,enif_set_pid_undefined,(ErlNifPid* pid));
+ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
+
+ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_init_resource_type,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
+ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM mod, ERL_NIF_TERM name, ERL_NIF_TERM rsrc, void* call_data));
+
+ERL_NIF_API_FUNC_DECL(int, enif_get_string_length, (ErlNifEnv *env, ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom, (ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom_len, (ErlNifEnv *env, const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, ...));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -392,7 +406,17 @@ ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TER
 #  define enif_vfprintf ERL_NIF_API_FUNC_MACRO(enif_vfprintf)
 #  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
 #  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
-
+#  define enif_select_x ERL_NIF_API_FUNC_MACRO(enif_select_x)
+#  define enif_make_monitor_term ERL_NIF_API_FUNC_MACRO(enif_make_monitor_term)
+#  define enif_set_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_set_pid_undefined)
+#  define enif_is_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_is_pid_undefined)
+#  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
+#  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
+#  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
+#  define enif_get_string_length ERL_NIF_API_FUNC_MACRO(enif_get_string_length)
+#  define enif_make_new_atom ERL_NIF_API_FUNC_MACRO(enif_make_new_atom)
+#  define enif_make_new_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_new_atom_len)
+#  define enif_set_option ERL_NIF_API_FUNC_MACRO(enif_set_option)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
@@ -623,6 +647,16 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #ifndef enif_make_pid
 
 #  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
+#  define enif_compare_pids(A, B) (enif_compare((A)->pid,(B)->pid))
+#  define enif_select_read(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
+#  define enif_select_write(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
+#  define enif_select_error(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
 
 #if SIZEOF_LONG == 8
 #  define enif_get_int64 enif_get_long

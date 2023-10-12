@@ -1,0 +1,1425 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+
+#ifndef __ERTS_CONFIG_H__
+#define __ERTS_CONFIG_H__
+
+#define GHBN_R_SOLARIS  2
+#define GHBN_R_AIX      3
+#define GHBN_R_GLIBC    4
+
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* Assumed cache-line size (in bytes) */
+#undef ASSUMED_CACHE_LINE_SIZE
+
+/* Define the brk() argument type. */
+#undef BRK_ARG_TYPE
+
+/* Define the brk() return type. */
+#undef BRK_RET_TYPE
+
+/* Define if you need to include rpc/types.h to get INADDR_LOOPBACK defined */
+#undef DEF_INADDR_LOOPBACK_IN_RPC_TYPES_H
+
+/* Define if you need to include winsock2.h to get INADDR_LOOPBACK defined */
+#undef DEF_INADDR_LOOPBACK_IN_WINSOCK2_H
+
+/* Define to 1 if your processor stores the words in a double in middle-endian
+   format (like some ARMs). */
+#undef DOUBLE_MIDDLE_ENDIAN
+
+/* Define if we need frame pointers on the Erlang stack */
+#undef ERLANG_FRAME_POINTERS
+
+/* Define if sbrk()/brk() wrappers can track malloc()s core memory use */
+#undef ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC
+
+/* Define to override the default number of write_concurrency locks */
+#undef ERTS_DB_HASH_LOCK_CNT
+
+/* The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of
+   config.h when the emulator command line flags are modified by configure */
+#undef ERTS_EMU_CMDLINE_FLAGS
+
+/* Define if you have kernel poll and want to use it */
+#undef ERTS_ENABLE_KERNEL_POLL
+
+/* Define as 1 if you want to enable microstate accounting, 2 if you want
+   extra states */
+#undef ERTS_ENABLE_MSACC
+
+/* Define > 0 if big-endian < 0 if little-endian, or 0 if unknown */
+#undef ERTS_ENDIANNESS
+
+/* Define if OS monotonic clock is corrected */
+#undef ERTS_HAVE_CORRECTED_OS_MONOTONIC_TIME
+
+/* Define if you have a low resolution OS monotonic clock */
+#undef ERTS_HAVE_LOW_RESOLUTION_OS_MONOTONIC_LOW
+
+/* Define if dlopen() needs to be called before first call to dlerror() */
+#undef ERTS_NEED_DLOPEN_BEFORE_DLERROR
+
+/* Per-function attribute for disabling retpoline. This is *only* defined when
+   --with-spectre-mitigation=incomplete and has no effects otherwise */
+#undef ERTS_NO_RETPOLINE
+
+/* Type qualifier restrict */
+#undef ERTS_RESTRICT
+
+/* Define if structure alignment is enough for allocators. If not defined,
+   64-bit alignment will be forced. */
+#undef ERTS_STRUCTURE_ALIGNED_ALLOC
+
+/* Define if poll() should be used instead of select() */
+#undef ERTS_USE_POLL
+
+/* Define if __after_morecore_hook can track malloc()s core memory use. */
+#undef ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC
+
+/* ESOCK counter size */
+#undef ESOCK_COUNTER_SIZE
+
+/* Enable esock */
+#undef ESOCK_ENABLE
+
+/* Socket address dl length */
+#undef ESOCK_SDL_LEN
+
+/* Use extended error info */
+#undef ESOCK_USE_EXTENDED_ERROR_INFO
+
+/* Interface hwaddr supported */
+#undef ESOCK_USE_HWADDR
+
+/* Interface ifindex supported */
+#undef ESOCK_USE_IFINDEX
+
+/* Interface map supported */
+#undef ESOCK_USE_IFMAP
+
+/* Interface index supported */
+#undef ESOCK_USE_INDEX
+
+/* Use SO_[RCV|SND]TMIEO */
+#undef ESOCK_USE_RCVSNDTIMEO
+
+/* Use socket registry by default */
+#undef ESOCK_USE_SOCKET_REGISTRY
+
+/* Define if bigendian */
+#undef ETHR_BIGENDIAN
+
+/* Define if gcc won't let you clobber ebx with cmpxchg8b and position
+   independent code */
+#undef ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX
+
+/* Define if you get a register shortage with cmpxchg8b and position
+   independent code */
+#undef ETHR_CMPXCHG8B_REGISTER_SHORTAGE
+
+/* Define if you want to disable native ethread implementations */
+#undef ETHR_DISABLE_NATIVE_IMPLS
+
+/* Define if you want to force usage of pthread rwlocks */
+#undef ETHR_FORCE_PTHREAD_RWLOCK
+
+/* Define if you use a gcc that supports the double word cmpxchg instruction
+   */
+#undef ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT
+
+/* Define if you use a gcc that supports -msse2 and understand sse2 specific
+   asm statements */
+#undef ETHR_GCC_HAVE_SSE2_ASM_SUPPORT
+
+/* Define if you have a clock_gettime() with a monotonic clock */
+#undef ETHR_HAVE_CLOCK_GETTIME_MONOTONIC
+
+/* Define if you have all ethread defines */
+#undef ETHR_HAVE_ETHREAD_DEFINES
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dc cvau' instruction, and are compiling for
+   an ARM processor with ARM DC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dmb sy' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dmb ld' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dmb st' instruction, and are compiling for
+   an ARM processor with ARM DMB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'ic ivau' instruction, and are compiling for
+   an ARM processor with ARM IC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'isb sy' instruction, and are compiling for
+   an ARM processor with ARM ISB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc __atomic builtins or
+   not */
+#undef ETHR_HAVE_GCC___ATOMIC_BUILTINS
+
+/* Define if you have a monotonic gethrtime() */
+#undef ETHR_HAVE_GETHRTIME
+
+/* Define if you have libatomic_ops atomic operations */
+#undef ETHR_HAVE_LIBATOMIC_OPS
+
+/* Define if you have a linux futex implementation. */
+#undef ETHR_HAVE_LINUX_FUTEX
+
+/* Define if you have a mach clock_get_time() with a monotonic clock */
+#undef ETHR_HAVE_MACH_CLOCK_GET_TIME
+
+/* Define if the pthread.h header file is in pthread/mit directory. */
+#undef ETHR_HAVE_MIT_PTHREAD_H
+
+/* Define if you have the pthread_attr_setguardsize function. */
+#undef ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE
+
+/* Define if pthread_cond_timedwait() can be used with a monotonic clock */
+#undef ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC
+
+/* Define if you have ibm style pthread_getname_np */
+#undef ETHR_HAVE_PTHREAD_GETNAME_NP_2
+
+/* Define if you have linux style pthread_getname_np */
+#undef ETHR_HAVE_PTHREAD_GETNAME_NP_3
+
+/* Define if you have the <pthread.h> header file. */
+#undef ETHR_HAVE_PTHREAD_H
+
+/* Define if you have the pthread_rwlockattr_setkind_np() function. */
+#undef ETHR_HAVE_PTHREAD_RWLOCKATTR_SETKIND_NP
+
+/* Define if you have the PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP rwlock
+   attribute. */
+#undef ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP
+
+/* Define if you have darwin style pthread_setname_np */
+#undef ETHR_HAVE_PTHREAD_SETNAME_NP_1
+
+/* Define if you have linux style pthread_setname_np */
+#undef ETHR_HAVE_PTHREAD_SETNAME_NP_2
+
+/* Define if you have bsd style pthread_set_name_np */
+#undef ETHR_HAVE_PTHREAD_SET_NAME_NP_2
+
+/* Define if you have the pthread_spin_lock function. */
+#undef ETHR_HAVE_PTHREAD_SPIN_LOCK
+
+/* Define if you have the pthread_yield() function. */
+#undef ETHR_HAVE_PTHREAD_YIELD
+
+/* Define if you have the <sched.h> header file. */
+#undef ETHR_HAVE_SCHED_H
+
+/* Define if you have the sched_yield() function. */
+#undef ETHR_HAVE_SCHED_YIELD
+
+/* Define if you have the <sys/time.h> header file. */
+#undef ETHR_HAVE_SYS_TIME_H
+
+/* Define if you can use PTHREAD_STACK_MIN */
+#undef ETHR_HAVE_USABLE_PTHREAD_STACK_MIN
+
+/* Define if you have _InterlockedAnd() */
+#undef ETHR_HAVE__INTERLOCKEDAND
+
+/* Define if you have _InterlockedAnd64() */
+#undef ETHR_HAVE__INTERLOCKEDAND64
+
+/* Define if you have _InterlockedCompareExchange() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE
+
+/* Define if you have _InterlockedCompareExchange128() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128
+
+/* Define if you have _InterlockedCompareExchange64() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64
+
+/* Define if you have _InterlockedCompareExchange64_acq() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ
+
+/* Define if you have _InterlockedCompareExchange64_rel() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL
+
+/* Define if you have _InterlockedCompareExchange_acq() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ
+
+/* Define if you have _InterlockedCompareExchange_rel() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL
+
+/* Define if you have _InterlockedDecrement() */
+#undef ETHR_HAVE__INTERLOCKEDDECREMENT
+
+/* Define if you have _InterlockedDecrement64() */
+#undef ETHR_HAVE__INTERLOCKEDDECREMENT64
+
+/* Define if you have _InterlockedDecrement64_rel() */
+#undef ETHR_HAVE__INTERLOCKEDDECREMENT64_REL
+
+/* Define if you have _InterlockedDecrement_rel() */
+#undef ETHR_HAVE__INTERLOCKEDDECREMENT_REL
+
+/* Define if you have _InterlockedExchange() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGE
+
+/* Define if you have _InterlockedExchange64() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGE64
+
+/* Define if you have _InterlockedExchangeAdd() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGEADD
+
+/* Define if you have _InterlockedExchangeAdd64() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGEADD64
+
+/* Define if you have _InterlockedExchangeAdd64_acq() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGEADD64_ACQ
+
+/* Define if you have _InterlockedExchangeAdd_acq() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGEADD_ACQ
+
+/* Define if you have _InterlockedIncrement() */
+#undef ETHR_HAVE__INTERLOCKEDINCREMENT
+
+/* Define if you have _InterlockedIncrement64() */
+#undef ETHR_HAVE__INTERLOCKEDINCREMENT64
+
+/* Define if you have _InterlockedIncrement64_acq() */
+#undef ETHR_HAVE__INTERLOCKEDINCREMENT64_ACQ
+
+/* Define if you have _InterlockedIncrement_acq() */
+#undef ETHR_HAVE__INTERLOCKEDINCREMENT_ACQ
+
+/* Define if you have _InterlockedOr() */
+#undef ETHR_HAVE__INTERLOCKEDOR
+
+/* Define if you have _InterlockedOr64() */
+#undef ETHR_HAVE__INTERLOCKEDOR64
+
+/* Define as a bitmask corresponding to the word sizes that
+   __atomic_add_fetch() can handle on your system */
+#undef ETHR_HAVE___atomic_add_fetch
+
+/* Define as a bitmask corresponding to the word sizes that
+   __atomic_compare_exchange_n() can handle on your system */
+#undef ETHR_HAVE___atomic_compare_exchange_n
+
+/* Define as a bitmask corresponding to the word sizes that
+   __atomic_fetch_and() can handle on your system */
+#undef ETHR_HAVE___atomic_fetch_and
+
+/* Define as a bitmask corresponding to the word sizes that
+   __atomic_fetch_or() can handle on your system */
+#undef ETHR_HAVE___atomic_fetch_or
+
+/* Define as a bitmask corresponding to the word sizes that __atomic_load_n()
+   can handle on your system */
+#undef ETHR_HAVE___atomic_load_n
+
+/* Define as a bitmask corresponding to the word sizes that __atomic_store_n()
+   can handle on your system */
+#undef ETHR_HAVE___atomic_store_n
+
+/* Define as a bitmask corresponding to the word sizes that
+   __sync_add_and_fetch() can handle on your system */
+#undef ETHR_HAVE___sync_add_and_fetch
+
+/* Define as a bitmask corresponding to the word sizes that
+   __sync_fetch_and_and() can handle on your system */
+#undef ETHR_HAVE___sync_fetch_and_and
+
+/* Define as a bitmask corresponding to the word sizes that
+   __sync_fetch_and_or() can handle on your system */
+#undef ETHR_HAVE___sync_fetch_and_or
+
+/* Define as a bitmask corresponding to the word sizes that
+   __sync_synchronize() can handle on your system */
+#undef ETHR_HAVE___sync_synchronize
+
+/* Define as a bitmask corresponding to the word sizes that
+   __sync_val_compare_and_swap() can handle on your system */
+#undef ETHR_HAVE___sync_val_compare_and_swap
+
+/* Define if you want to modify the default stack size */
+#undef ETHR_MODIFIED_DEFAULT_STACK_SIZE
+
+/* Define to the monotonic clock id to use */
+#undef ETHR_MONOTONIC_CLOCK_ID
+
+/* Define if you need the <nptl/pthread.h> header file. */
+#undef ETHR_NEED_NPTL_PTHREAD_H
+
+/* Define if you have the powerpc lwsync instruction */
+#undef ETHR_PPC_HAVE_LWSYNC
+
+/* Define if you do not have the powerpc lwsync instruction */
+#undef ETHR_PPC_HAVE_NO_LWSYNC
+
+/* Define if you prefer gcc native ethread implementations */
+#undef ETHR_PREFER_GCC_NATIVE_IMPLS
+
+/* Define if you prefer libatomic_ops native ethread implementations */
+#undef ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS
+
+/* Define if you have pthreads */
+#undef ETHR_PTHREADS
+
+/* Define if pthread_yield() returns an int. */
+#undef ETHR_PTHREAD_YIELD_RET_INT
+
+/* Define if sched_yield() returns an int. */
+#undef ETHR_SCHED_YIELD_RET_INT
+
+/* Define to the size of AO_t if libatomic_ops is used */
+#undef ETHR_SIZEOF_AO_T
+
+/* Define to the size of int */
+#undef ETHR_SIZEOF_INT
+
+/* Define to the size of long */
+#undef ETHR_SIZEOF_LONG
+
+/* Define to the size of long long */
+#undef ETHR_SIZEOF_LONG_LONG
+
+/* Define to the size of pointers */
+#undef ETHR_SIZEOF_PTR
+
+/* Define to the size of __int128_t */
+#undef ETHR_SIZEOF___INT128_T
+
+/* Define to the size of __int64 */
+#undef ETHR_SIZEOF___INT64
+
+/* Define if you want to enable check for native ethread implementations */
+#undef ETHR_SMP_REQUIRE_NATIVE_IMPLS
+
+/* Define if only run in Sparc PSO, or TSO mode */
+#undef ETHR_SPARC_PSO
+
+/* Define if run in Sparc RMO, PSO, or TSO mode */
+#undef ETHR_SPARC_RMO
+
+/* Define if only run in Sparc TSO mode */
+#undef ETHR_SPARC_TSO
+
+/* Define as a boolean indicating whether you trust gcc's __atomic_* builtins
+   memory barrier implementations, or not */
+#undef ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS
+
+/* Define if you have win32 threads */
+#undef ETHR_WIN32_THREADS
+
+/* Define if x86/x86_64 out of order instructions should be synchronized */
+#undef ETHR_X86_OUT_OF_ORDER
+
+/* Define to 1 if you have the <arpa/nameser.h> header file. */
+#undef HAVE_ARPA_NAMESER_H
+
+/* Define to 1 if you have the `brk' function. */
+#undef HAVE_BRK
+
+/* Define to 1 if you have the `clock_getres' function. */
+#undef HAVE_CLOCK_GETRES
+
+/* define if clock_gettime() works for getting thread time */
+#undef HAVE_CLOCK_GETTIME_CPU_TIME
+
+/* Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _) */
+#undef HAVE_CLOCK_GETTIME_MONOTONIC_RAW
+
+/* Define to 1 if you have the `clock_get_attributes' function. */
+#undef HAVE_CLOCK_GET_ATTRIBUTES
+
+/* Define to 1 if you have the `closefrom' function. */
+#undef HAVE_CLOSEFROM
+
+/* Define if you have a decl of fread that conflicts with int fread */
+#undef HAVE_CONFLICTING_FREAD_DECLARATION
+
+/* Define if you have a putenv() that stores a copy of the key-value pair */
+#undef HAVE_COPYING_PUTENV
+
+/* Define if you have cpuset_getaffinity/cpuset_setaffinity */
+#undef HAVE_CPUSET_xETAFFINITY
+
+/* Define to 1 if you have the declaration of `getrlimit', and to 0 if you
+   don't. */
+#undef HAVE_DECL_GETRLIMIT
+
+/* Define to 1 if you have the declaration of `IN6ADDR_ANY_INIT', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IN6ADDR_ANY_INIT
+
+/* Define to 1 if you have the declaration of `IN6ADDR_LOOPBACK_INIT', and to
+   0 if you don't. */
+#undef HAVE_DECL_IN6ADDR_LOOPBACK_INIT
+
+/* Define to 1 if you have the declaration of `IPV6_V6ONLY', and to 0 if you
+   don't. */
+#undef HAVE_DECL_IPV6_V6ONLY
+
+/* Define to 1 if you have the declaration of `posix2time', and to 0 if you
+   don't. */
+#undef HAVE_DECL_POSIX2TIME
+
+/* Define to 1 if you have the declaration of `RLIMIT_STACK', and to 0 if you
+   don't. */
+#undef HAVE_DECL_RLIMIT_STACK
+
+/* Define to 1 if you have the declaration of `SCTPS_BOUND', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTPS_BOUND
+
+/* Define to 1 if you have the declaration of `SCTPS_COOKIE_ECHOED', and to 0
+   if you don't. */
+#undef HAVE_DECL_SCTPS_COOKIE_ECHOED
+
+/* Define to 1 if you have the declaration of `SCTPS_COOKIE_WAIT', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTPS_COOKIE_WAIT
+
+/* Define to 1 if you have the declaration of `SCTPS_ESTABLISHED', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTPS_ESTABLISHED
+
+/* Define to 1 if you have the declaration of `SCTPS_IDLE', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTPS_IDLE
+
+/* Define to 1 if you have the declaration of `SCTPS_LISTEN', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTPS_LISTEN
+
+/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_ACK_SENT', and
+   to 0 if you don't. */
+#undef HAVE_DECL_SCTPS_SHUTDOWN_ACK_SENT
+
+/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_PENDING', and to
+   0 if you don't. */
+#undef HAVE_DECL_SCTPS_SHUTDOWN_PENDING
+
+/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_RECEIVED', and
+   to 0 if you don't. */
+#undef HAVE_DECL_SCTPS_SHUTDOWN_RECEIVED
+
+/* Define to 1 if you have the declaration of `SCTPS_SHUTDOWN_SENT', and to 0
+   if you don't. */
+#undef HAVE_DECL_SCTPS_SHUTDOWN_SENT
+
+/* Define to 1 if you have the declaration of `SCTP_ABORT', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_ABORT
+
+/* Define to 1 if you have the declaration of `SCTP_ADDR_CONFIRMED', and to 0
+   if you don't. */
+#undef HAVE_DECL_SCTP_ADDR_CONFIRMED
+
+/* Define to 1 if you have the declaration of `SCTP_ADDR_OVER', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTP_ADDR_OVER
+
+/* Define to 1 if you have the declaration of `SCTP_BOUND', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_BOUND
+
+/* Define to 1 if you have the declaration of `SCTP_CLOSED', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_CLOSED
+
+/* Define to 1 if you have the declaration of `SCTP_COOKIE_ECHOED', and to 0
+   if you don't. */
+#undef HAVE_DECL_SCTP_COOKIE_ECHOED
+
+/* Define to 1 if you have the declaration of `SCTP_COOKIE_WAIT', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTP_COOKIE_WAIT
+
+/* Define to 1 if you have the declaration of `SCTP_DELAYED_ACK_TIME', and to
+   0 if you don't. */
+#undef HAVE_DECL_SCTP_DELAYED_ACK_TIME
+
+/* Define to 1 if you have the declaration of `SCTP_EMPTY', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_EMPTY
+
+/* Define to 1 if you have the declaration of `SCTP_EOF', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_EOF
+
+/* Define to 1 if you have the declaration of `SCTP_ESTABLISHED', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTP_ESTABLISHED
+
+/* Define to 1 if you have the declaration of `SCTP_LISTEN', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_LISTEN
+
+/* Define to 1 if you have the declaration of `SCTP_SENDALL', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SCTP_SENDALL
+
+/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_ACK_SENT', and to
+   0 if you don't. */
+#undef HAVE_DECL_SCTP_SHUTDOWN_ACK_SENT
+
+/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_PENDING', and to
+   0 if you don't. */
+#undef HAVE_DECL_SCTP_SHUTDOWN_PENDING
+
+/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_RECEIVED', and to
+   0 if you don't. */
+#undef HAVE_DECL_SCTP_SHUTDOWN_RECEIVED
+
+/* Define to 1 if you have the declaration of `SCTP_SHUTDOWN_SENT', and to 0
+   if you don't. */
+#undef HAVE_DECL_SCTP_SHUTDOWN_SENT
+
+/* Define to 1 if you have the declaration of `SCTP_UNCONFIRMED', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTP_UNCONFIRMED
+
+/* Define to 1 if you have the declaration of `SCTP_UNORDERED', and to 0 if
+   you don't. */
+#undef HAVE_DECL_SCTP_UNORDERED
+
+/* Define to 1 if you have the declaration of `setrlimit', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SETRLIMIT
+
+/* Define to 1 if you have the declaration of `time2posix', and to 0 if you
+   don't. */
+#undef HAVE_DECL_TIME2POSIX
+
+/* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_DIRENT_H
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the `dlopen' function. */
+#undef HAVE_DLOPEN
+
+/* Define to 1 if you have the `dlvsym' function. */
+#undef HAVE_DLVSYM
+
+/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
+#undef HAVE_DOPRNT
+
+/* Define to 1 if you have the <elf.h> header file. */
+#undef HAVE_ELF_H
+
+/* Define to 1 if you have the `endprotoent' function. */
+#undef HAVE_ENDPROTOENT
+
+/* Define if you have the 'end' symbol */
+#undef HAVE_END_SYMBOL
+
+/* Define if you have a working fallocate() */
+#undef HAVE_FALLOCATE
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#undef HAVE_FCNTL_H
+
+/* Define to 1 if you have the `fdatasync' function. */
+#undef HAVE_FDATASYNC
+
+/* Define to 1 if you have the `finite' function. */
+#undef HAVE_FINITE
+
+/* Define to 1 if you have the `flockfile' function. */
+#undef HAVE_FLOCKFILE
+
+/* Define to 1 if you have the `fpsetmask' function. */
+#undef HAVE_FPSETMASK
+
+/* Define to 1 if you have the `fstat' function. */
+#undef HAVE_FSTAT
+
+/* Define if you have fwrite_unlocked */
+#undef HAVE_FWRITE_UNLOCKED
+
+/* define if compiler support _Pragma('GCC diagnostic ignored
+   '-Waddress-of-packed-member'') */
+#undef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
+
+/* Define to 1 if you have a good `getaddrinfo' function. */
+#undef HAVE_GETADDRINFO
+
+/* Define to 1 if you have the `gethostbyname2' function. */
+#undef HAVE_GETHOSTBYNAME2
+
+/* Define to flavour of gethostbyname_r */
+#undef HAVE_GETHOSTBYNAME_R
+
+/* Define as 1 if function exists */
+#undef HAVE_GETHOSTNAME
+
+/* Define to 1 if you have the `gethrtime' function. */
+#undef HAVE_GETHRTIME
+
+/* define if gethrvtime() works and uses ioctl() to /proc/self */
+#undef HAVE_GETHRVTIME_PROCFS_IOCTL
+
+/* Define to 1 if you have the `getifaddrs' function. */
+#undef HAVE_GETIFADDRS
+
+/* Define to 1 if you have the `getipnodebyaddr' function. */
+#undef HAVE_GETIPNODEBYADDR
+
+/* Define to 1 if you have the `getipnodebyname' function. */
+#undef HAVE_GETIPNODEBYNAME
+
+/* Define to 1 if you have a good `getnameinfo' function. */
+#undef HAVE_GETNAMEINFO
+
+/* Define to 1 if you have the `getprotoent' function. */
+#undef HAVE_GETPROTOENT
+
+/* Define to 1 if you have the `getrusage' function. */
+#undef HAVE_GETRUSAGE
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the `gmtime_r' function. */
+#undef HAVE_GMTIME_R
+
+/* Define to 1 if you have the <ieeefp.h> header file. */
+#undef HAVE_IEEEFP_H
+
+/* Define to 1 if you have the `ieee_handler' function. */
+#undef HAVE_IEEE_HANDLER
+
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#undef HAVE_IFADDRS_H
+
+/* Define as 1 if function exists */
+#undef HAVE_IF_FREENAMEINDEX
+
+/* Define as 1 if function exists */
+#undef HAVE_IF_INDEXTONAME
+
+/* Define as 1 if function exists */
+#undef HAVE_IF_NAMEINDEX
+
+/* Define as 1 if function exists */
+#undef HAVE_IF_NAMETOINDEX
+
+/* Define if ipv6 is present */
+#undef HAVE_IN6
+
+/* Define to 1 if you have the variable in6addr_any declared. */
+#undef HAVE_IN6ADDR_ANY
+
+/* Define to 1 if you have the variable in6addr_loopback declared. */
+#undef HAVE_IN6ADDR_LOOPBACK
+
+/* Define to 1 if you have the `inet_pton' function. */
+#undef HAVE_INET_PTON
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Early linux used in_addr6 instead of in6_addr, define if you have this */
+#undef HAVE_IN_ADDR6_STRUCT
+
+/* Define to 1 if you have the `isfinite' function. */
+#undef HAVE_ISFINITE
+
+/* Define to 1 if you have the `isinf' function. */
+#undef HAVE_ISINF
+
+/* Define to 1 if you have the `isnan' function. */
+#undef HAVE_ISNAN
+
+/* Define if you have kstat */
+#undef HAVE_KSTAT
+
+/* Define to 1 if you have the <langinfo.h> header file. */
+#undef HAVE_LANGINFO_H
+
+/* Define to 1 if you have the `dl' library (-ldl). */
+#undef HAVE_LIBDL
+
+/* Define to 1 if you have the `dlpi' library (-ldlpi). */
+#undef HAVE_LIBDLPI
+
+/* Define to 1 if you have the <libdlpi.h> header file. */
+#undef HAVE_LIBDLPI_H
+
+/* Define to 1 if you have the `inet' library (-linet). */
+#undef HAVE_LIBINET
+
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
+/* Define to 1 if you have the `sctp' library (-lsctp). */
+#undef HAVE_LIBSCTP
+
+/* Define to 1 if you have the `util' library (-lutil). */
+#undef HAVE_LIBUTIL
+
+/* Define to 1 if you have the <libutil.h> header file. */
+#undef HAVE_LIBUTIL_H
+
+/* Define to 1 if you have the `z' library (-lz). */
+#undef HAVE_LIBZ
+
+/* Define to 1 if you have the <limits.h> header file. */
+#undef HAVE_LIMITS_H
+
+/* Define to 1 if you have the <linux/errqueue.h> header file. */
+#undef HAVE_LINUX_ERRQUEUE_H
+
+/* Define to 1 if you have the <linux/falloc.h> header file. */
+#undef HAVE_LINUX_FALLOC_H
+
+/* Define if the targeted system supports the `perf` profiler */
+#undef HAVE_LINUX_PERF_SUPPORT
+
+/* Define to 1 if you have the <linux/types.h> header file. */
+#undef HAVE_LINUX_TYPES_H
+
+/* Define to 1 if you have the `localtime_r' function. */
+#undef HAVE_LOCALTIME_R
+
+/* Define to 1 if you have the `log2' function. */
+#undef HAVE_LOG2
+
+/* Define to 1 if you have the <lttng/tracepoint-event.h> header file. */
+#undef HAVE_LTTNG_TRACEPOINT_EVENT_H
+
+/* Define to 1 if you have the <lttng/tracepoint.h> header file. */
+#undef HAVE_LTTNG_TRACEPOINT_H
+
+/* Define to 1 if you have the `madvise' function. */
+#undef HAVE_MADVISE
+
+/* Define to 1 if you have the <malloc.h> header file. */
+#undef HAVE_MALLOC_H
+
+/* Define to 1 if you have the `mallopt' function. */
+#undef HAVE_MALLOPT
+
+/* Define to 1 if you have the `memcpy' function. */
+#undef HAVE_MEMCPY
+
+/* Define to 1 if you have the `memmove' function. */
+#undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the `memrchr' function. */
+#undef HAVE_MEMRCHR
+
+/* Define if the pthread.h header file is in pthread/mit directory. */
+#undef HAVE_MIT_PTHREAD_H
+
+/* Define to 1 if you have the `mlockall' function. */
+#undef HAVE_MLOCKALL
+
+/* Define to 1 if you have the `mmap' function. */
+#undef HAVE_MMAP
+
+/* Define if you have a monotonic erts_os_hrtime() implementation */
+#undef HAVE_MONOTONIC_ERTS_SYS_HRTIME
+
+/* Define to 1 if you have the `mprotect' function. */
+#undef HAVE_MPROTECT
+
+/* Define to 1 if you have the `mremap' function. */
+#undef HAVE_MREMAP
+
+/* Define if setsockopt() accepts multicast options */
+#undef HAVE_MULTICAST_SUPPORT
+
+/* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
+#undef HAVE_NDIR_H
+
+/* Define to 1 if you have the <netpacket/packet.h> header file. */
+#undef HAVE_NETPACKET_PACKET_H
+
+/* Define to 1 if you have the <net/errno.h> header file. */
+#undef HAVE_NET_ERRNO_H
+
+/* Define to 1 if you have the <net/if_dl.h> header file. */
+#undef HAVE_NET_IF_DL_H
+
+/* Define to 1 if you have the `nl_langinfo' function. */
+#undef HAVE_NL_LANGINFO
+
+/* Define if you don't have a definition of INADDR_LOOPBACK */
+#undef HAVE_NO_INADDR_LOOPBACK
+
+/* Define to 1 if you have the `openpty' function. */
+#undef HAVE_OPENPTY
+
+/* Define to 1 if you have the `poll' function. */
+#undef HAVE_POLL
+
+/* Define to 1 if you have the <poll.h> header file. */
+#undef HAVE_POLL_H
+
+/* Define to 1 if you have the `posix2time' function. */
+#undef HAVE_POSIX2TIME
+
+/* Define to 1 if you have the `posix_fadvise' function. */
+#undef HAVE_POSIX_FADVISE
+
+/* Define if you have a working posix_fallocate() */
+#undef HAVE_POSIX_FALLOCATE
+
+/* Define to 1 if you have the `posix_madvise' function. */
+#undef HAVE_POSIX_MADVISE
+
+/* Define to 1 if you have the `posix_memalign' function. */
+#undef HAVE_POSIX_MEMALIGN
+
+/* Define to 1 if you have the `ppoll' function. */
+#undef HAVE_PPOLL
+
+/* Define to 1 if you have the `pread' function. */
+#undef HAVE_PREAD
+
+/* Define if you have processor_bind functionality */
+#undef HAVE_PROCESSOR_BIND
+
+/* Define if you have pset functionality */
+#undef HAVE_PSET
+
+/* Define if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* Define to 1 if you have the <pty.h> header file. */
+#undef HAVE_PTY_H
+
+/* Define if you have putc_unlocked */
+#undef HAVE_PUTC_UNLOCKED
+
+/* Define to 1 if you have the `pwrite' function. */
+#undef HAVE_PWRITE
+
+/* Define to 1 if you have the `res_gethostbyname' function. */
+#undef HAVE_RES_GETHOSTBYNAME
+
+/* Define to 1 if you have the `sbrk' function. */
+#undef HAVE_SBRK
+
+/* Define to 1 if you have the <sched.h> header file. */
+#undef HAVE_SCHED_H
+
+/* Define if you have sched_getaffinity/sched_setaffinity */
+#undef HAVE_SCHED_xETAFFINITY
+
+/* Define to 1 if you have the `sctp_bindx' function. */
+#undef HAVE_SCTP_BINDX
+
+/* Define to 1 if you have the `sctp_connectx' function. */
+#undef HAVE_SCTP_CONNECTX
+
+/* Define to 1 if you have the `sctp_freeladdrs' function. */
+#undef HAVE_SCTP_FREELADDRS
+
+/* Define to 1 if you have the `sctp_freepaddrs' function. */
+#undef HAVE_SCTP_FREEPADDRS
+
+/* Define to 1 if you have the `sctp_getladdrs' function. */
+#undef HAVE_SCTP_GETLADDRS
+
+/* Define to 1 if you have the `sctp_getpaddrs' function. */
+#undef HAVE_SCTP_GETPADDRS
+
+/* Define to 1 if you have the <netinet/sctp.h> header file */
+#undef HAVE_SCTP_H
+
+/* Define to 1 if you have the `sctp_peeloff' function. */
+#undef HAVE_SCTP_PEELOFF
+
+/* Define to 1 if you have the <sdkddkver.h> header file. */
+#undef HAVE_SDKDDKVER_H
+
+/* Define to 1 if you have the `sendfile' function. */
+#undef HAVE_SENDFILE
+
+/* Define to 1 if you have the `sendfilev' function. */
+#undef HAVE_SENDFILEV
+
+/* Define to 1 if you have the `setlocale' function. */
+#undef HAVE_SETLOCALE
+
+/* Define to 1 if you have the `setns' function. */
+#undef HAVE_SETNS
+
+/* Define to 1 if you have the <setns.h> header file. */
+#undef HAVE_SETNS_H
+
+/* Define to 1 if you have the `setprotoent' function. */
+#undef HAVE_SETPROTOENT
+
+/* Define to 1 if you have the `setsid' function. */
+#undef HAVE_SETSID
+
+/* Define if we have socklen_t */
+#undef HAVE_SOCKLEN_T
+
+/* define if you have the Solaris/ultrasparc /dev/perfmon interface */
+#undef HAVE_SOLARIS_SPARC_PERFMON
+
+/* Define if you have SO_BSDCOMPAT flag on sockets */
+#undef HAVE_SO_BSDCOMPAT
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
+/* Define to 1 if you have the `strerror_r' function. */
+#undef HAVE_STRERROR_R
+
+/* Define to 1 if you have the `strftime' function. */
+#undef HAVE_STRFTIME
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strlcat' function. */
+#undef HAVE_STRLCAT
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Define to 1 if you have the `strncasecmp' function. */
+#undef HAVE_STRNCASECMP
+
+/* Define to 1 if `ifr_enaddr' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_ENADDR
+
+/* Define to 1 if `ifr_hwaddr' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_HWADDR
+
+/* Define to 1 if `ifr_ifindex' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_IFINDEX
+
+/* Define to 1 if `ifr_index' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_INDEX
+
+/* Define to 1 if `ifr_map' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_MAP
+
+/* Define to 1 if the system has the type `struct ip_mreqn'. */
+#undef HAVE_STRUCT_IP_MREQN
+
+/* Define to 1 if `assoc_id' is a member of `struct sctp_accoc_value'. */
+#undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID
+
+/* Define to 1 if `sctp_authentication_event' is a member of `struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT
+
+/* Define to 1 if `sctp_sender_dry_event' is a member of `struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT
+
+/* Define to 1 if `spp_flags' is a member of `struct sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
+
+/* Define to 1 if `spp_pathmtu' is a member of `struct sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PATHMTU
+
+/* Define to 1 if `spp_sackdelay' is a member of `struct sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+
+/* Define to 1 if `sre_data' is a member of `struct sctp_remote_error'. */
+#undef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
+
+/* Define to 1 if `ssf_data' is a member of `struct sctp_send_failed'. */
+#undef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
+
+/* Define to 1 if `sdl_len' is a member of `struct sockaddr_dl'. */
+#undef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
+
+/* Define to 1 if `sun_path' is a member of `struct sockaddr_un'. */
+#undef HAVE_STRUCT_SOCKADDR_UN_SUN_PATH
+
+/* Define to 1 if you have the <syslog.h> header file. */
+#undef HAVE_SYSLOG_H
+
+/* Define if you have systemd daemon */
+#undef HAVE_SYSTEMD_DAEMON
+
+/* Define to 1 if you have the <systemd/sd-daemon.h> header file. */
+#undef HAVE_SYSTEMD_SD_DAEMON_H
+
+/* Define if you have <sys/devpoll.h> header file. */
+#undef HAVE_SYS_DEVPOLL_H
+
+/* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_SYS_DIR_H
+
+/* Define if you have the <sys/epoll.h> header file. */
+#undef HAVE_SYS_EPOLL_H
+
+/* Define if you have <sys/event.h> header file. */
+#undef HAVE_SYS_EVENT_H
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#undef HAVE_SYS_IOCTL_H
+
+/* Define to 1 if you have the <sys/mman.h> header file. */
+#undef HAVE_SYS_MMAN_H
+
+/* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
+   */
+#undef HAVE_SYS_NDIR_H
+
+/* Define to 1 if you have the <sys/resource.h> header file */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/sdt.h> header file. */
+#undef HAVE_SYS_SDT_H
+
+/* Define to 1 if you have the <sys/socketio.h> header file. */
+#undef HAVE_SYS_SOCKETIO_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/sockio.h> header file. */
+#undef HAVE_SYS_SOCKIO_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/stropts.h> header file. */
+#undef HAVE_SYS_STROPTS_H
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#undef HAVE_SYS_SYSCTL_H
+
+/* Define to 1 if you have the <sys/timerfd.h> header file. */
+#undef HAVE_SYS_TIMERFD_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/uio.h> header file. */
+#undef HAVE_SYS_UIO_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#undef HAVE_SYS_UN_H
+
+/* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
+#undef HAVE_SYS_WAIT_H
+
+/* Define if termcap functions exists */
+#undef HAVE_TERMCAP
+
+/* Define to 1 if you have the `time2posix' function. */
+#undef HAVE_TIME2POSIX
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <util.h> header file. */
+#undef HAVE_UTIL_H
+
+/* Define to 1 if you have the <utmp.h> header file. */
+#undef HAVE_UTMP_H
+
+/* Define to 1 if you have the `vprintf' function. */
+#undef HAVE_VPRINTF
+
+/* Define to 1 if you have the `vsyslog' function. */
+#undef HAVE_VSYSLOG
+
+/* Define to 1 if you have a `wcwidth' function. */
+#undef HAVE_WCWIDTH
+
+/* Define to 1 if you have the <windows.h> header file. */
+#undef HAVE_WINDOWS_H
+
+/* Define to 1 if you have the <winsock2.h> header file. */
+#undef HAVE_WINSOCK2_H
+
+/* Define if you have a working posix_openpt implementation */
+#undef HAVE_WORKING_POSIX_OPENPT
+
+/* Define to 1 if you have the `writev' function. */
+#undef HAVE_WRITEV
+
+/* Define to 1 if you have the <ws2tcpip.h> header file. */
+#undef HAVE_WS2TCPIP_H
+
+/* Define if your zlib version defines inflateGetDictionary. */
+#undef HAVE_ZLIB_INFLATEGETDICTIONARY
+
+/* Define to 1 if you have the `_brk' function. */
+#undef HAVE__BRK
+
+/* Define if you have the '_end' symbol */
+#undef HAVE__END_SYMBOL
+
+/* Define to 1 if you have the `_sbrk' function. */
+#undef HAVE__SBRK
+
+/* Define to 1 if you have the `__brk' function. */
+#undef HAVE___BRK
+
+/* Define to 1 if you have the `__sbrk' function. */
+#undef HAVE___SBRK
+
+/* Define to monotonic clock id to use */
+#undef HRTIME_CLOCK_ID
+
+/* Define as a string of monotonic clock id to use */
+#undef HRTIME_CLOCK_ID_STR
+
+/* define if h_errno is declared (in some way) in a system header file */
+#undef H_ERRNO_DECLARED
+
+/* Define to monotonic clock id to use */
+#undef MONOTONIC_CLOCK_ID
+
+/* Define as a string of monotonic clock id to use */
+#undef MONOTONIC_CLOCK_ID_STR
+
+/* Define if we can use the native stack for Erlang code */
+#undef NATIVE_ERLANG_STACK
+
+/* Define if netdb.h needs struct sockaddr_in ans in.h CAN be included before
+   */
+#undef NETDB_H_NEEDS_IN_H
+
+/* Defined if no found C compiler can handle jump tables */
+#undef NO_JUMP_TABLE
+
+/* Define if you dont have salen */
+#undef NO_SA_LEN
+
+/* Define if you want to implement erts_os_monotonic_time() using
+   clock_gettime() */
+#undef OS_MONOTONIC_TIME_USING_CLOCK_GETTIME
+
+/* Define if you want to implement erts_os_monotonic_time() using gethrtime()
+   */
+#undef OS_MONOTONIC_TIME_USING_GETHRTIME
+
+/* Define if you want to implement erts_os_monotonic_time() using mach
+   clock_get_time() */
+#undef OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME
+
+/* Define if you want to implement erts_os_monotonic_time() using times() */
+#undef OS_MONOTONIC_TIME_USING_TIMES
+
+/* Define if you want to implement erts_os_system_time() using gettimeofday()
+   */
+#undef OS_SYSTEM_TIME_GETTIMEOFDAY
+
+/* Define if you want to implement erts_os_system_time() using clock_gettime()
+   */
+#undef OS_SYSTEM_TIME_USING_CLOCK_GETTIME
+
+/* Define if you want to implement erts_os_system_time() using mach
+   clock_get_time() */
+#undef OS_SYSTEM_TIME_USING_MACH_CLOCK_GET_TIME
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define if you wish to redefine FD_SETSIZE to be able to select on more fd
+   */
+#undef REDEFINE_FD_SETSIZE
+
+/* Define the sbrk() argument type. */
+#undef SBRK_ARG_TYPE
+
+/* Define the sbrk() return type. */
+#undef SBRK_RET_TYPE
+
+/* Define if building a sharing-preserving emulator */
+#undef SHCOPY
+
+/* The size of `AO_t', as computed by sizeof. */
+#undef SIZEOF_AO_T
+
+/* The size of `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* The size of `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* The size of `off_t', as computed by sizeof. */
+#undef SIZEOF_OFF_T
+
+/* The size of `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
+/* The size of `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
+
+/* The size of `suseconds_t', as computed by sizeof. */
+#undef SIZEOF_SUSECONDS_T
+
+/* The size of `time_t', as computed by sizeof. */
+#undef SIZEOF_TIME_T
+
+/* The size of `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
+
+/* The size of `_Float16', as computed by sizeof. */
+#undef SIZEOF__FLOAT16
+
+/* The size of `__int128_t', as computed by sizeof. */
+#undef SIZEOF___INT128_T
+
+/* The size of `__int64', as computed by sizeof. */
+#undef SIZEOF___INT64
+
+/* Define to 1 if all of the C90 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
+#undef STDC_HEADERS
+
+/* define if the variable sys_errlist is declared in a system header file */
+#undef SYS_ERRLIST_DECLARED
+
+/* Define if you want to implement erts_os_hrtime() using clock_gettime() */
+#undef SYS_HRTIME_USING_CLOCK_GETTIME
+
+/* Define if you want to implement erts_os_hrtime() using gethrtime() */
+#undef SYS_HRTIME_USING_GETHRTIME
+
+/* Define if you want to implement erts_os_hrtime() using mach
+   clock_get_time() */
+#undef SYS_HRTIME_USING_MACH_CLOCK_GET_TIME
+
+/* Define to 1 if your <sys/time.h> declares `struct tm'. */
+#undef TM_IN_SYS_TIME
+
+/* Define if you want to use dtrace for dynamic tracing */
+#undef USE_DTRACE
+
+/* Define if you want to use dynamic tracing */
+#undef USE_DYNAMIC_TRACE
+
+/* Define if you want to use lttng for dynamic tracing */
+#undef USE_LTTNG
+
+/* Define if select() should be used instead of poll() */
+#undef USE_SELECT
+
+/* Define if you want to use systemtap for dynamic tracing */
+#undef USE_SYSTEMTAP
+
+/* Define to enable VM dynamic trace probes */
+#undef USE_VM_PROBES
+
+/* Define to wall clock id to use */
+#undef WALL_CLOCK_ID
+
+/* Define as a string of wall clock id to use */
+#undef WALL_CLOCK_ID_STR
+
+/* Define if windows.h includes winsock2.h */
+#undef WINDOWS_H_INCLUDES_WINSOCK2_H
+
+/* Define if big-endian */
+#undef WORDS_BIGENDIAN
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define to `long int' if <sys/types.h> does not define. */
+#undef off_t
+
+/* Define as a signed integer type capable of holding a process identifier. */
+#undef pid_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
+
+
+/* Redefine in6_addr. XXX this should be moved to the files where it's used? */
+#ifdef HAVE_IN_ADDR6_STRUCT
+#define in6_addr in_addr6
+#endif
+
+/* Define a reasonable default for INADDR_LOOPBACK */
+/* XXX this should be moved to the files where it's used? */
+#ifdef HAVE_NO_INADDR_LOOPBACK
+#define INADDR_LOOPBACK (u_long)0x7F000001
+#endif
+
+#ifdef REDEFINE_FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+ 
+#ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
+#define HAVE_GETHRVTIME
+#endif
+
+#if !defined(HAVE_ISFINITE) && !defined(HAVE_FINITE)
+# if defined(HAVE_ISINF) && defined(HAVE_ISNAN)
+#  define USE_ISINF_ISNAN
+# endif
+#endif
+
+#if defined(DEBUG) && !defined(ERTS_ENABLE_LOCK_CHECK)
+#define ERTS_ENABLE_LOCK_CHECK 1
+#endif
+
+#endif /* __ERTS_CONFIG_H__ */
+

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2017. All Rights Reserved.
+# Copyright Ericsson AB 1999-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,13 +37,15 @@ LIBS = @DED_LIBS@
 LDFLAGS += @DED_LDFLAGS@
 CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@
 
-# From erts/configure
+# From configure
 SSL_LIBDIR = @SSL_LIBDIR@
 SSL_INCLUDE = @SSL_INCLUDE@
 SSL_CRYPTO_LIBNAME = @SSL_CRYPTO_LIBNAME@
 SSL_SSL_LIBNAME = @SSL_SSL_LIBNAME@
+CRYPTO_NO_DEPRECATE_WARN = @CRYPTO_NO_DEPRECATE_WARN@
 
 INCLUDES = $(SSL_INCLUDE) @DED_INCLUDE@
+SSL_EXTRA_LIBS=@SSL_EXTRA_LIBS@
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
@@ -53,8 +55,20 @@ ifeq ($(TYPE),valgrind)
 TYPEMARKER = .valgrind
 TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DVALGRIND
 else
+ifeq ($(TYPE),gprof)
+TYPEMARKER = .gprof
+TYPE_EXTRA_CFLAGS = -DGPROF -pg
+TYPE_FLAGS = $(CFLAGS) $(TYPE_EXTRA_CFLAGS)
+else
+ifeq ($(TYPE),asan)
+TYPEMARKER = .asan
+TYPE_FLAGS = $(CFLAGS) -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+LDFLAGS += -fsanitize=address
+else
 TYPEMARKER =
 TYPE_FLAGS = $(CFLAGS)
+endif
+endif
 endif
 endif
 
@@ -71,29 +85,74 @@ PRIVDIR = ../priv
 OBJDIR = $(PRIVDIR)/obj/$(TARGET)
 LIBDIR = $(PRIVDIR)/lib/$(TARGET)
 
-CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o
+CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
+	$(OBJDIR)/aead$(TYPEMARKER).o \
+	$(OBJDIR)/aes$(TYPEMARKER).o \
+	$(OBJDIR)/algorithms$(TYPEMARKER).o \
+	$(OBJDIR)/api_ng$(TYPEMARKER).o \
+	$(OBJDIR)/atoms$(TYPEMARKER).o \
+	$(OBJDIR)/bn$(TYPEMARKER).o \
+	$(OBJDIR)/cipher$(TYPEMARKER).o \
+	$(OBJDIR)/cmac$(TYPEMARKER).o \
+	$(OBJDIR)/common$(TYPEMARKER).o \
+	$(OBJDIR)/dh$(TYPEMARKER).o \
+	$(OBJDIR)/digest$(TYPEMARKER).o \
+	$(OBJDIR)/dss$(TYPEMARKER).o \
+	$(OBJDIR)/ec$(TYPEMARKER).o \
+	$(OBJDIR)/ecdh$(TYPEMARKER).o \
+	$(OBJDIR)/eddsa$(TYPEMARKER).o \
+	$(OBJDIR)/engine$(TYPEMARKER).o \
+	$(OBJDIR)/evp$(TYPEMARKER).o \
+	$(OBJDIR)/fips$(TYPEMARKER).o \
+	$(OBJDIR)/hash$(TYPEMARKER).o \
+	$(OBJDIR)/hmac$(TYPEMARKER).o \
+	$(OBJDIR)/info$(TYPEMARKER).o \
+	$(OBJDIR)/mac$(TYPEMARKER).o \
+	$(OBJDIR)/math$(TYPEMARKER).o \
+	$(OBJDIR)/pkey$(TYPEMARKER).o \
+	$(OBJDIR)/rand$(TYPEMARKER).o \
+	$(OBJDIR)/rsa$(TYPEMARKER).o \
+	$(OBJDIR)/srp$(TYPEMARKER).o \
+	$(OBJDIR)/hash_equals$(TYPEMARKER).o \
+	$(OBJDIR)/pbkdf2_hmac$(TYPEMARKER).o
+
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
-NIF_MAKEFILE = $(PRIVDIR)/Makefile
-CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
-	$(OBJDIR)/crypto_callback_static$(TYPEMARKER).o
+CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(TYPEMARKER).o,$(CRYPTO_OBJS) $(CALLBACK_OBJS))
 
 NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
-TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
-
 NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).@DED_EXT@
 CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).@DED_EXT@
+
+DISABLE_OTP_TEST_ENGINE = @DISABLE_OTP_TEST_ENGINE@
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+TEST_ENGINE_LIB =
+TEST_ENGINE_OBJS =
+else
 TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).@DED_EXT@
+TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
+endif
 
 DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
-
+# Weird that we compile as if dynamically linking when statically
+# linking on windows...
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+DYNAMIC_OR_WIN_CRYPTO_LIB=yes
+else
+ifeq ($(TARGET),win32)
+DYNAMIC_OR_WIN_CRYPTO_LIB=yes
+else
+DYNAMIC_OR_WIN_CRYPTO_LIB=no
+endif
+endif
+
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 SSL_DED_LD_RUNTIME_LIBRARY_PATH = @SSL_DED_LD_RUNTIME_LIBRARY_PATH@
 CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -l$(SSL_CRYPTO_LIBNAME)
 EXTRA_FLAGS = -DHAVE_DYNAMIC_CRYPTO_LIB
 else
 SSL_DED_LD_RUNTIME_LIBRARY_PATH=
-CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a 
+CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a
 EXTRA_FLAGS =
 CRYPTO_OBJS := $(CRYPTO_OBJS) $(CALLBACK_OBJS)
 CALLBACK_OBJS =
@@ -116,8 +175,10 @@ ifndef RANLIB
 RANLIB=true
 endif
 
-ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
-ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(INCLUDES)
+CONFIGURE_ARGS = -DDISABLE_EVP_DH=@DISABLE_EVP_DH@ -DDISABLE_EVP_HMAC=@DISABLE_EVP_HMAC@
+
+ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
+ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(TYPE_EXTRA_CFLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets
@@ -125,29 +186,36 @@ ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(INCLUDES)
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB) 
+debug opt valgrind asan: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
 
 static_lib: $(NIF_ARCHIVE)
 
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+else
 $(OBJDIR)/otp_test_engine$(TYPEMARKER).o: otp_test_engine.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -c -o $@ $(filter-out -Wmissing-prototypes,$(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN)) $<
 
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).so: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB) $(SSL_EXTRA_LIBS)
 
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(TEST_ENGINE_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
+	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(TEST_ENGINE_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME) $(SSL_EXTRA_LIBS)
+endif
+
+# $(OBJDIR)/ec$(TYPEMARKER).o: ec.c
+# 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+# 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -MMD -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
+	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB) $(SSL_EXTRA_LIBS)
 
 $(OBJDIR)/%_static$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
@@ -159,9 +227,9 @@ $(LIBDIR)/crypto$(TYPEMARKER).a: $(CRYPTO_STATIC_OBJS)
 
 $(LIBDIR)/crypto$(TYPEMARKER).dll: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
+	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME) $(SSL_EXTRA_LIBS)
 
-ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 $(LIBDIR)/crypto_callback$(TYPEMARKER).so: $(CALLBACK_OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -172,45 +240,41 @@ $(LIBDIR)/crypto_callback$(TYPEMARKER).dll: $(CALLBACK_OBJS)
 endif
 
 
-clean:
-	rm -f $(LIBDIR)/crypto.@DED_EXT@
-	rm -f $(LIBDIR)/crypto.debug.@DED_EXT@
-	rm -f $(LIBDIR)/crypto.valgrind.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.debug.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.valgrind.@DED_EXT@
-	rm -f $(LIBDIR)/otp_test_engine.@DED_EXT@
-	rm -f $(OBJDIR)/crypto.o
-	rm -f $(OBJDIR)/crypto_static.o
-	rm -f $(OBJDIR)/crypto.debug.o
-	rm -f $(OBJDIR)/crypto_static.debug.o
-	rm -f $(OBJDIR)/crypto.valgrind.o
-	rm -f $(OBJDIR)/crypto_static.valgrind.o
-	rm -f $(OBJDIR)/crypto_callback.o
-	rm -f $(OBJDIR)/crypto_callback.debug.o
-	rm -f $(OBJDIR)/crypto_callback.valgrind.o
-	rm -f $(OBJDIR)/otp_test_engine.o
+CLEAN_OBJS_RAW = $(CRYPTO_OBJS) $(CALLBACK_OBJS) $(CRYPTO_STATIC_OBJS) $(TEST_ENGINE_OBJS)
+CLEAN_OBJS_O = $(patsubst %.debug.o,%.o,$(CLEAN_OBJS_RAW:.valgrind.o=.o))
+
+CLEAN_LIBS_RAW = $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
+CLEAN_LIBS_SO = $(patsubst %.debug.@DED_EXT@,%.@DED_EXT@,$(CLEAN_LIBS_RAW:.valgrind.@DED_EXT@=.@DED_EXT@))
+
+clean_dynamic_libs:
+	rm -f $(CLEAN_LIBS_SO)
+	rm -f $(foreach T,.valgrind.@DED_EXT@ .debug.@DED_EXT@ .asan.@DED_EXT@,$(CLEAN_LIBS_SO:.@DED_EXT@=$T))
+
+clean_objs:
+	rm -f $(CLEAN_OBJS_O)
+	rm -f $(foreach T,.valgrind.o .debug.o .asan.o,$(CLEAN_OBJS_O:.o=$T))
+
+clean: clean_objs clean_dynamic_libs
 	rm -f core *~
 
 docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
-	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
-	$(INSTALL_PROGRAM) $(CRYPTO_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
-ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
-	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
+ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
 endif
-	$(INSTALL_PROGRAM) $(TEST_ENGINE_OBJS) "$(RELSYSDIR)/priv/obj"
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+else
 	$(INSTALL_PROGRAM) $(TEST_ENGINE_LIB) "$(RELSYSDIR)/priv/lib"
+endif
 
 release_docs_spec:
 
+-include $(CRYPTO_OBJS:%.o=%.d)

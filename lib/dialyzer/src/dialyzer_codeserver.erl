@@ -22,40 +22,41 @@
 -module(dialyzer_codeserver).
 
 -export([delete/1,
-	 store_temp_contracts/4,
+         store_temp_contracts/4,
          give_away/2,
-	 finalize_contracts/1,
+         finalize_contracts/1,
          finalize_exported_types/2,
-	 finalize_records/1,
-	 get_contracts/1,
-	 get_callbacks/1,
-         get_exported_types/1,
+         finalize_records/1,
+         get_contracts/1,
+         get_callbacks/1,
+         get_exported_types_table/1,
          extract_exported_types/1,
-	 get_exports/1,
-	 get_records_table/1,
+         get_exports/1,
+         get_records_table/1,
          extract_records/1,
-	 get_next_core_label/1,
+         get_next_core_label/1,
          get_temp_contracts/2,
          all_temp_modules/1,
          store_contracts/4,
          get_temp_exported_types/1,
          get_temp_records_table/1,
-	 lookup_temp_mod_records/2,
-	 insert/3,
-	 insert_exports/2,
+         lookup_temp_mod_records/2,
+         insert/3,
+         insert_exports/2,
          insert_temp_exported_types/2,
          insert_fun_meta_info/2,
-	 is_exported/2,
-	 lookup_mod_code/2,
-	 lookup_mfa_code/2,
-	 lookup_mfa_var_label/2,
-	 lookup_mod_records/2,
-	 lookup_mod_contracts/2,
-	 lookup_mfa_contract/2,
+         is_exported/2,
+         is_member_meta_info/2,
+         lookup_mod_code/2,
+         lookup_mfa_code/2,
+         lookup_mfa_var_label/2,
+         lookup_mod_records/2,
+         lookup_mod_contracts/2,
+         lookup_mfa_contract/2,
          lookup_meta_info/2,
-	 new/0,
-	 set_next_core_label/2,
-	 store_temp_records/3,
+         new/0,
+         set_next_core_label/2,
+         store_temp_records/3,
          translate_fake_file/3]).
 
 -export_type([codeserver/0, fun_meta_info/0, contracts/0]).
@@ -96,11 +97,11 @@
 
 %%--------------------------------------------------------------------
 
+%% We KNOW that `error` is not a valid value in the table.
 ets_dict_find(Key, Table) ->
-  try ets:lookup_element(Table, Key, 2) of
-      Val -> {ok, Val}
-  catch
-    _:_ -> error
+  case ets:lookup_element(Table, Key, 2, error) of
+    error -> error;
+    Val -> {ok, Val}
   end.
 
 ets_map_store(Key, Element, Table) ->
@@ -112,7 +113,7 @@ ets_dict_to_dict(Table) ->
   ets:foldl(Fold, dict:new(), Table).
 
 ets_set_is_element(Key, Table) ->
-  ets:lookup(Table, Key) =/= [].
+  ets:member(Table, Key).
 
 ets_set_insert_set(Set, Table) ->
   ets_set_insert_list(sets:to_list(Set), Table).
@@ -122,7 +123,7 @@ ets_set_insert_list(List, Table) ->
 
 ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
-  ets:foldl(Fold, sets:new(), Table).
+  ets:foldl(Fold, sets:new([{version, 2}]), Table).
 
 %%--------------------------------------------------------------------
 
@@ -132,12 +133,15 @@ new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
   ReadOptions = [compressed, {read_concurrency, true}],
-  [Contracts, Callbacks, Records, ExportedTypes] =
+  [Records, ExportedTypes] =
     [ets:new(Name, ReadOptions) ||
-      Name <- [dialyzer_codeserver_contracts,
-               dialyzer_codeserver_callbacks,
-               dialyzer_codeserver_records,
+      Name <- [dialyzer_codeserver_records,
                dialyzer_codeserver_exported_types]],
+  ReadWriteOptions = [public | ReadOptions],
+  [Contracts, Callbacks] =
+    [ets:new(Name, ReadWriteOptions) ||
+      Name <- [dialyzer_codeserver_contracts,
+               dialyzer_codeserver_callbacks]],
   TempOptions = [public, {write_concurrency, true}],
   [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
    TempCallbacks] =
@@ -211,10 +215,10 @@ insert_fun_meta_info(List, #codeserver{fun_meta_info = FunMetaInfo} = CS) ->
 is_exported(MFA, #codeserver{exports = Exports}) ->
   ets_set_is_element(MFA, Exports).
 
--spec get_exported_types(codeserver()) -> sets:set(mfa()).
+-spec get_exported_types_table(codeserver()) -> map_ets().
 
-get_exported_types(#codeserver{exported_types = ExpTypes}) ->
-  ets_set_to_set(ExpTypes).
+get_exported_types_table(#codeserver{exported_types = ExpTypes}) ->
+  ExpTypes.
 
 -spec extract_exported_types(codeserver()) -> {codeserver(), set_ets()}.
 
@@ -263,10 +267,7 @@ set_next_core_label(NCL, CS) ->
 -spec lookup_mod_records(atom(), codeserver()) -> types().
 
 lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
-  case ets_dict_find(Mod, RecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(RecDict, Mod, 2, #{}).
 
 -spec get_records_table(codeserver()) -> map_ets().
 
@@ -295,51 +296,27 @@ get_temp_records_table(#codeserver{temp_records = TempRecDict}) ->
 -spec lookup_temp_mod_records(module(), codeserver()) -> types().
 
 lookup_temp_mod_records(Mod, #codeserver{temp_records = TempRecDict}) ->
-  case ets_dict_find(Mod, TempRecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(TempRecDict, Mod, 2, #{}).
 
 -spec finalize_records(codeserver()) -> codeserver().
 
 finalize_records(#codeserver{temp_records = TmpRecords,
                              records = Records} = CS) ->
-  %% The annotations of the abstract code are reset as they are no
-  %% longer needed, which makes the ETS table compression better.
-  A0 = erl_anno:new(0),
-  AFun = fun(_) -> A0 end,
-  FFun = fun({F, Abs, Type}) ->
-               NewAbs = erl_parse:map_anno(AFun, Abs),
-               {F, NewAbs, Type}
-         end,
-  ArFun = fun({Arity, Fields}) -> {Arity, lists:map(FFun, Fields)} end,
+  %% The annotations of the abstract code used to be reset before
+  %% Erlang/OTP 24. However, the location is used in 24, why the
+  %% annotations are no longer reset. The increased memory usage is
+  %% small compared to overall memory consumption.
   List = dialyzer_utils:ets_tab2list(TmpRecords),
   true = ets:delete(TmpRecords),
-  Fun = fun({Mod, Map}) ->
-            MFun =
-              fun({record, _}, {FileLine, ArityFields}) ->
-                    {FileLine, lists:map(ArFun, ArityFields)};
-                 (_, {{M, FileLine, Abs, Args}, Type}) ->
-                    {{M, FileLine, erl_parse:map_anno(AFun, Abs), Args}, Type}
-              end,
-            {Mod, maps:map(MFun, Map)}
-        end,
-  NewList = lists:map(Fun, List),
-  true = ets:insert(Records, NewList),
+  true = ets:insert(Records, List),
   CS#codeserver{temp_records = clean}.
 
 -spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
 
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
-  case ets_dict_find(Mod, ContDict) of
-    error -> maps:new();
-    {ok, Keys} ->
-      maps:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
-  end.
-
-get_file_contract(Key, ContDict) ->
-  {Key, ets:lookup_element(ContDict, Key, 2)}.
+  Keys = ets:lookup_element(ContDict, Mod, 2, []),
+  #{Key => ets:lookup_element(ContDict, Key, 2) || Key <- Keys}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
          'error' | {'ok', dialyzer_contracts:file_contract()}.
@@ -347,13 +324,16 @@ get_file_contract(Key, ContDict) ->
 lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
   ets_dict_find(MFA, ContDict).
 
--spec lookup_meta_info(module() | mfa(), codeserver()) -> meta_info().
+-spec lookup_meta_info(module() | mfa(), codeserver()) ->
+                          {'ok', meta_info()} | 'error'.
 
 lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
-  case ets_dict_find(MorMFA, FunMetaInfo) of
-    error -> [];
-    {ok, PropList} -> PropList
-  end.
+  ets_dict_find(MorMFA, FunMetaInfo).
+
+-spec is_member_meta_info(module() | mfa(), codeserver()) -> boolean().
+
+is_member_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
+  ets_set_is_element(MorMFA, FunMetaInfo).
 
 -spec get_contracts(codeserver()) ->
                        dict:dict(mfa(), dialyzer_contracts:file_contract()).

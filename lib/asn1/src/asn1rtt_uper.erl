@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 -export([skipextensions/3]).
 -export([complete/1, complete_NFP/1]).
+-export([encode_fragmented_sof/3]).
 
 skipextensions(Bytes0, Nr, ExtensionBitstr) when is_bitstring(ExtensionBitstr) ->
     Prev = Nr - 1,
@@ -75,3 +76,31 @@ complete_NFP(InList) when is_list(InList) ->
     list_to_bitstring(InList);
 complete_NFP(InList) when is_bitstring(InList) ->
     InList.
+
+-define('16K',16384).
+
+encode_fragmented_sof(Fun, Comps, Len) ->
+    encode_fragmented_sof_1(Fun, Comps, Len, 4).
+
+encode_fragmented_sof_1(Encoder, Comps0, Len0, N) ->
+    SegSz = N * ?'16K',
+    if
+        Len0 >= SegSz ->
+            {Comps,B} = encode_components(Comps0, Encoder, SegSz, []),
+            Len = Len0 - SegSz,
+            [<<3:2,N:6>>,B|encode_fragmented_sof_1(Encoder, Comps, Len, N)];
+        N > 1 ->
+            encode_fragmented_sof_1(Encoder, Comps0, Len0, N - 1);
+        Len0 < 128 ->
+            {[],B} = encode_components(Comps0, Encoder, Len0, []),
+            [Len0|B];
+        Len0 < ?'16K' ->
+            {[],B} = encode_components(Comps0, Encoder, Len0, []),
+            [<<2:2,Len0:14>>|B]
+    end.
+
+encode_components(Cs, _Encoder, 0, Acc) ->
+    {Cs,lists:reverse(Acc)};
+encode_components([C|Cs], Encoder, Size, Acc) ->
+    B = Encoder(C),
+    encode_components(Cs, Encoder, Size - 1, [B|Acc]).

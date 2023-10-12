@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -697,7 +697,7 @@ schema_coordinator(Client, _Fun, undefined) ->
 schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
     %% Do not trap exit in order to automatically die
     %% when the controller dies
-
+    put(transaction_client, Client), %% debug
     link(Controller),
     unlink(Client),
 
@@ -730,7 +730,10 @@ api_list2cs(Other) ->
     mnesia:abort({badarg, Other}).
 
 vsn_cs2list(Cs) ->
-    cs2list(need_old_cstructs(), Cs).
+    cs2list(Cs).
+
+cs2list(false, Cs) ->
+    cs2list(Cs).
 
 cs2list(Cs) when is_record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
@@ -755,25 +758,6 @@ cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
 	    cookie,version],
     rec2list(Tags, Tags, 2, Cs).
 
-cs2list(false, Cs) ->
-    cs2list(Cs);
-cs2list({8,3}, Cs) ->
-    cs2list(Cs);
-cs2list({8,Minor}, Cs) when Minor =:= 2; Minor =:= 1 ->
-    Orig = record_info(fields, cstruct),
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,majority,index,snmp,local_content,
-	    record_name,attributes,
-	    user_properties,frag_properties,storage_properties,
-	    cookie,version],
-    CsList = rec2list(Tags, Orig, 2, Cs),
-    case proplists:get_value(index, CsList, []) of
-	[] -> CsList;
-	NewFormat ->
-	    OldFormat = [Pos || {Pos, _Pref} <- NewFormat],
-	    lists:keyreplace(index, 1, CsList, {index, OldFormat})
-    end.
-
 rec2list([index | Tags], [index|Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
     [{index, lists:map(
@@ -796,19 +780,8 @@ rec2list([], _, _Pos, _Rec) ->
 rec2list(Tags, [_|Orig], Pos, Rec) ->
     rec2list(Tags, Orig, Pos+1, Rec).
 
-normalize_cs(Cstructs, Node) ->
-    %% backward-compatibility hack; normalize before returning
-    case need_old_cstructs([Node]) of
-	false ->
-	    Cstructs;
-	Version ->
-	    %% some other format
-	    [convert_cs(Version, Cs) || Cs <- Cstructs]
-    end.
-
-convert_cs(Version, Cs) ->
-    Fields = [Value || {_, Value} <- cs2list(Version, Cs)],
-    list_to_tuple([cstruct|Fields]).
+normalize_cs(Cstructs, _Node) ->
+    Cstructs.
 
 list2cs(List) ->
     list2cs(List, get_ext_types()).
@@ -984,13 +957,13 @@ get_ext_types_disc_() ->
             []
     end.
 
-%% Convert attribute name to integer if neccessary
+%% Convert attribute name to integer if necessary
 attr_tab_to_pos(_Tab, Pos) when is_integer(Pos) ->
     Pos;
 attr_tab_to_pos(Tab, Attr) ->
     attr_to_pos(Attr, val({Tab, attributes})).
 
-%% Convert attribute name to integer if neccessary
+%% Convert attribute name to integer if necessary
 attr_to_pos({_} = P, _) -> P;
 attr_to_pos(Pos, _Attrs) when is_integer(Pos) ->
     Pos;
@@ -1051,14 +1024,14 @@ verify_cstruct(#cstruct{} = Cs) ->
 
 expand_index_attrs(#cstruct{index = Ix, attributes = Attrs,
 			    name = Tab} = Cs) ->
-    Prefered = prefered_index_types(Cs),
-    expand_index_attrs(Ix, Tab, Attrs, Prefered).
+    Preferred = prefered_index_types(Cs),
+    expand_index_attrs(Ix, Tab, Attrs, Preferred).
 
-expand_index_attrs(Ix, Tab, Attrs, Prefered) ->
+expand_index_attrs(Ix, Tab, Attrs, Preferred) ->
     lists:map(fun(P) when is_integer(P); is_atom(P) ->
-		      {attr_to_pos(P, Attrs), Prefered};
+		      {attr_to_pos(P, Attrs), Preferred};
 		 ({A} = P) when is_atom(A) ->
-		      {P, Prefered};
+		      {P, Preferred};
 		 ({P, Type}) ->
 		      {attr_to_pos(P, Attrs), Type};
 		 (_Other) ->
@@ -1213,7 +1186,7 @@ assert_correct_cstruct(Cs) when is_record(Cs, cstruct) ->
     verify(true, mnesia_snmp_hook:check_ustruct(Snmp),
 	   {badarg, Tab, {snmp, Snmp}}),
 
-    CheckProp = fun(Prop) when is_tuple(Prop), size(Prop) >= 1 -> ok;
+    CheckProp = fun(Prop) when tuple_size(Prop) >= 1 -> ok;
 		   (Prop) ->
 			mnesia:abort({bad_type, Tab,
 				      {user_properties, [Prop]}})
@@ -1298,7 +1271,7 @@ verify_nodes(Cs) ->
     lists:foreach(AtomCheck, Nodes).
 
 verify(Expected, Fun, Error) when is_function(Fun) ->
-    do_verify(Expected, catch Fun(), Error);
+    do_verify(Expected, ?CATCH(Fun()), Error);
 verify(Expected, Actual, Error) ->
     do_verify(Expected, Actual, Error).
 
@@ -1379,7 +1352,7 @@ check_active([], _Expl, _Tab) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Function for definining an external backend type
+%% Function for defining an external backend type
 
 add_backend_type(Name, Module) ->
     case schema_transaction(fun() -> do_add_backend_type(Name, Module) end) of
@@ -1412,7 +1385,7 @@ do_add_backend_type(Name, Module) ->
     ModuleRegistered = lists:keymember(Module, 2, Types),
     do_write_table_property(schema, {mnesia_backend_types,
 				     [{Name, Module}|Types]}),
-    ModuleRegistered.
+    not ModuleRegistered.
 
 delete_backend_type(Name) ->
     schema_transaction(fun() -> do_delete_backend_type(Name) end).
@@ -1864,11 +1837,7 @@ do_move_table(schema, _FromNode, _ToNode) ->
     mnesia:abort({bad_type, schema});
 do_move_table(Tab, FromNode, ToNode) when is_atom(FromNode), is_atom(ToNode) ->
     TidTs = get_tid_ts_and_lock(schema, write),
-    AnyOld = lists:any(fun(Node) -> mnesia_monitor:needs_protocol_conversion(Node) end,
-		       [ToNode|val({Tab, where_to_write})]),
-    if AnyOld -> ignore;  %% Leads to deadlock on old nodes
-       true -> get_tid_ts_and_lock(Tab, write)
-    end,
+    get_tid_ts_and_lock(Tab, write),
     insert_schema_ops(TidTs, make_move_table(Tab, FromNode, ToNode));
 do_move_table(Tab, FromNode, ToNode) ->
     mnesia:abort({badarg, Tab, FromNode, ToNode}).
@@ -2157,7 +2126,7 @@ make_change_table_majority(Tab, Majority) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-write_table_property(Tab, Prop) when is_tuple(Prop), size(Prop) >= 1 ->
+write_table_property(Tab, Prop) when tuple_size(Prop) >= 1 ->
     schema_transaction(fun() -> do_write_table_property(Tab, Prop) end);
 write_table_property(Tab, Prop) ->
     {aborted, {bad_type, Tab, Prop}}.
@@ -2497,10 +2466,13 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 		_  ->
 		    ok
 	    end,
-	    %% Tables are created by mnesia_loader get_network code
-	    insert_cstruct(Tid, Cs, true),
+            mnesia_lib:verbose("~w:~w Adding table~n",[?MODULE,?LINE]),
+
 	    case mnesia_controller:get_network_copy(Tid, Tab, Cs) of
 		{loaded, ok} ->
+                    %% Tables are created by mnesia_loader get_network code
+                    insert_cstruct(Tid, Cs, true),
+                    mnesia_controller:i_have_tab(Tab, Cs),
 		    {true, optional};
 		{not_loaded, ErrReason} ->
 		    Reason = {system_limit, Tab, {Node, ErrReason}},
@@ -2838,7 +2810,7 @@ transform_objs(Fun, Tab, RecName, Key, A, Storage, Type, Acc) ->
 transform_obj(Tab, RecName, Key, Fun, [Obj|Rest], NewArity, Type, Ws, Ds) ->
     NewObj = Fun(Obj),
     if
-        size(NewObj) /= NewArity ->
+        tuple_size(NewObj) /= NewArity ->
             exit({"Bad arity", Obj, NewObj});
 	NewObj == Obj ->
 	    transform_obj(Tab, RecName, Key, Fun, Rest, NewArity, Type, Ws, Ds);
@@ -3124,7 +3096,7 @@ ext_real_suffixes(Ext) ->
 		    [M || {_,M} <- Ext])
     catch
         error:E ->
-            verbose("Cant find real ext suffixes (~tp)~n", [E]),
+            verbose("Can't find real ext suffixes (~tp)~n", [E]),
             []
     end.
 
@@ -3133,7 +3105,7 @@ ext_tmp_suffixes(Ext) ->
 		    [M || {_,M} <- Ext])
     catch
         error:E ->
-            verbose("Cant find tmp ext suffixes (~tp)~n", [E]),
+            verbose("Can't find tmp ext suffixes (~tp)~n", [E]),
             []
     end.
 
@@ -3427,8 +3399,7 @@ do_merge_schema(LockTabs0) ->
 		    RemoteRunning = mnesia_lib:intersect(New ++ Old, RemoteRunning1),
 		    if
 			RemoteRunning /= RemoteRunning1 ->
-			    mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
-					     [node(), RemoteRunning1 -- RemoteRunning]),
+                            warn_user_connect_failed(RemoteRunning1 -- RemoteRunning),
 			    mnesia:abort({node_not_running, RemoteRunning1 -- RemoteRunning});
 			true -> ok
 		    end,
@@ -3438,15 +3409,14 @@ do_merge_schema(LockTabs0) ->
                                                   mnesia_lib:intersect(Ns,NeedsLock))
                      || {T,Ns} <- LockTabs],
 
-		    NeedsConversion = need_old_cstructs(NeedsLock ++ LockedAlready),
 		    {value, SchemaCs} = lists:keysearch(schema, #cstruct.name, Cstructs),
-		    SchemaDef = cs2list(NeedsConversion, SchemaCs),
+		    SchemaDef = cs2list(false, SchemaCs),
 		    %% Announce that Node is running
 		    A = [{op, announce_im_running, node(), SchemaDef, Running, RemoteRunning}],
 		    do_insert_schema_ops(Store, A),
 
 		    %% Introduce remote tables to local node
-		    do_insert_schema_ops(Store, make_merge_schema(Node, NeedsConversion, Cstructs)),
+		    do_insert_schema_ops(Store, make_merge_schema(Node, false, Cstructs)),
 
 		    %% Introduce local tables to remote nodes
 		    Tabs = val({schema, tables}),
@@ -3470,24 +3440,24 @@ do_merge_schema(LockTabs0) ->
 	    not_merged
     end.
 
+warn_user_connect_failed(Missing) ->
+    Tag = {user_warned, do_schema_merge},
+    case ?catch_val(Tag) of
+        {'EXIT', _} ->
+            mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
+                             [node(), Missing]),
+            mnesia_lib:set(Tag, 1);
+        N when N rem 2000 =:= 0 ->  %% ~10 min
+            mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n",
+                             [node(), Missing]),
+            mnesia_lib:set(Tag, N+1);
+        N ->
+            mnesia_lib:set(Tag, N+1)
+    end.
+
+
 fetch_cstructs(Node) ->
-    Convert = mnesia_monitor:needs_protocol_conversion(Node),
-    case rpc:call(Node, mnesia_controller, get_remote_cstructs, [])  of
-	{cstructs, Cs0, RemoteRunning1} when Convert ->
-	    {cstructs, [list2cs(cs2list(Cs)) || Cs <- Cs0], RemoteRunning1};
-	Result ->
-	    Result
-    end.
-
-need_old_cstructs() ->
-    need_old_cstructs(val({schema, where_to_write})).
-
-need_old_cstructs(Nodes) ->
-    Filter = fun(Node) -> mnesia_monitor:needs_protocol_conversion(Node) end,
-    case lists:filter(Filter, Nodes) of
-	[] -> false;
-	Ns -> lists:min([element(1, ?catch_val({protocol, Node})) || Node <- Ns])
-    end.
+    rpc:call(Node, mnesia_controller, get_remote_cstructs, []).
 
 tab_to_nodes(Tab) when is_atom(Tab) ->
     Cs = val({Tab, cstruct}),

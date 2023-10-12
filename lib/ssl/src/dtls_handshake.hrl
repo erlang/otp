@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,27 +20,19 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the DTLS-handshake protocol
+%% Purpose: Record and constant definitions for the DTLS-handshake protocol
 %% that differs from TLS see RFC 6347 
 %%----------------------------------------------------------------------
 -ifndef(dtls_handshake).
 -define(dtls_handshake, true).
 
+-include("tls_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
+-include("ssl_api.hrl").
+-include("ssl_record.hrl").
 
 -define(HELLO_VERIFY_REQUEST, 3).
--define(HELLO_VERIFY_REQUEST_VERSION, {254, 255}).
-
--record(client_hello, {
-	  client_version,
-	  random,             
-	  session_id,          % opaque SessionID<0..32>
-	  cookie,              % opaque<2..2^16-1>
-	  cipher_suites,       % cipher_suites<2..2^16-1>
-	  compression_methods, % compression_methods<1..2^8-1>,
-	  %% Extensions
-	  extensions
-	 }).
+-define(HELLO_VERIFY_REQUEST_VERSION, ?DTLS_1_0).
 
 -record(hello_verify_request, {
 	  protocol_version,
@@ -57,10 +49,9 @@
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% RFC 7764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
+%% RFC 5764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
 %% for the Secure Real-time Transport Protocol (SRTP)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Not supported
--define(USE_SRTP, 14).
+%% Defined in ssl_handshake.hrl because extension parsing code is in ssl_handshake.erl
 
 -endif. % -ifdef(dtls_handshake).

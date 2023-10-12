@@ -1,0 +1,17 @@
+
+  [;1m-spec partition_family(SetFun, Set) -> Family[0m
+  [;1m                          when[0m
+  [;1m                              Family :: family(),[0m
+  [;1m                              SetFun :: set_fun(),[0m
+  [;1m                              Set :: a_set().[0m
+
+  Returns family [;;4mFamily[0m where the indexed set is a partition
+  of [;;4mSet[0m such that two elements are considered equal if the
+  results of applying [;;4mSetFun[0m are the same value i. This i is the
+  index that [;;4mFamily[0m maps onto the equivalence class.
+
+    1> S = sofs:relation([{a,a,a,a},{a,a,b,b},{a,b,b,b}]),
+    SetFun = {external, fun({A,_,C,_}) -> {A,C} end},
+    F = sofs:partition_family(SetFun, S),
+    sofs:to_external(F).
+    [{{a,a},[{a,a,a,a}]},{{a,b},[{a,a,b,b},{a,b,b,b}]}]

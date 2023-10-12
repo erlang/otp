@@ -59,17 +59,17 @@
 -define(assert(BoolExpr),
         begin
         ((fun () ->
-            __T = is_process_alive(self()),  % cheap source of truth
+            X__T = is_process_alive(self()),  % cheap source of truth
             case (BoolExpr) of
-                __T -> ok;
-                __V -> erlang:error({assert,
+                X__T -> ok;
+                X__V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??BoolExpr)},
                                       {expected, true},
-                                      case not __T of
-                                          __V -> {value, false};
-                                          _ -> {not_boolean, __V}
+                                      case not X__T of
+                                          X__V -> {value, false};
+                                          _ -> {not_boolean, X__V}
                                       end]})
             end
           end)())
@@ -77,18 +77,18 @@
 -define(assert(BoolExpr, Comment),
         begin
         ((fun () ->
-            __T = is_process_alive(self()),  % cheap source of truth
+            X__T = is_process_alive(self()),  % cheap source of truth
             case (BoolExpr) of
-                __T -> ok;
-                __V -> erlang:error({assert,
+                X__T -> ok;
+                X__V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {comment, (Comment)},
                                       {expression, (??BoolExpr)},
                                       {expected, true},
-                                      case not __T of
-                                          __V -> {value, false};
-                                          _ -> {not_boolean, __V}
+                                      case not X__T of
+                                          X__V -> {value, false};
+                                          _ -> {not_boolean, X__V}
                                       end]})
             end
           end)())
@@ -103,17 +103,17 @@
 -define(assertNot(BoolExpr),
         begin
         ((fun () ->
-            __F = not is_process_alive(self()),
+            X__F = not is_process_alive(self()),
             case (BoolExpr) of
-                __F -> ok;
-                __V -> erlang:error({assert,
+                X__F -> ok;
+                X__V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??BoolExpr)},
                                       {expected, false},
-                                      case not __F of
-                                          __V -> {value, true};
-                                          _ -> {not_boolean, __V}
+                                      case not X__F of
+                                          X__V -> {value, true};
+                                          _ -> {not_boolean, X__V}
                                       end]})
             end
           end)())
@@ -121,18 +121,18 @@
 -define(assertNot(BoolExpr, Comment),
         begin
         ((fun () ->
-            __F = not is_process_alive(self()),
+            X__F = not is_process_alive(self()),
             case (BoolExpr) of
-                __F -> ok;
-                __V -> erlang:error({assert,
+                X__F -> ok;
+                X__V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {comment, (Comment)},
                                       {expression, (??BoolExpr)},
                                       {expected, false},
-                                      case not __F of
-                                          __V -> {value, true};
-                                          _ -> {not_boolean, __V}
+                                      case not X__F of
+                                          X__V -> {value, true};
+                                          _ -> {not_boolean, X__V}
                                       end]})
             end
           end)())
@@ -150,12 +150,12 @@
         ((fun () ->
             case (Expr) of
                 Guard -> ok;
-                __V -> erlang:error({assertMatch,
+                X__V -> erlang:error({assertMatch,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??Expr)},
                                       {pattern, (??Guard)},
-                                      {value, __V}]})
+                                      {value, X__V}]})
             end
           end)())
         end).
@@ -164,13 +164,13 @@
         ((fun () ->
             case (Expr) of
                 Guard -> ok;
-                __V -> erlang:error({assertMatch,
+                X__V -> erlang:error({assertMatch,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {comment, (Comment)},
                                       {expression, (??Expr)},
                                       {pattern, (??Guard)},
-                                      {value, __V}]})
+                                      {value, X__V}]})
             end
           end)())
         end).
@@ -184,14 +184,14 @@
 -define(assertNotMatch(Guard, Expr),
         begin
         ((fun () ->
-            __V = (Expr),
-            case __V of
+            X__V = (Expr),
+            case X__V of
                 Guard -> erlang:error({assertNotMatch,
                                        [{module, ?MODULE},
                                         {line, ?LINE},
                                         {expression, (??Expr)},
                                         {pattern, (??Guard)},
-                                        {value, __V}]});
+                                        {value, X__V}]});
                 _ -> ok
             end
           end)())
@@ -199,15 +199,15 @@
 -define(assertNotMatch(Guard, Expr, Comment),
         begin
         ((fun () ->
-            __V = (Expr),
-            case __V of
+            X__V = (Expr),
+            case X__V of
                 Guard -> erlang:error({assertNotMatch,
                                        [{module, ?MODULE},
                                         {line, ?LINE},
                                         {comment, (Comment)},
                                         {expression, (??Expr)},
                                         {pattern, (??Guard)},
-                                        {value, __V}]});
+                                        {value, X__V}]});
                 _ -> ok
             end
           end)())
@@ -223,31 +223,31 @@
 -define(assertEqual(Expect, Expr),
         begin
         ((fun () ->
-            __X = (Expect),
+            X__X = (Expect),
             case (Expr) of
-                __X -> ok;
-                __V -> erlang:error({assertEqual,
+                X__X -> ok;
+                X__V -> erlang:error({assertEqual,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??Expr)},
-                                      {expected, __X},
-                                      {value, __V}]})
+                                      {expected, X__X},
+                                      {value, X__V}]})
             end
           end)())
         end).
 -define(assertEqual(Expect, Expr, Comment),
         begin
         ((fun () ->
-            __X = (Expect),
+            X__X = (Expect),
             case (Expr) of
-                __X -> ok;
-                __V -> erlang:error({assertEqual,
+                X__X -> ok;
+                X__V -> erlang:error({assertEqual,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {comment, (Comment)},
                                       {expression, (??Expr)},
-                                      {expected, __X},
-                                      {value, __V}]})
+                                      {expected, X__X},
+                                      {value, X__V}]})
             end
           end)())
         end).
@@ -261,13 +261,13 @@
 -define(assertNotEqual(Unexpected, Expr),
         begin
         ((fun () ->
-            __X = (Unexpected),
+            X__X = (Unexpected),
             case (Expr) of
-                __X -> erlang:error({assertNotEqual,
+                X__X -> erlang:error({assertNotEqual,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??Expr)},
-                                      {value, __X}]});
+                                      {value, X__X}]});
                 _ -> ok
             end
           end)())
@@ -275,14 +275,14 @@
 -define(assertNotEqual(Unexpected, Expr, Comment),
         begin
         ((fun () ->
-            __X = (Unexpected),
+            X__X = (Unexpected),
             case (Expr) of
-                __X -> erlang:error({assertNotEqual,
+                X__X -> erlang:error({assertNotEqual,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {comment, (Comment)},
                                       {expression, (??Expr)},
-                                      {value, __X}]});
+                                      {value, X__X}]});
                 _ -> ok
             end
           end)())
@@ -299,17 +299,17 @@
         begin
         ((fun () ->
             try (Expr) of
-                __V -> erlang:error({assertException,
+                X__V -> erlang:error({assertException,
                                       [{module, ?MODULE},
                                        {line, ?LINE},
                                        {expression, (??Expr)},
                                        {pattern,
                                         "{ "++(??Class)++" , "++(??Term)
                                         ++" , [...] }"},
-                                       {unexpected_success, __V}]})
+                                       {unexpected_success, X__V}]})
             catch
                 Class:Term -> ok;
-                __C:__T:__S ->
+                X__C:X__T:X__S ->
                     erlang:error({assertException,
                                   [{module, ?MODULE},
                                    {line, ?LINE},
@@ -318,7 +318,7 @@
                                     "{ "++(??Class)++" , "++(??Term)
                                     ++" , [...] }"},
                                    {unexpected_exception,
-                                    {__C, __T, __S}}]})
+                                    {X__C, X__T, X__S}}]})
             end
           end)())
         end).
@@ -326,7 +326,7 @@
         begin
         ((fun () ->
             try (Expr) of
-                __V -> erlang:error({assertException,
+                X__V -> erlang:error({assertException,
                                       [{module, ?MODULE},
                                        {line, ?LINE},
                                        {comment, (Comment)},
@@ -334,10 +334,10 @@
                                        {pattern,
                                         "{ "++(??Class)++" , "++(??Term)
                                         ++" , [...] }"},
-                                       {unexpected_success, __V}]})
+                                       {unexpected_success, X__V}]})
             catch
                 Class:Term -> ok;
-                __C:__T:__S ->
+                X__C:X__T:X__S ->
                     erlang:error({assertException,
                                   [{module, ?MODULE},
                                    {line, ?LINE},
@@ -347,7 +347,7 @@
                                     "{ "++(??Class)++" , "++(??Term)
                                     ++" , [...] }"},
                                    {unexpected_exception,
-                                    {__C, __T, __S}}]})
+                                    {X__C, X__T, X__S}}]})
             end
           end)())
         end).
@@ -376,10 +376,10 @@
             try (Expr) of
                 _ -> ok
             catch
-                __C:__T:__S ->
-                    case __C of
+                X__C:X__T:X__S ->
+                    case X__C of
                         Class ->
-                            case __T of
+                            case X__T of
                                 Term ->
                                     erlang:error({assertNotException,
                                                   [{module, ?MODULE},
@@ -389,7 +389,7 @@
                                                     "{ "++(??Class)++" , "
                                                     ++(??Term)++" , [...] }"},
                                                    {unexpected_exception,
-                                                    {__C, __T, __S}}]});
+                                                    {X__C, X__T, X__S}}]});
                                 _ -> ok
                             end;
                         _ -> ok
@@ -403,10 +403,10 @@
             try (Expr) of
                 _ -> ok
             catch
-                __C:__T:__S ->
-                    case __C of
+                X__C:X__T:X__S ->
+                    case X__C of
                         Class ->
-                            case __T of
+                            case X__T of
                                 Term ->
                                     erlang:error({assertNotException,
                                                   [{module, ?MODULE},
@@ -417,7 +417,7 @@
                                                     "{ "++(??Class)++" , "
                                                     ++(??Term)++" , [...] }"},
                                                    {unexpected_exception,
-                                                    {__C, __T, __S}}]});
+                                                    {X__C, X__T, X__S}}]});
                                 _ -> ok
                             end;
                         _ -> ok

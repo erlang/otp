@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@
 
 %% @doc This module is the interface to the XML parser, it handles XML 1.0.
 %%     The XML parser is activated through
-%%     <tt>xmerl_scan:string/[1,2]</tt> or
-%%     <tt>xmerl_scan:file/[1,2]</tt>.
+%%     <code>xmerl_scan:string/[1,2]</code> or
+%%     <code>xmerl_scan:file/[1,2]</code>.
 %%     It returns records of the type defined in xmerl.hrl.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
 %% functions.
@@ -110,14 +110,17 @@
 %%  <dt><code>{default_attrs, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
+%%  <dt><code>{allow_entities, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
+%%        in the XML document (default 'true').</dd>
 %% </dl>
 %% @type xmlElement() = #xmlElement{}.
 %% The record definition is found in xmerl.hrl.
 %% @type xmlDocument() = #xmlDocument{}.
 %% The record definition is found in xmerl.hrl.
 %% @type document() = xmlElement() | xmlDocument(). <p>
-%% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
-%% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
+%% The document returned by <code>xmerl_scan:string/[1,2]</code> and
+%% <code>xmerl_scan:file/[1,2]</code>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
 
@@ -140,11 +143,14 @@
 %% helper functions. To xmerl_lib ??
 -export([accumulate_whitespace/4]).
 
+-export_type([xmlElement/0]).
+
 %-define(debug, 1).
 -include("xmerl.hrl").		% record def, macros
 -include("xmerl_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 
+-type xmlElement() :: #xmlElement{}.
 
 -define(fatal(Reason, S),
 	if
@@ -414,6 +420,8 @@ initial_state([{xmlbase, D}|T], S) ->
     initial_state(T, S#xmerl_scanner{xmlbase = D});
 initial_state([{encoding, Enc}|T], S) ->
     initial_state(T, S#xmerl_scanner{encoding = Enc});
+initial_state([{allow_entities, F} |T], S) when F==true; F==false ->
+    initial_state(T, S#xmerl_scanner{allow_entities = F});
 initial_state([], S=#xmerl_scanner{rules = undefined}) ->
     Tab = ets:new(rules, [set, public]),
     S#xmerl_scanner{rules = Tab};
@@ -1685,10 +1693,15 @@ scan_markup_decl("<!ENTITY" ++ T, S0) ->
     %% <!ENTITY [%] entity.name "replacement text">
     %% <!ENTITY [%] entity.name SYSTEM "system.identifier">
     %% <!ENTITY [%] entity.name PUBLIC public.identifier "system.identifier">
-    ?bump_col(8),
-    {_,T1,S1} = mandatory_strip(T,S),
-    {T2, S2} = scan_entity(T1, S1),
-    strip(T2,S2);
+    case S0#xmerl_scanner.allow_entities of
+        false ->
+            ?fatal( {error, entities_not_allowed}, S0);
+        true ->
+            ?bump_col(8),
+            {_,T1,S1} = mandatory_strip(T,S),
+            {T2, S2} = scan_entity(T1, S1),
+            strip(T2,S2)
+    end;
 scan_markup_decl("<!NOTATION" ++ T, S0) ->
     %% <!NOTATION notation.name "public.identifier" "helper.application">
     ?bump_col(10),
@@ -2410,15 +2423,22 @@ scan_att_chars("&" ++ T, S0, Delim, Acc, TmpAcc,AT,IsNorm) -> % Reference
 	true ->
 	    scan_att_chars(T1,S1,Delim,[ExpRef|Acc],[ExpRef|TmpAcc],AT,IsNorm);
 	_ ->
-            Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
             case T of
                 "#" ++ _ ->
                     %% normalization rules (sec 3.3.3) require that for
                     %% character references, the referenced character be
                     %% added directly to the normalized value
-                    scan_att_chars(T1, S1, Delim, Ch ++ Acc,TmpAcc, AT,IsNorm);
+                    {T2,S2,IsNorm2} =
+                        if
+                            ?whitespace(hd(ExpRef)) ->
+                                normalize(T1, S1, IsNorm);
+                            true ->
+                                {T1, S1, IsNorm}
+                        end,
+                    scan_att_chars(T2, S2, Delim, ExpRef ++ Acc, TmpAcc, AT, IsNorm2);
                 _ ->
-                    scan_att_chars(Ch ++ T1, S1, Delim, Acc,TmpAcc, AT,IsNorm)
+                    Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
+                    scan_att_chars(Ch ++ T1, S1, Delim, Acc, TmpAcc, AT, IsNorm)
             end
     end;
 scan_att_chars("<" ++ _T, S0, _Delim, _Acc,_, _,_) -> % Tags not allowed here
@@ -3627,7 +3647,7 @@ scan_entity_value("%" ++ T, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 		     ExpRef ->
 			{string_to_char_set(S1#xmerl_scanner.encoding, ExpRef) ,S1}
 		end,
-	    %% single or duoble qoutes are not treated as delimeters
+	    %% single or duoble quotes are not treated as delimiters
 	    %% in passages "included in literal"
 	    S3 = S2#xmerl_scanner{col=S2#xmerl_scanner.col+1},
 	    {Acc2,_,S4} = scan_entity_value(ExpandedRef,S3,no_delim,Acc,
@@ -3668,32 +3688,32 @@ scan_entity_value("&" ++ T, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 	    scan_entity_value(T2,S2,Delim,[";",atom_to_list(Name),"&"|Acc],PEName,Namespace,PENesting)
     end;
 %% The following clauses is for PE Nesting VC constraint
-%% Start delimeter for ConditionalSection
+%% Start delimiter for ConditionalSection
 scan_entity_value("<!["++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["<!["|Acc],PEName,NS,
 		      pe_push("<![",PENesting,S));
-%% Start delimeter for ConditionalSection (2)
+%% Start delimiter for ConditionalSection (2)
 scan_entity_value("["++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["["|Acc],PEName,NS,
 		      pe_push("[",PENesting,S));
-%% Start delimeter for comment
+%% Start delimiter for comment
 scan_entity_value("<!--"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(4),
     scan_entity_value(T,S,Delim,["<!--"|Acc],PEName,NS,
 		      pe_push("<!--",PENesting,S));
-%% Start delimeter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
+%% Start delimiter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
 scan_entity_value("<!"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["<!"|Acc],PEName,NS,
 		      pe_push("<!",PENesting,S));
-%% Start delimeter for PI
+%% Start delimiter for PI
 scan_entity_value("<?"++T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["<?"|Acc],PEName,NS,
 		      pe_push("<?",PENesting,S));
-%% Start delimeter for elements that matches the proper stop delimeter
+%% Start delimiter for elements that matches the proper stop delimiter
 %% for a markupdecl
 scan_entity_value("</"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(2),
@@ -3703,32 +3723,32 @@ scan_entity_value("<"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["<"|Acc],PEName,NS,
 		      pe_push("<",PENesting,S));
-%% Delimeter for contentspecs
+%% Delimiter for contentspecs
 scan_entity_value("("++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["("|Acc],PEName,NS,
 		      pe_push("(",PENesting,S));
-%% Stop delimeter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
+%% Stop delimiter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
 scan_entity_value(">"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,[">"|Acc],PEName,NS,
 		      pe_pop(">",PENesting,S));
-%% Stop delimeter for PI
+%% Stop delimiter for PI
 scan_entity_value("?>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["?>"|Acc],PEName,NS,
 		      pe_pop("?>",PENesting,S));
-%% Stop delimeter for comment
+%% Stop delimiter for comment
 scan_entity_value("-->"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["-->"|Acc],PEName,NS,
 		      pe_pop("-->",PENesting,S));
-%% Stop delimeter for ConditionalSection
+%% Stop delimiter for ConditionalSection
 scan_entity_value("]]>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["]]>"|Acc],PEName,NS,
 		      pe_pop("]]>",PENesting,S));
-%% Stop delimeter added to match a content start delimeter included
+%% Stop delimiter added to match a content start delimiter included
 scan_entity_value("/>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["/>"|Acc],PEName,NS,
@@ -3964,7 +3984,7 @@ normalize(T,S,IsNorm) ->
 	{_,T,S} ->
 	    {T,S,IsNorm};
 	{_,T1,S1} ->
-	    {T1,S1,true}
+	    normalize(T1,S1,true)
     end.
 
 

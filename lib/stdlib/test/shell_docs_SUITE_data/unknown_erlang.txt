@@ -1,0 +1,27 @@
+
+[;1m	erlang[0m
+
+  The Erlang BIFs and predefined types.
+
+  By convention, most Built-In Functions (BIFs) and all predefined
+  types are included in this module. Some of the BIFs and all of the
+  predefined types are viewed more or less as part of the Erlang
+  programming language and are auto-imported. Thus, it is not
+  necessary to specify the module name. For example, the calls [;;4m[0m
+  [;;4matom_to_list(erlang)[0m and [;;4merlang:atom_to_list(erlang)[0m are
+  identical.
+
+  Auto-imported BIFs are listed without module prefix. BIFs listed
+  with module prefix are not auto-imported.
+
+  Predefined types are listed in the Predefined datatypes section
+  of this reference manual and in the Types and Function
+  Specifications section of the Erlang Reference Manual.
+
+  BIFs can fail for various reasons. All BIFs fail with reason [;;4m[0m
+  [;;4mbadarg[0m if they are called with arguments of an incorrect type.
+  The other reasons are described in the description of each
+  individual BIF.
+
+  Some BIFs can be used in guard tests and are marked with "Allowed
+  in guard tests".

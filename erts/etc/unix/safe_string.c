@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,18 +107,4 @@ char* find_str(const char* haystack, int hsize, const char* needle)
     }
     return NULL;
 }
-
-#ifndef HAVE_MEMMOVE
-void* memmove(void *dest, const void *src, size_t n)
-{
-    int i;
-    if (src > dest) {
-	for (i=0; i<n; i++) ((char*)dest)[i] = ((char*)src)[i];
-    }
-    else {
-	for (i=(int)(n-1); i>=0; i--) ((char*)dest)[i] = ((char*)src)[i];
-    }
-    return dest;
-}
-#endif /* HAVE_MEMMOVE */
 

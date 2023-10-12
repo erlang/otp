@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 #include "erl_mseg.h"
 #include "global.h"
 #include "erl_threads.h"
-#include "erl_mtrace.h"
 #include "erl_time.h"
 #include "erl_alloc.h"
 #include "big.h"
@@ -44,8 +43,6 @@
 #include "erl_util_queue.h"
 
 #if HAVE_ERTS_MSEG
-
-#define SEGTYPE ERTS_MTRACE_SEGMENT_ID
 
 #ifndef HAVE_GETPAGESIZE
 #define HAVE_GETPAGESIZE 0
@@ -193,7 +190,7 @@ static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
   (&aligned_mseg_allctr[(IX)].mseg_alloc)
 
 #define ERTS_MSEG_ALLCTR_SS() \
-  ERTS_MSEG_ALLCTR_IX((int) erts_get_scheduler_id())
+  ERTS_MSEG_ALLCTR_IX((int) erts_get_thr_alloc_ix())
 
 #define ERTS_MSEG_ALLCTR_OPT(OPT) \
   ((OPT)->sched_spec ? ERTS_MSEG_ALLCTR_SS() : ERTS_MSEG_ALLCTR_IX(0))
@@ -570,9 +567,6 @@ static ERTS_INLINE Uint mseg_drop_one_cache_size(ErtsMsegAllctr_t *ma, Uint flag
     c = erts_circleq_tail(head);
     erts_circleq_remove(c);
 
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
-
     mseg_destroy(ma, flags, c->seg, c->size);
     mseg_cache_clear_node(c);
     erts_circleq_push_head(&(ma->cache_free), c);
@@ -592,9 +586,6 @@ static ERTS_INLINE Uint mseg_drop_cache_size(ErtsMsegAllctr_t *ma, Uint flags, c
 
 	c = erts_circleq_tail(head);
 	erts_circleq_remove(c);
-
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
 	mseg_destroy(ma, flags, c->seg, c->size);
 
@@ -732,9 +723,6 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, UWord *size_p,
     else {
 done:
 	*size_p = size;
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_alloc(seg, atype, ERTS_MTRACE_SEGMENT_ID, size);
-
 	ERTS_MSEG_ALLOC_STAT(ma,size);
     }
 
@@ -752,9 +740,6 @@ mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, UWord size,
 	schedule_cache_check(ma);
 	goto done;
     }
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(atype, SEGTYPE, seg);
 
     mseg_destroy(ma, flags, seg, size);
 
@@ -824,9 +809,6 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 		new_size = old_size;
 	}
     }
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_realloc(new_seg, atype, SEGTYPE, seg, new_size);
 
     INC_CC(ma, realloc);
 
@@ -1391,8 +1373,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
     int i;
     UWord x;
 
-    no_mseg_allocators = init->nos + 1;
-
+    no_mseg_allocators = 1; /* Global instance */
+    no_mseg_allocators += init->nos; /* Scheduler specific instances */
+    no_mseg_allocators += init->ndai; /* Dirty alloc instances */
+    
     x = (UWord) malloc(sizeof(ErtsAlgndMsegAllctr_t)
 		       *no_mseg_allocators
 		       + (ERTS_CACHE_LINE_SIZE-1));
@@ -1423,7 +1407,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
 	ma->is_init_done = 0;
 
-	if (i != 0)
+	if (i != 0 && i <= init->nos)
 	    ma->is_thread_safe = 0;
 	else {
 	    ma->is_thread_safe = 1;

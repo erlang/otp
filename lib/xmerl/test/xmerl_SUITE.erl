@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,8 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       default_attrs_bug, xml_ns, scan_splits_string_bug]},
+       default_attrs_bug, xml_ns, scan_splits_string_bug,
+       allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -77,10 +78,9 @@ init_per_suite(Config) ->
     ok=erl_tar:extract("misc.tar.gz",[compressed]),
     ok = change_mode(["cpd", "misc"]),
     file:set_cwd(filename:join(datadir(Config),xpath)),
-    TestServerIncludeDir=filename:join(filename:dirname(code:priv_dir(test_server)), "include"),
-    {ok, xpath_lib} = compile:file(xpath_lib, [{i, TestServerIncludeDir}]),
-    {ok, xpath_text} = compile:file(xpath_text, [{i, TestServerIncludeDir}]),
-    {ok, xpath_abbrev} = compile:file(xpath_abbrev, [{i, TestServerIncludeDir}]),
+    {ok, xpath_lib} = compile:file(xpath_lib, []),
+    {ok, xpath_text} = compile:file(xpath_text, []),
+    {ok, xpath_abbrev} = compile:file(xpath_abbrev, []),
     Config.
 
 
@@ -241,7 +241,7 @@ default_attrs_bug(Config) ->
     ok.
 
 
-xml_ns(Config) ->
+xml_ns(_Config) ->
     Doc = "<?xml version='1.0'?>\n"
         "<doc xml:attr1=\"implicit xml ns\"/>",
     {#xmlElement{namespace=#xmlNamespace{default = [], nodes = []},
@@ -326,8 +326,9 @@ sax_parse_export_xml_big(Config) ->
     {ok,IO} = file:open(OutFile,[write,append]),
     ok = file:write(IO,Bin),
     ok = io:format(IO,"~s~n~n",[lists:flatten(Ex)]),
-    Cmd = lists:flatten(io_lib:format("cmp ~s ~s",[OutFile,CMOMxml])),
-    [] = os:cmd(Cmd),
+    ok = file:close(IO),
+    {ok,CmpBin1} = file:read_file(OutFile),
+    {ok,CmpBin1} = file:read_file(CMOMxml),
     ok.
 
 sax_parse_export_xml_small(Config) ->
@@ -342,10 +343,10 @@ sax_parse_export_xml_small(Config) ->
     {ok,IO} = file:open(OutFile,[write,append]),
     ok = file:write(IO,Bin),
     ok = io:format(IO,"~s~n",[lists:flatten(Ex)]),
-    Cmd = lists:flatten(io_lib:format("cmp ~s ~s",[OutFile,Wurfl_xml])),
-    [] = os:cmd(Cmd),
+    ok = file:close(IO),
+    {ok,CmpBin1} = file:read_file(OutFile),
+    {ok,CmpBin1} = file:read_file(Wurfl_xml),
     ok.
-
 
 simple() ->
     [{document, 
@@ -444,37 +445,39 @@ generate_heading_col(N) ->
 %% ticket_5998
 %%
 %% A Kleene Closure child in a sequence consumed all following
-%% childs. This problem has been fixed.
+%% child's. This problem has been fixed.
 %%
 ticket_5998(Config) ->
     DataDir = datadir(Config),
     %% First fix is tested by case syntax_bug2.
     
-    case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_2.xml"])) of
-        {'EXIT',{fatal,Reason1}} ->
-            case Reason1 of
-                {{endtag_does_not_match,
-                  {was,obj,should_have_been,int}},
-                 _,_,_} -> ok;
-                _ -> {comment,"parsing changed behaviour"}
-            end
-    end,
+    ok =
+        case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_2.xml"])) of
+            {'EXIT',{fatal,Reason1}} ->
+                case Reason1 of
+                    {{endtag_does_not_match,
+                      {was,obj,should_have_been,int}},
+                     _,_,_} -> ok;
+                    _ -> {comment,"parsing changed behaviour"}
+                end
+        end,
 
-    case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_3.xml"])) of
-        {'EXIT',{fatal,Reason2}} ->
-            case Reason2 of
-                {"expected one of: ?>, standalone, encoding",
-                 _,_,_} -> ok;
-                _ -> {comment,"parsing changed behaviour"}
-            end
-    end.
+    ok =
+        case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_3.xml"])) of
+            {'EXIT',{fatal,Reason2}} ->
+                case Reason2 of
+                    {"expected one of: ?>, standalone, encoding",
+                     _,_,_} -> ok;
+                    _ -> {comment,"parsing changed behaviour"}
+                end
+        end.
 
 
 %%
 %% ticket_7211
 %%
 %% A Kleene Closure child in a sequence consumed all following
-%% childs. This problem has been fixed.
+%% child's. This problem has been fixed.
 %%
 ticket_7211(Config) ->
     DataDir = datadir(Config),
@@ -504,7 +507,7 @@ ticket_7211(Config) ->
 %% ticket_7214
 %%
 %% Now validating xhtml1-transitional.dtd.
-%% A certain contentspec with a succeding choice, that didn't match
+%% A certain contentspec with a succeeding choice, that didn't match
 %% all content, followed by other child elements caused a
 %% failure. This is now corrected.
 %%
@@ -528,8 +531,8 @@ ticket_7214(Config) ->
 %% Problem with contents of numeric character references followed by 
 %% UTF-8 characters..
 %%
-ticket_7430(Config) ->
-    DataDir = datadir(Config),
+ticket_7430(_Config) ->
+    %%DataDir = datadir(Config),
 
     {E,[]} = xmerl_scan:string("<a>\303\251&#xD;\303\251</a>",[{encoding,'utf-8'}]),
 
@@ -553,7 +556,7 @@ ticket_7496(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:ticket_7496().
 
-ticket_8156(Config) ->
+ticket_8156(_Config) ->
     {ftp,{[],[]},"testmachine1",21,"/w.erl"} = xmerl_uri:parse("ftp://testmachine1/w.erl"),
     {ftp,{"user",[]},"testmachine1",21,"/w.erl"} = xmerl_uri:parse("ftp://user@testmachine1/w.erl"),
     {ftp,{"user","hello"},"testmachine1",21,"/w.erl"} = xmerl_uri:parse("ftp://user:hello@testmachine1/w.erl"),
@@ -562,7 +565,7 @@ ticket_8156(Config) ->
     ok.
 
 %% Test that xmerl_scan can decode unicode entities properly
-ticket_8697(Config) ->
+ticket_8697(_Config) ->
     {UTF8Output, []} = xmerl_scan:string("<?xml version=\"1\" ?>\n<text>" ++ [229, 145, 156] ++ "</text>"),
     #xmlElement{content = [#xmlText{value = UTF8Text}]} = UTF8Output,
     [16#545C] = UTF8Text,
@@ -585,9 +588,9 @@ ticket_9411(Config) ->
     {E, _} = xmerl_xsd:validate(E, Schema).
 
 %% Test that xmerl_scan handles continuation correct when current input runs out at the end of an attribute value
-ticket_9457(Config) ->
+ticket_9457(_Config) ->
     Opts = [{continuation_fun, fun ticket_9457_cont/3, start}, {space, normalize}],
-    {E, _} = xmerl_scan:string([], Opts).
+    {_E, _} = xmerl_scan:string([], Opts).
 
 ticket_9457_cont(Continue, Exception, GlobalState) ->
     case xmerl_scan:cont_state(GlobalState) of
@@ -604,7 +607,7 @@ ticket_9457_cont(Continue, Exception, GlobalState) ->
     end.
 
 
-%% Test that comments are handled correct whith
+%% Test that comments are handled correct with
 ticket_9664_schema(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_schema.xml"]),[]),
     {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,[misc,"motorcycles.xsd"])),
@@ -617,10 +620,19 @@ ticket_9664_schema(Config) ->
                               {validation, schema}]),
     ok.
 
-%% Test that comments are handled correct whith
+%% Test that comments are handled correct with
 ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),
+    ok.
+
+
+allow_entities_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "lol_1_test.xml"), %% Depth 9
+    %% Disallow entities
+    {'EXIT',{fatal, {{error,entities_not_allowed}, _, _, _}}} = 
+        (catch xmerl_scan:file(File, [{allow_entities, false}])),
     ok.
 
 

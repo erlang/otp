@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
+         verify_highest_opcode/1,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1,
 	 literals/1,coverage/1]).
@@ -30,12 +31,13 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+all() ->
+    [verify_highest_opcode,
+     utf8_roundtrip, unused_utf_char, utf16_roundtrip,
      utf32_roundtrip, guard, extreme_tripping, literals,
      coverage].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -51,6 +53,27 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+verify_highest_opcode(_Config) ->
+    case ?MODULE of
+        bs_construct_r24_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 176 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        bs_construct_r25_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 180 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        _ ->
+            ok
+    end.
 
 utf8_roundtrip(Config) when is_list(Config) ->
     [utf8_roundtrip_1(P) || P <- utf_data()],
@@ -233,6 +256,14 @@ utf32_to_unicode(<<C/utf32,T/binary>>) ->
 utf32_to_unicode(<<>>) -> [].
 
 literals(Config) when is_list(Config) ->
+    <<>> = id(<<""/utf8>>),
+    <<>> = id(<<""/utf16>>),
+    <<>> = id(<<""/little-utf16>>),
+    <<>> = id(<<""/native-utf16>>),
+    <<>> = id(<<""/utf32>>),
+    <<>> = id(<<""/little-utf32>>),
+    <<>> = id(<<""/native-utf32>>),
+
     abc_utf8 = match_literal(<<"abc"/utf8>>),
     abc_utf8 = match_literal(<<$a,$b,$c>>),
     abc_utf8 = match_literal(<<$a/utf8,$b/utf8,$c/utf8>>),
@@ -246,6 +277,10 @@ literals(Config) when is_list(Config) ->
     abc_utf32be = match_literal(<<$a:32,$b:32,$c:32>>),
     abc_utf32le = match_literal(<<"abc"/little-utf32>>),
     abc_utf32le = match_literal(<<$a:32/little,$b:32/little,$c:32/little>>),
+
+    mm_utf8 = match_literal(<<"Мастер и Маргарита"/utf8>>),
+    mm_utf16be = match_literal(<<"Мастер и Маргарита"/utf16>>),
+    mm_utf32be = match_literal(<<"Мастер и Маргарита"/utf32>>),
 
     bjorn_utf8 = match_literal(<<"bj\366rn"/utf8>>),
     bjorn_utf8 = match_literal(<<$b,$j,195,182,$r,$n>>),
@@ -294,6 +329,9 @@ match_literal(<<"abc"/big-utf16>>) -> abc_utf16be;
 match_literal(<<"abc"/little-utf16>>) -> abc_utf16le;
 match_literal(<<"abc"/big-utf32>>) -> abc_utf32be;
 match_literal(<<"abc"/little-utf32>>) -> abc_utf32le;
+match_literal(<<"Мастер и Маргарита"/utf8>>) -> mm_utf8;
+match_literal(<<"Мастер и Маргарита"/utf16>>) -> mm_utf16be;
+match_literal(<<"Мастер и Маргарита"/big-utf32>>) -> mm_utf32be;
 match_literal(<<"bj\366rn"/utf8>>) -> bjorn_utf8;
 match_literal(<<"bj\366rn"/big-utf16>>) -> bjorn_utf16be;
 match_literal(<<"bj\366rn"/little-utf16>>) -> bjorn_utf16le.
@@ -396,3 +434,5 @@ utf32_data() ->
      
 fc({'EXIT',{function_clause,_}}) -> ok;
 fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_utf_inline_SUITE -> ok.
+
+id(I) -> I.

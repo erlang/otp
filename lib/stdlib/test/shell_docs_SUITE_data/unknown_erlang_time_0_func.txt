@@ -1,0 +1,11 @@
+
+  [;1m-spec time() -> Time when Time :: calendar:time().[0m
+
+  Returns the current time as [;;4m{Hour, Minute, Second}[0m.
+
+  The time zone and Daylight Saving Time correction depend on the
+  underlying OS. The return value is based on the OS System Time.
+  Example:
+
+    > time().
+    {9,42,44}

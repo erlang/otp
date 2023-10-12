@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
+-include_lib("kernel/src/logger_olp.hrl").
 -include_lib("kernel/src/logger_h_common.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -46,8 +47,7 @@
 -define(domain,#{domain=>[?MODULE]}).
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report
@@ -92,11 +92,11 @@ all() ->
      disk_log_opts,
      default_formatter,
      logging,
+     filter_config,
      errors,
      formatter_fail,
      config_fail,
      bad_input,
-     info_and_reset,
      reconfig,
      sync,
      disk_log_full,
@@ -292,7 +292,7 @@ logging(Config) ->
     ok = start_and_add(Name, #{filter_default=>log,
                                formatter=>{?MODULE,self()}},
                        #{file => LogFile}),
-    MsgFormatter = fun(Term) -> {io_lib:format("Term:~p",[Term]),[]} end,
+    MsgFormatter = fun(Term) -> {"Term:~p",[Term]} end,
     logger:notice([{x,y}], #{report_cb => MsgFormatter}),
     logger:notice([{x,y}], #{}),
     ct:pal("Checking contents of ~p", [?log_no(LogFile,1)]),   
@@ -301,6 +301,20 @@ logging(Config) ->
 logging(cleanup, _Config) ->
     Name = list_to_atom(lists:concat([?FUNCTION_NAME,"_1"])),
     remove_and_stop(Name).
+
+filter_config(_Config) ->
+    ok = logger:add_handler(?MODULE,logger_disk_log_h,#{}),
+    {ok,#{config:=HConfig}=Config} = logger:get_handler_config(?MODULE),
+    HConfig = maps:without([olp],HConfig),
+
+    FakeFullHConfig = HConfig#{olp=>{regname,self(),erlang:make_ref()}},
+    #{config:=HConfig} =
+        logger_disk_log_h:filter_config(Config#{config=>FakeFullHConfig}),
+    ok.
+
+filter_config(cleanup,_Config) ->
+    logger:remove_handler(?MODULE),
+    ok.
 
 errors(Config) ->
     PrivDir = ?config(priv_dir,Config),
@@ -316,13 +330,29 @@ errors(Config) ->
     %%! TODO:
     %%! Check how bad log_opts are handled!
 
-    {error,{illegal_config_change,_,_}} =
-        logger:set_handler_config(Name1,
-                                  config,
-                                  #{file=>LogFile1,
-                                    type=>halt}),
-    {error,{illegal_config_change,_,_}} =
-        logger:set_handler_config(Name1,id,new),
+    {error,{illegal_config_change,
+            logger_disk_log_h,
+            #{type:=wrap},
+            #{type:=halt}}} =
+        logger:update_handler_config(Name1,
+                                     config,
+                                     #{type=>halt,
+                                       file=>LogFile1}),
+
+    {error,{illegal_config_change,
+            logger_disk_log_h,
+            #{file:=LogFile1},
+            #{file:="newfilename"}}} =
+        logger:update_handler_config(Name1,
+                                     config,
+                                     #{file=>"newfilename"}),
+
+    %% Read-only fields may (accidentally) be included in the change,
+    %% but it won't take effect
+    {ok,C} = logger:get_handler_config(Name1),
+    ok = logger:set_handler_config(Name1,config,#{olp=>dummyvalue}),
+    {ok,C} = logger:get_handler_config(Name1),
+
 
     ok = logger:remove_handler(Name1),
     {error,{not_found,Name1}} = logger:remove_handler(Name1),
@@ -380,20 +410,22 @@ formatter_fail(cleanup,_Config) ->
     ok.
 
 config_fail(_Config) ->
-    {error,{handler_not_added,{invalid_config,logger_disk_log_h,{bad,bad}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,#{bad:=bad}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{bad => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
 
-    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
+    {error,{handler_not_added,{invalid_olp_levels,#{drop_mode_qlen:=1}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>1}}),
-    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+    {error,{handler_not_added,{invalid_olp_levels,#{sync_mode_qlen:=43,
+                                                drop_mode_qlen:=42}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{sync_mode_qlen=>43,
                                          drop_mode_qlen=>42}}),
-    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+    {error,{handler_not_added,{invalid_olp_levels,#{drop_mode_qlen:=43,
+                                                flush_qlen:=42}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>43,
                                          flush_qlen=>42}}),
@@ -402,40 +434,26 @@ config_fail(_Config) ->
                             #{filter_default=>log,
                               formatter=>{?MODULE,self()}}),
     %% can't change the disk log options for a log already in use
-    {error,{illegal_config_change,_,_}} =
-        logger:set_handler_config(?MODULE,config,
-                                  #{max_no_files=>2}),
-    %% can't change name of an existing handler
-    {error,{illegal_config_change,_,_}} =
-        logger:set_handler_config(?MODULE,id,bad),
+    {error,{illegal_config_change,logger_disk_log_h,_,_}} =
+        logger:update_handler_config(?MODULE,config,
+                                     #{max_no_files=>2}),
     %% incorrect values of OP params
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
-    {error,{invalid_levels,_}} =
-        logger:set_handler_config(?MODULE,config,
-                                  HConfig#{sync_mode_qlen=>100,
-                                           flush_qlen=>99}),
+    {error,{invalid_olp_levels,_}} =
+        logger:update_handler_config(?MODULE,config,
+                                     HConfig#{sync_mode_qlen=>100,
+                                              flush_qlen=>99}),
     %% invalid name of config parameter
-    {error,{invalid_config,logger_disk_log_h,{filesync_rep_int,2000}}} =
-        logger:set_handler_config(?MODULE, config,
-                                  HConfig#{filesync_rep_int => 2000}),
+    {error,{invalid_config,logger_disk_log_h,#{filesync_rep_int:=2000}}} =
+        logger:update_handler_config(?MODULE, config,
+                                     HConfig#{filesync_rep_int => 2000}),
     ok.
 config_fail(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 bad_input(_Config) ->
     {error,{badarg,{filesync,["BadType"]}}} =
-        logger_disk_log_h:filesync("BadType"),
-    {error,{badarg,{info,["BadType"]}}} = logger_disk_log_h:info("BadType"),
-    {error,{badarg,{reset,["BadType"]}}} = logger_disk_log_h:reset("BadType").
-
-info_and_reset(_Config) ->
-    ok = logger:add_handler(?MODULE,logger_disk_log_h,
-                            #{filter_default=>log,
-                              formatter=>{?MODULE,self()}}),
-    #{id := ?MODULE} = logger_disk_log_h:info(?MODULE),
-    ok = logger_disk_log_h:reset(?MODULE).
-info_and_reset(cleanup,_Config) ->
-    logger:remove_handler(?MODULE).
+        logger_disk_log_h:filesync("BadType").
 
 reconfig(Config) ->
     Dir = ?config(priv_dir,Config),
@@ -444,7 +462,7 @@ reconfig(Config) ->
                             #{filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()}}),
-    #{id := ?MODULE,
+    #{%id := ?MODULE,
       sync_mode_qlen := ?SYNC_MODE_QLEN,
       drop_mode_qlen := ?DROP_MODE_QLEN,
       flush_qlen := ?FLUSH_QLEN,
@@ -455,14 +473,32 @@ reconfig(Config) ->
       overload_kill_qlen := ?OVERLOAD_KILL_QLEN,
       overload_kill_mem_size := ?OVERLOAD_KILL_MEM_SIZE,
       overload_kill_restart_after := ?OVERLOAD_KILL_RESTART_AFTER,
-      filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL,
-      log_opts := #{type := ?DISK_LOG_TYPE,
-                    max_no_files := ?DISK_LOG_MAX_NO_FILES,
-                    max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
-                    file := _DiskLogFile}} =
-        logger_disk_log_h:info(?MODULE),
+      cb_state :=
+          #{handler_state :=
+                #{log_opts := #{type := ?DISK_LOG_TYPE,
+                                max_no_files := ?DISK_LOG_MAX_NO_FILES,
+                                max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
+                                file := DiskLogFile}},
+            filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config :=
+              #{sync_mode_qlen := ?SYNC_MODE_QLEN,
+                drop_mode_qlen := ?DROP_MODE_QLEN,
+                flush_qlen := ?FLUSH_QLEN,
+                burst_limit_enable := ?BURST_LIMIT_ENABLE,
+                burst_limit_max_count := ?BURST_LIMIT_MAX_COUNT,
+                burst_limit_window_time := ?BURST_LIMIT_WINDOW_TIME,
+                overload_kill_enable := ?OVERLOAD_KILL_ENABLE,
+                overload_kill_qlen := ?OVERLOAD_KILL_QLEN,
+                overload_kill_mem_size := ?OVERLOAD_KILL_MEM_SIZE,
+                overload_kill_restart_after := ?OVERLOAD_KILL_RESTART_AFTER,
+                filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL,
+                file := DiskLogFile,
+                max_no_files := ?DISK_LOG_MAX_NO_FILES,
+                max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
+                type := wrap} = HConfig0}} =
+        logger:get_handler_config(?MODULE),
 
-    {ok,#{config := HConfig0}} = logger:get_handler_config(?MODULE),
     HConfig1 = HConfig0#{sync_mode_qlen => 1,
                          drop_mode_qlen => 2,
                          flush_qlen => 3,
@@ -475,7 +511,7 @@ reconfig(Config) ->
                          overload_kill_restart_after => infinity,
                          filesync_repeat_interval => no_repeat},
     ok = logger:set_handler_config(?MODULE, config, HConfig1),
-    #{id := ?MODULE,
+    #{%id := ?MODULE,
       sync_mode_qlen := 1,
       drop_mode_qlen := 2,
       flush_qlen := 3,
@@ -486,8 +522,31 @@ reconfig(Config) ->
       overload_kill_qlen := 100000,
       overload_kill_mem_size := 10000000,
       overload_kill_restart_after := infinity,
-      filesync_repeat_interval := no_repeat} =
-        logger_disk_log_h:info(?MODULE),
+      cb_state := #{filesync_repeat_interval := no_repeat}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config:=HConfig1}} = logger:get_handler_config(?MODULE),
+
+    ok = logger:update_handler_config(?MODULE, config,
+                                      #{flush_qlen => ?FLUSH_QLEN}),
+    {ok,#{config:=C1}} = logger:get_handler_config(?MODULE),
+    ct:log("C1: ~p",[C1]),
+    C1 = HConfig1#{flush_qlen => ?FLUSH_QLEN},
+
+    ok = logger:set_handler_config(?MODULE, config, #{sync_mode_qlen => 1}),
+    {ok,#{config:=C2}} = logger:get_handler_config(?MODULE),
+    ct:log("C2: ~p",[C2]),
+    C2 = HConfig0#{sync_mode_qlen => 1},
+
+    ok = logger:set_handler_config(?MODULE, config, #{drop_mode_qlen => 100}),
+    {ok,#{config:=C3}} = logger:get_handler_config(?MODULE),
+    ct:log("C3: ~p",[C3]),
+    C3 = HConfig0#{drop_mode_qlen => 100},
+
+    ok = logger:update_handler_config(?MODULE, config, #{sync_mode_qlen => 1}),
+    {ok,#{config:=C4}} = logger:get_handler_config(?MODULE),
+    ct:log("C4: ~p",[C4]),
+    C4 = HConfig0#{sync_mode_qlen => 1,
+                   drop_mode_qlen => 100},
 
     ok = logger:remove_handler(?MODULE),
 
@@ -502,11 +561,50 @@ reconfig(Config) ->
                                     max_no_files => 1,
                                     max_no_bytes => 1024,
                                     file => File}}),
-    #{log_opts := #{type := halt,
-                    max_no_files := 1,
-                    max_no_bytes := 1024,
-                    file := File}} =
-        logger_disk_log_h:info(?MODULE),
+    #{cb_state :=
+          #{handler_state :=
+                #{log_opts := #{type := halt,
+                                max_no_files := 1,
+                                max_no_bytes := 1024,
+                                file := File}}}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config :=
+              #{type := halt,
+                max_no_files := 1,
+                max_no_bytes := 1024,
+                file := File}=HaltHConfig} = Config2} =
+        logger:get_handler_config(?MODULE),
+
+    ok = logger:update_handler_config(?MODULE, level, notice),
+    {ok,C5} = logger:get_handler_config(?MODULE),
+    ct:log("C5: ~p",[C5]),
+    C5 = Config2#{level => notice},
+
+    ok = logger:set_handler_config(?MODULE, level, info),
+    {ok,C6} = logger:get_handler_config(?MODULE),
+    ct:log("C6: ~p",[C6]),
+    C6 = Config2#{level => info},
+
+    %% You are not allowed to actively set the write once fields
+    %% (type, max_no_files, max_no_bytes, file) in runtime.
+    {error, {illegal_config_change,_,_,_}} =
+        logger:set_handler_config(?MODULE,config,#{type=>wrap}),
+    {error, {illegal_config_change,_,_,_}} =
+        logger:set_handler_config(?MODULE,config,#{max_no_files=>2}),
+    {error, {illegal_config_change,_,_,_}} =
+        logger:set_handler_config(?MODULE,config,#{max_no_bytes=>2048}),
+    {error, {illegal_config_change,_,_,_}} =
+        logger:set_handler_config(?MODULE,config,#{file=>"otherfile.log"}),
+    {ok,C7} = logger:get_handler_config(?MODULE),
+    ct:log("C7: ~p",[C7]),
+    C7 = C6,
+
+    %%  ... but if you don't specify the write once fields, then
+    %%  set_handler_config shall NOT reset them to their default value
+    ok = logger:set_handler_config(?MODULE,config,#{sync_mode_qlen=>1}),
+    {ok,#{config:=C8}} = logger:get_handler_config(?MODULE),
+    ct:log("C8: ~p",[C8]),
+    C8 = HaltHConfig#{sync_mode_qlen=>1},
     ok.
 
 reconfig(cleanup, _Config) ->
@@ -523,63 +621,60 @@ sync(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"first\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"first\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("first", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
-    %% check that if there's no repeated disk_log_sync active,
+    %% check that if there's no repeated filesync active,
     %% a disk_log_sync is still performed when handler goes idle
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
-    ok = logger:set_handler_config(?MODULE, config, HConfig1),
-
+    ok = logger:update_handler_config(?MODULE, config, HConfig1),
     no_repeat = maps:get(filesync_repeat_interval,
-                         logger_disk_log_h:info(?MODULE)),
-    %% The following timer is to make sure the time from last log
-    %% ("first") to next ("second") is long enough, so the a flush is
-    %% triggered by the idle timeout between "fourth" and "fifth".
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
+                         maps:get(cb_state,logger_olp:info(h_proc_name()))),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"second\n">>},
-                  {logger_disk_log_h,disk_log_sync},
-                  {disk_log,blog,<<"third\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"second\n">>},
+                  {disk_log,sync},
+                  {logger_disk_log_h,disk_log_write,<<"third\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("second", ?domain),
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
     logger:notice("third", ?domain),
-    %% wait for automatic disk_log_sync
-    check_tracer(?IDLE_DETECT_TIME_MSEC*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
+
+    check_tracer(1000),
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
-    
-    %% switch repeated disk_log_sync on and verify that the looping works
+
+    %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_disk_log_h,handle_cast,repeated_disk_log_sync},
-    %% receive 1 initial repeated_disk_log_sync, then 1 per sec
-    start_tracer([{logger_disk_log_h,handle_cast,2}],
-                 [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+    OneSync = {logger_h_common,handle_info,{timeout,repeated_filesync}},
+    %% receive 1 repeated_filesync per sec
+    start_tracer([{{logger_h_common,handle_info,2},
+                   [{[{timeout,'_',repeated_filesync},'_'],[],[{message,{caller}}]}]}],
+                 [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
-    ok = logger:set_handler_config(?MODULE, config, HConfig2),
-                      
+    ok = logger:update_handler_config(?MODULE, config, HConfig2),
+
     SyncInt = maps:get(filesync_repeat_interval,
-                       logger_disk_log_h:info(?MODULE)),
+                       maps:get(cb_state,logger_olp:info(h_proc_name()))),
     timer:sleep(WaitT),
     HConfig3 = HConfig#{filesync_repeat_interval => no_repeat},
-    ok = logger:set_handler_config(?MODULE, config, HConfig3),
+    ok = logger:update_handler_config(?MODULE, config, HConfig3),
     check_tracer(100),
     ok.
 sync(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_wrap(Config) ->
@@ -609,7 +704,7 @@ disk_log_wrap(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,MaxBytes)],
     ct:pal("String = ~p (~w)", [Text, erts_debug:size(Text)]),
@@ -625,9 +720,9 @@ disk_log_wrap(Config) ->
 
     %% wait for trace messages
     timer:sleep(1000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
@@ -637,7 +732,7 @@ disk_log_wrap(Config) ->
     ok.
 
 disk_log_wrap(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_full(Config) ->
@@ -663,7 +758,7 @@ disk_log_full(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     NoOfChars = 5,
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,NoOfChars)],
@@ -671,22 +766,26 @@ disk_log_full(Config) ->
 
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
                              end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
-    [{trace,full},
-     {trace,{error_status,{error,{full,_}}}}] = Received,
+
+    %% The tail here could be an error_status notification, if the
+    %% last write was synchronous, but in most cases it will not be
+    [{trace,full}|_] = Received,
+    %% [{trace,full},
+    %%  {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
-disk_log_events(Config) ->
+disk_log_events(_Config) ->
     Node = node(),
     Log = ?MODULE,
     ok = logger:add_handler(?MODULE,
@@ -712,14 +811,14 @@ disk_log_events(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
     
     [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:map(fun({trace,_M,handle_info,
-                              [Got,_]}) -> Got
+                              [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
     NoOfEvents = length(Events),
@@ -729,7 +828,7 @@ disk_log_events(Config) ->
                   end, Received),
     ok.
 disk_log_events(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
 write_failure(Config) ->
@@ -742,13 +841,17 @@ write_failure(Config) ->
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
-    HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
-
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
+    HState = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
+    LogOpts = maps:get(log_opts,
+                       maps:get(handler_state,
+                                maps:get(cb_state,HState))),
+    ct:pal("LogOpts = ~p", [LogOpts]),
+           
+    %% ?check and ?check_no_log in this test only check for internal log events
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
 
     SyncRepInt = case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
                      true -> 5500;
@@ -757,24 +860,26 @@ write_failure(Config) ->
 
     try_read_file(Log, {ok,<<"Logged1\n">>}, SyncRepInt),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,{error,no_such_log}]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
 
+    %% this should have caused an internal log
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,{error,no_such_log}}}),
-    
-    ok = log_on_remote_node(Node, "No second error printout"),
-    ?check_no_log,
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,
+    ok = log_on_remote_node(Node, "No second error printout"),
+    ?check_no_log, % but don't log same error twice
+
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,
                                          {error,{full,?STANDARD_HANDLER}}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
+    %% this was a different error, so it should be logged
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,
                    {error,{full,?STANDARD_HANDLER}}}}),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, SyncRepInt),
     ok.
 write_failure(cleanup, _Config) ->
@@ -793,15 +898,16 @@ sync_failure(Config) ->
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
-    HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    LogOpts = maps:get(log_opts, HState),
+    HState = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
+    LogOpts = maps:get(log_opts, maps:get(handler_state,
+                                          maps:get(cb_state,HState))),
     
     SyncInt = 500,
-    ok = rpc:call(Node, logger, set_handler_config,
+    ok = rpc:call(Node, logger, update_handler_config,
                   [?STANDARD_HANDLER, config,
                    #{filesync_repeat_interval => SyncInt}]),
-    Info = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    SyncInt = maps:get(filesync_repeat_interval, Info),
+    Info = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
+    SyncInt = maps:get(filesync_repeat_interval, maps:get(cb_state, Info)),
     
     ok = log_on_remote_node(Node, "Logged1"),
     ?check_no_log,
@@ -872,7 +978,7 @@ op_switch_to_sync(Config) ->
                                       drop_mode_qlen => NumOfReqs+1,
                                       flush_qlen => 2*NumOfReqs,
                                       burst_limit_enable => false}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Lines = count_lines(Log),
     NumOfReqs = Lines,
@@ -897,7 +1003,7 @@ op_switch_to_drop(Config) ->
                                             drop_mode_qlen => 2,
                                             flush_qlen => Procs*NumOfReqs*Bursts,
                                             burst_limit_enable => false}},
-                ok = logger:set_handler_config(?MODULE, NewHConfig),
+                ok = logger:update_handler_config(?MODULE, NewHConfig),
                 %% It sometimes happens that the handler either gets
                 %% the requests in a slow enough pace so that dropping
                 %% never occurs. Therefore, lets generate a number of
@@ -943,8 +1049,8 @@ op_switch_to_flush(Config) ->
                                             drop_mode_qlen => 300,
                                             flush_qlen => 300,
                                             burst_limit_enable => false}},    
-                ok = logger:set_handler_config(?MODULE, NewHConfig),
-                NumOfReqs = 1500,
+                ok = logger:update_handler_config(?MODULE, NewHConfig),
+                NumOfReqs = 10000,
                 Procs = 10,
                 Bursts = 10,
                 %% It sometimes happens that the handler either gets
@@ -985,7 +1091,7 @@ limit_burst_disabled(Config) ->
                                       burst_limit_window_time => 2000,
                                       drop_mode_qlen => 200,
                                       flush_qlen => 300}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
@@ -1005,7 +1111,7 @@ limit_burst_enabled_one(Config) ->
                                       burst_limit_window_time => 2000,
                                       drop_mode_qlen => 200,
                                       flush_qlen => 300}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
@@ -1026,7 +1132,7 @@ limit_burst_enabled_period(Config) ->
                                       burst_limit_window_time => BurstTWin,
                                       drop_mode_qlen => 20000,
                                       flush_qlen => 20001}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     
     Windows = 3,
     Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, notice),
@@ -1046,7 +1152,7 @@ kill_disabled(Config) ->
         HConfig#{config=>DLHConfig#{overload_kill_enable=>false,
                                     overload_kill_qlen=>10,
                                     overload_kill_mem_size=>100}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
@@ -1064,20 +1170,21 @@ qlen_kill_new(Config) ->
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
     NewHConfig =
         HConfig#{config =>
-                     DLHConfig#{overload_kill_enable=>true,
+                     DLHConfig#{burst_limit_enable=>false,
+                                overload_kill_enable=>true,
                                 overload_kill_qlen=>10,
                                 overload_kill_mem_size=>Mem0+50000,
                                 overload_kill_restart_after=>RestartAfter}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
-    NumOfReqs = 100,
+    NumOfReqs = 5000,
     Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
            case Info of
-                {shutdown,{overloaded,?MODULE,QLen,Mem}} ->
+                {shutdown,{overloaded,QLen,Mem}} ->
                     ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
@@ -1087,7 +1194,7 @@ qlen_kill_new(Config) ->
             ok
     after
         5000 ->
-            Info = logger_disk_log_h:info(?MODULE),
+            Info = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
@@ -1105,16 +1212,16 @@ mem_kill_new(Config) ->
                                 overload_kill_qlen=>50000,
                                 overload_kill_mem_size=>Mem0+500,
                                 overload_kill_restart_after=>RestartAfter}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
-    NumOfReqs = 100,
+    NumOfReqs = 500,
     Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     receive
         {'DOWN', MRef, _, _, Info} ->
             case Info of
-                {shutdown,{overloaded,?MODULE,QLen,Mem}} ->
+                {shutdown,{overloaded,QLen,Mem}} ->
                     ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
                     ct:pal("Slow shutdown, handler process was killed!", [])
@@ -1124,7 +1231,7 @@ mem_kill_new(Config) ->
             ok
     after
         5000 ->
-            Info = logger_disk_log_h:info(?MODULE),
+            Info = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
@@ -1137,12 +1244,12 @@ restart_after(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig1 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>infinity}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig1),
+    ok = logger:update_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,1000}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
@@ -1150,7 +1257,7 @@ restart_after(Config) ->
             ok
     after
         5000 ->
-            Info1 = logger_std_h:info(?MODULE),
+            Info1 = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
@@ -1159,13 +1266,13 @@ restart_after(Config) ->
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
     NewHConfig2 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>RestartAfter}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig2),
+    ok = logger:update_handler_config(?MODULE, NewHConfig2),
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,500}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
@@ -1174,7 +1281,7 @@ restart_after(Config) ->
             ok
     after
         5000 ->
-            Info2 = logger_std_h:info(?MODULE),
+            Info2 = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
@@ -1194,12 +1301,16 @@ handler_requests_under_load(Config) ->
                                       drop_mode_qlen => 1000,
                                       flush_qlen => 2000,
                                       burst_limit_enable => false}},
-    ok = logger:set_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
-                                                         {info,[]},
-                                                         {reset,[]},
-                                                         {change_config,[]}])
-                     end),
+    ok = logger:update_handler_config(?MODULE, NewHConfig),
+    Pid = spawn_link(
+            fun() -> send_requests(1,[{logger_disk_log_h,filesync,[?MODULE],[]},
+                                      {logger_olp,info,[h_proc_name()],[]},
+                                      {logger_olp,reset,[h_proc_name()],[]},
+                                      {logger,update_handler_config,
+                                       [?MODULE, config,
+                                        #{overload_kill_enable => false}],
+                                       []}])
+            end),
     Procs = 100,
     Sent = Procs * send_burst({n,5000}, {spawn,Procs,10}, {chars,79}, notice),
     Pid ! {self(),finish},
@@ -1211,29 +1322,22 @@ handler_requests_under_load(Config) ->
                         [E || E <- Res,
                               is_tuple(E) andalso (element(1,E) == error)]
                 end,
-    Errors = [{Req,FindError(Res)} || {Req,Res} <- ReqResult],
-    NoOfReqs = lists:foldl(fun({_,Res}, N) -> N + length(Res) end, 0, ReqResult),
+    Errors = [{Func,FindError(Res)} || {_,Func,_,Res} <- ReqResult],
+    NoOfReqs = lists:foldl(fun({_,_,_,Res}, N) -> N + length(Res) end,
+                           0, ReqResult),
     ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file_delete(Log).
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
-send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
+send_requests(TO, Reqs = [{Mod,Func,Args,Res}|Rs]) ->
     receive
         {From,finish} ->
             From ! {self(),Reqs}
     after
         TO ->
-            Result =
-                case Req of
-                    change_config ->
-                        logger:set_handler_config(HName, logger_disk_log_h,
-                                                  #{overload_kill_enable =>
-                                                        false});
-                    Func ->
-                        logger_disk_log_h:Func(HName)
-                end,
-            send_requests(HName, TO, Rs ++ [{Req,[Result|Res]}])
+            Result = apply(Mod,Func,Args),
+            send_requests(TO, Rs ++ [{Mod,Func,Args,[Result|Res]}])
     end.
 
 %%%-----------------------------------------------------------------
@@ -1257,7 +1361,23 @@ start_handler(Name, FuncName, Config) ->
     
 stop_handler(Name) ->
     ct:pal("Stopping handler ~p!", [Name]),
-    logger:remove_handler(Name).
+    Res = logger:remove_handler(Name),
+    RegName = ?name_to_reg_name(logger_disk_log_h, Name),
+    erlang:monitor(process, RegName),
+    receive
+        {'DOWN',_,_,_,_} ->
+            Res
+    after 5000 ->
+            %% If the removal fails, we make sure that it is removed
+            %% so that the next testcase is not effected.
+            exit(whereis(RegName), kill),
+            receive
+                {'DOWN',_,_,_,_} ->
+                    %% We fail this testcase in order to catch any bugs
+                    %% in shutdown
+                    ct:fail("Failed to stop handler")
+            end
+    end.
 
 send_burst(NorT, Type, {chars,Sz}, Class) ->
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,Sz)],
@@ -1350,15 +1470,6 @@ format(Msg,Tag) ->
     Error = {unexpected_format,Msg,Tag},
     erlang:display(Error),
     exit(Error).
-
-remove(Handler, LogName) ->
-    logger_disk_log_h:remove(Handler, LogName),
-    HState = #{log_names := Logs} = logger_disk_log_h:info(),
-    false = maps:is_key(LogName, HState),
-    false = lists:member(LogName, Logs),
-    false = logger_config:exist(?LOGGER_TABLE, LogName),
-    {error,no_such_log} = disk_log:info(LogName),
-    ok.
 
 start_and_add(Name, Config, LogOpts) ->
     HConfig = maps:get(config, Config, #{}),
@@ -1486,12 +1597,14 @@ start_tracer(Trace,Expected) ->
     ok.
 
 tpl([{M,F,A}|Trace]) ->
-    {ok,Match} = dbg:tpl(M,F,A,c),
+    tpl([{{M,F,A},c}|Trace]);
+tpl([{{M,F,A},MS}|Trace]) ->
+    {ok,Match} = dbg:tpl(M,F,A,MS),
     case lists:keyfind(matched,1,Match) of
         {_,_,1} ->
             ok;
         _ ->
-            dbg:stop_clear(),
+            dbg:stop(),
             throw({skip,"Can't trace "++atom_to_list(M)++":"++
                        atom_to_list(F)++"/"++integer_to_list(A)})
     end,
@@ -1499,12 +1612,15 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_disk_log_h,handle_cast,[Op|_]},Caller},
+tracer({trace,_,call,{logger_h_common = Mod,handle_cast = Func,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
-tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
+tracer({trace,_,call,{Mod=logger_disk_log_h,Func=disk_log_write,[_,_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data},Caller);
 tracer({trace,_,call,{Mod,Func,_},Caller}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
+tracer({trace,_,call,{logger_h_common = Mod,handle_info = Func,[{timeout,_,Op},_S]},Caller},
+       {Pid,[{Mod,Func,{timeout,Op}}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
 tracer({trace,_,call,Call,Caller}, {Pid,Expected}) ->
     ct:log("Tracer got unexpected: ~p~nCaller: ~p~nExpected: ~p~n",[Call,Caller,Expected]),
@@ -1521,13 +1637,13 @@ maybe_tracer_done(Pid,Expected,Got,Caller) ->
 check_tracer(T) ->
     receive
         tracer_done ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ok;
         {tracer_got_unexpected,Got,Expected} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({timeout,tracer})
     end.
 

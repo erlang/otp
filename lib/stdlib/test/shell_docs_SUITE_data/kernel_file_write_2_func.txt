@@ -1,0 +1,26 @@
+
+  [;1m-spec write(IoDevice, Bytes) -> ok | {error, Reason}[0m
+  [;1m               when[0m
+  [;1m                   IoDevice :: io_device() | io:device(),[0m
+  [;1m                   Bytes :: iodata(),[0m
+  [;1m                   Reason :: posix() | badarg | terminated.[0m
+
+  Writes [;;4mBytes[0m to the file referenced by [;;4mIoDevice[0m. This function
+  is the only way to write to a file opened in [;;4mraw[0m mode (although
+  it works for normally opened files too). Returns [;;4mok[0m if
+  successful, and [;;4m{error, Reason}[0m otherwise.
+
+  If the file is opened with [;;4mencoding[0m set to something else than [;;4m[0m
+  [;;4mlatin1[0m, each byte written can result in many bytes being written
+  to the file, as the byte range 0..255 can represent anything
+  between one and four bytes depending on value and UTF encoding
+  type. If you want to write [;;4municode:chardata()[0m to the [;;4mIoDevice[0m
+  you should use [;;4mio:put_chars/2[0m instead.
+
+  Typical error reasons:
+
+  [;;4m[;;4mebadf[0m[0m:
+    The file is not opened for writing.
+
+  [;;4m[;;4menospc[0m[0m:
+    No space is left on the device.

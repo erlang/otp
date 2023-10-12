@@ -87,7 +87,8 @@ traverse(Tree, Out, State, CurrentFun) ->
 	true ->
 	  %% Op is a variable and should not be marked as escaping
 	  %% based on its use.
-	  OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
+          OpLabel = cerl_trees:get_label(Op),
+	  OpFuns = case map__lookup(OpLabel, Out) of
 		     none -> output(none);
 		     {value, OF} -> OF
 		   end,
@@ -96,7 +97,13 @@ traverse(Tree, Out, State, CurrentFun) ->
 	  State4 = state__add_deps(CurrentFun, OpFuns, State3),
 	  State5 = state__store_callsite(cerl_trees:get_label(Tree),
 					 OpFuns, length(Args), State4),
-	  {output(set__singleton(external)), State5}
+          case state__get_rvals(OpLabel, State5) of
+            1 ->
+              {output(set__singleton(external)), State5};
+            NumRvals ->
+              List = lists:duplicate(NumRvals, output(set__singleton(external))),
+              {output(List), State5}
+          end
       end;
     binary ->
       {output(none), State};
@@ -117,29 +124,36 @@ traverse(Tree, Out, State, CurrentFun) ->
       {merge_outs([HdFuns, TlFuns]), State2};
     'fun' ->
       %% io:format("Entering fun: ~w\n", [cerl_trees:get_label(Tree)]),
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(1, State),
       Body = cerl:fun_body(Tree),
       Label = cerl_trees:get_label(Tree),
-      State1 =
-	if CurrentFun =:= top -> 
-	    state__add_deps(top, output(set__singleton(Label)), State);
-	   true -> 
-	    O1 = output(set__singleton(CurrentFun)),
-	    O2 = output(set__singleton(Label)),
-	    TmpState = state__add_deps(Label, O1, State),
-	    state__add_deps(CurrentFun, O2,TmpState)
+      State2 =
+        if
+          CurrentFun =:= top ->
+            state__add_deps(top, output(set__singleton(Label)), State1);
+          true ->
+            O1 = output(set__singleton(CurrentFun)),
+            O2 = output(set__singleton(Label)),
+            TmpState = state__add_deps(Label, O1, State1),
+            state__add_deps(CurrentFun, O2, TmpState)
 	end,
       Vars = cerl:fun_vars(Tree),
       Out1 = bind_single(Vars, output(set__singleton(external)), Out),
-      {BodyFuns, State2} =
-        traverse(Body, Out1, State1, cerl_trees:get_label(Tree)),
-      {output(set__singleton(Label)), state__add_esc(BodyFuns, State2)};
+      {BodyFuns, State3} =
+        traverse(Body, Out1, State2, cerl_trees:get_label(Tree)),
+      State4 = state__store_num_rvals(OldNumRvals, State3),
+      {output(set__singleton(Label)), state__add_esc(BodyFuns, State4)};
     'let' ->
       Vars = cerl:let_vars(Tree),
       Arg = cerl:let_arg(Tree),
       Body = cerl:let_body(Tree),
-      {ArgFuns, State1} = traverse(Arg, Out, State, CurrentFun),
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(length(Vars), State),
+      {ArgFuns, State2} = traverse(Arg, Out, State1, CurrentFun),
       Out1 = bind_list(Vars, ArgFuns, Out),
-      traverse(Body, Out1, State1, CurrentFun);
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      traverse(Body, Out1, State3, CurrentFun);
     letrec ->
       Defs = cerl:letrec_defs(Tree),
       Body = cerl:letrec_body(Tree),
@@ -147,14 +161,15 @@ traverse(Tree, Out, State, CurrentFun) ->
 	state__add_letrecs(cerl_trees:get_label(Var), cerl_trees:get_label(Fun), Acc)
       end, State, Defs),
       Out1 = bind_defs(Defs, Out),
-      State2 = traverse_defs(Defs, Out1, State1, CurrentFun),
+      NumRvals = state__num_rvals(State1),
+      State2 = traverse_defs(Defs, Out1, State1, CurrentFun, NumRvals),
       traverse(Body, Out1, State2, CurrentFun);
     literal ->
       {output(none), State};
     module ->
       Defs = cerl:module_defs(Tree),
       Out1 = bind_defs(Defs, Out),
-      State1 = traverse_defs(Defs, Out1, State, CurrentFun),
+      State1 = traverse_defs(Defs, Out1, State, CurrentFun, 1),
       {output(none), State1};
     primop ->
       Args = cerl:primop_args(Tree),
@@ -170,8 +185,11 @@ traverse(Tree, Out, State, CurrentFun) ->
       {ActionFuns, State3} = traverse(Action, Out, State2, CurrentFun),
       {merge_outs([ClauseFuns, ActionFuns]), State3};
     seq ->
-      {_, State1} = traverse(cerl:seq_arg(Tree), Out, State, CurrentFun),
-      traverse(cerl:seq_body(Tree), Out, State1, CurrentFun);
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(1, State),
+      {_, State2} = traverse(cerl:seq_arg(Tree), Out, State1, CurrentFun),
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      traverse(cerl:seq_body(Tree), Out, State3, CurrentFun);
     'try' ->
       Arg = cerl:try_arg(Tree),
       Body = cerl:try_body(Tree),
@@ -197,8 +215,12 @@ traverse(Tree, Out, State, CurrentFun) ->
       Val = cerl:map_pair_val(Tree),
       {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
       {merge_outs(List), State1};
-    values ->      
-      traverse_list(cerl:values_es(Tree), Out, State, CurrentFun);
+    values ->
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(1, State),
+      {List, State2} = traverse_list(cerl:values_es(Tree), Out, State1, CurrentFun),
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      {List, State3};
     var ->
       case map__lookup(cerl_trees:get_label(Tree), Out) of
 	none -> {output(none), State};
@@ -223,14 +245,15 @@ traverse_list([Tree|Left], Out, State, CurrentFun, Acc) ->
 traverse_list([], _Out, State, _CurrentFun, Acc) ->
   {output(lists:reverse(Acc)), State}.
 
-traverse_defs([{_, Fun}|Left], Out, State, CurrentFun) ->
-  {_, State1} = traverse(Fun, Out, State, CurrentFun),
-  traverse_defs(Left, Out, State1, CurrentFun);
-traverse_defs([], _Out, State, _CurrentFun) ->
+traverse_defs([{_, Fun}|Left], Out, State, CurrentFun, NumRvals) ->
+  State1 = state__store_num_rvals(NumRvals, State),
+  {_, State2} = traverse(Fun, Out, State1, CurrentFun),
+  traverse_defs(Left, Out, State2, CurrentFun, NumRvals);
+traverse_defs([], _Out, State, _CurrentFun, _NumRvals) ->
   State.
 
 traverse_clauses(Clauses, ArgFuns, Out, State, CurrentFun) ->
-  case filter_match_fail(Clauses) of
+  case Clauses of
     [] ->
       %% Can happen for example with receives used as timouts.
       {output(none), State};
@@ -249,24 +272,6 @@ traverse_clauses([Clause|Left], ArgFuns, Out, State, CurrentFun, Acc) ->
 traverse_clauses([], _ArgFuns, _Out, State, _CurrentFun, Acc) ->
   {merge_outs(Acc), State}.
 
-filter_match_fail([Clause]) ->
-  Body = cerl:clause_body(Clause),
-  case cerl:type(Body) of
-    primop ->
-      case cerl:atom_val(cerl:primop_name(Body)) of
-	match_fail -> [];
-	raise -> [];
-	_ -> [Clause]
-      end;
-    _ -> [Clause]
-  end;
-filter_match_fail([H|T]) ->
-  [H|filter_match_fail(T)];
-filter_match_fail([]) ->
-  %% This can actually happen, for example in 
-  %%      receive after 1 -> ok end
-  [].
-
 remote_call(Tree, ArgFuns, State) ->  
   M = cerl:call_module(Tree),
   F = cerl:call_name(Tree),
@@ -278,7 +283,7 @@ remote_call(Tree, ArgFuns, State) ->
     true ->
       M1 = cerl:atom_val(M),
       F1 = cerl:atom_val(F),
-      Literal = cerl_closurean:is_literal_op(M1, F1, A),
+      Literal = is_literal_op(M1, F1, A),
       case erl_bifs:is_pure(M1, F1, A) of
 	true ->
 	  case Literal of
@@ -288,7 +293,7 @@ remote_call(Tree, ArgFuns, State) ->
 	      {output(set__singleton(external)), state__add_esc(ArgFuns, State)}
 	  end;
 	false ->	  
-	  State1 = case cerl_closurean:is_escape_op(M1, F1, A) of
+	  State1 = case is_escape_op(M1, F1, A) of
 		     true -> state__add_esc(ArgFuns, State);
 		     false -> State
 		   end,
@@ -302,14 +307,74 @@ remote_call(Tree, ArgFuns, State) ->
 primop(Tree, ArgFuns, State) ->
   F = cerl:atom_val(cerl:primop_name(Tree)),
   A = length(cerl:primop_args(Tree)),
-  State1 = case cerl_closurean:is_escape_op(F, A) of
+  State1 = case is_escape_op(F, A) of
 	     true -> state__add_esc(ArgFuns, State);
 	     false -> State
 	   end,
-  case cerl_closurean:is_literal_op(F, A) of
+  case is_literal_op(F, A) of
     true -> {output(none), State1};
     false -> {ArgFuns, State1}
   end.
+
+%%------------------------------------------------------------
+
+%% Escape operators may let their arguments escape. Unless we know
+%% otherwise, and the function is not pure, we assume this is the case.
+%% Error-raising functions (fault/match_fail) are not considered as
+%% escapes (but throw/exit are). Zero-argument functions need not be
+%% listed.
+
+-spec is_escape_op(atom(), arity()) -> boolean().
+
+is_escape_op(match_fail, 1) -> false;
+is_escape_op(recv_wait_timeout, 1) -> false;
+is_escape_op(F, A) when is_atom(F), is_integer(A) -> true.
+
+-spec is_escape_op(atom(), atom(), arity()) -> boolean().
+
+is_escape_op(erlang, error, 1) -> false;
+is_escape_op(erlang, error, 2) -> false;
+is_escape_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> true.
+
+%% "Literal" operators will never return functional values even when
+%% found in their arguments. Unless we know otherwise, we assume this is
+%% not the case. (More functions can be added to this list, if needed
+%% for better precision. Note that the result of `term_to_binary' still
+%% contains an encoding of the closure.)
+
+-spec is_literal_op(atom(), arity()) -> boolean().
+
+is_literal_op(recv_wait_timeout, 1) -> true;
+is_literal_op(match_fail, 1) -> true;
+is_literal_op(F, A) when is_atom(F), is_integer(A) -> false.
+
+-spec is_literal_op(atom(), atom(), arity()) -> boolean().
+
+is_literal_op(erlang, '+', 2) -> true;
+is_literal_op(erlang, '-', 2) -> true;
+is_literal_op(erlang, '*', 2) -> true;
+is_literal_op(erlang, '/', 2) -> true;
+is_literal_op(erlang, '=:=', 2) -> true;
+is_literal_op(erlang, '==', 2) -> true;
+is_literal_op(erlang, '=/=', 2) -> true;
+is_literal_op(erlang, '/=', 2) -> true;
+is_literal_op(erlang, '<', 2) -> true;
+is_literal_op(erlang, '=<', 2) -> true;
+is_literal_op(erlang, '>', 2) -> true;
+is_literal_op(erlang, '>=', 2) -> true;
+is_literal_op(erlang, 'and', 2) -> true;
+is_literal_op(erlang, 'or', 2) -> true;
+is_literal_op(erlang, 'not', 1) -> true;
+is_literal_op(erlang, length, 1) -> true;
+is_literal_op(erlang, size, 1) -> true;
+is_literal_op(erlang, fun_info, 1) -> true;
+is_literal_op(erlang, fun_info, 2) -> true;
+is_literal_op(erlang, fun_to_list, 1) -> true;
+is_literal_op(erlang, throw, 1) -> true;
+is_literal_op(erlang, exit, 1) -> true;
+is_literal_op(erlang, error, 1) -> true;
+is_literal_op(erlang, error, 2) -> true;
+is_literal_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 
 %%------------------------------------------------------------
 %% Set
@@ -318,10 +383,10 @@ primop(Tree, ArgFuns, State) ->
 -record(set, {set :: sets:set()}).
 
 set__singleton(Val) ->
-  #set{set = sets:add_element(Val, sets:new())}.
+  #set{set = sets:add_element(Val, sets:new([{version, 2}]))}.
 
 set__from_list(List) ->
-  #set{set = sets:from_list(List)}.
+  #set{set = sets:from_list(List, [{version, 2}])}.
 
 set__is_element(_El, none) ->
   false;
@@ -483,12 +548,16 @@ all_vars(Tree, AccIn) ->
 %%
 
 -type local_set() :: 'none' | #set{}.
+-type rvals() :: #{label() => non_neg_integer()}.
 
 -record(state, {deps    :: deps(),
 		esc     :: local_set(), 
 		calls   :: calls(),
 		arities :: dict:dict(label() | 'top', arity()),
-		letrecs :: letrecs()}).
+		letrecs :: letrecs(),
+                num_rvals = 1 :: non_neg_integer(),
+                rvals = #{} :: rvals()
+               }).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
@@ -526,8 +595,11 @@ state__add_deps(From, #output{type = single, content = To},
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
 
-state__add_letrecs(Var, Fun, #state{letrecs = Map} = State) ->
-  State#state{letrecs = map__store(Var, Fun, Map)}.
+state__add_letrecs(Var, Fun, #state{letrecs = Map,
+                                    num_rvals = NumRvals,
+                                    rvals = Rvals} = State) ->
+  State#state{letrecs = map__store(Var, Fun, Map),
+              rvals = Rvals#{Var => NumRvals}}.
 
 state__deps(#state{deps = Deps}) ->
   Deps.
@@ -539,6 +611,10 @@ state__add_esc(#output{content = none}, State) ->
   State;
 state__add_esc(#output{type = single, content = Set},
 	       #state{esc = Esc} = State) ->
+  State#state{esc = set__union(Set, Esc)};
+state__add_esc(#output{type = list, content = [H|T]},
+	       #state{esc = Esc} = State) ->
+  #output{type = single, content = Set} = merge_outs(T, H),
   State#state{esc = set__union(Set, Esc)}.
 
 state__esc(#state{esc = Esc}) ->
@@ -558,6 +634,19 @@ state__store_callsite(From, To, CallArity,
 
 state__calls(#state{calls = Calls}) ->
   Calls.
+
+state__store_num_rvals(NumRval, State) ->
+  State#state{num_rvals = NumRval}.
+
+state__num_rvals(#state{num_rvals = NumRvals}) ->
+  NumRvals.
+
+state__get_rvals(FunLabel, #state{rvals = Rvals}) ->
+  case Rvals of
+    #{FunLabel := NumRvals} -> NumRvals;
+    #{} -> 1
+  end.
+
 
 %%------------------------------------------------------------
 %% A test function. Not part of the intended interface.
@@ -615,7 +704,7 @@ test(Mod) ->
   CallEdges = lists:flatten(CallEdges0),
   NamedCallEdges = [{X, dict:fetch(Y, NameMap)} || {X, Y} <- CallEdges],
   AllNamedEdges = NamedEdges ++ NamedCallEdges,
-  hipe_dot:translate_list(AllNamedEdges, "/tmp/cg.dot", "CG", ColorEsc),
+  dialyzer_dot:translate_list(AllNamedEdges, "/tmp/cg.dot", "CG", ColorEsc),
   os:cmd("dot -T ps -o /tmp/cg.ps /tmp/cg.dot"),
   ok.
 

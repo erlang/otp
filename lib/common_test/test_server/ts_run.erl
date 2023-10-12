@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -197,17 +197,25 @@ make_command(Vars, Spec, State) ->
     {ok,Cwd} = file:get_cwd(),
     TestDir = State#state.test_dir,
     TestPath = filename:nativename(TestDir),
-    Erl = case os:getenv("TS_RUN_VALGRIND") of
+    Erl = case os:getenv("TS_RUN_EMU") of
 	      false ->
 		  ct:get_progname();
-	      _ ->
+	      "valgrind" ->
 		  case State#state.file of
 		      Dir when is_list(Dir) ->
 			  os:putenv("VALGRIND_LOGFILE_PREFIX", Dir++"-");
 		      _ ->
 			  ok
 		  end,
-		  "cerl -valgrind"
+		  "cerl -valgrind";
+              "asan" ->
+		  case State#state.file of
+		      App when is_list(App) ->
+			  os:putenv("ASAN_LOGFILE_PREFIX", App);
+		      _ ->
+			  ok
+		  end,
+                  "cerl -asan"
 	  end,
     Naming =
 	case ts_lib:var(longnames, Vars) of
@@ -247,6 +255,8 @@ make_command(Vars, Spec, State) ->
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
 	   " -pz \"",Cwd,"\"",
+           %% FIXME This is too far away from where it is needed.
+           " -enable-feature maybe_expr",
 	   " -ct_test_vars ",TestVars,
 	   " -eval \"ts_run:ct_run_test(\\\"",TestDir,"\\\", ",
 	   backslashify(lists:flatten(State#state.test_server_args)),")\""
@@ -261,9 +271,10 @@ run_batch(Vars, _Spec, State) ->
     ts_lib:progress(Vars, 1, "Command: ~ts~n", [Command]),
     io:format(user, "Command: ~ts~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof, exit_status]),
-    Timeout = 30000 * case os:getenv("TS_RUN_VALGRIND") of
+    Timeout = 30000 * case os:getenv("TS_RUN_EMU") of
 			  false -> 1;
-			  _ -> 100
+			  "valgrind" -> 100;
+                          "asan" -> 2
 		      end,
     tricky_print_data(Port, Timeout).
 

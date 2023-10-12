@@ -1,0 +1,38 @@
+
+  [;1m-spec delete(Filename) -> ok | {error, Reason}[0m
+  [;1m                when Filename :: name_all(), Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP 24.0
+
+  Types:
+    -type delete_option() :: raw.
+
+  Tries to delete file [;;4mFilename[0m. Returns [;;4mok[0m if successful.
+
+  If the option [;;4mraw[0m is set, the file server is not called. This
+  can be useful in particular during the early boot stage when the
+  file server is not yet registered, to still be able to delete
+  local files.
+
+  Typical error reasons:
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing permission for the file or one of its parents.
+
+  [;;4m[;;4meperm[0m[0m:
+    The file is a directory and the user is not superuser.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.
+
+  [;;4m[;;4meinval[0m[0m:
+    [;;4mFilename[0m has an improper type, such as tuple.
+
+  Warning:
+    In a future release, a bad type for argument [;;4mFilename[0m will
+    probably generate an exception.

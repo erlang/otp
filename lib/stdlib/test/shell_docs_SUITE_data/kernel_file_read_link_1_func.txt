@@ -1,0 +1,24 @@
+
+  [;1m-spec read_link(Name) -> {ok, Filename} | {error, Reason}[0m
+  [;1m                   when[0m
+  [;1m                       Name :: name_all(),[0m
+  [;1m                       Filename :: filename(),[0m
+  [;1m                       Reason :: posix() | badarg.[0m
+
+  Returns [;;4m{ok, Filename}[0m if [;;4mName[0m refers to a symbolic link that
+  is not a raw filename, or [;;4m{error, Reason}[0m otherwise. On
+  platforms that do not support symbolic links, the return value is [;;4m[0m
+  [;;4m{error,enotsup}[0m.
+
+  Typical error reasons:
+
+  [;;4m[;;4meinval[0m[0m:
+    [;;4mName[0m does not refer to a symbolic link or the name of the
+    file that it refers to does not conform to the expected
+    encoding.
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4menotsup[0m[0m:
+    Symbolic links are not supported on this platform.

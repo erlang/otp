@@ -1,0 +1,35 @@
+
+  [;1m-spec exit(Reason) -> no_return() when Reason :: term().[0m
+
+  Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m. As
+  evaluating this function causes an exception to be raised, it has
+  no return value.
+
+  The intent of the exception class [;;4mexit[0m is that the current
+  process should be stopped (for example when a message telling a
+  process to stop is received).
+
+  This function differ from [;;4merror/1,2,3[0m by causing an exception of
+  a different class and by having a reason that does not include the
+  list of functions from the call stack.
+
+  See the guide about errors and error handling for additional
+  information.
+
+  Example:
+
+    > exit(foobar).
+    ** exception exit: foobar
+    > catch exit(foobar).
+    {'EXIT',foobar}
+
+  Note:
+    If a process calls [;;4mexit(kill)[0m and does not catch the
+    exception, it will terminate with exit reason [;;4mkill[0m and also
+    emit exit signals with exit reason [;;4mkill[0m (not [;;4mkilled[0m) to
+    all linked processes. Such exit signals with exit reason [;;4mkill[0m
+    can be trapped by the linked processes. Note that this means
+    that signals with exit reason [;;4mkill[0m behave differently
+    depending on how they are sent because the signal will be
+    untrappable if a process sends such a signal to another
+    process with [;;4merlang:exit/2[0m.

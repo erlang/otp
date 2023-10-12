@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -58,9 +58,9 @@
 	  <item>The directories given by the <c>include</c> option</item>
 	</list>
 	<p>For details, see the
-          <seealso marker="erts:erlc">erlc(1)</seealso> manual page
+          <seecom marker="erts:erlc">erlc(1)</seecom> manual page
            in ERTS and
-           <seealso marker="compiler:compile">compile(3)</seealso>
+           <seeerl marker="compiler:compile">compile(3)</seeerl>
            manual page in Compiler.</p>
       <p><em>Examples:</em></p>
       <pre>
@@ -134,7 +134,8 @@ bar(X) ->
 
   <section>
     <title>Predefined Macros</title>
-    <p>The following macros are predefined:</p>
+    <p>
+       The following macros are predefined:</p>
     <taglist>
       <tag><c>?MODULE</c></tag>
       <item>The name of the current module.</item>
@@ -153,8 +154,21 @@ bar(X) ->
       <tag><c>?OTP_RELEASE</c></tag>
       <item>The OTP release that the currently executing ERTS
         application is part of, as an integer. For details, see
-        <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seealso>.
-        This macro was introduced in OTP release 21.</item>
+        <seemfa marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seemfa>.
+        <change><p>The <c>?OTP_RELEASE</c> macro was introduced in Erlang/OTP 21.</p></change></item>
+        <tag><c>?FEATURE_AVAILABLE(Feature)</c></tag>
+        <item>Expands to <c>true</c> if the <seeguide
+        marker="system/reference_manual:features#features">feature</seeguide>
+        <c>Feature</c> is available.  The feature might or might not
+        be enabled.
+        <change><p>The <c>?FEATURE_AVAILABLE()</c> macro was introduced in Erlang/OTP 25.</p></change>
+        </item>
+        <tag><c>?FEATURE_ENABLED(Feature)</c></tag>
+        <item>Expands to <c>true</c> if the <seeguide
+        marker="system/reference_manual:features#features">feature</seeguide>
+        <c>Feature</c> is enabled.
+        <change><p>The <c>?FEATURE_ENABLED()</c> macro was introduced in Erlang/OTP 25.</p></change>
+        </item>
     </taglist>
   </section>
 
@@ -163,7 +177,8 @@ bar(X) ->
     <p>It is possible to overload macros, except for predefined
       macros. An overloaded macro has more than one definition,
       each with a different number of arguments.</p>
-    <p>The feature was added in Erlang 5.7.5/OTP R13B04.</p>
+      <change><p>Support for overloading of macros was added in Erlang
+      5.7.5/OTP R13B04.</p></change>
     <p>A macro <c>?Func(Arg1,...,ArgN)</c> with a (possibly empty)
       list of arguments results in an error message if there is at
       least one definition of <c>Func</c> with arguments, but none
@@ -191,11 +206,16 @@ f() ->
   </section>
 
   <section>
-    <title>Flow Control in Macros</title>
-    <p>The following macro directives are supplied:</p>
+    <title>Removing a macro definition</title>
+    <p>A definition of macro can be removed as follows:</p>
+    <code type="none">
+-undef(Macro).</code>
+  </section>
+
+  <section>
+    <title>Conditional Compilation</title>
+    <p>The following macro directives support conditional compilation:</p>
     <taglist>
-      <tag><c>-undef(Macro).</c></tag>
-      <item>Causes the macro to behave as if it had never been defined.</item>
       <tag><c>-ifdef(Macro).</c></tag>
       <item>Evaluate the following lines only if <c>Macro</c> is
        defined.</item>
@@ -203,24 +223,38 @@ f() ->
       <item>Evaluate the following lines only if <c>Macro</c> is not
        defined.</item>
       <tag><c>-else.</c></tag>
-      <item>Only allowed after an <c>ifdef</c> or <c>ifndef</c>
-       directive. If that condition is false, the lines following
-      <c>else</c> are evaluated instead.</item>
-      <tag><c>-endif.</c></tag>
-      <item>Specifies the end of an <c>ifdef</c>, an <c>ifndef</c>
-       directive, or the end of an <c>if</c> or <c>elif</c> directive.</item>
+      <item>Only allowed after the <c>ifdef</c>, <c>ifndef</c>, <c>if</c>,
+      and <c>elif</c> directives. The lines following <c>else</c> are
+      evaluated if the preceding directive evaluated to false.</item>
       <tag><c>-if(Condition).</c></tag>
       <item>Evaluates the following lines only if <c>Condition</c>
        evaluates to true.</item>
       <tag><c>-elif(Condition).</c></tag>
       <item>Only allowed after an <c>if</c> or another <c>elif</c> directive.
-       If the preceding <c>if</c> or <c>elif</c> directives do not
+       If the preceding <c>if</c> or <c>elif</c> directive does not
        evaluate to true, and the <c>Condition</c> evaluates to true,
        the lines following the <c>elif</c> are evaluated instead.</item>
+      <tag><c>-endif.</c></tag>
+      <item>Specifies the end of a series of control flow directives.</item>
     </taglist>
     <note>
-      <p>The macro directives cannot be used inside functions.</p>
+      <p>Macro directives cannot be used inside functions.</p>
     </note>
+
+    <p>Syntactically, the <c>Condition</c> in <c>if</c> and
+    <c>elif</c> must be a <seeguide
+    marker="expressions#guard-expressions">guard
+    expression</seeguide>. Other constructs (such as a <c>case</c>
+    expression) result in a compilation error.</p>
+
+    <p>As opposed to the standard guard expressions, an expression in
+    an <c>if</c> and <c>elif</c> also supports calling the
+    psuedo-function <c>defined(Name)</c>, which tests whether the
+    <c>Name</c> argument is the name of a previously defined macro.
+    <c>defined(Name)</c> evaluates to <c>true</c> if the macro is
+    defined and <c>false</c> otherwise. An attempt to call other
+    functions results in a compilation error.</p>
+
     <p><em>Example:</em></p>
     <code type="none">
 -module(m).
@@ -249,19 +283,50 @@ or
     <code type="none">
 -module(m)
 ...
--ifdef(OTP_RELEASE).
-  %% OTP 21 or higher
-  -if(?OTP_RELEASE >= 22).
-    %% Code that will work in OTP 22 or higher
-  -elif(?OTP_RELEASE >= 21).
-    %% Code that will work in OTP 21 or higher
-  -endif.
+-if(?OTP_RELEASE >= 25).
+%% Code that will work in OTP 25 or higher
+-elif(?OTP_RELEASE >= 26).
+%% Code that will work in OTP 26 or higher
 -else.
-  %% OTP 20 or lower.
+%% Code that will work in OTP 24 or lower.
 -endif.
 ...</code>
-    <p>The code uses the <c>OTP_RELEASE</c> macro to conditionally
+    <p>This code uses the <c>OTP_RELEASE</c> macro to conditionally
     select code depending on release.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(m)
+...
+-if(?OTP_RELEASE >= 26 andalso defined(debug)).
+%% Debugging code that requires OTP 26 or later.
+-else.
+%% Non-debug code that works in any release.
+-endif.
+...</code>
+    <p>This code uses the <c>OTP_RELEASE</c> macro and <c>defined(debug)</c>
+    to compile debug code only for OTP 26 or later.</p>
+  </section>
+
+  <section>
+    <title>
+      The -feature() directive
+    </title>
+    <marker id="feature-directive"/>
+
+    <p>
+      The directive <c>-feature(FeatureName, enable | disable)</c> can
+      be used to enable or disable the <seeguide
+      marker="system/reference_manual:features#features">feature</seeguide>
+      <c>FeatureName</c>.  This is the preferred way of enabling
+      (disabling) features, although it is possible to do it with
+      options to the compiler as well.
+    </p>
+    <p>
+      Note that the <c>-feature(..)</c> directive may only appear
+      before any syntax is used.  In practice this means it should
+      appear before any <c>-export(..)</c> or record definitions.
+    </p>
   </section>
 
   <section>
@@ -306,8 +371,8 @@ version() -> ?VERSION.</code>
 % <input>erlc t.erl</input>
 t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre>
 
-  <p>The <c>-error()</c> and <c>-warning()</c> directives were added
-  in OTP 19.</p>
+  <change><p>The <c>-error()</c> and <c>-warning()</c> directives were added
+  in Erlang/OTP 19.</p></change>
 
   </section>
 

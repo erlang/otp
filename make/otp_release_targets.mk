@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2013. All Rights Reserved.
+# Copyright Ericsson AB 1997-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ endif
 
 ifeq ($(TOPDOC),)
 
-$(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES)
+$(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout \
           --stringparam outdir $(HTMLDIR) \
@@ -83,7 +83,7 @@ $(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES)
 
 endif
 
-$(HTMLDIR)/users_guide.html: $(XML_GEN_FILES)
+$(HTMLDIR)/users_guide.html: $(XML_GEN_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout  \
 		--stringparam outdir  $(HTMLDIR)  \
@@ -104,7 +104,7 @@ $(HTMLDIR)/users_guide.html: $(XML_GEN_FILES)
 	        -path $(DOCGEN)/priv/dtd_html_entities \
 	        $(DOCGEN)/priv/xsl/db_html.xsl $(XMLDIR)/book.xml
 
-%.fo: $(XML_GEN_FILES) $(SPECS_FILES)
+%.fo: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) \
          --stringparam docgen "$(DOCGEN)" \
@@ -142,12 +142,10 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_GEN_FILES) $(SPECS_FILES)
 	        -path $(DOCGEN)/priv/dtd_html_entities \
 	        $(DOCGEN)/priv/xsl/db_eix.xsl $(XMLDIR)/book.xml >  $@
 
-docs: $(HTMLDIR)/$(APPLICATION).eix
-
 ## Here awk is used to find all xi:include files in $(BOOK_FILES)
 ## Then we look into all those files check for xi:includes
 BOOK_XI_INC_FILES:=$(foreach file,$(BOOK_FILES),$(shell awk -F\" '/xi:include/ {print $$2}' $(file))) $(BOOK_FILES)
-ALL_XI_INC_FILES:=$(foreach file,$(BOOK_XI_INC_FILES),$(shell awk -F\" '/xi:include/ {if ("$(dir $(file))" != "./") printf "$(dir $(file))"; print $$2}' $(file))) $(BOOK_XI_INC_FILES)
+ALL_XI_INC_FILES:=$(foreach file,$(BOOK_XI_INC_FILES),$(shell if [ -f $(file) ]; then awk -F\" '/xi:include/ {if ("$(dir $(file))" != "./") printf "$(dir $(file))"; print $$2}' $(file) ; fi)) $(BOOK_XI_INC_FILES)
 ifeq ($(TOPDOC), true)
 ALL_XI_INC_GEN_FILES:=$(filter-out book.xml,$(ALL_XI_INC_FILES)) $(BOOK_FILES:%=$(XMLDIR)/%)
 else
@@ -156,7 +154,7 @@ endif
 
 
 ## These are the patterns of file names that xmllint cannot currently parse
-XI_INC_FILES:=%user_man.xml %usersguide.xml %refman.xml %ref_man.xml %part.xml %book.xml
+XI_INC_FILES:=%user_man.xml %usersguide.xml %refman.xml %ref_man.xml %part.xml %book.xml %internal.xml
 
 ## These are the files that we should run the xmllint on
 LINT_XI_INC_FILES := $(filter-out $(XI_INC_FILES), $(ALL_XI_INC_FILES))
@@ -189,11 +187,15 @@ local_docs: local_copy_of_topdefs docs
 local_html: TOPDOCDIR=.
 local_html: local_copy_of_topdefs html
 
-local_copy_of_topdefs:
-	$(INSTALL) $(DOCGEN)/priv/css/otp_doc.css $(HTMLDIR)
+$(HTMLDIR)/otp_doc.css:
+	ln -s $(DOCGEN)/priv/css/otp_doc.css $(HTMLDIR)/otp_doc.css
+
+local_copy_of_topdefs: $(HTMLDIR)/otp_doc.css
+	cd $(ERL_TOP) && make mod2app
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.png $(HTMLDIR)
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.gif $(HTMLDIR)
 	$(INSTALL_DIR) $(HTMLDIR)/js/flipmenu
+	$(INSTALL) $(DOCGEN)/priv/js/*.js $(HTMLDIR)/js
 	$(INSTALL) $(DOCGEN)/priv/js/flipmenu/flip_closed.gif \
 	 	$(DOCGEN)/priv/js/flipmenu/flip_open.gif \
 		$(DOCGEN)/priv/js/flipmenu/flip_static.gif \
@@ -207,15 +209,26 @@ endif
 # Standard release target
 # ----------------------------------------------------
 
+ifneq ($(XML_ALL_REF3_FILES),)
+man chunks: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
+else
+man chunks:
+endif
+pdf html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
+release_man_spec: man
+release_pdf_spec: pdf
+release_chunks_spec: chunks
+release_html_spec: html
+
 ifeq ($(TESTROOT),)
 
-release release_docs release_tests release_html:
+release release_docs release_tests:
 	$(MAKE) $(MFLAGS) RELEASE_PATH=$(OTP_DEFAULT_RELEASE_PATH) \
 		$(TARGET_MAKEFILE)  $@_spec
 
 else
 
-release release_docs release_tests release_html:
+release release_docs release_tests:
 	$(MAKE) $(MFLAGS) RELEASE_PATH="$(TESTROOT)" $(TARGET_MAKEFILE)  $@_spec 
 
 endif

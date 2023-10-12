@@ -1,0 +1,18 @@
+
+  [;1m-spec family_specification(Fun, Family1) -> Family2[0m
+  [;1m                              when[0m
+  [;1m                                  Fun :: spec_fun(),[0m
+  [;1m                                  Family1 :: family(),[0m
+  [;1m                                  Family2 :: family().[0m
+
+  If [;;4mFamily1[0m is a family, then [;;4mFamily2[0m is the restriction of [;;4m[0m
+  [;;4mFamily1[0m to those elements i of the index set for which [;;4mFun[0m
+  applied to [;;4mFamily1[0m[i] returns [;;4mtrue[0m. If [;;4mFun[0m is a tuple [;;4m[0m
+  [;;4m{external, Fun2}[0m, then [;;4mFun2[0m is applied to the external set of [;;4m[0m
+  [;;4mFamily1[0m[i], otherwise [;;4mFun[0m is applied to [;;4mFamily1[0m[i].
+
+    1> F1 = sofs:family([{a,[1,2,3]},{b,[1,2]},{c,[1]}]),
+    SpecFun = fun(S) -> sofs:no_elements(S) =:= 2 end,
+    F2 = sofs:family_specification(SpecFun, F1),
+    sofs:to_external(F2).
+    [{b,[1,2]}]

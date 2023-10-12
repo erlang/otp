@@ -27,7 +27,7 @@ OTHER-FUNCTION ::= CLASS {
 ObjSet1 FUNCTION ::= { ... }
 
 val1 FUNCTION ::= {
-    &ArgumentType  INTEGER,
+    &ArgumentType  INTEGER (1..255),
     &ResultType    INTEGER,
     &code          3
     }
@@ -45,7 +45,9 @@ ObjSet2 FUNCTION ::= {
 
 
 -- added for OTP-4591
-
+ArgumentType ::= INTEGER
+ResultType ::= INTEGER
+    
 Seq ::= SEQUENCE {
   arg  FUNCTION.&ArgumentType ({ObjSet2}{@val1}),
   res  FUNCTION.&ResultType   ({ObjSet2}{@val1}),

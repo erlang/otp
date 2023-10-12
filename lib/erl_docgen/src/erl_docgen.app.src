@@ -3,12 +3,13 @@
   {vsn, "%VSN%"},
   {modules, [docgen_otp_specs,
   	     docgen_edoc_xml_cb,
-	     docgen_xmerl_xml_cb
+	     docgen_xmerl_xml_cb,
+             docgen_xml_to_chunk
 	    ]
   },
   {registered,[]},
   {applications, [kernel,stdlib]},
   {env, []},
-  {runtime_dependencies, ["xmerl-1.3.7","stdlib-3.4","edoc-0.7.13","erts-9.0"]}
+  {runtime_dependencies, ["xmerl-1.3.7","kernel-8.0","stdlib-3.15","edoc-1.0","erts-11.0"]}
  ]
 }.

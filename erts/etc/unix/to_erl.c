@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,12 @@
 #include "run_erl.h"
 #include "safe_string.h"   /* strn_cpy, strn_catf, sn_printf, etc. */
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #if defined(O_NONBLOCK)
 # define DONT_BLOCK_PLEASE O_NONBLOCK
 #else
@@ -76,13 +82,13 @@
 #  define STRERROR(x) ""
 #endif
 
-#define noDEBUG
+#define noDEBUG_TOERL
 
 #define PIPE_DIR        "/tmp/"
 #define PIPE_STUBNAME   "erlang.pipe"
 #define PIPE_STUBLEN    strlen(PIPE_STUBNAME)
 
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
 #define STATUS(s)  { fprintf(stderr, (s)); fflush(stderr); }
 #else
 #define STATUS(s)
@@ -100,7 +106,7 @@ static int protocol_ver = RUN_ERL_LO_VER; /* assume lowest to begin with */
 static int write_all(int fd, const char* buf, int len);
 static int window_size_seq(char* buf, size_t bufsz);
 static int version_handshake(char* buf, int len, int wfd);
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
 static void show_terminal_settings(struct termios *);
 #endif
 
@@ -149,7 +155,7 @@ int main(int argc, char **argv)
 	pipeIx = 2;
     }
     
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
     fprintf(stderr, "%s: pid is : %d\n", argv[0], (int)getpid());
 #endif
     
@@ -203,25 +209,25 @@ int main(int argc, char **argv)
     }
 
     if ((rfd = open (FIFO1, O_RDONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
 	fprintf(stderr, "Could not open FIFO %s for reading.\n", FIFO1);
 #endif
 	fprintf(stderr, "No running Erlang on pipe %s: %s\n", pipename, strerror(errno));
 	exit(1);
     }
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
     fprintf(stderr, "to_erl: %s opened for reading\n", FIFO1);
 #endif
     
     if ((wfd = open (FIFO2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
 	fprintf(stderr, "Could not open FIFO %s for writing.\n", FIFO2);
 #endif
 	fprintf(stderr, "No running Erlang on pipe %s: %s\n", pipename, strerror(errno));
 	close(rfd);
 	exit(1);
     }
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
     fprintf(stderr, "to_erl: %s opened for writing\n", FIFO2);
 #endif
     
@@ -239,14 +245,13 @@ int main(int argc, char **argv)
     }
     tty_smode = tty_rmode;
     tty_eof = '\004'; /* Ctrl+D to exit */
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
     show_terminal_settings(&tty_rmode);
 #endif
     tty_smode.c_iflag =
 	1*BRKINT |/*Signal interrupt on break.*/
-	    1*IGNPAR |/*Ignore characters with parity errors.*/
-		1*ISTRIP |/*Strip character.*/
-		    0;
+        1*IGNPAR |/*Ignore characters with parity errors.*/
+        0;
     
 #if 0
 0*IGNBRK |/*Ignore break condition.*/
@@ -263,31 +268,31 @@ int main(int argc, char **argv)
 #endif
 						
     tty_smode.c_oflag =
-	1*OPOST  |/*Post-process output.*/
-	    1*ONLCR  |/*Map NL to CR-NL on output.*/
+    OPOST    |/*Post-process output.*/
+    0*ONLCR  |/*Map NL to CR-NL on output.*/
 #ifdef XTABS
-		1*XTABS  |/*Expand tabs to spaces. (Linux)*/
+    1*XTABS  |/*Expand tabs to spaces. (Linux)*/
 #endif
 #ifdef OXTABS
-		    1*OXTABS  |/*Expand tabs to spaces. (FreeBSD)*/
+    1*OXTABS |/*Expand tabs to spaces. (FreeBSD)*/
 #endif
 #ifdef NL0
-			1*NL0    |/*Select newline delays*/
+    1*NL0    |/*Select newline delays*/
 #endif
 #ifdef CR0
-			    1*CR0    |/*Select carriage-return delays*/
+    1*CR0    |/*Select carriage-return delays*/
 #endif
 #ifdef TAB0
-				1*TAB0   |/*Select horizontal tab delays*/
+    1*TAB0   |/*Select horizontal tab delays*/
 #endif
 #ifdef BS0
-				    1*BS0    |/*Select backspace delays*/
+    1*BS0    |/*Select backspace delays*/
 #endif
 #ifdef VT0
-					1*VT0    |/*Select vertical tab delays*/
+    1*VT0    |/*Select vertical tab delays*/
 #endif
 #ifdef FF0
-					    1*FF0    |/*Select form feed delays*/
+    1*FF0    |/*Select form feed delays*/
 #endif
 											    0;
     
@@ -342,7 +347,7 @@ int main(int argc, char **argv)
     
     tcsetattr(0, TCSADRAIN, &tty_smode);
     
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
     show_terminal_settings(&tty_smode);
 #endif
     /*
@@ -415,8 +420,8 @@ int main(int argc, char **argv)
 	}
 
 	if (len) {
-#ifdef DEBUG
-	    (void)write(1, buf, len);
+#ifdef DEBUG_TOERL
+	    write_all(1, buf, len);
 #endif
 	    if (write_all(wfd, buf, len) != len) {
 		fprintf(stderr, "Error in writing to FIFO.\n");
@@ -482,7 +487,7 @@ int main(int argc, char **argv)
     }
 
     /* 
-     * Reset terminal characterstics 
+     * Reset terminal characteristics 
      * XXX
      */
     tcsetattr(0, TCSADRAIN, &tty_rmode);
@@ -575,7 +580,7 @@ static int version_handshake(char* buf, int len, int wfd)
 }
 
 
-#ifdef DEBUG
+#ifdef DEBUG_TOERL
 #define S(x)  ((x) > 0 ? 1 : 0)
 
 static void show_terminal_settings(struct termios *t)

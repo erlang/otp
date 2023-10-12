@@ -1,0 +1,20 @@
+
+  [;1m-spec erlang:phash(Term, Range) -> Hash[0m
+  [;1m                      when[0m
+  [;1m                          Term :: term(),[0m
+  [;1m                          Range :: pos_integer(),[0m
+  [;1m                          Hash :: pos_integer().[0m
+
+[;;4mDeprecated[0m:
+  erlang:phash/2 is deprecated; use erlang:phash2/2 instead
+
+  Warning:
+    This function is deprecated as [;;4merlang:phash2/2[0m should be
+    used for new code. Note that [;;4merlang:phash(X,N)[0m is not
+    necessary equal to [;;4merlang:phash2(X,N)[0m
+
+  Portable hash function that gives the same hash for the same
+  Erlang term regardless of machine architecture and ERTS version
+  (the BIF was introduced in ERTS 4.9.1.1). The function returns a
+  hash value for [;;4mTerm[0m within the range [;;4m1..Range[0m. The maximum
+  value for [;;4mRange[0m is 2^32.

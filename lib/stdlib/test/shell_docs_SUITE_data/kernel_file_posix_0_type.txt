@@ -1,0 +1,13 @@
+
+  [;1m-type posix() ::[0m
+  [;1m          eacces | eagain | ebadf | ebadmsg | ebusy | edeadlk |[0m
+  [;1m          edeadlock | edquot | eexist | efault | efbig | eftype |[0m
+  [;1m          eintr | einval | eio | eisdir | eloop | emfile | emlink |[0m
+  [;1m          emultihop | enametoolong | enfile | enobufs | enodev |[0m
+  [;1m          enolck | enolink | enoent | enomem | enospc | enosr | enostr |[0m
+  [;1m          enosys | enotblk | enotdir | enotsup | enxio | eopnotsupp |[0m
+  [;1m          eoverflow | eperm | epipe | erange | erofs | espipe | esrch |[0m
+  [;1m          estale | etxtbsy | exdev.[0m
+
+  An atom that is named from the POSIX error codes used in Unix, and
+  in the runtime libraries of most C compilers.

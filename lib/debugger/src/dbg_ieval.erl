@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,14 +84,16 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
 %%--------------------------------------------------------------------
 %% eval_expr(Expr, Bs, Ieval) -> {value, Value, Bs}
 %%
-%% Evalute a shell expression in the real process.
+%% Evaluate a shell expression in the real process.
 %% Called (dbg_icmd) in response to a user request.
 %%--------------------------------------------------------------------
-eval_expr(Expr, Bs, Ieval) ->
+eval_expr(Expr0, Bs, Ieval) ->
 
     %% Save current exit info
     ExitInfo = get(exit_info),
     Stacktrace = get(stacktrace),
+
+    Expr = expand_records(Expr0, Ieval#ieval.module),
 
     %% Emulate a surrounding catch
     try debugged_cmd({eval,Expr,Bs}, Bs, Ieval)
@@ -264,7 +266,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 			      end,
 		    do_exception(Class, Reason, MakeStk, Bs, Ieval);
 
-		%% Error must have occured within a re-entry to
+		%% Error must have occurred within a re-entry to
 		%% interpreted code, simply raise the exception
 		_ ->
 		    erlang:Class(Reason)
@@ -618,8 +620,12 @@ seq([E|Es], Bs0, Ieval) ->
 	{skip,Bs} ->
 	    seq(Es, Bs, Ieval);
 	Bs1 ->
-	    {value,_,Bs} = expr(E, Bs1, Ieval#ieval{top=false}),
-	    seq(Es, Bs, Ieval)
+	    case expr(E, Bs1, Ieval#ieval{top=false}) of
+                {value,_,Bs} ->
+                    seq(Es, Bs, Ieval);
+                {bad_maybe_match,_}=Bad ->
+                    Bad
+            end
     end;
 seq([], Bs, _) ->
     {value,true,Bs}.
@@ -664,6 +670,16 @@ expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
 			    ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
 			end, E, Fs),
     {value,Value,merge_bindings(Bs2, Bs1, Ieval)};
+
+%% Record update
+expr({record_update,Line,Es},Bs,#ieval{level=Le}=Ieval0) ->
+    %% Incr Level, we don't need to step (next) through temp
+    %% variables creation and matching
+    Ieval = Ieval0#ieval{top=false, line=Line, level=Le+1},
+    Seq = fun(E, {_, _, Bs1}) -> expr(E, Bs1, Ieval) end,
+    {value,Value,Bs1} = lists:foldl(Seq, {value, true, Bs}, Es),
+    {value,Value,remove_temporary_bindings(Bs1)};
+
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
@@ -693,7 +709,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     end;
 expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -706,7 +722,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     after
             seq(As, Bs0, Ieval#ieval{top=false})
     end;
@@ -743,6 +759,24 @@ expr({'orelse',Line,E1,E2}, Bs0, Ieval) ->
             exception(error, {badarg,Val}, Bs, Ieval)
     end;
 
+%% Maybe statement without else
+expr({'maybe',Line,Es}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            {value,Val,Bs};
+        {value,_,_}=Other ->
+            Other
+    end;
+
+%% Maybe statement with else
+expr({'maybe',Line,Es,Cs}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            case_clauses(Val, Cs, Bs, else_clause, Ieval#ieval{line=Line});
+        {value,_,_}=Other ->
+            Other
+    end;
+
 %% Matching expression
 expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -752,6 +786,17 @@ expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 	    {value,Rhs,Bs};
 	nomatch ->
 	    exception(error, {badmatch,Rhs}, Bs1, Ieval)
+    end;
+
+%% Conditional match expression (?=)
+expr({maybe_match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Ieval#ieval{top=false}),
+    case match(Lhs, Rhs, Bs1) of
+	{match,Bs} ->
+	    {value,Rhs,Bs};
+	nomatch ->
+            {bad_maybe_match,Rhs}
     end;
 
 %% Construct a fun
@@ -905,14 +950,9 @@ expr({dbg,Line,self,[]}, Bs, #ieval{level=Le}) ->
     Self = get(self),
     trace(return, {Le,Self}),
     {value,Self,Bs};
-expr({dbg,Line,get_stacktrace,[]}, Bs, #ieval{level=Le}) ->
-    trace(bif, {Le,Line,erlang,get_stacktrace,[]}),
-    Stacktrace = get_stacktrace(),
-    trace(return, {Le,Stacktrace}),
-    {value,Stacktrace,Bs};
 expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    %% Since erlang:get_stacktrace/0 is emulated, we will
-    %% need to emulate erlang:raise/3 too so that we can
+    %% Since stacktraces are emulated, we will
+    %% need to emulate erlang:raise/3 so that we can
     %% capture the stacktrace.
     Ieval = Ieval0#ieval{line=Line},
     {[Class,Reason,Stk0]=As,Bs} = eval_list(As0, Bs0, Ieval),
@@ -1036,9 +1076,7 @@ expr({bin,Line,Fs}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line,top=false},
     try
 	eval_bits:expr_grp(Fs, Bs0,
-			   fun (E, B) -> expr(E, B, Ieval) end,
-			   [],
-			   false)
+			   fun (E, B) -> expr(E, B, Ieval) end)
     catch
 	Class:Reason ->
 	    exception(Class, Reason, Bs0, Ieval)
@@ -1155,12 +1193,17 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
 eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
 
-safe_bif(M, F, As, Bs, Ieval) ->
+safe_bif(M, F, As, Bs, Ieval0) ->
     try apply(M, F, As) of
        	Value ->
 	    {value,Value,Bs}
     catch
-	Class:Reason ->
+	Class:Reason:Stk ->
+            [{_,_,_,Info}|_] = Stk,
+            Ieval = case lists:keyfind(error_info, 1, Info) of
+                        false -> Ieval0#ieval{error_info=[]};
+                        ErrorInfo -> Ieval0#ieval{error_info=[ErrorInfo]}
+                    end,
 	    exception(Class, Reason, Bs, Ieval, true)
     end.
 
@@ -1383,7 +1426,7 @@ catch_clauses(Exception, [{clause,_,[P],G,B}|CatchCs], Bs0, Ieval) ->
 	nomatch ->
 	    catch_clauses(Exception, CatchCs, Bs0, Ieval)
     end;
-catch_clauses({Class,Reason,[]}, [], _Bs, _Ieval) ->
+catch_clauses({Class,Reason,_}, [], _Bs, _Ieval) ->
     erlang:Class(Reason).
 
 receive_clauses(Cs, Bs0, [Msg|Msgs]) ->
@@ -1492,7 +1535,7 @@ guard_expr({bin,_,Flds}, Bs) ->
 			   fun(E,B) ->
 				   {value,V} = guard_expr(E,B),
 				   {value,V,B}
-			   end, [], false),
+			   end),
     {value,V}.
 
 
@@ -1571,8 +1614,7 @@ match1({map,_,Fields}, Map, Bs, BBs) when is_map(Map) ->
 match1({bin,_,Fs}, B, Bs0, BBs) when is_bitstring(B) ->
     try eval_bits:match_bits(Fs, B, Bs0, BBs,
 			     match_fun(BBs),
-			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end,
-			     false)
+			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end)
     catch
 	_:_ -> throw(nomatch)
     end;
@@ -1592,12 +1634,17 @@ match_tuple([], _, _, Bs, _BBs) ->
     {match,Bs}.
 
 match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
-    {value,K,BBs} = expr(K0, BBs, #ieval{}),
-    case maps:find(K, Map) of
-        {ok,Value} ->
-            {match,Bs} = match1(Pat, Value, Bs0, BBs),
-            match_map(Fs, Map, Bs, BBs);
-        error -> throw(nomatch)
+    try guard_expr(K0, BBs) of
+        {value,K} ->
+            case Map of
+                #{K := Value} ->
+                    {match,Bs} = match1(Pat, Value, Bs0, BBs),
+                    match_map(Fs, Map, Bs, BBs);
+                #{} ->
+                    throw(nomatch)
+            end
+    catch _:_ ->
+            throw(nomatch)
     end;
 match_map([], _, Bs, _BBs) ->
     {match,Bs}.
@@ -1727,6 +1774,9 @@ add_binding(N,Val,[B1|Bs]) ->
 add_binding(N,Val,[]) ->
     [{N,Val}].
 
+remove_temporary_bindings(Bs0) ->
+    [{Var,Val} || {Var, Val} <- Bs0, hd(atom_to_list(Var)) =/= $%].
+
 %% get_stacktrace() -> Stacktrace
 %%  Return the latest stacktrace for the process.
 get_stacktrace() ->
@@ -1742,3 +1792,92 @@ get_stacktrace() ->
 	Stk when is_list(Stk) ->
 	    Stk
     end.
+
+%%% eval record exprs
+%%% copied from stdlib/src/shell.erl
+
+expand_records(Expr, Mod) ->
+    try
+        expand_records_1(used_record_defs(Expr, Mod), Expr)
+    catch _:_Err:_ST ->
+            Expr
+    end.
+
+expand_records_1([], Expr) ->
+    Expr;
+expand_records_1(UsedRecords, Expr) ->
+    A = erl_anno:new(1),
+    RecordDefs = [{attribute, A, record,
+                   {Name, [{record_field,A,{atom,A,F}} || F <- Fields]}
+                  } || {Name,Fields} <- UsedRecords],
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[Expr]}]}],
+    Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
+    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
+    NE.
+
+used_record_defs(E, Mod) ->
+    case mod_recs(Mod) of
+        [] -> [];
+        Recs0 ->
+            Recs = [{Name, Fields} || {{_,_,Name,_}, Fields} <- Recs0],
+            L0 = used_record_defs(E, maps:from_list(Recs), [], []),
+            L1 = lists:zip(L0, lists:seq(1, length(L0))),
+            L2 = lists:keysort(2, lists:ukeysort(1, L1)),
+            [R || {R, _} <- L2]
+    end.
+
+used_record_defs(E, Recs, Skip, Used) ->
+    case used_records(E) of
+        {name,Name,E1} ->
+            case lists:member(Name, Skip) of
+                true ->
+                    used_record_defs(E1, Recs, Skip, Used);
+                false ->
+                    case maps:get(Name, Recs, undefined) of
+                        undefined ->
+                            used_record_defs(E1, Recs, [Name|Skip], Used);
+                        Fields ->
+                            used_record_defs(E1, Recs, [Name|Skip], [{Name, Fields}|Used])
+                    end
+            end;
+        {expr,[E1 | Es]} ->
+            used_record_defs(Es, Recs, Skip, used_record_defs(E1, Recs, Skip, Used));
+        _ ->
+            Used
+    end.
+
+mod_recs(Mod) ->
+    case db_ref(Mod) of
+        not_found ->
+            [];
+        ModDb ->
+            dbg_idb:match_object(ModDb, {{record, Mod, '_', '_'}, '_'})
+    end.
+
+used_records({record_index,_,Name,F}) ->
+    {name, Name, F};
+used_records({record,_,Name,Is}) ->
+    {name, Name, Is};
+used_records({record_field,_,R,Name,F}) ->
+    {name, Name, [R | F]};
+used_records({record,_,R,Name,Ups}) ->
+    {name, Name, [R | Ups]};
+used_records({record_field,_,R,F}) -> % illegal
+    {expr, [R | F]};
+used_records({call,_,{atom,_,record},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{atom,_,is_record},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+              [A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,A,{tuple,_,[M,F]},As}) ->
+    used_records({call,A,{remote,A,M,F},As});
+used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
+  {name, Name, Fs};
+used_records(T) when is_tuple(T) ->
+    {expr, tuple_to_list(T)};
+used_records(E) ->
+    {expr, E}.

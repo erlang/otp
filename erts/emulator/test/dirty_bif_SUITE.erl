@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@
 	 dirty_process_info/1,
 	 dirty_process_register/1,
 	 dirty_process_trace/1,
-	 code_purge/1]).
+	 code_purge/1,
+         otp_15688/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -64,7 +65,8 @@ all() ->
      dirty_process_info,
      dirty_process_register,
      dirty_process_trace,
-     code_purge].
+     code_purge,
+     otp_15688].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -80,8 +82,8 @@ end_per_suite(_Config) ->
 init_per_testcase(Case, Config) ->
     [{testcase, Case} | Config].
 
-end_per_testcase(_Case, _Config) ->
-    ok.
+end_per_testcase(_Case, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 dirty_bif(Config) when is_list(Config) ->
     dirty_cpu = erts_debug:dirty_cpu(scheduler,type),
@@ -214,7 +216,7 @@ dirty_bif_multischedule_exception(Config) when is_list(Config) ->
     end.
 
 dirty_scheduler_exit(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config, "+SDio 1"),
+    {ok, Peer, Node} = ?CT_PEER(["+SDio", "1"]),
     [ok] = mcall(Node,
                  [fun() ->
                           %% Perform a dry run to ensure that all required code
@@ -228,7 +230,7 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
 			  io:format("Time=~p ms~n", [End-Start]),
 			  ok
                   end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_scheduler_exit() ->
@@ -287,7 +289,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     undefined = process_info(Dirty, status),
     false = erlang:is_process_alive(Dirty),
     false = lists:member(Dirty, processes()),
-    %% Binary still refered by Dirty process not yet cleaned up
+    %% Binary still referred by Dirty process not yet cleaned up
     %% since the dirty bif has not yet returned...
     {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
 						  element(2,
@@ -313,7 +315,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     end.
 
 dirty_heap_access(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Me = self(),
     RGL = rpc:call(Node,erlang,whereis,[init]),
     Ref = rpc:call(Node,erlang,make_ref,[]),
@@ -331,7 +333,7 @@ dirty_heap_access(Config) when is_list(Config) ->
     end,
     unlink(Dirty),
     exit(Dirty, kill),
-    stop_node(Node),
+    peer:stop(Peer),
     {comment, integer_to_list(N) ++ " GL change loops; "
      ++ integer_to_list(R) ++ " while running dirty"}.
 
@@ -367,7 +369,7 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% the dirty process is still alive immediately after accessing it.
 dirty_process_info(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() -> ok end,
       fun(BifPid) ->
 	      PI = process_info(BifPid),
@@ -379,7 +381,7 @@ dirty_process_info(Config) when is_list(Config) ->
 
 dirty_process_register(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() -> ok end,
       fun(BifPid) ->
 	      register(test_dirty_process_register, BifPid),
@@ -393,9 +395,11 @@ dirty_process_register(Config) when is_list(Config) ->
 
 dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() ->
-	      erlang:trace_pattern({erts_debug,dirty_io,2},
+	      %% BIFs can only be traced when their modules are loaded.
+	      code:ensure_loaded(erts_debug),
+	      1 = erlang:trace_pattern({erts_debug,dirty_io,2},
 				   [{'_',[],[{return_trace}]}],
 				   [local,meta]),
 	      ok
@@ -498,17 +502,65 @@ code_purge(Config) when is_list(Config) ->
     true = Time =< 1000,
     ok.
 
+otp_15688(Config) when is_list(Config) ->
+    ImBack = make_ref(),
+    {See, SeeMon} = spawn_monitor(fun () ->
+                                          erts_debug:dirty_io(wait, 2000),
+                                          exit(ImBack)
+                                  end),
+    wait_until(fun () ->
+                       [{current_function, {erts_debug, dirty_io, 2}},
+                        {status, running}]
+                           == process_info(See,
+                                           [current_function, status])
+               end),
+    {Ser1, Ser1Mon} = spawn_monitor(fun () ->
+                                            erlang:suspend_process(See,
+                                                                   [asynchronous])
+                                    end),
+    erlang:suspend_process(See, [asynchronous]),
+    receive {'DOWN', Ser1Mon, process, Ser1, normal} -> ok end,
+
+    %% Verify that we sent the suspend request while it was executing dirty...
+    [{current_function, {erts_debug, dirty_io, 2}},
+     {status, running}] = process_info(See, [current_function, status]),
+
+    wait_until(fun () ->
+                       {status, suspended} == process_info(See, status)
+               end),
+    erlang:resume_process(See),
+
+    receive
+        {'DOWN', SeeMon, process, See, Reason} ->
+            ImBack = Reason
+    after 4000 ->
+            %% Resume bug seems to have hit us...
+            PI = process_info(See),
+            exit(See, kill),
+            ct:fail({suspendee_stuck, PI})
+    end.
+    
+
 %%
 %% Internal...
 %%
 
-access_dirty_process(Config, Start, Test, Finish) ->
-    {ok, Node} = start_node(Config, ""),
+wait_until(Fun) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
+
+access_dirty_process(TestCase, Start, Test, Finish) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(TestCase)}),
     [ok] = mcall(Node,
 		 [fun() ->
 			  ok = test_dirty_process_access(Start, Test, Finish)
 		  end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_process_access(Start, Test, Finish) ->
@@ -533,23 +585,6 @@ test_dirty_process_access(Start, Test, Finish) ->
 		 error(timeout)
 	 end,
     ok = Finish(BifPid).
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 mcall(Node, Funs) ->
     Parent = self(),

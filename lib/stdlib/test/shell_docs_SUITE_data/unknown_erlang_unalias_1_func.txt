@@ -1,0 +1,16 @@
+
+  [;1m-spec unalias(Alias) -> boolean() when Alias :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 24.0
+
+  Deactivate the alias [;;4mAlias[0m previously created by the calling
+  process. An alias can for example be created via [;;4malias/0[0m, or [;;4m[0m
+  [;;4mmonitor/3[0m. [;;4munalias/1[0m will always deactivate the alias
+  regardless of options used when creating the alias.
+
+  Returns true if [;;4mAlias[0m was a currently active alias for current
+  processes; otherwise, false.
+
+  For more information on process aliases see the Process Aliases
+  section of the Erlang Reference Manual.

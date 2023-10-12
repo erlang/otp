@@ -1,0 +1,7 @@
+
+  [;1m-spec halt() -> no_return().[0m
+
+  The same as calling [;;4mhalt(0, [])[0m. Example:
+
+    > halt().
+    os_prompt%

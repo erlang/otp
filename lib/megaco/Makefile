@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,7 +98,13 @@ else
   FLEX_SCANNER_REENTRANT_ENABLER = --enable-megaco-reentrant-flex-scanner
 endif
 
-CONFIGURE_OPTS = $(FLEX_SCANNER_LINENO_ENABLER) $(FLEX_SCANNER_REENTRANT_ENABLER)
+ifeq ($(ERL_DETERMINISTIC),yes)
+  ERL_DETERMINISTIC_ENABLER = --enable-deterministic-build
+else
+  ERL_DETERMINISTIC_ENABLER = --disable-deterministic-build
+endif
+
+CONFIGURE_OPTS = $(FLEX_SCANNER_LINENO_ENABLER) $(FLEX_SCANNER_REENTRANT_ENABLER) $(ERL_DETERMINISTIC_ENABLER)
 
 
 DIA_PLT      = ./priv/plt/$(APPLICATION).plt
@@ -110,13 +116,12 @@ DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
-.PHONY: reconf conf dconf econf configure setup info version \
+.PHONY: reconf conf dconf econf configure setup info_megaco version \
 	app_install dialyzer
 
 reconf:
 	(cd $(ERL_TOP) && \
-		./otp_build autoconf && \
-		./otp_build configure && \
+		./otp_build configure $(ERL_DETERMINISTIC_ENABLER) && \
 		cd $(ERL_TOP)/../libraries/megaco)
 
 conf: do_configure
@@ -136,16 +141,15 @@ configure: configure.in
 setup:
 	(cd src && $(MAKE) $@)
 
-info:
+info_megaco:
 	@echo "APP_RELEASE_DIR: $(APP_RELEASE_DIR)"
 	@echo "APP_DIR:         $(APP_DIR)"
 	@echo "APP_TAR_FILE:    $(APP_TAR_FILE)"
 	@echo "OTP_INSTALL_DIR: $(OTP_INSTALL_DIR)"
 	@echo "APP_INSTALL_DIR: $(APP_INSTALL_DIR)"
 	@echo ""
-	@echo "DIA_PLT:      $(DIA_PLT)"
-	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
-	@echo ""
+
+info: info_megaco
 
 version:
 	@echo "$(VSN)"
@@ -204,18 +208,7 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd "$(APP_RELEASE_DIR)"; gtar zcf "$(subst $(space),\ ,$@)" $(DIR_NAME))
 
-dialyzer_plt: $(DIA_PLT)
+DIA_PLT_APPS=asn1 runtime_tools et debugger
+TEST_NEEDS_RELEASE=true
 
-$(DIA_PLT): 
-	@echo "Building $(APPLICATION) plt file"
-	@dialyzer --build_plt \
-                  --output_plt $@ \
-                  -r ../$(APPLICATION)/ebin \
-                  --output $(DIA_ANALYSIS) \
-                  --verbose
-
-dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(APPLICATION)"
-	@dialyzer --plt $< \
-                  ../$(APPLICATION)/ebin \
-                  --verbose
+include $(ERL_TOP)/make/app_targets.mk

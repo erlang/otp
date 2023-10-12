@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 -include_lib("kernel/include/logger.hrl").
 -define(LOGGER_TABLE,logger).
+-define(PROXY_KEY,'$proxy_config$').
 -define(PRIMARY_KEY,'$primary_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
@@ -40,12 +41,14 @@
 
 -define(DEFAULT_LOGGER_CALL_TIMEOUT, infinity).
 
--define(LOG_INTERNAL(Level,Report),
+-define(LOG_INTERNAL(Level,Log,Report),
+        ?DO_LOG_INTERNAL(Level,Log,[Report])).
+-define(LOG_INTERNAL(Level,Log,Format,Args),
+        ?DO_LOG_INTERNAL(Level,Log,[Format,Args])).
+-define(DO_LOG_INTERNAL(Level,Log,Data),
         case logger:allow(Level,?MODULE) of
             true ->
-                %% Spawn this to avoid deadlocks
-                _ = spawn(logger,macro_log,[?LOCATION,Level,Report,
-                                            logger:add_default_metadata(#{})]),
+                _ = logger_server:do_internal_log(Level,?LOCATION,Log,Data),
                 ok;
             false ->
                 ok
@@ -83,12 +86,17 @@
             L=:=warning orelse
             L=:=notice orelse
             L=:=info orelse
-            L=:=debug)).
+            L=:=debug )).
+
+-define(IS_LEVEL_ALL(L),
+        ?IS_LEVEL(L) orelse
+            L=:=all orelse
+            L=:=none ).
 
 -define(IS_MSG(Msg),
         ((is_tuple(Msg) andalso tuple_size(Msg)==2)
          andalso
-           (is_list(element(1,Msg)) andalso is_list(element(2,Msg)))
+           (?IS_FORMAT(element(1,Msg)) andalso is_list(element(2,Msg)))
          orelse
            (element(1,Msg)==report andalso ?IS_REPORT(element(2,Msg)))
          orelse
@@ -99,3 +107,6 @@
 
 -define(IS_STRING(String),
         (is_list(String) orelse is_binary(String))).
+
+-define(IS_FORMAT(Format),
+        (?IS_STRING(Format) orelse is_atom(Format))).

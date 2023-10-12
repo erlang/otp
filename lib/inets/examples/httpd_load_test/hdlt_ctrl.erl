@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(hdlt_ctrl).
-
+-dialyzer({no_fail_call, proxy_loop/1}).
 -export([start/1, stop/0, help/0]).
 
 -export([init/1, proxy/7]).
@@ -191,9 +191,6 @@ do_init(Config) ->
     ServerRoot = filename:join(ServerDir, "server_root"),  
     DocRoot    = ServerRoot, %% Not really used in this test
 
-    ?DEBUG("randomize setup", []), 
-    randomized_sizes_init(), 
-
     %% Start used applications
     ?DEBUG("ensure crypto started", []), 
     crypto:start(),
@@ -297,10 +294,10 @@ prepare_server_host(#state{server_root      = ServerRoot,
 	    {connect_timeout,       ?SSH_CONNECT_TIMEOUT}], 
     case ssh_sftp:start_channel(Host, Opts) of
 	{ok, Sftp, ConnectionRef} ->
-	    ?DEBUG("sftp connection established - now transer server content",
+	    ?DEBUG("sftp connection established - now transfer server content",
 		   []),
 	    create_server_content(Sftp, ServerRoot, SocketType, CertFile),
-	    ?DEBUG("server content transfered - now close ssh connection ", 
+	    ?DEBUG("server content transferred - now close ssh connection ", 
 		   []),
 	    ssh:close(ConnectionRef),
 	    ?DEBUG("server preparation complete ", []),
@@ -417,7 +414,7 @@ prepare_client_host(WorkDir, SocketType, CertFile, #client{host = Host}) ->
 	    {connect_timeout,       ?SSH_CONNECT_TIMEOUT}], 
     case ssh_sftp:start_channel(Host, Opts) of
 	{ok, Sftp, ConnectionRef} ->
-	    ?DEBUG("sftp connection established - now transer client content",
+	    ?DEBUG("sftp connection established - now transfer client content",
 		   []),
 	    create_client_content(Sftp, WorkDir, SocketType, CertFile),
 	    ?DEBUG("client content transered - now close ssh connection ", []),
@@ -977,7 +974,7 @@ clean_up(#state{server_root = ServerRoot,
 		clients     = Clients}) ->
     ?DEBUG("begin server cleanup", []),
     server_clean_up(ServerRoot, WorkDir, Host),
-    ?DEBUG("begin lient cleanup", []),
+    ?DEBUG("begin client cleanup", []),
     clients_clean_up(WorkDir, Clients),
     ?DEBUG("cleanup done", []),
     ok.
@@ -1201,7 +1198,7 @@ help() ->
     io:format("hdlt:start(Options). Where options:~n "
 	      " ~n~p~n~n hdlt:start([]). -> hdlt:start(~p)~n~n",
 	      [[{send_rate, "integer()", 
-		 "Numer of outstanding requests that a client "
+		 "Number of outstanding requests that a client "
 		 "should have during the test to create a load situation."},
 		{clients, "[{path(), host()}]", "Paths to erlang and names of hosts to run clients on."},
 		{test_time, "{hours(), mins(), sec()}", 
@@ -1514,9 +1511,6 @@ set_debug_level(Debugs) ->
 %% there is exact one number between A and B and then 
 %% randomizes that list.
 
-randomized_sizes_init() ->
-    {A, B, C} = os:timestamp(),
-    random:seed(A, B, C).
 
 randomized_sizes(From, To, Incr) ->
     L   = lists:seq(From, To, Incr),
@@ -1526,6 +1520,6 @@ randomized_sizes(From, To, Incr) ->
 randomized_sizes2(L, N, Len) when N >= Len ->
     L;
 randomized_sizes2(L, N, Len) ->
-    SplitWhere = random:uniform(Len),
+    SplitWhere = rand:uniform(Len),
     {A, B} = lists:split(SplitWhere, L),
     randomized_sizes2(B ++ A, N+1, Len).

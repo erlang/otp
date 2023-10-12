@@ -8,6 +8,7 @@
 	 sub_word/2,sub_word/3,left/2,left/3,right/2,right/3,
 	 sub_string/2,sub_string/3,centre/2,centre/3, join/2]).
 -export([to_upper/1, to_lower/1]).
+-export([eep49/0, eep58/0]).
 
 -import(lists,[reverse/1,member/2]).
 
@@ -235,8 +236,8 @@ substr1(String, _L) when is_list(String) -> [].	     %Be nice!
 substr2(String, 1) when is_list(String) -> String;
 substr2([_|String], S) -> substr2(String, S-1).
 
-%% tokens(String, Seperators).
-%%  Return a list of tokens seperated by characters in Seperators.
+%% tokens(String, Separators).
+%%  Return a list of tokens separated by characters in Separators.
 
 -spec tokens(String, SeparatorList) -> Tokens when
       String :: string(),
@@ -538,3 +539,54 @@ join([], Sep) when is_list(Sep) ->
     [];
 join([H|T], Sep) ->
     H ++ lists:append([Sep ++ X || X <- T]).
+
+eep49() ->
+    maybe ok ?= ok end,
+
+    {a,b} =
+        maybe
+            {ok,A} ?= {ok,a},
+            {ok,B} ?= {ok,b},
+            {A,B}
+        end,
+
+    maybe
+        ok ?= {ok,x}
+    else
+        error -> error;
+        {error,_} -> error
+    end,
+
+    maybe
+        ok ?= {ok,x}
+    else
+        error -> error
+    end,
+
+    maybe
+        {ok,X} ?= {ok,x},
+        {ok,Y} ?= {ok,y},
+        {X,Y}
+    else
+        error -> error;
+        {error,_} -> error
+    end,
+
+    maybe
+        {ok,X2} ?= {ok,x},
+        {ok,Y2} ?= {ok,y},
+        {X2,Y2}
+    else
+        error -> error
+    end,
+
+    ok.
+
+%% EEP-58: Map comprehensions.
+eep58() ->
+    Seq = lists:seq(1, 10),
+    Map = #{{key,I} => I || I <- Seq},
+    MapDouble = #{K => 2 * V || K := V <- Map},
+    MapDouble = maps:from_list([{{key,I}, 2 * I} || I <- Seq]),
+
+    ok.

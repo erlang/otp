@@ -1,0 +1,10 @@
+
+  [;1m-spec union_of_family(Family) -> Set[0m
+  [;1m                         when Family :: family(), Set :: a_set().[0m
+
+  Returns the union of family [;;4mFamily[0m.
+
+    1> F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),
+    S = sofs:union_of_family(F),
+    sofs:to_external(S).
+    [0,1,2,3,4]

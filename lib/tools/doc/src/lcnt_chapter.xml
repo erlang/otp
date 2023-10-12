@@ -4,7 +4,7 @@
 <chapter>
     <header>
 	<copyright>
-	    <year>2009</year><year>2017</year>
+	    <year>2009</year><year>2022</year>
 	    <holder>Ericsson AB. All Rights Reserved.</holder>
 	</copyright>
 	<legalnotice>
@@ -42,7 +42,7 @@
 	completed its access to the resource and unlocked it. The <c>lcnt</c> tool measures these lock conflicts.
     </p>
     <p>
-	Locks have an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
+	Locks have an inherent cost in execution time and memory space. It takes time initialize, destroy, acquiring or releasing locks. To decrease lock contention it
 	some times necessary to use finer grained locking strategies. This will usually also increase the locking overhead and hence there is a tradeoff
 	between lock contention and overhead. In general, lock contention increases with the number of threads running concurrently. The <c>lcnt</c> tool does not measure locking overhead.
     </p>
@@ -70,7 +70,7 @@ Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe
 	<p>To retrieve lock statistics information, use <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an Erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
 
 	<p>Once the data is collected to the server it can be filtered, sorted and printed in many different ways.</p>
-	<p>See the <seealso marker="lcnt">reference manual</seealso> for a description of each function.</p>
+	<p>See the <seeerl marker="lcnt">reference manual</seeerl> for a description of each function.</p>
     </section>
     <section>
 	<title> Example of usage </title>
@@ -290,6 +290,6 @@ ok
 
     <section>
 	<title>See Also</title>
-	<p> <seealso marker="lcnt">LCNT Reference Manual</seealso></p>
+	<p> <seeerl marker="lcnt">LCNT Reference Manual</seeerl></p>
     </section>
 </chapter>

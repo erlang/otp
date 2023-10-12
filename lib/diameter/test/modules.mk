@@ -1,7 +1,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2017. All Rights Reserved.
+# Copyright Ericsson AB 2010-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE  = diameter.spec
+TEST_SPEC_FILE  = diameter.spec diameter_gh.spec
 COVER_SPEC_FILE = diameter.cover
 
 MODULES = \
@@ -31,6 +31,7 @@ MODULES = \
 	diameter_codec_test \
 	diameter_config_SUITE \
 	diameter_compiler_SUITE \
+	diameter_dist_SUITE \
 	diameter_distribution_SUITE \
 	diameter_dpr_SUITE \
 	diameter_event_SUITE \
@@ -48,9 +49,6 @@ MODULES = \
 	diameter_traffic_SUITE \
 	diameter_transport_SUITE \
 	diameter_watchdog_SUITE
-
-HRL_FILES = \
-	diameter_ct.hrl
 
 DATA = \
 	diameter_codec_SUITE_data/avps.dia \

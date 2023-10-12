@@ -1,0 +1,17 @@
+
+  [;1m-spec binary_to_integer(Binary) -> integer() when Binary :: binary().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns an integer whose text representation is [;;4mBinary[0m, for
+  example:
+
+    > binary_to_integer(<<"123">>).
+    123
+
+  [;;4mbinary_to_integer/1[0m accepts the same string formats as [;;4m[0m
+  [;;4mlist_to_integer/1[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mBinary[0m contains a bad representation of an
+  integer.

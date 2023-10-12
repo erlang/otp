@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,20 +24,19 @@
 
 -export([module/2]).
 
--import(lists, [dropwhile/2,map/2]).
+-import(lists, [dropwhile/2,sort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
-    NoGetHdTl = proplists:get_bool(no_get_hd_tl, Opts),
-    Fs = [function(F, NoGetHdTl) || F <- Fs0],
+module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
+    Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
 	Is1 = undo_renames(Is0),
-        Is = maybe_eliminate_get_hd_tl(Is1, NoGetHdTl),
+        Is = remove_redundant_lines(Is1),
 	{function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -47,16 +46,31 @@ function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
 
 undo_renames([{call_ext,2,send}|Is]) ->
     [send|undo_renames(Is)];
+
 undo_renames([{apply,A},{deallocate,N},return|Is]) ->
     [{apply_last,A,N}|undo_renames(Is)];
+
+undo_renames([{call,A,F},{'%',{var_info,{x,0},_}},{deallocate,N},return|Is]) ->
+    %% We've removed a redundant move of a literal to {x,0}.
+    [{call_last,A,F,N} | undo_renames(Is)];
 undo_renames([{call,A,F},{deallocate,N},return|Is]) ->
-    [{call_last,A,F,N}|undo_renames(Is)];
+    [{call_last,A,F,N} | undo_renames(Is)];
+
+undo_renames([{call_ext,A,F},{'%',{var_info,{x,0},_}},{deallocate,N},return|Is]) ->
+    [{call_ext_last,A,F,N} | undo_renames(Is)];
 undo_renames([{call_ext,A,F},{deallocate,N},return|Is]) ->
-    [{call_ext_last,A,F,N}|undo_renames(Is)];
+    [{call_ext_last,A,F,N} | undo_renames(Is)];
+
+undo_renames([{call,A,F},{'%',{var_info,{x,0},_}},return|Is]) ->
+    [{call_only,A,F} | undo_renames(Is)];
 undo_renames([{call,A,F},return|Is]) ->
     [{call_only,A,F}|undo_renames(Is)];
+
+undo_renames([{call_ext,A,F},{'%',{var_info,{x,0},_}},return|Is]) ->
+    [{call_ext_only,A,F} | undo_renames(Is)];
 undo_renames([{call_ext,A,F},return|Is]) ->
     [{call_ext_only,A,F}|undo_renames(Is)];
+
 undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
     %% A minor optimization. Done here because:
     %%  (1) beam_jump may move or share 'raise' instructions, and that
@@ -67,20 +81,28 @@ undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
 		      (_) -> true
 		   end, Is0),
     [I|undo_renames(Is)];
-undo_renames([{get_hd,Src,Dst1},{get_tl,Src,Dst2}|Is]) ->
-    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
-undo_renames([{get_tl,Src,Dst2},{get_hd,Src,Dst1}|Is]) ->
-    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
+undo_renames([{get_hd,Src,Hd},{get_tl,Src,Tl}|Is]) ->
+    get_list(Src, Hd, Tl, Is);
+undo_renames([{get_tl,Src,Tl},{get_hd,Src,Hd}|Is]) ->
+    get_list(Src, Hd, Tl, Is);
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].
+
+get_list(Src, Hd, Tl, [{swap,R1,R2}|Is]=Is0) ->
+    case sort([Hd,Tl]) =:= sort([R1,R2]) of
+        true ->
+            [{get_list,Src,Tl,Hd}|undo_renames(Is)];
+        false ->
+            [{get_list,Src,Hd,Tl}|undo_renames(Is0)]
+    end;
+get_list(Src, Hd, Tl, Is) ->
+    [{get_list,Src,Hd,Tl}|undo_renames(Is)].
 
 undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
     {I,F,Sz,U,Fl,Src};
 undo_rename({bs_put,F,{I,Fl},[Src]}) ->
     {I,F,Fl,Src};
-undo_rename({bs_put,{f,0},{bs_put_string,_,_}=I,[]}) ->
-    I;
 undo_rename({bif,bs_add=I,F,[Src1,Src2,{integer,U}],Dst}) ->
     {I,F,[Src1,Src2,U],Dst};
 undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
@@ -95,13 +117,6 @@ undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
     {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
 undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
-undo_rename({test,bs_match_string=Op,F,[Ctx,Bin0]}) ->
-    Bits = bit_size(Bin0),
-    Bin = case Bits rem 8 of
-	      0 -> Bin0;
-	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
-	  end,
-    {test,Op,F,[Ctx,Bits,{string,binary_to_list(Bin)}]};
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
@@ -116,16 +131,22 @@ undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.
 
-%%%
-%%% Eliminate get_hd/get_tl instructions if requested by
-%%% the no_get_hd_tl option.
-%%%
+%% Remove all `line` instructions having the same location as the
+%% previous `line` instruction. It turns out that such redundant
+%% `line` instructions are quite common. Removing them decreases the
+%% size of the BEAM files, but not size of the loaded code since the
+%% loader already removes such redundant `line` instructions.
 
-maybe_eliminate_get_hd_tl(Is, true) ->
-    map(fun({get_hd,Cons,Hd}) ->
-                {get_list,Cons,Hd,{x,1022}};
-           ({get_tl,Cons,Tl}) ->
-                {get_list,Cons,{x,1022},Tl};
-           (I) -> I
-        end, Is);
-maybe_eliminate_get_hd_tl(Is, false) -> Is.
+remove_redundant_lines(Is) ->
+    remove_redundant_lines_1(Is, none).
+
+remove_redundant_lines_1([{line,Loc}=I|Is], PrevLoc) ->
+    if
+        Loc =:= PrevLoc ->
+            remove_redundant_lines_1(Is, Loc);
+        true ->
+            [I|remove_redundant_lines_1(Is, Loc)]
+    end;
+remove_redundant_lines_1([I|Is], PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, PrevLoc)];
+remove_redundant_lines_1([], _) -> [].

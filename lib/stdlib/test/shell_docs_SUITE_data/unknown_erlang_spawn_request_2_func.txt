@@ -1,0 +1,30 @@
+
+  [;1m-spec spawn_request(Fun, Options) -> ReqId[0m
+  [;1m                       when[0m
+  [;1m                           Fun :: function(),[0m
+  [;1m                           Option ::[0m
+  [;1m                               {reply_tag, ReplyTag} |[0m
+  [;1m                               {reply, Reply} |[0m
+  [;1m                               spawn_opt_option(),[0m
+  [;1m                           ReplyTag :: term(),[0m
+  [;1m                           Reply :: yes | no | error_only | success_only,[0m
+  [;1m                           Options :: [Option],[0m
+  [;1m                           ReqId :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  The same as the call [;;4mspawn_request(node(),Fun,Options)[0m. That is,
+  a spawn request on the local node.
+
+  [;1m-spec spawn_request(Node, Fun) -> ReqId[0m
+  [;1m                       when[0m
+  [;1m                           Node :: node(),[0m
+  [;1m                           Fun :: function(),[0m
+  [;1m                           ReqId :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  The same as the call [;;4mspawn_request(Node,Fun,[])[0m. That is, a
+  spawn request with no options.

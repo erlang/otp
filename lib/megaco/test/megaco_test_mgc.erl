@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,6 +57,8 @@
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 
+-define(NO_ERROR, 'no error').
+
 -define(A4444, ["11111111", "00000000", "00000000"]).
 -define(A4445, ["11111111", "00000000", "11111111"]).
 -define(A5555, ["11111111", "11111111", "00000000"]).
@@ -65,17 +67,21 @@
 -define(valid_actions, 
 	[ignore, pending, pending_ignore, discard_ack, handle_ack, handle_pending_ack, handle_sloppy_ack]).
 
--record(mgc, {parent      = undefined,
-	      tcp_sup     = undefined,
-	      udp_sup     = undefined,
-	      req_action  = discard_ack,
-	      req_timeout = 0,
-	      mid         = undefined,
-	      ack_info    = undefined,
-	      abort_info  = undefined,
-	      req_info    = undefined,
-	      mg          = [],
-	      dsi_timer}).
+-record(mgc, {parent       = undefined,
+              inet_backend = default,
+	      tcp_sup      = undefined,
+	      udp_sup      = undefined,
+	      req_action   = discard_ack,
+	      req_timeout  = 0,
+	      mid          = undefined,
+	      ack_info     = undefined,
+	      abort_info   = undefined,
+	      req_info     = undefined,
+	      mg           = [],
+	      dsi_timer,
+              evs          = []}).
+
+-define(EVS_MAX, 10).
 
 
 %%% ------------------------------------------------------------------
@@ -87,11 +93,30 @@ start(Node, Mid, ET, Verbosity) ->
     start(Node, Mid, ET, Conf, Verbosity).
 
 start(Node, Mid, ET, Conf, Verbosity) ->
-    d("start mgc[~p]: ~p", [Node, Mid]),
-    RI = {receive_info, mk_recv_info(ET)},
-    Config = [{local_mid, Mid}, RI] ++ Conf,
-    Pid = spawn_link(Node, ?MODULE, mgc, [self(), Verbosity, Config]),
-    await_started(Pid).
+    d("start mgc[~p]: ~p"
+      "~n      ET:   ~p"
+      "~n      Conf: ~p", [Node, Mid, ET, Conf]),
+    RI          = {receive_info, mk_recv_info(ET)},
+    Config      = [{local_mid, Mid}, RI] ++ Conf,
+    Self        = self(),
+    true        = erlang:monitor_node(Node, true),
+    MGC         = fun() -> mgc(Self, Verbosity, Config) end,
+    {Pid, MRef} = spawn_monitor(Node, MGC),
+    NodePing    = net_adm:ping(Node),
+    ProcInfo    = (catch proc_info(Pid)),
+    i("start mgc[~p] -> ~p"
+      "~n      self():       ~p"
+      "~n      node():       ~p"
+      "~n      Node ping:    ~p" 
+      "~n      Loader:       ~p"
+      "~n      Monitor ref:  ~p"
+      "~n      Process info: ~p", 
+      [Node, Pid,
+       Self, node(), NodePing, Pid, MRef, ProcInfo]),
+    await_started(Node, Pid, MRef).
+
+proc_info(Pid) ->
+    rpc:call(node(Pid), erlang, process_info, [Pid]).
 
 mk_recv_info(ET) ->
     mk_recv_info(ET, []).
@@ -150,20 +175,40 @@ select_transport(Transport) ->
     throw({error, {invalid_transport, Transport}}).
 
 
-await_started(Pid) ->
+await_started(Node, Pid, MRef) ->
     receive
 	{started, Pid} ->
-	    d("await_started ~p: ok", [Pid]),
+	    i("await_started ~p: ok", [Pid]),
+	    true = erlang:monitor_node(Node, false),	    
+	    erlang:demonitor(MRef),
 	    {ok, Pid};
-	{'EXIT', Pid, 
-	 {failed_starting_tcp_listen, {could_not_start_listener, {gen_tcp_listen, eaddrinuse}}}} ->
-	    i("await_started ~p: address already in use", [Pid]),
+
+	{nodedown, Node} ->
+	    i("await_started ~p - received node down", [Pid]),
+	    exit({node_down, Node}); 
+
+        {'DOWN', MRef, process, Pid, 
+         {failed_starting_tcp_listen,
+          {could_not_start_listener, {gen_tcp_listen, eaddrinuse}}}} ->
+	    e("await_started ~p: address already in use", [Pid]),
+	    true = erlang:monitor_node(Node, false),	    
 	    ?SKIP(eaddrinuse);
-	{'EXIT', Pid, Reason} ->
-	    i("await_started ~p: received exit signal: ~p", [Pid, Reason]),
+
+        {'DOWN', MRef, process, Pid, Reason} ->
+	    e("await_started ~p: received exit signal: ~p", [Pid, Reason]),
+	    true = erlang:monitor_node(Node, false),	    
 	    exit({failed_starting, Pid, Reason})
+
     after 10000 ->
-	    i("await_started ~p: timeout", [Pid]),
+	    NodePing = net_adm:ping(Node), 
+	    ProcInfo = (catch proc_info(Pid)),
+	    FlushQ = megaco_test_lib:flush(), 
+	    e("await_started ~p - timeout: "
+	      "~n      net_adm:ping(~p):     ~p" 
+	      "~n      Process info:         ~p"
+	      "~n      Messages in my queue: ~p", 
+	      [Pid, Node, NodePing, ProcInfo, FlushQ]),
+	    true = erlang:monitor_node(Node, false),	    
 	    exit({error, timeout})
     end.
 
@@ -288,25 +333,31 @@ mgc(Parent, Verbosity, Config) ->
     case (catch init(Config)) of
 	{error, Reason} ->
 	    exit(Reason);
-	{Mid, TcpSup, UdpSup, DSITimer} ->
+	{IB, Mid, TcpSup, UdpSup, DSITimer} ->
 	    notify_started(Parent),
-	    S = #mgc{parent    = Parent, 
-		     tcp_sup   = TcpSup, 
-		     udp_sup   = UdpSup, 
-		     mid       = Mid,
-		     dsi_timer = DSITimer},
+	    S = #mgc{parent       = Parent, 
+		     tcp_sup      = TcpSup, 
+		     udp_sup      = UdpSup, 
+		     mid          = Mid,
+		     dsi_timer    = DSITimer,
+                     inet_backend = IB},
 	    i("mgc -> started"),
 	    display_system_info("at start "),
-	    loop(S)
+	    loop(evs(S, started))
     end.
 
 init(Config) ->
     d("init -> entry"),
     random_init(),
-    Mid = get_conf(local_mid, Config),
+
+    IB  = get_conf(inet_backend, Config, default),
+    Mid = get_conf(local_mid,    Config),
     RI  = get_conf(receive_info, Config),
 
-    d("init -> maybe start the display system info timer"),
+    d("init -> "
+      "~n      Inet Backend: ~p"
+      "~n      Mid:          ~p"
+      "~n      RI:           ~p", [IB, Mid, RI]),
     DSITimer = 
 	case get_conf(display_system_info, Config, undefined) of
 	    Time when is_integer(Time) ->
@@ -316,6 +367,7 @@ init(Config) ->
 		undefined
 	end,
     Conf0 = lists:keydelete(display_system_info, 1, Config),
+    Conf1 = lists:keydelete(inet_backend,        1, Conf0),
 
     d("init -> start megaco"),
     application:start(megaco),
@@ -331,12 +383,12 @@ init(Config) ->
 	_ ->
 	    ok
     end,
-    Conf1 = lists:keydelete(megaco_trace,    1, Conf0),
+    Conf2 = lists:keydelete(megaco_trace,    1, Conf1),
 
     d("init -> start megaco user"),
-    Conf2 = lists:keydelete(local_mid,    1, Conf1),
-    Conf3 = lists:keydelete(receive_info, 1, Conf2),
-    ok = megaco:start_user(Mid, Conf3),
+    Conf3 = lists:keydelete(local_mid,    1, Conf2),
+    Conf4 = lists:keydelete(receive_info, 1, Conf3),
+    ok = megaco:start_user(Mid, Conf4),
 
     d("init -> update user info (user_mod)"),
     ok = megaco:update_user_info(Mid, user_mod,  ?MODULE),
@@ -350,8 +402,8 @@ init(Config) ->
     Transports = parse_receive_info(RI, RH),
 
     d("init -> start transports"),
-    {Tcp, Udp} = start_transports(Transports),
-    {Mid, Tcp, Udp, DSITimer}.
+    {Tcp, Udp} = start_transports(IB, Transports),
+    {IB, Mid, Tcp, Udp, DSITimer}.
     
 loop(S) ->
     d("loop -> await request"),
@@ -359,42 +411,42 @@ loop(S) ->
 	{display_system_info, Time} ->
 	    display_system_info(S#mgc.mid),
 	    NewTimer = create_timer(Time, display_system_info),
-	    loop(S#mgc{dsi_timer = NewTimer});
+	    loop(evs(S#mgc{dsi_timer = NewTimer}, {dsi, Time}));
 
 	{stop, Parent} when S#mgc.parent =:= Parent ->
-	    i("loop -> stopping", []),
+	    i("loop -> stopping"),
 	    display_system_info(S#mgc.mid, "at finish "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    server_reply(Parent, stopped, ok),
-	    exit(normal);
+	    done(evs(S, stop), normal);
 
 	{{disconnect, Reason}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> disconnecting", []),
+	    i("loop -> disconnecting"),
   	    Mid = S#mgc.mid,
 	    [Conn|_] = megaco:user_info(Mid, connections),
 	    Res = megaco:disconnect(Conn, {self(), Reason}),
 	    server_reply(Parent, disconnected, Res),
-	    loop(S);
+	    loop(evs(S, {disconnect, Reason}));
 
 	{{update_user_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_user_info: ~w -> ~p", [Tag, Val]),
 	    Res = (catch megaco:update_user_info(S#mgc.mid, Tag, Val)),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_user_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {uui, {Tag, Val}}));
 
-	{{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got user_info request for ~w", [Tag]),
-	    Res = (catch megaco:user_info(S#mgc.mid, Tag)),
-	    d("loop -> Res: ~p", [Res]),
-	    server_reply(Parent, user_info_ack, Res),
-	    loop(S);
-
+        {{user_info, Tag}, Parent} when S#mgc.parent == Parent ->
+            i("loop -> got user_info request for ~w", [Tag]),
+            Res = (catch megaco:user_info(S#mgc.mid, Tag)),
+            d("loop -> Res: ~p", [Res]),
+            server_reply(Parent, user_info_ack, Res),
+            loop(evs(S, {ui, Tag}));
+                     
 	{{update_conn_info, Tag, Val}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got update_conn_info: ~w -> ~p", [Tag, Val]),
 	    Conns = megaco:user_info(S#mgc.mid, connections), 
@@ -404,9 +456,9 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, update_conn_info_ack, Res),
-	    loop(S);
+            loop(evs(S, {uci, {Tag, Val}}));
 
-	{{conn_info, Tag}, Parent} when S#mgc.parent == Parent ->
+	{{conn_info, Tag}, Parent} when S#mgc.parent =:= Parent ->
 	    i("loop -> got conn_info request for ~w", [Tag]),
 	    Conns = megaco:user_info(S#mgc.mid, connections), 
 	    Fun = fun(CH) ->
@@ -415,11 +467,11 @@ loop(S) ->
 	    Res = lists:map(Fun, Conns),
 	    d("loop -> Res: ~p", [Res]),
 	    server_reply(Parent, conn_info_ack, Res),
-	    loop(S);
+	    loop(evs(S, {ci, Tag}));
 
 
 	%% 
-	{request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
+        {request_action, {Action, To}, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> got new request_action: ~p:~w", [Action,To]),
 	    {Reply, S1} = 
 		case lists:member(Action, ?valid_actions) of
@@ -432,7 +484,7 @@ loop(S) ->
 			{{error, {invalid_action, Action}}, S}
 		end,
 	    server_reply(Parent, request_action_ack, Reply),
-	    loop(S1);
+            loop(evs(S1, {req_act, {Action, To}}));
 
 
 	%% Reset stats
@@ -440,115 +492,147 @@ loop(S) ->
 	    i("loop -> got request to reset stats counters"),
 	    do_reset_stats(S#mgc.mid),
 	    server_reply(Parent, reset_stats_ack, ok),
-	    loop(S);
+	    loop(evs(S, rst_stats));
 
 
 	%% Give me statistics
 	{{statistics, 1}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got request for statistics 1"),
+	    i("loop(stats1) -> got request for statistics 1"),
 	    {ok, Gen} = megaco:get_stats(),
-	    GetTrans = 
+	    i("loop(stats1) -> gen stats: "
+              "~n      ~p", [Gen]),
+	    GetTrans =
 		fun(CH) ->
+                        i("loop(stats1):GetTrans -> "
+                          "get stats for connection ~p", [CH]),
 			Reason = {statistics, CH}, 
 			Pid = megaco:conn_info(CH, control_pid),
+                        i("loop(stats1):GetTrans -> control pid: ~p", [Pid]),
 			SendMod = megaco:conn_info(CH, send_mod),
+                        i("loop(stats1):GetTrans -> "
+                          "send module: ~p", [SendMod]),
 			SendHandle = megaco:conn_info(CH, send_handle),
+                        i("loop(stats1):GetTrans -> "
+                          "send handle: ~p", [SendHandle]),
 			{ok, Stats} = 
 			    case SendMod of
 				megaco_tcp -> megaco_tcp:get_stats(SendHandle);
 				megaco_udp -> megaco_udp:get_stats(SendHandle);
 				SendMod    -> exit(Pid, Reason)
 			    end,
+                        i("loop(stats1):GetTrans -> stats: "
+                          "~n      ~p", [Stats]),
 			{SendHandle, Stats}
 		end,
-	    Mid = S#mgc.mid,
-	    Trans = 
-		lists:map(GetTrans, megaco:user_info(Mid, connections)),
+	    Mid   = S#mgc.mid,
+	    Trans = lists:map(GetTrans, megaco:user_info(Mid, connections)),
 	    Reply = {ok, [{gen, Gen}, {trans, Trans}]},
+	    i("loop(stats1) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 1}, Reply),
-	    loop(S);
+	    i("loop(stats1) -> done"),
+	    loop(evs(S, {stats, 1}));
 
 
 	{{statistics, 2}, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> got request for statistics 2"),
+	    i("loop(stats2) -> got request for statistics 2"),
 	    {ok, Gen} = megaco:get_stats(),
 	    #mgc{tcp_sup = TcpSup, udp_sup = UdpSup} = S,
 	    TcpStats = get_trans_stats(TcpSup, megaco_tcp),
 	    UdpStats = get_trans_stats(UdpSup, megaco_udp),
 	    Reply = {ok, [{gen, Gen}, {trans, [TcpStats, UdpStats]}]},
+	    i("loop(stats2) -> send reply"),
 	    server_reply(Parent, {statistics_reply, 2}, Reply),
-	    loop(S);
+	    i("loop(stats2) -> done"),
+	    loop(evs(S, {stats, 2}));
 
 
 	%% Megaco callback messages
 	{request, Request, From} ->
-	    d("loop -> received megaco request from ~p:~n~p", 
-	      [From, Request]),
+	    d("loop(request) -> received megaco request from ~p:"
+              "~n      ~p", [From, Request]),
 	    {Reply, S1} = handle_megaco_request(Request, S),
-	    d("loop -> send request reply: ~n~p", [Reply]),
+	    d("loop(request) -> send reply: ~n~p", [Reply]),
 	    reply(From, Reply),
-	    loop(S1);
+	    d("loop(request) -> done"),
+	    loop(evs(S1, {req, Request}));
 
 
 	{ack_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received ack's ", []),
-	    loop(S#mgc{ack_info = To});
+	    i("loop -> received request to inform about received ack's "),
+	    loop(evs(S#mgc{ack_info = To}, {acki, To}));
 
 
 	{abort_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received aborts ", []),
-	    loop(S#mgc{abort_info = To});
+	    i("loop -> received request to inform about received aborts "),
+	    loop(evs(S#mgc{abort_info = To}, {abi, To}));
 
 
 	{req_info, To, Parent} when S#mgc.parent == Parent ->
-	    i("loop -> received request to inform about received req's ", []),
-	    loop(S#mgc{req_info = To});
+	    i("loop -> received request to inform about received req's "),
+	    loop(evs(S#mgc{req_info = To}, {reqi, To}));
 
 
 	{verbosity, V, Parent} when S#mgc.parent == Parent ->
 	    i("loop -> received new verbosity: ~p", [V]),
 	    put(verbosity,V),
-	    loop(S);
+	    loop(evs(S, {verb, V}));
 
 
 	{'EXIT', Pid, Reason} when S#mgc.tcp_sup =:= Pid ->
 	    error_msg("MGC received unexpected exit "
-		      "from TCP transport supervisor (~p):~n~p", 
-		      [Pid, Reason]),
-	    i("loop -> [tcp] exiting", []),
+		      "from TCP transport supervisor (~p):"
+                      "~n   ~p", [Pid, Reason]),
+	    i("loop -> [tcp] exiting"),
 	    display_system_info(S#mgc.mid, "at bad finish (tcp) "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    StopReason = {error, {tcp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {tcp_sup_exit, Reason}), StopReason);
 
 
 	{'EXIT', Pid, Reason} when S#mgc.udp_sup =:= Pid ->
 	    error_msg("MGC received unexpected exit "
-		      "from UDP transport supervisor (~p):~n~p", 
-		      [Pid, Reason]),
-	    i("loop -> [udp] exiting", []),
+		      "from UDP transport supervisor (~p):"
+                      "~n   ~p", [Pid, Reason]),
+	    i("loop -> [udp] exiting"),
 	    display_system_info(S#mgc.mid, "at bad finish (udp) "),
 	    cancel_timer(S#mgc.dsi_timer),
   	    Mid = S#mgc.mid,
 	    (catch close_conns(Mid)),
 	    megaco:stop_user(Mid),
 	    application:stop(megaco),
-	    i("loop -> stopped", []),
+	    i("loop -> stopped"),
 	    StopReason = {error, {udp_terminated, Pid, Reason}}, 
 	    server_reply(S#mgc.parent, stopped, StopReason),
-	    exit(StopReason);
+	    done(evs(S, {udp_sup_exit, Reason}), StopReason);
 
 
 	Invalid ->
 	    i("loop -> received invalid request: ~p", [Invalid]),
-	    loop(S)
+	    loop(evs(S, {invalid, Invalid}))
     end.
+
+
+evs(#mgc{evs = EVS} = S, Ev) when (length(EVS) < ?EVS_MAX) ->
+    echo_evs(S#mgc{evs = [{?FTS(), Ev}|EVS]});
+evs(#mgc{evs = EVS} = S, Ev) ->
+    echo_evs(S#mgc{evs = [{?FTS(), Ev}|lists:droplast(EVS)]}).
+
+echo_evs(#mgc{evs = EVS} = S) ->
+    i("Events: "
+      "~n      ~p", [EVS]),
+    S.
+
+done(#mgc{evs = EVS}, Reason) ->
+    info_msg("Exiting with latest event(s): "
+             "~n   ~p"
+             "~n", [EVS]),
+    exit(Reason).
 
 
 do_reset_stats(Mid) ->
@@ -604,13 +688,13 @@ parse_receive_info(RI, RH) ->
 
 parse_receive_info([], _RH, Transports) ->
     d("parse_receive_info -> done when"
-      "~n   Transports: ~p", [Transports]),
+      "~n      Transports: ~p", [Transports]),
     Transports;
 parse_receive_info([RI|RIs], RH, Transports) ->
     d("parse_receive_info -> parse receive info"),
     case (catch parse_receive_info1(RI, RH)) of
 	{error, Reason} ->
-	    i("failed parsing receive info: ~p~n~p", [RI, Reason]),
+	    e("failed parsing receive info: ~p~n~p", [RI, Reason]),
 	    exit({failed_parsing_recv_info, RI, Reason});
 	RH1 ->
 	    parse_receive_info(RIs, RH, [RH1|Transports])
@@ -631,9 +715,9 @@ parse_receive_info1(RI, RH) ->
 				   encoding_mod    = EM,
 				   encoding_config = EC},
     d("parse_receive_info1 -> "
-      "~n   Transport Opts: ~p"
-      "~n   Port:           ~p"
-      "~n   Receive handle: ~p", [TO, TP, RH1]),
+      "~n      Transport Opts: ~p"
+      "~n      Port:           ~p"
+      "~n      Receive handle: ~p", [TO, TP, RH1]),
     {TO, TP, RH1}.
 
 
@@ -648,11 +732,11 @@ parse_receive_info1(RI, RH) ->
 %%         send/receive port (udp). 
 %% The second step *may* need to be repeated!
 %% --------------------------------------------------------
-start_transports([]) ->
+start_transports(_, []) ->
     throw({error, no_transport});
-start_transports(Transports) when is_list(Transports) ->
+start_transports(IB, Transports) when is_list(Transports) ->
     {Tcp, Udp} = start_transports1(Transports, undefined, undefined),
-    ok = start_transports2(Transports, Tcp, Udp),
+    ok = start_transports2(IB, Transports, Tcp, Udp),
     {Tcp, Udp}.
     
 start_transports1([], Tcp, Udp) ->
@@ -660,46 +744,55 @@ start_transports1([], Tcp, Udp) ->
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_tcp) andalso 
 	(not is_pid(Tcp)))  ->
+    d("try start tcp transport service"),
     case megaco_tcp:start_transport() of
 	{ok, Sup} ->
+            d("tcp transport service started: ~p", [Sup]),
 	    start_transports1(Transports, Sup, Udp);
 	Else ->
+            e("Failed starting TCP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_tcp_transport, Else}})
     end;
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_udp) andalso 
 	(not is_pid(Udp))) ->
+    d("try start udp transport servuice"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
+            d("udp transport started: ~p", [Sup]),
 	    start_transports1(Transports, Tcp, Sup);
 	Else ->
+            e("Failed starting UDP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_udp_transport, Else}})
     end;
 start_transports1([_|Transports], Tcp, Udp) ->
     start_transports1(Transports, Tcp, Udp).
 
-start_transports2([], _, _) ->
+start_transports2(_, [], _, _) ->
     ok;
-start_transports2([{TO, Port, RH}|Transports], Tcp, Udp) 
+start_transports2(IB, [{TO, Port, RH}|Transports], Tcp, Udp) 
   when RH#megaco_receive_handle.send_mod =:= megaco_tcp ->
-    start_tcp(TO, RH, Port, Tcp),
-    start_transports2(Transports, Tcp, Udp);
-start_transports2([{TO, Port, RH}|Transports], Tcp, Udp) 
+    start_tcp(IB, TO, RH, Port, Tcp),
+    start_transports2(IB, Transports, Tcp, Udp);
+start_transports2(IB, [{TO, Port, RH}|Transports], Tcp, Udp) 
   when RH#megaco_receive_handle.send_mod =:= megaco_udp ->
-    start_udp(TO, RH, Port, Udp),
-    start_transports2(Transports, Tcp, Udp).
+    start_udp(IB, TO, RH, Port, Udp),
+    start_transports2(IB, Transports, Tcp, Udp).
 
-start_tcp(TO, RH, Port, Sup) ->
+start_tcp(IB, TO, RH, Port, Sup) ->
     d("start tcp transport"),
-    start_tcp(TO, RH, Port, Sup, 250).
+    start_tcp(IB, TO, RH, Port, Sup, 250).
 
-start_tcp(TO, RH, Port, Sup, Timeout) 
+start_tcp(IB, TO, RH, Port, Sup, Timeout) 
   when is_pid(Sup) andalso is_integer(Timeout) andalso (Timeout > 0) ->
     d("tcp listen on ~p", [Port]),
-    Opts = [{port,           Port}, 
+    Opts = [{inet_backend,   IB},
+            {port,           Port}, 
 	    {receive_handle, RH}, 
 	    {tcp_options,    [{nodelay, true}]}] ++ TO,
-    try_start_tcp(Sup, Opts, Timeout, noError).
+    try_start_tcp(Sup, Opts, Timeout, ?NO_ERROR).
 
 try_start_tcp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
     Sleep = random(Timeout) + 100,
@@ -708,7 +801,7 @@ try_start_tcp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
 	ok ->
 	    d("listen socket created", []),
 	    Sup;
-	Error1 when Error0 =:= noError -> % Keep the first error
+	Error1 when Error0 =:= ?NO_ERROR -> % Keep the first error
 	    d("failed creating listen socket [1]: ~p", [Error1]),
 	    sleep(Sleep),
 	    try_start_tcp(Sup, Opts, Timeout*2, Error1);
@@ -727,14 +820,16 @@ try_start_tcp(Sup, _Opts, _Timeout, Error) ->
     end.
 
 
-start_udp(TO, RH, Port, Sup) ->
+start_udp(IB, TO, RH, Port, Sup) ->
     d("start udp transport"),
-    start_udp(TO, RH, Port, Sup, 250).
+    start_udp(IB, TO, RH, Port, Sup, 250).
 
-start_udp(TO, RH, Port, Sup, Timeout) ->
+start_udp(IB, TO, RH, Port, Sup, Timeout) ->
     d("udp open ~p", [Port]),
-    Opts = [{port, Port}, {receive_handle, RH}] ++ TO,
-    try_start_udp(Sup, Opts, Timeout, noError).
+    Opts = [{inet_backend,   IB},
+            {port,           Port},
+            {receive_handle, RH}] ++ TO,
+    try_start_udp(Sup, Opts, Timeout, ?NO_ERROR).
 
 try_start_udp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
     d("try open udp socket (~p)", [Timeout]),
@@ -742,7 +837,7 @@ try_start_udp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
 	{ok, _SendHandle, _ControlPid} ->
 	    d("port opened", []),
 	    Sup;
-	Error1 when Error0 =:= noError -> % Keep the first error
+	Error1 when Error0 =:= ?NO_ERROR -> % Keep the first error
 	    d("failed open port [1]: ~p", [Error1]),
 	    sleep(Timeout),
 	    try_start_udp(Sup, Opts, Timeout*2, Error1);
@@ -816,34 +911,34 @@ handle_megaco_request({handle_trans_reply, _CH, _PV, _AR, _RD}, S) ->
 handle_megaco_request({handle_trans_ack, CH, PV, AS, AD}, 
 		      #mgc{ack_info = P} = S) when is_pid(P) ->
     d("handle_megaco_request(handle_trans_ack,~p) -> entry when"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   AS: ~p"
-      "~n   AD: ~p", [P, CH, PV, AS, AD]),
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      AS: ~p"
+      "~n      AD: ~p", [P, CH, PV, AS, AD]),
     P ! {ack_received, self(), AS},
     {ok, S};
 
 handle_megaco_request({handle_trans_ack, CH, PV, AS, AD}, S) ->
     d("handle_megaco_request(handle_trans_ack) -> entry with"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   AS: ~p"
-      "~n   AD: ~p", [CH, PV, AS, AD]),
+      "~n      Conn Handle:  ~p"
+      "~n      Prot Version: ~p"
+      "~n      Ack Status:   ~p"
+      "~n      Ack Data:     ~p", [CH, PV, AS, AD]),
     {ok, S};
 
 handle_megaco_request({handle_unexpected_trans, CH, PV, TR}, S) ->
     d("handle_megaco_request(handle_unexpected_trans) -> entry with"
-      "~n   CH: ~p"
-      "~n   PV: ~p"
-      "~n   TR: ~p", [CH, PV, TR]),
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      TR: ~p", [CH, PV, TR]),
     {ok, S};
 
 handle_megaco_request({handle_trans_request_abort, CH, PV, TI, Handler}, S) ->
     d("handle_megaco_request(handle_trans_request_abort) -> entry with"
-      "~n   CH:      ~p"
-      "~n   PV:      ~p"
-      "~n   TI:      ~p"
-      "~n   Handler: ~p", [CH, PV, TI, Handler]),
+      "~n      CH:      ~p"
+      "~n      PV:      ~p"
+      "~n      TI:      ~p"
+      "~n      Handler: ~p", [CH, PV, TI, Handler]),
     Reply = 
 	case S#mgc.abort_info of
 	    P when is_pid(P) ->
@@ -858,8 +953,8 @@ handle_megaco_request({handle_trans_request_abort, CH, PV, TI, Handler}, S) ->
 do_handle_trans_request(CH, PV, ARs, 
 			#mgc{req_action = Action, req_timeout = To} = S) ->
     d("do_handle_megaco_request(handle_trans_request) -> entry with"
-      "~n   Action: ~p"
-      "~n   To:     ~p", [Action, To]),
+      "~n      Action: ~p"
+      "~n      To:     ~p", [Action, To]),
     case handle_act_requests(CH, PV, ARs, Action) of
 	{pending_ignore, ActReqs} ->
 	    {{pending, ActReqs}, S#mgc{req_action = ignore}};
@@ -935,8 +1030,8 @@ handle_notify_req(CH, PV, CtxId,
 
 handle_event(_CH, _PV, _Cid, Tid, EvDesc) ->
     d("handle_event -> received"
-      "~n   EvDesc: ~p"
-      "~n   Tid:    ~p", [EvDesc, Tid]),
+      "~n      EvDesc: ~p"
+      "~n      Tid:    ~p", [EvDesc, Tid]),
     {notifyReply, cre_notifyRep(Tid)}.
     
 
@@ -1090,6 +1185,7 @@ sleep(X) ->
     receive after X -> ok end.
 
 
+info_msg(F,A)  -> error_logger:info_msg("MGC: " ++ F ++ "~n",A).
 error_msg(F,A) -> error_logger:error_msg("MGC: " ++ F ++ "~n",A).
 
 
@@ -1153,18 +1249,17 @@ get_conf(Key, Config, Default) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 display_system_info(Mid) ->
     display_system_info(Mid, "").
 
 display_system_info(Mid, Pre) ->
-    TimeStr = format_timestamp(now()),
+    TimeStr = ?FTS(),
     MibStr  = lists:flatten(io_lib:format("~p ", [Mid])), 
     megaco_test_lib:display_system_info(MibStr ++ Pre ++ TimeStr).
 
@@ -1180,20 +1275,24 @@ cancel_timer(Ref) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+e(F, A) ->
+    print(error, get(verbosity), "ERROR", F, A).
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), "", F, A).
+    print(info, get(verbosity), "INFO", F, A).
 
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), "DBG: ", F, A).
+    print(debug, get(verbosity), "DBG", F, A).
 
 
+printable(error, _)   -> true;
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
@@ -1207,16 +1306,8 @@ print(_, _, _, _) ->
     ok.
 
 print(P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s ***"
+    io:format("*** [~s] [~s] ~p ~s ***"
 	      "~n   " ++ F ++ "~n~n", 
-	      [format_timestamp(now()), P, self(), get(sname) | A]).
+	      [?FTS(), P, self(), get(sname) | A]).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 

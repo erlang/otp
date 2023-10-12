@@ -1,0 +1,24 @@
+
+  [;1m-spec erlang:monitor_node(Node, Flag, Options) -> true[0m
+  [;1m                             when[0m
+  [;1m                                 Node :: node(),[0m
+  [;1m                                 Flag :: boolean(),[0m
+  [;1m                                 Options :: [Option],[0m
+  [;1m                                 Option :: allow_passive_connect.[0m
+
+  Behaves as [;;4mmonitor_node/2[0m except that it allows an extra option
+  to be specified, namely [;;4mallow_passive_connect[0m. This option
+  allows the BIF to wait the normal network connection time-out for
+  the monitored node to connect itself, even if it cannot be
+  actively connected from this node (that is, it is blocked). The
+  state where this can be useful can only be achieved by using the
+  Kernel option [;;4mdist_auto_connect once[0m. If that option is not
+  used, option [;;4mallow_passive_connect[0m has no effect.
+
+  Note:
+    Option [;;4mallow_passive_connect[0m is used internally and is
+    seldom needed in applications where the network topology and
+    the Kernel options in effect are known in advance.
+
+  Failure: [;;4mbadarg[0m if the local node is not alive or the option
+  list is malformed.

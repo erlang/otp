@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 
 -export([coord_dies/1, after_full_disc_partition/1,
          disc_less/1, garb_decision/1,
-         system_upgrade/1,
          delete_during_start/1,
          no_master_2/1, no_master_3/1, one_master_2/1, one_master_3/1,
          two_master_2/1, two_master_3/1, all_master_2/1,
@@ -120,9 +119,9 @@ all() ->
     [{group, mnesia_down}, {group, explicit_stop},
      coord_dies, {group, schema_trans}, {group, async_dirty},
      {group, sync_dirty}, {group, sym_trans},
-     {group, asym_trans}, after_full_disc_partition,
-     {group, after_corrupt_files}, disc_less, garb_decision,
-     system_upgrade].
+     {group, asym_trans}, %% after_full_disc_partition,
+     {group, after_corrupt_files}, disc_less, garb_decision
+    ].
 
 groups() -> 
     [{schema_trans, [],
@@ -1341,7 +1340,7 @@ garb_of_decisions(Kill, Nodes, Tid_list, Trans_res) ->
 	    case length(Tid_list) of
 		1 -> 
 		    %% If there was only one transaction, it should be logged as
-		    %% comitted on every node!
+		    %% committed on every node!
 		    [Tid1] = Tid_list,
 		    verify_garb_transient_logs(Nodes, [Tid1], committed);
 		2 -> 
@@ -1455,7 +1454,7 @@ receive_messages(ListOfMsgs, File, Line) ->
 		    [{Pid, Msg} | receive_messages(ListOfMsgs -- [Msg], File, Line)]
 	    end;
 	Else -> mnesia_test_lib:log("<>WARNING<>~n"
-				    "Recevied unexpected or bad formatted msg~n ~p ~n"
+				    "Received unexpected or bad formatted msg~n ~p ~n"
 				    "While waiting for ~p~n", 
 	 			    [Else, ListOfMsgs], File, Line),
 		receive_messages(ListOfMsgs, File, Line)
@@ -1644,9 +1643,6 @@ disc_less(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-system_upgrade(doc) ->
-    ["Test on-line and off-line upgrade of the Mnesia application"].
 
 garb_decision(doc) ->
     ["Test that decisions are garbed correctly."];

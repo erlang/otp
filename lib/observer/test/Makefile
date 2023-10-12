@@ -19,6 +19,9 @@
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
+SOCKET_MODULES = \
+	observer_socket_test
+
 MODULES =  \
 	observer_SUITE \
 	crashdump_viewer_SUITE \
@@ -28,7 +31,8 @@ MODULES =  \
 	client \
 	server \
 	crashdump_helper \
-	crashdump_helper_unicode
+	crashdump_helper_unicode \
+	$(SOCKET_MODULES)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -48,8 +52,13 @@ RELSYSDIR = $(RELEASE_PATH)/observer_test
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS += +warnings_as_errors +nowarn_export_all
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
+
+TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
+
 
 # ----------------------------------------------------
 # Targets
@@ -60,7 +69,7 @@ make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
 		$(MODULES) > $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -69,6 +78,10 @@ clean:
 	rm -f core
 
 docs:
+
+targets: $(TARGETS)
+socket_targets: $(SOCKET_TARGETS)
+
 
 # ----------------------------------------------------
 # Special targets

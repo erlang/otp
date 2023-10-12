@@ -332,8 +332,8 @@ variables_2([], S) ->
 -define(MINIMUM_RANGE, 100).
 -define(START_RANGE_FACTOR, 100).
 -define(MAX_RETRIES, 3).    % retries before enlarging range
--define(ENLARGE_ENUM, 8).   % range enlargment enumerator
--define(ENLARGE_DENOM, 1).  % range enlargment denominator
+-define(ENLARGE_ENUM, 8).   % range enlargement enumerator
+-define(ENLARGE_DENOM, 1).  % range enlargement denominator
 
 default_variable_name(N) ->
     list_to_atom("V" ++ integer_to_list(N)).
@@ -528,8 +528,6 @@ vann(Tree, Env) ->
             vann_case_expr(Tree, Env);
         if_expr ->
             vann_if_expr(Tree, Env);
-        cond_expr ->
-            vann_cond_expr(Tree, Env);
         receive_expr ->
             vann_receive_expr(Tree, Env);
         catch_expr ->
@@ -540,6 +538,8 @@ vann(Tree, Env) ->
             vann_function(Tree, Env);
         fun_expr ->
             vann_fun_expr(Tree, Env);
+        named_fun_expr ->
+            vann_named_fun_expr(Tree, Env);
         list_comp ->
             vann_list_comp(Tree, Env);
         binary_comp ->
@@ -585,6 +585,18 @@ vann_fun_expr(Tree, Env) ->
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+vann_named_fun_expr(Tree, Env) ->
+    N = erl_syntax:named_fun_expr_name(Tree),
+    NBound = [erl_syntax:variable_name(N)],
+    NFree = [],
+    N1 = ann_bindings(N, Env, NBound, NFree),
+    Env1 = ordsets:union(Env, NBound),
+    Cs = erl_syntax:named_fun_expr_clauses(Tree),
+    {Cs1, {_, Free}} = vann_clauses(Cs, Env1),
+    Tree1 = rewrite(Tree, erl_syntax:named_fun_expr(N1,Cs1)),
+    Bound = [],
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 vann_match_expr(Tree, Env) ->
     E = erl_syntax:match_expr_body(Tree),
     {E1, Bound1, Free1} = vann(E, Env),
@@ -612,9 +624,6 @@ vann_if_expr(Tree, Env) ->
     {Cs1, {Bound, Free}} = vann_clauses(Cs, Env),
     Tree1 = rewrite(Tree, erl_syntax:if_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
-
-vann_cond_expr(_Tree, _Env) ->
-    erlang:error({not_implemented,cond_expr}).
 
 vann_catch_expr(Tree, Env) ->
     E = erl_syntax:catch_expr_body(Tree),
@@ -1111,7 +1120,7 @@ collect_attribute(file, _, Info) ->
     Info;
 collect_attribute(record, {R, L}, Info) ->
     finfo_add_record(R, L, Info);
-collect_attribute(_, {N, V}, Info) ->
+collect_attribute(N, V, Info) ->
     finfo_add_attribute(N, V, Info).
 
 %% Abstract datatype for collecting module information.
@@ -1259,7 +1268,7 @@ analyze_form(Node) ->
 %% @doc Analyzes an attribute node. If `Node' represents a
 %% preprocessor directive, the atom `preprocessor' is
 %% returned. Otherwise, if `Node' represents a module
-%% attribute "`-<em>Name</em>...'", a tuple `{Name,
+%% attribute "`-Name...'", a tuple `{Name,
 %% Info}' is returned, where `Info' depends on
 %% `Name', as follows:
 %% <dl>
@@ -1319,7 +1328,7 @@ analyze_attribute(Node) ->
                 ifndef -> preprocessor;
                 'if' -> preprocessor;
                 elif -> preprocessor;
-                else -> preprocessor;
+                'else' -> preprocessor;
                 endif -> preprocessor;
                 A ->
                     {A, analyze_attribute(A, Node)}
@@ -1340,7 +1349,8 @@ analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
 analyze_attribute(_, Node) ->
     %% A "wild" attribute (such as e.g. a `compile' directive).
-    analyze_wild_attribute(Node).
+    {_, Info} = analyze_wild_attribute(Node),
+    Info.
 
 
 %% =====================================================================
@@ -1637,8 +1647,8 @@ analyze_wild_attribute(Node) ->
 %% `Node' represents "`-record(Name, {...}).'",
 %% where `Fields' is a list of pairs `{Label,
 %% {Default, Type}}' for each field "`Label'", "`Label =
-%% <em>Default</em>'", "`Label :: <em>Type</em>'", or
-%% "`Label = <em>Default</em> :: <em>Type</em>'" in the declaration,
+%% Default'", "`Label :: Type'", or
+%% "`Label = Default :: Type'" in the declaration,
 %% listed in left-to-right
 %% order. If the field has no default-value declaration, the value for
 %% `Default' will be the atom `none'. If the field has no type declaration,
@@ -1713,7 +1723,7 @@ analyze_record_attribute_tuple(Node) ->
 %% For a `record_expr' node, `Info' represents
 %% the record name and the list of descriptors for the involved fields,
 %% listed in the order they appear. A field descriptor is a pair
-%% `{Label, Value}', if `Node' represents "`Label = <em>Value</em>'".
+%% `{Label, Value}', if `Node' represents "`Label = Value'".
 %% For a `record_access' node,
 %% `Info' represents the record name and the field name. For a
 %% `record_index_expr' node, `Info' represents the
@@ -1788,9 +1798,8 @@ analyze_record_expr(Node) ->
 %%
 %% @doc Returns the label, value-expression, and type of a record field
 %% specifier. The result is a pair `{Label, {Default, Type}}', if
-%% `Node' represents "`Label'", "`Label = <em>Default</em>'",
-%% "`Label :: <em>Type</em>'", or
-%%  "`Label = <em>Default</em> :: <em>Type</em>'".
+%% `Node' represents "`Label'", "`Label = Default'",
+%% "`Label :: Type'", or "`Label = Default :: Type'".
 %% If the field has no value-expression, the value for
 %% `Default' will be the atom `none'. If the field has no type,
 %% the value for `Type' will be the atom `none'. 
@@ -1867,7 +1876,7 @@ analyze_file_attribute(Node) ->
 %%
 %% @doc Returns the name and arity of a function definition. The result
 %% is a pair `{Name, A}' if `Node' represents a
-%% function definition "`Name(<em>P_1</em>, ..., <em>P_A</em>) ->
+%% function definition "`Name(P_1, ..., P_A) ->
 %% ...'".
 %%
 %% The evaluation throws `syntax_error' if
@@ -1900,7 +1909,7 @@ analyze_function(Node) ->
 %%          ModuleName = atom()
 %%      
 %% @doc Returns the name of an implicit fun expression "`fun
-%% <em>F</em>'". The result is a representation of the function
+%% F'". The result is a representation of the function
 %% name `F'. (Cf. `analyze_function_name/1'.)
 %%
 %% The evaluation throws `syntax_error' if
@@ -1930,7 +1939,7 @@ analyze_implicit_fun(Node) ->
 %% @doc Returns the name of a called function. The result is a
 %% representation of the name of the applied function `F/A',
 %% if `Node' represents a function application
-%% "`<em>F</em>(<em>X_1</em>, ..., <em>X_A</em>)'". If the
+%% "`F(X_1, ..., X_A)'". If the
 %% function is not explicitly named (i.e., `F' is given by
 %% some expression), only the arity `A' is returned.
 %%
@@ -1971,10 +1980,10 @@ analyze_application(Node) ->
 %% @doc Returns the name of a used type. The result is a
 %% representation of the name of the used pre-defined or local type `N/A',
 %% if `Node' represents a local (user) type application
-%% "`<em>N</em>(<em>T_1</em>, ..., <em>T_A</em>)'", or
+%% "`N(T_1, ..., T_A)'", or
 %% a representation of the name of the used remote type `M:N/A'
 %% if `Node' represents a remote user type application
-%% "`<em>M</em>:<em>N</em>(<em>T_1</em>, ..., <em>T_A</em>)'".
+%% "`M:N(T_1, ..., T_A)'".
 %%
 %% The evaluation throws `syntax_error' if `Node' does not represent a
 %% well-formed (user) type application expression.

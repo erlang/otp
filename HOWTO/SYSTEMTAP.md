@@ -5,7 +5,7 @@ Introduction
 ------------
 
 SystemTap is DTrace for Linux. In fact Erlang's SystemTap support
-is build using SystemTap's DTrace compatibility's layer. For an
+is built using SystemTap's DTrace compatibility's layer. For an
 introduction to Erlang DTrace support read [$ERL_TOP/HOWTO/DTRACE.md][].
 
 Requisites
@@ -43,7 +43,7 @@ Testing
 
 SystemTap, unlike DTrace, needs to know what binary it is tracing and has to
 be able to read that binary before it starts tracing. Your probe script
-therefor has to reference the correct beam emulator and stap needs to be able
+therefore has to reference the correct beam emulator and stap needs to be able
 to find that binary.
 The examples are written for "beam", but other versions such as "beam.smp" or
 "beam.debug.smp" might exist (depending on your configuration). Make sure you

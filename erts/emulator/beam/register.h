@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ typedef struct reg_proc
     Eterm name;         /* Atom name */
 } RegProc;
 
-int process_reg_size(void);
 int process_reg_sz(void);
 void init_register_table(void);
 void register_info(fmtfn_t, void *);

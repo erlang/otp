@@ -1,0 +1,11 @@
+
+  [;1m-spec make_ref() -> reference().[0m
+
+  Returns a unique reference. The reference is unique among
+  connected nodes.
+
+  Warning:
+    Before OTP-23 when a node is restarted multiple times with the
+    same node name, references created on a newer node can be
+    mistaken for a reference created on an older node with the
+    same node name.

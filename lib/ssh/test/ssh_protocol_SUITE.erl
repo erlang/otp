@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,13 +23,61 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
--include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
--include_lib("ssh/src/ssh_transport.hrl").
--include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
+-include("ssh_transport.hrl").
+-include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         bad_long_service_name/1,
+         bad_packet_length/2,
+         bad_service_name/1,
+         bad_service_name/2,
+         bad_service_name_length/2,
+         bad_service_name_then_correct/1,
+         bad_very_long_service_name/1,
+         client_handles_keyboard_interactive_0_pwds/1,
+         client_info_line/1,
+         do_gex_client_init/3,
+         do_gex_client_init_old/3,
+         empty_service_name/1,
+         ext_info_c/1,
+         ext_info_s/1,
+         gex_client_init_option_groups/1,
+         gex_client_init_option_groups_file/1,
+         gex_client_init_option_groups_moduli_file/1,
+         gex_client_old_request_exact/1,
+         gex_client_old_request_noexact/1,
+         gex_server_gex_limit/1,
+         lib_match/1,
+         lib_no_match/1,
+         lib_works_as_client/1,
+         lib_works_as_server/1,
+         modify_append/1,
+         modify_combo/1,
+         modify_prepend/1,
+         modify_rm/1,
+         no_common_alg_client_disconnects/1,
+         no_common_alg_server_disconnects/1,
+         no_ext_info_s1/1,
+         no_ext_info_s2/1,
+         packet_length_too_large/1,
+         packet_length_too_short/1,
+         preferred_algorithms/1,
+         service_name_length_too_large/1,
+         service_name_length_too_short/1,
+         client_close_after_hello/1
+        ]).
 
 -define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 65000).
@@ -38,7 +86,11 @@
 -define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
--define(DEFAULT_CIPHERS, [{client2server,?CIPHERS}, {server2client,?CIPHERS}]).
+-define(DEFAULT_CIPHERS, (fun() -> Ciphs = filter_supported(cipher, ?CIPHERS),
+                                   [{client2server,Ciphs}, {server2client,Ciphs}]
+                          end)()
+        ).
+
 
 -define(v(Key, Config), proplists:get_value(Key, Config)).
 -define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
@@ -61,7 +113,8 @@ all() ->
      {group,packet_size_error},
      {group,field_size_error},
      {group,ext_info},
-     {group,preferred_algorithms}
+     {group,preferred_algorithms},
+     {group,client_close_early}
     ].
 
 groups() ->
@@ -103,7 +156,9 @@ groups() ->
                                  modify_prepend,
                                  modify_rm,
                                  modify_combo
-                                ]}
+                                ]},
+     {client_close_early, [], [client_close_after_hello
+                               ]}
     ].
 
 
@@ -415,7 +470,7 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
@@ -450,7 +505,7 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
@@ -662,7 +717,7 @@ client_info_line(Config) ->
 %%% The server does not send the extension because
 %%% the client does not tell the server to send it
 no_ext_info_s1(Config) ->
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
@@ -677,7 +732,7 @@ no_ext_info_s1(Config) ->
 %%% The server does not send the extension because
 %%% the server is not configured to send it
 no_ext_info_s2(Config) ->    
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
@@ -693,7 +748,7 @@ no_ext_info_s2(Config) ->
 %%%--------------------------------------------------------------------
 %%% The server sends the extension
 ext_info_s(Config) ->    
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
@@ -845,6 +900,80 @@ modify_combo(Config) ->
                                            ]}
                       ]).
 
+
+%%%----------------------------------------------------------------
+%%%
+client_close_after_hello(Config0) ->
+    MaxSessions = 20,
+    SleepSec = 15,
+    Config = start_std_daemon(Config0, [{parallel_login,true},
+                                        {max_sessions,MaxSessions},
+                                        {negotiation_timeout,SleepSec*1000}
+                                       ]),
+
+    {_Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
+
+    Cs =
+        [ssh_trpt_test_lib:exec(
+           [{connect,
+             server_host(Config),server_port(Config),
+             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                     {cipher,?DEFAULT_CIPHERS}
+                                    ]},
+              {silently_accept_hosts, true},
+              {recv_ext_info, false},
+              {user_dir, user_dir(Config)},
+              {user_interaction, false}
+              | proplists:get_value(extra_options,Config,[])
+             ]},
+            {send, hello}
+           ]) || _ <- lists:seq(1,MaxSessions+100)],
+
+    ct:log("=== Tried to start ~p sessions.", [length(Cs)]),
+
+    ssh_info:print(fun ct:log/2),
+    {Parents, Conns, Handshakers} = find_handshake_parent(server_port(Config)),
+    ct:log("Found (Port=~p):~n"
+           "  Connections  (length ~p): ~p~n"
+           "  Handshakers  (length ~p): ~p~n"
+           "  with parents (length ~p): ~p",
+           [server_port(Config),
+            length(Conns), Conns,
+            length(Handshakers), Handshakers,
+            length(Parents), Parents]),
+    if
+        length(Handshakers)>0 ->
+            lists:foreach(fun(P) -> exit(P,some_reason) end, Parents),
+            ct:log("After sending exits; now going to sleep", []),
+            timer:sleep((SleepSec+15)*1000),
+            ct:log("After sleeping", []),
+            ssh_info:print(fun ct:log/2),
+            {Parents2, Conns2, Handshakers2} = find_handshake_parent(server_port(Config)),
+            ct:log("Found (Port=~p):~n"
+                   "  Connections  (length ~p): ~p~n"
+                   "  Handshakers  (length ~p): ~p~n"
+                   "  with parents (length ~p): ~p",
+                   [server_port(Config),
+                    length(Conns2), Conns2,
+                    length(Handshakers2), Handshakers2,
+                    length(Parents2), Parents2]),
+            if
+                Handshakers2==[] andalso Conns2==Conns0 ->
+                    ok;
+                Handshakers2=/=[] ->
+                    ct:log("Handshakers still alive: ~p", [Handshakers2]),
+                    {fail, handshakers_alive};
+                true ->
+                    ct:log("Connections before: ~p~n"
+                           "Connections after: ~p", [Conns0,Conns2]),
+                    {fail, connections_bad}
+            end;
+
+        true ->
+            {fail, no_handshakers}
+    end.
+
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -853,7 +982,7 @@ chk_pref_algs(Config,
               ExpectedKex,
               ExpectedCiphers,
               ServerPrefOpts) ->
-    %% Start the dameon
+    %% Start the daemon
     case ssh_test_lib:daemon(
                       [{send_ext_info,false},
                        {recv_ext_info,false},
@@ -903,10 +1032,8 @@ stop_apps(_Config) ->
 
 
 setup_dirs(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config.
 
 system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
@@ -974,9 +1101,10 @@ std_connect({Host,Port}, Config, Opts) ->
 std_connect(Host, Port, Config, Opts) ->
     {User,Pwd} = server_user_password(Config),
     ssh:connect(Host, Port, 
-		%% Prefere User's Opts to the default opts
+		%% Prefer User's Opts to the default opts
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
+                                      {save_accepted_host, false},
 				      {user_dir, user_dir(Config)},
 				      {user_interaction, false}],
 		      not lists:keymember(Tag, 1, Opts)
@@ -1023,3 +1151,39 @@ disconnect(Code) ->
 	   tcp_closed,
 	   {tcp_error,econnaborted}
 	  ]}.
+
+%%%----------------------------------------------------------------
+find_handshake_parent(Port) ->
+    Acc = {_Parents=[], _Connections=[], _Handshakers=[]},
+    find_handshake_parent(supervisor:which_children(sshd_sup), Port, Acc).
+
+
+find_handshake_parent([{{ssh_system_sup,{address,_,Port,_}},
+                        Pid,supervisor, [ssh_system_sup]}|_],
+                      Port, Acc) ->
+    find_handshake_parent(supervisor:which_children(Pid), Port, Acc);
+
+find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
+                        PidS,supervisor,[ssh_acceptor_sup]}|T],
+                       Port, {AccP,AccC,AccH}) ->
+    ParentHandshakers =
+        [{PidW,PidH} ||
+            {{ssh_acceptor_sup,{address,_,Port1,_}}, PidW, worker, [ssh_acceptor]} <-
+                supervisor:which_children(PidS),
+            Port1 == Port,
+            PidH <- element(2, process_info(PidW,links)),
+            is_pid(PidH),
+            process_info(PidH,current_function) == {current_function,{ssh_connection_handler,handshake,3}}],
+    {Parents,Handshakers} = lists:unzip(ParentHandshakers),
+    find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
+
+find_handshake_parent([{_Ref,PidS,supervisor,[ssh_subsystem_sup]}|T], Port, {AccP,AccC,AccH}) ->
+    Connections =
+        [Pid || {connection,Pid,worker,[ssh_connection_handler]} <- supervisor:which_children(PidS)],
+    find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});
+
+find_handshake_parent([_|T], Port, Acc) ->
+    find_handshake_parent(T, Port, Acc);
+
+find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
+    {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.

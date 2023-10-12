@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ decode_cert(DerCert) ->
 %%--------------------------------------------------------------------
 -spec transform(term(), encode | decode) ->term().
 %%
-%% Description: Transforms between encoded and decode otp formated
+%% Description: Transforms between encoded and decode otp formatted
 %% certificate parts.
 %%-------------------------------------------------------------------- 
 
@@ -110,10 +110,16 @@ supportedPublicKeyAlgorithms(?'rsaEncryption') -> 'RSAPublicKey';
 supportedPublicKeyAlgorithms(?'id-dsa') -> 'DSAPublicKey';
 supportedPublicKeyAlgorithms(?'dhpublicnumber') -> 'DHPublicKey';
 supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
-supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint'.
+supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-RSASSA-PSS') -> 'RSAPublicKey';
+supportedPublicKeyAlgorithms(?'id-Ed25519') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-Ed448') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-X25519') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-X448') -> 'ECPoint'.
 
 supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
-supportedCurvesTypes(?'prime-field') -> prime_field.
+supportedCurvesTypes(?'prime-field') -> prime_field;
+supportedCurvesTypes(?'id-edwards-curve-algs') -> edwards_curve.
 
 namedCurves(?'sect571r1') -> sect571r1;
 namedCurves(?'sect571k1') -> sect571k1;
@@ -148,6 +154,10 @@ namedCurves(?'sect163r1') -> sect163r1;
 namedCurves(?'sect163k1') -> sect163k1;
 namedCurves(?'secp256r1') -> secp256r1;
 namedCurves(?'secp192r1') -> secp192r1;
+namedCurves(?'id-X25519') -> x25519;
+namedCurves(?'id-X448') -> x448;
+namedCurves(?'id-Ed25519') -> ed25519;
+namedCurves(?'id-Ed448') -> ed448;
 namedCurves(?'brainpoolP160r1') -> brainpoolP160r1;
 namedCurves(?'brainpoolP160t1') -> brainpoolP160t1;
 namedCurves(?'brainpoolP192r1') -> brainpoolP192r1;
@@ -162,7 +172,6 @@ namedCurves(?'brainpoolP384r1') -> brainpoolP384r1;
 namedCurves(?'brainpoolP384t1') -> brainpoolP384t1;
 namedCurves(?'brainpoolP512r1') -> brainpoolP512r1;
 namedCurves(?'brainpoolP512t1') -> brainpoolP512t1;
-
 namedCurves(sect571r1) -> ?'sect571r1';
 namedCurves(sect571k1) -> ?'sect571k1';
 namedCurves(sect409r1) -> ?'sect409r1';
@@ -196,6 +205,10 @@ namedCurves(sect163r1) -> ?'sect163r1';
 namedCurves(sect163k1) -> ?'sect163k1';
 namedCurves(secp256r1) -> ?'secp256r1';
 namedCurves(secp192r1) -> ?'secp192r1';
+namedCurves(x25519)    -> ?'id-X25519';
+namedCurves(x448)      -> ?'id-X448';
+namedCurves(ed25519)    -> ?'id-Ed25519';
+namedCurves(ed448)      -> ?'id-Ed448';
 namedCurves(brainpoolP160r1) -> ?'brainpoolP160r1';
 namedCurves(brainpoolP160t1) -> ?'brainpoolP160t1';
 namedCurves(brainpoolP192r1) -> ?'brainpoolP192r1';
@@ -249,21 +262,20 @@ extension_id(?'id-ce-keyUsage') -> 	          'KeyUsage';
 extension_id(?'id-ce-privateKeyUsagePeriod') ->   'PrivateKeyUsagePeriod';
 extension_id(?'id-ce-certificatePolicies') -> 	  'CertificatePolicies';
 extension_id(?'id-ce-policyMappings') -> 	  'PolicyMappings';
-extension_id(?'id-ce-subjectAltName') -> 	  'SubjectAltName'; 	        
-extension_id(?'id-ce-issuerAltName') -> 	  'IssuerAltName'; 	        
+extension_id(?'id-ce-subjectAltName') -> 	  'SubjectAltName';
+extension_id(?'id-ce-issuerAltName') -> 	  'IssuerAltName';
 extension_id(?'id-ce-subjectDirectoryAttributes') -> 	  'SubjectDirectoryAttributes';
-extension_id(?'id-ce-basicConstraints' ) -> 	  'BasicConstraints';	        
-extension_id(?'id-ce-nameConstraints') -> 	  'NameConstraints'; 	        
-extension_id(?'id-ce-policyConstraints') -> 	  'PolicyConstraints'; 	
-extension_id(?'id-ce-cRLDistributionPoints') ->   'CRLDistributionPoints'; 	
-extension_id(?'id-ce-extKeyUsage') -> 	          'ExtKeyUsageSyntax'; 	        
-extension_id(?'id-ce-inhibitAnyPolicy') -> 	  'InhibitAnyPolicy'; 	        
+extension_id(?'id-ce-basicConstraints' ) -> 	  'BasicConstraints';
+extension_id(?'id-ce-nameConstraints') -> 	  'NameConstraints';
+extension_id(?'id-ce-policyConstraints') -> 	  'PolicyConstraints';
+extension_id(?'id-ce-extKeyUsage') -> 	          'ExtKeyUsageSyntax';
+extension_id(?'id-ce-inhibitAnyPolicy') -> 	  'InhibitAnyPolicy';
 extension_id(?'id-ce-freshestCRL') -> 	          'FreshestCRL';
-%% Missing in public_key doc 
+extension_id(?'id-ce-issuingDistributionPoint') -> 'IssuingDistributionPoint';
+%% Missing in public_key doc
 extension_id(?'id-pe-authorityInfoAccess') -> 	  'AuthorityInfoAccessSyntax';
 extension_id(?'id-pe-subjectInfoAccess') -> 	  'SubjectInfoAccessSyntax';
 extension_id(?'id-ce-cRLNumber') -> 	          'CRLNumber';
-extension_id(?'id-ce-issuingDistributionPoint') -> 'IssuingDistributionPoint';
 extension_id(?'id-ce-deltaCRLIndicator') -> 	   'BaseCRLNumber';
 extension_id(?'id-ce-cRLReasons') -> 	          'CRLReason';
 extension_id(?'id-ce-certificateIssuer') -> 	  'CertificateIssuer';

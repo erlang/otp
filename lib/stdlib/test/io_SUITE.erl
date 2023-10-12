@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,18 +21,20 @@
 
 -export([all/0, suite/0]).
 
--export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
+-export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
-         otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1, format_string/1,
+         otp_10836/1, io_lib_width_too_small/1, calling_self/1,
+         io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1]).
+         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
+         github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
+         unscan_format_without_maps_order/1, build_text_without_maps_order/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -55,16 +57,19 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+    [error_1, float_g, float_w, otp_5403, otp_5813, otp_6230,
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range, bad_printable_range,
+     printable_range, bad_printable_range, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small, io_with_huge_message_queue,
+     io_lib_width_too_small, io_with_huge_message_queue, calling_self,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159].
+     otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
+     otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
+     error_info, otp_17525, unscan_format_without_maps_order,
+     build_text_without_maps_order].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -85,6 +90,14 @@ error_1(Config) when is_list(Config) ->
 
     file:close(F1),
     {'EXIT', _} = (catch io:format(F1, "~p", ["hej"])),
+    ok.
+
+format_neg_zero(Config) when is_list(Config) ->
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.000000" = io_lib:format("~f", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~g", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~e", [NegZero]),
+    "-0.0" = io_lib_format:fwrite_g(NegZero),
     ok.
 
 float_g(Config) when is_list(Config) ->
@@ -163,10 +176,45 @@ float_g(Config) when is_list(Config) ->
      "-5000.00",
      "-5.00000e+4",
      "-5.00000e+5"] = float_g_1("~g", -4.9999950001, -2, 5),
+
     ok.
 
 float_g_1(Fmt, V, Min, Max) ->
     [fmt(Fmt, [V*math:pow(10, E)]) || E <- lists:seq(Min, Max)].
+
+float_w(Config) when is_list(Config) ->
+    %% All floats that are >= float(1 bsl 53) or <= -float(1 bsl 53)
+    %% should be printed with scientific notation to make it clear
+    %% that the integer part can have lost precision, for example if
+    %% the float was created from a float literal.
+    %%
+    %% All integers in the range [-2^53, 2^53] can be stored without
+    %% loss of precision in an IEEE 754 64-bit double but 2^53+1
+    %% cannot be stored in an IEEE 754 64-bit double without loss of
+    %% precision (float((1 bsl 53)+1) =:= float(1 bsl 53)).
+    %%
+    %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
+    Nums = [-float((1 bsl 53) -1),
+            -float(1 bsl 53),
+            -float((1 bsl 53) + 1),
+            float((1 bsl 53) -1),
+            float(1 bsl 53),
+            float((1 bsl 53) + 1)],
+
+
+    ["-9007199254740991.0",
+     "-9.007199254740992e15",
+     "-9.007199254740992e15",
+     "9007199254740991.0",
+     "9.007199254740992e15",
+     "9.007199254740992e15"] =
+        [begin g_t(X), fmt("~w", [X]) end || X <- Nums],
+
+    ok.
+
+calling_self(Config) when is_list(Config) ->
+    {'EXIT', {calling_self, _}} = (catch io:format(self(), "~p", [oops])),
+    ok.
 
 %% OTP-5403. ~s formats I/O lists and a single binary.
 otp_5403(Config) when is_list(Config) ->
@@ -945,15 +993,12 @@ otp_7084(Config) when is_list(Config) ->
          {g_denormalized, fun g_denormalized/0},
          {g_normalized, fun g_normalized/0},
          {g_choice, fun g_choice/0},
+         {g_ryu, fun g_ryu/0},
+         {g_anomalous, fun g_anomalous/0},
          {g_misc, fun g_misc/0}],
     F = fun({M,T}) -> io:format("~p~n", [M]), T() end,
-    R = try 
-            lists:foreach(fun(T) -> F(T) end, L),
-            ok
-        catch throw:Reason -> 
-            Reason
-        end,
-    R.
+    lists:foreach(fun(T) -> F(T) end, L),
+    ok.
 
 g_warm_up() ->
     g_t(0.5),
@@ -1001,12 +1046,187 @@ g_normalized() ->
 g_choice() ->
     %% Exponent should be used when and only when the string is shorter.
     %% (g_misc/0 checks this too, and probably more throughly).
-    L = [0.0003, 3.0e-5, 3.3e-5,    3.3e-4,
-         314.0,  314.1,  310.0,     3.1e6,   -100.0,
-         3.34e4, 3.0e3,  3.34333e9, 3.3433323e10, 33433323700.0,
+    L = [0.0003, 3.0e-5, 3.3e-5, 3.3e-4,
+         314.0, 314.1, 310.0, 3.1e6, -100.0,
+         3.34e4, 3.0e3, 3.34333e9, 3.3433323e10, 33433323700.0,
          0.00197963, 1.97963e-4],
     lists:foreach(fun(V) -> g_t(V) end, L),
     ok.
+
+g_anomalous() ->
+    %% These test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+
+    %% https://www.exploringbinary.com/the-shortest-decimal-string-that-round-trips-may-not-be-the-nearest/
+    %% This is an exhaustive list of anomalous values
+    %% Because math, these values have shortest-round-trip decimal representations containing 16 significant digits,
+    %% but those decimal digits aren't what would be printed by "%.15e". For ordinary values, shortest-round-trip
+    %% behaves as if it can magically pick a precision for "%.*e", finding the smallest precision that round-trips.
+    %% (That is, start with the exact decimal representation, and then round it as much as possible.) These anomalous
+    %% values demonstrate an exception to that mental model. They aren't being "incorrectly rounded"; instead, having
+    %% the shortest output that round-trips is being prioritized. (This differs by 1 in the least significant decimal
+    %% digit printed, so it's a very small difference.)
+
+    L_anom = [6.386688990511104e+293, 5.282945311356653e+269,
+              6.150157786156811e+259, 5.334411546303884e+241,
+              5.386379163185535e+213, 6.483618076376552e+178,
+              6.183260036827614e+172, 5.896816288783659e+166,
+              5.758609657015292e+163, 5.623642243178996e+160,
+              6.243497100631985e+144, 8.263199609878108e+121,
+              6.455624695217272e+119, 6.156563468186638e+113,
+              7.167183174968974e+103, 6.518515124270356e+91,
+              6.070840288205404e+82, 6.129982163463556e+54,
+              5.986310706507379e+51, 5.444517870735016e+39,
+              5.316911983139664e+36, 6.189700196426902e+26,
+              5.960464477539063e-08, 5.684341886080802e-14,
+              6.617444900424222e-24, 6.310887241768095e-30,
+              7.174648137343064e-43, 7.854549544476363e-90,
+              6.653062250012736e-111, 5.075883674631299e-116,
+              6.256509672447191e-148, 4.887898181599368e-150,
+              5.966672584960166e-154, 5.426657103235053e-166,
+              5.351097043477547e-197, 5.225680706521042e-200,
+              6.083493012144512e-210, 5.940911144672375e-213,
+              6.290184345309701e-235, 6.142758149716505e-238,
+              7.678447687145631e-239, 5.858190679279809e-244,
+              5.641232424577593e-278, 8.209073602596753e-289,
+              7.291122019556398e-304, 7.120236347223045e-307],
+    lists:foreach(fun(V) -> g_t(V) end, L_anom),
+
+    %% This is an exhaustive list of almost-but-not-quite-anomalous values.
+    L_quasi_anom = [6.237000967296e+290, 6.090821257125e+287,
+                    8.25460204899477e+267, 5.78358058743443e+222,
+                    7.1362384635298e+44, 6.10987272699921e-151,
+                    5.17526350329881e-172, 6.84940421565126e-195],
+    lists:foreach(fun(V) -> g_t(V) end, L_quasi_anom),
+
+    ok.
+
+g_ryu() ->
+    %% specific white box tests that should trigger specific edge cases
+    %% to the ryu algorithm see: 
+    %% https://github.com/ulfjack/ryu/blob/master/ryu/tests/d2s_test.cc
+
+    %% this list is regression tests from the ryu C ref implementation
+    L_regression = [-2.109808898695963e16, 4.940656e-318, 1.18575755E-316,
+                    2.989102097996e-312, 9.0608011534336e15,
+                    4.708356024711512e18, 9.409340012568248e18,
+                    1.2345678],
+    lists:foreach(fun(V) -> g_t(V) end, L_regression),
+
+    %% These numbers have a mantissa that is a multiple of the largest power of 5 that fits,
+    %% and an exponent that causes the computation for q to result in 22, which is a corner
+    %% case for Ryu.
+    L_pow5 = [16#4830F0CF064DD592, 16#4840F0CF064DD592, 
+              16#4850F0CF064DD592],
+    lists:foreach(fun(V) -> g_t(i_2_d(V)) end, L_pow5),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    L = [1.2e+1, 1.23e+2, 1.234e+3, 1.2345e+4, 1.23456e+5, 1.234567e+6,
+        1.2345678e+7, 1.23456789e+8, 1.23456789e+9, 1.234567895e+9,
+        1.2345678901e+10, 1.23456789012e+11, 1.234567890123e+12,
+        1.2345678901234e+13, 1.23456789012345e+14, 1.234567890123456e+15],
+    lists:foreach(fun(V) -> g_t(V) end, L),
+
+    %% power of 2
+    L_pow2 = [8.0, 64.0, 512.0, 8192.0, 65536.0, 524288.0, 8388608.0,
+             67108864.0, 536870912.0, 8589934592.0, 68719476736.0,
+             549755813888.0, 8796093022208.0, 70368744177664.0,
+             562949953421312.0, 9007199254740992.0],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2),
+
+    %% 1000 * power of 2
+    L_pow2_1000 = [8.0e+3, 64.0e+3, 512.0e+3, 8192.0e+3, 65536.0e+3,
+                  524288.0e+3, 8388608.0e+3, 67108864.0e+3, 536870912.0e+3,
+                  8589934592.0e+3, 68719476736.0e+3, 549755813888.0e+3,
+                  8796093022208.0e+3],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2_1000),
+
+    %% 10^15 + 10^i
+    L_pow10_plus = [1.0e+15 + 1.0e+0, 1.0e+15 + 1.0e+1, 1.0e+15 + 1.0e+2,
+                   1.0e+15 + 1.0e+3, 1.0e+15 + 1.0e+4, 1.0e+15 + 1.0e+5,
+                   1.0e+15 + 1.0e+6, 1.0e+15 + 1.0e+7, 1.0e+15 + 1.0e+8,
+                   1.0e+15 + 1.0e+9, 1.0e+15 + 1.0e+10, 1.0e+15 + 1.0e+11,
+                   1.0e+15 + 1.0e+12, 1.0e+15 + 1.0e+13, 1.0e+15 + 1.0e+14],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow10_plus),
+
+    %% min and max
+    g_t(i_2_d(1)),
+    g_t(i_2_d(16#7fefffffffffffff)),
+
+    %% lots of trailing zeroes
+    g_t(2.98023223876953125e-8),
+
+    %% Switch to Subnormal
+    g_t(2.2250738585072014e-308),
+
+    %% special case to check for the shift to the right by 128
+    L_shift = [parts_2_f(0, 4,0), parts_2_f(0, 6, (1 bsl 53) - 1),
+               parts_2_f(0, 41, 0), parts_2_f(0, 40, (1 bsl 53) - 1),
+               parts_2_f(0, 1077, 0), parts_2_f(0, 1076, (1 bsl 53) - 1),
+               parts_2_f(0, 307, 0), parts_2_f(0, 306, (1 bsl 53) - 1),
+               parts_2_f(0, 934, 16#000FA7161A4D6E0C)],
+    lists:foreach(fun(V) -> g_t(V) end, L_shift),
+
+    %% following test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely within the "max shifted mantissa" limit.
+
+    L_mantissas_within_limit = [
+        1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+        14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+        115292150459.0e7, 23058430091.0e8, 4611686017.0e9, 922337203.0e10,
+        184467439.0e11, 36893487.0e12, 7378697.0e13, 1475739.0e14,
+        295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18, 471.0e19, 93.0e20,
+        17.0e21, 3.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_within_limit),
+
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely above the "max shifted mantissa" limit.
+    L_mantissas_above_limit = [
+        1801439850948199.0e1, 360287970189641.0e2, 72057594037929.0e3,
+        14411518807587.0e4, 2882303761519.0e5, 576460752305.0e6,
+        115292150461.0e7, 23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+        184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+        295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19, 95.0e20,
+        19.0e21, 5.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_above_limit),
+
+    L_switch = [1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+                14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+                115292150459.0e7, 23058430091.0e8, 4611686017.0e9,
+                922337203.0e10, 184467439.0e11, 36893487.0e12, 7378697.0e13,
+                1475739.0e14, 295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18,
+                471.0e19, 93.0e20, 17.0e21, 3.0e22, 1801439850948199.0e1,
+                360287970189641.0e2, 72057594037929.0e3, 14411518807587.0e4,
+                2882303761519.0e5, 576460752305.0e6, 115292150461.0e7,
+                23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+                184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+                295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19,
+                95.0e20, 19.0e21, 5.0e22, 302230528.0e15, 302232576.0e15,
+                81123342286848.0e18, 81192061763584.0e18],
+    lists:foreach(fun(V) -> g_t(V) end, L_switch),
+
+    L_edge = [123456789012345683968.0, 1.9156918820264798e-56,
+              6.6564021122018745e+264, 4.91e-6, 5.547e-6],
+    lists:foreach(fun(V) -> g_t(V) end, L_edge),
+
+    ok.
+
+i_2_d(Int) ->
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F.
+
+parts_2_f(S, E, M) ->
+    <<F:64/float>> = <<S:1, E:11, M:52>>,
+    F.
 
 g_misc() -> 
     L_0_308 = lists:seq(0, 308),
@@ -1062,13 +1282,20 @@ g_t(V) when is_float(V) ->
 %% Note: in a few cases the least significant digit has been
 %% incremented by one, namely when the correctly rounded string
 %% converts to another floating point number.
-g_t(0.0, "0.0") ->
-    ok;
-g_t(V, Sv) ->
+g_t(V, Sv) when V > 0.0; V < 0.0 ->
     try
         g_t_1(V, Sv)
     catch throw:Reason ->
         throw({Reason, V, Sv})
+    end;
+g_t(Zero, Format) ->
+    case <<Zero/float>> of
+        <<1:1,_:63>> ->
+            "-0.0" = Format,
+            ok;
+        <<0:1,_:63>> ->
+            "0.0" = Format,
+            ok
     end.
 
 g_t_1(V, Sv) ->
@@ -1403,11 +1630,26 @@ gcd(A, B) -> gcd(B, A rem B).
 
 %%% End of rational numbers.
 
+%% Check that there is an exponent if and only if characters are saved
+%% when abs(list_to_float(S)) < float(1 bsl 53) and that there is an
+%% exponent when abs(list_to_float(S)) >= float(1 bsl 53).
+g_choice(S) when is_list(S) ->
+    ShouldAlwaysHaveExponent = abs(list_to_float(S)) >= float(1 bsl 53),
+    HasExponent = lists:member($e, S) orelse lists:member($E, S),
+    case ShouldAlwaysHaveExponent of
+        true ->
+            case HasExponent of
+                true -> ok;
+                false -> throw(should_have_exponent)
+            end;
+        false -> g_choice_small(S)
+    end.
+
 %% Check that there is an exponent if and only if characters are
 %% saved. Note: this assumes floating point numbers "Erlang style"
 %% (with a single zero before and after the dot, and no extra leading
 %% zero in the exponent).
-g_choice(S) when is_list(S) ->
+g_choice_small(S) when is_list(S) ->
     [MS | ES0] = string:tokens(S, "eE"),
     [IS, FS] = string:tokens(MS, "."),
     Il = length(IS),
@@ -1730,22 +1972,16 @@ io_lib_fread_literal(Suite) when is_list(Suite) ->
 
 %% Check that the printable range set by the user actually works.
 printable_range(Suite) when is_list(Suite) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pc latin1 -pa " ++ Pa}]),
-    {ok, DNode} = test_server:start_node(printable_range_default, slave,
-					 [{args, " -pa " ++ Pa}]),
-    unicode = rpc:call(UNode,io,printable_range,[]),
-    latin1 = rpc:call(LNode,io,printable_range,[]),
+    {ok, UPeer0, UNode0} = ?CT_PEER(["+pc", "unicode"]),
+    {ok, LPeer0, LNode0} = ?CT_PEER(["+pc", "latin1"]),
+    {ok, DPeer, DNode} = ?CT_PEER(),
+    unicode = rpc:call(UNode0,io,printable_range,[]),
+    latin1 = rpc:call(LNode0,io,printable_range,[]),
     latin1 = rpc:call(DNode,io,printable_range,[]),
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pcunicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pclatin1 -pa " ++ Pa}]),
+    peer:stop(UPeer0),
+    peer:stop(LPeer0),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pcunicode"]),
+    {ok, LPeer, LNode} = ?CT_PEER(["+pclatin1"]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
     PrettyOptions = [{column,1},
@@ -1793,9 +2029,9 @@ printable_range(Suite) when is_list(Suite) ->
     $\e = format_max(LNode, ["~ts", [PrintableControls]]),
     $\e = format_max(DNode, ["~ts", [PrintableControls]]),
 
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
-    test_server:stop_node(DNode),
+    peer:stop(UPeer),
+    peer:stop(LPeer),
+    peer:stop(DPeer),
     ok.
 
 print_max(Node, Args) ->
@@ -1843,11 +2079,8 @@ io_lib_print_binary_depth_one(Suite) when is_list(Suite) ->
 
 %% OTP-10302. Unicode.
 otp_10302(Suite) when is_list(Suite) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pc latin1 -pa " ++ Pa}]),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pc", "unicode"]),
+    {ok, LPeer, LNode} = ?CT_PEER(["+pc", "latin1"]),
     "\"\x{400}\"" = rpc:call(UNode,?MODULE,pretty,["\x{400}", -1]),
     "<<\"\x{400}\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,
 				      [<<"\x{400}"/utf8>>, -1]),
@@ -1858,8 +2091,8 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<208,128>>" = rpc:call(LNode,?MODULE,pretty,[<<"\x{400}"/utf8>>, -1]),
 
     "<<208,...>>" = rpc:call(LNode,?MODULE,pretty,[<<"\x{400}foo"/utf8>>, 2]),
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
+    peer:stop(UPeer),
+    peer:stop(LPeer),
 
     "<<\"äppl\"/utf8>>" = pretty(<<"äppl"/utf8>>, 2),
     "<<\"äppl\"/utf8...>>" = pretty(<<"äpple"/utf8>>, 2),
@@ -1953,14 +2186,16 @@ otp_10755(Suite) when is_list(Suite) ->
         "    io:format(\"~ltw\", [S]),\n"
         "    io:format(\"~tlw\", [S]),\n"
         "    io:format(\"~ltW\", [S, 1]),\n"
-        "    io:format(\"~tlW\", [S, 1]).\n",
+        "    io:format(\"~tlW\", [S, 1]),\n"
+        "    io:format(\"~ltp\", [S, 1]).\n",
     {ok,l_mod,[{_File,Ws}]} = compile_file("l_mod.erl", Text, Suite),
-    ["format string invalid (invalid control ~lw)",
-     "format string invalid (invalid control ~lW)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltW)",
-     "format string invalid (invalid control ~ltW)"] =
+    ["format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (conflicting modifiers ~ltp)"] =
         [lists:flatten(M:format_error(E)) || {_L,M,E} <- Ws],
     ok.
 
@@ -1980,14 +2215,10 @@ io_lib_width_too_small(_Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 io_with_huge_message_queue(Config) when is_list(Config) ->
-    case {test_server:is_native(gen),test_server:is_cover()} of
-	{true,_} ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	{_,true} ->
+    case test_server:is_cover() of
+	true ->
 	    {skip,"Running under cover"};
-	{false,false} ->
+	false ->
 	    do_io_with_huge_message_queue(Config)
     end.
 
@@ -2044,34 +2275,64 @@ format_string(_Config) ->
     ok.
 
 maps(_Config) ->
-    %% Note that order in which a map is printed is arbitrary.  In
-    %% practice, small maps (non-HAMT) are printed in key order, but
-    %% the breakpoint for creating big maps (HAMT) is lower in the
-    %% debug-compiled run-time system than in the optimized run-time
-    %% system.
-    %%
+    %% Note that order in which a map is printed is arbitrary.
     %% Therefore, play it completely safe by not assuming any order
     %% in a map with more than one element.
 
+    AOrdCmpFun = fun(A, B) -> A =< B end,
+    ARevCmpFun = fun(A, B) -> B < A end,
+
+    AtomMap1 = #{a => b},
+    AtomMap2 = #{a => b, c => d},
+    AtomMap3 = #{a => b, c => d, e => f},
+
     "#{}" = fmt("~w", [#{}]),
-    "#{a => b}" = fmt("~w", [#{a=>b}]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
-	     "~W", [#{a => b,c => d},2]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
-	   "~W", [#{a => b,c => d,e => f},2]),
+    "#{a => b}" = fmt("~w", [AtomMap1]),
+    re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
+	     "~W", [AtomMap2, 2]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+	   "~W", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kw", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KW", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [ARevCmpFun, AtomMap3]),
 
     "#{}" = fmt("~p", [#{}]),
-    "#{a => b}" = fmt("~p", [#{a => b}]),
-    "#{...}" = fmt("~P", [#{a => b},1]),
+    "#{a => b}" = fmt("~p", [AtomMap1]),
+    "#{...}" = fmt("~P", [AtomMap1, 1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d},2]),
+	   "~P", [AtomMap2, 2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d,e => f},2]),
+	   "~P", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kp", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KP", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [ARevCmpFun, AtomMap3]),
 
-    List = [{I,I*I} || I <- lists:seq(1, 20)],
+    List = [{I, I * I} || I <- lists:seq(1, 64)],
     Map = maps:from_list(List),
 
-    "#{...}" = fmt("~P", [Map,1]),
+    "#{...}" = fmt("~P", [Map, 1]),
+    "#{1 => 1,...}" = fmt("~kP", [Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [ordered, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [reversed, Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [AOrdCmpFun, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [ARevCmpFun, Map, 2]),
+
+    FloatIntegerMap = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~P", [FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~kp", [FloatIntegerMap]),
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~KP", [undefined, FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~Kp", [ordered, FloatIntegerMap]),
+    "#{0.0 => b,-1.0 => a,0 => d,-1 => c}" = fmt("~Kp", [reversed, FloatIntegerMap]),
 
     %% Print a map and parse it back to a map.
     S = fmt("~p\n", [Map]),
@@ -2503,12 +2764,12 @@ otp_14983(_Config) ->
 
 trunc_string() ->
     "str " = trf("str ", [], 10),
-    "str ..." = trf("str ~s", ["str"], 6),
+    "str str" = trf("str ~s", ["str"], 6),
+    "str ..." = trf("str ~s", ["str1"], 6),
     "str str" = trf("str ~s", ["str"], 7),
-    "str ..." = trf("str ~8s", ["str"], 6),
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
+    "str str" = trf("str ~8s", ["str"], 6),
+    "str ..." = trf("str ~8s", ["str1"], 6),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pc", "unicode"]),
     U = "кирилли́ческий атом",
     UFun = fun(Format, Args, CharsLimit) ->
                    rpc:call(UNode,
@@ -2526,7 +2787,7 @@ trunc_string() ->
     "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 20),
     "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 21),
     "<<\"кирилли́ческ\"/utf8...>>" = UFun("~tp", [BU], 22),
-    test_server:stop_node(UNode).
+    peer:stop(UPeer).
 
 trunc_depth(D, Fun) ->
     "..." = Fun("", D, 0),
@@ -2542,7 +2803,7 @@ trunc_depth(D, Fun) ->
     "#{{...} => {...},...}" = Fun(M, D, 7),
     "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
     "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
-    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
+    "#{{[...],...} => {[...],...},[1|...] => [...]}" = Fun(M, D, 33),
     "#{{[1|...],[...]} => {[1|...],[...]},[1,2|...] => [...]}" =
         Fun(M, D, 50),
 
@@ -2647,3 +2908,305 @@ otp_15076(_Config) ->
     {'EXIT', {badarg, _}} = (catch io_lib:build_text(L)),
     {'EXIT', {badarg, _}} = (catch io_lib:build_text(L, [])),
     ok.
+
+otp_15639(_Config) ->
+    L = lists:duplicate(10, "a"),
+    LOpts = [{encoding, latin1},  {chars_limit, 10}],
+    UOpts = [{encoding, unicode}, {chars_limit, 10}],
+    "[[...]|...]" = pretty(L, LOpts),
+    "[[...]|...]" = pretty(L, UOpts),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, latin1}]),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, unicode}]),
+
+    %% Latin-1
+    "\"12345678\"" = pretty("12345678", LOpts),
+    "\"12345678\"..." = pretty("123456789", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n1234567", LOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n12345678", LOpts),
+    "\"12345678\"..." = pretty("12345678"++[x], LOpts),
+    "[49,50|...]" = pretty("1234567"++[x], LOpts),
+    "[49,x]" = pretty("1"++[x], LOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], LOpts),
+    %% Unicode
+    "\"12345678\"" = pretty("12345678", UOpts),
+    "\"12345678\"..." = pretty("123456789", UOpts),
+    "\"\\r\\n1234567\"" = pretty("\r\n1234567", UOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", UOpts),
+    "\"\\r\\n1234567\"..." = pretty("\r\n12345678", UOpts),
+    "[49,50|...]" = pretty("12345678"++[x], UOpts),
+    "\"12345678\"..." = pretty("123456789"++[x], UOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], UOpts),
+    ok.
+
+otp_15705(_Config) ->
+    L = [<<"an">>,["at"],[["om"]]],
+    "..." = trf("~s", [L], 0),
+    "..." = trf("~s", [L], 1),
+    "..." = trf("~s", [L], 2),
+    "..." = trf("~s", [L], 3),
+    "a..." = trf("~s", [L], 4),
+    "an..." = trf("~s", [L], 5),
+    "anatom" = trf("~s", [L], 6),
+    L2 = ["a",[<<"na">>],[["tom"]]],
+    "..." = trf("~s", [L2], 3),
+    "a..." = trf("~s", [L2], 4),
+    "an..." = trf("~s", [L2], 5),
+    "anatom" = trf("~s", [L2], 6),
+
+    A = [[<<"äpple"/utf8>>, "plus", <<"äpple">>]],
+    "äp..." = trf("~ts", [A], 5),
+    "äppleplusäpple" = trf("~ts", [A], 14),
+    U = [["ки"],"рилл","и́ческий атом"],
+    "ки..." = trf("~ts", [U], 5),
+    "кирилли́ческий..." = trf("~ts", [U], 16),
+    "кирилли́ческий атом" = trf("~ts", [U], 20),
+
+    "|кирилли́чес|" = trf("|~10ts|", [U], -1),
+    ok.
+
+otp_15847(_Config) ->
+    T = {someRecord,<<"1234567890">>,some,more},
+    "{someRecord,<<...>>,...}" =
+        pretty(T, [{chars_limit,20}, {encoding,latin1}]),
+    ok.
+
+otp_15875(_Config) ->
+    %% This test is moot due to the fix in GH-4842.
+    S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
+    "[{0,[<<\"00\">>]}]" = lists:flatten(S).
+
+
+github_4801(_Config) ->
+	  <<"{[81.6]}">> = iolist_to_binary(io_lib:format("~p", [{[81.6]}], [{chars_limit,40}])).
+
+%% GH-4824, GH-4842, OTP-17459.
+chars_limit(_Config) ->
+    List = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> [I, R(I-1)] end
+           end,
+    Tuple = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {I, R(I-1)} end
+           end,
+    Map = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> #{I => R(I-1)} end
+           end,
+    Record = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {b, R(I-1)} end
+           end,
+    Test = fun (F, N, Lim) ->
+                   Opts = [{chars_limit, Lim},
+                           {record_print_fun, fun rfd/2}],
+                   [_|_] = io_lib_pretty:print(F(N), Opts)
+           end,
+    %% Used to loop:
+    Test(List, 1000, 1000),
+    Test(Tuple, 1000, 1000),
+    Test(Map, 1000, 1000),
+    Test(Record, 1000, 1000),
+
+    %% Misc sizes and char limits:
+    _ = [Test(What, N, CL) ||
+            N <- lists:seq(1, 50),
+            CL <- lists:seq(N, N*3),
+            What <- [List, Tuple, Map, Record]
+        ],
+    ok.
+
+error_info(Config) ->
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TmpFile = filename:join(PrivDir,?FUNCTION_NAME),
+
+    FullDev =
+        fun() ->
+                case file:read_file_info("/dev/full") of
+                    {ok, _} ->
+                        {ok, Dev} = file:open("/dev/full", [write]),
+                        Dev;
+                    _ ->
+                        dummy_full_device()
+                end
+        end,
+
+    UnknownDev = fun dummy_unknown_error_device/0,
+
+    Latin1Dev = fun() ->
+                        {ok, Dev} = file:open(TmpFile, [read, write, {encoding, latin1}]),
+                        Dev
+                end,
+
+    UnicodeDev = fun() ->
+                        {ok, Dev} = file:open(TmpFile, [read, write, {encoding, unicode}]),
+                        Dev
+                end,
+
+    DeadDev = spawn(fun() -> ok end),
+
+    UserDev = fun() -> whereis(user) end,
+    FileDev = FullDev,
+    TestServerDev = fun() -> group_leader() end,
+    ApplicationMasterDev =
+        fun() ->
+                {_,GL} = process_info(whereis(kernel_sup),group_leader),
+                GL
+        end,
+    GroupDev = TestServerDev,
+    StandardError = fun() -> whereis(standard_error) end,
+
+    L = [
+         {put_chars,[DeadDev,"test"],[{1,"terminated"}]},
+         {put_chars,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {put_chars,[?MODULE,"test"],[{1,"does not exist"}]},
+         {put_chars,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {put_chars,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {put_chars,[Latin1Dev(),"Спутник-1"], [{1,"transcode"}]},
+         {put_chars,[a], [{1,"not valid character data"}]},
+         {put_chars,[UnicodeDev(), <<222>>], [{1,"transcode"}]},
+         {put_chars,[<<1:1>>], [{1,"not valid character data"}]},
+         {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,[self(),"test"],[{1,"the device is not allowed to be the current process"}]},
+         {put_chars,["test"],[{gl,self()},{general,"the device is not allowed to be the current process"}]},
+
+         {write,[DeadDev,"test"],[{1,"terminated"}]},
+         {write,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {write,[?MODULE,"test"],[{1,"does not exist"}]},
+         {write,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {write,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {write,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {write,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+
+         {nl,[DeadDev],[{1,"terminated"}]},
+         {nl,[?MODULE],[{1,"does not exist"}]},
+         {nl,[],[{gl,DeadDev},{general,"terminated"}]},
+         {nl,[FullDev()], [{1,"no space left on device"}]},
+         {nl,[], [{gl,FullDev()},{general,"no space left on device"}]},
+         {nl,[UnknownDev()], [{general,"unknown error: 'Спутник-1'"}]},
+         {nl,[], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+
+         [[{Format,[DeadDev,"test",[]],   [{1,"terminated"}]},
+           {Format,["test",[{gl,DeadDev},  {general,"terminated"}]]},
+           {Format,[?MODULE,"test",[]],   [{1,"does not exist"}]},
+           {Format,[FullDev(),"test",[]], [{1,"no space left on device"}]},
+           {Format,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+           {Format,[standard_io,"test"],  [{1,"wrong number of arguments"},
+                                           {general,"possibly missing argument list"}]},
+           {Format,[UnknownDev(),"test",[]], [{general,"unknown error: 'Спутник-1'"}]},
+
+           %% Test a latin1 device
+           {Format,[Latin1Dev(), "~ts", [<<"Спутник-1"/utf8>>]],[{1,"transcode"}]},
+           {Format,["~ts", [<<"Спутник-1"/utf8>>]],[{gl,Latin1Dev()},{general,"transcode"}]},
+
+           %% The format error is reported differently
+           %% depending on the current group_leader.
+           %% The different group leaders we test are:
+           %%  * file_io_server
+           %%  * standard_error
+           %%  * test_server_gl
+           %%  * user
+           %%  * application_master
+           %%  * ssh_cli (TODO)
+           %%  * eunit (TODO)
+           %%  * group (TODO)
+           [ [{Format,[Device(),make_ref(),[]],    [{2,"format string"}]},
+              {Format,[Device(),"~p",make_ref()],  [{3, "not a list"}]},
+              {Format,[make_ref(),[]],[{gl,Device()},{1,"format string"}]},
+              {Format,["~p",make_ref()],[{gl,Device()},{2, "not a list"}]}]
+             || Device <- [UserDev, FileDev, TestServerDev, StandardError,
+                           GroupDev, ApplicationMasterDev]],
+
+           %% Test number of arguments
+           {Format,["~p",["Sputnik-1","Laika"]],[{1,"wrong number of arguments"}]},
+           {Format,[standard_io, "~p",["Sputnik-1","Laika"]],[{2,"wrong number of arguments"}]},
+
+           %% Test different formatting strings
+           {Format,["~B",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,[standard_io, "~B",["Sputnik-1"]],[{3,"1 must be of type integer"}]},
+           {Format,["~b",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,["~*b",["Sputnik-1",16]],[{2,"1 must be of type integer"}]},
+           {Format,["~*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~1.*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~*.*f",[a,b,c]],[{2,"1 must be of type integer\\n.*"
+                                       "2 must be of type integer\\n.*"
+                                       "3 must be of type float"}]},
+           {Format,["~s",["Спутник-1"]],[{1,"failed to format string"}]},
+           {Format,["~s",[1]],[{2,"1 must be of type string"}]},
+           {Format,["~s~s",[a,1]],[{2,"2 must be of type string"}]},
+           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]}] || Format <- [format,fwrite]]
+
+        ],
+
+    error_info_lib:test_error_info(io, lists:flatten(L), [allow_nyi]).
+
+dummy_full_device() ->
+    dummy_device(enospc).
+dummy_unknown_error_device() ->
+    dummy_device('Спутник-1').
+
+dummy_device(Error) ->
+    spawn_link(
+      fun() ->
+              receive
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, _Chars}} ->
+                      From ! {io_reply, ReplyAs, {error, Error}};
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, M, F, As}} ->
+                      try apply(M, F, As) of
+                          _ ->
+                              From ! {io_reply, ReplyAs, {error, Error}}
+                      catch _:_ ->
+                              From ! {io_reply, ReplyAs, {error, format}}
+                      end
+              end
+      end).
+
+%% GH-5053. 'chars_limit' bug.
+otp_17525(_Config) ->
+    L = [{xxxxxxxxx,aaaa},
+         {yyyyyyyyyyyy,1},
+         {eeeeeeeeeeeee,bbbb},
+         {ddddddddd,1111111111},
+         {gggggggggggggggggggg,cccc},
+         {uuuuuuuuuuuu,11}],
+    S = io_lib:format("aaaaaaaaaaaaaaaaaa ~p bbbbbbbbbbb ~p",
+                      ["cccccccccccccccccccccccccccccccccccccc", L],
+                      [{chars_limit, 155}]),
+    "aaaaaaaaaaaaaaaaaa \"cccccccccccccccccccccccccccccccccccccc\" bbbbbbbbbbb [{xxxxxxxxx,\n"
+    "                                                                          aaaa},\n"
+    "                                                                         {yyyyyyyyyyyy,\n"
+    "                                                                          1},\n"
+    "                                                                         {eeeeeeeeeeeee,\n"
+    "                                                                          bbbb},\n"
+    "                                                                         {ddddddddd,\n"
+    "                                                                          1111111111},\n"
+    "                                                                         {...}|...]" =
+    lists:flatten(S),
+    ok.
+
+unscan_format_without_maps_order(_Config) ->
+    FormatSpec = #{
+        adjust => right,
+        args => [[<<"1">>]],
+        control_char => 115,
+        encoding => unicode,
+        pad_char => 32,
+        precision => none,
+        strings => true,
+        width => none
+    },
+    {"~ts",[[<<"1">>]]} = io_lib:unscan_format([FormatSpec]).
+
+build_text_without_maps_order(_Config) ->
+    FormatSpec = #{
+        adjust => right,
+        args => [[<<"1">>]],
+        control_char => 115,
+        encoding => unicode,
+        pad_char => 32,
+        precision => none,
+        strings => true,
+        width => none
+    },
+    [["1"]] = io_lib:build_text([FormatSpec]).

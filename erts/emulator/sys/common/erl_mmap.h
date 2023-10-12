@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2013-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,12 @@
 #include "sys.h"
 #include "erl_printf.h"
 
-#define ERTS_MMAP_SUPERALIGNED_BITS (18)
+#if defined(ARCH_64)
+#  define ERTS_MMAP_SUPERALIGNED_BITS (14)
+#else
+#  define ERTS_MMAP_SUPERALIGNED_BITS (18)
 /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
+#endif
 
 #ifndef HAVE_MMAP
 #  define HAVE_MMAP 0
@@ -49,7 +53,8 @@
  * See the following message on how MAP_NORESERVE was treated on FreeBSD:
  * <http://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20150202/122958.html>
  */
-#  if defined(MAP_FIXED) && (defined(MAP_NORESERVE) || defined(__FreeBSD__))
+#  if (defined(MAP_FIXED) && (defined(MAP_NORESERVE) || defined(__FreeBSD__)) \
+       && !defined(ADDRESS_SANITIZER))
 #    define ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION 1
 #  endif
 #endif
@@ -175,5 +180,69 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 #endif
 
 #endif /* HAVE_ERTS_MMAP */
+
+/* Marks the given memory region as permanently inaccessible.
+ *
+ * Returns 0 on success, and -1 on error. */
+int erts_mem_guard(void *p, UWord size);
+
+/* Marks the given memory region as unused without freeing it, letting the OS
+ * reclaim its physical memory with the promise that we'll get it back (without
+ * its contents) the next time it's accessed. */
+ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#ifdef VALGRIND
+    #include <valgrind/memcheck.h>
+
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        VALGRIND_MAKE_MEM_UNDEFINED(ptr, size);
+    }
+#elif defined(DEBUG)
+    /* Try to provoke crashes by filling the discard region with garbage. It's
+     * extremely hard to find bugs where we've discarded too much, as the
+     * region often retains its old contents if it's accessed before the OS
+     * reclaims it. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        static const char pattern[] = "DISCARDED";
+        char *data;
+        int i;
+
+        for(i = 0, data = ptr; i < size; i++) {
+            data[i] = pattern[i % sizeof(pattern)];
+        }
+    }
+#elif defined(HAVE_SYS_MMAN_H) && defined(HAVE_MADVISE) && !(defined(__sun) || defined(__sun__))
+    #include <sys/mman.h>
+
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        /* Note that we don't fall back to MADV_DONTNEED since it promises that
+         * the given region will be zeroed on access, which turned out to be
+         * too much of a performance hit. */
+    #ifdef MADV_FREE
+        madvise(ptr, size, MADV_FREE);
+    #else
+        (void)ptr;
+        (void)size;
+    #endif
+    }
+#elif defined(_WIN32)
+    #include <winbase.h>
+
+    /* MEM_RESET is defined on all supported versions of Windows, and has the
+     * same semantics as MADV_FREE. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        VirtualAlloc(ptr, size, MEM_RESET, PAGE_READWRITE);
+    }
+#else
+    /* Dummy implementation. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        (void)ptr;
+        (void)size;
+    }
+#endif
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* ERL_MMAP_H__ */

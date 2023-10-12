@@ -1,0 +1,200 @@
+
+  [;1m-spec erlang:decode_packet(Type, Bin, Options) ->[0m
+  [;1m                              {ok, Packet, Rest} |[0m
+  [;1m                              {more, Length} |[0m
+  [;1m                              {error, Reason}[0m
+  [;1m                              when[0m
+  [;1m                                  Type ::[0m
+  [;1m                                      raw | 0 | 1 | 2 | 4 | asn1 | cdr |[0m
+  [;1m                                      sunrm | fcgi | tpkt | line |[0m
+  [;1m                                      http | http_bin | httph |[0m
+  [;1m                                      httph_bin,[0m
+  [;1m                                  Bin :: binary(),[0m
+  [;1m                                  Options :: [Opt],[0m
+  [;1m                                  Opt ::[0m
+  [;1m                                      {packet_size, non_neg_integer()} |[0m
+  [;1m                                      {line_length, non_neg_integer()},[0m
+  [;1m                                  Packet :: binary() | HttpPacket,[0m
+  [;1m                                  Rest :: binary(),[0m
+  [;1m                                  Length ::[0m
+  [;1m                                      non_neg_integer() | undefined,[0m
+  [;1m                                  Reason :: term(),[0m
+  [;1m                                  HttpPacket ::[0m
+  [;1m                                      HttpRequest | HttpResponse |[0m
+  [;1m                                      HttpHeader | http_eoh | HttpError,[0m
+  [;1m                                  HttpRequest ::[0m
+  [;1m                                      {http_request, HttpMethod,[0m
+  [;1m                                       HttpUri, HttpVersion},[0m
+  [;1m                                  HttpResponse ::[0m
+  [;1m                                      {http_response, HttpVersion,[0m
+  [;1m                                       integer(),[0m
+  [;1m                                       HttpString},[0m
+  [;1m                                  HttpHeader ::[0m
+  [;1m                                      {http_header,[0m
+  [;1m                                       integer(),[0m
+  [;1m                                       HttpField,[0m
+  [;1m                                       UnmodifiedField :: HttpString,[0m
+  [;1m                                       Value :: HttpString},[0m
+  [;1m                                  HttpError :: {http_error, HttpString},[0m
+  [;1m                                  HttpMethod ::[0m
+  [;1m                                      'OPTIONS' | 'GET' | 'HEAD' |[0m
+  [;1m                                      'POST' | 'PUT' | 'DELETE' |[0m
+  [;1m                                      'TRACE' | HttpString,[0m
+  [;1m                                  HttpUri ::[0m
+  [;1m                                      '*' |[0m
+  [;1m                                      {absoluteURI,[0m
+  [;1m                                       http | https,[0m
+  [;1m                                       Host :: HttpString,[0m
+  [;1m                                       Port ::[0m
+  [;1m                                           inet:port_number() |[0m
+  [;1m                                           undefined,[0m
+  [;1m                                       Path :: HttpString} |[0m
+  [;1m                                      {scheme,[0m
+  [;1m                                       Scheme :: HttpString,[0m
+  [;1m                                       HttpString} |[0m
+  [;1m                                      {abs_path, HttpString} |[0m
+  [;1m                                      HttpString,[0m
+  [;1m                                  HttpVersion ::[0m
+  [;1m                                      {Major :: non_neg_integer(),[0m
+  [;1m                                       Minor :: non_neg_integer()},[0m
+  [;1m                                  HttpField ::[0m
+  [;1m                                      'Cache-Control' | 'Connection' |[0m
+  [;1m                                      'Date' | 'Pragma' |[0m
+  [;1m                                      'Transfer-Encoding' | 'Upgrade' |[0m
+  [;1m                                      'Via' | 'Accept' |[0m
+  [;1m                                      'Accept-Charset' |[0m
+  [;1m                                      'Accept-Encoding' |[0m
+  [;1m                                      'Accept-Language' |[0m
+  [;1m                                      'Authorization' | 'From' |[0m
+  [;1m                                      'Host' | 'If-Modified-Since' |[0m
+  [;1m                                      'If-Match' | 'If-None-Match' |[0m
+  [;1m                                      'If-Range' |[0m
+  [;1m                                      'If-Unmodified-Since' |[0m
+  [;1m                                      'Max-Forwards' |[0m
+  [;1m                                      'Proxy-Authorization' | 'Range' |[0m
+  [;1m                                      'Referer' | 'User-Agent' | 'Age' |[0m
+  [;1m                                      'Location' |[0m
+  [;1m                                      'Proxy-Authenticate' | 'Public' |[0m
+  [;1m                                      'Retry-After' | 'Server' |[0m
+  [;1m                                      'Vary' | 'Warning' |[0m
+  [;1m                                      'Www-Authenticate' | 'Allow' |[0m
+  [;1m                                      'Content-Base' |[0m
+  [;1m                                      'Content-Encoding' |[0m
+  [;1m                                      'Content-Language' |[0m
+  [;1m                                      'Content-Length' |[0m
+  [;1m                                      'Content-Location' |[0m
+  [;1m                                      'Content-Md5' | 'Content-Range' |[0m
+  [;1m                                      'Content-Type' | 'Etag' |[0m
+  [;1m                                      'Expires' | 'Last-Modified' |[0m
+  [;1m                                      'Accept-Ranges' | 'Set-Cookie' |[0m
+  [;1m                                      'Set-Cookie2' |[0m
+  [;1m                                      'X-Forwarded-For' | 'Cookie' |[0m
+  [;1m                                      'Keep-Alive' |[0m
+  [;1m                                      'Proxy-Connection' | HttpString,[0m
+  [;1m                                  HttpString :: string() | binary().[0m
+
+  Decodes the binary [;;4mBin[0m according to the packet protocol
+  specified by [;;4mType[0m. Similar to the packet handling done by
+  sockets with option [;;4m{packet,Type}.[0m
+
+  If an entire packet is contained in [;;4mBin[0m, it is returned together
+  with the remainder of the binary as [;;4m{ok,Packet,Rest}[0m.
+
+  If [;;4mBin[0m does not contain the entire packet, [;;4m{more,Length}[0m is
+  returned. [;;4mLength[0m is either the expected total size of the
+  packet, or [;;4mundefined[0m if the expected packet size is unknown. [;;4m[0m
+  [;;4mdecode_packet[0m can then be called again with more data added.
+
+  If the packet does not conform to the protocol format, [;;4m[0m
+  [;;4m{error,Reason}[0m is returned.
+
+  [;;4mType[0ms:
+
+  [;;4m[;;4mraw | 0[0m[0m:
+    No packet handling is done. The entire binary is returned
+    unless it is empty.
+
+  [;;4m[;;4m1 | 2 | 4[0m[0m:
+    Packets consist of a header specifying the number of bytes in
+    the packet, followed by that number of bytes. The length of
+    the header can be one, two, or four bytes; the order of the
+    bytes is big-endian. The header is stripped off when the
+    packet is returned.
+
+  [;;4m[;;4mline[0m[0m:
+    A packet is a line-terminated by a delimiter byte, default is
+    the latin-1 newline character. The delimiter byte is included
+    in the returned packet unless the line was truncated according
+    to option [;;4mline_length[0m.
+
+  [;;4m[;;4masn1 | cdr | sunrm | fcgi | tpkt[0m[0m:
+    The header is not stripped off.
+
+    The meanings of the packet types are as follows:
+
+    [;;4m[;;4masn1[0m - ASN.1 BER[0m:
+    
+
+    [;;4m[;;4msunrm[0m - Sun's RPC encoding[0m:
+    
+
+    [;;4m[;;4mcdr[0m - CORBA (GIOP 1.1)[0m:
+    
+
+    [;;4m[;;4mfcgi[0m - Fast CGI[0m:
+    
+
+    [;;4m[;;4mtpkt[0m - TPKT format [RFC1006][0m:
+    
+
+  [;;4m[;;4mhttp | httph | http_bin | httph_bin[0m[0m:
+    The Hypertext Transfer Protocol. The packets are returned with
+    the format according to [;;4mHttpPacket[0m described earlier. A
+    packet is either a request, a response, a header, or an end of
+    header mark. Invalid lines are returned as [;;4mHttpError[0m.
+
+    Recognized request methods and header fields are returned as
+    atoms. Others are returned as strings. Strings of unrecognized
+    header fields are formatted with only capital letters first
+    and after hyphen characters, for example, [;;4m"Sec-Websocket-Key"[0m.
+    Header field names are also returned in [;;4mUnmodifiedField[0m as
+    strings, without any conversion or formatting.
+
+    The protocol type [;;4mhttp[0m is only to be used for the first line
+    when an [;;4mHttpRequest[0m or an [;;4mHttpResponse[0m is expected. The
+    following calls are to use [;;4mhttph[0m to get [;;4mHttpHeader[0ms until [;;4m[0m
+    [;;4mhttp_eoh[0m is returned, which marks the end of the headers and
+    the beginning of any following message body.
+
+    The variants [;;4mhttp_bin[0m and [;;4mhttph_bin[0m return strings ([;;4m[0m
+    [;;4mHttpString[0m) as binaries instead of lists.
+
+    Since OTP 26.0, [;;4mHost[0m may be an IPv6 address enclosed in [;;4m[][0m,
+    as defined in RFC2732 .
+
+  Options:
+
+  [;;4m[;;4m{packet_size, integer() >= 0}[0m[0m:
+    Sets the maximum allowed size of the packet body. If the
+    packet header indicates that the length of the packet is
+    longer than the maximum allowed length, the packet is
+    considered invalid. Defaults to 0, which means no size limit.
+
+  [;;4m[;;4m{line_length, integer() >= 0}[0m[0m:
+    For packet type [;;4mline[0m, lines longer than the indicated length
+    are truncated.
+
+    Option [;;4mline_length[0m also applies to [;;4mhttp*[0m packet types as
+    an alias for option [;;4mpacket_size[0m if [;;4mpacket_size[0m itself is
+    not set. This use is only intended for backward compatibility.
+
+  [;;4m[;;4m{line_delimiter, 0 =< byte() =< 255}[0m[0m:
+    For packet type [;;4mline[0m, sets the delimiting byte. Default is
+    the latin-1 character [;;4m$\n[0m.
+
+  Examples:
+
+    > erlang:decode_packet(1,<<3,"abcd">>,[]).
+    {ok,<<"abc">>,<<"d">>}
+    > erlang:decode_packet(1,<<5,"abcd">>,[]).
+    {more,6}

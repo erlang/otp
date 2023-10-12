@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2018</year>
+      <year>2009</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,513 @@
   </header>
   <p>This document describes the changes made to the wxErlang
     application.</p>
+
+<section><title>Wx 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>wx</c> application would fail to build on macOS
+	    with Xcode 15.</p>
+          <p>
+	    Own Id: OTP-18768 Aux Id: PR-7670 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+	    <p> The implementation has been fixed to use
+	    <c>proc_lib:init_fail/2,3</c> where appropriate, instead
+	    of <c>proc_lib:init_ack/1,2</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve debug prints from the nifs. Some minor fixes for
+	    wxWidgets-3.2. Fixed OpenGL debug functions.</p>
+          <p>
+	    Own Id: OTP-18512</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added environment variable <c>WX_MACOS_NON_GUI_APP</c> to
+	    allow user to override <c>OSXIsGUIApplication</c>
+	    behavior.</p>
+          <p>
+	    Own Id: OTP-18213 Aux Id: PR-6113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Added <c>aux1Down</c> and <c>aux2Down</c> fields to the
+	    <c>wxMouseState</c> record. Since one record have been
+	    changed a recompilation of user code might be required.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17950</p>
+        </item>
+        <item>
+          <p>
+	    Add mac specific menubar functions.</p>
+          <p>
+	    Own Id: OTP-18008 Aux Id: PR-5816 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build failure with wxWidgets-3.1.6.</p>
+          <p>
+	    Own Id: OTP-18064 Aux Id: GH-5893 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enable the possibility to build wx on windows with
+	    wxWidgets-3.1.6.</p>
+          <p>
+	    Own Id: OTP-18061 Aux Id: GH-5883 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in callback handling which could lead to a
+	    unresponsive gui.</p>
+          <p>
+	    Own Id: OTP-17982 Aux Id: GH-5758 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed the <c>static_data</c> option from
+	    <c>wxImage</c> creation functions, as it was broken and
+	    could lead to crashes. Now image data is always copied to
+	    wxWidgets as was the default behavior. </p> <p> Removed
+	    some non working <c>wxGridEvent</c> event types, which
+	    have there own events in newer <c>wxWidgets</c> versions,
+	    and added a couple of event types that where missing in
+	    <c>wx</c>. </p>
+          <p>
+	    Own Id: OTP-17947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix crash in cleanup code when a gui application is
+	    exiting. </p> <p> Fix errors in the OpenGL wrapper that
+	    could cause crashes and improve the documentation. </p>
+          <p>
+	    Own Id: OTP-17745</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash when closing an application.</p>
+          <p>
+	    Own Id: OTP-17507</p>
+        </item>
+        <item>
+          <p>
+	    Some functions with overloaded color arguments could not
+	    be used. For example the copy constructor
+	    <c>wxTextAttr:new(TextAttr)</c> did not work.</p>
+          <p>
+	    Own Id: OTP-17577 Aux Id: GH-4999 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added the Microsoft Edge WebView loader dll to the
+	    installer on windows.</p>
+          <p>
+	    Own Id: OTP-17325</p>
+        </item>
+        <item>
+          <p>
+	    Handle specific Mac gui application events.</p>
+          <p>
+	    Own Id: OTP-17438 Aux Id: PR-4780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build problems when wxWidgets are built with
+	    -enable-std.</p>
+          <p>
+	    Own Id: OTP-17407 Aux Id: GH-4834 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings produced by the clang compiler.</p>
+          <p>
+	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The application has been completely rewritten in order
+	    to use wxWidgets version 3 as its base.</p> <p>Add basic
+	    documentation generated from the wxWidgets project.</p>
+          <p>
+	    Own Id: OTP-16800</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    Added support for wxWebView.</p>
+          <p>
+	    Own Id: OTP-17213 Aux Id: PR-3027 </p>
+        </item>
+        <item>
+	    <p>Due to the support of the new backend versions some
+	    API incompatibilities have been introduced. Examples of
+	    changes are:<br/> <br/> wxWindowDC default creators have
+	    been removed <br/> wxClientDC default creators have been
+	    removed <br/> wxPaintDC default creators have been
+	    removed <br/> wxWindow:setVirtualSizeHints() has been
+	    deprecated in wxWidgets and removed <br/>
+	    wxWindow:makeModal() has been deprecated in wxWidgets and
+	    removed <br/> wxToolBar:add/insertTool without label have
+	    been deprecated in wxWidgets and removed <br/>
+	    wxStyledTextCtrl some functions have changed arguments
+	    from boolean to int <br/> wxSizerItem:new() Some
+	    arguments have become options <br/> Removed deprecated
+	    wxSizerItem:setWindow() use assignWindow() <br/> Removed
+	    deprecated wxSizerItem:setSpacer() use assignSpacer()
+	    <br/> Removed deprecated wxSizerItem:setSpacer() use
+	    assignSpacer() <br/> Removed deprecated
+	    wxSizerItem:setSizer() use assignSizer() <br/> wxMenu
+	    append/insert/prepend have changed return value and lost
+	    IsCheckable argument <br/> wxListCtrl:setItem/4 changed
+	    return value <br/> wxImage:convertToGreyscale() options
+	    have changed <br/> wxGridSizer:wxGridSizer() options have
+	    changed <br/> wxGrid API have many changes <br/>
+	    wxGraphicsRenderer:create*GradientBrush() uses
+	    GradientStops now <br/> wxGraphicsRenderer:createPen()
+	    have been removed <br/>
+	    wxGraphicsRenderer:create*GradientBrush() uses
+	    GradientStops now <br/> wxGLCanvas API is incompatible
+	    <br/> wxFlexGridSizer:wxFlexGridSizer() options have
+	    changed <br/> wxDisplay:new() options have changed <br/>
+	    wxCalendarDateAttr:new(ColText [,OptList]) have been
+	    removed <br/> wxBitmapButton:set/getBitmapSelected() have
+	    been removed </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17219 Aux Id: OTP-16800 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx initialization on mac, top level menus did not
+	    always work on newer MacOS versions. The menus will not
+	    work until wxWidgets-3.1.5 is released and used on these
+	    MacOS versions.</p>
+          <p>
+	    Own Id: OTP-17187</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add popup menu callback to <c>wxTaskBarIcon:new/1</c>.</p>
+          <p>
+	    Own Id: OTP-16983 Aux Id: PR-2743 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix various compiler warnings on 64-bit Windows.</p>
+          <p>
+	    Own Id: OTP-15800</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added <c>wxWindow:isShownOnScreen/1</c>,
+	    <c>wxMouseEvent:getWheelAxis</c> and mac specific menubar
+	    functions. Fixed defines that have changed in newer
+	    wxWidgets versions, that caused some literals to become
+	    run-time dependent on wxWidgets version.</p>
+          <p>
+	    Own Id: OTP-16285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a driver bug that could crashes when allocating
+	    memory.</p>
+          <p>
+	    Own Id: OTP-15883 Aux Id: PR-2261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved support for wxWidgets 3.1.3 which have changed
+	    <c>wxFONTWEIGTH</c>, also added <c>wxGCDC</c> and
+	    <c>wxDisplay</c> modules.</p>
+          <p>
+	    Fixed a crash on Mojave and check for events more often.</p>
+          <p>
+	    Own Id: OTP-15587</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed delayed delete bug which caused wx applications to
+	    crash on Mojave.</p>
+          <p>
+	    Own Id: OTP-15426 Aux Id: ERL-755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Wx 1.8.5</title>
 
@@ -657,7 +1164,7 @@
         <item>
           <p>
 	    Wx on MacOS X generated complains on stderr about certain
-	    cocoa functions not beeing called from the "Main thread".
+	    cocoa functions not being called from the "Main thread".
 	    This is now corrected.</p>
           <p>
 	    Own Id: OTP-9081</p>
@@ -835,7 +1342,7 @@
       <list>
         <item>
             <p>wxHtmlWindow class implemented.</p> <p>All exceptions
-            from callbacks are now catched and written to the
+            from callbacks are now caught and written to the
             log.</p> <p>Some defines where wrong in 'wx.hrl'.</p>
             <p><c>wx:batch/1</c> and friends could hang forever if
             for instance a breakpoint was set inside the fun. That
@@ -926,4 +1433,3 @@
 </section>
 
 </chapter>
-

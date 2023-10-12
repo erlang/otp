@@ -1,0 +1,53 @@
+
+  [;1m-spec spawn_request_abandon(ReqId :: reference()) -> boolean().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  Abandon a previously issued spawn request. [;;4mReqId[0m corresponds to
+  a request identifier previously returned by [;;4mspawn_request()[0m in a
+  call from current process. That is, only the process that has made
+  the request can abandon the request.
+
+  A spawn request can only be successfully abandoned until the spawn
+  request has completed. When a spawn request has been successfully
+  abandoned, the caller will not be effected by future direct
+  effects of the spawn request itself. For example, it will not
+  receive a spawn reply message. The request is however not
+  withdrawn, so a new process may or may not be created due to the
+  request. If a new process is created after the spawn request was
+  abandoned, no monitors nor links will be set up to the caller of [;;4m[0m
+  [;;4mspawn_request_abandon/1[0m due to the spawn request. If the spawn
+  request included the [;;4mlink[0m option, the process created due to
+  this request will be sent an exit signal from its parent with the
+  exit reason [;;4mabandoned[0m when it is detected that the spawn
+  operation has succeeded.
+
+  Note:
+    A process created due to a spawn request that has been
+    abandoned may communicate with its parent as any other
+    process. It is only the direct effects on the parent of the
+    actual spawn request, that will be canceled by abandoning a
+    spawn request.
+
+  Return values:
+
+  [;;4m[;;4mtrue[0m[0m:
+    The spawn request was successfully abandoned.
+
+  [;;4m[;;4mfalse[0m[0m:
+    No spawn request was abandoned. The [;;4mReqId[0m request identifier
+    did not correspond to an outstanding spawn request issued by
+    the calling process. The reason for this is either:
+
+     • [;;4mReqId[0m corresponds to a spawn request previoulsy made by
+       the calling process. The spawn operation has completed
+       and a spawn reply has already been delivered to the
+       calling process unless the spawn reply was disabled in
+       the request.
+
+     • [;;4mReqId[0m does not correspond to a spawn request that has
+       been made by the calling process.
+
+  This function fail with a [;;4mbadarg[0m exception if [;;4mReqId[0m is not a
+  reference.

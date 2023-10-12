@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL-alert protocol
+%% Purpose: Record and constant definitions for the SSL-alert protocol
 %% see RFC 2246
 %%----------------------------------------------------------------------
 
 -ifndef(ssl_alert).
 -define(ssl_alert, true).
+%%-define(ssl_debug, true).
+-include_lib("kernel/include/logger.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Alert protocol - RFC 2246 section 7.2
@@ -83,7 +85,7 @@
 -define(BAD_RECORD_MAC, 20).
 -define(DECRYPTION_FAILED_RESERVED, 21).
 -define(RECORD_OVERFLOW, 22).
--define(DECOMPRESSION_FAILURE, 30).
+%%-define(DECOMPRESSION_FAILURE, 30).  NOT USED
 -define(HANDSHAKE_FAILURE, 40).
 -define(NO_CERTIFICATE_RESERVED, 41).
 -define(BAD_CERTIFICATE, 42).
@@ -106,15 +108,21 @@
 -define(MISSING_EXTENSION, 109).
 -define(UNSUPPORTED_EXTENSION, 110).
 -define(CERTIFICATE_UNOBTAINABLE, 111).
--define(UNRECOGNISED_NAME, 112).
+-define(UNRECOGNIZED_NAME, 112).
 -define(BAD_CERTIFICATE_STATUS_RESPONSE, 113).
 -define(BAD_CERTIFICATE_HASH_VALUE, 114).
 -define(UNKNOWN_PSK_IDENTITY, 115).
 -define(CERTIFICATE_REQUIRED, 116).
 -define(NO_APPLICATION_PROTOCOL, 120).
 
--define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
--define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where={?FILE, ?LINE},reason=Reason}).
+-ifdef(ssl_debug).
+-define(ST_LOCATION, fun(Map) -> Map#{st => process_info(self(), current_stacktrace)} end (?LOCATION)).
+-else.
+-define(ST_LOCATION, ?LOCATION).
+-endif.
+
+-define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where= ?ST_LOCATION}).
+-define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where=?ST_LOCATION,reason=Reason}).
 
 -define(MAX_ALERTS, 10).
 
@@ -122,7 +130,7 @@
 -record(alert, {
 	  level,
 	  description,
-          where = {?FILE, ?LINE},
+          where,
           role,
           reason
 	 }).

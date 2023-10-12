@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,17 @@
 %%
 -module(snmpa_discovery_handler).
 
--export([behaviour_info/1, verify/1]).
+-export([verify/1]).
 
-behaviour_info(callbacks) ->
-    [{stage1_finish, 3}];
-behaviour_info(_) ->
-    undefined.
-
+-callback stage1_finish(TargetName, ManagerEngineID, ExtraInfo) ->
+    ignore |
+    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()]} |
+    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()], NewExtraInfo} when
+      TargetName      :: string(),
+      ManagerEngineID :: string(),
+      ExtraInfo       :: term(),
+      NewExtraInfo    :: term().
+      
 verify(Mod) ->
     snmp_misc:verify_behaviour(?MODULE, Mod).
+

@@ -1,0 +1,171 @@
+
+  [;1m-spec term_to_binary(Term) -> ext_binary() when Term :: term().[0m
+
+  Returns a binary data object that is the result of encoding [;;4mTerm[0m
+  according to the Erlang external term format.
+
+  This can be used for various purposes, for example, writing a term
+  to a file in an efficient way, or sending an Erlang term to some
+  type of communications channel not supported by distributed
+  Erlang.
+
+    > Bin = term_to_binary(hello).
+    <<131,100,0,5,104,101,108,108,111>>
+    > hello = binary_to_term(Bin).
+    hello
+
+  See also [;;4mbinary_to_term/1[0m.
+
+  Note:
+    There is no guarantee that this function will return the same
+    encoded representation for the same term.
+
+  [;1m-spec term_to_binary(Term, Options) -> ext_binary()[0m
+  [;1m                        when[0m
+  [;1m                            Term :: term(),[0m
+  [;1m                            Options ::[0m
+  [;1m                                [compressed |[0m
+  [;1m                                 {compressed, Level :: 0..9} |[0m
+  [;1m                                 deterministic |[0m
+  [;1m                                 {minor_version, Version :: 0..2} |[0m
+  [;1m                                 local].[0m
+
+  Returns a binary data object that is the result of encoding [;;4mTerm[0m
+  according to the Erlang external term format.
+
+  Currently supported options:
+
+  [;;4m[;;4mcompressed[0m[0m:
+    Compress the external term format. The compressed format is
+    automatically recognized by [;;4mbinary_to_term/1[0m as from
+    Erlang/OTP R7B.
+
+  [;;4m[;;4m{compressed, Level}[0m[0m:
+    Compress the external term format to a given level. The
+    compression level is specified by [;;4mLevel[0m which is an integer
+    in the range 0..9, where:
+
+    [;;4m[;;4m0[0m[0m:
+      No compression is done (it is the same as giving no [;;4m[0m
+      [;;4mcompressed[0m option).
+
+    [;;4m[;;4m1[0m[0m:
+      Takes least time but may not compress as well as the
+      higher levels.
+
+    [;;4m[;;4m6[0m[0m:
+      Default level when option [;;4mcompressed[0m is provided.
+
+    [;;4m[;;4m9[0m[0m:
+      Takes most time and tries to produce a smaller result.
+      Notice "tries" in the preceding sentence; depending on the
+      input term, level 9 compression either does or does not
+      produce a smaller result than level 1 compression.
+
+  [;;4m[;;4m{minor_version, Version}[0m[0m:     (since R11B-4)
+    The option can be used to control some encoding details. Valid
+    values for [;;4mVersion[0m are:
+
+    [;;4m[;;4m0[0m[0m:
+      Floats are encoded using a textual representation.
+
+      Atoms that can be represented by a latin1 string are
+      encoded using latin1 while only atoms that cannot be
+      represented by latin1 are encoded using utf8.
+
+    [;;4m[;;4m1[0m[0m:
+      Floats are encoded in a more space-efficient and exact way
+      (namely in the 64-bit IEEE format, rather than converted
+      to a textual representation). As from Erlang/OTP R11B-4, [;;4m[0m
+      [;;4mbinary_to_term/1[0m can decode this representation.
+
+      Atoms that can be represented by a latin1 string are
+      encoded using latin1 while only atoms that cannot be
+      represented by latin1 are encoded using utf8.
+
+    [;;4m[;;4m2[0m[0m:
+      This is as of Erlang/OTP 26.0 the default. Atoms are
+      unconditionally encoded using utf8. Erlang/OTP systems as
+      of R16B can decode this representation.
+
+  [;;4m[;;4mdeterministic[0m[0m:     (since OTP 24.1)
+    This option can be used to ensure that, within the same major
+    release of Erlang/OTP, the same encoded representation is
+    returned for the same term. There is still no guarantee that
+    the encoded representation remains the same between major
+    releases of Erlang/OTP.
+
+    This option cannot be combined with the [;;4mlocal[0m option.
+
+  [;;4m[;;4mlocal[0m[0m:     (since OTP 26.0)
+    This option will cause encoding of [;;4mTerm[0m to an alternative
+    local version of the external term format which when decoded
+    by the same runtime system instance will produce a term
+    identical to the encoded term even when the node name and/or 
+    creation of the current runtime system instance have changed
+    between encoding and decoding. When encoding without the [;;4m[0m
+    [;;4mlocal[0m option, local identifiers such as pids, ports and 
+    references will not be the same if node name and/or creation
+    of the current runtime system instance changed between
+    encoding and decoding. This since such identifiers refer to a
+    specific node by node name and creation.
+
+    Node name and creation of a runtime system instance change
+    when the distribution is started or stopped. The distribution
+    is started when the runtime system is started using the [;;4m-name[0m
+    or [;;4m-sname[0m command line arguments. Note that the actual start
+    of the distribution happens after other code in the startup
+    phase has begun executing. The distribution can also be
+    started by calling [;;4mnet_kernel:start/2[0m and stopped by calling [;;4m[0m
+    [;;4mnet_kernel:stop/1[0m if it has not been started via the command
+    line.
+
+    The decoding of a term encoded with the [;;4mlocal[0m option, using
+    for example [;;4mbinary_to_term()[0m, will try to verify that the
+    term actually was encoded by the same runtime system instance,
+    and will in the vast majority of cases fail if the encoding
+    was performed by another runtime system instance. You should
+    however not trust that this verification will work in all
+    cases. You should make sure to only decode terms encoded
+    with the [;;4mlocal[0m option on the same Erlang runtime system
+    instance as the one that encoded the terms.
+
+    Since it is only the runtime system that encoded a term using
+    the [;;4mlocal[0m option that can decode it, the local encoding is
+    typically pieced together with something else to produce a
+    reply to where the [;;4mlocal[0m encoding originates from. If a term
+    encoded using the [;;4mlocal[0m option is stripped of its leading
+    version number, it can be added as part of a larger term (for
+    example as an element in a tuple) when encoding on the
+    external term format using, for example, ei. In the [;;4mei[0m
+    case, you would strip it of the version number using [;;4m[0m
+    [;;4mei_decode_version()[0m and then add the remaining local encoding
+    to what you are encoding using for example [;;4mei_x_append_buf()[0m.
+
+    A good example of when you want to use the [;;4mlocal[0m option, is
+    when you want to make a request from a process to a port 
+    driver and utilize the selective receive optimization when
+    receiving the reply. In this scenario you want to create a
+    reference, serialize the reference on the external term format
+    using the [;;4mlocal[0m option, pass this to the driver in the
+    request, and then wait for the reply message in a selective
+    receive matching on the reference. The driver should send the
+    reply using either [;;4merl_drv_output_term()[0m or [;;4m[0m
+    [;;4merl_drv_send_term()[0m using the term type [;;4mERL_DRV_EXT2TERM[0m
+    for the, in the request, previously received reference on the
+    external term format. Note that you should not strip the
+    leading version number from the local encoding when using the
+    term type [;;4mERL_DRV_EXT2TERM[0m of this functionality. If you in
+    this example do not encode the reference using the [;;4mlocal[0m
+    option, and the distribution is started or stopped while the
+    request is ongoing, the process that made the request will
+    hang indefinitely since the reference in the reply message
+    will never match.
+
+    This option cannot be combined with the [;;4mdeterministic[0m
+    option.
+
+    For more information see the [;;4mLOCAL_EXT[0m tag in the
+    documentation of the external term format.
+
+  See also [;;4mbinary_to_term/1[0m.

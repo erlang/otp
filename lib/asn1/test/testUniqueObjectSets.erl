@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ types() ->
      {"SET OF SEQUENCE {x INTEGER (0..7)}",[{'_',7},{'_',0}]}
     ].
 
+main(_,jer,_) -> ok;
 main(CaseDir, Rule, Opts) ->
     D0 = types(),
     {D1,_} = lists:mapfoldl(fun({T,S}, I) ->

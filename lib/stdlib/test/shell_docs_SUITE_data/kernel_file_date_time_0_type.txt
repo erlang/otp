@@ -1,0 +1,4 @@
+
+  [;1m-type date_time() :: calendar:datetime().[0m
+
+  Must denote a valid date and time.

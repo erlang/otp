@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
  * erl_log:
  *
  * Provides a simple debug log for the Erlang emulator.
- * It simples echoes its standard intput to the console.
+ * It simples echoes its standard input to the console.
  *
  * Author:  Bjorn Gustavsson
  * Created: 1996-12-06
@@ -57,7 +57,7 @@ main()
 
 static void print_last_error(char* message)
 {
-    LPTSTR* lpBufPtr;
+    LPTSTR lpBufPtr;
 
     FormatMessage(
 		  FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,

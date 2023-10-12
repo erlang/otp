@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ key_to_oid(Tab, Key, [{key, Types}]) ->
 key_to_oid_i(Key, integer) when is_integer(Key) -> [Key];
 key_to_oid_i(Key, fix_string) when is_list(Key) -> Key;
 key_to_oid_i(Key, string) when is_list(Key) -> [length(Key) | Key];
-key_to_oid_i(Key, Types) -> keys_to_oid(size(Key), Key, [], Types).
+key_to_oid_i(Key, Types) when is_tuple(Key) -> keys_to_oid(tuple_size(Key), Key, [], Types).
 
 keys_to_oid(0, _Key, Oid, _Types) -> Oid;
 keys_to_oid(N, Key, Oid, Types) ->
@@ -134,7 +134,7 @@ keys_to_oid(N, Key, Oid, Types) ->
 %%--------------------------------------------------
 %% The reverse of the above, i.e. snmp oid to mnesia key.
 %% This can be lookup up in tree but that might be on a remote node.
-%% It's probably faster to look it up, but use when it migth be remote 
+%% It's probably faster to look it up, but use when it might be remote 
 oid_to_key(Oid, Tab) ->
     [{key, Types}] = mnesia_lib:val({Tab,snmp}),
     oid_to_key_1(Types, Oid). 
@@ -144,7 +144,7 @@ oid_to_key_1(fix_string, Key) -> Key;
 oid_to_key_1(string, [_|Key]) -> Key;
 oid_to_key_1(Tuple, Oid) ->
     try 
-	List = oid_to_key_2(1, size(Tuple), Tuple, Oid),
+	List = oid_to_key_2(1, tuple_size(Tuple), Tuple, Oid),
 	list_to_tuple(List)
     catch 
 	_:_ -> unknown
@@ -208,7 +208,7 @@ get_next_index(Name, RowIndex) ->
 %% Purpose: Get the mnesia key corresponding to the RowIndex.
 %% Args: Name is the name of the table (atom)
 %%       RowIndex is an Oid
-%% Returns: {ok, Key} | undefiend
+%% Returns: {ok, Key} | undefined
 %%-----------------------------------------------------------------
 get_mnesia_key(Name, RowIndex) ->
     Tree = mnesia_lib:val({Name, {index, snmp}}),

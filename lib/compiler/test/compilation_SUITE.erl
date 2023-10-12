@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,8 @@
 	 string_table/1,
 	 vsn_1/1,
 	 vsn_2/1,
-	 vsn_3/1]).
+         vsn_3/1,
+         infinite_loop/0,infinite_loop/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -84,7 +85,8 @@ groups() ->
        opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_7202,on_load,on_load_inline,
-       string_table,otp_8949_a,split_cases]}].
+       string_table,otp_8949_a,split_cases,
+       infinite_loop]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -136,6 +138,9 @@ end_per_group(_GroupName, Config) ->
 ?comp(on_load).
 ?comp(on_load_inline).
 
+infinite_loop() -> [{timetrap,{minutes,1}}].
+?comp(infinite_loop).
+
 %% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
     done = empty(2, false).
@@ -171,9 +176,9 @@ try_it(Module, Conf) ->
     Out = proplists:get_value(priv_dir,Conf),
     io:format("Compiling: ~s\n", [Src]),
     CompRc0 = compile:file(Src, [clint0,clint,ssalint,{outdir,Out},report,
-				 bin_opt_info|OtherOpts]),
+				 bin_opt_info,recv_opt_info|OtherOpts]),
     io:format("Result: ~p\n",[CompRc0]),
-    {ok,_Mod} = CompRc0,
+    {ok,Mod} = CompRc0,
 
     load_and_call(Out, Module),
 
@@ -184,16 +189,16 @@ try_it(Module, Conf) ->
 			    {outdir,Out},report|OtherOpts]),
 
     io:format("Result: ~p\n",[CompRc1]),
-    {ok,_Mod} = CompRc1,
+    {ok,Mod} = CompRc1,
     load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
     io:format("Compiling (with old inliner): ~s\n", [Src]),
     CompRc2 = compile:file(Src, [clint,ssalint,
 				 {outdir,Out},report,bin_opt_info,
-				 {inline,1000}|OtherOpts]),
+				 recv_opt_info,{inline,1000}|OtherOpts]),
     io:format("Result: ~p\n",[CompRc2]),
-    {ok,_Mod} = CompRc2,
+    {ok,Mod} = CompRc2,
     load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
@@ -357,6 +362,7 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
     Opts = [report,
 	    clint0,clint,ssalint,
 	    bin_opt_info,
+            recv_opt_info,
 	    {outdir,OutDir},
 	    {d,'COMPILER_VSN',"\""++Version++"\""},
 	    nowarn_shadow_vars,
@@ -396,7 +402,7 @@ string_table(Config) when is_list(Config) ->
     File = filename:join(DataDir, "string_table.erl"),
     {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
     {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    {"StrT", <<"stringtable">>} = StringTableChunk,
+    {"StrT", <<"abcdefghiABCDEFGHI">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->

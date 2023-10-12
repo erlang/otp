@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ verbose(Format, Args, File, Line) ->
     end.
 
 error(Format, Args, File, Line) ->
-    global:send(wx_global_logger, {failed, File, Line}),
+    catch global:send(wx_global_logger, {failed, File, Line}),
     Fail = {filename:basename(File),Line,Args},
     case global:whereis_name(wx_test_case_sup) of
 	undefined -> ignore;

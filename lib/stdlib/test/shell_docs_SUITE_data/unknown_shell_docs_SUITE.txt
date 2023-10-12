@@ -1,0 +1,4 @@
+
+[;1m	shell_docs_SUITE[0m
+
+  There is no documentation for shell_docs_SUITE

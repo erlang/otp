@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,10 +20,13 @@
 -module(shell).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
--export([whereis_evaluator/0, whereis_evaluator/1]).
+-export([get_state/0, get_function/2]).
 -export([start_restricted/1, stop_restricted/0]).
--export([local_allowed/3, non_local_allowed/3]).
+-export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
 -export([catch_exception/1, prompt_func/1, strings/1]).
+-export([start_interactive/0, start_interactive/1]).
+-export([read_and_add_records/5]).
+-export([whereis/0]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -36,7 +39,11 @@
 -define(RECORDS, shell_records).
 
 -define(MAXSIZE_HEAPBINARY, 64).
-
+-record(shell_state,{
+                     bindings = [],
+                     records = [],
+                     functions = []
+                    }).
 %% When used as the fallback restricted shell callback module...
 local_allowed(q,[],State) ->
     {true,State};
@@ -47,6 +54,24 @@ non_local_allowed({init,stop},[],State) ->
     {true,State};
 non_local_allowed(_,_,State) ->
     {false,State}.
+
+-spec start_interactive() -> ok | {error, already_started}.
+start_interactive() ->
+    user_drv:start_shell().
+-spec start_interactive(noshell | {module(), atom(), [term()]}) ->
+          ok | {error, already_started};
+                       ({remote, string()}) ->
+          ok | {error, already_started | noconnection};
+                       ({node(), {module(), atom(), [term()]}} | {remote, string(), {module(), atom(), [term()]}}) ->
+          ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
+start_interactive({Node, {M, F, A}}) ->
+    user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(InitialShell) ->
+    user_drv:start_shell(#{ initial_shell => InitialShell }).
+
+-spec whereis() -> pid() | undefined.
+whereis() ->
+    group:whereis_shell().
 
 -spec start() -> pid().
 
@@ -60,62 +85,16 @@ start(NoCtrlG) ->
 
 start(NoCtrlG, StartSync) ->
     _ = code:ensure_loaded(user_default),
-    spawn(fun() -> server(NoCtrlG, StartSync) end).
+    Ancestors = [self() | case get('$ancestors') of
+                              undefined -> [];
+                              Anc -> Anc
+                          end],
+    spawn(fun() ->
+                  put('$ancestors', Ancestors),
+                  server(NoCtrlG, StartSync)
+          end).
 
-%% Find the pid of the current evaluator process.
--spec whereis_evaluator() -> 'undefined' | pid().
-
-whereis_evaluator() ->
-    %% locate top group leader, always registered as user
-    %% can be implemented by group (normally) or user 
-    %% (if oldshell or noshell)
-    case whereis(user) of
-	undefined ->
-	    undefined;
-	User ->
-	    %% get user_drv pid from group, or shell pid from user
-	    case group:interfaces(User) of
-		[] ->				% old- or noshell
-		    case user:interfaces(User) of
-			[] ->
-			    undefined;
-			[{shell,Shell}] ->
-			    whereis_evaluator(Shell)
-		    end;
-		[{user_drv,UserDrv}] ->
-		    %% get current group pid from user_drv
-		    case user_drv:interfaces(UserDrv) of
-			[] ->
-			    undefined;
-			[{current_group,Group}] ->
-			    %% get shell pid from group
-			    GrIfs = group:interfaces(Group),
-			    case lists:keyfind(shell, 1, GrIfs) of
-				{shell, Shell} ->
-				    whereis_evaluator(Shell);
-				false ->
-				    undefined
-			    end
-		    end
-	    end
-    end.
-
--spec whereis_evaluator(pid()) -> 'undefined' | pid().
-
-whereis_evaluator(Shell) ->
-    case process_info(Shell, dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keyfind(evaluator, 1, Dict) of
-		{_, Eval} when is_pid(Eval) ->
-		    Eval;
-		_ ->
-		    undefined
-	    end;
-	_ ->
-	    undefined
-    end.
-
-%% Call this function to start a user restricted shell 
+%% Call this function to start a user restricted shell
 %% from a normal shell session.
 -spec start_restricted(Module) -> {'error', Reason} when
       Module :: module(),
@@ -123,16 +102,16 @@ whereis_evaluator(Shell) ->
 
 start_restricted(RShMod) when is_atom(RShMod) ->
     case code:ensure_loaded(RShMod) of
-	{module,RShMod} -> 
-	    application:set_env(stdlib, restricted_shell, RShMod),
+        {module,RShMod} ->
+            application:set_env(stdlib, restricted_shell, RShMod),
             exit(restricted_shell_started);
-	{error,What} = Error ->
-	    error_logger:error_report(
-	      lists:flatten(
-		io_lib:fwrite(
-		  "Restricted shell module ~w not found: ~tp\n",
-		  [RShMod,What]))),
-	    Error
+        {error,What} = Error ->
+            error_logger:error_report(
+              lists:flatten(
+                io_lib:fwrite(
+                  "Restricted shell module ~w not found: ~tp\n",
+                  [RShMod,What]))),
+            Error
     end.
 
 -spec stop_restricted() -> no_return().
@@ -152,27 +131,27 @@ server(NoCtrlG, StartSync) ->
 %%% We subscribe with init to get a notification of when.
 
 %%% In older releases we didn't syncronize the shell with init, but let it
-%%% start in parallell with other system processes. This was bad since 
+%%% start in parallell with other system processes. This was bad since
 %%% accessing the shell too early could interfere with the boot procedure.
 %%% Still, by means of a flag, we make it possible to start the shell the
-%%% old way (for backwards compatibility reasons). This should however not 
+%%% old way (for backwards compatibility reasons). This should however not
 %%% be used unless for very special reasons necessary.
 
 -spec server(boolean()) -> 'terminated'.
 
 server(StartSync) ->
     case init:get_argument(async_shell_start) of
-	{ok,_} -> 
-	    ok;					% no sync with init
-	_ when not StartSync ->
-	    ok;
-	_ ->
-	    case init:notify_when_started(self()) of
-		started ->
-		    ok;
-		_ ->
-		    init:wait_until_started()
-	    end
+        {ok,_} ->
+            ok;                                 % no sync with init
+        _ when not StartSync ->
+            ok;
+        _ ->
+            case init:notify_when_started(self()) of
+                started ->
+                    ok;
+                _ ->
+                    init:wait_until_started()
+            end
     end,
     %% Our spawner has fixed the process groups.
     Bs = erl_eval:new_bindings(),
@@ -183,57 +162,71 @@ server(StartSync) ->
     RT = ets:new(?RECORDS, [public,ordered_set]),
     _ = initiate_records(Bs, RT),
     process_flag(trap_exit, true),
+    %% Store function definitions and types in an ets table.
+    FT = ets:new(user_functions, [public,ordered_set]),
 
     %% Check if we're in user restricted mode.
-    RShErr = 
-	case application:get_env(stdlib, restricted_shell) of
-	    {ok,RShMod} when is_atom(RShMod) ->
-		io:fwrite(<<"Restricted ">>, []),
-		case code:ensure_loaded(RShMod) of
-		    {module,RShMod} -> 
-			undefined;
-		    {error,What} ->
-			{RShMod,What}
-		end;
+    RShErr =
+        case application:get_env(stdlib, restricted_shell) of
+            {ok,RShMod} when is_atom(RShMod) ->
+                io:fwrite(<<"Restricted ">>, []),
+                case code:ensure_loaded(RShMod) of
+                    {module,RShMod} ->
+                        undefined;
+                    {error,What} ->
+                        {RShMod,What}
+                end;
             {ok, Term} ->
                 {Term,not_an_atom};
-	    undefined ->
-		undefined
-	end,
+            undefined ->
+                undefined
+        end,
 
-    case get(no_control_g) of
-	true ->
-	    io:fwrite(<<"Eshell V~s\n">>, [erlang:system_info(version)]);
-	_undefined_or_false ->
-	    io:fwrite(<<"Eshell V~s  (abort with ^G)\n">>,
-		      [erlang:system_info(version)])
+    JCL =
+        case get(no_control_g) of
+            true -> " (type help(). for help)";
+            _ -> " (press Ctrl+G to abort, type help(). for help)"
+        end,
+    DefaultSessionSlogan =
+        io_lib:format(<<"Eshell V~s">>, [erlang:system_info(version)]),
+    SessionSlogan =
+        case application:get_env(stdlib, shell_session_slogan, DefaultSessionSlogan) of
+            SloganFun when is_function(SloganFun, 0) ->
+                SloganFun();
+            Slogan ->
+                Slogan
+        end,
+    try
+        io:fwrite("~ts~ts\n",[unicode:characters_to_list(SessionSlogan),JCL])
+    catch _:_ ->
+            io:fwrite("Warning! The slogan \"~p\" could not be printed.\n",[SessionSlogan])
     end,
     erase(no_control_g),
 
     case RShErr of
-	undefined -> 
+        undefined ->
             ok;
-	{RShMod2,What2} -> 
+        {RShMod2,What2} ->
             io:fwrite(
-              ("Warning! Restricted shell module ~w not found: ~tp.\n"
-               "Only the commands q() and init:stop() will be allowed!\n"),
+                ("Warning! Restricted shell module ~w not found: ~tp.\n"
+                 "Only the commands q() and init:stop() will be allowed!\n"),
               [RShMod2,What2]),
             application:set_env(stdlib, restricted_shell, ?MODULE)
     end,
 
     {History,Results} = check_and_get_history_and_results(),
-    server_loop(0, start_eval(Bs, RT, []), Bs, RT, [], History, Results).
+    server_loop(0, start_eval(Bs, RT, FT, []), Bs, RT, FT, [], History, Results).
 
-server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
+server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
     N = N0 + 1,
-    {Eval_1,Bs0,Ds0,Prompt} = prompt(N, Eval_0, Bs00, RT, Ds00),
-    {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
-    case Res of 
-	{ok,Es0,XBs} ->
-            Es1 = erl_eval:subst_values_for_vars(Es0, XBs),
-            case expand_hist(Es1, N) of
+    {Eval_1,Bs0,Ds0,Prompt} = prompt(N, Eval_0, Bs00, RT, FT, Ds00),
+    {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, FT, Ds0),
+
+    case Res of
+        {ok,Es0} ->
+            case expand_hist(Es0, N) of
                 {ok,Es} ->
-                    {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
+                    {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, FT, Ds0, cmd),
                     {History,Results} = check_and_get_history_and_results(),
                     add_cmd(N, Es, V),
                     HB1 = del_cmd(command, N - History, N - History0, false),
@@ -244,43 +237,88 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
                     if
                         HB ->
                             garb(self());
+                        Results < Results0 ->
+                            garb(self());
                         true ->
                             ok
                     end,
-                    server_loop(N, Eval, Bs, RT, Ds, History, Results);
+                    server_loop(N, Eval, Bs, RT, FT, Ds, History, Results);
                 {error,E} ->
                     fwrite_severity(benign, <<"~ts">>, [E]),
-                    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0)
+                    server_loop(N0, Eval0, Bs0, RT, FT, Ds0, History0, Results0)
             end;
-	{error,{Line,Mod,What}} ->
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, Mod:format_error(What)]),
-	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
-	{error,terminated} ->			%Io process terminated
-	    exit(Eval0, kill),
-	    terminated;
-	{error,interrupted} ->			%Io process interrupted us
-	    exit(Eval0, kill),
-	    {_,Eval,_,_} = shell_rep(Eval0, Bs0, RT, Ds0),
-	    server_loop(N0, Eval, Bs0, RT, Ds0, History0, Results0);
-	{error,tokens} ->			%Most probably character > 255
-            fwrite_severity(benign, <<"~w: Invalid tokens.">>, 
+        {error,{Location,Mod,What}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), Mod:format_error(What)]),
+            server_loop(N0, Eval0, Bs0, RT, FT, Ds0, History0, Results0);
+        {error,terminated} ->                   %Io process terminated
+            exit(Eval0, kill),
+            terminated;
+        {error,interrupted} ->                  %Io process interrupted us
+            exit(Eval0, kill),
+            {_,Eval,_,_} = shell_rep(Eval0, Bs0, RT, FT, Ds0),
+            server_loop(N0, Eval, Bs0, RT, FT, Ds0, History0, Results0);
+        {error,tokens} ->                       %Most probably character > 255
+            fwrite_severity(benign, <<"~w: Invalid tokens.">>,
                             [N]),
-	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
-	eof ->
+            server_loop(N0, Eval0, Bs0, RT, FT, Ds0, History0, Results0);
+        eof ->
             fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
-	    halt()
+            halt()
     end.
 
-get_command(Prompt, Eval, Bs, RT, Ds) ->
+get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
+    Ancestors = [self() | get('$ancestors')],
+    ResWordFun = fun erl_scan:reserved_word/1,
     Parse =
         fun() ->
+                put('$ancestors', Ancestors),
                 exit(
                   case
-                      io:scan_erl_exprs(group_leader(), Prompt, 1, [text])
+                      io:scan_erl_exprs(group_leader(), Prompt, {1,1},
+                                        [text,{reserved_word_fun,ResWordFun}])
                   of
                       {ok,Toks,_EndPos} ->
-                          erl_eval:extended_parse_exprs(Toks);
+                          %% NOTE: we can handle function definitions, records and soon type declarations
+                          %% but this cannot be handled by the function which only expects erl_parse:abstract_expressions()
+                          %% for now just pattern match against those types and pass the string to shell local func.
+                          case Toks of
+                              [{'-', _}, {atom, _, Atom}|_] ->
+                                  SpecialCase = fun(LocalFunc) ->
+                                                        FakeLine = begin
+                                                                       case erl_parse:parse_form(Toks) of
+                                                                           {ok, Def} -> lists:flatten(erl_pp:form(Def));
+                                                                           E ->
+                                                                            exit(E)
+                                                                       end
+                                                                   end,
+                                                        {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
+                                                                                           [], atom_to_list(LocalFunc) ++ "(\""++FakeLine++"\").\n",
+                                                                                           {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
+                                                        erl_eval:extended_parse_exprs(FakeResult)
+                                                end,
+                                  case Atom of
+                                      record -> SpecialCase(rd);
+                                      spec -> SpecialCase(ft);
+                                      type -> SpecialCase(td)
+                                  end;
+                              [{atom, _, FunName}, {'(', _}|_] ->
+                                  case erl_parse:parse_form(Toks) of
+                                      {ok, FunDef} ->
+                                          case {edlin_expand:shell_default_or_bif(atom_to_list(FunName)), shell:local_func(FunName)} of
+                                              {"user_defined", false} ->
+                                                  FakeLine =reconstruct(FunDef, FunName),
+                                                  {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
+                                                                                     [], "fd("++ atom_to_list(FunName) ++ ", " ++ FakeLine ++ ").\n",
+                                                                                     {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
+                                                  erl_eval:extended_parse_exprs(FakeResult);
+                                              _ -> erl_eval:extended_parse_exprs(Toks)
+                                          end;
+                                      _ -> erl_eval:extended_parse_exprs(Toks)
+                                  end;
+                              _ ->
+                                  erl_eval:extended_parse_exprs(Toks)
+                          end;
                       {eof,_EndPos} ->
                           eof;
                       {error,ErrorInfo,_EndPos} ->
@@ -295,30 +333,62 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
                       Else ->
                           Else
                   end
-                )
+                 )
         end,
     Pid = spawn_link(Parse),
-    get_command1(Pid, Eval, Bs, RT, Ds).
+    get_command1(Pid, Eval, Bs, RT, FT, Ds).
 
-get_command1(Pid, Eval, Bs, RT, Ds) ->
+reconstruct(Fun, Name) ->
+    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name))).
+reconstruct1({function, Anno, Name, Arity, Clauses}, Name) ->
+    {named_fun, Anno, 'RecursiveFuncVar', reconstruct1(Clauses, Name, Arity)}.
+reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) when length(Args) =:= Arity ->
+    [{call, Anno, {var, Anno1, 'RecursiveFuncVar'}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
+reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) -> % arity not the same
+    [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Name}}, reconstruct1(Args, Name, Arity)}|
+     reconstruct1(Body, Name, Arity)];
+reconstruct1([{call, Anno, {atom, Anno1, Fun}, Args}|Body], Name, Arity) -> % Name not the same
+    case {edlin_expand:shell_default_or_bif(atom_to_list(Fun)), shell:local_func(Fun)} of
+        {"user_defined", false} ->
+            [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}|
+             reconstruct1(Body, Name, Arity)];
+        {"shell_default", false} ->
+            [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
+        {"erlang", false} ->
+            [{call, Anno, {remote, Anno1, {atom, Anno1, erlang}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
+        {_, true} ->
+            [{call, Anno, {atom, Anno1, Fun}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)]
+    end;
+reconstruct1([E|Body], Name, Arity) when is_tuple(E) ->
+    [list_to_tuple(reconstruct1(tuple_to_list(E), Name, Arity))|reconstruct1(Body, Name, Arity)];
+reconstruct1([E|Body], Name, Arity) when is_list(E) ->
+    [reconstruct1(E, Name, Arity)|reconstruct1(Body, Name, Arity)];
+reconstruct1([E|Body], Name, Arity) ->
+    [E|reconstruct1(Body, Name, Arity)];
+reconstruct1([], _, _) -> [].
+
+get_command1(Pid, Eval, Bs, RT, FT, Ds) ->
     receive
-	{'EXIT', Pid, Res} ->
-	    {Res, Eval};
-	{'EXIT', Eval, {Reason,Stacktrace}} ->
+        {shell_state, From} ->
+            From ! {shell_state, Bs, RT, FT},
+            get_command1(Pid, Eval, Bs, RT, FT, Ds);
+        {'EXIT', Pid, Res} ->
+            {Res, Eval};
+        {'EXIT', Eval, {Reason,Stacktrace}} ->
             report_exception(error, {Reason,Stacktrace}, RT),
-	    get_command1(Pid, start_eval(Bs, RT, Ds), Bs, RT, Ds);
-	{'EXIT', Eval, Reason} ->
+            get_command1(Pid, start_eval(Bs, RT, FT, Ds), Bs, RT, FT, Ds);
+        {'EXIT', Eval, Reason} ->
             report_exception(error, {Reason,[]}, RT),
-	    get_command1(Pid, start_eval(Bs, RT, Ds), Bs, RT, Ds)
+            get_command1(Pid, start_eval(Bs, RT, FT, Ds), Bs, RT, FT, Ds)
     end.
 
-prompt(N, Eval0, Bs0, RT, Ds0) ->
+prompt(N, Eval0, Bs0, RT, FT, Ds0) ->
     case get_prompt_func() of
         {M,F} ->
-            L = [{history,N}],
             A = erl_anno:new(1),
-            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[{value,A,L}]},
-            {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, Ds0, pmt),
+            L = {cons,A,{tuple,A,[{atom,A,history},{integer,A,N}]},{nil,A}},
+            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[L]},
+            {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, FT, Ds0, pmt),
             {Eval,Bs,Ds,case V of
                             {pmt,Val} ->
                                 Val;
@@ -331,15 +401,13 @@ prompt(N, Eval0, Bs0, RT, Ds0) ->
     end.
 
 get_prompt_func() ->
-    case application:get_env(stdlib, shell_prompt_func) of
-        {ok,{M,F}=PromptFunc} when is_atom(M), is_atom(F) ->
+    case application:get_env(stdlib, shell_prompt_func, default) of
+        {M,F}=PromptFunc when is_atom(M), is_atom(F) ->
             PromptFunc;
-        {ok,default=Default} ->
+        default=Default ->
             Default;
-        {ok,Term} ->
+        Term ->
             bad_prompt_func(Term),
-            default;
-        undefined ->
             default
     end.
 
@@ -350,8 +418,8 @@ default_prompt(N) ->
     %% Don't bother flattening the list irrespective of what the
     %% I/O-protocol states.
     case is_alive() of
-	true  -> io_lib:format(<<"(~s)~w> ">>, [node(), N]);
-	false -> io_lib:format(<<"~w> ">>, [N])
+        true  -> io_lib:format(<<"(~s)~w> ">>, [node(), N]);
+        false -> io_lib:format(<<"~w> ">>, [N])
     end.
 
 %% expand_hist(Expressions, CommandNumber)
@@ -366,107 +434,108 @@ expand_exprs([E|Es], C) ->
 expand_exprs([], _C) ->
     [].
 
-expand_expr({cons,L,H,T}, C) ->
-    {cons,L,expand_expr(H, C),expand_expr(T, C)};
-expand_expr({lc,L,E,Qs}, C) ->
-    {lc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({bc,L,E,Qs}, C) ->
-    {bc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({tuple,L,Elts}, C) ->
-    {tuple,L,expand_exprs(Elts, C)};
-expand_expr({map,L,Es}, C) ->
-    {map,L,expand_exprs(Es, C)};
-expand_expr({map,L,Arg,Es}, C) ->
-    {map,L,expand_expr(Arg, C),expand_exprs(Es, C)};
-expand_expr({map_field_assoc,L,K,V}, C) ->
-    {map_field_assoc,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({map_field_exact,L,K,V}, C) ->
-    {map_field_exact,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({record_index,L,Name,F}, C) ->
-    {record_index,L,Name,expand_expr(F, C)};
-expand_expr({record,L,Name,Is}, C) ->
-    {record,L,Name,expand_fields(Is, C)};
-expand_expr({record_field,L,R,Name,F}, C) ->
-    {record_field,L,expand_expr(R, C),Name,expand_expr(F, C)};
-expand_expr({record,L,R,Name,Ups}, C) ->
-    {record,L,expand_expr(R, C),Name,expand_fields(Ups, C)};
-expand_expr({record_field,L,R,F}, C) ->		%This is really illegal!
-    {record_field,L,expand_expr(R, C),expand_expr(F, C)};
-expand_expr({block,L,Es}, C) ->
-    {block,L,expand_exprs(Es, C)};
-expand_expr({'if',L,Cs}, C) ->
-    {'if',L,expand_cs(Cs, C)};
-expand_expr({'case',L,E,Cs}, C) ->
-    {'case',L,expand_expr(E, C),expand_cs(Cs, C)};
-expand_expr({'try',L,Es,Scs,Ccs,As}, C) ->
-    {'try',L,expand_exprs(Es, C),expand_cs(Scs, C),
+expand_expr({cons,A,H,T}, C) ->
+    {cons,A,expand_expr(H, C),expand_expr(T, C)};
+expand_expr({lc,A,E,Qs}, C) ->
+    {lc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({bc,A,E,Qs}, C) ->
+    {bc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({tuple,A,Elts}, C) ->
+    {tuple,A,expand_exprs(Elts, C)};
+expand_expr({map,A,Es}, C) ->
+    {map,A,expand_exprs(Es, C)};
+expand_expr({map,A,Arg,Es}, C) ->
+    {map,A,expand_expr(Arg, C),expand_exprs(Es, C)};
+expand_expr({map_field_assoc,A,K,V}, C) ->
+    {map_field_assoc,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({map_field_exact,A,K,V}, C) ->
+    {map_field_exact,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({record_index,A,Name,F}, C) ->
+    {record_index,A,Name,expand_expr(F, C)};
+expand_expr({record,A,Name,Is}, C) ->
+    {record,A,Name,expand_fields(Is, C)};
+expand_expr({record_field,A,R,Name,F}, C) ->
+    {record_field,A,expand_expr(R, C),Name,expand_expr(F, C)};
+expand_expr({record,A,R,Name,Ups}, C) ->
+    {record,A,expand_expr(R, C),Name,expand_fields(Ups, C)};
+expand_expr({record_field,A,R,F}, C) ->         %This is really illegal!
+    {record_field,A,expand_expr(R, C),expand_expr(F, C)};
+expand_expr({block,A,Es}, C) ->
+    {block,A,expand_exprs(Es, C)};
+expand_expr({'if',A,Cs}, C) ->
+    {'if',A,expand_cs(Cs, C)};
+expand_expr({'case',A,E,Cs}, C) ->
+    {'case',A,expand_expr(E, C),expand_cs(Cs, C)};
+expand_expr({'try',A,Es,Scs,Ccs,As}, C) ->
+    {'try',A,expand_exprs(Es, C),expand_cs(Scs, C),
      expand_cs(Ccs, C),expand_exprs(As, C)};
-expand_expr({'receive',L,Cs}, C) ->
-    {'receive',L,expand_cs(Cs, C)};
-expand_expr({'receive',L,Cs,To,ToEs}, C) ->
-    {'receive',L,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
-expand_expr({call,L,{atom,_,e},[N]}, C) ->
+expand_expr({'receive',A,Cs}, C) ->
+    {'receive',A,expand_cs(Cs, C)};
+expand_expr({'receive',A,Cs,To,ToEs}, C) ->
+    {'receive',A,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
+expand_expr({call,A,{atom,_,e},[N]}, C) ->
     case get_cmd(N, C) of
         {undefined,_,_} ->
-	    no_command(N);
-	{[Ce],_V,_CommandN} ->
-	    Ce;
-	{Ces,_V,_CommandN} when is_list(Ces) ->
-	    {block,L,Ces}
+            no_command(N);
+        {[Ce],_V,_CommandN} ->
+            Ce;
+        {Ces,_V,_CommandN} when is_list(Ces) ->
+            {block,A,Ces}
     end;
-expand_expr({call,_L,{atom,_,v},[N]}, C) ->
+expand_expr({call,CA,{atom,VA,v},[N]}, C) ->
     case get_cmd(N, C) of
-        {_,undefined,_} ->
-	    no_command(N);
-	{Ces,V,CommandN} when is_list(Ces) ->
-            {value,erl_anno:new(CommandN),V}
+        {undefined,_,_} ->
+            no_command(N);
+        {Ces,_V,CommandN} when is_list(Ces) ->
+            {call,CA,{atom,VA,v},[{integer,VA,CommandN}]}
     end;
-expand_expr({call,L,F,Args}, C) ->
-    {call,L,expand_expr(F, C),expand_exprs(Args, C)};
-expand_expr({'catch',L,E}, C) ->
-    {'catch',L,expand_expr(E, C)};
-expand_expr({match,L,Lhs,Rhs}, C) ->
-    {match,L,Lhs,expand_expr(Rhs, C)};
-expand_expr({op,L,Op,Arg}, C) ->
-    {op,L,Op,expand_expr(Arg, C)};
-expand_expr({op,L,Op,Larg,Rarg}, C) ->
-    {op,L,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
-expand_expr({remote,L,M,F}, C) ->
-    {remote,L,expand_expr(M, C),expand_expr(F, C)};
-expand_expr({'fun',L,{clauses,Cs}}, C) ->
-    {'fun',L,{clauses,expand_exprs(Cs, C)}};
-expand_expr({named_fun,L,Name,Cs}, C) ->
-    {named_fun,L,Name,expand_exprs(Cs, C)};
-expand_expr({clause,L,H,G,B}, C) ->
+expand_expr({call,A,F,Args}, C) ->
+    {call,A,expand_expr(F, C),expand_exprs(Args, C)};
+expand_expr({'catch',A,E}, C) ->
+    {'catch',A,expand_expr(E, C)};
+expand_expr({match,A,Lhs,Rhs}, C) ->
+    {match,A,Lhs,expand_expr(Rhs, C)};
+expand_expr({op,A,Op,Arg}, C) ->
+    {op,A,Op,expand_expr(Arg, C)};
+expand_expr({op,A,Op,Larg,Rarg}, C) ->
+    {op,A,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
+expand_expr({remote,A,M,F}, C) ->
+    {remote,A,expand_expr(M, C),expand_expr(F, C)};
+expand_expr({'fun',A,{clauses,Cs}}, C) ->
+    {'fun',A,{clauses,expand_exprs(Cs, C)}};
+expand_expr({named_fun,A,Name,Cs}, C) ->
+    {named_fun,A,Name,expand_exprs(Cs, C)};
+expand_expr({clause,A,H,G,B}, C) ->
     %% Could expand H and G, but then erl_eval has to be changed as well.
-    {clause,L,H, G, expand_exprs(B, C)};
-expand_expr({bin,L,Fs}, C) ->
-    {bin,L,expand_bin_elements(Fs, C)};
-expand_expr(E, _C) ->	 % Constants.
+    {clause,A,H, G, expand_exprs(B, C)};
+expand_expr({bin,A,Fs}, C) ->
+    {bin,A,expand_bin_elements(Fs, C)};
+                                                %expand_expr({'-'})
+expand_expr(E, _C) ->    % Constants.
     E.
 
-expand_cs([{clause,L,P,G,B}|Cs], C) ->
-    [{clause,L,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
+expand_cs([{clause,A,P,G,B}|Cs], C) ->
+    [{clause,A,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
 expand_cs([], _C) ->
     [].
 
-expand_fields([{record_field,L,F,V}|Fs], C) ->
-    [{record_field,L,expand_expr(F, C),expand_expr(V, C)}|
+expand_fields([{record_field,A,F,V}|Fs], C) ->
+    [{record_field,A,expand_expr(F, C),expand_expr(V, C)}|
      expand_fields(Fs, C)];
 expand_fields([], _C) -> [].
 
-expand_quals([{generate,L,P,E}|Qs], C) ->
-    [{generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
-expand_quals([{b_generate,L,P,E}|Qs], C) ->
-    [{b_generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{generate,A,P,E}|Qs], C) ->
+    [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{b_generate,A,P,E}|Qs], C) ->
+    [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].
 
 expand_bin_elements([], _C) ->
     [];
-expand_bin_elements([{bin_element,L,E,Sz,Ts}|Fs], C) ->
-    [{bin_element,L,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
+expand_bin_elements([{bin_element,A,E,Sz,Ts}|Fs], C) ->
+    [{bin_element,A,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
 
 no_command(N) ->
     throw({error,
@@ -486,9 +555,9 @@ getc(N) ->
 
 get_cmd(Num, C) ->
     case catch erl_eval:expr(Num, erl_eval:new_bindings()) of
-	{value,N,_} when N < 0 -> getc(C+N);
-	{value,N,_} -> getc(N);
-	_Other -> {undefined,undefined,undefined}
+        {value,N,_} when N < 0 -> getc(C+N);
+        {value,N,_} -> getc(N);
+        _Other -> {undefined,undefined,undefined}
     end.
 
 del_cmd(_Type, N, N0, HasBin) when N < N0 ->
@@ -519,58 +588,81 @@ has_bin(T, I) ->
     has_bin(element(I, T)),
     has_bin(T, I - 1).
 
+get_state() ->
+    whereis() ! {shell_state, self()},
+    receive
+        {shell_state, Bs, RT, FT} ->
+            #shell_state{bindings = Bs, records = ets:tab2list(RT), functions = ets:tab2list(FT)}
+    end.
+
+get_function(Func, Arity) ->
+    {shell_state, _Bs, _RT, FT} = get_state(),
+    try
+        {value, {_, Fun}} = lists:keysearch({function, {shell_default,Func,Arity}}, 1, FT),
+        Fun
+    catch _:_ ->
+        undefined
+    end.
+
 %% shell_cmd(Sequence, Evaluator, Bindings, RecordTable, Dictionary, What)
 %% shell_rep(Evaluator, Bindings, RecordTable, Dictionary) ->
-%%	{Value,Evaluator,Bindings,Dictionary}
+%%      {Value,Evaluator,Bindings,Dictionary}
 %%  Send a command to the evaluator and wait for the reply. Start a new
 %%  evaluator if necessary.
 %%  What = pmt | cmd. When evaluating a prompt ('pmt') the evaluated value
 %%  must not be displayed, and it has to be returned.
 
-shell_cmd(Es, Eval, Bs, RT, Ds, W) ->
+shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     Eval ! {shell_cmd,self(),{eval,Es}, W},
-    shell_rep(Eval, Bs, RT, Ds).
+    shell_rep(Eval, Bs, RT, FT, Ds).
 
-shell_rep(Ev, Bs0, RT, Ds0) ->
+shell_rep(Ev, Bs0, RT, FT, Ds0) ->
     receive
-	{shell_rep,Ev,{value,V,Bs,Ds}} ->
-	    {V,Ev,Bs,Ds};
-        {shell_rep,Ev,{command_error,{Line,M,Error}}} -> 
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, M:format_error(Error)]),
+        {shell_rep,Ev,{value,V,Bs,Ds}} ->
+            {V,Ev,Bs,Ds};
+        {shell_rep,Ev,{command_error,{Location,M,Error}}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), M:format_error(Error)]),
             {{'EXIT',Error},Ev,Bs0,Ds0};
-	{shell_req,Ev,get_cmd} ->
-	    Ev ! {shell_rep,self(),get()},
-	    shell_rep(Ev, Bs0, RT, Ds0);
-	{shell_req,Ev,exit} ->
-	    Ev ! {shell_rep,self(),exit},
-	    exit(normal);
-	{shell_req,Ev,{update_dict,Ds}} ->	% Update dictionary
-	    Ev ! {shell_rep,self(),ok},
-	    shell_rep(Ev, Bs0, RT, Ds);
+        {shell_req,Ev,{get_cmd,N}} ->
+            Ev ! {shell_rep,self(),getc(N)},
+            shell_rep(Ev, Bs0, RT, FT, Ds0);
+        {shell_req,Ev,get_cmd} ->
+            Ev ! {shell_rep,self(),get()},
+            shell_rep(Ev, Bs0, RT, FT, Ds0);
+        {shell_req,Ev,exit} ->
+            Ev ! {shell_rep,self(),exit},
+            exit(normal);
+        {shell_req,Ev,{update_dict,Ds}} ->      % Update dictionary
+            Ev ! {shell_rep,self(),ok},
+            shell_rep(Ev, Bs0, RT, FT, Ds);
+        {shell_state, From} ->
+            From ! {shell_state, Bs0, RT, FT},
+            shell_rep(Ev, Bs0, RT, FT, Ds0);
         {ev_exit,{Ev,Class,Reason0}} ->         % It has exited unnaturally
             receive {'EXIT',Ev,normal} -> ok end,
-	    report_exception(Class, Reason0, RT),
+            report_exception(Class, Reason0, RT),
             Reason = nocatch(Class, Reason0),
-	    {{'EXIT',Reason},start_eval(Bs0, RT, Ds0), Bs0, Ds0};
+            {{'EXIT',Reason},start_eval(Bs0, RT, FT, Ds0), Bs0, Ds0};
         {ev_caught,{Ev,Class,Reason0}} ->       % catch_exception is in effect
-	    report_exception(Class, benign, Reason0, RT),
+            report_exception(Class, benign, Reason0, RT),
             Reason = nocatch(Class, Reason0),
             {{'EXIT',Reason},Ev,Bs0,Ds0};
-	{'EXIT',_Id,interrupt} ->		% Someone interrupted us
-	    exit(Ev, kill),
-	    shell_rep(Ev, Bs0, RT, Ds0);
+        {'EXIT',_Id,interrupt} ->               % Someone interrupted us
+            exit(Ev, kill),
+            shell_rep(Ev, Bs0, RT, FT, Ds0);
         {'EXIT',Ev,{Reason,Stacktrace}} ->
             report_exception(exit, {Reason,Stacktrace}, RT),
-	    {{'EXIT',Reason},start_eval(Bs0, RT, Ds0), Bs0, Ds0};
+            {{'EXIT',Reason},start_eval(Bs0, RT, FT, Ds0), Bs0, Ds0};
         {'EXIT',Ev,Reason} ->
             report_exception(exit, {Reason,[]}, RT),
-	    {{'EXIT',Reason},start_eval(Bs0, RT, Ds0), Bs0, Ds0};
-	{'EXIT',_Id,R} ->
-	    exit(Ev, R),
-	    exit(R);
-	_Other ->				% Ignore everything else
-	    shell_rep(Ev, Bs0, RT, Ds0)
+            {{'EXIT',Reason},start_eval(Bs0, RT, FT, Ds0), Bs0, Ds0};
+        {'EXIT',_Id,R} ->
+            exit(Ev, R),
+            exit(R);
+        _Other ->                               % Ignore everything else
+            io:format("Throwing ~p~n", [_Other]),
+            shell_rep(Ev, Bs0, RT, FT, Ds0)
     end.
 
 nocatch(throw, {Term,Stack}) ->
@@ -594,9 +686,13 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
                  {put_chars, unicode, Str},
                  nl]).
 
-start_eval(Bs, RT, Ds) ->
+start_eval(Bs, RT, FT, Ds) ->
     Self = self(),
-    Eval = spawn_link(fun() -> evaluator(Self, Bs, RT, Ds) end),
+    Ancestors = [self() | get('$ancestors')],
+    Eval = spawn_link(fun() ->
+                              put('$ancestors', Ancestors),
+                              evaluator(Self, Bs, RT, FT, Ds)
+                      end),
     put(evaluator, Eval),
     Eval.
 
@@ -604,45 +700,45 @@ start_eval(Bs, RT, Ds) ->
 %%  Evaluate expressions from the shell. Use the "old" variable bindings
 %%  and dictionary.
 
-evaluator(Shell, Bs, RT, Ds) ->
+evaluator(Shell, Bs, RT, FT, Ds) ->
     init_dict(Ds),
     case application:get_env(stdlib, restricted_shell) of
-	undefined ->
-	    eval_loop(Shell, Bs, RT);
-	{ok,RShMod} ->
-	    case get(restricted_shell_state) of
-		undefined -> put(restricted_shell_state, []);
-		_ -> ok
-	    end,
-	    put(restricted_expr_state, []),
-	    restricted_eval_loop(Shell, Bs, RT, RShMod)
+        undefined ->
+            eval_loop(Shell, Bs, RT, FT);
+        {ok,RShMod} ->
+            case get(restricted_shell_state) of
+                undefined -> put(restricted_shell_state, []);
+                _ -> ok
+            end,
+            put(restricted_expr_state, []),
+            restricted_eval_loop(Shell, Bs, RT, FT, RShMod)
     end.
 
-eval_loop(Shell, Bs0, RT) ->
+eval_loop(Shell, Bs0, RT, FT) ->
     receive
-	{shell_cmd,Shell,{eval,Es},W} ->
-            Ef = {value, 
+        {shell_cmd,Shell,{eval,Es},W} ->
+            Ef = {value,
                   fun(MForFun, As) -> apply_fun(MForFun, As, Shell) end},
-            Lf = local_func_handler(Shell, RT, Ef),
+            Lf = local_func_handler(Shell, RT, FT, Ef),
             Bs = eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W),
-	    eval_loop(Shell, Bs, RT)
+            eval_loop(Shell, Bs, RT, FT)
     end.
 
-restricted_eval_loop(Shell, Bs0, RT, RShMod) ->
+restricted_eval_loop(Shell, Bs0, RT, FT, RShMod) ->
     receive
-	{shell_cmd,Shell,{eval,Es}, W} ->
-            {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT),
+        {shell_cmd,Shell,{eval,Es}, W} ->
+            {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT,  FT),
             put(restricted_expr_state, []),
             Bs = eval_exprs(Es, Shell, Bs0, RT, {eval,LFH}, {value,NLFH}, W),
-	    restricted_eval_loop(Shell, Bs, RT, RShMod)
+            restricted_eval_loop(Shell, Bs, RT, FT, RShMod)
     end.
 
 eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W) ->
-    try 
+    try
         {R,Bs2} = exprs(Es, Bs0, RT, Lf, Ef, W),
         Shell ! {shell_rep,self(),R},
         Bs2
-    catch 
+    catch
         exit:normal ->
             exit(normal);
         Class:Reason:Stacktrace ->
@@ -667,8 +763,8 @@ do_catch(exit, restricted_shell_stopped) ->
 do_catch(exit, restricted_shell_started) ->
     false;
 do_catch(_Class, _Reason) ->
-    case application:get_env(stdlib, shell_catch_exception) of
-        {ok, true} ->
+    case application:get_env(stdlib, shell_catch_exception, false) of
+        true ->
             true;
         _ ->
             false
@@ -699,14 +795,14 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
                             W =:= pmt ->
                                 {W,V0};
                             true -> case result_will_be_saved() of
-                                     true -> V0;
-                                     false ->
-                                         erlang:garbage_collect(),
-                                         ignored
-                                 end
+                                        true -> V0;
+                                        false ->
+                                            erlang:garbage_collect(),
+                                            ignored
+                                    end
                         end,
                     {{value,V,Bs,get()},Bs};
-                true -> 
+                true ->
                     exprs(Es, Bs, RT, Lf, Ef, Bs0, W)
             end;
         {error,Error} ->
@@ -729,7 +825,7 @@ used_record_defs(E, RT) ->
     %% Be careful to return a list where used records come before
     %% records that use them. The linter wants them ordered that way.
     UR = case used_records(E, [], RT, []) of
-             [] -> 
+             [] ->
                  [];
              L0 ->
                  L1 = lists:zip(L0, lists:seq(1, length(L0))),
@@ -774,10 +870,10 @@ used_records({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
     {name, Name, A};
 used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
     {name, Name, A};
-used_records({call,Line,{tuple,_,[M,F]},As}) ->
-    used_records({call,Line,{remote,Line,M,F},As});
+used_records({call,A,{tuple,_,[M,F]},As}) ->
+    used_records({call,A,{remote,A,M,F},As});
 used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
-  {name, Name, Fs};
+    {name, Name, Fs};
 used_records(T) when is_tuple(T) ->
     {expr, tuple_to_list(T)};
 used_records(E) ->
@@ -796,63 +892,63 @@ severity_tag(fatal)   -> <<"*** ">>;
 severity_tag(serious) -> <<"** ">>;
 severity_tag(benign)  -> <<"* ">>.
 
-restrict_handlers(RShMod, Shell, RT) ->
-    { fun(F,As,Binds) -> 
-	      local_allowed(F, As, RShMod, Binds, Shell, RT) 
+restrict_handlers(RShMod, Shell, RT, FT) ->
+    { fun(F,As,Binds) ->
+              local_allowed(F, As, RShMod, Binds, Shell, RT, FT)
       end,
-      fun(MF,As) -> 
-	      non_local_allowed(MF, As, RShMod, Shell) 
+      fun(MF,As) ->
+              non_local_allowed(MF, As, RShMod, Shell)
       end }.
 
 -define(BAD_RETURN(M, F, V),
         try erlang:error(reason)
-        catch _:_:S -> erlang:raise(exit, {restricted_shell_bad_return,V}, 
+        catch _:_:S -> erlang:raise(exit, {restricted_shell_bad_return,V},
                                     [{M,F,3} | S])
         end).
 
-local_allowed(F, As, RShMod, Bs, Shell, RT) when is_atom(F) ->
-    {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT),
-    case not_restricted(F, As) of % Not restricted is the same as builtin. 
-				  % variable and record manipulations local 
-	                          % to the shell process. Those are never
-	                          % restricted.
-	true ->
-	    local_func(F, As, Bs, Shell, RT, {eval,LFH}, {value,NLFH});
-	false ->
+local_allowed(F, As, RShMod, Bs, Shell, RT,  FT) when is_atom(F) ->
+    {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT, FT),
+    case not_restricted(F, As) of % Not restricted is the same as builtin.
+                                                % variable and record manipulations local
+                                                % to the shell process. Those are never
+                                                % restricted.
+        true ->
+            local_func(F, As, Bs, Shell, RT, FT, {eval,LFH}, {value,NLFH});
+        false ->
             {AsEv,Bs1} = expr_list(As, Bs, {eval,LFH}, {value,NLFH}),
-	    case RShMod:local_allowed(F, AsEv, {get(restricted_shell_state),
-						get(restricted_expr_state)}) of
-		{Result,{RShShSt,RShExprSt}} ->
-		    put(restricted_shell_state, RShShSt),
-		    put(restricted_expr_state, RShExprSt),
-		    if not Result -> 
-			    shell_req(Shell, {update_dict,get()}),
-			    exit({restricted_shell_disallowed,{F,AsEv}});
-		       true -> % This is never a builtin, 
-                               % those are handled above.
-			    non_builtin_local_func(F,AsEv,Bs1)
-		    end;
-		Unexpected ->  % The user supplied non conforming module
+            case RShMod:local_allowed(F, AsEv, {get(restricted_shell_state),
+                                                get(restricted_expr_state)}) of
+                {Result,{RShShSt,RShExprSt}} ->
+                    put(restricted_shell_state, RShShSt),
+                    put(restricted_expr_state, RShExprSt),
+                    if not Result ->
+                            shell_req(Shell, {update_dict,get()}),
+                            exit({restricted_shell_disallowed,{F,AsEv}});
+                       true -> % This is never a builtin,
+                                                % those are handled above.
+                            non_builtin_local_func(F,AsEv,Bs1, FT)
+                    end;
+                Unexpected ->  % The user supplied non conforming module
                     ?BAD_RETURN(RShMod, local_allowed, Unexpected)
-	    end
+            end
     end.
 
 non_local_allowed(MForFun, As, RShMod, Shell) ->
     case RShMod:non_local_allowed(MForFun, As, {get(restricted_shell_state),
-						get(restricted_expr_state)}) of
-	{Result,{RShShSt,RShExprSt}} ->
-	    put(restricted_shell_state, RShShSt),
-	    put(restricted_expr_state, RShExprSt),
-            case Result of 
-                false -> 
-		    shell_req(Shell, {update_dict,get()}),
-		    exit({restricted_shell_disallowed,{MForFun,As}});
+                                                get(restricted_expr_state)}) of
+        {Result,{RShShSt,RShExprSt}} ->
+            put(restricted_shell_state, RShShSt),
+            put(restricted_expr_state, RShExprSt),
+            case Result of
+                false ->
+                    shell_req(Shell, {update_dict,get()}),
+                    exit({restricted_shell_disallowed,{MForFun,As}});
                 {redirect, NewMForFun, NewAs} ->
                     apply_fun(NewMForFun, NewAs, Shell);
-                _ -> 
-		    apply_fun(MForFun, As, Shell)
-	    end;
-	Unexpected ->  % The user supplied non conforming module
+                _ ->
+                    apply_fun(MForFun, As, Shell)
+            end;
+        Unexpected ->  % The user supplied non conforming module
             ?BAD_RETURN(RShMod, non_local_allowed, Unexpected)
     end.
 
@@ -874,6 +970,16 @@ not_restricted(results, [_]) ->
 not_restricted(catch_exception, [_]) ->
     true;
 not_restricted(exit, []) ->
+    true;
+not_restricted(fl, []) ->
+    true;
+not_restricted(fd, [_]) ->
+    true;
+not_restricted(ft, [_]) ->
+    true;
+not_restricted(td, [_]) ->
+    true;
+not_restricted(rd, [_]) ->
     true;
 not_restricted(rd, [_,_]) ->
     true;
@@ -897,7 +1003,7 @@ not_restricted(_, _) ->
     false.
 
 %% When erlang:garbage_collect() is called from the shell,
-%% the shell process process that spawned the evaluating 
+%% the shell process process that spawned the evaluating
 %% process is garbage collected as well.
 %% To garbage collect the evaluating process only the command
 %% garbage_collect(self()). can be used.
@@ -908,9 +1014,9 @@ apply_fun({M,F}, As, _Shell) ->
 apply_fun(MForFun, As, _Shell) ->
     apply(MForFun, As).
 
-prep_check({call,Line,{atom,_,f},[{var,_,_Name}]}) ->
+prep_check({call,Anno,{atom,_,f},[{var,_,_Name}]}) ->
     %% Do not emit a warning for f(V) when V is unbound.
-    {atom,Line,ok};
+    {atom,Anno,ok};
 prep_check({value,_CommandN,_Val}) ->
     %% erl_lint cannot handle the history expansion {value,_,_}.
     {atom,a0(),ok};
@@ -925,17 +1031,17 @@ expand_records([], E0) ->
     E0;
 expand_records(UsedRecords, E0) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
-    L = erl_anno:new(1),
+    A = erl_anno:new(1),
     E = prep_rec(E0),
-    Forms0 = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[E]}]}],
     Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
-    {function,L,foo,0,[{clause,L,[],[],[NE]}]} = lists:last(Forms),
+    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
     prep_rec(NE).
 
 prep_rec({value,_CommandN,_V}=Value) ->
     %% erl_expand_records cannot handle the history expansion {value,_,_}.
     {atom,Value,ok};
-prep_rec({atom,{value,_CommandN,_V}=Value,ok}) -> 
+prep_rec({atom,{value,_CommandN,_V}=Value,ok}) ->
     %% Undo the effect of the previous clause...
     Value;
 prep_rec(T) when is_tuple(T) -> list_to_tuple(prep_rec(tuple_to_list(T)));
@@ -947,35 +1053,101 @@ init_dict([{K,V}|Ds]) ->
     init_dict(Ds);
 init_dict([]) -> true.
 
-%% local_func(Function, Args, Bindings, Shell, RecordTable, 
+%% local_func(Function, Args, Bindings, Shell, RecordTable,
 %%            LocalFuncHandler, ExternalFuncHandler) -> {value,Val,Bs}
 %%  Evaluate local functions, including shell commands.
 %%
-%% Note that the predicate not_restricted/2 has to correspond to what's 
-%% handled internally - it should return 'true' for all local functions 
-%% handled in this module (i.e. those that are not eventually handled by 
+%% Note that the predicate not_restricted/2 has to correspond to what's
+%% handled internally - it should return 'true' for all local functions
+%% handled in this module (i.e. those that are not eventually handled by
 %% non_builtin_local_func/3 (user_default/shell_default).
-
-local_func(h, [], Bs, Shell, RT, _Lf, _Ef) ->
+local_func() -> [v,h,b,f,fl,rd,rf,rl,rp,rr,history,results,catch_exception].
+local_func(Func) ->
+    lists:member(Func, local_func()).
+local_func(v, [{integer,_,V}], Bs, Shell, _RT, _FT, _Lf, _Ef) ->
+    %% This command is validated and expanded prior.
+    {_Ces,Value,_N} = shell_req(Shell, {get_cmd, V}),
+    {value,Value,Bs};
+local_func(h, [], Bs, Shell, RT, _FT, _Lf, _Ef) ->
     Cs = shell_req(Shell, get_cmd),
     Cs1 = lists:filter(fun({{command, _},_}) -> true;
-			  ({{result, _},_}) -> true;
-			  (_) -> false
-		       end,
-		       Cs),
+                          ({{result, _},_}) -> true;
+                          (_) -> false
+                       end,
+                       Cs),
     Cs2 = lists:map(fun({{T, N}, V}) -> {{N, T}, V} end,
-		    Cs1),
+                    Cs1),
     Cs3 = lists:keysort(1, Cs2),
     {value,list_commands(Cs3, RT),Bs};
-local_func(b, [], Bs, _Shell, RT, _Lf, _Ef) ->
+local_func(b, [], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     {value,list_bindings(erl_eval:bindings(Bs), RT),Bs};
-local_func(f, [], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(f, [], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     {value,ok,erl_eval:new_bindings()};
-local_func(f, [{var,_,Name}], Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(f, [{var,_,Name}], Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     {value,ok,erl_eval:del_binding(Name, Bs)};
-local_func(f, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(f, [_Other], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,f,1}]);
-local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
+local_func(fl, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    {value, ets:tab2list(FT), Bs};
+local_func(fd, [{atom,_,FunName}, FunExpr], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    {value, Fun, []} = erl_eval:expr(FunExpr, []),
+    {arity, Arity} = erlang:fun_info(Fun, arity),
+    ets:insert(FT, [{{function, {shell_default, FunName, Arity}}, Fun}]),
+    {value, ok, Bs};
+local_func(fd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell, fd, 1}]);
+local_func(ft, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
+        {done, {ok, Toks, _}, _} ->
+            case erl_parse:parse_form(Toks) of
+                {ok, {attribute,_,spec,{{FunName, Arity},_}}=AttrForm} ->
+                    ets:insert(FT, [{{function_type, {shell_default, FunName, Arity}}, AttrForm}]),
+                    {value, ok, Bs};
+                {error,{_Location,M,ErrDesc}} ->
+                    ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+                    exit(lists:flatten(ErrStr))
+            end;
+        {done, {error,{_Location, M, ErrDesc}, _}, _} ->
+            ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+            exit(lists:flatten(ErrStr))
+    end;
+local_func(ft, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell, ft, 1}]);
+local_func(td, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+    case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
+        {done, {ok, Toks, _}, _} ->
+            case erl_parse:parse_form(Toks) of
+                {ok, {attribute,_,type,{TypeName, _, _}}=AttrForm} ->
+                    ets:insert(FT, [{{type, TypeName}, AttrForm}]),
+                    {value, ok, Bs};
+                {error,{_Location,M,ErrDesc}} ->
+                    ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+                    exit(lists:flatten(ErrStr))
+            end;
+        {done, {error,{_Location, M, ErrDesc}, _}, _} ->
+            ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+            exit(lists:flatten(ErrStr))
+    end;
+local_func(td, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell, td, 1}]);
+local_func(rd, [{string, _, TypeDef}], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
+    case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
+        {done, {ok, Toks, _}, _} ->
+            case erl_parse:parse_form(Toks) of
+                {ok,{attribute,_,_,_}=AttrForm} ->
+                    [_] = add_records([AttrForm], Bs, RT),
+                    {value,ok,Bs};
+                {error,{_Location,M,ErrDesc}} ->
+                    ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+                    exit(lists:flatten(ErrStr))
+            end;
+        {done, {error,{_Location, M, ErrDesc}, _}, _}  ->
+            ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
+            exit(lists:flatten(ErrStr))
+    end;
+local_func(rd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell, rd, 1}]);
+local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
     RDs = lists:flatten(erl_pp:expr(RecDef)),
     RecName = io_lib:write_atom_as_latin1(RecName0),
@@ -985,103 +1157,109 @@ local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
         {ok,AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
             {value,RN,Bs};
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr))
     end;
-local_func(rd, [_,_], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(rd, [_,_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,rd,2}]);
-local_func(rf, [], Bs, _Shell, RT, _Lf, _Ef) ->
+local_func(rf, [], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     true = ets:delete_all_objects(RT),
     {value,initiate_records(Bs, RT),Bs};
-local_func(rf, [A], Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rf, [A], Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[Recs],Bs} = expr_list([A], Bs0, Lf, Ef),
     if '_' =:= Recs ->
             true = ets:delete_all_objects(RT);
-       true -> 
+       true ->
             lists:foreach(fun(Name) -> true = ets:delete(RT, Name)
                           end, listify(Recs))
     end,
     {value,ok,Bs};
-local_func(rl, [], Bs, _Shell, RT, _Lf, _Ef) ->
+local_func(rl, [], Bs, _Shell, RT, _FT, _Lf, _Ef) ->
     {value,list_records(ets:tab2list(RT)),Bs};
-local_func(rl, [A], Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rl, [A], Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[Recs],Bs} = expr_list([A], Bs0, Lf, Ef),
     {value,list_records(record_defs(RT, listify(Recs))),Bs};
-local_func(rp, [A], Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rp, [A], Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[V],Bs} = expr_list([A], Bs0, Lf, Ef),
     Cs = pp(V, _Column=1, _Depth=-1, RT),
     io:requests([{put_chars, unicode, Cs}, nl]),
     {value,ok,Bs};
-local_func(rr, [A], Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rr, [A], Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[File],Bs} = expr_list([A], Bs0, Lf, Ef),
     {value,read_and_add_records(File, '_', [], Bs, RT),Bs};
-local_func(rr, [_,_]=As0, Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rr, [_,_]=As0, Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[File,Sel],Bs} = expr_list(As0, Bs0, Lf, Ef),
     {value,read_and_add_records(File, Sel, [], Bs, RT),Bs};
-local_func(rr, [_,_,_]=As0, Bs0, _Shell, RT, Lf, Ef) ->
+local_func(rr, [_,_,_]=As0, Bs0, _Shell, RT, _FT, Lf, Ef) ->
     {[File,Sel,Options],Bs} = expr_list(As0, Bs0, Lf, Ef),
     {value,read_and_add_records(File, Sel, Options, Bs, RT),Bs};
-local_func(history, [{integer,_,N}], Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(history, [{integer,_,N}], Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     {value,history(N),Bs};
-local_func(history, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(history, [_Other], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,history,1}]);
-local_func(results, [{integer,_,N}], Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(results, [{integer,_,N}], Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     {value,results(N),Bs};
-local_func(results, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(results, [_Other], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,results,1}]);
-local_func(catch_exception, [{atom,_,Bool}], Bs, _Shell, _RT, _Lf, _Ef) 
-                             when Bool; not Bool ->
+local_func(catch_exception, [{atom,_,Bool}], Bs, _Shell, _RT, _FT, _Lf, _Ef)
+  when Bool; not Bool ->
     {value,catch_exception(Bool),Bs};
-local_func(catch_exception, [_Other], _Bs, _Shell, _RT, _Lf, _Ef) ->
+local_func(catch_exception, [_Other], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,catch_exception,1}]);
-local_func(exit, [], _Bs, Shell, _RT, _Lf, _Ef) ->
-    shell_req(Shell, exit),			%This terminates us
+local_func(exit, [], _Bs, Shell, _RT, _FT, _Lf, _Ef) ->
+    shell_req(Shell, exit),                     %This terminates us
     exit(normal);
-local_func(F, As0, Bs0, _Shell, _RT, Lf, Ef) when is_atom(F) ->
+local_func(F, As0, Bs0, _Shell, _RT, FT, Lf, Ef) when is_atom(F) ->
     {As,Bs} = expr_list(As0, Bs0, Lf, Ef),
-    non_builtin_local_func(F,As,Bs).
+    non_builtin_local_func(F,As,Bs, FT).
 
-non_builtin_local_func(F,As,Bs) ->
+non_builtin_local_func(F,As,Bs, FT) ->
     Arity = length(As),
     case erlang:function_exported(user_default, F, Arity) of
-	true ->
+        true ->
             {eval,erlang:make_fun(user_default, F, Arity),As,Bs};
-	false ->
-	    shell_default(F,As,Bs)
+        false ->
+            shell_default(F,As,Bs, FT)
     end.
 
-shell_default(F,As,Bs) ->
+shell_default(F,As,Bs, FT) ->
     M = shell_default,
     A = length(As),
     case code:ensure_loaded(M) of
-	{module, _} ->
-	    case erlang:function_exported(M,F,A) of
-		true ->
-		    {eval,erlang:make_fun(M, F, A),As,Bs};
-		false ->
-		    shell_undef(F,A)
-	    end;
-	{error, _} ->
-	    shell_undef(F,A)
+        {module, _} ->
+            case erlang:function_exported(M,F,A) of
+                true ->
+                    {eval,erlang:make_fun(M, F, A),As,Bs};
+                false ->
+                    shell_default_local_func(F,As, Bs, FT)
+            end;
+        {error, _} ->
+            shell_default_local_func(F,As, Bs, FT)
+    end.
+
+shell_default_local_func(F, As, Bs, FT) ->
+    case ets:lookup(FT, {function, {shell_default, F, length(As)}}) of
+        [] -> shell_undef(F, length(As));
+        [{_, Fun}] -> {eval, Fun, As, Bs}
     end.
 
 shell_undef(F,A) ->
     erlang:error({shell_undef,F,A,[]}).
 
-local_func_handler(Shell, RT, Ef) ->
-    H = fun(Lf) -> 
-                fun(F, As, Bs) -> 
-                        local_func(F, As, Bs, Shell, RT, {eval,Lf(Lf)}, Ef) 
+local_func_handler(Shell, RT, FT, Ef) ->
+    H = fun(Lf) ->
+                fun(F, As, Bs) ->
+                        local_func(F, As, Bs, Shell, RT, FT, {eval,Lf(Lf)}, Ef)
                 end
-          end,
+        end,
     {eval,H(H)}.
 
 record_print_fun(RT) ->
     fun(Tag, NoFields) ->
             case ets:lookup(RT, Tag) of
-                [{_,{attribute,_,record,{Tag,Fields}}}] 
-                                  when length(Fields) =:= NoFields ->
+                [{_,{attribute,_,record,{Tag,Fields}}}]
+                  when length(Fields) =:= NoFields ->
                     record_fields(Fields);
                 _ ->
                     no
@@ -1100,7 +1278,7 @@ record_fields([]) ->
 initiate_records(Bs, RT) ->
     RNs1 = init_rec(shell_default, Bs, RT),
     RNs2 = case code:is_loaded(user_default) of
-               {file,_File} -> 
+               {file,_File} ->
                    init_rec(user_default, Bs, RT);
                false ->
                    []
@@ -1136,15 +1314,16 @@ read_records(File, Selected, Options) ->
             RAs;
         RAs ->
             Sel = listify(Selected),
-            [RA || {attribute,_,_,{Name,_}}=RA <- RAs, 
+            [RA || {attribute,_,_,{Name,_}}=RA <- RAs,
                    lists:member(Name, Sel)]
     end.
 
 add_records(RAs, Bs0, RT) ->
+    %% TODO store File name to support type completion
     Recs = [{Name,D} || {attribute,_,_,{Name,_}}=D <- RAs],
     Bs1 = record_bindings(Recs, Bs0),
     case check_command([], Bs1) of
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             %% A source file that has not been compiled.
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr));
@@ -1174,18 +1353,20 @@ expr_list(Es, Bs, Lf, Ef) ->
 record_bindings([], Bs) ->
     Bs;
 record_bindings(Recs0, Bs0) ->
-    {Recs1, _} = lists:mapfoldl(fun ({Name,Def}, I) -> {{Name,I,Def},I+1} 
+    {Recs1, _} = lists:mapfoldl(fun ({Name,Def}, I) -> {{Name,I,Def},I+1}
                                 end, 0, Recs0),
     Recs2 = lists:keysort(2, lists:ukeysort(1, Recs1)),
     lists:foldl(fun ({Name,I,Def}, Bs) ->
-			erl_eval:add_binding({record,I,Name}, Def, Bs)
-		end, Bs0, Recs2).
+                        erl_eval:add_binding({record,I,Name}, Def, Bs)
+                end, Bs0, Recs2).
 
 %%% Read record information from file(s)
 
 read_records(FileOrModule, Opts0) ->
     Opts = lists:delete(report_warnings, Opts0),
     case find_file(FileOrModule) of
+        {beam, Beam, File} ->
+            read_records_from_beam(Beam, File);
         {files,[File]} ->
             read_file_records(File, Opts);
         {files,Files} ->
@@ -1203,11 +1384,23 @@ read_records(FileOrModule, Opts0) ->
 
 find_file(Mod) when is_atom(Mod) ->
     case code:which(Mod) of
-	File when is_list(File) ->
-	    {files,[File]};
-	preloaded ->
-	    {_M,_Bin,File} = code:get_object_code(Mod),
-            {files,[File]};
+        File when is_list(File) ->
+            %% Special cases:
+            %% - Modules not in the code path (loaded with code:load_abs/1):
+            %%   code:get_object_code/1 only searches in the code path
+            %%   but code:which/1 finds all loaded modules
+            %% - File can also be a file in an archive,
+            %%   beam_lib:chunks/2 cannot handle such paths but
+            %%   erl_prim_loader:get_file/1 can
+            case erl_prim_loader:get_file(File) of
+                {ok, Beam, _} ->
+                    {beam, Beam, File};
+                error ->
+                    {error, nofile}
+            end;
+        preloaded ->
+            {_M, Beam, File} = code:get_object_code(Mod),
+            {beam, Beam, File};
         _Else -> % non_existing, interpreted, cover_compiled
             {error,nofile}
     end;
@@ -1222,26 +1415,29 @@ find_file(File) ->
 read_file_records(File, Opts) ->
     case filename:extension(File) of
         ".beam" ->
-            case beam_lib:chunks(File, [abstract_code,"CInf"]) of
-                {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
-                    case record_attrs(Forms) of
-                        [] when Version =:= raw_abstract_v1 ->
-                            [];
-                        [] -> 
-                            %% If the version is raw_X, then this test
-                            %% is unnecessary.
-                            try_source(File, CB);
-                        Records -> 
-                            Records
-                    end;
-                {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
-                    try_source(File, CB);
-                Error ->
-                    %% Could be that the "Abst" chunk is missing (pre R6).
-                    Error
-            end;
+            read_records_from_beam(File, File);
         _ ->
             parse_file(File, Opts)
+    end.
+
+read_records_from_beam(Beam, File) ->
+    case beam_lib:chunks(Beam, [abstract_code,"CInf"]) of
+        {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
+            case record_attrs(Forms) of
+                [] when Version =:= raw_abstract_v1 ->
+                    [];
+                [] ->
+                    %% If the version is raw_X, then this test
+                    %% is unnecessary.
+                    try_source(File, CB);
+                Records ->
+                    Records
+            end;
+        {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
+            try_source(File, CB);
+        Error ->
+            %% Could be that the "Abst" chunk is missing (pre R6).
+            Error
     end.
 
 %% This is how the debugger searches for source files. See int.erl.
@@ -1265,10 +1461,10 @@ try_sources([Src|Rest], Os) ->
 
 is_file(Name) ->
     case filelib:is_file(Name) of
-	true ->
-	    not filelib:is_dir(Name);
-	false ->
-	    false
+        true ->
+            not filelib:is_dir(Name);
+        false ->
+            false
     end.
 
 parse_file(File, Opts) ->
@@ -1301,7 +1497,7 @@ record_attrs(Forms) ->
 shell_req(Shell, Req) ->
     Shell ! {shell_req,self(),Req},
     receive
-	{shell_rep,Shell,Rep} -> Rep
+        {shell_rep,Shell,Rep} -> Rep
     end.
 
 list_commands([{{N,command},Es0}, {{N,result}, V} |Ds], RT) ->
@@ -1311,7 +1507,7 @@ list_commands([{{N,command},Es0}, {{N,result}, V} |Ds], RT) ->
     I = iolist_size(Ns),
     io:requests([{put_chars, latin1, Ns},
                  {format,<<"~ts\n">>,[erl_pp:exprs(Es, I, enc())]},
-		 {format,<<"-> ">>,[]},
+                 {format,<<"-> ">>,[]},
                  {put_chars, unicode, VS},
                  nl]),
     list_commands(Ds, RT);
@@ -1353,7 +1549,7 @@ list_bindings([], _RT) ->
     ok.
 
 list_records(Records) ->
-    lists:foreach(fun({_Name,Attr}) -> 
+    lists:foreach(fun({_Name,Attr}) ->
                           io:fwrite(<<"~ts">>, [erl_pp:attribute(Attr, enc())])
                   end, Records).
 
@@ -1384,15 +1580,20 @@ prep_list_commands(E) ->
 
 substitute_v1(F, {value,_,_}=Value) ->
     F(Value);
-substitute_v1(F, T) when is_tuple(T) -> 
+substitute_v1(F, T) when is_tuple(T) ->
     list_to_tuple(substitute_v1(F, tuple_to_list(T)));
-substitute_v1(F, [E | Es]) -> 
+substitute_v1(F, [E | Es]) ->
     [substitute_v1(F, E) | substitute_v1(F, Es)];
-substitute_v1(_F, E) -> 
+substitute_v1(_F, E) ->
     E.
 
 a0() ->
     erl_anno:new(0).
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 check_and_get_history_and_results() ->
     check_env(shell_history_length),
@@ -1408,13 +1609,7 @@ pp(V, I, RT) ->
     pp(V, I, _Depth=?LINEMAX, RT).
 
 pp(V, I, D, RT) ->
-    Strings =
-        case application:get_env(stdlib, shell_strings) of
-            {ok, false} ->
-                false;
-            _ ->
-                true
-        end,
+    Strings = application:get_env(stdlib, shell_strings, true) =/= false,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
                              {depth, D}, {line_max_chars, ?CHAR_MAX},
                              {strings, Strings},
@@ -1433,8 +1628,8 @@ encoding() ->
 
 enc() ->
     case lists:keyfind(encoding, 1, io:getopts()) of
-	false -> [{encoding,latin1}]; % should never happen
-	Enc -> [Enc]
+        false -> [{encoding,latin1}]; % should never happen
+        Enc -> [Enc]
     end.
 
 garb(Shell) ->
@@ -1444,33 +1639,31 @@ garb(Shell) ->
     erlang:garbage_collect().
 
 get_env(V, Def) ->
-    case application:get_env(stdlib, V) of
-	{ok, Val} when is_integer(Val), Val >= 0 ->
-	    Val;
-	_ ->
-	    Def
+    case application:get_env(stdlib, V, Def) of
+        Val when is_integer(Val), Val >= 0 ->
+            Val;
+        _ ->
+            Def
     end.
-	    
+
 check_env(V) ->
-    case application:get_env(stdlib, V) of
-	undefined ->
-	    ok;
-	{ok, Val} when is_integer(Val), Val >= 0 ->
-	    ok;
-        {ok, Val} ->
+    case application:get_env(stdlib, V, 0) of
+        Val when is_integer(Val), Val >= 0 ->
+            ok;
+        Val ->
             Txt = io_lib:fwrite
                     ("Invalid value of STDLIB configuration parameter"
                      "~tw: ~tp\n", [V, Val]),
-	    error_logger:info_report(lists:flatten(Txt))
+            error_logger:info_report(lists:flatten(Txt))
     end.
-	    
+
 set_env(App, Name, Val, Default) ->
     Prev = case application:get_env(App, Name) of
-	       undefined ->
-		   Default;
-	       {ok, Old} ->
-		   Old
-    end,
+               undefined ->
+                   Default;
+               {ok, Old} ->
+                   Old
+           end,
     application_controller:set_env(App, Name, Val),
     Prev.
 
@@ -1490,14 +1683,14 @@ results(L) when is_integer(L), L >= 0 ->
       Bool :: boolean().
 
 catch_exception(Bool) ->
-    set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
+        set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
 
 -spec prompt_func(PromptFunc) -> PromptFunc2 when
       PromptFunc :: 'default' | {module(),atom()},
       PromptFunc2 :: 'default' | {module(),atom()}.
 
-prompt_func(String) ->
-    set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
+prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),

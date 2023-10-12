@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,14 @@
 -define(BIT(B),   ?BIT(B,1)).
 -define(FLAGS(R,P,E,T), ?BIT(R):1, ?BIT(P):1, ?BIT(E):1, ?BIT(T):1, 0:4).
 -define(FLAG(B,D), (if is_boolean(B) -> B; true -> 0 /= (D) end)).
+
+%% A diameter record created by the diameter compiler
+-type record() :: term().
+
+-type message() :: record() | maybe_improper_list().
+-type packet() :: #diameter_packet{}.
+
+-export_type([message/0, packet/0]).
 
 -type u32() :: 0..16#FFFFFFFF.
 -type u24() :: 0..16#FFFFFF.
@@ -113,7 +121,7 @@ enc(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
     try encode_avps(As, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
-            Len = 20 + size(Bin),
+            Len = 20 + byte_size(Bin),
 
             #diameter_header{version = Vsn,
                              is_request = R,
@@ -161,7 +169,7 @@ enc(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
     try encode_avps(Mod, MsgName, Values, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
-            Len = 20 + size(Bin),
+            Len = 20 + byte_size(Bin),
 
             Hdr = Hdr0#diameter_header{length = Len,
                                        cmd_code = Code,
@@ -208,7 +216,7 @@ values(Avps) ->
 encode_avps(_, _, [#diameter_avp{} | _] = Avps, Opts) ->
     encode_avps(Avps, Opts);
 
-%% ... or as a tuple list or record.
+%% ... or as a tuple list, map, or record.
 encode_avps(Mod, MsgName, Values, Opts) ->
     Mod:encode_avps(MsgName, Values, Opts).
 
@@ -628,7 +636,7 @@ pack_avp(#diameter_avp{code = undefined, data = B}, _)
     %% from the length header for this reason, to avoid creating a sub
     %% binary for no useful reason.
     Len = header_length(B),
-    Sz = min(5, size(B)),
+    Sz = min(5, byte_size(B)),
     <<B:Sz/binary, 0:(5-Sz)/unit:8, Len:24, 0:(Len-8)/unit:8>>;
 
 %% Ignoring errors in Failed-AVP or during a relay encode.

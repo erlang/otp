@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,6 @@
 #define _ERL_UNICODE_H
 
 Uint erts_atom_to_string_length(Eterm atom);
-Eterm erts_atom_to_string(Eterm **hpp, Eterm atom);
+Eterm erts_atom_to_string(Eterm **hpp, Eterm atom, Eterm tail);
 
 #endif /* _ERL_UNICODE_H */

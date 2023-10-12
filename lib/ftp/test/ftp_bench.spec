@@ -1,1 +1,0 @@
-{suites,"../ftp_test",[]}.

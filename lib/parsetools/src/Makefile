@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/stdlib/include \
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

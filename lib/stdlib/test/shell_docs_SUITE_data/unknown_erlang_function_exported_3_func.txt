@@ -1,0 +1,11 @@
+
+  [;1m-spec erlang:function_exported(Module, Function, Arity) -> boolean()[0m
+  [;1m                                  when[0m
+  [;1m                                      Module :: module(),[0m
+  [;1m                                      Function :: atom(),[0m
+  [;1m                                      Arity :: arity().[0m
+
+  Returns [;;4mtrue[0m if the module [;;4mModule[0m is current and contains an
+  exported function [;;4mFunction/Arity[0m, or if there is a BIF (a
+  built-in function implemented in C) with the specified name,
+  otherwise returns [;;4mfalse[0m.

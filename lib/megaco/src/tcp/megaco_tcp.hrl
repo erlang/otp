@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,12 +34,13 @@
 	 proxy_pid,
 	 receive_handle,
 	 module    = megaco,
-	 serialize = false  % false: Spawn a new process for each message
+	 serialize = false,  % false: Spawn a new process for each message
+         inet_backend = default
 	}).
 
 
--define(GC_MSG_LIMIT,1000).
--define(HEAP_SIZE(S),5000 + 2*(S)).
+-define(GC_MSG_LIMIT, 1000).
+-define(HEAP_SIZE(S), 5000 + 2*(S)).
 
 
 %%----------------------------------------------------------------------

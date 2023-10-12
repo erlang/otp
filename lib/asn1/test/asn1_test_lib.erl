@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 	 rm_dirs/1,
 	 hex_to_bin/1,
 	 match_value/2,
-	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4,
          map_roundtrip/3]).
 
@@ -47,12 +46,6 @@ compile_all(Files, Config, Options0) ->
 
     dialyze(Files, Options),
     ok.
-
-parallel() ->
-    case erlang:system_info(schedulers) > 1 andalso not run_dialyzer() of
-        true  -> [parallel];
-        false -> []
-    end.
 
 dialyze(Files, Options) ->
     case not run_dialyzer() orelse lists:member(abs, Options) of
@@ -109,7 +102,7 @@ compile_file(File, Options0) ->
 compile_maps(File, Options) ->
     unload_map_mod(File),
     Incompat = [abs,compact_bit_string,legacy_bit_string,
-                legacy_erlang_types,maps,asn1_test_lib_no_maps],
+                legacy_erlang_types,maps,asn1_test_lib_no_maps,jer],
     case lists:any(fun(E) -> lists:member(E, Incompat) end, Options) of
         true ->
             ok;
@@ -313,7 +306,14 @@ ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    S = erlang:system_info(schedulers),
+    %% Limit the number of parallel processes to avoid running out of
+    %% memory.
+    S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
+            {S0,4} ->
+                min(S0, 2);
+            {S0,_} ->
+                min(S0, 8)
+        end,
     N = case test_server:is_cover() of
 	    false ->
 		S + 1;

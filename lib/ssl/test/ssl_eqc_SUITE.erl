@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2015-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,27 +20,64 @@
 
 -module(ssl_eqc_SUITE).
 
--compile(export_all).
+-behaviour(ct_suite).
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([tls_handshake_encoding/1,
+         tls_cipher_suite_names/1,
+         tls_cipher_openssl_suite_names/1,
+         tls_anon_cipher_suite_names/1,
+         tls_anon_cipher_openssl_suite_names/1,
+         tls_signature_algs/1,
+         tls_unorded_chains/1,
+         tls_extraneous_chain/1,
+         tls_extraneous_chains/1,
+         tls_extraneous_and_unorder_chains/1,
+         tls_client_cert_auth/1
+         ]).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 all() -> 
     [
-     tls_handshake_encoding
+     tls_handshake_encoding,
+     tls_cipher_suite_names,
+     tls_cipher_openssl_suite_names,
+     tls_anon_cipher_suite_names,
+     tls_anon_cipher_openssl_suite_names,
+     tls_signature_algs,
+     tls_unorded_chains,
+     tls_extraneous_chain,
+     tls_extraneous_chains,
+     tls_extraneous_and_unorder_chains,
+     tls_client_cert_auth
     ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ct_property_test:init_per_suite(Config).
-end_per_suite(Config) ->
-    Config.
+    ct:timetrap({seconds, 20}),
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            ct_property_test:init_per_suite(Config)
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_,Config) ->
-    Config.
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
 
 init_per_testcase(_, Config0) ->
     Config0.
@@ -56,3 +93,58 @@ tls_handshake_encoding(Config) when is_list(Config) ->
     %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_hs_encode_decode()).
     true =  ct_property_test:quickcheck(ssl_eqc_handshake:prop_tls_hs_encode_decode(),
                                         Config).
+
+tls_cipher_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name(),
+                                        Config).
+
+tls_cipher_openssl_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_openssl_name(),
+                                        Config).
+tls_anon_cipher_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_rfc_name(),
+                                        Config).
+
+tls_anon_cipher_openssl_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_openssl_name(),
+                                        Config).
+
+tls_signature_algs(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_signature_algs()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_signature_algs(),
+                                        Config).
+
+tls_unorded_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    ssl:start(),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    true =  ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_unordered_path(PrivDir),
+                                        Config).
+
+tls_extraneous_chain(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    ssl:start(),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_path(PrivDir),
+                                        Config).
+
+tls_extraneous_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_paths(),
+                                       Config).
+tls_extraneous_and_unorder_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_and_unordered_path(),
+                                       Config).
+
+tls_client_cert_auth(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_client_cert_auth()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_client_cert_auth(),
+                                       Config).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 	  file    = undefined,
 	  options  = undefined,
 	  abstract = false,
-	  id,                      % Unique integer identifer
+	  id,                      % Unique integer identifier
 	  doc
 	 }).
 
@@ -75,7 +75,7 @@
        ).
 
 -record(enum, {from, skip="", as_atom=false, vals}).
--record(const,{name,val,enum,is_const}).
+-record(const,{name,val,enum,is_const,opt}).
 
 -define(error(What), 
 	erlang:error({{?MODULE,?LINE},{get(current_class),get(current_func)},What})).

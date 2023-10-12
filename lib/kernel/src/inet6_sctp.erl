@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@
 -include("inet_sctp.hrl").
 -include("inet_int.hrl").
 
--define(PROTO, sctp).
--define(FAMILY, inet6).
--export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
--export([open/1,close/1,listen/2,peeloff/2,connect/5]).
--export([sendmsg/3,send/4,recv/2]).
+-export([getserv/1, getaddr/1, getaddr/2, translate_ip/1]).
+-export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5, connectx/3, connectx/4]).
+-export([sendmsg/3, send/4, recv/2]).
 
+-define(PROTO,  sctp).
+-define(FAMILY, inet6).
 
 
 getserv(Port) when is_integer(Port) -> {ok, Port};
@@ -50,9 +50,15 @@ translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
     
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
-	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
-	Error -> Error
+	{ok,#sctp_opts{fd     = Fd,
+                       ifaddr = Addr,
+                       port   = Port,
+                       type   = Type,
+                       opts   = SOs}} ->
+	    inet:open_bind(
+              Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
+	Error ->
+            Error
     end.
 
 close(S) ->
@@ -69,8 +75,17 @@ peeloff(S, AssocId) ->
 	Error -> Error
     end.
 
+connect(S, SockAddr, Opts, Timer) ->
+    inet_sctp:connect(S, SockAddr, Opts, Timer).
+
 connect(S, Addr, Port, Opts, Timer) ->
     inet_sctp:connect(S, Addr, Port, Opts, Timer).
+
+connectx(S, SockAddrs, Opts) ->
+    inet_sctp:connectx(S, SockAddrs, Opts).
+
+connectx(S, Addr, Port, Opts) ->
+    inet_sctp:connectx(S, Addr, Port, Opts).
 
 sendmsg(S, SRI, Data) ->
     prim_inet:sendmsg(S, SRI, Data).

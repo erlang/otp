@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -981,6 +981,9 @@ add_tests([{event_handler,Node,HOrHs,Args}|Ts],Spec) ->
 add_tests([{enable_builtin_hooks,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{enable_builtin_hooks = Bool});
 
+add_tests([{ct_hooks_order,Order}|Ts],Spec) ->
+    add_tests(Ts, Spec#testspec{ct_hooks_order = Order});
+
 add_tests([{release_shell,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{release_shell = Bool});
 
@@ -1079,7 +1082,7 @@ add_tests([],Spec) ->				% done
 %% have added something of his/her own, which we'll let pass if relaxed
 %% mode is enabled.
 check_term(Term) when is_tuple(Term) ->
-    Size = size(Term),
+    Size = tuple_size(Term),
     [Name|_] = tuple_to_list(Term),
     Valid = valid_terms(),
     case lists:member({Name,Size},Valid) of
@@ -1093,7 +1096,7 @@ check_term(Term) when is_tuple(Term) ->
 		    case get(relaxed) of
 			true ->
 			    %% warn if name resembles a CT term
-			    case resembles_ct_term(Name,size(Term)) of
+                            case resembles_ct_term(Name,tuple_size(Term)) of
 				true ->
 				    io:format("~nSuspicious term, "
 					      "please check:~n"
@@ -1154,7 +1157,7 @@ handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
     VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
 			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
     [{Node,VLvls1}];
-handle_data(multiply_timetraps,Node,Mult,_Spec) when is_integer(Mult) ->
+handle_data(multiply_timetraps,Node,Mult,_Spec) when is_number(Mult) ->
     [{Node,Mult}];
 handle_data(scale_timetraps,Node,Scale,_Spec) when Scale == true;
                                                    Scale == false ->
@@ -1592,6 +1595,7 @@ valid_terms() ->
      {event_handler,4},
      {ct_hooks,2},
      {ct_hooks,3},
+     {ct_hooks_order,2},
      {enable_builtin_hooks,2},
      {release_shell,2},
      {multiply_timetraps,2},

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,14 +51,24 @@ await_completion(TmrRef, [], OK, ERROR) ->
 await_completion(TmrRef, Tags, OK, ERROR) ->
     receive
 	exec_complete_timeout ->
+            error_msg("Exec complete timeout:"
+                      "~n   Tags:  ~p"
+                      "~n   OK:    ~p"
+                      "~n   ERROR: ~p", [Tags, OK, ERROR]),
 	    {error, {timeout, Tags, OK, ERROR}};
 
 	{exec_complete, Tag, ok, Result} ->
 	    case lists:delete(Tag, Tags) of
 		Tags ->
 		    %% Unknown => ignore
+                    warning_msg("Exec unknown complete with success:"
+                                "~n   Tag:    ~p"
+                                "~n   Result: ~p", [Tag, Result]),
 		    await_completion(TmrRef, Tags, OK, ERROR);
 		Tags2 ->
+                    info_msg("Exec complete with success:"
+                             "~n   Tag:    ~p"
+                             "~n   Result: ~p", [Tag, Result]),
 		    await_completion(TmrRef, Tags2, [{Tag, Result}|OK], ERROR)
 	    end;
 
@@ -66,8 +76,14 @@ await_completion(TmrRef, Tags, OK, ERROR) ->
 	    case lists:delete(Tag, Tags) of
 		Tags ->
 		    %% Unknown => ignore
+                    warning_msg("Exec unknown complete with failure:"
+                                "~n   Tag:    ~p"
+                                "~n   Reason: ~p", [Tag, Reason]),
 		    await_completion(TmrRef, Tags, OK, ERROR);
 		Tags2 ->
+                    error_msg("Exec complete with failure:"
+                              "~n   Tag:    ~p"
+                              "~n   Reason: ~p", [Tag, Reason]),
 		    await_completion(TmrRef, Tags2, OK, [{Tag, Reason}|ERROR])
 	    end
     end.
@@ -82,3 +98,14 @@ stop_timer(undefined) ->
     ok;
 stop_timer(TmrRef) ->
     erlang:cancel_timer(TmrRef).
+
+
+info_msg(F, A) ->
+    error_logger:info_msg(F ++ "~n", A).
+
+warning_msg(F, A) ->
+    error_logger:warning_msg(F ++ "~n", A).
+
+error_msg(F, A) ->
+    error_logger:error_msg(F ++ "~n", A).
+

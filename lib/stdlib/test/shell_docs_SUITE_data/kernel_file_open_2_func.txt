@@ -1,0 +1,259 @@
+
+  [;1m-spec open(File, Modes) -> {ok, IoDevice} | {error, Reason}[0m
+  [;1m              when[0m
+  [;1m                  File :: Filename | iodata(),[0m
+  [;1m                  Filename :: name_all(),[0m
+  [;1m                  Modes :: [mode() | ram | directory],[0m
+  [;1m                  IoDevice :: io_device(),[0m
+  [;1m                  Reason :: posix() | badarg | system_limit.[0m
+
+  Opens file [;;4mFile[0m in the mode determined by [;;4mModes[0m, which can
+  contain one or more of the following options:
+
+  [;;4m[;;4mread[0m[0m:
+    The file, which must exist, is opened for reading.
+
+  [;;4m[;;4mwrite[0m[0m:
+    The file is opened for writing. It is created if it does not
+    exist. If the file exists and [;;4mwrite[0m is not combined with [;;4m[0m
+    [;;4mread[0m, the file is truncated.
+
+  [;;4m[;;4mappend[0m[0m:
+    The file is opened for writing. It is created if it does not
+    exist. Every write operation to a file opened with [;;4mappend[0m
+    takes place at the end of the file.
+
+  [;;4m[;;4mexclusive[0m[0m:
+    The file is opened for writing. It is created if it does not
+    exist. If the file exists, [;;4m{error, eexist}[0m is returned.
+
+    Warning:
+      This option does not guarantee exclusiveness on file
+      systems not supporting [;;4mO_EXCL[0m properly, such as NFS. Do
+      not depend on this option unless you know that the file
+      system supports it (in general, local file systems are
+      safe).
+
+  [;;4m[;;4mraw[0m[0m:
+    Allows faster access to a file, as no Erlang process is needed
+    to handle the file. However, a file opened in this way has the
+    following limitations:
+
+     • The functions in the [;;4mio[0m module cannot be used, as they
+       can only talk to an Erlang process. Instead, use
+       functions [;;4mread/2[0m, [;;4mread_line/1[0m, and [;;4mwrite/2[0m.
+
+     • Especially if [;;4mread_line/1[0m is to be used on a [;;4mraw[0m
+       file, it is recommended to combine this option with
+       option [;;4m{read_ahead, Size}[0m as line-oriented I/O is
+       inefficient without buffering.
+
+     • Only the Erlang process that opened the file can use it.
+
+     • A remote Erlang file server cannot be used. The computer
+       on which the Erlang node is running must have access to
+       the file system (directly or through NFS).
+
+  [;;4m[;;4mbinary[0m[0m:
+    Read operations on the file return binaries rather than lists.
+
+  [;;4m[;;4m{delayed_write, Size, Delay}[0m[0m:
+    Data in subsequent [;;4mwrite/2[0m calls is buffered until at least [;;4m[0m
+    [;;4mSize[0m bytes are buffered, or until the oldest buffered data is [;;4m[0m
+    [;;4mDelay[0m milliseconds old. Then all buffered data is written in
+    one operating system call. The buffered data is also flushed
+    before some other file operation than [;;4mwrite/2[0m is executed.
+
+    The purpose of this option is to increase performance by
+    reducing the number of operating system calls. Thus, the [;;4m[0m
+    [;;4mwrite/2[0m calls must be for sizes significantly less than [;;4mSize[0m,
+    and not interspersed by too many other file operations.
+
+    When this option is used, the result of [;;4mwrite/2[0m calls can
+    prematurely be reported as successful, and if a write error
+    occurs, the error is reported as the result of the next file
+    operation, which is not executed.
+
+    For example, when [;;4mdelayed_write[0m is used, after a number of [;;4m[0m
+    [;;4mwrite/2[0m calls, [;;4mclose/1[0m can return [;;4m{error, enospc}[0m, as
+    there is not enough space on the disc for previously written
+    data. [;;4mclose/1[0m must probably be called again, as the file is
+    still open.
+
+  [;;4m[;;4mdelayed_write[0m[0m:
+    The same as [;;4m{delayed_write, Size, Delay}[0m with reasonable
+    default values for [;;4mSize[0m and [;;4mDelay[0m (roughly some 64 KB, 2
+    seconds).
+
+  [;;4m[;;4m{read_ahead, Size}[0m[0m:
+    Activates read data buffering. If [;;4mread/2[0m calls are for
+    significantly less than [;;4mSize[0m bytes, read operations to the
+    operating system are still performed for blocks of [;;4mSize[0m
+    bytes. The extra data is buffered and returned in subsequent [;;4m[0m
+    [;;4mread/2[0m calls, giving a performance gain as the number of
+    operating system calls is reduced.
+
+    The [;;4mread_ahead[0m buffer is also highly used by function [;;4m[0m
+    [;;4mread_line/1[0m in [;;4mraw[0m mode, therefore this option is
+    recommended (for performance reasons) when accessing raw files
+    using that function.
+
+    If [;;4mread/2[0m calls are for sizes not significantly less than,
+    or even greater than [;;4mSize[0m bytes, no performance gain can be
+    expected.
+
+  [;;4m[;;4mread_ahead[0m[0m:
+    The same as [;;4m{read_ahead, Size}[0m with a reasonable default
+    value for [;;4mSize[0m (roughly some 64 KB).
+
+  [;;4m[;;4mcompressed[0m[0m:
+    Makes it possible to read or write gzip compressed files.
+    Option [;;4mcompressed[0m must be combined with [;;4mread[0m or [;;4mwrite[0m,
+    but not both. Notice that the file size obtained with [;;4m[0m
+    [;;4mread_file_info/1[0m does probably not match the number of bytes
+    that can be read from a compressed file.
+
+  [;;4m[;;4mcompressed_one[0m[0m:
+    Read one member of a gzip compressed file. Option [;;4m[0m
+    [;;4mcompressed_one[0m can only be combined with [;;4mread[0m.
+
+  [;;4m[;;4m{encoding, Encoding}[0m[0m:
+    Makes the file perform automatic translation of characters to
+    and from a specific (Unicode) encoding. Notice that the data
+    supplied to [;;4mwrite/2[0m or returned by [;;4mread/2[0m still is
+    byte-oriented; this option denotes only how data is stored in
+    the disk file.
+
+    Depending on the encoding, different methods of reading and
+    writing data is preferred. The default encoding of [;;4mlatin1[0m
+    implies using this module ([;;4mfile[0m) for reading and writing
+    data as the interfaces provided here work with byte-oriented
+    data. Using other (Unicode) encodings makes the [;;4mio(3)[0m
+    functions [;;4mget_chars[0m, [;;4mget_line[0m, and [;;4mput_chars[0m more
+    suitable, as they can work with the full Unicode range.
+
+    If data is sent to an [;;4mio_device()[0m in a format that cannot be
+    converted to the specified encoding, or if data is read by a
+    function that returns data in a format that cannot cope with
+    the character range of the data, an error occurs and the file
+    is closed.
+
+    Allowed values for [;;4mEncoding[0m:
+
+    [;;4m[;;4mlatin1[0m[0m:
+      The default encoding. Bytes supplied to the file, that is, [;;4m[0m
+      [;;4mwrite/2[0m are written "as is" on the file. Likewise, bytes
+      read from the file, that is, [;;4mread/2[0m are returned "as
+      is". If module [;;4mio(3)[0m is used for writing, the file can
+      only cope with Unicode characters up to code point 255
+      (the ISO Latin-1 range).
+
+    [;;4m[;;4municode or utf8[0m[0m:
+      Characters are translated to and from UTF-8 encoding
+      before they are written to or read from the file. A file
+      opened in this way can be readable using function [;;4mread/2[0m,
+      as long as no data stored on the file lies beyond the ISO
+      Latin-1 range (0..255), but failure occurs if the data
+      contains Unicode code points beyond that range. The file
+      is best read with the functions in the Unicode aware
+      module [;;4mio(3)[0m.
+
+      Bytes written to the file by any means are translated to
+      UTF-8 encoding before being stored on the disk file.
+
+    [;;4m[;;4mutf16 or {utf16,big}[0m[0m:
+      Works like [;;4municode[0m, but translation is done to and from
+      big endian UTF-16 instead of UTF-8.
+
+    [;;4m[;;4m{utf16,little}[0m[0m:
+      Works like [;;4municode[0m, but translation is done to and from
+      little endian UTF-16 instead of UTF-8.
+
+    [;;4m[;;4mutf32 or {utf32,big}[0m[0m:
+      Works like [;;4municode[0m, but translation is done to and from
+      big endian UTF-32 instead of UTF-8.
+
+    [;;4m[;;4m{utf32,little}[0m[0m:
+      Works like [;;4municode[0m, but translation is done to and from
+      little endian UTF-32 instead of UTF-8.
+
+    The Encoding can be changed for a file "on the fly" by using
+    function [;;4mio:setopts/2[0m. So a file can be analyzed in latin1
+    encoding for, for example, a BOM, positioned beyond the BOM
+    and then be set for the right encoding before further reading.
+    For functions identifying BOMs, see module [;;4municode(3)[0m.
+
+    This option is not allowed on [;;4mraw[0m files.
+
+  [;;4m[;;4mram[0m[0m:
+    [;;4mFile[0m must be [;;4miodata()[0m. Returns an [;;4mfd()[0m, which lets module [;;4m[0m
+    [;;4mfile[0m operate on the data in-memory as if it is a file.
+
+  [;;4m[;;4msync[0m[0m:
+    On platforms supporting it, enables the POSIX [;;4mO_SYNC[0m
+    synchronous I/O flag or its platform-dependent equivalent (for
+    example, [;;4mFILE_FLAG_WRITE_THROUGH[0m on Windows) so that writes
+    to the file block until the data is physically written to
+    disk. However, be aware that the exact semantics of this flag
+    differ from platform to platform. For example, none of Linux
+    or Windows guarantees that all file metadata are also written
+    before the call returns. For precise semantics, check the
+    details of your platform documentation. On platforms with no
+    support for POSIX [;;4mO_SYNC[0m or equivalent, use of the [;;4msync[0m
+    flag causes [;;4mopen[0m to return [;;4m{error, enotsup}[0m.
+
+  [;;4m[;;4mdirectory[0m[0m:
+    Allows [;;4mopen[0m to work on directories.
+
+  Returns:
+
+  [;;4m[;;4m{ok, IoDevice}[0m[0m:
+    The file is opened in the requested mode. [;;4mIoDevice[0m is a
+    reference to the file.
+
+  [;;4m[;;4m{error, Reason}[0m[0m:
+    The file cannot be opened.
+
+  [;;4mIoDevice[0m is really the pid of the process that handles the file.
+  This process monitors the process that originally opened the file
+  (the owner process). If the owner process terminates, the file is
+  closed and the process itself terminates too. An [;;4mIoDevice[0m
+  returned from this call can be used as an argument to the I/O
+  functions (see [;;4mio(3)[0m).
+
+  Warning:
+    While this function can be used to open any file, we recommend
+    against using it for NFS-mounted files, FIFOs, devices, or
+    similar since they can cause IO threads to hang forever.
+
+    If your application needs to interact with these kinds of
+    files we recommend breaking out those parts to a port program
+    instead.
+
+  Note:
+    In previous versions of [;;4mfile[0m, modes were specified as one of
+    the atoms [;;4mread[0m, [;;4mwrite[0m, or [;;4mread_write[0m instead of a list.
+    This is still allowed for reasons of backwards compatibility,
+    but is not to be used for new code. Also note that [;;4mread_write[0m
+    is not allowed in a mode list.
+
+  Typical error reasons:
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing permission for reading the file or searching one of
+    the parent directories.
+
+  [;;4m[;;4meisdir[0m[0m:
+    The named file is a directory.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory, or the
+    filename itself is not a directory if [;;4mdirectory[0m mode was
+    specified. On some platforms, [;;4menoent[0m is returned instead.
+
+  [;;4m[;;4menospc[0m[0m:
+    There is no space left on the device (if [;;4mwrite[0m access was
+    specified).

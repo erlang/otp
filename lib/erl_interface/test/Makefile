@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Target Specs
 # ----------------------------------------------------
 
-MODULES= \
+EI_MODULES= \
 	ei_accept_SUITE \
 	ei_connect_SUITE \
 	ei_decode_SUITE \
@@ -33,21 +33,21 @@ MODULES= \
 	ei_format_SUITE \
 	ei_print_SUITE \
 	ei_tmo_SUITE \
-	erl_connect_SUITE \
-	erl_global_SUITE \
-	erl_eterm_SUITE \
-	erl_ext_SUITE \
-	erl_format_SUITE \
-	erl_match_SUITE \
+	erl_call_SUITE \
+	ei_global_SUITE \
 	port_call_SUITE \
 	runner
+
+ERTS_MODULES= erts_test_utils
+
+MODULES=$(EI_MODULES) $(ERTS_MODULES)
 
 SPEC_FILES = \
 	erl_interface.spec erl_interface_smoke.spec
 
 COVER_FILE = erl_interface.cover
 
-ERL_FILES = $(MODULES:%=%.erl)
+ERL_FILES = $(EI_MODULES:%=%.erl) $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -58,7 +58,7 @@ RELSYSDIR = $(RELEASE_PATH)/erl_interface_test
 # Targets
 # ----------------------------------------------------
 
-tests debug opt:
+tests $(TYPES):
 
 clean:
 

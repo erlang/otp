@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -66,7 +66,8 @@
 	 decode_binary_term_id/2,
 
 	 encode_sdp/1,
-	 decode_sdp/1, 
+	 decode_sdp/1,
+         get_sdp_record_from_PropertyGroup/2,
 
 	 versions1/0, versions2/0, 
 	 print_version_info/0, print_version_info/1, 
@@ -85,15 +86,23 @@
 	 reset_stats/0, reset_stats/1
 	]).
 
-%% Deprecated
--export([format_versions/1]).
-
 %% Internal
--export([format_timestamp/1]).
+-export([
+         %% These are used both for debugging (verbosity printouts)
+         %% and other such "utility" operations (and testing).
+         format_timestamp/1, format_timestamp/2, 
+         format_short_timestamp/1, format_short_timestamp/2, 
+         format_long_timestamp/1, format_long_timestamp/2,
+         formated_timestamp/0, 
+         formated_short_timestamp/0, 
+         formated_long_timestamp/0
+        ]).
 
-%% This is for XREF
--deprecated([{format_versions, 1, eventually}]).
+-export_type([
+              void/0
+             ]).
 
+-type void() :: term().
 
 -include("megaco_internal.hrl").
 
@@ -477,7 +486,18 @@ decode_sdp(PP) ->
 
 
 %%-----------------------------------------------------------------
-%% {ok, Vs} = megaco:versions1(), megaco:format_versions(Vs).
+%% dget_sdp_record_from_PropertyGroup(Type, PG) ->
+%% 
+%%   [sdp()]}
+%%
+%% Get all sdp records of a certain type from a property group
+%%-----------------------------------------------------------------
+
+get_sdp_record_from_PropertyGroup(Type, PG) ->
+    megaco_sdp:get_sdp_record_from_PropertyGroup(Type, PG).
+
+
+%%-----------------------------------------------------------------
 
 print_version_info() ->
     {ok, Versions} = megaco:versions1(),
@@ -489,9 +509,6 @@ print_version_info(Versions) when is_list(Versions) ->
     print_mods_info(Versions);
 print_version_info(BadVersions) ->
     {error, {bad_versions, BadVersions}}.
-
-format_versions(Versions) ->
-    print_version_info(Versions).
 
 print_sys_info(Versions) ->
     case key1search(sys_info, Versions) of
@@ -606,25 +623,15 @@ print_mod_info({Module, Info}) ->
 	    _ ->
 		"Not found"
 	end,
-    CompDate = 
-	case key1search(compile_time, Info) of
-	    {value, {Year, Month, Day, Hour, Min, Sec}} ->
-		lists:flatten(
-		  io_lib:format("~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w", 
-				[Year, Month, Day, Hour, Min, Sec]));
-	    _ ->
-		"Not found"
-	end,
     io:format("   ~w:~n"
 	      "      Vsn:          ~s~n"
 	      "      App vsn:      ~s~n"
 	      "      ASN.1 vsn:    ~s~n"
-	      "      Compiler ver: ~s~n"
-	      "      Compile time: ~s~n", 
-	      [Module, Vsn, AppVsn, Asn1Vsn, CompVer, CompDate]),
+	      "      Compiler ver: ~s~n",
+	      [Module, Vsn, AppVsn, Asn1Vsn, CompVer]),
     ok.
-    
-    
+
+
 
 key1search(Key, Vals) ->
     case lists:keysearch(Key, 1, Vals) of
@@ -674,11 +681,9 @@ mod_version_info(Mod) ->
     {value, {app_vsn,    AppVsn}} = lists:keysearch(app_vsn,    1, Attr),
     {value, {compile,    Comp}}   = lists:keysearch(compile,    1, Info),
     {value, {version,    Ver}}    = lists:keysearch(version,    1, Comp),
-    {value, {time,       Time}}   = lists:keysearch(time,       1, Comp),
     {Mod, [{vsn,              Vsn}, 
 	   {app_vsn,          AppVsn}, 
-	   {compiler_version, Ver}, 
-	   {compile_time,     Time}]}.
+	   {compiler_version, Ver}]}.
 
 sys_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),
@@ -686,13 +691,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
 
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
     
 ms() ->    
     ms1().
@@ -721,10 +721,10 @@ nc() ->
     nc(Mods).
 
 nc(all) ->
-    application:load(?APPLICATION),
+    _ = application:load(?APPLICATION),
     case application:get_key(?APPLICATION, modules) of
 	{ok, Mods} ->
-	    application:unload(?APPLICATION),
+	    _ = application:unload(?APPLICATION),
 	    nc(Mods);
 	_ ->
 	    {error, not_found}
@@ -741,10 +741,10 @@ ni() ->
     end.
 
 ni(all) -> 
-    application:load(?APPLICATION),
+    _ = application:load(?APPLICATION),
     case application:get_key(?APPLICATION, modules) of
 	{ok, Mods} ->
-	    application:unload(?APPLICATION),
+	    _ = application:unload(?APPLICATION),
 	    ni(Mods);
 	_ ->
 	    {error, not_found}
@@ -1005,14 +1005,96 @@ print_trace(Fd, Trace) ->
               "~n", [Trace]).
 
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
+%% ---------------------------------------------------------------------------
+%% # formated_timstamp/0,     formated_timstamp/1
+%% # format_short_timstamp/0, format_short_timstamp/1
+%% # format_long_timstamp/0,  format_long_timstamp/1
+%% 
+%% Create a formatted timestamp. Short means that it will not include 
+%% the date in the formatted timestamp. Also it will only include millis.
+%% ---------------------------------------------------------------------------
+
+formated_timestamp() ->
+    formated_long_timestamp().
+
+formated_short_timestamp() ->
+    format_short_timestamp(os:timestamp()).
+
+formated_long_timestamp() ->
+    format_long_timestamp(os:timestamp()).
+
+
+%% ---------------------------------------------------------------------------
+%% # format_timstamp/1, format_timstamp/2
+%% # format_short_timstamp/1, format_short_timstamp/2
+%% # format_long_timstamp/1, format_long_timstamp/2
+%% 
+%% Formats the provided timestamp. Short means that it will not include 
+%% the date in the formatted timestamp.
+%% ---------------------------------------------------------------------------
+
+-spec format_timestamp(Now :: erlang:timestamp()) ->
+    string().
+
+format_timestamp(Now) ->
+    format_long_timestamp(Now).
+
+-spec format_short_timestamp(Now :: erlang:timestamp()) ->
+    string().
+
+format_short_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(short, Now, N2T).
+
+-spec format_long_timestamp(Now :: erlang:timestamp()) ->
+    string().
+
+format_long_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(long, Now, N2T).
+
+-spec format_timestamp(Now :: erlang:timestamp(), 
+                       N2T :: function()) ->
+    string().
+
+format_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_long_timestamp(Now, N2T).
+
+-spec format_short_timestamp(Now :: erlang:timestamp(), 
+                             N2T :: function()) ->
+    string().
+
+format_short_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_timestamp(short, Now, N2T).
+
+-spec format_long_timestamp(Now :: erlang:timestamp(), 
+                            N2T :: function()) ->
+    string().
+
+format_long_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_timestamp(long, Now, N2T).
+
+format_timestamp(Format, {_N1, _N2, N3} = Now, N2T) ->
+    {Date, Time} = N2T(Now),
+    do_format_timestamp(Format, Date, Time, N3).
+
+do_format_timestamp(short, _Date, Time, N3) ->
+    do_format_short_timestamp(Time, N3);
+do_format_timestamp(long, Date, Time, N3) ->
+    do_format_long_timestamp(Date, Time, N3).
+    
+do_format_long_timestamp(Date, Time, N3) ->
     {YYYY,MM,DD}   = Date,
     {Hour,Min,Sec} = Time,
     FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
+        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                      [YYYY, MM, DD, Hour, Min, Sec, N3 div 1000]),  
     lists:flatten(FormatDate).
 
+do_format_short_timestamp(Time, N3) ->
+    {Hour,Min,Sec} = Time,
+    FormatDate = 
+        io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w", 
+                      [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatDate).
 
- 

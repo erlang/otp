@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,14 +46,19 @@ all() ->
 basic(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
-    ExpectedHeapSz = erts_debug:size([Info]),
+    MaxHeapSz = maximum_hibernate_heap_size([Info]),
     Child = spawn_link(fun() -> basic_hibernator(Info) end),
-    hibernate_wake_up(100, ExpectedHeapSz, Child),
+    hibernate_wake_up(100, MaxHeapSz, Child),
     Child ! please_quit_now,
     ok.
 
+maximum_hibernate_heap_size(Term) ->
+    %% When hibernating, a few extra words will be allocated to hold the
+    %% continuation pointer as well as scratch space for the interpreter/jit.
+    erts_debug:size(Term) + 8.
+
 hibernate_wake_up(0, _, _) -> ok;
-hibernate_wake_up(N, ExpectedHeapSz, Child) ->
+hibernate_wake_up(N, MaxHeapSz, Child) ->
     {heap_size,Before} = process_info(Child, heap_size),
     case N rem 2 of
 	0 ->
@@ -70,9 +75,10 @@ hibernate_wake_up(N, ExpectedHeapSz, Child) ->
 		     end),
     {message_queue_len,0} = process_info(Child, message_queue_len),
     {status,waiting} = process_info(Child, status),
-    {heap_size,ExpectedHeapSz} = process_info(Child, heap_size),
+    {heap_size,After} = process_info(Child, heap_size),
     io:format("Before hibernation: ~p  After hibernation: ~p\n",
-	      [Before,ExpectedHeapSz]),
+	      [Before,After]),
+    true = After =< MaxHeapSz,
     Child ! {whats_up,self()},
     receive
         {all_fine,X,Child,_Ref} ->
@@ -86,7 +92,7 @@ hibernate_wake_up(N, ExpectedHeapSz, Child) ->
                     io:format("~s\n", [binary_to_list(Bin)]),
                     ct:fail(stack_is_growing);
                 true ->
-                    hibernate_wake_up(N-1, ExpectedHeapSz, Child)
+                    hibernate_wake_up(N-1, MaxHeapSz, Child)
             end;
         Other ->
             io:format("~p\n", [Other]),
@@ -142,9 +148,9 @@ whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
 dynamic_call(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
-    ExpectedHeapSz = erts_debug:size([Info]),
+    MaxHeapSz = maximum_hibernate_heap_size([Info]),
     Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
-    hibernate_wake_up(100, ExpectedHeapSz, Child),
+    hibernate_wake_up(100, MaxHeapSz, Child),
     Child ! please_quit_now,
     ok.
 
@@ -167,12 +173,6 @@ dynamic_call_hibernator_msg(Msg, _Function, Info) ->
 %%%
 
 min_heap_size(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-	true -> {skip, "Test case relies on trace which is not available in HiPE"};
-	false -> min_heap_size_1(Config)
-    end.
-
-min_heap_size_1(Config) when is_list(Config) ->
     erlang:trace(new, true, [call]),
     MFA = {?MODULE,min_hibernator,1},
     1 = erlang:trace_pattern(MFA, true, [local]),
@@ -188,7 +188,7 @@ min_heap_size_1(Config) when is_list(Config) ->
     {heap_size,HeapSz} = process_info(Child, heap_size),
     io:format("Heap size: ~p\n", [HeapSz]),
     if
-        HeapSz < 20 -> ok
+        HeapSz =< 20 -> ok
     end,
     Child ! wake_up,
     receive
@@ -332,8 +332,9 @@ no_heap(Config) when is_list(Config) ->
     H = spawn_link(fun () -> clean_dict(), no_heap_loop() end),
     lists:foreach(fun (_) ->
                           wait_until(fun () -> is_hibernated(H) end),
-                          [{heap_size,1}, {total_heap_size,1}]
+                          [{heap_size, Size}, {total_heap_size, Size}]
                               = process_info(H, [heap_size, total_heap_size]),
+                          true = Size =< maximum_hibernate_heap_size(0),
                           receive after 10 -> ok end,
                           H ! again
                   end, lists:seq(1, 100)),

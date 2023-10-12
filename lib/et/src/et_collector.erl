@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,12 +40,10 @@
 
          start_trace_client/3, 
          start_trace_port/1, 
-         %% load_event_file/2, 
          save_event_file/3,
          clear_table/1,
 
          get_global_pid/0, 
-         %% get_table_handle/1,
 	 get_table_size/1,
          change_pattern/2,
          make_key/2,
@@ -686,7 +684,7 @@ monitor_trace_port(CollectorPid, Parameters) ->
 		  MonitorRef = erlang:monitor(process, CollectorPid),
 		  receive
 		      {'DOWN', MonitorRef, _, _, _} ->
-			  dbg:stop_clear()
+			  dbg:stop()
 		  end
 	  end),
     Res.

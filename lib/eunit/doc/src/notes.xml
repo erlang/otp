@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2018</year>
+      <year>2021</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,213 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
+
+<section><title>Eunit 2.8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, eunit exact_execution option works with
+	    application primitive.</p>
+          <p>
+	    Own Id: OTP-18264 Aux Id: PR-6322, GH-6320 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    With this change, Eunit can optionally not try to execute
+	    related module with "_tests" suffix. This might be used
+	    for avoiding duplicated executions when source and test
+	    modules are located in the same folder.</p>
+          <p>
+	    Own Id: OTP-18181 Aux Id: ERL-97, GH-3064, PR-5461 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor internal improvements.</p>
+          <p>
+	    Own Id: OTP-17884 Aux Id: GH-5617 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In an eunit test, when a test case times out, include a
+	    stacktrace.</p>
+          <p>
+	    Own Id: OTP-17613 Aux Id: PR-5185 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <seeerl
+	    marker="eunit_surefire"><c>eunit_surefire</c></seeerl>
+	    report handler has been updated to automatically create
+	    the directories needed to store the surefire xml file.</p>
+          <p>
+	    Own Id: OTP-17300 Aux Id: PR-4695 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compiler warning.</p>
+          <p>
+	    Own Id: OTP-16674</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Let <c>eunit_surefire</c> skip invalid XML 1.0
+	    characters. </p>
+          <p>
+	    Own Id: OTP-15950 Aux Id: PR-2316, ERL-991 </p>
+        </item>
+        <item>
+          <p>
+	    Add new macro ?capturedOutput for enabling to write test
+	    cases that verify data printed to standard out</p>
+          <p>
+	    Own Id: OTP-16275 Aux Id: PR-2424 </p>
+        </item>
+        <item>
+          <p>
+	    Add option to limit print depth of exceptions generated
+	    by eunit test suites.</p>
+          <p>
+	    Own Id: OTP-16549 Aux Id: PR-2532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Backport of PR-2316: Strip control codes from
+	    eunit_surefire output to avoid generation of invalid xml</p>
+          <p>
+	    Own Id: OTP-16380 Aux Id: ERL-991, PR-2316, PR-2487 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove compiler warnings from eunit.</p>
+          <p>
+	    Own Id: OTP-16313</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Handle <c>get_until</c> request with explicit
+	    encoding in the implementation of the I/O protocol. </p>
+          <p>
+	    Own Id: OTP-16000</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Eunit 2.3.7</title>
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,12 +32,12 @@
     <rev></rev>
     <file>snmpa_error_logger.xml</file>
   </header>
-  <module>snmpa_error_logger</module>
+  <module since="">snmpa_error_logger</module>
   <modulesummary>Functions for Reporting SNMP Errors through the error_logger</modulesummary>
   <description>
     <p>The module <c>snmpa_error_logger</c> implements the 
       <c>snmpa_error_report</c> behaviour 
-      (see <seealso marker="snmpa_error_report">snmpa_error_report</seealso>) 
+      (see <seeerl marker="snmpa_error_report">snmpa_error_report</seeerl>) 
       containing two callback functions which are called in order to 
       report SNMP errors.
       </p>
@@ -48,13 +48,13 @@
       </p>
     <p>This module is the default error report module, but can be 
       explicitly configured, see
-      <seealso marker="snmpa_error#desc">snmpa_error</seealso> and
-      <seealso marker="snmp_config#configuration_params">configuration parameters</seealso>.
+      <seeerl marker="snmpa_error#desc">snmpa_error</seeerl> and
+      <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
   </description>
   <funcs>
     <func>
-      <name>config_err(Format, Args) -> void()</name>
+      <name since="">config_err(Format, Args) -> void()</name>
       <fsummary>Called if a configuration error occurs</fsummary>
       <type>
         <v>Format = string()</v>
@@ -70,7 +70,7 @@
       </desc>
     </func>
     <func>
-      <name>user_err(Format, Args) -> void()</name>
+      <name since="">user_err(Format, Args) -> void()</name>
       <fsummary>Called if a user related error occurs</fsummary>
       <type>
         <v>Format = string()</v>

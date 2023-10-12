@@ -1,0 +1,35 @@
+
+  [;1m-spec from_term(Term) -> AnySet when AnySet :: anyset(), Term :: term().[0m
+
+  Creates an element of Sets by traversing term [;;4mTerm[0m, sorting
+  lists, removing duplicates, and deriving or verifying a valid
+  type for the so obtained external set. An explicitly specified 
+  type [;;4mType[0m can be used to limit the depth of the traversal; an
+  atomic type stops the traversal, as shown by the following example
+  where [;;4m"foo"[0m and [;;4m{"foo"}[0m are left unmodified:
+
+    1> S = sofs:from_term([{{"foo"},[1,1]},{"foo",[2,2]}],
+    [{atom,[atom]}]),
+    sofs:to_external(S).
+    [{{"foo"},[1]},{"foo",[2]}]
+
+  [;;4mfrom_term[0m can be used for creating atomic or ordered sets. The
+  only purpose of such a set is that of later building unordered
+  sets, as all functions in this module that do anything operate
+  on unordered sets. Creating unordered sets from a collection of
+  ordered sets can be the way to go if the ordered sets are big and
+  one does not want to waste heap by rebuilding the elements of the
+  unordered set. The following example shows that a set can be built
+  "layer by layer":
+
+    1> A = sofs:from_term(a),
+    S = sofs:set([1,2,3]),
+    P1 = sofs:from_sets({A,S}),
+    P2 = sofs:from_term({b,[6,5,4]}),
+    Ss = sofs:from_sets([P1,P2]),
+    sofs:to_external(Ss).
+    [{a,[1,2,3]},{b,[4,5,6]}]
+
+  Other functions that create sets are [;;4mfrom_external/2[0m and [;;4m[0m
+  [;;4mfrom_sets/1[0m. Special cases of [;;4mfrom_term/2[0m are [;;4ma_function/1,2[0m, [;;4m[0m
+  [;;4mempty_set/0[0m, [;;4mfamily/1,2[0m, [;;4mrelation/1,2[0m, and [;;4mset/1,2[0m.

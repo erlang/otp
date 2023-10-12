@@ -1,0 +1,4 @@
+
+  [;1m-type list(ContentType) :: [ContentType].[0m
+
+  An Erlang list containing terms of the type [;;4mContentType[0m.

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ XMLDIR := $(XMLDIR)/installation_guide
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = "$(RELEASE_PATH)/doc/installation_guide"
+RELSYSDIR = $(RELEASE_PATH)/doc/installation_guide
 REDIRECT_HTML_RELSYSDIR = $(RELSYSDIR)/source
 
 # ----------------------------------------------------
@@ -91,7 +91,6 @@ $(XMLDIR)/%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
 $(REDIRECT_HTML_DIR)/%.html: Makefile
-	test -d $(REDIRECT_HTML_DIR) || $(INSTALL_DIR) $(REDIRECT_HTML_DIR)
 	echo "<html><head><meta HTTP-EQUIV=\"REFRESH\"" > $@
 	echo " content=\"5; url=../"$(notdir $@)"\">" >> $@
 	echo "<title>This page has moved</title></head><body>" >> $@
@@ -101,7 +100,9 @@ $(REDIRECT_HTML_DIR)/%.html: Makefile
 	echo "This <a href=\"../"$(notdir $@)"\">link</a> will" >> $@
 	echo "take you there immediately.</p></body></html>" >> $@
 
-docs: $(XML_GEN_FILES) html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 local_docs: $(XML_GEN_FILES)
@@ -112,8 +113,9 @@ debug opt:
 
 clean clean_docs:
 	rm -f $(GENERATED_XML_FILES)
-	rm -rf $(HTMLDIR)
-	rm -rf $(XMLDIR)
+	rm -f $(XMLDIR)/*.xml
+	rm -f $(HTMLDIR)/*/*.gif $(HTMLDIR)/*/*.html
+	rm -f $(XML_GEN_FILES)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 
@@ -122,13 +124,12 @@ clean clean_docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html "$(RELSYSDIR)"
+	$(INSTALL_DIR) "$(REDIRECT_HTML_RELSYSDIR)"
+	$(INSTALL_DATA) $(REDIRECT_HTML_FILES) "$(REDIRECT_HTML_RELSYSDIR)"
 
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html $(RELSYSDIR)
-	$(INSTALL_DIR) $(REDIRECT_HTML_RELSYSDIR)
-	$(INSTALL_DATA) $(REDIRECT_HTML_FILES) $(REDIRECT_HTML_RELSYSDIR)
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
 release_spec:
-
-

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,13 @@
  * 
  * %CopyrightEnd%
  */
-#pragma comment(linker,"/manifestdependency:\"type='win32' "\
-		"name='Microsoft.Windows.Common-Controls' "\
-		"version='6.0.0.0' processorArchitecture='*' "\
-		"publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "init_file.h"
 
-typedef int ErlexecFunction(int, char **, HANDLE, int); 
+typedef int ErlexecFunction(int, char **, HANDLE);
 
 #define INI_FILENAME L"erl.ini"
 #define INI_SECTION "erlang"
@@ -38,23 +35,14 @@ static void error(char* format, ...);
 static wchar_t *erlexec_name;
 static wchar_t *erlexec_dir;
 
-#ifdef WIN32_WERL
-#define WERL 1
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-		    PWSTR szCmdLine, int iCmdShow)
-{
-    int argc = __argc;
-    wchar_t **argv = __wargv;
-#else
-#define WERL 0
 int wmain(int argc, wchar_t **argv)
 {
-#endif
   HANDLE erlexec_handle; /* Instance */
   ErlexecFunction *win_erlexec;
   wchar_t *path = malloc(100*sizeof(wchar_t));
+  wchar_t *wslpath = malloc(100*sizeof(wchar_t));
   wchar_t *npath;
-  int pathlen;
+  int pathlen, wslpathlen;
   char ** utf8argv;
   int i, len;
 
@@ -66,9 +54,24 @@ int wmain(int argc, wchar_t **argv)
     path = realloc(path,pathlen*sizeof(wchar_t));
     GetEnvironmentVariableW(L"PATH",path,pathlen);
   }
-  pathlen = (wcslen(path) + wcslen(erlexec_dir) + 2);
+
+  if ((wslpathlen = GetEnvironmentVariableW(L"WSLENV",wslpath,100)) > 0) {
+      if ((wslpathlen = GetEnvironmentVariableW(L"WSLPATH",wslpath,100)) > 0) {
+          if (wslpathlen > 100) {
+              wslpath = realloc(wslpath,wslpathlen*sizeof(wchar_t));
+              GetEnvironmentVariableW(L"WSLPATH",wslpath,wslpathlen);
+          }
+          wslpathlen = wcslen(wslpath);
+      }
+  }
+  /* Add size for path delimiters and eos */
+  pathlen = (wcslen(path) + wslpathlen + wcslen(erlexec_dir) + 3);
   npath = (wchar_t *) malloc(pathlen*sizeof(wchar_t));
-  swprintf(npath,pathlen,L"%s;%s",erlexec_dir,path);
+  if(wslpathlen > 0) {
+      swprintf(npath,pathlen,L"%s;%s;%s",erlexec_dir,path,wslpath);
+  } else {
+      swprintf(npath,pathlen,L"%s;%s",erlexec_dir,path);
+  }
   SetEnvironmentVariableW(L"PATH",npath);
 
   if ((erlexec_handle = LoadLibraryW(erlexec_name)) == NULL) {
@@ -107,7 +110,7 @@ int wmain(int argc, wchar_t **argv)
 	}
 #endif
 
-  return (*win_erlexec)(argc,utf8argv,erlexec_handle,WERL);
+  return (*win_erlexec)(argc,utf8argv,erlexec_handle);
   
 } 
 
@@ -303,7 +306,6 @@ static void get_parameters(void)
     free(ini_filename);
 }
 
-
 static void error(char* format, ...)
 {
     char sbuf[2048];
@@ -313,11 +315,6 @@ static void error(char* format, ...)
     vsprintf(sbuf, format, ap);
     va_end(ap);
 
-#ifndef WIN32_WERL 
-	fprintf(stderr, "%s\n", sbuf);
-#else
-	MessageBox(NULL, sbuf, "Werl", MB_OK|MB_ICONERROR);
-#endif
+    fprintf(stderr, "%s\n", sbuf);
     exit(1);
 }
-

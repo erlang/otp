@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static BIF_RETTYPE re_exec_trap(BIF_ALIST_3);
-static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
+static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first);
 
 static void *erts_erts_pcre_malloc(size_t size) {
     return erts_alloc(ERTS_ALC_T_RE_HEAP,size);
@@ -66,7 +66,7 @@ static void erts_erts_pcre_stack_free(void *ptr) {
 
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
 
-#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 static int
 stack_guard_downwards(void)
@@ -97,7 +97,7 @@ void erts_init_bif_re(void)
     erts_pcre_free = &erts_erts_pcre_free;
     erts_pcre_stack_malloc = &erts_erts_pcre_stack_malloc;
     erts_pcre_stack_free = &erts_erts_pcre_stack_free;
-    if ((char *) erts_ptr_id(&c) > ERTS_STACK_LIMIT)
+    if (erts_check_if_stack_grows_downwards(&c))
         erts_pcre_stack_guard = stack_guard_downwards;
     else
         erts_pcre_stack_guard = stack_guard_upwards;
@@ -534,13 +534,14 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
     int unicode = 0;
     int buffres;
 
-    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL)
-	< 0) {
-	BIF_ERROR(p,BADARG);
+    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL) < 0) {
+    opt_error:
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (pflags & PARSE_FLAG_UNIQUE_EXEC_OPT) {
-	BIF_ERROR(p,BADARG);
+        goto opt_error;
     }
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
@@ -1041,6 +1042,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = ap->len + 1));
 			    }
 			}
+                        ASSERT(tmpb != NULL);
 			sys_memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
@@ -1058,7 +1060,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = slen + 1));
 			    }
 			}
-
+                        ASSERT(tmpb != NULL);
 			buffres = erts_iolist_to_buf(val, tmpb, slen);
 			ASSERT(buffres >= 0); (void)buffres;
 			tmpb[slen] = '\0';
@@ -1094,7 +1096,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
  * The actual re:run/2,3 BIFs
  */
 static BIF_RETTYPE
-re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 {
     const pcre *code_tmp;
     RestartContext restart;
@@ -1118,7 +1120,16 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture,
 		      &match_limit,&match_limit_recursion)
 	< 0) {
-	BIF_ERROR(p,BADARG);
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
+    }
+    if (!first) {
+        /*
+         * 'first' is false when re:grun() previously has called re:internal_run()
+         * with the same subject; i.e., no need to do yet another validation of
+         * the subject regarding utf8 encoding...
+         */
+        options |= PCRE_NO_UTF8_CHECK;
     }
     is_list_cap = ((pflags & PARSE_FLAG_CAPTURE_OPT) && 
 		   (capture[CAPSPEC_TYPE] == am_list));
@@ -1274,7 +1285,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     }
 
     /*  Optimized - if already in binary off heap, keep that and avoid
-       copying, also binary returns can be sub binaries in that case */
+        copying, also binary returns can be sub binaries in that case. */
 
     restart.flags = 0;
     if (is_binary(arg1)) {
@@ -1289,7 +1300,10 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 
 	slength = binary_size(arg1);
 	bptr = binary_val(real_bin);
-	if (bitsize != 0 || bitoffs != 0 ||  (*bptr != HEADER_PROC_BIN)) {
+	if (bitsize != 0 || bitoffs != 0 || slength <= ERL_ONHEAP_BIN_LIMIT) {
+            /* If this is an unaligned subbinary,
+               or the binary is smaller than the ERL_ONHEAP_BIN_LIMIT
+               we make a copy of the binary. */
 	    goto handle_iolist;
 	}
 	pb = (ProcBin *) bptr;
@@ -1326,31 +1340,69 @@ handle_iolist:
     rc = erts_pcre_exec(restart.code, &(restart.extra), restart.subject, 
 			slength, startoffset, 
 			options, restart.ovector, ovsize);
+    if (rc < 0) {
+        switch (rc) {
+            /* No match... */
+        case PCRE_ERROR_NOMATCH:
+        case PCRE_ERROR_MATCHLIMIT:
+        case PCRE_ERROR_RECURSIONLIMIT:
+            break;
 
-    if (rc == PCRE_ERROR_BADENDIANNESS || rc == PCRE_ERROR_BADMAGIC) {
-	cleanup_restart_context(&restart);
-	BIF_ERROR(p,BADARG);
+            /* Yield... */
+        case PCRE_ERROR_LOOP_LIMIT: {
+            /* Trap */
+            Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
+                                                   cleanup_restart_context_bin);
+            RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
+            Eterm magic_ref;
+            Eterm *hp;
+            ASSERT(loop_count != 0xFFFFFFFF);
+            BUMP_REDS(p, loop_count / LOOP_FACTOR);
+            sys_memcpy(restartp,&restart,sizeof(RestartContext));
+            ERTS_VBUMP_ALL_REDS(p);
+            hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+            magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
+            BIF_TRAP3(&re_exec_trap_export,
+                      p,
+                      arg1,
+                      arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
+                      magic_ref);
+        }
+
+            /* Recursive loop detected in pattern... */
+        case PCRE_ERROR_RECURSELOOP:
+#if 1
+            loop_count = CONTEXT_REDS*LOOP_FACTOR; /* Unknown amount of work done... */
+            break; /* nomatch for backwards compatibility reasons for now... */
+#else
+            BUMP_ALL_REDS(p); /* Unknown amount of work done... */
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, BADARG);
+#endif
+            
+            /* Bad utf8 in subject... */
+        case PCRE_ERROR_SHORTUTF8:
+        case PCRE_ERROR_BADUTF8:
+        case PCRE_ERROR_BADUTF8_OFFSET:
+            BUMP_ALL_REDS(p); /* Unknown amount of work done... */
+            /* Fall through for badarg... */
+            
+            /* Bad pre-compiled regexp... */
+        case PCRE_ERROR_BADMAGIC:
+        case PCRE_ERROR_BADENDIANNESS:
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, BADARG);
+            
+        default:
+            /* Something unexpected happened... */
+            ASSERT(! "Unexpected erts_pcre_exec() result");
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, EXC_INTERNAL_ERROR);
+        }
     }
     
     ASSERT(loop_count != 0xFFFFFFFF);
     BUMP_REDS(p, loop_count / LOOP_FACTOR);
-    if (rc == PCRE_ERROR_LOOP_LIMIT) {
-	/* Trap */
-	Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
-					       cleanup_restart_context_bin);
-	RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
-	Eterm magic_ref;
-	Eterm *hp;
-	sys_memcpy(restartp,&restart,sizeof(RestartContext));
-	BUMP_ALL_REDS(p);
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
-	BIF_TRAP3(&re_exec_trap_export, 
-		  p,
-		  arg1,
-		  arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
-		  magic_ref);
-    }
 
     res = build_exec_return(p, rc, &restart, arg1);
  
@@ -1360,15 +1412,28 @@ handle_iolist:
 }
 
 BIF_RETTYPE
+re_internal_run_4(BIF_ALIST_4)
+{
+    int first;
+    if (BIF_ARG_4 == am_false)
+        first = 0;
+    else if (BIF_ARG_4 == am_true)
+        first = !0;
+    else
+        BIF_ERROR(BIF_P,BADARG);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, first);
+}
+
+BIF_RETTYPE
 re_run_3(BIF_ALIST_3)
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, !0);
 }
 
 BIF_RETTYPE
 re_run_2(BIF_ALIST_2) 
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL, !0);
 }
 
 /*
@@ -1407,6 +1472,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     loop_count = 0xFFFFFFFF;
 #endif
     rc = erts_pcre_exec(NULL, &(restartp->extra), NULL, 0, 0, 0, NULL, 0);
+
     ASSERT(loop_count != 0xFFFFFFFF);
     BUMP_REDS(BIF_P, loop_count / LOOP_FACTOR);
     if (rc == PCRE_ERROR_LOOP_LIMIT) {
@@ -1442,7 +1508,7 @@ re_inspect_2(BIF_ALIST_2)
     tp = tuple_val(BIF_ARG_1);
     if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	is_not_binary(tp[5])) {
+	is_not_binary(tp[5]) || binary_size(tp[5]) < 4) {
 	goto error;
     }
     if (BIF_ARG_2 != am_namelist) {

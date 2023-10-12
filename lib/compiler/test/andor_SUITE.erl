@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +66,17 @@ t_case(Config) when is_list(Config) ->
     true = (catch t_case_e({a,b}, {a,b})),
     false = (catch t_case_e({a,b}, 42)),
 
+    {true,false} = t_case_f1(true, pos),
+    {false,true} = t_case_f1(true, whatever),
+    {false,true} = t_case_f1(false, pos),
+    {false,true} = t_case_f1(false, whatever),
+    {false,false} = t_case_f1(not_boolean, pos),
+    {false,false} = t_case_f1(not_boolean, whatever),
+
+    false = t_case_f2(true),
+    true = t_case_f2(false),
+    false = t_case_f2(whatever),
+
     true = t_case_xy(42, 100, 700),
     true = t_case_xy(42, 100, whatever),
     false = t_case_xy(42, wrong, 700),
@@ -108,6 +119,25 @@ t_case_e(A, B) ->
     case A =:= B of
 	Bool when is_tuple(A) -> id(Bool)
     end.
+
+t_case_f1(IsInt, Eval) ->
+    B = case IsInt of
+            true -> Eval =:= pos;
+            false -> false;
+            _ -> IsInt
+        end,
+
+    %% The above is the same as `IsInt andalso Eval =:= pos` in a guard.
+    %% In a real guard, variable `B` will only be used once.
+    {B =:= true, B =:= false}.
+
+t_case_f2(IsInt) ->
+    B = case IsInt of
+            true -> false;
+            false -> true;
+            _ -> IsInt
+        end,
+    B =:= true.
 
 t_case_xy(X, Y, Z) ->
     Res = t_case_x(X, Y, Z),
@@ -179,7 +209,13 @@ t_and_or(Config) when is_list(Config) ->
 	    {'EXIT',{badarg,_}} = (catch true and Tuple)
     end,
 
+    %% Cover code in beam_ssa_codegen when type optimizations are disabled.
+    {'EXIT',{badarg,_}} = catch bad_and(true),
+
     ok.
+
+bad_and(A) ->
+    (not not ok) and id(A).
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
@@ -211,6 +247,12 @@ t_andalso(Config) when is_list(Config) ->
 
     true = begin (X1 = true) andalso X1, X1 end,
     false = false = begin (X2 = false) andalso X2, X2 end,
+
+    %% Cover conversion to right associativity.
+    true = (is_list(Config) andalso is_list(Bs)) andalso is_list(Ps),
+
+    %% Cover beam_ssa_dead:will_succeed_vars/4.
+    false = fun(V) -> V == V andalso not (V == V) end(a),
 
     ok.
 
@@ -244,6 +286,9 @@ t_orelse(Config) when is_list(Config) ->
 
     true = begin (X1 = true) orelse X1, X1 end,
     false = begin (X2 = false) orelse X2, X2 end,
+
+    %% Cover conversion to right associativity.
+    false = (is_atom(Config) orelse is_atom(Bs)) orelse is_atom(Ps),
 
     ok.
 
@@ -450,11 +495,25 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
     end.
 
 -record(state, {stack = []}).
+-record(conf, {e1=[], e2=[], e3=[], e4=[], e5=[], e6=[]}).
 
 slow_compilation(_) ->
-    %% The function slow_compilation_1 used to compile very slowly.
-    ok = slow_compilation_1({a}, #state{}).
+    ok = slow_compilation_1({a}, #state{}),
 
+    {'EXIT', {function_clause,_}} = catch slow_compilation_2(#{}),
+    {'EXIT', {function_clause,_}} = catch slow_compilation_2(true),
+
+    true = #conf{} =:= slow_compilation_3(#conf{}, #conf{}),
+    #conf{e1=a, e2=[], e3=[], e4=[], e5=[], e6=[]} =
+        slow_compilation_3(#conf{e1=a}, #conf{}),
+    #conf{e1=[], e2=[], e3=c, e4=[], e5=[], e6=[]} =
+        slow_compilation_3(#conf{e3=c}, #conf{}),
+    #conf{e1=[], e2=[], e3=[], e4=[], e5=[], e6=f} =
+        slow_compilation_3(#conf{e6=f}, #conf{}),
+
+    ok.
+
+%% This function used to compile very slowly.
 slow_compilation_1(T1, #state{stack = [T2|_]})
     when element(1, T2) == a, element(1, T1) == b, element(1, T1) == c ->
     ok;
@@ -477,6 +536,31 @@ slow_compilation_1(_, T) when element(1, T) == b ->
     ok;
 slow_compilation_1(T, _) when element(1, T) == a ->
     ok.
+
+%% The following function used to compile really slowly (about one and
+%% a half minutes on my computer). The culprit was
+%% beam_ssa_bool:covered/1. (Thanks to Robin Morisset and erlfuzz.)
+slow_compilation_2(X)
+  when X or is_function(ok, ok);
+       X#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}
+       #{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}
+       #{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}
+       #{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}#{ok := ok}
+       #{ok := ok} ->
+    ok.
+
+%% GH-7338. Very slow compilation time (the culprit was beam_ssa_bool:covered/1).
+slow_compilation_3(Old, New) ->
+    if Old#conf.e1 =/= New#conf.e1;
+       Old#conf.e2 =/= New#conf.e2;
+       Old#conf.e3 =/= New#conf.e3;
+       Old#conf.e4 =/= New#conf.e4;
+       Old#conf.e5 =/= New#conf.e5;
+       Old#conf.e6 =/= New#conf.e6 ->
+	    Old;
+       true ->
+	    New
+    end.
 
 %% Utilities.
 

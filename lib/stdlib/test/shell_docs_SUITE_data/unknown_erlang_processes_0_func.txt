@@ -1,0 +1,15 @@
+
+  [;1m-spec processes() -> [pid()].[0m
+
+  Returns a list of process identifiers corresponding to all the
+  processes currently existing on the local node.
+
+  Notice that an exiting process exists, but is not alive. That is, [;;4m[0m
+  [;;4mis_process_alive/1[0m returns [;;4mfalse[0m for an exiting process, but
+  its process identifier is part of the result returned from [;;4m[0m
+  [;;4mprocesses/0[0m.
+
+  Example:
+
+    > processes().
+    [<0.0.0>,<0.2.0>,<0.4.0>,<0.5.0>,<0.7.0>,<0.8.0>]

@@ -1,0 +1,56 @@
+
+  [;1m-spec alias(Opts) -> Alias[0m
+  [;1m               when[0m
+  [;1m                   Alias :: reference(),[0m
+  [;1m                   Opts :: [explicit_unalias | reply].[0m
+
+[;;4mSince[0m:
+  OTP 24.0
+
+  Create an alias which can be used when sending messages to the
+  process that created the alias. When the alias has been
+  deactivated, messages sent using the alias will be dropped. An
+  alias can be deactivated using [;;4munalias/1[0m. Currently available
+  options for [;;4malias/1[0m:
+
+  [;;4m[;;4mexplicit_unalias[0m[0m:
+    The alias can only be deactivated via a call to [;;4munalias/1[0m.
+    This is also the default behaviour if no options are passed or
+    if [;;4malias/0[0m is called.
+
+  [;;4m[;;4mreply[0m[0m:
+    The alias will be automatically deactivated when a reply
+    message sent via the alias is received. The alias can also
+    still be deactivated via a call to [;;4munalias/1[0m.
+
+  Example:
+
+    server() ->
+        receive
+            {request, AliasReqId, Request} ->
+                Result = perform_request(Request),
+                AliasReqId ! {reply, AliasReqId, Result}
+        end,
+        server().
+    
+    client(ServerPid, Request) ->
+        AliasReqId = alias([reply]),
+        ServerPid ! {request, AliasReqId, Request},
+        %% Alias will be automatically deactivated if we receive a reply
+        %% since we used the 'reply' option...
+        receive
+            {reply, AliasReqId, Result} -> Result
+        after 5000 ->
+                unalias(AliasReqId),
+                %% Flush message queue in case the reply arrived
+                %% just before the alias was deactivated...
+                receive {reply, AliasReqId, Result} -> Result
+                after 0 -> exit(timeout)
+                end
+        end.
+
+  Note that both the server and the client in this example must be
+  executing on at least OTP 24 systems in order for this to work.
+
+  For more information on process aliases see the Process Aliases
+  section of the Erlang Reference Manual.

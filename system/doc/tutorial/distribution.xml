@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -59,7 +59,7 @@
       <item>global_group - Grouping nodes to global name registration groups.</item>
       <item>net_adm - Various net administration routines.</item>
       <item>net_kernel - Networking kernel.</item>
-      <item>pg2 - Distributed named process groups.</item>
+      <item>pg - Distributed named process groups.</item>
       <item>pool - Load distribution facility.</item>
       <item>slave - Functions for starting and controlling slave nodes.</item>
     </list>

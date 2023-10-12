@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2018</year>
+      <year>2006</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>tftp</module>
+  <module since="">tftp</module>
   <modulesummary>Trivial FTP.</modulesummary>
   <description>
     <p>Interface module for the <c>tftp</c> application.</p>
@@ -52,7 +52,7 @@
       <tag><c>{host, Host}</c></tag>
       <item>
         <p><c>Host = hostname()</c>, see
-          <seealso marker="kernel:inet">inet(3)</seealso>.</p>
+          <seeerl marker="kernel:inet">inet(3)</seeerl>.</p>
         <p>The name or IP address of the host where the TFTP daemon
           resides. This option is only used by the client.</p>
       </item>
@@ -91,7 +91,7 @@
       <tag><c>{udp, Options}</c></tag>
       <item>
         <p><c>Options = [Opt]</c>, see
-          <seealso marker="kernel:gen_udp#open/1">gen_udp:open/2</seealso>.</p>
+          <seemfa marker="kernel:gen_udp#open/1">gen_udp:open/2</seemfa>.</p>
       </item>
       <tag><c>{use_tsize, Bool}</c></tag>
       <item>
@@ -141,11 +141,11 @@
           transferred, its local filename is matched to the regular
           expressions of the registered callbacks. The first matching
           callback is used during the transfer. See
-          <seealso marker="#read_file/3">read_file/3</seealso> and
-          <seealso marker="#write_file/3">write_file/3</seealso>.
+          <seemfa marker="#read_file/3">read_file/3</seemfa> and
+          <seemfa marker="#write_file/3">write_file/3</seemfa>.
           </p>
         <p>The callback module must implement the <c>tftp</c> behavior, see
-          <seealso marker="#tftp_callback">CALLBACK FUNCTIONS</seealso>.</p>
+          <seeerl marker="#tftp_callback">CALLBACK FUNCTIONS</seeerl>.</p>
       </item>
 
    <tag><c>{logger, Module}</c></tag>
@@ -154,8 +154,7 @@
 
         <p>Callback module for customized logging of errors, warnings, and
 	  info messages. The callback module must implement the
-	  <c>tftp_logger</c> behavior, see
-          <seealso marker="#tftp_logger">LOGGER FUNCTIONS</seealso>.
+	  <seeerl marker="tftp_logger"><c>tftp_logger</c></seeerl> behavior.
           The default module is <c>tftp_logger</c>.</p>
       </item>
 
@@ -172,7 +171,7 @@
 
   <funcs>
     <func>
-      <name>change_config(daemons, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(daemons, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all daemons.
       </fsummary>
       <type>
@@ -187,7 +186,7 @@
     </func>
 
     <func>
-      <name>change_config(servers, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(servers, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all servers.
       </fsummary>
       <type>
@@ -202,7 +201,7 @@
     </func>
 
     <func>
-      <name>change_config(Pid, Options) -> Result</name>
+      <name since="">change_config(Pid, Options) -> Result</name>
       <fsummary>Changes configuration for a TFTP daemon, server, 
       or client process.</fsummary>
       <type>
@@ -217,7 +216,7 @@
     </func>
     
     <func>
-      <name>info(daemons) -> [{Pid, Options}]</name>
+      <name since="">info(daemons) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all daemons.</fsummary>
       <type>
         <v>Pid = [pid()]</v>
@@ -230,7 +229,7 @@
     </func>
 
     <func>
-      <name>info(servers) -> [{Pid, Options}]</name>
+      <name since="">info(servers) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all servers.</fsummary>
       <type>
         <v>Pid = [pid()]</v>
@@ -243,7 +242,7 @@
     </func>
 
     <func>
-      <name>info(Pid) -> {ok, Options} | {error, Reason}</name>
+      <name since="">info(Pid) -> {ok, Options} | {error, Reason}</name>
       <fsummary>Returns information about a daemon, server, or client process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -255,7 +254,7 @@
     </func>
        
     <func>
-      <name>read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Reads a (virtual) file from a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>
@@ -285,7 +284,7 @@
     </func>
     
     <func>
-       <name>start(Options) -> {ok, Pid} | {error, Reason}</name>
+       <name since="">start(Options) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Starts a daemon process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -301,7 +300,7 @@
     </func>
 
     <func>
-      <name>write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Writes a (virtual) file to a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>
@@ -389,7 +388,7 @@
 
   <funcs>
      <func>
-      <name>Module:abort(Code, Text, State) -> ok</name>
+      <name since="OTP 18.1">Module:abort(Code, Text, State) -> ok</name>
       <fsummary>Aborts the file transfer.</fsummary>
       <type>
         <v>Code = undef | enoent | eacces | enospc</v>
@@ -413,7 +412,7 @@
     </func>
     
       <func>
-      <name>Module:open(Peer, Access, Filename, Mode, SuggestedOptions, State) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:open(Peer, Access, Filename, Mode, SuggestedOptions, State) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
       <fsummary>Opens a file for read or write access.</fsummary>
       <type>
         <v>Peer = {PeerType, PeerHost, PeerPort}</v>
@@ -448,7 +447,7 @@
     </func>
     
     <func>
-      <name>Module:prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
       <fsummary>Prepares to open a file on the client side.</fsummary>
       <type>
         <v>Peer = {PeerType, PeerHost, PeerPort}</v>
@@ -483,7 +482,7 @@
     </func>
 
     <func>
-      <name>Module:read(State) -> {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:read(State) -> {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</name>
       <fsummary>Reads a chunk from the file.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -510,7 +509,7 @@
     </func>
 
     <func>
-      <name>Module:write(Bin, State) -> {more, NewState} | {last, FileSize} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:write(Bin, State) -> {more, NewState} | {last, FileSize} | {error, {Code, Text}}</name>
       <fsummary>Writes a chunk to the file.</fsummary>
       <type>
         <v>Bin = binary()</v>
@@ -536,64 +535,4 @@
       </desc>
     </func>
   </funcs>
-  
-  <section>
-    <marker id="tftp_logger"></marker>
-    <title>LOGGER FUNCTIONS</title>
-    
-    <p>A <c>tftp_logger</c> callback module is to be implemented as a
-    <c>tftp_logger</c> behavior and export the following functions:</p>
-    
-    <marker id="error_msg"></marker>
-    </section>
-
-  <funcs>
-    <func>
-      <name>Logger:error_msg(Format, Data) -> ok | exit(Reason)</name>
-      <fsummary>Logs an error message.</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>Logs an error message. 
-	See <c>error_logger:error_msg/2</c> for details.</p>
-	
-	<marker id="warning_msg"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name>Logger:info_msg(Format, Data) -> ok | exit(Reason)</name>
-      <fsummary>Logs an info message.</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Logs an info message. 
-	See <c>error_logger:info_msg/2</c>  for details.</p>
-      </desc>
-    </func>
-    
-    <func>
-      <name>Logger:warning_msg(Format, Data) -> ok | exit(Reason)</name>
-      <fsummary>Logs a warning message.</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Data = [term()]</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Logs a warning message. 
-	See <c>error_logger:warning_msg/2</c> for details.</p>
-	
-	<marker id="info_msg"></marker>
-      </desc>
-    </func>
-  </funcs>
 </erlref>
-
-

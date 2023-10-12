@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_network_interface.xml</file>
   </header>
-  <module>snmpa_network_interface</module>
+  <module since="">snmpa_network_interface</module>
   <modulesummary>Behaviour module for the SNMP agent network interface.</modulesummary>
   <description>
     <p>This module defines the behaviour of the agent network
@@ -40,19 +40,19 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#start_link">start_link/4</seealso></p>
+        <p><seeerl marker="#start_link">start_link/4</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#info">info/1</seealso></p>
+        <p><seeerl marker="#info">info/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#get_log_type">get_log_type/1</seealso></p>
+        <p><seeerl marker="#get_log_type">get_log_type/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#set_log_type">set_log_type/2</seealso></p>
+        <p><seeerl marker="#set_log_type">set_log_type/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#verbosity">verbosity/2</seealso></p>
+        <p><seeerl marker="#verbosity">verbosity/2</seeerl></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -60,7 +60,7 @@
     <p>But this is not enough. There is also a set of <em>mandatory</em>
       messages which the network interface entity must be able to 
       receive and be able to send. This is described in chapter
-      <seealso marker="snmp_agent_netif">snmp_agent_netif</seealso>.
+      <seeguide marker="snmp_agent_netif">snmp_agent_netif</seeguide>.
       </p>
 
      <marker id="start_link"></marker>
@@ -68,7 +68,7 @@
 
   <funcs>
     <func>
-      <name>start_link(Prio, NoteStore, MasterAgent, Opts) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">start_link(Prio, NoteStore, MasterAgent, Opts) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Start-link the network interface process</fsummary>
       <type>
         <v>Prio        = priority()</v>
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name>info(Pid) -> [{Key, Value}]</name>
+      <name since="">info(Pid) -> [{Key, Value}]</name>
       <fsummary>Return information about the running network interface process</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -104,7 +104,7 @@
           memory allocation and various socket information.</p>
         <p>The info returned by this function is returned together with other 
           info collected by the agent when the 
-          <seealso marker="snmpa#info">info</seealso> function is called 
+          <seeerl marker="snmpa#info">info</seeerl> function is called 
           (tagged with with the key <c>net_if</c>).</p>
 
         <marker id="verbosity"></marker>
@@ -112,7 +112,7 @@
     </func>
 
     <func>
-      <name>verbosity(Pid, Verbosity) -> void()</name>
+      <name since="">verbosity(Pid, Verbosity) -> void()</name>
       <fsummary>Change the verbosity of a running network interface process</fsummary>
       <type>
         <v>Pid       = pid()</v>
@@ -126,7 +126,7 @@
     </func>
 
     <func>
-      <name>get_log_type(Pid) -> {ok, LogType} | {error, Reason}</name>
+      <name since="">get_log_type(Pid) -> {ok, LogType} | {error, Reason}</name>
       <fsummary>Get the Audit Trail Log type</fsummary>
       <type>
         <v>Pid     = pid()</v>
@@ -138,7 +138,7 @@
           So, it is this process that has to retrieve the actual log-type. </p>
 <!--
         <p>See 
-          <seealso marker="snmpa#get_log_type">get_log_type</seealso>
+          <seeerl marker="snmpa#get_log_type">get_log_type</seeerl>
           for more info. </p>
 -->
 
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name>set_log_type(Pid, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(Pid, NewType) -> {ok, OldType} | {error, Reason}</name>
       <fsummary>Change the Audit Trail Log type</fsummary>
       <type>
         <v>Pid     = pid()</v>
@@ -159,7 +159,7 @@
           So, it is this process that has to do the actual changing of the 
           type. </p>
         <p>See 
-          <seealso marker="snmpa#set_log_type">set_log_type</seealso>
+          <seeerl marker="snmpa#set_log_type">set_log_type</seeerl>
           for more info. </p>
       </desc>
     </func>

@@ -1,0 +1,39 @@
+
+  [;1m-spec erlang:hibernate(Module, Function, Args) -> no_return()[0m
+  [;1m                          when[0m
+  [;1m                              Module :: module(),[0m
+  [;1m                              Function :: atom(),[0m
+  [;1m                              Args :: [term()].[0m
+
+  Puts the calling process into a wait state where its memory
+  allocation has been reduced as much as possible. This is useful if
+  the process does not expect to receive any messages soon.
+
+  The process is awaken when a message is sent to it, and control
+  resumes in [;;4mModule:Function[0m with the arguments specified by [;;4mArgs[0m
+  with the call stack emptied, meaning that the process terminates
+  when that function returns. Thus [;;4merlang:hibernate/3[0m never
+  returns to its caller. The resume function [;;4mModule:Function/Arity[0m
+  must be exported ([;;4mArity[0m =:= [;;4mlength(Args)[0m).
+
+  If the process has any message in its message queue, the process
+  is awakened immediately in the same way as described earlier.
+
+  In more technical terms, [;;4merlang:hibernate/3[0m discards the call
+  stack for the process, and then garbage collects the process.
+  After this, all live data is in one continuous heap. The heap is
+  then shrunken to the exact same size as the live data that it
+  holds (even if that size is less than the minimum heap size for
+  the process).
+
+  If the size of the live data in the process is less than the
+  minimum heap size, the first garbage collection occurring after
+  the process is awakened ensures that the heap size is changed to a
+  size not smaller than the minimum heap size.
+
+  Notice that emptying the call stack means that any surrounding [;;4m[0m
+  [;;4mcatch[0m is removed and must be re-inserted after hibernation. One
+  effect of this is that processes started using [;;4mproc_lib[0m (also
+  indirectly, such as [;;4mgen_server[0m processes), are to use [;;4m[0m
+  [;;4mproc_lib:hibernate/3[0m instead, to ensure that the exception
+  handler continues to work when the process wakes up.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,23 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL ciphers and
+%% Purpose: Record and constant definitions for the SSL ciphers and
 %% the SSL-cipher protocol see RFC 4346, RFC 3268
 %%----------------------------------------------------------------------
 
 -ifndef(ssl_cipher).
 -define(ssl_cipher, true).
+
+%%% Session tickets  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-record(stateless_ticket,
+        {
+         hash,
+         pre_shared_key,
+         ticket_age_add,
+         lifetime,
+         timestamp,
+         certificate
+        }).
 
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(CHANGE_CIPHER_SPEC_PROTO, 1).           % _PROTO to not clash with 
@@ -47,8 +58,10 @@
 -record(cipher_state, {
 	  iv,
 	  key,
+	  finished_key,
 	  state,
-	  nonce
+	  nonce,
+          tag_len       
 	 }).
 
 %%% TLS_NULL_WITH_NULL_NULL is specified and is the initial state of a
@@ -247,6 +260,18 @@
 
 %%      TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA   = { 0xC0, 0x0A }
 -define(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, <<?BYTE(16#C0), ?BYTE(16#0A)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_128_CCM       = {0xC0,0xAC}
+-define(TLS_ECDHE_ECDSA_WITH_AES_128_CCM, <<?BYTE(16#C0), ?BYTE(16#AC)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_256_CCM       = {0xC0,0xAD}
+-define(TLS_ECDHE_ECDSA_WITH_AES_256_CCM, <<?BYTE(16#C0), ?BYTE(16#AD)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8     = {0xC0,0xAE}
+-define(TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8, <<?BYTE(16#C0), ?BYTE(16#AE)>>).
+
+%%      TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8     = {0xC0,0xAF}
+-define(TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8, <<?BYTE(16#C0), ?BYTE(16#AF)>>).
 
 %% ECDH_RSA
 
@@ -599,16 +624,82 @@
 %%      TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384     = {0xC0,0x32};
 -define(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384, <<?BYTE(16#C0), ?BYTE(16#32)>>).
 
-%%% Chacha20/Poly1305 Suites draft-agl-tls-chacha20poly1305-04
 
-%%      TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256   = {0xcc, 0x13}
--define(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#13)>>).
+%%% ChaCha20-Poly1305 Cipher Suites for Transport Layer Security (TLS) RFC7905
 
-%%      TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 = {0xcc, 0x14}
--define(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#14)>>).
+%%      TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256   = {0xCC, 0xA8}
+-define(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#A8)>>).
 
-%%      TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = {0xcc, 0x15}
--define(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#15)>>).
+%%      TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 = {0xCC, 0xA9}
+-define(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#A9)>>).
+
+%%      TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = {0xCC, 0xAA}
+-define(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#AA)>>).
+
+%%      TLS_PSK_WITH_CHACHA20_POLY1305_SHA256         = {0xCC, 0xAB}
+-define(TLS_PSK_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#AB)>>).
+
+%%      TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256   = {0xCC, 0xAC}
+-define(TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#AC)>>).
+
+%%      TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256     = {0xCC, 0xAD}
+-define(TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#AD)>>).
+
+%%      TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256     = {0xCC, 0xAE}
+-define(TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256, <<?BYTE(16#CC), ?BYTE(16#AE)>>).
+
+
+
+%% RFC 6655 - TLS-1.2 cipher suites
+
+%% TLS_RSA_WITH_AES_128_CCM      = {0xC0,0x9C}
+-define(TLS_RSA_WITH_AES_128_CCM,   <<?BYTE(16#C0), ?BYTE(16#9C)>>).
+
+%% TLS_RSA_WITH_AES_256_CCM      = {0xC0,0x9D}
+-define(TLS_RSA_WITH_AES_256_CCM, <<?BYTE(16#C0), ?BYTE(16#9D)>>).
+
+%% TLS_DHE_RSA_WITH_AES_256_CCM      = {0xC0,0x9E}
+-define(TLS_DHE_RSA_WITH_AES_256_CCM, <<?BYTE(16#C0), ?BYTE(16#9E)>>).
+
+%% TLS_DHE_RSA_WITH_AES_128_CCM      = {0xC0,0x9F}
+-define(TLS_DHE_RSA_WITH_AES_128_CCM, <<?BYTE(16#C0), ?BYTE(16#9F)>>).
+
+%% TLS_RSA_WITH_AES_256_CCM_8      = {0xC0,0x9A0}
+-define(TLS_RSA_WITH_AES_256_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A0)>>).
+
+%% TLS_RSA_WITH_AES_128_CCM_8      = {0xC0,0xA1}
+-define(TLS_RSA_WITH_AES_128_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A1)>>).
+
+%% TLS_DHE_RSA_WITH_AES_128_CCM_8      = {0xC0,0xA2}
+-define(TLS_DHE_RSA_WITH_AES_128_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A2)>>).
+
+%% TLS_DHE_RSA_WITH_AES_256_CCM_8      = {0xC0,0xA3}
+-define(TLS_DHE_RSA_WITH_AES_256_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A3)>>).
+
+%%  TLS_PSK_WITH_AES_128_CCM       = {0xC0,0xA4}
+-define(TLS_PSK_WITH_AES_128_CCM, <<?BYTE(16#C0), ?BYTE(16#A4)>>).
+
+%% TLS_PSK_WITH_AES_256_CCM       = {0xC0,0xA5)
+-define(TLS_PSK_WITH_AES_256_CCM, <<?BYTE(16#C0), ?BYTE(16#A5)>>).
+
+%% TLS_DHE_PSK_WITH_AES_128_CCM   = {0xC0,0xA6}
+-define(TLS_DHE_PSK_WITH_AES_128_CCM, <<?BYTE(16#C0), ?BYTE(16#A6)>>).
+
+%% TLS_DHE_PSK_WITH_AES_256_CCM   = {0xC0,0xA7}
+-define(TLS_DHE_PSK_WITH_AES_256_CCM, <<?BYTE(16#C0), ?BYTE(16#A7)>>).
+
+%% TLS_PSK_WITH_AES_128_CCM_8     = {0xC0,0xA8}
+-define(TLS_PSK_WITH_AES_128_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A8)>>).
+
+%%  TLS_PSK_WITH_AES_256_CCM_8     = {0xC0,0xA9)
+-define(TLS_PSK_WITH_AES_256_CCM_8, <<?BYTE(16#C0), ?BYTE(16#A9)>>).
+
+%% TLS_PSK_DHE_WITH_AES_128_CCM_8 = {0xC0,0xAA}
+-define(TLS_PSK_DHE_WITH_AES_128_CCM_8, <<?BYTE(16#C0), ?BYTE(16#AA)>>).
+
+%% TLS_PSK_DHE_WITH_AES_256_CCM_8 = << ?BYTE(0xC0,0xAB}
+-define(TLS_PSK_DHE_WITH_AES_256_CCM_8, <<?BYTE(16#C0),?BYTE(16#AB)>>).
+
 
 %%% TLS 1.3 cipher suites RFC8446
 
@@ -622,9 +713,9 @@
 -define(TLS_CHACHA20_POLY1305_SHA256, <<?BYTE(16#13),?BYTE(16#03)>>).
 
 %% %% TLS_AES_128_CCM_SHA256       = {0x13,0x04}
-%% -define(TLS_AES_128_CCM_SHA256, <<?BYTE(16#13), ?BYTE(16#04)>>).
+-define(TLS_AES_128_CCM_SHA256, <<?BYTE(16#13), ?BYTE(16#04)>>).
 
 %% %%  TLS_AES_128_CCM_8_SHA256    = {0x13,0x05}
-%% -define(TLS_AES_128_CCM_8_SHA256, <<?BYTE(16#13),?BYTE(16#05)>>).
+-define(TLS_AES_128_CCM_8_SHA256, <<?BYTE(16#13),?BYTE(16#05)>>).
 
 -endif. % -ifdef(ssl_cipher).

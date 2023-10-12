@@ -1,0 +1,20 @@
+
+  [;1m-spec pwrite(IoDevice, Location, Bytes) -> ok | {error, Reason}[0m
+  [;1m                when[0m
+  [;1m                    IoDevice :: io_device(),[0m
+  [;1m                    Location :: location(),[0m
+  [;1m                    Bytes :: iodata(),[0m
+  [;1m                    Reason :: posix() | badarg | terminated.[0m
+
+  Combines [;;4mposition/2[0m and [;;4mwrite/2[0m in one operation, which is
+  more efficient than calling them one at a time.
+
+  [;;4mLocation[0m is only allowed to be an integer for [;;4mraw[0m and [;;4mram[0m
+  modes.
+
+  The current position of the file after the operation is undefined
+  for [;;4mraw[0m mode and unchanged for [;;4mram[0m mode.
+
+  When positioning in a file with other [;;4mencoding[0m than [;;4mlatin1[0m,
+  caution must be taken to set the position on a correct character
+  boundary. For details, see [;;4mposition/2[0m.

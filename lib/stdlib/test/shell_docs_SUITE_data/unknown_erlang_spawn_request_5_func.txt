@@ -1,0 +1,188 @@
+
+  [;1m-spec spawn_request(Node, Module, Function, Args, Options) -> ReqId[0m
+  [;1m                       when[0m
+  [;1m                           Node :: node(),[0m
+  [;1m                           Module :: module(),[0m
+  [;1m                           Function :: atom(),[0m
+  [;1m                           Args :: [term()],[0m
+  [;1m                           Options :: [Option],[0m
+  [;1m                           Option ::[0m
+  [;1m                               monitor |[0m
+  [;1m                               {monitor, [monitor_option()]} |[0m
+  [;1m                               link |[0m
+  [;1m                               {reply_tag, ReplyTag} |[0m
+  [;1m                               {reply, Reply} |[0m
+  [;1m                               OtherOption,[0m
+  [;1m                           ReplyTag :: term(),[0m
+  [;1m                           Reply :: yes | no | error_only | success_only,[0m
+  [;1m                           OtherOption :: term(),[0m
+  [;1m                           ReqId :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  Asynchronously send a spawn request. Returns a request identifier [;;4m[0m
+  [;;4mReqId[0m.
+
+  If the spawn operation succeeds, a new process is created on the
+  node identified by [;;4mNode[0m. When a spawn operation succeeds, the
+  caller will by default be sent a message on the form [;;4m{ReplyTag,[0m
+  [;;4mReqId, ok, Pid}[0m where [;;4mPid[0m is the process identifier of the
+  newly created process. Such a message is referred to as a success
+  message below in the text. [;;4mReplyTag[0m is by default the atom [;;4m[0m
+  [;;4mspawn_reply[0m unless modified by the [;;4m{reply_tag, ReplyTag}[0m
+  option. The new process is started by the application of [;;4m[0m
+  [;;4mModule:Function[0m to [;;4mArgs[0m.
+
+  The spawn operation fails either if creation of a new process
+  failed or if the spawn operation was interrupted by a connection
+  failure. When a spawn operation fails, the caller will by default
+  be sent a message on the form [;;4m{ReplyTag, ReqId, error, Reason}[0m
+  where [;;4mReason[0m is the error reason. Such a message is referred to
+  as an error message below in the text. Currently the following
+  spawn error [;;4mReason[0ms are defined, but other reasons can appear at
+  any time without prior notice:
+
+  [;;4m[;;4mbadopt[0m[0m:
+    An invalid [;;4mOption[0m was passed as argument. Note that
+    different runtime systems may support different options.
+
+  [;;4m[;;4mnotsup[0m[0m:
+    The node identified by [;;4mNode[0m does not support spawn
+    operations issued by [;;4mspawn_request()[0m.
+
+  [;;4m[;;4mnoconnection[0m[0m:
+    Failure to set up a connection to the node identified by [;;4mNode[0m
+    or the connection to that node was lost during the spawn
+    operation. In the case the connection was lost, a process may
+    or may not have been created.
+
+  [;;4m[;;4msystem_limit[0m[0m:
+    Could not create a new process due to that some system limit
+    was reached. Typically the process table was full.
+
+  Valid [;;4mOption[0ms:
+
+  [;;4m[;;4mmonitor[0m[0m:
+    In the absence of spawn operation failures, atomically sets up
+    a monitor to the newly created process. That is, as if the
+    calling process had called [;;4mmonitor(process, Pid)[0m where [;;4mPid[0m
+    is the process identifier of the newly created process. The [;;4m[0m
+    [;;4mReqId[0m returned by [;;4mspawn_request()[0m is also used as monitor
+    reference as if it was returned from [;;4mmonitor(process, Pid)[0m.
+
+    The monitor will not be activated for the calling process
+    until the spawn operation has succeeded. The monitor can not
+    be demonitored before the operation has succeeded. A [;;4m'DOWN'[0m
+    message for the corresponding monitor is guaranteed not to be
+    delivered before a success message that corresponds to the
+    spawn operation. If the spawn operation fails, no [;;4m'DOWN'[0m
+    message will be delivered.
+
+    If the connection between the nodes involved in the spawn
+    operation is lost during the spawn operation, the spawn
+    operation will fail with an error reason of [;;4mnoconnection[0m. A
+    new process may or may not have been created.
+
+  [;;4m[;;4m{monitor, MonitorOpts}[0m[0m:
+    In the absence of spawn operation failures, atomically sets up
+    a monitor to the newly created process. That is, as if the
+    calling process had called [;;4mmonitor(process, Pid, MonitorOpts)[0m
+    where [;;4mPid[0m is the process identifier of the newly created
+    process. See the [;;4mmonitor[0m option above for more information.
+
+    Note that the monitor will not be activated for the calling
+    process until the spawn operation has succeeded. For example,
+    in the case that an alias is created using the monitor option,
+    the alias will not be active until the monitor is activated.
+
+  [;;4m[;;4mlink[0m[0m:
+    In absence of spawn operation failures, atomically sets up a
+    link between the calling process and the newly created
+    process. That is, as if the calling process had called [;;4m[0m
+    [;;4mlink(Pid)[0m where [;;4mPid[0m is the process identifier of the newly
+    created process.
+
+    The link will not be activated for the calling process until
+    the spawn operation has succeeded. The link can not be removed
+    before the operation has succeeded. An exit signal due to the
+    link is guaranteed not to be delivered before a success
+    message that corresponds to the spawn operation. If the spawn
+    operation fails, no exit signal due to the link will be
+    delivered to the caller of [;;4mspawn_request()[0m.
+
+    If the connection between the nodes involved in the spawn
+    operation is lost during the spawn operation, the spawn
+    operation will fail with an error reason of [;;4mnoconnection[0m. A
+    new process may or may not have been created. If it has been
+    created, it will be delivered an exit signal with an exit
+    reason of [;;4mnoconnection[0m.
+
+  [;;4m[;;4m{reply, Reply}[0m[0m:
+    Valid [;;4mReply[0m values:
+
+    [;;4m[;;4myes[0m[0m:
+      A spawn reply message will be sent to the caller
+      regardless of whether the operation succeeds or not. If
+      the call to [;;4mspawn_request()[0m returns without raising an
+      exception and the [;;4mreply[0m option is set to [;;4myes[0m, the
+      caller is guaranteed to be delivered either a success
+      message or an error message. The [;;4mreply[0m option is by
+      default set to [;;4myes[0m.
+
+    [;;4m[;;4mno[0m[0m:
+      No spawn reply message will be sent to the caller when the
+      spawn operation completes. This regardless of whether the
+      operation succeeds or not.
+
+    [;;4m[;;4merror_only[0m[0m:
+      No spawn reply message will be sent to the caller if the
+      spawn operation succeeds, but an error message will be
+      sent to the caller if the operation fails.
+
+    [;;4m[;;4msuccess_only[0m[0m:
+      No spawn reply message will be sent to the caller if the
+      spawn operation fails, but a success message will be
+      sent to the caller if the operation succeeds.
+
+  [;;4m[;;4m{reply_tag, ReplyTag}[0m[0m:
+    Sets the reply tag to [;;4mReplyTag[0m in the reply message. That
+    is, in the success or error message that is sent to the
+    caller due to the spawn operation. The default reply tag is
+    the atom [;;4mspawn_reply[0m.
+
+  [;;4m[;;4mOtherOption[0m[0m:
+    Other valid options depends on what options are supported by
+    the node identified by [;;4mNode[0m. A description of other valid [;;4m[0m
+    [;;4mOption[0ms for the local node of current OTP version can be
+    found in the documentation of [;;4mspawn_opt/4[0m.
+
+  If a spawn reply message is delivered, it is guaranteed to be
+  delivered before any other signals from the newly spawned process
+  are delivered to the process issuing the spawn request.
+
+  This function will fail with a [;;4mbadarg[0m exception if:
+
+   • [;;4mNode[0m is not an atom.
+
+   • [;;4mModule[0m is not an atom.
+
+   • [;;4mFunction[0m is not an atom.
+
+   • [;;4mArgs[0m is not a proper list of terms.
+
+   • [;;4mOptions[0m is not a proper list of terms.
+
+  Note that not all individual [;;4mOption[0ms are checked when the spawn
+  request is sent. Some [;;4mOption[0ms can only be checked on reception
+  of the request. Therefore an invalid option does not cause a [;;4m[0m
+  [;;4mbadarg[0m exception, but will cause the spawn operation to fail with
+  an error reason of [;;4mbadopt[0m.
+
+  A spawn request can be abandoned by calling [;;4m[0m
+  [;;4mspawn_request_abandon/1[0m.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

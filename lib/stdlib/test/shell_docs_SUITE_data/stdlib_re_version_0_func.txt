@@ -1,0 +1,8 @@
+
+  [;1m-spec version() -> binary().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  The return of this function is a string with the PCRE version of
+  the system that was used in the Erlang/OTP compilation.

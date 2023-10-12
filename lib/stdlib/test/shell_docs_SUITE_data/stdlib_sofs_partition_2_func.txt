@@ -1,0 +1,15 @@
+
+  [;1m-spec partition(SetFun, Set) -> Partition[0m
+  [;1m                   when[0m
+  [;1m                       SetFun :: set_fun(),[0m
+  [;1m                       Partition :: a_set(),[0m
+  [;1m                       Set :: a_set().[0m
+
+  Returns the partition of [;;4mSet[0m such that two elements are
+  considered equal if the results of applying [;;4mSetFun[0m are equal.
+
+    1> Ss = sofs:from_term([[a],[b],[c,d],[e,f]]),
+    SetFun = fun(S) -> sofs:from_term(sofs:no_elements(S)) end,
+    P = sofs:partition(SetFun, Ss),
+    sofs:to_external(P).
+    [[[a],[b]],[[c,d],[e,f]]]

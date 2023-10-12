@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,10 @@
 
 -behaviour(ssl_crl_cache_api).
 
+-export_type([crl_src/0, uri/0]).
+-type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-type uri()     :: uri_string:uri_string().
+
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
 
@@ -42,6 +46,12 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+select(GenNames, CRLDbHandle) when is_list(GenNames) ->
+    lists:flatmap(fun({directoryName, Issuer}) ->
+                          select(Issuer, CRLDbHandle);
+                     (_) ->
+                          []
+                  end, GenNames);
 select(Issuer, {{_Cache, Mapping},_}) ->
     case ssl_pkix_db:lookup(Issuer, Mapping) of
 	undefined ->
@@ -54,7 +64,7 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
 	    CRL;
-	[NewCRL] ->
+	NewCRL ->
 	    NewCRL
     end.
 
@@ -165,7 +175,7 @@ cache_lookup(URL, {{Cache, _}, _}) ->
     case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
 	undefined ->
 	    [];
-	CRLs ->
+	[CRLs] ->
 	    CRLs
     end.
 

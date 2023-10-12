@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -187,8 +187,79 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
 
+    %% Negative zero
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}, compact]),
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}]),
+    "-0.0" = float_to_list(NegZero, [short]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}]),
+    <<"-0.0">> = float_to_binary(NegZero, [short]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}, compact]),
+
     fts_rand_float_decimals(1000),
 
+    % test short option
+
+    % test switch for big integers
+    test_fts("-9007199254740991.0", -float((1 bsl 53) -1), [short]),
+    test_fts("-9.007199254740992e15", -float(1 bsl 53), [short]),
+    test_fts("-9.007199254740992e15", -float((1 bsl 53) +1), [short]),
+    test_fts("9007199254740991.0", float((1 bsl 53) -1), [short]),
+    test_fts("9.007199254740992e15", float(1 bsl 53), [short]),
+    test_fts("9.007199254740992e15", float((1 bsl 53) +1), [short]),
+
+    % test basic
+    test_fts("2.018", 2.018, [short]),
+    test_fts("-2.018", -2.018, [short]),
+
+    % test switching logic between decimal and scientific
+    test_fts("1.0e-6", 1.0e-6, [short]),
+    test_fts("1.0e-5", 1.0e-5, [short]),
+    test_fts("0.0001", 1.0e-4, [short]),
+    test_fts("0.001", 1.0e-3, [short]),
+    test_fts("0.01", 1.0e-2, [short]),
+    test_fts("0.1", 1.0e-1, [short]),
+    test_fts("1.0", 1.0e0, [short]),
+    test_fts("10.0", 1.0e1, [short]),
+    test_fts("100.0", 1.0e2, [short]),
+    test_fts("1.0e3", 1.0e3, [short]),
+    test_fts("1.0e4", 1.0e4, [short]),
+    test_fts("1.0e5", 1.0e5, [short]),
+    test_fts("1.0e6", 1.0e6, [short]),
+    test_fts("1.0e7", 1.0e7, [short]),
+    test_fts("1.234e-6", 1.234e-6, [short]),
+    test_fts("1.234e-5", 1.234e-5, [short]),
+    test_fts("1.234e-4", 1.234e-4, [short]),
+    test_fts("0.001234", 1.234e-3, [short]),
+    test_fts("0.01234", 1.234e-2, [short]),
+    test_fts("0.1234", 1.234e-1, [short]),
+    test_fts("1.234", 1.234e0, [short]),
+    test_fts("12.34", 1.234e1, [short]),
+    test_fts("123.4", 1.234e2, [short]),
+    test_fts("1234.0", 1.234e3, [short]),
+    test_fts("12340.0", 1.234e4, [short]),
+    test_fts("1.234e5", 1.234e5, [short]),
+    test_fts("1.234e6", 1.234e6, [short]),
+
+    % test the switch to subnormals
+    test_fts("2.2250738585072014e-308", 2.2250738585072014e-308, [short]),
+
+    % test lots of trailing zeroes
+    test_fts("2.9802322387695312e-8", 2.98023223876953125e-8, [short]),
+
+    % test some ryu regressions
+    test_fts("-2.109808898695963e16", -2.109808898695963e16, [short]),
+    test_fts("4.940656e-318", 4.940656e-318, [short]),
+    test_fts("1.18575755e-316", 1.18575755e-316, [short]),
+    test_fts("2.989102097996e-312", 2.989102097996e-312, [short]),
+    test_fts("9.0608011534336e15", 9.0608011534336e15, [short]),
+    test_fts("4.708356024711512e18", 4.708356024711512e18, [short]),
+    test_fts("9.409340012568248e18", 9.409340012568248e18, [short]),
+    test_fts("1.2345678", 1.2345678, [short]),
     ok.
 
 test_fts(Expect, Float) ->
@@ -234,7 +305,7 @@ fts_rand_float_decimals(N) ->
               end,
          F1 = list_to_float(L1),
          Diff = abs(F0-F1),
-         MaxDiff = max_diff_decimals(F0, D),
+         MaxDiff = max_diff_decimals(F0, D-1),
          ok = case Diff =< MaxDiff of
                   true -> ok;
                   false ->
@@ -463,7 +534,7 @@ trunc_and_friends(F) ->
     end,
     Trunc.
 
-%% Tests integer_to_binary/1.
+%% Tests integer_to_binary/{1,2} and integer_to_list/{1,2}.
 
 t_integer_to_string(Config) when is_list(Config) ->
     test_its("0",0),
@@ -504,6 +575,10 @@ t_integer_to_string(Config) when is_list(Config) ->
     test_its("A", 10, 16),
     test_its("D4BE", 54462, 16),
     test_its("-D4BE", -54462, 16),
+    test_its("FFFFFFFFFF", 1099511627775, 16),
+    test_its("123456789ABCDEF123456789ABCDEF123456789ABCDEF",
+             108977460683796539709587792812439445667270661579197935,
+             16),
 
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
@@ -515,30 +590,33 @@ t_integer_to_string(Config) when is_list(Config) ->
     ok.
 
 test_its(List,Int) ->
-    Int = list_to_integer(List),
-    Int = binary_to_integer(list_to_binary(List)).
+    List = integer_to_list(Int),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int).
 
 test_its(List,Int,Base) ->
-    Int = list_to_integer(List, Base),
-    Int = binary_to_integer(list_to_binary(List), Base).
+    List = integer_to_list(Int, Base),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int, Base).
 
-%% Tests binary_to_integer/1.
+%% Tests list_to_integer/{1,2} and binary_to_integer/{1,2}.
 
 t_string_to_integer(Config) when is_list(Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
     0 = erlang:binary_to_integer(id(<<"00">>)),
     0 = erlang:binary_to_integer(id(<<"-0">>)),
     0 = erlang:binary_to_integer(id(<<"+0">>)),
 
     test_sti(0),
     test_sti(1),
-    test_sti(-1),
+    test_sti(12),
     test_sti(42),
-    test_sti(-12),
     test_sti(32768),
     test_sti(268435455),
-    test_sti(-268435455),
 
-    % Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
+    %% Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
     lists:foreach(fun(Bits) ->
 			  N = 1 bsl Bits,
 			  test_sti(N - 1),
@@ -547,50 +625,65 @@ t_string_to_integer(Config) when is_list(Config) ->
 		  end,
 		  lists:seq(16, 130)),
 
-    %% Bignums.
-    test_sti(123456932798748738738,16),
+    %% Bignums
+    _ = [test_sti(rand_bignum()) || _ <- lists:seq(1, 1000)],
+    test_sti(123456932798748738738, 16),
     test_sti(list_to_integer(lists:duplicate(2000, $1))),
 
-    %% unalign string
+    %% Unaligned string
     Str = <<"10">>,
     UnalignStr = <<0:3, (id(Str))/binary, 0:5>>,
     <<_:3, SomeStr:2/binary, _:5>> = id(UnalignStr),
-    10 = erlang:binary_to_integer(SomeStr),
+    10 = binary_to_integer(SomeStr),
 
     %% Invalid types
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(Value)),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value))
+			      (catch list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
-    % Default base error cases
+    %% Default base error cases
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:binary_to_integer(
-				       list_to_binary(Value))),
+			      (catch binary_to_integer(list_to_binary(Value))),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value))
+			      (catch list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
 
-    % Custom base error cases
+    %% Custom base error cases
     lists:foreach(fun({Value,Base}) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(
-				       list_to_binary(Value),Base)),
+			      (catch binary_to_integer(list_to_binary(Value), Base)),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value,Base))
-		  end,[{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
-		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
-		       {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
-		       {"111z11111111",16}]),
+			      (catch list_to_integer(Value, Base))
+		  end,
+                  [{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
+                   {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
+                   {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
+                   {"111z11111111",16},
+                   %% Untagging atoms at the beginning of atom.names
+                   %% would produce a base in the valid range.
+                   {"10",true},                 %Base 4
+                   {"10",'_'},                  %Base 8
+                   {"10",nonode@nohost},        %Base 12
+                   {"10",'$end_of_table'},      %Base 16
+                   {"10",''}                    %Base 20
+                  ]),
 
-    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624)
-    %% Would crash with segv
-    0 = list_to_integer(lists:duplicate(10000000,$0)),
+    %% System limit
+    Digits = lists:duplicate(11_000_000, $9),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    {error,system_limit} = string:to_integer(Digits),
 
     ok.
+
+rand_bignum() ->
+    Sz = max(floor(rand:normal() * 128 + 64), 2*8),
+    <<Int:Sz/unit:8>> = rand:bytes(Sz),
+    Int.
 
 %% Tests edge cases for list_to_integer; compares with known good values
 
@@ -649,21 +742,34 @@ test_sti(Num) ->
 	 test_sti(Num,Base)
      end|| Base <- lists:seq(2,36)].
 
-test_sti(Num,Base) ->
+test_sti(Num, Base) ->
     Neg = -Num,
-    Num = list_to_integer(int2list(Num,Base),Base),
-    Neg = list_to_integer(int2list(Num*-1,Base),Base),
-    Num = binary_to_integer(int2bin(Num,Base),Base),
-    Neg = binary_to_integer(int2bin(Num*-1,Base),Base).
 
-% Calling this function (which is not supposed to be inlined) prevents
-% the compiler from calculating the answer, so we don't test the compiler
-% instead of the newest runtime system.
+    NumList = int2list(Num, Base),
+    NegNumList = int2list(Neg, Base),
+
+    Num = list_to_integer(NumList, Base),
+    Neg = list_to_integer(NegNumList, Base),
+    Num = binary_to_integer(iolist_to_binary(NumList), Base),
+    Neg = binary_to_integer(iolist_to_binary(NegNumList), Base),
+
+    if
+        Base =:= 10 ->
+            Num = list_to_integer(NumList),
+            Neg = list_to_integer(NegNumList),
+            Num = binary_to_integer(iolist_to_binary(NumList)),
+            Neg = binary_to_integer(iolist_to_binary(NegNumList));
+        true ->
+            ok
+    end,
+
+    ok.
+
+%% Calling this function (which is not supposed to be inlined)
+%% prevents the compiler from calculating the answer, so we don't test
+%% the compiler instead of the newest runtime system.
 id(X) -> X.
 
-%% Uses the printing library to to integer_to_binary conversions.
-int2bin(Int,Base) when Base < 37 ->
-    iolist_to_binary(int2list(Int,Base)).
-
-int2list(Int,Base) when Base < 37 ->
+%% Use the printing library to convert to list.
+int2list(Int, Base) when is_integer(Base), 2 =< Base, Base =< 36 ->
     lists:flatten(io_lib:format("~."++integer_to_list(Base)++"B",[Int])).

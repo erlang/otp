@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,11 +121,11 @@ end_per_group(_GroupName, Config) ->
 
 %% Test that the odbc app file is ok
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(odbc).
+    ok = test_server:app_test(odbc).
 
 %% Test that the odbc appup file is ok
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(odbc).
+    ok = test_server:appup_test(odbc).
 
 start() -> 
     [{doc,"Test start/stop of odbc"}].

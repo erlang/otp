@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,12 +123,12 @@ convert_netscapecookie_date([_D,_A,_Y, $ ,
     {{Year,Month,Day},{Hour,Min,Sec}};
 
 %% Sloppy...
-convert_netscapecookie_date([_D,_A,_Y, $,, _SP,
-                             D1,D2,_DA,
-                             M,O,N,_DA,
-                             Y1,Y2,Y3,Y4,_SP,
-                             H1,H2,_Col,
-                             M1,M2,_Col,
+convert_netscapecookie_date([_D,_A,_Y, $,, SP,
+                             D1,D2,DA,
+                             M,O,N,DA,
+                             Y1,Y2,Y3,Y4,SP,
+                             H1,H2,Col,
+                             M1,M2,Col,
                              S1,S2|_Rest]) ->
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=list_to_integer([D1,D2]),
@@ -138,12 +138,12 @@ convert_netscapecookie_date([_D,_A,_Y, $,, _SP,
     Sec=list_to_integer([S1,S2]),
     {{Year,Month,Day},{Hour,Min,Sec}};
 
-convert_netscapecookie_date([_D,_A,_Y, _SP,
-                             D1,D2,_DA,
-                             M,O,N,_DA,
-                             Y1,Y2,Y3,Y4,_SP,
-                             H1,H2,_Col,
-                             M1,M2,_Col,
+convert_netscapecookie_date([_D,_A,_Y, SP,
+                             D1,D2,DA,
+                             M,O,N,DA,
+                             Y1,Y2,Y3,Y4,SP,
+                             H1,H2,Col,
+                             M1,M2,Col,
                              S1,S2|_Rest]) ->
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=list_to_integer([D1,D2]),

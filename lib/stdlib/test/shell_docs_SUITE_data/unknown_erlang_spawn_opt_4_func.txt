@@ -1,0 +1,142 @@
+
+  [;1m-spec spawn_opt(Module, Function, Args, Options) ->[0m
+  [;1m                   Pid | {Pid, MonitorRef}[0m
+  [;1m                   when[0m
+  [;1m                       Module :: module(),[0m
+  [;1m                       Function :: atom(),[0m
+  [;1m                       Args :: [term()],[0m
+  [;1m                       Options :: [spawn_opt_option()],[0m
+  [;1m                       Pid :: pid(),[0m
+  [;1m                       MonitorRef :: reference().[0m
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+    -type priority_level() :: low | normal | high | max.
+    -type spawn_opt_option() ::
+          link | monitor |
+          {monitor, MonitorOpts :: [monitor_option()]} |
+          {priority, Level :: priority_level()} |
+          {fullsweep_after, Number :: non_neg_integer()} |
+          {min_heap_size, Size :: non_neg_integer()} |
+          {min_bin_vheap_size, VSize :: non_neg_integer()} |
+          {max_heap_size, Size :: max_heap_size()} |
+          {message_queue_data, MQD :: message_queue_data()} |
+          {async_dist, Enabled :: boolean()}.
+
+  Works as [;;4mspawn/3[0m, except that an extra option list is specified
+  when creating the process.
+
+  If option [;;4mmonitor[0m is specified, the newly created process is
+  monitored, and both the pid and reference for the monitor are
+  returned.
+
+  Options:
+
+  [;;4m[;;4mlink[0m[0m:
+    Sets a link to the parent process (like [;;4mspawn_link/3[0m does).
+
+  [;;4m[;;4mmonitor[0m[0m:
+    Monitors the new process (like [;;4mmonitor(process, Pid)[0m does).
+    A [;;4m{Pid, MonitorRef}[0m tuple will be returned instead of just a [;;4m[0m
+    [;;4mPid[0m.
+
+  [;;4m[;;4m{monitor, MonitorOpts}[0m[0m:
+    Monitors the new process with options (like [;;4mmonitor(process,[0m
+    [;;4mPid, MonitorOpts)[0m does). A [;;4m{Pid, MonitorRef}[0m tuple will be
+    returned instead of just a [;;4mPid[0m.
+
+  [;;4m[;;4m{priority, Level}[0m[0m:
+    Sets the priority of the new process. Equivalent to executing [;;4m[0m
+    [;;4mprocess_flag(priority, Level)[0m in the start function of the
+    new process, except that the priority is set before the
+    process is selected for execution for the first time. For more
+    information on priorities, see [;;4mprocess_flag(priority, Level)[0m.
+
+  [;;4m[;;4m{fullsweep_after, Number}[0m[0m:
+    Useful only for performance tuning. Do not use this option
+    unless you know that there is problem with execution times or
+    memory consumption, and ensure that the option improves
+    matters.
+
+    The Erlang runtime system uses a generational garbage
+    collection scheme, using an "old heap" for data that has
+    survived at least one garbage collection. When there is no
+    more room on the old heap, a fullsweep garbage collection is
+    done.
+
+    Option [;;4mfullsweep_after[0m makes it possible to specify the
+    maximum number of generational collections before forcing a
+    fullsweep, even if there is room on the old heap. Setting the
+    number to zero disables the general collection algorithm, that
+    is, all live data is copied at every garbage collection.
+
+    A few cases when it can be useful to change [;;4mfullsweep_after[0m:
+
+     • If binaries that are no longer used are to be thrown
+       away as soon as possible. (Set [;;4mNumber[0m to zero.)
+
+     • A process that mostly have short-lived data is
+       fullsweeped seldom or never, that is, the old heap
+       contains mostly garbage. To ensure a fullsweep
+       occasionally, set [;;4mNumber[0m to a suitable value, such as
+       10 or 20.
+
+     • In embedded systems with a limited amount of RAM and no
+       virtual memory, you might want to preserve memory by
+       setting [;;4mNumber[0m to zero. (The value can be set
+       globally, see [;;4merlang:system_flag/2[0m.)
+
+  [;;4m[;;4m{min_heap_size, Size}[0m[0m:
+    Useful only for performance tuning. Do not use this option
+    unless you know that there is problem with execution times or
+    memory consumption, and ensure that the option improves
+    matters.
+
+    Gives a minimum heap size, in words. Setting this value higher
+    than the system default can speed up some processes because
+    less garbage collection is done. However, setting a too high
+    value can waste memory and slow down the system because of
+    worse data locality. Therefore, use this option only for
+    fine-tuning an application and to measure the execution time
+    with various [;;4mSize[0m values.
+
+  [;;4m[;;4m{min_bin_vheap_size, VSize}[0m[0m:
+    Useful only for performance tuning. Do not use this option
+    unless you know that there is problem with execution times or
+    memory consumption, and ensure that the option improves
+    matters.
+
+    Gives a minimum binary virtual heap size, in words. Setting
+    this value higher than the system default can speed up some
+    processes because less garbage collection is done. However,
+    setting a too high value can waste memory. Therefore, use this
+    option only for fine-tuning an application and to measure the
+    execution time with various [;;4mVSize[0m values.
+
+  [;;4m[;;4m{max_heap_size, Size}[0m[0m:
+    Sets the [;;4mmax_heap_size[0m process flag. The default [;;4m[0m
+    [;;4mmax_heap_size[0m is determined by command-line argument [;;4m+hmax[0m
+    in [;;4merl(1)[0m. For more information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(max_heap_size, Size)[0m.
+
+  [;;4m[;;4m{message_queue_data, MQD}[0m[0m:
+    Sets the value of the [;;4mmessage_queue_data[0m process flag. [;;4mMQD[0m
+    can be either [;;4moff_heap[0m or [;;4mon_heap[0m. The default value of
+    the [;;4mmessage_queue_data[0m process flag is determined by the
+    command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m. For more
+    information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.
+
+  [;;4m[;;4m{async_dist, Enabled}[0m[0m:
+    Since: OTP 25.3
+
+    Set the [;;4masync_dist[0m process flag of the spawned process. This
+    option will override the default value set by the command line
+    argument [;;4m+pad <boolean>[0m.

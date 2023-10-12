@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
+#include "erl_global_literals.h"
 
 static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*, int);
 
@@ -114,12 +115,20 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		ASSERT(is_header(hdr));
 		switch (hdr & _TAG_HEADER_MASK) {
 		case ARITYVAL_SUBTAG:
-		    ptr = tuple_val(obj);
 		    arity = header_arity(hdr);
-		    sum += arity + 1;
 		    if (arity == 0) { /* Empty tuple -- unusual. */
+                        ASSERT(!litopt &&
+                               erts_is_literal(obj,ptr) &&
+                               obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                        /*
+                          The empty tuple is always a global literal
+                          constant so it does not take up any extra
+                          space.
+                        */
 			goto pop_next;
 		    }
+                    ptr = tuple_val(obj);
+                    sum += arity + 1;
 		    while (arity-- > 1) {
 			obj = *++ptr;
 			if (!IS_CONST(obj)) {
@@ -130,20 +139,24 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		    break;
 		case FUN_SUBTAG:
 		    {
-			Eterm* bptr = fun_val(obj);
-			ErlFunThing* funp = (ErlFunThing *) bptr;
-			unsigned eterms = 1 /* creator */ + funp->num_free;
-			unsigned sz = thing_arityval(hdr);
-			sum += 1 /* header */ + sz + eterms;
-			bptr += 1 /* header */ + sz;
-			while (eterms-- > 1) {
-			  obj = *bptr++;
-			  if (!IS_CONST(obj)) {
-			    ESTACK_PUSH(s, obj);
-			  }
-			}
-			obj = *bptr;
-			break;
+                        const ErlFunThing* funp = (ErlFunThing*)fun_val(obj);
+
+                        ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                        sum += ERL_FUN_SIZE + fun_num_free(funp);
+
+                        for (int i = 1; i < fun_num_free(funp); i++) {
+                            obj = funp->env[i];
+                            if (!IS_CONST(obj)) {
+                                ESTACK_PUSH(s, obj);
+                            }
+                        }
+
+                        if (fun_num_free(funp) > 0) {
+                            obj = funp->env[0];
+                            break;
+                        }
+
+                        goto pop_next;
 		    }
 		case MAP_SUBTAG:
 		    switch (MAP_HEADER_TYPE(hdr)) {
@@ -154,6 +167,7 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                                 mp  = (flatmap_t*)flatmap_val(obj);
                                 ptr = (Eterm *)mp;
                                 n   = flatmap_get_size(mp) + 1;
+                                ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                                 sum += n + 2;
                                 ptr += 2; /* hdr + size words */
                                 while (n--) {
@@ -276,6 +290,7 @@ do {									\
 do {                                                                    \
     UWord result;                                                       \
     if (WSTK_CONCAT(s,_bitoffs) <= 0) {                                 \
+        ASSERT(WSTK_CONCAT(s,_offset) < (s.wsp - s.wstart));            \
         WSTK_CONCAT(s,_buffer) = s.wstart[WSTK_CONCAT(s,_offset)];      \
         WSTK_CONCAT(s,_offset)++;                                       \
         WSTK_CONCAT(s,_bitoffs) = 8*sizeof(UWord);                      \
@@ -364,7 +379,10 @@ Uint size_shared(Eterm obj)
 		int arity = header_arity(hdr);
 		sum += arity + 1;
 		if (arity == 0) { /* Empty tuple -- unusual. */
-		    goto pop_next;
+                    ASSERT(COUNT_OFF_HEAP &&
+                           erts_is_literal(obj,ptr) &&
+                           obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                    goto pop_next;
 		}
 		while (arity-- > 0) {
 		    obj = *++ptr;
@@ -375,17 +393,18 @@ Uint size_shared(Eterm obj)
 		goto pop_next;
 	    }
 	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		unsigned sz = thing_arityval(hdr);
-		sum += 1 /* header */ + sz + eterms;
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT(s, obj);
-		    }
-		}
+                const ErlFunThing* funp = (ErlFunThing *) ptr;
+
+                ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                sum += ERL_FUN_SIZE + fun_num_free(funp);
+
+                for (int i = 0; i < fun_num_free(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+
 		goto pop_next;
 	    }
 	    case SUB_BINARY_SUBTAG: {
@@ -417,6 +436,7 @@ Uint size_shared(Eterm obj)
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp  = (flatmap_t*)flatmap_val(obj);
                         Uint n = flatmap_get_size(mp) + 1;
+                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                         ptr  = (Eterm *)mp;
                         sum += n + 2;
                         ptr += 2; /* hdr + size words */
@@ -522,6 +542,9 @@ cleanup:
 	    case ARITYVAL_SUBTAG: {
 		int arity = header_arity(hdr);
 		if (arity == 0) { /* Empty tuple -- unusual. */
+                    ASSERT(COUNT_OFF_HEAP &&
+                           erts_is_literal(obj,ptr) &&
+                           obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
 		    goto cleanup_next;
 		}
 		while (arity-- > 0) {
@@ -533,16 +556,14 @@ cleanup:
 		goto cleanup_next;
 	    }
 	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		unsigned sz = thing_arityval(hdr);
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT_UNCHECKED(s, obj);
-		    }
-		}
+                const ErlFunThing *funp = (ErlFunThing *) ptr;
+
+                for (int i = 0; i < fun_num_free(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT_UNCHECKED(s, obj);
+                    }
+                }
 		goto cleanup_next;
 	    }
             case MAP_SUBTAG:
@@ -550,6 +571,7 @@ cleanup:
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
+                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                         ptr += 2; /* hdr + size words */
                         while (n--) {
                             obj = *ptr++;
@@ -600,11 +622,15 @@ cleanup:
     return sum;
 }
 
-
 /*
  *  Copy a structure to a heap.
  */
-Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz, erts_literal_area_t *litopt)
+Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
+                    Uint *bsz, erts_literal_area_t *litopt
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                    , char *file, int line
+#endif
+    )
 {
     char* hstart;
     Uint hsize;
@@ -730,6 +756,13 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		{
 		    int const_flag = 1; /* assume constant tuple */
 		    i = arityval(hdr);
+                    if (i == 0) {
+                        ASSERT(!litopt &&
+                               erts_is_literal(obj,objp) &&
+                               obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                        *argp = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                        break;
+                    }
 		    *argp = make_tuple(htop);
 		    tp = htop;	/* tp is pointer to new arity value */
 		    *htop++ = *objp++; /* copy arity value */
@@ -835,18 +868,26 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		break;
 	    case FUN_SUBTAG:
 		{
-		    ErlFunThing* funp = (ErlFunThing *) objp;
+                    const ErlFunThing *src_fun = (const ErlFunThing *)objp;
+                    ErlFunThing *dst_fun = (ErlFunThing *)htop;
 
-		    i =  thing_arityval(hdr) + 2 + funp->num_free;
-		    tp = htop;
-		    while (i--)  {
-			*htop++ = *objp++;
-		    }
-		    funp = (ErlFunThing *) tp;
-		    funp->next = off_heap->first;
-		    off_heap->first = (struct erl_off_heap_header*) funp;
-		    erts_refc_inc(&funp->fe->refc, 2);
-		    *argp = make_fun(tp);
+                    *dst_fun = *src_fun;
+
+                    for (int i = 0; i < fun_num_free(dst_fun); i++) {
+                        dst_fun->env[i] = src_fun->env[i];
+                    }
+
+                    ASSERT(&htop[ERL_FUN_SIZE] == &dst_fun->env[0]);
+                    htop = &dst_fun->env[fun_num_free(dst_fun)];
+                    *argp = make_fun(dst_fun);
+
+                    if (is_local_fun(dst_fun)) {
+                        dst_fun->next = off_heap->first;
+                        off_heap->first = (struct erl_off_heap_header*)dst_fun;
+                        erts_refc_inc(&dst_fun->entry.fun->refc, 2);
+                    } else {
+                        ASSERT(is_external_fun(dst_fun) && dst_fun->next == NULL);
+                    }
 		}
 		break;
 	    case EXTERNAL_PID_SUBTAG:
@@ -854,7 +895,11 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		  ExternalThing *etp = (ExternalThing *) objp;
-		  erts_refc_inc(&etp->node->refc, 2);
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+		  erts_ref_node_entry__(etp->node, 2, make_boxed(htop), file, line);
+#else
+		  erts_ref_node_entry(etp->node, 2, make_boxed(htop));
+#endif
 		}
 	    L_off_heap_node_container_common:
 		{
@@ -878,6 +923,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		switch (MAP_HEADER_TYPE(hdr)) {
 		    case MAP_HEADER_TAG_FLATMAP_HEAD :
                         i = flatmap_get_size(objp) + 3;
+                        ASSERT(flatmap_get_size(objp) <= MAP_SMALL_MAP_LIMIT);
                         *argp = make_flatmap(htop);
                         while (i--) {
                             *htop++ = *objp++;
@@ -1027,11 +1073,17 @@ do {								\
     /* no WSTK_CONCAT(s,_offset), write-only */		\
     UWord WSTK_CONCAT(s,_buffer) = 0
 
+#ifdef DEBUG
+# define DEBUG_COND(D,E) D
+#else
+# define DEBUG_COND(D,E) E
+#endif
+
 #define DECLARE_BITSTORE_FROM_INFO(s, info)		\
     /* no WSTK_DEF_STACK(s), read-only */		\
     ErtsWStack s = {					\
         info->bitstore_start,  /* wstart */		\
-        NULL,                  /* wsp,  read-only */	\
+        DEBUG_COND(info->bitstore_stop, NULL), /* wsp,  read-only */ \
         NULL,                  /* wend, read-only */	\
         NULL,                  /* wdef, read-only */	\
         info->bitstore_alloc_type /* alloc_type */	\
@@ -1070,14 +1122,16 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 {
     Uint sum;
     Uint e;
-    unsigned sz;
     Eterm* ptr;
     Eterm *lit_purge_ptr = info->lit_purge_ptr;
     Uint lit_purge_sz = info->lit_purge_sz;
+    int copy_literals = info->copy_literals;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
-
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
     DECLARE_SHTABLE_INIT_INFO(t, info);
@@ -1119,7 +1173,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (in_literal_purge_area(ptr))
+                if (copy_literals || in_literal_purge_area(ptr))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1167,10 +1221,12 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
-	    /* off heap pointers to boxes are copied verbatim */
+	    /* off heap pointers to boxes (except pointers to the
+               empty tuple) are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (in_literal_purge_area(ptr))
+                if (obj != empty_tuple_literal &&
+                    (copy_literals || in_literal_purge_area(ptr)))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1194,10 +1250,10 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG: {
 		int arity = header_arity(hdr);
+                /* arity cannot be 0 as the empty tuple is always a
+                   global constant literal which is handled above */
+                ASSERT(arity != 0);
 		sum += arity + 1;
-		if (arity == 0) { /* Empty tuple -- unusual. */
-		    goto pop_next;
-		}
 		while (arity-- > 0) {
 		    obj = *++ptr;
 		    if (!IS_CONST(obj)) {
@@ -1207,17 +1263,18 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 		goto pop_next;
 	    }
 	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		sz = thing_arityval(hdr);
-		sum += 1 /* header */ + sz + eterms;
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT(s, obj);
-		    }
-		}
+                const ErlFunThing* funp = (ErlFunThing *) ptr;
+
+                ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                sum += ERL_FUN_SIZE + fun_num_free(funp);
+
+                for (int i = 0; i < fun_num_free(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+
 		goto pop_next;
 	    }
 	    case SUB_BINARY_SUBTAG: {
@@ -1237,11 +1294,25 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 		} else {
 		    extra_bytes = 0;
 		}
-		ASSERT(is_boxed(real_bin) &&
-		       (((*boxed_val(real_bin)) &
-			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
-			== _TAG_HEADER_REFC_BIN));
-		hdr = *_unchecked_binary_val(real_bin) & ~BOXED_VISITED_MASK;
+                ASSERT(is_boxed(real_bin));
+                hdr = *_unchecked_binary_val(real_bin);
+                switch (primary_tag(hdr)) {
+                case TAG_PRIMARY_HEADER:
+                    /* real_bin is untouched, only referred by sub-bins so far */
+                    break;
+                case BOXED_VISITED:
+                    /* real_bin referred directly once so far */
+                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
+                    break;
+                case BOXED_SHARED_PROCESSED:
+                case BOXED_SHARED_UNPROCESSED:
+                    /* real_bin referred directly more than once */
+                    e = hdr >> _TAG_PRIMARY_SIZE;
+                    hdr = SHTABLE_X(t, e);
+                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                    break;
+                }
+
 		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
 		    sum += heap_bin_size(size+extra_bytes);
 		} else {
@@ -1255,6 +1326,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
+                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                         sum += n + 2;
                         ptr += 2; /* hdr + size words */
                         while (n--) {
@@ -1306,6 +1378,9 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                 info->queue_end = s.end;
                 info->queue_alloc_type = s.alloc_type;
                 info->bitstore_start = b.wstart;
+#ifdef DEBUG
+                info->bitstore_stop = b.wsp;
+#endif
                 info->bitstore_alloc_type = b.alloc_type;
                 info->shtable_start = t.start;
                 info->shtable_alloc_type = t.alloc_type;
@@ -1325,8 +1400,13 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
  *  Copy object "obj" preserving sharing.
  *  Second half: copy and restore the object.
  */
-Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
-                         Eterm** hpp, ErlOffHeap* off_heap) {
+Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
+                           Eterm** hpp, ErlOffHeap* off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                           , char *file, int line
+#endif
+    )
+{
     Uint e;
     unsigned sz;
     Eterm* ptr;
@@ -1338,11 +1418,13 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     unsigned remaining;
     Eterm *lit_purge_ptr = info->lit_purge_ptr;
     Uint lit_purge_sz = info->lit_purge_sz;
+    int copy_literals = info->copy_literals;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
     Eterm saved_obj = obj;
 #endif
-
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     DECLARE_EQUEUE_FROM_INFO(s, info);
     DECLARE_BITSTORE_FROM_INFO(b, info);
     DECLARE_SHTABLE_FROM_INFO(t, info);
@@ -1387,11 +1469,15 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!in_literal_purge_area(ptr)) {
+                if (!(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                                          , file, line
+#endif
+                        ); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1455,11 +1541,16 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!in_literal_purge_area(ptr)) {
+                if (obj == empty_tuple_literal ||
+                    !(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                                          , file, line
+#endif
+                        ); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1510,28 +1601,38 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		goto cleanup_next;
 	    }
 	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		sz = thing_arityval(hdr);
-		funp = (ErlFunThing *) hp;
-		*resp = make_fun(hp);
-		*hp++ = hdr;
-		ptr++;
-		while (sz-- > 0) {
-		    *hp++ = *ptr++;
-		}
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (IS_CONST(obj)) {
-			*hp++ = obj;
-		    } else {
-			EQUEUE_PUT_UNCHECKED(s, obj);
-			*hp++ = HEAP_ELEM_TO_BE_FILLED;
-		    }
-		}
-		funp->next = off_heap->first;
-		off_heap->first = (struct erl_off_heap_header*) funp;
-		erts_refc_inc(&funp->fe->refc, 2);
+                const ErlFunThing *src_fun = (const ErlFunThing *)ptr;
+                ErlFunThing *dst_fun = (ErlFunThing *)hp;
+
+                *dst_fun = *src_fun;
+
+                /* The header of the source fun may have been clobbered,
+                 * restore it. */
+                dst_fun->thing_word = hdr;
+
+                for (int i = 0; i < fun_num_free(dst_fun); i++) {
+                    obj = src_fun->env[i];
+
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT_UNCHECKED(s, obj);
+                        obj = HEAP_ELEM_TO_BE_FILLED;
+                    }
+
+                    dst_fun->env[i] = obj;
+                }
+
+                ASSERT(&hp[ERL_FUN_SIZE] == &dst_fun->env[0]);
+                hp = &dst_fun->env[fun_num_free(dst_fun)];
+                *resp = make_fun(dst_fun);
+
+                if (is_local_fun(dst_fun)) {
+                    dst_fun->next = off_heap->first;
+                    off_heap->first = (struct erl_off_heap_header*) dst_fun;
+                    erts_refc_inc(&dst_fun->entry.fun->refc, 2);
+                } else {
+                    ASSERT(is_external_fun(dst_fun) && dst_fun->next == NULL);
+                }
+
 		goto cleanup_next;
 	    }
 	    case MAP_SUBTAG:
@@ -1541,6 +1642,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
                         flatmap_t *mp = (flatmap_t *) ptr;
                         Uint n = flatmap_get_size(mp) + 1;
+                        ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                         *hp++  = *++ptr; /* keys */
                         while (n--) {
                             obj = *++ptr;
@@ -1609,11 +1711,6 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    extra_bytes = 0;
 		}
 		real_size = size+extra_bytes;
-		ASSERT(is_boxed(real_bin) &&
-		       (((*boxed_val(real_bin)) &
-			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
-			== _TAG_HEADER_REFC_BIN));
-		ptr = _unchecked_binary_val(real_bin);
 		*resp = make_binary(hp);
 		if (extra_bytes != 0) {
 		    ErlSubBin* res = (ErlSubBin *) hp;
@@ -1626,7 +1723,26 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    res->is_writable = 0;
 		    res->orig = make_binary(hp);
 		}
-		if (thing_subtag(*ptr & ~BOXED_VISITED_MASK) == HEAP_BINARY_SUBTAG) {
+                ASSERT(is_boxed(real_bin));
+                ptr = _unchecked_binary_val(real_bin);
+                hdr = *ptr;
+                switch (primary_tag(hdr)) {
+                case TAG_PRIMARY_HEADER:
+                    /* real_bin is untouched, ie only referred by sub-bins */
+                    break;
+                case BOXED_VISITED:
+                    /* real_bin referred directly once */
+                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
+                    break;
+                case BOXED_SHARED_PROCESSED:
+                case BOXED_SHARED_UNPROCESSED:
+                    /* real_bin referred directly more than once */
+                    e = hdr >> _TAG_PRIMARY_SIZE;
+                    hdr = SHTABLE_X(t, e);
+                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                    break;
+                }
+		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
 		    ErlHeapBin* from = (ErlHeapBin *) ptr;
 		    ErlHeapBin* to = (ErlHeapBin *) hp;
 		    hp += heap_bin_size(real_size);
@@ -1636,7 +1752,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		} else {
 		    ProcBin* from = (ProcBin *) ptr;
 		    ProcBin* to = (ProcBin *) hp;
-		    ASSERT(thing_subtag(*ptr & ~BOXED_VISITED_MASK) == REFC_BINARY_SUBTAG);
+		    ASSERT(thing_subtag(hdr) == REFC_BINARY_SUBTAG);
 		    if (from->flags) {
 			erts_emasculate_writable_binary(from);
 		    }
@@ -1658,7 +1774,12 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    case EXTERNAL_REF_SUBTAG:
 	    {
 		ExternalThing *etp = (ExternalThing *) ptr;
-		erts_refc_inc(&etp->node->refc, 2);
+                
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+                erts_ref_node_entry__(etp->node, 2, make_boxed(hp), file, line);
+#else
+                erts_ref_node_entry(etp->node, 2, make_boxed(hp));
+#endif
 	    }
 	  off_heap_node_container_common:
 	    {
@@ -1676,7 +1797,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		goto cleanup_next;
 	    }
 	    case REF_SUBTAG:
-		if (is_magic_ref_thing(ptr)) {
+		if (is_magic_ref_thing_with_hdr(ptr,hdr)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) ptr;
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_node_container_common;
@@ -1715,16 +1836,18 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 			    hscan++;
 			    break;
 			case FUN_SUBTAG: {
-			    ErlFunThing* funp = (ErlFunThing *) hscan;
-			    hscan += 1 + thing_arityval(*hscan);
-			    remaining = 1 + funp->num_free;
-			    break;
+                            const ErlFunThing* funp = (ErlFunThing *) hscan;
+                            ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(*hscan)));
+                            hscan += ERL_FUN_SIZE;
+                            remaining = fun_num_free(funp);
+                            break;
 			}
 			case MAP_SUBTAG:
                             switch (MAP_HEADER_TYPE(*hscan)) {
                                 case MAP_HEADER_TAG_FLATMAP_HEAD : {
                                     flatmap_t *mp = (flatmap_t *) hscan;
                                     remaining = flatmap_get_size(mp) + 1;
+                                    ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                                     hscan += 2;
                                     break;
                                 }
@@ -1818,17 +1941,55 @@ all_clean:
  * pointers are offsetted to point correctly in the new location.
  *
  * Typically used to copy a term from an ets table.
- *
- * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
-                   ErlOffHeap* off_heap)
-{
-    Eterm* tp = ptr;
-    Eterm* hp = *hpp;
-    const Eterm res = make_tuple(hp);
-    const Sint offs = (hp - tp) * sizeof(Eterm);
+Eterm copy_shallow_obj_x(Eterm obj, Uint sz, Eterm **hpp, ErlOffHeap *off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                         ,
+                         char *file, int line
+#endif
+) {
+    Eterm *source_ptr;
+    Eterm *target_ptr;
 
+    if (sz == 0) {
+        ASSERT(is_zero_sized(obj));
+        return obj;
+    }
+
+    ASSERT(is_boxed(obj) || is_list(obj));
+    ASSERT(!is_zero_sized(obj));
+
+    source_ptr = ptr_val(obj);
+#ifdef ERTS_COPY_REGISTER_LOCATION
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap, file, line);
+#else
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap);
+#endif
+
+    return is_boxed(obj) ? make_boxed(target_ptr) : make_list(target_ptr);
+}
+
+
+/*
+ * Copy a term that is guaranteed to be contained in a single
+ * heap block. The heap block is copied word by word, and any
+ * pointers are offsetted to point correctly in the new location.
+ *
+ * Typically used to copy a term from an ets table.
+ */
+Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
+                     ErlOffHeap *off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                     ,
+                     char *file, int line
+#endif
+) {
+    Eterm *tp = ptr;
+    Eterm *hp = *hpp;
+    Eterm* res = hp;
+    const Sint offs = (hp - tp) * sizeof(Eterm);
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     while (sz--) {
 	Eterm val = *tp++;
 
@@ -1838,7 +1999,11 @@ Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
 	    break;
 	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
-	    *hp++ = byte_offset_ptr(val, offs);
+            if (val == empty_tuple_literal) {
+                *hp++ = empty_tuple_literal;
+            } else {
+                *hp++ = byte_offset_ptr(val, offs);
+            }
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
@@ -1853,18 +2018,28 @@ Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
 		}
 		goto off_heap_common;
 
-	    case FUN_SUBTAG:
-		{
-		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
-		    erts_refc_inc(&funp->fe->refc, 2);
-		}
-		goto off_heap_common;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing* funp = (ErlFunThing *) (tp-1);
+
+                    if (is_local_fun(funp)) {
+                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                        goto off_heap_common;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                        goto default_copy;
+                    }
+                }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		    ExternalThing* etp = (ExternalThing *) (tp-1);
-		    erts_refc_inc(&etp->node->refc, 2);
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+                    erts_ref_node_entry__(etp->node, 2, make_boxed(hp-1), file, line);
+#else
+                    erts_ref_node_entry(etp->node, 2, make_boxed(hp-1));
+#endif
 		}
 	    off_heap_common:
 		{
@@ -1888,6 +2063,7 @@ Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
 		}
 		/* Fall through... */
 	    }
+            default_copy:
 	    default:
 		{
 		    int tari = header_arity(val);
@@ -1979,34 +2155,49 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
     Eterm* hp = *hpp;
 
     while (ptr != end) {
-	Eterm val;
-	ASSERT(ptr < end);
-	val = *ptr;
-	ASSERT(val != ERTS_HOLE_MARKER);
-	if (is_header(val)) {
-	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
-	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
-	    switch (val & _HEADER_SUBTAG_MASK) {
-	    case REF_SUBTAG:
-		if (is_ordinary_ref_thing(hdr))
-		    break;
-	    case REFC_BINARY_SUBTAG:
-	    case FUN_SUBTAG:
-	    case EXTERNAL_PID_SUBTAG:
-	    case EXTERNAL_PORT_SUBTAG:
-	    case EXTERNAL_REF_SUBTAG:
-		hdr->next = off_heap->first;
-		off_heap->first = hdr;
-		break;
-	    }
-	}
-	else { /* must be a cons cell */
-	    ASSERT(ptr+1 < end);
-	    move_cons(ptr, val, &hp, &dummy_ref);
-	    ptr += 2;
-	}
+        Eterm val;
+        ASSERT(ptr < end);
+        val = *ptr;
+        ASSERT(val != ERTS_HOLE_MARKER);
+
+        if (is_header(val)) {
+            struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
+
+            ASSERT(ptr + header_arity(val) < end);
+            ptr = move_boxed(ptr, val, &hp, &dummy_ref);
+
+            switch (val & _HEADER_SUBTAG_MASK) {
+            case REF_SUBTAG:
+                if (!is_magic_ref_thing(hdr)) {
+                    break;
+                }
+            case REFC_BINARY_SUBTAG:
+            case EXTERNAL_PID_SUBTAG:
+            case EXTERNAL_PORT_SUBTAG:
+            case EXTERNAL_REF_SUBTAG:
+                hdr->next = off_heap->first;
+                off_heap->first = hdr;
+                break;
+            case FUN_SUBTAG:
+                {
+                    const ErlFunThing *funp = (ErlFunThing *) hdr;
+
+                    if (is_local_fun(funp)) {
+                        hdr->next = off_heap->first;
+                        off_heap->first = hdr;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
+                }
+                break;
+            }
+        } else { /* must be a cons cell */
+            ASSERT(ptr+1 < end);
+            move_cons(ptr, val, &hp, &dummy_ref);
+            ptr += 2;
+        }
     }
+
     *hpp = hp;
     OH_OVERHEAD(off_heap, frag->off_heap.overhead);
     frag->off_heap.first = NULL;

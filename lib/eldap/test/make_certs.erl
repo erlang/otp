@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@
 %%
 
 -module(make_certs).
--compile([export_all]).
 
-%-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
+-export([all/1, all/2, default_config/0, verify/4]).
 
 -record(config, {commonName, 
 	     organizationalUnitName = "Erlang OTP",
@@ -348,7 +347,7 @@ req_cnf(C) ->
      "default_bits	= ", integer_to_list(C#config.default_bits), "\n"
      "RANDFILE		= $ROOTDIR/RAND\n"
      "encrypt_key	= no\n"
-     "default_md	= md5\n"
+     "default_md	= sha256\n"
      "#string_mask	= pkix\n"
      "x509_extensions	= ca_ext\n"
      "prompt		= no\n"
@@ -394,7 +393,7 @@ ca_cnf(C) ->
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= md5\n"
+     "default_md	= sha256\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"

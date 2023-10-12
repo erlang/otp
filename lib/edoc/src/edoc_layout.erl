@@ -34,6 +34,9 @@
 
 -export([module/2, overview/2, type/1]).
 
+-callback module(edoc:edoc_module(), _) -> binary().
+%% Layout entrypoint.
+
 -import(edoc_report, [report/2]).
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -100,17 +103,16 @@ module(Element, Options) ->
 
 % Put layout options in a data structure for easier access.
 
-%% %Commented out until it can be made private
-%% %@type opts() = #opts{root = string(),
-%% %                     stylesheet = string(),
-%% %                     index_columns = integer()}
-
 -record(opts, {root,
                stylesheet,
                index_columns,
                sort_functions,
                encoding,
                pretty_printer}).
+
+%-type opts() :: #opts{root :: string(),
+%                      stylesheet :: string(),
+%                      index_columns :: integer()}.
 
 init_opts(Element, Options) ->
     Encoding = case get_attrval(encoding, Element) of
@@ -357,10 +359,10 @@ label_href(Content, F) ->
 functions(Fs, Opts) ->
     Es = lists:flatmap(fun ({Name, E}) -> function(Name, E, Opts) end, Fs),
     if Es == [] -> [];
-       true ->
-	    [?NL,
-	     {h2, [{a, [{name, ?FUNCTIONS_LABEL}], [?FUNCTIONS_TITLE]}]},
-	     ?NL | Es]
+        true ->
+            [?NL,
+             {h2, [{a, [{name, ?FUNCTIONS_LABEL}], [?FUNCTIONS_TITLE]}]},
+             ?NL | Es]
     end.
 
 function(Name, E=#xmlElement{content = Es}, Opts) ->
@@ -369,22 +371,24 @@ function(Name, E=#xmlElement{content = Es}, Opts) ->
        label_anchor(function_header(Name, E, " *"), E)},
       ?NL]
      ++ [{'div',  [{class, "spec"}],
-	  [?NL,
-	   {p,
-	    case typespec(get_content(typespec, Es), Opts) of
+	    case [typespec(T, Opts) || T <- get_contents(typespec, Es)] of
 		[] ->
-		    signature(get_content(args, Es),
-			      atom(get_attrval(name, E), Opts));
-		Spec -> Spec
-	    end},
-	   ?NL]
-	  ++ case params(get_content(args, Es)) of
+            [?NL,{p,
+            signature(get_content(args, Es),
+			      atom(get_attrval(name, E), Opts))
+            },?NL];
+		Specs ->
+            [?NL]++[{p, Spec} || Spec <- Specs]++[?NL]
+	    end
+	  ++ case [params(A) || A <- get_contents(args, Es)] of
 		 [] -> [];
-		 Ps -> [{p, Ps}, ?NL]
+		 As ->
+             lists:append([[{p, Ps}, ?NL] || Ps <- As])
 	     end
-	  ++ case returns(get_content(returns, Es)) of
+	  ++ case [returns(Ret) || Ret <- get_contents(returns, Es)] of
 		 [] -> [];
-		 Rs -> [{p, Rs}, ?NL]
+		 Rets ->
+             lists:append([[{p, Rs}, ?NL] || Rs <- Rets])
 	     end}]
      ++ throws(Es, Opts)
      ++ equiv_p(Es)
@@ -422,7 +426,7 @@ label_anchor(Content, E) ->
 %% This is currently only done for functions without type spec.
 
 signature(Es, Name) ->
-    [{tt, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
+    [{code, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
 
 arg(#xmlElement{content = Es}) ->
     [get_text(argName, Es)].
@@ -437,7 +441,7 @@ params(Es) ->
     if As1 == [] ->
 	    [];
        true ->
-	    [ { [{tt, [A]}, ": "] ++  D ++ [br, ?NL] }
+	    [ { [{code, [A]}, ": "] ++  D ++ [br, ?NL] }
 	      || {A, D} <- As1]
     end.
 
@@ -456,7 +460,7 @@ throws(Es, Opts) ->
 	[] -> [];
 	Es1 ->
             %% Doesn't use format_type; keep it short!
-	    [{p, (["throws ", {tt, t_utype(get_elem(type, Es1), Opts)}]
+	    [{p, (["throws ", {code, t_utype(get_elem(type, Es1), Opts)}]
 		  ++ local_defs(get_elem(localdef, Es1), Opts))},
 	     ?NL]
     end.
@@ -493,7 +497,7 @@ typedef(Es, Opts) ->
     Name = ([t_name(get_elem(erlangName, Es), Opts), "("]
             ++ seq(t_utype_elem_fun(Opts), get_content(argtypes, Es), [")"])),
     (case get_elem(type, Es) of
- 	 [] -> [{b, ["abstract datatype"]}, ": ", {tt, Name}];
+ 	 [] -> [{b, ["abstract datatype"]}, ": ", {code, Name}];
          Type -> format_type(Name, Name, Type, [], Opts)
      end
      ++ local_defs(get_elem(localdef, Es), Opts)).
@@ -536,7 +540,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
 format_spec(Sep, Type, Defs, Opts) ->
     %% Very limited formatting.
     Br = if Defs =:= [] -> br; true -> [] end,
-    [{tt, t_clause(Sep, Type, Opts)}, Br].
+    [{code, t_clause(Sep, Type, Opts)}, Br].
 
 t_clause(Name, Type, Opts) ->
     #xmlElement{content = [#xmlElement{name = 'fun', content = C}]} = Type,
@@ -563,7 +567,7 @@ format_type(Prefix, Name, Type, Last, #opts{pretty_printer = erl_pp}=Opts) ->
         format_type(Prefix, Name, Type, Last, Opts#opts{pretty_printer =''})
     end;
 format_type(Prefix, _Name, Type, Last, Opts) ->
-    [{tt, Prefix ++ [" = "] ++ t_utype(Type, Opts) ++ Last}].
+    [{code, Prefix ++ [" = "] ++ t_utype(Type, Opts) ++ Last}].
 
 pp_type(Prefix, Type, Opts) ->
     Atom = list_to_atom(lists:duplicate(string:length(Prefix), $a)),
@@ -668,7 +672,7 @@ equiv(Es, P) ->
 	    case get_content(expr, Es1) of
 		[] -> [];
 		[Expr] ->
-		    Expr1 = [{tt, [Expr]}],
+		    Expr1 = [{code, [Expr]}],
 		    Expr2 = case get_elem(see, Es1) of
 				[] ->
 				    Expr1;
@@ -741,19 +745,19 @@ behaviours(Es, Name, Opts) ->
                            [br, " Optional callback functions: "]
                            ++ seq(CBFun, OCBs, ["."])
                    end,
-	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
+	     [{p, ([{b, ["This module defines the ", {code, [Name]},
 			 " behaviour."]}]
                    ++ Req ++ Opt)},
 	      ?NL]
      end).
 
 behaviour(E=#xmlElement{content = Es}) ->
-    see(E, [{tt, Es}]).
+    see(E, [{code, Es}]).
 
 callback(E=#xmlElement{}, Opts) ->
     Name = get_attrval(name, E),
     Arity = get_attrval(arity, E),
-    [{tt, [atom(Name, Opts), "/", Arity]}].
+    [{code, [atom(Name, Opts), "/", Arity]}].
 
 authors(Es) ->
     case get_elem(author, Es) of
@@ -778,18 +782,18 @@ author(E=#xmlElement{}) ->
     Mail = get_attrval(email, E),
     URI = get_attrval(website, E),
     (if Name == Mail ->
-	     [{a, [{href, "mailto:" ++ Mail}],[{tt, [Mail]}]}];
+	     [{a, [{href, "mailto:" ++ Mail}],[{code, [Mail]}]}];
 	true ->
 	     if Mail == "" -> [Name];
 		true -> [Name, " (", {a, [{href, "mailto:" ++ Mail}],
-				      [{tt, [Mail]}]}, ")"]
+				      [{code, [Mail]}]}, ")"]
 	     end
      end
      ++ if URI == "" ->
 		[];
 	   true ->
 		[" [", {em, ["web site:"]}, " ",
-		 {tt, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
+		 {code, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
 		 "]"]
 	end).
 
@@ -968,12 +972,8 @@ seq(F, [E | Es], Sep, Tail) ->
 seq(_F, [], _Sep, Tail) ->
     Tail.
 
-get_elem(Name, [#xmlElement{name = Name} = E | Es]) ->
-    [E | get_elem(Name, Es)];
-get_elem(Name, [_ | Es]) ->
-    get_elem(Name, Es);
-get_elem(_, []) ->
-    [].
+get_elem(Name, Es) ->
+    [E || #xmlElement{name=N}=E <- Es, N=:=Name].
 
 get_attr(Name, [#xmlAttribute{name = Name} = A | As]) ->
     [A | get_attr(Name, As)];
@@ -987,6 +987,13 @@ get_attrval(Name, #xmlElement{attributes = As}) ->
 	[#xmlAttribute{value = V}] ->
 	    V;
 	[] -> ""
+    end.
+
+get_contents(Name, Es) ->
+    case get_elem(Name, Es) of
+        [] -> [];
+        Elems ->
+            [Es1 || #xmlElement{content = Es1} <- Elems]
     end.
 
 get_content(Name, Es) ->

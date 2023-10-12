@@ -1,0 +1,21 @@
+
+  [;1m-spec list_to_bitstring(BitstringList) -> bitstring()[0m
+  [;1m                           when BitstringList :: bitstring_list().[0m
+
+  Types:
+    -type bitstring_list() ::
+          maybe_improper_list(byte() | bitstring() | bitstring_list(),
+                              bitstring() | []).
+
+  Returns a bitstring that is made from the integers and bitstrings
+  in [;;4mBitstringList[0m. (The last tail in [;;4mBitstringList[0m is allowed
+  to be a bitstring.) Example:
+
+    > Bin1 = <<1,2,3>>.
+    <<1,2,3>>
+    > Bin2 = <<4,5>>.
+    <<4,5>>
+    > Bin3 = <<6,7:4>>.
+    <<6,7:4>>
+    > list_to_bitstring([Bin1,1,[2,3,Bin2],4|Bin3]).
+    <<1,2,3,1,2,3,4,5,4,6,7:4>>

@@ -467,7 +467,7 @@ quote(Text) ->
 %% @doc Parse text. Takes an initial scanner starting position as first
 %% argument.
 %%
-%% The macro `?Q(Text)' expands to `merl:quote(?LINE, Text, Env)'.
+%% The macro `?Q(Text)' expands to `merl:quote(?LINE, Text)'.
 %%
 %% @see quote/1
 
@@ -1229,7 +1229,7 @@ merge_comments(StartLine, Cs, [], Acc) ->
 merge_comments(StartLine, [C|Cs], [T|Ts], Acc) ->
     {Line, _Col, Indent, Text} = C,
     CommentLine = StartLine + Line - 1,
-    case erl_syntax:get_pos(T) of
+    case get_line(T) of
         Pos when Pos < CommentLine ->
             %% TODO: traverse sub-tree rather than only the top level nodes
             merge_comments(StartLine, [C|Cs], Ts, [T|Acc]);
@@ -1248,3 +1248,7 @@ a0() ->
 
 anno(Location) ->
     erl_anno:new(Location).
+
+get_line(Tree) ->
+    Anno = erl_syntax:get_pos(Tree),
+    erl_anno:line(Anno).

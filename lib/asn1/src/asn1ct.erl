@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct).
+-feature(maybe_expr, enable).
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
@@ -76,12 +77,37 @@
 -define(ALTERNATIVE_UNDECODED,alt_undec).
 -define(ALTERNATIVE_PARTS,alt_parts).
 
+%% Removed functions
+
+-removed({decode,'_',"use Mod:decode/2 instead"}).
+-removed({encode,'_',"use Mod:encode/2 instead"}).
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 
+-spec compile(Asn1module) -> ok | {error, Reason} when
+      Asn1module :: atom() | string(),
+      Reason :: term().
 compile(File) ->
     compile(File,[]).
 
+-spec compile(Asn1module, Options) -> ok | {error, Reason} when
+      Asn1module :: atom() | string(),
+      Options :: [Option | OldOption],
+      Option ::
+        ber | per | uper | jer | der |
+        compact_bit_string | legacy_bit_string |
+        legacy_erlang_types | noobj |
+        {n2n, EnumTypeName :: term()} |
+        {outdir, Dir :: term()} |
+        {i, IncludeDir :: term()} |
+        asn1config | undec_rest | no_ok_wrapper |
+        {macro_name_prefix, Prefix} |
+        {record_name_prefix, Prefix} |
+        verbose | warnings_as_errors | deterministic,
+      OldOption :: ber | per,
+      Reason :: term(),
+      Prefix :: string().
 compile(File, Options0) when is_list(Options0) ->
     try translate_options(Options0) of
 	Options1 ->
@@ -389,7 +415,7 @@ remove_name_collisions(Modules) ->
     remove_name_collisions2(Modules,[]).
 
 %% For each definition in the first module in module list, find
-%% all definitons with same name and rename both definitions in
+%% all definitions with same name and rename both definitions in
 %% the first module and in rest of modules
 remove_name_collisions2([M|Ms],Acc) ->
     TypeOrVal = M#module.typeorval,
@@ -716,7 +742,7 @@ save_automatic_tagged_types([_M|Ms]) ->
 %% remove_in_set_imports/3 :
 %% input: list with tuples of each module's imports and module name 
 %% respectively.
-%% output: one list with same format but each occured import from a
+%% output: one list with same format but each occurred import from a
 %% module in the input set (IMNameL) is removed.
 remove_in_set_imports([{{imports,ImpL},_ModName}|Rest],InputMNameL,Acc) ->
     NewImpL = remove_in_set_imports1(ImpL,InputMNameL,[]),
@@ -860,6 +886,7 @@ init_gen_record(EncodingRule, Options) ->
                 _ -> EncodingRule
             end,
     Der = proplists:get_bool(der, Options),
+    Jer = proplists:get_bool(jer, Options) andalso (EncodingRule =/= jer),
     Aligned = EncodingRule =:= per,
     RecPrefix = proplists:get_value(record_name_prefix, Options, ""),
     MacroPrefix = proplists:get_value(macro_name_prefix, Options, ""),
@@ -867,7 +894,7 @@ init_gen_record(EncodingRule, Options) ->
                true -> map;
                false -> record
            end,
-    #gen{erule=Erule,der=Der,aligned=Aligned,
+    #gen{erule=Erule,der=Der,jer=Jer,aligned=Aligned,
          rec_prefix=RecPrefix,macro_prefix=MacroPrefix,
          pack=Pack,options=Options}.
 
@@ -1010,11 +1037,11 @@ input_file_type(File) ->
 	    case file:read_file_info(lists:concat([File,".asn1"])) of
 		{ok,_FileInfo} ->
 		    {single_file, lists:concat([File,".asn1"])};
-		_Error ->
+		_ ->
 		    case file:read_file_info(lists:concat([File,".asn"])) of
 			{ok,_FileInfo} ->
 			    {single_file, lists:concat([File,".asn"])};
-			_Error ->
+			_ ->
 			    case file:read_file_info(lists:concat([File,".py"])) of
 				{ok,_FileInfo} ->
 				    {single_file, lists:concat([File,".py"])};
@@ -1078,7 +1105,7 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     end.
 
 get_rule(Options) ->
-    case [Rule || Rule <- [ber,per,uper],
+    case [Rule || Rule <- [ber,per,uper,jer],
 		  Opt <- Options,
 		  Rule =:= Opt] of
 	[Rule] ->
@@ -1193,12 +1220,6 @@ compile(File, _OutFile, Options) ->
 	{error,_Reason} ->
 	    error;
 	ok -> 
-	    ok;
-	ParseRes when is_tuple(ParseRes) ->
-	    io:format("~p~n",[ParseRes]),
-	    ok;
-	ScanRes when is_list(ScanRes) ->
-	    io:format("~p~n",[ScanRes]),
 	    ok
     end.
 
@@ -1288,12 +1309,26 @@ pretty2(Module,AbsFile) ->
 start(Includes) when is_list(Includes) ->
     asn1_db:dbstart(Includes).
 
+-spec test(Module) -> ok | {error, Reason} when
+      Module :: module(),
+      Reason :: term().
 test(Module)                             -> test_module(Module, []).
 
+-spec test(Module, Type | Options) -> ok | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Options :: [{i, IncludeDir :: term()}],
+      Reason :: term().
 test(Module, [] = Options)               -> test_module(Module, Options);
 test(Module, [{i, _}|_] = Options)       -> test_module(Module, Options);
 test(Module, Type)                       -> test_type(Module, Type, []).
 
+-spec test(Module, Type, Value | Options) -> ok | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Value :: term(),
+      Options :: [{i, IncludeDir :: term()}],
+      Reason :: term().
 test(Module, Type, [] = Options)         -> test_type(Module, Type, Options);
 test(Module, Type, [{i, _}|_] = Options) -> test_type(Module, Type, Options);
 test(Module, Type, Value)                -> test_value(Module, Type, Value).
@@ -1367,6 +1402,11 @@ test_value_decode(Module, Type, Value, Bytes) ->
                        {Module, Type, Value}, Error}}}}
     end.
 
+-spec value(Module, Type) -> {ok, Value} | {error, Reason} when
+      Module :: module(),
+      Type :: atom(),
+      Value :: term(),
+      Reason :: term().
 value(Module, Type) -> value(Module, Type, []).
 
 value(Module, Type, Includes) ->
@@ -1448,12 +1488,12 @@ special_decode_prepare_1(#gen{options=Options}=Gen, M) ->
 
 %% create_partial_inc_decode_gen_info/2
 %%
-%% Creats a list of tags out of the information in TypeNameList that
+%% Creates a list of tags out of the information in TypeNameList that
 %% tells which value will be incomplete decoded, i.e. each end
 %% component/type in TypeNameList. The significant types/components in
 %% the path from the toptype must be specified in the
 %% TypeNameList. Significant elements are all constructed types that
-%% branches the path to the leaf and the leaf it selfs.
+%% branches the path to the leaf and the leaf it self.
 %%
 %% Returns a list of elements, where an element may be one of
 %% mandatory|[opt,Tag]|[bin,Tag]. mandatory correspond to a mandatory
@@ -1615,7 +1655,7 @@ partial_inc_dec_toptype(_) ->
     throw({error,{"no top type found for partial incomplete decode"}}).
 
 
-%% Creats a list of tags out of the information in TypeList and Types
+%% Creates a list of tags out of the information in TypeList and Types
 %% that tells which value will be decoded.  Each constructed type that
 %% is in the TypeList will get a "choosen" command. Only the last
 %% type/component in the TypeList may be a primitive type. Components
@@ -1688,6 +1728,9 @@ create_pdec_command(ModName,{'CHOICE',[Comp=#'ComponentType'{name=C1}|_]},TNL=[C
     create_pdec_command(ModName,[Comp],TNL,Acc);
 create_pdec_command(ModName,{'CHOICE',[#'ComponentType'{}|Comps]},TNL,Acc) ->
     create_pdec_command(ModName,{'CHOICE',Comps},TNL,Acc);
+create_pdec_command(ModName,{'CHOICE',{Cs1,Cs2}},TNL,Acc)
+  when is_list(Cs1),is_list(Cs2) ->
+    create_pdec_command(ModName,{'CHOICE',Cs1 ++ Cs2},TNL,Acc);
 create_pdec_command(ModName,#'Externaltypereference'{module=M,type=C1},
 		    TypeNameList,Acc) ->
      #type{def=Def} = get_referenced_type(M,C1),
@@ -2224,15 +2267,13 @@ maybe_rename_function2(Thing,Name,Suffix)
 %% generated_functions_member/4 checks on both Name and Pattern if
 %%  the element exists in L
 generated_functions_member(M,Name,L,Pattern) ->
-    case generated_functions_member(M,Name,L) of
-	true ->
-	    L2 = generated_functions_filter(M,Name,L),
-	    case lists:keysearch(Pattern,3,L2) of
-		{value,_} ->
-		    true;
-		_ -> false
-	    end;
-	_ -> false
+    maybe
+        true ?= generated_functions_member(M,Name,L),
+        L2 = generated_functions_filter(M,Name,L),
+        {value,_} ?= lists:keysearch(Pattern,3,L2),
+        true
+    else
+        false -> false
     end.
 
 generated_functions_member(_M,Name,[{Name,_,_}|_]) ->

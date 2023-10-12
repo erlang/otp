@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,6 @@
   <xi:include href="cpu_sup.xml"/>
   <xi:include href="disksup.xml"/>
   <xi:include href="memsup.xml"/>
-  <xi:include href="os_mon_mib.xml"/>
   <xi:include href="os_sup.xml"/>
   <xi:include href="nteventlog.xml"/>
 </application>

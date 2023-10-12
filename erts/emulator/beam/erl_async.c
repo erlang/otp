@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,17 +115,6 @@ typedef struct {
     ErtsAlgndAsyncReadyQ *ready_queue;
 } ErtsAsyncData;
 
-#if defined(USE_VM_PROBES)
-
-/*
- * Some compilers, e.g. GCC 4.2.1 and -O3, will optimize away DTrace
- * calls if they're the last thing in the function.  :-(
- * Many thanks to Trond Norbye, via:
- * https://github.com/memcached/memcached/commit/6298b3978687530bc9d219b6ac707a1b681b2a46
- */
-static unsigned gcc_optimizer_hack = 0;
-#endif
-
 int erts_async_max_threads; /* Initialized by erl_init.c */
 int erts_async_thread_suggested_stack_size; /* Initialized by erl_init.c */
 
@@ -137,6 +126,7 @@ static void *async_main(void *);
 static ERTS_INLINE ErtsAsyncQ *
 async_q(int i)
 {
+    ASSERT(async != NULL);
     return &async->queue[i].aq;
 }
 
@@ -155,7 +145,7 @@ erts_init_async(void)
     if (erts_async_max_threads > 0) {
 	ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
 	erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-	char *ptr, thr_name[16];
+	char *ptr, thr_name[32];
 	size_t tot_size = 0;
 	int i;
 
@@ -209,7 +199,7 @@ erts_init_async(void)
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
 
-            erts_snprintf(thr_opts.name, 16, "async_%d", i+1);
+            erts_snprintf(thr_opts.name, sizeof(thr_name), "erts_async_%d", i+1);
 
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
@@ -237,10 +227,6 @@ erts_get_async_ready_queue(Uint sched_id)
 
 static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 {
-#ifdef USE_VM_PROBES
-    int len;
-#endif
-
     if (is_internal_port(a->port)) {
 	ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
 	a->q.prep_enq = erts_thr_q_prepare_enqueue(&arq->thr_q);
@@ -254,25 +240,6 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 #endif
 
     erts_thr_q_enqueue(&q->thr_q, a);
-#ifdef USE_LTTNG_VM_TRACEPOINTS
-    if (LTTNG_ENABLED(aio_pool_put)) {
-        lttng_decl_portbuf(port_str);
-        lttng_portid_to_str(a->port, port_str);
-        LTTNG2(aio_pool_put, port_str, -1);
-    }
-#endif
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(aio_pool_add)) {
-        DTRACE_CHARBUF(port_str, 16);
-
-        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                      "%T", a->port);
-        /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
-        len = -1;
-        DTRACE2(aio_pool_add, port_str, len);
-    }
-    gcc_optimizer_hack++;
-#endif
 }
 
 static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
@@ -281,9 +248,6 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 {
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
-#ifdef USE_VM_PROBES
-    int len;
-#endif
 
     while (1) {
 	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
@@ -293,31 +257,13 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    erts_thr_q_get_finalize_dequeue_data(q, &a->q.fin_deq);
 	    if (saved_fin_deq)
 		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
-#ifdef USE_LTTNG_VM_TRACEPOINTS
-            if (LTTNG_ENABLED(aio_pool_get)) {
-                lttng_decl_portbuf(port_str);
-                int length = erts_thr_q_length_dirty(q);
-                lttng_portid_to_str(a->port, port_str);
-                LTTNG2(aio_pool_get, port_str, length);
-            }
-#endif
-#ifdef USE_VM_PROBES
-            if (DTRACE_ENABLED(aio_pool_get)) {
-                DTRACE_CHARBUF(port_str, 16);
-
-                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
-                              "%T", a->port);
-                /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
-                len = -1;
-                DTRACE2(aio_pool_get, port_str, len);
-            }
-#endif
 	    return a;
 	}
 
 	if (ERTS_THR_Q_DIRTY != erts_thr_q_clean(q)) {
 	    ErtsThrQFinDeQ_t tmp_fin_deq;
 
+            erts_tse_use(tse);
 	    erts_tse_reset(tse);
 
 	chk_fin_deq:
@@ -336,7 +282,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    case ERTS_THR_Q_NEED_THR_PRGR:
 	    {
 		ErtsThrPrgrVal prgr = erts_thr_q_need_thr_progress(q);
-		erts_thr_progress_wakeup(NULL, prgr);
+		erts_thr_progress_wakeup(erts_thr_prgr_data(NULL), prgr);
 		/*
 		 * We do no dequeue finalizing in hope that a new async
 		 * job will arrive before we are woken due to thread
@@ -362,6 +308,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 		break;
 	    }
 
+            erts_tse_return(tse);
 	}
     }
 }
@@ -421,7 +368,12 @@ static ERTS_INLINE void async_reply(ErtsAsync *a, ErtsThrQPrepEnQ_t *prep_enq)
 static void
 async_wakeup(void *vtse)
 {
-    erts_tse_set((erts_tse_t *) vtse);
+    /*
+     * 'vtse' might be NULL if we are called after an async thread
+     * has unregistered from thread progress prior to termination.
+     */
+    if (vtse)
+        erts_tse_set((erts_tse_t *) vtse);
 }
 
 static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
@@ -429,8 +381,9 @@ static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
     ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
     erts_tse_t *tse = erts_tse_fetch();
     ERTS_DECLARE_DUMMY(Uint no);
-
     ErtsThrPrgrCallbacks callbacks;
+
+    erts_tse_return(tse);
 
     callbacks.arg = (void *) tse;
     callbacks.wakeup = async_wakeup;
@@ -482,6 +435,7 @@ static void *async_main(void* arg)
 	async_reply(a, prep_enq);
     }
 
+    erts_thr_progress_unregister_unmanaged_thread();
     return NULL;
 }
 
@@ -580,7 +534,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 **      key            pointer to secedule queue (NULL means round robin)
 **      async_invoke   function to run in thread
 **      async_data     data to pass to invoke function
-**      async_free     function for relase async_data in case of failure
+**      async_free     function for release async_data in case of failure
 */
 long driver_async(ErlDrvPort ix, unsigned int* key,
 		  void (*async_invoke)(void*), void* async_data,

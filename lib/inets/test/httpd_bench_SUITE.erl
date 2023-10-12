@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() -> 
-    [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+    [{timetrap, {minutes, 1}},
+     {ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [
@@ -86,7 +87,8 @@ init_per_suite(Config) ->
 	{Node, Host} = setup(Config, node()),
 	init_ssl(Config),
 	[{iter, 10}, {server_node, Node}, {server_host, Host} | Config]
-    catch _:_ ->
+    catch E:R:ST ->
+            ct:log("~p:~p:~p",[E,R,ST]),
 	    {skipped, "Benchmark machines only"}
     end.
 
@@ -278,9 +280,9 @@ cert_opts(Config) ->
 			     "server", "key.pem"]),
     ClientKeyFile = filename:join([?config(priv_dir, Config), 
 				   "client", "key.pem"]),
-    [{server_verification_opts, [{reuseaddr, true}, 
-				 {cacertfile, ServerCaCertFile},
-				 {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384"]},
+    [{server_verification_opts, [{cacertfile, ServerCaCertFile},
+				 {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384",
+                                            "TLS_AES_256_GCM_SHA384"]},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {client_verification_opts, [
 				 %%{verify, verify_peer},
@@ -304,7 +306,7 @@ run_test(Client, File, Config) ->
     Pid ! go,
     receive
 	{Pid,{{tps, Tps}, {mbps, MBps}}} ->
-	    ct:pal("Tps: ~p  Bps~p", [Tps, MBps]),
+	    ct:log("Tps: ~p  Bps~p", [Tps, MBps]),
 	    {ok, {Tps, MBps}}
     end.
 
@@ -423,7 +425,7 @@ wget_client(Config) ->
 wget_client([KeepAlive, WgetFile, _URL, Protocol, ProtocolOpts, _], _) ->
     process_flag(trap_exit, true),
     Cmd = wget_N(KeepAlive, WgetFile, Protocol, ProtocolOpts),
-    %%ct:pal("Wget cmd: ~p", [Cmd]),
+    %%ct:log("Wget cmd: ~p", [Cmd]),
     Port = open_port({spawn, Cmd}, [stderr_to_stdout]), 
     wait_for_wget(Port).
 
@@ -447,7 +449,7 @@ start_web_server(Group, Config) when Group == https_inets;
 				     Group == https_inets_keep_alive ->
     Opts = proplists:get_value(server_verification_opts, cert_opts(Config)),
     ReuseSessions = ?config(reuse_sessions, Config),
-    SSLConfHttpd = [{socket_type, {essl,
+    SSLConfHttpd = [{socket_type, {ssl,
 				   [{nodelay, true}, {reuse_sessions, ReuseSessions} | Opts]}}],
     start_inets("https", SSLConfHttpd, Config);
 
@@ -499,8 +501,8 @@ start_dummy("http"= Protocol, Config) ->
     Conf = [
 	    %%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen,  crypto:rand_bytes(1000000)}},
-	    {small, {gen,  crypto:rand_bytes(1000)}},
+	    {big, {gen,  crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen,  crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive,  ?config(keep_alive, Config)}
 	   ],
@@ -516,11 +518,11 @@ start_dummy("https" = Protocol, Config) ->
     %% DataDir= ?config(data_dir, Config),
     Host = ?config(server_host, Config),
     SSLOpts =  proplists:get_value(server_verification_opts, cert_opts(Config)),
-    Opts = [{active, true}, {nodelay, true}, {reuseaddr, true} | SSLOpts],
+    Opts = [{active, true}, {nodelay, true} | SSLOpts],
     Conf = [%%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen, crypto:rand_bytes(1000000)}},
-	    {small, {gen, crypto:rand_bytes(1000)}},
+	    {big, {gen, crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen, crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive, ?config(keep_alive, Config)}
 	   ],
@@ -632,7 +634,7 @@ do_handle_request(CB, S, Name, Opts, KeepAlive) when is_list(Name) ->
     send_file(CB, S, Fdesc);
 do_handle_request(CB, S, {gen, Data}, Opts, KeepAlive) ->
     Version = proplists:get_value(http_version, Opts),
-    Length = size(Data),
+    Length = byte_size(Data),
     Response = response_status_line_and_headers(Version, "Content-Length:" 
 						++ integer_to_list(Length) ++ ?CRLF, keep_alive(KeepAlive)), 
     CB:send(S, Response),
@@ -641,7 +643,7 @@ do_handle_request(CB, S, {gen, Data}, Opts, KeepAlive) ->
 send_file(CB, S, {gen, Data})  ->
     CB:send(S, Data);
     %% ChunkSize = 64*1024,
-    %% case size(Data) of
+    %% case byte_size(Data) of
     %% 	N when N > ChunkSize ->
     %% 	    <<Chunk:N/binary, Rest/binary>> = Data,
     %% 	    %%{Chunk, Rest} = lists:split(N, Data),

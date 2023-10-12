@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@
 
 -export_type([graph/0, d_type/0, vertex/0, edge/0, label/0]).
 
--record(digraph, {vtab = notable :: ets:tab(),
-		  etab = notable :: ets:tab(),
-		  ntab = notable :: ets:tab(),
+-record(digraph, {vtab = notable :: ets:table(),
+		  etab = notable :: ets:table(),
+		  ntab = notable :: ets:table(),
 	          cyclic = true  :: boolean()}).
 
 -opaque graph() :: #digraph{}.
@@ -230,7 +230,7 @@ in_neighbours(G, V) ->
       Edges :: [edge()].
 
 in_edges(G, V) ->
-    ets:select(G#digraph.ntab, [{{{in, V}, '$1'}, [], ['$1']}]).
+    [E || {{in, _}, E} <- ets:lookup(G#digraph.ntab, {in, V})].
 
 -spec out_degree(G, V) -> non_neg_integer() when
       G :: graph(),
@@ -255,7 +255,7 @@ out_neighbours(G, V) ->
       Edges :: [edge()].
 
 out_edges(G, V) ->
-    ets:select(G#digraph.ntab, [{{{out, V}, '$1'}, [], ['$1']}]).
+    [E || {{out, _}, E} <- ets:lookup(G#digraph.ntab, {out, V})].
 
 -spec add_edge(G, V1, V2) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),

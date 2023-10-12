@@ -1,0 +1,23 @@
+
+  [;1m-spec make_link(Existing, New) -> ok | {error, Reason}[0m
+  [;1m                   when[0m
+  [;1m                       Existing :: name_all(),[0m
+  [;1m                       New :: name_all(),[0m
+  [;1m                       Reason :: posix() | badarg.[0m
+
+  Makes a hard link from [;;4mExisting[0m to [;;4mNew[0m on platforms supporting
+  links (Unix and Windows). This function returns [;;4mok[0m if the link
+  was successfully created, otherwise [;;4m{error, Reason}[0m. On
+  platforms not supporting links, [;;4m{error,enotsup}[0m is returned.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing read or write permissions for the parent directories
+    of [;;4mExisting[0m or [;;4mNew[0m.
+
+  [;;4m[;;4meexist[0m[0m:
+    [;;4mNew[0m already exists.
+
+  [;;4m[;;4menotsup[0m[0m:
+    Hard links are not supported on this platform.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,14 +58,18 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <termios.h>
 
 #define WANT_NONBLOCKING
 
 #include "erl_driver.h"
 #include "sys_uds.h"
-#include "hash.h"
 #include "erl_term.h"
 #include "erl_child_setup.h"
+
+#undef ERTS_GLB_INLINE_INCL_FUNC_DEF
+#define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
+#include "hash.h"
 
 #define SET_CLOEXEC(fd) fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
 
@@ -75,11 +79,21 @@
 #define SHELL "/bin/sh"
 #endif /* __ANDROID__ */
 
+#if !defined(MSG_DONTWAIT) && defined(MSG_NONBLOCK)
+#define MSG_DONTWAIT MSG_NONBLOCK
+#endif
+
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)
 #else
 #define DEBUG_PRINT(fmt, ...)
+#endif
+
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
 static char abort_reason[200]; /* for core dump inspection */
@@ -123,6 +137,43 @@ void sys_sigrelease(int sig)
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
 
+
+/* This version of read/write makes sure to read/write the entire size before
+   returning. Normal read/write can handle partial results which we do not want. */
+static ssize_t read_all(int fd, char *buff, size_t size) {
+    ssize_t res, pos = 0;
+    do {
+        if ((res = read(fd, buff + pos, size - pos)) < 0) {
+            if (errno == ERRNO_BLOCK || errno == EINTR)
+                continue;
+            return res;
+        }
+        if (res == 0) {
+            errno = EPIPE;
+            return -1;
+        }
+        pos += res;
+    } while(size - pos != 0);
+    return pos;
+}
+
+static ssize_t write_all(int fd, const char *buff, size_t size) {
+    ssize_t res, pos = 0;
+    do {
+        if ((res = write(fd, buff + pos, size - pos)) < 0) {
+            if (errno == ERRNO_BLOCK || errno == EINTR)
+                continue;
+            return res;
+        }
+        if (res == 0) {
+            errno = EPIPE;
+            return -1;
+        }
+        pos += res;
+    } while (size - pos != 0);
+    return pos;
+}
+
 static void add_os_pid_to_port_id_mapping(Eterm, pid_t);
 static Eterm get_port_id(pid_t);
 static int forker_hash_init(void);
@@ -135,7 +186,7 @@ start_new_child(int pipes[])
 {
     struct sigaction sa;
     int errln = -1;
-    int size, res, i, pos = 0;
+    int size, i;
     char *buff, *o_buff;
 
     char *cmd, *cwd, *wd, **new_environ, **args = NULL;
@@ -153,12 +204,8 @@ start_new_child(int pipes[])
         perror(NULL);
         exit(1);
     }
-    
-    do {
-        res = read(pipes[0], (char*)&size, sizeof(size));
-    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
-    if (res <= 0) {
+    if (read_all(pipes[0], (char*)&size, sizeof(size)) <= 0) {
         errln = __LINE__;
         goto child_error;
     }
@@ -167,20 +214,10 @@ start_new_child(int pipes[])
 
     DEBUG_PRINT("size = %d", size);
 
-    do {
-        if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
-            if (errno == ERRNO_BLOCK || errno == EINTR)
-                continue;
-            errln = __LINE__;
-            goto child_error;
-        }
-        if (res == 0) {
-            errno = EPIPE;
-            errln = __LINE__;
-            goto child_error;
-        }
-        pos += res;
-    } while(size - pos != 0);
+    if (read_all(pipes[0], buff, size) <= 0) {
+        errln = __LINE__;
+        goto child_error;
+    }
 
     o_buff = buff;
 
@@ -239,19 +276,13 @@ start_new_child(int pipes[])
     }
 
     DEBUG_PRINT("read ack");
-    do {
+    {
         ErtsSysForkerProto proto;
-        res = read(pipes[0], &proto, sizeof(proto));
-        if (res > 0) {
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
-            ASSERT(res == sizeof(proto));
+        if (read_all(pipes[0], (char*)&proto, sizeof(proto)) <= 0) {
+            errln = __LINE__;
+            goto child_error;
         }
-    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
-
-    if (res < 1) {
-        errno = EPIPE;
-        errln = __LINE__;
-        goto child_error;
+        ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
     }
 
     DEBUG_PRINT("Set cwd to: '%s'",cwd);
@@ -361,15 +392,13 @@ child_error:
  * for posterity. */
 
 static void handle_sigchld(int sig) {
-    int buff[2], res, __preverrno = errno;
+    int buff[2], __preverrno = errno;
+    ssize_t res;
 
     sys_sigblock(SIGCHLD);
 
     while ((buff[0] = waitpid((pid_t)(-1), buff+1, WNOHANG)) > 0) {
-        do {
-            res = write(sigchld_pipe[1], buff, sizeof(buff));
-        } while (res < 0 && errno == EINTR);
-        if (res <= 0)
+        if ((res = write_all(sigchld_pipe[1], (char*)buff, sizeof(buff))) <= 0)
             ABORT("Failed to write to sigchld_pipe (%d): %d (%d)", sigchld_pipe[1], res, errno);
         DEBUG_PRINT("Reap child %d (%d)", buff[0], buff[1]);
     }
@@ -404,6 +433,17 @@ static int system_properties_fd(void)
 }
 #endif /* __ANDROID__ */
 
+/*
+  If beam is terminated using kill -9 or Ctrl-C when +B is set it may not
+  cleanup the terminal properly. So to clean it up we save the initial state in
+  erl_child_setup and then reset the terminal if we detect that beam terminated.
+
+  Not all shells and OSs have this issue, but we do it on all unixes anyway as
+  it is hard for us to know where the bug exists or not and there is no hard in
+  doing it.
+ */
+static struct termios initial_tty_mode;
+
 int
 main(int argc, char *argv[])
 {
@@ -411,11 +451,16 @@ main(int argc, char *argv[])
     int uds_fd = 3, max_fd = 3;
 #ifndef HAVE_CLOSEFROM
     int i;
+    DIR *dir;
 #endif
     struct sigaction sa;
 
-    if (argc < 1 || sscanf(argv[1],"%d",&max_files) != 1) {
+    if (argc < 2 || sscanf(argv[1],"%d",&max_files) != 1) {
         ABORT("Invalid arguments to child_setup");
+    }
+
+    if (isatty(0)) {
+	tcgetattr(0,&initial_tty_mode);
     }
 
 /* We close all fds except the uds from beam.
@@ -426,11 +471,29 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(4);
 #else
-    for (i = 4; i < max_files; i++)
+    dir = opendir("/dev/fd");
+    if (dir == NULL) { /* /dev/fd not available */
+        for (i = 4; i < max_files; i++)
 #if defined(__ANDROID__)
-        if (i != system_properties_fd())
+            if (i != system_properties_fd())
 #endif
-        (void) close(i);
+            (void) close(i);
+    } else {
+        /* Iterate over fds obtained from /dev/fd */
+        struct dirent *entry;
+        int dir_fd = dirfd(dir);
+
+        while ((entry = readdir(dir)) != NULL) {
+            i = atoi(entry->d_name);
+#if defined(__ANDROID__)
+            if (i != system_properties_fd())
+#endif
+            if (i >= 4 && i != dir_fd)
+                (void) close(i);
+        }
+
+        closedir(dir);
+    }
 #endif
 
     if (pipe(sigchld_pipe) < 0) {
@@ -494,12 +557,18 @@ main(int argc, char *argv[])
                                     pipes, 3, MSG_DONTWAIT)) < 0) {
                 if (errno == EINTR)
                     continue;
+                if (isatty(0)) {
+                    tcsetattr(0,TCSANOW,&initial_tty_mode);
+                }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
                 _exit(0);
             }
 
             if (res == 0) {
                 DEBUG_PRINT("uds was closed!");
+                if (isatty(0)) {
+                    tcsetattr(0,TCSANOW,&initial_tty_mode);
+                }
                 _exit(0);
             }
             /* Since we use unix domain sockets and send the entire data in
@@ -522,13 +591,11 @@ main(int argc, char *argv[])
             proto.action = ErtsSysForkerProtoAction_Go;
             proto.u.go.os_pid = os_pid;
             proto.u.go.error_number = errno;
-            while (write(pipes[1], &proto, sizeof(proto)) < 0 && errno == EINTR)
-                ; /* remove gcc warning */
+            write_all(pipes[1], (char *)&proto, sizeof(proto));
 
 #ifdef FORKER_PROTO_START_ACK
             proto.action = ErtsSysForkerProtoAction_StartAck;
-            while (write(uds_fd, &proto, sizeof(proto)) < 0 && errno == EINTR)
-                ; /* remove gcc warning */
+            write_all(uds_fd, (char *)&proto, sizeof(proto));
 #endif
 
             sys_sigrelease(SIGCHLD);
@@ -540,10 +607,8 @@ main(int argc, char *argv[])
         if (FD_ISSET(sigchld_pipe[0], &read_fds)) {
             int ibuff[2];
             ErtsSysForkerProto proto;
-            res = read(sigchld_pipe[0], ibuff, sizeof(ibuff));
+            res = read_all(sigchld_pipe[0], (char *)ibuff, sizeof(ibuff));
             if (res <= 0) {
-                if (errno == EINTR)
-                    continue;
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
             }
 
@@ -555,9 +620,7 @@ main(int argc, char *argv[])
             proto.action = ErtsSysForkerProtoAction_SigChld;
             proto.u.sigchld.error_number = ibuff[1];
             DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
-            if (write(uds_fd, &proto, sizeof(proto)) < 0) {
-                if (errno == EINTR)
-                    continue;
+            if (write_all(uds_fd, (char *)&proto, sizeof(proto)) < 0) {
                 /* The uds was close, which most likely means that the VM
                    has exited. This will be detected when we try to read
                    from the uds_fd. */

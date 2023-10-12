@@ -1,0 +1,26 @@
+
+  [;1m-spec group_leader() -> pid().[0m
+
+  Returns the process identifier of the group leader for the process
+  evaluating the function.
+
+  Every process is a member of some process group and all groups
+  have a group leader. All I/O from the group is channeled to the
+  group leader. When a new process is spawned, it gets the same
+  group leader as the spawning process.
+
+  Initially, at system startup, [;;4minit[0m is both its own group leader
+  and the group leader of all processes. During the boot of a system
+  the group leader for processes will be changed depending on the
+  need of the system. Some examples where this is done are:
+
+   • When an application is started, the top supervisor of that
+     application will have its group leader set to the
+     application master. See [;;4mapplication:start/2[0m for more
+     details.
+
+   • When running tests, both [;;4mcommon_test[0m and [;;4meunit[0m set the
+     group leader in order to capture any I/O from the testcase.
+
+   • The interactive shell sets the group leader to intercept
+     I/O.

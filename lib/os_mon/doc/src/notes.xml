@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,323 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
+
+<section><title>Os_Mon 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix internal os_mon_sysinfo:get_disk_info/1 function to
+	    not crash when run on Windows with multiple drives.</p>
+          <p>
+	    Own Id: OTP-18246 Aux Id: PR-6284 GH-6156 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a memory leak when calling <c>cpu_sup:util/0,1</c>
+	    on FreeBSD.</p>
+          <p>
+	    Own Id: OTP-18546 Aux Id: GH-7070, PR-7071 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="os_mon:disksup#get_disk_info/0"><c>disksup:get_disk_info/0</c></seemfa>
+	    and <seemfa
+	    marker="os_mon:disksup#get_disk_info/1"><c>disksup:get_disk_info/1</c></seemfa>
+	    functions have been introduced. These can be used in
+	    order to immediately fetch information about current disk
+	    usage.</p>
+          <p>
+	    Own Id: OTP-18303 Aux Id: PR-6384 </p>
+        </item>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+          <p>
+	    Support for <c>cpu_sup:util()</c> on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-18566 Aux Id: PR-7080 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid error report from failing <c>erlang:port_close</c>
+	    at shutdown of <c>cpu_sup</c> and <c>memsup</c>. Bug
+	    exists since OTP 25.3 (os_mon-2.8.1).</p>
+          <p>
+	    Own Id: OTP-18559 Aux Id: ERIERL-942 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The port programs used by <c>cpu_sup</c> and
+	    <c>memsup</c> are now gracefully shut down when
+	    <c>cpu_sup</c> and <c>memsup</c> are shut down.</p>
+          <p>
+	    Own Id: OTP-18469 Aux Id: PR-6689 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <seeerl
+	    marker="os_mon:disksup#config"><c>disk_space_check_interval</c></seeerl>
+	    configuration parameter of <c>disksup</c> can now be set
+	    to values smaller than a minute.</p>
+          <p>
+	    Own Id: OTP-18304 Aux Id: PR-6385 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On a Mac with Apple Silicon,
+	    <c>memsup:get_os_wordsize/0</c> would return 32 instead
+	    of 64.</p>
+          <p>
+	    Own Id: OTP-17441</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The temporarily introduced configuration parameter
+	    <c>memsup_improved_system_memory_data</c> has been
+	    removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16943 Aux Id: OTP-16906 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>disk_sup</c> to also search the system PATH on
+	    linux when looking for the <c>df</c> program.</p>
+          <p>
+	    Own Id: OTP-16944 Aux Id: PR-2787 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The configuration parameter
+	    <c>memsup_improved_system_memory_data</c> has been
+	    introduced. It can be used to modify the result returned
+	    by <c>memsup:get_system_memory_data()</c>. For more
+	    information see the <c>memsup</c> documentation.</p>
+          <p>
+	    Note that the configuration parameter is intended to be
+	    removed in OTP 24 and the modified result is intended to
+	    be used as of OTP 24.</p>
+          <p>
+	    Own Id: OTP-16906 Aux Id: ERIERL-532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>memsup</c> now returns the correct amount of system
+	    memory on macOS.</p>
+          <p>
+	    Own Id: OTP-16798 Aux Id: ERL-1327 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix memsup:get_os_wordsize/0 to return the current size
+	    on aarch64.</p>
+          <p>
+	    Own Id: OTP-16742</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix various compiler warnings on 64-bit Windows.</p>
+          <p>
+	    Own Id: OTP-15800</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.5.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The configuration parameter
+	    <c>memsup_improved_system_memory_data</c> has been
+	    introduced. It can be used to modify the result returned
+	    by <c>memsup:get_system_memory_data()</c>. For more
+	    information see the <c>memsup</c> documentation.</p>
+          <p>
+	    Note that the configuration parameter is intended to be
+	    removed in OTP 24 and the modified result is intended to
+	    be used as of OTP 24.</p>
+          <p>
+	    Own Id: OTP-16906 Aux Id: ERIERL-532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disk_sup</c> to ignore squashfs on Linux when
+	    determining if a mounted filesystem is full or not.</p>
+          <p>
+	    Own Id: OTP-15778</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>cpu_sup:util()</c> always returned 100%
+	    on systems not using gnu libc, for example Alpine OS.</p>
+          <p>
+	    Own Id: OTP-15974 Aux Id: ERL-1012 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typespec of <c>cpu_sup:util()</c>.</p>
+          <p>
+	    Own Id: OTP-15770 Aux Id: PR-2208 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The application otp_mibs has been removed from OTP. Some
+	    of its components (mibs) have been moved to other apps
+	    (snmp), or removed completely (os_mon).</p>
+          <p>
+	    Own Id: OTP-14984 Aux Id: OTP-15329 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Due to <c>/proc</c> restrictions in newer Android
+	    releases enforced by SELinux, cpu_sup is fixed so that it
+	    gets some basic CPU stats using the <c>sysinfo</c>
+	    syscall rather than reading <c>/proc/loadavg</c>.</p>
+          <p>
+	    Own Id: OTP-15387 Aux Id: PR-1966 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Os_Mon 2.4.6</title>
 
@@ -485,7 +802,7 @@
       <list>
         <item>
           <p>
-	    Memsup did not read memory correctly on MaxOSX
+	    Memsup did not read memory correctly on macOS X
 	    Snowleopard. This has now been corrected. (Thanks to Joel
 	    Reymont)</p>
           <p>
@@ -636,7 +953,7 @@
         <item>
 	    <p> Memory information in
 	    <c>memsup:get_system_memory_data/0</c> now has additional
-	    entries in its property list for linux.</p>
+	    entries in its property list for Linux.</p>
           <p>
 	    Own Id: OTP-7409 Aux Id: seq10984 </p>
         </item>
@@ -683,8 +1000,8 @@
       <list type="bulleted">
         <item>
           <p>
-	    Extended memsup memory probing on linux to use a port
-	    program to probe memory usage. This is faster then the
+	    Extended memsup memory probing on Linux to use a port
+	    program to probe memory usage. This is faster than the
 	    previous implementation.</p>
           <p>
 	    Own Id: OTP-6860 Aux Id: seq10616 </p>
@@ -983,4 +1300,3 @@
     <p>This version is identical with 1.7.</p>
   </section>
 </chapter>
-

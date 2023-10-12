@@ -1,0 +1,18 @@
+
+  [;1m-spec del_dir_r(File) -> ok | {error, Reason}[0m
+  [;1m                   when File :: name_all(), Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  Deletes file or directory [;;4mFile[0m. If [;;4mFile[0m is a directory, its
+  contents is first recursively deleted. Returns:
+
+  [;;4m[;;4mok[0m[0m:
+    The operation completed without errors.
+
+  [;;4m[;;4m{error, posix()}[0m[0m:
+    An error occurred when accessing or deleting [;;4mFile[0m. If some
+    file or directory under [;;4mFile[0m could not be deleted, [;;4mFile[0m
+    cannot be deleted as it is non-empty, and [;;4m{error, eexist}[0m is
+    returned.

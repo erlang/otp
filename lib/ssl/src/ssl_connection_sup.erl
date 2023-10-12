@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,58 +44,33 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
+    ChildSpecs = [tls_sup_child_spec(), dtls_sup_child_spec()],
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    {ok, {SupFlags, ChildSpecs}}.
+
   
-    TLSConnetionManager = tls_connection_manager_child_spec(),
-    %% Handles emulated options so that they inherited by the accept
-    %% socket, even when setopts is performed on the listen socket
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
-    
-    DTLSConnetionManager = dtls_connection_manager_child_spec(),
-    DTLSListeners = dtls_listeners_spec(),
-
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
-				    ListenOptionsTracker,
-				    DTLSConnetionManager, 
-				    DTLSListeners
-				   ]}}.
-
     
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_connection_manager_child_spec() ->
-    Name = tls_connection,  
-    StartFunc = {tls_connection_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+tls_sup_child_spec() ->
+    #{id => tls_sup,
+      start => {tls_sup, start_link, []},
+      restart => permanent,
+      shutdown => 4000,
+      modules => [tls_sup],
+      type => supervisor
+     }.
 
-dtls_connection_manager_child_spec() ->
-    Name = dtls_connection,
-    StartFunc = {dtls_connection_sup, start_link, []},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [dtls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = tls_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_socket],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-dtls_listeners_spec() ->
-    Name = dtls_listener,  
-    StartFunc = {dtls_listener_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+dtls_sup_child_spec() ->
+    #{id => dtls_sup,
+      start => {dtls_sup, start_link, []},
+      restart => permanent,
+      shutdown => 4000,
+      modules => [dtls_sup],
+      type => supervisor
+     }.

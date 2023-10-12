@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -151,7 +151,7 @@ cancel_request(RequestId, ProfileName) ->
 %%	RequestId - reference()
 %%      ProfileName = atom()
 %%
-%% Description: Inform tha manager that a request has been completed.
+%% Description: Inform the manager that a request has been completed.
 %%--------------------------------------------------------------------
 
 request_done(RequestId, ProfileName) ->
@@ -472,11 +472,11 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
 handle_call({which_cookies, Url, Options}, _, 
 	    #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", [{url, Url}, {options, Options}]),
-    case uri_parse(Url, Options) of
-	{ok, {Scheme, _, Host, Port, Path, _}} ->
-	    CookieHeaders = 
-		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
-	    {reply, CookieHeaders, State};
+    case uri_parse(Url) of
+	{ok, {Scheme, Host, Port, Path}} ->
+	    CookieHeader =
+		httpc_cookie:header(CookieDb, erlang:list_to_existing_atom(Scheme), {Host, Port}, Path),
+	    {reply, CookieHeader, State};
 	{error, _} = ERROR ->
 	    {reply, ERROR, State}
     end;
@@ -494,7 +494,7 @@ handle_call(info, _, State) ->
 
 handle_call(Req, From, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
-		 "received unkown request"
+		 "received unknown request"
 		 "~n   Req:  ~p"
 		 "~n   From: ~p", [Req, From]),
     {reply, {error, 'API_violation'}, State}.
@@ -524,7 +524,7 @@ handle_cast({cancel_request, RequestId},
 	    #state{handler_db = HandlerDb} = State) ->
     case ets:lookup(HandlerDb, RequestId) of
 	[] ->
-	    %% Request already compleated nothing to 
+	    %% Request already completed nothing to 
 	    %% cancel
 	    {noreply, State};
 	[{_, Pid, _}] ->
@@ -581,7 +581,7 @@ handle_cast({store_cookies, {Cookies, _}}, State) ->
 
 handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
-		 "recived unknown message"
+		 "received unknown message"
 		 "~n   Msg: ~p", [Msg]),
     {noreply, State}.
 	    
@@ -723,19 +723,6 @@ get_handler_info(Tab) ->
     Handlers1 = [{Pid, Id} || [Pid, Id] <- ets:match(Tab, Pattern)],
     Handlers2 = sort_handlers(Handlers1), 
     [{Pid, Reqs, httpc_handler:info(Pid)} || {Pid, Reqs} <- Handlers2].
-
-handle_request(#request{settings = 
-			#http_options{version = "HTTP/0.9"}} = Request,
-	       State) ->
-    %% Act as an HTTP/0.9 client that does not know anything
-    %% about persistent connections
-
-    NewRequest = handle_cookies(generate_request_id(Request), State),
-    NewHeaders =
-	(NewRequest#request.headers)#http_request_h{connection
-						    = undefined},
-    start_handler(NewRequest#request{headers = NewHeaders}, State),
-    {reply, {ok, NewRequest#request.id}, State};
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/1.0"}} = Request,
@@ -948,14 +935,31 @@ make_db_name(ProfileName, Post) ->
 %%--------------------------------------------------------------------------
 %% These functions is just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
+uri_parse(URI) ->
+    case uri_string:parse(uri_string:normalize(URI)) of
+        #{scheme := Scheme,
+          host := Host,
+          port := Port,
+          path := Path} ->
+            {ok, {Scheme, Host, Port, Path}};    
+        #{scheme := Scheme,
+          host := Host,
+          path := Path} ->
+            {ok, {Scheme, Host, scheme_default_port(Scheme), Path}};
+        Other ->
+            {error, maybe_error(Other)}
+    end.
 
-scheme_defaults() ->
-    [{http, 80}, {https, 443}].
+maybe_error({error, Atom, Term}) ->
+    {Atom, Term};
+maybe_error(Other) ->
+    {unexpected, Other}.
 
-uri_parse(URI, Opts) ->
-    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
-
-
+scheme_default_port("http") ->
+    80;
+scheme_default_port("https") ->
+    443.
+                                
 %%--------------------------------------------------------------------------
 
 

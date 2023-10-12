@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 %% versions. This way your code can automatically take advantage
 %% of the improvements in the API when available. This is an
 %% example of how to implement such an API, but it can be used
-%% as is if you want to. Just add (a preferrably renamed version of)
+%% as is if you want to. Just add (a preferably renamed version of)
 %% this module to your project, and call the API via this module
 %% instead of calling the BIFs directly.
 %%
@@ -199,7 +199,7 @@ unique_integer(Modifiers) ->
 	    case is_valid_modifier_list(Modifiers) of
 		true ->
 		    %% now() converted to an integer
-		    %% fullfill the requirements of
+		    %% fulfill the requirements of
 		    %% all modifiers: unique, positive,
 		    %% and monotonic...
 		    {MS, S, US} = erlang:now(),

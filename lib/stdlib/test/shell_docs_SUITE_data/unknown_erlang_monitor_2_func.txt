@@ -1,0 +1,158 @@
+
+  [;1m-spec monitor(process, monitor_process_identifier()) -> MonitorRef[0m
+  [;1m                 when MonitorRef :: reference();[0m
+  [;1m             (port, monitor_port_identifier()) -> MonitorRef[0m
+  [;1m                 when MonitorRef :: reference();[0m
+  [;1m             (time_offset, clock_service) -> MonitorRef[0m
+  [;1m                 when MonitorRef :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 18.0,OTP 19.0
+
+  Types:
+    -type monitor_port_identifier() :: port() | registered_name().
+    -type monitor_process_identifier() ::
+          pid() | registered_process_identifier().
+    -type registered_name() :: atom().
+    -type registered_process_identifier() ::
+          registered_name() | {registered_name(), node()}.
+
+  Sends a monitor request of type [;;4mType[0m to the entity identified by [;;4m[0m
+  [;;4mItem[0m. If the monitored entity does not exist or it changes
+  monitored state, the caller of [;;4mmonitor/2[0m is notified by a
+  message on the following format:
+
+    {Tag, MonitorRef, Type, Object, Info}
+
+  Note:
+    The monitor request is an asynchronous signal. That is, it
+    takes time before the signal reaches its destination.
+
+  [;;4mType[0m can be one of the following atoms: [;;4mprocess[0m, [;;4mport[0m or [;;4m[0m
+  [;;4mtime_offset[0m.
+
+  A [;;4mprocess[0m or [;;4mport[0m monitor is triggered only once, after that
+  it is removed from both monitoring process and the monitored
+  entity. Monitors are fired when the monitored process or port
+  terminates, does not exist at the moment of creation, or if the
+  connection to it is lost. If the connection to it is lost, we do
+  not know if it still exists. The monitoring is also turned off
+  when demonitor/1 is called.
+
+  A [;;4mprocess[0m or [;;4mport[0m monitor by name resolves the [;;4mRegisteredName[0m
+  to [;;4mpid()[0m or [;;4mport()[0m only once at the moment of monitor
+  instantiation, later changes to the name registration will not
+  affect the existing monitor.
+
+  When a [;;4mprocess[0m or [;;4mport[0m monitor is triggered, a [;;4m'DOWN'[0m
+  message is sent that has the following pattern:
+
+    {'DOWN', MonitorRef, Type, Object, Info}
+
+  In the monitor message [;;4mMonitorRef[0m and [;;4mType[0m are the same as
+  described earlier, and:
+
+  [;;4m[;;4mObject[0m[0m:
+    The monitored entity, which triggered the event. When
+    monitoring a process or a local port, [;;4mObject[0m will be equal
+    to the [;;4mpid()[0m or [;;4mport()[0m that was being monitored. When
+    monitoring process or port by name, [;;4mObject[0m will have format [;;4m[0m
+    [;;4m{RegisteredName, Node}[0m where [;;4mRegisteredName[0m is the name
+    which has been used with [;;4mmonitor/2[0m call and [;;4mNode[0m is local
+    or remote node name (for ports monitored by name, [;;4mNode[0m is
+    always local node name).
+
+  [;;4m[;;4mInfo[0m[0m:
+    Either the exit reason of the process, [;;4mnoproc[0m (process or
+    port did not exist at the time of monitor creation), or [;;4m[0m
+    [;;4mnoconnection[0m (no connection to the node where the monitored
+    process resides).
+
+  [;;4mMonitoring a [;;4mprocess[0m[0m:
+    Creates monitor between the current process and another
+    process identified by [;;4mItem[0m, which can be a [;;4mpid()[0m (local or
+    remote), an atom [;;4mRegisteredName[0m or a tuple [;;4m{RegisteredName,[0m
+    [;;4mNode}[0m for a registered process, located elsewhere.
+
+    Change:
+      Before ERTS 10.0 (OTP 21.0), monitoring a process could
+      fail with [;;4mbadarg[0m if the monitored process resided on a
+      primitive node (such as erl_interface or jinterface),
+      where remote process monitoring is not implemented.
+
+      Now, such a call to [;;4mmonitor[0m will instead succeed and a
+      monitor is created. But the monitor will only supervise
+      the connection. That is, a [;;4m{'DOWN', _, process, _,[0m
+      [;;4mnoconnection}[0m is the only message that may be received,
+      as the primitive node have no way of reporting the status
+      of the monitored process.
+
+  [;;4mMonitoring a [;;4mport[0m[0m:
+    Creates monitor between the current process and a port
+    identified by [;;4mItem[0m, which can be a [;;4mport()[0m (only local), an
+    atom [;;4mRegisteredName[0m or a tuple [;;4m{RegisteredName, Node}[0m for
+    a registered port, located on this node. Note, that attempt to
+    monitor a remote port will result in [;;4mbadarg[0m.
+
+  [;;4mMonitoring a [;;4mtime_offset[0m[0m:
+    Monitors changes in [;;4mtime offset[0m between Erlang monotonic
+    time and Erlang system time. One valid [;;4mItem[0m exists in
+    combination with the [;;4mtime_offset Type[0m, namely the atom [;;4m[0m
+    [;;4mclock_service[0m. Notice that the atom [;;4mclock_service[0m is not
+    the registered name of a process. In this case it serves as an
+    identifier of the runtime system internal clock service at
+    current runtime system instance.
+
+    The monitor is triggered when the time offset is changed. This
+    either if the time offset value is changed, or if the offset
+    is changed from preliminary to final during finalization of
+    the time offset when the single time warp mode is used.
+    When a change from preliminary to final time offset is made,
+    the monitor is triggered once regardless of whether the time
+    offset value was changed or not.
+
+    If the runtime system is in multi time warp mode, the time
+    offset is changed when the runtime system detects that the OS
+    system time has changed. The runtime system does, however,
+    not detect this immediately when it occurs. A task checking
+    the time offset is scheduled to execute at least once a
+    minute, so under normal operation this is to be detected
+    within a minute, but during heavy load it can take longer
+    time.
+
+    The monitor is not automatically removed after it has been
+    triggered. That is, repeated changes of the time offset
+    trigger the monitor repeatedly.
+
+    When the monitor is triggered a [;;4m'CHANGE'[0m message is sent to
+    the monitoring process. A [;;4m'CHANGE'[0m message has the following
+    pattern:
+
+      {'CHANGE', MonitorRef, Type, Item, NewTimeOffset}
+
+    where [;;4mMonitorRef[0m, [;;4mType[0m, and [;;4mItem[0m are the same as
+    described above, and [;;4mNewTimeOffset[0m is the new time offset.
+
+    When the [;;4m'CHANGE'[0m message has been received you are
+    guaranteed not to retrieve the old time offset when calling [;;4m[0m
+    [;;4merlang:time_offset()[0m. Notice that you can observe the change
+    of the time offset when calling [;;4merlang:time_offset()[0m before
+    you get the [;;4m'CHANGE'[0m message.
+
+  Making several calls to [;;4mmonitor/2[0m for the same [;;4mItem[0m and/or [;;4m[0m
+  [;;4mType[0m is not an error; it results in as many independent
+  monitoring instances.
+
+  The monitor functionality is expected to be extended. That is,
+  other [;;4mType[0ms and [;;4mItem[0ms are expected to be supported in a future
+  release.
+
+  Note:
+    If or when [;;4mmonitor/2[0m is extended, other possible values for [;;4m[0m
+    [;;4mTag[0m, [;;4mObject[0m, and [;;4mInfo[0m in the monitor message will be
+    introduced.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

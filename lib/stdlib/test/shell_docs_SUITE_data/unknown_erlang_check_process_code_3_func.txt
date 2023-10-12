@@ -1,0 +1,90 @@
+
+  [;1m-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async[0m
+  [;1m                            when[0m
+  [;1m                                Pid :: pid(),[0m
+  [;1m                                Module :: module(),[0m
+  [;1m                                RequestId :: term(),[0m
+  [;1m                                Option ::[0m
+  [;1m                                    {async, RequestId} |[0m
+  [;1m                                    {allow_gc, boolean()},[0m
+  [;1m                                OptionList :: [Option],[0m
+  [;1m                                CheckResult :: boolean() | aborted.[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Checks if the node local process identified by [;;4mPid[0m executes old
+  code for [;;4mModule[0m.
+
+  [;;4mOption[0ms:
+
+  [;;4m[;;4m{allow_gc, boolean()}[0m[0m:
+    Determines if garbage collection is allowed when performing
+    the operation. If [;;4m{allow_gc, false}[0m is passed, and a garbage
+    collection is needed to determine the result of the operation,
+    the operation is aborted (see information on [;;4mCheckResult[0m
+    below). The default is to allow garbage collection, that is, [;;4m[0m
+    [;;4m{allow_gc, true}[0m.
+
+  [;;4m[;;4m{async, RequestId}[0m[0m:
+    The function [;;4mcheck_process_code/3[0m returns the value [;;4masync[0m
+    immediately after the request has been sent. When the request
+    has been processed, the process that called this function is
+    passed a message on the form [;;4m{check_process_code, RequestId,[0m
+    [;;4mCheckResult}[0m.
+
+  If [;;4mPid[0m equals [;;4mself()[0m, and no [;;4masync[0m option has been passed,
+  the operation is performed at once. Otherwise a request for the
+  operation is sent to the process identified by [;;4mPid[0m, and is
+  handled when appropriate. If no [;;4masync[0m option has been passed,
+  the caller blocks until [;;4mCheckResult[0m is available and can be
+  returned.
+
+  [;;4mCheckResult[0m informs about the result of the request as follows:
+
+  [;;4m[;;4mtrue[0m[0m:
+    The process identified by [;;4mPid[0m executes old code for [;;4mModule[0m.
+    That is, the current call of the process executes old code for
+    this module, or the process has references to old code for
+    this module, or the process contains funs that references old
+    code for this module.
+
+  [;;4m[;;4mfalse[0m[0m:
+    The process identified by [;;4mPid[0m does not execute old code for [;;4m[0m
+    [;;4mModule[0m.
+
+  [;;4m[;;4maborted[0m[0m:
+    The operation was aborted, as the process needed to be garbage
+    collected to determine the operation result, and the operation
+    was requested by passing option [;;4m{allow_gc, false}[0m.
+
+  Change:
+    Up until ERTS version 8.*, the check process code operation
+    checks for all types of references to the old code. That is,
+    direct references (e.g. return addresses on the process
+    stack), indirect references ([;;4mfun[0ms in process context), and
+    references to literals in the code.
+
+    As of ERTS version 9.0, the check process code operation only
+    checks for direct references to the code. Indirect references
+    via [;;4mfun[0ms will be ignored. If such [;;4mfun[0ms exist and are used
+    after a purge of the old code, an exception will be raised
+    upon usage (same as the case when the [;;4mfun[0m is received by the
+    process after the purge). Literals will be taken care of
+    (copied) at a later stage. This behavior can as of ERTS
+    version 8.1 be enabled when building OTP, and will
+    automatically be enabled if dirty scheduler support is
+    enabled.
+
+  See also [;;4mcode(3)[0m.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPid[0m is not a node local process identifier.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mModule[0m is not an atom.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOptionList[0m is an invalid list of options.

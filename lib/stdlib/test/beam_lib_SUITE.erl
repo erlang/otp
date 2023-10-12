@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 -define(format(S, A), io:format(S, A)).
 -define(line, put(line, ?LINE), ).
 -define(config(X,Y), "./log_dir/").
--define(t,test_server).
 -define(privdir, "beam_lib_SUITE_priv").
 -else.
 -include_lib("common_test/include/ct.hrl").
@@ -35,8 +34,10 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
-         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
+	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
+         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1,
+         missing_debug_info_backend/1]).
+-export([test_makedep_abstract_code/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -45,8 +46,10 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [error, normal, cmp, cmp_literals, strip, otp_6711,
-     building, md5, encrypted_abstr, encrypted_abstr_file].
+    [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
+     building, md5, encrypted_abstr, encrypted_abstr_file,
+     missing_debug_info_backend, test_makedep_abstract_code
+    ].
 
 groups() -> 
     [].
@@ -55,7 +58,16 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    ok.
+    %% Cleanup after strip and strip_add_chunks
+    case code:is_sticky(sofs) of
+        false ->
+            false = code:purge(sofs),
+            {module, sofs} = code:load_file(sofs),
+            code:stick_mod(sofs),
+            ok;
+        true ->
+            ok
+    end.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -82,7 +94,6 @@ normal(Conf) when is_list(Conf) ->
     P0 = pps(),
 
     do_normal(Source, PrivDir, BeamFile, []),
-    do_normal(Source, PrivDir, BeamFile, [no_utf8_atoms]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
     {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, {none, _}}}]}} =
@@ -144,6 +155,13 @@ do_normal(BeamFile, Opts) ->
 	{{missing_chunk, AtomBin}, []} when is_binary(AtomBin) -> ok;
 	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
     end,
+
+    %% 'allow_missing_chunks' should work for named chunks too.
+    {ok, {simple, StrippedBeam}} = beam_lib:strip(BeamFile),
+    {ok, {simple, MChunks}} = beam_lib:chunks(StrippedBeam,
+                                              [attributes, locals],
+                                              [allow_missing_chunks]),
+    [{attributes, missing_chunk}, {locals, missing_chunk}] = MChunks,
 
     %% Make sure that reading the atom chunk works when the 'allow_missing_chunks'
     %% option is used.
@@ -374,22 +392,29 @@ strip(Conf) when is_list(Conf) ->
     {ok, [{simple,_},{simple2,_},{make_fun,_},{constant,_}]} =
 	beam_lib:strip_files([BeamFileD1, BeamFile2D1, BeamFile3D1, BeamFile4D1]),
 
+    %% strip a complex module
+    OrigSofsPath = code:where_is_file("sofs.beam"),
+    BeamFileSofs = filename:join(PrivDir,"sofs.beam"),
+    file:copy(OrigSofsPath, BeamFileSofs),
+    {ok, {sofs,_}} = beam_lib:strip(BeamFileSofs),
+    code:unstick_mod(sofs),
+    false = code:purge(sofs),
+
     %% check that each module can be loaded.
     {module, simple} = code:load_abs(filename:rootname(BeamFileD1)),
     {module, simple2} = code:load_abs(filename:rootname(BeamFile2D1)),
     {module, make_fun} = code:load_abs(filename:rootname(BeamFile3D1)),
     {module, constant} = code:load_abs(filename:rootname(BeamFile4D1)),
+    {module, sofs} = code:load_abs(filename:rootname(BeamFileSofs)),
 
     %% check that line number information is still present after stripping
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
-	(catch lines:t(atom)),
+    Info = get_line_number_info(),
     true = code:delete(lines),
     false = code:purge(lines),
     {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
-    {'EXIT',{badarith,[{lines,t,1,Info}|_]}} =
-	(catch lines:t(atom)),
+    Info = get_line_number_info(),
 
     true = (P0 == pps()),
     NoOfTables = erlang:system_info(ets_count),
@@ -398,9 +423,92 @@ strip(Conf) when is_list(Conf) ->
 		  Source2D1, BeamFile2D1,
 		  Source3D1, BeamFile3D1,
 		  Source4D1, BeamFile4D1,
-		  Source5D1, BeamFile5D1]),
+		  Source5D1, BeamFile5D1,
+                  BeamFileSofs]),
+
+    false = code:purge(sofs),
+    {module, sofs} = code:load_file(sofs),
+    code:stick_mod(sofs),
     ok.
 
+strip_add_chunks(Conf) when is_list(Conf) ->
+    PrivDir = ?privdir,
+    {SourceD1, BeamFileD1} = make_beam(PrivDir, simple, member),
+    {Source2D1, BeamFile2D1} = make_beam(PrivDir, simple2, concat),
+    {Source3D1, BeamFile3D1} = make_beam(PrivDir, make_fun, make_fun),
+    {Source4D1, BeamFile4D1} = make_beam(PrivDir, constant, constant),
+    {Source5D1, BeamFile5D1} = make_beam(PrivDir, lines, lines),
+
+    NoOfTables = erlang:system_info(ets_count),
+    P0 = pps(),
+
+    %% strip binary
+    verify(not_a_beam_file, beam_lib:strip(<<>>)),
+    {ok, B1} = file:read_file(BeamFileD1),
+    {ok, {simple, NB1}} = beam_lib:strip(B1),
+
+    BId1 = chunk_ids(B1),
+    NBId1 = chunk_ids(NB1),
+    true = length(BId1) > length(NBId1),
+    compare_chunks(B1, NB1, NBId1),
+
+    %% Keep all the extra chunks
+    ExtraChunks = ["Abst", "Dbgi", "Attr", "CInf", "LocT", "Atom"],
+    {ok, {simple, AB1}} = beam_lib:strip(B1, ExtraChunks),
+    ABId1 = chunk_ids(AB1),
+    true = length(BId1) == length(ABId1),
+    compare_chunks(B1, AB1, ABId1),
+
+    %% strip file - Keep extra chunks
+    verify(file_error, beam_lib:strip(foo)),
+    {ok, {simple, _}} = beam_lib:strip(BeamFileD1, ExtraChunks),
+    compare_chunks(B1, BeamFileD1, ABId1),
+
+    %% strip_files
+    {ok, B2} = file:read_file(BeamFile2D1),
+    {ok, [{simple,_},{simple2,_}]} = beam_lib:strip_files([B1, B2], ExtraChunks),
+    {ok, [{simple,_},{simple2,_},{make_fun,_},{constant,_}]} =
+	beam_lib:strip_files([BeamFileD1, BeamFile2D1, BeamFile3D1, BeamFile4D1], ExtraChunks),
+
+    %% strip a complex module
+    OrigSofsPath = code:where_is_file("sofs.beam"),
+    BeamFileSofs = filename:join(PrivDir,"sofs.beam"),
+    file:copy(OrigSofsPath, BeamFileSofs),
+    {ok, {sofs,_}} = beam_lib:strip(BeamFileSofs, ExtraChunks),
+    code:unstick_mod(sofs),
+    false = code:purge(sofs),
+
+    %% check that each module can be loaded.
+    {module, simple} = code:load_abs(filename:rootname(BeamFileD1)),
+    {module, simple2} = code:load_abs(filename:rootname(BeamFile2D1)),
+    {module, make_fun} = code:load_abs(filename:rootname(BeamFile3D1)),
+    {module, constant} = code:load_abs(filename:rootname(BeamFile4D1)),
+    {module, sofs} = code:load_abs(filename:rootname(BeamFileSofs)),
+
+    %% check that line number information is still present after stripping
+    {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    Info = get_line_number_info(),
+    false = code:purge(lines),
+    true = code:delete(lines),
+    {ok, {lines,BeamFile5D1}} = beam_lib:strip(BeamFile5D1),
+    {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
+    Info = get_line_number_info(),
+
+    true = (P0 == pps()),
+    NoOfTables = erlang:system_info(ets_count),
+
+    delete_files([SourceD1, BeamFileD1,
+		  Source2D1, BeamFile2D1,
+		  Source3D1, BeamFile3D1,
+		  Source4D1, BeamFile4D1,
+		  Source5D1, BeamFile5D1,
+                  BeamFileSofs]),
+
+    false = code:purge(sofs),
+    {module, sofs} = code:load_file(sofs),
+    code:stick_mod(sofs),
+
+    ok.
 
 otp_6711(Conf) when is_list(Conf) ->
     {'EXIT',{function_clause,_}} = (catch {a, beam_lib:info(3)}),
@@ -707,10 +815,65 @@ do_encrypted_abstr_file(Beam, Key) ->
     {error,beam_lib,Error} = beam_lib:chunks(Beam, [abstract_code]),
     ok.
 
+test_makedep_abstract_code(Conf) ->
+    PrivDir = ?privdir,
+    ErlFile = filename:join(PrivDir, "hello.erl"),
+    BeamFile = filename:join(PrivDir, "hello.beam"),
+    file:write_file(ErlFile,
+		    ["-module(hello).\n",
+		     "-export([start/0]).\n",
+		     "start() -> ok.\n"
+		    ]),
+    DependDir = filename:join(PrivDir, "depend"),
+    file:make_dir(DependDir),
+    DependFile = filename:join(DependDir,"hello.d"),
+    compile:file(ErlFile,
+		 [debug_info,
+		  makedep_side_effect,
+		  {outdir, PrivDir},
+		  {makedep_output, DependFile}]),
+    file:delete(DependFile),
+    file:del_dir(DependDir),
+    case beam_lib:chunks(BeamFile, [debug_info]) of
+	{ok, {Module, [{debug_info, {debug_info_v1,
+				     _Backend=erl_abstract_code,Metadata}}]}} ->
+	    SrcOpts = [no_copt, to_core, binary, return_errors,
+		       no_inline, strict_record_tests, strict_record_updates,
+		       dialyzer, no_spawn_compiler_process],
+	    {ok,_} = erl_abstract_code:debug_info(core_v1, Module, Metadata,
+						  SrcOpts),
+            ok
+    end.
+    
+
 write_crypt_file(Contents0) ->
     Contents = list_to_binary([Contents0]),
     io:format("~s\n", [binary_to_list(Contents)]),
     ok = file:write_file(".erlang.crypt", Contents).
+
+%% GH-4353: Don't crash when the backend for generating the abstract code
+%% is missing.
+missing_debug_info_backend(Conf) ->
+    PrivDir = ?privdir,
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
+
+    %% Create a debug_info chunk with a non-existing backend.
+    {ok,simple} = compile:file(Source, [{outdir,PrivDir}]),
+    {ok,simple,All0} = beam_lib:all_chunks(BeamFile),
+    FakeBackend = definitely__not__an__existing__backend,
+    FakeDebugInfo = {debug_info_v1, FakeBackend, nothing_here},
+    All = lists:keyreplace("Dbgi", 1, All0, {"Dbgi", term_to_binary(FakeDebugInfo)}),
+    {ok,NewBeam} = beam_lib:build_module(All),
+    ok = file:write_file(BeamFile, NewBeam),
+
+    %% beam_lib should not crash, but return an error.
+    verify(missing_backend, beam_lib:chunks(BeamFile, [abstract_code])),
+    file:delete(BeamFile),
+
+    ok.
 
 compare_chunks(File1, File2, ChunkIds) ->
     {ok, {_, Chunks1}} = beam_lib:chunks(File1, ChunkIds),
@@ -729,6 +892,7 @@ make_beam(Dir, Module, F) ->
     FileBase = filename:join(Dir, atom_to_list(Module)),
     Source = FileBase ++ ".erl",
     BeamFile = FileBase ++ ".beam",
+    file:delete(BeamFile),
     simple_file(Source, Module, F),
     {ok, _} = compile:file(Source, [{outdir,Dir}, debug_info, report]),
     {Source, BeamFile}.
@@ -827,7 +991,7 @@ simple_file(File, Module, F) ->
     ok = file:write_file(File, B).
 
 run_if_crypto_works(Test) ->
-    try	begin crypto:start(), crypto:info(), crypto:stop(), ok end of
+    try	begin crypto:start(), crypto:stop(), ok end of
 	ok ->
 	    Test()
     catch
@@ -835,3 +999,13 @@ run_if_crypto_works(Test) ->
 	    {skip,"The crypto application is missing or broken"}
     end.
 
+get_line_number_info() ->
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch lines:t(atom) of
+        {'EXIT',{badarith,[{erlang,'+',[atom,1],_},
+                           {lines,t,1,Info}|_]}} ->
+            Info;
+        {'EXIT',{badarith,[{lines,t,1,Info}|_]}} ->
+            Info
+    end.

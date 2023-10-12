@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -291,4 +291,4 @@ key1search(Key, L) ->
 
 %% Test that the wx appup file is ok
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(wx).
+    ok = test_server:appup_test(wx).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ start_link(Notebook, Parent, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([Notebook, Parent, Config]) ->
-    Attrs = observer_lib:create_attrs(),
+    Attrs = observer_lib:create_attrs(Notebook),
     Self = self(),
     Acc = maps:get(acc, Config, false),
     Holder = spawn_link(fun() -> init_table_holder(Self, Acc, Attrs) end),
@@ -163,13 +163,14 @@ create_list_box(Panel, Holder) ->
 			   wxListCtrl:setColumnWidth(ListCtrl, Col, DefSize),
 			   Col + 1
 		   end,
-    ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  120},
-		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, 200},
-%%		 {"Time", ?wxLIST_FORMAT_CENTRE, 50},
-		 {"Reds", ?wxLIST_FORMAT_RIGHT, 100},
-		 {"Memory", ?wxLIST_FORMAT_RIGHT, 100},
-		 {"MsgQ",  ?wxLIST_FORMAT_RIGHT, 50},
-		 {"Current Function", ?wxLIST_FORMAT_LEFT,  200}],
+    Scale = observer_wx:get_scale(),
+    ListItems = [{"Pid", ?wxLIST_FORMAT_CENTRE,  Scale*120},
+		 {"Name or Initial Func", ?wxLIST_FORMAT_LEFT, Scale*200},
+%%		 {"Time", ?wxLIST_FORMAT_CENTRE, Scale*50},
+		 {"Reds", ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"Memory", ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"MsgQ",  ?wxLIST_FORMAT_RIGHT, Scale*50},
+		 {"Current Function", ?wxLIST_FORMAT_LEFT,  Scale*200}],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 

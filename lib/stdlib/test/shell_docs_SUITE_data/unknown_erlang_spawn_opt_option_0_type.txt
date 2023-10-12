@@ -1,0 +1,13 @@
+
+  [;1m-type spawn_opt_option() ::[0m
+  [;1m          link | monitor |[0m
+  [;1m          {monitor, MonitorOpts :: [monitor_option()]} |[0m
+  [;1m          {priority, Level :: priority_level()} |[0m
+  [;1m          {fullsweep_after, Number :: non_neg_integer()} |[0m
+  [;1m          {min_heap_size, Size :: non_neg_integer()} |[0m
+  [;1m          {min_bin_vheap_size, VSize :: non_neg_integer()} |[0m
+  [;1m          {max_heap_size, Size :: max_heap_size()} |[0m
+  [;1m          {message_queue_data, MQD :: message_queue_data()} |[0m
+  [;1m          {async_dist, Enabled :: boolean()}.[0m
+
+  Options for [;;4mspawn_opt()[0m.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,14 +31,25 @@
 
 %%% BIFs
 
--export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
+-export([breakpoint/2, disassemble/1, dist_ext_to_term/2,
          flat_size/1, get_internal_state/1, instructions/0,
+         interpreter_size/0,
          map_info/1, same/2, set_internal_state/2,
-         size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
+         size_shared/1, copy_shared/1, copy_shared/2,
+         dirty_cpu/2, dirty_io/2, dirty/3,
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0,
          lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2,
          alloc_blocks_size/1]).
 
+%% Reroutes calls to the given MFA to error_handler:breakpoint/3
+%%
+%% Note that this is potentially unsafe as compiled code may assume that the
+%% targeted function returns a specific type, triggering undefined behavior if
+%% this function were to return something else.
+%%
+%% For reference, the debugger avoids the issue by purging the affected module
+%% and interpreting all functions in the module, ensuring that no assumptions
+%% are made with regard to return or argument types.
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
               Function :: atom(),
@@ -56,12 +67,6 @@ breakpoint(_, _) ->
       Code :: binary().
 
 disassemble(_) ->
-    erlang:nif_error(undef).
-
--spec display(Term) -> string() when
-      Term :: term().
-
-display(_) ->
     erlang:nif_error(undef).
 
 -spec dist_ext_to_term(Tuple, Binary) -> term() when
@@ -86,12 +91,19 @@ size_shared(_) ->
 -spec copy_shared(Term) -> term() when
       Term :: term().
 
-copy_shared(_) ->
+copy_shared(Term) ->
+    copy_shared(Term, false).
+
+-spec copy_shared(Term, CopyLiterals) -> term() when
+      Term :: term(),
+      CopyLiterals :: true | false.
+
+copy_shared(_, _) ->
     erlang:nif_error(undef).
 
 -spec get_internal_state(W) -> term() when
       W :: reds_left | node_and_dist_references | monitoring_nodes
-         | next_pid | 'DbTable_words' | check_io_debug
+         | next_pid | 'DbTable_words' | check_io_debug | lc_graph
          | process_info_args | processes | processes_bif_info
          | max_atom_out_cache_index | nbalance | available_internal_state
          | force_heap_frags | memory
@@ -116,6 +128,11 @@ get_internal_state(_) ->
 -spec instructions() -> [string()].
 
 instructions() ->
+    erlang:nif_error(undef).
+
+-spec interpreter_size() -> pos_integer().
+
+interpreter_size() ->
     erlang:nif_error(undef).
 
 -spec ic(F) -> Result when
@@ -181,8 +198,6 @@ same(_, _) ->
                            (re_loop_limit, non_neg_integer()) -> non_neg_integer();
                            (unicode_loop_limit, default) -> -1;
                            (unicode_loop_limit, non_neg_integer()) -> non_neg_integer();
-                           (hipe_test_reschedule_suspend, term()) -> nil();
-                           (hipe_test_reschedule_resume, pid() | port()) -> boolean();
                            (test_long_gc_sleep, non_neg_integer()) -> true;
                            (kill_dist_connection, port()) -> boolean();
                            (not_running_optimization, boolean()) -> boolean();
@@ -235,6 +250,10 @@ size([H|T]=Term, Seen0, Sum0) ->
 	    {Sum,Seen} = size(H, Seen1, Sum0+2),
 	    size(T, Seen, Sum)
     end;
+size({}, Seen0, Sum0) ->
+    %% Tuples of size 0 all points to a constant literal so we count
+    %% them as size zero
+    {Sum0,Seen0};
 size(Tuple, Seen0, Sum0) when is_tuple(Tuple) ->
     case remember_term(Tuple, Seen0) of
 	seen -> {Sum0,Seen0};
@@ -422,7 +441,7 @@ lc_graph_to_dot(OutFile, InFile) ->
     {ok, [LL0]} = file:consult(InFile),
 
     [{"NO LOCK",0} | LL] = LL0,
-    Map = maps:from_list([{Id, Name} || {Name, Id, _, _} <- LL]),
+    Map = #{Id => Name || {Name, Id, _, _} <- LL},
 
     case file:open(OutFile, [exclusive]) of
         {ok, Out} ->
@@ -511,43 +530,38 @@ alloc_blocks_size_1([], _Type, 0) ->
     undefined;
 alloc_blocks_size_1([{_Type, false} | Rest], Type, Acc) ->
     alloc_blocks_size_1(Rest, Type, Acc);
-alloc_blocks_size_1([{Type, Instances} | Rest], Type, Acc0) ->
-    F = fun ({instance, _, L}, Acc) ->
+alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc) ->
+    F = fun ({instance, _, L}, Acc0) ->
                 MBCSPool = case lists:keyfind(mbcs_pool, 1, L) of
                                {_, Pool} -> Pool;
                                false -> []
                            end,
                 {_,MBCS} = lists:keyfind(mbcs, 1, L),
                 {_,SBCS} = lists:keyfind(sbcs, 1, L),
-                Acc +
-                    sum_block_sizes(MBCSPool) +
-                    sum_block_sizes(MBCS) +
-                    sum_block_sizes(SBCS)
+                Acc1 = sum_block_sizes(MBCSPool, Type, Acc0),
+                Acc2 = sum_block_sizes(MBCS, Type, Acc1),
+                sum_block_sizes(SBCS, Type, Acc2)
         end,
-    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
-alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc0) ->
-    F = fun ({instance, _, L}, Acc) ->
-                Acc + sum_foreign_sizes(Type, L)
-        end,
-    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
+    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc, Instances));
 alloc_blocks_size_1([], _Type, Acc) ->
     Acc.
 
-sum_foreign_sizes(Type, L) ->
-    case lists:keyfind(mbcs_pool, 1, L) of
-        {_,Pool} ->
-            {_,ForeignBlocks} = lists:keyfind(foreign_blocks, 1, Pool),
-            case lists:keyfind(Type, 1, ForeignBlocks) of
-                {_,TypeSizes} -> sum_block_sizes(TypeSizes);
-                false -> 0
-            end;
-        _ ->
-            0
-    end.
+sum_block_sizes([{blocks, List} | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, sum_block_sizes_1(List, Type, Acc));
+sum_block_sizes([_ | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, Acc);
+sum_block_sizes([], _Type, Acc) ->
+    Acc.
 
-sum_block_sizes(Blocks) ->
-    lists:foldl(
-      fun({blocks_size, Sz,_,_}, Sz0) -> Sz0+Sz;
-         ({blocks_size, Sz}, Sz0) -> Sz0+Sz;
-         (_, Sz) -> Sz
-      end, 0, Blocks).
+sum_block_sizes_1([{Type, L} | Rest], Type, Acc0) ->
+    Acc = lists:foldl(fun({size, Sz,_,_}, Sz0) -> Sz0+Sz;
+                         ({size, Sz}, Sz0) -> Sz0+Sz;
+                         (_, Sz) -> Sz
+                      end, Acc0, L),
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([_ | Rest], Type, Acc) ->
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([], _Type, Acc) ->
+    Acc.
+
+

@@ -1,0 +1,3 @@
+[;1m	shell_docs_SUITE[0m
+
+There are no types in this module

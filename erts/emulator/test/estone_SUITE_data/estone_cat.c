@@ -12,9 +12,11 @@
 #include <fcntl.h>
 #include <errno.h>
 
-main(argc, argv)
-int argc;
-char *argv[];
+#ifdef HAVE_UNISTD_H
+#   include <unistd.h>
+#endif
+
+int main(int argc, char* argv[])
 {
     char buf[16384];
     int n;

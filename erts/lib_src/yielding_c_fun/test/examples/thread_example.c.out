@@ -1,0 +1,47 @@
+THREADS STARTED
+SCHEDULING THREAD: t1
+SCHEDULING THREAD: t2
+SCHEDULING THREAD: t3
+t3 f_2: y=0
+t3 f_2: y=1
+t3 f_1: x=2 f_2_ret=4
+t3 f_2: y=0
+t3 f_2: y=1
+t3 f_1: x=1 f_2_ret=2
+t3 f_1: DONE
+THREAD t3 DONE (number of reductions left = 994)
+SCHEDULING THREAD: t1
+SCHEDULING THREAD: t2
+t2 f_2: y=0
+t2 f_2: y=1
+t2 f_1: x=4 f_2_ret=8
+SCHEDULING THREAD: t1
+t1 f_2: y=0
+SCHEDULING THREAD: t2
+t2 f_2: y=0
+SCHEDULING THREAD: t1
+t1 f_2: y=1
+t1 f_1: x=2 f_2_ret=4
+SCHEDULING THREAD: t2
+t2 f_2: y=1
+t2 f_1: x=3 f_2_ret=6
+SCHEDULING THREAD: t1
+SCHEDULING THREAD: t2
+t2 f_2: y=0
+t2 f_2: y=1
+t2 f_1: x=2 f_2_ret=4
+SCHEDULING THREAD: t1
+t1 f_2: y=0
+SCHEDULING THREAD: t2
+t2 f_2: y=0
+SCHEDULING THREAD: t1
+t1 f_2: y=1
+t1 f_1: x=1 f_2_ret=2
+t1 f_1: DONE
+THREAD t1 DONE (number of reductions left = 1)
+SCHEDULING THREAD: t2
+t2 f_2: y=1
+t2 f_1: x=1 f_2_ret=2
+t2 f_1: DONE
+THREAD t2 DONE (number of reductions left = 2)
+DONE

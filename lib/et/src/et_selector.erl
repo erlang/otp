@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% An empty match spec deactivates tracing of calls to trace_me/4,5
 %%
 %% Other match specs activates tracing of calls to trace_me/4,5
-%% accordlingly with erlang:trace_pattern/2.
+%% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->

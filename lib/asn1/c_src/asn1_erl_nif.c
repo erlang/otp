@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -228,7 +228,7 @@ static int per_complete(ErlNifBinary *out_binary, unsigned char *in_buf,
 
 	case 30:
 	    /* If we call the following bytes, in the buffer in_ptr points at,
-	     By1,By2,Rest then Rest is the value that will be transfered to
+	     By1,By2,Rest then Rest is the value that will be transferred to
 	     the completed buffer. By1 tells how many of the rightmost bits in
 	     Rest that should not be used. By2 is the length of Rest in bytes.*/
 	    in_unused = (int) *(++in_ptr);
@@ -245,7 +245,7 @@ static int per_complete(ErlNifBinary *out_binary, unsigned char *in_buf,
 
 	case 31:
 	    /* If we call the following bytes, in the buffer in_ptr points at,
-	     By1,By2,By3,Rest then Rest is the value that will be transfered to
+	     By1,By2,By3,Rest then Rest is the value that will be transferred to
 	     the completed buffer. By1 tells how many of the rightmost bits in
 	     Rest that should not be used. By2 and By3 is the length of
 	     Rest in bytes.*/
@@ -834,7 +834,7 @@ static int per_insert_octets_except_unused(int no_bytes, unsigned char **input_p
  * List is like: [{TagNo,Value},{TagNo,Value},...]
  * Rest is a binary, i.e. the undecoded part of the buffer. Most often Rest
  * is the empty binary.
- * If some error occured during the decoding of the in_buf an error is returned.
+ * If some error occurred during the decoding of the in_buf an error is returned.
  */
 static int ber_decode_begin(ErlNifEnv* env, ERL_NIF_TERM *term, unsigned char *in_buf,
 	int in_buf_len, unsigned int *err_pos) {
@@ -999,7 +999,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	while (*ib_index < end_index) {
 
 	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index,
-                   *ib_index + len)) <= ASN1_ERROR
+                   end_index )) <= ASN1_ERROR
 	    )
 		return maybe_ret;
 	    curr_head = enif_make_list_cell(env, term, curr_head);
@@ -1087,7 +1087,7 @@ static int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, mem_chunk_t **curr, uns
     }
     }
 
-    // We need atleast 5 bytes to encode the next tlv
+    // We need at least 5 bytes to encode the next tlv
     if (ber_check_memory(curr, 3))
 	return ASN1_ERROR;
 
@@ -1167,7 +1167,7 @@ static mem_chunk_t *ber_new_chunk(unsigned int length) {
     new->next = NULL;
     new->top = enif_alloc(sizeof(char) * length);
     if (new->top == NULL) {
-	free(new);
+	enif_free(new);
 	return NULL;
     }
     new->curr = new->top + length - 1;
@@ -1280,17 +1280,20 @@ static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
     ERL_NIF_TERM err_code;
 
     curr = ber_new_chunk(40);
+    if (!curr) {
+        err_code = enif_make_atom(env,"oom");
+        goto err;
+    }
 
-    if ((encode_err = ber_encode(env, argv[0], &curr, &length))
-	    <= ASN1_ERROR) {
-	ber_free_chunks(curr);
+    encode_err = ber_encode(env, argv[0], &curr, &length);
+    if (encode_err <= ASN1_ERROR) {
 	err_code = enif_make_int(env, encode_err);
-	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
+	goto err;
     }
 
     if (!enif_alloc_binary(length, &out_binary)) {
-	ber_free_chunks(curr);
-	return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env,"oom"));
+        err_code = enif_make_atom(env,"oom");
+        goto err;
     }
 
     top = curr;
@@ -1306,6 +1309,10 @@ static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
     ber_free_chunks(top);
 
     return enif_make_binary(env, &out_binary);
+
+ err:
+    ber_free_chunks(curr);
+    return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
 }
 
 static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info) {

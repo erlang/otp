@@ -1,0 +1,20 @@
+
+  [;1m-spec from_sets(ListOfSets) -> Set[0m
+  [;1m                   when Set :: a_set(), ListOfSets :: [anyset()].[0m
+
+  Returns the unordered set containing the sets of list [;;4m[0m
+  [;;4mListOfSets[0m.
+
+    1> S1 = sofs:relation([{a,1},{b,2}]),
+    S2 = sofs:relation([{x,3},{y,4}]),
+    S = sofs:from_sets([S1,S2]),
+    sofs:to_external(S).
+    [[{a,1},{b,2}],[{x,3},{y,4}]]
+
+  [;1m-spec from_sets(TupleOfSets) -> Ordset[0m
+  [;1m                   when[0m
+  [;1m                       Ordset :: ordset(),[0m
+  [;1m                       TupleOfSets :: tuple_of(anyset()).[0m
+
+  Returns the ordered set containing the sets of the non-empty
+  tuple [;;4mTupleOfSets[0m.

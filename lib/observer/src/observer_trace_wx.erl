@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,15 +31,16 @@
 -define(SAVE_TRACEOPTS, 305).
 -define(LOAD_TRACEOPTS, 306).
 -define(TOGGLE_TRACE, 307).
--define(ADD_NEW_PROCS, 308).
--define(ADD_NEW_PORTS, 309).
--define(ADD_TP, 310).
--define(TRACE_OUTPUT, 311).
--define(DEF_MS_FUNCS,  312).
--define(DEF_MS_SEND,  313).
--define(DEF_MS_RECV,  314).
--define(DEF_PROC_OPTS,  315).
--define(DEF_PORT_OPTS,  316).
+-define(ADD_ALL, 308).
+-define(ADD_NEW_PROCS, 309).
+-define(ADD_NEW_PORTS, 310).
+-define(ADD_TP, 311).
+-define(TRACE_OUTPUT, 312).
+-define(DEF_MS_FUNCS,  313).
+-define(DEF_MS_SEND,  314).
+-define(DEF_MS_RECV,  315).
+-define(DEF_PROC_OPTS,  316).
+-define(DEF_PORT_OPTS,  317).
 
 -define(NODES_WIN, 330).
 -define(ADD_NODES, 331).
@@ -122,6 +123,9 @@ create_window(Notebook, ParentPid, Config) ->
     wxSizer:add(Buttons, ToggleButton, [{flag, ?wxALIGN_CENTER_VERTICAL}]),
     wxSizer:addSpacer(Buttons, 15),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NODES, [{label, "Add Nodes"}])),
+    AllButton = wxButton:new(Panel, ?ADD_ALL, [{label, "Add All"}]),
+    wxControl:setToolTip(AllButton, "Trace all processes and ports"),
+    wxSizer:add(Buttons, AllButton),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PROCS, [{label, "Add 'new' Processes"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PORTS, [{label, "Add 'new' Ports"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_TP, [{label, "Add Trace Pattern"}])),
@@ -188,8 +192,9 @@ create_proc_port_view(Parent) ->
 			   wxListCtrl:setColumnWidth(Procs, Col, DefSize),
 			   Col + 1
 		   end,
-    ProcListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  120},
-		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    Scale = observer_wx:get_scale(),
+    ProcListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  Scale*120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, Scale*300}],
     lists:foldl(AddProc, 0, ProcListItems),
 
     AddPort = fun({Name, Align, DefSize}, Col) ->
@@ -199,8 +204,8 @@ create_proc_port_view(Parent) ->
 			   wxListCtrl:setColumnWidth(Ports, Col, DefSize),
 			   Col + 1
 		   end,
-    PortListItems = [{"Port Id",    ?wxLIST_FORMAT_CENTER,  120},
-		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    PortListItems = [{"Port Id",    ?wxLIST_FORMAT_CENTER,  Scale*120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, Scale*300}],
     lists:foldl(AddPort, 0, PortListItems),
 
     wxListItem:destroy(Li),
@@ -242,14 +247,15 @@ create_matchspec_view(Parent) ->
     Funcs   = wxListCtrl:new(Splitter, [{winid, ?FUNCS_WIN}, {style, Style}]),
     Li = wxListItem:new(),
 
+    Scale = observer_wx:get_scale(),
     wxListItem:setText(Li, "Modules"),
     wxListCtrl:insertColumn(Modules, 0, Li),
     wxListItem:setText(Li, "Functions"),
     wxListCtrl:insertColumn(Funcs, 0, Li),
-    wxListCtrl:setColumnWidth(Funcs, 0, 150),
+    wxListCtrl:setColumnWidth(Funcs, 0, Scale*150),
     wxListItem:setText(Li, "Match Spec"),
     wxListCtrl:insertColumn(Funcs, 1, Li),
-    wxListCtrl:setColumnWidth(Funcs, 1, 300),
+    wxListCtrl:setColumnWidth(Funcs, 1, Scale*300),
     wxListItem:destroy(Li),
 
     wxSplitterWindow:setSashGravity(Splitter, 0.0),
@@ -288,6 +294,14 @@ handle_event(#wx{obj=Obj, event=#wxSize{size={W,_}}}, State) ->
 	false -> ok
     end,
     {noreply, State};
+
+handle_event(#wx{id=?ADD_ALL}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
+    try
+	Opts = observer_traceoptions_wx:process_trace(Parent, TraceOpts),
+	Process = #titem{id=all, opts=Opts},
+	{noreply, do_add_processes([Process], State#state{def_proc_flags=Opts})}
+    catch cancel -> {noreply, State}
+    end;
 
 handle_event(#wx{id=?ADD_NEW_PROCS}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
     try
@@ -347,7 +361,7 @@ handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, command
 	(TProcs == []) andalso (TPorts == []) andalso throw({error, "No processes or ports traced"}),
 	(Nodes == []) andalso throw({error, "No nodes traced"}),
 	HaveCallTrace = fun(#titem{opts=Os}) -> lists:member(functions,Os) end,
-	WStr = "Call trace actived but no trace patterns used",
+	WStr = "Call trace activated but no trace patterns used",
 	(TPs == []) andalso lists:any(HaveCallTrace, TProcs) andalso
 	    observer_wx:create_txt_dialog(Panel, WStr, "Warning", ?wxICON_WARNING),
 
@@ -383,6 +397,10 @@ handle_event(#wx{id=Id, obj=LogWin, event=Ev},
 	_ ->
 	    {noreply, State}
     end;
+
+handle_event(#wx{id=?wxID_CLOSE, obj=Obj, event=#wxCommand{type=command_menu_selected}}, State) ->
+    wxWindow:close(Obj, []),
+    {noreply, State};
 
 handle_event(#wx{id=?LOG_CLEAR, userData=TCtrl}, State) ->
     wxTextCtrl:clear(TCtrl),
@@ -683,7 +701,7 @@ handle_event(#wx{id=?REMOVE_NODES}, #state{n_view=Nview, nodes=Ns0} = State) ->
     {noreply, State#state{nodes = Ns}};
 
 handle_event(#wx{id=ID, event = What}, State) ->
-    io:format("~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
+    io:format(user,"~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -749,7 +767,7 @@ do_add_patterns({Module, NewPs}, State=#state{tpatterns=TPs0, m_view=Mview, f_vi
 	{Old, [], []} ->
 	    State;
 	{MPatterns, _New, _Changed} ->
-	    %% if dynamicly updates update New and Changed
+	    %% if dynamically updates update New and Changed
 	    TPs = dict:store(Module, MPatterns, TPs0),
 	    update_modules_view(lists:sort(dict:fetch_keys(TPs)), Module, Mview),
 	    update_functions_view(dict:fetch(Module, TPs), Fview),
@@ -883,15 +901,15 @@ update_functions_view(Funcs, LCtrl) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Trace items are processes and ports
 merge_trace_items([N1=#titem{id=NewP}|Ns], [N2=#titem{id=NewP}|Old])
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N1|Ids], New, [{N2,N2}|Changed]};
 merge_trace_items([N1=#titem{id=NewP}|Ns], Old)
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N1|Ids], [N1|New], Changed};
 merge_trace_items(Ns, [N2=#titem{id=NewP}|Old])
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N2|Ids], New, Changed};
 merge_trace_items(New, Old) ->
@@ -969,7 +987,8 @@ output_file(true, true, Opts) ->
 
 create_logwindow(_Parent, false) -> {false, false};
 create_logwindow(Parent, true) ->
-    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750, 800}}]),
+    Scale = observer_wx:get_scale(),
+    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750*Scale, 800*Scale}}]),
     MB = wxMenuBar:new(),
     File = wxMenu:new(),
     wxMenu:append(File, ?LOG_CLEAR, "Clear Log\tCtrl-C"),
@@ -1033,7 +1052,7 @@ textformat(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
 textformat(Trace) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
     io_lib:format("*** Dropped ~p messages.~n", [element(2,Trace)]);
 textformat(Trace) when element(1, Trace) == seq_trace, tuple_size(Trace) >= 3 ->
-    io_lib:format("*** Seq trace not implmented.~n", []);
+    io_lib:format("*** Seq trace not implemented.~n", []);
 textformat(_) ->
     "".
 

@@ -1,0 +1,25 @@
+
+  [;1m-spec erlang:external_size(Term, Options) -> non_neg_integer()[0m
+  [;1m                              when[0m
+  [;1m                                  Term :: term(),[0m
+  [;1m                                  Options ::[0m
+  [;1m                                      [compressed |[0m
+  [;1m                                       {compressed, Level :: 0..9} |[0m
+  [;1m                                       deterministic |[0m
+  [;1m                                       {minor_version, Version :: 0..2} |[0m
+  [;1m                                       local].[0m
+
+[;;4mSince[0m:
+  OTP R14B04
+
+  Calculates, without doing the encoding, the maximum byte size for
+  a term encoded in the Erlang external term format. The following
+  condition applies always:
+
+    > Size1 = byte_size(term_to_binary(Term, Options)),
+    > Size2 = erlang:external_size(Term, Options),
+    > true = Size1 =< Size2.
+    true
+
+  Option [;;4m{minor_version, Version}[0m specifies how floats are
+  encoded. For a detailed description, see [;;4mterm_to_binary/2[0m.

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,9 +93,9 @@ update(Name, UpdateFunc, Interval) ->
 %% Args: Extra = {Name, SnmpKey, Attributes, Interval, UpdateFunc}
 %% Purpose: Instrumentation function for the table.
 %%          Name is the name of the table
-%%          SnmpKey is the snmpkey as it should be specifed in order
+%%          SnmpKey is the snmpkey as it should be specified in order
 %%            to create the Mnesia table as an SNMP table
-%%          Attributes is the attributes as it should be specifed in order
+%%          Attributes is the attributes as it should be specified in order
 %%            to create the Mnesia table as an SNMP table
 %%          Interval is the minimum time in milliseconds between two
 %%            updates of the table

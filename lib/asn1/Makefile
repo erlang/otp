@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,12 +54,7 @@ SPECIAL_TARGETS =
 include $(ERL_TOP)/make/otp_subdir.mk
 
 
-.PHONY: info version
-
-info:
-	@echo "APP_RELEASE_DIR: $(APP_RELEASE_DIR)"
-	@echo "APP_DIR:         $(APP_DIR)"
-	@echo "APP_TAR_FILE:    $(APP_TAR_FILE)"
+.PHONY: version
 
 version:
 	@echo "$(VSN)"
@@ -100,3 +95,5 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
+
+include $(ERL_TOP)/make/app_targets.mk

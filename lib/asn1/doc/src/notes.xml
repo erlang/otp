@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,398 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The ASN.1 compiler would ignore a constraint such as
+	    <c>(SIZE (1..4), ...)</c>, causing incorrect behavior of
+	    the encoding and decoding function for the PER and UPER
+	    backends. Corrected to handle the constraint in the same
+	    way as <c>(SIZE (1..4, ...))</c>.</p>
+          <p>
+	    Own Id: OTP-18729 Aux Id: PR-7575 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The JER backend has been internally refactored in a
+	    way that is compatible for applications that use the
+	    documented API. However, for a group of ASN.1 modules
+	    that depend on each other (for example,
+	    <c>S1AP-PDU-Descriptions</c>, S1AP-Contents, and so on),
+	    all modules in the group must be recompiled if on of the
+	    group members is recompiled.</p>
+          <p>
+	    Own Id: OTP-18748 Aux Id: ERIERL-957, PR-7637 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ASN.1 compiler used to reject correctly specified
+	    RELATIVE-OID values containing other RELATIVE-OID values.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-18534 Aux Id: ERIERL-737, PR-7039 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Minor code improvements.</p>
+          <p>
+	    Own Id: OTP-18441</p>
+        </item>
+        <item>
+	    <p> Handling of <c>on_load</c> modules during boot has
+	    been improved by adding an extra step in the boot order
+	    for embedded mode that runs all <c>on_load</c> handlers,
+	    instead of relying on explicit invocation of them, later,
+	    when the kernel supervision tree starts. </p><p> This is
+	    mostly a code improvement and OTP internal simplification
+	    to avoid future bugs and to simplify code maintenance.
+	    </p>
+          <p>
+	    Own Id: OTP-18447</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.21</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For the <c>per</c> and <c>uper</c> ASN.1 encoding
+	    rules, encoding and decoding the <c>SEQUENCE OF</c> and
+	    <c>SET OF</c> constructs with 16384 items or more is now
+	    supported.</p>
+          <p>
+	    Own Id: OTP-18245 Aux Id: ERIERL-859 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.20</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The atom <c>maybe</c> has been quoted in the source
+	    code.</p>
+          <p>
+	    Own Id: OTP-17980</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.18.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For the <c>per</c> and <c>uper</c> ASN.1 encoding
+	    rules, encoding and decoding the <c>SEQUENCE OF</c> and
+	    <c>SET OF</c> constructs with 16384 items or more is now
+	    supported.</p>
+          <p>
+	    Own Id: OTP-18245 Aux Id: ERIERL-859 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add support for the <c>maps</c> option in combination
+	    with the <c>jer</c> backend.</p>
+          <p>
+	    Own Id: OTP-17959 Aux Id: GH-5757 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash. The previous
+	    fix for this in GH-4514 was not complete.</p>
+          <p>
+	    Own Id: OTP-17522 Aux Id: GH-4902 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in the <c>asn1</c> compiler that potentially
+	    could cause it to fail to open a file.</p>
+          <p>
+	    Own Id: OTP-17387 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash. The previous
+	    fix for this in GH-4514 was not complete.</p>
+          <p>
+	    Own Id: OTP-17522 Aux Id: GH-4902 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash.</p>
+          <p>
+	    Own Id: OTP-17227 Aux Id: GH-4514 </p>
+        </item>
+        <item>
+          <p>
+	    For JER encoding rules an INTEGER value outside the
+	    declared range is now reported as error during decode.</p>
+          <p>
+	    Own Id: OTP-17306 Aux Id: ERIERL-506 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For the JER encoding rules, the declared order of the
+	    fields in a SEQUENCE is now maintained in the resulting
+	    JSON object. Previously a map was used which caused an
+	    undefined order of the fields which was not friendly for
+	    debugging.</p>
+          <p>
+	    Own Id: OTP-17297 Aux Id: ERIERL-607 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes in order to build on the Haiku operating system.</p>
+          <p>
+	    Thanks to Calvin Buckley</p>
+          <p>
+	    Own Id: OTP-16707 Aux Id: PR-2638 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adhere to the ASN.1 specification for hstring &amp;
+	    bstring lexical items. That is they may include white
+	    space.</p>
+          <p>
+	    Own Id: OTP-16490</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of ellipsis in a CHOICE</p>
+          <p>
+	    Own Id: OTP-16554 Aux Id: ERL-1189 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer warnings of type <c>no_match</c> are now
+	    suppressed in the generated files.</p>
+          <p>
+	    Own Id: OTP-16636 Aux Id: ERIERL-145 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler now has limited support for the JSON
+	    encoding rules (ITU-T X.697 ASN.1 encoding rules:
+	    Specification of JavaScript Object Notation Encoding
+	    Rules).</p>
+          <p>
+	    Own Id: OTP-16030</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix 'DEFAULT' with 'OCTET STRING' and 'SEQUENCE OF
+	    CHOICE' with extensions.</p>
+          <p>
+	    Own Id: OTP-16542 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+        <item>
+	    <p>Corrected problems with the following value
+	    definitions:</p> <list> <item>value of SEQUENCE OF CHOICE
+	    with extensions</item> <item>value of CHOICE with
+	    extensions</item> <item>DEFAULT used with OCTET
+	    STRING</item> </list>
+          <p>
+	    Own Id: OTP-15697 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 5.0.7</title>
 
@@ -69,6 +461,22 @@
 
 </section>
 
+<section><title>Asn1 5.0.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.5.1</title>
 
     <section><title>Known Bugs and Problems</title>
@@ -78,7 +486,7 @@
 	    decoding a recursively enclosed term the length was not
 	    propagated to that term decoding, so if the length of the
 	    enclosed term was longer than the enclosing that error
-	    was not dectected</p> <p>A hard coded C stack limitation
+	    was not detected</p> <p>A hard coded C stack limitation
 	    for decoding recursive ASN.1 terms has been introduced.
 	    This is currently set to 8 kWords giving a nesting depth
 	    of about 1000 levels. Deeper terms can not be decoded,
@@ -140,7 +548,7 @@
         <item>
           <p>
 	    Compiling an ASN.1 module using the option {n2n,
-	    EnumTypeName} when EnumTypeName contains a hypen like for
+	    EnumTypeName} when EnumTypeName contains a hyphen like for
 	    example Cause-Misc caused syntax errors when compiling
 	    the generated Erlang code. This is now corrected.</p>
           <p>
@@ -795,7 +1203,7 @@
         <item>
 	    <p>The ASN.1 compiler will now always include necessary
 	    run-time functions in the generated Erlang modules
-	    (except for <c>asn1rt_nif</c> which is still neeeded). If
+	    (except for <c>asn1rt_nif</c> which is still needed). If
 	    the option '<c>inline</c>' is used the ASN.1 compiler
 	    will generate a warning. But if
 	    '<c>{inline,OutputFile}</c>' is use, the ASN.1 compiler
@@ -1980,4 +2388,3 @@
     <!-- p>There are also release notes for <url href="notes_history.html">older versions</url>.</p -->
   </section>
 </chapter>
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,17 +79,18 @@ format_error(Term) ->
     lists:flatten(io_lib:format("~tp", [Term])).
 
 %% Initializes a new reader given a custom file handle and I/O wrappers
--spec init(handle(), write | read, file_op()) -> {ok, reader()} | {error, badarg}.
-init(Handle, AccessMode, Fun) when is_function(Fun, 2) ->
-    Reader = #reader{handle=Handle,access=AccessMode,func=Fun},
+-spec init(UserData :: user_data(), write | read, file_op()) ->
+                  {ok, tar_descriptor()} | {error, badarg}.
+init(UserData, AccessMode, Fun) when is_function(Fun, 2) ->
+    Reader = #reader{handle=UserData,access=AccessMode,func=Fun},
     {ok, Pos, Reader2} = do_position(Reader, {cur, 0}),
     {ok, Reader2#reader{pos=Pos}};
-init(_Handle, _AccessMode, _Fun) ->
+init(_UserData, _AccessMode, _Fun) ->
     {error, badarg}.
 
 %%%================================================================
 %% Extracts all files from the tar file Name.
--spec extract(open_handle()) -> ok | {error, term()}.
+-spec extract(Open :: open_type()) -> ok | {error, term()}.
 extract(Name) ->
     extract(Name, []).
 
@@ -102,10 +103,10 @@ extract(Name) ->
 %%  - {files, ListOfFilesToExtract}: Only extract ListOfFilesToExtract
 %%  - verbose: Prints verbose information about the extraction,
 %%  - {cwd, AbsoluteDir}: Sets the current working directory for the extraction
--spec extract(open_handle(), [extract_opt()]) ->
-                     ok
-                         | {ok, [{string(), binary()}]}
-                         | {error, term()}.
+-spec extract(Open :: open_type(), [extract_opt()]) ->
+                     {ok, [{string(), binary()}]} |
+                     {error, term()} |
+                     ok.
 extract({binary, Bin}, Opts) when is_list(Opts) ->
     do_extract({binary, Bin}, Opts);
 extract({file, Fd}, Opts) when is_list(Opts) ->
@@ -165,7 +166,6 @@ check_extract(Name, #read_opts{files=Files}) ->
 %%%================================================================
 %% The following table functions produce a list of information about
 %% the files contained in the archive.
--type filename() :: string().
 -type typeflag() :: regular | link | symlink |
                     char | block | directory |
                     fifo | reserved | unknown.
@@ -173,23 +173,23 @@ check_extract(Name, #read_opts{files=Files}) ->
 -type uid() :: non_neg_integer().
 -type gid() :: non_neg_integer().
 
--type tar_entry() :: {filename(),
-                      typeflag(),
-                      non_neg_integer(),
-                      tar_time(),
-                      mode(),
-                      uid(),
-                      gid()}.
+-type tar_entry() :: {Name :: name_in_archive(),
+                      Type :: typeflag(),
+                      Size :: non_neg_integer(),
+                      MTime :: tar_time(),
+                      Mode :: mode(),
+                      Uid :: uid(),
+                      Gid :: gid()}.
 
 %% Returns a list of names of the files in the tar file Name.
--spec table(open_handle()) -> {ok, [string()]} | {error, term()}.
+-spec table(Open :: open_type()) -> {ok, [name_in_archive()]} | {error, term()}.
 table(Name) ->
     table(Name, []).
 
 %% Returns a list of names of the files in the tar file Name.
 %% Options accepted: compressed, verbose, cooked.
--spec table(open_handle(), [compressed | verbose | cooked]) ->
-                   {ok, [string() | tar_entry()]} | {error, term()}.
+-spec table(Open :: open_type(), [compressed | verbose | cooked]) ->
+                   {ok, [name_in_archive() | tar_entry()]} | {error, term()}.
 table(Name, Opts) when is_list(Opts) ->
     foldl_read(Name, fun table1/4, [], table_opts(Opts)).
 
@@ -239,7 +239,7 @@ t(Name) when is_list(Name); is_binary(Name) ->
     end.
 
 %% Prints verbose information about each file in the archive
--spec tt(open_handle()) -> ok | {error, term()}.
+-spec tt(open_type()) -> ok | {error, term()}.
 tt(Name) ->
     case table(Name, [verbose]) of
         {ok, List} ->
@@ -301,11 +301,11 @@ month(12) -> "Dec".
 
 %%%================================================================
 %% The open function with friends is to keep the file and binary api of this module
--type open_handle() :: file:filename()
+-type open_type() :: file:filename_all()
                      | {binary, binary()}
-                     | {file, term()}.
--spec open(open_handle(), [write | compressed | cooked]) ->
-                  {ok, reader()} | {error, term()}.
+                     | {file, file:io_device()}.
+-spec open(Open :: open_type(), [write | compressed | cooked]) ->
+                  {ok, tar_descriptor()} | {error, term()}.
 open({binary, Bin}, Mode) when is_binary(Bin) ->
     do_open({binary, Bin}, Mode);
 open({file, Fd}, Mode) ->
@@ -321,23 +321,53 @@ do_open(Name, Mode) when is_list(Mode) ->
             {error, {Name, Reason}}
     end.
 
-open1({binary,Bin}, read, _Raw, Opts) when is_binary(Bin) ->
+open1({binary,Bin0}=Handle, read, _Raw, Opts) when is_binary(Bin0) ->
+    Bin = case lists:member(compressed, Opts) of
+        true ->
+            %% emulate file:open with Modes = [compressed_one ...]
+            Z = zlib:open(),
+            zlib:inflateInit(Z, 31, cut),
+            try
+                IoList = zlib:inflate(Z, Bin0),
+                zlib:inflateEnd(Z),
+                iolist_to_binary(IoList)
+            catch
+                _:_ -> Bin0
+            after
+                zlib:close(Z)
+            end;
+        false ->
+            Bin0
+    end,
+
     case file:open(Bin, [ram,binary,read]) of
         {ok,File} ->
-            _ = [ram_file:uncompress(File) || Opts =:= [compressed]],
             {ok, #reader{handle=File,access=read,func=fun file_op/2}};
-        Error ->
-            Error
+        {error, Reason} ->
+            {error, {Handle, Reason}}
     end;
-open1({file, Fd}, read, _Raw, _Opts) ->
-    Reader = #reader{handle=Fd,access=read,func=fun file_op/2},
-    case do_position(Reader, {cur, 0}) of
-        {ok, Pos, Reader2} ->
-            {ok, Reader2#reader{pos=Pos}};
-        {error, _} = Err ->
-            Err
+open1({file, Fd}=Handle, read, [raw], Opts) ->
+    case not lists:member(compressed, Opts) of
+        true ->
+            Reader = #reader{handle=Fd,access=read,func=fun file_op/2},
+            case do_position(Reader, {cur, 0}) of
+                {ok, Pos, Reader2} ->
+                    {ok, Reader2#reader{pos=Pos}};
+                {error, Reason} ->
+                    {error, {Handle, Reason}}
+            end;
+        false ->
+            {error, {Handle, {incompatible_option, compressed}}}
     end;
-open1(Name, Access, Raw, Opts) when is_list(Name) or is_binary(Name) ->
+open1({file, _Fd}=Handle, read, [], _Opts) ->
+    {error, {Handle, {incompatible_option, cooked}}};
+open1(Name, Access, Raw, Opts0) when is_list(Name); is_binary(Name) ->
+    Opts = case lists:member(compressed, Opts0) andalso Access == read of
+               true ->
+                   [compressed_one | (Opts0 -- [compressed])];
+               false ->
+                   Opts0
+           end,
     case file:open(Name, Raw ++ [binary, Access|Opts]) of
         {ok, File} ->
             {ok, #reader{handle=File,access=Access,func=fun file_op/2}};
@@ -357,7 +387,7 @@ open_mode([read|Rest], false, Raw, Opts) ->
 open_mode([write|Rest], false, Raw, Opts) ->
     open_mode(Rest, write, Raw, Opts);
 open_mode([compressed|Rest], Access, Raw, Opts) ->
-    open_mode(Rest, Access, Raw, [compressed|Opts]);
+    open_mode(Rest, Access, Raw, [compressed,read_ahead|Opts]);
 open_mode([cooked|Rest], Access, _Raw, Opts) ->
     open_mode(Rest, Access, [], Opts);
 open_mode([], Access, Raw, Opts) ->
@@ -375,7 +405,7 @@ file_op(close, Fd) ->
     file:close(Fd).
 
 %% Closes a tar archive.
--spec close(reader()) -> ok | {error, term()}.
+-spec close(TarDescriptor :: tar_descriptor()) -> ok | {error, term()}.
 close(#reader{access=read}=Reader) ->
     ok = do_close(Reader);
 close(#reader{access=write}=Reader) ->
@@ -396,13 +426,13 @@ pad_file(#reader{pos=Pos}=Reader) ->
 %% Creation/modification of tar archives
 
 %% Creates a tar file Name containing the given files.
--spec create(file:filename(), filelist()) -> ok | {error, {string(), term()}}.
+-spec create(file:filename_all(), filelist()) -> ok | {error, {string(), term()}}.
 create(Name, FileList) when is_list(Name); is_binary(Name) ->
     create(Name, FileList, []).
 
 %% Creates a tar archive Name containing the given files.
 %% Accepted options: verbose, compressed, cooked
--spec create(file:filename(), filelist(), [create_opt()]) ->
+-spec create(file:filename_all(), filelist(), [create_opt()]) ->
                     ok | {error, term()} | {error, {string(), term()}}.
 create(Name, FileList, Options) when is_list(Name); is_binary(Name) ->
     Mode = lists:filter(fun(X) -> (X=:=compressed) or (X=:=cooked)
@@ -434,10 +464,12 @@ do_create(TarFile, [Name|Rest], Opts) ->
     end.
 
 %% Adds a file to a tape archive.
--type add_type() :: string()
-                  | {string(), string()}
-                  | {string(), binary()}.
--spec add(reader(), add_type(), [add_opt()]) -> ok | {error, term()}.
+-type add_type() :: name_in_archive()
+                  | {name_in_archive(), file:filename_all()}.
+-spec add(TarDescriptor, AddType, Options) -> ok | {error, term()} when
+    TarDescriptor :: tar_descriptor(),
+    AddType :: add_type(),
+    Options :: [add_opt()].
 add(Reader, {NameInArchive, Name}, Opts)
   when is_list(NameInArchive), is_list(Name) ->
     do_add(Reader, Name, NameInArchive, Opts);
@@ -447,9 +479,12 @@ add(Reader, {NameInArchive, Bin}, Opts)
 add(Reader, Name, Opts) when is_list(Name) ->
     do_add(Reader, Name, Name, Opts).
 
-
--spec add(reader(), string() | binary(), string(), [add_opt()]) ->
-                 ok | {error, term()}.
+-spec add(TarDescriptor, Filename, NameInArchive, Options) ->
+        ok | {error, term()} when
+    TarDescriptor :: tar_descriptor(),
+    Filename :: file:filename_all(),
+    NameInArchive :: name_in_archive(),
+    Options :: [add_opt()].
 add(Reader, NameOrBin, NameInArchive, Options)
   when is_list(NameOrBin); is_binary(NameOrBin),
        is_list(NameInArchive), is_list(Options) ->
@@ -997,11 +1032,14 @@ do_get_format({error, _} = Err, _Bin) ->
 do_get_format(#header_v7{}=V7, Bin)
   when is_binary(Bin), byte_size(Bin) =:= ?BLOCK_SIZE ->
     Checksum = parse_octal(V7#header_v7.checksum),
-    Chk1 = compute_checksum(Bin),
-    Chk2 = compute_signed_checksum(Bin),
-    if Checksum =/= Chk1 andalso Checksum =/= Chk2 ->
+    IsBadChecksum = case compute_checksum(Bin) of
+                        Checksum -> false;
+                        _ -> compute_signed_checksum(Bin) =/= Checksum
+                    end,
+    case IsBadChecksum of
+        true ->
             ?FORMAT_UNKNOWN;
-       true ->
+        false ->
             %% guess magic
             Ustar = to_ustar(V7, Bin),
             Star = to_star(V7, Bin),
@@ -1140,8 +1178,8 @@ validate_sparse_entries([#sparse_entry{}=Entry|Rest], RealSize, I, LastOffset) -
     validate_sparse_entries(Rest, RealSize, I+1, Offset+NumBytes).
 
 
--spec parse_sparse_map(header_gnu(), reader_type()) ->
-                              {[sparse_entry()], reader_type()}.
+-spec parse_sparse_map(header_gnu(), descriptor_type()) ->
+                              {[sparse_entry()], descriptor_type()}.
 parse_sparse_map(#header_gnu{sparse=Sparse}, Reader)
   when Sparse#sparse_array.is_extended ->
     parse_sparse_map(Sparse, Reader, []);
@@ -1181,6 +1219,9 @@ compute_signed_checksum(<<H1:?V7_CHKSUM/binary,
 
 %% Returns the checksum of a binary.
 checksum(Bin) -> checksum(Bin, 0).
+
+checksum(<<A/unsigned,B/unsigned,C/unsigned,D/unsigned,Rest/binary>>, Sum) ->
+    checksum(Rest, Sum+A+B+C+D);
 checksum(<<A/unsigned,Rest/binary>>, Sum) ->
     checksum(Rest, Sum+A);
 checksum(<<>>, Sum) -> Sum.
@@ -1229,39 +1270,40 @@ parse_numeric(<<First, _/binary>> = Bin) ->
             parse_octal(Bin)
     end.
 
-parse_octal(Bin) when is_binary(Bin) ->
+parse_octal(<<Bin/binary>>) ->
     %% skip leading/trailing zero bytes and spaces
-    do_parse_octal(Bin, <<>>).
-do_parse_octal(<<>>, <<>>) ->
-    0;
-do_parse_octal(<<>>, Acc) ->
-    case io_lib:fread("~8u", binary:bin_to_list(Acc)) of
-        {error, _} -> throw({error, invalid_tar_checksum});
-        {ok, [Octal], []} -> Octal;
-        {ok, _, _} -> throw({error, invalid_tar_checksum})
-    end;
-do_parse_octal(<<$\s,Rest/binary>>, Acc) ->
+    do_parse_octal(Bin, 0).
+
+do_parse_octal(<<$\s, Rest/binary>>, Acc) ->
     do_parse_octal(Rest, Acc);
 do_parse_octal(<<0, Rest/binary>>, Acc) ->
     do_parse_octal(Rest, Acc);
 do_parse_octal(<<C, Rest/binary>>, Acc) ->
-    do_parse_octal(Rest, <<Acc/binary, C>>).
+    Digit = C - $0,
+    case Digit band 7 of
+        Digit ->
+            do_parse_octal(Rest, Acc bsl 3 bor Digit);
+        _ ->
+            throw({error, invalid_tar_checksum})
+    end;
+do_parse_octal(<<>>, Acc) ->
+    Acc.
 
 parse_string(Bin) when is_binary(Bin) ->
-    do_parse_string(Bin, <<>>).
-do_parse_string(<<>>, Acc) ->
-    case unicode:characters_to_list(Acc) of
+    N = strlen(Bin, 0),
+    <<Prefix:N/binary,_/binary>> = Bin,
+    case unicode:characters_to_list(Prefix) of
         Str when is_list(Str) ->
             Str;
         {incomplete, _Str, _Rest} ->
-            binary:bin_to_list(Acc);
+            binary_to_list(Bin);
         {error, _Str, _Rest} ->
             throw({error, {bad_header, invalid_string}})
-    end;
-do_parse_string(<<0, _/binary>>, Acc) ->
-    do_parse_string(<<>>, Acc);
-do_parse_string(<<C, Rest/binary>>, Acc) ->
-    do_parse_string(Rest, <<Acc/binary, C>>).
+    end.
+
+strlen(<<>>, N) -> N;
+strlen(<<0, _/binary>>, N) -> N;
+strlen(<<_, Rest/binary>>, N) -> strlen(Rest, N + 1).
 
 convert_header(Bin, #reader{pos=Pos}=Reader)
   when byte_size(Bin) =:= ?BLOCK_SIZE, (Pos rem ?BLOCK_SIZE) =:= 0 ->
@@ -1611,7 +1653,8 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
                 create_extracted_dir(Name1, Opts);
             symlink ->
                 read_verbose(Opts, "x ~ts~n", [Name0]),
-                create_symlink(Name1, Header#tar_header.linkname, Opts);
+                LinkName = safe_link_name(Header, Opts),
+                create_symlink(Name1, LinkName, Opts);
             Device when Device =:= char orelse Device =:= block ->
                 %% char/block devices will be created as empty files
                 %% and then have their major/minor device set later
@@ -1631,12 +1674,16 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
 
 make_safe_path([$/|Path], Opts) ->
     make_safe_path(Path, Opts);
-make_safe_path(Path, #read_opts{cwd=Cwd}) ->
-    case filename:safe_relative_path(Path) of
-        unsafe ->
-            throw({error,{Path,unsafe_path}});
-        SafePath ->
-            filename:absname(SafePath, Cwd)
+make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
+    case filelib:safe_relative_path(Path0, Cwd) of
+        unsafe -> throw({error,{Path0,unsafe_path}});
+        Path -> filename:absname(Path, Cwd)
+    end.
+
+safe_link_name(#tar_header{linkname=Path0},#read_opts{cwd=Cwd} ) ->
+    case filelib:safe_relative_path(Path0, Cwd) of
+        unsafe -> throw({error,{Path0,unsafe_symlink}});
+        Path -> Path
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
@@ -1899,7 +1946,7 @@ read_sparse_hole(#sparse_file_reader{pos=Pos}=Reader, Offset, Len) ->
                 num_bytes=NumBytes,
                 pos=Pos+N2}}.
 
--spec do_close(reader()) -> ok | {error, term()}.
+-spec do_close(tar_descriptor()) -> ok | {error, term()}.
 do_close(#reader{handle=Handle,func=Fun}) when is_function(Fun,2) ->
     Fun(close,Handle).
 

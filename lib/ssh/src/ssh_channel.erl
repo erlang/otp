@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@
  					    State::term()}.
 %%% API
 -export([start/4, start/5, start_link/4, start_link/5, call/2, call/3,
+         init/1,
 	 cast/2, reply/2, enter_loop/1]).
 
 %%====================================================================
@@ -75,6 +76,9 @@ cast(ChannelPid, Msg) ->
 
 reply(From, Msg) ->
     ssh_client_channel:reply(From, Msg).
+
+init(Args) ->
+    ssh_client_channel:init(Args).
 
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     ssh_client_channel:start(ConnectionManager, ChannelId, CallBack, CbInitArgs).

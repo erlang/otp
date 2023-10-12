@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,8 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1, maps/1]).
+	 otp_7078/1, maps/1,
+         side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -53,11 +54,12 @@ suite() ->
 
 all() -> 
     [attributes, expr, guard, init,
-     pattern, strict, update, maps, {group, tickets}].
+     pattern, strict, update, maps,
+     side_effects, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
-      [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101]}].
+      [otp_5915, otp_7931, otp_5990, otp_7078]}].
 
 init_per_suite(Config) ->
     Config.
@@ -146,6 +148,22 @@ expr(Config) when is_list(Config) ->
 
          is_record(_, _, _) ->
              error(wrong_is_record).
+      ">>,
+      <<"
+         -record(foo, {bar = [Bar || Bar <- ?MODULE:id([]), size(Bar) > 0]}).
+
+         t() ->
+             {'EXIT',{{bad_filter,{foo,[]}},[_|_]}} = catch gh6501a(whatever),
+             [whatever] = gh6501b(whatever),
+             ok.
+
+         gh6501a(Bar) ->
+             [Bar || #foo{}].
+
+         gh6501b(Bar) ->
+             [Bar || is_tuple(#foo{})].
+
+         id(I) -> I.
       ">>
       ],
 
@@ -194,8 +212,9 @@ guard(Config) when is_list(Config) ->
 
     ok = file:write_file(File, Test),
     {ok, guard, Ws} = compile:file(File, [return,{outdir,?privdir}]),
-    Warnings = [L || {_File,WL} <- Ws, {L,_M,nomatch_guard} <- WL],
-    [7,9,11,13,15,17,19,21,23,25,27] = Warnings,
+    Warnings = [L || {_File,WL} <- Ws, {L,sys_core_fold,{nomatch,guard}} <- WL],
+    [{7,15}, {9,15}, {11,15}, {13,15}, {15,15}, {17,15},
+     {19,15}, {21,15}, {23,15}, {25,15}, {27,15}] = Warnings,
 
     ok = file:delete(File),
     ok = file:delete(Beam),
@@ -316,7 +335,7 @@ strict(Config) when is_list(Config) ->
              ok = try 
                       {1, 2} = {A#r2.a, A#r2.b},
                       not_ok
-                  catch error:{badrecord,r2} -> ok
+                  catch error:{badrecord,{r1,1,2}} -> ok
                   end,
              try
                  case foo of
@@ -700,61 +719,30 @@ otp_7078(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
--record(otp_7101, {a,b,c=[],d=[],e=[]}).
+id(I) -> I.
 
-%% OTP-7101. Record update: more than one call to setelement/3.
-otp_7101(Config) when is_list(Config) ->
-    Rec = #otp_7101{},
+-record(side_effects, {a,b,c}).
 
-    %% Spawn a tracer process to count the number of setelement/3 calls.
-    %% The tracer will forward all trace messages to us.
-    Self = self(),
-    Tracer = spawn_link(fun() -> otp_7101_tracer(Self, 0) end),
-    1 = erlang:trace_pattern({erlang,setelement,3}, true),
-    erlang:trace(self(), true, [{tracer,Tracer},call]),
-    
-    %% Update the record.
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update1(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update2(Rec),
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update3(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update4(Rec),
+%% Make sure that the record expression is only evaluated once.
+side_effects(_Config) ->
+    init_counter(),
 
-    %% Verify that setelement/3 was called the same number of times as
-    %% the number of record updates.
-    Ref = erlang:trace_delivered(Self),
-    receive
-	{trace_delivered, Self, Ref} ->
-	    Tracer ! done
-    end,
-    1 = erlang:trace_pattern({erlang,setelement,3}, false),
-    receive
-	4 ->
-	    ok;
-	Other ->
-	    ct:fail({unexpected,Other})
-    end.
+    {'EXIT',{{badrecord,0},_}} = catch (id(bump_counter()))#side_effects{a=1},
+    1 = read_counter(),
 
-otp_7101_tracer(Parent, N) ->
-    receive
-	{trace,Parent,call,{erlang,setelement,[_,_,_]}} ->
-	    otp_7101_tracer(Parent, N+1);
-	done ->
-	    Parent ! N
-    end.
+    {'EXIT',{{badrecord,1},_}} = catch (id(bump_counter()))#side_effects.b,
+    2 = read_counter(),
 
-otp_7101_update1(R) ->
-    R#otp_7101{b=1,
-	       a=2}.
+    ok.
 
-otp_7101_update2(R) ->
-    R#otp_7101{a=1,
-	       b=2}.
+init_counter() ->
+    put(counter, 0).
 
-otp_7101_update3(R) ->
-    R#otp_7101{b=1,a=2}.
+bump_counter() ->
+    put(counter, get(counter) + 1).
 
-otp_7101_update4(R) ->
-    R#otp_7101{a=1,b=2}.
+read_counter() ->
+    get(counter).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

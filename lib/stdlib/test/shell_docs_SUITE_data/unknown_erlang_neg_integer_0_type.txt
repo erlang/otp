@@ -1,0 +1,4 @@
+
+  [;1m-type neg_integer() :: neg_integer().[0m
+
+  A negative integer.

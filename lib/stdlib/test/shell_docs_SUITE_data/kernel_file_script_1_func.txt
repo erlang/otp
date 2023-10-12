@@ -1,0 +1,32 @@
+
+  [;1m-spec script(Filename) -> {ok, Value} | {error, Reason}[0m
+  [;1m                when[0m
+  [;1m                    Filename :: name_all(),[0m
+  [;1m                    Value :: term(),[0m
+  [;1m                    Reason ::[0m
+  [;1m                        posix() |[0m
+  [;1m                        badarg | terminated | system_limit |[0m
+  [;1m                        {Line :: integer(),[0m
+  [;1m                         Mod :: module(),[0m
+  [;1m                         Term :: term()}.[0m
+
+  Reads and evaluates Erlang expressions, separated by '.' (or ',',
+  a sequence of expressions is also an expression), from the file.
+
+  Returns one of the following:
+
+  [;;4m[;;4m{ok, Value}[0m[0m:
+    The file is read and evaluated. [;;4mValue[0m is the value of the
+    last expression.
+
+  [;;4m[;;4m{error, atom()}[0m[0m:
+    An error occurred when opening the file or reading it. For a
+    list of typical error codes, see [;;4mopen/2[0m.
+
+  [;;4m[;;4m{error, {Line, Mod, Term}}[0m[0m:
+    An error occurred when interpreting the Erlang expressions in
+    the file. Use [;;4mformat_error/1[0m to convert the three-element
+    tuple to an English description of the error.
+
+  The encoding of [;;4mFilename[0m can be set by a comment as described in [;;4m[0m
+  [;;4mepp(3)[0m.

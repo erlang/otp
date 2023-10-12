@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 
 -define(VMODULE,"TARGET-MIB").
 -include("snmp_verbosity.hrl").
+-include("snmpa_internal.hrl").
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs
@@ -594,7 +595,7 @@ get_target_addr({Tab, mnesia}, Key) ->
 	   snmpTargetAddrRowStatus  = ?'RowStatus_active'}} ->
 	    case get_target_params(Params) of
 		undefined ->
-		    config_err("Failed retreiving target params [~p]"
+		    config_err("Failed retrieving target params [~p]"
 			       "~n   for ~p [~p]", [Params, Key, TAddress]),
 		    {error, {not_found, {target_params, Key, Params}}};
 		TargetParams ->
@@ -611,7 +612,7 @@ get_target_addr(TabDb, Key) ->
 	 _Storage, ?'RowStatus_active', _TargetEngineId,_TMask,_MMS} ->
 	    case get_target_params(Params) of
 		undefined ->
-		    config_err("Failed retreiving target params [~p]"
+		    config_err("Failed retrieving target params [~p]"
 			       "~n   for target ~p [~p]", 
 			       [Params, Key, TAddress]),
 		    {error, {not_found, {target_params, Key, Params}}};
@@ -673,10 +674,12 @@ snmpTargetSpinLock(print) ->
     
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    Val = random:uniform(2147483648) - 1,
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
+    Val = rand:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {snmpTargetSpinLock, volatile});
 
 snmpTargetSpinLock(delete) ->

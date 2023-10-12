@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerevent.html">wxFontPickerEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_fontpicker_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxFontPicker(). #wxFontPicker{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxFontPickerEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFontPickerEvent).
 -include("wxe.hrl").
 -export([getFont/1]).
@@ -41,26 +28,28 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxFontPickerEvent/0]).
+-type wxFontPickerEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxFontPickerEventType() :: 'command_fontpicker_changed'.
+-export_type([wxFontPickerEvent/0, wxFontPicker/0, wxFontPickerEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFontPickerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerevent.html#wxfontpickereventgetfont">external documentation</a>.
 -spec getFont(This) -> wxFont:wxFont() when
 	This::wxFontPickerEvent().
-getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontPickerEvent),
-  wxe_util:call(?wxFontPickerEvent_GetFont,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxFontPickerEvent_GetFont),
+  wxe_util:rec(?wxFontPickerEvent_GetFont).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

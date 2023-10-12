@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@
 
 -module(snmpc_lib).
 
-%% API
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% Avoid warning for local functions error/2,3 clashing
+%% with autoimported BIFs.
+-compile({no_auto_import, [error/2, error/3]}).
+
+%% API.
 -export([test_father/4, make_ASN1type/1, import/1, makeInternalNode2/2,
 	 is_consistent/1, resolve_defval/1, make_variable_info/1,
 	 check_trap_name/3, make_table_info/5, get_final_mib/2, set_dir/2,
@@ -901,7 +903,7 @@ test_index_positions(Line, Indexes, ColMEs) ->
     TLI   = lists:filter(IsTLI, Indexes),
     test_index_positions_impl(Line, TLI, ColMEs).
 
-%% An table that augments another cannot conatin any index, 
+%% An table that augments another cannot contain any index, 
 %% so the first non-index column is always the first column.
 augments_first_non_index_column([]) ->
     none;

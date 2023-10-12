@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,8 +54,7 @@
 #endif
 
 #if defined(ETHR_DEBUG) || !defined(ETHR_INLINE) || ETHR_XCHK \
-    || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC)) \
-    || (defined(__GNUC__) && defined(ERTS_MIXED_MSYS_VC))
+    || (defined(__GNUC__) && defined(ERTS_MIXED_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
 #  undef ETHR_FORCE_INLINE
@@ -84,14 +83,6 @@
 #  endif
 #endif
 
-int ethr_assert_failed(const char *file, int line, const char *func, char *a);
-#ifdef ETHR_DEBUG
-#define ETHR_ASSERT(A) \
-  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
-#else
-#define ETHR_ASSERT(A) ((void) 1)
-#endif
-
 #if defined(__GNUC__)
 #  define ETHR_PROTO_NORETURN__ void __attribute__((noreturn))
 #  define ETHR_IMPL_NORETURN__ void
@@ -102,6 +93,18 @@ int ethr_assert_failed(const char *file, int line, const char *func, char *a);
 #  define ETHR_PROTO_NORETURN__ void
 #  define ETHR_IMPL_NORETURN__ void
 #endif
+
+ETHR_PROTO_NORETURN__
+ethr_assert_failed(const char *file, int line, const char *func, const char *a);
+#ifdef ETHR_DEBUG
+#define ETHR_ASSERT(A)                                                        \
+  ((void) ((A) ?                                                              \
+           ((void) 1) :                                                       \
+           ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
+#else
+#define ETHR_ASSERT(A) ((void) 1)
+#endif
+
 
 #if defined(ETHR_PTHREADS)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -132,7 +135,7 @@ typedef pthread_key_t ethr_tsd_key;
 
 #define ETHR_HAVE_ETHR_SIG_FUNCS 1
 
-#if defined(PURIFY) || defined(VALGRIND)
+#if defined(VALGRIND)
 #  define ETHR_FORCE_PTHREAD_RWLOCK
 #  define ETHR_FORCE_PTHREAD_MUTEX
 #endif
@@ -268,7 +271,7 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
 #define __builtin_expect(X, Y) (X)
 #endif
 
-#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
+#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1) && !defined __cplusplus
 #  define ETHR_CHOOSE_EXPR __builtin_choose_expr
 #else
 #  define ETHR_CHOOSE_EXPR(B, E1, E2) ((B) ? (E1) : (E2))
@@ -311,6 +314,10 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
     ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc_s3)
 #  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC_S3__        \
     ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc_s3)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_CPUID__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(cpuid)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_CPUID__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(cpuid)
 
 #endif
 
@@ -335,6 +342,7 @@ typedef struct {
     int have_tsc_reliable;
     int have_nonstop_tsc;
     int have_nonstop_tsc_s3;
+    int have_cpuid;
 #endif
 #if defined(ETHR_PPC_RUNTIME_CONF__)
     int have_lwsync;
@@ -489,14 +497,19 @@ typedef struct {
 typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
-    char *name;                         /* max 14 char long (default no-name) */
+    char *name;                         /* max 15 char long (default no-name) */
 } ethr_thr_opts;
 
 #define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL}
+#define ETHR_THR_NAME_MAX 15
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__
 #  define ETHR_NEED_RWSPINLOCK_PROTOTYPES__
+#endif
+
+#if defined(__WIN32__)
+int ethr_win_get_errno__(void);
 #endif
 
 int ethr_init(ethr_init_data *);
@@ -630,12 +643,18 @@ struct ethr_ts_event_ {
 #define ETHR_TS_EV_INITED	(((unsigned) 1) << 1)
 #define ETHR_TS_EV_TMP		(((unsigned) 1) << 2)
 #define ETHR_TS_EV_MAIN_THR	(((unsigned) 1) << 3)
+#define ETHR_TS_EV_BUSY		(((unsigned) 1) << 4)
+#define ETHR_TS_EV_PEEK		(((unsigned) 1) << 5)
 
-int ethr_get_tmp_ts_event__(ethr_ts_event **tsepp);
+ethr_sint64_t ethr_no_used_tse(void);
 int ethr_free_ts_event__(ethr_ts_event *tsep);
-int ethr_make_ts_event__(ethr_ts_event **tsepp);
+int ethr_make_ts_event__(ethr_ts_event **tsepp, int tmp);
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
+ethr_ts_event *ethr_lookup_ts_event__(int busy_dup);
+ethr_ts_event *ethr_peek_ts_event(void);
+void ethr_unpeek_ts_event(ethr_ts_event *);
+ethr_ts_event *ethr_use_ts_event(ethr_ts_event *tsep);
 ethr_ts_event *ethr_get_ts_event(void);
 void ethr_leave_ts_event(ethr_ts_event *);
 #endif
@@ -647,22 +666,16 @@ void ethr_leave_ts_event(ethr_ts_event *);
 extern pthread_key_t ethr_ts_event_key__;
 
 static ETHR_INLINE ethr_ts_event *
-ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
+ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = pthread_getspecific(ethr_ts_event_key__);
-    if (!tsep) {
-	int res = ethr_make_ts_event__(&tsep);
+    ethr_ts_event *tsep = (ethr_ts_event*)pthread_getspecific(ethr_ts_event_key__);
+    if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
+	int res = ethr_make_ts_event__(&tsep, 0);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
 	ETHR_ASSERT(tsep);
     }
     return tsep;
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
-{
-
 }
 
 #endif
@@ -674,11 +687,11 @@ ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
 extern DWORD ethr_ts_event_key__;
 
 static ETHR_INLINE ethr_ts_event *
-ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
+ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
-    if (!tsep) {
-	int res = ethr_get_tmp_ts_event__(&tsep);
+    ethr_ts_event *tsep = (ethr_ts_event *) TlsGetValue(ethr_ts_event_key__);
+    if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
+	int res = ethr_make_ts_event__(&tsep, !0);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
 	ETHR_ASSERT(tsep);
@@ -686,17 +699,68 @@ ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
     return tsep;
 }
 
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
+#endif
+
+#endif
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
+
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
 {
-    if (tsep->iflgs & ETHR_TS_EV_TMP) {
+    ethr_ts_event *tsep = ethr_lookup_ts_event__(!0);
+    ETHR_ASSERT(!(tsep->iflgs & ETHR_TS_EV_BUSY));
+    tsep->iflgs |= ETHR_TS_EV_BUSY;
+    return tsep;
+}
+
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_peek_ts_event)(void)
+{
+    ethr_ts_event *tsep = ethr_lookup_ts_event__(0);
+    ETHR_ASSERT(!(tsep->iflgs & ETHR_TS_EV_PEEK));
+    tsep->iflgs |= ETHR_TS_EV_PEEK;
+    return tsep;
+}
+
+static ETHR_INLINE void
+ETHR_INLINE_FUNC_NAME_(ethr_unpeek_ts_event)(ethr_ts_event *tsep)
+{
+    ETHR_ASSERT(tsep->iflgs & ETHR_TS_EV_PEEK);
+    tsep->iflgs &= ~ETHR_TS_EV_PEEK;
+    if ((tsep->iflgs & (ETHR_TS_EV_TMP|ETHR_TS_EV_BUSY)) == ETHR_TS_EV_TMP) {
 	int res = ethr_free_ts_event__(tsep);
 	if (res != 0)
 	    ETHR_FATAL_ERROR__(res);
     }
 }
 
-#endif
+static ETHR_INLINE ethr_ts_event *
+ETHR_INLINE_FUNC_NAME_(ethr_use_ts_event)(ethr_ts_event *tsep)
+{
+    ethr_ts_event *tmp_tsep = tsep;
+    if (tmp_tsep->iflgs & ETHR_TS_EV_BUSY) {
+	int res = ethr_make_ts_event__(&tmp_tsep, !0);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+	ETHR_ASSERT(tmp_tsep && tsep != tmp_tsep);
+    }
+    ETHR_ASSERT(!(tmp_tsep->iflgs & ETHR_TS_EV_BUSY));
+    tmp_tsep->iflgs |= ETHR_TS_EV_BUSY;
+    return tmp_tsep;
+}
+
+static ETHR_INLINE void
+ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
+{
+    ETHR_ASSERT(tsep->iflgs & ETHR_TS_EV_BUSY);
+    tsep->iflgs &= ~ETHR_TS_EV_BUSY;
+    if ((tsep->iflgs & (ETHR_TS_EV_TMP|ETHR_TS_EV_PEEK)) == ETHR_TS_EV_TMP) {
+	int res = ethr_free_ts_event__(tsep);
+	if (res != 0)
+	    ETHR_FATAL_ERROR__(res);
+    }
+}
 
 #endif
 

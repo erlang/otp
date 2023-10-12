@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@ DTD_FILES = \
 	fileref.dtd	 \
 	xhtml1-frameset.dtd \
 	appref.dtd \
-	cites.dtd \
 	common.image.dtd \
 	cref.dtd \
 	part.dtd \
@@ -55,13 +54,9 @@ DTD_FILES = \
 	common.dtd \
 	common.refs.dtd \
 	erlref.dtd \
-	report.dtd \
 	xhtml1-transitional.dtd \
-	bookinsidecover.dtd \
 	common.entities.dtd \
-	common.table.dtd \
-	fascicules.dtd \
-	terms.dtd
+	common.table.dtd
 
 ENT_FILES = \
 	xhtml-special.ent \
@@ -75,7 +70,7 @@ ENT_FILES = \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-debug opt: 
+$(TYPES): 
 
 docs:
 

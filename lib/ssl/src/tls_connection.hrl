@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@
 -include("tls_record.hrl").
 
 -record(protocol_buffers, {
-	  tls_packets = [], %%           :: [#ssl_tls{}],  % Not yet handled decode SSL/TLS packets.
           tls_record_buffer = <<>>, %%    :: binary(),  % Buffer of incomplete records
           tls_handshake_buffer = <<>>, %% :: binary(),  % Buffer of incomplete handshakes
 	  tls_cipher_texts = []       %%:: [binary()]

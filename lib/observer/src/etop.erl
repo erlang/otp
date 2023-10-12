@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ help() ->
       "Options are:~n"
       "  node        atom       Required   The erlang node to measure ~n"
       "  port        integer    The used port, NOTE: due to a bug this program~n"
-      "                         will hang if the port is not avaiable~n"
+      "                         will hang if the port is not available~n"
       "  accumulate  boolean    If true execution time is accumulated ~n"
       "  lines       integer    Number of displayed processes~n"
       "  interval    integer    Display update interval in secs~n"

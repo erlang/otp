@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,9 @@ bool(Rules) ->
 	per ->
 	    ok;
 	uper ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end,
     ok.
 
@@ -58,7 +60,9 @@ int(Rules) ->
 	per ->
 	    ok;
 	uper ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end,
     ok.
 

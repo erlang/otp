@@ -7,7 +7,7 @@
 ;
 ; %CopyrightBegin%
 ;
-; Copyright Ericsson AB 2012-2016. All Rights Reserved.
+; Copyright Ericsson AB 2012-2023. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 
 	!include "erlang.nsh" ; All release specific parameters come from this
 
-	Name "${OTP_PRODUCT} ${OTP_VERSION}"
+	Name "${OTP_PRODUCT} ${OTP_RELEASE}"
 
 	!include "MUI.nsh"
 	!include "WordFunc.nsh"
@@ -56,9 +56,9 @@ Var STARTMENU_FOLDER
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
-  	InstallDir "$PROGRAMFILES64\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES64\Erlang OTP"
 !else
-  	InstallDir "$PROGRAMFILES\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES\Erlang OTP"
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
@@ -66,9 +66,9 @@ Var STARTMENU_FOLDER
 ; Set the default start menu folder
 
 !if ${WINTYPE} == "win64"
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (x64)"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION}"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (i386)"
 !endif  
 
 ;--------------------------------
@@ -99,6 +99,17 @@ Var STARTMENU_FOLDER
  
   	!insertmacro MUI_LANGUAGE "English"
   
+;--------------------------------
+; Installer file properties
+
+VIProductVersion "${OTP_VERSION_LONG}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "Ericsson AB"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${OTP_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Erlang/OTP installer"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright Ericsson AB 2010-${YEAR}. All Rights Reserved."
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Erlang/OTP"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${OTP_VERSION}"
+
 ;--------------------------------
 ;Language Strings
 
@@ -134,7 +145,7 @@ Section "Microsoft redistributable libraries." SecMSRedist
 	IfSilent +3
 	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
 	Goto +2
-	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q'
+	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q /norestart'
 
   	!verbose 1
 SectionEnd ; MSRedist
@@ -144,7 +155,19 @@ SubSection /e "Erlang" SecErlang
 Section "Development" SecErlangDev
 SectionIn 1 RO
 
+
   	SetOutPath "$INSTDIR"
+
+; Don't let Users nor Authenticated Users group create new files
+; Avoid dll injection when installing to non /Program Files/ dirs
+
+        ; Remove ANY inherited access control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /inheritance:r' SW_HIDE
+        ; Grant Admin full control
+        ExecShellWait  "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-5-32-544:(OI)(CI)F' SW_HIDE
+        ; Grant Normal Users read+execute control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-1-0:(OI)(CI)RX' SW_HIDE
+
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
 	SetOutPath "$INSTDIR\releases"
@@ -176,7 +199,7 @@ SectionIn 1 RO
     	CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
 continue_create:
   	CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Erlang.lnk" \
-		"$INSTDIR\bin\werl.exe"
+		"$INSTDIR\bin\erl.exe"
   
   	!insertmacro MUI_STARTMENU_WRITE_END
 ; And once again, the verbosity...
@@ -187,7 +210,7 @@ continue_create:
 
   	StrCmp $MYTEMP "" 0 done_startmenu
 
-; If startmenu was skipped, this might be unnecessary, but wont hurt...	
+; If startmenu was skipped, this might be unnecessary, but won't hurt...	
   	WriteRegStr HKCU "Software\Ericsson\Erlang\${ERTS_VERSION}" \
 		"" $INSTDIR
   	WriteRegStr HKCU "${MY_STARTMENUPAGE_REGISTRY_KEY}" \
@@ -200,22 +223,28 @@ done_startmenu:
   	WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   	WriteRegStr HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+	WriteRegStr HKLM \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"DisplayVersion" "${OTP_VERSION}"
+	WriteRegStr HKLM \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"Publisher" "Ericsson AB"
   	WriteRegStr HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
   	WriteRegDWORD HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
   	WriteRegDWORD HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoRepair" 1
 
 ; Check that the registry could be written, we only check one key,
 ; but it should be sufficient...
   	ReadRegStr $MYTEMP HKLM \
-	"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+	"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 	"NoRepair"
 
   	StrCmp $MYTEMP "" 0 done
@@ -224,16 +253,22 @@ done_startmenu:
 ; do the things below...
 
   	WriteRegStr HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+	WriteRegStr HKCU \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"DisplayVersion" "${OTP_VERSION}"
+	WriteRegStr HKCU \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"Publisher" "Ericsson AB"
   	WriteRegStr HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
   	WriteRegDWORD HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
   	WriteRegDWORD HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoRepair" 1
 
 done:
@@ -450,9 +485,9 @@ noshortcuts:
   	DeleteRegKey /ifempty HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
   	DeleteRegKey /ifempty HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
   	DeleteRegKey HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
   	DeleteRegKey HKCU \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
 
 
 ; Now remove shell/file associations we'we made...

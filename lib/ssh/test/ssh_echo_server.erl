@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) 
     case M > 0 of
 	true ->
 	    ?DBG(State, "ssh_cm data Cid=~p size(Data)=~p M=~p",[ChannelId,size(Data),M]),
+            ssh_connection:adjust_window(CM, ChannelId, size(Data)),
 	    ssh_connection:send(CM, ChannelId, Data),
 	    {ok, State#state{n = M}};
 	false ->

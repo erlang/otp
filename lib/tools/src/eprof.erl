@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@
 
 -export([start/0,
 	 stop/0,
-	 dump/0,
+	 dump/0, dump_data/0,
 	 start_profiling/1, start_profiling/2, start_profiling/3,
-	 profile/1, profile/2, profile/3, profile/4, profile/5,
+	 profile/1, profile/2, profile/3, profile/4, profile/5, profile/6,
 	 stop_profiling/0,
-	 analyze/0, analyze/1, analyze/2,
+	 analyze/0, analyze/1, analyze/2, analyze/4,
 	 log/1]).
 
 %% Internal exports 
@@ -71,18 +71,49 @@
 %%
 %% -------------------------------------------------------------------- %%
 
+-spec start() -> {'ok', Pid} | {'error', Reason} when
+      Pid :: pid(),
+      Reason :: {'already_started', Pid}.
+
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+
+-spec stop() -> 'stopped'.
+
 stop()  -> gen_server:call(?MODULE, stop, infinity).
+
+-spec analyze() -> 'ok' | 'nothing_to_analyze'.
 
 analyze() ->
     analyze(procs).
+
+-type analyze_type() :: 'procs' | 'total'.
+
+-spec analyze(Type) -> 'ok' | 'nothing_to_analyze' when
+      Type :: analyze_type().
 
 analyze(Type) when is_atom(Type) ->
     analyze(Type, []);
 analyze(Opts) when is_list(Opts) ->
     analyze(procs, Opts).
+
+-spec analyze(Type, Options) -> 'ok' | 'nothing_to_analyze' when
+      Type :: analyze_type(),
+      Options :: [Option],
+      Option :: {'filter', Filter}
+              | {'sort', Sort},
+      Filter :: [{'calls', non_neg_integer()} | {'time', float()}],
+      Sort :: 'time' | 'calls' | 'mfa'.
+
 analyze(Type, Opts) when is_list(Opts) ->
     gen_server:call(?MODULE, {analyze, Type, Opts}, infinity).
+
+-spec profile(Fun) -> {'ok', Value} | {'error', Reason} when
+                  Fun :: fun(() -> term()),
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset) -> 'profiling' | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Reason :: term().
 
 %% odd duck, should only been start_profiling/1
 profile(Rootset) when is_list(Rootset) ->
@@ -91,14 +122,52 @@ profile(Rootset) when is_list(Rootset) ->
 profile(Fun) when is_function(Fun) ->
     profile([], Fun).
 
+-spec profile(Fun, Options) -> {'ok', Value} | {'error', Reason} when
+                  Fun :: fun(() -> term()),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset, Fun) -> {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Fun, Opts) when is_function(Fun), is_list(Opts) ->
     profile([], erlang, apply, [Fun, []], ?default_pattern, Opts);
 
 profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, ?default_pattern).
 
+%% Subtype of erlang:trace_pattern_mfa().
+-type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'}.
+
+-spec profile(Rootset, Fun, Pattern) -> {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Pattern :: trace_pattern_mfa(),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, Pattern, ?default_options).
+
+-spec profile(Rootset, Module, Function, Args) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Value :: term(),
+                  Reason :: term();
+             (Rootset, Fun, Pattern, Options) -> 
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Fun :: fun(() -> term()),
+                  Pattern :: trace_pattern_mfa(),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term().
 
 profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun), is_list(Options) ->
     profile(Rootset, erlang, apply, [Fun,[]], Pattern, Options);
@@ -106,8 +175,29 @@ profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun),
 profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, ?default_pattern).
 
+-spec profile(Rootset, Module, Function, Args, Pattern) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Pattern :: trace_pattern_mfa(),
+                  Value :: term(),
+                  Reason :: term().
+
 profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, Pattern, ?default_options).
+
+-spec profile(Rootset, Module, Function, Args, Pattern, Options) ->
+                     {'ok', Value} | {'error', Reason} when
+                  Rootset :: [atom() | pid()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Pattern :: trace_pattern_mfa(),
+                  Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+                  Value :: term(),
+                  Reason :: term().
 
 %% Returns when M:F/A has terminated
 profile(Rootset, M, F, A, Pattern, Options) ->
@@ -117,17 +207,43 @@ profile(Rootset, M, F, A, Pattern, Options) ->
 dump() -> 
     gen_server:call(?MODULE, dump, infinity).
 
+dump_data() ->
+    gen_server:call(?MODULE, dump_data, infinity).
+
+-spec log(File) -> 'ok' when
+      File :: atom() | file:filename().
+
 log(File) ->
     gen_server:call(?MODULE, {logfile, File}, infinity).
+
+-spec start_profiling(Rootset) -> 'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Reason :: term().
 
 %% Does not block
 start_profiling(Rootset) ->
     start_profiling(Rootset, ?default_pattern).
+
+-spec start_profiling(Rootset, Pattern) -> 'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Pattern :: trace_pattern_mfa(),
+      Reason :: term().
+
 start_profiling(Rootset, Pattern) ->
     start_profiling(Rootset, Pattern, ?default_options).
+
+-spec start_profiling(Rootset, Pattern, Options) ->
+                             'profiling' | {'error', Reason} when
+      Rootset :: [atom() | pid()],
+      Pattern :: trace_pattern_mfa(),
+      Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
+      Reason :: term().
+
 start_profiling(Rootset, Pattern, Options) ->
     ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, undefined, Options}, infinity).
+
+-spec stop_profiling() -> 'profiling_stopped' | 'profiling_already_stopped'.
 
 stop_profiling() ->
     gen_server:call(?MODULE, profile_stop, infinity).
@@ -151,22 +267,18 @@ init([]) ->
 
 %% analyze
 
-handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
+handle_call(
+  {analyze, _, _}, _,
+  #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0 } } = S) ->
     {reply, nothing_to_analyze, S};
 
-handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
-    lists:foreach(fun
-	    ({Pid, Mfas}) ->
-		{Pn, Pus} =  sum_bp_total_n_us(Mfas),
-		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*divide(Pus,Tus)])]),
-		print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
-		ok
-	end, gb_trees:to_list(Ps)),
-    {reply, ok, S};
+handle_call({analyze, procs, Opts}, _, #state{ bpd = Bpd, fd = Fd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, analyze(Fd, procs, Opts, Bpd), S};
 
-handle_call({analyze, total, Opts}, _, #state{ bpd = #bpd{ mfa = Mfas, n = Tn, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
-    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts),
-    {reply, ok, S};
+handle_call({analyze, total, Opts}, _, #state{ bpd = Bpd, fd = Fd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, analyze(Fd, total, Opts, Bpd), S};
 
 handle_call({analyze, Type, _Opts}, _, S) ->
     {reply, {error, {undefined, Type}}, S};
@@ -259,6 +371,10 @@ handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
 
 handle_call(dump, _From, #state{ bpd = Bpd } = S) when is_record(Bpd, bpd) ->
     {reply, gb_trees:to_list(Bpd#bpd.p), S};
+
+handle_call(dump_data, _, #state{ bpd = #bpd{} = Bpd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, Bpd, S};
 
 handle_call(stop, _FromTag, S) ->
     {stop, normal, stopped, S}.
@@ -395,7 +511,7 @@ collect_bpd() ->
     collect_bpd([M || M <- [element(1, Mi) || Mi <- code:all_loaded()], M =/= ?MODULE]).
 
 collect_bpd(Ms) when is_list(Ms) ->
-    collect_bpdf(collect_mfas(Ms) ++ erlang:system_info(snifs)).
+    collect_bpdf(collect_mfas(Ms)).
 
 collect_mfas(Ms) ->
     lists:foldl(fun
@@ -437,6 +553,22 @@ collect_bpdfp(Mfa, Tree, Data) ->
 	    end,
 	    {PTno + Ni, PTuso + Time, Ti1}
     end, {0,0, Tree}, Data).
+
+
+analyze(Fd, procs, Opts, #bpd{ p = Ps, us = Tus }) ->
+    lists:foreach(
+      fun
+          ({Pid, Mfas}) ->
+              {Pn, Pus} =  sum_bp_total_n_us(Mfas),
+              format(
+                Fd,
+                "~n****** Process ~w    -- ~s % of profiled time *** ~n",
+                [Pid, s("~.2f", [100.0*divide(Pus, Tus)])]),
+              print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
+              ok
+      end, gb_trees:to_list(Ps));
+analyze(Fd, total, Opts, #bpd{ mfa = Mfas, n = Tn, us = Tus } ) ->
+    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts).
 
 %% manipulators
 sort_mfa(Bpfs, mfa) when is_list(Bpfs) ->
@@ -521,6 +653,7 @@ format(Fd, Format, Strings) ->
 divide(_,0) -> 0.0;
 divide(T,N) -> T/N.
 
+-dialyzer({no_match, start_internal/0}).
 start_internal() ->
     case start() of
         {ok, _} -> ok;

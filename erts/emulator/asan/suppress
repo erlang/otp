@@ -1,0 +1,17 @@
+# Block passed to sigaltstack()
+leak:sys_thread_init_signal_stack
+
+# Crypto: loading gives expected errors when curves are tried. But including
+# <openssl/err.h> and removing them triggers compiler errors on Windows
+leak:init_curve_types
+#
+leak:valid_curve
+
+
+# Crypto: OpensSSL error handling (see about err.h above)
+leak:ERR_put_error
+
+# Crypto: Our test engine leaks. That is actually a design decision since it is only a test tool
+# This disables errors in that:
+leak:ENGINE_ctrl_cmd_string
+leak:ENGINE_get_digest

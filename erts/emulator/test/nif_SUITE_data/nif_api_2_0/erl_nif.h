@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2021. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -164,11 +164,7 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_BODY
-#  if defined(VXWORKS)
-#    define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME  ## _init(void)
-#  else
 #    define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* nif_init(void)
-#  endif
 #endif
 
 

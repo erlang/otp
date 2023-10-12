@@ -1,0 +1,69 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
+<<wxTaskBarIcon_class
+class EwxTaskBarIcon : public wxTaskBarIcon {
+ public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; };
+
+ int createPopupMenu;
+ wxe_me_ref *me_ref;
+
+ private:
+ virtual wxMenu* CreatePopupMenu();
+};
+wxTaskBarIcon_class>>
+
+<<wxTaskBarIcon_new
+// wxTaskBarIcon::wxTaskBarIcon
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxTaskBarIconType iconType = wxTBI_DEFAULT_TYPE;
+  int createPopupMenu = 0;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[0];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "iconType"))) {
+      if(!enif_get_int(env, tpl[1], (int *) &iconType)) Badarg("iconType");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "createPopupMenu"))) {
+      if(!enif_get_int(env, tpl[1], &createPopupMenu)) Badarg("createPopupMenu");
+    } else  Badarg("Options");
+  };
+
+  EwxTaskBarIcon * Result = new EwxTaskBarIcon(iconType);
+  if(createPopupMenu) {
+    Result->createPopupMenu = createPopupMenu;
+    Result->me_ref = memenv->me_ref;
+  }
+  app->newPtr((void *) Result, 1, memenv);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxTaskBarIcon"));
+
+}
+
+wxTaskBarIcon_new>>

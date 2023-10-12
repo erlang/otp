@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,35 @@
 #ifndef __WXE_EVENT_H__
 #define __WXE_EVENT_H__
 
-#include "wxe_driver.h"
+// #include "wxe_nif.h"
 
-bool sendevent(wxEvent * event, ErlDrvTermData port);
+bool sendevent(wxEvent * event, wxeMemEnv *env);
+
+typedef struct {
+    int ev_type;
+    int class_id;
+    const char * ev_name;
+    const char* ev_class;
+    const char* ev_rec;
+} wxe_evInfo;
 
 class wxeEtype 
 {
 public: 
-  wxeEtype (const char *, int);
-  const char *eName;
+    wxeEtype (ErlNifEnv *env, wxe_evInfo* info)
+    {
+        cID = info->class_id;
+        evName = enif_make_atom(env, info->ev_name);
+        evClass = enif_make_atom(env, info->ev_class);
+        evRecord = enif_make_atom(env, info->ev_rec);
+    } ;
   int cID;
+  ERL_NIF_TERM evName;
+  ERL_NIF_TERM evClass;
+  ERL_NIF_TERM evRecord;
 };
 
 void initEventTable();
-int  wxeEventTypeFromAtom(char *etype_atom);
+int  wxeEventTypeFromAtom(ERL_NIF_TERM atom);
 
 #endif

@@ -24,7 +24,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/eunit-$(VSN)
 EBIN = ../ebin
 INCLUDE=../include
 
-ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ../../stdlib/ebin -I$(INCLUDE) +nowarn_shadow_vars +warn_unused_import
+ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ../../stdlib/ebin -I$(INCLUDE) \
+	+nowarn_shadow_vars +warn_unused_import -Werror
 
 PARSE_TRANSFORM = eunit_autoexport.erl
 
@@ -72,7 +73,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug opt: $(PARSE_TRANSFORM_BIN) $(OBJECTS)
+$(TYPES): $(PARSE_TRANSFORM_BIN) $(OBJECTS)
 
 docs:
 
@@ -120,7 +121,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(PARSE_TRANSFORM_BIN) $(OBJECTS) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
-	$(INSTALL_DATA) $(PARSE_TRANSFORM) $(SOURCES) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(PARSE_TRANSFORM) $(SOURCES) $(BEHAVIOUR_SOURCES) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(INCLUDE_DELIVERABLES) "$(RELSYSDIR)/include"

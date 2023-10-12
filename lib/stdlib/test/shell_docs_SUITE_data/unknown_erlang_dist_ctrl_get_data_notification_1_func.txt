@@ -1,0 +1,27 @@
+
+  [;1m-spec erlang:dist_ctrl_get_data_notification(DHandle) -> ok[0m
+  [;1m                                                when[0m
+  [;1m                                                    DHandle ::[0m
+  [;1m                                                        dist_handle().[0m
+
+[;;4mSince[0m:
+  OTP 21.0
+
+  Request notification when more data is available to fetch using [;;4m[0m
+  [;;4merlang:dist_ctrl_get_data(DHandle)[0m for the distribution channel
+  identified by [;;4mDHandle[0m. When more data is present, the caller
+  will be sent the message [;;4mdist_data[0m. Once a [;;4mdist_data[0m messages
+  has been sent, no more [;;4mdist_data[0m messages will be sent until the [;;4m[0m
+  [;;4mdist_ctrl_get_data_notification/1[0m function has been called again.
+
+  Note:
+    Only the process registered as distribution controller for the
+    distribution channel identified by [;;4mDHandle[0m is allowed to
+    call this function.
+
+  This function is used when implementing an alternative
+  distribution carrier using processes as distribution controllers. [;;4m[0m
+  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
+  More information can be found in the documentation of ERTS User's
+  Guide ➜ How to implement an Alternative Carrier for the Erlang
+  Distribution ➜ Distribution Module.

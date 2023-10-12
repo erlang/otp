@@ -1,0 +1,852 @@
+#!/usr/bin/perl -w
+
+# Compare the documentation of different OTP versions
+# and detect missing or incorrect "since" attributes.
+#
+# The script checks out the supplied git tags one at time and reads
+# all xml files searching for documented modules and their functions.
+#
+# The script is not perfect. For example some function docs use an old
+# ambiguous way of declaring default arguments, like foo(Arg1 [,Arg2]).
+
+#use strict;
+use File::Basename;
+ 
+my $progname = basename($0);
+#my $tagfile = shift @ARGV;
+my $skip_branches = 0;
+my $verbose = 0;
+my $single_module;
+my $read_stdin = 1;
+my @tag_list;
+
+while (@ARGV >= 1 and $ARGV[0] =~ /^-/) {   
+    if ($ARGV[0] eq "-s") {
+	$skip_branches = 1;
+    }
+    elsif ($ARGV[0] eq "-v") {
+	$verbose = 1;
+    }
+    elsif ($ARGV[0] eq "-m" && @ARGV >= 2) {
+	$single_module = $ARGV[1];
+	shift @ARGV;
+    }
+    elsif ($ARGV[0] eq "-t" && @ARGV >= 3) {
+	@tag_list = ($ARGV[1], $ARGV[2]);
+	shift @ARGV;
+	shift @ARGV;
+	$read_stdin = 0;
+    }
+    else {
+	die "Syntax: $progname [-h] [-s] [-v] [-m <module>] [-t <new-tag> <old-tag>]\n" .
+	    "-s\tSkip unordered tags\n" .
+	    "-h\tThis help\n" .
+	    "-v\tVerbose\n" .
+	    "-m <module>\tAnalyze only one module\n" .
+	    "-t <new-tag> <old-tag>\tTags to compare\n\n" .
+	    "Without -t reads git tags from STDIN, one per line, sorted from newest to oldest\n";
+    }
+    shift @ARGV;
+}
+ 
+0 == @ARGV or die "Too many arguments\n";
+ 
+my %facc; # Function accumulator
+my %mods; # Modules
+my %mods_since; # Since attribute seen for modules
+ 
+my %skip_files = (
+    'lib/kernel/doc/src/packages.xml' => 1
+    );
+ 
+# foo([Bar])
+# 1: foo has arities 1 and 0 (one optional argument Bar).
+# 0: foo has one argument (a list of Bar's).
+my %ambiguous_0args = (
+    'io:columns' => 1,
+    'io:nl' => 1,
+    'io:getopts' => 1,
+    'io:rows' => 1,
+    'eldap:open' => 0,
+    "eldap:'and'" => 0,
+    "eldap:'or'" => 0,
+    'net_kernel:start' => 0,
+    'fprof:trace' => 0,
+    'fprof:profile' => 0,
+    'fprof:analyse' => 0,
+    'lcnt:conflicts' => 0,
+    'lcnt:locations' => 0,
+    'tags:root' => 1,
+    'ts:cross_cover_analyse' => 0,
+    'gen_sctp:open' => 0,
+    'c:memory' => 0,
+    'supervisor:check_childspecs' => 0
+
+    );
+ 
+# List of arities.
+my %complex_arglist = (
+    'mnesia:sync_transaction' => [1,2,3],
+    'mnesia:table' => [1,2],
+    'mnesia:transaction' => [1,2,3],
+    'mnesia:traverse_backup' => [4,6],
+    'public_key:pem_entry_encode' => [2,3],
+    'qlc:string_to_handle' => [1,2,3],
+    'ttb:tp' => [2,3,4],
+    'ttb:tpl' => [2,3,4],
+    'ttb:ctp' => [1,2,3],
+    'ttb:ctpl' => [1,2,3],
+    'ttb:ctpg' => [1,2,3]
+    );
+
+my %suppressions = (
+    'beam_lib:strip/2' => 'OTP 22.0',
+    'beam_lib:strip_files/2' => 'OTP 22.0',
+    'beam_lib:strip_release/2' => 'OTP 22.0',
+    'crypto:crypto_final/1' => 'OTP 23.0',
+    'crypto:crypto_get_data/1' => 'OTP 23.0',
+    'ct_property_test:present_result/4' => 'OTP 22.3',
+    'ct_property_test:present_result/5' => 'OTP 22.3',
+    'dialyzer:format_warning/2' => 'R14B02',
+    'ei_global:ei_global_names/C' => 'OTP 23.0',
+    'ei_global:ei_global_register/C' => 'OTP 23.0',
+    'ei_global:ei_global_unregister/C' => 'OTP 23.0',
+    'ei_global:ei_global_whereis/C' => 'OTP 23.0',
+    'eprof:profile/4' => "",
+    'public_key:pkix_hash_type/1' => 'OTP 23.0',
+    'public_key:pkix_subject_id/1' => 'OTP 23.1',
+    'snmpa:which_transports/0' => 'OTP 23.3',
+    'snmpm:restart/1' => 'OTP 22.3',
+    'ssh:connection_info/1' => 'OTP 22.1',
+    'ssh:daemon_info/2' => 'OTP 22.1',
+    'ssh:get_sock_opts/2' => 'OTP 22.3',
+    'ssh:set_sock_opts/2' => 'OTP 22.3',
+    'ssh:tcpip_tunnel_from_server/5' => 'OTP 23.0',
+    'ssh:tcpip_tunnel_from_server/6' => 'OTP 23.0',
+    'ssh:tcpip_tunnel_to_server/5' => 'OTP 23.0',
+    'ssh:tcpip_tunnel_to_server/6' => 'OTP 23.0',
+    'ssh_agent:add_host_key/3' => 'OTP 23.0',
+    'ssh_agent:add_host_key/4' => 'OTP 23.0',
+    'ssh_agent:is_host_key/4' => 'OTP 23.0',
+    'ssh_agent:is_host_key/5' => 'OTP 23.0',
+    'ssh_agent:user_key/2' => 'OTP 23.0',
+    );
+
+
+my %seen_shas;
+my %warnings;
+local $tag;
+my $prev_tag;
+ 
+ 
+#
+# First checkout top tag and find all documented modules and functions
+# that might have been first introduced in one of the following tags.
+#
+local $/ = "\n";
+if (next_tag(\$tag)) {
+ 
+    if ($skip_branches) {
+                          $tag =~ /^(OTP-\d+\.\d+(\.\d+)?)|(OTP_R\d+B(0\d)?(-\d)?)$/
+                              or die "First tag must be usable\n";
+    }
+
+    if ($verbose) {
+	print STDERR "Check out $tag\n";
+    }
+    my $output = qx(git checkout -f $tag 2>&1);
+    $? == 0 or fatal("'git checkout -f $tag failed:\n $output");
+ 
+    my $xml_files;
+    if ($single_module) {
+	$xml_files = qx(git ls-files '*/$single_module.xml' 2>&1);
+	$? == 0 or fatal("'git ls-files '*.xml' failed:\n $xml_files");
+    }
+    else {
+	$xml_files = qx(git ls-files '*.xml' 2>&1);
+	$? == 0 or fatal("'git ls-files '*.xml' failed:\n $xml_files");
+    }
+ 
+    while ($xml_files =~ m/\n*([^\n]+)/g) {
+	local $filename = $1;
+	
+	#if (seen_it()) {
+	#    next;
+	#}
+	
+	my $module;
+	my $module_since;
+	my %funcs = read_xml_functions($tag, \$module, \$module_since);
+	
+	if (keys %funcs) {
+	    if (!$module) {
+		die "No <module> tag in $filename\n";
+	    }
+	    if (exists($mods{$module})) {
+		die "Duplicate module $mods{$module} and $filename\n";
+	    }
+	    $mods{$module} = $filename;
+	    $mods_since{$module} = $module_since;
+	    
+	    foreach my $f (keys %funcs) {
+		!exists($facc{$f})
+		    or die "Duplicate function $f???\n";
+		$facc{$f} = $funcs{$f};
+	    }
+	}
+	elsif ($single_module) {
+	    die "File $filename has no functions\n";
+	}
+    }
+}
+else {
+    die "No tags read on STDIN\n";
+}
+ 
+#
+# Now go through the older tags in reverse time order
+# and detect when documented modules or functions "disappear",
+# in which case they must have been introduced in the previous
+# inspected tag.
+#
+$prev_tag = $tag;
+while (next_tag(\$tag)) {
+ 
+    if ($skip_branches) {
+	if ($tag !~ /^((OTP-\d+\.\d+(\.\d+)?)|(OTP_R\d+B(0\d)?(-\d)?))$/) {
+	    print STDERR "Skip tag $tag\n";
+	    next;
+	}
+	#print STDERR "Keep tag $tag 1='$1' 2='$2' 3='$3' 4='$4' 5='$5'\n";
+    }
+
+    if ($verbose) {
+	print STDERR "Check out $tag\n";
+    }
+    my $output = qx(git checkout -f $tag 2>&1);
+    $? == 0 or fatal("'git checkout -f $tag failed:\n $output");
+ 
+    my $xml_files;
+    if ($single_module) {
+	$xml_files = qx(git ls-files '*/$single_module.xml' 2>&1);
+	$? == 0 or fatal("'git ls-files '*.xml' failed:\n $xml_files");
+    }
+    else {
+	$xml_files = qx(git ls-files '*.xml' 2>&1);
+	$? == 0 or fatal("'git ls-files '*.xml' failed:\n $xml_files");
+    }
+ 
+    my %prev_facc = %facc;
+    %facc = ();
+    my %prev_mods = %mods;
+    %mods = ();
+ 
+    while ($xml_files =~ m/\n*([^\n]+)/g) {
+	local $filename = $1;
+	
+	#if (seen_it()) {
+	#    next;
+	#}
+	
+	my $module;
+	my $module_since;
+	my %funcs = read_xml_functions($tag, \$module, \$module_since);
+	
+	if (keys %funcs) {
+	    if (!$module) {
+		die "No <module> tag in $filename\n";
+	    }
+	    if (exists($mods{$module})) {
+		die "Duplicate module in $mods{$module} and $filename\n";
+	    }
+	    
+	    if (exists($prev_mods{$module})) {
+		foreach my $f (keys %funcs) {
+		    if (exists($prev_facc{$f})) {
+			$facc{$f} = $funcs{$f};
+			#print "prev_facc{$f} = $prev_facc{$f}\n";
+			#print "prev_facc{$f} = @{$prev_facc{$f}}\n";
+			if (delete_versions(\@{$facc{$f}}, \@{$prev_facc{$f}})) {
+			    delete $prev_facc{$f};
+			}
+		    }
+		    else {
+			#print "Ignoring removed function $f\n";
+		    }
+		}
+		$mods{$module} = $filename;
+		delete $prev_mods{$module};
+	    }
+	    else {
+		#print "Ignoring removed module $module\n";
+	    }
+	}
+	elsif ($single_module) {
+	    die "File $filename has no functions\n";
+	}
+    }
+    
+    my $erl_file;
+    foreach my $mod (keys %prev_mods) {
+	if ($single_module and $single_module ne $mod) {
+	    next;
+	}
+	$erl_file = qx(git ls-files '*/src*/$mod.erl' 2>&1);
+	$? == 0 or fatal("'git ls-files '$mod.erl' failed:\n $erl_file");
+	if ($erl_file) {
+	    local $filename = trim($erl_file);
+	    my %funcs = read_edoc_functions($tag, $mod);
+	    if (keys %funcs) {
+		foreach my $f (keys %funcs) {
+		    if (exists($prev_facc{$f})) {
+			$facc{$f} = $funcs{$f}[0];
+			delete $prev_facc{$f};
+		    }
+		}
+		$mods{$mod} = $filename;
+		delete $prev_mods{$mod};
+	    }
+	    else {
+		#warning("No \@spec functions in $filename\n");
+	    }
+	}
+    }
+    if ($single_module and !$xml_files and !$erl_file) {
+	warning("No $single_module.xml or .erl found\n");
+    }
+    
+    my $headline = "\nTAG: $prev_tag\n";
+    
+    foreach my $mod (sort keys %prev_mods) {
+	print "${headline}MODULE: $mod since=$mods_since{$mod}\n";
+	$headline = "";
+    }
+    foreach my $f (sort keys %prev_facc) {
+	filter_newer_versions($tag, \@{$prev_facc{$f}});
+	if (@{$prev_facc{$f}} != 0) {
+            if (@{$prev_facc{$f}} != 1 ||
+                !exists($suppressions{$f}) ||
+                $suppressions{$f} ne $prev_facc{$f}->[0])
+            {
+                print "${headline}FUNC: $f since = @{$prev_facc{$f}}\n";
+                $headline = "";
+            }
+	}
+    }
+    $prev_tag = $tag;
+}
+ 
+#close TAGFILE;
+
+if ($verbose) {
+    #
+    # Print all stoneage modules and functions, that "always" existed.
+    #
+    my $headline = "\nTAG:\n";
+    foreach my $mod (sort keys %mods) {
+	print "${headline}MODULE: $mod\n";
+	$headline = "";
+    }
+    foreach my $f (sort keys %facc) {
+	print "${headline}FUNC: $f\n";
+	$headline = "";
+    }
+}
+
+# Delete all versions from second array that exists in first array.
+# Return true if no versions left in second array.
+sub delete_versions {
+    my ($olds_ref, $news_ref) = @_;
+
+    #print "olds_ref = $olds_ref\n";
+    #print "news_ref = $news_ref\n";
+    #print "olds = @{$olds_ref}\n";
+    #print "news = @{$news_ref}\n";
+
+    foreach my $old (@{$olds_ref}) {
+	#print "old = $old\n";
+	for (my $i = 0; $i < @{$news_ref}; $i++) {
+	    if (($old eq $news_ref->[$i])
+		or (fixver($old) eq $news_ref->[$i])) {
+		#print "$i: remove $news_ref->[$i]\n";
+		splice @{$news_ref}, $i, 1;
+		last;
+	    }
+	    #print "$i: keep $news_ref->[$i]\n";
+	}
+    }
+
+    # Do a sloppy attempt to detect missing since tags that has
+    # been corrected in new version.
+    # For all with "missing" since tag in old, remove one version from new.
+    foreach my $old (@{$olds_ref}) {           
+	if (@$news_ref == 0) {
+	    last;
+	}
+	if ($old eq "missing") {
+	    #print "Remove fixed missing version $news_ref->[0]\n";
+	    shift @{$news_ref};
+	}
+    }   
+    
+    my $ret = (@$news_ref == 0);
+    #print "ret = $ret\n";
+    return $ret;
+}
+
+
+# Try correct misspelled OTP version
+sub fixver {
+    my ($otp_ver) = @_;
+
+    if ($otp_ver =~ /^OTP \d\d\.\d/) {
+	# Looks ok
+	return $otp_ver;
+    }
+
+    # Try correct any combination of:
+    # missing OTP
+    # - instead of space
+    # missing .0
+    if ($otp_ver =~ /^(OTP)?[ -](\d\d)(\.(.+))?/) {
+	my $major = $2;
+	my $minor = $3 ? $4 : "0";
+	my $fixed = "OTP $major.$minor";
+	#print "fixver $otp_ver -> $fixed\n";
+	return $fixed;
+    }
+    return $otp_ver;
+}
+
+# Remove all versions newer than $ver from @$ver_list_ref
+sub filter_newer_versions {
+    my ($ver, $ver_list_ref) = @_;
+
+    $ver = fixver($ver);
+
+    for (my $i = 0; $i < @{$ver_list_ref}; ) {
+	if ($ver le fixver($ver_list_ref->[$i])) {
+	    #print "$i: filter $ver_list_ref->[$i]\n";
+	    splice @{$ver_list_ref}, $i, 1;
+	}
+	else {
+	    #print "$i: keep $ver_list_ref->[$i]\n";
+	    $i++;
+	}
+    }
+}
+
+sub read_xml_functions {
+    my($tag, $module_ref, $module_since_ref) = @_;
+
+    if ($verbose) {
+	print "XML-file: $filename\n";
+    }
+
+    open(FILE, $filename) or die "Cant open xml file \"$filename\"\n";
+    local $/ = undef;
+    my $lines = <FILE>;
+    close(FILE);
+ 
+    my %functions;
+ 
+    if (exists($skip_files{$filename})) {
+	return %functions; # empty
+    }
+
+    # Is this a <module> or <lib> reference doc file?
+    if ($lines =~ /<module(\s*since=\"([^"]*)\")?>([\w]+)<\/module>/) {
+	if ($1) {
+	    $$module_since_ref = $2;
+	}
+	else {
+	    $$module_since_ref = "missing";
+	}
+	$$module_ref = $3;
+    }
+    elsif ($lines =~ /<lib>([\w]+)<\/lib>/) {
+	$$module_ref = $1;
+	$$module_since_ref = "lib";
+    }
+    else {
+	#print "XML-file <module> or <lib> not found\n";
+	return %functions; # empty
+    }
+ 
+    while ($lines =~ /<func>\s*/g) {
+	my $func_cnt = 0;
+	
+	# Find all <name> within <func> (usually only one but may be more, ex io:format,fwrite)
+	while (1) {
+	    my @farity;
+	    my $fname;
+	    
+	    $lines =~ /(<name|<\/func>)/g
+		or die "<func> without </func> in $filename\n";
+	    
+	    if ($1 eq '</func>') {
+		last;
+	    }
+	    
+	    $func_cnt++;
+	    
+	    # C-lib
+	    # <name since=""><ret>..</ret><nametext>c_function(..)</nametext></name>
+	    if ($lines =~ /\G(\s*since=\"([^"]*)\")?>\s*<ret>.*?<\/ret>\s*<nametext>\*?(\w+)[^<]*?<\/nametext>\s*<\/name>/sgc) {
+		$fname = $3;
+		my $since;
+		if ($1) {
+		    $since = $2;
+		}
+		else {
+		    $since = "missing";
+		}
+		push @farity, { arity => 'C', since => $since };
+	    }
+	    # Old style: <name>... </name>
+	    # or (rare) <name name="foo">... </name>
+	    elsif ($lines =~ /\G(\s*name=\"(\w+)\")?(\s*since=\"([^"]*)\")?>/gc) {
+		if ($1) {
+		    $fname = $2;
+		}
+		my $since;
+		if ($3) {
+		    $since = $4;
+		}
+		else {
+		    $since = "missing";
+		}
+		
+		# <name>foo(Arg1,Arg2)
+		# <name>erlang:foo(Arg1,Arg2)
+		# <name>'Foo'(Arg1,Arg2)
+		# <name>Module:callback(Arg1,Arg2)
+		# The cryptic arglist part of the regex below search for end ')'
+		# while ignoring '()' that might exists for argument types like 'integer()'.
+		if ($lines =~ /\G\s*((\w+):)?('?\w+'?)\s*\((([^()]*(\(\))?)*)\)/gc) {
+		    my $module = $2;
+		    if ($fname) {
+			$fname eq $3
+			    or die "Conflicting function names '$fname' vs '$3' in $filename\n";
+		    }
+		    else {
+			$fname = $3;
+		    }
+		    my $arglist = $4;
+		    if ($module) {
+			if ($module =~ /^[A-Z]/) {
+			    $module = $$module_ref;
+			    $fname = "Callback#$fname";
+			}
+			elsif ($module ne $$module_ref) {
+			    die "Strange module prefix '$module' of function '$fname' in $filename\n";
+			}
+		    }
+		    @farity = count_args($arglist, $fname, $$module_ref, $since);
+		}
+		elsif ($lines =~ /\G(.*)/gc) {
+		    warning("Strange function prototype '$1' in file $filename\n");
+		    next;
+		}
+		else {
+		    die "WTF in $filename\n";
+		}
+	    }
+	    # New style?:
+	    # <name name="foo" arity="2"/>
+	    # <name name="foo" arity="2"></name>
+	    elsif ($lines =~ /(([^\/]*\/)*?[^\/]*)(\/>|>\s*<\/name>)/gc) {
+		my $name_body = $1;
+		$name_body =~ m/name=\"\'?(\w+)\'?\"/
+		    or die "$filename: No function name in \'$name_body\'\n";
+		$fname = $1;
+		
+		$name_body =~ m/arity=\"(\d+)\"/
+		    or die "$filename: No function arity in \'$name_body\'\n";
+		my $arity = $1;
+
+		my $since;
+		if ($name_body =~ m/since=\"([^"]*)\"/) {
+		    $since = $1;
+		    #print "$$module_ref:$fname/$arity since = $since\n";
+		}
+		else {
+		    $since = "missing";
+		}
+
+		push @farity, { arity => $arity, since => $since };
+	    }
+	    elsif ($lines =~ /(\G.*)/g) {
+		warning("Strange name tag '<name$1' in file $filename\n");
+		next;
+	    }
+	    else {
+		die "Very strange <name> tag in $filename\n";
+	    }
+	    
+
+	    #print "$$module_ref:$fname in $filename\n";
+	    foreach my $fa_since (@farity) {
+		#while (($key, $value) = each (%$fa_since)) {
+		#    print "$key => $value\n";
+		#}
+		my $fa = $$fa_since{arity};
+		my $since = $$fa_since{since};
+		#print "$$module_ref:$fname/$fa since=$since\n";
+		push @{ $functions{"$$module_ref:$fname/$fa"} }, $since;
+	    }
+	}
+	if ($func_cnt < 1) {
+	    die "<func> without <name> in $filename\n";
+	}
+	
+    }
+    
+    return %functions;
+}
+
+sub read_edoc_functions {
+    my($tag, $module) = @_;
+    
+    open(FILE, $filename) or die "Can't open erl file \"$filename\"\n";
+    local $/ = undef;
+    my $lines = <FILE>;
+    close(FILE);
+ 
+    my %functions;
+ 
+    if (exists($skip_files{$filename})) {
+	return %functions; # empty
+    }
+    if ($lines !~ /^\s*-module\(([\w]+)\)\./m) {
+	die "No -module() found in erl file \"$filename\"\n";
+    }
+    if ($1 ne $module) {
+	die "Mismatching module name '$1' != '$module' in erl file \"$filename\"\n";
+    }
+ 
+    # % @spec foo(Arg1,Arg2)
+    # -spec foo(Arg1,Arg2)
+    while ($lines =~ /\n\s*(%.*\@spec|-spec\s*)/g) {
+	if ($lines !~ /(\w*)\s*\(/g) {
+	    warning("Strange \@spec function name in $filename");
+	}
+	my $fname = $1;
+	
+	if ($fname eq '') {
+	    my $save_pos = pos($lines);
+	    if ($lines !~ /\n\s*(\w+)\s*\(/g) {
+		warning("No function found after anonymous \@spec in $filename");
+	    }
+	    $fname = $1;
+	    pos($lines) = $save_pos;
+	}
+	
+	if ($lines !~ /\G(([^()]*(\(\))?)*)\)/gc) {
+	    if ($lines =~ /(\G.*)/g) {
+		warning("Strange \@spec argument list '$1' for '$fname' in file $filename\n");
+		next;
+	    }
+	    else {
+		die "WTF \@spec for '$fname' in $filename\n";
+	    }
+	}
+	my $arglist = $1;
+	my @arities = count_args($arglist, $fname, $module, "edoc");
+	
+	foreach my $fa_since (@arities) {
+	    my $fa = $$fa_since{arity};
+	    push @{ $functions{"$module:$fname/$fa"} }, $tag;
+
+	    #print "Found edoc function '$module:$fname/$fa'\n";
+	}
+    }
+    
+    return %functions;
+}
+
+sub count_args {
+    my($arglist,$fname,$module,$since) = @_;
+    my @arities;
+ 
+    #print "count_args $module:$fname($arglist)\n";
+ 
+    $arglist = trim($arglist);
+    if ($arglist eq '') {
+	#print "Empty arg list for $fname\n";
+	push @arities, { arity => 0, since => $since};
+	return @arities;
+    }
+    
+    if ($arglist =~ /^\s*\[\s*\w+\s*\]\s*$/gc) {
+	#
+	# Oh dear! Is "[Foo]" a list of Foo's or an optional Foo????
+	#
+	if (exists($ambiguous_0args{"$module:$fname"})) {
+	    if ($ambiguous_0args{"$module:$fname"}) {
+		push @arities, { arity => 0, since => $since};
+	    }
+	}
+	else {
+	    warning("Ambigiuous arglist $module:$fname($arglist) in $filename\n");
+	}
+
+	push @arities, { arity => 1, since => $since};
+	return @arities;
+    }
+    
+    # Starts with [Arg,] ?
+    my $first_optional = 0;
+    if ($arglist =~ /^\[\s*\w+\s*,\s*\]/gc) {
+	$first_optional = 1;
+    }
+ 
+    # Ends with [,Arg] ?
+    my $last_optional = 0;
+    if ($arglist =~ /(.+)\[\s*,\s*\w+\s*\]$/gc) {
+	$last_optional = 1;
+	$arglist = $1;
+    }
+ 
+    # Give up if any other "[," or ",]" left?
+    if ($arglist =~ /(\[\s*,)|(,\s*\])/gc) {
+	if (!exists($complex_arglist{"$module:$fname"})) {
+	    warning("Complex optional arguments for $module:$fname($arglist)\n");
+	}
+	foreach my $fa (@{$complex_arglist{"$module:$fname"}}) {
+	    #print "complex_arglist: $module:$fname/$fa\n";
+	    push @arities, { arity => $fa, since => $since };
+	}
+	return @arities;
+    }
+ 
+    my $nargs = 0;
+    my $expect_comma = 'no';
+    
+    while ($arglist =~ /([\w,[{])/g) {
+	if ($1 eq ',') {
+	    $expect_comma ne 'no'
+		or die "$filename: Unexpected comma in arglist '$arglist' for '$fname'\n";
+	    $expect_comma = 'no';
+	}
+	elsif ($1 eq '[' or $1 eq '{') {
+	    $expect_comma ne 'yes'
+		or die "$filename: Missing comma in arglist '$arglist' for '$fname'\n";
+	    
+	    my $paren = $1;
+	    skip_term(\$arglist, $paren, 1);
+	    $nargs++;
+	    $expect_comma = 'yes';
+	}
+	else {
+	    $expect_comma ne 'yes'
+		or die "$filename: Expected comma but found arg in '$arglist' for '$fname'\n";
+	    if ($expect_comma eq 'no') {
+		$nargs++;
+	    }
+	    $expect_comma = 'maybe';
+	}
+    }
+    push @arities, { arity => $nargs, since => $since};
+    if ($first_optional) {
+	$nargs = $nargs + 1;
+	push @arities, { arity => $nargs, since => $since};
+    }
+    if ($last_optional) {
+	$nargs = $nargs + 1;
+	push @arities, { arity => $nargs, since => $since};
+    }
+
+    #foreach my $h (@arities) {
+    #    print "count_args: $module:$fname/$$h{arity}\n";
+    #}
+ 
+    return @arities;
+}
+ 
+sub skip_term {
+    my($arglist_ref,$paren,$recurs) = @_;
+    
+    #my $pp = pos($$arglist_ref);
+    #print "skip_term($$arglist_ref,$paren) pos=$pp\n";
+ 
+    $recurs < 10 or fatal("$filename: Evil recursion\n");
+ 
+    while (1) {
+	my $recurs_paren;
+	if ($paren eq '[') {
+	    if ($$arglist_ref !~ /([][{])/g) {
+		my $pp = pos($$arglist_ref);
+		die "$filename: No matching ']' in '$$arglist_ref' at pos=$pp\n";
+	    }
+	    if ($1 eq ']') {
+		last;
+	    }
+	    $recurs_paren = $1;
+	}
+	elsif ($paren eq '{') {
+	    $$arglist_ref =~ /([}[{])/g
+			       or die "$filename: No matching '}' in '$$arglist_ref'\n";
+	    if ($1 eq '}') {
+		last;
+	    }
+	    $recurs_paren = $1;
+	}
+	else {
+	    die "$filename: WTF? in arglist '$$arglist_ref'\n";
+	}
+	skip_term($arglist_ref, $recurs_paren, $recurs+1);
+    }
+    #$pp = pos($$arglist_ref);
+    #print "skip_term($$arglist_ref,$paren) returns pos=$pp\n";
+}
+ 
+sub seen_it {
+    my $sha = qx(git rev-parse :$filename 2>&1);
+    $? == 0 or fatal("'git rev-parse :$filename failed:\n $sha");
+    if (exists($seen_shas{$sha})) {
+	return 1;
+    }
+    $seen_shas{$sha} = 1;
+    return 0;
+}
+ 
+ 
+# Trim leading and trailing whitespace
+sub trim {
+    my $s = shift;
+    $s =~ s/^\s+|\s+$//g;
+    return $s;
+}
+ 
+sub warning {
+    my $str = shift;
+    if (exists($warnings{$str})) {
+	return;
+    }
+    $warnings{$str} = 1;
+ 
+    print STDERR "WARNING: $tag $str";
+}
+ 
+sub fatal {
+    select()->flush();
+    die "$progname: @_\n";
+}
+
+sub next_tag {
+    my $tag_ref = shift;
+
+    if ($read_stdin) {
+	my $line = <STDIN>;
+	if ($line) {
+	    $$tag_ref = trim($line);
+	    return 1;
+	}
+    }
+    elsif (@tag_list > 0) {
+	$$tag_ref = shift @tag_list;
+	return 1;
+    }
+    return 0;
+}

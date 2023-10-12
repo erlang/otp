@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,6 +58,10 @@
                               latin1_charlist(),
                             latin1_binary() | nil()).
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_info/1, error_with_info/2]}).
+
 %%% BIFs
 %%%
 %%% characters_to_binary/2 (will trap to characters_to_binary_int/2
@@ -87,9 +91,9 @@ characters_to_binary(_, _) ->
 -spec characters_to_list(Data,  InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result ::string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(_, _) ->
@@ -99,13 +103,18 @@ characters_to_list(_, _) ->
 
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result :: string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(ML) ->
-    unicode:characters_to_list(ML,unicode).
+    try
+        unicode:characters_to_list(ML, unicode)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [ML])
+    end.
 
 -spec characters_to_binary(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
@@ -118,17 +127,8 @@ characters_to_binary(ML) ->
     try
 	unicode:characters_to_binary(ML,unicode)
     catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
+	error:Reason ->
+            error_with_info(error_type(Reason), [ML])
     end.
 
 -spec characters_to_binary(Data, InEncoding, OutEncoding) -> Result when
@@ -140,69 +140,30 @@ characters_to_binary(ML) ->
               | {incomplete, binary(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
-characters_to_binary(ML, latin1, latin1) when is_binary(ML) ->
-    ML;
-characters_to_binary(ML, latin1, Uni) when is_binary(ML) and ((Uni =:= utf8) or   (Uni =:= unicode)) ->
-    case unicode:bin_is_7bit(ML) of
-	true ->
-	    ML;
-	false ->
-	        try
-		    characters_to_binary_int(ML,latin1,utf8)
-		catch
-		    error:AnyError ->
-			TheError = case AnyError of
-				       system_limit ->
-					   system_limit;
-				       _ ->
-					   badarg
-				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-			    (catch erlang:error(new_stacktrace,
-						[ML,latin1,Uni])),
-			erlang:raise(error,TheError,
-				     [{Mod,characters_to_binary,L}|Rest])
-		end
-    end;
-characters_to_binary(ML,Uni,latin1) when is_binary(ML) and ((Uni =:= utf8) or   (Uni =:= unicode)) ->
-    case unicode:bin_is_7bit(ML) of
-	true ->
-	    ML;
-	false ->
-	        try
-		    characters_to_binary_int(ML,utf8,latin1)
-		catch
-		    error:AnyError ->
-			TheError = case AnyError of
-				       system_limit ->
-					   system_limit;
-				       _ ->
-					   badarg
-				   end,
-			{'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-			    (catch erlang:error(new_stacktrace,
-						[ML,Uni,latin1])),
-			erlang:raise(error,TheError,
-				     [{Mod,characters_to_binary,L}|Rest])
-		end
-    end;
-
 characters_to_binary(ML, InEncoding, OutEncoding) ->
-    try
-	characters_to_binary_int(ML,InEncoding,OutEncoding)
-    catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML,InEncoding,OutEncoding])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
+    case no_conversion_needed(ML, InEncoding, OutEncoding) of
+        true ->
+            ML;
+        false ->
+            try
+                characters_to_binary_int(ML, InEncoding, OutEncoding)
+            catch
+                error:Reason ->
+                    error_with_info(error_type(Reason),
+                                    [ML, InEncoding, OutEncoding])
+            end
     end.
+
+no_conversion_needed(ML, latin1, latin1) ->
+    is_binary(ML);
+no_conversion_needed(ML, In, Out) ->
+    case {In,Out} of
+        {latin1,utf8} -> true;
+        {latin1,unicode} -> true;
+        {utf8,latin1} -> true;
+        {unicode,latin1} -> true;
+        {_,_} -> false
+    end andalso unicode:bin_is_7bit(ML).
 
 -spec bom_to_encoding(Bin) -> {Encoding, Length} when
       Bin :: binary(),
@@ -252,7 +213,13 @@ encoding_to_bom(latin1) ->
 %% Canonical decompose string to list of chars
 -spec characters_to_nfd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfd_list(CD) ->
-    characters_to_nfd_list(CD, []).
+    try
+        characters_to_nfd_list(CD, [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
+
 characters_to_nfd_list(CD, Acc) ->
     case unicode_util:nfd(CD) of
         [GC|Str] when is_list(GC) -> characters_to_nfd_list(Str, lists:reverse(GC, Acc));
@@ -263,7 +230,12 @@ characters_to_nfd_list(CD, Acc) ->
 
 -spec characters_to_nfd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfd_binary(CD) ->
-    characters_to_nfd_binary(CD, ?GC_N, [], []).
+    try
+        characters_to_nfd_binary(CD, ?GC_N, [], [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
 
 characters_to_nfd_binary(CD, N, Row, Acc) when N > 0 ->
     case unicode_util:nfd(CD) of
@@ -277,7 +249,13 @@ characters_to_nfd_binary(CD, _, Row, Acc) ->
 %% Compability Canonical decompose string to list of chars.
 -spec characters_to_nfkd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfkd_list(CD) ->
-    characters_to_nfkd_list(CD, []).
+    try
+        characters_to_nfkd_list(CD, [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
+
 characters_to_nfkd_list(CD, Acc) ->
     case unicode_util:nfkd(CD) of
         [GC|Str] when is_list(GC) -> characters_to_nfkd_list(Str, lists:reverse(GC, Acc));
@@ -288,7 +266,12 @@ characters_to_nfkd_list(CD, Acc) ->
 
 -spec characters_to_nfkd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfkd_binary(CD) ->
-    characters_to_nfkd_binary(CD, ?GC_N, [], []).
+    try
+        characters_to_nfkd_binary(CD, ?GC_N, [], [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
 
 characters_to_nfkd_binary(CD, N, Row, Acc) when N > 0 ->
     case unicode_util:nfkd(CD) of
@@ -303,7 +286,13 @@ characters_to_nfkd_binary(CD, _, Row, Acc) ->
 %% Canonical compose string to list of chars
 -spec characters_to_nfc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfc_list(CD) ->
-    characters_to_nfc_list(CD, []).
+    try
+        characters_to_nfc_list(CD, [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
+
 characters_to_nfc_list(CD, Acc) ->
     case unicode_util:nfc(CD) of
         [GC|Str] when is_list(GC) -> characters_to_nfc_list(Str, lists:reverse(GC, Acc));
@@ -314,7 +303,12 @@ characters_to_nfc_list(CD, Acc) ->
 
 -spec characters_to_nfc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfc_binary(CD) ->
-    characters_to_nfc_binary(CD, ?GC_N, [], []).
+    try
+        characters_to_nfc_binary(CD, ?GC_N, [], [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
 
 characters_to_nfc_binary(CD, N, Row, Acc) when N > 0 ->
     case unicode_util:nfc(CD) of
@@ -328,7 +322,13 @@ characters_to_nfc_binary(CD, _, Row, Acc) ->
 %% Compability Canonical compose string to list of chars
 -spec characters_to_nfkc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
 characters_to_nfkc_list(CD) ->
-    characters_to_nfkc_list(CD, []).
+    try
+        characters_to_nfkc_list(CD, [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
+
 characters_to_nfkc_list(CD, Acc) ->
     case unicode_util:nfkc(CD) of
         [GC|Str] when is_list(GC) -> characters_to_nfkc_list(Str, lists:reverse(GC, Acc));
@@ -339,7 +339,12 @@ characters_to_nfkc_list(CD, Acc) ->
 
 -spec characters_to_nfkc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
 characters_to_nfkc_binary(CD) ->
-    characters_to_nfkc_binary(CD, ?GC_N, [], []).
+    try
+        characters_to_nfkc_binary(CD, ?GC_N, [], [])
+    catch
+        error:_ ->
+            badarg_with_info([CD])
+    end.
 
 characters_to_nfkc_binary(CD, N, Row, Acc) when N > 0 ->
     case unicode_util:nfkc(CD) of
@@ -359,19 +364,10 @@ prepend_row_to_acc(Row, Acc) ->
 
 characters_to_list_int(ML, Encoding) ->
     try
-	do_characters_to_list(ML,Encoding)
+	do_characters_to_list(ML, Encoding)
     catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML,Encoding])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_list,L}|Rest])
+	error:Reason ->
+            fake_stacktrace(Reason, characters_to_list, [ML, Encoding])
     end.
 
                                                 % XXX: Optimize me!
@@ -386,23 +382,26 @@ do_characters_to_list(ML, Encoding) ->
     end.
 
 
-characters_to_binary_int(ML,InEncoding) ->
+characters_to_binary_int(ML, InEncoding) ->
     try
-	characters_to_binary_int(ML,InEncoding,unicode)
+	characters_to_binary_int(ML, InEncoding, unicode)
     catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML,InEncoding])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
+	error:Reason ->
+            fake_stacktrace(Reason, characters_to_binary, [ML, InEncoding])
     end.
 
+-spec fake_stacktrace(term(), atom(), [term()]) -> no_return().
+
+fake_stacktrace(Reason, Name, Args) ->
+    try
+        error(new_stacktrace, Args)
+    catch
+        error:_:Stk0 ->
+            [{Mod,_,Args,_}|Stk1] = Stk0,
+            Info = [{error_info,#{module => erl_stdlib_errors}}],
+            Stk = [{Mod,Name,Args,Info}|Stk1],
+            erlang:raise(error, error_type(Reason), Stk)
+    end.
 
 characters_to_binary_int(ML, InEncoding, OutEncoding) when
       InEncoding =:= latin1, OutEncoding =:= unicode;
@@ -445,10 +444,12 @@ characters_to_binary_int(ML, InEncoding, OutEncoding) ->
 		       {error, Accum, [Part]}
 	       end,<<>>),
     case Res of
+        Bin when is_binary(Bin) ->
+            Bin;
 	{incomplete,A,B,_} ->
 	    {incomplete,A,B};
-	_ ->
-	    Res
+        {error, _Converted, _Rest} = Error ->
+            Error
     end.
 
 
@@ -528,14 +529,7 @@ ml_map([Part|_] = Whole,_,{{Incomplete, _}, Accum}) when is_integer(Part) ->
 ml_map([Part|T],Fun,Accum) when is_integer(Part) ->
     case Fun(Part,Accum) of
 	Bin when is_binary(Bin) ->
-	    case ml_map(T,Fun,Bin) of
-		Bin2 when is_binary(Bin2) ->
-		    Bin2;
-		{error, Converted, Rest} ->
-		    {error, Converted, Rest};
-		{incomplete, Converted, Rest,X} ->
-		    {incomplete, Converted, Rest,X}
-	    end;
+	    ml_map(T,Fun,Bin);
 	% Can not be incomplete - it's an integer
 	{error, Converted, Rest} ->
 	    {error, Converted, [Rest|T]}
@@ -890,3 +884,12 @@ do_i_utf32_little(Bin) when is_binary(Bin) ->
 	false ->
 	    {error, [], Bin}
     end.
+
+error_type(system_limit=SL) -> SL;
+error_type(_) -> badarg.
+
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors}}]).
+
+error_with_info(Reason, Args) ->
+    erlang:error(Reason, Args, [{error_info, #{module => erl_stdlib_errors}}]).

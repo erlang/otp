@@ -1,0 +1,16 @@
+
+  [;1m-spec product(Set1, Set2) -> BinRel[0m
+  [;1m                 when[0m
+  [;1m                     BinRel :: binary_relation(),[0m
+  [;1m                     Set1 :: a_set(),[0m
+  [;1m                     Set2 :: a_set().[0m
+
+  Returns the Cartesian product of [;;4mSet1[0m and [;;4mSet2[0m.
+
+    1> S1 = sofs:set([1,2]),
+    S2 = sofs:set([a,b]),
+    R = sofs:product(S1, S2),
+    sofs:to_external(R).
+    [{1,a},{1,b},{2,a},{2,b}]
+
+  [;;4mproduct(S1, S2)[0m is equivalent to [;;4mproduct({S1, S2})[0m.

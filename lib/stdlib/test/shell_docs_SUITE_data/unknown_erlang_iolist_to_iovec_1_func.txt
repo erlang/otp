@@ -1,0 +1,34 @@
+
+  [;1m-spec erlang:iolist_to_iovec(IoListOrBinary) -> iovec()[0m
+  [;1m                                when[0m
+  [;1m                                    IoListOrBinary ::[0m
+  [;1m                                        iolist() | binary().[0m
+
+[;;4mSince[0m:
+  OTP 20.1
+
+  Returns an iovec that is made from the integers and binaries in [;;4m[0m
+  [;;4mIoListOrBinary[0m. This function is useful when you want to flatten
+  an iolist but you do not need a single binary. This can be useful
+  for passing the data to nif functions such as [;;4menif_inspect_iovec[0m
+  or do more efficient message passing. The advantage of using this
+  function over [;;4miolist_to_binary/1[0m is that it does not have to
+  copy off-heap binaries. Example:
+
+    > Bin1 = <<1,2,3>>.
+    <<1,2,3>>
+    > Bin2 = <<4,5>>.
+    <<4,5>>
+    > Bin3 = <<6>>.
+    <<6>>
+    %% If you pass small binaries and integers it works as iolist_to_binary
+    > erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).
+    [<<1,2,3,1,2,3,4,5,4,6>>]
+    %% If you pass larger binaries, they are split and returned in a form
+    %% optimized for calling the C function writev.
+    > erlang:iolist_to_iovec([<<1>>,<<2:8096>>,<<3:8096>>]).
+    [<<1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+       0,...>>,
+     <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+       ...>>,
+     <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...>>]

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,7 +120,6 @@ INETS_ROOT = ../../inets
 
 MODULES =                 		\
 	inets_test_lib    		\
-	erl_make_certs                  \
 	make_certs                      \
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
@@ -130,7 +129,7 @@ MODULES =                 		\
 	httpd_bench_SUITE               \
 	http_test_lib    		\
 	httpd_basic_SUITE		\
-	httpd_mod 	  		\
+	httpd_serve_SUITE       	\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
@@ -166,7 +165,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 
 
 INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data httpd_bench_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data httpd_bench_SUITE_data httpd_serve_SUITE_data
 
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 
@@ -201,6 +200,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
 	$(INETS_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets
@@ -210,7 +210,7 @@ ERL_COMPILE_FLAGS += \
 # 1) INETS_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

@@ -73,9 +73,6 @@
    "configure" can be used to override this default. */
 #define POSIX_MALLOC_THRESHOLD 10
 
-/* Define to 1 if you have the ANSI C header files. */
-#define STDC_HEADERS 1
-
 /* Define to enable support for Unicode properties */
 #define SUPPORT_UCP
 
@@ -86,4 +83,4 @@
 #define SUPPORT_UTF 
 
 /* Version number of package */
-#define VERSION "8.42"
+#define VERSION "8.44"

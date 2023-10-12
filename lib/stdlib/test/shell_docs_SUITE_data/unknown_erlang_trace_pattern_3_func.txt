@@ -1,0 +1,364 @@
+
+  [;1m-spec erlang:trace_pattern(send, MatchSpec, []) -> non_neg_integer()[0m
+  [;1m                              when[0m
+  [;1m                                  MatchSpec ::[0m
+  [;1m                                      (MatchSpecList ::[0m
+  [;1m                                           trace_match_spec()) |[0m
+  [;1m                                      boolean().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Types:
+    -type match_variable() :: atom().
+      Approximation of '$1' | '$2' | '$3' | ...
+    -type trace_match_spec() ::
+          [{[term()] | '_' | match_variable(), [term()], [term()]}].
+
+  Sets trace pattern for message sending. Must be combined with [;;4m[0m
+  [;;4merlang:trace/3[0m to set the [;;4msend[0m trace flag for one or more
+  processes. By default all messages sent from [;;4msend[0m traced
+  processes are traced. To limit traced send events based on the
+  message content, the sender and/or the receiver, use [;;4m[0m
+  [;;4merlang:trace_pattern/3[0m.
+
+  Argument [;;4mMatchSpec[0m can take the following forms:
+
+  [;;4m[;;4mMatchSpecList[0m[0m:
+    A list of match specifications. The matching is done on the
+    list [;;4m[Receiver, Msg][0m. [;;4mReceiver[0m is the process or port
+    identity of the receiver and [;;4mMsg[0m is the message term. The
+    pid of the sending process can be accessed with the guard
+    function [;;4mself/0[0m. An empty list is the same as [;;4mtrue[0m. For
+    more information, see section Match Specifications in Erlang
+    in the User's Guide.
+
+  [;;4m[;;4mtrue[0m[0m:
+    Enables tracing for all sent messages (from [;;4msend[0m traced
+    processes). Any match specification is removed. This is the
+    default.
+
+  [;;4m[;;4mfalse[0m[0m:
+    Disables tracing for all sent messages. Any match
+    specification is removed.
+
+  Argument [;;4mFlagList[0m must be [;;4m[][0m for send tracing.
+
+  The return value is always [;;4m1[0m.
+
+  Examples:
+
+  Only trace messages to a specific process [;;4mPid[0m:
+
+    > erlang:trace_pattern(send, [{[Pid, '_'],[],[]}], []).
+    1
+
+  Only trace messages matching [;;4m{reply, _}[0m:
+
+    > erlang:trace_pattern(send, [{['_', {reply,'_'}],[],[]}], []).
+    1
+
+  Only trace messages sent to the sender itself:
+
+    > erlang:trace_pattern(send, [{['$1', '_'],[{'=:=','$1',{self}}],[]}], []).
+    1
+
+  Only trace messages sent to other nodes:
+
+    > erlang:trace_pattern(send, [{['$1', '_'],[{'=/=',{node,'$1'},{node}}],[]}], []).
+    1
+
+  Note:
+    A match specification for [;;4msend[0m trace can use all guard and
+    body functions except [;;4mcaller[0m.
+
+  Fails by raising an error exception with an error reason of:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If an argument is invalid.
+
+  [;;4m[;;4msystem_limit[0m[0m:
+    If a match specification passed as argument has excessive
+    nesting which causes scheduler stack exhaustion for the
+    scheduler that the calling process is executing on. Scheduler
+    stack size can be configured when starting the runtime
+    system.
+
+  [;1m-spec erlang:trace_pattern('receive', MatchSpec, []) ->[0m
+  [;1m                              non_neg_integer()[0m
+  [;1m                              when[0m
+  [;1m                                  MatchSpec ::[0m
+  [;1m                                      (MatchSpecList ::[0m
+  [;1m                                           trace_match_spec()) |[0m
+  [;1m                                      boolean().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Types:
+    -type match_variable() :: atom().
+      Approximation of '$1' | '$2' | '$3' | ...
+    -type trace_match_spec() ::
+          [{[term()] | '_' | match_variable(), [term()], [term()]}].
+
+  Sets trace pattern for message receiving. Must be combined with [;;4m[0m
+  [;;4merlang:trace/3[0m to set the [;;4m'receive'[0m trace flag for one or more
+  processes. By default all messages received by [;;4m'receive'[0m traced
+  processes are traced. To limit traced receive events based on the
+  message content, the sender and/or the receiver, use [;;4m[0m
+  [;;4merlang:trace_pattern/3[0m.
+
+  Argument [;;4mMatchSpec[0m can take the following forms:
+
+  [;;4m[;;4mMatchSpecList[0m[0m:
+    A list of match specifications. The matching is done on the
+    list [;;4m[Node, Sender, Msg][0m. [;;4mNode[0m is the node name of the
+    sender. [;;4mSender[0m is the process or port identity of the
+    sender, or the atom [;;4mundefined[0m if the sender is not known
+    (which can be the case for remote senders). [;;4mMsg[0m is the
+    message term. The pid of the receiving process can be accessed
+    with the guard function [;;4mself/0[0m. An empty list is the same as [;;4m[0m
+    [;;4mtrue[0m. For more information, see section Match Specifications
+    in Erlang in the User's Guide.
+
+  [;;4m[;;4mtrue[0m[0m:
+    Enables tracing for all received messages (to [;;4m'receive'[0m
+    traced processes). Any match specification is removed. This
+    is the default.
+
+  [;;4m[;;4mfalse[0m[0m:
+    Disables tracing for all received messages. Any match
+    specification is removed.
+
+  Argument [;;4mFlagList[0m must be [;;4m[][0m for receive tracing.
+
+  The return value is always [;;4m1[0m.
+
+  Examples:
+
+  Only trace messages from a specific process [;;4mPid[0m:
+
+    > erlang:trace_pattern('receive', [{['_',Pid, '_'],[],[]}], []).
+    1
+
+  Only trace messages matching [;;4m{reply, _}[0m:
+
+    > erlang:trace_pattern('receive', [{['_','_', {reply,'_'}],[],[]}], []).
+    1
+
+  Only trace messages from other nodes:
+
+    > erlang:trace_pattern('receive', [{['$1', '_', '_'],[{'=/=','$1',{node}}],[]}], []).
+    1
+
+  Note:
+    A match specification for [;;4m'receive'[0m trace can use all guard
+    and body functions except [;;4mcaller[0m, [;;4mis_seq_trace[0m, [;;4m[0m
+    [;;4mget_seq_token[0m, [;;4mset_seq_token[0m, [;;4menable_trace[0m, [;;4m[0m
+    [;;4mdisable_trace[0m, [;;4mtrace[0m, [;;4msilent[0m, and [;;4mprocess_dump[0m.
+
+  Fails by raising an error exception with an error reason of:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If an argument is invalid.
+
+  [;;4m[;;4msystem_limit[0m[0m:
+    If a match specification passed as argument has excessive
+    nesting which causes scheduler stack exhaustion for the
+    scheduler that the calling process is executing on. Scheduler
+    stack size can be configured when starting the runtime
+    system.
+
+  [;1m-spec erlang:trace_pattern(MFA, MatchSpec, FlagList) ->[0m
+  [;1m                              non_neg_integer()[0m
+  [;1m                              when[0m
+  [;1m                                  MFA :: trace_pattern_mfa(),[0m
+  [;1m                                  MatchSpec ::[0m
+  [;1m                                      (MatchSpecList ::[0m
+  [;1m                                           trace_match_spec()) |[0m
+  [;1m                                      boolean() |[0m
+  [;1m                                      restart | pause,[0m
+  [;1m                                  FlagList :: [trace_pattern_flag()].[0m
+
+  Types:
+    -type match_variable() :: atom().
+      Approximation of '$1' | '$2' | '$3' | ...
+    -type trace_match_spec() ::
+          [{[term()] | '_' | match_variable(), [term()], [term()]}].
+    -type trace_pattern_flag() ::
+          global | local | meta |
+          {meta, Pid :: pid()} |
+          {meta, TracerModule :: module(), TracerState :: term()} |
+          call_count | call_time | call_memory.
+    -type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'} | on_load.
+
+  Enables or disables call tracing for one or more functions. Must
+  be combined with [;;4merlang:trace/3[0m to set the [;;4mcall[0m trace flag for
+  one or more processes.
+
+  Conceptually, call tracing works as follows. Inside the Erlang
+  virtual machine, a set of processes and a set of functions are to
+  be traced. If a traced process calls a traced function, the trace
+  action is taken. Otherwise, nothing happens.
+
+  To add or remove one or more processes to the set of traced
+  processes, use [;;4merlang:trace/3[0m.
+
+  To add or remove functions to the set of traced functions, use [;;4m[0m
+  [;;4merlang:trace_pattern/3[0m.
+
+  The BIF [;;4merlang:trace_pattern/3[0m can also add match specifications
+  to a function. A match specification comprises a pattern that the
+  function arguments must match, a guard expression that must
+  evaluate to [;;4mtrue[0m, and an action to be performed. The default
+  action is to send a trace message. If the pattern does not match
+  or the guard fails, the action is not executed.
+
+  Argument [;;4mMFA[0m is to be a tuple, such as [;;4m{Module, Function,[0m
+  [;;4mArity}[0m, or the atom [;;4mon_load[0m (described below). It can be the
+  module, function, and arity for a function (or a BIF in any
+  module). The atom [;;4m'_'[0m can be used as a wildcard in any of the
+  following ways:
+
+  [;;4m[;;4m{Module,Function,'_'}[0m[0m:
+    All functions of any arity named [;;4mFunction[0m in module [;;4mModule[0m.
+
+  [;;4m[;;4m{Module,'_','_'}[0m[0m:
+    All functions in module [;;4mModule[0m.
+
+  [;;4m[;;4m{'_','_','_'}[0m[0m:
+    All functions in all loaded modules.
+
+  Other combinations, such as [;;4m{Module,'_',Arity}[0m, are not allowed.
+  Local functions match wildcards only if option [;;4mlocal[0m is in [;;4m[0m
+  [;;4mFlagList[0m.
+
+  If argument [;;4mMFA[0m is the atom [;;4mon_load[0m, the match specification
+  and flag list are used on all modules that are newly loaded.
+
+  Argument [;;4mMatchSpec[0m can take the following forms:
+
+  [;;4m[;;4mfalse[0m[0m:
+    Disables tracing for the matching functions. Any match
+    specification is removed.
+
+  [;;4m[;;4mtrue[0m[0m:
+    Enables tracing for the matching functions. Any match
+    specification is removed.
+
+  [;;4m[;;4mMatchSpecList[0m[0m:
+    A list of match specifications. An empty list is equivalent to [;;4m[0m
+    [;;4mtrue[0m. For a description of match specifications, see section 
+    Match Specifications in Erlang in the User's Guide.
+
+  [;;4m[;;4mrestart[0m[0m:
+    For the [;;4mFlagList[0m options [;;4mcall_count[0m, [;;4mcall_time[0m and [;;4m[0m
+    [;;4mcall_memory[0m: restarts the existing counters. The behavior is
+    undefined for other [;;4mFlagList[0m options.
+
+  [;;4m[;;4mpause[0m[0m:
+    For the [;;4mFlagList[0m options [;;4mcall_count[0m, [;;4mcall_time[0m and [;;4m[0m
+    [;;4mcall_memory[0m: pauses the existing counters. The behavior is
+    undefined for other [;;4mFlagList[0m options.
+
+  Parameter [;;4mFlagList[0m is a list of options. The following are the
+  valid options:
+
+  [;;4m[;;4mglobal[0m[0m:
+    Turns on or off call tracing for global function calls (that
+    is, calls specifying the module explicitly). Only exported
+    functions match and only global calls generate trace messages. 
+    This is the default.
+
+  [;;4m[;;4mlocal[0m[0m:
+    Turns on or off call tracing for all types of function calls.
+    Trace messages are sent whenever any of the specified
+    functions are called, regardless of how they are called. If
+    flag [;;4mreturn_to[0m is set for the process, a [;;4mreturn_to[0m message
+    is also sent when this function returns to its caller.
+
+  [;;4m[;;4mmeta | {meta, Pid} | {meta, TracerModule, TracerState}[0m[0m:
+    Turns on or off meta-tracing for all types of function calls.
+    Trace messages are sent to the tracer whenever any of the
+    specified functions are called. If no tracer is specified, [;;4m[0m
+    [;;4mself()[0m is used as a default tracer process.
+
+    Meta-tracing traces all processes and does not care about the
+    process trace flags set by [;;4merlang:trace/3[0m, the trace flags
+    are instead fixed to [;;4m[call, timestamp][0m.
+
+    The match specification function [;;4m{return_trace}[0m works with
+    meta-trace and sends its trace message to the same tracer.
+
+  [;;4m[;;4mcall_count[0m[0m:
+    Starts ([;;4mMatchSpec == true[0m) or stops ([;;4mMatchSpec == false[0m)
+    call count tracing for all types of function calls. For every
+    function, a counter is incremented when the function is
+    called, in any process. No process trace flags need to be
+    activated.
+
+    If call count tracing is started while already running, the
+    count is restarted from zero. To pause running counters, use [;;4m[0m
+    [;;4mMatchSpec == pause[0m. Paused and running counters can be
+    restarted from zero with [;;4mMatchSpec == restart[0m.
+
+    To read the counter value, use [;;4merlang:trace_info/2[0m.
+
+  [;;4m[;;4mcall_time[0m[0m:
+    Starts ([;;4mMatchSpec == true[0m) or stops ([;;4mMatchSpec == false[0m)
+    call time tracing for all types of function calls. For every
+    function, a counter is incremented when the function is
+    called. Time spent in the function is accumulated in two other
+    counters, seconds and microseconds. The counters are stored
+    for each call traced process.
+
+    If call time tracing is started while already running, the
+    count and time restart from zero. To pause running counters,
+    use [;;4mMatchSpec == pause[0m. Paused and running counters can be
+    restarted from zero with [;;4mMatchSpec == restart[0m.
+
+    To read the counter value, use [;;4merlang:trace_info/2[0m.
+
+  [;;4m[;;4mcall_memory[0m[0m:
+    Starts ([;;4mMatchSpec == true[0m) or stops ([;;4mMatchSpec == false[0m)
+    call memory tracing for all types of function calls.
+
+    If call memory tracing is started while already running,
+    counters and allocations restart from zero. To pause running
+    counters, use [;;4mMatchSpec == pause[0m. Paused and running
+    counters can be restarted from zero with [;;4mMatchSpec == restart[0m.
+
+    To read the counter value, use [;;4merlang:trace_info/2[0m.
+
+  The options [;;4mglobal[0m and [;;4mlocal[0m are mutually exclusive, and [;;4m[0m
+  [;;4mglobal[0m is the default (if no options are specified). The options [;;4m[0m
+  [;;4mcall_count[0m and [;;4mmeta[0m perform a kind of local tracing, and cannot
+  be combined with [;;4mglobal[0m. A function can be globally or locally
+  traced. If global tracing is specified for a set of functions,
+  then local, meta, call time, and call count tracing for the
+  matching set of local functions is disabled, and conversely.
+
+  When disabling trace, the option must match the type of trace set
+  on the function. That is, local tracing must be disabled with
+  option [;;4mlocal[0m and global tracing with option [;;4mglobal[0m (or no
+  option), and so on.
+
+  Part of a match specification list cannot be changed directly. If
+  a function has a match specification, it can be replaced with a
+  new one. To change an existing match specification, use the BIF [;;4m[0m
+  [;;4merlang:trace_info/2[0m to retrieve the existing match specification.
+
+  Returns the number of functions matching argument [;;4mMFA[0m. This is
+  zero if none matched.
+
+  Fails by raising an error exception with an error reason of:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If an argument is invalid.
+
+  [;;4m[;;4msystem_limit[0m[0m:
+    If a match specification passed as argument has excessive
+    nesting which causes scheduler stack exhaustion for the
+    scheduler that the calling process is executing on. Scheduler
+    stack size can be configured when starting the runtime
+    system.

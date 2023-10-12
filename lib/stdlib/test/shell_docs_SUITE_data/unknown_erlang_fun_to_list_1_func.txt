@@ -1,0 +1,68 @@
+
+  [;1m-spec erlang:fun_to_list(Fun) -> String :: string()[0m
+  [;1m                            when Fun :: function().[0m
+
+  Returns [;;4mString[0m that represents the code that created [;;4mFun[0m.
+
+  [;;4mString[0m has the following form, if [;;4mFun[0m was created by a fun
+  expression of the form [;;4mfun ModuleName:FuncName/Arity[0m:
+
+  [;;4m"fun ModuleName:FuncName/Arity"[0m
+
+  The form of [;;4mString[0m when [;;4mFun[0m is created from other types of 
+  fun expressions differs depending on if the fun expression was
+  executed while executing compiled code or if the fun expression
+  was executed while executing uncompiled code (uncompiled escripts,
+  the Erlang shell, and other code executed by the erl_eval module):
+
+  [;;4mcompiled code[0m:
+    [;;4m"#Fun<M.I.U>"[0m, where M, I and U correspond to the values
+    named [;;4mmodule[0m, [;;4mindex[0m and [;;4muniq[0m in the result of [;;4m[0m
+    [;;4merlang:fun_info(Fun)[0m.
+
+  [;;4muncompiled code[0m:
+    All funs created from fun expressions in uncompiled code with
+    the same arity are mapped to the same list by [;;4mfun_to_list/1[0m.
+
+  Note:
+    Generally, one can not use [;;4mfun_to_list/1[0m to check if two
+    funs are equal as [;;4mfun_to_list/1[0m does not take the fun's
+    environment into account. See [;;4merlang:fun_info/1[0m for how to
+    get the environment of a fun.
+
+  Change:
+    The output of [;;4mfun_to_list/1[0m can differ between Erlang
+    implementations and may change in future versions.
+
+  Examples:
+
+    -module(test).
+    -export([add/1, add2/0, fun_tuple/0]).
+    add(A) -> fun(B) -> A + B end.
+    add2() -> fun add/1.
+    fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
+
+    > {fun test:add/1, test:add2()}.
+    {fun test:add/1,#Fun<test.1.107738983>}
+
+  Explanation: [;;4mfun test:add/1[0m is upgradable but [;;4mtest:add2()[0m is
+  not upgradable.
+
+    > {test:add(1), test:add(42)}.
+    {#Fun<test.0.107738983>,#Fun<test.0.107738983>}
+
+  Explanation: [;;4mtest:add(1)[0m and [;;4mtest:add(42)[0m has the same string
+  representation as the environment is not taken into account.
+
+    >test:fun_tuple().
+    {#Fun<test.2.107738983>,#Fun<test.3.107738983>}
+
+  Explanation: The string representations differ because the funs
+  come from different fun expressions.
+
+    > {fun() -> 1 end, fun() -> 1 end}. > 
+    {#Fun<erl_eval.45.97283095>,#Fun<erl_eval.45.97283095>}
+
+  Explanation: All funs created from fun expressions of this form in
+  uncompiled code with the same arity are mapped to the same list by [;;4m[0m
+  [;;4mfun_to_list/1[0m.

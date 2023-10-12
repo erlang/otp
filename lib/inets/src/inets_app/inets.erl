@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -47,18 +47,18 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
-start() -> 
-    application:start(inets).
+start() ->
+    application:start(inets, temporary).
 
-start(Type) -> 
+start(Type) ->
+    application:ensure_all_started(ssl),
     application:start(inets, Type).
-
 
 %%--------------------------------------------------------------------
 %% Function: start(Service, ServiceConfig [, How]) -> {ok, Pid} | 
 %%                                                {error, Reason}
 %%
-%% Service = - ftpc | tftpd | tftpc | tftp | httpc | httpd
+%% Service = - httpc | httpd
 %% ServiceConfig = ConfPropList | ConfFile
 %% ConfPropList = [{Property, Value}] according to service 
 %% ConfFile = Path - when service is httpd
@@ -69,24 +69,22 @@ start(Type) ->
 %%
 %% Note: Dynamically started services will not be handled by
 %% application takeover and failover behavior when inets is run as a
-%% distributed application. Nor will they be automaticly restarted
+%% distributed application. Nor will they be automatically restarted
 %% when the inets application is restarted, but as long as the inets
 %% application is up and running they will be supervised and may be
 %% soft code upgraded. Services started with the option stand alone,
 %% e.i. the service is not started as part of the inets application,
 %% will lose all OTP application benefits such as soft upgrade. The
 %% stand alone service will be linked to the process that started it.
-%% In most cases some of the supervison functionallity will still be
+%% In most cases some of the supervison functionality will still be
 %% in place and in some sense the calling process has now become the
 %% top supervisor.
 %% --------------------------------------------------------------------
 start(Service, ServiceConfig) ->
-    Module = service_module(Service),
-    start_service(Module, ServiceConfig, inets).
+    start_service(Service, ServiceConfig, inets).
 
 start(Service, ServiceConfig, How) ->
-    Module = service_module(Service),
-    start_service(Module, ServiceConfig, How).
+    start_service(Service, ServiceConfig, How).
 
 
 %%--------------------------------------------------------------------
@@ -94,14 +92,14 @@ start(Service, ServiceConfig, How) ->
 %%
 %% Description: Stops the inets application.
 %%--------------------------------------------------------------------
-stop() -> 
+stop() ->
     application:stop(inets).
 
 
 %%--------------------------------------------------------------------
 %% Function: stop(Service, Pid) -> ok
 %%
-%% Service - ftpc | ftp | tftpd | tftpc | tftp | httpc | httpd | stand_alone
+%% Service - httpc | httpd | stand_alone
 %%
 %% Description: Stops a started service of the inets application or takes
 %% down a stand alone "service" gracefully.
@@ -111,8 +109,7 @@ stop(stand_alone, Pid) ->
     ok;
 
 stop(Service, Pid) ->
-    Module = service_module(Service),
-    call_service(Module, stop_service, Pid).
+    call_service(Service, stop_service, Pid).
 
 
 %%--------------------------------------------------------------------
@@ -122,11 +119,9 @@ stop(Service, Pid) ->
 %% Note: Services started with the stand alone option will not be listed
 %%--------------------------------------------------------------------
 services() ->
-    Modules = [service_module(Service) || Service <- 
-					      service_names()],
     try lists:flatten(lists:map(fun(Module) ->
 					Module:services()
-				end, Modules)) of
+				end, service_names())) of
 	Result ->
 	    Result
     catch 
@@ -147,9 +142,8 @@ services_info() ->
 	    {error, inets_not_started};
 	Services ->
 	    Fun =  fun({Service, Pid}) -> 
-			   Module = service_module(Service),
 			   Info =  
-			       case Module:service_info(Pid) of
+			       case Service:service_info(Pid) of
 				   {ok, PropList} ->
 				       PropList;
 				   {error, Reason} ->
@@ -262,11 +256,9 @@ mod_version_info(Mod) ->
     {value, {app_vsn,    AppVsn}} = lists:keysearch(app_vsn,    1, Attr),
     {value, {compile,    Comp}}   = lists:keysearch(compile,    1, Info),
     {value, {version,    Ver}}    = lists:keysearch(version,    1, Comp),
-    {value, {time,       Time}}   = lists:keysearch(time,       1, Comp),
     {Mod, [{vsn,              Vsn},
            {app_vsn,          AppVsn},
-           {compiler_version, Ver},
-           {compile_time,     Time}]}.
+           {compiler_version, Ver}]}.
 
 sys_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),
@@ -334,22 +326,12 @@ print_mod_info({Module, Info}) ->
             _ ->
                 "Not found"
         end,
-    CompDate =
-        case key1search(compile_time, Info) of
-            {value, {Year, Month, Day, Hour, Min, Sec}} ->
-                lists:flatten(
-                  io_lib:format("~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-                                [Year, Month, Day, Hour, Min, Sec]));
-            _ ->
-                "Not found"
-        end,
     io:format("   ~w:~n"
               "      Vsn:          ~s~n"
               "      App vsn:      ~s~n"
               "      ASN.1 vsn:    ~s~n"
-              "      Compiler ver: ~s~n"
-              "      Compile time: ~s~n",
-              [Module, Vsn, AppVsn, Asn1Vsn, CompVer, CompDate]),
+              "      Compiler ver: ~s~n",
+              [Module, Vsn, AppVsn, Asn1Vsn, CompVer]),
     ok.
 
 
@@ -378,7 +360,7 @@ key1search(Key, Vals, Def) ->
 %% Description: Returns a list of supported services
 %%-------------------------------------------------------------------
 service_names() ->
-    [ftpc, tftp, httpc, httpd].
+    [httpc, httpd].
 
 
 %%-----------------------------------------------------------------
@@ -388,7 +370,7 @@ service_names() ->
 %% Parameters:
 %% Level -> max | min | integer()
 %% Destination -> File | Port | io | HandlerSpec
-%% Service -> httpc | httpd | ftpc | tftp | all
+%% Service -> httpc | httpd | all
 %% File -> string()
 %% Port -> integer()
 %% Verbosity -> true | false
@@ -402,7 +384,7 @@ service_names() ->
 %% Note that it starts a tracer server.
 %% When Destination is the atom io (or the tuple {io, Verbosity}),
 %% all (printable) inets trace events (trace_ts events which has
-%% Severity withing Limit) will be written to stdout using io:format.
+%% Severity within Limit) will be written to stdout using io:format.
 %%
 %%-----------------------------------------------------------------
 enable_trace(Level, Dest)          -> inets_trace:enable(Level, Dest).
@@ -437,7 +419,7 @@ set_trace(Level) -> inets_trace:set_level(Level).
 %% Parameters:
 %% Severity -> 0 =< integer() =< 100
 %% Label -> string()
-%% Service -> httpd | httpc | ftp | tftp
+%% Service -> httpd | httpc
 %% Content -> [{tag, term()}]
 %%
 %% Description:
@@ -465,24 +447,3 @@ call_service(Service, Call, Args) ->
         exit:{noproc, _} ->
             {error, inets_not_started}
     end.
-
-%% Obsolete! Kept for backward compatiblity!
-%% TFTP application has been moved out from inets
-service_module(tftpd) ->
-    inets_tftp_wrapper;
-service_module(tftpc) ->
-    inets_tftp_wrapper;
-service_module(tftp) ->
-    inets_tftp_wrapper;
-%% Obsolete! Kept for backward compatiblity!
-%% FTP application has been moved out from inets
-service_module(ftpc) ->
-    inets_ftp_wrapper;
-service_module(Service) ->
-    Service.
-
-
-
-
-
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@
 %% PeerType         = inet | inet6
 %% PeerHost         = ip_address()
 %% PeerPort         = integer()
-%% Acess            = read | write
+%% Access            = read | write
 %% Filename         = string()
 %% Mode             = string()
 %% SuggestedOptions = [{Key, Value}]
@@ -118,7 +118,7 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 %% PeerType         = inet | inet6
 %% PeerHost         = ip_address()
 %% PeerPort         = integer()
-%% Acess            = read | write
+%% Access            = read | write
 %% Filename         = string()
 %% Mode             = string()
 %% SuggestedOptions = [{Key, Value}]
@@ -135,10 +135,10 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 %%
 %% Opens a file for read or write access.
 %% 
-%% On the client side where the open/4 call has been preceeded by a
+%% On the client side where the open/4 call has been preceded by a
 %% call to prepare/4, all options must be accepted or rejected.
-%% On the server side, where there are no preceeding prepare/4 call,
-%% noo new options may be added, but the ones that are present as
+%% On the server side, where there are no preceding prepare/4 call,
+%% no new options may be added, but the ones that are present as
 %% SuggestedOptions may be omitted or replaced with new values
 %% in the AcceptedOptions.
 %%-------------------------------------------------------------------
@@ -211,12 +211,12 @@ file_error(Reason) when is_atom(Reason) ->
 read(#state{access = read} = State) ->
     BlkSize = State#state.blksize,
     case file:read(State#state.fd, BlkSize) of
-	{ok, Bin} when is_binary(Bin), size(Bin) =:= BlkSize ->
-	    Count = State#state.count + size(Bin),
+	{ok, Bin} when is_binary(Bin), byte_size(Bin) =:= BlkSize ->
+	    Count = State#state.count + byte_size(Bin),
 	    {more, Bin, State#state{count = Count}};
-	{ok, Bin} when is_binary(Bin), size(Bin) < BlkSize ->
+	{ok, Bin} when is_binary(Bin), byte_size(Bin) < BlkSize ->
 	    _ = file:close(State#state.fd),
-	    Count = State#state.count + size(Bin),
+	    Count = State#state.count + byte_size(Bin),
 	    {last, Bin, Count};
 	eof ->
 	    {last, <<>>, State#state.count};
@@ -248,7 +248,7 @@ read(State) ->
 %%-------------------------------------------------------------------
 
 write(Bin, #state{access = write} = State) when is_binary(Bin) ->
-    Size = size(Bin),
+    Size = byte_size(Bin),
     BlkSize = State#state.blksize,
     case file:write(State#state.fd, Bin) of
 	ok when Size =:= BlkSize->

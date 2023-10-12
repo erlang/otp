@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -83,10 +83,25 @@
     </p>
     <pre>  atom() | integer()</pre>
     <p>
-      Because of subtype relations that exist between types, types
+      Because of subtype relations that exist between types, all types,
+      except <c>dynamic()</c>,
       form a lattice where the top-most element, <c>any()</c>, denotes
       the set of all Erlang terms and the bottom-most element, <c>none()</c>,
       denotes the empty set of terms.
+    </p>
+    <marker id="dynamic"/>
+    <p>
+      To facilitate <url href="https://en.wikipedia.org/wiki/Gradual_typing">
+      gradual typing</url> of Erlang, the type <c>dynamic()</c> is provided.
+      It is similar to
+      <url href="https://docs.python.org/3/library/typing.html#the-any-type">Any</url>
+      in Python,
+      <url href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any">any</url>
+      in TypeScript and
+      <url href="https://docs.hhvm.com/hack/built-in-types/dynamic">dynamic</url>
+      in Hack. <c>any()</c> and <c>dynamic()</c> interact with
+      <url href="https://learnyousomeerlang.com/dialyzer#success-typing">success typing</url>
+      the same way, so Dialyzer doesn't distinguish between them.
     </p>
     <p>
       The set of predefined types and the syntax for types follows:
@@ -94,6 +109,7 @@
     <pre><![CDATA[
   Type :: any()                 %% The top type, the set of all Erlang terms
         | none()                %% The bottom type, contains no terms
+        | dynamic()
         | pid()
         | port()
         | reference()
@@ -140,8 +156,7 @@
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: map()                                 %% denotes a map of any size
-       | #{}                                   %% denotes the empty map
+  Map :: #{}                                   %% denotes the empty map
        | #{AssociationList}
 
   Tuple :: tuple()                             %% denotes a tuple of any size
@@ -161,7 +176,7 @@
 ]]></pre>
   <p>
     Integer values are either integer or character literals or expressions
-    consisting of possibily nested unary or binary operations that evaluate to
+    consisting of possibly nested unary or binary operations that evaluate to
     an integer. Such expressions can also be used in bit strings and ranges.
   </p>
   <p>
@@ -192,23 +207,23 @@
     <c>AssociationList</c> are allowed to overlap, and if they do, the
     leftmost association takes precedence. A map association has a key in
     <c>AssociationList</c> if it belongs to this type.
-    <c>AssociationList</c> can contain both mandatory and optional
-    association types.
+    <c>AssociationList</c> can contain both mandatory <c>(:=)</c> and
+    optional <c>(=&gt;)</c> association types.
     If an association type is mandatory, an association with that type
-    is to be present.
+    needs to be present.
     In the case of an optional association type it is not required for
     the key type to be present.
   </p>
   <p>
-    Notice that the syntactic representation of <c>map()</c> is
-    <c>#{any() =&gt; any()}</c> (or <c>#{_ =&gt; _}</c>), not <c>#{}</c>.
     The notation <c>#{}</c> specifies the singleton type for the empty map.
+    Note that this notation is not a shorthand for the <c>map()</c> type.
   </p>
   <p>
     For convenience, the following types are also built-in.
     They can be thought as predefined aliases for the type unions also shown in
     the table.
   </p>
+  <marker id="builtin_types"/>
   <table>
     <row>
       <cell><em>Built-in type</em></cell><cell><em>Defined as</em></cell>
@@ -220,7 +235,13 @@
       <cell><c>binary()</c></cell><cell><c>&lt;&lt;_:_*8&gt;&gt;</c></cell>
     </row>
     <row>
+      <cell><c>nonempty_binary()</c></cell><cell><c>&lt;&lt;_:8, _:_*8&gt;&gt;</c></cell>
+    </row>
+    <row>
       <cell><c>bitstring()</c></cell><cell><c>&lt;&lt;_:_*1&gt;&gt;</c></cell>
+    </row>
+    <row>
+      <cell><c>nonempty_bitstring()</c></cell><cell><c>&lt;&lt;_:1, _:_*1&gt;&gt;</c></cell>
     </row>
     <row>
       <cell><c>boolean()</c></cell><cell><c>'false' | 'true'</c></cell>
@@ -257,6 +278,9 @@
     </row>
     <row>
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
+    </row>
+    <row>
+      <cell><c>map()</c></cell><cell><c>#{any() =&gt; any()}</c></cell>
     </row>
     <row>
       <cell><c>function()</c></cell><cell><c>fun()</c></cell>
@@ -306,11 +330,6 @@
     <tcaption>Additional built-in types</tcaption>
   </table>
 
-  <p>
-    Users are not allowed to define types with the same names as the
-    predefined or built-in ones. This is checked by the compiler and
-    its violation results in a compilation error.
-  </p>
   <note>
     <p>
       The following built-in list types also exist,
@@ -334,10 +353,38 @@
           | #Erlang_Atom{Fields}</pre>
   <p>
     Records are extended to possibly contain type information.
-    This is described in <seealso marker="#typeinrecords">
-    Type Information in Record Declarations</seealso>.
+    This is described in <seeguide marker="#typeinrecords">
+    Type Information in Record Declarations</seeguide>.
   </p>
+
+  <section>
+    <title>Redefining built-in types</title>
+    <change><p>
+      Starting from Erlang/OTP 26, is is permitted to define a type
+      having the same name as a built-in type.</p></change>
+      <p>It is recommended to
+      avoid deliberately reusing built-in names because it can be
+      confusing. However, when an Erlang/OTP release introduces a new
+      type, code that happened to define its own type having the same
+      name will continue to work.
+    </p>
+
+    <p>As an example, imagine that the Erlang/OTP 42 release introduces
+    a new type <c>gadget()</c> defined like this:</p>
+
+    <pre>
+  -type gadget() :: {'gadget', reference()}.</pre>
+
+    <p>Further imagine that some code has its own (different)
+    definition of <c>gadget()</c>, for example:</p>
+
+    <pre>
+  -type gadget() :: #{}.</pre>
+
+    <p>Since redefinitions are allowed, the code will still compile (but
+    with a warning), and Dialyzer will not emit any additional warnings.</p>
   </section>
+</section>
 
   <section>
     <title>Type Declarations of User-Defined Types</title>
@@ -403,6 +450,7 @@
       types are not accessible by other modules anyway - and is
       always to be exported.
     </p>
+    <p>Read more on <seeguide marker="opaques">Opaques</seeguide></p>
   </section>
 
   <section>
@@ -432,7 +480,7 @@
       This is checked by the compiler and results in a compilation error
       if a violation is detected.
     </p>
-    <note>
+    <change>
       <p>Before Erlang/OTP 19, for fields without initial values,
       the singleton type <c>'undefined'</c> was added to all declared types.
       In other words, the following two record declarations had identical
@@ -449,7 +497,7 @@
       This is no longer the case. If you require <c>'undefined'</c> in your record field
       type, you must explicitly add it to the typespec, as in the 2nd example.
     </p>
-    </note>
+    </change>
     <p>
       Any record, containing type information or not, once defined,
       can be used as a type using the following syntax:
@@ -465,6 +513,33 @@
       Any unspecified fields are assumed to have the type in the original
       record declaration.
     </p>
+    <note>
+      <p>When records are used to create patterns for ETS and
+        Mnesia match functions, Dialyzer may need some help not to emit
+        bad warnings. For example:</p>
+
+<pre>
+    -type height() :: pos_integer().
+    -record(person, {name :: string(), height :: height()}).
+
+    lookup(Name, Tab) ->
+	ets:match_object(Tab, #person{name = Name, _ = '_'}).</pre>
+
+      <p>Dialyzer will emit a warning since <c>'_'</c> is not in the
+        type of record field <c>height</c>.</p>
+
+      <p>The recommended way of dealing with this is to declare the
+        smallest record field types to accommodate all your needs,
+        and then create refinements as needed. The modified example:</p>
+
+<pre>
+    -record(person, {name :: string(), height :: height() | '_'}).
+
+    -type person() :: #person{height :: height()}.</pre>
+
+      <p>In specifications and type declarations the type
+        <c>person()</c> is to be preferred before <c>#person{}</c>.</p>
+    </note>
   </section>
 
   <section>
@@ -474,22 +549,20 @@
       <c>-spec</c> attribute. The general format is as follows:
     </p>
     <pre>
-  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
-      The arity of the function must match the number of arguments,
-      else a compilation error occurs.
+      An implementation of the function with the same name
+      <c>Function</c> must exist in the current module, and the arity
+      of the function must match the number of arguments, else a
+      compilation error occurs.
     </p>
     <p>
-      This form can also be used in header files (.hrl) to declare type
-      information for exported functions.
-      Then these header files can be included in files that (implicitly or
-      explicitly) import these functions.
-    </p>
-    <p>
-      Within a given module, the following shorthand suffices in most cases:
+      The following longer format with module name is also valid as
+      long as <c>Module</c> is the name of the current module. This
+      can be useful for documentation purposes.
     </p>
     <pre>
-  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
       Also, for documentation purposes, argument names can be given:
     </p>
@@ -504,8 +577,7 @@
          ; (T4, T5) -> T6.</pre>
     <p>
       A current restriction, which currently results in a warning
-      (not an error) by the compiler, is that the domains of
-      the argument types cannot overlap.
+      by Dialyzer, is that the domains of the argument types cannot overlap.
       For example, the following specification results in a warning:
     </p>
     <pre>
@@ -574,5 +646,13 @@
       of the following form:
     </p>
     <pre>  -spec my_error(term()) -> no_return().</pre>
+
+  <note>
+    <p>Erlang uses the shorthand version <c>_</c> as an anonymous type variable
+    equivalent to <c>term()</c> or <c>any()</c>. For example, the following function</p>
+    <pre>  -spec Function(string(), _) -> string().</pre>
+    <p>is equivalent to:</p>
+    <pre>  -spec Function(string(), any()) -> string().</pre>
+  </note>
   </section>
 </chapter>

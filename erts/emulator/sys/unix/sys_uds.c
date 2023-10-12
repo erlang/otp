@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #endif
 
 #if defined(__sun__) && !defined(_XOPEN_SOURCE)
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 600
 #endif
 
 #include <limits.h>
@@ -88,8 +88,9 @@ sys_uds_readv(int fd, struct iovec *iov, size_t iov_len,
     if((msg.msg_flags & MSG_CTRUNC) == MSG_CTRUNC)
     {
         /* We assume that we have given enough space for any header
-           that are sent to us. So the only remaining reason to get
-           this flag set is if the caller has run out of file descriptors.
+           that are sent to us. So the only remaining reasons to get
+           this flag set is if the caller has run out of file descriptors
+           or an SELinux policy prunes the response (eg. O_APPEND on STDERR).
         */
         errno = EMFILE;
         return -1;

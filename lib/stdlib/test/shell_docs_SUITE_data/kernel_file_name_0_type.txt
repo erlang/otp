@@ -1,0 +1,6 @@
+
+  [;1m-type name() :: string() | atom() | deep_list().[0m
+
+  If VM is in Unicode filename mode, [;;4mstring()[0m and [;;4mchar()[0m are
+  allowed to be > 255. See also the documentation of the [;;4mname_all()[0m
+  type.

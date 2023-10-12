@@ -1,2 +1,0 @@
--define(AT_LEAST_19, 1).
--define(AT_LEAST_17, 1).

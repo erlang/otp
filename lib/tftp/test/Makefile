@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-TFTP_SPECS = tftp.spec tftp_bench.spec
+TFTP_SPECS = tftp.spec
 COVER_FILE = tftp.cover
 TFTP_FILES = tftp.config $(TFTP_SPECS)
 
@@ -152,6 +152,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
 	$(TFTP_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets
@@ -161,7 +162,7 @@ ERL_COMPILE_FLAGS += \
 # 1) TFTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

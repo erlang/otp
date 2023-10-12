@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,12 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
+	eunit_test_listener \
 	eunit_SUITE \
+	tc0 \
 	tlatin \
-	tutf8
+	tutf8 \
+	ttimesout
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -43,6 +46,7 @@ RELSYSDIR = $(RELEASE_PATH)/eunit_test
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -55,7 +59,7 @@ make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
 		$(MODULES) > $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:

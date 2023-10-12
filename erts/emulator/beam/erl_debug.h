@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,6 @@
 #ifdef DEBUG
 
 #include "erl_term.h"
-
-#ifdef HIPE
-#include "hipe_debug.h"
-#endif
 
 /* Heap areas will be filled with this value when they are deallocated
  * after a garbage collection. This value used to be 0xff, but that is

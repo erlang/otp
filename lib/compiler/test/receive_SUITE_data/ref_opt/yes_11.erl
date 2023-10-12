@@ -4,7 +4,7 @@
 ?MODULE() ->
     ok.
 
-%% Artifical example to cover more code in beam_receive.
+%% Artificial example to cover more code in beam_receive.
 do_call(Process, Request) ->
     Mref = erlang:monitor(process, Process),
     Process ! Request,

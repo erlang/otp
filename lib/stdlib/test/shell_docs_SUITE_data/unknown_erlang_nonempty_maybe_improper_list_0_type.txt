@@ -1,0 +1,5 @@
+
+  [;1m-type nonempty_maybe_improper_list() ::[0m
+  [;1m          nonempty_maybe_improper_list(any(), any()).[0m
+
+  A maybe_improper_list() that contains some items.

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 	 %% Management API
 	 start/0, start/1, 
 	 start_link/0, start_link/1, 
-	 stop/0, 
+	 stop/0, stop/1,
 
 	 monitor/0, demonitor/1, 
 	 notify_started/1, cancel_notify_started/1, 
@@ -89,23 +89,12 @@
 	 system_start_time/0,
 	 sys_up_time/0,
 
-	 info/0, 
-	 verbosity/2 
+	 info/0, info/1,
+	 verbosity/2,
+         restart/1
 	]).
 
 -export([format_reason/1, format_reason/2]).
-
-%% Backward compatibility exports (API version "2")
--export([
-	 sync_get/3, sync_get/4, sync_get/5, sync_get/6, 
-	 async_get/3, async_get/4, async_get/5, async_get/6, 
-	 sync_get_next/3, sync_get_next/4, sync_get_next/5, sync_get_next/6, 
-	 async_get_next/3, async_get_next/4, async_get_next/5, async_get_next/6, 
-	 sync_set/3, sync_set/4, sync_set/5, sync_set/6, 
-	 async_set/3, async_set/4, async_set/5, async_set/6, 
-	 sync_get_bulk/5, sync_get_bulk/6, sync_get_bulk/7, sync_get_bulk/8, 
-	 async_get_bulk/5, async_get_bulk/6, async_get_bulk/7, async_get_bulk/8 
-	]).
 
 %% Application internal export
 -export([start_link/3, snmpm_start_verify/2, snmpm_start_verify/3]).
@@ -114,9 +103,9 @@
 -export_type([
 	      register_timeout/0, 
 	      agent_config/0, 
-	      target_name/0
+	      target_name/0,
+              pdu_type/0
 	     ]).
-
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -145,6 +134,7 @@
 			{sec_name,         snmp:sec_name()}    | % Optional
 			{sec_level,        snmp:sec_level()}.    % Optional
 -type target_name() :: string().
+-type pdu_type() :: snmp:pdu_type() | 'trappdu'.
 
 
 %% This function is called when the snmp application
@@ -162,14 +152,14 @@ simple_conf() ->
 	{ok, _} ->
 	    ok;
 	_ ->
-	    ok = snmp_config:write_manager_config(Cwd, "", 
+	    ok = snmp_config:write_manager_config(Cwd, "",
 						  [{port, 5000},
 						   {engine_id, "mgrEngine"},
 						   {max_message_size, 484}])
     end,
     Conf = [{dir, Cwd}, {db_dir, Cwd}],
     [{versions, Vsns}, {config, Conf}].
-    
+
 %% Simple start. Start a manager with default values.
 start_link() ->
     start_link(simple_conf()).
@@ -196,7 +186,12 @@ start(Opts) ->
     ok.
 
 stop() ->
-    snmpm_supervisor:stop().
+    stop(0).
+
+stop(Timeout) when (Timeout =:= infinity) orelse
+                   (is_integer(Timeout) andalso (Timeout >= 0)) ->
+    snmpm_supervisor:stop(Timeout).
+
 
 
 monitor() ->
@@ -292,6 +287,9 @@ oid_to_type(Oid) ->
 info() ->
     snmpm_server:info().
 
+info(Key) ->
+    proplists:get_value(Key, info(), {error, not_found}).
+
 
 %% -- Verbosity -- 
 
@@ -311,13 +309,23 @@ verbosity(all, V) ->
     snmpm_server:verbosity(note_store, V).
 
 
+%% -- Restart -- 
+
+%% Restart various component processes in the manager
+%% Note that the effects of this is diffiult to
+%% predict, so it should be use with *caution*!
+
+restart(net_if = What) ->
+    snmpm_server:restart(What).
+
+
 %% -- Users --
 
 %% Register the 'user'. 
 %% The manager entity responsible for a specific agent. 
 %% Module is the callback module (snmpm_user behaviour) which 
 %% will be called whenever something happens (detected 
-%% agent, incomming reply or incomming trap/notification).
+%% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
 register_user(Id, Module, Data) ->
@@ -487,7 +495,7 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 
 %% -- Requests --
 
-%% --- synchroneous get-request ---
+%% --- synchronous get-request ---
 %% 
 
 sync_get2(UserId, TargetName, Oids) ->
@@ -495,30 +503,7 @@ sync_get2(UserId, TargetName, Oids) ->
 
 sync_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:sync_get2(UserId, TargetName, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-sync_get(UserId, TargetName, Oids) ->
-    sync_get2(UserId, TargetName, Oids).
-
-sync_get(UserId, TargetName, Oids, Timeout) 
-  when is_list(Oids) andalso is_integer(Timeout) ->
-    SendOpts = [{timeout, Timeout}],
-    sync_get2(UserId, TargetName, Oids, SendOpts);
-sync_get(UserId, TargetName, Context, [OH|_] = Oids) 
-  when is_list(Context) andalso is_list(OH) ->
-    SendOpts = [{context, Context}],
-    sync_get2(UserId, TargetName, Oids, SendOpts).
-
-sync_get(UserId, TargetName, Context, Oids, Timeout) ->
-    SendOpts = [{context, Context}, {timeout, Timeout}],
-    sync_get2(UserId, TargetName, Oids, SendOpts).
-
-sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-    SendOpts = [{context, Context}, {timeout, Timeout}, {extra, ExtraInfo}],
-    sync_get2(UserId, TargetName, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
-
+    snmpm_server:sync_get(UserId, TargetName, Oids, SendOpts).
 
 
 %% --- asynchronous get-request ---
@@ -532,31 +517,10 @@ async_get2(UserId, TargetName, Oids) ->
 
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:async_get2(UserId, TargetName, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-async_get(UserId, TargetName, Oids) ->
-    async_get2(UserId, TargetName, Oids).
-
-async_get(UserId, TargetName, Oids, Expire) when is_integer(Expire) ->
-    SendOpts = [{timeout, Expire}], 
-    async_get2(UserId, TargetName, Oids, SendOpts);
-async_get(UserId, TargetName, Context, Oids) 
-  when is_list(Context) andalso is_list(Oids) ->
-    SendOpts = [{context, Context}], 
-    async_get2(UserId, TargetName, Oids, SendOpts).
-
-async_get(UserId, TargetName, Context, Oids, Expire) ->
-    SendOpts = [{timeout, Expire}, {context, Context}], 
-    async_get2(UserId, TargetName, Oids, SendOpts).
-
-async_get(UserId, TargetName, Context, Oids, Expire, ExtraInfo) ->
-    SendOpts = [{timeout, Expire}, {context, Context}, {extra, ExtraInfo}], 
-    async_get2(UserId, TargetName, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:async_get(UserId, TargetName, Oids, SendOpts).
 
 
-%% --- synchroneous get_next-request ---
+%% --- synchronous get_next-request ---
 %% 
 
 sync_get_next2(UserId, TargetName, Oids) ->
@@ -564,29 +528,7 @@ sync_get_next2(UserId, TargetName, Oids) ->
 
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:sync_get_next2(UserId, TargetName, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-sync_get_next(UserId, TargetName, Oids) ->
-    sync_get_next2(UserId, TargetName, Oids).
-
-sync_get_next(UserId, TargetName, Oids, Timeout) 
-  when is_list(Oids) andalso is_integer(Timeout) ->
-    SendOpts = [{timeout, Timeout}], 
-    sync_get_next2(UserId, TargetName, Oids, SendOpts);
-sync_get_next(UserId, TargetName, Context, Oids) 
-  when is_list(Context) andalso is_list(Oids) ->
-    SendOpts = [{context, Context}], 
-    sync_get_next2(UserId, TargetName, Oids, SendOpts).
-
-sync_get_next(UserId, TargetName, Context, Oids, Timeout) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}], 
-    sync_get_next2(UserId, TargetName, Oids, SendOpts).
-
-sync_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}, {extra, ExtraInfo}], 
-    sync_get_next2(UserId, TargetName, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:sync_get_next(UserId, TargetName, Oids, SendOpts).
 
 
 %% --- asynchronous get_next-request ---
@@ -597,32 +539,10 @@ async_get_next2(UserId, TargetName, Oids) ->
 
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:async_get_next2(UserId, TargetName, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-async_get_next(UserId, TargetName, Oids) ->
-    async_get_next2(UserId, TargetName, Oids).
-
-async_get_next(UserId, TargetName, Oids, Expire) 
-  when is_list(Oids) andalso is_integer(Expire) ->
-    SendOpts = [{timeout, Expire}], 
-    async_get_next2(UserId, TargetName, Oids, SendOpts);
-async_get_next(UserId, TargetName, Context, Oids) 
-  when is_list(Context) andalso is_list(Oids) ->
-    SendOpts = [{context, Context}], 
-    async_get_next2(UserId, TargetName, Oids, SendOpts).
-
-async_get_next(UserId, TargetName, Context, Oids, Expire) ->
-    SendOpts = [{timeout, Expire}, {context, Context}], 
-    async_get_next2(UserId, TargetName, Oids, SendOpts).
-
-async_get_next(UserId, TargetName, Context, Oids, Expire, ExtraInfo) ->
-    SendOpts = [{timeout, Expire}, {context, Context}, {extra, ExtraInfo}], 
-    async_get_next2(UserId, TargetName, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:async_get_next(UserId, TargetName, Oids, SendOpts).
 
 
-%% --- synchroneous set-request ---
+%% --- synchronous set-request ---
 %% 
 
 sync_set2(UserId, TargetName, VarsAndVals) ->
@@ -630,29 +550,7 @@ sync_set2(UserId, TargetName, VarsAndVals) ->
 
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
-    snmpm_server:sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-%% <BACKWARD-COMPAT>
-sync_set(UserId, TargetName, VarsAndVals) ->
-    sync_set2(UserId, TargetName, VarsAndVals).
-
-sync_set(UserId, TargetName, VarsAndVals, Timeout) 
-  when is_list(VarsAndVals) andalso is_integer(Timeout) ->
-    SendOpts = [{timeout, Timeout}], 
-    sync_set2(UserId, TargetName, VarsAndVals, SendOpts);
-sync_set(UserId, TargetName, Context, VarsAndVals) 
-  when is_list(Context) andalso is_list(VarsAndVals) ->
-    SendOpts = [{context, Context}], 
-    sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-sync_set(UserId, TargetName, Context, VarsAndVals, Timeout) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}], 
-    sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, ExtraInfo) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}, {extra, ExtraInfo}], 
-    sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:sync_set(UserId, TargetName, VarsAndVals, SendOpts).
 
 
 %% --- asynchronous set-request ---
@@ -663,32 +561,10 @@ async_set2(UserId, TargetName, VarsAndVals) ->
 
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
-    snmpm_server:async_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-%% <BACKWARD-COMPAT>
-async_set(UserId, TargetName, VarsAndVals) ->
-    async_set2(UserId, TargetName, VarsAndVals).
-
-async_set(UserId, TargetName, VarsAndVals, Expire) 
-  when is_list(VarsAndVals) andalso is_integer(Expire) ->
-    SendOpts = [{timeout, Expire}], 
-    async_set2(UserId, TargetName, VarsAndVals, SendOpts);
-async_set(UserId, TargetName, Context, VarsAndVals) 
-  when is_list(Context) andalso is_list(VarsAndVals) ->
-    SendOpts = [{context, Context}], 
-    async_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-async_set(UserId, TargetName, Context, VarsAndVals, Expire) ->
-    SendOpts = [{timeout, Expire}, {context, Context}], 
-    async_set2(UserId, TargetName, VarsAndVals, SendOpts).
-
-async_set(UserId, TargetName, Context, VarsAndVals, Expire, ExtraInfo) ->
-    SendOpts = [{timeout, Expire}, {context, Context}, {extra, ExtraInfo}], 
-    async_set2(UserId, TargetName, VarsAndVals, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:async_set(UserId, TargetName, VarsAndVals, SendOpts).
 
 
-%% --- synchroneous get-bulk ---
+%% --- synchronous get-bulk ---
 %% 
 
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
@@ -699,52 +575,8 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_list(SendOpts) ->
-    %% p("sync_get_bulk -> entry with"
-    %%   "~n   UserId:     ~p"
-    %%   "~n   TargetName: ~p"
-    %%   "~n   NonRep:     ~p"
-    %%   "~n   MaxRep:     ~p"
-    %%   "~n   Oids:       ~p"
-    %%   "~n   SendOpts:   ~p", 
-    %%   [UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
-    snmpm_server:sync_get_bulk2(UserId, TargetName, 
-				NonRep, MaxRep, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids).
-
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Timeout) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Oids) andalso 
-       is_integer(Timeout) ->
-    SendOpts = [{timeout, Timeout}], 
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts);
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Context) andalso 
-       is_list(Oids) ->
-    %% p("sync_get_bulk -> entry with"
-    %%   "~n   UserId: ~p"
-    %%   "~n   TargetName: ~p"
-    %%   "~n   NonRep: ~p"
-    %%   "~n   MaxRep: ~p"
-    %%   "~n   Context: ~p"
-    %%   "~n   Oids: ~p", [UserId, TargetName, NonRep, MaxRep, Context, Oids]),
-    SendOpts = [{context, Context}], 
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}], 
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout, 
-	      ExtraInfo) ->
-    SendOpts = [{timeout, Timeout}, {context, Context}, {extra, ExtraInfo}], 
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+                               NonRep, MaxRep, Oids, SendOpts).
 
 
 %% --- asynchronous get-bulk ---
@@ -758,37 +590,8 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_list(SendOpts) ->
-    snmpm_server:async_get_bulk2(UserId, TargetName, 
-				 NonRep, MaxRep, Oids, SendOpts).
-
-%% <BACKWARD-COMPAT>
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Oids) andalso 
-       is_integer(Expire) ->
-    SendOpts = [{timeout, Expire}],     
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts);
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Context) andalso 
-       is_list(Oids) ->
-    SendOpts = [{context, Context}], 
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Expire) ->
-    SendOpts = [{timeout, Expire}, {context, Context}], 
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Expire, 
-	       ExtraInfo) ->
-    SendOpts = [{timeout, Expire}, {context, Context}, {extra, ExtraInfo}], 
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+                                NonRep, MaxRep, Oids, SendOpts).
 
 
 
@@ -1034,7 +837,7 @@ sys_up_time() ->
 %%% printable string of the error reason received from either:
 %%% 
 %%%    * If any of the sync/async get/get-next/set/get-bulk
-%%%      returnes {error, Reason} 
+%%%      returns {error, Reason} 
 %%%    * The Reason parameter in the handle_error user callback 
 %%%      function
 %%% 

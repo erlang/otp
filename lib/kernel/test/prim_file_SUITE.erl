@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
          file_read_file_info_opts/1, file_write_file_info_opts/1,
 	 file_write_read_file_info_opts/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
-	 read_write/1, pread_write/1, append/1, exclusive/1]).
+	 read_write/1, pread_write/1, append/1, exclusive/1,
+	 read_file_rename_race/1]).
 -export([e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
 -export([make_link/1, read_link_info_for_non_link/1,
@@ -67,7 +68,7 @@ groups() ->
        truncate, sync, datasync, advise, large_write, allocate]},
      {open, [],
       [open1, modes, close, access, read_write, pread_write,
-       append, exclusive]},
+       append, exclusive, read_file_rename_race]},
      {pos, [], [pos1, pos2]},
      {file_info, [],
       [file_info_basic_file,file_info_basic_directory, file_info_bad,
@@ -434,7 +435,7 @@ close(Config) when is_list(Config) ->
     {ok,Fd1} = ?PRIM_FILE:open(Name, [read, write]),
     %% Just closing it is no fun, we did that a million times already
     %% This is a common error, for code written before Erlang 4.3
-    %% bacause then ?PRIM_FILE:open just returned a Pid, and not everyone
+    %% because then ?PRIM_FILE:open just returned a Pid, and not everyone
     %% really checked what they got.
     {'EXIT',_Msg} = (catch ok = ?PRIM_FILE:close({ok,Fd1})),
     ok = ?PRIM_FILE:close(Fd1),
@@ -534,7 +535,7 @@ append(Config) when is_list(Config) ->
     ok = ?PRIM_FILE:make_dir(NewDir),
 
     First = "First line\n",
-    Second = "Seond lines comes here\n",
+    Second = "Second lines comes here\n",
     Third = "And here is the third line\n",
 
     %% Write a small text file.
@@ -567,6 +568,60 @@ exclusive(Config) when is_list(Config) ->
     {error, eexist} = ?PRIM_FILE:open(Name, [write, exclusive]),
     ok = ?PRIM_FILE:close(Fd),
     ok.
+
+%% Test read_file with concurrent renames and size changes.
+
+-define(RFRR_DATA1, <<"gazonk">>).
+-define(RFRR_DATA2, <<"fubar">>). % shorter than and not a prefix of DATA1
+
+read_file_rename_race(Config) when is_list(Config) ->
+    %% This test reportedly fails on Windows and Darwin 9.8.0.
+    Supported =
+	case os:type() of
+	    {win32, _} -> false;
+	    {unix, darwin} -> os:version() > {9,8,0};
+	    {unix, _} -> true
+	end,
+    if Supported ->
+	Dir = proplists:get_value(priv_dir, Config),
+	Name = filename:join(Dir, "filename"),
+	rfrr_write_file(Name, ?RFRR_DATA2),
+	Mutator = spawn_link(fun() -> rfrr_mutator(Name, ?RFRR_DATA1, ?RFRR_DATA2) end),
+	Result = rfrr_reader(Name, 1, _N = 5000),
+	unlink(Mutator),
+	exit(Mutator, kill),
+	ok = Result;
+       true ->
+	{skipped, "Not supported on Windows, or Darwin =< 9.8.0"}
+    end.
+
+rfrr_reader(Name, I, N) when I < N ->
+    case rfrr_read_file(Name, I) of
+	ok -> rfrr_reader(Name, I + 1, N);
+	error -> error
+    end;
+rfrr_reader(_Name, _I, _N) -> ok.
+
+rfrr_read_file(Name, I) ->
+    case prim_file:read_file(Name) of
+	{ok, ?RFRR_DATA1} -> ok;
+	{ok, ?RFRR_DATA2} -> ok;
+	Other ->
+	    io:format(standard_error, "rfrr_read_file #~p got ~p\n", [I, Other]),
+	    error
+    end.
+
+%% Correctness of read_file must not depend on the mutator using the
+%% file server in the reader's Erlang VM, so we use prim_file here.
+rfrr_mutator(Name, Data1, Data2) ->
+    rfrr_write_file(Name, Data1),
+    rfrr_mutator(Name, Data2, Data1).
+
+%% Atomically replace Name with a new file containing Data.
+rfrr_write_file(Name, Data) ->
+    NameTmp = Name ++ ".tmp", % must be in same volume as Name
+    ok = prim_file:write_file(NameTmp, Data),
+    ok = prim_file:rename(NameTmp, Name).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1167,7 +1222,7 @@ allocate(Config) when is_list(Config) ->
 
 allocate_and_assert(Fd, Offset, Length) ->
     %% Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
-    %% any other negative side effect. We can't really asssert against a
+    %% any other negative side effect. We can't really assert against a
     %% specific return value, because support for file space pre-allocation
     %% depends on the OS, OS version and underlying filesystem.
     %%
@@ -1300,7 +1355,8 @@ e_delete(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    %% Remove a character device.
-	    {error, eacces} = ?PRIM_FILE:delete("nul");
+	    expect({error, eacces}, {error, einval},
+                   ?PRIM_FILE:delete("nul"));
 	_ ->
 	    ?PRIM_FILE:write_file_info(
 	       Base, #file_info {mode=0}),
@@ -1402,7 +1458,7 @@ e_rename(Config) when is_list(Config) ->
 			ok ->
 			    {ok, {comment,
 				  "Moving between filesystems "
-				  "suceeded, files are probably "
+				  "succeeded, files are probably "
 				  "in the same filesystem!"}};
 			{error, eperm} ->
 			    {ok, {comment, "SBS! You don't "
@@ -1707,12 +1763,12 @@ list_dir_1(TestDir, Cnt, Sorted0) ->
 %%%
 
 run_large_file_test(Config, Run, Name) ->
-    case {os:type(),os:version()} of
-	{{win32,nt},_} ->
+    case {erlang:system_info(wordsize),os:type(),os:version()} of
+	{8,{win32,nt},_} ->
 	    do_run_large_file_test(Config, Run, Name);
-	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
+	{8,{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
-	{{unix,_},_} ->
+	{8,{unix,_},_} ->
 	    DiscFree = unix_free(proplists:get_value(priv_dir, Config)),
             MemFree = free_memory(),
 	    io:format("Free disk: ~w KByte~n", [DiscFree]),

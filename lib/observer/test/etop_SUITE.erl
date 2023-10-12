@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,17 +28,17 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(Case, Config) ->
     try apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -64,65 +64,59 @@ end_per_group(_GroupName, Config) ->
 
 %% Start etop with text presentation
 text(_) ->
-    case test_server:is_native(lists) of
-	true -> {skip,"Native libs -- tracing does not work"};
-	false -> text()
-    end.
-
-text() ->
-    ?line {ok,Node} = ?t:start_node(node2,peer,[]),
+    {ok,Node} = test_server:start_node(node2,peer,[]),
 
     %% Must spawn this process, else the test case will never end.
-    ?line spawn_link(etop,start,[[{node,Node},{output,text},{interval,3}]]),
-    ?line timer:sleep(4000),
-    ?line etop:config(interval,2),
-    ?line timer:sleep(3000),
-    ?line etop:config(lines,5),
-    ?line timer:sleep(3000),
-    ?line etop:config(accumulate,true),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,reductions),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,memory),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,msg_q),
-    ?line timer:sleep(3000),
+    spawn_link(etop,start,[[{node,Node},{output,text},{interval,3}]]),
+    timer:sleep(4000),
+    etop:config(interval,2),
+    timer:sleep(3000),
+    etop:config(lines,5),
+    timer:sleep(3000),
+    etop:config(accumulate,true),
+    timer:sleep(3000),
+    etop:config(sort,reductions),
+    timer:sleep(3000),
+    etop:config(sort,memory),
+    timer:sleep(3000),
+    etop:config(sort,msg_q),
+    timer:sleep(3000),
     ok.
 text(cleanup,_Config) ->
     etop:stop(),
     {ok,Host} = inet:gethostname(),
     Node = list_to_atom("node2@"++Host),
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 text_tracing_off(suite) ->
     [];
 text_tracing_off(doc) ->
     ["Start etop with text presentation, and tracing turned off"];
 text_tracing_off(Config) when is_list(Config) ->
-    ?line {ok,Node} = ?t:start_node(node2,peer,[]),
+    {ok,Node} = test_server:start_node(node2,peer,[]),
 
     %% Must spawn this process, else the test case will never end.
-    ?line spawn_link(etop,start,[[{node,Node},
+    spawn_link(etop,start,[[{node,Node},
 				  {output,text},
 				  {interval,3},
 				  {tracing,off}]]),
-    ?line timer:sleep(4000),
-    ?line etop:config(interval,2),
-    ?line timer:sleep(3000),
-    ?line etop:config(lines,5),
-    ?line timer:sleep(3000),
-    ?line etop:config(accumulate,true),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,memory),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,msg_q),
-    ?line timer:sleep(3000),
-    ?line etop:config(sort,runtime), % this should not crash, but has no effect
-    ?line timer:sleep(3000),
+    timer:sleep(4000),
+    etop:config(interval,2),
+    timer:sleep(3000),
+    etop:config(lines,5),
+    timer:sleep(3000),
+    etop:config(accumulate,true),
+    timer:sleep(3000),
+    etop:config(sort,memory),
+    timer:sleep(3000),
+    etop:config(sort,msg_q),
+    timer:sleep(3000),
+    etop:config(sort,runtime), % this should not crash, but has no effect
+    timer:sleep(3000),
     ok.
 text_tracing_off(cleanup,_Config) ->
     etop:stop(),
     {ok,Host} = inet:gethostname(),
     Node = list_to_atom("node2@"++Host),
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 

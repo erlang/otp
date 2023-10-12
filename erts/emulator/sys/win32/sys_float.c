@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,20 +25,8 @@
 #include "sys.h"
 #include "signal.h"
 
-/* global variable for floating point checks, (see sys.h) */
-/* Note! This is part of the interface Machine <---> sys.c */
-volatile int erl_fp_exception = 0;
-
-static void fpe_exception(int sig);
-
 void
 erts_sys_init_float(void)
-{
-}
-void erts_thread_init_float(void)
-{
-}
-void erts_thread_disable_fpe(void)
 {
 }
 
@@ -125,7 +113,7 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 
     if (erts_snprintf(buffer, buffer_size, "%.*e", decimals, fp) >= buffer_size)
         return -1;
-    /* Search upto decimal point */
+    /* Search up to decimal point */
     if (*s == '+' || *s == '-') s++;
     while (isdigit(*s)) s++;
     if (*s == ',') *s++ = '.'; /* Replace ',' with '.' */

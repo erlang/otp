@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,11 +35,11 @@ millisec_passed(T0) ->
 			     native,
 			     micro_seconds) div 1000.
 
-%% Return formated time stamp (e.g. 2015:03:16 10:05:23 1234)
+%% Return formatted time stamp (e.g. 2015:03:16 10:05:23 1234)
 formated_timestamp() ->
     format_timestamp( os:timestamp() ).
 
-%% Return formated time stamp (e.g. 2015:03:16 10:05:23 1234)
+%% Return formatted time stamp (e.g. 2015:03:16 10:05:23 1234)
 format_timestamp({_N1, _N2, N3} = Tme) ->
     {Date, Time}   = calendar:now_to_datetime(Tme),
     {YYYY,MM,DD}   = Date,

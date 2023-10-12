@@ -4,14 +4,14 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>gen_event Behaviour</title>
@@ -45,7 +45,7 @@
       event handlers. For example, an event manager for handling errors
       can by default have a handler installed, which writes error
       messages to the terminal. If the error messages during a certain
-      period is to be saved to a file as well, the user adds another
+      period are to be saved to a file as well, the user adds another
       event handler that does this. When logging to the file is no
       longer necessary, this event handler is deleted.</p>
     <p>An event manager is implemented as a process and each event
@@ -208,7 +208,7 @@ terminate(_Args, Fd) ->
         function is needed. The event manager is automatically
         terminated by its supervisor. Exactly how this is done is
         defined by a
-        <seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+        <seeguide marker="sup_princ#shutdown">shutdown strategy</seeguide>
         set in the supervisor.</p>
     </section>
 
@@ -224,10 +224,11 @@ ok</pre>
     <title>Handling Other Messages</title>
     <p>If the <c>gen_event</c> is to be able to receive other messages
       than events, the callback function
-      <c>handle_info(Info, StateName, StateData)</c>
+      <c>handle_info(Info, State)</c>
       must be implemented to handle them. Examples of other
       messages are exit messages, if the <c>gen_event</c> is linked to
-      other processes (than the supervisor) and trapping exit signals.</p>
+      other processes (than the supervisor, for example via
+      <c>add_sup_handler</c>) and trapping exit signals.</p>
     <code type="none">
 handle_info({'EXIT', Pid, Reason}, State) ->
     ..code to handle exits here..
@@ -239,4 +240,3 @@ code_change(OldVsn, State, Extra) ->
     {ok, NewState}</code>
   </section>
 </chapter>
-

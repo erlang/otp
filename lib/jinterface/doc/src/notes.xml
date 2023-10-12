@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2018</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,304 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
+
+<section><title>Jinterface 1.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>As announced since the release of OTP 24, support
+	    for:</p> <list> <item><p> version 4 node container types
+	    in the external term format are now mandatory. That is,
+	    references supporting up to 5 32-bit integer identifiers,
+	    and process and port identifiers with support for 64-bit
+	    data storage. The distribution flag <seeguide
+	    marker="erts:erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	    is therefor now also mandatory. OTP has since OTP 24
+	    supported this. Also note that the external format
+	    produced by <c>term_to_binary()</c> and
+	    <c>term_to_iovec()</c> will unconditionally produce pids,
+	    ports, and references supporting this larger format.
+	    </p></item> <item><p> the <seeguide
+	    marker="erts:erl_dist_protocol#new_link_protocol">new
+	    link protocol</seeguide> introduced in OTP 23.3 is now
+	    mandatory. The distribution flag <seeguide
+	    marker="erts:erl_dist_protocol#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
+	    is therefor now also mandatory. </p></item> </list>
+	    <p>Due to the above, OTP 26 nodes will refuse to connect
+	    to OTP nodes from releases prior to OTP 24.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18140 Aux Id: PR-6072 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept connection setup from OTP 23 and 24 nodes that are
+	    not using epmd.</p>
+          <p>
+	    Own Id: OTP-18404 Aux Id: GH-6595, PR-6625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix javadoc build error by adding option <c>-encoding
+	    UTF-8</c>.</p>
+          <p>
+	    Own Id: OTP-18215 Aux Id: PR-6154 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following distribution flags are now mandatory:
+	    <c>DFLAG_BIT_BINARIES</c>, <c>DFLAG_EXPORT_PTR_TAG</c>,
+	    <c>DFLAG_MAP_TAGS</c>, <c>DFLAG_NEW_FLOATS</c>, and
+	    <c>DFLAG_FUN_TAGS</c>. This mainly concerns libraries or
+	    application that implement the distribution protocol
+	    themselves.</p>
+          <p>
+	    Own Id: OTP-17318 Aux Id: PR-4972 </p>
+        </item>
+        <item>
+          <p>
+	    Removed use of node creation value zero as a wildcard.
+	    Also prevent zero from being used as creation by
+	    <c>erl_interface</c> and <c>jinterface</c> nodes.</p>
+          <p>
+	    Own Id: OTP-17682 Aux Id: PR-5347 </p>
+        </item>
+        <item>
+          <p>
+	    Add new abstract class <c>OtpGenericTransportFactory</c>
+	    to allow implementation of any transport protocol without
+	    dependency on epmd.</p>
+          <p>
+	    Own Id: OTP-17961 Aux Id: PR-4839 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>OtpOutputStream.write_pid/4</c> and
+	    <c>write_ref/3</c> causing faulty encodig. Bug exists
+	    since OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17887 Aux Id: ERIERL-750, PR-5640 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed rare race bug that could cause NullPointerException
+	    on local close of connection.</p>
+          <p>
+	    Own Id: OTP-17478 Aux Id: PR-4837 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Accept 64-bit process identifiers from external nodes.
+	    This is the first step in an upgrade path toward using
+	    64-bit pids in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-16720 Aux Id: PR-2680 </p>
+        </item>
+        <item>
+          <p>
+	    Accept references up to a size of 160-bits from remote
+	    nodes. This is the first step in an upgrade path toward
+	    using references up to 160-bits in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17005 Aux Id: OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Accept 64-bit port identifiers from external nodes. This
+	    is the first step in an upgrade path toward using 64-bit
+	    port identifiers in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17007</p>
+        </item>
+        <item>
+          <p>
+	    Make <c>OtpErlangExternalFun</c>'s fields <c>module</c>,
+	    <c>function</c> and <c>arity</c> public.</p>
+          <p>
+	    Own Id: OTP-17170 Aux Id: PR-3005 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>OtpOutputStream.write_pid/4</c> and
+	    <c>write_ref/3</c> causing faulty encodig. Bug exists
+	    since OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17887 Aux Id: ERIERL-750, PR-5640 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A <seeguide
+	    marker="erts:erl_dist_protocol#new_link_protocol">new
+	    link protocol</seeguide> has been introduced which
+	    prevents links from ending up in an inconsistent state
+	    where one participant considers itself linked while the
+	    other doesn't. This bug has always existed in the
+	    distributed case, but has since OTP 21 also existed in
+	    the node local case since the distributed link protocol
+	    then was adopted also for node local links. The bug
+	    could, however, only trigger if both participants
+	    operated on the link simultaneously.</p>
+          <p>
+	    Own Id: OTP-17127</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Increased size of node incarnation numbers (aka
+	    "creation"), from 2 bits to 32 bits. This will reduce the
+	    risk of pids/ports/refs, from different node incarnation
+	    with the same name, being mixed up.</p>
+          <p>
+	    Own Id: OTP-15603</p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replaced deprecated &lt;tt&gt; with &lt;code&gt; in
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-16050</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added support to receive export funs (<c>fun
+	    M:F/A</c>).</p>
+	    <p>Before this change, export funs sent to a jinterface
+	    node were encoded using an undocumented fallback tuple
+	    format <c>{M,F}</c>. Existing jinterface implementations
+	    expecting these tuples must be changed to instead use the
+	    existing <c>OtpErlangExternalFun</c> class.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15774 Aux Id: OTP-15712 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Jinterface 1.9.1</title>
 
@@ -92,8 +390,8 @@
 	    by <c>term_to_binary()</c> using latin1 encoding. Note
 	    that all atoms will by default be encoded using utf8 in a
 	    future Erlang/OTP release. For more information see the
-	    documentation of <seealso
-	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+	    documentation of <seemfa
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-14337</p>
         </item>
@@ -108,7 +406,7 @@
       <list>
         <item>
           <p>
-	    Update build scripts to not make assumtions about where
+	    Update build scripts to not make assumptions about where
 	    env, cp and perl are located.</p>
           <p>
 	    Own Id: OTP-13800</p>
@@ -434,7 +732,7 @@
 	    Java 1.5 has a bug where detecting codepoint offsets in
 	    strings that are created by String.substring() gives
 	    wrong results. The new implementation uses a different
-	    method, avoinding the issue. (Thanks to Vlad Dumitrescu)</p>
+	    method, avoiding the issue. (Thanks to Vlad Dumitrescu)</p>
           <p>
 	    Own Id: OTP-9927</p>
         </item>
@@ -824,4 +1122,3 @@
     </section>
   </section>
 </chapter>
-

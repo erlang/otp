@@ -1,0 +1,22 @@
+
+  [;1m-spec is_map_key(Key, Map) -> boolean() when Key :: term(), Map :: map().[0m
+
+[;;4mSince[0m:
+  OTP 21.0
+
+  Returns [;;4mtrue[0m if map [;;4mMap[0m contains [;;4mKey[0m and returns [;;4mfalse[0m if
+  it does not contain the [;;4mKey[0m.
+
+  The call fails with a [;;4m{badmap,Map}[0m exception if [;;4mMap[0m is not a
+  map.
+
+  Example:
+
+    > Map = #{"42" => value}.
+    #{"42" => value}
+    > is_map_key("42",Map).
+    true
+    > is_map_key(value,Map).
+    false
+
+  Allowed in guard tests.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,13 +27,14 @@
 -define(privdir(_), "./disk_log_SUITE_priv").
 -define(datadir(_), "./disk_log_SUITE_data").
 -define(config(X,Y), foo).
--define(t,test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -define(datadir(Conf), proplists:get_value(data_dir, Conf)).
 -endif.
+
+-compile(export_all).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -53,6 +54,9 @@
 
 	 wrap_ext_1/1, wrap_ext_2/1,
 
+	 rotate_1/1, rotate_truncate/1, rotate_reopen/1,
+         rotate_breopen/1, next_rotate_file/1,
+
 	 head_func/1, plain_head/1, one_header/1,
 
 	 wrap_notif/1, full_notif/1, trunc_notif/1, blocked_notif/1,
@@ -65,7 +69,8 @@
 
 	 unblock/1,
 
-	 open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
+	 open_overwrite/1, open_size/1, open_change_size/1,
+         open_truncate/1, open_error/1,
 
 	 close_race/1, close_block/1, close_deadlock/1,
 
@@ -85,14 +90,10 @@
 
 	 change_attribute/1,
 
-	 dist_open/1, dist_error_open/1, dist_notify/1, 
-	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
-         dist_open2/1, other_groups/1,
-
-         otp_6278/1, otp_10131/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
-	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
+	 measure/0, init_m/1, xx/0]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -121,18 +122,8 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, otp_6278, otp_10131]).
-
-%% These test cases should be skipped if the VxWorks card is 
-%% configured without NFS cache.
--define(SKIP_NO_CACHE,[distribution]).
-%% These tests should be skipped if the VxWorks card is configured *with*
-%% nfs cache.
--define(SKIP_LARGE_CACHE,[inc_wrap_file, halt_ext, wrap_ext, read_mode, 
-			  head, wrap_notif, open_size, error_log, 
-                          error_index, chunk, 
-			  change_size_before, change_size_during, 
-			  change_size_after, default_size]).
+	 open_change_size, change_attribute, otp_6278, otp_10131,
+         otp_16768, otp_16809, rotate]).
 
 
 suite() ->
@@ -141,13 +132,13 @@ suite() ->
 
 all() -> 
     [{group, halt_int}, {group, wrap_int},
-     {group, halt_ext}, {group, wrap_ext},
+     {group, halt_ext}, {group, wrap_ext}, {group, rotate},
      {group, read_mode}, {group, head}, {group, notif},
      new_idx_vsn, reopen, {group, block}, unblock,
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, otp_6278, otp_10131].
+     otp_6278, otp_10131, otp_16768, otp_16809].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -160,23 +151,23 @@ groups() ->
      {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
      {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
      {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
+     {rotate, [],
+      [rotate_1, rotate_truncate, rotate_reopen,
+       rotate_breopen, next_rotate_file]},
      {head, [], [head_func, plain_head, one_header]},
      {notif, [],
       [wrap_notif, full_notif, trunc_notif, blocked_notif]},
      {block, [], [block_blocked, block_queue, block_queue2]},
      {open, [],
-      [open_overwrite, open_size, open_truncate, open_error]},
+      [open_overwrite, open_size, open_change_size, open_truncate,
+       open_error]},
      {close, [], [close_race, close_block, close_deadlock]},
      {error, [], [error_repair, error_log, error_index]},
      {info, [], [info_current]},
      {change_size, [],
       [change_size_before, change_size_during,
        change_size_after, default_size, change_size2,
-       change_size_truncate]},
-     {distribution, [],
-      [dist_open, dist_error_open, dist_notify,
-       dist_terminate, dist_accessible, dist_deadlock,
-       dist_open2, other_groups]}].
+       change_size_truncate]}].
 
 init_per_suite(Config) ->
     Config.
@@ -479,7 +470,7 @@ halt_ro_crash(Conf) when is_list(Conf) ->
     %% This is how it was before R6B:
     %% {C1,T1,15} = disk_log:chunk(a,start),
     %% {C2,T2} = disk_log:chunk(a,C1),
-    {C1,_OneItem,7478} = disk_log:chunk(a,start),
+    {C1,_OneItem,7476} = disk_log:chunk(a,start),
     {C2, [], 7} = disk_log:chunk(a,C1),
     eof = disk_log:chunk(a,C2),
     ok = disk_log:close(a),
@@ -832,6 +823,166 @@ wrap_ext_2(Conf) when is_list(Conf) ->
     del(File3, 3),
     ok.
 
+%% Test rotate disk log, external, size defined.
+rotate_1(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
+			     {format,external},
+			     {file, File}]),
+    x2simple_log(File, Name),
+    ok = disk_log:close(Name),
+    del_rot_files(File, 4),
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
+			     {format,external},
+			     {file, File}]),
+    {B1, _T1} = x_mk_bytes(10000), % lost due to rotation 
+    {B2, T2} = x_mk_bytes(5000),  % file a.LOG.2.gx 
+    {B3, T3} = x_mk_bytes(4000),  % file a.LOG.1.gz 
+    {B4, T4} = x_mk_bytes(2000),  % file a.LOG.1.gz
+    {B5, T5} = x_mk_bytes(5000),  % file a.LOG.0.gz 
+    {B6, T6} = x_mk_bytes(5000),  % in the active file 
+    ok = disk_log:blog(Name, B1),
+    ok = disk_log:blog(Name, B2),
+    ok = disk_log:blog(Name, B3),
+    ok = disk_log:blog_terms(a, [B4, B5, B6]),
+    case get_list(File ++ ".2.gz", Name, rotate) of
+        T2 ->
+            ok;
+        E2 ->
+            test_server_fail({bad_terms, E2, T2})
+    end,
+    T34 = T3 ++ T4,
+    case get_list(File ++ ".1.gz", Name, rotate) of
+        T34 ->
+            ok;
+        E34 ->
+            test_server_fail({bad_terms, E34, T34})
+    end,
+    case get_list(File ++ ".0.gz", Name, rotate) of
+        T5 ->
+            ok;
+        E5 ->
+            test_server_fail({bad_terms, E5, T5})
+    end,
+    case get_list(File, Name) of
+        T6 ->
+            ok;
+        E6 ->
+            test_server_fail({bad_terms, E6, T6})
+    end,
+    ok = disk_log:close(Name),
+    del_rot_files(File, 3).
+
+%% test truncate/1 for rotate logs
+rotate_truncate(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+			     {file, File}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    B = get_list(File, Name),
+    B = get_list(File ++ ".0.gz", Name, rotate),
+    B = get_list(File ++ ".1.gz", Name, rotate),
+    ok = disk_log:truncate(Name),
+    [] = get_list(File, Name),
+    {error, enoent} = file:read_file_info(File ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File ++ ".1.gz"),
+    ok = disk_log:close(Name),
+    file:delete(File).
+
+%% test reopen/2 for rotate logs
+rotate_reopen(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+			     {file, File}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    B = get_list(File, Name),
+    B = get_list(File ++ ".0.gz", Name, rotate),
+    B = get_list(File ++ ".1.gz", Name, rotate),
+    File1 = filename:join(Dir, "b.LOG"),
+    ok = disk_log:reopen(Name, File1),
+    [] = get_list(File, Name),
+    {error, enoent} = file:read_file_info(File ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File ++ ".1.gz"),
+    B = get_list(File1 ++ ".0.gz", Name, rotate),
+    B = get_list(File1 ++ ".1.gz", Name, rotate),
+    B = get_list(File1 ++ ".2.gz", Name, rotate),
+    ok = disk_log:close(Name),
+    file:delete(File),
+    del_rot_files(File1, 3).
+
+%% test breopen/3 for rotate logs
+rotate_breopen(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File1 = filename:join(Dir, "a.LOG"),
+    Name = a,
+    Head1 = "thisishead1",
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+                             {head, Head1},
+			     {file, File1}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    FileCont = Head1 ++ B,
+    FileCont = get_list(File1, Name),
+    FileCont = get_list(File1 ++ ".0.gz", Name, rotate),
+    FileCont = get_list(File1 ++ ".1.gz", Name, rotate),
+    File2 = filename:join(Dir, "b.LOG"),
+    Head2 = "thisishead2",
+    ok = disk_log:breopen(Name, File2, Head2),
+    Head2 = get_list(File1, Name),
+    {error, enoent} = file:read_file_info(File1 ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File1 ++ ".1.gz"),
+    FileCont = get_list(File2 ++ ".0.gz", Name, rotate),
+    FileCont = get_list(File2 ++ ".1.gz", Name, rotate),
+    FileCont = get_list(File2 ++ ".2.gz", Name, rotate),
+    ok = disk_log:close(Name),
+    file:delete(File1),
+    del_rot_files(File2, 3).
+
+%% Test rotate log, force a change to next file.
+next_rotate_file(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File1 = filename:join(Dir, "a.LOG"),
+    File2 = filename:join(Dir, "b.LOG"),
+
+    %% Test that halt and wrap logs get error messages
+    {ok, a} = disk_log:open([{name, a}, {type, halt},
+			     {format, internal},
+			     {file, File1}]),
+    ok = disk_log:log(a, "message one"),
+    {error, {halt_log, a}} = disk_log:next_file(a),
+
+    %% test a rotate log file
+    {ok, b} = disk_log:open([{name, b}, {type, rotate}, {size, {100,3}},
+			     {format,external},
+			     {file, File2}]),
+    ok = disk_log:blog(b, "message one"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message two"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message three"),
+    ok = disk_log:next_file(b),
+    ok = disk_log:blog(b, "message four"),
+    ok = disk_log:sync(b),
+    "message one" = get_list(File2 ++ ".2.gz", b, rotate),
+    "message two" = get_list(File2 ++ ".1.gz", b, rotate),
+    "message three" = get_list(File2 ++ ".0.gz", b, rotate),
+    "message four" = get_list(File2, b),
+    ok = disk_log:close(a),
+    ok = disk_log:close(b),
+    ok = file:delete(File1),
+    del_rot_files(File2, 3).
+
 simple_log(Log) ->
     T1 = "hej",
     T2 = hopp,
@@ -910,6 +1061,37 @@ get_list(File, Log) ->
     {ok, B} = file:read_file(File),
     binary_to_list(B).
 
+get_list(File, Log, rotate) ->
+    ct:pal(?HI_VERBOSITY, "File ~p~n", [File]),
+    ok = disk_log:sync(Log),
+    DFile = filename:rootname(File,".gz"),
+    decompress_file(File, DFile),
+    {ok, B} = file:read_file(DFile),
+    file:delete(DFile),
+    binary_to_list(B).
+
+decompress_file(FileName, DFileName) ->
+    {ok,In} = file:open(FileName,[read,binary]),
+    {ok,Out} = file:open(DFileName,[write]),
+    Z = zlib:open(),
+    zlib:inflateInit(Z, 31),
+    decompress_data(Z,In,Out),
+    zlib:inflateEnd(Z),
+    zlib:close(Z),
+    _ = file:close(In),
+    _ = file:close(Out),
+    ok.
+
+decompress_data(Z,In,Out) ->
+    case file:read(In,1000) of
+        {ok,Data} ->
+            Decompressed = zlib:inflate(Z, Data),
+            _ = file:write(Out,Decompressed),
+            decompress_data(Z,In,Out);
+        eof ->
+            ok
+    end.
+
 
 get_all_terms(Log, File, Type) ->
     {ok, _Log} = disk_log:open([{name,Log}, {type,Type}, {size,infinity},
@@ -986,6 +1168,13 @@ del(File, N) ->
     file:delete(File ++ "." ++ integer_to_list(N)),
     del(File, N-1).
 
+del_rot_files(File, 0) ->
+    file:delete(File ++ ".0.gz"),
+    file:delete(File);
+del_rot_files(File, N) ->
+    file:delete(File ++ "." ++ integer_to_list(N) ++ ".gz"),
+    del_rot_files(File, N-1).
+
 test_server_fail(R) ->
     exit({?MODULE, get(line), R}).
 
@@ -1054,7 +1243,7 @@ m() ->
     one_line("halt,int.inf. (10,1000)", W5, R5, Rep5, C5),
     io:format("\n"),
     io:format("\tWrap log time depends on how often the log wraps, as this\n"),
-    io:format("\tinvolves opening of new files, which costs alot."),
+    io:format("\tinvolves opening of new files, which costs a lot."),
     io:format("\n").
 
 one_line(Txt, W, R, Rep, C) ->
@@ -1768,16 +1957,19 @@ block_queue2(Conf) when is_list(Conf) ->
     %% Asynchronous stuff is ignored.
     ok = disk_log:balog_terms(n, [<<"foo">>,<<"bar">>]),
     ok = disk_log:balog_terms(n, [<<"more">>,<<"terms">>]),
-    Parent = self(),
     Fun =
         fun() ->
                 {error,no_such_log} = disk_log:sync(n),
-                receive {disk_log, _, {error, disk_log_stopped}} -> ok end,
-                Parent ! disk_log_stopped_ok
+                receive {disk_log, _, {error, disk_log_stopped}} -> ok end
         end,
-    spawn(Fun),
+    SyncProc = spawn_link(Fun),
+    timer:sleep(500),
     ok = sync_do(Pid, close),
-    receive disk_log_stopped_ok -> ok end,
+
+    %% Make sure SyncProc has terminated to that we know that it has
+    %% received the disk_log error message.
+    SyncProcMonRef = erlang:monitor(process, SyncProc),
+    receive {'DOWN',SyncProcMonRef,process,SyncProc,_} -> ok end,
     sync_do(Pid, terminate),
     {ok,<<>>} = file:read_file(File ++ ".1"),
     del(File, No),
@@ -1906,6 +2098,7 @@ open_size(Conf) when is_list(Conf) ->
 		       {format, internal}]),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {format, internal},{size, {100, No}}]),
+    [n] = disk_log:all(),
     B = mk_bytes(60),
     ok = disk_log:log_terms(n, [B, B, B, B]),
     ok = disk_log:sync(n),
@@ -1917,7 +2110,8 @@ open_size(Conf) when is_list(Conf) ->
 		       {mode, read_only}, {format, internal},
 		       {size, {100, No + 1}}]),
     "The given size" ++ _ = format_error(Error1),
-    {ok, nn} = disk_log:open([{name, nn}, {file, File}, {type, wrap},
+    {ok, nn} =
+        disk_log:open([{name, nn}, {file, File}, {type, wrap},
 			      {mode, read_only},
 			      {format, internal},{size, {100, No}}]),
     [_, _, _, _] = get_all_terms1(nn, start, []),
@@ -1925,21 +2119,132 @@ open_size(Conf) when is_list(Conf) ->
 
     ok = disk_log:unblock(n),
     ok = disk_log:close(n),
+    del(File, No),
+
+    ok.
+
+%% OTP-17062. When opening a disk log for the first time, the 'size'
+%% option can change the size of the file.
+open_change_size(Conf) when is_list(Conf) ->
+
+    %% wrap logs
+
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "n.LOG"),
+
+    No = 4,
+    file:delete(File),
+    del(File, No),	% cleanup
+
+    {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
+			     {format, internal},{size, {100, No}}]),
+    [n] = disk_log:all(),
+    1 = curf(n),
+    B = mk_bytes(60),
+    ok = disk_log:log_terms(n, [B, B, B, B]),
+    4 = curf(n),
+    disk_log:close(n),
+
+    %% size option does not match existing size file, read_only
+    Error1 = {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {size, {100, No + 1}}]),
+    "The given size" ++ _ = format_error(Error1),
+    {ok, nn} =
+        disk_log:open([{name, nn}, {file, File}, {type, wrap},
+			      {mode, read_only},
+			      {format, internal},{size, {100, No}}]),
+    [_, _, _, _] = get_all_terms(nn),
+    {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {size, {100, No + 1}}]),
+    {error,{badarg,repair_read_only}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {mode, read_only}, {format, internal},
+		       {repair, truncate}, {size, {100, No + 1}}]),
+    disk_log:close(nn),
 
     %% size option does not match existing size file, read_write
+    No1 = No + 1,
+    No2 = No + 2,
+    %% open/1 can change the size of a newly opened wrap log
+    {ok, nn} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, {100, No1}}]),
+    {100, No1} = info(nn, size, foo),
+    4 = curf(nn),
+    %% open/1 cannot change the size of an open wrap log
     {error, {size_mismatch, _, _}} =
-	disk_log:open([{name, nn}, {file, File}, {type, wrap}, 
-		       {format, internal}, {size, {100, No + 1}}]),
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, {100, No2}}]),
+    ok = disk_log:close(nn),
+
+    %% open/1 cannot change the size of a newly opened wrap log to 'infinity'
+    {ok, nn} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, infinity}]),
+    {100, 5} = info(nn, size, foo),
+    4 = curf(nn),
+    %% open/1 cannot change the size of an open wrap log
+    {error, {size_mismatch, {100,5}, infinity}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {format, internal}, {size, infinity}]),
+    ok = disk_log:close(nn),
+
     %% size option does not match existing size file, truncating
     {ok, nn} =
-	disk_log:open([{name, nn}, {file, File}, {type, wrap}, 
-		       {repair, truncate}, {format, internal}, 
-		       {size, {100, No + 1}}]),
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {repair, truncate}, {format, internal},
+		       {size, {100, No2}}]),
+    {100, No2} = info(nn, size, foo),
+    1 = curf(nn),
+    [] = get_all_terms(nn),
+    %% open/1 cannot change the size of an open wrap log
+    {error, {size_mismatch, _, _}} =
+	disk_log:open([{name, nn}, {file, File}, {type, wrap},
+		       {repair, truncate}, {format, internal},
+		       {size, {100, No2 + 1}}]),
     ok = disk_log:close(nn),
 
     del(File, No),
-    ok.
 
+    %% halt logs
+    Name = 'log.LOG',
+    HFile = "log.LOG",
+    Finite = 10000,
+    {ok, _} = disk_log:open([{name,Name}, {type,halt}, {size,infinity},
+			     {format,internal}, {file,HFile}]),
+    ok = disk_log:blog(Name, B),
+
+    %% open/1 ignores the given size if the halt log is open,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,Finite},
+                       {format,internal}, {file,HFile}]),
+    infinity = info(Name, size, foo),
+    ok = disk_log:close(Name),
+    %% open/1 can change the size of a newly opened halt log
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,Finite},
+                       {format,internal}, {file,HFile}]),
+    Finite = info(Name, size, foo),
+    %% open/1 ignores the given size if the halt log is open,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,infinity},
+                       {format,internal}, {file,HFile}]),
+    Finite = info(Name, size, foo),
+    ok = disk_log:close(Name),
+
+    %% open/1 can open a halt log even if the given size is too small,
+    %% which is backwards compatible.
+    {ok, Name} =
+        disk_log:open([{name,Name}, {type,halt}, {size,10},
+                       {format,internal}, {file,HFile}]),
+    file:delete(HFile),
+    ok.
 
 %% Test open/1 with {repair, truncate}.
 open_truncate(Conf) when is_list(Conf) ->
@@ -2336,18 +2641,6 @@ close_deadlock(Conf) when is_list(Conf) ->
     receive {P2, done} -> ok end,
     del(F1, No),
     file:del_dir(LDir),
-
-    %% To the same thing, this time using distributed logs.
-    %% (Does not seem to work very well, unfortunately.)
-    FunD = fun() -> open_close_dist(Self, Name, F1) end,
-    PD = spawn(FunD),
-    receive {PD, Name} -> ok end,
-    {[_], []} = disk_log:open([{name,Name},{file,F1},
-			       {distributed,[node()]}]),
-    ok = disk_log:close(L),
-    receive {PD, done} -> ok end,
-    file:delete(F1),
-
     ok.
 
 open_close(Pid, Name, File) ->
@@ -2362,13 +2655,6 @@ open_truncate(Pid, Name, File, No) ->
     Pid ! {self(), Name},
     {error, {file_error, _, _}} = disk_log:truncate(L),
     %% The file has been closed, the disklog process has terminated.
-    Pid ! {self(), done}.
-
-open_close_dist(Pid, Name, File) ->
-    {[{_,{ok,L}}], []} = disk_log:open([{name,Name},{file,File},
-                                        {distributed,[node()]}]),
-    Pid ! {self(), Name},
-    ok = disk_log:close(L),
     Pid ! {self(), done}.
 
 async_do(Pid, Req) ->
@@ -2406,13 +2692,6 @@ lserv(Log) ->
 	{From, {int_open, File, Size}} ->
 	    From ! disk_log:open([{name, Log}, {file, File}, {type, wrap},
 				  {size, Size}]);
-	{From, {dist_open, File, Node}} ->
-	    From ! disk_log:open([{name, Log}, {file, File}, {type, wrap},
-				  {size, {100,1}}, {distributed, [Node]}]);
-	{From, {dist_open, File, LinkTo, Node}} ->
-	    From ! disk_log:open([{name, Log}, {file, File}, {type, wrap},
-				  {linkto, LinkTo}, {size, {100,1}}, 
-				  {distributed, [Node]}]);
 	{From, block} ->
 	    From ! disk_log:block(Log);
 	{From, {block, Bool}} ->
@@ -2495,16 +2774,16 @@ error_repair(Conf) when is_list(Conf) ->
     %% repair a file
     P1 = pps(),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
-			     {format, internal}, {size, {40,No}}]),
+			     {format, internal}, {size, {38,No}}]),
     ok = disk_log:log_terms(n, [{this,is}]), % first file full
     ok = disk_log:log_terms(n, [{some,terms}]), % second file full
     ok = disk_log:close(n),
     BadFile = add_ext(File, 2), % current file
     set_opened(BadFile),
-    crash(BadFile, 28), % the binary is now invalid
-    {repaired,n,{recovered,0},{badbytes,26}} =
+    crash(BadFile, 26), % the binary is now invalid
+    {repaired,n,{recovered,0},{badbytes,24}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
-		       {format, internal}, {size, {40,No}}]),
+		       {format, internal}, {size, {38,No}}]),
     ok = disk_log:close(n),
     check_pps(P1),
     del(File, No),
@@ -2519,8 +2798,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     BadFile2 = add_ext(File, 1), % current file
     set_opened(BadFile2),
-    crash(BadFile2, 51), % the second binary is now invalid
-    {repaired,n,{recovered,1},{badbytes,26}} =
+    crash(BadFile2, 47), % the second binary is now invalid
+    {repaired,n,{recovered,1},{badbytes,24}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap},
 		       {format, internal}, {size, {4000,No}}]),
     ok = disk_log:close(n),
@@ -2578,7 +2857,7 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     set_opened(File),
     crash(File, 30),
-    {repaired,n,{recovered,3},{badbytes,16}} =
+    {repaired,n,{recovered,3},{badbytes,15}} =
         disk_log:open([{name, n}, {file, File}, {type, halt},
 		       {format, internal},{repair,true}, {quiet, true},
 		       {head_func, {?MODULE, head_fun, [{ok,"head"}]}}]),
@@ -2800,12 +3079,12 @@ chunk(Conf) when is_list(Conf) ->
     %% Two wrap log files, writing the second one, then reading the first
     %% one, where a bogus term resides.
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
-			     {format, internal}, {size, {40,No}}]),
+			     {format, internal}, {size, {38,No}}]),
     ok = disk_log:log_terms(n, [{this,is}]), % first file full
     ok = disk_log:log_terms(n, [{some,terms}]), % second file full
     2 = curf(n),
     BadFile = add_ext(File, 1),
-    crash(BadFile, 28), % the _binary_ is now invalid
+    crash(BadFile, 26), % the _binary_ is now invalid
     {error, {corrupt_log_file, BFile}} = disk_log:chunk(n, start, 1),
     BadFile = BFile,
     ok = disk_log:close(n),
@@ -2815,7 +3094,7 @@ chunk(Conf) when is_list(Conf) ->
 			     {format, internal}]),
     ok = disk_log:log_terms(n, [{this,is}]),
     ok = disk_log:sync(n),
-    crash(File, 28), % the _binary_ is now invalid
+    crash(File, 26), % the _binary_ is now invalid
     {error, {corrupt_log_file, File2}} = disk_log:chunk(n, start, 1),
     crash(File, 10),
     {error,{corrupt_log_file,_}} = disk_log:bchunk(n, start, 1),
@@ -2909,8 +3188,8 @@ chunk(Conf) when is_list(Conf) ->
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {format, internal}, {mode, read_only}]),
     CrashFile = add_ext(File, 1),
-    crash(CrashFile, 51), % the binary term {some,terms} is now bad
-    {H1, [{this,is}], 18} = disk_log:chunk(n, start, 10),
+    crash(CrashFile, 47), % the binary term {some,terms} is now bad
+    {H1, [{this,is}], 16} = disk_log:chunk(n, start, 10),
     {H2, [{on,a},{wrap,file}]} = disk_log:chunk(n, H1),
     eof = disk_log:chunk(n, H2),
     ok = disk_log:close(n),
@@ -2924,8 +3203,8 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 			     {format, internal}, {mode, read_only}]),
-    crash(File, 51), % the binary term {some,terms} is now bad
-    {J1, [{this,is}], 18} = disk_log:chunk(n, start, 10),
+    crash(File, 47), % the binary term {some,terms} is now bad
+    {J1, [{this,is}], 16} = disk_log:chunk(n, start, 10),
     {J2, [{on,a},{halt,file}]} = disk_log:chunk(n, J1),
     eof = disk_log:chunk(n, J2),
     ok = disk_log:close(n),
@@ -2940,8 +3219,8 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 			     {format, internal}, {mode, read_only}]),
-    crash(File, 44), % the binary term {s} is now bad
-    {J11, [{this,is}], 7} = disk_log:chunk(n, start, 10),
+    crash(File, 41), % the binary term {s} is now bad
+    {J11, [{this,is}], 6} = disk_log:chunk(n, start, 10),
     {J21, [{on,a},{halt,file}]} = disk_log:chunk(n, J11),
     eof = disk_log:chunk(n, J21),
     ok = disk_log:close(n),
@@ -3060,7 +3339,7 @@ truncate(Conf) when is_list(Conf) ->
     ok = disk_log:truncate(n, apa),
     rec(1, {disk_log, node(), n, {truncated, 6}}),
     {0, 0} = no_overflows(n),
-    23 = curb(n),
+    22 = curb(n),
     1 = curf(n),
     1 = cur_cnt(n),
     true = (Size == sz(n)),
@@ -3080,7 +3359,7 @@ truncate(Conf) when is_list(Conf) ->
     ok = disk_log:truncate(n, apa),
     rec(1, {disk_log, node(), n, {truncated, 3}}),
     {0, 0} = no_overflows(n),
-    23 = curb(n),
+    22 = curb(n),
     1 = curf(n),
     1 = cur_cnt(n),
     true = (Size == sz(n)),
@@ -3189,45 +3468,45 @@ info_current(Conf) when is_list(Conf) ->
     %% Internal with header.
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {head, header}, {size, {100,No}}]),
-    {26, 1} = {curb(n), cur_cnt(n)},
+    {25, 1} = {curb(n), cur_cnt(n)},
     {1, 1}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log(n, B),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {2, 2}  = {no_written_items(n), no_items(n)},
     ok = disk_log:close(n),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 			     {notify, true},
 			     {head, header}, {size, {100,No}}]),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {0, 2}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log(n, B),
     rec(1, {disk_log, node(), n, {wrap, 0}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {2, 4}  = {no_written_items(n), no_items(n)},
     disk_log:inc_wrap_file(n),
     rec(1, {disk_log, node(), n, {wrap, 0}}),
-    {26, 1} = {curb(n), cur_cnt(n)},
+    {25, 1} = {curb(n), cur_cnt(n)},
     {3, 4}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [B,B,B]),
     %% Used to be one message, but now one per wrapped file.
     rec(1, {disk_log, node(), n, {wrap, 0}}),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {8, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [B]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
     ok = disk_log:log_terms(n, [B]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {94, 2} = {curb(n), cur_cnt(n)},
+    {93, 2} = {curb(n), cur_cnt(n)},
     {12, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [BB,BB]),
     %% Used to be one message, but now one per wrapped file.
     rec(2, {disk_log, node(), n, {wrap, 2}}),
-    {194, 2} = {curb(n), cur_cnt(n)},
+    {193, 2} = {curb(n), cur_cnt(n)},
     {16, 7}  = {no_written_items(n), no_items(n)},
     ok = disk_log:log_terms(n, [SB,SB,SB]),
     rec(1, {disk_log, node(), n, {wrap, 2}}),
-    {80, 4} = {curb(n), cur_cnt(n)},
+    {79, 4} = {curb(n), cur_cnt(n)},
     {20, 9}  = {no_written_items(n), no_items(n)},
     ok = disk_log:close(n),
     del(File, No),
@@ -4034,646 +4313,6 @@ change_attribute(Conf) when is_list(Conf) ->
     del(File, No).
     
 
-%% Open a distributed log.
-dist_open(Conf) when is_list(Conf) ->
-    PrivDir = ?privdir(Conf),
-    true = is_alive(),
-
-    Q = qlen(),
-    File = filename:join(PrivDir, "n.LOG"),
-    File1 = filename:join(PrivDir, "n1.LOG"),
-    No = 3,
-    file:delete(File),
-    del(File, No),	% cleanup
-    del(File1, No),	% cleanup
-    B = mk_bytes(60),
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(disk_log, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    %% open non-distributed on this node:
-    {ok,n} = disk_log:open([{name, n}, {file, File}, {type, halt},
-                                  {distributed, []}]),
-
-    Error1 = {error, {halt_log, n}} = disk_log:inc_wrap_file(n),
-    "The halt log" ++ _ = format_error(Error1),
-    ok = disk_log:lclose(n),
-    file:delete(File),
-
-    %% open distributed on this node:
-    {[_],[]} = disk_log:open([{name, n}, {file, File}, {type, halt},
-				    {distributed, [node()]}]),
-    %% the error message is ignored:
-    ok = disk_log:inc_wrap_file(n),
-    ok = disk_log:close(n),
-    file:delete(File),
-
-    %% open a wrap log on this node, write something on this node
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]}]),
-    ok = disk_log:log(n, B),
-    ok = disk_log:close(n),
-
-    %% open a wrap log on this node and aother node, write something
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]}]),
-    {[_],[]} = disk_log:open([{name, n}, {file, File1},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [Node]}]),
-    ok = disk_log:log(n, B),
-    ok = rpc:call(Node, disk_log, log, [n, B]),
-    ok = disk_log:close(n),
-    del(File, No),
-    del(File1, No),
-    file:delete(File),
-
-    %% open a wrap log on this node and another node, use lclose
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]}]),
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]},
-                                    {linkto,none}]),
-    {[_],[]} = disk_log:open([{name, n}, {file, File1},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [Node]}]),
-    [_, _] = distributed(n),
-    ok = disk_log:lclose(n, Node),
-    [_] = distributed(n),
-    ok = disk_log:lclose(n),
-    ok = disk_log:lclose(n),
-    {error, no_such_log} = disk_log:info(n),
-    del(File, No),
-    del(File1, No),
-    file:delete(File),
-
-    %% open an invalid log file, and see how error are handled
-    First = "n.LOG.1",
-    make_file(PrivDir, First, 8),
-
-    {[], [_,_]} = disk_log:open([{name, n}, {file, File},
-				       {type, wrap}, {size, {50, No}},
-				       {distributed, [Node,node()]}]),
-    del(File, No),
-    file:delete(File),
-
-    %% open a wrap on one other node (not on this node)
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [Node]}]),
-    ok = rpc:call(Node, disk_log, log, [n, B]),
-    {error, no_such_log} = disk_log:lclose(n),
-    ok = disk_log:close(n),
-
-    Q = qlen(),
-
-    {error, no_such_log} = disk_log:info(n),
-    del(File, No),
-    file:delete(File),
-    stop_node(Node),
-    ok.
-    
-%% Open a log distributed and not distributed.
-dist_error_open(Conf) when is_list(Conf) ->
-    PrivDir = ?privdir(Conf),
-    true = is_alive(),
-
-    Q = qlen(),
-    File = filename:join(PrivDir, "bert.LOG"),
-    File1 = filename:join(PrivDir, "bert1.LOG"),
-    No = 3,
-    file:delete(File),
-    del(File, No),	% cleanup
-    del(File1, No),	% cleanup
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(disk_log, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    %% open non-distributed on this node:
-    {ok,n} = disk_log:open([{name, n}, {file, File},
-				  {type, wrap}, {size, {50, No}}]),
-
-    %% trying to open distributed on this node (error):
-    {[],[Error1={ENode,{error,{node_already_open,n}}}]} =
-	disk_log:open([{name, n}, {file, File},
-		       {type, wrap}, {size, {50, No}},
-		       {distributed, [node()]}]),
-    true =
-        lists:prefix(lists:flatten(io_lib:format("~p: The distribution", 
-                                                 [ENode])),
-                     format_error(Error1)),
-    ok = disk_log:lclose(n),
-
-    %% open distributed on this node:
-    {[_],[]} = disk_log:open([{name, n}, {file, File},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]}]),
-    
-    %% trying to open non-distributed on this node (error):
-    {_,{node_already_open,n}} =
-	disk_log:open([{name, n}, {file, File},
-		       {type, wrap}, {size, {50, No}}]),
-
-    ok = disk_log:close(n),
-    Q = qlen(),
-
-    del(File, No),
-    del(File1, No),
-    file:delete(File),
-    stop_node(Node),
-    ok.
-
-%% Notification from other node.
-dist_notify(Conf) when is_list(Conf) ->
-    PrivDir = ?privdir(Conf),
-    true = is_alive(),
-    
-    File = filename:join(PrivDir, "bert.LOG"),
-    File1 = filename:join(PrivDir, "bert1.LOG"),
-    No = 3,
-    B = mk_bytes(60),
-    file:delete(File),
-    file:delete(File1),
-    del(File, No),	% cleanup
-    del(File1, No),
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(disk_log, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    %% opening distributed on this node:
-    {[_],[]} = disk_log:open([{name, n}, {file, File}, {notify, false},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [node()]}]),
-
-    %% opening distributed on other node:
-    {[_],[]} = disk_log:open([{name, n}, {file, File1},
-				    {notify, true}, {linkto, self()},
-				    {type, wrap}, {size, {50, No}},
-				    {distributed, [Node]}]),
-    disk_log:alog(n, B),
-    disk_log:alog(n, B),
-    ok = disk_log:sync(n),
-    rec(1, {disk_log, Node, n, {wrap, 0}}),
-    ok = disk_log:close(n),
-
-    del(File, No),
-    del(File1, No),
-    file:delete(File),
-    stop_node(Node),
-    ok.
-
-%% Terminating nodes with distributed logs.
-dist_terminate(Conf) when is_list(Conf) ->
-    Dir = ?privdir(Conf),
-    true = is_alive(),
-
-    File = filename:join(Dir, "n.LOG"),
-    File1 = filename:join(Dir, "n1.LOG"),
-    No = 1,
-    del(File, No),	% cleanup
-    del(File1, No),	% cleanup
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(disk_log, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    %% Distributed versions of two of the situations in close_block(/1.
-
-    %% One of two owners terminates.
-    Pid1 = spawn_link(?MODULE, lserv, [n]),
-    Pid2 = spawn_link(?MODULE, lserv, [n]),
-    {[{_, {ok, n}}], []} = sync_do(Pid1, {dist_open, File, node()}),
-    {[{_, {ok, n}}], []} = sync_do(Pid2, {dist_open, File1, Node}),
-    [_] = sync_do(Pid1, owners),
-    [_] = sync_do(Pid2, owners),
-    0 = sync_do(Pid1, users),
-    0 = sync_do(Pid2, users),
-    sync_do(Pid1, terminate),
-    [_] = sync_do(Pid2, owners),
-    0 = sync_do(Pid2, users),
-    sync_do(Pid2, terminate),
-    {error, no_such_log} = disk_log:info(n),
-
-    %% Users terminate (no link...).
-    Pid3 = spawn_link(?MODULE, lserv, [n]),
-    Pid4 = spawn_link(?MODULE, lserv, [n]),
-    {[{_, {ok, n}}], []} =
-	sync_do(Pid3, {dist_open, File, none, node()}),
-    {[{_, {ok, n}}], []} =
-	sync_do(Pid4, {dist_open, File1, none, Node}),
-    [] = sync_do(Pid3, owners),
-    [] = sync_do(Pid4, owners),
-    1 = sync_do(Pid3, users),
-    1 = sync_do(Pid4, users),
-    sync_do(Pid3, terminate),
-    [] = sync_do(Pid4, owners),
-    1 = sync_do(Pid4, users),
-    sync_do(Pid4, terminate),
-    ok = disk_log:close(n), % closing all nodes
-    {error, no_such_log} = disk_log:info(n),
-    
-    del(File, No),
-    del(File1, No),
-    stop_node(Node),
-    ok.
-
-%% Accessible logs on nodes.
-dist_accessible(Conf) when is_list(Conf) ->
-    PrivDir = ?privdir(Conf),
-
-    true = is_alive(),
-
-    F1 = filename:join(PrivDir, "a.LOG"),
-    file:delete(F1),
-    F2 = filename:join(PrivDir, "b.LOG"),
-    file:delete(F2),
-    F3 = filename:join(PrivDir, "c.LOG"),
-    file:delete(F3),
-    F4 = filename:join(PrivDir, "d.LOG"),
-    file:delete(F1),
-    F5 = filename:join(PrivDir, "e.LOG"),
-    file:delete(F2),
-    F6 = filename:join(PrivDir, "f.LOG"),
-    file:delete(F3),
-
-    {[],[]} = disk_log:accessible_logs(),
-    {ok, a} = disk_log:open([{name, a}, {type, halt}, {file, F1}]),
-    {[a],[]} = disk_log:accessible_logs(),
-    {ok, b} = disk_log:open([{name, b}, {type, halt}, {file, F2}]),
-    {[a,b],[]} = disk_log:accessible_logs(),
-    {ok, c} = disk_log:open([{name, c}, {type, halt}, {file, F3}]),
-    {[a,b,c],[]} = disk_log:accessible_logs(),
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(disk_log, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    {[_],[]} = disk_log:open([{name, a}, {file, F4}, {type, halt},
-				    {distributed, [Node]}]),
-    {[a,b,c],[]} = disk_log:accessible_logs(),
-    {[],[a]} = rpc:call(Node, disk_log, accessible_logs, []),
-    {[_],[]} = disk_log:open([{name, b}, {file, F5}, {type, halt},
-				    {distributed, [Node]}]),
-    {[],[a,b]} = rpc:call(Node, disk_log, accessible_logs, []),
-    {[_],[]} = disk_log:open([{name, c}, {file, F6}, {type, halt},
-				    {distributed, [Node]}]),
-    {[],[a,b,c]} = rpc:call(Node, disk_log, accessible_logs, []),
-    {[a,b,c],[]} = disk_log:accessible_logs(),
-    ok = disk_log:close(a),
-    {[b,c],[a]} = disk_log:accessible_logs(),
-    ok = disk_log:close(b),
-    {[c],[a,b]} = disk_log:accessible_logs(),
-    ok = disk_log:close(b),
-    {[c],[a]} = disk_log:accessible_logs(),
-    {[],[a,c]} = rpc:call(Node, disk_log, accessible_logs, []),
-    ok = disk_log:close(c),
-    {[],[a,c]} = disk_log:accessible_logs(),
-    ok = disk_log:close(c),
-    {[],[a]} = disk_log:accessible_logs(),
-    {[],[a]} = rpc:call(Node, disk_log, accessible_logs, []),
-    ok = disk_log:close(a),
-    {[],[]} = disk_log:accessible_logs(),
-    {[],[]} = rpc:call(Node, disk_log, accessible_logs, []),
-
-    file:delete(F1),
-    file:delete(F2),
-    file:delete(F3),
-    file:delete(F4),
-    file:delete(F5),
-    file:delete(F6),
-
-    stop_node(Node),
-    ok.
-
-%% OTP-4405. Deadlock between two nodes could happen.
-dist_deadlock(Conf) when is_list(Conf) ->
-    PrivDir = ?privdir(Conf),
-
-    true = is_alive(),
-
-    F1 = filename:join(PrivDir, "a.LOG"),
-    file:delete(F1),
-    F2 = filename:join(PrivDir, "b.LOG"),
-    file:delete(F2),
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node1} = start_node(disk_log_node1, "-pa " ++ PA),
-    {ok, Node2} = start_node(disk_log_node2, "-pa " ++ PA),
-    wait_for_ready_net(),
-
-    Self = self(),
-    Fun1 = fun() -> dist_dl(Node2, a, F1, Self) end,
-    Fun2 = fun() -> dist_dl(Node1, b, F2, Self) end,
-    P1 = spawn(Node1, Fun1),
-    P2 = spawn(Node2, Fun2),
-    receive {P1, a} -> ok end,
-    receive {P2, b} -> ok end,
-
-    stop_node(Node1),
-    stop_node(Node2),
-
-    file:delete(F1),
-    file:delete(F2),
-    ok.
-
-dist_dl(Node, Name, File, Pid) ->
-    {[{Node,{ok,Log}}], []} =
-	disk_log:open([{name,Name},{file,File},{distributed,[Node]}]),
-    timer:sleep(50), % give the nodes chance to exchange pg2 information
-    ok = disk_log:close(Log),
-    Pid ! {self(), Name},
-    ok.
-
-%% OTP-4480. Opening several logs simultaneously.
-dist_open2(Conf) when is_list(Conf) ->
-    true = is_alive(),
-    {ok, _Pg2} = pg2:start(),
-
-    dist_open2_1(Conf, 0),
-    dist_open2_1(Conf, 100),
-
-    dist_open2_2(Conf, 0),
-    dist_open2_2(Conf, 100),
-
-    PrivDir = ?privdir(Conf),
-    Log = n,
-
-    %% Open a log three times (very fast). Two of the opening
-    %% processes will be put on hold (pending). The first one failes
-    %% to open the log. The second one succeeds, and the third one is
-    %% attached.
-    P0 = pps(),
-    File0 = "n.LOG",
-    File = filename:join(PrivDir, File0),
-    make_file(PrivDir, File0, 8),
-
-    Parent = self(),
-    F1 = fun() -> R = disk_log:open([{name, Log}, {file, File},
-                                     {type, halt}, {format,internal},
-                                     {distributed, [node()]}]),
-                  Parent ! {self(), R}
-         end,
-    F2 = fun() -> R = disk_log:open([{name, Log}, {file, File},
-                                     {type, halt}, {format,external},
-                                     {distributed, [node()]}]),
-                  Parent ! {self(), R},
-                  timer:sleep(300)
-         end,
-    Pid1 = spawn(F1),
-    timer:sleep(10),
-    Pid2 = spawn(F2),
-    Pid3 = spawn(F2),
-
-    receive {Pid1,R1} -> {[],[_]} = R1 end,
-    receive {Pid2,R2} -> {[_],[]} = R2 end,
-    receive {Pid3,R3} -> {[_],[]} = R3 end,
-
-    timer:sleep(500),
-    file:delete(File),
-    check_pps(P0),
-
-    %% This time the first process has a naughty head_func. This test
-    %% does not add very much. Perhaps it should be removed. However,
-    %% a head_func like this is why it's necessary to have an separate
-    %% process calling disk_log:internal_open: the server cannot wait
-    %% for the reply, but the call must be monitored, and this is what
-    %% is accomplished by having a proxy process.
-    F3 = fun() ->
-                 R = disk_log:open([{name,Log},{file,File},
-                                    {format,internal},
-                                    {head_func,{?MODULE,head_exit,[]}},
-                                    {type,halt}, {linkto,none}]),
-                 Parent ! {self(), R}
-         end,
-    F4 = fun() ->
-                 R = disk_log:open([{name,Log},{file,File},
-                                    {format,internal},
-                                    {type,halt}]),
-                 Parent ! {self(), R}
-         end,
-    Pid4 = spawn(F3),
-    timer:sleep(10),
-    Pid5 = spawn(F4),
-    Pid6 = spawn(F4),
-    %% The timing is crucial here.
-    R = case receive {Pid4,R4} -> R4 end of
-                  {error, no_such_log} ->
-                      R5 = receive {Pid5, R5a} -> R5a end,
-                      R6 = receive {Pid6, R6a} -> R6a end,
-                      case {R5, R6} of
-                          {{repaired, _, _, _}, {ok, Log}} -> ok;
-                          {{ok, Log}, {repaired, _, _, _}} -> ok;
-                          _ -> test_server_fail({bad_replies, R5, R6})
-                      end,
-                      ok;
-                  {ok, Log} -> % uninteresting case
-                      receive {Pid5,_R5} -> ok end,
-                      receive {Pid6,_R6} -> ok end,
-                      {comment, 
-                       "Timing dependent test did not check anything."}
-              end,
-
-    timer:sleep(100),
-    {error, no_such_log} = disk_log:close(Log),
-    file:delete(File),
-    check_pps(P0),
-
-    No = 2,
-    Log2 = n2,
-    File2 = filename:join(PrivDir, "b.LOG"),
-    file:delete(File2),
-    del(File, No),
-    
-    %% If a client takes a long time when writing the header, other
-    %% processes should be able to attach to other log without having to
-    %% wait.
-
-    {ok,Log} =
-        disk_log:open([{name,Log},{file,File},{type,wrap},{size,{100,No}}]),
-    Pid = spawn(fun() -> 
-                        receive {HeadPid, start} -> ok end,
-                        {ok,Log2} = disk_log:open([{name,Log2},{file,File2},
-                                                   {type,halt}]),
-                        HeadPid ! {self(), done}
-                end),
-    HeadFunc = {?MODULE, slow_header, [Pid]},
-    ok = disk_log:change_header(Log, {head_func, HeadFunc}),
-    ok = disk_log:inc_wrap_file(Log), % header is written
-
-    timer:sleep(100),
-    ok = disk_log:close(Log),
-
-    file:delete(File2),
-    del(File, No),
-    check_pps(P0),
-
-    R.
-    
-dist_open2_1(Conf, Delay) ->
-    Dir = ?privdir(Conf),
-    File = filename:join(Dir, "n.LOG"),
-    Log = n,
-
-    A0 = [{name,Log},{file,File},{type,halt}],
-    create_opened_log(File, A0),
-    P0 = pps(),
-
-    Log2 = log2,
-    File2 = "log2.LOG",
-    file:delete(File2),
-    {ok,Log2} = disk_log:open([{name,Log2},{file,File2},{type,halt}]),
-
-    Parent = self(),
-    F = fun() -> 
-                R = disk_log:open(A0),
-                timer:sleep(Delay),
-                Parent ! {self(), R}
-        end,
-    Pid1 = spawn(F),
-    timer:sleep(10),
-    Pid2 = spawn(F),
-    Pid3 = spawn(F),
-    {error, no_such_log} = disk_log:log(Log, term), % is repairing now
-    0 = qlen(),
-
-    %% The file is already open, so this will not take long.
-    {ok,Log2} = disk_log:open([{name,Log2},{file,File2},{type,halt}]),
-    0 = qlen(), % still repairing
-    ok = disk_log:close(Log2),
-    {error, no_such_log} = disk_log:close(Log2),
-    file:delete(File2),
-
-    receive {Pid1,R1} -> {repaired,_,_,_} = R1 end,
-    receive {Pid2,R2} -> {ok,_} = R2 end,
-    receive {Pid3,R3} -> {ok,_} = R3 end,
-    timer:sleep(500),
-    {error, no_such_log} = disk_log:info(Log),
-
-    file:delete(File),
-    check_pps(P0),
-
-    ok.
-
-dist_open2_2(Conf, Delay) ->
-    Dir = ?privdir(Conf),
-    File = filename:join(Dir, "n.LOG"),
-    Log = n,
-
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node1} = start_node(disk_log_node2, "-pa " ++ PA),
-    wait_for_ready_net(),
-    P0 = pps(),
-
-    A0 = [{name,Log},{file,File},{type,halt}],
-    create_opened_log(File, A0),
-
-    Log2 = log2,
-    File2 = "log2.LOG",
-    file:delete(File2),
-    {[{Node1,{ok,Log2}}],[]} =
-        disk_log:open([{name,Log2},{file,File2},{type,halt},
-                       {distributed,[Node1]}]),
-
-    Parent = self(),
-    F = fun() ->
-                %% It would be nice to slow down the repair. head_func
-                %% cannot be used since it is not called when repairing.
-                R = disk_log:open([{distributed,[Node1]} | A0]),
-                timer:sleep(Delay),
-                Parent ! {self(), R}
-        end,
-    %% And {priority, ...} probably has no effect either.
-    Pid1 = spawn_opt(F, [{priority, low}]),
-    %% timer:sleep(1), % no guarantee that Pid1 will return {repaired, ...}
-    Pid2 = spawn_opt(F, [{priority, low}]),
-    {error, no_such_log} =
-        disk_log:log(Log, term), % maybe repairing now
-    0 = qlen(),
-
-    %% The file is already open, so this will not take long.
-    {[{Node1,{ok,Log2}}],[]} =
-        disk_log:open([{name,Log2},{file,File2},{type,halt},
-                       {distributed,[Node1]}]),
-    0 = qlen(), % probably still repairing
-    ok = disk_log:close(Log2),
-    file:delete(File2),
-
-    receive {Pid1,R1} -> R1 end,
-    receive {Pid2,R2} -> R2 end,
-    case {R1, R2} of
-	      {{[{Node1,{repaired,_,_,_}}],[]}, 
-	       {[{Node1,{ok,Log}}],[]}}         -> ok;
-	      {{[{Node1,{ok,Log}}],[]}, 
-	       {[{Node1,{repaired,_,_,_}}],[]}} -> ok
-	  end,
-
-    check_pps(P0),
-    stop_node(Node1),
-    file:delete(File),
-    ok.
-
-head_exit() ->
-    process_flag(trap_exit, false), % Don't do like this!
-    spawn_link(fun() -> exit(helfel) end),
-    {ok,"123"}.
-
-slow_header(Pid) ->
-    Pid ! {self(), start},
-    receive {Pid, done} -> ok end,
-    {ok, <<>>}.
-
-create_opened_log(File, Args) ->
-    Log = n,
-    file:delete(File),
-    {ok, Log} = disk_log:open(Args),
-    log_terms(Log, 400000),
-    ok = disk_log:close(Log),
-    mark(File, ?OPENED),
-    ok.
-
-log_terms(_Log, 0) ->
-    ok;
-log_terms(Log, N) when N > 100 ->
-    Terms = [{term,I} || I <- lists:seq(N-99, N)],
-    ok = disk_log:log_terms(Log, Terms),
-    log_terms(Log, N-100);
-log_terms(Log, N) ->
-    ok = disk_log:log(Log, {term, N}),
-    log_terms(Log, N-1).
-
-%% OTP-5810. Cope with pg2 groups that are not disk logs.
-other_groups(Conf) when is_list(Conf) ->
-    true = is_alive(),
-    PrivDir = ?privdir(Conf),
-
-    File = filename:join(PrivDir, "n.LOG"),
-    file:delete(File),
-
-    {[],[]} = disk_log:accessible_logs(),
-    {[_],[]} = disk_log:open([{name, n}, {file, File}, {type, halt},
-				    {distributed, [node()]}]),
-    {[],[n]} = disk_log:accessible_logs(),
-    Group = grupp,
-    pg2:create(Group),
-    ok = pg2:join(Group, self()),
-    {[],[n]} = disk_log:accessible_logs(),
-    [_] =
-        lists:filter(fun(P) -> disk_log:pid2name(P) =/= undefined end, 
-                     erlang:processes()),
-    pg2:delete(Group),
-    {[],[n]} = disk_log:accessible_logs(),
-    ok = disk_log:close(n),
-    {[],[]} = disk_log:accessible_logs(),
-    file:delete(File),
-
-    ok.
-
 %% OTP-6278. open/1 creates no status or crash report.
 otp_6278(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
@@ -4704,6 +4343,71 @@ otp_10131(Conf) when is_list(Conf) ->
     HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log),
     ok.
+
+%% OTP-16768. Bad number of items with truncate/1. ERL-1312, ERL-1313.
+otp_16768(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = otp_16768,
+    File = filename:join(Dir, Log),
+    Header = <<"123456789\n">>,
+    head_count(Log, File, Header, external, 25),
+    head_count(Log, File, none, external, 20),
+    head_count(Log, File, Header, internal, 30),
+    head_count(Log, File, none, internal, 20),
+    ok.
+
+head_count(Log, File, Header, Format, Expected) ->
+    del(File, 10),
+    Content = <<"1234567890123456789\n">>,
+    HeaderSize = case Header of
+                     none -> 0;
+                     _ -> byte_size(Header)
+                 end,
+    %% 5 files for the external format, more for the internal format
+    MaxSizePerFile = HeaderSize + (5 * byte_size(Content)) - 1,
+    {ok, Log} = disk_log:open([{file, File},
+                               {name, Log},
+                               {format, Format},
+                               {head, Header},
+                               {size, {MaxSizePerFile, 999}},
+                               {type, wrap}
+                              ]),
+    ok = disk_log:truncate(Log),
+    lists:foreach(fun(_I) -> disk_log:blog(Log, Content) end,
+                  lists:seq(1, 20)),
+    DiskLogInfo = disk_log:info(Log),
+    Expected = proplists:get_value(no_items, DiskLogInfo),
+    ok = disk_log:close(Log).
+
+otp_16809(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = otp_16809,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    {ok, Log} = disk_log:open([{name,Log},{file,File}]),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, none}),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, some_header}),
+    %% Notice: the head argument as a binary:
+    true = term_to_binary(some_header) =:= info(Log, head, undef),
+    HeadFunc = {?MODULE, head_fun, [{ok,a_header}]},
+    ok = disk_log:change_header(Log, {head_func, HeadFunc}),
+    HeadFunc = info(Log, head, undef),
+    ok = disk_log:close(Log),
+
+    {ok, Log} = disk_log:open([{name,Log},
+                               {file,File},
+                               {format,external}]),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, none}),
+    none = info(Log, head, undef),
+    ok = disk_log:change_header(Log, {head, "some header"}),
+    %% Notice: the head argument as a binary:
+    <<"some header">> = info(Log, head, undef),
+    HeadFunc2 = {?MODULE, head_fun, [{ok,"a header"}]},
+    ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
+    HeadFunc2 = info(Log, head, undef),
+    ok = disk_log:close(Log).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
@@ -4858,9 +4562,6 @@ users(Log) ->
 status(Log) ->
 %%     io:format("status ~p~n", [info(Log, status, -1)]),
     info(Log, status, -1).
-distributed(Log) ->
-%%     io:format("distributed ~p~n", [info(Log, distributed, -1)]),
-    info(Log, distributed, -1).
 no_items(Log) ->
 %%     io:format("no_items ~p~n", [info(Log, no_items, -1)]),
     info(Log, no_items, -1).
@@ -4898,48 +4599,6 @@ rec(N, Msg) ->
     after 100 ->
 	    test_server_fail({no_msg, N, Msg})
     end.
-
-%% Copied from global_SUITE.erl.
--define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
-
-loop_until_true(Fun) ->
-    case Fun() of
-	true ->
-	    ok;
-	_ ->
-	    timer:sleep(1000),
-	    loop_until_true(Fun)
-    end.
-
-wait_for_ready_net() ->
-    Nodes = lists:sort([node() | nodes()]),
-    ?UNTIL(begin
-               lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) -> 
-                                 LNs = rpc:call(N, erlang, nodes, []),
-                                 Nodes =:= lists:sort([N | LNs])
-                         end, Nodes)
-           end).
-
-get_known(Node) ->
-    case catch gen_server:call({global_name_server,Node}, get_known) of
-        {'EXIT', _} ->
-            [list, without, nodenames];
-        Known -> 
-            lists:sort([Node | Known])
-    end.
-
-%% Copied from erl_distribution_SUITE.erl:
-start_node(Name, Param) ->
-    test_server:start_node(Name, slave, [{args, Param}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
-%% from(H, [H | T]) -> T;
-%% from(H, [_ | T]) -> from(H, T);
-%% from(_H, []) -> [].
-
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.

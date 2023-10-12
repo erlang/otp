@@ -1,0 +1,191 @@
+
+  [;1m-spec split(Subject, RE) -> SplitList[0m
+  [;1m               when[0m
+  [;1m                   Subject :: iodata() | unicode:charlist(),[0m
+  [;1m                   RE :: mp() | iodata(),[0m
+  [;1m                   SplitList :: [iodata() | unicode:charlist()].[0m
+
+  Same as [;;4msplit(Subject, RE, [])[0m.
+
+  [;1m-spec split(Subject, RE, Options) -> SplitList[0m
+  [;1m               when[0m
+  [;1m                   Subject :: iodata() | unicode:charlist(),[0m
+  [;1m                   RE :: mp() | iodata() | unicode:charlist(),[0m
+  [;1m                   Options :: [Option],[0m
+  [;1m                   Option ::[0m
+  [;1m                       anchored | notbol | noteol | notempty |[0m
+  [;1m                       notempty_atstart |[0m
+  [;1m                       {offset, non_neg_integer()} |[0m
+  [;1m                       {newline, nl_spec()} |[0m
+  [;1m                       {match_limit, non_neg_integer()} |[0m
+  [;1m                       {match_limit_recursion, non_neg_integer()} |[0m
+  [;1m                       bsr_anycrlf | bsr_unicode |[0m
+  [;1m                       {return, ReturnType} |[0m
+  [;1m                       {parts, NumParts} |[0m
+  [;1m                       group | trim | CompileOpt,[0m
+  [;1m                   NumParts :: non_neg_integer() | infinity,[0m
+  [;1m                   ReturnType :: iodata | list | binary,[0m
+  [;1m                   CompileOpt :: compile_option(),[0m
+  [;1m                   SplitList :: [RetData] | [GroupedRetData],[0m
+  [;1m                   GroupedRetData :: [RetData],[0m
+  [;1m                   RetData ::[0m
+  [;1m                       iodata() | unicode:charlist() | binary() | list().[0m
+
+  Splits the input into parts by finding tokens according to the
+  regular expression supplied. The splitting is basically done by
+  running a global regular expression match and dividing the initial
+  string wherever a match occurs. The matching part of the string is
+  removed from the output.
+
+  As in [;;4mrun/3[0m, an [;;4mmp()[0m compiled with option [;;4municode[0m requires [;;4m[0m
+  [;;4mSubject[0m to be a Unicode [;;4mcharlist()[0m. If compilation is done
+  implicitly and the [;;4municode[0m compilation option is specified to
+  this function, both the regular expression and [;;4mSubject[0m are to be
+  specified as valid Unicode [;;4mcharlist()[0ms.
+
+  The result is given as a list of "strings", the preferred data
+  type specified in option [;;4mreturn[0m (default [;;4miodata[0m).
+
+  If subexpressions are specified in the regular expression, the
+  matching subexpressions are returned in the resulting list as
+  well. For example:
+
+    re:split("Erlang","[ln]",[{return,list}]).
+
+  gives
+
+    ["Er","a","g"]
+
+  while
+
+    re:split("Erlang","([ln])",[{return,list}]).
+
+  gives
+
+    ["Er","l","a","n","g"]
+
+  The text matching the subexpression (marked by the parentheses in
+  the regular expression) is inserted in the result list where it
+  was found. This means that concatenating the result of a split
+  where the whole regular expression is a single subexpression (as
+  in the last example) always results in the original string.
+
+  As there is no matching subexpression for the last part in the
+  example (the "g"), nothing is inserted after that. To make the
+  group of strings and the parts matching the subexpressions more
+  obvious, one can use option [;;4mgroup[0m, which groups together the
+  part of the subject string with the parts matching the
+  subexpressions when the string was split:
+
+    re:split("Erlang","([ln])",[{return,list},group]).
+
+  gives
+
+    [["Er","l"],["a","n"],["g"]]
+
+  Here the regular expression first matched the "l", causing "Er" to
+  be the first part in the result. When the regular expression
+  matched, the (only) subexpression was bound to the "l", so the "l"
+  is inserted in the group together with "Er". The next match is of
+  the "n", making "a" the next part to be returned. As the
+  subexpression is bound to substring "n" in this case, the "n" is
+  inserted into this group. The last group consists of the remaining
+  string, as no more matches are found.
+
+  By default, all parts of the string, including the empty strings,
+  are returned from the function, for example:
+
+    re:split("Erlang","[lg]",[{return,list}]).
+
+  gives
+
+    ["Er","an",[]]
+
+  as the matching of the "g" in the end of the string leaves an
+  empty rest, which is also returned. This behavior differs from the
+  default behavior of the split function in Perl, where empty
+  strings at the end are by default removed. To get the "trimming"
+  default behavior of Perl, specify [;;4mtrim[0m as an option:
+
+    re:split("Erlang","[lg]",[{return,list},trim]).
+
+  gives
+
+    ["Er","an"]
+
+  The "trim" option says; "give me as many parts as possible except
+  the empty ones", which sometimes can be useful. You can also
+  specify how many parts you want, by specifying [;;4m{parts,[0mN[;;4m}[0m:
+
+    re:split("Erlang","[lg]",[{return,list},{parts,2}]).
+
+  gives
+
+    ["Er","ang"]
+
+  Notice that the last part is "ang", not "an", as splitting was
+  specified into two parts, and the splitting stops when enough
+  parts are given, which is why the result differs from that of [;;4m[0m
+  [;;4mtrim[0m.
+
+  More than three parts are not possible with this indata, so
+
+    re:split("Erlang","[lg]",[{return,list},{parts,4}]).
+
+  gives the same result as the default, which is to be viewed as "an
+  infinite number of parts".
+
+  Specifying [;;4m0[0m as the number of parts gives the same effect as
+  option [;;4mtrim[0m. If subexpressions are captured, empty
+  subexpressions matched at the end are also stripped from the
+  result if [;;4mtrim[0m or [;;4m{parts,0}[0m is specified.
+
+  The [;;4mtrim[0m behavior corresponds exactly to the Perl default. [;;4m[0m
+  [;;4m{parts,N}[0m, where N is a positive integer, corresponds exactly to
+  the Perl behavior with a positive numerical third parameter. The
+  default behavior of [;;4msplit/3[0m corresponds to the Perl behavior
+  when a negative integer is specified as the third parameter for
+  the Perl routine.
+
+  Summary of options not previously described for function [;;4mrun/3[0m:
+
+  [;;4m[;;4m{return,ReturnType}[0m[0m:
+    Specifies how the parts of the original string are presented
+    in the result list. Valid types:
+
+    [;;4m[;;4miodata[0m[0m:
+      The variant of [;;4miodata()[0m that gives the least copying of
+      data with the current implementation (often a binary, but
+      do not depend on it).
+
+    [;;4m[;;4mbinary[0m[0m:
+      All parts returned as binaries.
+
+    [;;4m[;;4mlist[0m[0m:
+      All parts returned as lists of characters ("strings").
+
+  [;;4m[;;4mgroup[0m[0m:
+    Groups together the part of the string with the parts of the
+    string matching the subexpressions of the regular expression.
+
+    The return value from the function is in this case a [;;4mlist()[0m
+    of [;;4mlist()[0ms. Each sublist begins with the string picked out
+    of the subject string, followed by the parts matching each of
+    the subexpressions in order of occurrence in the regular
+    expression.
+
+  [;;4m[;;4m{parts,N}[0m[0m:
+    Specifies the number of parts the subject string is to be
+    split into.
+
+    The number of parts is to be a positive integer for a specific
+    maximum number of parts, and [;;4minfinity[0m for the maximum number
+    of parts possible (the default). Specifying [;;4m{parts,0}[0m gives
+    as many parts as possible disregarding empty parts at the end,
+    the same as specifying [;;4mtrim[0m.
+
+  [;;4m[;;4mtrim[0m[0m:
+    Specifies that empty parts at the end of the result list are
+    to be disregarded. The same as specifying [;;4m{parts,0}[0m. This
+    corresponds to the default behavior of the [;;4msplit[0m built-in
+    function in Perl.

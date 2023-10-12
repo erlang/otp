@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2022. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -368,7 +368,7 @@ Please see the function `tempo-define-template'.")
     "%% supervisor_bridge callbacks" n
     (erlang-skel-double-separator 2)
     (erlang-skel-separator 2)
-    "%% Funcion: init(Args) -> {ok,  Pid, State} |" n
+    "%% Function: init(Args) -> {ok,  Pid, State} |" n
     "%%                        ignore            |" n
     "%%                        {error, Reason}    " n
     "%% Description:Creates a supervisor_bridge process, linked to the calling" n

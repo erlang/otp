@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ get_xcomp_flag(Flag, Flags) ->
 get_xcomp_flag(Flag, Tag, Flags) ->
     case proplists:get_value(Flag,Flags) of
 	undefined -> "";
-	"guess" -> [" --",Tag,"=",os:cmd("$ERL_TOP/erts/autoconf/config.guess")];
+	"guess" -> [" --",Tag,"=",os:cmd("$ERL_TOP/make/autoconf/config.guess")];
 	HostVal -> [" --",Tag,"=",HostVal]
     end.
 
@@ -268,7 +268,7 @@ add_vars(Vars0, Opts0) ->
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
-	    {rsh_name, os:getenv("ERL_RSH", "rsh")},
+	    {rsh_name, os:getenv("ERL_RSH", "ssh")},
 	    {platform_label, PlatformLabel},
 	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
@@ -314,8 +314,9 @@ platform(Vars) ->
     AsyncThreads = async_threads(),
     OffHeapMsgQ = off_heap_msgq(),
     Debug = debug(),
+    Jit = jit(),
     CpuBits = word_size(),
-    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,LinuxDist,
+    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,Jit,LinuxDist,
 			   Schedulers,BindType,KP,IOTHR,LC,MT,AsyncThreads,
 			   OffHeapMsgQ,Debug,ExtraLabel]),
     PlatformId = lists:concat([ErlType, " ", Version, Common]),
@@ -338,8 +339,8 @@ to_upper(String) ->
 word_size() ->
     case {erlang:system_info({wordsize,external}),
 	  erlang:system_info({wordsize,internal})} of
-	{4,4} -> "";
-	{8,8} -> "/64";
+	{4,4} -> "/32-bit";
+	{8,8} -> "/64-bit";
 	{8,4} -> "/Halfword"
     end.
 
@@ -407,12 +408,21 @@ bind_type() ->
 	no_spread -> "/sbtns";
 	_ -> ""
     end.
-					
+
+jit() ->
+    case catch atom_to_list(erlang:system_info(emu_flavor)) of
+        "jit" ++ _ -> "/JIT";
+	_ -> ""
+    end.
 
 debug() ->
-    case string:find(erlang:system_info(system_version), "debug") of
-	nomatch -> "";
-	_ -> "/Debug"
+    case catch erlang:system_info(emu_type) of
+	debug -> "/Debug";
+        _ ->
+            case erlang:system_info(build_type) of
+                debug -> "/Debug";
+                _ -> ""
+            end
     end.
 
 lock_checking() ->

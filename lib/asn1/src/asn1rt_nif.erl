@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@
 	 decode_ber_tlv/1,
 	 encode_ber_tlv/1]).
 
+-nifs([encode_per_complete/1,
+       decode_ber_tlv_raw/1,
+       encode_ber_tlv/1]).
+
 -compile(no_native).
 -on_load(load_nif/0).
 
@@ -43,13 +47,15 @@ load_nif() ->
 			      filename:join(
 				[PrivDir,
 				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
+				 LibTypeName ++ "*"]),
+                              erl_prim_loader) /= []) orelse
 			  (filelib:wildcard(
 			     filename:join(
 			       [PrivDir,
 				"lib",
 				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
+				LibTypeName ++ "*"]),
+                             erl_prim_loader) /= []) of
 			  true -> LibTypeName;
 			  false -> LibBaseName
 		      end
@@ -62,7 +68,9 @@ load_nif() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+			 filelib:wildcard(
+                           filename:join([ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->

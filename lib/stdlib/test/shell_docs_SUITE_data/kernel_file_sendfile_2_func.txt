@@ -1,0 +1,17 @@
+
+  [;1m-spec sendfile(Filename, Socket) ->[0m
+  [;1m                  {ok, non_neg_integer()} |[0m
+  [;1m                  {error, inet:posix() | closed | badarg | not_owner}[0m
+  [;1m                  when[0m
+  [;1m                      Filename :: name_all(),[0m
+  [;1m                      Socket ::[0m
+  [;1m                          inet:socket() |[0m
+  [;1m                          socket:socket() |[0m
+  [;1m                          fun((iolist()) ->[0m
+  [;1m                                  ok | {error, inet:posix() | closed}).[0m
+
+[;;4mSince[0m:
+  OTP R15B
+
+  Sends the file [;;4mFilename[0m to [;;4mSocket[0m. Returns [;;4m{ok, BytesSent}[0m
+  if successful, otherwise [;;4m{error, Reason}[0m.

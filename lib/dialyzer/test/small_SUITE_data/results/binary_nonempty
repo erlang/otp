@@ -1,0 +1,37 @@
+
+binary_nonempty.erl:12:1: Function t2/0 has no local return
+binary_nonempty.erl:13:8: The call binary_nonempty:t2(<<>>) breaks the contract (nonempty_binary()) -> 'foo'
+binary_nonempty.erl:15:2: Invalid type specification for function binary_nonempty:t2/1.
+ The success typing is binary_nonempty:t2(<<>>) -> 'foo'
+ But the spec is binary_nonempty:t2(nonempty_binary()) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:19:1: Function t3/0 has no local return
+binary_nonempty.erl:20:8: The call binary_nonempty:t3(<<>>) breaks the contract (<<_:1,_:_*1>>) -> 'foo'
+binary_nonempty.erl:22:2: Invalid type specification for function binary_nonempty:t3/1.
+ The success typing is binary_nonempty:t3(<<>>) -> 'foo'
+ But the spec is binary_nonempty:t3(<<_:1,_:_*1>>) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:26:1: Function t4/0 has no local return
+binary_nonempty.erl:27:8: The call binary_nonempty:t4(<<>>) breaks the contract (<<_:8,_:_*8>>) -> 'foo'
+binary_nonempty.erl:29:2: Invalid type specification for function binary_nonempty:t4/1.
+ The success typing is binary_nonempty:t4(<<>>) -> 'foo'
+ But the spec is binary_nonempty:t4(<<_:8,_:_*8>>) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:33:2: Invalid type specification for function binary_nonempty:t5/1.
+ The success typing is binary_nonempty:t5(<<>>) -> 'foo'
+ But the spec is binary_nonempty:t5(nonempty_binary()) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:38:2: Invalid type specification for function binary_nonempty:t6/1.
+ The success typing is binary_nonempty:t6(<<_:8>>) -> 'foo'
+ But the spec is binary_nonempty:t6(<<>>) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:43:2: Invalid type specification for function binary_nonempty:t7/1.
+ The success typing is binary_nonempty:t7(<<_:1>>) -> 'foo'
+ But the spec is binary_nonempty:t7(<<>>) -> 'foo'
+ They do not overlap in the 1st argument
+binary_nonempty.erl:5:1: Function t1/0 has no local return
+binary_nonempty.erl:6:8: The call binary_nonempty:t1(<<>>) breaks the contract (nonempty_bitstring()) -> 'foo'
+binary_nonempty.erl:8:2: Invalid type specification for function binary_nonempty:t1/1.
+ The success typing is binary_nonempty:t1(<<>>) -> 'foo'
+ But the spec is binary_nonempty:t1(nonempty_bitstring()) -> 'foo'
+ They do not overlap in the 1st argument

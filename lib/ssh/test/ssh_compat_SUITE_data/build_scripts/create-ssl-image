@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# ./create-image openssl 1.0.2m
+# ./create-image openssl 1.0.2m [in-file] 
 
 case "$1" in
     "openssl")
@@ -23,6 +23,8 @@ case "$1" in
 	;;
 esac
 
+INPUT_FILE=$3
+
 case $1$2 in
     openssl0.9.8[a-l])
         CONFIG_FLAGS=no-asm
@@ -41,7 +43,7 @@ esac
 # Make a Dockerfile. This method simplifies env variable handling considerably:
 cat - > TempDockerFile <<EOF
 
-    FROM ubuntubuildbase
+    FROM ssh_compat_suite-ubuntu:latest
 
     LABEL version=$FAM-$VER
 
@@ -62,7 +64,16 @@ EOF
 
 # Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
 # but then we hit the proxy problem...
-wget -O $TMP $PFX$VER$SFX
+
+if [ "x$INPUT_FILE" = "x" ]
+then
+    wget -O $TMP $PFX$VER$SFX
+
+elif [ "x$INPUT_FILE" != "x$TMP" ]
+then
+     echo "Use $INPUT_FILE for input"
+    cp $INPUT_FILE $TMP
+fi
 
 # Build the image:
 docker build -t ssh_compat_suite-$FAM:$VER -f ./TempDockerFile .

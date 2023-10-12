@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ TEX_FILES= $(SGML_FILES:.sgml=.tex)
 DVI_FILES= $(SGML_FILES:.sgml=.dvi)
 PSFIG_FILES= $(FIG_FILES:.fig=.ps) 
 PS_FILES= $(SGML_FILES:.sgml=.ps)
-GIF_FILES= min_head.gif
+GIF_FILES=
 ERL_FILES=
 HRL_FILES=
 DATA_FILES=

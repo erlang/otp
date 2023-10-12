@@ -8,6 +8,8 @@
 
 -export([tup/0, tup2/0]).
 
+-export([map/0, map2/0]).
+
 -export_type([t/1, y/1, int/1, tup/1, un/1]).
 
 -type ai() :: atom() | integer().
@@ -106,3 +108,13 @@ tup() ->
 
 tup2() ->
     foo:tup2().
+
+-spec map() -> t(#{2 => b}).
+
+map() ->
+    foo:map().
+
+-spec map2() -> t(#{1 => a}).
+
+map2() ->
+    foo:map2().

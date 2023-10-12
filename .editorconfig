@@ -1,0 +1,22 @@
+; This file is for unifying the coding style for different editors and IDEs.
+; More information at http://EditorConfig.org
+;
+; To use this from emacs install the editorconfig package
+
+root = true
+
+[*]
+end_of_line = LF
+
+[*]
+indent_style = space
+indent_size = 4
+tab_width = 8
+insert_final_newline = true
+# Adding trim_trailing_whitespace removes trailing
+# from entire buffer on save and we do not want that
+# trim_trailing_whitespace = true
+
+[{Makefile*,**.mk*}]
+# Use tabs for indentation (Makefiles require tabs)
+indent_style = tab

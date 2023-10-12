@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,11 +127,16 @@ ERL_COMPILE_FLAGS += \
 
 #		+bin_opt_info 
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
+endif
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 
 docs:
 #docs:	$(DOC_TARGET_FILES)
@@ -173,10 +178,10 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 xmerl_xpath_parse.erl:	xmerl_xpath_parse.yrl
-	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $<
+	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
 
 xmerl_b64Bin.erl: xmerl_b64Bin.yrl
-	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $<
+	$(yecc_verbose)$(ERLC)  -o  $(ESRC) $(DETERMINISM_FLAG) $<
 
 xmerl_sax_parser_list.erl: xmerl_sax_parser_list.erlsrc xmerl_sax_parser_base.erlsrc
 	$(gen_verbose)cat xmerl_sax_parser_list.erlsrc xmerl_sax_parser_base.erlsrc >$@

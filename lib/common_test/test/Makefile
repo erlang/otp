@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2017. All Rights Reserved.
+# Copyright Ericsson AB 2008-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,10 @@ MODULES= \
         ct_SUITE \
 	ct_keep_logs_SUITE \
 	ct_unicode_SUITE \
-	ct_auto_clean_SUITE
+	ct_auto_clean_SUITE \
+	ct_util_SUITE \
+	ct_tc_repeat_SUITE \
+	ct_property_test_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= test_server_test_lib.hrl
@@ -96,6 +99,7 @@ RELSYSDIR = $(RELEASE_PATH)/common_test_test
 
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -109,7 +113,7 @@ EBIN = .
 #	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
 #	> $(EMAKEFILE)
 
-tests debug opt:
+tests $(TYPES):
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -131,6 +135,6 @@ release_tests_spec:
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) common_test.spec common_test.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

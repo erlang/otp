@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 %%% HTTP Client per request settings
 -record(http_options,
 	{
-	  %% "HTTP/1.1" | "HTTP/1.0" | "HTTP/0.9"
+	  %% "HTTP/1.1" | "HTTP/1.0"
 	  version :: 'undefined' | string(),
 
 	  %% ms before a request times out
@@ -107,7 +107,7 @@
 	  content,       % {ContentType, Body} - Current HTTP request
 	  settings      :: http_options(), % User defined settings
 	  abs_uri,       % string() ex: "http://www.erlang.org"
-	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
+	  userinfo,      % string() - optional "<userinfo>@<host>:<port>"
 	  stream,	 % boolean() - stream async reply?
 	  headers_as_is, % boolean() - workaround for servers that does
 			 % not honor the http standard, can also be used 
@@ -127,7 +127,7 @@
 	  %% {{Host, Port}, HandlerPid}
 	  id, 
 
-	  client_close :: 'undefined' | boolean(),
+	  client_close = false :: boolean(),
 
 	  %% http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  scheme, 

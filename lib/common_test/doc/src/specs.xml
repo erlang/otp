@@ -2,4 +2,5 @@
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="../specs/specs_ct_netconfc.xml"/>
   <xi:include href="../specs/specs_ct.xml"/>
+  <xi:include href="../specs/specs_ct_suite.xml"/>
 </specs>

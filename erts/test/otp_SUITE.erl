@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,10 @@
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
          obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
-         erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
+         erl_file_encoding/1,xml_file_encoding/1,
+         runtime_dependencies_functions/1,
+         runtime_dependencies_modules/1,
+         test_runtime_dependencies_versions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -33,33 +36,20 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 10}}].
+     {timetrap, {minutes, 30}}].
 
-all() -> 
+all() ->
     [undefined_functions, deprecated_not_in_obsolete,
      obsolete_but_not_deprecated, call_to_deprecated,
      call_to_size_1, call_to_now_0, strong_components,
      erl_file_encoding, xml_file_encoding,
-     runtime_dependencies].
+     runtime_dependencies_functions,
+     runtime_dependencies_modules,
+     test_runtime_dependencies_versions
+].
 
 init_per_suite(Config) ->
-    Root = code:root_dir(),
-    Server = daily_xref,
-    xref:start(Server),
-    xref:set_default(Server, [{verbose,false},
-                              {warnings,false},
-                              {builtins,true}]),
-    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
-
-    %% If we are running the tests in the source tree, the ERTS application
-    %% is not in the code path. We must add it explicitly.
-    case code:lib_dir(erts) of
-        {error,bad_name} ->
-            Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-            {ok,_} = xref:add_directory(Server, Erts, []);
-        _ ->
-            ok
-    end,
+    Server = start_xref_server(daily_xref, functions),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -78,70 +68,31 @@ undefined_functions(Config) when is_list(Config) ->
                       "Undef - Undef | ExcludedFrom",
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
-    Undef1 = hipe_filter(Undef0),
-    Undef2 = ssl_crypto_filter(Undef1),
-    Undef3 = edoc_filter(Undef2),
-    Undef4 = eunit_filter(Undef3),
-    Undef5 = dialyzer_filter(Undef4),
-    Undef6 = wx_filter(Undef5),
-    Undef7 = gs_filter(Undef6),
-    Undef = diameter_filter(Undef7),
+
+    Filters = [fun erts_filter/1,
+               fun ssl_crypto_filter/1,
+               fun eunit_filter/1,
+               fun dialyzer_filter/1,
+               fun wx_filter/1,
+               fun diameter_filter/1],
+    Undef = lists:foldl(fun(Filter, Acc) ->
+                                Filter(Acc)
+                        end, Undef0, Filters),
 
     case Undef of
         [] -> ok;
         _ ->
             Fd = open_log(Config, "undefined_functions"),
             foreach(fun ({MFA1,MFA2}) ->
-                            io:format("~s calls undefined ~s",
-                                      [format_mfa(Server, MFA1),
-                                       format_mfa(MFA2)]),
+                            ct:pal("~s calls undefined ~s",
+                                   [format_mfa(Server, MFA1),
+                                    format_mfa(MFA2)]),
                             io:format(Fd, "~s ~s\n",
                                       [format_mfa(Server, MFA1),
                                        format_mfa(MFA2)])
                     end, Undef),
             close_log(Fd),
             ct:fail({length(Undef),undefined_functions_in_otp})
-    end.
-
-hipe_filter(Undef) ->
-    case erlang:system_info(hipe_architecture) of
-        undefined ->
-            filter(fun ({_,{hipe_bifs,_,_}}) -> false;
-                       ({_,{hipe,_,_}}) -> false;
-                       ({_,{hipe_consttab,_,_}}) -> false;
-                       ({_,{hipe_converters,_,_}}) -> false;
-                       ({{code,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{code_server,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{compile,_,_},{Mod,_,_}}) ->
-                           not is_hipe_module(Mod);
-                       ({{hipe,_,_},{Mod,_,_}}) ->
-                           %% See comment for the next clause.
-                           not is_hipe_module(Mod);
-                       ({{cerl_to_icode,translate_flags1,2},
-                         {hipe_rtl_arch,endianess,0}}) ->
-                           false;
-                       ({{Caller,_,_},{Callee,_,_}}) ->
-                           %% Part of the hipe application is here
-                           %% for the sake of Dialyzer. There are many
-                           %% undefined calls within the hipe application.
-                           not is_hipe_module(Caller) orelse
-                           not is_hipe_module(Callee);
-                       (_) -> true
-                   end, Undef);
-        _Arch ->
-            filter(fun ({{Mod,_,_},{hipe_bifs,write_u64,2}}) ->
-                           %% Unavailable except in 64 bit AMD. Ignore it.
-                           not is_hipe_module(Mod);
-                       (_) -> true
-                   end, Undef)
-    end.
-
-is_hipe_module(Mod) ->
-    case atom_to_list(Mod) of
-        "hipe_"++_ -> true;
-        _ -> false
     end.
 
 ssl_crypto_filter(Undef) ->
@@ -156,12 +107,6 @@ ssl_crypto_filter(Undef) ->
                    end, Undef);
         {_,_} -> Undef
     end.
-
-edoc_filter(Undef) ->
-    %% Filter away function call that is catched.
-    filter(fun({{edoc_lib,uri_get_http,1},{http,request_sync,2}}) -> false;
-              (_) -> true
-           end, Undef).
 
 eunit_filter(Undef) ->
     filter(fun({{eunit_test,wrapper_test_exported_,0},
@@ -197,19 +142,8 @@ wx_filter(Undef) ->
         _ -> Undef
     end.
 
-gs_filter(Undef) ->
-    case code:lib_dir(gs) of
-        {error,bad_name} ->
-            filter(fun({_,{gs,_,_}}) -> false;
-                      ({_,{gse,_,_}}) -> false;
-                      ({_,{tool_utils,_,_}}) -> false;
-                      (_) -> true
-                   end, Undef);
-        _ -> Undef
-    end.
-
 diameter_filter(Undef) ->
-    %% Filter away function calls that are catched.
+    %% Filter away function calls that are caught.
     filter(fun({{diameter_lib,_,_},{erlang,convert_time_unit,3}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,monotonic_time,0}}) ->
@@ -218,6 +152,13 @@ diameter_filter(Undef) ->
                    false;
               ({{diameter_lib,_,_},{erlang,time_offset,0}}) ->
                    false;
+              (_) -> true
+           end, Undef).
+
+erts_filter(Undef) ->
+    filter(fun({_,{prim_socket,_,_}}) -> lists:member(prim_socket, erlang:pre_loaded());
+              ({_,{prim_net,_,_}}) -> lists:member(prim_net, erlang:pre_loaded());
+              ({_,{socket_registry,_,_}}) -> lists:member(socket_registry, erlang:pre_loaded());
               (_) -> true
            end, Undef).
 
@@ -277,17 +218,13 @@ call_to_deprecated(Config) when is_list(Config) ->
     {comment,integer_to_list(length(DeprecatedCalls))++" calls to deprecated functions"}.
 
 call_to_size_1(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:size/1:
-    Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
-            runtime_tools,stdlib,tools],
+    %% Forbid the use of erlang:size/1 in all applications.
+    Apps = all_otp_applications(Config),
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:now/1:
-    Apps = [asn1,common_test,compiler,debugger,dialyzer,
-            gs,kernel,mnesia,observer,parsetools,reltool,
-            runtime_tools,sasl,stdlib,syntax_tools,
-            tools],
+    %% Forbid the use of erlang:now/1 in all applications except et.
+    Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->
@@ -340,8 +277,19 @@ not_recommended_calls(Config, Apps0, MFA) ->
                     {comment, Mess}
             end;
         _ ->
-            ct:fail({length(CallsToMFA),calls_to_size_1})
+            ct:fail({length(CallsToMFA),calls_to,MFA})
     end.
+
+all_otp_applications(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    {ok,AllApplications} = xref:q(Server, "A"),
+    OtpAppsMap = get_otp_applications(Config),
+    [App || App <- AllApplications, is_map_key(App, OtpAppsMap)].
+
+get_otp_applications(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    [Current|_] = read_otp_version_table(DataDir),
+    read_version_lines([Current]).
 
 is_present_application(Name, Server) ->
     Q = io_lib:format("~w : App", [Name]),
@@ -424,16 +372,39 @@ is_bad_encoding(File) ->
             true
     end.
 
-runtime_dependencies(Config) ->
+%% Test runtime dependencies when using an Xref server running in
+%% 'functions' mode.
+
+runtime_dependencies_functions(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    runtime_dependencies(Server).
+
+%% Test runtime dependencies when using an xref server running in
+%% 'modules' mode. Note that more module edges can potentially be
+%% found in this mode because the analysis is based on the BEAM
+%% code after all optimizations. For example, an apply in the source
+%% code could after optimizations be resolved to a specific function.
+%%
+%% It is important to test 'modules' because reltool runs xref in
+%% 'modules' mode (the BEAM files to be released might not contain
+%% debug information).
+
+runtime_dependencies_modules(_Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules),
+    try
+        runtime_dependencies(Server)
+    after
+        catch xref:stop(Server)
+    end.
+
+runtime_dependencies(Server) ->
     %% Ignore applications intentionally not declaring dependencies
     %% found by xref.
     IgnoreApps = [diameter],
 
-
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
-    Server = proplists:get_value(xref_server, Config),
     {ok, AE} = xref:q(Server, "AE"),
     SAE = lists:keysort(1, AE),
     put(ignored_failures, []),
@@ -448,7 +419,7 @@ runtime_dependencies(Config) ->
                                     end,
                                     {undefined, []},
                                     SAE),
-    check_apps_deps([AppDep|AppDeps], IgnoreApps),
+    [] = check_apps_deps([AppDep|AppDeps], IgnoreApps),
     case IgnoreApps of
         [] ->
             ok;
@@ -466,7 +437,7 @@ have_rdep(App, [RDep | RDeps], Dep) ->
     [AppStr, _VsnStr] = string:lexemes(RDep, "-"),
     case Dep == list_to_atom(AppStr) of
         true ->
-            io:format("~p -> ~s~n", [App, RDep]),
+            %% io:format("~p -> ~s~n", [App, RDep]),
             true;
         false ->
             have_rdep(App, RDeps, Dep)
@@ -511,6 +482,189 @@ check_apps_deps([{App, Deps}|AppDeps], IgnoreApps) ->
             end
     end.
 
+%%
+%% Test that the runtime dependencies have not become stale.
+%%
+
+%% Path of installed OTP releases.
+-define(OTP_RELEASES, "/usr/local/otp/releases").
+
+%% Wildcard to match all releases from OTP 17.
+-define(OTP_RELEASE_WC, "{sles10_64_17_patched,ubuntu16_64_*_patched}").
+
+test_runtime_dependencies_versions(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    OtpReleases = ?OTP_RELEASES,
+    OtpReleasesWc = filename:join(OtpReleases, ?OTP_RELEASE_WC),
+
+    IgnoreApps = [],
+    IgnoreUndefs = ignore_undefs(),
+
+    FirstVersionForApp = get_first_app_versions(DataDir),
+
+    case {element(1, os:type()) =:= unix,
+          not is_development_build(DataDir),
+          filelib:is_dir(OtpReleases)} of
+        {true, true, true} ->
+            test_runtime_dependencies_versions_rels(
+              IgnoreApps,
+              IgnoreUndefs,
+              FirstVersionForApp,
+              OtpReleasesWc);
+        {false, _, _} ->
+            {skip, "This test only runs on Unix systems"};
+        {_, false, _} ->
+            {skip,
+             "This test case is designed to run in the Erlang/OTP teams "
+             "test system for daily tests. The test case depends on that "
+             "app versions have been set correctly by scripts that "
+             "are executed before creating builds for the daily tests."};
+        {_, _ ,false} ->
+            {skip, "Can not do the tests without a proper releases dir. "
+             "Check that " ++ OtpReleases ++ " is set up correctly."}
+    end.
+
+ignore_undefs() ->
+    Socket = case lists:member(prim_socket, erlang:pre_loaded()) of
+                 true ->
+                     #{};
+                 false ->
+                     Ignore = #{{prim_socket,'_','_'} => true,
+                                {socket_registry,'_','_'} => true,
+                                {prim_net,'_','_'} => true },
+                     #{kernel => Ignore, erts => Ignore}
+             end,
+    Socket#{eunit =>
+                %% Intentional call to nonexisting function
+                #{{eunit_test, nonexisting_function, 0} => true},
+            diameter =>
+                %% The following functions are optional dependencies for diameter
+                #{{dbg,ctp,0} => true,
+                  {dbg,p,2} => true,
+                  {dbg,stop,0} => true,
+                  {dbg,trace_port,2} => true,
+                  {dbg,tracer,2} => true,
+                  {erl_prettypr,format,1} => true,
+                  {erl_syntax,form_list,1} => true},
+            common_test =>
+                %% ftp:start/0 has been part of the ftp application from
+                %% the beginning so it is unclear why xref report this
+                %% as undefined
+                #{{ftp,start,0} => true}}.
+
+%% Read the otp_versions.table file and create a mapping from application name
+%% the first version for each application.
+get_first_app_versions(DataDir) ->
+    Lines = read_otp_version_table(DataDir),
+    read_version_lines(Lines).
+
+test_runtime_dependencies_versions_rels(IgnoreApps, IgnoreUndefs,
+                                        FirstVersionForApp, OtpReleasesWc) ->
+    AppVersionToPath = version_to_path(OtpReleasesWc),
+    Deps = [Dep || {App,_,_}=Dep <- get_deps(FirstVersionForApp),
+                   not lists:member(App, IgnoreApps)],
+    case test_deps(Deps, IgnoreUndefs, AppVersionToPath, FirstVersionForApp) of
+        [] ->
+            ok;
+        [_|_]=Undefs ->
+            _ = [print_undefs(Undef) || Undef <- Undefs],
+            ct:fail({length(Undefs),errors})
+    end.
+
+print_undefs({_App,AppPath,Deps,Undefs}) ->
+    App = filename:basename(filename:dirname(AppPath)),
+    io:format("Undefined functions in ~ts:", [App]),
+    io:put_chars([io_lib:format("  ~p:~p/~p\n", [M,F,A]) ||
+                     {M,F,A} <- Undefs]),
+    io:format("Dependencies: ~ts\n", [lists:join(" ", Deps)]).
+
+version_to_path(OtpReleasesWc) ->
+    CurrentWc = filename:join([code:lib_dir(), "*-*", "ebin"]),
+    LibWc = filename:join([OtpReleasesWc, "lib", "*-*", "ebin"]),
+    Dirs = lists:sort(filelib:wildcard(CurrentWc) ++ filelib:wildcard(LibWc)),
+    All = [{filename:basename(filename:dirname(Dir)),Dir} || Dir <- Dirs],
+    maps:from_list(All).
+
+get_deps(FirstVersionForApp) ->
+    Paths = [begin
+                 Dir = filename:dirname(Path),
+                 [App0 | _] = string:split(filename:basename(Dir), "-"),
+                 App = list_to_atom(App0),
+                 AppFile = filename:join(Path, App0 ++ ".app"),
+                 {Path, App, AppFile}
+             end || Path <- code:get_path(),
+                    filename:basename(Path) =:= "ebin"],
+    %% Only keep applications included in OTP.
+    Apps = [Triple || {_, App, AppFile}=Triple <- Paths,
+                      filelib:is_file(AppFile),
+                      is_map_key(App, FirstVersionForApp)],
+    [{App, Path, get_runtime_deps(App, AppFile)} || {Path, App, AppFile} <- Apps].
+
+get_runtime_deps(App, AppFile) ->
+    {ok,[{application, App, Info}]} = file:consult(AppFile),
+    case lists:keyfind(runtime_dependencies, 1, Info) of
+        {runtime_dependencies, RDeps} ->
+            RDeps;
+        false ->
+            []
+    end.
+
+test_deps([{Name,Path,Deps}|Apps], IgnoreUndefs, AppVersionToPath, FirstVersionForApp) ->
+    case test_dep(Name, Path, Deps, AppVersionToPath, FirstVersionForApp, IgnoreUndefs) of
+        ok ->
+            test_deps(Apps, IgnoreUndefs, AppVersionToPath, FirstVersionForApp);
+        {error, Error} ->
+            [Error|test_deps(Apps, IgnoreUndefs, AppVersionToPath, FirstVersionForApp)]
+    end;
+test_deps([], _IgnoreUndefs, _AppVersionToPath, _FirstVersionForApp) ->
+    [].
+
+test_dep(App, AppPath, Deps, AppVersionToPath, FirstVersionForApp, IgnoreUndefs) ->
+    DepPaths = [get_app_path(Dep, AppVersionToPath, FirstVersionForApp, App) ||
+                   Dep <- Deps],
+
+    Server = xref_server_test_dep,
+    {ok, _} = xref:start(Server, []),
+    xref:set_default(Server, [{verbose,false},
+                              {warnings,false},
+                              {builtins,true}]),
+    ok = xref:set_library_path(Server, DepPaths),
+    {ok, _} = xref:add_directory(Server, AppPath),
+    {ok, Undef0} = xref:analyze(Server, undefined_functions),
+    xref:stop(Server),
+
+    %% Filter out undefined functions that we should ignore.
+    Ignore = maps:get(App, IgnoreUndefs, #{}),
+    Undef = [MFA || {M,F,_A}=MFA <- Undef0,
+                    not is_map_key(MFA, Ignore),
+                    not is_map_key({M,'_','_'}, Ignore),
+                    not is_map_key({M,F,'_'}, Ignore)],
+    case Undef of
+        [] ->
+            ok;
+        [_|_] ->
+            {error, {App, AppPath, Deps, Undef}}
+    end.
+
+get_app_path(App, AppVersionToPath, FirstVersionForApp, ReferencedBy) ->
+    case AppVersionToPath of
+        #{App := Path} ->
+            Path;
+        #{} ->
+            [Name0, _Version] = string:split(App, "-"),
+            Name = list_to_existing_atom(Name0),
+            First = map_get(Name, FirstVersionForApp),
+            io:format("WARNING: ~ts referenced by ~ts is too old; using ~ts instead\n",
+                      [App, ReferencedBy, First]),
+            map_get(First, AppVersionToPath)
+    end.
+
+is_development_build(DataDir) ->
+    OTPVersionTicketsPath = filename:join(DataDir, "otp_version_tickets"),
+    {ok, FileContentBin} = file:read_file(OTPVersionTicketsPath),
+    string:trim(binary_to_list(FileContentBin), both, "\n ") =:= "DEVELOPMENT".
+
 %%%
 %%% Common help functions.
 %%%
@@ -553,3 +707,52 @@ app_exists(AppAtom) ->
                     false
             end
     end.
+
+start_xref_server(Server, Mode) ->
+    Root = code:root_dir(),
+    xref:start(Server, [{xref_mode,Mode}]),
+    xref:set_default(Server, [{verbose,false},
+                              {warnings,false},
+                              {builtins,true}]),
+    {ok,_Relname} = xref:add_release(Server, Root, {name,otp}),
+
+    case code:lib_dir(erts) of
+        {error,bad_name} ->
+            %% This should not be possible since code_server always adds
+            %% an entry for erts.
+            ct:fail(no_erts_lib_dir);
+        LibDir ->
+            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+                false ->
+                    %% If we are running the tests in the git repository,
+                    %% the preloaded BEAM files for Erts are not in the
+                    %% code path. We must add them explicitly.
+                    Erts = filename:join([LibDir,"preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                true ->
+                    ok
+            end
+    end,
+    Server.
+
+read_otp_version_table(DataDir) ->
+    VersionTableFile = filename:join(DataDir, "otp_versions.table"),
+    {ok, Contents} = file:read_file(VersionTableFile),
+    binary:split(Contents, <<"\n">>, [global,trim]).
+
+read_version_lines(Lines) ->
+    read_version_lines(Lines, #{}).
+
+read_version_lines([Line|Lines], Map0) ->
+    [<<"OTP-",_/binary>>, <<":">> | Apps] = binary:split(Line, <<" ">>, [global,trim]),
+    Map = lists:foldl(fun(App, Acc) ->
+                              case binary:split(App, <<"-">>) of
+                                  [Name, _Version] ->
+                                      Acc#{binary_to_atom(Name) => binary_to_list(App)};
+                                  [_] ->
+                                      Acc
+                              end
+                      end, Map0, Apps),
+    read_version_lines(Lines, Map);
+read_version_lines([], Map) ->
+    Map.

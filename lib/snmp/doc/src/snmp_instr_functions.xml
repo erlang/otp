@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -63,7 +63,7 @@
       values for the table, and <c>Column</c> is a column number.
       </p>
     <p>These functions are described in detail in 
-      <seealso marker="snmp_def_instr_functions">Definition of Instrumentation Functions</seealso>.
+      <seeguide marker="snmp_def_instr_functions">Definition of Instrumentation Functions</seeguide>.
       </p>
 
     <section>

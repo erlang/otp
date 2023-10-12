@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 
 -import(lists, [foldl/3]).
 
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,22 +57,23 @@ all() ->
 
 groups() -> 
     [{script, [],
-      [script_options, normal_script, unicode_script, no_mod_vsn_script,
+      [script_options, normal_script, start_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, no_dot_erlang_script,
-       src_tests_script, crazy_script,
+       src_tests_script, crazy_script, optional_apps_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
-       duplicate_modules_script,
+       duplicate_modules_script, duplicate_entries_script,
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
-      [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
+      [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
        system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
-       otp_9507_path_ebin]},
+       otp_9507_path_ebin, additional_files_tar, erts_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
-       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
+       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
+       replace_app_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {options, [], [otp_6226_outdir,app_file_defaults]}].
@@ -105,6 +106,9 @@ init_per_suite(Config) when is_list(Config) ->
     %% Compile source files in the copy directory.
     Sources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*.erl'])),
     lists:foreach(fun compile_source/1, Sources),
+    %% Deal with subdirectories, if any
+    SubSources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*','*.erl'])),
+    lists:foreach(fun compile_subsource/1, SubSources),
 
     [{copy_dir, CopyDir}, {cwd,Cwd}, {path,Path} | Config].
 
@@ -114,6 +118,16 @@ compile_source(File) ->
     %% file, so we must compile to a binary and write
     %% the output file ourselves.
     U = filename:dirname(filename:dirname(File)),
+    Base = filename:rootname(filename:basename(File)),
+    OutFile = filename:join([U,"ebin",Base++".beam"]),
+    OutFileTemp = OutFile ++ "#",
+    {ok,_,Code} = compile:file(File, [binary]),
+    ok = file:write_file(OutFileTemp, Code),
+    file:rename(OutFileTemp, OutFile).
+
+compile_subsource(File) ->
+    %% Same as compile_source/1 but works a subdirectory lower
+    U = filename:dirname(filename:dirname(filename:dirname(File))),
     Base = filename:rootname(filename:basename(File)),
     OutFile = filename:join([U,"ebin",Base++".beam"]),
     OutFileTemp = OutFile ++ "#",
@@ -235,6 +249,29 @@ normal_script(Config) when is_list(Config) ->
     code:set_path(PSAVE),			% Restore path
     ok.
 
+%% make_script: Check that script can be named start.script
+start_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
+
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    ok = file:set_cwd(LatestDir),
+
+    ok = systools:make_script(filename:basename(LatestName), [{script_name, "start"}]),
+    {ok, _} = read_script_file("start"),	% Check readabillity
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
+    ok.
 
 %% make_script: Test make_script with unicode .app file
 unicode_script(Config) when is_list(Config) ->
@@ -254,9 +291,7 @@ unicode_script(Config) when is_list(Config) ->
 
     %% Need to do this on a separate node to make sure it has unicode
     %% filename mode (+fnu*)
-    {ok,HostStr} = inet:gethostname(),
-    Host = list_to_atom(HostStr),
-    {ok,Node} = ct_slave:start(Host,unicode_script_node,[{erl_flags,"+fnui"}]),
+    {ok,Peer,Node} = ?CT_PEER(["+fnui"]),
 
     ok = rpc:call(Node,erl_tar,extract,
 		  [TarFile, [{cwd,UnicodeLibDir},compressed]]),
@@ -289,13 +324,54 @@ unicode_script(Config) when is_list(Config) ->
     rpc:call(Node,code,add_pathz,[filename:dirname(code:which(?MODULE))]),
     rpc:call(Node,?MODULE,delete_tree,[UnicodeLibDir]),
 
+    peer:stop(Peer),
+
     ok.
 
 unicode_script(cleanup,Config) ->
-    _ = ct_slave:stop(unicode_script_node),
     file:delete(fname(?privdir, "unicode_app.tgz")),
     ok.
 
+%% make_script: Check that script handles optional apps.
+optional_apps_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),        % Save path
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_opt_apps, lib]),
+    P1 = fname([LibDir, 'app1-1.0', ebin]),
+    P2 = fname([LibDir, 'app2-1.0', ebin]),
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    %% First assemble a release without the optional app
+    {OptDir, OptName} = create_script(optional_apps_missing,Config),
+    ok = file:set_cwd(OptDir),
+    ok = systools:make_script(filename:basename(OptName), [{script_name, "start"}]),
+    {ok, [{script,_,OptCommands}]} = read_script_file("start"),
+
+    %% Check optional_applications is part of the generated script
+    [[app2]] =
+	[proplists:get_value(optional_applications, Properties) ||
+	     {apply,{application,load,[{application,app1,Properties}]}} <- OptCommands],
+
+    %% And there is no app2
+    [] =
+	[ok || {apply,{application,load,[{application,app2,_}]}} <- OptCommands],
+
+    %% Now let's include the optional app
+    {AllDir, AllName} = create_script(optional_apps_all,Config),
+    ok = file:set_cwd(AllDir),
+    ok = systools:make_script(filename:basename(AllName), [{script_name, "start"}]),
+    {ok, [{script,_,AllCommands}]} = read_script_file("start"),
+
+    %% Check boot order is still correct
+    BootOrder = [App || {apply,{application,start_boot,[App,permanent]}} <- AllCommands],
+    [kernel, stdlib, sasl, app2, app1] = BootOrder,
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),           % Restore path
+    ok.
 
 %% make_script:
 %% Modules specified without version in .app file (db-3.1).
@@ -389,6 +465,18 @@ variable_script(Config) when is_list(Config) ->
 			       LatestName),
 
     ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_script: Duplicate entries in app file
+duplicate_entries_script(Config) when is_list(Config) ->
+    DataDir = ?datadir,
+    create_apps_duplicate_entry(DataDir),
+    {LatestDir, LatestName} = create_script(latest_t21,Config),
+    error = systools:make_script(LatestName,
+        [{path, [DataDir, LatestDir]}]),
+    {LatestDir2, LatestName2} = create_script(latest_t22,Config),
+    ok = systools:make_script(LatestName2,
+        [{path, [DataDir, LatestDir2]}]),
     ok.
 
 %% make_script: Abnormal cases.
@@ -769,26 +857,26 @@ check_exref_warnings(with_db1, W) ->
 	      {lists,non_existing_func,1}]} ->
 	    ok;
 	{ok, L} ->
-	    test_server:fail({exref_warning_undef, L});
+	    ct:fail({exref_warning_undef, L});
 	_E ->
-	    test_server:fail({bad_undef,_E})
+	    ct:fail({bad_undef,_E})
     end;
 check_exref_warnings(without_db1, W) ->
     case get_exref(undef, W) of
 	false ->
 	    ok;
 	{ok, L} ->
-	    test_server:fail({exref_warning_undef, L})
+	    ct:fail({exref_warning_undef, L})
     end.
 
-get_exref(undef, W)   -> filter(no_hipe(get_exref1(exref_undef, W))).
+get_exref(undef, W)   -> filter(get_exref1(exref_undef, W)).
 
 filter(false) ->
     false;
 filter({ok, W}) ->
     {ok, filter(W)};
 filter(L) ->
-    lists:filter(fun%({hipe_consttab,_,_}) -> false;
+    lists:filter(fun
 		     ({int,_,_}) -> false;
 		     ({i,_,_}) -> false;
 		     ({crypto,_,_}) -> false;
@@ -799,19 +887,6 @@ filter(L) ->
 get_exref1(T, [{warning, {T, Value}}|_]) -> {ok, Value};
 get_exref1(T, [_|W])                     -> get_exref1(T, W);
 get_exref1(_, [])                        -> false.
-
-no_hipe(false) ->
-    false;
-no_hipe({ok, Value}) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    Hipe = "hipe",
-	    Fun = fun({M,_,_}) -> not lists:prefix(Hipe, atom_to_list(M)) end,
-	    NewValue = lists:filter(Fun, Value),
-	    {ok, NewValue};
-	_Arch ->
-	    {ok, Value}
-    end.
 
 %% duplicate_modules_script: Check that make_script rejects two
 %% applications providing the same module.
@@ -869,7 +944,7 @@ tar_options(Config) when is_list(Config) ->
     ok.
 
 
-%% make_tar: Check normal case
+%% make_tar: Check case of start.boot
 normal_tar(Config) when is_list(Config) ->
     {ok, OldDir} = file:get_cwd(),
 
@@ -882,7 +957,29 @@ normal_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_tar: Check case of relname.boot
+relname_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, LatestName}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
     {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
@@ -945,12 +1042,142 @@ system_files_tar(Config) ->
 
     ok.
 
+%% make_tar: Check that extra_files are included in the tarball
+additional_files_tar(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    %% Add dummy relup and sys.config
+    ok = file:write_file("sys.config","[].\n"),
+    ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
+
+    %% unrelated files that must be included explicitly
+    RandomFile = "somefile",
+    ok = file:write_file(RandomFile,"hello\n"),
+
+    TopLevelDir = "some_dir",
+    TopLevelFile = filename:join(TopLevelDir, "top_level_file"),
+
+    filelib:ensure_dir(TopLevelFile),
+    ok = file:write_file(TopLevelFile, "hello there\n"),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+    %% random file should not be in this tarball
+    {error, _} = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
+
+    RandomFilePathInTar = filename:join(["releases", "LATEST", RandomFile]),
+
+    {ok, _, []} = systools:make_tar(LatestName,
+                                    [{path, P}, silent,
+                                     {extra_files, [{RandomFile, RandomFilePathInTar},
+                                                    {TopLevelDir, TopLevelDir}]}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+
+    %% random file and dir should be in this tarball
+    ok = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
+    ok = check_tar(fname([TopLevelFile]), LatestName),
+
+    ok = file:set_cwd(OldDir),
+
+    ok.
 
 system_files_tar(cleanup,Config) ->
     Dir = ?privdir,
     file:delete(filename:join(Dir,"sys.config")),
     file:delete(filename:join(Dir,"relup")),
     ok.
+
+erts_tar(Config) ->
+
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(current_all,Config),
+
+    ERTS_VSN = erlang:system_info(version),
+    ERTS_DIR = fname(["erts-" ++ ERTS_VSN,bin]),
+
+    %% List of all expected executable files in erts/bin
+    %% This list needs to be kept up to date whenever a file is
+    %% added or removed.
+    {Default, Ignored} =
+        case os:type()  of
+            {unix,_} ->
+                {["beam.smp","dyn_erl","epmd","erl","erl_call","erl_child_setup",
+                  "erlexec","erl.src","escript","heart","inet_gethost","run_erl",
+                  "start","start_erl.src","start.src","to_erl"],
+                 ["ct_run","dialyzer","erlc","typer","yielding_c_fun"]};
+            {win32, _} ->
+                {["beam.smp.pdb","erl.exe",
+                  "erl.pdb","erl_log.exe","erlexec.dll","erlsrv.exe","heart.exe",
+                  "start_erl.exe","beam.smp.dll",
+                  "epmd.exe","erl.ini","erl_call.exe",
+                  "erlexec.pdb","escript.exe","inet_gethost.exe"],
+                 ["dialyzer.exe","erlc.exe","yielding_c_fun.exe","ct_run.exe","typer.exe"]}
+        end,
+
+    ErtsTarContent =
+        fun(TarName) ->
+                lists:sort(
+                  [filename:basename(File)
+                   || File <- tar_contents(TarName),
+                      string:equal(filename:dirname(File),ERTS_DIR),
+                      %% Filter out beam.*.smp.*
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll)?") == nomatch,
+                      %% Filter out beam.*.emu.*
+                      re:run(filename:basename(File), "beam\\.([^\\.]+\\.)?emu(\\.dll)?") == nomatch,
+                      %% Filter out any erl_child_setup.*
+                      re:run(filename:basename(File), "erl_child_setup\\..*") == nomatch
+                  ])
+        end,
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}, {erts, code:root_dir()}]),
+    ErtsContent = ErtsTarContent(LatestName),
+
+    case lists:sort(Default) of
+        ErtsContent ->
+            ok;
+        Expected ->
+            ct:pal("Content: ~p",[ErtsContent]),
+            ct:pal("Expected: ~p",[Expected]),
+            ct:fail("Incorrect erts bin content")
+    end,
+
+    ok = systools:make_tar(LatestName, [{path, P},
+                                        {erts, code:root_dir()},
+                                        erts_all]),
+    ErtsAllContent = ErtsTarContent(LatestName),
+
+    case lists:sort(Default ++ Ignored) of
+        ErtsAllContent ->
+            ok;
+        ExpectedIgn ->
+            ct:pal("Content: ~p",[ErtsAllContent]),
+            ct:pal("Expected: ~p",[ExpectedIgn]),
+            ct:fail("Incorrect erts bin content")
+    end,
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
 
 %% make_tar: Check that sys.config.src and not sys.config is included
 system_src_file_tar(Config) ->
@@ -1183,7 +1410,7 @@ src_tests_tar(Config) when is_list(Config) ->
 
 %% make_tar: Check that make_tar handles generation and placement of
 %% tar files for variables outside the main tar file.
-%% Test the {var_tar, include | ownfile | omit} optio.
+%% Test the {var_tar, include | ownfile | omit} option.
 var_tar(Config) when is_list(Config) ->
     {ok, OldDir} = file:get_cwd(),
     PSAVE = code:get_path(),		% Save path
@@ -1703,8 +1930,8 @@ app_start_type_relup(Dir2,Name2,Config) ->
     {"LATEST_APP_START_TYPE2",
      [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
      [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
-    %% ?t:format("Up: ~p",[UpInstructions]),
-    %% ?t:format("Dn: ~p",[DownInstructions]),
+    %% test_server:format("Up: ~p",[UpInstructions]),
+    %% test_server:format("Dn: ~p",[DownInstructions]),
     [{load_object_code, {mnesia, _, _}},
      {load_object_code, {runtime_tools, _, _}},
      {load_object_code, {snmp, _, _}},
@@ -1769,6 +1996,59 @@ regexp_relup(Config) ->
 
     ok.
 
+%% make_relup: Replace an application dependency with another
+%%   The key part here is that the new application should be
+%%   started before the old one is stopped.
+replace_app_relup(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir,LatestName}   = create_script(replace_app0,Config),
+    {_LatestDir1,LatestName1} = create_script(replace_app1,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_replace_app, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+    
+    ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P}]),
+
+    check_start_stop_order([{start,gh},{stop,fe}], [{start,fe},{stop,gh}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+
+check_start_stop_order(UpOrder, DownOrder) ->
+
+    {ok, [{_V0, [{V1, [], Up}],
+                [{V1, [], Down}]
+            }]} = file:consult(relup),
+
+    GetAppStartStop = fun(Instr) ->
+        [{Action,App} || {apply,{application,Action,[App|_]}} <- Instr,
+                lists:member(Action,[start,stop])]
+    end,
+
+    case GetAppStartStop(Up) of
+        UpOrder -> ok;
+        ActualUpOrder ->
+          ct:fail("Incorrect upgrade order.~nExpected: ~p~nGot:~p",
+                  [UpOrder,ActualUpOrder])
+    end,
+
+    case GetAppStartStop(Down) of
+        DownOrder -> ok;
+        ActualDownOrder ->
+          ct:fail("Incorrect down order.~nExpected: ~p~nGot:~p",
+                  [DownOrder,ActualDownOrder])
+    end,
+
+    ok.
 
 %% make_hybrid_boot: Normal case.
 %% For upgrade of erts - create a boot file which is a hybrid between
@@ -2139,14 +2419,14 @@ check_var_script_file(VarDirs, NoExistDirs, RelName) ->
 	VarDirs ->
 	    ok;
 	_ ->
-	    test_server:fail("All variable dirs not in generated script")
+	    ct:fail("All variable dirs not in generated script")
     end,
     case lists:filter(fun(NoExistDir) -> lists:member(NoExistDir, AllPaths) end,
 		      NoExistDirs) of
 	[] ->
 	    ok;
 	_ ->
-	    test_server:fail("Unexpected dirs in generated script")
+	    ct:fail("Unexpected dirs in generated script")
     end.
 
 check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
@@ -2160,7 +2440,7 @@ check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
 		App=/=stdlib],
 
     if ActualLoad =:= ExpectedLoad -> ok;
-       true -> test_server:fail({bad_load_order, ActualLoad, ExpectedLoad})
+       true -> ct:fail({bad_load_order, ActualLoad, ExpectedLoad})
     end,
 
     %% Check that applications are started in given order !
@@ -2170,7 +2450,7 @@ check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
 		App =/= stdlib],
 
     if ActualStart =:= ExpectedStart -> ok;
-       true -> test_server:fail({bad_start_order, ActualStart,ExpectedStart})
+       true -> ct:fail({bad_start_order, ActualStart,ExpectedStart})
     end,
 
     ok.
@@ -2246,7 +2526,7 @@ delete_tree(Dir) ->
     end.
 
 tar_contents(Name) ->
-    {ok, Cont} = erl_tar:table(Name ++ ".tar.gz", [compressed]),
+    {ok, Cont} = erl_tar:table(tar_name(Name), [compressed]),
     Cont.
 
 tar_name(Name) ->
@@ -2307,6 +2587,12 @@ create_script(latest_app_start_type2,Config) ->
 		 {xmerl,current,none}],
     Apps = core_apps(current) ++ OtherApps,
     do_create_script(latest_app_start_type2,Config,current,Apps);
+create_script(latest_t21, Config) ->
+    Apps = core_apps(current) ++ [{t21, "1.0"}],
+    do_create_script(latest_t21, Config, "4.4", Apps);
+create_script(latest_t22, Config) ->
+    Apps = core_apps(current) ++ [{t22, "1.0"}],
+    do_create_script(latest_t22, Config, "4.4", Apps);
 create_script(current_all_no_sasl,Config) ->
     Apps = [{kernel,current},{stdlib,current},{db,"2.1"},{fe,"3.1"}],
     do_create_script(current_all_no_sasl,Config,current,Apps);
@@ -2324,8 +2610,19 @@ create_script({unicode,RelVsn},Config) ->
     do_create_script(unicode,RelVsn,Config,current,Apps);
 create_script(duplicate_modules,Config) ->
     Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
-    do_create_script(duplicate_modules,Config,current,Apps).
-
+    do_create_script(duplicate_modules,Config,current,Apps);
+create_script(replace_app0,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.1"},{gh,"1.0"}],
+    do_create_script(repace_app0,Config,current,Apps);
+create_script(replace_app1,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.0"},{fe,"2.1"}],
+    do_create_script(repace_app1,Config,current,Apps);
+create_script(optional_apps_missing,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"}],
+    do_create_script(optional_apps_missing,Config,current,Apps);
+create_script(optional_apps_all,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
+    do_create_script(optional_apps_all,Config,current,Apps).
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
     do_create_script(Id,string:to_upper(atom_to_list(Id)),Config,ErtsVsn,AppVsns).
@@ -2627,7 +2924,6 @@ create_include_files(sort_apps_rev, Config) ->
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)}.
 
-
 create_apps(Dir) ->
     T1 = "{application, t1,\n"
 	" [{vsn, \"1.0\"},\n"
@@ -2746,8 +3042,6 @@ create_apps2(Dir) ->
 	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't13.app'), list_to_binary(T13)).
 
-
-
 create_apps_3065(Dir) ->
     T11 = "{application, chTraffic,\n"
 	" [{vsn, \"1.0\"},\n"
@@ -2839,6 +3133,24 @@ create_sort_apps(Dir) ->
 	"  {included_applications, []},\n"
 	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't20.app'), list_to_binary(T20)).
+
+create_apps_duplicate_entry(Dir) ->
+    T21 = "{application, t21,\n"
+    " [{vsn, \"1.0\"},\n"
+    "  {description, \"test\"},\n"
+    "  {modules, []},\n"
+    "  {applications, []},\n"
+    "  {included_applications, []},\n"
+    "  {registered, [test, test]}]}.\n",
+    file:write_file(fname(Dir, 't21.app'), list_to_binary(T21)),
+    T22 = "{application, t22,\n"
+    " [{vsn, \"1.0\"},\n"
+    "  {description, \"test\"},\n"
+    "  {modules, []},\n"
+    "  {applications, []},\n"
+    "  {included_applications, []},\n"
+    "  {registered, [test]}]}.\n",
+    file:write_file(fname(Dir, 't22.app'), list_to_binary(T22)).
 
 fname(N) ->
     filename:join(N).

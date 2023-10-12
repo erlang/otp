@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2017. All Rights Reserved.
+# Copyright Ericsson AB 2006-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@ ERTSDIRS += start_scripts
 endif
 
 .PHONY: all
-all: smp
+all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 
 .PHONY: docs
 docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
 
-.PHONY: debug opt lcnt clean
-debug opt lcnt clean:
+.PHONY: debug opt lcnt clean test
+$(TYPES) clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
@@ -49,10 +49,16 @@ debug opt lcnt clean:
 	done
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
-.PHONY: smp
-smp:
-	$(V_at)for type in $(TYPES); do \
-		( $(MAKE) $$type ) || exit $$?; \
+
+.PHONY: test
+test:
+	TEST_NEEDS_RELEASE=true TYPE=$(TYPE) \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+
+.PHONY: $(FLAVORS)
+$(FLAVORS):
+	$(V_at)for type in $(DEFAULT_TYPES); do \
+		( $(MAKE) FLAVOR=$@ $$type ) || exit $$?; \
 	done
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
@@ -79,21 +85,25 @@ local_setup:
 		cp $(ERL_TOP)/bin/$(TARGET)/ct_run.exe $(ERL_TOP)/bin/ct_run.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe $(ERL_TOP)/bin/erlc.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl.exe $(ERL_TOP)/bin/erl.exe; \
-		cp $(ERL_TOP)/bin/$(TARGET)/werl.exe $(ERL_TOP)/bin/werl.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erl_call.exe $(ERL_TOP)/bin/erl_call.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
-	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
-			 $(ERL_TOP)/bin/werl.exe; \
+	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe; \
 		make_local_ini.sh $(ERL_TOP); \
 		cp $(ERL_TOP)/bin/erl.ini $(ERL_TOP)/bin/$(TARGET)/erl.ini; \
 	else \
+	cd etc/unix && $(MAKE); \
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
+		-e "s;%DYN_ROOTDIR_BASE_EXT%;;" \
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > $(ERL_TOP)/bin/erl; \
 	sed	-e "s;%SRC_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;%TARGET%;$(TARGET);"    \
 		-e "s;%VSN%;$(VSN);"    \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
 	        $(ERL_TOP)/erts/etc/unix/cerl.src > $(ERL_TOP)/bin/cerl; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erl_call $(ERL_TOP)/bin/erl_call; \
 		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer $(ERL_TOP)/bin/dialyzer; \
 		cp $(ERL_TOP)/bin/$(TARGET)/typer $(ERL_TOP)/bin/typer; \
 		cp $(ERL_TOP)/bin/$(TARGET)/ct_run $(ERL_TOP)/bin/ct_run; \
@@ -106,6 +116,15 @@ local_setup:
 		$(ERL_TOP)/bin/start_sasl.script \
 		$(ERL_TOP)/bin/start_clean.script \
 		$(ERL_TOP)/bin/no_dot_erlang.script
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	@case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			$(ERL_TOP)/bin/erl; \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			$(ERL_TOP)/bin/cerl; \
+		;; \
+	esac
 
 # ----------------------------------------------------------------------
 # These are "convenience targets", provided as shortcuts for developers
@@ -129,9 +148,13 @@ makefiles:
 
 .PHONY: release
 release:
-	for t in $(TYPES); do \
+ifeq ($(TYPE),)
+	for t in $(DEFAULT_TYPES); do \
 	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
+else
+	( cd emulator && $(MAKE) release TYPE=$(TYPE) ) || exit $$?;
+endif
 	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$? ; \

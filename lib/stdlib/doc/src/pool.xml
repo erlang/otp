@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>pool</module>
+  <module since="">pool</module>
   <modulesummary>Load distribution facility.</modulesummary>
   <description>
     <p>This module can be used to run a set of Erlang nodes as a pool
@@ -47,14 +47,14 @@
       processes in the Erlang runtime system.</p>
 
     <p>The slave nodes are started with the
-      <seealso marker="slave"><c>slave(3)</c></seealso> module. This
+      <seeerl marker="slave"><c>slave(3)</c></seeerl> module. This
       effects terminal I/O, file I/O, and code loading.</p>
     <p>If the master node fails, the entire pool exits.</p>
   </description>
 
   <funcs>
     <func>
-      <name name="attach" arity="1"/>
+      <name name="attach" arity="1" since=""/>
       <fsummary>Ensure that a pool master is running.</fsummary>
       <desc>
         <p>Ensures that a pool master is running and includes
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name name="get_node" arity="0"/>
+      <name name="get_node" arity="0" since=""/>
       <fsummary>Return the node with the expected lowest future load.</fsummary>
       <desc>
         <p>Returns the node with the expected lowest future load.</p>
@@ -71,7 +71,7 @@
     </func>
 
     <func>
-      <name name="get_nodes" arity="0"/>
+      <name name="get_nodes" arity="0" since=""/>
       <fsummary>Return a list of the current member nodes of the pool.
       </fsummary>
       <desc>
@@ -80,7 +80,7 @@
     </func>
 
     <func>
-      <name name="pspawn" arity="3"/>
+      <name name="pspawn" arity="3" since=""/>
       <fsummary>Spawn a process on the pool node with expected lowest future
         load.</fsummary>
       <desc>
@@ -90,7 +90,7 @@
     </func>
 
     <func>
-      <name name="pspawn_link" arity="3"/>
+      <name name="pspawn_link" arity="3" since=""/>
       <fsummary>Spawn and link to a process on the pool node with expected
         lowest future load.</fsummary>
       <desc>
@@ -100,16 +100,16 @@
     </func>
 
     <func>
-      <name name="start" arity="1"/>
-      <name name="start" arity="2"/>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
       <fsummary>>Start a new pool.</fsummary>
       <desc>
         <p>Starts a new pool. The file <c>.hosts.erlang</c> is read to
           find host names where the pool nodes can be started; see
-          section <seealso marker="#files">Files</seealso>. The
+          section <seeerl marker="#files">Files</seeerl>. The
           startup procedure fails if the file is not found.</p>
         <p>The slave nodes are started with
-          <seealso marker="slave#start/2"><c>slave:start/2,3</c></seealso>,
+          <seemfa marker="slave#start/2"><c>slave:start/2,3</c></seemfa>,
           passing along <c><anno>Name</anno></c> and, if provided,
           <c><anno>Args</anno></c>. <c><anno>Name</anno></c> is used as the
           first part of the node names, <c><anno>Args</anno></c> is used to
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Stop the pool and kill all the slave nodes.</fsummary>
       <desc>
         <p>Stops the pool and kills all the slave nodes.</p>
@@ -135,8 +135,8 @@
     <title>Files</title>
     <p><c>.hosts.erlang</c> is used to pick hosts where nodes can
       be started. For information about format and location of this file, see
-      <seealso marker="kernel:net_adm#host_file/0">
-      <c>net_adm:host_file/0</c></seealso>.</p>
+      <seemfa marker="kernel:net_adm#host_file/0">
+      <c>net_adm:host_file/0</c></seemfa>.</p>
     <p><c>$HOME/.erlang.slave.out.HOST</c> is used for all extra I/O
       that can come from the slave nodes on standard I/O. If the startup
       procedure does not work, this file can indicate the reason.</p>

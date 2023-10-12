@@ -1,0 +1,38 @@
+
+  [;1m-spec set_cwd(Dir) -> ok | {error, Reason}[0m
+  [;1m                 when[0m
+  [;1m                     Dir :: name() | EncodedBinary,[0m
+  [;1m                     EncodedBinary :: binary(),[0m
+  [;1m                     Reason :: posix() | badarg | no_translation.[0m
+
+  Sets the current working directory of the file server to [;;4mDir[0m.
+  Returns [;;4mok[0m if successful.
+
+  The functions in the module [;;4mfile[0m usually treat binaries as raw
+  filenames, that is, they are passed "as is" even when the encoding
+  of the binary does not agree with [;;4mnative_name_encoding()[0m.
+  However, this function expects binaries to be encoded according to
+  the value returned by [;;4mnative_name_encoding()[0m.
+
+  Typical error reasons are:
+
+  [;;4m[;;4menoent[0m[0m:
+    The directory does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of [;;4mDir[0m is not a directory. On some platforms, [;;4m[0m
+    [;;4menoent[0m is returned.
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing permission for the directory or one of its parents.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    [;;4mDir[0m has an improper type, such as tuple.
+
+  [;;4m[;;4mno_translation[0m[0m:
+    [;;4mDir[0m is a [;;4mbinary()[0m with characters coded in ISO-latin-1 and
+    the VM is operating with unicode filename encoding.
+
+  Warning:
+    In a future release, a bad type for argument [;;4mDir[0m will
+    probably generate an exception.

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,14 +23,25 @@
 
 -module(ssl_ECC).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
-%% Test diffrent certificate chain types, note that it is the servers
-%% chain that affect what cipher suit that will be choosen
+-export([client_ecdh_rsa_server_ecdh_rsa/1,
+         client_ecdhe_rsa_server_ecdh_rsa/1,
+         client_ecdhe_ecdsa_server_ecdh_rsa/1,
+         client_ecdh_rsa_server_ecdhe_rsa/1,
+         client_ecdhe_rsa_server_ecdhe_rsa/1,
+         client_ecdhe_ecdsa_server_ecdhe_rsa/1,
+         client_ecdh_ecdsa_server_ecdh_ecdsa/1,
+         client_ecdhe_rsa_server_ecdh_ecdsa/1,
+         client_ecdhe_ecdsa_server_ecdh_ecdsa/1,
+         client_ecdh_rsa_server_ecdhe_ecdsa/1,
+         client_ecdh_ecdsa_server_ecdhe_ecdsa/1,
+         client_ecdhe_ecdsa_server_ecdhe_ecdsa/1
+        ]).
+
+%% Test different certificate chain types, note that it is the servers
+%% chain that affect what cipher suite that will be chosen
 
 %% ECDH_RSA 
 client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
@@ -163,6 +174,10 @@ client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config)  when is_list(Config) ->
     ssl_test_lib:basic_test(ssl_test_lib:ssl_options(COpts, Config), 
                ssl_test_lib:ssl_options(SOpts, Config),
                [{check_keyex, ecdhe_ecdsa} | proplists:delete(check_keyex, Config)]).
+
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------
 
 all_rsa_suites(Config) ->
     Version = proplists:get_value(tls_version, Config),

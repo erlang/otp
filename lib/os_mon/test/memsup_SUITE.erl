@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,21 @@
 %% Test cases
 -export([api/1, alarm1/1, alarm2/1, process/1]).
 -export([config/1, timeout/1, unavailable/1, port/1]).
--export([otp_5910/1]).
+-export([otp_5910/1, improved_system_memory_data/1]).
+
+
+-define(SYSTEM_MEMORY_DATA_TAGS,
+        [available_memory,
+         total_memory,
+         free_memory,
+         system_total_memory,
+         largest_free,
+         number_of_free,
+         free_swap,
+         total_swap,
+         cached_memory,
+         buffered_memory,
+         shared_memory]).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -49,7 +63,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    All = case test_server:os_type() of
+    All = case os:type() of
               {unix, sunos} ->
                   [api, alarm1, alarm2, process, config, timeout,
                    unavailable, port];
@@ -58,7 +72,7 @@ all() ->
               _OS -> [api, alarm1, alarm2, process]
           end,
     Bugs = [otp_5910],
-    All ++ Bugs.
+    All ++ Bugs ++ [improved_system_memory_data].
 
 
 %% Test of API functions
@@ -80,16 +94,7 @@ api(Config) when is_list(Config) ->
 
     %% get_system_memory_data()
     ExtMemData = memsup:get_system_memory_data(),
-    Tags = [total_memory,
-            free_memory,
-            system_total_memory,
-            largest_free,
-            number_of_free,
-            free_swap,
-            total_swap,
-            cached_memory,
-            buffered_memory,
-            shared_memory],
+    Tags = ?SYSTEM_MEMORY_DATA_TAGS,
 
     true = lists:all(fun({Tag,Value}) when is_atom(Tag),
                                            is_integer(Value) ->
@@ -546,7 +551,7 @@ timeout(Config) when is_list(Config) ->
 
     %% Linux should be handled the same way as solaris.
 
-    %    TimeoutMsg = case ?t:os_type() of
+    %    TimeoutMsg = case os:type() of
     %		     {unix, sunos} -> ext_collection_timeout;
     %		     {unix, linux} -> reg_collection_timeout
     %		 end,
@@ -717,6 +722,47 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
+improved_system_memory_data(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = rpc:call(Node, application, start, [sasl]),
+    ok = rpc:call(Node, application, start, [os_mon]),
+
+    ExtMemData = rpc:call(Node, memsup, get_system_memory_data, []),
+
+    peer:stop(Peer),
+
+    Tags = ?SYSTEM_MEMORY_DATA_TAGS,
+    AvailableMemoryPresent
+        = lists:foldl(fun ({Tag,Value}, AMP) when is_atom(Tag),
+                                                  is_integer(Value),
+                                                  Value >= 0 ->
+                              true = lists:member(Tag, Tags),
+                              case Tag of
+                                  available_memory ->
+                                      false = AMP,
+                                      true;
+                                  _ ->
+                                      AMP
+                              end
+                      end,
+                      false,
+                      ExtMemData),
+
+    case os:type() of
+        {unix,linux} ->
+            {ok, Data} = file:read_file("/proc/meminfo"),
+            case re:run(Data, <<"MemAvailable">>) of
+                {match, _} ->
+                    true = AvailableMemoryPresent,
+                    {comment, "available_memory present in result"};
+                _ ->
+                    {comment, "No available_memory present in result"}
+            end;
+        _ ->
+            ok
+    end.
+                    
+
 %%----------------------------------------------------------------------
 %% Auxiliary
 %%----------------------------------------------------------------------
@@ -739,7 +785,7 @@ force_collection(TimerRef) ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             collection_timeout;
-        timout ->
+        timeout ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             timeout;

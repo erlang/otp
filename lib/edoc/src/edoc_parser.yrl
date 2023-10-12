@@ -337,7 +337,7 @@ all_vars(As) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc EDoc type specification parsing. Parses the content of
+%% EDoc type specification parsing. Parses the content of
 %% <a href="overview-summary.html#ftag-spec">`@spec'</a> declarations.
 
 parse_spec(S, L) ->
@@ -355,7 +355,7 @@ parse_spec(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc EDoc type definition parsing. Parses the content of
+%% EDoc type definition parsing. Parses the content of
 %% <a href="overview-summary.html#gtag-type">`@type'</a> declarations.
 
 parse_typedef(S, L) ->
@@ -380,7 +380,7 @@ parse_typedef_1(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Parses a <a
+%% Parses a <a
 %% href="overview-summary.html#References">reference</a> to a module,
 %% function, type, or application
 
@@ -399,7 +399,7 @@ parse_ref(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Parses the content of
+%% Parses the content of
 %% <a href="overview-summary.html#ftag-see">`@see'</a> references.
 parse_see(S, L) ->
     {S1, S2} = edoc_lib:split_at_stop(S),
@@ -410,7 +410,7 @@ parse_see(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Parses the content of
+%% Parses the content of
 %% <a href="overview-summary.html#ftag-param">`@param'</a> tags.
 parse_param(S, L) ->
     {S1, S2} = edoc_lib:split_at_space(edoc_lib:strip_space(S)),
@@ -423,7 +423,7 @@ parse_param(S, L) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc EDoc exception specification parsing. Parses the content of
+%% EDoc exception specification parsing. Parses the content of
 %% <a href="overview-summary.html#ftag-throws">`@throws'</a> declarations.
 
 parse_throws(S, L) ->

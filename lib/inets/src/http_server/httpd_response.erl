@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 %%
 -module(httpd_response).
--export([generate_and_send_response/1, send_status/3, send_header/3, 
+-export([generate_and_send_response/1, send_status/3, send_status/4, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, send_final_chunk/3, 
 	 split_header/2, is_disable_chunked_send/1, cache_headers/2, handle_continuation/1]).
 -export([map_status_code/2]).
@@ -28,6 +28,7 @@
 -include_lib("inets/include/httpd.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include_lib("inets/src/http_server/httpd_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(VMODULE,"RESPONSE").
 
@@ -48,7 +49,7 @@ generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
 	    ok;
 	{proceed, Data} ->
 	    case proplists:get_value(status, Data) of
-		{StatusCode, PhraseArgs, _Reason} ->
+		{StatusCode, PhraseArgs, _Reason} ->                                   
 		    send_status(ModData, StatusCode, PhraseArgs),
 		    ok;		
 		undefined ->
@@ -89,14 +90,12 @@ traverse_modules(ModData,[Module|Rest]) ->
             traverse_modules(ModData#mod{data = NewData}, Rest)
     catch 
 	T:E:Stacktrace ->
-	    String = 
-		lists:flatten(
-		  io_lib:format("module traverse failed: ~p:do => "
-				"~n   Error Type:  ~p"
-				"~n   Error:       ~p"
-				"~n   Stack trace: ~p",
-				[Module, T, E, Stacktrace])),
-	    httpd_util:error_log(ModData#mod.config_db, String),
+	    httpd_util:error_log(ModData#mod.config_db,  
+                                 httpd_logger:error_report('HTTP',
+                                                           [{module, Module}, 
+                                                            {class, T},
+                                                            {error, E}, 
+                                                            {stacktrace, Stacktrace}], ModData, ?LOCATION)),
 	    send_status(ModData, 500, none),
 	    done
     end.
@@ -107,9 +106,12 @@ traverse_modules(ModData,[Module|Rest]) ->
 send_status(ModData, 100, _PhraseArgs) ->
     send_header(ModData, 100, [{content_length, "0"}]);
 
+send_status(ModData, StatusCode, PhraseArgs) ->
+    send_status(ModData, StatusCode, PhraseArgs, undefined).
+
 send_status(#mod{socket_type = SocketType, 
 		 socket      = Socket, 
-		 config_db   = ConfigDB} = ModData, StatusCode, PhraseArgs) ->
+		 config_db   = ConfigDB} = ModData, StatusCode, PhraseArgs, Details) ->
 
     ReasonPhrase = httpd_util:reason_phrase(StatusCode),
     Message      = httpd_util:message(StatusCode, PhraseArgs, ConfigDB),
@@ -119,6 +121,21 @@ send_status(#mod{socket_type = SocketType,
 		[{content_type,   "text/html"},
 		 {content_length, integer_to_list(length(Body))}]),
 
+    if StatusCode >= 400 ->
+            case Details of
+                undefined ->
+                    httpd_util:error_log(ConfigDB, httpd_logger:error_report('HTTP', 
+                                                                   [{statuscode, StatusCode}, {description, ReasonPhrase}], 
+                                                                   ModData, ?LOCATION));
+                _ ->
+                    httpd_util:error_log(ConfigDB, httpd_logger:error_report('HTTP', 
+                                                                   [{statuscode,StatusCode}, {description, ReasonPhrase}, 
+                                                                    {details, Details}], ModData, 
+                                                                   ?LOCATION))
+            end;
+       true ->
+            ok
+    end,  
     httpd_socket:deliver(SocketType, Socket, Body).
 
 
@@ -137,8 +154,8 @@ send_response(ModData, Header, Body) ->
 	undefined ->
 	    %% No status code 
 	    %% Ooops this must be very bad:
-	    %% generate a 404 content not availible
-	    send_status(ModData, 404, "The file is not availible");
+	    %% generate a 404 content not available
+	    send_status(ModData, 404, "The file is not available");
 	StatusCode ->
 	    case send_header(ModData, StatusCode, lists:keydelete(code, 1,
 								  Header)) of
@@ -158,19 +175,16 @@ send_header(#mod{socket_type  = Type,
     Headers = create_header(ConfigDb, 
 			    lists:map(fun transform/1, KeyValueTupleHeaders)),
     NewVer = case {Ver, StatusCode} of
-		 {[], _} ->
-		     %% May be implicit!
-		     "HTTP/0.9";
 		 {unknown, 408} ->
-		     %% This will proably never happen! It means the
+		     %% This will probably never happen! It means the
 		     %% server has timed out the request without
 		     %% receiving a version for the request!  Send the
 		     %% lowest version so to ensure that the client
 		     %% will be able to handle it, probably the
 		     %% sensible thing to do!
-		     "HTTP/0.9";
+		     httpd_request:default_version();
 		 {undefined,_} ->
-		     "HTTP/1.0"; %% See rfc2145 2.3 last paragraph
+		     httpd_request:default_version(); %% See rfc2145 2.3 last paragraph
 		 _ ->
 		     Ver
 	     end,
@@ -201,7 +215,7 @@ send_body(#mod{socket_type = Type, socket = Socket}, _, nobody) ->
     ok;
 
 send_body(#mod{socket_type = Type, socket = Sock}, 
-	  _StatusCode, Body) when is_list(Body) ->
+	  _StatusCode, Body) when is_list(Body); is_binary(Body) ->
     case httpd_socket:deliver(Type, Sock, Body) of
 	socket_closed ->
 	    done;
@@ -397,7 +411,7 @@ send_response_old(#mod{socket_type = Type,
     end.
 
 content_length(Body)->
-    integer_to_list(httpd_util:flatlength(Body)).
+    integer_to_list(erlang:iolist_size(Body)).
 
 handle_headers([], NewHeaders) ->
     {ok, NewHeaders};

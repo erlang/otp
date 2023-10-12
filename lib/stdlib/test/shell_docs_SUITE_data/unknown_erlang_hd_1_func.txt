@@ -1,0 +1,19 @@
+
+  [;1m-spec hd(List) -> Head[0m
+  [;1m            when List :: nonempty_maybe_improper_list(), Head :: term().[0m
+
+  Returns the head of [;;4mList[0m, that is, the first element.
+
+  It works with improper lists.
+
+  Examples:
+
+    > hd([1,2,3,4,5]).
+    1
+
+    > hd([first, second, third, so_on | improper_end]).
+    first
+
+  Allowed in guard tests.
+
+  Failure: [;;4mbadarg[0m if [;;4mList[0m is an empty list [;;4m[][0m.

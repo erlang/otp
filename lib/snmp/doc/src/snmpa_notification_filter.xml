@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_notification_filter.xml</file>
   </header>
-  <module>snmpa_notification_filter</module>
+  <module since="">snmpa_notification_filter</module>
   <modulesummary>Behaviour module for the SNMP agent notification filters.</modulesummary>
   <description>
     <p>This module defines the behaviour of the agent notification
@@ -51,7 +51,7 @@
   </description>
   <funcs>
     <func>
-      <name>handle_notification(Notif, Data) -> Reply</name>
+      <name since="">handle_notification(Notif, Data) -> Reply</name>
       <fsummary>Handle a notification</fsummary>
       <type>
         <v>Reply = send | {send, NewNotif} | dont_send</v>
@@ -64,7 +64,7 @@
           the notification, return <c>{send, NewNotif}</c> or
           suppress the notification, return <c>dont_send</c>.</p>
         <p><c>Data</c> is supplied at filter registration time,
-          see <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>.
+          see <seeerl marker="snmpa#register_notification_filter">register_notification_filter</seeerl>.
           </p>
       </desc>
     </func>

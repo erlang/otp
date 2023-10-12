@@ -1,0 +1,26 @@
+
+  [;1m-spec round(Number) -> integer() when Number :: number().[0m
+
+  Returns an integer by rounding [;;4mNumber[0m, for example:
+
+    round(42.1).
+    42
+
+    round(5.5).
+    6
+
+    round(-5.5).
+    -6
+
+    round(36028797018963969.0).
+    36028797018963968
+
+  In the last example, [;;4mround(36028797018963969.0)[0m evaluates to [;;4m[0m
+  [;;4m36028797018963968[0m. The reason for this is that the number [;;4m[0m
+  [;;4m36028797018963969.0[0m cannot be represented exactly as a float
+  value. Instead, the float literal is represented as [;;4m[0m
+  [;;4m36028797018963968.0[0m, which is the closest number that can be
+  represented exactly as a float value. See Representation of
+  Floating Point Numbers for additional information.
+
+  Allowed in guard tests.

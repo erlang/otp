@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,10 +30,9 @@
     <file>nif.xml</file>
   </header>
   <p>This section outlines an example of how to solve the example
-    problem in <seealso marker="example">Problem Example</seealso>
+    problem in <seeguide marker="example">Problem Example</seeguide>
     by using Native Implemented Functions (NIFs).</p>
-  <p>NIFs were introduced in Erlang/OTP R13B03 as an experimental
-    feature. It is a simpler and more efficient way of calling C-code
+  <p>NIFs are a simpler and more efficient way of calling C-code
     than using port drivers. NIFs are most suitable for synchronous
     functions, such as <c>foo</c> and <c>bar</c> in the example, that
     do some relatively short calculations without side effects and
@@ -62,7 +61,7 @@
      </list>
    <p>Normally these are minimal stub implementations that throw an
      exception. But they can also be used as fallback implementations
-     for functions that do not have native implemenations on some
+     for functions that do not have native implementations on some
      architectures.</p>
    <p>NIF libraries are loaded by calling <c>erlang:load_nif/2</c>,
      with the name of the shared library as argument. The second
@@ -99,7 +98,7 @@
 
     <codeinclude file="complex6_nif.c" tag="" type="none"></codeinclude>
 
-    <p>Here,<c>ERL_NIF_INIT</c> has the following arguments:</p>
+    <p>Here, <c>ERL_NIF_INIT</c> has the following arguments:</p>
     <list type="bulleted">
       <item><p>The first argument must be the name of the
       Erlang module as a C-identifier. It will be stringified by the

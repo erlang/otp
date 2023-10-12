@@ -1,0 +1,478 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+NewBeamOp(stp, op) {
+    $op = beamopallocator_new_op(&($stp)->op_allocator);
+    $op->next = NULL;
+}
+
+BeamOpNameArity(op, name, arity) {
+#define __make_opname__(NAME, ARITY) genop_##NAME##_##ARITY
+    $op->op = __make_opname__($name, $arity);
+    $op->arity = $arity;
+#undef __make_opname__
+}
+
+BeamOpArity(op, arity) {
+    ASSERT($op->a == $op->def_args);
+
+    $op->arity = $arity;
+    $op->a = erts_alloc(ERTS_ALC_T_LOADER_TMP, $op->arity * sizeof(BeamOpArg));
+}
+
+NativeEndian(flags) {
+#if defined(WORDS_BIGENDIAN)
+    if (($flags).val & BSF_NATIVE) {
+        ($flags).val &= ~(BSF_LITTLE|BSF_NATIVE);
+    }
+#else
+  if (($flags).val & BSF_NATIVE) {
+      ($flags).val &= ~BSF_NATIVE;
+      ($flags).val |= BSF_LITTLE;
+  }
+#endif
+}
+
+// Generate an instruction to fetch a float from a binary.
+gen.get_float2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_get_float2, 6);
+    op->a[0] = Ms;
+    op->a[1] = Fail;
+    op->a[2] = Live;
+    op->a[3] = Size;
+    op->a[4].type = TAG_u;
+    op->a[4].val = (Unit.val << 3) | Flags.val;
+    op->a[5] = Dst;
+    return op;
+}
+
+gen.get_utf16(Fail, Ms, Flags, Dst) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_get_utf16, 4);
+    op->a[0] = Ms;
+    op->a[1] = Fail;
+    op->a[2] = Flags;
+    op->a[3] = Dst;
+    return op;
+}
+
+gen.put_binary(Fail, Size, Unit, Flags, Src) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    if (Size.type == TAG_a && Size.val == am_all) {
+        $BeamOpNameArity(op, i_new_bs_put_binary_all, 3);
+        op->a[0] = Src;
+        op->a[1] = Fail;
+        op->a[2] = Unit;
+    } else if (Size.type == TAG_i) {
+        $BeamOpNameArity(op, i_new_bs_put_binary_imm, 3);
+        op->a[0] = Fail;
+        op->a[1].type = TAG_u;
+        if (beam_load_safe_mul(Size.val, Unit.val, &op->a[1].val)) {
+            op->a[2] = Src;
+        } else {
+        error:
+            /*
+             * Invalid size. This instruction can't possibly be
+             * reached, because bs_add or bs_init* would already
+             * have raised a system_limit exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
+        }
+    } else if (Size.type == TAG_q) {
+#ifdef ARCH_64
+        /*
+         * There is no way that this binary would fit in memory.
+         */
+        goto error;
+#else
+        Eterm big = beamfile_get_literal(&S->beam, Size.val);
+        Uint bigval;
+        Uint size;
+
+        if (!term_to_Uint(big, &bigval) ||
+            !beam_load_safe_mul(bigval, Unit.val, &size)) {
+            goto error;
+        }
+        $BeamOpNameArity(op, i_new_bs_put_binary_imm, 3);
+        op->a[0] = Fail;
+        op->a[1].type = TAG_u;
+        op->a[1].val = size;
+        op->a[2] = Src;
+#endif
+    } else {
+        $BeamOpNameArity(op, i_new_bs_put_binary, 4);
+        op->a[0] = Fail;
+        op->a[1] = Size;
+        op->a[2].type = TAG_u;
+        op->a[2].val = (Unit.val << 3) | (Flags.val & 7);
+        op->a[3] = Src;
+    }
+
+    return op;
+}
+
+gen.put_integer(Fail, Size, Unit, Flags, Src) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    /* Negative size must fail */
+    if (Size.type == TAG_i) {
+        Uint size;
+        if (!beam_load_safe_mul(Size.val, Unit.val, &size)) {
+        error:
+            /*
+             * Invalid size. This instruction can't possibly be
+             * reached, because bs_add or bs_init* would already
+             * have raised a system_limit exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
+            return op;
+        }
+        $BeamOpNameArity(op, i_new_bs_put_integer_imm, 4);
+        op->a[0] = Src;
+        op->a[1] = Fail;
+        op->a[2].type = TAG_u;
+        op->a[2].val = size;
+        op->a[3].type = Flags.type;
+        op->a[3].val = (Flags.val & 7);
+    } else if (Size.type == TAG_q) {
+        Eterm big = beamfile_get_literal(&S->beam, Size.val);
+        Uint bigval;
+        Uint size;
+
+        if (!term_to_Uint(big, &bigval) ||
+            !beam_load_safe_mul(bigval, Unit.val, &size)) {
+            goto error;
+        }
+        $BeamOpNameArity(op, i_new_bs_put_integer_imm, 4);
+        op->a[0] = Src;
+        op->a[1] = Fail;
+        op->a[2].type = TAG_u;
+        op->a[2].val = size;
+        op->a[3].type = Flags.type;
+        op->a[3].val = (Flags.val & 7);
+    } else {
+        $BeamOpNameArity(op, i_new_bs_put_integer, 4);
+        op->a[0] = Fail;
+        op->a[1] = Size;
+        op->a[2].type = TAG_u;
+        op->a[2].val = (Unit.val << 3) | (Flags.val & 7);
+        op->a[3] = Src;
+    }
+    return op;
+}
+
+gen.put_float(Fail, Size, Unit, Flags, Src) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    if (Size.type == TAG_i) {
+        $BeamOpNameArity(op, i_new_bs_put_float_imm, 4);
+        op->a[0] = Fail;
+        op->a[1].type = TAG_u;
+        if (!beam_load_safe_mul(Size.val, Unit.val, &op->a[1].val)) {
+            /*
+             * Size overflow. This instruction can't possibly be reached, because
+             * bs_add or bs_init* would already have raised a system_limit
+             * exception.
+             */
+            $BeamOpNameArity(op, delete_me, 0);
+        } else {
+            op->a[2] = Flags;
+            op->a[3] = Src;
+        }
+    } else {
+        $BeamOpNameArity(op, i_new_bs_put_float, 4);
+        op->a[0] = Fail;
+        op->a[1] = Size;
+        op->a[2].type = TAG_u;
+        op->a[2].val = (Unit.val << 3) | (Flags.val & 7);
+        op->a[3] = Src;
+    }
+    return op;
+}
+
+gen.put_utf16(Fail, Flags, Src) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_put_utf16, 3);
+    op->a[0] = Fail;
+    op->a[1] = Flags;
+    op->a[2] = Src;
+    return op;
+}
+
+// Generate the fastest instruction for bs_skip_bits.
+gen.skip_bits2(Fail, Ms, Size, Unit, Flags) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    if (Size.type == TAG_a && Size.val == am_all) {
+        /*
+         * This kind of skip instruction will only be found in modules
+         * compiled before OTP 19. From OTP 19, the compiler generates
+         * a test_unit instruction of a bs_skip at the end of a
+         * binary.
+         *
+         * It is safe to replace the skip instruction with a test_unit
+         * instruction, because the position will never be used again.
+         * If the match context itself is used again, it will be used by
+         * a bs_restore2 instruction which will overwrite the position
+         * by one of the stored positions.
+         */
+        $BeamOpNameArity(op, bs_test_unit, 3);
+        op->a[0] = Fail;
+        op->a[1] = Ms;
+        op->a[2] = Unit;
+    } else if (Size.type == TAG_i) {
+        $BeamOpNameArity(op, i_bs_skip_bits_imm2, 3);
+        op->a[0] = Fail;
+        op->a[1] = Ms;
+        op->a[2].type = TAG_u;
+        if (!beam_load_safe_mul(Size.val, Unit.val, &op->a[2].val)) {
+            goto error;
+        }
+    } else if (Size.type == TAG_q) {
+        Eterm big = beamfile_get_literal(&S->beam, Size.val);
+        Uint bigval;
+
+        if (!term_to_Uint(big, &bigval)) {
+        error:
+            $BeamOpNameArity(op, jump, 1);
+            op->a[0] = Fail;
+        } else {
+            $BeamOpNameArity(op, i_bs_skip_bits_imm2, 3);
+            op->a[0] = Fail;
+            op->a[1] = Ms;
+            op->a[2].type = TAG_u;
+            if (!beam_load_safe_mul(bigval, Unit.val, &op->a[2].val)) {
+                goto error;
+            }
+        }
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
+        $BeamOpNameArity(op, i_bs_skip_bits2, 4);
+        op->a[0] = Ms;
+        op->a[1] = Size;
+        op->a[2] = Fail;
+        op->a[3] = Unit;
+    } else {
+        /*
+         * Invalid literal size. Can only happen if compiler
+         * optimizations are selectively disabled.  For example,
+         * at the time of writing, [no_copt, no_type_opt] will allow
+         * skip instructions with invalid sizes to slip through.
+         */
+        goto error;
+    }
+    return op;
+}
+
+// Creates an instruction that moves a literal lambda to a register.
+MakeLiteralLambda(Op, Index, DstType, DstVal) {
+    BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
+    SWord literal;
+
+    ASSERT(entry->num_free == 0);
+
+    /* If we haven't already done so, we need to create a placeholder for the
+     * lambda. */
+    if (S->lambda_literals[$Index] == ERTS_SWORD_MAX) {
+        Eterm tmp_hp[ERL_FUN_SIZE];
+        ErlFunThing *funp;
+
+        /* The placeholder is an external fun with the export field set to
+         * NULL, preventing it from colliding with external fun literals
+         * created by the user. We also disable deduplication to prevent it
+         * from colliding with other placeholder lambdas of the same arity. */
+        funp = (ErlFunThing*)tmp_hp;
+        funp->thing_word = MAKE_FUN_HEADER(entry->arity, 0, 1);
+        funp->entry.exp = NULL;
+        funp->next = NULL;
+
+        literal = beamfile_add_literal(&S->beam, make_fun(tmp_hp), 0);
+        S->lambda_literals[$Index] = literal;
+    } else {
+        literal = S->lambda_literals[$Index];
+    }
+
+    $BeamOpNameArity($Op, move, 2);
+    ($Op)->a[0].type = TAG_q;
+    ($Op)->a[0].val = literal;
+    ($Op)->a[1].type = $DstType;
+    ($Op)->a[1].val = $DstVal;
+}
+
+gen.make_fun3(Idx, Dst, NumFree, Env) {
+    BeamOp* op;
+
+    $NewBeamOp(S, op);
+
+    if (Idx.val < S->beam.lambdas.count) {
+        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
+
+        if (NumFree.val == entry->num_free) {
+            int i;
+
+            if (NumFree.val == 0 && erts_init_process_id != ERTS_INVALID_PID) {
+                $MakeLiteralLambda(op, Idx.val, Dst.type, Dst.val);
+            } else {
+                $BeamOpNameArity(op, i_make_fun3, 4);
+                $BeamOpArity(op, 4 + NumFree.val);
+
+                op->a[0].type = TAG_u;
+                op->a[0].val = Idx.val;
+                op->a[1] = Dst;
+                op->a[2].type = TAG_u;
+                op->a[2].val = entry->arity - entry->num_free;
+                op->a[3].type = TAG_u;
+                op->a[3].val = entry->num_free;
+
+                for (i = 0; i < NumFree.val; i++) {
+                    op->a[i+4] = Env[i];
+                }
+            }
+
+            return op;
+        }
+    }
+
+    $BeamOpNameArity(op, i_lambda_error, 1);
+    op->a[0].type = TAG_o;
+    op->a[0].val = 0;
+    return op;
+}
+
+// Generate an instruction for get/1.
+gen.get(Src, Dst) {
+    BeamOp* op;
+    Eterm key_term;
+
+    $NewBeamOp(S, op);
+    key_term = beam_load_get_term(S, Src);
+    if (is_value(key_term)) {
+        $BeamOpNameArity(op, i_get_hash, 3);
+        op->a[0] = Src;
+        op->a[1].type = TAG_u;
+        op->a[1].val = (BeamInstr) erts_pd_make_hx(key_term);
+        op->a[2] = Dst;
+    } else {
+        $BeamOpNameArity(op, i_get, 2);
+        op->a[0] = Src;
+        op->a[1] = Dst;
+    }
+    return op;
+}
+
+// Replace a get_map_elements instruction with a single key to an
+// instruction with one element.
+gen.get_map_element(Fail, Src, Size, Rest) {
+    BeamOp* op;
+    BeamOpArg Key;
+    Eterm key_term;
+
+    ASSERT(Size.type == TAG_u);
+
+    $NewBeamOp(S, op);
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2] = Rest[0];
+
+    Key = Rest[0];
+    key_term = beam_load_get_term(S, Key);
+    if (is_value(key_term)) {
+        $BeamOpNameArity(op, i_get_map_element_hash, 5);
+        op->a[3].type = TAG_u;
+        op->a[3].val = (BeamInstr) hashmap_make_hash(key_term);
+        op->a[4] = Rest[1];
+    } else {
+        $BeamOpNameArity(op, i_get_map_element, 4);
+        op->a[3] = Rest[1];
+    }
+    return op;
+}
+
+gen.get_map_elements(Fail, Src, Size, Rest) {
+    BeamOp* op;
+    Uint i;
+    BeamOpArg* dst;
+    Eterm key_term;
+
+    ASSERT(Size.type == TAG_u);
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_get_map_elements, 3);
+    $BeamOpArity(op, 3 + 3*(Size.val/2));
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = 3*(Size.val/2);
+
+    dst = op->a+3;
+    for (i = 0; i < Size.val / 2; i++) {
+        dst[0] = Rest[2*i];
+        dst[1] = Rest[2*i+1];
+        dst[2].type = TAG_u;
+        key_term = beam_load_get_term(S, dst[0]);
+        dst[2].val = (BeamInstr) hashmap_make_hash(key_term);
+        dst += 3;
+    }
+    return op;
+}
+
+gen.has_map_fields(Fail, Src, Size, Rest) {
+    BeamOp* op;
+    Uint i;
+    Uint n;
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, get_map_elements, 3);
+    $BeamOpArity(op, 3 + 2*n);
+
+    op->a[0] = Fail;
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = 2*n;
+
+    for (i = 0; i < n; i++) {
+        op->a[3+2*i] = Rest[i];
+        op->a[3+2*i+1].type = TAG_x;
+        op->a[3+2*i+1].val = SCRATCH_X_REG; /* Ignore result */
+    }
+    return op;
+}

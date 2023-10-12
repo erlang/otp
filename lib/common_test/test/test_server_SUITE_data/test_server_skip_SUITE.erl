@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,10 +34,10 @@ init_per_suite(Config) when is_list(Config) ->
 dummy(suite) -> [];
 dummy(doc) -> ["This testcase should never be executed"];
 dummy(Config) when is_list(Config) ->
-    ?t:fail("This testcase should be executed since"
+    test_server:fail("This testcase should be executed since"
 	    " init_per_suite/1 is skipped").
 
 end_per_suite(doc) -> ["This testcase should never be executed"];
 end_per_suite(Config) when is_list(Config) ->
-    ?t:fail("end_per_suite/1 should not be executed when"
+    test_server:fail("end_per_suite/1 should not be executed when"
 	    " init_per_suite/1 is skipped").

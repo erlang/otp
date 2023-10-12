@@ -1,0 +1,13 @@
+
+  [;1m-spec family_range(Family1) -> Family2[0m
+  [;1m                      when Family1 :: family(), Family2 :: family().[0m
+
+  If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a binary relation
+  for every i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the
+  family with the same index set as [;;4mFamily1[0m such that [;;4mFamily2[0m[i]
+  is the range of [;;4mFamily1[0m[i].
+
+    1> FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),
+    F = sofs:family_range(FR),
+    sofs:to_external(F).
+    [{a,[a,b,c]},{b,[]},{c,[d,e]}]

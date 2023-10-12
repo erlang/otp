@@ -1,0 +1,13 @@
+
+  [;1m-spec abs(Float) -> float() when Float :: float();[0m
+  [;1m         (Int) -> non_neg_integer() when Int :: integer().[0m
+
+  Returns an integer or float that is the arithmetical absolute
+  value of [;;4mFloat[0m or [;;4mInt[0m, for example:
+
+    > abs(-3.33).
+    3.33
+    > abs(-3).
+    3
+
+  Allowed in guard tests.

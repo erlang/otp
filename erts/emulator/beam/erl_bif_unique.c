@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,6 +140,28 @@ Eterm erts_make_ref(Process *c_p)
 
     make_ref_in_array(ref);
     write_ref_thing(hp, ref[0], ref[1], ref[2]);
+
+    return make_internal_ref(hp);
+}
+
+Eterm erts_make_pid_ref(Process *c_p)
+{
+    Eterm* hp;
+    Uint32 ref[ERTS_REF_NUMBERS];
+    Eterm pid;
+
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+
+    hp = HAlloc(c_p, ERTS_PID_REF_THING_SIZE);
+
+    make_ref_in_array(ref);
+
+    ASSERT(!(ref[1] & ERTS_REF1_PID_MARKER_BIT__));
+    ref[1] |= ERTS_REF1_PID_MARKER_BIT__;
+
+    pid = c_p->common.id;
+
+    write_pid_ref_thing(hp, ref[0], ref[1], ref[2], pid);
 
     return make_internal_ref(hp);
 }
@@ -411,7 +433,6 @@ void erts_ref_bin_free(ErtsMagicBinary *mb)
     erts_bin_free((Binary *) mb);
 }
 
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Unique Integer                                                    *
 \*                                                                   */
@@ -524,6 +545,7 @@ bld_unique_integer_term(Eterm **hpp, Uint *szp,
 	else {
 	    int hix;
 	    Eterm *hp = *hpp;
+            ASSERT(hp != NULL);
 	    tmp_hp = big_val(tmp);
 	    for (hix = 0; hix < hsz; hix++)
 		hp[hix] = tmp_hp[hix];

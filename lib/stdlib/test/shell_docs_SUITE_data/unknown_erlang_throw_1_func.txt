@@ -1,0 +1,26 @@
+
+  [;1m-spec throw(Any) -> no_return() when Any :: term().[0m
+
+  Raises an exception of class [;;4mthrow[0m. Intended to be used to do
+  non-local returns from functions.
+
+  If evaluated within a catch expression, the catch expression
+  returns value [;;4mAny[0m. Example:
+
+    > catch throw({hello, there}).
+            {hello,there}
+
+  If evaluated within a [;;4mtry[0m-block of a try expression, the value [;;4m[0m
+  [;;4mAny[0m can be caught within the catch block. Example:
+
+    try
+        throw({my_exception, "Something happened"})
+    catch
+        throw:{my_exception, Desc} ->
+            io:format(standard_error, "Error: ~s~n", [Desc])
+    end
+
+  Failure: [;;4mnocatch[0m if not caught by an exception handler.
+
+  See the guide about errors and error handling for additional
+  information.

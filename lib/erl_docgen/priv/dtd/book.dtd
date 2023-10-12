@@ -30,7 +30,7 @@
 			       insidecover?,
 			       pagetext,
 			       preamble,
-			       (applications|parts|headline|pagetext)+,
+			       (applications|parts|internals|headline|pagetext)+,
 				(listoffigures?,
 				 listoftables?,
 				 listofterms?,
@@ -39,11 +39,11 @@
 
 <!ELEMENT pagetext	      (#PCDATA) >
 <!ELEMENT preamble	      (contents?,preface?) >
-<!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|dont|do|table)*) >
+<!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|change|dont|do|table)*) >
 
-<!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|tt|bold|
+<!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|code|bold|
 			       include)* >
-<!ELEMENT tt                  (#PCDATA|br|theheader|vfill)* >
+<!ELEMENT code                (#PCDATA|br|theheader|vfill)* >
 <!ELEMENT bold                (#PCDATA|br|theheader|vfill)* >
 <!ELEMENT vfill               EMPTY >
 <!ELEMENT theheader           EMPTY >
@@ -56,6 +56,7 @@
 <!ELEMENT applications        (include)* >
 <!ELEMENT parts               (title?,description?,(include|onepart)*) >
 <!ATTLIST parts               lift (yes|no) "no" >
+<!ELEMENT internals           (include)* >
 <!ELEMENT headline            (#PCDATA) >
 <!ELEMENT index               EMPTY >
 <!ELEMENT listoffigures       EMPTY >
@@ -68,7 +69,7 @@
 <!ELEMENT onepart             (title?,description?,include+) >
 <!ATTLIST onepart             lift (yes|no) "no" >
 
-<!ELEMENT description	      (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ELEMENT description	      (%block;|quote|br|marker|warning|note|change|dont|do)* >
 
 <!ELEMENT include             EMPTY >
 <!ATTLIST include             file CDATA #REQUIRED>

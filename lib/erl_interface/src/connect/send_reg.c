@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,6 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
-
-#elif VXWORKS
-#include <sys/types.h>
-#include <unistd.h>
 
 #else /* unix */
 #include <sys/types.h>
@@ -51,32 +47,50 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
     char *s, header[1400]; /* see size calculation below */
     erlang_trace *token = NULL;
     int index = 5; /* reserve 5 bytes for control message */
-    int res;
+    int err;
+    ei_socket_callbacks *cbs;
+    void *ctx;
+    ssize_t len, tot_len;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 
-#ifdef HAVE_WRITEV
-    struct iovec v[2];
-#endif
+    err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+    }
     
     /* are we tracing? */
     /* check that he can receive trace tokens first */
     if (ei_distversion(fd) > 0)
 	token = ei_trace(0,NULL);
     
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
     /* header = REG_SEND, from, cookie, toname         max sizes: */
-    ei_encode_version(header,&index);                     /*   1 */
+    if (ei_encode_version(header,&index) < 0)                   /*   1 */
+        return ERL_ERROR;                     
     if (token) { 
-	ei_encode_tuple_header(header,&index,5);            /*   2 */
-	ei_encode_long(header,&index,ERL_REG_SEND_TT);      /*   2 */
+	if (ei_encode_tuple_header(header,&index,5) < 0)        /*   2 */
+            return ERL_ERROR;
+	if (ei_encode_long(header,&index,ERL_REG_SEND_TT) < 0)  /*   2 */
+            return ERL_ERROR;
     } else {
-	ei_encode_tuple_header(header,&index,4);    
-	ei_encode_long(header,&index,ERL_REG_SEND); 
+	if (ei_encode_tuple_header(header,&index,4) < 0)
+            return ERL_ERROR;
+	if (ei_encode_long(header,&index,ERL_REG_SEND) < 0)
+            return ERL_ERROR;
     }
-    ei_encode_pid(header, &index, from);                    /* 268 */
-    ei_encode_atom(header, &index, ei_getfdcookie(fd));       /* 258 */
-    ei_encode_atom(header, &index, to);                     /* 268 */
+    if (ei_encode_pid(header, &index, from) < 0)                /* 268 */
+        return ERL_ERROR;
+    if (ei_encode_atom(header, &index, ei_getfdcookie(fd)) < 0) /* 258 */
+        return ERL_ERROR;
+    if (ei_encode_atom(header, &index, to) < 0)                 /* 268 */
+        return ERL_ERROR;
 
-    if (token) ei_encode_trace(header,&index,token);      /* 534 */
-
+    if (token) {
+        if (ei_encode_trace(header,&index,token) < 0)      /* 534 */
+            return ERL_ERROR;
+    }
     /* control message (precedes header actually) */
     /* length = 1 ('p') + header len + message len */
     s = header;
@@ -86,29 +100,50 @@ int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from,
     if (ei_tracelevel >= 4) 
 	ei_show_sendmsg(stderr,header,msg);
 
-#ifdef HAVE_WRITEV
+#ifdef EI_HAVE_STRUCT_IOVEC__
+    if (ei_socket_callbacks_have_writev__(cbs)) {
+        struct iovec v[2];
 
-    v[0].iov_base = (char *)header;
-    v[0].iov_len = index;
-    v[1].iov_base = (char *)msg;
-    v[1].iov_len = msglen;
+        v[0].iov_base = (char *)header;
+        v[0].iov_len = index;
+        v[1].iov_base = (char *)msg;
+        v[1].iov_len = msglen;
     
-    if ((res = ei_writev_fill_t(fd,v,2,ms)) != index+msglen) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return -1;
+        len = tot_len = (ssize_t) index+msglen;
+        err = ei_writev_fill_ctx_t__(cbs, ctx, v, 2, &len, tmo);
+        if (!err && len != tot_len)
+            err = EIO;
+        if (err) {
+            EI_CONN_SAVE_ERRNO__(err);
+            return ERL_ERROR;
+        }
+
+        erl_errno = 0;
+
+        return 0;
     }
-#else
-    
+#endif /* EI_HAVE_STRUCT_IOVEC__ */
+
     /* no writev() */
-    if ((res = ei_write_fill_t(fd,header,index,ms)) != index) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return -1;
+    len = tot_len = (ssize_t) index;
+    err = ei_write_fill_ctx_t__(cbs, ctx, header, &len, tmo);
+    if (!err && len != tot_len)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
     }
-    if ((res = ei_write_fill_t(fd,msg,msglen,ms)) != msglen) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return -1;
+
+    len = tot_len = (ssize_t) msglen;
+    err = ei_write_fill_ctx_t__(cbs, ctx, msg, &len, tmo);
+    if (!err && len != tot_len)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
     }
-#endif
+
+    erl_errno = 0;
     
     return 0;
 }

@@ -1,0 +1,201 @@
+
+[;1m	file[0m
+
+  File interface module.
+
+  This module provides an interface to the file system.
+
+  Warning:
+    File operations are only guaranteed to appear atomic when
+    going through the same file server. A NIF or other OS process
+    may observe intermediate steps on certain operations on some
+    operating systems, eg. renaming an existing file on Windows,
+    or [;;4mwrite_file_info/2[0m on any OS at the time of writing.
+
+  Regarding filename encoding, the Erlang VM can operate in two
+  modes. The current mode can be queried using function [;;4m[0m
+  [;;4mnative_name_encoding/0[0m. It returns [;;4mlatin1[0m or [;;4mutf8[0m.
+
+  In [;;4mlatin1[0m mode, the Erlang VM does not change the encoding of
+  filenames. In [;;4mutf8[0m mode, filenames can contain Unicode
+  characters greater than 255 and the VM converts filenames back and
+  forth to the native filename encoding (usually UTF-8, but UTF-16
+  on Windows).
+
+  The default mode depends on the operating system. Windows, MacOS X
+  and Android enforce consistent filename encoding and therefore the
+  VM uses [;;4mutf8[0m mode.
+
+  On operating systems with transparent naming (for example, all
+  Unix systems except MacOS X), default is [;;4mutf8[0m if the terminal
+  supports UTF-8, otherwise [;;4mlatin1[0m. The default can be overridden
+  using [;;4m+fnl[0m (to force [;;4mlatin1[0m mode) or [;;4m+fnu[0m (to force [;;4mutf8[0m
+  mode) when starting [;;4merl[0m.
+
+  On operating systems with transparent naming, files can be
+  inconsistently named, for example, some files are encoded in UTF-8
+  while others are encoded in ISO Latin-1. The concept of raw
+  filenames is introduced to handle file systems with inconsistent
+  naming when running in [;;4mutf8[0m mode.
+
+  A raw filename is a filename specified as a binary. The Erlang
+  VM does not translate a filename specified as a binary on systems
+  with transparent naming.
+
+  When running in [;;4mutf8[0m mode, functions [;;4mlist_dir/1[0m and [;;4m[0m
+  [;;4mread_link/1[0m never return raw filenames. To return all filenames
+  including raw filenames, use functions [;;4mlist_dir_all/1[0m and [;;4m[0m
+  [;;4mread_link_all/1[0m.
+
+  See also section Notes About Raw Filenames in the STDLIB User's
+  Guide.
+
+  Note:
+    File operations used to accept filenames containing null
+    characters (integer value zero). This caused the name to be
+    truncated and in some cases arguments to primitive operations
+    to be mixed up. Filenames containing null characters inside
+    the filename are now rejected and will cause primitive file
+    operations fail.
+
+[;1mPOSIX Error Codes[0m
+
+   • [;;4meacces[0m - Permission denied
+
+   • [;;4meagain[0m - Resource temporarily unavailable
+
+   • [;;4mebadf[0m - Bad file number
+
+   • [;;4mebusy[0m - File busy
+
+   • [;;4medquot[0m - Disk quota exceeded
+
+   • [;;4meexist[0m - File already exists
+
+   • [;;4mefault[0m - Bad address in system call argument
+
+   • [;;4mefbig[0m - File too large
+
+   • [;;4meintr[0m - Interrupted system call
+
+   • [;;4meinval[0m - Invalid argument
+
+   • [;;4meio[0m - I/O error
+
+   • [;;4meisdir[0m - Illegal operation on a directory
+
+   • [;;4meloop[0m - Too many levels of symbolic links
+
+   • [;;4memfile[0m - Too many open files
+
+   • [;;4memlink[0m - Too many links
+
+   • [;;4menametoolong[0m - Filename too long
+
+   • [;;4menfile[0m - File table overflow
+
+   • [;;4menodev[0m - No such device
+
+   • [;;4menoent[0m - No such file or directory
+
+   • [;;4menomem[0m - Not enough memory
+
+   • [;;4menospc[0m - No space left on device
+
+   • [;;4menotblk[0m - Block device required
+
+   • [;;4menotdir[0m - Not a directory
+
+   • [;;4menotsup[0m - Operation not supported
+
+   • [;;4menxio[0m - No such device or address
+
+   • [;;4meperm[0m - Not owner
+
+   • [;;4mepipe[0m - Broken pipe
+
+   • [;;4merofs[0m - Read-only file system
+
+   • [;;4mespipe[0m - Invalid seek
+
+   • [;;4mesrch[0m - No such process
+
+   • [;;4mestale[0m - Stale remote file handle
+
+   • [;;4mexdev[0m - Cross-device link
+
+[;1mPerformance[0m
+
+  For increased performance, raw files are recommended.
+
+  A normal file is really a process so it can be used as an I/O
+  device (see [;;4mio[0m). Therefore, when data is written to a normal
+  file, the sending of the data to the file process, copies all data
+  that are not binaries. Opening the file in binary mode and writing
+  binaries is therefore recommended. If the file is opened on
+  another node, or if the file server runs as slave to the file
+  server of another node, also binaries are copied.
+
+  Note:
+    Raw files use the file system of the host machine of the node.
+    For normal files (non-raw), the file server is used to find
+    the files, and if the node is running its file server as slave
+    to the file server of another node, and the other node runs on
+    some other host machine, they can have different file systems.
+    However, this is seldom a problem.
+
+  [;;4mopen/2[0m can be given the options [;;4mdelayed_write[0m and [;;4mread_ahead[0m
+  to turn on caching, which will reduce the number of operating
+  system calls and greatly improve performance for small reads and
+  writes. However, the overhead won't disappear completely and it's
+  best to keep the number of file operations to a minimum. As a
+  contrived example, the following function writes 4MB in 2.5
+  seconds when tested:
+
+    create_file_slow(Name) ->
+        {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+        create_file_slow_1(Fd, 4 bsl 20),
+        file:close(Fd).
+    
+    create_file_slow_1(_Fd, 0) ->
+        ok;
+    create_file_slow_1(Fd, M) ->
+        ok = file:write(Fd, <<0>>),
+        create_file_slow_1(Fd, M - 1).
+
+  The following functionally equivalent code writes 128 bytes per
+  call to [;;4mwrite/2[0m and so does the same work in 0.08 seconds, which
+  is roughly 30 times faster:
+
+    create_file(Name) ->
+        {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+        create_file_1(Fd, 4 bsl 20),
+        file:close(Fd),
+        ok.
+    
+    create_file_1(_Fd, 0) ->
+        ok;
+    create_file_1(Fd, M) when M >= 128 ->
+        ok = file:write(Fd, <<0:(128)/unit:8>>),
+        create_file_1(Fd, M - 128);
+    create_file_1(Fd, M) ->
+        ok = file:write(Fd, <<0:(M)/unit:8>>),
+        create_file_1(Fd, M - 1).
+
+  When writing data it's generally more efficient to write a list of
+  binaries rather than a list of integers. It is not needed to
+  flatten a deep list before writing. On Unix hosts, scatter output,
+  which writes a set of buffers in one operation, is used when
+  possible. In this way [;;4mwrite(FD, [Bin1, Bin2 | Bin3])[0m writes the
+  contents of the binaries without copying the data at all, except
+  for perhaps deep down in the operating system kernel.
+
+  Warning:
+    If an error occurs when accessing an open file with module [;;4mio[0m,
+    the process handling the file exits. The dead file process can
+    hang if a process tries to access it later. This will be fixed
+    in a future release.
+
+[;1mSee Also[0m
+
+  [;;4mfilename(3)[0m

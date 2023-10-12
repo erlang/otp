@@ -1,0 +1,361 @@
+
+  [;1m-spec process_flag(async_dist, Boolean) -> OldBoolean[0m
+  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP 25.3
+
+  Enable or disable fully asynchronous distributed signaling for
+  the calling process. When disabled, which is the default, the
+  process sending a distributed signal will block in the send
+  operation if the buffer for the distribution channel reach the 
+  distribution buffer busy limit. The process will remain blocked
+  until the buffer shrinks enough. This might in some cases take a
+  substantial amount of time. When [;;4masync_dist[0m is enabled, send
+  operations of distributed signals will always buffer the signal on
+  the outgoing distribution channel and then immediately return.
+  That is, these send operations will never block the sending
+  process.
+
+  Note:
+    Since no flow control is enforced by the runtime system when [;;4m[0m
+    [;;4masync_dist[0m process flag is enabled, you need to make sure
+    that flow control for such data is implemented, or that the
+    amount of such data is known to always be limited. Unlimited
+    signaling with [;;4masync_dist[0m enabled in the absence of flow
+    control will typically cause the sending runtime system to
+    crash on an out of memory condition.
+
+  Blocking due to disabled [;;4masync_dist[0m can be monitored by [;;4m[0m
+  [;;4merlang:system_monitor()[0m using the [;;4mbusy_dist_port[0m option. Only
+  data buffered by processes which (at the time of sending a signal)
+  have disabled [;;4masync_dist[0m will be counted when determining
+  whether or not an operation should block the caller.
+
+  The [;;4masync_dist[0m flag can also be set on a new process when
+  spawning it using the [;;4mspawn_opt()[0m BIF with the option [;;4m[0m
+  [;;4m{async_dist, Enable}[0m. The default [;;4masync_dist[0m flag to use on
+  newly spawned processes can be set by passing the command line
+  argument [;;4m+pad <boolean>[0m when starting the runtime system. If the [;;4m[0m
+  [;;4m+pad <boolean>[0m command line argument is not passed, the default
+  value of the [;;4masync_dist[0m flag will be [;;4mfalse[0m.
+
+  You can inspect the state of the [;;4masync_dist[0m process flag of a
+  process by calling [;;4mprocess_info(Pid, async_dist)[0m.
+
+  Returns the old value of the [;;4masync_dist[0m flag.
+
+  [;1m-spec process_flag(trap_exit, Boolean) -> OldBoolean[0m
+  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean().[0m
+
+  When [;;4mtrap_exit[0m is set to [;;4mtrue[0m, exit signals arriving to a
+  process are converted to [;;4m{'EXIT', From, Reason}[0m messages, which
+  can be received as ordinary messages. If [;;4mtrap_exit[0m is set to [;;4m[0m
+  [;;4mfalse[0m, the process exits if it receives an exit signal other than [;;4m[0m
+  [;;4mnormal[0m and the exit signal is propagated to its linked processes.
+  Application processes are normally not to trap exits.
+
+  Returns the old value of the flag.
+
+  See also [;;4mexit/2[0m.
+
+  [;1m-spec process_flag(error_handler, Module) -> OldModule[0m
+  [;1m                      when Module :: atom(), OldModule :: atom().[0m
+
+  Used by a process to redefine the error handler for undefined
+  function calls and undefined registered processes. Use this flag
+  with substantial caution, as code auto-loading depends on the
+  correct operation of the error handling module.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(fullsweep_after, FullsweepAfter) -> OldFullsweepAfter[0m
+  [;1m                      when[0m
+  [;1m                          FullsweepAfter :: non_neg_integer(),[0m
+  [;1m                          OldFullsweepAfter :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 24.0
+
+  Changes the maximum number of generational collections before
+  forcing a fullsweep for the calling process.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(min_heap_size, MinHeapSize) -> OldMinHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MinHeapSize :: non_neg_integer(),[0m
+  [;1m                          OldMinHeapSize :: non_neg_integer().[0m
+
+  Changes the minimum heap size for the calling process.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(min_bin_vheap_size, MinBinVHeapSize) ->[0m
+  [;1m                      OldMinBinVHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MinBinVHeapSize :: non_neg_integer(),[0m
+  [;1m                          OldMinBinVHeapSize :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R13B04
+
+  Changes the minimum binary virtual heap size for the calling
+  process.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(max_heap_size, MaxHeapSize) -> OldMaxHeapSize[0m
+  [;1m                      when[0m
+  [;1m                          MaxHeapSize :: max_heap_size(),[0m
+  [;1m                          OldMaxHeapSize :: max_heap_size().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+
+  This flag sets the maximum heap size for the calling process. If [;;4m[0m
+  [;;4mMaxHeapSize[0m is an integer, the system default values for [;;4mkill[0m
+  and [;;4merror_logger[0m are used.
+
+  For details on how the heap grows, see Sizing the heap in the
+  ERTS internal documentation.
+
+  [;;4m[;;4msize[0m[0m:
+    The maximum size in words of the process. If set to zero, the
+    heap size limit is disabled. [;;4mbadarg[0m is be thrown if the
+    value is smaller than [;;4mmin_heap_size[0m. The size check is only
+    done when a garbage collection is triggered.
+
+    [;;4msize[0m is the entire heap of the process when garbage
+    collection is triggered. This includes all generational heaps,
+    the process stack, any messages that are considered to be
+    part of the heap, and any extra memory that the garbage
+    collector needs during collection.
+
+    [;;4msize[0m is the same as can be retrieved using [;;4m[0m
+    [;;4merlang:process_info(Pid, total_heap_size)[0m, or by adding [;;4m[0m
+    [;;4mheap_block_size[0m, [;;4mold_heap_block_size[0m and [;;4mmbuf_size[0m from [;;4m[0m
+    [;;4merlang:process_info(Pid, garbage_collection_info)[0m.
+
+  [;;4m[;;4mkill[0m[0m:
+    When set to [;;4mtrue[0m, the runtime system sends an untrappable
+    exit signal with reason [;;4mkill[0m to the process if the maximum
+    heap size is reached. The garbage collection that triggered
+    the [;;4mkill[0m is not completed, instead the process exits as soon
+    as possible. When set to [;;4mfalse[0m, no exit signal is sent to
+    the process, instead it continues executing.
+
+    If [;;4mkill[0m is not defined in the map, the system default will
+    be used. The default system default is [;;4mtrue[0m. It can be
+    changed by either option +hmaxk in [;;4merl(1)[0m, or [;;4m[0m
+    [;;4merlang:system_flag(max_heap_size, MaxHeapSize)[0m.
+
+  [;;4m[;;4merror_logger[0m[0m:
+    When set to [;;4mtrue[0m, the runtime system logs an error event via [;;4m[0m
+    [;;4mlogger[0m, containing details about the process when the maximum
+    heap size is reached. One log event is sent each time the
+    limit is reached.
+
+    If [;;4merror_logger[0m is not defined in the map, the system
+    default is used. The default system default is [;;4mtrue[0m. It can
+    be changed by either the option +hmaxel int [;;4merl(1)[0m, or [;;4m[0m
+    [;;4merlang:system_flag(max_heap_size, MaxHeapSize)[0m.
+
+  [;;4m[;;4minclude_shared_binaries[0m[0m:
+    When set to [;;4mtrue[0m, off-heap binaries are included in the
+    total sum compared against the [;;4msize[0m limit. Off-heap binaries
+    are typically larger binaries that may be shared between
+    processes. The size of a shared binary is included by all
+    processes that are referring it. Also, the entire size of a
+    large binary may be included even if only a smaller part of it
+    is referred by the process.
+
+    If [;;4minclude_shared_binaries[0m is not defined in the map, the
+    system default is used. The default system default is [;;4mfalse[0m.
+    It can be changed by either the option +hmaxib in [;;4merl(1)[0m,
+    or [;;4merlang:system_flag(max_heap_size, MaxHeapSize)[0m.
+
+  The heap size of a process is quite hard to predict, especially
+  the amount of memory that is used during the garbage collection.
+  When contemplating using this option, it is recommended to first
+  run it in production with [;;4mkill[0m set to [;;4mfalse[0m and inspect the
+  log events to see what the normal peak sizes of the processes in
+  the system is and then tune the value accordingly.
+
+  [;1m-spec process_flag(message_queue_data, MQD) -> OldMQD[0m
+  [;1m                      when[0m
+  [;1m                          MQD :: message_queue_data(),[0m
+  [;1m                          OldMQD :: message_queue_data().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Types:
+    -type message_queue_data() :: off_heap | on_heap.
+
+  Determines how messages in the message queue are stored, as
+  follows:
+
+  [;;4m[;;4moff_heap[0m[0m:
+    All messages in the message queue will be stored outside the
+    process heap. This implies that no messages in the message
+    queue will be part of a garbage collection of the process.
+
+  [;;4m[;;4mon_heap[0m[0m:
+    All messages in the message queue will eventually be placed on
+    the process heap. They can, however, be temporarily stored off
+    the heap. This is how messages have always been stored up
+    until ERTS 8.0.
+
+  The default value of the [;;4mmessage_queue_data[0m process flag is
+  determined by the command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m.
+
+  If the process may potentially accumulate a large number of
+  messages in its queue it is recommended to set the flag value to [;;4m[0m
+  [;;4moff_heap[0m. This is due to the fact that the garbage collection of
+  a process that has a large number of messages stored on the heap
+  can become extremely expensive and the process can consume large
+  amounts of memory. The performance of the actual message passing
+  is, however, generally better when the flag value is [;;4mon_heap[0m.
+
+  Changing the flag value causes any existing messages to be moved.
+  The move operation is initiated, but not necessarily completed, by
+  the time the function returns.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(priority, Level) -> OldLevel[0m
+  [;1m                      when[0m
+  [;1m                          Level :: priority_level(),[0m
+  [;1m                          OldLevel :: priority_level().[0m
+
+  Types:
+    -type priority_level() :: low | normal | high | max.
+
+  Sets the process priority. [;;4mLevel[0m is an atom. Four priority
+  levels exist: [;;4mlow[0m, [;;4mnormal[0m, [;;4mhigh[0m, and [;;4mmax[0m. Default is [;;4m[0m
+  [;;4mnormal[0m.
+
+  Note:
+    Priority level [;;4mmax[0m is reserved for internal use in the
+    Erlang runtime system, and is not to be used by others.
+
+  Internally in each priority level, processes are scheduled in a
+  round robin fashion.
+
+  Execution of processes on priority [;;4mnormal[0m and [;;4mlow[0m are
+  interleaved. Processes on priority [;;4mlow[0m are selected for
+  execution less frequently than processes on priority [;;4mnormal[0m.
+
+  When runnable processes on priority [;;4mhigh[0m exist, no processes on
+  priority [;;4mlow[0m or [;;4mnormal[0m are selected for execution. Notice
+  however that this does not mean that no processes on priority [;;4m[0m
+  [;;4mlow[0m or [;;4mnormal[0m can run when processes are running on priority [;;4m[0m
+  [;;4mhigh[0m. When using multiple schedulers, more processes can be
+  running in parallel than processes on priority [;;4mhigh[0m. That is, a [;;4m[0m
+  [;;4mlow[0m and a [;;4mhigh[0m priority process can execute at the same time.
+
+  When runnable processes on priority [;;4mmax[0m exist, no processes on
+  priority [;;4mlow[0m, [;;4mnormal[0m, or [;;4mhigh[0m are selected for execution. As
+  with priority [;;4mhigh[0m, processes on lower priorities can execute in
+  parallel with processes on priority [;;4mmax[0m.
+
+  Scheduling is pre-emptive. Regardless of priority, a process is
+  pre-empted when it has consumed more than a certain number of
+  reductions since the last time it was selected for execution.
+
+  Note:
+    Do not depend on the scheduling to remain exactly as it is
+    today. Scheduling is likely to be changed in a future release
+    to use available processor cores better.
+
+  There is no automatic mechanism for avoiding priority inversion,
+  such as priority inheritance or priority ceilings. When using
+  priorities, take this into account and handle such scenarios by
+  yourself.
+
+  Making calls from a [;;4mhigh[0m priority process into code that you has
+  no control over can cause the [;;4mhigh[0m priority process to wait for
+  a process with lower priority. That is, effectively decreasing the
+  priority of the [;;4mhigh[0m priority process during the call. Even if
+  this is not the case with one version of the code that you have no
+  control over, it can be the case in a future version of it. This
+  can, for example, occur if a [;;4mhigh[0m priority process triggers code
+  loading, as the code server runs on priority [;;4mnormal[0m.
+
+  Other priorities than [;;4mnormal[0m are normally not needed. When other
+  priorities are used, use them with care, especially priority [;;4m[0m
+  [;;4mhigh[0m. A process on priority [;;4mhigh[0m is only to perform work for
+  short periods. Busy looping for long periods in a [;;4mhigh[0m priority
+  process causes most likely problems, as important OTP servers run
+  on priority [;;4mnormal[0m.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(save_calls, N) -> OldN[0m
+  [;1m                      when N :: 0..10000, OldN :: 0..10000.[0m
+
+  [;;4mN[0m must be an integer in the interval 0..10000. If [;;4mN[0m > 0, call
+  saving is made active for the process. This means that information
+  about the [;;4mN[0m most recent global function calls, BIF calls, sends,
+  and receives made by the process are saved in a list, which can be
+  retrieved with [;;4mprocess_info(Pid, last_calls)[0m. A global function
+  call is one in which the module of the function is explicitly
+  mentioned. Only a fixed amount of information is saved, as
+  follows:
+
+   • A tuple [;;4m{Module, Function, Arity}[0m for function calls
+
+   • The atoms [;;4msend[0m, [;;4m'receive'[0m, and [;;4mtimeout[0m for sends and
+     receives ([;;4m'receive'[0m when a message is received and [;;4m[0m
+     [;;4mtimeout[0m when a receive times out)
+
+  If [;;4mN[0m = 0, call saving is disabled for the process, which is the
+  default. Whenever the size of the call saving list is set, its
+  contents are reset.
+
+  Returns the old value of the flag.
+
+  [;1m-spec process_flag(sensitive, Boolean) -> OldBoolean[0m
+  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean().[0m
+
+  Sets or clears flag [;;4msensitive[0m for the current process. When a
+  process has been marked as sensitive by calling [;;4m[0m
+  [;;4mprocess_flag(sensitive, true)[0m, features in the runtime system
+  that can be used for examining the data or inner working of the
+  process are silently disabled.
+
+  Features that are disabled include (but are not limited to) the
+  following:
+
+   • Tracing. Trace flags can still be set for the process, but
+     no trace messages of any kind are generated. (If flag [;;4m[0m
+     [;;4msensitive[0m is turned off, trace messages are again generated
+     if any trace flags are set.)
+
+   • Sequential tracing. The sequential trace token is propagated
+     as usual, but no sequential trace messages are generated.
+
+  [;;4mprocess_info/1,2[0m cannot be used to read out the message queue or
+  the process dictionary (both are returned as empty lists).
+
+  Stack back-traces cannot be displayed for the process.
+
+  In crash dumps, the stack, messages, and the process dictionary
+  are omitted.
+
+  If [;;4m{save_calls,N}[0m has been set for the process, no function
+  calls are saved to the call saving list. (The call saving list is
+  not cleared. Also, send, receive, and time-out events are still
+  added to the list.)
+
+  Returns the old value of the flag.

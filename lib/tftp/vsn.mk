@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2018. All Rights Reserved.
+# Copyright Ericsson AB 2001-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,6 @@
 # %CopyrightEnd%
 
 APPLICATION = tftp
-TFTP_VSN   = 1.0.1
+TFTP_VSN   = 1.1
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(TFTP_VSN)$(PRE_VSN)"

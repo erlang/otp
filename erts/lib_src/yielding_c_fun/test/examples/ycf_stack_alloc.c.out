@@ -1,0 +1,15 @@
+TRAPPED 0
+hej
+sos
+TRAPPED 0
+sub
+TRAPPED 0
+sub
+TRAPPED 0
+sub
+TRAPPED 0
+sub
+BEFORE OVERWRITE sub
+AFTER OVERWRITE erl
+Number of yields 5
+RETURNED 5

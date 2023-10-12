@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@
 -export([start/1, start/2, start/3, stop/1, stop/2]).
 
 -export([slave_started/2, slave_ready/2, monitor_master/1]).
+
+-deprecated([{'_','_',"use ?CT_PEER(), or the 'peer' module instead"}]).
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,

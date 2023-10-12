@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,8 +71,20 @@ endif
 
 ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
 
-ifeq ($(WARN_UNUSED_VARS),true)
-ERL_COMPILE_FLAGS += +warn_unused_vars
+ifeq ($(SNMP_WARNING_AS_ERROR),)
+  ERL_COMPILE_FLAGS += -Werror
+else
+  ifeq ($(SNMP_WARNING_AS_ERROR),true)
+    ERL_COMPILE_FLAGS += -Werror
+  endif
+endif
+
+ifeq ($(WARN_UNUSED_VARS),)
+  ERL_COMPILE_FLAGS += +warn_unused_vars
+else
+  ifeq ($(WARN_UNUSED_VARS),true)
+    ERL_COMPILE_FLAGS += +warn_unused_vars
+  endif
 endif
 
 ERL_COMPILE_FLAGS += -I../../include \
@@ -83,12 +95,13 @@ ERL_COMPILE_FLAGS += -I../../include \
                      -I$(ERL_TOP)/lib/stdlib \
                      $(SNMP_FLAGS)
 
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@$(MAKE) TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES)
 

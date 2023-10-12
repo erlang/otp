@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,14 +56,15 @@
 %%------------------------------------------------------------------------
 
 -type dlog_format()      :: 'external' | 'internal'.
--type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'.
+-type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'
+                          | 'rotate_ext'.
 -type dlog_head()        :: 'none' | {'ok', binary()} | mfa().
 -type dlog_head_opt()    :: none | term() | iodata().
 -type log()              :: term().  % XXX: refine
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().
 -type dlog_optattr()     :: 'name' | 'file' | 'linkto' | 'repair' | 'type'
-                          | 'format' | 'size' | 'distributed' | 'notify'
+                          | 'format' | 'size' | 'notify'
                           | 'head' | 'head_func' | 'mode'.
 -type dlog_option()      :: {name, Log :: log()}
                           | {file, FileName :: file:filename()}
@@ -72,7 +73,6 @@
                           | {type, Type :: dlog_type()}
                           | {format, Format :: dlog_format()}
                           | {size, Size :: dlog_size()}
-                          | {distributed, Nodes :: [node()]}
                           | {notify, boolean()}
                           | {head, Head :: dlog_head_opt()}
                           | {head_func, MFA :: {atom(), atom(), list()}}
@@ -84,7 +84,7 @@
                           | {MaxNoBytes :: pos_integer(),
                              MaxNoFiles :: pos_integer()}.
 -type dlog_status()      :: 'ok' | {'blocked', 'false' | [_]}. %QueueLogRecords
--type dlog_type()        :: 'halt' | 'wrap'.
+-type dlog_type()        :: 'halt' | 'wrap' | 'rotate'.
 
 %%------------------------------------------------------------------------
 %% Records
@@ -96,8 +96,8 @@
 	      file = none         :: 'none' | file:filename(),
 	      repair = true       :: dlog_repair(),
 	      size = infinity     :: dlog_size(),
+	      old_size = infinity :: dlog_size(), % read from size file
 	      type = halt         :: dlog_type(),
-	      distributed = false :: 'false' | {'true', [node()]},
 	      format = internal   :: dlog_format(),
 	      linkto = self()     :: 'none' | pid(),
 	      head = none,
@@ -130,7 +130,7 @@
 				%% time the wrap log has filled the 
 				%% Dir/Name.NewMaxF file.
 	 curB     :: non_neg_integer(),	%% Number of bytes on current file.
-	 curF     :: integer(), 	%% Current file number.
+	 curF     :: integer(), 	%% Current file number
 	 cur_fdc  :: #cache{}, 	 	%% Current file descriptor.
 	 cur_name :: file:filename(),	%% Current file name for error reports.
 	 cur_cnt  :: non_neg_integer(),	%% Number of items on current file,
@@ -144,8 +144,20 @@
 					%% since log was opened if info/1
 					%% has not yet been used on this log.
 	 accFull  :: non_neg_integer()}	%% noFull+accFull is number of
-					%% oveflows since the log was opened.
+					%% overflows since the log was opened.
        ).
+
+-record(rotate_handle,
+        {file :: file:filename(),
+         cur_fdc :: #cache{},
+         inode,
+         file_check,
+         maxB :: pos_integer(),
+         maxF :: pos_integer() | {pos_integer(),pos_integer()},
+	 curB = 0 :: non_neg_integer(),
+         firstPos :: non_neg_integer(),
+         compress_on_rotate = true}
+        ).
 
 -record(log,
 	{status = ok       :: dlog_status(),
@@ -161,8 +173,8 @@
 	                      %%  called when wraplog wraps
 	 mode		   :: dlog_mode(),
 	 size,                %% value of open/1 option 'size' (never changed)
-	 extra             :: #halt{} | #handle{}, %% type of the log
-	 version           :: integer()}	   %% if wrap log file
+	 extra             :: #halt{} | #handle{} | #rotate_handle{}, %% type of the log
+	 version           :: integer() | undefined}	   %% if wrap log file, undefined for halt and rotate
 	).
 
 -record(continuation,         %% Chunk continuation.

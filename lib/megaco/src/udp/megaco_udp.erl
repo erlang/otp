@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,20 +110,28 @@ stop_transport(Pid, Reason) ->
 open(SupPid, Options) ->
     Mand = [port, receive_handle],
     case parse_options(Options, #megaco_udp{}, Mand) of
-	{ok, UdpRec} ->
+	{ok, #megaco_udp{port         = Port,
+			 options      = Opts,
+			 inet_backend = IB} = UdpRec} ->
 
 	    %%------------------------------------------------------
 	    %% Setup the socket
-	    IpOpts = [binary, {reuseaddr, true}, {active, once} |
-		      UdpRec#megaco_udp.options],
-
-	    case (catch gen_udp:open(UdpRec#megaco_udp.port, IpOpts)) of
+	    IpOpts =
+                case IB of
+                    default ->
+                        [];
+                    IB ->
+                        [{inet_backend, IB}]
+                end ++
+                [binary, {reuseaddr, true}, {active, once} |
+                 post_process_opts(IB, Opts)],
+	    case (catch gen_udp:open(Port, IpOpts)) of
 		{ok, Socket} ->
 		    ?udp_debug(UdpRec, "udp open", []),
 		    NewUdpRec = UdpRec#megaco_udp{socket = Socket},
 		    case start_udp_server(SupPid, NewUdpRec) of
 			{ok, ControlPid} ->
-			    gen_udp:controlling_process(Socket, ControlPid),
+			    _ = gen_udp:controlling_process(Socket, ControlPid),
 			    {ok, Socket, ControlPid};
 			{error, Reason} ->
 			    Error = {error, {could_not_start_udp_server, Reason}},
@@ -147,6 +155,95 @@ open(SupPid, Options) ->
 	    {error, Reason}
     end.
 
+
+%% In some cases we must bind and therefor we must have the
+%% ip (or ifaddr) option.
+post_process_opts(socket = _IB, Opts) ->
+    case os:type() of
+	{win32, nt} ->
+	    %% We must bind, and therefor we must provide a "proper" address.
+	    %% Therefor...we need to figure out our domain.
+	    post_process_opts(Opts);
+	_ ->
+	    Opts
+    end;
+post_process_opts(_IB, Opts) ->
+    Opts.
+
+
+%% Socket on Windows: We need the ip (or ifaddr) option
+post_process_opts(Opts) ->
+    case lists:keymember(ip, 1, Opts) orelse
+	lists:keymember(ifaddr, 1, Opts) of
+	true ->
+	    %% No need to do anything, user has provided an address
+	    Opts;
+	false ->
+	    %% We need to figure out a proper address and provide 
+	    %% the ip option our selves.
+	    post_process_opts2(Opts)
+    end.
+	
+post_process_opts2(Opts) ->
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    post_process_opts3(inet, Opts)
+	    end
+    end.
+
+post_process_opts3(Domain, Opts) ->
+    case net:getifaddrs(Domain) of
+	{ok, IfAddrs} ->
+	    post_process_opts4(Domain, IfAddrs, Opts);
+	{error, _} ->
+	    Opts
+    end.
+
+post_process_opts4(_Domain, [] = _IfAddrs, Opts) ->
+    Opts;
+post_process_opts4(inet,
+		   [#{addr := #{family := inet,
+				addr   := {A, B, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 127) orelse ((A =:= 169) andalso (B =:= 254)) ->
+    post_process_opts4(inet, IfAddrs, Opts);
+post_process_opts4(inet,
+		   [#{addr   := #{family := inet,
+				  addr   := Addr},
+		      flags  := Flags} | IfAddrs],
+		   Opts) ->
+    case lists:member(up, Flags) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet, IfAddrs, Opts)
+    end;
+post_process_opts4(inet6,
+		   [#{addr := #{family := inet6,	
+				addr   := {A, _, _, _, _, _, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 0) orelse (A =:= 16#fe80) ->
+    post_process_opts4(inet6, IfAddrs, Opts);
+post_process_opts4(inet6,
+		   [#{addr  := #{family := inet6,
+				 addr   := Addr},
+		      flags := Flags} | IfAddrs],
+		   Opts) ->
+    %% The loopback should really have been covered above, but just in case...
+    case lists:member(up, Flags) andalso (not lists:member(loopback, Flags)) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet6, IfAddrs, Opts)
+    end.
+
+    
 
 %%-----------------------------------------------------------------
 %% Func: socket
@@ -214,13 +311,13 @@ create_snmp_counters(SH, [Counter|Counters]) ->
 send_message(SH, Data) when is_record(SH, send_handle) ->
     #send_handle{socket = Socket, addr = Addr, port = Port} = SH,
     Res = gen_udp:send(Socket, Addr, Port, Data),
-    case Res of
-	ok ->
-	    incNumOutMessages(SH),
-	    incNumOutOctets(SH, size(Data));
-	_ ->
-	    ok
-    end,
+    _ = case Res of
+            ok ->
+                incNumOutMessages(SH),
+                incNumOutOctets(SH, byte_size(Data));
+            _ ->
+                ok
+        end,
     Res;
 send_message(SH, _Data) ->
     {error, {bad_send_handle, SH}}.
@@ -258,9 +355,9 @@ close(#send_handle{socket = Socket}) ->
     close(Socket);
 close(Socket) ->
     ?udp_debug({socket, Socket}, "udp close", []),
-    case erlang:port_info(Socket, connected) of
-	{connected, ControlPid} ->
-	    megaco_udp_server:stop(ControlPid);
+    case inet:info(Socket) of
+        #{owner := ControlPid} = _Info when is_pid(ControlPid) ->
+	    (catch megaco_udp_server:stop(ControlPid));
 	undefined ->
 	    {error, already_closed}
     end.
@@ -294,8 +391,12 @@ parse_options([{Tag, Val} | T], UdpRec, Mand) ->
 	    parse_options(T, UdpRec#megaco_udp{receive_handle = Val}, Mand2);
 	module when is_atom(Val) ->
 	    parse_options(T, UdpRec#megaco_udp{module = Val}, Mand2);
-	serialize when (Val =:= true) orelse (Val =:= false) ->
+	serialize when is_boolean(Val) ->
 	    parse_options(T, UdpRec#megaco_udp{serialize = Val}, Mand2);
+	inet_backend when (Val =:= default) orelse
+                          (Val =:= inet) orelse
+                          (Val =:= socket)  ->
+	    parse_options(T, UdpRec#megaco_udp{inet_backend = Val}, Mand2);
         Bad ->
 	    {error, {bad_option, Bad}}
     end;
@@ -321,5 +422,19 @@ incNumOutOctets(SH, NumOctets) ->
 incCounter(Key, Inc) ->
     ets:update_counter(megaco_udp_stats, Key, Inc).
 
-% incNumErrors(SH) ->
-%     incCounter({SH, medGwyGatewayNumErrors}, 1).
+%% incNumErrors(SH) ->
+%%     incCounter({SH, medGwyGatewayNumErrors}, 1).
+
+%%-----------------------------------------------------------------
+
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
+
+%% format_timestamp(TS) ->
+%%     megaco:format_timestamp(TS).
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(F, A) ->
+%%     io:format("*** [~s] ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).

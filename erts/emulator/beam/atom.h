@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 /* Internal atom cache needs MAX_ATOM_TABLE_SIZE to be less than an
    unsigned 32 bit integer. See external.c(erts_encode_ext_dist_header_setup)
    for more details. */
-#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (UWORD_CONSTANT(1) << 32)) ? MAX_ATOM_INDEX + 1 : ((UWORD_CONSTANT(1) << 31) - 1)) /* Here we use maximum signed interger value to avoid integer overflow */
+#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (UWORD_CONSTANT(1) << 32)) ? MAX_ATOM_INDEX + 1 : ((UWORD_CONSTANT(1) << 31) - 1)) /* Here we use maximum signed integer value to avoid integer overflow */
 #else
 #define MAX_ATOM_TABLE_SIZE (MAX_ATOM_INDEX + 1)
 #endif
@@ -133,14 +133,14 @@ typedef enum {
 int atom_table_size(void);	/* number of elements */
 int atom_table_sz(void);	/* table size in bytes, excluding stored objects */
 
-Eterm am_atom_put(const char*, int); /* ONLY 7-bit ascii! */
-Eterm erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc);
-int erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc);
+Eterm am_atom_put(const char*, Sint); /* ONLY 7-bit ascii! */
+Eterm erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc);
+int erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc);
 void init_atom_table(void);
 void atom_info(fmtfn_t, void *);
 void dump_atoms(fmtfn_t, void *);
 Uint erts_get_atom_limit(void);
-int erts_atom_get(const char* name, int len, Eterm* ap, ErtsAtomEncoding enc);
+int erts_atom_get(const char* name, Uint len, Eterm* ap, ErtsAtomEncoding enc);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);
 #endif
 

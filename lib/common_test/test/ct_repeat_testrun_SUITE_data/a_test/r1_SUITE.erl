@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 -compile(export_all).
 
 %% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:seconds(30)).
+-define(default_timeout, test_server:seconds(30)).
 
 all() ->
     testcases() ++ [{group,g},  tc2].
@@ -61,7 +61,7 @@ end_per_testcase(_Case, Config) ->
 %%%-----------------------------------------------------------------
 %%% Test cases
 tc1(_Config) ->
-    ct:sleep(10000),
+    timer:sleep(1000),
     ok.
 
 tc2(_Config) ->

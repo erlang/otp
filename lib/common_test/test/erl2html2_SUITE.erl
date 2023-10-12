@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -262,7 +262,7 @@ sax_event({startElement,_Uri,"a",_QN,Attrs},{Exports,LastExprFuncs,PrevLine}) ->
 	    {match,[FStr,EndStr]} =
 		 re:run(Name,"^(.*)-(last_expr|[0-9]+)$",
 			[{capture,all_but_first,list}]),
-	    F = list_to_atom(http_uri:decode(FStr)),
+	    F = list_to_atom(uri_string:unquote(FStr)),
 	    case EndStr of
 		"last_expr" ->
 		    true = lists:member(F,LastExprFuncs),

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,4 +38,8 @@ SPECIAL_TARGETS =
 #
 include $(ERL_TOP)/make/otp_subdir.mk
 
+DIA_PLT_APPS=crypto runtime_tools inets public_key
 
+TEST_NEEDS_RELEASE=true
+
+include $(ERL_TOP)/make/app_targets.mk

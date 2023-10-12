@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -764,7 +764,7 @@ gen_encode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 		EmitFuncClause("Val"),
 		gen_encode_default_call(ClassName,Name,DefaultType);
 	    {{Name,TypeSpec},_} ->
-		%% A specified field owerwrites any 'DEFAULT' or
+		%% A specified field overwrites any 'DEFAULT' or
 		%% 'OPTIONAL' field in the class
 		EmitFuncClause("Val"),
 		gen_encode_field_call(ObjName,Name,TypeSpec)
@@ -912,7 +912,7 @@ gen_decode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 		emit_tlv_format("Bytes"),
 		gen_decode_default_call(ClassName,Name,"Tlv",DefaultType);
 	    {{Name,TypeSpec},_} ->
-		%% A specified field owerwrites any 'DEFAULT' or
+		%% A specified field overwrites any 'DEFAULT' or
 		%% 'OPTIONAL' field in the class
 		EmitFuncClause("Bytes"),
 		emit_tlv_format("Bytes"),

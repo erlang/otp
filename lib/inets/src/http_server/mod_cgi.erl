@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 -export([env/3]).
 
 %%% Callback API
--export([do/1, load/2, store/2]).
+-export([do/1, store/2]).
 
 -include("http_internal.hrl").
 -include("httpd_internal.hrl").
@@ -75,46 +75,6 @@ do(ModData) ->
 		_Response ->
 		    {proceed, ModData#mod.data}
 	    end
-    end.
-
-%%--------------------------------------------------------------------------
-%% load(Line, Context) ->  eof | ok | {ok, NewContext} | 
-%%                     {ok, NewContext, Directive} | 
-%%                     {ok, NewContext, DirectiveList} | {error, Reason}
-%% Line = string()
-%% Context = NewContext = DirectiveList = [Directive]
-%% Directive = {DirectiveKey , DirectiveValue}
-%% DirectiveKey = DirectiveValue = term()
-%% Reason = term() 
-%%
-%% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
-%%-------------------------------------------------------------------------
-
-%% ScriptNoCache true|false, defines whether the server shall add     
-%%                           header fields to stop proxies and          
-%%                           clients from saving the page in history  
-%%                           or cache                                 
-%%                                                                             
-load("ScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(string:strip(CacheArg)) of
-        true ->
-	    {ok, [], {script_nocache, true}};
-	false ->
-	   {ok, [], {script_nocache, false}};
-	_ ->
-	   {error, ?NICE(string:strip(CacheArg)++
-			 " is an invalid ScriptNoCache directive")}
-    end;
-%% ScriptTimeout Seconds, The number of seconds that the server       
-%%                        maximum will wait for the script to         
-%%                        generate a part of the document   
-load("ScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(string:strip(Timeout)) of
-	TimeoutSec when is_integer(TimeoutSec)  ->
-	   {ok, [], {script_timeout,TimeoutSec*1000}};
-	_ ->
-	   {error, ?NICE(string:strip(Timeout)++
-			 " is an invalid ScriptTimeout")}
     end.
 
 %%--------------------------------------------------------------------------
@@ -248,7 +208,7 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 		    {proceed, [{real_name, 
 				httpd_util:split_path(AbsPath)} | 
 			       ModData#mod.data]};
-		{ok, HTTPHeaders, Status} ->
+		{ok, HTTPHeaders, Status} when is_binary(Body)->
 		    IsDisableChunkedSend = 
 			httpd_response:is_disable_chunked_send(Db),
 		    case (ModData#mod.http_version =/= "HTTP/1.1") or 
@@ -262,7 +222,7 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 					 [{"transfer-encoding",
 					   "chunked"} | HTTPHeaders])
 		    end,
-		    handle_body(Port, ModData, Body, Timeout, size(Body),
+		    handle_body(Port, ModData, Body, Timeout, byte_size(Body),
 				IsDisableChunkedSend)
 	    end;
 	{'EXIT', Port, Reason} ->
@@ -308,8 +268,8 @@ handle_body(Port, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
 handle_body(Port, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
-	{Port, {data, Data}} when is_port(Port) ->
-	    handle_body(Port, ModData, Data, Timeout, Size + size(Data),
+	{Port, {data, Data}} when is_port(Port), is_binary(Data) ->
+	    handle_body(Port, ModData, Data, Timeout, Size + byte_size(Data),
 			IsDisableChunkedSend);
 	{'EXIT', Port, normal} when is_port(Port) ->
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),

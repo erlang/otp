@@ -1,1 +1,0 @@
-{dialyzer_options, [{warnings, [race_conditions]}]}.

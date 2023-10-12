@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,30 +20,42 @@
 
 -module(code_SUITE).
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
-         versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
-	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
+         versions/1,new_binary_types/1,
+         bad_beam_file/1,
+         literal_leak/1,
+         call_purged_fun_code_gone/1,
+         call_purged_fun_code_reload/1,
+         call_purged_fun_code_there/1,
+         call_purged_fun_code_altered/1,
          multi_proc_purge/1, t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
          fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
          t_copy_literals/1, t_copy_literals_frags/1,
-         erl_544/1]).
+         erl_544/1, max_heap_size/1,
+         check_process_code_signal_order/1,
+         check_process_code_dirty_exec_proc/1,
+         call_fun_before_load/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [versions, new_binary_types, call_purged_fun_code_gone,
+all() ->
+    [versions, new_binary_types,
+     bad_beam_file, literal_leak,
+     call_purged_fun_code_gone,
      call_purged_fun_code_reload, call_purged_fun_code_there,
+     call_purged_fun_code_altered,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5,
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
-     erl_544].
+     erl_544, max_heap_size, check_process_code_signal_order,
+     check_process_code_dirty_exec_proc, call_fun_before_load].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -132,13 +144,94 @@ new_binary_types(Config) when is_list(Config) ->
                                                     bit_sized_binary(Bin))),
     ok.
 
+%% Ensure that the loader doesn't crash or leak memory when attempting
+%% to load bad BEAM files. We depend on valgrind to notice leaks.
+bad_beam_file(_Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    BadBeam1 = bad_beam_file_1(Mod),
+    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam1),
+
+    BadBeam2 = bad_beam_file_2(Mod),
+    {error,badfile} = code:load_binary(Mod, atom_to_list(Mod), BadBeam2),
+
+    ok.
+
+%% Build a BEAM file with an invalid instruction in the code chunk.
+bad_beam_file_1(Mod) ->
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,3,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,nil,nil},                     %Illegal destination.
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,3},
+
+    %% Bypass beam_validator.
+    {ok,BadBeam} = beam_asm:module(Asm, [], [], []),
+    BadBeam.
+
+%% Build a BEAM file with an invalid attributes chunk.
+bad_beam_file_2(Mod) ->
+    Asm = {Mod,[],[],[],1},
+    {ok,BadBeam0} = beam_asm:module(Asm, [], [], []),
+    {ok, Mod, Chunks0} = beam_lib:all_chunks(BadBeam0),
+    Chunks1 = lists:keydelete("Attr", 1, Chunks0),
+    Chunks = [{"Attr",<<"bad_attribute_chunk">>} | Chunks1],
+    {ok,BadBeam} = beam_lib:build_module(Chunks),
+    BadBeam.
+
+%% Ensure that literal areas don't leak when erlang:prepare_loading/2
+%% is not followed by erlang:finish_loading/1.
+literal_leak(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    HugeLiteral = binary_to_list(<<0:(1024*1024)/unit:8>>),
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,3,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,{literal,HugeLiteral},{x,0}},
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,3},
+    {ok,Beam} = beam_asm:module(Asm, [], [], []),
+
+    %% valgrind cannot help us find leak of literals because literal
+    %% areas are allocated using mmap().
+    %%
+    %% Instead we will prepare for loading a BEAM file with a 16Mb
+    %% literal N times so that the reserved literal memory range will
+    %% overflow.
+    %%
+    %% Setting N to 64 is sufficient for overflowing a 1 GB literal
+    %% area (which is the size at the time of writing). Just to be
+    %% sure, we will go a little bit higher...
+
+    N = 128,
+    _ = [begin
+             _ = erlang:prepare_loading(Mod, Beam),
+             _ = erlang:garbage_collect()
+         end || _ <- lists:seq(1, N)],
+    ok.
+
 call_purged_fun_code_gone(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_gone_test/1, Config).
+
+call_purged_fun_code_gone_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     call_purged_fun_test(Priv, Data, code_gone),
     ok.
 
 call_purged_fun_code_reload(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_reload_test/1, Config).
+
+call_purged_fun_code_reload_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     Path = code:get_path(),
@@ -151,31 +244,38 @@ call_purged_fun_code_reload(Config) when is_list(Config) ->
     ok.
 
 call_purged_fun_code_there(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_there_test/1, Config).
+
+call_purged_fun_code_there_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     call_purged_fun_test(Priv, Data, code_there),
     ok.
 
+%% GH-7288: calling a fun defined by a module that had been purged after
+%% loading a different version of the same module (and therefore did not
+%% inherit the old fun entries) could cause the emulator to crash.
+call_purged_fun_code_altered(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_altered_test/1, Config).
+
+call_purged_fun_code_altered_test(Config) when is_list(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    call_purged_fun_test(Priv, Data, code_altered),
+    ok.
+
 call_purged_fun_test(Priv, Data, Type) ->
-    OptsList = case erlang:system_info(hipe_architecture) of
-                   undefined -> [[]];
-                   _ -> [[], [native,{d,hipe}]]
-               end,
-    [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
-     || CO <- OptsList, FO <- OptsList].
-
-
-call_purged_fun_test_do(Priv, Data, Type, CallerOpts, FunOpts) ->
-    io:format("Compile caller as ~p and funs as ~p\n", [CallerOpts, FunOpts]),
     SrcFile = filename:join(Data, "call_purged_fun_tester.erl"),
     ObjFile = filename:join(Priv, "call_purged_fun_tester.beam"),
-    {ok,Mod,Code} = compile:file(SrcFile, [binary, report | CallerOpts]),
+    {ok,Mod,Code} = compile:file(SrcFile, [binary, report]),
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
 
-    call_purged_fun_tester:do(Priv, Data, Type, FunOpts).
-
+    call_purged_fun_tester:do(Priv, Data, Type, []).
 
 multi_proc_purge(Config) when is_list(Config) ->
+    run_sys_proc_test(fun multi_proc_purge_test/1, Config).
+
+multi_proc_purge_test(Config) when is_list(Config) ->
     %%
     %% Make sure purge requests aren't lost when
     %% purger process is working.
@@ -322,6 +422,9 @@ module_md5_ok(Code) ->
 
 
 constant_pools(Config) when is_list(Config) ->
+    run_sys_proc_test(fun constant_pools_test/1, Config).
+
+constant_pools_test(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
@@ -348,8 +451,25 @@ constant_pools(Config) when is_list(Config) ->
     receive
         {'EXIT',NoOldHeap,{A,B,C,D}} ->
             ok;
-        Other ->
-            ct:fail({unexpected,Other})
+        Other_NoOldHeap ->
+            ct:fail({unexpected,Other_NoOldHeap})
+    end,
+    {module,literals} = erlang:load_module(literals, Code),
+
+    %% Have a process with an inconsistent heap (legal while GC is disabled)
+    %% that references the literals in the 'literals' module.
+    InconsistentHeap = spawn_link(fun() -> inconsistent_heap(Self) end),
+    receive go -> ok end,
+    true = erlang:delete_module(literals),
+    false = erlang:check_process_code(InconsistentHeap, literals),
+    erlang:check_process_code(self(), literals),
+    true = erlang:purge_module(literals),
+    InconsistentHeap ! done,
+    receive
+        {'EXIT',InconsistentHeap,{A,B,C}} ->
+            ok;
+        Other_InconsistentHeap ->
+            ct:fail({unexpected,Other_InconsistentHeap})
     end,
     {module,literals} = erlang:load_module(literals, Code),
 
@@ -381,7 +501,7 @@ constant_pools(Config) when is_list(Config) ->
     false = erlang:check_process_code(Hib, literals),
     erlang:check_process_code(self(), literals),
     erlang:purge_module(literals),
-    receive after 1000 -> ok end,
+    literal_area_collector_test:check_idle(5000),
     [{heap_size,HeapSz},
      {total_heap_size,TotHeapSz}] = process_info(Hib, [heap_size,
 						       total_heap_size]),
@@ -423,6 +543,27 @@ old_heap(Parent) ->
             exit(Res)
     end.
 
+inconsistent_heap(Parent) ->
+    A = literals:a(),
+    B = literals:b(),
+    C = literals:huge_bignum(),
+    Res = {A,B,C},
+    Parent ! go,
+
+    %% Disable the GC and return a tuple whose arity and contents are broken
+    BrokenTerm = erts_debug:set_internal_state(inconsistent_heap, start),
+    receive
+    after 5000 ->
+        %% Fix the tuple and enable the GC again
+        ok = erts_debug:set_internal_state(inconsistent_heap, BrokenTerm),
+        erlang:garbage_collect()
+    end,
+
+    receive
+        done ->
+            exit(Res)
+    end.
+
 hibernated(Parent) ->
     A = literals:a(),
     B = literals:b(),
@@ -441,6 +582,9 @@ create_old_heap() ->
     end.
 
 constant_refc_binaries(Config) when is_list(Config) ->
+    run_sys_proc_test(fun constant_refc_binaries_test/1, Config).
+
+constant_refc_binaries_test(Config) when is_list(Config) ->
     wait_for_memory_deallocations(),
     Bef = memory_binary(),
     io:format("Binary data (bytes) before test: ~p\n", [Bef]),
@@ -466,6 +610,7 @@ constant_refc_binaries(Config) when is_list(Config) ->
 
     %% Calculate the change in allocated binary data.
     erlang:garbage_collect(),
+    literal_area_collector_test:check_idle(5000),
     wait_for_memory_deallocations(),
     Aft = memory_binary(),
     io:format("Binary data (bytes) after test: ~p", [Aft]),
@@ -575,6 +720,7 @@ fake_literals(_Config) ->
         _ = code:purge(Mod),
         _ = code:delete(Mod)
     end,
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 do_fake_literals(Mod) ->
@@ -599,7 +745,7 @@ make_literal_module(Mod, Term) ->
             {label,2},
             {move,{literal,Term},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,2},
+    Asm = {Mod,Exp,Attr,Fs,3},
     {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
     code:load_binary(Mod, atom_to_list(Mod), Beam).
 
@@ -614,16 +760,19 @@ verify_lit_terms([], _) ->
     ok.
 
 get_external_terms() ->
-    {ok,Node} =	test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok, Peer, Node}= ?CT_PEER(),
     Ref = rpc:call(Node, erlang, make_ref, []),
     Ports = rpc:call(Node, erlang, ports, []),
     Pid = rpc:call(Node, erlang, self, []),
-    _ = test_server:stop_node(Node),
+    peer:stop(Peer),
     {Ref,hd(Ports),Pid}.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
 %% to a module in a process. (Thanks to Richard Carlsson.)
 false_dependency(Config) when is_list(Config) ->
+    run_sys_proc_test(fun false_dependency_test/1, Config).
+
+false_dependency_test(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "cpbugx"),
     {ok,cpbugx,Code} = compile:file(File, [binary,report]),
@@ -632,24 +781,6 @@ false_dependency(Config) when is_list(Config) ->
     do_false_dependency(fun cpbugx:before2/0, Code),
     do_false_dependency(fun cpbugx:before3/0, Code),
 
-    %%     %% Spawn process. Make sure it has called cpbugx:before/0 and returned.
-    %%     Parent = self(),
-    %%     Pid = spawn_link(fun() -> false_dependency_loop(Parent) end),
-    %%     receive initialized -> ok end,
-
-    %%     %% Reload the module. Make sure the process is still alive.
-    %%     {module,cpbugx} = erlang:load_module(cpbugx, Bin),
-    %%     io:put_chars(binary_to_list(element(2, process_info(Pid, backtrace)))),
-    %%     true = is_process_alive(Pid),
-
-    %%     %% There should not be any dependency to cpbugx.
-    %%     false = erlang:check_process_code(Pid, cpbugx),
-
-
-
-
-    %%     %% Kill the process.
-    %%     unlink(Pid), exit(Pid, kill),
     ok.
 
 do_false_dependency(Init, Code) ->
@@ -673,9 +804,7 @@ do_false_dependency(Init, Code) ->
     unlink(Pid), exit(Pid, kill),
     true = erlang:purge_module(cpbugx),
     true = erlang:delete_module(cpbugx),
-    code:is_module_native(cpbugx),  % test is_module_native on deleted code
     true = erlang:purge_module(cpbugx),
-    code:is_module_native(cpbugx),  % test is_module_native on purged code
     ok.
 
 false_dependency_loop(Parent, Init, SendInitAck) ->
@@ -693,9 +822,7 @@ false_dependency_loop(Parent, Init, SendInitAck) ->
     end.
 
 coverage(Config) when is_list(Config) ->
-    code:is_module_native(?MODULE),
     {'EXIT',{badarg,_}} = (catch erlang:purge_module({a,b,c})),
-    {'EXIT',{badarg,_}} = (catch code:is_module_native({a,b,c})),
     {'EXIT',{badarg,_}} = (catch erlang:check_process_code(not_a_pid, ?MODULE)),
     {'EXIT',{badarg,_}} = (catch erlang:check_process_code(self(), [not_a_module])),
     {'EXIT',{badarg,_}} = (catch erlang:delete_module([a,b,c])),
@@ -728,6 +855,9 @@ compile_load(Mod, Src, Ver) ->
 
 
 t_copy_literals(Config) when is_list(Config) ->
+    run_sys_proc_test(fun t_copy_literals_test/1, Config).
+
+t_copy_literals_test(Config) when is_list(Config) ->
     %% Compile the the literals module.
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
@@ -746,11 +876,21 @@ t_copy_literals(Config) when is_list(Config) ->
     %% cleanup
     Rel ! done,
     Sat ! done,
+    %% Trap exit. We don't want to be killed if/when our spawned
+    %% processes fail when we remove the literals module...
+    process_flag(trap_exit, true),
+    catch erlang:purge_module(literals),
+    catch erlang:delete_module(literals),
+    catch erlang:purge_module(literals),
+    literal_area_collector_test:check_idle(5000),
     ok  = flush(),
     ok.
 
 -define(mod, t_copy_literals_frags).
 t_copy_literals_frags(Config) when is_list(Config) ->
+    run_sys_proc_test(fun t_copy_literals_frags_test/1, Config).
+
+t_copy_literals_frags_test(Config) when is_list(Config) ->
     Bin = gen_lit(?mod,[{a,{1,2,3,4,5,6,7}},
                         {b,"hello world"},
                         {c, <<"hello world">>},
@@ -791,6 +931,10 @@ t_copy_literals_frags(Config) when is_list(Config) ->
     receive {Switcher, ok} -> ok end,
     Recv ! {self(), done},
     receive {Recv, ok} -> ok end,
+    catch erlang:purge_module(?mod),
+    catch erlang:delete_module(?mod),
+    catch erlang:purge_module(?mod),
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 literal_receiver() ->
@@ -966,9 +1110,9 @@ erl_544(Config) when is_list(Config) ->
                 File = proplists:get_value(file, Info2),
                 StackFun = fun(_, _, _) -> false end,
                 FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
-                Formated =
+                Formatted =
                     erl_error:format_stacktrace(1, Stack, StackFun, FormatFun),
-                true = is_list(Formated),
+                true = is_list(Formatted),
                 ok
             after
                 ok = file:set_cwd(CWD)
@@ -977,6 +1121,105 @@ erl_544(Config) when is_list(Config) ->
         _Enc ->
             {skipped, "Only run when native file name encoding is utf8"}
     end.
+
+%% Test that the copying of literals to a process during purging of
+%% literals will cause the process to be killed if the max heap size
+%% is exceeded.
+max_heap_size(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Value = [I || I <- lists:seq(1, 5000)],
+    Code = gen_lit(Mod, [{term,Value}]),
+    {module,Mod} = erlang:load_module(Mod, Code),
+    SpawnOpts = [monitor,
+                 {max_heap_size,
+                  #{size=>1024,
+                    kill=>true,
+                    error_logger=>true}}],
+    {Pid,Ref} = spawn_opt(fun() ->
+                                  max_heap_size_proc(Mod)
+                          end, SpawnOpts),
+    receive
+        {'DOWN',Ref,process,Pid,Reason} ->
+            killed = Reason;
+        Other ->
+            ct:fail({unexpected_message,Other})
+    after 10000 ->
+            ct:fail({process_did_not_die, Pid, erlang:process_info(Pid)})
+    end.
+
+max_heap_size_proc(Mod) ->
+    Value = Mod:term(),
+    code:delete(Mod),
+    code:purge(Mod),
+    receive
+        _ -> Value
+    end.
+
+check_process_code_signal_order(Config) when is_list(Config) ->
+    process_flag(scheduler, 1),
+    process_flag(priority, high),
+    {module,versions} = erlang:load_module(versions, compile_version(1, Config)),
+    Pid = spawn_opt(versions, loop, [], [{scheduler, 1}]),
+    true = erlang:delete_module(versions),
+    true = erlang:check_process_code(Pid, versions),
+    Ref = make_ref(),
+    spam_signals(Pid, 10000),
+    %% EXIT signal *should* arrive...
+    exit(Pid, kill),
+    %% ... before CPC signal...
+    async = erlang:check_process_code(Pid, versions, [{async, Ref}]),
+    %% ... which means that the result of the check_process_code *should* be 'false'...
+    false = busy_wait_cpc_res(Ref),
+    ok.
+
+busy_wait_cpc_res(Ref) ->
+    receive
+	{check_process_code, Ref, Res} ->
+	    Res
+    after 0 ->
+	    busy_wait_cpc_res(Ref)
+    end.
+
+spam_signals(P, N) when N =< 0 ->
+    ok;
+spam_signals(P, N) ->
+    link(P),
+    unlink(P),
+    spam_signals(P, N-2).
+
+check_process_code_dirty_exec_proc(Config) when is_list(Config) ->
+    Pid = spawn(fun () ->
+			erts_debug:dirty_io(wait, 10000)
+		end),
+    receive after 100 -> ok end,
+    false = erlang:check_process_code(Pid, non_existing_module),
+    {status, running} = process_info(Pid, status),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ok.
+
+%% OTP-18016: When loading a module over itself, a race in fun loading made it
+%% possible to call a local fun before the module was fully reloaded.
+call_fun_before_load(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    Path = code:get_path(),
+    true = code:add_path(Priv),
+    try
+        SrcFile = filename:join(Data, "call_fun_before_load.erl"),
+        ObjFile = filename:join(Priv, "call_fun_before_load.beam"),
+        {ok,Mod,Code} = compile:file(SrcFile, [binary, report]),
+        {module,Mod} = code:load_binary(Mod, ObjFile, Code),
+
+        ok = call_fun_before_load:run(ObjFile, Code),
+
+        code:purge(call_fun_before_load)
+    after
+        code:set_path(Path),
+        code:delete(call_fun_before_load),
+        code:purge(call_fun_before_load)
+    end,
+    ok.
 
 %% Utilities.
 
@@ -1005,3 +1248,39 @@ flush() ->
 
 id(I) -> I.
 
+
+run_sys_proc_test(Test, Config) ->
+    OSRL = erlang:system_info(outstanding_system_requests_limit),
+    
+    TestLowOSRL = case OSRL < 10 of
+                      true -> 1;
+                      false -> 5
+                  end,
+
+    io:format("Running with the default outstanding request limit of ~p~n", [OSRL]),
+    Res1 = Test(Config),
+    io:format("Result: ~p~n", [Res1]),
+    try
+        %% Run again with low limit and many processes...
+        Procs = case erlang:system_info(process_limit) of
+                    PLim when PLim < 20000 ->
+                        erlang:system_info(process_limit) div 2;
+                    _ ->
+                        10000
+                end,
+        erlang:system_flag(outstanding_system_requests_limit, TestLowOSRL),
+        io:format("Running with outstanding request limit of ~p~n", [TestLowOSRL]),
+        Ps = lists:map(fun (_) ->
+                               spawn_link(fun () -> receive after infinity -> ok end end)
+                       end, lists:seq(1, Procs)),
+        Res2 = Test(Config),
+        lists:foreach(fun (P) ->
+                              unlink(P),
+                              exit(P, kill)
+                      end, Ps),
+        lists:foreach(fun (P) -> is_process_alive(P) end, Ps),
+        io:format("Result: ~p~n", [Res2]),
+        {Res1, Res2}
+    after
+        TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
+    end.

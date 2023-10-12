@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-10-30</date>
     <rev>B</rev>
   </header>
-  <module>c</module>
+  <module since="">c</module>
   <modulesummary>Command interface module.</modulesummary>
   <description>
     <p>This module enables users to enter the short form of
@@ -41,7 +41,7 @@
 
   <funcs>
     <func>
-      <name name="bt" arity="1"/>
+      <name name="bt" arity="1" since=""/>
       <fsummary>Stack backtrace for a process.</fsummary>
       <desc>
         <p>Stack backtrace for a process. Equivalent to
@@ -50,37 +50,86 @@
     </func>
 
     <func>
-      <name name="c" arity="1"/>
-      <name name="c" arity="2"/>
-      <name name="c" arity="3"/>
+      <name name="c" arity="1" since=""/>
       <fsummary>Compile and load a file or module.</fsummary>
       <desc>
-        <p>Compiles and then purges and loads the code for a module.
-          <c><anno>Module</anno></c> can be either a module name or a source
-          file path, with or without <c>.erl</c> extension.
-          <c><anno>Options</anno></c> defaults to <c>[]</c>.</p>
-        <p>If <c><anno>Module</anno></c> is an atom and is not the path of a
-          source file, then the code path is searched to locate the object
-          file for the module and extract its original compiler options and
-          source path. If the source file is not found in the original
-          location, <seealso
-          marker="filelib#find_source/1"><c>filelib:find_source/1</c></seealso>
-          is used to search for it relative to the directory of the object
-          file.</p>
-        <p>The source file is compiled with the the original
-          options appended to the given <c><anno>Options</anno></c>, the
-          output replacing the old object file if and only if compilation
-          succeeds. A function <c><anno>Filter</anno></c> can be specified
-          for removing elements from from the original compiler options
-          before the new options are added.</p>
-        <p>Notice that purging the code means that any processes
-          lingering in old code for the module are killed without
-          warning. For more information, see <c>code/3</c>.</p>
+        <p>Works like <c>c(Module, [])</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="cd" arity="1"/>
+      <name name="c" arity="2" since=""/>
+      <fsummary>Compile and load a file or module.</fsummary>
+      <desc>
+        <p>Compiles and then purges and loads the code for a module.
+        <c><anno>Module</anno></c> can be either a module name or a source
+        file path, with or without <c>.erl</c> extension.</p>
+
+        <p>If <c><anno>Module</anno></c> is a string, it is assumed to
+        be a source file path, and the compiler will attempt to compile
+        the source file with the options <c><anno>Options</anno></c>.
+        If compilation fails, the old object file (if any) is deleted.</p>
+
+        <p>If <c><anno>Module</anno></c> is an atom, a source file
+        with that exact name or with <c>.erl</c> extension will be
+        looked for. If found, the source file is compiled with the
+        options <c><anno>Options</anno></c>. If compilation fails, the
+        old object file (if any) is deleted.</p>
+
+        <p>If <c><anno>Module</anno></c> is an atom and is not the
+        path of a source file, then the code path is searched to
+        locate the object file for the module and extract its original
+        compiler options and source path. If the source file is not
+        found in the original location, <seemfa
+        marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
+        is used to search for it relative to the directory of the
+        object file.</p>
+
+        <p>The source file is compiled with the the original
+        options appended to the given <c><anno>Options</anno></c>, the
+        output replacing the old object file if and only if compilation
+        succeeds.</p>
+
+        <p>Notice that purging the code means that any processes
+        lingering in old code for the module are killed without
+        warning. For more information, see the <seeerl
+        marker="kernel:code">code</seeerl> module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="c" arity="3" since="OTP 20.0"/>
+      <fsummary>Compile and load a file or module.</fsummary>
+      <desc>
+        <p>Compiles and then purges and loads the code for module
+        <c><anno>Module</anno></c>, which must be an atom.</p>
+
+        <p>The code path is searched to locate the object file for
+        module <c><anno>Module</anno></c> and extract its original
+        compiler options and source path. If the source file is not
+        found in the original location, <seemfa
+        marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
+        is used to search for it relative to the directory of the
+        object file.</p>
+
+        <p>The source file is compiled with the the original
+        options appended to the given <c><anno>Options</anno></c>, the
+        output replacing the old object file if and only if compilation
+        succeeds. The function <c><anno>Filter</anno></c> specifies
+        which elements to remove from the original compiler options
+        before the new options are added. The <c><anno>Filter</anno></c> fun
+        should return <c>true</c> for options to keep, and <c>false</c> for
+        options to remove.</p>
+
+        <p>Notice that purging the code means that any processes
+        lingering in old code for the module are killed without
+        warning. For more information, see the <seeerl
+        marker="kernel:code">code</seeerl> module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cd" arity="1" since=""/>
       <fsummary>Change working directory.</fsummary>
       <desc>
         <p>Changes working directory to <c><anno>Dir</anno></c>, which can be a
@@ -94,7 +143,7 @@
     </func>
 
     <func>
-      <name name="erlangrc" arity="1"/>
+      <name name="erlangrc" arity="1" since="OTP 21.0"/>
       <fsummary>Load an erlang resource file.</fsummary>
       <desc>
         <p>Search <c>PathList</c> and load <c>.erlang</c> resource file if
@@ -103,7 +152,7 @@
     </func>
 
     <func>
-      <name name="flush" arity="0"/>
+      <name name="flush" arity="0" since=""/>
       <fsummary>Flush any messages sent to the shell.</fsummary>
       <desc>
         <p>Flushes any messages sent to the shell.</p>
@@ -111,7 +160,7 @@
     </func>
 
     <func>
-      <name name="help" arity="0"/>
+      <name name="help" arity="0" since=""/>
       <fsummary>Help information.</fsummary>
       <desc>
         <p>Displays help information: all valid shell internal commands,
@@ -120,8 +169,95 @@
     </func>
 
     <func>
-      <name name="i" arity="0"/>
-      <name name="ni" arity="0"/>
+      <name name="h" arity="1" since="OTP 23.0"/>
+      <fsummary>Module help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="h" arity="2" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hf_return"/>
+      <desc>
+        <p>Print the documentation for all <c>Module:Function</c>s (regardless of arity).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="h" arity="3" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hf_return"/>
+      <desc>
+        <p>Print the documentation for <c>Module:Function/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="1" since="OTP 23.0"/>
+      <fsummary>Module help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="2" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for all <c>Module:Callback</c>s (regardless of arity).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="3" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module:Callback/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="1" since="OTP 23.0"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="2" since="OTP 23.0"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <type name="ht_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Type</c> in <c>Module</c> regardless of arity.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="3" since="OTP 23.0"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <type name="ht_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Type/Arity</c> in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="i" arity="0" since=""/>
+      <name name="ni" arity="0" since=""/>
       <fsummary>System information.</fsummary>
       <desc>
         <p><c>i/0</c> displays system information, listing
@@ -131,7 +267,7 @@
     </func>
 
     <func>
-      <name name="i" arity="3"/>
+      <name name="i" arity="3" since=""/>
       <fsummary>Information about pid &lt;X.Y.Z&gt;.</fsummary>
       <desc>
         <p>Displays information about a process, Equivalent to
@@ -141,7 +277,7 @@
     </func>
 
     <func>
-      <name name="l" arity="1"/>
+      <name name="l" arity="1" since=""/>
       <fsummary>Load or reload a module.</fsummary>
       <desc>
         <p>Purges and loads, or reloads, a module by calling
@@ -154,7 +290,7 @@
     </func>
 
     <func>
-      <name>lc(Files) -> ok</name>
+      <name since="">lc(Files) -> ok</name>
       <fsummary>Compile a list of files.</fsummary>
       <type>
         <v>Files = [File]</v>
@@ -165,13 +301,13 @@
           <c>compile:file(File, [report_errors, report_warnings])</c> for each
           <c>File</c> in <c>Files</c>.</p>
         <p>For information about <c>File</c>, see
-          <seealso marker="file#type-filename"><c>file:filename()</c></seealso>.
+          <seetype marker="file#filename"><c>file:filename()</c></seetype>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name name="lm" arity="0"/>
+      <name name="lm" arity="0" since="OTP 20.0"/>
       <fsummary>Loads all modified modules.</fsummary>
       <desc>
         <p>Reloads all currently loaded modules that have changed on disk (see <c>mm()</c>).
@@ -180,7 +316,7 @@
     </func>
 
     <func>
-      <name name="ls" arity="0"/>
+      <name name="ls" arity="0" since=""/>
       <fsummary>List files in the current directory.</fsummary>
       <desc>
         <p>Lists files in the current directory.</p>
@@ -188,7 +324,7 @@
     </func>
 
     <func>
-      <name name="ls" arity="1"/>
+      <name name="ls" arity="1" since=""/>
       <fsummary>List files in a directory or a single file.</fsummary>
       <desc>
         <p>Lists files in directory <c><anno>Dir</anno></c> or, if <c>Dir</c>
@@ -197,7 +333,7 @@
     </func>
 
     <func>
-      <name name="m" arity="0"/>
+      <name name="m" arity="0" since=""/>
       <fsummary>Which modules are loaded.</fsummary>
       <desc>
         <p>Displays information about the loaded modules, including
@@ -206,7 +342,7 @@
     </func>
 
     <func>
-      <name name="m" arity="1"/>
+      <name name="m" arity="1" since=""/>
       <fsummary>Information about a module.</fsummary>
       <desc>
         <p>Displays information about <c><anno>Module</anno></c>.</p>
@@ -214,36 +350,36 @@
     </func>
 
     <func>
-      <name name="mm" arity="0"/>
+      <name name="mm" arity="0" since="OTP 20.0"/>
       <fsummary>Lists all modified modules.</fsummary>
       <desc>
         <p>Lists all modified modules. Shorthand for
-        <seealso marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seealso>.</p>
+        <seemfa marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="memory" arity="0"/>
+      <name name="memory" arity="0" since=""/>
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <seealso marker="erts:erlang#memory/0"><c>erlang:memory/0</c></seealso>.</p>
+          <seemfa marker="erts:erlang#memory/0"><c>erlang:memory/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="memory" arity="1" clause_i="1"/>
-      <name name="memory" arity="1" clause_i="2"/>
+      <name name="memory" arity="1" clause_i="1" since=""/>
+      <name name="memory" arity="1" clause_i="2" since=""/>
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <seealso marker="erts:erlang#memory/1"><c>erlang:memory/1</c></seealso>.</p>
+          <seemfa marker="erts:erlang#memory/1"><c>erlang:memory/1</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="nc" arity="1"/>
-      <name name="nc" arity="2"/>
+      <name name="nc" arity="1" since=""/>
+      <name name="nc" arity="2" since=""/>
       <fsummary>Compile and load code in a file on all nodes.</fsummary>
       <desc>
         <p>Compiles and then loads the code for a file on all nodes.
@@ -255,7 +391,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="nl" arity="1"/>
+      <name name="nl" arity="1" since=""/>
       <fsummary>Load module on all nodes.</fsummary>
       <desc>
         <p>Loads <c><anno>Module</anno></c> on all nodes.</p>
@@ -263,7 +399,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="pid" arity="3"/>
+      <name name="pid" arity="3" since=""/>
       <fsummary>Convert <c>X,Y,Z</c> to a pid.</fsummary>
       <desc>
         <p>Converts <c><anno>X</anno></c>, <c><anno>Y</anno></c>,
@@ -273,7 +409,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="pwd" arity="0"/>
+      <name name="pwd" arity="0" since=""/>
       <fsummary>Print working directory.</fsummary>
       <desc>
         <p>Prints the name of the working directory.</p>
@@ -281,7 +417,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="q" arity="0"/>
+      <name name="q" arity="0" since=""/>
       <fsummary>Quit - shorthand for <c>init:stop()</c>.</fsummary>
       <desc>
         <p>This function is shorthand for <c>init:stop()</c>, that is,
@@ -290,8 +426,8 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="regs" arity="0"/>
-      <name name="nregs" arity="0"/>
+      <name name="regs" arity="0" since=""/>
+      <name name="nregs" arity="0" since=""/>
       <fsummary>Information about registered processes.</fsummary>
       <desc>
         <p><c>regs/0</c> displays information about all registered
@@ -301,7 +437,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="uptime" arity="0"/>
+      <name name="uptime" arity="0" since="OTP 18.0"/>
       <fsummary>Print node uptime.</fsummary>
       <desc>
         <p>Prints the node uptime (as specified by
@@ -310,7 +446,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name>xm(ModSpec) -> void()</name>
+      <name since="">xm(ModSpec) -> void()</name>
       <fsummary>Cross-reference check a module.</fsummary>
       <type>
         <v>ModSpec = Module | Filename</v>
@@ -325,7 +461,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name>y(File) -> YeccRet</name>
+      <name since="">y(File) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
         <v>File = name()</v>
@@ -336,15 +472,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
         <code type="none">
 yecc:file(File)</code>
         <p>For information about <c>File = name()</c>, see
-          <seealso marker="filename"><c>filename(3)</c></seealso>.
+          <seeerl marker="filename"><c>filename(3)</c></seeerl>.
           For information about <c>YeccRet</c>, see
-          <seealso marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seealso>.
+          <seemfa marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seemfa>.
         </p>
       </desc>
     </func>
 
     <func>
-      <name>y(File, Options) -> YeccRet</name>
+      <name since="">y(File, Options) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
         <v>File = name()</v>
@@ -355,9 +491,9 @@ yecc:file(File)</code>
         <code type="none">
 yecc:file(File, Options)</code>
         <p>For information about <c>File = name()</c>, see
-          <seealso marker="filename"><c>filename(3)</c></seealso>.
+          <seeerl marker="filename"><c>filename(3)</c></seeerl>.
           For information about <c>Options</c> and <c>YeccRet</c>, see
-          <seealso marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seealso>.
+          <seemfa marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -365,11 +501,11 @@ yecc:file(File, Options)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="filename"><c>filename(3)</c></seealso>,
-      <seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
-      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
-      <seealso marker="parsetools:yecc"><c>yecc(3)</c></seealso>,
-      <seealso marker="tools:xref"><c>xref(3)</c></seealso></p>
+    <p><seeerl marker="filename"><c>filename(3)</c></seeerl>,
+      <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl>,
+      <seeerl marker="erts:erlang"><c>erlang(3)</c></seeerl>,
+      <seeerl marker="parsetools:yecc"><c>yecc(3)</c></seeerl>,
+      <seeerl marker="tools:xref"><c>xref(3)</c></seeerl></p>
   </section>
 </erlref>
 

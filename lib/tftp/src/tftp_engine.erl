@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -714,7 +714,9 @@ pre_terminate(Config, Req, Result) ->
     if
         Req#tftp_msg_req.local_filename =/= undefined,
         Config#config.parent_pid =/= undefined ->
-            proc_lib:init_ack(Result),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result, {throw, ok}),
             unlink(Config#config.parent_pid),
             Config#config{parent_pid = undefined, polite_ack = true};
         true ->
@@ -739,7 +741,9 @@ terminate(Config, Req, Result) ->
         Req#tftp_msg_req.local_filename =/= undefined  ->
             %% Client
             close_port(Config, client, Req),
-            proc_lib:init_ack(Result2),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result2, {throw, ok}),
             unlink(Config#config.parent_pid),
             exit(normal);
         true ->
@@ -883,15 +887,14 @@ do_send_msg(#config{udp_socket = Socket, udp_host = RemoteHost, udp_port = Remot
     %%  DumpPath  ->
     %%      trace_udp_send(Req, Msg, IoList, DumpPath)
     %% end,
-    Res = gen_udp:send(Socket, RemoteHost, RemotePort, IoList),
-    case Res of
-        ok ->
-            ok;
-        {error, einval = Reason} ->
+    try
+        ok = gen_udp:send(Socket, RemoteHost, RemotePort, IoList)
+    catch
+        error:{badmatch,{error,einval=Reason}}:StackTrace ->
             error_msg(Config,
                       "Stacktrace; ~p\n gen_udp:send(~p, ~p, ~p, ~p) -> ~p\n", 
-                      [erlang:get_stacktrace(), Socket, RemoteHost, RemotePort, IoList, {error, Reason}]);
-        {error, Reason} ->
+                      [StackTrace, Socket, RemoteHost, RemotePort, IoList, {error, Reason}]);
+        error:{badmatch,{error,Reason}} ->
             {error, Reason} 
     end.
 
@@ -1002,7 +1005,7 @@ do_callback(read = Fun, Config, Callback, Req)
     NextBlockNo = Callback#callback.block_no + 1,
     case catch safe_apply(Callback#callback.module, Fun, Args) of
         {more, Bin, NewState} when is_binary(Bin) ->
-            Count = Callback#callback.count + size(Bin),
+            Count = Callback#callback.count + byte_size(Bin),
             Callback2 = Callback#callback{state    = NewState, 
                                           block_no = NextBlockNo,
                                           count    = Count},
@@ -1036,7 +1039,7 @@ do_callback({write = Fun, Bin}, Config, Callback, Req)
     NextBlockNo = Callback#callback.block_no + 1,
     case catch safe_apply(Callback#callback.module, Fun, Args) of
         {more, NewState} ->
-            Count = Callback#callback.count + size(Bin),
+            Count = Callback#callback.count + byte_size(Bin),
             Callback2 = Callback#callback{state    = NewState, 
                                           block_no = NextBlockNo,
                                           count    = Count},
@@ -1113,9 +1116,9 @@ do_callback({abort, Error}, _Config, undefined, _Req) when is_record(Error, tftp
 
 peer_info(#config{udp_host = Host, udp_port = Port}) ->
     if
-        is_tuple(Host), size(Host) =:= 4 ->
+        tuple_size(Host) =:= 4 ->
             {inet, tftp_lib:host_to_string(Host), Port};
-        is_tuple(Host), size(Host) =:= 8 ->
+        tuple_size(Host) =:= 8 ->
             {inet6, tftp_lib:host_to_string(Host), Port};
         true ->
             {undefined, Host, Port}
@@ -1337,7 +1340,7 @@ print_debug_info(#config{debug_level = Level} = Config, Who, Where, Data) ->
     end.
 
 do_print_debug_info(Config, Who, Where, #tftp_msg_data{data = Bin} = Msg) when is_binary(Bin) ->
-    Msg2 = Msg#tftp_msg_data{data = {bytes, size(Bin)}},
+    Msg2 = Msg#tftp_msg_data{data = {bytes, byte_size(Bin)}},
     do_print_debug_info(Config, Who, Where, Msg2);
 do_print_debug_info(Config, Who, Where, #tftp_msg_req{local_filename = Filename} = Msg) when is_binary(Filename) ->
     Msg2 = Msg#tftp_msg_req{local_filename = binary},

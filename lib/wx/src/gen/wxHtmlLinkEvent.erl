@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmllinkevent.html">wxHtmlLinkEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_html_link_clicked</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxHtmlLink(). #wxHtmlLink{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxHtmlLinkEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxHtmlLinkEvent).
 -include("wxe.hrl").
 -export([getLinkInfo/1]).
@@ -41,26 +28,28 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxHtmlLinkEvent/0]).
+-type wxHtmlLinkEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxHtmlLinkEventType() :: 'command_html_link_clicked' | 'html_cell_clicked' | 'html_cell_hover'.
+-export_type([wxHtmlLinkEvent/0, wxHtmlLink/0, wxHtmlLinkEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxHtmlLinkEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmllinkevent.html#wxhtmllinkeventgetlinkinfo">external documentation</a>.
 -spec getLinkInfo(This) -> wx:wx_wxHtmlLinkInfo() when
 	This::wxHtmlLinkEvent().
-getLinkInfo(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getLinkInfo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlLinkEvent),
-  wxe_util:call(?wxHtmlLinkEvent_GetLinkInfo,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxHtmlLinkEvent_GetLinkInfo),
+  wxe_util:rec(?wxHtmlLinkEvent_GetLinkInfo).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

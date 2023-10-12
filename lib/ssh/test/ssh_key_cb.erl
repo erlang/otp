@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,13 @@
 
 -module(ssh_key_cb).
 -behaviour(ssh_client_key_api).
--compile(export_all).
+
+-export([
+         add_host_key/3,
+         is_host_key/4,
+         user_key/2
+        ]).
+
 
 add_host_key(_, _, _) ->
     ok.

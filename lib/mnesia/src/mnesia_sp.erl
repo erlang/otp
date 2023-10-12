@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,12 +30,15 @@
 
 init_proc(Who, Mod, Fun, Args) ->
     mnesia_lib:verbose("~p starting: ~p~n", [Who, self()]),
-    case catch apply(Mod, Fun, Args) of
-	{'EXIT', Reason} ->
-	    mnesia_monitor:terminate_proc(Who, Reason, Args),
+    try
+        apply(Mod, Fun, Args)
+    catch
+        exit:Reason when Reason =:= shutdown; Reason =:= kill; Reason =:= normal ->
+            mnesia_monitor:terminate_proc(Who, Reason, Args),
 	    exit(Reason);
-	Other ->
-	    Other
+        _:Reason:ST ->
+	    mnesia_monitor:terminate_proc(Who, {Reason,ST}, Args),
+	    exit(Reason)
     end.
 
 

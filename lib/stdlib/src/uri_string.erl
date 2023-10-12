@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -226,10 +226,24 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([compose_query/1, compose_query/2,
-         dissect_query/1, normalize/1, normalize/2, parse/1,
-         recompose/1, transcode/2]).
--export_type([error/0, uri_map/0, uri_string/0]).
+-export([allowed_characters/0,
+         compose_query/1,
+         compose_query/2,
+         dissect_query/1,
+         normalize/1,
+         normalize/2,
+         percent_decode/1,
+         parse/1,
+         recompose/1,
+         resolve/2,
+         resolve/3,
+         transcode/2,
+         quote/1,
+         quote/2,
+         unquote/1]).
+-export_type([error/0,
+              uri_map/0,
+              uri_string/0]).
 
 
 %%-------------------------------------------------------------------------
@@ -286,7 +300,7 @@
     port => non_neg_integer() | undefined,
     query => unicode:chardata(),
     scheme => unicode:chardata(),
-    userinfo => unicode:chardata()} | #{}.
+    userinfo => unicode:chardata()}.
 
 
 %%-------------------------------------------------------------------------
@@ -297,31 +311,41 @@
       NormalizedURI :: uri_string()
                      | error().
 normalize(URIMap) ->
-    try normalize(URIMap, [])
-    catch
-        throw:{error, Atom, RestData} -> {error, Atom, RestData}
-    end.
+    normalize(URIMap, []).
 
 
 -spec normalize(URI, Options) -> NormalizedURI when
       URI :: uri_string() | uri_map(),
       Options :: [return_map],
-      NormalizedURI :: uri_string() | uri_map().
+      NormalizedURI :: uri_string() | uri_map()
+                     | error().
 normalize(URIMap, []) when is_map(URIMap) ->
-    recompose(normalize_map(URIMap));
+    try recompose(normalize_map(URIMap))
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
 normalize(URIMap, [return_map]) when is_map(URIMap) ->
-    normalize_map(URIMap);
+    try normalize_map(URIMap)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
 normalize(URIString, []) ->
     case parse(URIString) of
         Value when is_map(Value) ->
-            recompose(normalize_map(Value));
+            try recompose(normalize_map(Value))
+            catch
+                throw:{error, Atom, RestData} -> {error, Atom, RestData}
+            end;
         Error ->
             Error
     end;
 normalize(URIString, [return_map]) ->
     case parse(URIString) of
         Value when is_map(Value) ->
-            normalize_map(Value);
+            try normalize_map(Value)
+            catch
+                throw:{error, Atom, RestData} -> {error, Atom, RestData}
+            end;
         Error ->
             Error
     end.
@@ -376,6 +400,45 @@ recompose(Map) ->
 
 
 %%-------------------------------------------------------------------------
+%% Resolve URIs
+%%-------------------------------------------------------------------------
+-spec resolve(RefURI, BaseURI) -> TargetURI when
+      RefURI :: uri_string() | uri_map(),
+      BaseURI :: uri_string() | uri_map(),
+      TargetURI :: uri_string()
+                 | error().
+resolve(URIMap, BaseURIMap) ->
+    resolve(URIMap, BaseURIMap, []).
+
+
+-spec resolve(RefURI, BaseURI, Options) -> TargetURI when
+      RefURI :: uri_string() | uri_map(),
+      BaseURI :: uri_string() | uri_map(),
+      Options :: [return_map],
+      TargetURI :: uri_string() | uri_map()
+                 | error().
+resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
+    case resolve_map(URIMap, BaseURIMap) of
+        TargetURIMap when is_map(TargetURIMap) ->
+            case Options of
+                [return_map] ->
+                    TargetURIMap;
+                [] ->
+                    recompose(TargetURIMap)
+            end;
+        Error ->
+            Error
+    end;
+resolve(URIString, BaseURIMap, Options) ->
+    case parse(URIString) of
+        URIMap when is_map(URIMap) ->
+            resolve(URIMap, BaseURIMap, Options);
+        Error ->
+            Error
+    end.
+
+
+%%-------------------------------------------------------------------------
 %% Transcode URIs
 %%-------------------------------------------------------------------------
 -spec transcode(URIString, Options) -> Result when
@@ -402,6 +465,84 @@ transcode(URIString, Options) when is_list(URIString) ->
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
 
+
+%%-------------------------------------------------------------------------
+%% Misc
+%%-------------------------------------------------------------------------
+-spec allowed_characters() -> [{atom(), list()}].
+allowed_characters() ->
+    Input = lists:seq(0,127),
+    Scheme = lists:filter(fun is_scheme/1, Input),
+    UserInfo = lists:filter(fun is_userinfo/1, Input),
+    Host = lists:filter(fun is_host/1, Input),
+    IPv4 = lists:filter(fun is_ipv4/1, Input),
+    IPv6 = lists:filter(fun is_ipv6/1, Input),
+    RegName = lists:filter(fun is_reg_name/1, Input),
+    Path = lists:filter(fun is_path/1, Input),
+    Query = lists:filter(fun is_query/1, Input),
+    Fragment = lists:filter(fun is_fragment/1, Input),
+    Reserved = lists:filter(fun is_reserved/1, Input),
+    Unreserved = lists:filter(fun is_unreserved/1, Input),
+    [{scheme, Scheme},
+     {userinfo, UserInfo},
+     {host, Host},
+     {ipv4, IPv4},
+     {ipv6, IPv6},
+     {regname,RegName},
+     {path,Path},
+     {query, Query},
+     {fragment,Fragment},
+     {reserved, Reserved},
+     {unreserved, Unreserved}].
+
+-spec percent_decode(URI) -> Result when
+      URI :: uri_string() | uri_map(),
+      Result :: uri_string() |
+                uri_map() |
+                {error, {invalid, {atom(), {term(), term()}}}}.
+percent_decode(URIMap) when is_map(URIMap)->
+    Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
+                         K =:= query; K =:= fragment ->
+                  case raw_decode(V) of
+                      {error, Reason, Input} ->
+                          throw({error, {invalid, {K, {Reason, Input}}}});
+                      Else ->
+                          Else
+                  end;
+              %% Handle port and scheme
+              (_,V) ->
+                  V
+          end,
+    try maps:map(Fun, URIMap)
+    catch throw:Return ->
+            Return
+    end;
+percent_decode(URI) when is_list(URI) orelse
+                         is_binary(URI) ->
+    raw_decode(URI).
+
+-spec quote(Data) -> QuotedData when
+      Data :: unicode:chardata(),
+      QuotedData :: unicode:chardata().
+quote(D) ->
+    encode(D, fun is_unreserved/1).
+
+-spec quote(Data, Safe) -> QuotedData when
+      Data :: unicode:chardata(),
+      Safe :: string(),
+      QuotedData :: unicode:chardata().
+quote(D, Safe) ->
+    UnreservedOrSafe =
+        fun(C) ->
+                is_unreserved(C) orelse lists:member(C, Safe)
+        end,
+    encode(D, UnreservedOrSafe).
+
+-spec unquote(QuotedData) -> Data when
+      QuotedData :: unicode:chardata(),
+      Data :: unicode:chardata().
+unquote(D) ->
+    raw_decode(D).
 
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
@@ -1372,8 +1513,15 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
-            case is_reserved(B) of
-                true ->
+            %% [2.4] When a URI is dereferenced, the components and subcomponents
+            %% significant to the scheme-specific dereferencing process (if any)
+            %% must be parsed and separated before the percent-encoded octets within
+            %% those components can be safely decoded, as otherwise the data may be
+            %% mistaken for component delimiters.  The only exception is for
+            %% percent-encoded octets corresponding to characters in the unreserved
+            %% set, which can be decoded at any time.
+            case is_unreserved(B) of
+                false ->
                     %% [2.2] Characters in the reserved set are protected from
                     %% normalization.
                     %% [2.1] For consistency, URI producers and normalizers should
@@ -1382,7 +1530,7 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
                     H0 = hex_to_upper(C0),
                     H1 = hex_to_upper(C1),
                     decode(Cs, <<Acc/binary,$%,H0,H1>>);
-                false ->
+                true ->
                     decode(Cs, <<Acc/binary, B>>)
             end;
         false -> throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
@@ -1390,6 +1538,32 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
 decode(<<C,Cs/binary>>, Acc) ->
     decode(Cs, <<Acc/binary, C>>);
 decode(<<>>, Acc) ->
+    check_utf8(Acc).
+
+-spec raw_decode(list()|binary()) -> list() | binary() | error().
+raw_decode(Cs) ->
+    raw_decode(Cs, <<>>).
+%%
+raw_decode(L, Acc) when is_list(L) ->
+    try
+        B0 = unicode:characters_to_binary(L),
+        B1 = raw_decode(B0, Acc),
+        unicode:characters_to_list(B1)
+    catch
+        throw:{error, Atom, RestData} ->
+            {error, Atom, RestData}
+    end;
+raw_decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
+    case is_hex_digit(C0) andalso is_hex_digit(C1) of
+        true ->
+            B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
+            raw_decode(Cs, <<Acc/binary, B>>);
+        false ->
+            throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
+    end;
+raw_decode(<<C,Cs/binary>>, Acc) ->
+    raw_decode(Cs, <<Acc/binary, C>>);
+raw_decode(<<>>, Acc) ->
     check_utf8(Acc).
 
 %% Returns Cs if it is utf8 encoded.
@@ -1630,6 +1804,11 @@ update_port(#{}, URI) ->
 
 update_path(#{path := Path}, empty) ->
     encode_path(Path);
+update_path(#{host := _, path := Path0}, URI) ->
+    %% When host is present in a URI the path must begin with "/" or be empty.
+    Path1 = maybe_flatten_list(Path0),
+    Path = make_path_absolute(Path1),
+    concat(URI,encode_path(Path));
 update_path(#{path := Path}, URI) ->
     concat(URI,encode_path(Path));
 update_path(#{}, empty) ->
@@ -1707,6 +1886,98 @@ maybe_to_list(Comp) -> Comp.
 encode_port(Port) ->
     integer_to_binary(Port).
 
+%% URI           = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+%%
+%% hier-part     = "//" authority path-abempty
+%%               / path-absolute
+%%               / path-rootless
+%%               / path-empty
+%%
+%% path          = path-abempty    ; begins with "/" or is empty
+%%               / path-absolute   ; begins with "/" but not "//"
+%%               / path-noscheme   ; begins with a non-colon segment
+%%               / path-rootless   ; begins with a segment
+%%               / path-empty      ; zero characters
+make_path_absolute(<<>>) ->
+    <<>>;
+make_path_absolute("") ->
+    "";
+make_path_absolute(<<"/",_/binary>> = Path) ->
+    Path;
+make_path_absolute([$/|_] = Path) ->
+    Path;
+make_path_absolute(Path) when is_binary(Path) ->
+    concat(<<$/>>, Path);
+make_path_absolute(Path) when is_list(Path) ->
+    concat("/", Path).
+
+maybe_flatten_list(Path) when is_binary(Path) ->
+    Path;
+maybe_flatten_list(Path) ->
+    unicode:characters_to_list(Path).
+
+%%-------------------------------------------------------------------------
+%% Helper functions for resolve
+%%-------------------------------------------------------------------------
+
+resolve_map(URIMap=#{scheme := _}, _) ->
+    normalize_path_segment(URIMap);
+resolve_map(URIMap, #{scheme := _}=BaseURIMap) ->
+    resolve_map(URIMap, BaseURIMap, resolve_path_type(URIMap));
+resolve_map(_URIMap, BaseURIMap) when is_map(BaseURIMap) ->
+    {error,invalid_scheme,""};
+resolve_map(URIMap, BaseURIString) ->
+    case parse(BaseURIString) of
+        BaseURIMap = #{scheme := _} ->
+            resolve_map(URIMap, BaseURIMap, resolve_path_type(URIMap));
+        BaseURIMap when is_map(BaseURIMap) ->
+            {error,invalid_scheme,""};
+        Error ->
+            Error
+    end.
+
+resolve_path_type(URIMap) ->
+    case iolist_to_binary(maps:get(path, URIMap, <<>>)) of
+        <<>> -> empty_path;
+        <<$/,_/bits>> -> absolute_path;
+        _ -> relative_path
+    end.
+
+resolve_map(URI=#{host := _}, #{scheme := Scheme}, _) ->
+    normalize_path_segment(URI#{scheme => Scheme});
+resolve_map(URI, BaseURI, empty_path) ->
+    Keys = case maps:is_key(query, URI) of
+        true -> [scheme, userinfo, host, port, path];
+        false -> [scheme, userinfo, host, port, path, query]
+    end,
+    maps:merge(URI, maps:with(Keys, BaseURI));
+resolve_map(URI, BaseURI, absolute_path) ->
+    normalize_path_segment(maps:merge(
+        URI,
+        maps:with([scheme, userinfo, host, port], BaseURI)));
+resolve_map(URI=#{path := Path}, BaseURI, relative_path) ->
+    normalize_path_segment(maps:merge(
+        URI#{path => merge_paths(Path, BaseURI)},
+        maps:with([scheme, userinfo, host, port], BaseURI))).
+
+merge_paths(Path, BaseURI=#{path := BasePath0}) ->
+    case {BaseURI, iolist_size(BasePath0)} of
+        {#{host := _}, 0} ->
+            merge_paths_absolute(Path);
+        _ ->
+            case string:split(BasePath0, <<$/>>, trailing) of
+                [BasePath, _] when is_binary(Path) -> unicode:characters_to_binary([BasePath, $/, Path]);
+                [BasePath, _] when is_list(Path) -> unicode:characters_to_list([BasePath, $/, Path]);
+                [_] -> Path
+            end
+    end.
+
+merge_paths_absolute(Path) when is_binary(Path) ->
+    <<$/, Path/binary>>;
+merge_paths_absolute(Path) when is_list(Path) ->
+    unicode:characters_to_list([$/, Path]).
+
+
 %%-------------------------------------------------------------------------
 %% Helper functions for transcode
 %%-------------------------------------------------------------------------
@@ -1757,7 +2028,7 @@ transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
     OutBinary = convert_to_binary(B, InEncoding, OutEncoding),
     PctEncUtf8 = percent_encode_segment(OutBinary),
     Out = convert_to_list(PctEncUtf8, utf8),
-    lists:reverse(Acc) ++ Out.
+    lists:reverse(Acc, Out).
 
 
 %% Convert to binary
@@ -1792,7 +2063,7 @@ flatten_list(L, InEnc) ->
 %%
 flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
     L = convert_to_list(H, InEnc),
-    flatten_list(T, InEnc, lists:reverse(L) ++ Acc);
+    flatten_list(T, InEnc, lists:reverse(L, Acc));
 flatten_list([H|T], InEnc, Acc) when is_list(H) ->
     flatten_list(H ++ T, InEnc, Acc);
 flatten_list([H|T], InEnc, Acc) ->
@@ -1812,7 +2083,7 @@ percent_encode_segment(Segment) ->
 %%-------------------------------------------------------------------------
 
 %% Returns separator to be used between key-value pairs
-get_separator(L) when length(L) =:= 0 ->
+get_separator([]) ->
     <<>>;
 get_separator(_L) ->
     <<"&">>.
@@ -1971,8 +2242,9 @@ base10_decode_unicode(<<H,_/binary>>, _, _) ->
 normalize_map(URIMap) ->
     normalize_path_segment(
       normalize_scheme_based(
-        normalize_percent_encoding(
-          normalize_case(URIMap)))).
+        normalize_undefined_port(
+          normalize_percent_encoding(
+            normalize_case(URIMap))))).
 
 
 %% 6.2.2.1.  Case Normalization
@@ -2112,34 +2384,42 @@ normalize_scheme_based(Map, _, _, _) ->
 
 
 normalize_http(Map, Port, Path) ->
-    M1 = normalize_port(Map, Port, 80),
+    M1 = normalize_default_port(Map, Port, 80),
     normalize_http_path(M1, Path).
 
 
 normalize_https(Map, Port, Path) ->
-    M1 = normalize_port(Map, Port, 443),
+    M1 = normalize_default_port(Map, Port, 443),
     normalize_http_path(M1, Path).
 
 
 normalize_ftp(Map, Port) ->
-    normalize_port(Map, Port, 21).
+    normalize_default_port(Map, Port, 21).
 
 
 normalize_ssh_sftp(Map, Port) ->
-    normalize_port(Map, Port, 22).
+    normalize_default_port(Map, Port, 22).
 
 
 normalize_tftp(Map, Port) ->
-    normalize_port(Map, Port, 69).
+    normalize_default_port(Map, Port, 69).
 
 
-normalize_port(Map, Port, Default) ->
+%% RFC 3986, 3.2.3.  Port
+%% RFC 3986, 6.2.3.  Scheme-Based Normalization
+normalize_default_port(Map, Port, Default) ->
     case Port of
         Default ->
             maps:remove(port, Map);
         _Else ->
             Map
     end.
+
+
+normalize_undefined_port(#{port := undefined} = Map) ->
+    maps:remove(port, Map);
+normalize_undefined_port(#{} = Map) ->
+    Map.
 
 
 normalize_http_path(Map, Path) ->

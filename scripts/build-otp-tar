@@ -1,0 +1,738 @@
+#!/bin/bash
+
+#
+# Description:
+#   Create one gzipped-tar file containing pre-built platform independent
+#   OTP code and one gzipped-tar file containing clean source code.
+# Author: Rickard Green
+#
+
+Revision=X
+revision="$Revision: 1.8 $Revision"
+version=`echo $revision | sed "s|[^0-9]*\([0-9.]*\).*|\1|g"`
+
+# 'global_restore' contains files and/or directories that always
+# should be restored to source state (@TARGET@ will be replaced
+# by actual target name).
+global_restore="@TARGET@ config.status config.log core core.*"
+
+prebuilt_filename=prebuilt.files
+#configure_args="--disable-smp-support --disable-hybrid-heap"
+configure_args="--disable-hybrid-heap"
+pbskip_name=prebuild.skip
+pbdel_name=prebuild.delete
+pbkeep_name=prebuild.keep
+skip_name=SKIP
+script_name=`basename $0`
+verbose=true
+work_dir_used=false
+remove_work_dir=false
+failing=false
+got_warning=false
+rm=/bin/rm
+gtar=tar
+tmp_dir=/tmp
+build_log=
+work_dir=
+build_dir=
+cln_tgz=SRC_CLN.tar.gz
+bld_tgz=SRC_PREBLD.tar.gz
+src_tgz=
+newfiles_log=
+work_dir=
+tmp_work_dir=
+
+print_usage () {
+    echo "Usage:
+$script_name
+[-b|--build-dir <directory>]
+[-d|--deleted-files-log <filename>]
+[-g|--gtar <gtar>]
+[-h|--help]
+[-l|--build-log <filename>]
+[-n|--new-files-log <filename>]
+[-o|--output-filenames <clean source filename> <pre-build filename>]
+[-r|--remove-working-dir]
+[-s|--silent]
+[-v|--version]
+[-w|--working-dir <existing directory>]
+<source filename>"
+}
+
+print_help () {
+    echo "--- otp_prebuild version $version -------------------------------------------"
+    echo `print_usage`
+    echo ""
+    echo " Mandatory parameters:"
+    echo "  <source filename>                      --- Filename of gzipped tar"
+    echo "                                             file containing the OTP"
+    echo "                                             source (produced by the"
+    echo "                                             otp_pack script)"
+    echo ""
+    echo " Optional parameters:"
+    echo "  -b|--build-dir <directory>             --- Directory containing"
+    echo "                                             a build from exactly the"
+    echo "                                             same source as specified"
+    echo "                                             by the mandatory"
+    echo "                                             parameter. If this"
+    echo "                                             parameter isn't given,"
+    echo "                                             OTP will be built."
+    echo "  -d|--deleted-files-log <filename>      --- Filename of file to log"
+    echo "                                             deleted files to"
+    echo "                                             (deleted files in the"
+    echo "                                             pre-build source result"
+    echo "                                             compared to the clean"
+    echo "                                             source result)."
+    echo "                                             Defaults to /dev/null."
+    echo "  -g|--gtar <gtar>                       --- GNU tar to use. Defaults"
+    echo "                                             to 'tar' in path."
+    echo "  -h|--help                              --- Display (this) help"
+    echo "                                             text and exit."
+    echo "  -l|--build-log <filename>              --- Filename of file to log"
+    echo "                                             OTP build results to."
+    echo "                                             Defaults to /dev/null."
+    echo "  -n|--new-files-log <filename>          --- Filename of file to log"
+    echo "                                             new files to (new files"
+    echo "                                             in the pre-build source"
+    echo "                                             result compared to the"
+    echo "                                             clean source result)."
+    echo "                                             Defaults to /dev/null."
+    echo "  -o|--output-filenames <clean source filename> <pre-build filename>"
+    echo "                                         --- Filename of clean source"
+    echo "                                             result and filename of"
+    echo "                                             pre-build source result."
+    echo "                                             Both as gzipped tar "
+    echo "                                             files. Defaults to "
+    echo "                                             'SRC_CLN.tar.gz', resp."
+    echo "                                             'SRC_PREBLD.tar.gz'."
+    echo "  -r|--remove-working-dir                --- Remove content of"
+    echo "                                             used, existing working"
+    echo "                                             directory (passed with"
+    echo "                                             the -w parameter) when"
+    echo "                                             done."
+    echo "  -s|--silent                            --- Silent mode."
+    echo "  -v|--version                           --- Print version and exit."
+    echo "  -w|--working-dir <existing directory>  --- An existing working"
+    echo "                                             directory to use."
+    echo "                                             If not passed, a"
+    echo "                                             temporary working"
+    echo "                                             directory will be"
+    echo "                                             created, used, and then"
+    echo "                                             removed."
+    echo ""
+    echo "--- otp_prebuild version $version -------------------------------------------"
+}
+
+progress_start () {
+    if [ $verbose = true ]; then
+	printf "${script_name}: $@..."
+    fi
+} 
+
+progress () {
+    if [ $verbose = true ]; then
+	if [ $got_warning = true ]; then
+	    got_warning=false
+	else
+	    if [ $failing = false ]; then
+		printf " ok\n"
+	    fi
+	fi
+	printf "${script_name}: $@..."
+    fi
+}
+
+progress_end () {
+    if [ $verbose = true ]; then
+	if [ $got_warning = true ]; then
+	    got_warning=false
+	else
+	    if [ $failing = false ]; then
+		printf " ok\n"
+	    fi
+	fi
+	printf "${script_name}: done\n"
+    fi
+}
+
+remove () {
+    #
+    # As an extra safety precaution, 'remove' requires the path of
+    # the file or directory to be removed to begin with $work_dir.
+    #
+    if [ "X${work_dir}" = "X" ]; then
+	error "remove() called before working dir has been initialized"
+    fi
+    while [ $# -gt 0 ]; do
+	case "X$1" in
+	    X${work_dir}*)
+		;;
+	    *)
+		error "Refusing to remove $1 since its path doesn't begin with working directory (${work_dir})";;
+	esac
+	$rm -rf $1
+	if [ $? -ne 0 ]; then
+	    error "Failed to remove $1"
+	fi
+	shift
+    done
+}
+
+cleanup_work_dir () {
+    if [ "x$tmp_work_dir" != "x" ]; then
+        #
+        # Temporary working directories should always be removed
+        #
+        if [ $work_dir_used = true ]; then
+            progress "Removing temporary working directory"
+            if [ "x$work_dir" != "x" ]; then
+        	$rm -rf $work_dir
+            fi
+        fi
+    else
+        if [ $remove_work_dir != false -a $work_dir_used != false ]; then
+            progress "Removing content of working directory"
+            if [ "x$work_dir" != "x" ]; then
+        	$rm -rf $work_dir/*
+            fi
+        fi
+    fi
+}
+
+error () {
+    failing=true
+    echo "" 1>&2
+    echo "ERROR: $@" 1>&2
+    echo `cleanup_work_dir` 1>&2
+    echo "" 1>&2
+    exit 1
+}
+
+warning () {
+    got_warning=true
+    echo " WARNING: $@"
+}
+
+usage_error () {
+    failing=true
+    echo "" 1>&2
+    echo "ERROR: $@" 1>&2
+    echo `print_usage` 1>&2
+    echo `cleanup_work_dir` 1>&2
+    echo "" 1>&2
+    exit 1
+}
+
+missing_param_value () {
+    failing=true
+    echo "" 1>&2
+    echo "Missing value(s) to parameter $1" 1>&2
+    echo `print_usage` 1>&2
+    echo `cleanup_work_dir` 1>&2
+    echo "" 1>&2
+    exit 1
+}
+
+valid_values () {
+    while [ $# -gt 0 ]; do
+	case $1 in
+	    -*) return 1;;
+	    *) ;;
+	esac
+	shift
+    done
+    return 0
+}
+
+copy () {
+    if [ $# -ne 2 ]; then
+	error "copy: bad number of arguments: $#"
+    fi
+    local from_dir=`dirname $1`
+    local from_obj=`basename $1`
+    local to_dir=$2
+    gtar_err=`(( $gtar -c -C $from_dir -f - $from_obj || echo ERROR 1>&2 ) | ( $gtar -x -B -p -C $to_dir -f - || echo ERROR 1>&2 )) 2>&1`
+    if [ "x$gtar_err" != "x" ]; then
+	echo "$gtar_err"
+	error "Failed to copy $1 to $2"
+    fi
+}
+
+restore () {
+    if [ $# -ne 1 ]; then
+	error "restore: bad number of arguments: $#";
+    fi
+
+    local obj=$1
+    local src_exist=false
+    local obj_type=
+
+    if [ -d $prebld_root/$obj ]; then
+	if [ -d $src_root/$obj ]; then
+	    src_exist=true;
+	fi
+	obj_type="directory"
+    else
+	if [ -f $src_root/$obj ]; then
+	    src_exist=true;
+	fi
+	obj_type="file"
+    fi
+
+    progress "Removing $obj_type $obj from pre-build-directory"
+    remove $prebld_root/$obj
+
+    if [ $src_exist = true ]; then
+	progress "Copying $obj_type $obj from source-directory to pre-build-directory"
+	copy $src_root/$obj $prebld_root/`dirname $obj`
+    fi
+}
+
+check_filename () { # <file containing file name> <dir> <filename>
+    if [ $# -ne 3 ]; then
+	error "check_filename: bad number of arguments: $#"
+    fi
+    case $3 in
+	/*|../*|*/../*|*/..|*/./*|*/.)
+	    error "File path not allowed ($3) in: $1";;
+	.)
+	    echo "$2";;
+	*)
+	    echo "$2/$3";;
+    esac
+}
+
+start_dir=`pwd`
+if [ ! -d $tmp_dir ]; then
+    $tmp_dir=$start_dir
+fi
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -b|--build-dir)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+            build_dir=$1;;
+	-d|--deleted-files-log)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+	    deletedfiles_log=$1;;
+        -g|--gtar)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+            gtar=$1;;
+        -h|--help)
+	    print_help
+	    exit 0;;
+	-l|--build-log)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+	    build_log=$1;;
+	-n|--new-files-log)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+	    newfiles_log=$1;;
+	-o|--output-filenames)
+            (test $# -gt 2 && valid_values $2 $3) || missing_param_value $1
+            shift
+	    cln_tgz=$1
+            shift
+	    bld_tgz=$1;;
+	-r|--remove-working-dir)
+	    remove_work_dir=true;;
+	-s|--silent)
+	    verbose=false;;
+	-v|--version)
+	    echo "otp_prebuild version $version"
+	    exit 0;;
+        -w|--working-dir)
+            (test $# -gt 1 && valid_values $2) || missing_param_value $1
+            shift
+            work_dir=$1;;
+        -*)
+            usage_error "Unknown argument: $1";;
+        *)
+            if [ "x$src_tgz" != "x" ]; then
+                usage_error "Multiple source filnames: $src_tgz; $1"
+            fi
+            src_tgz=$1;;
+    esac
+    shift
+done
+
+
+progress_start "Verifying arguments"
+
+case "x$bld_tgz" in
+    x)
+	usage_error "Argument -o|--output-filenames missing";;
+    x/*)
+	;;
+    *)
+	bld_tgz=$start_dir/$bld_tgz;;
+esac
+
+case "x$cln_tgz" in
+    x)
+	usage_error "Argument -o|--output-filenames missing";;
+    x/*)
+	;;
+    *)
+	cln_tgz=$start_dir/$cln_tgz;;
+esac
+
+case "x$build_log" in
+    x)  ;;
+    x/*)
+	;;
+    *)
+	build_log=$start_dir/$build_log;;
+esac
+
+case "x$src_tgz" in
+    x)
+	usage_error "Mandatory argument <source filename> missing";;
+    x/*)
+	;;
+    *)
+	src_tgz=$start_dir/$src_tgz;;
+esac
+
+
+if [ "x$work_dir" != "x" ]; then
+    case $work_dir in
+	/*) ;;
+	*) work_dir=$start_dir/$work_dir;;
+    esac
+    progress "Using existing working directory: $work_dir"
+    if [ ! -d $work_dir ]; then
+	error "Not a directory: $work_dir"
+    fi
+else
+    tmp_work_dir=$tmp_dir/otp_prebuild.$$
+    progress "Creating working directory: $tmp_work_dir"
+
+    mkdir $tmp_work_dir
+    if [ $? -ne 0 ]; then
+	error "Failed to create working directory: $tmp_work_dir"
+    fi
+    work_dir=$tmp_work_dir
+    work_dir_used=true
+fi
+
+if [ "x$build_dir" != "x" ]; then
+
+    progress "Using already built OTP distribution in: $build_dir"
+
+else
+
+    build_root=$work_dir/build
+
+    progress "Creating build-directory: $build_root"
+
+    mkdir $build_root
+    if [ $? -ne 0 ]; then
+	error "Failed to build-directory"
+    fi
+
+    work_dir_used=true
+
+    progress "Unpacking OTP source code into build-directory"
+
+    $gtar -z -x -C $build_root -f $src_tgz
+    if [ $? -ne 0 ]; then
+	error "Failed to unpack source"
+    fi
+    cd $build_root/*
+    if [ $? -ne 0 ]; then
+	error "Failed to change directory into unpacked source"
+    fi
+    build_dir=`pwd`
+    if [ ! -f ./otp_build ]; then
+	usage_error "Bad build-directory"
+    fi
+
+    export ERL_TOP=$build_dir
+
+    if [ "x$build_log" = "x" ]; then
+	build_log=/dev/null
+	progress "Using $build_log as build log"
+    else
+	progress "Creating build log: $build_log"
+	touch $build_log >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+	    error "Failed to create build log"
+	fi
+    fi
+
+    progress "Writing environment to build log"
+    echo " === Environment ==================================== " >> $build_log
+    env >> $build_log
+
+    progress "Configuring OTP"
+    echo " " >> $build_log
+    echo " === Configuring OTP ================================ " >> $build_log
+    echo " " >> $build_log
+    echo "./otp_build configure $configure_args" >> $build_log
+    ./otp_build configure $configure_args >> $build_log 2>&1
+    if [ $? -ne 0 ]; then
+	error "Failed to configure OTP"
+    fi
+
+    progress "Building OTP"
+    echo " " >> $build_log
+    echo " === Building OTP =================================== " >> $build_log
+    echo " " >> $build_log
+    echo "./otp_build boot -a" >> $build_log
+    ./otp_build boot -a >> $build_log 2>&1
+    if [ $? -ne 0 ]; then
+	error "Failed to build OTP"
+    fi
+    echo " " >> $build_log
+    echo " === Building OTP doc chunks ========================= " >> $build_log
+    echo " " >> $build_log
+    echo "make docs DOC_TARGETS=chunks" >> $build_log
+    make docs DOC_TARGETS=chunks >> $build_log 2>&1
+    if [ $? -ne 0 ]; then
+	error "Failed to build OTP"
+    fi
+    echo " " >> $build_log
+    echo " ==================================================== " >> $build_log
+
+    cd $start_dir
+fi
+
+if [ ! -d $build_dir -o ! -f $build_dir/otp_build ]; then
+    usage_error "Bad build-directory"
+fi
+
+build_dir_name=`basename $build_dir`
+
+prebld_root=$work_dir/prebuild
+progress "Creating pre-build-directory: $prebld_root"
+mkdir $prebld_root
+if [ $? -ne 0 ]; then
+    error "Failed to create temporary pack dir"
+fi
+
+work_dir_used=true
+
+progress "Copying OTP build into pre-build-directory: $prebld_root"
+copy $build_dir $prebld_root
+
+prebld_dir=$prebld_root/$build_dir_name
+
+src_root=$work_dir/src
+progress "Creating source-directory: $src_root"
+mkdir $src_root
+if [ $? -ne 0 ]; then
+    error "Failed to source-directory"
+fi
+
+progress "Unpacking OTP source code into source-directory"
+$gtar -z -x -C $src_root -f $src_tgz
+if [ $? -ne 0 ]; then
+    error "Failed to unpack source"
+fi
+
+src_dir=$src_root/$build_dir_name
+if [ ! -d $src_dir -o ! -f $src_dir/otp_build ]; then
+    usage_error "Source and build mismatch"
+fi
+
+progress "Checking target directory name"
+if [ -f "$prebld_dir/make/autoconf/config.guess" ]; then
+    target_dirname=`$prebld_dir/make/autoconf/config.guess`
+elif [ -f "$prebld_dir/erts/autoconf/config.guess" ]; then
+    target_dirname=`$prebld_dir/erts/autoconf/config.guess`
+else
+    error "Failed to find config.guess"
+fi
+if [  $? -ne 0 ]; then
+    error "Failed to check target directory name"
+fi
+if [ "x$target_dirname" = "x" ]; then
+    error "No target directory name found"
+fi
+
+global_restore=`echo $global_restore | sed "s|@TARGET@|$target_dirname|g"`
+if [  $? -ne 0 ]; then
+    error "Failed to replace @TARGET@ with $target_dirname in global_restore"
+fi
+
+cd $prebld_root
+for restore_name in $global_restore; do
+    progress "Searching for $restore_name files/directories in pre-build-directory"
+    for restore_obj in `find . -name $restore_name`; do
+	restore $restore_obj
+    done
+done
+
+progress "Searching for $skip_name files"
+cd $prebld_root
+skip_files=`find . -name $skip_name`
+
+for skip_file in $skip_files; do
+    # Normally these files should be removed, but if a skip file is part of
+    # the source it shouldn't be removed.
+    restore $skip_file
+done
+
+progress "Searching for $pbskip_name files in source-directory"
+cd $src_root
+skip_files=`find . -name $pbskip_name`
+
+for skip_file in $skip_files; do
+    progress "Removing $skip_file from source-directory"
+    remove $src_root/$skip_file
+done
+
+progress "Searching for $pbdel_name files in source-directory"
+cd $src_root
+delete_files=`find . -name $pbdel_name`
+
+for delete_file in $delete_files; do
+    progress "Removing $delete_file from source-directory"
+    remove $src_root/$delete_file
+done
+
+progress "Searching for $pbkeep_name files in source-directory"
+cd $src_root
+keep_files=`find . -name $pbkeep_name`
+
+for keep_file in $keep_files; do
+    progress "Removing $keep_file from source-directory"
+    remove $src_root/$keep_file
+done
+
+## We search for $pbkeep_name before we do the deletion as otherwise
+## the deletion may delete these files. However, we want to execute
+## the actions of the keep file after.
+progress "Searching for $pbkeep_name files in pre-build-directory"
+cd $prebld_root
+keep_files=`find . -name $pbkeep_name`
+kobjs=""
+for keep_file in $keep_files; do
+    dir=`dirname $keep_file`
+    keep_objs=`cat $keep_file`
+    for keep_obj in $keep_objs; do
+        kobj=`check_filename $keep_file $dir $keep_obj`
+        kobjs="$kobjs $kobj"
+    done
+
+    remove $prebld_root/$keep_file
+done
+
+progress "Searching for $pbskip_name files in pre-build-directory"
+cd $prebld_root
+skip_files=`find . -name $pbskip_name`
+
+for skip_file in $skip_files; do
+    dir=`dirname $skip_file`
+    restore_objs=`cat $skip_file`
+    for rf in $restore_objs; do
+	restore `check_filename $skip_file $dir $rf`
+    done
+
+    progress "Removing $skip_file from pre-build-directory"
+    remove $prebld_root/$skip_file
+done
+
+progress "Searching for $pbdel_name files in pre-build-directory"
+cd $prebld_root
+delete_files=`find . -name $pbdel_name`
+
+for delete_file in $delete_files; do
+    dir=`dirname $delete_file`
+    delete_objs=`cat $delete_file`
+    for delete_obj in $delete_objs; do
+	dobj=`check_filename $delete_file $dir $delete_obj`
+	progress "Removing $dobj from pre-build-directory"
+	remove $prebld_root/$dobj
+    done
+
+    progress "Removing $delete_file from pre-build-directory"
+    remove $prebld_root/$delete_file
+done
+
+for kobj in $kobjs; do
+    progress "Keeping $kobj in pre-build-directory"
+    copy $build_dir/../$kobj $prebld_root/$(dirname $kobj)
+done
+
+cd $prebld_dir
+prebuilt_files=$prebld_dir/$prebuilt_filename
+progress "Creating $build_dir_name/$prebuilt_filename in pre-build-directory"
+touch $prebuilt_files >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    warning "Failed to create $build_dir_name/$prebuilt_filename in pre-build-directory"
+fi
+progress "Writing prebuilt files to $build_dir_name/$prebuilt_filename in pre-build-directory"
+prebld_files=`find . -type f | sort`
+for prebld_file in $prebld_files; do
+    if [ ! -f $src_dir/$prebld_file ]; then
+	echo "$prebld_file" >> $prebuilt_files
+    fi
+done
+
+if [ "x$deletedfiles_log" != "x" ]; then
+    case $deletedfiles_log in
+	/*) ;;
+	*) deletedfiles_log=$start_dir/$deletedfiles_log;;
+    esac
+
+    $rm -f $deletedfiles_log
+    progress "Creating deleted files log: $deletedfiles_log"
+    touch $deletedfiles_log >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+	warning "Failed to create deleted files log"
+    else
+	progress "Writing deleted files log"
+	cd $src_root
+	src_files=`find . -type f | sort`
+	for src_file in $src_files; do
+	    if [ ! -f $prebld_root/$src_file ]; then
+		echo "$src_file" >> $deletedfiles_log
+	    fi
+	done
+    fi
+fi
+
+if [ "x$newfiles_log" != "x" ]; then
+    case $newfiles_log in
+	/*) ;;
+	*) newfiles_log=$start_dir/$newfiles_log;;
+    esac
+
+    $rm -f $newfiles_log
+    progress "Creating new files log: $newfiles_log"
+    touch $newfiles_log >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+	warning "Failed to create new files log"
+    else
+	progress "Writing new files log"
+	cat $prebuilt_files | sed "s|^./|./$build_dir_name/|g" > $newfiles_log
+    fi
+fi
+
+progress "Packing source-directory into output file: $cln_tgz"
+cd $start_root
+$rm -f $cln_tgz
+$gtar -C $src_root -z -c -f $cln_tgz $build_dir_name
+if [ $? -ne 0 ]; then
+    error "Failed to create tar file: $cln_tgz"
+fi
+
+progress "Packing pre-build-directory into output file: $bld_tgz"
+cd $start_root
+$rm -f $bld_tgz
+$gtar -C $prebld_root -z -c -f $bld_tgz $build_dir_name
+if [ $? -ne 0 ]; then
+    error "Failed to create tar file: $bld_tgz"
+fi
+
+cleanup_work_dir
+
+progress_end
+
+exit 0

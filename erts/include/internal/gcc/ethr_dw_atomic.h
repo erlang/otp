@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,13 +72,13 @@ typedef volatile ETHR_NATIVE_SU_DW_SINT_T * ethr_native_dw_ptr_t;
  * This code assumes 8 byte aligned memory in 64-bit mode, and 4 byte
  * aligned memory in 32-bit mode. A malloc implementation that does
  * not adhere to these alignment requirements is seriously broken,
- * and we wont bother trying to work around it.
+ * and we won't bother trying to work around it.
  *
  * Since memory alignment may be off by one word we need to align at
  * runtime. We, therefore, need an extra word allocated.
  */
 #define ETHR_DW_NATMC_MEM__(VAR) \
-   (&var->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
+   (&(VAR)->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
 typedef union {
     volatile ETHR_NATIVE_SU_DW_SINT_T dw_sint;
     volatile ethr_sint_t sint[3];
@@ -178,7 +178,7 @@ ethr_native_su_dw_atomic_read_acqb(ethr_native_dw_atomic_t *var)
 
 static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
 ethr_native_su_dw_atomic_cmpxchg(ethr_native_dw_atomic_t *var,
-				 ETHR_NATIVE_SU_DW_SINT_T new,
+				 ETHR_NATIVE_SU_DW_SINT_T new_val,
 				 ETHR_NATIVE_SU_DW_SINT_T exp)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
@@ -186,7 +186,7 @@ ethr_native_su_dw_atomic_cmpxchg(ethr_native_dw_atomic_t *var,
     ETHR_DW_DBG_ALIGNED__(p);
     if (__atomic_compare_exchange_n(p,
 				    &xchg,
-				    new,
+				    new_val,
 				    0,
 				    __ATOMIC_RELAXED,
 				    __ATOMIC_RELAXED))
@@ -202,7 +202,7 @@ ethr_native_su_dw_atomic_cmpxchg(ethr_native_dw_atomic_t *var,
 
 static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
 ethr_native_su_dw_atomic_cmpxchg_acqb(ethr_native_dw_atomic_t *var,
-				      ETHR_NATIVE_SU_DW_SINT_T new,
+				      ETHR_NATIVE_SU_DW_SINT_T new_val,
 				      ETHR_NATIVE_SU_DW_SINT_T exp)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
@@ -210,7 +210,7 @@ ethr_native_su_dw_atomic_cmpxchg_acqb(ethr_native_dw_atomic_t *var,
     ETHR_DW_DBG_ALIGNED__(p);
     if (__atomic_compare_exchange_n(p,
 				    &xchg,
-				    new,
+				    new_val,
 				    0,
 				    __ATOMIC_ACQUIRE,
 				    __ATOMIC_ACQUIRE))
@@ -229,12 +229,12 @@ ethr_native_su_dw_atomic_cmpxchg_acqb(ethr_native_dw_atomic_t *var,
 
 static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
 ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				    ETHR_NATIVE_SU_DW_SINT_T new,
+				    ETHR_NATIVE_SU_DW_SINT_T new_val,
 				    ETHR_NATIVE_SU_DW_SINT_T old)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
     ETHR_DW_DBG_ALIGNED__(p);
-    return __sync_val_compare_and_swap(p, old, new);
+    return __sync_val_compare_and_swap(p, old, new_val);
 }
 
 #endif /* ETHR_HAVE___sync_val_compare_and_swap */

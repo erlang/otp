@@ -1,0 +1,11 @@
+
+  [;1m-type max_heap_size() ::[0m
+  [;1m          Size ::[0m
+  [;1m              non_neg_integer() |[0m
+  [;1m              #{size => non_neg_integer(),[0m
+  [;1m                kill => boolean(),[0m
+  [;1m                error_logger => boolean(),[0m
+  [;1m                include_shared_binaries => boolean()}.[0m
+
+  Process max heap size configuration. For more info see [;;4m[0m
+  [;;4mprocess_flag(max_heap_size, MaxHeapSize)[0m

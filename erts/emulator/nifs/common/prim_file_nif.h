@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2018. All Rights Reserved.
+ * Copyright Ericsson 2017-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,11 @@ enum efile_modes_t {
     EFILE_MODE_SYNC = (1 << 4),
 
     EFILE_MODE_SKIP_TYPE_CHECK = (1 << 5), /* Special for device files on Unix. */
-    EFILE_MODE_NO_TRUNCATE = (1 << 6), /* Special for reopening on VxWorks. */
+    /* EFILE_MODE_RESERVED = (1 << 6), - Reserved, previously used for reopening on VxWorks. */
+
+    EFILE_MODE_DIRECTORY = (1 << 7),
+
+    EFILE_MODE_FROM_ALREADY_OPEN_FD = (1 << 8),
 
     EFILE_MODE_READ_WRITE = EFILE_MODE_READ | EFILE_MODE_WRITE
 };
@@ -90,7 +94,12 @@ typedef struct {
 /* The smallest value that can be converted freely between universal, local,
  * and POSIX time, as required by read_file_info/2. Corresponds to
  * {{1902,1,1},{0,0,0}} */
-#define EFILE_MIN_FILETIME -2145916800
+#define EFILE_MIN_FILETIME (-2145916800LL)
+
+/* The largest value that can be converted freely between universal, local,
+ * and POSIX time, as required by read_file_info/2. Corresponds to
+ * {{9999,12,31},{23,59,59}} */
+#define EFILE_MAX_FILETIME (253402300799LL)
 
 /* Initializes an efile_data_t; must be used in efile_open on success. */
 #define EFILE_INIT_RESOURCE(__d, __modes) do { \
@@ -110,7 +119,7 @@ typedef struct {
 
 typedef ErlNifBinary efile_path_t;
 
-/* @brief Translates the given "raw name" into the format expected by the APIs
+/** @brief Translates the given "raw name" into the format expected by the APIs
  * used by the underlying implementation. The result is transient and does not
  * need to be released.
  *
@@ -121,30 +130,36 @@ typedef ErlNifBinary efile_path_t;
  * prim_file:internal_native2name for compatibility reasons. */
 posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t *result);
 
-/* @brief Returns the underlying handle as an implementation-defined term.
+/** @brief Returns the underlying handle as an implementation-defined term.
  *
  * This is an internal function intended to support tests and tricky
  * operations like sendfile(2). */
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d);
 
-/* @brief Read until EOF or the given iovec has been filled.
+/** @brief Returns the underlying handle as an implementation-defined term.
+ *
+ * This is an internal function intended to support tests and tricky
+ * operations like sendfile(2). */
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle);
+
+/** @brief Read until EOF or the given iovec has been filled.
  *
  * @return -1 on failure, or the number of bytes read on success. The return
  * value will be 0 if no bytes could be read before EOF or the end of the
  * iovec. */
 Sint64 efile_readv(efile_data_t *d, SysIOVec *iov, int iovlen);
 
-/* @brief Write the entirety of the given iovec.
+/** @brief Write the entirety of the given iovec.
  *
  * @return -1 on failure, or the number of bytes written on success. "Partial"
  * failures will be reported with -1 and not the number of bytes we managed to
  * write to disk before the failure. */
 Sint64 efile_writev(efile_data_t *d, SysIOVec *iov, int iovlen);
 
-/* @brief As \c efile_readv, but starting from a file offset. */
+/** @brief As \c efile_readv, but starting from a file offset. */
 Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen);
 
-/* @brief As \c efile_writev, but starting from a file offset. */
+/** @brief As \c efile_writev, but starting from a file offset. */
 Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen);
 
 int efile_seek(efile_data_t *d, enum efile_seek_t seek, Sint64 offset, Sint64 *new_position);
@@ -158,13 +173,21 @@ int efile_truncate(efile_data_t *d);
 posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         ErlNifResourceType *nif_type, efile_data_t **d);
 
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d);
+
 /** @brief Closes a file. The file must have entered the CLOSED state prior to
- * calling this to prevent double close. */
-int efile_close(efile_data_t *d);
+ * calling this to prevent double close.
+ *
+ * Note that the file is completely invalid after this point, so the error code
+ * is provided in \c error rather than d->posix_errno. */
+int efile_close(efile_data_t *d, posix_errno_t *error);
 
 /* **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** */
 
 posix_errno_t efile_read_info(const efile_path_t *path, int follow_link, efile_fileinfo_t *result);
+posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result);
 
 /** @brief Sets the file times to the given values. Refer to efile_fileinfo_t
  * for a description of each. */

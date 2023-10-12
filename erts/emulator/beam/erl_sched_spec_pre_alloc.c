@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #  include "config.h"
 #endif
 
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
 
 #include "erl_process.h"
 #include "erl_thr_progress.h"
@@ -347,3 +348,4 @@ erts_sspa_process_remote_frees(erts_sspa_chunk_header_t *chdr,
     return res;
 }
 
+#endif /* !defined(VALGRIND) && !defined(ADDRESS_SANITIZER) */

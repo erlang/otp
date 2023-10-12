@@ -163,7 +163,7 @@ sysQ OBJECT-TYPE
     MAX-ACCESS read-write
     STATUS     current
     DESCRIPTION
-            "The auxiliar the SYNTAX."
+            "The auxiliary the SYNTAX."
     DEFVAL { { a, b } }
     ::= { system 11 }
 
@@ -231,7 +231,7 @@ sysORUpTime OBJECT-TYPE
     STATUS     current
     DESCRIPTION
             "The value of sysUpTime at the time this conceptual row was
-            last instanciated."
+            last instantiated."
     ::= { sysOREntry 4 }
 
 

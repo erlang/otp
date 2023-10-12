@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@
 %% et_viewer
 %%
 %%   A graphical sequence chart tool. It is connected to a
-%%   et_collector-process, which it polls regulary for more trace
+%%   et_collector-process, which it polls regularly for more trace
 %%   events to display. Before the event is displayed a user defined
 %%   filter function is applied in order to skip, accept as is or
 %%   transform the event. Several et_viewer-processes may share the

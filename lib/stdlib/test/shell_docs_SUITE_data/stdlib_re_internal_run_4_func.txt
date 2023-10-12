@@ -1,0 +1,6 @@
+
+[;1m  internal_run/4[0m
+
+  The documentation for internal_run/4 is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.

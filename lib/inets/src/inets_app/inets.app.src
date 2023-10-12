@@ -1,7 +1,7 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,9 +28,6 @@
 	    inets_service,	                  
 	    inets_trace,
             inets_lib,
-
-            %% FTP
-            inets_ftp_wrapper,
             
             %% HTTP client:
             httpc, 
@@ -43,14 +40,14 @@
             httpc_sup,
             httpc_cookie,                
 
-	    http_uri, %% Proably will by used by server also in the future
-
             %% HTTP used by both client and server 
             http_chunk,
             http_request,
             http_response,      
             http_transport,
             http_util,  
+
+            http_uri, %% Deprecated
             
             %% HTTP server:
             httpd,
@@ -66,6 +63,7 @@
 	    httpd_file,
             httpd_instance_sup,
 	    httpd_log,
+            httpd_logger,
             httpd_manager,
             httpd_misc_sup,
             httpd_request,
@@ -82,27 +80,24 @@
             mod_auth_mnesia,
             mod_auth_plain,
             mod_auth_server,
-            mod_browser,
             mod_cgi,
             mod_dir,
             mod_disk_log,
             mod_esi,
             mod_get,
             mod_head,
-            mod_htaccess,
             mod_log,
             mod_range,
             mod_responsecontrol,
             mod_security,
             mod_security_server,
-            mod_trace,
-            
-            %% TFTP
-            inets_tftp_wrapper
+            mod_trace
         ]},
   {registered,[inets_sup, httpc_manager]},
   %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
-  {runtime_dependencies, ["stdlib-3.5","ssl-5.3.4","runtime_tools-1.8.14",
-			  "mnesia-4.12","kernel-3.0","erts-6.0"]}]}.
+  {runtime_dependencies,
+   ["stdlib-5.0","stdlib-5.0","ssl-9.0","runtime_tools-1.8.14",
+    "mnesia-4.12","kernel-9.0","erts-14.0", "public_key-1.13"]}
+ ]}.

@@ -1,0 +1,8 @@
+
+  [;1m-type mp() :: {re_pattern, _, _, _, _}.[0m
+
+  Opaque data type containing a compiled regular expression. [;;4mmp()[0m
+  is guaranteed to be a tuple() having the atom [;;4mre_pattern[0m as its
+  first element, to allow for matching in guards. The arity of the
+  tuple or the content of the other fields can change in future
+  Erlang/OTP releases.

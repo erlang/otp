@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,7 @@
   <xi:include href="myths.xml"/>
   <xi:include href="commoncaveats.xml"/>
   <xi:include href="binaryhandling.xml"/>
+  <xi:include href="maps.xml"/>
   <xi:include href="listhandling.xml"/>
   <xi:include href="functions.xml"/>
   <xi:include href="tablesDatabases.xml"/>

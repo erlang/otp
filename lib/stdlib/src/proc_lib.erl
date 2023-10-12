@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,8 +28,10 @@
          spawn/3, spawn_link/3, spawn/4, spawn_link/4,
          spawn_opt/2, spawn_opt/3, spawn_opt/4, spawn_opt/5,
 	 start/3, start/4, start/5, start_link/3, start_link/4, start_link/5,
+         start_monitor/3, start_monitor/4, start_monitor/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
+	 init_fail/2, init_fail/3,
 	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
 	 initial_call/1,
          translate_initial_call/1,
@@ -39,29 +41,47 @@
 -export([wake_up/3]).
 
 -export_type([spawn_option/0]).
+-export_type([start_spawn_option/0]).
 
 -include("logger.hrl").
 
 %%-----------------------------------------------------------------------------
 
--type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
--type max_heap_size()  :: non_neg_integer() |
-                          #{ size => non_neg_integer(),
-                             kill => true,
-                             error_logger => true}.
--type spawn_option()   :: 'link'
-                        | 'monitor'
-                        | {'priority', priority_level()}
-                        | {'max_heap_size', max_heap_size()}
-                        | {'min_heap_size', non_neg_integer()}
-                        | {'min_bin_vheap_size', non_neg_integer()}
-                        | {'fullsweep_after', non_neg_integer()}
-                        | {'message_queue_data',
-                             'off_heap' | 'on_heap' | 'mixed' }.
+%% This shall be spawn_option() -- monitor options and must be kept in sync
+%% (with erlang:spawn_opt_options())
+%%
+-type start_spawn_option() :: 'link'
+                            | {'priority', erlang:priority_level()}
+                            | {'fullsweep_after', non_neg_integer()}
+                            | {'min_heap_size', non_neg_integer()}
+                            | {'min_bin_vheap_size', non_neg_integer()}
+                            | {'max_heap_size', erlang:max_heap_size()}
+                            | {'message_queue_data', erlang:message_queue_data() }.
+%% and this macro is used to verify that there are no monitor options
+%% which also needs to be kept in sync all kinds of monitor options
+%% in erlang:spawn_opt_options().
+%%
+-define(VERIFY_NO_MONITOR_OPT(M, F, A, T, Opts),
+        Monitor = monitor,
+        case lists:member(Monitor, Opts) of
+            true ->
+                erlang:error(badarg, [M,F,A,T,Opts]);
+            false ->
+                case lists:keyfind(Monitor, 1, Opts) of
+                    false ->
+                        ok;
+                    {Monitor, _} ->
+                        erlang:error(badarg, [M,F,A,T,Opts])
+                end
+        end).
+
+-type spawn_option()   :: erlang:spawn_opt_option().
 
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
                         | {X :: integer(), Y :: integer(), Z :: integer()}.
+
+%%-----------------------------------------------------------------------------
 
 %%-----------------------------------------------------------------------------
 
@@ -141,17 +161,16 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_opt(Fun, SpawnOpts) -> pid() when
+-spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [spawn_option()].
 
 spawn_opt(F, Opts) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--spec spawn_opt(Node, Function, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Function, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Function :: function(),
       SpawnOpts :: [spawn_option()].
@@ -159,10 +178,9 @@ spawn_opt(F, Opts) when is_function(F) ->
 spawn_opt(Node, F, Opts) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,F], Opts).
 
--spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
@@ -171,10 +189,9 @@ spawn_opt(Node, F, Opts) when is_function(F) ->
 spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
--spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Module :: module(),
       Function :: atom(),
@@ -184,29 +201,12 @@ spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
 spawn_opt(Node, M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
-
-%% OTP-6345
-%% monitor spawn_opt option is currently not possible to use
-check_for_monitor(SpawnOpts) ->
-    case lists:member(monitor, SpawnOpts) of
-	true ->
-	    erlang:error(badarg);
-	false ->
-	    false
-    end.
 
 spawn_mon(M,F,A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_monitor(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
-
-spawn_opt_mon(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
-    Parent = get_my_name(),
-    Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
-    erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], [monitor|Opts]).
 
 -spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
@@ -215,14 +215,6 @@ spawn_opt_mon(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
 
 hibernate(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     erlang:hibernate(?MODULE, wake_up, [M, F, A]).
-
-ensure_link(SpawnOpts) ->
-    case lists:member(link, SpawnOpts) of
-	true -> 
-	    SpawnOpts;
-	false ->
-	    [link|SpawnOpts]
-    end.
 
 -spec init_p(pid(), [pid()], function()) -> term().
 
@@ -282,6 +274,7 @@ exit_reason(exit, Reason, _Stacktrace) ->
 exit_reason(throw, Reason, Stacktrace) ->
     {{nocatch, Reason}, Stacktrace}.
 
+
 -spec start(Module, Function, Args) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -299,20 +292,38 @@ start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    PidRef = spawn_mon(M, F, A),
-    sync_wait_mon(PidRef, Timeout).
+    sync_start(spawn_mon(M, F, A), Timeout).
 
 -spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
       Time :: timeout(),
-      SpawnOpts :: [spawn_option()],
+      SpawnOpts :: [start_spawn_option()],
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout, SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
-    PidRef = spawn_opt_mon(M, F, A, SpawnOpts),
-    sync_wait_mon(PidRef, Timeout).
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start(?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
+
+sync_start({Pid, Ref}, Timeout) ->
+    receive
+	{ack, Pid, Return} ->
+	    erlang:demonitor(Ref, [flush]),
+            Return;
+	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
+            _ = await_DOWN(Pid, Ref),
+            Return;
+	{'DOWN', Ref, process, Pid, Reason} ->
+            flush_EXIT(Pid),
+            {error, Reason}
+    after Timeout ->
+            kill_flush_EXIT(Pid),
+            _ = await_DOWN(Pid, Ref),
+            {error, timeout}
+    end.
+
 
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -331,60 +342,104 @@ start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn_link(M, F, A),
-    sync_wait(Pid, Timeout).
+    sync_start(?MODULE:spawn_opt(M, F, A, [link,monitor]), Timeout).
 
 -spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
       Time :: timeout(),
-      SpawnOpts :: [spawn_option()],
+      SpawnOpts :: [start_spawn_option()],
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn_opt(M, F, A, ensure_link(SpawnOpts)),
-    sync_wait(Pid, Timeout).
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start(
+      ?MODULE:spawn_opt(M, F, A, [link,monitor|SpawnOpts]), Timeout).
 
-sync_wait(Pid, Timeout) ->
+
+-spec start_monitor(Module, Function, Args) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
+    start_monitor(M, F, A, infinity).
+
+-spec start_monitor(Module, Function, Args, Time) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
+    sync_start_monitor(spawn_mon(M, F, A), Timeout).
+
+-spec start_monitor(Module, Function, Args, Time, SpawnOpts) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      SpawnOpts :: [start_spawn_option()],
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M,F,A,Timeout,SpawnOpts) when is_atom(M),
+                                            is_atom(F),
+                                            is_list(A) ->
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start_monitor(
+      ?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
+
+sync_start_monitor({Pid, Ref}, Timeout) ->
     receive
 	{ack, Pid, Return} ->
-	    Return;
-	{'EXIT', Pid, Reason} ->
-	    {error, Reason}
+            {Return, Ref};
+	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
+            self() ! await_DOWN(Pid, Ref),
+            {Return, Ref};
+	{'DOWN', Ref, process, Pid, Reason} = Down ->
+            flush_EXIT(Pid),
+            self() ! Down,
+            {{error, Reason}, Ref}
     after Timeout ->
-	    unlink(Pid),
-	    exit(Pid, kill),
-	    flush(Pid),
-	    {error, timeout}
+            kill_flush_EXIT(Pid),
+            self() ! await_DOWN(Pid, Ref),
+            {{error, timeout}, Ref}
     end.
 
-sync_wait_mon({Pid, Ref}, Timeout) ->
+
+%% We regard the existence of an {'EXIT', Pid, _} message
+%% as proof enough that there was a link that fired and
+%% we had process_flag(trap_exit, true),
+%% so the message should be flushed.
+%% It is the best we can do.
+%%
+%% After an unlink(Pid) an {'EXIT', Pid, _} link message
+%% cannot arrive so receive after 0 will work,
+
+flush_EXIT(Pid) ->
+    unlink(Pid),
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end.
+
+kill_flush_EXIT(Pid) ->
+    %% unlink/1 has to be called before exit/2
+    %% or we might be killed by the link
+    unlink(Pid),
+    exit(Pid, kill),
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end.
+
+await_DOWN(Pid, Ref) ->
     receive
-	{ack, Pid, Return} ->
-	    erlang:demonitor(Ref, [flush]),
-	    Return;
-	{'DOWN', Ref, _Type, Pid, Reason} ->
-	    {error, Reason};
-	{'EXIT', Pid, Reason} -> %% link as spawn_opt?
-	    erlang:demonitor(Ref, [flush]),
-	    {error, Reason}
-    after Timeout ->
-	    erlang:demonitor(Ref, [flush]),
-	    exit(Pid, kill),
-	    flush(Pid),
-	    {error, timeout}
+	{'DOWN', Ref, process, Pid, _} = Down ->
+            Down
     end.
 
--spec flush(pid()) -> 'true'.
-
-flush(Pid) ->
-    receive
-	{'EXIT', Pid, _} ->
-	    true
-    after 0 ->
-	    true
-    end.
 
 -spec init_ack(Parent, Ret) -> 'ok' when
       Parent :: pid(),
@@ -400,6 +455,27 @@ init_ack(Parent, Return) ->
 init_ack(Return) ->
     [Parent|_] = get('$ancestors'),
     init_ack(Parent, Return).
+
+-spec init_fail(_, _, _) -> no_return().
+init_fail(Parent, Return, Exception) ->
+    _ = Parent ! {nack, self(), Return},
+    case Exception of
+        {error, Reason} ->
+            erlang:error(Reason);
+        {exit, Reason} ->
+            erlang:exit(Reason);
+        {throw, Reason} ->
+            erlang:throw(Reason);
+        {Class, Reason, Stacktrace} ->
+            erlang:error(
+              erlang:raise(Class, Reason, Stacktrace),
+              [Parent, Return, Exception])
+    end.
+
+-spec init_fail(_, _) -> no_return().
+init_fail(Return, Exception) ->
+    [Parent|_] = get('$ancestors'),
+    init_fail(Parent, Return, Exception).
 
 %% -----------------------------------------------------
 %% Fetch the initial call of a proc_lib spawned process.
@@ -784,20 +860,114 @@ format(CrashReport, Encoding, Depth) ->
                              encoding => Encoding,
                              single_line => false}).
 
-do_format([OwnReport,LinkReport], #{single_line:=Single}=Extra) ->
+do_format([OwnReport,LinkReport], Extra) ->
+    #{encoding:=Enc, single_line:=Single, chars_limit:=Limit0} = Extra,
     Indent = if Single -> "";
                 true -> "  "
              end,
-    MyIndent = Indent ++ Indent,
-    Sep = nl(Single,"; "),
-    OwnFormat = format_report(OwnReport, MyIndent, Extra),
-    LinkFormat = lists:join(Sep,format_link_report(LinkReport, MyIndent, Extra)),
     Nl = nl(Single," "),
-    Str = io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~sneighbours:"++Nl++"~ts",
-                        [Indent,OwnFormat,Indent,LinkFormat]),
-    lists:flatten(Str).
+    Sep = nl(Single, report_separator()),
+    {PartLimit, Limit} =
+        case Limit0 of
+            unlimited ->
+                {Limit0, Limit0};
+            _ when is_integer(Limit0) ->
+                %% HardcodedSize is the length of the hardcoded heading +
+                %% separators in the final format string below,
+                %% including neighbours. Just make sure the limit
+                %% does not become negative.
+                Num = length(OwnReport),
+                HardcodedSize = (length(Indent) + length("crasher")
+                                 + length(Nl) + length(Sep)
+                                 + (length(Sep) * Num)),
+                Limit1 = max(Limit0-HardcodedSize, 1),
 
-format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
+                %% Divide the available characters over all report
+                %% parts. Spend one third of the characters on the
+                %% crash reason, and let the rest of the elements
+                %% (including the neighbours) share the other two
+                %% thirds. This is to make sure we see a good part of
+                %% the crash reason. Most of the other elements in the
+                %% crasher's report are quite small, so we don't loose
+                %% a lot of info from these anyway.
+                EL = Limit1 div 3,
+                PL = (Limit1-EL) div (Num),
+                {PL, Limit1}
+        end,
+    LinkFormat = format_link_reports(LinkReport, Indent, Extra, PartLimit),
+    LinkFormatSize = size(Enc, LinkFormat),
+
+    OwnFormat = format_own_report(OwnReport, Indent, Extra,
+                                  LinkFormatSize, PartLimit, Limit),
+    io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~ts",
+                  [Indent,OwnFormat,LinkFormat]).
+
+format_own_report(OwnReport, Indent, Extra, LinkFormatSize, PartLimit, Limit0) ->
+    MyIndent = Indent ++ Indent,
+    case separate_error_info(OwnReport) of
+        {First,{Class,Reason,StackTrace},Rest} ->
+            F = format_report(First, MyIndent, Extra, PartLimit),
+            R = format_report(Rest, MyIndent, Extra, PartLimit),
+            #{encoding:=Enc, single_line:=Single} = Extra,
+            Sep = nl(Single, part_separator()),
+            Limit = case Limit0 of
+                        unlimited ->
+                            Limit0;
+                        _ when is_integer(Limit0) ->
+                            %% Some of the report parts are quite small,
+                            %% and we can use the leftover chars to show
+                            %% more of the error_info part.
+                            SizeOfOther = (size(Enc, F)
+                                           +size(Enc, R)
+                                           -length(Sep)*(length(F)+length(R))
+                                           +LinkFormatSize),
+                            max(Limit0-SizeOfOther, 1)
+                end,
+            EI = format_exception(Class, Reason, StackTrace, Extra, Limit),
+            lists:join(Sep, [F, EI, R]);
+    no ->
+        Limit = case Limit0 of
+                    unlimited ->
+                        Limit0;
+                    _ when is_integer(Limit0) ->
+                        max(Limit0-LinkFormatSize, 1)
+                end,
+        format_report(OwnReport, MyIndent, Extra, Limit)
+    end.
+
+separate_error_info(Report) ->
+    try
+        lists:splitwith(fun(A) -> element(1, A) =/= error_info end, Report)
+    of
+        {First, [{error_info,ErrorInfo}|Rest]} ->
+            {First,ErrorInfo,Rest};
+        _ -> no
+    catch _:_ -> no
+    end.
+
+%% If the size of the total report is limited by chars_limit, then
+%% print only the pids.
+format_link_reports(LinkReports, Indent, Extra, PartLimit)
+         when is_integer(PartLimit) ->
+    #{encoding:=Enc, depth:=Depth, single_line:=Single} = Extra,
+    Pids = [P || {neighbour,[{pid,P}|_]} <- LinkReports],
+    {P,Tl} = p(Enc,Depth),
+    Width = if Single -> "0";
+               true -> ""
+            end,
+    io_lib:format(Indent++"neighbours: ~"++Width++P,
+                  [Pids|Tl],
+                  [{chars_limit,PartLimit}]);
+format_link_reports(LinkReports, Indent, Extra, PartLimit) ->
+    #{single_line:=Single} = Extra,
+    MyIndent = Indent ++ Indent,
+    LinkFormat =
+      lists:join(nl(Single, report_separator()),
+                 format_link_report(LinkReports, MyIndent, Extra, PartLimit)),
+    [Indent,"neighbours:",nl(Single," "),LinkFormat].
+
+format_link_report([Link|Reps], Indent0, Extra, PartLimit) ->
+    #{single_line:=Single} = Extra,
     Rep = case Link of
               {neighbour,Rep0} -> Rep0;
               _ -> Link
@@ -806,63 +976,70 @@ format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
                 true -> Indent0
              end,
     LinkIndent = ["  ",Indent],
-    [[Indent,"neighbour:",nl(Single," "),format_report(Rep, LinkIndent, Extra)]|
-     format_link_report(Reps, Indent, Extra)];
-format_link_report(Rep, Indent, Extra) ->
-    format_report(Rep, Indent, Extra).
+    [[Indent,"neighbour:",nl(Single," "),
+      format_report(Rep, LinkIndent, Extra, PartLimit)]|
+     format_link_report(Reps, Indent, Extra, PartLimit)];
+format_link_report(Rep, Indent, Extra, PartLimit) ->
+    format_report(Rep, Indent, Extra, PartLimit).
 
-format_report(Rep, Indent, #{single_line:=Single}=Extra) when is_list(Rep) ->
-    lists:join(nl(Single,", "),format_rep(Rep, Indent, Extra));
-format_report(Rep, Indent0, #{encoding:=Enc,depth:=Depth,
-                              chars_limit:=Limit,single_line:=Single}) ->
+format_report(Rep, Indent, Extra, Limit) when is_list(Rep) ->
+    #{single_line:=Single} = Extra,
+    lists:join(nl(Single, part_separator()),
+               format_rep(Rep, Indent, Extra, Limit));
+format_report(Rep, Indent0, Extra, Limit) ->
+    #{encoding:=Enc, depth:=Depth, single_line:=Single} = Extra,
     {P,Tl} = p(Enc,Depth),
     {Indent,Width} = if Single -> {"","0"};
                         true -> {Indent0,""}
                      end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
+    Opts = chars_limit_opt(Limit),
     io_lib:format("~s~"++Width++P, [Indent, Rep | Tl], Opts).
 
-format_rep([{initial_call,InitialCall}|Rep], Indent, Extra) ->
-    [format_mfa(Indent, InitialCall, Extra)|format_rep(Rep, Indent, Extra)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Indent, Extra) ->
-    [format_exception(Class, Reason, StackTrace, Extra)|
-     format_rep(Rep, Indent, Extra)];
-format_rep([{Tag,Data}|Rep], Indent, Extra) ->
-    [format_tag(Indent, Tag, Data, Extra)|format_rep(Rep, Indent, Extra)];
-format_rep(_, _, _Extra) ->
+format_rep([{initial_call,InitialCall}|Rep], Indent, Extra, Limit) ->
+    [format_mfa(Indent, InitialCall, Extra, Limit)|
+     format_rep(Rep, Indent, Extra, Limit)];
+format_rep([{Tag,Data}|Rep], Indent, Extra, Limit) ->
+    [format_tag(Indent, Tag, Data, Extra, Limit)|
+     format_rep(Rep, Indent, Extra, Limit)];
+format_rep(_, _, _Extra, _Limit) ->
     [].
 
-format_exception(Class, Reason, StackTrace,
-                 #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,
-                   single_line:=Single}=Extra) ->
-    PF = pp_fun(Extra),
+format_exception(Class, Reason, StackTrace, Extra, Limit) ->
+    #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     if Single ->
             {P,Tl} = p(Enc,Depth),
-            Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-                      true -> []
-                   end,
+            Opts = chars_limit_opt(Limit),
             [atom_to_list(Class), ": ",
              io_lib:format("~0"++P,[{Reason,StackTrace}|Tl],Opts)];
        true ->
+            %% Notice that each call to PF uses chars_limit, which
+            %% means that the total size of the formatted exception
+            %% can exceed the limit a lot.
+            PF = pp_fun(Extra, Enc),
             EI = "    ",
-            [EI, erl_error:format_exception(1+length(EI), Class, Reason,
-                                            StackTrace, StackFun, PF, Enc)]
+            Lim = case Limit of
+                      unlimited -> -1;
+                      _ -> Limit
+                  end,
+            FE = erl_error:format_exception(1+length(EI), Class, Reason,
+                                            StackTrace, StackFun, PF, Enc,
+                                            Lim),
+            [EI, FE]
     end.
 
-format_mfa(Indent0, {M,F,Args}=StartF, #{encoding:=Enc,single_line:=Single}=Extra) ->
+format_mfa(Indent0, {M,F,Args}=StartF, Extra, Limit) ->
+    #{encoding:=Enc,single_line:=Single} = Extra,
     Indent = if Single -> "";
                 true -> Indent0
              end,
     try
 	A = length(Args),
-	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
+	[Indent,"initial call: ",to_string(M, Enc),$:,to_string(F, Enc),$/,
 	 integer_to_list(A)]
     catch
 	error:_ ->
-	    format_tag(Indent, initial_call, StartF, Extra)
+	    format_tag(Indent, initial_call, StartF, Extra, Limit)
     end.
 
 to_string(A, latin1) ->
@@ -870,27 +1047,25 @@ to_string(A, latin1) ->
 to_string(A, _) ->
     io_lib:write_atom(A).
 
-pp_fun(#{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
+pp_fun(Extra, Enc) ->
+    #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
     {P,Tl} = p(Enc, Depth),
     Width = if Single -> "0";
                true -> ""
             end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
-    fun(Term, I) -> 
-            io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
-                          [Term|Tl], Opts)
+    fun(Term, I, Limit) ->
+            S = io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
+                              [Term|Tl], [{chars_limit, Limit}]),
+            {S, sub(Limit, S, Enc)}
     end.
 
-format_tag(Indent0, Tag, Data, #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
+format_tag(Indent0, Tag, Data, Extra, Limit) ->
+    #{encoding:=Enc,depth:=Depth,single_line:=Single} = Extra,
     {P,Tl} = p(Enc, Depth),
     {Indent,Width} = if Single -> {"","0"};
                         true -> {Indent0,""}
                      end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
+    Opts = chars_limit_opt(Limit),
     io_lib:format("~s~" ++ Width ++ "p: ~" ++ Width ++ ".18" ++ P,
                   [Indent, Tag, Data|Tl], Opts).
 
@@ -902,11 +1077,34 @@ p(Encoding, Depth) ->
     P = modifier(Encoding) ++ Letter,
     {P, Tl}.
 
+report_separator() -> "; ".
+
+part_separator() -> ", ".
+
+chars_limit_opt(CharsLimit) ->
+    [{chars_limit, CharsLimit} || is_integer(CharsLimit)].
+
 modifier(latin1) -> "";
 modifier(_) -> "t".
 
 nl(true,Else) -> Else;
 nl(false,_) -> "\n".
+
+%% Make sure T does change sign.
+sub(T, _, _Enc) when T < 0 -> T;
+sub(T, E, Enc) ->
+    Sz = size(Enc, E),
+    if
+        T >= Sz ->
+            T - Sz;
+        true ->
+            0
+    end.
+
+size(latin1, S) ->
+    iolist_size(S);
+size(_, S) ->
+    string:length(S).
 
 %%% -----------------------------------------------------------
 %%% Stop a process and wait for it to terminate
@@ -923,33 +1121,32 @@ stop(Process) ->
       Reason :: term(),
       Timeout :: timeout().
 stop(Process, Reason, Timeout) ->
-    {Pid, Mref} = erlang:spawn_monitor(do_stop(Process, Reason)),
+    Mref = erlang:monitor(process, Process),
+    T0 = erlang:monotonic_time(millisecond),
+    RemainingTimeout = try
+	sys:terminate(Process, Reason, Timeout)
+    of
+	ok when Timeout =:= infinity ->
+	    infinity;
+	ok ->
+	    Timeout - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+    catch
+	exit:{noproc, {sys, terminate, _}} ->
+	    demonitor(Mref, [flush]),
+	    exit(noproc);
+	exit:{timeout, {sys, terminate, _}} ->
+	    demonitor(Mref, [flush]),
+	    exit(timeout);
+	exit:Reason1 ->
+	    demonitor(Mref, [flush]),
+	    exit(Reason1)
+    end,
     receive
 	{'DOWN', Mref, _, _, Reason} ->
 	    ok;
-	{'DOWN', Mref, _, _, {noproc,{sys,terminate,_}}} ->
-	    exit(noproc);
-	{'DOWN', Mref, _, _, CrashReason} ->
-	    exit(CrashReason)
-    after Timeout ->
-	    exit(Pid, kill),
-	    receive
-		{'DOWN', Mref, _, _, _} ->
-		    exit(timeout)
-	    end
-    end.
-
--spec do_stop(Process, Reason) -> Fun when
-      Process :: pid() | RegName | {RegName,node()},
-      RegName :: atom(),
-      Reason :: term(),
-      Fun :: fun(() -> no_return()).
-do_stop(Process, Reason) ->
-    fun() ->
-	    Mref = erlang:monitor(process, Process),
-	    ok = sys:terminate(Process, Reason, infinity),
-	    receive
-		{'DOWN', Mref, _, _, ExitReason} ->
-		    exit(ExitReason)
-	    end
+	{'DOWN', Mref, _, _, Reason2} ->
+	    exit(Reason2)
+    after RemainingTimeout ->
+	demonitor(Mref, [flush]),
+	exit(timeout)
     end.

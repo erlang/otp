@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,7 +44,7 @@
            case functions.</p></item>
       </list>
       <p><c>Common Test</c> also integrates use of the OTP
-      <seealso marker="tools:cover">cover</seealso> tool in application 
+      <seeerl marker="tools:cover">cover</seeerl> tool in application 
       Tools for code coverage analysis of Erlang/OTP programs.</p>
       
       <p><c>Common Test</c> executes test suite programs automatically,

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2018. All Rights Reserved.
+# Copyright Ericsson AB 1998-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,10 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
-14: allocate_zero/2
+##
+##      OTP 24: This instruction has been superseded by allocate/2 followed
+##      by init_yregs/1.
+14: -allocate_zero/2
 
 ## @spec allocate_heap_zero StackNeed HeapNeed Live
 ## @doc Allocate space for StackNeed words on the stack and HeapNeed words
@@ -113,7 +116,10 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
-15: allocate_heap_zero/3
+##
+##      OTP 24: This instruction has been superseded by allocate_heap/2
+##      followed by init_yregs/1.
+15: -allocate_heap_zero/3
 
 ## @spec test_heap HeapNeed Live
 ## @doc Ensure there is space for HeapNeed words on the heap. If a GC is needed
@@ -122,7 +128,9 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec init N
 ## @doc  Clear the Nth stack word. (By writing NIL.)
-17: init/1
+##
+##       OTP 24: This instruction has been superseded by init_yregs/1.
+17: -init/1
 
 ## @spec deallocate N
 ## @doc  Restore the continuation pointer (CP) from the stack and deallocate
@@ -162,7 +170,7 @@ BEAM_FORMAT_NUMBER=0
 ##       receive loop at Label.
 25: wait/1
 
-## @spec wait_timeout Lable Time
+## @spec wait_timeout Label Time
 ## @doc  Sets up a timeout of Time milliseconds and saves the address of the
 ##       following instruction as the entry point if the timeout triggers.
 26: wait_timeout/2
@@ -184,7 +192,7 @@ BEAM_FORMAT_NUMBER=0
 38: -int_bnot/3
 
 #
-# Comparision operators.
+# Comparison operators.
 #
 
 ## @spec is_lt Lbl Arg1 Arg2
@@ -324,8 +332,8 @@ BEAM_FORMAT_NUMBER=0
 #
 68: -put_string/3
 69: put_list/3
-70: put_tuple/2
-71: put/1
+70: -put_tuple/2
+71: -put/1
 
 #
 # Raising errors.
@@ -389,8 +397,11 @@ BEAM_FORMAT_NUMBER=0
 #
 # Floating point arithmetic (R8).
 #
-94: fclearerror/0
-95: fcheckerror/1
+# The fclearerror and fcheckerror instructions are not used in OTP 24
+# and later.
+#
+94: -fclearerror/0
+95: -fcheckerror/1
 96: fmove/2
 97: fconv/2
 98: fadd/4
@@ -400,7 +411,7 @@ BEAM_FORMAT_NUMBER=0
 102: fnegate/3
 
 # New fun construction (R8).
-103: make_fun2/1
+103: -make_fun2/1
 
 # Try/catch/raise (R10B).
 104: try/2
@@ -427,14 +438,14 @@ BEAM_FORMAT_NUMBER=0
 
 # New bit syntax matching in R11B.
 
-116: bs_start_match2/5
+116: -bs_start_match2/5
 117: bs_get_integer2/7
 118: bs_get_float2/7
 119: bs_get_binary2/7
 120: bs_skip_bits2/5
 121: bs_test_tail2/3
-122: bs_save2/2
-123: bs_restore2/2
+122: -bs_save2/2
+123: -bs_restore2/2
 
 # New GC bifs introduced in R11B.
 
@@ -467,7 +478,7 @@ BEAM_FORMAT_NUMBER=0
 129: is_bitstr/2
 
 # R12B
-130: bs_context_to_binary/1
+130: -bs_context_to_binary/1
 131: bs_test_unit/3
 132: bs_match_string/4
 133: bs_init_writable/0
@@ -505,17 +516,8 @@ BEAM_FORMAT_NUMBER=0
 
 # R14A
 
-## @spec recv_mark Label
-## @doc  Save the end of the message queue and the address of
-##       the label Label so that a recv_set instruction can start
-##       scanning the inbox from this position.
-150: recv_mark/1
-
-## @spec recv_set Label
-## @doc Check that the saved mark points to Label and set the
-##      save pointer in the message queue to the last position
-##      of the message queue saved by the recv_mark instruction.
-151: recv_set/1
+150: -recv_mark/1
+151: -recv_set/1
 
 ## @spec gc_bif3 Lbl Live Bif Arg1 Arg2 Arg3 Reg
 ## @doc Call the bif Bif with the arguments Arg1, Arg2 and Arg3,
@@ -578,7 +580,7 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec put_tuple2  Destination Elements
 ## @doc  Build a tuple with the elements in the list Elements and put it
-##       put into register Destination.
+##       into register Destination.
 164: put_tuple2/2
 
 ## @spec bs_get_tail Ctx Dst Live
@@ -596,3 +598,94 @@ BEAM_FORMAT_NUMBER=0
 ## @spec bs_set_positon Ctx Pos
 ## @doc  Sets the current position of Ctx to Pos
 168: bs_set_position/2
+
+# OTP 23
+
+## @spec swap Register1 Register2
+## @doc  Swaps the contents of two registers.
+169: swap/2
+
+## @spec bs_start_match4 Fail Bin Live Dst
+## @doc  As bs_start_match3, but the fail label can be 'no_fail' when we know
+##       it will never fail at runtime, or 'resume' when we know the input is
+##       a match context.
+170: bs_start_match4/4
+
+# OTP 24
+
+## @spec make_fun3 OldIndex Dst EnvTerms
+## @doc  Build a fun with the environment in the list EnvTerms and put it
+##       into register Dst.
+171: make_fun3/3
+
+## @spec init_yregs ListOfYRegs
+## @doc  Initialize the Y registers in the list.
+172: init_yregs/1
+
+## @spec recv_marker_bind Marker Reference
+## @doc  Associates Reference with a previously reserved marker.
+173: recv_marker_bind/2
+
+## @spec recv_marker_clear Reference
+## @doc  Clears the receive marker associated with the given Reference.
+174: recv_marker_clear/1
+
+## @spec recv_marker_reserve Marker
+## @doc  Creates a receive marker which can be later bound to a reference.
+175: recv_marker_reserve/1
+
+## @spec recv_marker_use Reference
+## @doc  Sets the current receive cursor to the marker associated with
+##       the given Reference.
+176: recv_marker_use/1
+
+# OTP 25
+
+## @spec bs_create_bin Fail Alloc Live Unit Dst OpList
+## @doc  Builda a new binary using the binary syntax.
+177: bs_create_bin/6
+
+## @spec call_fun2 Tag Arity Func
+## @doc Calls the fun Func with arity Arity. Assume arguments in registers x(0)
+##      to x(Arity-1). Tag can be one of:
+##
+##      * FunIndex      - `Func` is always a local fun identified by `FunIndex`
+##      * {atom,safe}   - `Func` is known to be a fun of correct arity.
+##      * {atom,unsafe} - Nothing is known about `Func`.
+178: call_fun2/3
+
+## @spec nif_start
+## @doc  No-op at start of each function declared in -nifs().
+179: nif_start/0
+
+## @spec badrecord Value
+## @doc Raises a {badrecord,Value} error exception.
+180: badrecord/1
+
+# OTP 26
+
+## @spec update_record Hint Size Src Dst Updates=[Index, Value]
+## @doc  Sets Dst to a copy of Src with the update list applied. Hint can be
+##       one of:
+##
+##       * {atom,copy}        - The result will always differ from Src, so
+##                              don't bother checking if it can be reused.
+##       * {atom,reuse}       - Reuse Src if a runtime check deduces that it's
+##                              equal to the result.
+##
+##       Note that these are just hints and the implementation is free to
+##       ignore them. More hints may be added in the future.
+181: update_record/5
+
+## @spec bs_match Fail Ctx {commands,Commands}
+## @doc  Match one or more binary segments of fixed size. Commands
+##       can be one of the following:
+##
+##       * {ensure_at_least,Stride,Unit}
+##       * {ensure_exactly,Stride}
+##       * {binary,Live,Flags,Size,Unit,Dst}
+##       * {integer,Live,Flags,Size,Unit,Dst}
+##       * {skip,Stride}
+##       * {get_tail,Live,Unit,Dst}
+##       * {'=:=',Live,Size,Value}.
+182: bs_match/3

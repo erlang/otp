@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -286,7 +286,7 @@ find_prog(char *origpath)
                     beg = end + 1;
                     continue;
                 }
-                strncpy(dir, beg, sz);
+                memcpy(dir, beg, sz);
                 dir[sz] = '\0';
                 beg = end + 1;
 
@@ -510,8 +510,8 @@ main(int argc, char** argv)
     PUSH(emulator);
 
     PUSH("+B");
-    PUSH2("-boot", "no_dot_erlang");
     PUSH("-noshell");
+    PUSH2("-boot", "no_dot_erlang");
 
     /*
      * Read options from the %%! row in the script and add them as args

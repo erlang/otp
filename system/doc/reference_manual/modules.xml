@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,7 +45,7 @@ fact(N) when N>0 ->  % beginning of function declaration
 fact(0) ->           %  |
     1.               % end of function declaration</pre>
     <p>For a description of function declarations, see
-    <seealso marker="functions">Function Declaration Syntax</seealso>.</p>
+    <seeguide marker="functions">Function Declaration Syntax</seeguide>.</p>
   </section>
 
   <section>
@@ -64,7 +64,7 @@ fact(0) ->           %  |
     <p>Any module attribute can be specified. The attributes are stored
       in the compiled code and can be retrieved by calling
       <c>Module:module_info(attributes)</c>, or by using the module
-      <seealso marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seealso>
+      <seemfa marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seemfa>
        in STDLIB.</p>
 
     <p>Several module attributes have predefined meanings.
@@ -81,7 +81,7 @@ fact(0) ->           %  |
           <p>Module declaration, defining the name of the module.
             The name <c>Module</c>, an atom, is to be same as
             the file name minus the extension <c>.erl</c>. Otherwise
-            <seealso marker="code_loading#loading">code loading</seealso> does
+            <seeguide marker="code_loading#loading">code loading</seeguide> does
             not work as intended.</p>
           <p>This attribute is to be specified first and is the only
             mandatory attribute.</p>
@@ -109,14 +109,14 @@ fact(0) ->           %  |
           <p>Compiler options. <c>Options</c> is a single option
             or a list of options.
             This attribute is added to the option list when
-            compiling the module. See the <seealso marker="compiler:compile">
-            compile(3)</seealso> manual page in Compiler.</p>
+            compiling the module. See the <seeerl marker="compiler:compile">
+            compile(3)</seeerl> manual page in Compiler.</p>
         </item>
         <tag><c>-vsn(Vsn).</c></tag>
         <item>
           <p>Module version. <c>Vsn</c> is any literal term and can be
             retrieved using <c>beam_lib:version/1</c>, see the
-            <seealso marker="stdlib:beam_lib#version/1">beam_lib(3)</seealso>
+            <seemfa marker="stdlib:beam_lib#version/1">beam_lib(3)</seemfa>
             manual page in STDLIB.</p>
           <p>If this attribute is not specified, the version defaults
             to the MD5 checksum of the module.</p>
@@ -126,8 +126,37 @@ fact(0) ->           %  |
           <p>This attribute names a function that is to be run
             automatically when a
             module is loaded. For more information, see
-	    <seealso marker="code_loading#on_load">
-            Running a Function When a Module is Loaded</seealso>.</p>
+	    <seeguide marker="code_loading#on_load">
+            Running a Function When a Module is Loaded</seeguide>.</p>
+        </item>
+        <tag><marker id="nifs_attribute"/><c>-nifs(Functions).</c></tag>
+        <item>
+          <p>
+            Specifies which of the functions, defined within the module, that
+            may be loaded as NIFs with <seemfa marker="erts:erlang#load_nif/2">
+            <c>erlang:load_nif/2</c></seemfa>.
+          </p>
+          <p>
+            <c>Functions</c> is a list
+            <c>[Name1/Arity1, ..., NameN/ArityN]</c>, where each
+            <c>NameI</c> is an atom and <c>ArityI</c> an integer.
+          </p>
+          <p>While not strictly necessary, it is recommended to use <c>-nifs()</c>
+          attribute in any module that load NIFs, to allow the compiler to make
+          better decisions regarding optimizations.</p>
+          <p>There is no need to add <c>-nifs([])</c> in modules that do not
+          load NIFs. The lack of any call to
+          <seemfa marker="erts:erlang#load_nif/2"><c>erlang:load_nif/2</c></seemfa>,
+          from within the module, is enough for the compiler to draw the
+          same conclusion.
+          </p>
+          <change>
+            <p>
+              The special meaning for the <c>-nifs()</c> attribute was
+              introduced in Erlang/OTP 25.0. In previous releases, the
+              <c>-nifs()</c> was accepted, but had no special meaning.
+            </p>
+          </change>
         </item>
       </taglist>
     </section>
@@ -161,8 +190,8 @@ behaviour_info(callbacks) -> Callbacks.</pre>
        extra type information can be used by tools to produce
        documentation or find discrepancies.</p>
       <p>Read more about behaviours and callback modules in
-        <seealso marker="doc/design_principles:spec_proc#behaviours">
-        OTP Design Principles</seealso>.</p>
+        <seeguide marker="system/design_principles:spec_proc#behaviours">
+        OTP Design Principles</seeguide>.</p>
     </section>
 
     <section>
@@ -173,7 +202,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -record(Record,Fields).</pre>
       <p>Record definitions are allowed anywhere in a module,
         also among the function declarations.
-	Read more in <seealso marker="records">Records</seealso>.</p>
+	Read more in <seeguide marker="records">Records</seeguide>.</p>
     </section>
 
     <section>
@@ -185,7 +214,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -include("SomeFile.hrl").
 -define(Macro,Replacement).</pre>
 
-      <p>Read more in <seealso marker="macros">Preprocessor</seealso>.</p>
+      <p>Read more in <seeguide marker="macros">Preprocessor</seeguide>.</p>
     </section>
 
     <section>
@@ -209,7 +238,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	<pre>
 -type my_type() :: atom() | integer().
 -spec my_function(integer()) -> integer().</pre>
-        <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
+        <p>Read more in <seeguide marker="typespec">Types and Function specifications</seeguide>.
 	</p>
 	<p>
 	  The description is based on
@@ -218,6 +247,30 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	    which is not to be further updated.
 	</p>
     </section>
+  </section>
+
+  <section>
+    <title>
+      The feature directive
+    </title>
+
+    <p>
+      While not a module attribute, but rather a directive (since it
+      might affect syntax), there is the <c>-feature(..)</c>
+      directive used for enabling and disabling <seeguide
+      marker="system/reference_manual:features#features">features</seeguide>.
+    </p>
+    <p>
+      The syntax is similar to that of an attribute, but has two
+      arguments:
+    </p>
+    <pre>
+-feature(FeatureName, enable | disable).</pre>
+    <p>
+      Note that the <seeguide
+      marker="macros#feature-directive">feature directive</seeguide>
+      can only appear in a prefix of the module.
+    </p>
   </section>
 
   <section>
@@ -275,7 +328,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 
 	  <p>The list of attributes becomes empty if
 	  the module is stripped with the
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  <seemfa marker="stdlib:beam_lib#strip/1">beam_lib(3)</seemfa>
 	  module (in STDLIB).</p>
 	  </item>
 
@@ -284,15 +337,13 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <p>Returns a list of tuples with information about
 	  how the module was compiled. This list is empty if
 	  the module has been stripped with the
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  <seemfa marker="stdlib:beam_lib#strip/1">beam_lib(3)</seemfa>
 	  module (in STDLIB).</p>
 	  </item>
 
         <tag><c>md5</c></tag>
 	  <item>
-	  <p>Returns a binary representing the MD5 checksum of the module.
-          If the module has native code loaded, this will be the MD5 of the
-          native code, not the BEAM bytecode.</p>
+	  <p>Returns a binary representing the MD5 checksum of the module.</p>
 	  </item>
 
         <tag><c>exports</c></tag>

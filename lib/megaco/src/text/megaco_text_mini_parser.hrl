@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1167,6 +1167,7 @@ ensure_pathName({_TokenTag, _Line, Text}) ->
 %     #'PropertyParm'{name  = lists:reverse(Name),
 %                     value = [lists:reverse(Value)]}.
 
+-dialyzer({nowarn_function, ensure_uint/3}). % Future compat
 ensure_uint({_TokenTag, Line, Val}, Min, Max) when is_integer(Val) ->
     if
         is_integer(Min) andalso (Val >= Min) ->

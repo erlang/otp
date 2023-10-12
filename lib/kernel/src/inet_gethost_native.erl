@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 -behaviour(supervisor_bridge).
 
 %% Supervisor bridge exports
--export([start_link/0, init/1, terminate/2, start_raw/0, run_once/0]).
+-export([start_link/0, init/1, terminate/2]).
 
 %% Server export
 -export([server_init/2, main_loop/1]).
@@ -131,10 +131,16 @@ init([]) -> % Called by supervisor_bridge:start_link
 start_link() ->
     supervisor_bridge:start_link({local, ?PROCNAME_SUP}, ?MODULE, []).
 
+
+-spec terminate(term(), pid()) -> 'ok'.
+
+terminate(_Reason, Pid) ->
+    (catch exit(Pid, kill)),
+    ok.
+
+%%-----------------------------------------------------------------------
 %% Only used in fallback situations, no supervisor, no bridge, serve only until
 %% no requests present...
-start_raw() ->
-    spawn(?MODULE,run_once,[]).
 
 run_once() ->
     Port = do_open_port(get_poolsize(), get_extra_args()),
@@ -157,12 +163,6 @@ run_once() ->
     after Timeout ->
 	    Pid ! {R, {error, timeout}}
     end.
-
--spec terminate(term(), pid()) -> 'ok'.
-
-terminate(_Reason, Pid) ->
-    (catch exit(Pid, kill)),
-    ok.
 
 %%-----------------------------------------------------------------------
 %% Server API
@@ -389,34 +389,43 @@ restart_port(#state{port = Port, requests = Requests}) ->
 	    Requests),
     NewPort.
 
-
+-dialyzer({no_improper_lists, do_open_port/2}).
 do_open_port(Poolsize, ExtraArgs) ->
-    try 
-	open_port({spawn, 
-		   ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++" "++
-		   ExtraArgs},
-		  [{packet,4},eof,binary,overlapped_io])
+    Args = [integer_to_list(Poolsize)] ++ ExtraArgs,
+    %% open_executable/2 below assumes overlapped_io is at the head
+    Opts = [overlapped_io, {args, Args}, {packet,4}, eof, binary],
+    {ok,[BinDir]} = init:get_argument(bindir),
+    Prog = filename:join(BinDir, ?PORT_PROGRAM),
+    open_executable(Prog, Opts).
+
+open_executable(Prog, Opts) ->
+    try open_port({spawn_executable, Prog}, Opts)
     catch
-	error:_ ->
-	    open_port({spawn, 
-		       ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++
-		       " "++ExtraArgs},
-		      [{packet,4},eof,binary])
+        error : badarg when hd(Opts) =:= overlapped_io ->
+            open_executable(Prog, tl(Opts));
+        error : Reason ->
+            erlang:halt(
+              "Can not execute "++Prog++" : "++term2string(Reason))
     end.
+
+term2string(Term) ->
+    unicode:characters_to_list(io_lib:format("~tw", [Term])).
+
+
 
 get_extra_args() ->
-    FirstPart = case application:get_env(kernel, gethost_prioritize) of
-		    {ok, false} ->
-			" -ng";
-		    _ ->
-			""
-		end,
-    case application:get_env(kernel, gethost_extra_args) of
-	{ok, L} when is_list(L) ->
-	    FirstPart++" "++L;
-	_ ->
-	    FirstPart++""
-    end.
+    case application:get_env(kernel, gethost_prioritize) of
+        {ok, false} ->
+            ["-ng"];
+        _ ->
+            []
+    end ++
+        case application:get_env(kernel, gethost_extra_args) of
+            {ok, L} when is_list(L) ->
+                string:tokens(L, " ");
+            _ ->
+                []
+        end.
 
 get_poolsize() ->
     case application:get_env(kernel, gethost_poolsize) of
@@ -508,6 +517,34 @@ getit(Req, DefaultName) ->
 	    Res2
     end.
 
+ensure_started() ->
+    case whereis(?MODULE) of
+	undefined ->
+	    ChildSpec =
+                {?PROCNAME_SUP, {?MODULE, start_link, []}, temporary,
+		 1000, worker, [?MODULE]},
+            ensure_started([kernel_safe_sup, net_sup], ChildSpec);
+	Pid ->
+	    Pid
+    end.
+
+ensure_started([Supervisor|Supervisors], ChildSpec) ->
+    case whereis(Supervisor) of
+        undefined ->
+            ensure_started(Supervisors, ChildSpec);
+        _ ->
+            do_start(Supervisor, ChildSpec),
+            case whereis(?MODULE) of
+                undefined ->
+                    exit({could_not_start_server, ?MODULE});
+                Pid ->
+                    Pid
+            end
+    end;
+ensure_started([], _ChildSpec) ->
+    %% Icky fallback, run once without supervisor
+    spawn(fun run_once/0).
+
 do_start(Sup, C) ->
     {Child,_,_,_,_,_} = C,
     case supervisor:start_child(Sup,C) of
@@ -522,38 +559,6 @@ do_start(Sup, C) ->
 	    do_start(Sup, C)
     end.
 
-ensure_started() ->
-    case whereis(?MODULE) of
-	undefined -> 
-	    C = {?PROCNAME_SUP, {?MODULE, start_link, []}, temporary, 
-		 1000, worker, [?MODULE]},
-	    case whereis(kernel_safe_sup) of
-		undefined ->
-		    case whereis(net_sup) of
-			undefined ->
-			    %% Icky fallback, run once without supervisor
-			    start_raw();
-			_ ->
-			    do_start(net_sup,C),
-			    case whereis(?MODULE) of
-				undefined ->
-				    exit({could_not_start_server, ?MODULE});
-				Pid0 ->
-				    Pid0
-			    end
-		    end;
-		_ ->
-		    do_start(kernel_safe_sup,C),
-		    case whereis(?MODULE) of
-			undefined ->
-			    exit({could_not_start_server, ?MODULE});
-			Pid1 ->
-			    Pid1
-		    end
-	    end;
-	Pid -> 
-	    Pid
-    end.
 
 parse_address(BinHostent, DefaultName) ->
     case catch 
@@ -561,20 +566,18 @@ parse_address(BinHostent, DefaultName) ->
 	    case BinHostent of
 		<<?UNIT_ERROR, Errstring/binary>> -> 
 		    {error, list_to_atom(listify(Errstring))};
-		<<?UNIT_IPV4, Naddr:32, T0/binary>> ->
+		<<Length, Naddr:32, T0/binary>>
+                  when Length =:= ?UNIT_IPV4 ->
 		    {T1, Addresses} = pick_addresses_v4(Naddr, T0),
 		    {Name, Names} =
 			expand_default_name(pick_names(T1), DefaultName),
-		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet,
-				  h_aliases = Names, h_length = ?UNIT_IPV4, 
-				  h_name = Name}};
-		<<?UNIT_IPV6, Naddr:32, T0/binary>> ->
+                    return_hostent(Length, Addresses, Name, Names);
+		<<Length, Naddr:32, T0/binary>>
+                  when Length =:= ?UNIT_IPV6 ->
 		    {T1, Addresses} = pick_addresses_v6(Naddr, T0),
 		    {Name, Names} =
 			expand_default_name(pick_names(T1), DefaultName),
-		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet6,
-				  h_aliases = Names, h_length = ?UNIT_IPV6, 
-				  h_name = Name}};
+                    return_hostent(Length, Addresses, Name, Names);
 		_Else ->
 		    {error, {internal_error, {malformed_response, BinHostent}}}
 	    end
@@ -583,6 +586,24 @@ parse_address(BinHostent, DefaultName) ->
 	    Reason;
 	Normal ->
 	    Normal
+    end.
+
+return_hostent(Length, Addresses, Name, Aliases) ->
+    case Addresses of
+        [] ->
+            {error, nxdomain};
+        [_|_] ->
+            Addrtype =
+                case Length of
+                    ?UNIT_IPV4 -> inet;
+                    ?UNIT_IPV6 -> inet6
+                end,
+            Hostent =
+                #hostent{
+                   h_length = Length,       h_addrtype = Addrtype,
+                   h_name = Name,           h_aliases = Aliases,
+                   h_addr_list = Addresses},
+            {ok, Hostent}
     end.
 
 expand_default_name([], DefaultName) when is_list(DefaultName) ->

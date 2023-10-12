@@ -1,0 +1,2 @@
+
+extra_return.erl:7:2: The specification for extra_return:t1/0 states that the function might also return 'other' but the inferred return is boolean()

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -272,7 +272,7 @@ client_loop(#state{mode = generating} = State) ->
     end;
 
 %% The client no longer issues any new requests, instead it 
-%% waits for replies for all the oustanding requests to 
+%% waits for replies for all the outstanding requests to 
 %% arrive.
 client_loop(#state{mode     = stopping, 
 		   time     = Time, 

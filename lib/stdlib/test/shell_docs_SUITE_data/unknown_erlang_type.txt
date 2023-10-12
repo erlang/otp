@@ -1,0 +1,171 @@
+[;1m	erlang[0m
+
+These types are documented in this module:
+
+  [;1m-type any() :: any().[0m
+
+  [;1m-type arity() :: arity().[0m
+
+  [;1m-type atom() :: atom().[0m
+
+  [;1m-type binary() :: <<_:_*8>>.[0m
+
+  [;1m-type bitstring() :: <<_:_*1>>.[0m
+
+  [;1m-type boolean() :: true | false.[0m
+
+  [;1m-type byte() :: 0..255.[0m
+
+  [;1m-type char() :: 0..1114111.[0m
+
+  [;1m-type float() :: float().[0m
+
+  [;1m-type function() :: fun().[0m
+
+  [;1m-type identifier() :: pid() | port() | reference().[0m
+
+  [;1m-type integer() :: integer().[0m
+
+  [;1m-type iodata() :: iolist() | binary().[0m
+
+  [;1m-type iolist() ::[0m
+  [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
+  [;1m                              binary() | []).[0m
+
+  [;1m-type list() :: [any()].[0m
+
+  [;1m-type list(ContentType) :: [ContentType].[0m
+
+  [;1m-type map() :: #{any() => any()}.[0m
+
+  [;1m-type maybe_improper_list() :: maybe_improper_list(any(), any()).[0m
+
+  [;1m-type maybe_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          maybe_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type mfa() :: {module(), atom(), arity()}.[0m
+
+  [;1m-type module() :: atom().[0m
+
+  [;1m-type neg_integer() :: neg_integer().[0m
+
+  [;1m-type nil() :: [].[0m
+
+  [;1m-type no_return() :: none().[0m
+
+  [;1m-type node() :: atom().[0m
+
+  [;1m-type non_neg_integer() :: non_neg_integer().[0m
+
+  [;1m-type none() :: none().[0m
+
+  [;1m-type nonempty_binary() :: <<_:8, _:_*8>>.[0m
+
+  [;1m-type nonempty_bitstring() :: <<_:1, _:_*1>>.[0m
+
+  [;1m-type nonempty_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          nonempty_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type nonempty_list() :: [any(), ...].[0m
+
+  [;1m-type nonempty_list(ContentType) :: [ContentType, ...].[0m
+
+  [;1m-type nonempty_maybe_improper_list() ::[0m
+  [;1m          nonempty_maybe_improper_list(any(), any()).[0m
+
+  [;1m-type nonempty_maybe_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          nonempty_maybe_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type nonempty_string() :: [char(), ...].[0m
+
+  [;1m-type number() :: integer() | float().[0m
+
+  [;1m-type pid() :: pid().[0m
+
+  [;1m-type port() :: port().[0m
+
+  [;1m-type pos_integer() :: pos_integer().[0m
+
+  [;1m-type reference() :: reference().[0m
+
+  [;1m-type string() :: [char()].[0m
+
+  [;1m-type term() :: any().[0m
+
+  [;1m-type timeout() :: infinity | non_neg_integer().[0m
+
+  [;1m-type tuple() :: tuple().[0m
+
+  [;1m-type ext_binary() :: binary().[0m
+
+  [;1m-type ext_iovec() :: iovec().[0m
+
+  [;1m-type iovec() :: [binary()].[0m
+
+  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
+
+  [;1m-type monitor_option() ::[0m
+  [;1m          {alias, explicit_unalias | demonitor | reply_demonitor} |[0m
+  [;1m          {tag, term()}.[0m
+
+  [;1m-type timestamp() ::[0m
+  [;1m          {MegaSecs :: non_neg_integer(),[0m
+  [;1m           Secs :: non_neg_integer(),[0m
+  [;1m           MicroSecs :: non_neg_integer()}.[0m
+
+  [;1m-type time_unit() ::[0m
+  [;1m          pos_integer() |[0m
+  [;1m          second | millisecond | microsecond | nanosecond | native |[0m
+  [;1m          perf_counter |[0m
+  [;1m          deprecated_time_unit().[0m
+
+  [;1m-type deprecated_time_unit() ::[0m
+  [;1m          seconds | milli_seconds | micro_seconds | nano_seconds.[0m
+
+  [;1m-opaque dist_handle() [0m
+
+  [;1m-opaque nif_resource() [0m
+
+  [;1m-type spawn_opt_option() ::[0m
+  [;1m          link | monitor |[0m
+  [;1m          {monitor, MonitorOpts :: [monitor_option()]} |[0m
+  [;1m          {priority, Level :: priority_level()} |[0m
+  [;1m          {fullsweep_after, Number :: non_neg_integer()} |[0m
+  [;1m          {min_heap_size, Size :: non_neg_integer()} |[0m
+  [;1m          {min_bin_vheap_size, VSize :: non_neg_integer()} |[0m
+  [;1m          {max_heap_size, Size :: max_heap_size()} |[0m
+  [;1m          {message_queue_data, MQD :: message_queue_data()} |[0m
+  [;1m          {async_dist, Enabled :: boolean()}.[0m
+
+  [;1m-type priority_level() :: low | normal | high | max.[0m
+
+  [;1m-type max_heap_size() ::[0m
+  [;1m          Size ::[0m
+  [;1m              non_neg_integer() |[0m
+  [;1m              #{size => non_neg_integer(),[0m
+  [;1m                kill => boolean(),[0m
+  [;1m                error_logger => boolean(),[0m
+  [;1m                include_shared_binaries => boolean()}.[0m
+
+  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
+
+  [;1m-type stacktrace_extrainfo() ::[0m
+  [;1m          {line, pos_integer()} |[0m
+  [;1m          {file, unicode:chardata()} |[0m
+  [;1m          {error_info,[0m
+  [;1m           #{module => module(), function => atom(), cause => term()}} |[0m
+  [;1m          {atom(), term()}.[0m
+
+  [;1m-type stacktrace() ::[0m
+  [;1m          [{module(),[0m
+  [;1m            atom(),[0m
+  [;1m            arity() | [term()],[0m
+  [;1m            [stacktrace_extrainfo()]} |[0m
+  [;1m           {function(), arity() | [term()], [stacktrace_extrainfo()]}].[0m
+
+  [;1m-type send_destination() ::[0m
+  [;1m          pid() |[0m
+  [;1m          reference() |[0m
+  [;1m          port() |[0m
+  [;1m          (RegName :: atom()) |[0m
+  [;1m          {RegName :: atom(), Node :: node()}.[0m

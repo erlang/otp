@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,6 +77,11 @@
 -record('ECPoint', {
 	  point
 	 }).
+
+-record(cert, {
+               der :: public_key:der_encoded(),
+               otp :: #'OTPCertificate'{}
+              }).
 
 -define(unspecified, 0).
 -define(keyCompromise, 1).

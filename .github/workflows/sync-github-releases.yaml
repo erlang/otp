@@ -1,0 +1,28 @@
+name: Sync all github releases with erlang.org
+
+## Sync all github releases every hour
+on:
+  workflow_dispatch:
+  schedule:
+  ## In UTC
+  - cron: '0 * * * *'
+
+## Build base images to be used by other github workflows
+jobs:
+
+  sync-releases:
+    if: github.repository == 'erlang/otp'
+    concurrency: sync-github-releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.0
+      ## We need to login to the package registry in order to pull
+      ## the base debian image.
+      - name: Docker login
+        run: docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Sync releases
+        env:
+          ERLANG_ORG_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: >
+          .github/scripts/sync-github-releases.sh ${{ github.repository }}
+          "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m

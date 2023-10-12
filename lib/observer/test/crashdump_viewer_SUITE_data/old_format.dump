@@ -793,7 +793,6 @@ dsend
 dsend_nosuspend
 dunlink
 duplicate_bag
-elib_malloc
 emulator
 enable_trace
 env

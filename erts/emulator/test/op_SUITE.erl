@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,22 +23,28 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-         bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,complex_relop/1]).
+         bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
+         complex_relop/1,unsafe_fusing/1,
+         range_tests/1,combined_relops/1,typed_relop/1]).
 
--export([]).
 -import(lists, [foldl/3,flatmap/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 5}}].
 
-all() -> 
+all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
-     complex_relop].
+     complex_relop, unsafe_fusing, range_tests,
+     combined_relops, typed_relop].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
-    Vs = [unvalue(V) || V <- [-16#8000009-2,-1,0,1,2,73,16#8000000,bad,[]]],
+    RawValues = [-16#8000009-2,-1,0,1,2,73,16#8000000,bad,[]],
+
+    [bsl_bsr_const(V) || V <- RawValues],
+
+    Vs = [unvalue(V) || V <- RawValues],
     %% Try to use less memory by splitting the cases
 
     Cases1 = [{Op,X,Y} || Op <- ['bsl'], X <- Vs, Y <- Vs],
@@ -48,7 +54,75 @@ bsl_bsr(Config) when is_list(Config) ->
     Cases2 = [{Op,X,Y} || Op <- ['bsr'], X <- Vs, Y <- Vs],
     N2 = length(Cases2),
     run_test_module(Cases2, false),
+
     {comment,integer_to_list(N1 + N2) ++ " cases"}.
+
+%% Tests constant-argument optimizations in `bsl`/`bsr`
+bsl_bsr_const(A) ->
+    BSL = id('bsl'),
+    BSR = id('bsr'),
+
+    bsl_bsr_compare_results((catch erlang:BSL(1, A)), (catch 1 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(3, A)), (catch 3 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(7, A)), (catch 7 bsl A)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(A, 1)), (catch A bsl 1)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, 3)), (catch A bsl 3)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, 7)), (catch A bsl 7)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(-2, A)), (catch -2 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(-4, A)), (catch -4 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(-8, A)), (catch -8 bsl A)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(A, -2)), (catch A bsl -2)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, -4)), (catch A bsl -4)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, -8)), (catch A bsl -8)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(1, A)), (catch 1 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(3, A)), (catch 3 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(7, A)), (catch 7 bsr A)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(A, 1)), (catch A bsr 1)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, 3)), (catch A bsr 3)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, 7)), (catch A bsr 7)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(-2, A)), (catch -2 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(-4, A)), (catch -4 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(-8, A)), (catch -8 bsr A)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(A, -2)), (catch A bsr -2)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, -4)), (catch A bsr -4)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, -8)), (catch A bsr -8)),
+
+
+    %% These numbers can be shifted left one or zero times while remaining a
+    %% small on 32-bit platforms.
+    %%
+    %% The test relies on the compiler turning these into constants.
+    HighEdge32 = (1 bsl (32 - 6)) - 1,
+    LowEdge32 = -(1 bsl (32 - 6)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(HighEdge32, A)), (catch HighEdge32 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(LowEdge32, A)), (catch LowEdge32 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSR(HighEdge32, A)), (catch HighEdge32 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(LowEdge32, A)), (catch LowEdge32 bsr A)),
+
+    HighEdge64 = (1 bsl (64 - 6)) - 1,
+    LowEdge64 = -(1 bsl (64 - 6)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(HighEdge64, A)), (catch HighEdge64 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(LowEdge64, A)), (catch LowEdge64 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSR(HighEdge64, A)), (catch HighEdge64 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(LowEdge64, A)), (catch LowEdge64 bsr A)),
+
+    ok.
+
+bsl_bsr_compare_results(Same, Same) ->
+    ok;
+bsl_bsr_compare_results({'EXIT',{Reason,[_|_]}}, {'EXIT',{Reason,[_|_]}}) ->
+    %% The applied and inlined implementations may differ in whether they include
+    %% the operator as the top element of the stack.
+    ok.
 
 %% Test the logical operators and internal BIFs.
 logical(Config) when is_list(Config) ->
@@ -220,7 +294,11 @@ relop(Config) when is_list(Config) ->
     Big2 = 19738924729729787487784874,
     F1 = float(Big1),
     F2 = float(Big2),
-    Vs0 = [a,b,-33,-33.0,0,0.0,42,42.0,Big1,Big2,F1,F2],
+    Bin = <<"abc">>,
+    BitString = <<0:7>>,
+    Map = #{a => b},
+    Vs0 = [a,b,-33,-33.0,0,0.0,42,42.0,Big1,Big2,F1,F2,
+           Bin,BitString,Map],
     Vs = [unvalue(V) || V <- Vs0],
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -229,7 +307,10 @@ relop(Config) when is_list(Config) ->
 complex_relop(Config) when is_list(Config) ->
     Big = 99678557475484872464269855544643333,
     Float = float(Big),
-    Vs0 = [an_atom,42.0,42,Big,Float],
+    Bin = <<"abc">>,
+    BitString = <<0:7>>,
+    Map = #{a => b},
+    Vs0 = [an_atom,42.0,42,Big,Float,Bin,BitString,Map],
     Vs = flatmap(fun(X) -> [unvalue({X}),unvalue([X])] end, Vs0),
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -261,22 +342,25 @@ run_test_module(Cases, GuardsOk) ->
     Module = erl_parse:new_anno(Module0),
     lists:foreach(fun(F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Module),
 
-    %% Compile, load, and run the generated module.
+    %% Compile, load, and run the generated module. Test both with and
+    %% without compiler optimizations to ensure that we test both the
+    %% implementation of the BIFs and the BEAM instructions.
+    do_run_test_module(Module, []),
+    do_run_test_module(Module, [no_copt,no_ssa_opt,no_postopt]).
 
-    Native = case test_server:is_native(?MODULE) of
-                 true -> [native];
-                 false -> []
-             end,
-    {ok,Mod,Code1} = compile:forms(Module, [time|Native]),
-    code:delete(Mod),
-    code:purge(Mod),
+do_run_test_module(Module, Opts) ->
+    {ok,Mod,Code1} = compile:forms(Module, [time|Opts]),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+
     {module,Mod} = code:load_binary(Mod, Mod, Code1),
+
     run_function(Mod, guard_tests),
     run_function(Mod, body_tests),
     run_function(Mod, bif_tests),
 
     true = code:delete(Mod),
-    code:purge(Mod),
+    _ = code:purge(Mod),
 
     ok.
 
@@ -343,8 +427,7 @@ save_term(Term) ->
 
 make_module(Name, Funcs) ->
     [{attribute,1,module,Name},
-     {attribute,0,compile,export_all},
-     {attribute,0,compile,[{hipe,[{regalloc,linear_scan}]}]} |
+     {attribute,0,compile,export_all} |
      Funcs ++ [{eof,0}]].
 
 make_function(Name, Body) ->
@@ -356,6 +439,544 @@ eval(E0) ->
         {'EXIT',Reason} -> {'EXIT',Reason};
         {value,Val,_Bs} -> Val
     end.
+
+unsafe_fusing(_Config) ->
+    0 = usec_to_seconds(id(1)),
+    234_567 = usec_to_seconds(id(1_234_567_890*1_000)),
+    ok.
+
+usec_to_seconds(Usec) when is_integer(Usec) ->
+    %% The introduction of typed operands caused the loader
+    %% to incorrectly fuse the following instrutions because
+    %% the result register ({x,0}) from the 'div' instruction
+    %% seemed to be distinct from both operands of the 'rem'
+    %% instruction:
+    %%
+    %% {gc_bif,'div',
+    %%         {f,0},
+    %%         1,
+    %%         [{tr,{x,0},{t_integer,any}},{integer,1000000}],
+    %%         {x,0}}.
+    %% {gc_bif,'rem',
+    %%         {f,0},
+    %%         1,
+    %%         [{tr,{x,0},{t_integer,any}},{integer,1000000}],
+    %%         {x,0}}.
+    Sec = Usec div 1000000,
+    Sec rem 1000000.
+
+range_tests(_Config) ->
+    %% Define the limits for smalls on a 64-bit system.
+    {MinSmall, MaxSmall} = {-1 bsl 59, (1 bsl 59) - 1},
+    case erlang:system_info(wordsize) of
+        8 ->
+            %% Assertions.
+            2 = erts_debug:flat_size(MinSmall-1),
+            0 = erts_debug:flat_size(MinSmall),
+            0 = erts_debug:flat_size(MaxSmall),
+            2 = erts_debug:flat_size(MaxSmall+1);
+        4 ->
+            ok
+    end,
+
+    lesser = range(-1 bsl 64),
+    lesser = range(MinSmall),
+    lesser = range(0),
+    lesser = range(-1),
+    lesser = range(0.9999),
+
+    inside = range_any(1),
+    inside = range_any(2),
+    inside = range_any(2.5),
+    inside = range_any(math:pi()),
+    inside = range_any(5),
+    inside = range_any(9),
+    inside = range_any(10),
+
+    greater = range(10.0001),
+    greater = range(11),
+    greater = range(MaxSmall),
+    greater = range(1 bsl 64),
+    greater = range(atom),
+    greater = range(self()),
+    greater = range(make_ref()),
+    greater = range({a,b}),
+    greater = range([a,b]),
+    greater = range([]),
+    greater = range(<<1,2,3>>),
+    greater = range(fun() -> ok end),
+    greater = range(fun ?MODULE:range_tests/1),
+
+    lesser = range(-1 bsl 64),
+    lesser = range(float(-1 bsl 64)),
+    lesser = range_big(MinSmall - 2),
+    lesser = range_barely_small(MinSmall - 1),
+
+    inside = range_barely_small(MinSmall),
+    inside = range_barely_small(-1 bsl 58),
+    inside = range_barely_small(0),
+    inside = range_barely_small(17.75),
+    inside = range_barely_small(1 bsl 58),
+    inside = range_barely_small(MaxSmall),
+
+    greater = range_barely_small(MaxSmall + 1),
+    greater = range_big(MaxSmall + 2),
+    greater = range_big(1 bsl 64),
+    greater = range_big(float(1 bsl 64)),
+
+    lesser = range(-1 bsl 64),
+    lesser = range(float(-1 bsl 64)),
+    lesser = range_big(MinSmall - 2),
+
+    inside = range_big(MinSmall),
+    inside = range_big(-1 bsl 58),
+    inside = range_big(0),
+    inside = range_big(17.75),
+    inside = range_big(1 bsl 58),
+    inside = range_big(MaxSmall),
+
+    greater = range_big(MaxSmall + 2),
+    greater = range_big(1 bsl 64),
+    greater = range_big(float(1 bsl 64)),
+
+    inside = int_range_1(id(-100_000)),
+    inside = int_range_1(id(-10)),
+    inside = int_range_1(id(100)),
+    inside = int_range_1(id(100_000)),
+
+    outside = int_range_1(id(atom)),
+    outside = int_range_1(id(-1 bsl 60)),
+    outside = int_range_1(id(-100_001)),
+    outside = int_range_1(id(100_001)),
+    outside = int_range_1(id(1 bsl 60)),
+
+    inside = int_range_2(id(1)),
+    inside = int_range_2(id(42)),
+    inside = int_range_2(id(16#f000_0000)),
+
+    outside = int_range_2(id([a,list])),
+    outside = int_range_2(id(0)),
+    outside = int_range_1(id(-1 bsl 60)),
+    outside = int_range_1(id(1 bsl 60)),
+
+    inside = int_range_3(id(1 bsl 28)),
+    inside = int_range_3(id((1 bsl 28) + 1)),
+    inside = int_range_3(id((1 bsl 33) + 555)),
+    inside = int_range_3(id((1 bsl 58) - 1)),
+    inside = int_range_3(id(1 bsl 58)),
+
+    outside = int_range_3(id({a,tuple})),
+    outside = int_range_3(id(-1 bsl 60)),
+    outside = int_range_3(id(-1000)),
+    outside = int_range_3(id(100)),
+    outside = int_range_3(id((1 bsl 58) + 1)),
+    outside = int_range_3(id(1 bsl 60)),
+
+    ok.
+
+range(X) ->
+    Res = range_any(X),
+    if
+        is_integer(X) ->
+            Res = range_any(float(X)),
+            Res = range_number(X),
+            Res = range_number(float(X)),
+            Res = range_int(X),
+            if
+                X =:= X band 16#ffff ->
+                    Res = range_small_int(X);
+                true ->
+                    Res
+            end;
+        is_number(X) ->
+            Res = range_number(X);
+        true ->
+            Res = range_big(X),
+            Res = range_barely_small(X)
+    end.
+
+range_any(X0) ->
+    X = id(X0),
+    case range_any_1(X) of
+        inside ->
+            inside = range_any_2(X);
+        Other ->
+            outside = range_any_2(X),
+            Other
+    end.
+
+%% The guard tests have different failure labels.
+range_any_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_any_1(X) when X < 1 ->
+    lesser;
+range_any_1(X) when X > 10 ->
+    greater.
+
+%% The guard tests have the same failure label.
+range_any_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_any_2(_) ->
+    outside.
+
+range_number(X) when is_number(X) ->
+    case range_number_1(X) of
+        inside ->
+            inside = range_number_2(X);
+        Other ->
+            outside = range_number_2(X),
+            Other
+    end.
+
+range_number_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_number_1(X) when X < 1 ->
+    lesser;
+range_number_1(X) when X > 10 ->
+    greater.
+
+range_number_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_number_2(_) ->
+    outside.
+
+range_int(X) when is_integer(X) ->
+    case range_int_1(X) of
+        inside ->
+            inside = range_int_2(X);
+        Other ->
+            outside = range_int_2(X),
+            Other
+    end.
+
+range_int_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_int_1(X) when X < 1 ->
+    lesser;
+range_int_1(X) when X > 10 ->
+    greater.
+
+range_int_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_int_2(_) ->
+    outside.
+
+range_small_int(X) when is_integer(X) ->
+    case range_small_int_1(X) of
+        inside ->
+            inside = range_small_int_2(X);
+        Other ->
+            outside = range_small_int_2(X),
+            Other
+    end.
+
+range_small_int_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_small_int_1(X) when X < 1 ->
+    lesser;
+range_small_int_1(X) when X > 10 ->
+    greater.
+
+range_small_int_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_small_int_2(_) ->
+    outside.
+
+range_barely_small(X) ->
+    case range_barely_small_1(X) of
+        inside ->
+            inside = range_barely_small_2(X);
+        Other ->
+            outside = range_barely_small_2(X),
+            Other
+    end.
+
+range_barely_small_1(X) when -1 bsl 59 =< X, X =< (1 bsl 59) - 1 ->
+    inside;
+range_barely_small_1(X) when X < -1 bsl 59 ->
+    lesser;
+range_barely_small_1(X) when X > (1 bsl 59) - 1 ->
+    greater.
+
+range_barely_small_2(X) when -1 bsl 59 =< X, X =< (1 bsl 59) - 1 ->
+    inside;
+range_barely_small_2(_) ->
+    outside.
+
+range_big(X) ->
+    case range_big_1(X) of
+        inside ->
+            inside = range_big_2(X);
+        Other ->
+            outside = range_big_2(X),
+            Other
+    end.
+
+range_big_1(X) when (-1 bsl 59) - 1 =< X, X =< 1 bsl 59 ->
+    inside;
+range_big_1(X) when X < (-1 bsl 59) - 1 ->
+    lesser;
+range_big_1(X) when X > 1 bsl 59 ->
+    greater.
+
+range_big_2(X) when (-1 bsl 59) - 1 =< X, X =< 1 bsl 59 ->
+    inside;
+range_big_2(_) ->
+    outside.
+
+int_range_1(X) when is_integer(X), -100_000 =< X, X =< 100_000 ->
+    inside;
+int_range_1(_) ->
+    outside.
+
+int_range_2(X) when is_integer(X), 1 =< X, X =< 16#f000_0000 ->
+    inside;
+int_range_2(_) ->
+    outside.
+
+int_range_3(X) when is_integer(X), 1 bsl 28 =< X, X =< 1 bsl 58 ->
+    inside;
+int_range_3(_) ->
+    outside.
+
+combined_relops(_Config) ->
+    other = test_tok_char(-1 bsl 64),
+    other = test_tok_char($A - 1),
+
+    var = test_tok_char($A),
+    var = test_tok_char($B),
+    var = test_tok_char($P),
+    var = test_tok_char($Y),
+    var = test_tok_char($Z),
+
+    other = test_tok_char($Z + 1),
+
+    var = tok_char($_),
+    other = tok_char(float($_)),
+
+    other = test_tok_char(1 bsl 64),
+
+    other = test_tok_char(atom),
+    other = test_tok_char(self()),
+
+    %%
+    b = ge_ge_int_range_1(-200),
+    b = ge_ge_int_range_1(-101),
+
+    a = ge_ge_int_range_1(-100),
+    a = ge_ge_int_range_1(-50),
+    a = ge_ge_int_range_1(-10),
+
+    b = ge_ge_int_range_1(-9),
+    b = ge_ge_int_range_1(-6),
+
+    a = ge_ge_int_range_1(-5),
+
+    b = ge_ge_int_range_1(-4),
+    b = ge_ge_int_range_1(0),
+    b = ge_ge_int_range_1(42),
+
+    %%
+    b = ge_ge_int_range_2(-1 bsl 59),
+
+    a = ge_ge_int_range_2((-1 bsl 59) + 1),
+    a = ge_ge_int_range_2(-1 bsl 58),
+    a = ge_ge_int_range_2(-1000),
+    a = ge_ge_int_range_2(1 bsl 58),
+    a = ge_ge_int_range_2((1 bsl 59) - 10),
+
+    b = ge_ge_int_range_2((1 bsl 59) - 9),
+
+    a = ge_ge_int_range_2((1 bsl 59) - 5),
+
+    b = ge_ge_int_range_2((1 bsl 59) - 4),
+    b = ge_ge_int_range_2((1 bsl 59) - 1),
+
+    %%
+    b = ge_ge_int_range_3(-1 bsl 59),
+
+    b = ge_ge_int_range_3((-1 bsl 59) + 1),
+    b = ge_ge_int_range_3(-1 bsl 58),
+    b = ge_ge_int_range_3(-1000),
+    b = ge_ge_int_range_3(1 bsl 58),
+
+    a = ge_ge_int_range_3((1 bsl 59) - 20),
+    a = ge_ge_int_range_3((1 bsl 59) - 15),
+    a = ge_ge_int_range_3((1 bsl 59) - 10),
+
+    b = ge_ge_int_range_3((1 bsl 59) - 9),
+
+    a = ge_ge_int_range_3((1 bsl 59) - 5),
+
+    b = ge_ge_int_range_3((1 bsl 59) - 4),
+    b = ge_ge_int_range_3((1 bsl 59) - 1),
+
+    %%
+    b = ge_ge_int_range_4(-1 bsl 59),
+
+    a = ge_ge_int_range_4((-1 bsl 59) + 1),
+    a = ge_ge_int_range_4((-1 bsl 59) + 3),
+    a = ge_ge_int_range_4((-1 bsl 59) + 5),
+
+    b = ge_ge_int_range_4((-1 bsl 59) + 6),
+    b = ge_ge_int_range_4((-1 bsl 59) + 9),
+
+    a = ge_ge_int_range_4((-1 bsl 59) + 10),
+
+    b = ge_ge_int_range_4((-1 bsl 59) + 11),
+
+    b = ge_ge_int_range_4(0),
+    b = ge_ge_int_range_4(1000),
+
+    b = ge_ge_int_range_4((1 bsl 59) - 1),
+
+    %% Test a sequence that can't occur in optimized code:
+    %%   is_ge Fail Src 10
+    %%   is_ge Fail Src 5
+    Module = {?FUNCTION_NAME,[{test,1}],[],
+              [{function, test, 1, 2,
+                [{label,1},
+                 {line,[{location,"t.erl",4}]},
+                 {func_info,{atom,?FUNCTION_NAME},{atom,test},1},
+                 {label,2},
+                 {test,is_ge,{f,4},
+                  [{tr,{x,0},{t_integer,{0,1000}}},
+                   {integer,10}]},
+                 {test,is_ge,
+                  {f,3},
+                  [{tr,{x,0},{t_integer,{0,1000}}},
+                   {integer,5}]},
+                 {label,3},
+                 {move,{atom,a},{x,0}},
+                 return,
+                 {label,4},
+                 {move,{atom,b},{x,0}},
+                 return]}],
+              5},
+
+    {ok,Mod,Code} = compile:forms(Module, [from_asm,time,report]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    b = Mod:test(0),
+    b = Mod:test(5),
+    b = Mod:test(9),
+
+    a = Mod:test(10),
+    a = Mod:test(11),
+    a = Mod:test(1000),
+
+    true = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    ok.
+
+test_tok_char(C) ->
+    Result = tok_char(C),
+    if
+        is_integer(C) ->
+            Result = tok_char(float(C)),
+            Result = tok_char_int(C),
+            if
+                C band 16#FFFF =:= C ->
+                    Result = tok_char_int_range(C);
+                true ->
+                    Result
+            end;
+        true ->
+            Result
+    end.
+
+%% is_ge + is_lt
+tok_char(C) when $A =< C, C =< $Z ->
+    var;
+tok_char($_) ->
+    var;
+tok_char(_) ->
+    other.
+
+%% is_ge + is_ge
+tok_char_int(C) when $A =< C, C =< $Z ->
+    var;
+tok_char_int($_) ->
+    var;
+tok_char_int(_) ->
+    other.
+
+%% is_ge + is_ge
+tok_char_int_range(C) when $A =< C, C =< $Z ->
+    var;
+tok_char_int_range($_) ->
+    var;
+tok_char_int_range(_) ->
+    other.
+
+%% is_ge + is_ge
+ge_ge_int_range_1(X) when -100 =< X, X =< -10 ->
+    a;
+ge_ge_int_range_1(-5) ->
+    a;
+ge_ge_int_range_1(_) ->
+    b.
+
+ge_ge_int_range_2(X) when (-1 bsl 59) + 1 =< X, X =< (1 bsl 59) - 10 ->
+    a;
+ge_ge_int_range_2((1 bsl 59) - 5) ->
+    a;
+ge_ge_int_range_2(_) ->
+    b.
+
+ge_ge_int_range_3(X) when (1 bsl 59) - 20 =< X, X =< (1 bsl 59) - 10 ->
+    a;
+ge_ge_int_range_3((1 bsl 59) - 5) ->
+    a;
+ge_ge_int_range_3(_) ->
+    b.
+
+ge_ge_int_range_4(X) when (-1 bsl 59) + 1 =< X, X =< (-1 bsl 59) + 5 ->
+    a;
+ge_ge_int_range_4((-1 bsl 59) + 10) ->
+    a;
+ge_ge_int_range_4(_) ->
+    b.
+
+%% Tests operators where type hints are significant.
+typed_relop(Config) when is_list(Config) ->
+    _ = [compare_integer_pid(1 bsl N) || N <- lists:seq(1, 64)],
+
+    {error,<<7:3>>} = compare_bitstring({text, <<7:3>>, 0}),
+    {error,<<0:8>>} = compare_bitstring({text, <<0:8>>, 0}),
+    {error,<<0:9>>} = compare_bitstring({text, <<0:9>>, 0}),
+    {text, 42} = compare_bitstring({text, <<0:3>>, 42}),
+
+    {error,<<7:3>>} = compare_bitstring({binary, <<7:3>>, 0}),
+    {error,<<0:8>>} = compare_bitstring({binary, <<0:8>>, 0}),
+    {error,<<0:9>>} = compare_bitstring({binary, <<0:9>>, 0}),
+    {binary, 42} = compare_bitstring({binary, <<0:3>>, 42}),
+
+    ok.
+
+compare_integer_pid(N) when is_integer(N) ->
+    Immed = self(),
+    true = is_pid(Immed),
+    if
+        N >= Immed -> ct:fail("integer compared greater than pid");
+        N < Immed -> ok
+    end.
+
+%% GH-7433. Equality and non-equality tests with a bitstring could fail when it
+%% should succeed and vice versa.
+compare_bitstring({text, Res, _Data}) when is_bitstring(Res), Res =/= <<0:3>> ->
+    {error, Res};
+compare_bitstring({binary, Res, _Data}) when is_bitstring(Res), Res =/= <<0:3>> ->
+    {error, Res};
+compare_bitstring({binary, _Res, Data}) ->
+    {binary, Data};
+compare_bitstring({text, _Res, Data}) ->
+    {text, Data}.
+
+%%%
+%%% Utilities.
+%%%
 
 unvalue(V) ->
     Abstr = erl_parse:abstract(V),
@@ -369,9 +990,14 @@ value({atom,_,X})    -> X;
 value({tuple,_,Es}) ->
     list_to_tuple(lists:map(fun(X) -> value(X) end, Es));
 value({cons,_,H,T}) ->
-    [value(H) | value(T)].
+    [value(H) | value(T)];
+value(Other) ->
+    {value,Value,_} = erl_eval:expr(Other, erl_eval:new_bindings()),
+    Value.
 
 repeat(_, 0) -> ok;
 repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
+
+id(I) -> I.

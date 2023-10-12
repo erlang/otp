@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1998</year><year>2016</year>
+      <year>1998</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,13 +32,6 @@
   </description>
   <xi:include href="ei.xml"/>
   <xi:include href="ei_connect.xml"/>
-  <xi:include href="registry.xml"/>
-  <xi:include href="erl_connect.xml"/>
-  <xi:include href="erl_error.xml"/>
-  <xi:include href="erl_eterm.xml"/>
-  <xi:include href="erl_format.xml"/>
-  <xi:include href="erl_global.xml"/>
-  <xi:include href="erl_malloc.xml"/>
-  <xi:include href="erl_marshal.xml"/>
-  <xi:include href="erl_call.xml"/>
+  <xi:include href="ei_global.xml"/>
+  <xi:include href="erl_call_cmd.xml"/>
 </application>

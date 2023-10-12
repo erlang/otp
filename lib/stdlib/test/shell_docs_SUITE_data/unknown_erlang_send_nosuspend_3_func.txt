@@ -1,0 +1,28 @@
+
+  [;1m-spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean()[0m
+  [;1m                               when[0m
+  [;1m                                   Dest :: send_destination(),[0m
+  [;1m                                   Msg :: term(),[0m
+  [;1m                                   Options :: [noconnect].[0m
+
+  The same as [;;4merlang:send(Dest, Msg, [nosuspend | Options])[0m, but
+  with a Boolean return value.
+
+  This function behaves like [;;4merlang:send_nosuspend/2[0m, but takes a
+  third parameter, a list of options. The only option is [;;4mnoconnect[0m,
+  which makes the function return [;;4mfalse[0m if the remote node is not
+  currently reachable by the local node. The normal behavior is to
+  try to connect to the node, which can stall the process during a
+  short period. The use of option [;;4mnoconnect[0m makes it possible to
+  be sure not to get the slightest delay when sending to a remote
+  process. This is especially useful when communicating with nodes
+  that expect to always be the connecting part (that is, nodes
+  written in C or Java).
+
+  Whenever the function returns [;;4mfalse[0m (either when a suspend would
+  occur or when [;;4mnoconnect[0m was specified and the node was not
+  already connected), the message is guaranteed not to have been
+  sent.
+
+  Warning:
+    Use with extreme care.

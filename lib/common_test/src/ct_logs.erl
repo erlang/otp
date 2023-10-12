@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ close(Info, StartDir) ->
 				 ok;
 			     CacheBin ->
 				 %% save final version of the log cache to file
-				 _ = file:write_file(?log_cache_name,CacheBin),
+				 write_log_cache(CacheBin),
 				 put(ct_log_cache,undefined)
 			 end
 		 end,
@@ -542,7 +542,7 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:concat([get_header(Heading),Format,"\n\n"]),
+            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
             try
                 io:format(?def_gl, Str, Args)
             catch
@@ -655,7 +655,8 @@ log_timestamp({MS,S,US}) ->
 		      tc_groupleaders,
 		      stylesheet,
 		      async_print_jobs,
-		      tc_esc_chars}).
+		      tc_esc_chars,
+		      log_index}).
 
 logger(Parent, Mode, Verbosity) ->
     register(?MODULE,self()),
@@ -786,7 +787,8 @@ logger(Parent, Mode, Verbosity) ->
 			      ct_log_fd=CtLogFd,
 			      tc_groupleaders=[],
 			      async_print_jobs=[],
-			      tc_esc_chars=TcEscChars}).
+			      tc_esc_chars=TcEscChars,
+			      log_index=1}).
 
 copy_priv_files([SrcF | SrcFs], [DestF | DestFs]) ->
     case file:copy(SrcF, DestF) of
@@ -925,25 +927,29 @@ logger_loop(State) ->
     end.
 
 create_io_fun(FromPid, CtLogFd, EscChars) ->
+    create_io_fun(FromPid, CtLogFd, EscChars, undefined).
+
+create_io_fun(FromPid, CtLogFd, EscChars, LogIndex) ->
     %% we have to build one io-list of all strings
     %% before printing, or other io printouts (made in
     %% parallel) may get printed between this header 
     %% and footer
     fun(FormatData, IoList) ->
-	    {Escapable,Str,Args} =
+	    {Escapable,AddAnchor,Str,Args} =
 		case FormatData of
-		    {_HdOrFt,S,A} -> {false,S,A};
-		    {S,A}         -> {true,S,A}
+		    {hd,S,A} -> {false,true,S,A};
+		    {_ft,S,A} -> {false,false,S,A};
+		    {S,A} -> {true,false,S,A}
 		end,
-	    try io_lib:format(Str, Args) of
+	    try io_lib:format(lists:flatten(Str), Args) of
 		IoStr when Escapable, EscChars, IoList == [] ->
 		    escape_chars(IoStr);
 		IoStr when Escapable, EscChars ->
 		    [IoList,"\n",escape_chars(IoStr)];
 		IoStr when IoList == [] ->
-		    IoStr;
+		    IoStr++[anchor_link(LogIndex) || AddAnchor];
 		IoStr ->
-		    [IoList,"\n",IoStr]
+		    [IoList,"\n",IoStr]++[anchor_link(LogIndex) || AddAnchor]
 	    catch
 		_:_Reason ->
 		    io:format(CtLogFd, "Logging fails! Str: ~tp, Args: ~tp~n",
@@ -953,6 +959,13 @@ create_io_fun(FromPid, CtLogFd, EscChars) ->
 		    []
 	    end
     end.
+
+anchor_link(undefined) ->
+    [];
+anchor_link(LogIndex) ->
+    IdLink = ["e-", integer_to_list(LogIndex)],
+    ["<a id=", IdLink, " class=\"link-to-entry\" ",
+     "href=\"#", IdLink, "\">&#x1f517;</a>"].
 
 escape_chars([Bin | Io]) when is_binary(Bin) ->
     [Bin | escape_chars(Io)];
@@ -971,12 +984,13 @@ escape_chars([]) ->
 escape_chars(Bin) ->
     Bin.
 
-print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
+print_to_log(sync, FromPid, Category, TCGL, Content, EscChars,
+	     #logger_state{log_index=LogIndex}=State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
     CtLogFd = State#logger_state.ct_log_fd,
     if FromPid /= TCGL ->
-	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
+	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars, LogIndex),
 	    IoList = lists:foldl(IoFun, [], Content),
 	    try tc_io_format(TCGL, "~ts", [IoList]) of
 		ok -> ok
@@ -984,19 +998,20 @@ print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
 		_:_ ->
 		    io:format(TCGL,"~ts", [IoList])
 	    end;
-       true ->
+	true ->
 	    unexpected_io(FromPid, Category, ?MAX_IMPORTANCE, Content,
 			  CtLogFd, EscChars)
     end,
-    State;
+    State#logger_state{log_index=LogIndex+1};
 
-print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
+print_to_log(async, FromPid, Category, TCGL, Content, EscChars,
+	     #logger_state{log_index=LogIndex}=State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
     CtLogFd = State#logger_state.ct_log_fd,
     Printer =
 	if FromPid /= TCGL ->
-		IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
+		IoFun = create_io_fun(FromPid, CtLogFd, EscChars, LogIndex),
 		fun() ->
                         ct_util:mark_process(),
 			test_server:permit_io(TCGL, self()),
@@ -1035,12 +1050,13 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 				      Content, CtLogFd, EscChars)
 		end
 	end,
-    case State#logger_state.async_print_jobs of
+    State1 = State#logger_state{log_index = LogIndex+1},
+    case State1#logger_state.async_print_jobs of
 	[] ->
 	    {_Pid,Ref} = spawn_monitor(Printer),
-	    State#logger_state{async_print_jobs = [Ref]};
+	    State1#logger_state{async_print_jobs = [Ref]};
 	Queue ->
-	    State#logger_state{async_print_jobs = [Printer|Queue]}
+	    State1#logger_state{async_print_jobs = [Printer|Queue]}
     end.
 
 print_next(PrintFun) ->
@@ -1138,10 +1154,10 @@ set_evmgr_gl(GL) ->
 
 open_ctlog(MiscIoName) ->
     {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
-    io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
+    io:format(Fd, "~ts", [header("Common Test Framework Log", {[],[1,2],[]})]),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
-	    io:format(Fd, config_table(Vars), []);
+	    io:format(Fd, "~ts", [config_table(Vars)]);
 	{error,Reason} ->
 	    {ok,Cwd} = file:get_cwd(),
 	    Dir = filename:dirname(Cwd),
@@ -1213,7 +1229,7 @@ print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
-    io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
+    io:format(Fd, "~ts", [[xhtml("<br><br>\n", "<br /><br />\n") | footer()]]),
     ok = file:close(Fd).
 
 %%%-----------------------------------------------------------------
@@ -2017,12 +2033,12 @@ update_all_runs_in_cache(AllRunsData) ->
 	    LogCache = #log_cache{version = cache_vsn(),
 				  all_runs = AllRunsData},
 	    case {self(),whereis(?MODULE)} of
-		{_Pid,_Pid} ->
+		{Pid,Pid} ->
 		    %% save the cache in RAM so it doesn't have to be
 		    %% read from file as long as this logger process is alive
 		    put(ct_log_cache,term_to_binary(LogCache));
 		_ ->
-		    file:write_file(?log_cache_name,term_to_binary(LogCache))
+		    write_log_cache(term_to_binary(LogCache))
 	    end;		    
 	SavedLogCache ->
 	    update_all_runs_in_cache(AllRunsData,binary_to_term(SavedLogCache))
@@ -2031,12 +2047,12 @@ update_all_runs_in_cache(AllRunsData) ->
 update_all_runs_in_cache(AllRunsData, LogCache) ->
     LogCache1 = LogCache#log_cache{all_runs = AllRunsData},    
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    %% save the cache in RAM so it doesn't have to be
 	    %% read from file as long as this logger process is alive
 	    put(ct_log_cache,term_to_binary(LogCache1));
 	_ ->
-	    file:write_file(?log_cache_name,term_to_binary(LogCache1))
+	    write_log_cache(term_to_binary(LogCache1))
     end.
 
 sort_all_runs(Dirs) ->
@@ -2558,7 +2574,7 @@ sort_and_filter_logdirs2(_,[],Groups) ->
 %% new rundir for Test found, add to (not sorted) list of prev rundirs
 insert_test(Test,IxDir,[{Test,IxDirs}|Groups]) ->
     [{Test,[IxDir|IxDirs]}|Groups];
-%% first occurance of Test
+%% first occurrence of Test
 insert_test(Test,IxDir,[]) ->
     [{Test,[IxDir]}];
 insert_test(Test,IxDir,[TestDir|Groups]) ->
@@ -2665,10 +2681,10 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
     Tests1 = lists:keysort(1,TempData++Cached1),
     CacheBin = term_to_binary(LogCache#log_cache{tests = Tests1}),
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    put(ct_log_cache,CacheBin);
 	_ ->
-	    file:write_file(?log_cache_name,CacheBin)
+	    write_log_cache(CacheBin)
     end.
 
 %%
@@ -3399,4 +3415,10 @@ unexpected_io(Pid, _Category, _Importance, Content, CtLogFd, EscChars) ->
     IoFun = create_io_fun(Pid, CtLogFd, EscChars),
     Data = io_lib:format("~ts", [lists:foldl(IoFun, [], Content)]),
     test_server_io:print_unexpected(Data),
+    ok.
+
+write_log_cache(LogCacheBin) when is_binary(LogCacheBin) ->
+    TmpFile = ?log_cache_name++".tmp",
+    _ = file:write_file(TmpFile,LogCacheBin),
+    _ = file:rename(TmpFile,?log_cache_name),
     ok.

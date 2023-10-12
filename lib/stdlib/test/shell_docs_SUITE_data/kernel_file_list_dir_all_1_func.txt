@@ -1,0 +1,23 @@
+
+  [;1m-spec list_dir_all(Dir) -> {ok, Filenames} | {error, Reason}[0m
+  [;1m                      when[0m
+  [;1m                          Dir :: name_all(),[0m
+  [;1m                          Filenames :: [filename_all()],[0m
+  [;1m                          Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Lists all the files in a directory, including files with raw
+  filenames. Returns [;;4m{ok, Filenames}[0m if successful, otherwise [;;4m[0m
+  [;;4m{error, Reason}[0m. [;;4mFilenames[0m is a list of the names of all the
+  files in the directory. The names are not sorted.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing search or write permissions for [;;4mDir[0m or one of its
+    parent directories.
+
+  [;;4m[;;4menoent[0m[0m:
+    The directory does not exist.

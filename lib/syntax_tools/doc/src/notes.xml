@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2018</year>
+      <year>2007</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,283 @@
   </header>
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
+
+<section><title>Syntax_Tools 3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Map comprehensions as suggested in EEP 58 has now been
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>erl_syntax_lib:annotate_bindings/1,2</c> will now
+	    properly annotate named functions and their
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-18380 Aux Id: PR-6523, GH-4733 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>erl_syntax_lib:analyze_attribute/1</c> function
+	    would return <c>{Name, {Name, Value}}</c> instead of
+	    <c>{Name, Value}</c> (which is the documented return
+	    value).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17894 Aux Id: PR-5509 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added support for configurable features as described in
+	    EEP-60. Features can be enabled/disabled during
+	    compilation with options (<c>-enable-feature Feature</c>,
+	    <c>-disable-feature Feature</c> and <c>+{feature,
+	    Feature, enable|disable}</c>) to <c>erlc</c> as well as
+	    with directives (<c>-feature(Feature,
+	    enable|disable).</c>) in the file. Similar options can be
+	    used to <c>erl</c> for enabling/disabling features
+	    allowed at runtime. The new <c>maybe</c> expression
+	    (EEP-49) is fully supported as the feature
+	    <c>maybe_expr</c>. The features support is documented in
+	    the reference manual.</p>
+          <p>
+	    Own Id: OTP-17988</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The type spec of <c>erl_syntax:function_type/2</c> has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-17302 Aux Id: PR-4705 </p>
+        </item>
+        <item>
+          <p>
+	    Output parentheses around <c>BitStringExpr</c> when
+	    pretty-printing binary comprehensions.</p>
+          <p>
+	    Own Id: OTP-17321</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for handling abstract code created before OTP R15
+	    has been dropped.</p>
+          <p>
+	    Own Id: OTP-16678 Aux Id: PR-2627 </p>
+        </item>
+        <item>
+	    <p>The <c>igor</c> and <c>erl_tidy</c> modules have been
+	    the removed and are now maintained by their original
+	    author Richard Carlsson. They can be found at <url
+	    href="https://github.com/richcarl/igor">github.com/richcarl/igor</url>
+	    and <url
+	    href="https://github.com/richcarl/erl_tidy">github.com/richcarl/erl_tidy</url>,
+	    respectively.</p>
+          <p>
+	    Own Id: OTP-17180</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>epp_dodger</c> was unable to handle a parameterized
+	    macro in a function head.</p>
+          <p>
+	    Own Id: OTP-17064 Aux Id: GH-4445, PR-2964 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>All functions in <c>erl_tidy</c> in syntax_tools have
+	    now been deprecated and are scheduled for removal in OTP
+	    24. Users who still need it can find it at <url
+	    href="https://github.com/richcarl/erl_tidy">https://github.com/richcarl/erl_tidy</url>.</p>
+          <p>
+	    Own Id: OTP-17167 Aux Id: OTP-17046 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In the <c>syntax_tools</c> application, the <c>igor</c>
+	    module and all functions in <c>erl_tidy</c> except
+	    <c>file/2</c> have been deprecated.</p>
+          <p>
+	    Own Id: OTP-17046</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor documentation fix of <c>erl_syntax:operator/1</c>.</p>
+          <p>
+	    Own Id: OTP-16732 Aux Id: PR-2659 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove incomplete support for <c>cond</c>
+	    expressions. </p>
+          <p>
+	    Own Id: OTP-15925 Aux Id: PR-2304 </p>
+        </item>
+        <item>
+          <p>
+	    Improved indentation for code generated with
+	    <c>erl_prettypr</c> and <c>tidier</c>.</p>
+          <p>
+	    Own Id: OTP-16386 Aux Id: PR-2451 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add missing calls to <c>erl_syntax:unwrap/1</c>. The
+	    nodes concerned represent names and values of maps and
+	    map types. </p>
+          <p>
+	    Own Id: OTP-16012 Aux Id: PR-2348 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct links in the documentation. </p>
+          <p>
+	    Own Id: OTP-15761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add missing calls to <c>erl_syntax:unwrap/1</c>. The
+	    nodes concerned represent names and values of maps and
+	    map types. </p>
+          <p>
+	    Own Id: OTP-16012 Aux Id: PR-2348 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix pretty-printing of type funs. </p>
+          <p>
+	    Own Id: OTP-15519 Aux Id: ERL-815 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Syntax_Tools 2.1.6</title>
 
@@ -81,6 +358,22 @@
         </item>
       </list>
     </section>
+</section>
+
+<section><title>Syntax_Tools 2.1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add missing calls to <c>erl_syntax:unwrap/1</c>. The
+	    nodes concerned represent names and values of maps and
+	    map types. </p>
+          <p>
+	    Own Id: OTP-16012 Aux Id: PR-2348 </p>
+        </item>
+      </list>
+    </section>
+
 </section>
 
 <section><title>Syntax_Tools 2.1.4.1</title>
@@ -640,7 +933,7 @@
       <list>
         <item>
           <p>
-	    Miscellanous updates.</p>
+	    Miscellaneous updates.</p>
           <p>
 	    Own Id: OTP-8038</p>
         </item>
@@ -744,4 +1037,3 @@
     <p>Miscellaneous changes.</p>
   </section>
 </chapter>
-

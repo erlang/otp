@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,29 +32,41 @@
     <rev>A</rev>
     <file>shell.xml</file>
   </header>
-  <module>shell</module>
+  <module since="">shell</module>
   <modulesummary>The Erlang shell.</modulesummary>
   <description>
     <p>This module provides an Erlang shell.</p>
 
     <p>The shell is a user interface program
       for entering expression sequences. The expressions are
-      evaluated and a value is returned.
-      A history mechanism saves previous commands and their
+      evaluated and a value is returned. The shell provides an Emacs like set of
+      shortcuts for editing the text of the current line. See <seeguide marker="erts:tty">
+      tty - A Command-Line Interface</seeguide> in the ERTS User's Guide
+      for a list of all available shortcuts.
+      You may also change the shortcuts to suit your preferences more, see
+      <seeerl marker="stdlib:edlin">edlin - line editor in the shell</seeerl>.</p>
+
+    <p>A history mechanism saves previous commands and their
       values, which can then be incorporated in later commands.
       How many commands and results to save can be determined by the user,
       either interactively, by calling
-      <seealso marker="#history/1"><c>history/1</c></seealso> and
-      <seealso marker="#results/1"><c>results/1</c></seealso>,
+      <seemfa marker="#history/1"><c>history/1</c></seemfa> and
+      <seemfa marker="#results/1"><c>results/1</c></seemfa>,
       or by setting the application configuration
-      parameters <c>shell_history_length</c> and
-      <c>shell_saved_results</c> for the STDLIB application.</p>
+      parameters <seeapp marker="STDLIB_app#shell_history_length">
+      <c>shell_history_length</c></seeapp> and
+      <seeapp marker="STDLIB_app#shell_saved_results"><c>shell_saved_results</c></seeapp>
+      for the STDLIB application. The shell history can be saved to disk by
+      setting the application configuration parameter
+      <seeapp marker="kernel:kernel_app#shell_history"><c>shell_history</c></seeapp>
+      for the Kernel application.
+    </p>
 
     <p>The shell uses a helper process for evaluating commands
       to protect the history mechanism from exceptions. By
       default the evaluator process is killed when an exception
-      occurs, but by calling <seealso marker="#catch_exception/1">
-      <c>catch_exception/1</c></seealso> or by
+      occurs, but by calling <seemfa marker="#catch_exception/1">
+      <c>catch_exception/1</c></seemfa> or by
       setting the application configuration parameter
       <c>shell_catch_exception</c> for the STDLIB application
       this behavior can be changed. See also the example below.</p>
@@ -119,6 +131,9 @@
 
   <section>
     <title>Shell Commands</title>
+    <p>The commands below are the built-in shell commands that are always
+      available. In most system the commands listed in the <seeerl marker="c">c(3)</seeerl>
+      module are also available in the shell.</p>
     <taglist>
       <tag><c>b()</c></tag>
       <item>
@@ -131,6 +146,8 @@
       <tag><c>f(X)</c></tag>
       <item>
         <p>Removes the binding of variable <c>X</c>.</p>
+        <note><p>If a huge value is stored in a variable binding, you have to both call <c>f(X)</c> and
+    call <c>history(0)</c> or <c>results(0)</c> to free up that memory.</p></note>
       </item>
       <tag><c>h()</c></tag>
       <item>
@@ -164,6 +181,21 @@
       <tag><c>help()</c></tag>
       <item>
         <p>Evaluates <c>shell_default:help()</c>.</p>
+      </item>
+      <tag><c>h(Module, Function)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Function</c> in the shell
+          if available.</p>
+      </item>
+      <tag><c>ht(Module, Type)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Type</c> in the shell
+          if available.</p>
+      </item>
+      <tag><c>hcb(Module, Callback)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Callback</c> in the shell
+          if available.</p>
       </item>
       <tag><c>c(Mod)</c></tag>
       <item>
@@ -232,7 +264,7 @@
         <p>Reads record definitions from files. Existing
           definitions of any of the record names read are replaced.
           <c>Wildcard</c> is a wildcard string as defined in
-          <seealso marker="filelib"><c>filelib(3)</c></seealso>,
+          <seeerl marker="filelib"><c>filelib(3)</c></seeerl>,
           but not an atom.</p>
       </item>
       <tag><c>rr(WildcardOrModule, RecordNames)</c></tag>
@@ -280,8 +312,8 @@ Eshell V5.3  (abort with ^G)
 {4,abcd}</pre>
 
     <p>Command 3 builds the tuple <c>Descriptor</c>, evaluating the BIF
-      <seealso marker="erts:erlang#list_to_atom/1"><c>list_to_atom/1</c>
-      </seealso>.</p>
+      <seemfa marker="erts:erlang#list_to_atom/1"><c>list_to_atom/1</c>
+      </seemfa>.</p>
 
     <pre>
 4> <input>L.</input> 
@@ -350,7 +382,7 @@ ok</pre>
 
     <pre>
 12> <input>P.</input>
-* 1: variable 'P' is unbound
+* 1:1: variable 'P' is unbound
 13> <input>Descriptor.</input>
 {4,abcd}</pre>
 
@@ -415,7 +447,7 @@ worked
 
     <pre>
 23> <input>Z.</input>
-* 1: variable 'Z' is unbound
+* 1:1: variable 'Z' is unbound
 24> <input>get(aa).</input>
 hello</pre>
 
@@ -517,7 +549,7 @@ ok</pre>
 
     <pre>
 39> <input>rd(rec, {c}), A.</input>
-* 1: variable 'A' is unbound
+* 1:15: variable 'A' is unbound
 40> <input>#rec{}.</input>
 #rec{c = undefined}
 ok</pre>
@@ -740,8 +772,8 @@ q                 - quit erlang
 
     <p>If you want an Erlang node to have a remote job active from the start
       (rather than the default local job), start Erlang with flag
-      <c>-remsh</c>, for example,
-      <c>erl -sname this_node -remsh other_node@other_host</c></p>
+      <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>, for example,
+      <c>erl -remsh other_node@other_host</c></p>
   </section>
 
   <section>
@@ -782,9 +814,17 @@ q                 - quit erlang
 
     <p>These callback functions are called from local and
       non-local evaluation function handlers, described in the
-      <seealso marker="erl_eval"><c>erl_eval</c></seealso> 
+      <seeerl marker="erl_eval"><c>erl_eval</c></seeerl> 
       manual page. (Arguments in <c>ArgList</c> are evaluated before the
       callback functions are called.)</p>
+
+    <p>From OTP 25.0, if there are errors evaluating Erlang constructs,
+      such as <c>badmatch</c> during pattern matching or <c>bad_generator</c>
+      in a comprehension, the evaluator will dispatch to
+      <c>erlang:raise(error, Reason, Stacktrace)</c>. This call will be
+      checked against the <c>non_local_allowed/3</c> callback function.
+      You can either forbid it, allow it, or redirect to another call of
+      your choice.</p>
 
     <p>Argument <c>State</c> is a tuple
       <c>{ShellState,ExprState}</c>. The return value <c>NewState</c>
@@ -805,8 +845,8 @@ q                 - quit erlang
       </item>
       <item>
         <p>From a normal shell session, call function
-          <seealso marker="#start_restricted/1">
-          <c>start_restricted/1</c></seealso>. This exits the current evaluator
+          <seemfa marker="#start_restricted/1">
+          <c>start_restricted/1</c></seemfa>. This exits the current evaluator
           and starts a new one in restricted mode.</p>
       </item>
     </list>
@@ -842,8 +882,8 @@ q                 - quit erlang
       </item>
       <item>
         <p>If the restricted shell is activated using
-          <seealso marker="#start_restricted/1">
-            <c>start_restricted/1</c></seealso> and the callback module cannot
+          <seemfa marker="#start_restricted/1">
+            <c>start_restricted/1</c></seemfa> and the callback module cannot
             be loaded, an error report is sent to the error logger and the call
             returns <c>{error,Reason}</c>.</p>
       </item>
@@ -855,8 +895,8 @@ q                 - quit erlang
     <p>The default shell prompt function displays the name of the node
       (if the node can be part of a distributed system) and the
       current command number. The user can customize the prompt
-      function by calling <seealso marker="#prompt_func/1">
-      <c>prompt_func/1</c></seealso> or by setting application
+      function by calling <seemfa marker="#prompt_func/1">
+      <c>prompt_func/1</c></seemfa> or by setting application
       configuration parameter <c>shell_prompt_func</c> for the
       STDLIB application.</p>
 
@@ -874,7 +914,7 @@ q                 - quit erlang
 
   <funcs>
     <func>
-      <name>catch_exception(Bool) -> boolean()</name>
+      <name since="">catch_exception(Bool) -> boolean()</name>
       <fsummary>Set the exception handling of the shell.</fsummary>
       <type>
         <v>Bool = boolean()</v>
@@ -892,7 +932,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="history" arity="1"/>
+      <name name="history" arity="1" since=""/>
       <fsummary>Set the number of previous commands to keep.</fsummary>
       <desc>
         <p>Sets the number of previous commands to keep in the
@@ -902,7 +942,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="prompt_func" arity="1"/>
+      <name name="prompt_func" arity="1" since="OTP R13B04"/>
       <fsummary>Set the shell prompt.</fsummary>
       <desc>
         <p>Sets the shell prompt function to <c><anno>PromptFunc</anno></c>.
@@ -911,7 +951,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="results" arity="1"/>
+      <name name="results" arity="1" since=""/>
       <fsummary>Set the number of previous results to keep.</fsummary>
       <desc>
         <p>Sets the number of results from previous commands to keep in
@@ -921,7 +961,86 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_restricted" arity="1"/>
+      <name name="start_interactive" arity="0" since="OTP 26.0"/>
+      <fsummary>Start the interactive shell</fsummary>
+      <desc>
+        <p>Starts the interactive shell if it has not already been started.
+          It can be used to programatically start the shell from an escript
+          or when erl is started with the -noinput or -noshell flags.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_interactive" arity="1" clause_i="1" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="2" since="OTP 26.0"/>
+      <name name="start_interactive" arity="1" clause_i="3" since="OTP 26.0"/>
+      <fsummary>Start the interactive shell</fsummary>
+      <desc>
+        <p>Starts the interactive shell if it has not already been started.
+        It can be used to programatically start the shell from an
+        <seecom marker="erts:escript"><c>escript</c></seecom> or when
+        <seecom marker="erts:erl"><c>erl</c></seecom> is started with the
+        <seecom marker="erts:erl#noinput"><c>-noinput</c></seecom> or
+        <seecom marker="erts:erl#noshell"><c>-noshell</c></seecom> flags.
+        The following options are allowed:</p>
+        <taglist>
+          <tag>noshell</tag>
+          <item>
+              <p>Starts the interactive shell as if <seecom marker="erts:erl#noshell">
+                <c>-noshell</c></seecom> was given to <seecom marker="erts:erl"><c>erl</c></seecom>.
+                This is only useful when erl is started with
+                <seecom marker="erts:erl#noinput"><c>-noinput</c></seecom> and the
+                system want to read input data.
+              </p>
+          </item>
+          <tag><seetype marker="erts:erlang#mfa">mfa()</seetype></tag>
+          <item>
+              <p>Starts the interactive shell using
+                <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype>
+                as the default shell.</p>
+          </item>
+          <tag>{<seetype marker="erts:erlang#node">node()</seetype>,
+                <seetype marker="erts:erlang#mfa">mfa()</seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using
+              <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype> on
+              <seetype marker="erts:erlang#node"><c>node()</c></seetype> as the default shell.</p>
+          </item>
+          <tag>{remote, <seetype marker="erts:erlang#string"><c>string()</c></seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using as if
+                <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>
+                was given to <seecom marker="erts:erl"><c>erl</c></seecom>.</p>
+          </item>
+          <tag>{remote,
+                <seetype marker="erts:erlang#string"><c>string()</c></seetype>,
+                <seetype marker="erts:erlang#mfa"><c>mfa()</c></seetype>}</tag>
+          <item>
+              <p>Starts the interactive shell using as if
+                <seecom marker="erts:erl#remsh"><c>-remsh</c></seecom>
+                was given to <seecom marker="erts:erl"><c>erl</c></seecom>
+                but with an alternative shell implementation.</p>
+          </item>
+        </taglist>
+        <p>On error this function will return:</p>
+        <taglist>
+            <tag>already_started</tag>
+            <item>if an interactive shell is already started.</item>
+            <tag>noconnection</tag>
+            <item>if a remote shell was requested but it could not be connected to.</item>
+            <tag>badfile | nofile | on_load_failure</tag>
+            <item>if a remote shell was requested with a custom
+              <seetype marker="erts:erlang#mfa">mfa()</seetype>,
+              but the module could not be loaded. See <seeerl marker="kernel:code#error_reasons">
+              Error Reasons for Code-Loading Functions</seeerl>
+              for a description of the error reasons.
+            </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_restricted" arity="1" since=""/>
       <fsummary>Exit a normal shell and starts a restricted shell.</fsummary>
       <desc>
         <p>Exits a normal shell and starts a restricted shell.
@@ -936,7 +1055,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="stop_restricted" arity="0"/>
+      <name name="stop_restricted" arity="0" since=""/>
       <fsummary>Exit a restricted shell and starts a normal shell.</fsummary>
       <desc>
         <p>Exits a restricted shell and starts a normal shell. The function
@@ -945,7 +1064,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="strings" arity="1"/>
+      <name name="strings" arity="1" since="OTP R16B"/>
       <fsummary>Set the shell's string recognition flag.</fsummary>
       <desc>
         <p>Sets pretty printing of lists to <c><anno>Strings</anno></c>.
@@ -958,6 +1077,17 @@ q                 - quit erlang
           string syntax.</p>
       </desc>
     </func>
+
+    <func>
+        <name name="whereis" arity="0" since="OTP 26.0"/>
+        <fsummary>Return the current shell process.</fsummary>
+        <desc>
+            <p>Returns the current shell process on the node where the
+              calling process' group_leader is located. If that node
+              has no shell this function will return undefined.</p>
+        </desc>
+    </func>
+
   </funcs>
 </erlref>
 

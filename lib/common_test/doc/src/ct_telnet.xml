@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_telnet.xml</file>
   </header>
-  <module>ct_telnet</module>
+  <module since="">ct_telnet</module>
   <modulesummary>Common Test specific layer on top of Telnet client ct_telnet_client.erl</modulesummary>
 
   <description>
@@ -44,7 +44,7 @@
       perform string matching on the result. For information about how to use
       <c>ct_telnet</c> and configure connections, specifically for UNIX hosts,
       see the
-      <seealso marker="unix_telnet"><c>unix_telnet</c></seealso> manual page.
+      <seeerl marker="unix_telnet"><c>unix_telnet</c></seeerl> manual page.
     </p>
 
     <p>Default values defined in <c>ct_telnet</c>:</p>
@@ -89,7 +89,7 @@
 
     <p><c>keep_alive</c> can be specified per connection, if necessary. For
       details, see
-      <seealso marker="unix_telnet"><c>unix_telnet</c></seealso>.</p>
+      <seeerl marker="unix_telnet"><c>unix_telnet</c></seeerl>.</p>
 
   </description>
 
@@ -127,7 +127,7 @@
       option <c>hosts</c> and list the names of the servers/connections
       to be used in the suite. The connections must be named for this to
       work (see
-      <seealso marker="#open-1"><c>ct_telnet:open/1,2,3,4</c></seealso>).</p>
+      <seemfa marker="#open/1"><c>ct_telnet:open/1,2,3,4</c></seemfa>).</p>
 
     <p>Hook option <c>log_type</c> can be used to change the
       <c>cth_conn_log</c> behavior. The default value of this option is
@@ -177,35 +177,41 @@
      [{ct_hooks, [{cth_conn_log, []}]}].</pre>
   </section>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>connection() = handle() | {target_name(), connection_type()} | target_name()</c></tag>
-      <item><marker id="type-connection"/>
+  <datatypes>
+    <datatype>
+      <name>connection() = handle() | {target_name(), connection_type()} | target_name()</name>
+      <desc>
         <p>For <c>target_name()</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>connection_type() = telnet | ts1 | ts2</c></tag>
-      <item><marker id="type-connection_type"/> </item>
+    <datatype>
+      <name>connection_type() = telnet | ts1 | ts2</name>
+    </datatype>
 
-      <tag><c>handle() = handle()</c></tag>
-      <item><marker id="type-handle"/>
+    <datatype>
+      <name>handle() = handle()</name>
+      <desc>
         <p>Handle for a specific Telnet connection, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>prompt_regexp() = string()</c></tag>
-      <item><marker id="type-prompt_regexp"/>
+    <datatype>
+      <name>prompt_regexp() = string()</name>
+      <desc>
         <p>Regular expression matching all possible prompts for a specific
-          target type. <c>regexp</c> must not have any groups, that is, when
-          matching, <c>re:run/3</c> (in STDLIB) must return a list with
-          one single element.</p></item>
-    </taglist>
-  </section>
+        target type. <c>regexp</c> must not have any groups, that is, when
+        matching, <c>re:run/3</c> (in STDLIB) must return a list with
+        one single element.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
-      <name>close(Connection) -&gt; ok | {error, Reason}</name>
+      <name since="">close(Connection) -&gt; ok | {error, Reason}</name>
       <fsummary>Closes the Telnet connection and stops the process managing
         it.</fsummary>
       <type>
@@ -218,61 +224,64 @@
         <p>A connection can be associated with a target name and/or a handle.
           If <c>Connection</c> has no associated target name, it can only
           be closed with the handle value (see
-          <seealso marker="#open-4"><c>ct_telnet:open/4</c></seealso>).</p>
+          <seemfa marker="#open/4"><c>ct_telnet:open/4</c></seemfa>).</p>
       </desc>
     </func>
 
     <func>
-      <name>cmd(Connection, Cmd) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmd(Connection, Cmd) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to cmd(Connection, Cmd, []).</fsummary>
       <desc><marker id="cmd-2"/>
         <p>Equivalent to
-          <seealso marker="#cmd-3"><c>ct_telnet:cmd(Connection, Cmd,
-          [])</c></seealso>.</p>
+          <seemfa marker="#cmd/3"><c>ct_telnet:cmd(Connection, Cmd,
+          [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>cmd(Connection, Cmd, Opts) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmd(Connection, Cmd, Opts) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Sends a command through Telnet and waits for prompt.</fsummary>
       <type>
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="cmd-3"/>
         <p>Sends a command through Telnet and waits for prompt.</p>
 
-        <p>By default, this function adds a new line to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, use option
           <c>{newline,false}</c>. This is necessary, for example, when
           sending Telnet command sequences prefixed with character
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>Option <c>timeout</c> specifies how long the client must wait
           for prompt. If the time expires, the function returns
           <c>{error,timeout}</c>. For information about the default value
           for the command timeout, see the
-          <seealso marker="#Default_values">list of default values</seealso>
+          <seeerl marker="#Default_values">list of default values</seeerl>
           in the beginning of this module.</p>
       </desc>
     </func>
 
     <func>
-      <name>cmdf(Connection, CmdFormat, Args) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmdf(Connection, CmdFormat, Args) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to cmdf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="cmdf-3"/>
         <p>Equivalent to
-          <seealso marker="#cmdf-4"><c>ct_telnet:cmdf(Connection, CmdFormat,
-          Args, [])</c></seealso>.</p>
+          <seemfa marker="#cmdf/4"><c>ct_telnet:cmdf(Connection, CmdFormat,
+          Args, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>cmdf(Connection, CmdFormat, Args, Opts) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmdf(Connection, CmdFormat, Args, Opts) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Sends a Telnet command and waits for prompt (uses a format
         string and a list of arguments to build the command).</fsummary>
       <type>
@@ -280,7 +289,7 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
@@ -289,22 +298,22 @@
           and a list of arguments to build the command).</p>
 
         <p>For details, see
-          <seealso marker="#cmd-3"><c>ct_telnet:cmd/3</c></seealso>.</p>
+          <seemfa marker="#cmd/3"><c>ct_telnet:cmd/3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>expect(Connection, Patterns) -&gt; term()</name>
+      <name since="">expect(Connection, Patterns) -&gt; term()</name>
       <fsummary>Equivalent to expect(Connections, Patterns, []).</fsummary>
       <desc><marker id="expect-2"/>
         <p>Equivalent to
-          <seealso marker="#expect-3"><c>ct_telnet:expect(Connections,
-          Patterns, [])</c></seealso>.</p>
+          <seemfa marker="#expect/3"><c>ct_telnet:expect(Connections,
+          Patterns, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</name>
+      <name since="">expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</name>
       <fsummary>Gets data from Telnet and waits for the expected
         pattern.</fsummary>
       <type>
@@ -339,7 +348,7 @@
           subexpression number <c>N</c>. Subexpressions are denoted with
           <c>'(' ')'</c> in the regular expression.</p>
 
-        <p>If a <c>Tag</c> is speciifed, the returned <c>Match</c> also
+        <p>If a <c>Tag</c> is specified, the returned <c>Match</c> also
           includes the matched <c>Tag</c>. Otherwise, only <c>RxMatch</c>
           is returned.</p>
 
@@ -382,7 +391,7 @@
             can abort the operation of waiting for prompt.</p></item>
           <tag><c>repeat | repeat, N</c></tag>
           <item><p>The pattern(s) must be matched multiple times. If <c>N</c>
-            is speciified, the pattern(s) are matched <c>N</c> times, and
+            is specified, the pattern(s) are matched <c>N</c> times, and
             the function returns <c>HaltReason = done</c>. This option can be
             interrupted by one or more <c>HaltPatterns</c>. <c>MatchList</c>
             is always returned, that is, a list of <c>Match</c> instead of
@@ -422,7 +431,7 @@
     </func>
 
     <func>
-      <name>get_data(Connection) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">get_data(Connection) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Gets all data received by the Telnet client since the last
         command was sent.</fsummary>
       <type>
@@ -446,17 +455,17 @@
     </func>
 
     <func>
-      <name>open(Name) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(Name) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to open(Name, telnet).</fsummary>
       <desc><marker id="open-1"/>
         <p>Equivalent to
-          <seealso marker="#open-2"><c>ct_telnet:open(Name,
-          telnet)</c></seealso>.</p>
+          <seemfa marker="#open/2"><c>ct_telnet:open(Name,
+          telnet)</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>open(Name, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(Name, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens a Telnet connection to the specified target
         host.</fsummary>
       <type>
@@ -471,17 +480,17 @@
     </func>
 
     <func>
-      <name>open(KeyOrName, ConnType, TargetMod) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(KeyOrName, ConnType, TargetMod) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to open(KeyOrName, ConnType, TargetMod, []).</fsummary>
       <desc><marker id="open-3"/>
         <p>Equivalent to
-          <seealso marker="#open-4"><c>ct_telnet:ct_telnet:open(KeyOrName,
-          ConnType, TargetMod, [])</c></seealso>.</p>
+          <seemfa marker="#open/4"><c>ct_telnet:ct_telnet:open(KeyOrName,
+          ConnType, TargetMod, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>open(KeyOrName, ConnType, TargetMod, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(KeyOrName, ConnType, TargetMod, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens a Telnet connection to the specified target
         host.</fsummary>
       <type>
@@ -503,7 +512,7 @@
           alternatives:</p>
 
         <list type="bulleted">
-          <item><p><seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          <item><p><seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
              in a test case</p></item>
           <item><p>A <c>require</c> statement in the suite information
             function (<c>suite/0</c>)</p></item>
@@ -523,60 +532,63 @@
           (for example, <c>unix_telnet</c>).</p>
 
         <p>For <c>target_name()</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p>
+          <seeerl marker="ct"><c>ct</c></seeerl>.</p>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>send(Connection, Cmd) -&gt; ok | {error, Reason}</name>
+      <name since="">send(Connection, Cmd) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to send(Connection, Cmd, []).</fsummary>
       <desc><marker id="send-2"/>
         <p>Equivalent to
-          <seealso marker="#send-3"><c>ct_telnet:send(Connection, Cmd,
-          [])</c></seealso>.</p>
+          <seemfa marker="#send/3"><c>ct_telnet:send(Connection, Cmd,
+          [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 17.4">send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends a Telnet command and returns immediately.</fsummary>
       <type>
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="send-3"/>
         <p>Sends a Telnet command and returns immediately.</p>
 
-        <p>By default, this function adds a newline to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, option
           <c>{newline,false}</c> can be used. This is necessary, for example,
           when sending Telnet command sequences prefixed with character   
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>The resulting output from the command can be read with
-          <seealso marker="#get_data-1"><c>ct_telnet:get_data/2</c></seealso> or
-          <seealso marker="#expect-2"><c>ct_telnet:expect/2,3</c></seealso>.</p>
+          <seemfa marker="#get_data/1"><c>ct_telnet:get_data/2</c></seemfa> or
+          <seemfa marker="#expect/2"><c>ct_telnet:expect/2,3</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name>sendf(Connection, CmdFormat, Args) -&gt; ok | {error, Reason}</name>
+      <name since="">sendf(Connection, CmdFormat, Args) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to sendf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="sendf-3"/>
         <p>Equivalent to
-          <seealso marker="#sendf-4"><c>ct_telnet:sendf(Connection, CmdFormat,
-          Args, [])</c></seealso>.</p>
+          <seemfa marker="#sendf/4"><c>ct_telnet:sendf(Connection, CmdFormat,
+          Args, [])</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-    <name>sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
+    <name since="OTP 17.4">sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
     <fsummary>Sends a Telnet command and returns immediately (uses a format
       string and a list of arguments to build the command).</fsummary>
       <type>
@@ -584,19 +596,22 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="sendf-4"/>
         <p>Sends a Telnet command and returns immediately (uses a format
           string and a list of arguments to build the command).</p>
+
+        <p>For details, see
+          <seemfa marker="#send/3"><c>ct_telnet:send/3</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-      <p><seealso marker="unix_telnet"><c>unix_telnet</c></seealso></p>
+      <p><seeerl marker="unix_telnet"><c>unix_telnet</c></seeerl></p>
   </section>
 
 </erlref>

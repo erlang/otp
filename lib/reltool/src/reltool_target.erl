@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,9 +81,6 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		   excl_sys_filters  	= ExclSysFiles,
 		   incl_app_filters  	= InclAppFiles,
 		   excl_app_filters  	= ExclAppFiles,
-		   incl_archive_filters = InclArchiveDirs,
-		   excl_archive_filters = ExclArchiveDirs,
-		   archive_opts      	= ArchiveOpts,
 		   relocatable       	= Relocatable,
 		   rel_app_type        	= RelAppType,
 		   embedded_app_type   	= InclAppType,
@@ -108,12 +105,8 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
 		    || A <- Apps, A#app.is_escript],
     DefaultRels = reltool_utils:default_rels(),
-    RelsItems =
-	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
-	    R <- Rels],
-    DefaultRelsItems =
-	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
-	    R <- DefaultRels],
+    RelsItems = [do_gen_config(R, InclDefs) || R <- Rels],
+    DefaultRelsItems = [do_gen_config(R, InclDefs) || R <- DefaultRels],
     RelsItems2 =
 	case InclDefs of
 	    true  -> RelsItems;
@@ -137,9 +130,6 @@ do_gen_config(#sys{root_dir          	= RootDir,
      emit(excl_sys_filters, X(ExclSysFiles), reltool_utils:choose_default(excl_sys_filters, Profile, InclDefs), InclDefs) ++
      emit(incl_app_filters, X(InclAppFiles), reltool_utils:choose_default(incl_app_filters, Profile, InclDefs), InclDefs) ++
      emit(excl_app_filters, X(ExclAppFiles), reltool_utils:choose_default(excl_app_filters, Profile, InclDefs), InclDefs) ++
-     emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefs) ++
-     emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefs) ++
-     emit(archive_opts, ArchiveOpts, ?DEFAULT_ARCHIVE_OPTS, InclDefs) ++
      emit(rel_app_type, RelAppType, ?DEFAULT_REL_APP_TYPE, InclDefs) ++
      emit(embedded_app_type, InclAppType, reltool_utils:choose_default(embedded_app_type, Profile, InclDefs), InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
@@ -151,9 +141,6 @@ do_gen_config(#app{name = Name,
 		   app_file = AppFile,
 		   incl_app_filters = InclAppFiles,
 		   excl_app_filters = ExclAppFiles,
-		   incl_archive_filters = InclArchiveDirs,
-		   excl_archive_filters = ExclArchiveDirs,
-		   archive_opts = ArchiveOpts,
 		   use_selected_vsn  = UseSelected,
 		   vsn = Vsn,
 		   active_dir = ActiveDir,
@@ -168,9 +155,6 @@ do_gen_config(#app{name = Name,
 	 emit(app_file, AppFile, undefined, InclDefs),
 	 emit(incl_app_filters, InclAppFiles, undefined, InclDefs),
 	 emit(excl_app_filters, ExclAppFiles, undefined, InclDefs),
-	 emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs),
-	 emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs),
-	 emit(archive_opts, ArchiveOpts, undefined, InclDefs),
 	 if
 	     IsIncl, InclDefs    -> [{vsn, Vsn}, {lib_dir, ActiveDir}];
 	     UseSelected =:= vsn -> [{vsn, Vsn}];
@@ -201,11 +185,20 @@ do_gen_config(#mod{name = Name,
 	_ ->
 	    []
     end;
-do_gen_config(#rel{name = _Name,
-		   vsn = _Vsn,
-		   rel_apps = RelApps},
-	      InclDefs) ->
-    [do_gen_config(RA, InclDefs) || RA <- RelApps];
+do_gen_config(#rel{name = Name,
+                   vsn = Vsn,
+                   rel_apps = RelApps,
+                   load_dot_erlang = LoadDotErlang},
+              InclDefs) ->
+    RelAppsConfig = [do_gen_config(RA, InclDefs) || RA <- RelApps],
+    if
+        LoadDotErlang =:= false ->
+            {rel, Name, Vsn, RelAppsConfig, [{load_dot_erlang, false}]};
+        InclDefs =:= true ->
+            {rel, Name, Vsn, RelAppsConfig, [{load_dot_erlang, true}]};
+        LoadDotErlang =:= true ->
+            {rel, Name, Vsn, RelAppsConfig}
+    end;
 do_gen_config(#rel_app{name = Name,
 		       app_type = Type,
 		       incl_apps = InclApps},
@@ -245,6 +238,7 @@ gen_app(#app{name = Name,
                               maxP = MaxP,
                               maxT = MaxT,
                               registered = Regs,
+                              opt_apps = OptApps,
                               incl_apps = InclApps,
                               applications = ReqApps,
                               env = Env,
@@ -267,6 +261,7 @@ gen_app(#app{name = Name,
       {modules, Mods},
       {registered, Regs},
       {applications, ReqApps},
+      {optional_applications, OptApps},
       {included_applications, InclApps},
       {env, Env},
       {maxT, MaxT},
@@ -344,12 +339,13 @@ do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType,
 	    do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
-	    MergedApp = merge_app(RelName, RA, RelAppType, App),
-	    ReqNames = (MergedApp#app.info)#app_info.applications,
-	    IncNames = (MergedApp#app.info)#app_info.incl_apps,
-	    Acc2 = [MergedApp | Acc],
+	    #app{info = Info} = MergedApp = merge_app(RelName, RA, RelAppType, App),
+	    #app_info{applications = Children, incl_apps = IncNames, opt_apps = OptNames} = Info,
+	    ReqNames = [ChildName || ChildName <- Children,
+				     not lists:member(ChildName, OptNames),
+				     lists:keymember(ChildName, #app.name, Apps)],
 	    do_merge_apps(RelName, ReqNames ++ IncNames ++ RelApps,
-			  Apps, RelAppType, Acc2)
+			  Apps, RelAppType, [MergedApp | Acc])
     end;
 do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
@@ -538,8 +534,9 @@ find_pos([], _OrderedApps) ->
 find_pos(N, Name, [#app{name=Name}|_OrderedApps]) ->
     {N, Name};
 find_pos(N, Name, [_OtherAppl|OrderedApps]) ->
-    find_pos(N+1, Name, OrderedApps).
-
+    find_pos(N+1, Name, OrderedApps);
+find_pos(_N, Name, []) ->
+    {optional, Name}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -573,7 +570,7 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
 		 Visited,
 		 [],
 		 []),
-    Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
+    Missing1 = (NotFnd1 -- Info#app_info.opt_apps) ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
         [] ->
             %% No more app that must be started before this one is
@@ -668,7 +665,7 @@ del_apps([], Apps) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Create the load path used in the generated script.
 %% If PathFlag is true a script intended to be used as a complete
-%% system (e.g. in an embbeded system), i.e. all applications are
+%% system (e.g. in an embedded system), i.e. all applications are
 %% located under $ROOT/lib.
 %% Otherwise all paths are set according to dir per application.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -775,7 +772,7 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
 	case Sys#sys.excl_lib of
 	    otp_root ->
 		%% All applications that are fetched from somewhere
-		%% other than $OTP_ROOT/lib will get $RELTOOL_EXT_LIB
+		%% other than $OTPROOT/lib will get $RELTOOL_EXT_LIB
 		%% as path prefix in the .script file.
 		[{"RELTOOL_EXT_LIB",LibDir} ||  LibDir <- Sys#sys.lib_dirs] ++
 		    [{"RELTOOL_EXT_LIB",filename:dirname(AppLibDir)} ||
@@ -787,12 +784,8 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
     PathFlag = true,
     {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
-    Date = date(),
-    Time = time(),
-    RelIoList = io_lib:format("%% rel generated at ~w ~w\n~tp.\n\n",
-                              [Date, Time, GenRel]),
-    ScriptIoList = io_lib:format("%% script generated at ~w ~w\n~tp.\n\n",
-                                 [Date, Time, Script]),
+    RelIoList = io_lib:format("~tp.\n\n", [GenRel]),
+    ScriptIoList = io_lib:format("~tp.\n\n", [Script]),
     [
      {write_file, RelFile, to_utf8_bin_with_enc_comment(RelIoList)},
      {write_file, ScriptFile, to_utf8_bin_with_enc_comment(ScriptIoList)},
@@ -1070,12 +1063,14 @@ check_apps([Mandatory | Names], Apps) ->
 check_apps([], _) ->
     ok.
 
-spec_app(#app{name              = Name,
+spec_app(#app{label             = Label,
+              name              = Name,
               mods              = Mods,
               active_dir        = SourceDir,
               incl_app_filters  = AppInclRegexps,
               excl_app_filters  = AppExclRegexps} = App,
-         #sys{incl_app_filters  = SysInclRegexps,
+         #sys{root_dir          = RootDir,
+              incl_app_filters  = SysInclRegexps,
               excl_app_filters  = SysExclRegexps,
               debug_info        = SysDebugInfo} = Sys) ->
     %% List files recursively
@@ -1099,47 +1094,7 @@ spec_app(#app{name              = Name,
     ExclRegexps = reltool_utils:default_val(AppExclRegexps, SysExclRegexps),
     AppFiles3 = filter_spec(AppFiles2, InclRegexps, ExclRegexps),
 
-    %% Regular top directory and/or archive
-    spec_archive(App, Sys, AppFiles3).
-
-spec_archive(#app{label               = Label,
-                  active_dir          = SourceDir,
-                  incl_archive_filters = AppInclArchiveDirs,
-                  excl_archive_filters = AppExclArchiveDirs,
-                  archive_opts        = AppArchiveOpts},
-             #sys{root_dir            = RootDir,
-                  incl_archive_filters = SysInclArchiveDirs,
-                  excl_archive_filters = SysExclArchiveDirs,
-                  archive_opts        = SysArchiveOpts},
-             Files) ->
-    InclArchiveDirs =
-	reltool_utils:default_val(AppInclArchiveDirs, SysInclArchiveDirs),
-    ExclArchiveDirs =
-	reltool_utils:default_val(AppExclArchiveDirs, SysExclArchiveDirs),
-    ArchiveOpts =
-	reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-    Match = fun(F) -> match(element(2, F), InclArchiveDirs, ExclArchiveDirs) end,
-    case lists:filter(Match, Files) of
-        [] ->
-            %% Nothing to archive
-            [spec_create_dir(RootDir, SourceDir, Label, Files)];
-        ArchiveFiles ->
-            OptDir =
-                case Files -- ArchiveFiles of
-                    [] ->
-                        [];
-                    ExternalFiles ->
-                        [spec_create_dir(RootDir,
-					 SourceDir,
-					 Label,
-					 ExternalFiles)]
-                end,
-            ArchiveOpts =
-		reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-            ArchiveDir =
-		spec_create_dir(RootDir, SourceDir, Label, ArchiveFiles),
-            [{archive, Label ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
-    end.
+    [spec_create_dir(RootDir, SourceDir, Label, AppFiles3)].
 
 spec_dir(Dir) ->
     Base = filename:basename(Dir),
@@ -1167,7 +1122,9 @@ spec_mod(Mod, DebugInfo) ->
         keep ->
             {copy_file, File};
         strip ->
-            {strip_beam, File}
+            {strip_beam, File, []};
+        ChunkIds ->
+            {strip_beam, File, ChunkIds}
     end.
 
 spec_app_file(#app{name = Name,
@@ -1190,8 +1147,7 @@ spec_app_file(#app{name = Name,
                                                    Info#app_info.modules)],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}];
         all ->
             %% Include all included modules
@@ -1199,8 +1155,7 @@ spec_app_file(#app{name = Name,
             ModNames = [M#mod.name || M <- Mods, M#mod.is_included],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}]
 
     end.
@@ -1274,27 +1229,6 @@ do_eval_spec({create_dir, Dir, OldDir, Files},
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, SourceDir2, SourceDir2, TargetDir2);
-do_eval_spec({archive, Archive, Options, Files},
-	     OrigSourceDir,
-	     SourceDir,
-	     TargetDir) ->
-    TmpSpec = {create_dir, "tmp", Files},
-    TmpDir = filename:join([TargetDir, "tmp"]),
-    reltool_utils:create_dir(TmpDir),
-    do_eval_spec(Files, OrigSourceDir, SourceDir, TmpDir),
-
-    ArchiveFile = filename:join([TargetDir, Archive]),
-    Files2 = [element(2, F) || F <- Files],
-    Res = zip:create(ArchiveFile, Files2, [{cwd, TmpDir} | Options]),
-
-    cleanup_spec(TmpSpec, TargetDir),
-    case Res of
-        {ok, _} ->
-            ok;
-        {error, Reason} ->
-            reltool_utils:throw_error("create archive ~ts failed: ~tp",
-				      [ArchiveFile, Reason])
-    end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
@@ -1312,11 +1246,14 @@ do_eval_spec({write_file, File, Bin},
 	     TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:write_file(TargetFile, Bin);
-do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
+do_eval_spec({strip_beam, File, ChunkIds},
+             _OrigSourceDir,
+             SourceDir,
+             TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
     BeamBin = reltool_utils:read_file(SourceFile),
-    {ok, {_, BeamBin2}} = beam_lib:strip(BeamBin),
+    {ok, {_, BeamBin2}} = beam_lib:strip(BeamBin, ChunkIds),
     reltool_utils:write_file(TargetFile, BeamBin2).
 
 cleanup_spec(List, TargetDir) when is_list(List) ->
@@ -1331,12 +1268,6 @@ cleanup_spec({create_dir, Dir, _OldDir, Files}, TargetDir) ->
     TargetDir2 = filename:join([TargetDir, Dir]),
     cleanup_spec(Files, TargetDir2),
     file:del_dir(TargetDir2);
-cleanup_spec({archive, Archive, _Options, Files}, TargetDir) ->
-    TargetFile = filename:join([TargetDir, Archive]),
-    file:delete(TargetFile),
-    TmpDir = filename:join([TargetDir, "tmp"]),
-    cleanup_spec(Files, TmpDir),
-    file:del_dir(TmpDir);
 cleanup_spec({copy_file, File}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile);
@@ -1346,7 +1277,7 @@ cleanup_spec({copy_file, NewFile, _OldFile}, TargetDir) ->
 cleanup_spec({write_file, File, _}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile);
-cleanup_spec({strip_beam, File}, TargetDir) ->
+cleanup_spec({strip_beam, File, _ChunkIds}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile).
 
@@ -1389,21 +1320,6 @@ do_filter_spec(Path,
         Files2 when is_list(Files2) ->
             {true, {create_dir, NewDir, OldDir, Files2}}
     end;
-do_filter_spec(Path,
-	       {archive, Archive, Options, Files},
-	       InclRegexps,
-	       ExclRegexps) ->
-    case do_filter_spec(Path, Files, InclRegexps, ExclRegexps) of
-        [] ->
-            case match(Path, InclRegexps, ExclRegexps) of
-                true ->
-                    {true, {archive, Archive, Options, []}};
-                false ->
-                    false
-            end;
-        Files2 when is_list(Files2) ->
-            {true, {archive, Archive, Options, Files2}}
-    end;
 do_filter_spec(Path, {copy_file, File}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps);
@@ -1416,7 +1332,7 @@ do_filter_spec(Path,
 do_filter_spec(Path, {write_file, File, _}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps);
-do_filter_spec(Path, {strip_beam, File}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path, {strip_beam, File, _ChunkIds}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps).
 

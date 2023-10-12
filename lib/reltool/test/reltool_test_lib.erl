@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,10 +27,17 @@
 
 init_per_suite(Config) when is_list(Config)->
     global:register_name(reltool_global_logger, group_leader()),
-    incr_timetrap(Config, ?timeout).
+    ErlLibs = os:getenv("ERL_LIBS"),
+    os:unsetenv("ERL_LIBS"),
+    [{erl_libs,ErlLibs}|incr_timetrap(Config, ?timeout)].
 
 end_per_suite(Config) when is_list(Config)->
     global:unregister_name(reltool_global_logger),
+    case proplists:get_value(erl_libs, Config) of
+        false -> ok;
+        ErlLibs ->
+            os:putenv("ERL_LIBS", ErlLibs)
+    end,
     ok.
 
 incr_timetrap(Config, Times) ->
@@ -237,7 +244,8 @@ wait_for_close() ->
 	    wait_for_close()
     end.
 
-
+erl_libs() ->
+    [filename:absname(P) || P<-reltool_utils:erl_libs()].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A small test server, which can be run standalone in a shell

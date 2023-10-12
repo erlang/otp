@@ -1,10 +1,10 @@
-# CompositionExclusions-11.0.0.txt
-# Date: 2017-12-06, 00:00:00 GMT [KW, LI]
-# © 2017 Unicode®, Inc.
-# For terms of use, see http://www.unicode.org/terms_of_use.html
+# CompositionExclusions-15.0.0.txt
+# Date: 2022-05-03, 18:50:00 GMT [KW, LI]
+# © 2022 Unicode®, Inc.
+# For terms of use, see https://www.unicode.org/terms_of_use.html
 #
 # Unicode Character Database
-# For documentation, see http://www.unicode.org/reports/tr44/
+# For documentation, see https://www.unicode.org/reports/tr44/
 #
 # This file lists the characters for the Composition Exclusion Table
 # defined in UAX #15, Unicode Normalization Forms.
@@ -13,7 +13,7 @@
 # Unicode Character Database.
 #
 # For more information, see
-# http://www.unicode.org/unicode/reports/tr15/#Primary_Exclusion_List_Table
+# https://www.unicode.org/reports/tr15/#Primary_Exclusion_List_Table
 #
 # For a full derivation of composition exclusions, see the derived property
 # Full_Composition_Exclusion in DerivedNormalizationProps.txt
@@ -23,6 +23,19 @@
 # (1) Script Specifics
 #
 # This list of characters cannot be derived from the UnicodeData.txt file.
+#
+# Included are the following subcategories:
+#
+# - Many precomposed characters using a nukta diacritic in the Devanagari,
+#   Bangla/Bengali, Gurmukhi, or Odia/Oriya scripts.
+# - Tibetan letters and subjoined letters with decompositions including 
+#   U+0FB7 TIBETAN SUBJOINED LETTER HA or U+0FB5 TIBETAN SUBJOINED LETTER SSA.
+# - Two two-part Tibetan vowel signs involving top and bottom pieces.
+# - A large collection of compatibility precomposed characters for Hebrew
+#   involving dagesh and/or other combining marks.
+#
+# This list is unlikely to grow.
+#
 # ================================================
 
 0958    #  DEVANAGARI LETTER QA

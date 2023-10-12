@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -194,6 +194,15 @@ send(Connection,Cmd,Opts) ->
 
 check_send_opts([{newline,Bool}|Opts]) when is_boolean(Bool) ->
     check_send_opts(Opts);
+check_send_opts([{newline,String}|Opts]) when is_list(String) ->
+    case lists:all(fun(I) when is_integer(I), I>=0, I=<127 -> true;
+                      (_) -> false
+                   end, String) of
+        true ->
+            check_send_opts(Opts);
+        false ->
+            {error,{invalid_option,{newline,String}}}
+    end;
 check_send_opts([Invalid|_]) ->
     {error,{invalid_option,Invalid}};
 check_send_opts([]) ->
@@ -211,10 +220,16 @@ expect(Connection,Patterns) ->
 
 expect(Connection,Patterns,Opts) ->
     case get_handle(Connection) of
-	{ok,Pid} ->
-	    call(Pid,{expect,Patterns,Opts});
-	Error ->
-	    Error
+        {ok,Pid} ->
+            case call(Pid,{expect,Patterns,Opts}) of
+                {error,Reason} when element(1,Reason)==bad_pattern ->
+                    %% Faulty user input - should fail the test case
+                    exit({Reason,{?MODULE,?FUNCTION_NAME,3}});
+                Other ->
+                    Other
+            end;
+        Error ->
+            Error
     end.
 
 %%%=================================================================
@@ -674,60 +689,68 @@ silent_teln_expect(Name,Pid,Data,Pattern,Prx,Opts) ->
 %% 3b) Repeat (sequence): 2) is repeated either N times or until a
 %% halt condition is fulfilled.
 teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
-    HaltPatterns =
+    HaltPatterns0 =
 	case get_ignore_prompt(Opts) of
 	    true ->
 		get_haltpatterns(Opts);
 	    false ->
 		[prompt | get_haltpatterns(Opts)]
 	end,
+    case convert_pattern(HaltPatterns0,false) of
+        {ok,HaltPatterns} ->
+            {WaitForPrompt,Pattern1,Opts1} = wait_for_prompt(Pattern0,Opts),
+            Seq = get_seq(Opts1),
+            case convert_pattern(Pattern1,Seq) of
+                {ok,Pattern2} ->
+                    {IdleTimeout,TotalTimeout} = get_timeouts(Opts1),
+                    PromptCheck = get_prompt_check(Opts1),
 
-    PromptCheck = get_prompt_check(Opts),
-
-    {WaitForPrompt,Pattern1,Opts1} = wait_for_prompt(Pattern0,Opts),
-
-    Seq = get_seq(Opts1),
-    Pattern2 = convert_pattern(Pattern1,Seq),
-    {IdleTimeout,TotalTimeout} = get_timeouts(Opts1),
-
-    EO = #eo{teln_pid=Pid,
-	     prx=Prx,
-	     idle_timeout=IdleTimeout,
-	     total_timeout=TotalTimeout,
-	     seq=Seq,
-	     haltpatterns=HaltPatterns,
-	     prompt_check=PromptCheck},
+                    EO = #eo{teln_pid=Pid,
+                             prx=Prx,
+                             idle_timeout=IdleTimeout,
+                             total_timeout=TotalTimeout,
+                             seq=Seq,
+                             haltpatterns=HaltPatterns,
+                             prompt_check=PromptCheck},
     
-    case get_repeat(Opts1) of
-	false ->
-	    case teln_expect1(Name,Pid,Data,Pattern2,[],EO) of
-		{ok,Matched,Rest} when WaitForPrompt ->
-		    case lists:reverse(Matched) of
-			[{prompt,_},Matched1] ->
-			    {ok,Matched1,Rest};
-			[{prompt,_}|Matched1] ->
-			    {ok,lists:reverse(Matched1),Rest}
-		    end;
-		{ok,Matched,Rest} ->
-		    {ok,Matched,Rest};
-		{halt,Why,Rest} ->
-		    {error,Why,Rest};
-		{error,Reason} ->
-		    {error,Reason}
-	    end;
-	N ->
-	    EO1 = EO#eo{repeat=N},
-	    repeat_expect(Name,Pid,Data,Pattern2,[],EO1)
+                    case get_repeat(Opts1) of
+                        false ->
+                            case teln_expect1(Name,Pid,Data,Pattern2,[],EO) of
+                                {ok,Matched,Rest} when WaitForPrompt ->
+                                    case lists:reverse(Matched) of
+                                        [{prompt,_},Matched1] ->
+                                            {ok,Matched1,Rest};
+                                        [{prompt,_}|Matched1] ->
+                                            {ok,lists:reverse(Matched1),Rest}
+                                    end;
+                                {ok,Matched,Rest} ->
+                                    {ok,Matched,Rest};
+                                {halt,Why,Rest} ->
+                                    {error,Why,Rest};
+                                {error,Reason} ->
+                                    {error,Reason}
+                            end;
+                        N ->
+                            EO1 = EO#eo{repeat=N},
+                            repeat_expect(Name,Pid,Data,Pattern2,[],EO1)
+                    end;
+               Error ->
+                    Error
+            end;
+        Error ->
+            Error
     end.
 
-convert_pattern(Pattern,Seq) 
-  when is_list(Pattern) and not is_integer(hd(Pattern)) ->
-    case Seq of
-	true -> Pattern;
-	false -> rm_dupl(Pattern,[])
-    end;
+convert_pattern(Pattern0,Seq)
+  when Pattern0==[] orelse (is_list(Pattern0) and not is_integer(hd(Pattern0))) ->
+    Pattern =
+        case Seq of
+            true -> Pattern0;
+            false -> rm_dupl(Pattern0,[])
+        end,
+    compile_pattern(Pattern,[]);
 convert_pattern(Pattern,_Seq) ->
-    [Pattern].
+    compile_pattern([Pattern],[]).
 
 rm_dupl([P|Ps],Acc) ->
     case lists:member(P,Acc) of
@@ -738,6 +761,25 @@ rm_dupl([P|Ps],Acc) ->
     end;
 rm_dupl([],Acc) ->
     lists:reverse(Acc).
+
+compile_pattern([prompt|Patterns],Acc) ->
+    compile_pattern(Patterns,[prompt|Acc]);
+compile_pattern([{prompt,_}=P|Patterns],Acc) ->
+    compile_pattern(Patterns,[P|Acc]);
+compile_pattern([{Tag,Pattern}|Patterns],Acc) ->
+    try re:compile(Pattern,[unicode]) of
+        {ok,MP} -> compile_pattern(Patterns,[{Tag,MP}|Acc]);
+        {error,Error} -> {error,{bad_pattern,{Tag,Pattern},Error}}
+    catch error:badarg -> {error,{bad_pattern,{Tag,Pattern}}}
+    end;
+compile_pattern([Pattern|Patterns],Acc) ->
+    try re:compile(Pattern,[unicode]) of
+        {ok,MP} -> compile_pattern(Patterns,[MP|Acc]);
+        {error,Error} -> {error,{bad_pattern,Pattern,Error}}
+    catch error:badarg -> {error,{bad_pattern,Pattern}}
+    end;
+compile_pattern([],Acc) ->
+    {ok,lists:reverse(Acc)}.
 
 get_timeouts(Opts) ->
     {case lists:keysearch(idle_timeout,1,Opts) of
@@ -772,7 +814,7 @@ get_seq(Opts) ->
 get_haltpatterns(Opts) ->
     case lists:keysearch(halt,1,Opts) of
 	{value,{halt,HaltPatterns}} ->
-	    convert_pattern(HaltPatterns,false);
+	    HaltPatterns;
 	false ->
 	    []
     end.
@@ -977,7 +1019,7 @@ seq_expect(Name,Pid,Data,Patterns,Acc,EO) ->
     end.
 
 %% seq_expect1: For one prompt-chunk, match each pattern - line by
-%% line if it is other than the prompt we are seaching for.
+%% line if it is other than the prompt we are searching for.
 seq_expect1(Name,Pid,Data,[prompt|Patterns],Acc,Rest,EO) ->
     case EO#eo.found_prompt of
 	false ->
@@ -1068,7 +1110,7 @@ match_line(Name,Pid,Line,[{prompt,PromptType}|Patterns],FoundPrompt,Term,
   when PromptType=/=FoundPrompt ->
     match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,Term,EO,RetTag) ->
-    case re:run(Line,Pattern,[{capture,all,list},unicode]) of
+    case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
 	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
@@ -1076,7 +1118,7 @@ match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,Term,EO,RetTag) ->
 	    {RetTag,{Tag,Match}}
     end;
 match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,Term,EO,RetTag) ->
-    case re:run(Line,Pattern,[{capture,all,list},unicode]) of
+    case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
 	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
@@ -1182,37 +1224,36 @@ split_lines([Char|Rest],Line,Lines) ->
 split_lines([],Line,Lines) ->
     {Lines,lists:reverse(Line)}.
 
-
-match_prompt(Str,Prx) ->
-    match_prompt(Str,Prx,[]).
-match_prompt(Str,Prx,Acc) ->
+match_prompt(Str, Prx) ->
+    match_prompt(unicode:characters_to_binary(Str), Prx, []).
+match_prompt(Str, Prx, Acc) ->
     case re:run(Str,Prx,[unicode]) of
-	nomatch ->
-	    noprompt;
-	{match,[{Start,Len}]} ->
-	    case split_prompt_string(Str,Start+1,Start+Len,1,[],[]) of
-		{noprompt,Done,Rest} ->
-		    match_prompt(Rest,Prx,Done);
-		{prompt,UptoPrompt,Prompt,Rest} ->
-		    {prompt,lists:reverse(UptoPrompt++Acc),
-		     lists:reverse(Prompt),Rest}
-	    end
+        nomatch ->
+            noprompt;
+        {match,[{Start,Len}]} ->
+            <<UptoPrompt:Start/binary, Prompt:Len/binary, Rest/binary>> = Str,
+            case validate_prompt(Start, UptoPrompt, Prompt) of
+                ok ->
+                    {prompt,
+                     unicode:characters_to_list([lists:reverse(Acc), UptoPrompt, Prompt]),
+                     unicode:characters_to_list(Prompt),
+                     unicode:characters_to_list(Rest)};
+                recurse ->
+                    <<Skip:(Start+Len)/binary, Cont/binary>> = Str,
+                    match_prompt(Cont, Prx, [Skip|Acc])
+            end
     end.
 
-split_prompt_string([Ch|Str],Start,End,N,UptoPrompt,Prompt) when N<Start ->
-    split_prompt_string(Str,Start,End,N+1,[Ch|UptoPrompt],Prompt);
-split_prompt_string([Ch|Str],Start,End,N,UptoPrompt,Prompt) 
-  when N>=Start, N<End->
-    split_prompt_string(Str,Start,End,N+1,UptoPrompt,[Ch|Prompt]);
-split_prompt_string([Ch|Rest],_Start,End,N,UptoPrompt,Prompt) when N==End ->
-    case UptoPrompt of
-	[$",$=,$T,$P,$M,$O,$R,$P|_] ->
-	    %% This is a line from "listenv", it is not a real prompt
-	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
-	[$\s,$t,$s,$a|_] when Prompt==":nigol" ->
-	    %% This is probably the "Last login:" statement which is
-	    %% written when telnet connection is openend.
-	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
-	_ ->
-	    {prompt,[Ch|Prompt]++UptoPrompt,[Ch|Prompt],Rest}
+validate_prompt(Size, PrePrompt,  Prompt) ->
+    case PrePrompt of
+        %% This is a line from "listenv", it is not a real prompt
+        <<_:(Size-8)/binary, "PROMPT=\"", _/binary>> ->
+            recurse;
+        %% This is probably the "Last login:" statement which is
+        %% written when telnet connection is opened.
+        <<_:(Size-5)/binary, _L:8, "ast ", _/binary>>
+          when Prompt =:= <<"login: ">> ->
+            recurse;
+        _ ->
+            ok
     end.

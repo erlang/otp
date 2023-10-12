@@ -1,0 +1,34 @@
+
+  [;1m-spec binary_to_atom(Binary, Encoding) -> atom()[0m
+  [;1m                        when[0m
+  [;1m                            Binary :: binary(),[0m
+  [;1m                            Encoding :: latin1 | unicode | utf8.[0m
+
+  Returns the atom whose text representation is [;;4mBinary[0m. If [;;4m[0m
+  [;;4mEncoding[0m is [;;4mutf8[0m or [;;4municode[0m, the binary must contain valid
+  UTF-8 sequences.
+
+  Change:
+    As from Erlang/OTP 20, [;;4mbinary_to_atom(Binary, utf8)[0m is
+    capable of decoding any Unicode character. Earlier versions
+    would fail if the binary contained Unicode characters > 255.
+
+  Note:
+    The number of characters that are permitted in an atom name is
+    limited. The default limits can be found in the efficiency
+    guide (section Advanced).
+
+  Note:
+    There is configurable limit on how many atoms that can exist
+    and atoms are not garbage collected. Therefore, it is
+    recommended to consider whether [;;4mbinary_to_existing_atom/2[0m is
+    a better option than [;;4mbinary_to_atom/2[0m. The default limits
+    can be found in efficiency guide (section Advanced).
+
+  Examples:
+
+    > binary_to_atom(<<"Erlang">>, latin1).
+    'Erlang'
+
+    > binary_to_atom(<<1024/utf8>>, utf8).
+    'Ѐ'

@@ -3,7 +3,7 @@
 ******************************************************************************
 
 There are two different interfaces, the old 'erl_interface' and 'ei'.
-The old interface is to depend on the new one, not the other way arount.
+The old interface is to depend on the new one, not the other way around.
 
 Erl_interface should be "thread safe", i.e. you should be able to 
 handle connections, convert data etc from different threads.
@@ -11,10 +11,6 @@ handle connections, convert data etc from different threads.
 Ei should be "reentrant" or "async safe", i.e. no locks should be set
 so that if an ei function is called inside an signal handler there
 could be a deadlock.
-
-VxWorks call the operating processes "tasks". These are to be handled the
-same way as Unix threads, i.e. there can only be one C node for all tasks
-using the old interface.
 
 Try to keep the documented functions, variables and symbols in sync
 between
@@ -59,10 +55,6 @@ From time to time do a
  * src/epmd/
 
    Handle communication with epmd
-
- * src/registry/
-
-   Key/value database with optional mnesia back up
 
  * src/misc/
 
@@ -140,9 +132,6 @@ The base for the config.h.in file was created with 'autoheader'.
                           Writing source
 ******************************************************************************
 
-C files in "registry" are considered users of 'ei' and should not
-include "eidef.h" or "config.h", only "ei.h".
-
 C files in "prog" could include "config.h" directly.
 
 Other C files should include "eidef.h" as the first line of
@@ -150,7 +139,7 @@ source. "eidef.h" contains some common constants and macros and
 also includes config.h.
 
 In general avoid including other header files from header files.
-The exception is to make the protoypes complete to the user of
+The exception is to make the prototypes complete to the user of
 this library, i.e. to include <stdio.h> to defined FILE or
 to include "ei_x_encode" to define the type ei_x_buff.
 
@@ -164,15 +153,15 @@ where size matters ;-) Use uint8 for buffers where we construct
 messages.
 
 NOTE!!!! Sending a "char" to macros like isupper(), isalpha() where
-the character is > 127 will cause serios problems on some
+the character is > 127 will cause serious problems on some
 machines/OS. The reason is that
 
-   'char' may be unsigned, i.e. the Swedish char 'ä' will 
-   as a number be negativ.
+   'char' may be unsigned, i.e. the Swedish char 'Ã¤' will 
+   as a number be negative.
 
    The implementation of isupper() and others will on some
    machines use an array that is indexed with the incoming
-   character code. The Swedish 'ä' will then create an access
+   character code. The Swedish 'Ã¤' will then create an access
    on memory outside the array!
 
 This may give a random value as a result or a segmentation
@@ -219,7 +208,7 @@ There are some functions in the 'ei' library that uses the GCC and
 VC++ "long long" type. Unfortunately this can lead to some trouble.
 
 When user code is linked with the "libei.a" the linker will extract
-all objects files needed for resolving all symbol referenses
+all objects files needed for resolving all symbol references
 found. This means that you want to follow the rule that
 
  * To reduce executable code size we use resonably small C source
@@ -244,7 +233,7 @@ long" operations will create a dependency to a "hidden" library
    libei.a[decode_longlong.o]: [6]  | 0| 0|NOTY |GLOB |0 |UNDEF |__ashldi3
    libei.a[decode_ulonglong.o]: [5] | 0| 0|NOTY |GLOB |0 |UNDEF |__ashldi3
 
-We can accept that a dependecy is created for code linked with
+We can accept that a dependency is created for code linked with
 "libei.a" that actually use 'ei' long long functions. But if we
 arrange the 'ei' source badly using a non "long long" functions from
 'ei' will still link in an object file that need "libgcc.a". One
@@ -252,7 +241,7 @@ example is that in plain R9C the ei_x_encode_longlong() function is
 located in the file "ei_x_encode.c". So if any "long long" ei_x
 function is used we have an unessesary dependency on
 "ei_encode_longlong.o" and then need to link with GNU ld on with the
-user code or explicitely link with "libgcc.a". The situation can be
+user code or explicitly link with "libgcc.a". The situation can be
 visible in in plain R9C using
 
      % nm -A erl_interface-3.4/lib/libei.a | \

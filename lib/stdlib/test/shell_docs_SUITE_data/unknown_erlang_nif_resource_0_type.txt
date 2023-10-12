@@ -1,0 +1,4 @@
+
+  [;1m-opaque nif_resource() [0m
+
+  An opaque handle identifying a NIF resource object .

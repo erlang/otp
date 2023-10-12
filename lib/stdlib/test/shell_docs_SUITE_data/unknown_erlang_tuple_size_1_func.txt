@@ -1,0 +1,10 @@
+
+  [;1m-spec tuple_size(Tuple) -> non_neg_integer() when Tuple :: tuple().[0m
+
+  Returns an integer that is the number of elements in [;;4mTuple[0m, for
+  example:
+
+    > tuple_size({morni, mulle, bwange}).
+    3
+
+  Allowed in guard tests.

@@ -78,7 +78,7 @@ thread progress operation has been initiated, and at least once
 ordered using communication via memory which makes it possible to draw
 conclusion about the memory state after the thread progress operation
 has completed. Lets call the progress made from initiation to
-comletion for "thread progress".
+completion for "thread progress".
 
 Assuming that the thread progress functionality is efficient, a lot of
 algorithms can both be simplified and made more efficient than using
@@ -120,7 +120,7 @@ communication.
 
 We also want threads to be able to determine when thread progress has
 been made relatively fast. That is we need to have some balance
-between comunication overhead and time to complete the operation.
+between communication overhead and time to complete the operation.
 
 ### API ###
 
@@ -222,7 +222,7 @@ current global value plus one at the time when we call
 confirmed global value plus two at this time.
 
 The above described implementation more or less minimizes the
-comunication needed before we can increment the global counter. The
+communication needed before we can increment the global counter. The
 amount of communication in the system due to the thread progress
 functionality however also depend on the frequency with which managed
 threads call `erts_thr_progress_update()`. Today each scheduler thread

@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018. All Rights Reserved.
+# Copyright Ericsson AB 2018-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@
 #
 # %CopyrightEnd%
 #
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+# WARNING!
+#    DO NOT EDIT the 'configure' file which is automatically generated from
+#    'configure.src'! In order to update 'configure' edit 'configure.src' and
+#    execute './otp_build update_configure [--no-commit]'.
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 #
 # This is a handcrafted wrapper script which runs the actual (autoconf)
 # 'configure' scripts in different parts of OTP.
@@ -31,12 +37,12 @@
 # otherwise takes forever to run configure...
 #
 
-OTP_VERSION=@OTP_VERSION@
-
 unset CDPATH
 
 default_cflags="-g -O2"
 
+pie_cflags=
+pie_ldflags=
 mXY_build=
 static_cache=
 
@@ -45,10 +51,11 @@ parallel_otp_configure=yes
 help=no
 user_srcdir=
 config_arguments=
+skip_applications=
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
-	    user_srcdir=`expr "$1" : '[^=]*=\(.*\)'`
+        user_srcdir=`echo "$1" | sed 's/^[^=]*=//'`
 	    if test "$ERL_TOP" != ""; then
 		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
 		echo "" 1>&2
@@ -69,8 +76,10 @@ while test $# != 0; do
 	    ERL_TOP="$user_srcdir"
 	    ;;
 	--enable-bootstrap-only)
+            config_arguments="$config_arguments --enable-bootstrap-only"
 	    bootstrap_only=yes;;
 	--disable-bootstrap-only)
+            config_arguments="$config_arguments --disable-bootstrap-only"
 	    bootstrap_only=no;;
 	--enable-option-checking)
 	    echo "ERROR: Cannot enable option checking" 1>&2
@@ -86,7 +95,7 @@ while test $# != 0; do
 	    echo "" 1>&2
 	    ;;
 	-cache-file=* | --cache-file=* )
-	    static_cache=`expr "$1" : '[^=]*=\(.*\)'`
+        static_cache=`echo "$1" | sed 's/^[^=]*=//'`
 	    if test "$static_cache" != "/dev/null"; then
 		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
 		echo "" 1>&2
@@ -122,9 +131,21 @@ while test $# != 0; do
 	    if test "$mXY_build" = "-m32"; then
 		mXY_build=
 	    fi;;
+	--enable-pie)
+	    pie_cflags="-fPIE"
+	    pie_ldflags="-pie"
+	    ;;
+	--disable-pie)
+	    pie_cflags="-fno-PIE"
+	    pie_ldflags="-no-pie"
+	    ;;
+	--enable-deterministic-build)
+      config_arguments="$config_arguments --enable-deterministic-build";;
+	--disable-deterministic-build)
+      config_arguments="$config_arguments --disable-deterministic-build";;
 	CFLAGS=* | LDFLAGS=*)
-	    flgs_var=`expr "$1" : '\([^=]*\)=.*'`
-	    flgs_val=`expr "$1" : '[^=]*=\(.*\)'`
+        flgs_var=`echo "$1" | sed 's/=.*$//'`
+        flgs_val=`echo "$1" | sed 's/^[^=]*=//'`
 	    eval $flgs_var=\$flgs_val
 	    ;;
 	--help=r* | -help=r*)
@@ -134,9 +155,16 @@ while test $# != 0; do
         *)
 	    case $1 in
 		--without-*)
-		    skip_app=`expr "$1" : '--without-\(.*\)'`
-		    if test -d "lib/$skip_app"; then
-			echo "$skip_app" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
+            skip_app=`echo "$1" | sed 's/^--without-//'`
+                    if [ "$skip_app" = "stdlib" ] ||
+                           [ "$skip_app" = "kernel" ] ||
+                           [ "$skip_app" = "sasl" ] ||
+                           [ "$skip_app" = "compiler" ] ||
+                           [ "$skip_app" = "erl_interface" ]; then
+                        echo "ERROR: $skip_app is a mandatory application" 1>&2
+                        exit 1
+		    elif test -d "lib/$skip_app"; then
+			skip_applications="$skip_applications $skip_app"
 		    fi;;
 		*)
 		    ;;
@@ -167,7 +195,7 @@ fi
 #
 
 root_dir=
-dir_chk_data="$OTP_VERSION"
+dir_chk_data=`date`
 
 if root_dir=`dirname "$0" 2>/dev/null` \
 	&& test "$root_dir" != "" \
@@ -178,7 +206,7 @@ if root_dir=`dirname "$0" 2>/dev/null` \
     else
 	case "$root_dir" in
 	    /*)
-		echo $dir_chk_data > "$root_dir"/config.dir.check.$$ 2>/dev/null
+		echo "$dir_chk_data" > "$root_dir"/config.dir.check.$$ 2>/dev/null
 		;;
 	    *)
 		root_dir=
@@ -260,7 +288,7 @@ case "$help" in
 	exit 0;;
 esac
 
-if test "$mXY_build" = ""; then
+if test "$mXY_build" = "" && test "$pie_cflags" = ""; then
     if test "$CFLAGS" != ""; then
 	config_arguments="$config_arguments CFLAGS='$CFLAGS'"
 	unset CFLAGS
@@ -274,9 +302,9 @@ else
     if test "$CFLAGS" = ""; then
 	CFLAGS=$default_cflags
     fi
-    config_arguments="$config_arguments CFLAGS='$mXY_build $CFLAGS'"
+    config_arguments="$config_arguments CFLAGS='$mXY_build $pie_cflags $CFLAGS'"
     unset CFLAGS
-    config_arguments="$config_arguments LDFLAGS='$mXY_build $LDFLAGS'"
+    config_arguments="$config_arguments LDFLAGS='$mXY_build $pie_ldflags $LDFLAGS'"
     unset LDFLAGS
     case $mXY_build in
 	-m32)
@@ -310,7 +338,9 @@ for app_dir in make $check_conf_dirs erts; do
        rm -f $app_dir/configure.result.command
        rm -f $app_dir/configure.result.stdout
        rm -f $app_dir/configure.result.stderr
-       app_dirs="$app_dirs $app_dir"
+       if ! echo "$skip_applications" | grep $(basename $app_dir) > /dev/null 2> /dev/null; then
+           app_dirs="$app_dirs $app_dir"
+       fi
     fi
 done
 
@@ -377,7 +407,7 @@ echo ""
 
 pattern="lib/*/SKIP"
 files=`echo $pattern`
-if test "$files" != "$pattern" || test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
+if test "$files" != "$pattern" || test "$skip_applications" != ""; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS DISABLED  **********************'
   echo '*********************************************************************'
@@ -388,11 +418,10 @@ if test "$files" != "$pattern" || test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
       printf "%-15s: " $app; cat $skipfile
     done
   fi
-  if test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
-    for skipapp in `cat "$ERL_TOP/lib/SKIP-APPLICATIONS"`; do
-      printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
-    done
-  fi
+  for skipapp in $skip_applications; do
+    printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    echo "$skipapp" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
+  done
   echo
   echo '*********************************************************************'
 fi
@@ -417,14 +446,14 @@ if test -f "erts/doc/CONF_INFO"; then
   echo '**********************  DOCUMENTATION INFORMATION  ******************'
   echo '*********************************************************************'
   echo
-  printf "%-15s: \n" documentation; 
+  printf "%-15s: \n" documentation;
   havexsltproc="yes"
   for cmd in `cat erts/doc/CONF_INFO`; do
-	echo "                 $cmd is missing." 
+	echo "                 $cmd is missing."
   if test $cmd = "xsltproc"; then
     havexsltproc="no"
   fi
-  done  
+  done
   if test $havexsltproc = "no"; then
     echo '                 The documentation cannot be built.'
   else

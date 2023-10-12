@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2017</year>
+      <year>2023</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,9 +31,9 @@
   <appsummary>The Crypto Application</appsummary>
   <description>
     <p>The purpose of the Crypto application is to provide an Erlang API
-    to cryptographic functions, see <seealso marker="crypto">crypto(3)</seealso>.
+    to cryptographic functions, see <seeerl marker="crypto">crypto(3)</seeerl>.
     Note that the API is on a fairly low level and there are some
-    corresponding API functions available in <seealso marker="public_key:public_key">public_key(3)</seealso>,
+    corresponding API functions available in <seeerl marker="public_key:public_key">public_key(3)</seeerl>,
     on a higher abstraction level, that uses the crypto application in its implementation.
     </p>
   </description>
@@ -48,6 +48,11 @@
     version 1.0.1 and a FIPS capable OpenSSL installation. We recommend using a
     version that is officially supported by the OpenSSL project. API compatible backends like
     LibreSSL should also work.</p>
+
+    <p>The crypto app is tested daily with at least one version of each of the
+    OpenSSL 1.0.1, 1.0.2, 1.1.0, 1.1.1 and 3.0. FIPS mode is also tested for 1.0.1, 1.0.2 and 3.0.</p>
+    
+    <p>Using OpenSSL 3.0 with Engines is not yet supported by the OTP/crypto app.</p>
 
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
     or mirror sites listed there.
@@ -72,12 +77,12 @@
       <item>
         <p>
 	  Sets the cache size in bytes to use by
-	  <seealso marker="crypto#rand_seed_alg-1">
+	  <seemfa marker="crypto#rand_seed_alg/1">
 	    <c>crypto:rand_seed_alg(crypto_cache)</c>
-	  </seealso> and
-	  <seealso marker="crypto#rand_seed_alg_s-1">
+	  </seemfa> and
+	  <seemfa marker="crypto#rand_seed_alg_s/1">
 	    <c>crypto:rand_seed_alg_s(crypto_cache)</c>
-	  </seealso>.
+	  </seemfa>.
 	  This parameter is read when a seed function is called,
 	  and then kept in generators state object.  It has a rather
 	  small default value that causes reads of strong random bytes

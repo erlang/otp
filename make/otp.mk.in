@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,10 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
-TYPES = @TYPES@
+TYPES = opt debug lcnt valgrind asan gcov
+DEFAULT_TYPES = @DEFAULT_TYPES@
+FLAVORS = @FLAVORS@
+PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 
 USE_PGO = @USE_PGO@
 
@@ -59,13 +62,6 @@ USE_PGO = @USE_PGO@
 DUBIOUS_ORIGINS = /undefined/environment/
 
 # ----------------------------------------------------
-#	HiPE
-# ----------------------------------------------------
-
-HIPE_ENABLED = @HIPE_ENABLED@
-NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
-
-# ----------------------------------------------------
 #	Command macros
 # ----------------------------------------------------
 INSTALL         = @INSTALL@
@@ -73,11 +69,13 @@ INSTALL_DIR     = @INSTALL_DIR@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT  = @INSTALL_SCRIPT@
 INSTALL_DATA    = @INSTALL_DATA@
+INSTALL_DIR_DATA = $(ERL_TOP)/make/install_dir_data.sh
 
 CC = @CC@
 GCC = @GCC@
 HCC = @HCC@
 CC32 = @CC32@
+CXX = @CXX@
 CFLAGS32 = @CFLAGS32@
 BASIC_CFLAGS = @CFLAGS@
 DEBUG_FLAGS =  @DEBUG_FLAGS@
@@ -87,26 +85,33 @@ AR = @AR@
 PERL = @PERL@
 LLVM_PROFDATA = @LLVM_PROFDATA@
 
-MIXED_CYGWIN_VC = @MIXED_CYGWIN_VC@
-MIXED_MSYS_VC = @MIXED_MSYS_VC@
 MIXED_VC = @MIXED_VC@
-MIXED_CYGWIN_MINGW = @MIXED_CYGWIN_MINGW@
-MIXED_CYGWIN = @MIXED_CYGWIN@
-MIXED_MSYS = @MIXED_MSYS@
+MIXED_MINGW = @MIXED_MINGW@
 
 BITS64 = @BITS64@
 
 OTP_RELEASE = @OTP_RELEASE@
 
+ERL_DETERMINISTIC = @ERL_DETERMINISTIC@
+
 # ----------------------------------------------------
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
-ifdef BOOTSTRAP
+ifeq ($(ERL_COMPILE_WARNINGS_AS_ERRORS),yes)
+  ERL_COMPILE_FLAGS += -Werror
+endif
+ifdef PRIMARY_BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
   ERL_COMPILE_FLAGS += +debug_info
 endif
+ifeq ($(ERL_DETERMINISTIC),yes)
+  ERL_COMPILE_FLAGS += +deterministic
+  YRL_FLAGS += +deterministic
+  XRL_FLAGS += +deterministic
+endif
+
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL = erl -boot start_clean
@@ -130,11 +135,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-# Special rule for the HIPE bootstrap w/ native libs
-../boot_ebin/%.beam: $(ESRC)/%.erl
-	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
-endif
 
 .erl.beam:
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
@@ -223,13 +223,16 @@ MAN1DIR = $(DOCDIR)/man1
 MAN2DIR = $(DOCDIR)/man2
 MAN3DIR = $(DOCDIR)/man3
 MAN4DIR = $(DOCDIR)/man4
+MAN5DIR = $(DOCDIR)/man5
 MAN6DIR = $(DOCDIR)/man6
+MAN7DIR = $(DOCDIR)/man7
 MAN9DIR = $(DOCDIR)/man9
 
 TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
 XMLDIR = $(DOCDIR)/xml
+CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(CSS_FILE),)
 CSS_FILE = otp_doc.css
@@ -265,7 +268,7 @@ DEFAULT_HTML_FILES = \
 	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.kwc) \
 	$(HTMLDIR)/index.html
 
-DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
+DEFAULT_GIF_FILES =
 
 #
 # Flags & Commands
@@ -274,8 +277,9 @@ XSLTPROC = @XSLTPROC@
 FOP = @FOP@
 XMLLINT = @XMLLINT@
 CP = @CP@
+MKDIR = @MKDIR@
 
-DOCGEN=$(ERL_TOP)/lib/erl_docgen
+DOCGEN?=$(ERL_TOP)/lib/erl_docgen
 FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
 
 ifneq (,$(findstring $(origin SPECS_ESRC),$(DUBIOUS_ORIGINS)))
@@ -283,14 +287,18 @@ SPECS_ESRC = ../../src
 endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl $(TOP_SPECS_FILE)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl $(TOP_SPECS_FILE)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
 MANXSLTARGS=--stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities -path .
 
-$(MAN1DIR)/%.1 $(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
+$(MAN1DIR)/%.1: $(XMLDIR)/%_cmd.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
+
+$(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
@@ -313,5 +321,14 @@ $(MAN6DIR)/%.6 $(MAN6DIR)/%.7: $(XMLDIR)/%_app.xml
 $(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $(shell pwd) $< $@
 
-.fo.pdf:
+$(PDFDIR)/%.pdf: %.fo
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
+
+$(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@

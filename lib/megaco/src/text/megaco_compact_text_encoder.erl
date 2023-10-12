@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,9 +49,6 @@
 -define(V1_PARSE_MOD,     megaco_text_parser_v1).
 -define(V2_PARSE_MOD,     megaco_text_parser_v2).
 -define(V3_PARSE_MOD,     megaco_text_parser_v3).
--define(PREV3A_PARSE_MOD, megaco_text_parser_prev3a).
--define(PREV3B_PARSE_MOD, megaco_text_parser_prev3b).
--define(PREV3C_PARSE_MOD, megaco_text_parser_prev3c).
 
 
 %%----------------------------------------------------------------------
@@ -63,22 +60,27 @@ encode_message(EncodingConfig,
 	       #'MegacoMessage'{mess = #'Message'{version = V}} = MegaMsg) ->
     encode_message(EncodingConfig, V, MegaMsg).
 
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3,_}|EC], 1, MegaMsg) ->
     megaco_compact_text_encoder_v1:encode_message(EC, MegaMsg);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 1, MegaMsg) ->
     megaco_compact_text_encoder_v1:encode_message(EC, MegaMsg);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3,_}|EC], 2, MegaMsg) ->
     megaco_compact_text_encoder_v2:encode_message(EC, MegaMsg);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 2, MegaMsg) ->
     megaco_compact_text_encoder_v2:encode_message(EC, MegaMsg);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3,v3}|EC], 3, MegaMsg) ->
     megaco_compact_text_encoder_v3:encode_message(EC, MegaMsg);
-encode_message([{version3,prev3c}|EC], 3, MegaMsg) ->
-    megaco_compact_text_encoder_prev3c:encode_message(EC, MegaMsg);
-encode_message([{version3,prev3b}|EC], 3, MegaMsg) ->
-    megaco_compact_text_encoder_prev3b:encode_message(EC, MegaMsg);
-encode_message([{version3,prev3a}|EC], 3, MegaMsg) ->
-    megaco_compact_text_encoder_prev3a:encode_message(EC, MegaMsg);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 3, MegaMsg) ->
     megaco_compact_text_encoder_v3:encode_message(EC, MegaMsg);
 encode_message(_EC, V, _MegaMsg) ->
@@ -124,6 +126,8 @@ decode_message([], _, Bin) when is_binary(Bin) ->
 	{error, Reason, Line} ->               %% OTP-4007
 	    scan_error(Reason, Line, Bin) %% OTP-4007
     end;
+
+%% <BACKWARD-COMPAT-CLAUSE>
 decode_message([{version3,v3}], _, Bin) when is_binary(Bin) ->
     %% d("decode_message(v3) -> entry"),
     case megaco_text_scanner:scan(Bin) of
@@ -145,69 +149,8 @@ decode_message([{version3,v3}], _, Bin) when is_binary(Bin) ->
 	{error, Reason, Line} ->               %% OTP-4007
 	    scan_error(Reason, Line, Bin) %% OTP-4007
     end;
-decode_message([{version3,prev3c}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3c) -> entry"),
-    case megaco_text_scanner:scan(Bin) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
+%% </BACKWARD-COMPAT-CLAUSE>
 
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3C_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	{error, Reason, Tokens, Line} ->
-	    scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->               %% OTP-4007
-	    scan_error(Reason, Line, Bin) %% OTP-4007
-    end;
-decode_message([{version3,prev3b}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3b) -> entry"),
-    case megaco_text_scanner:scan(Bin) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3B_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	{error, Reason, Tokens, Line} ->
-	    scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->               %% OTP-4007
-	    scan_error(Reason, Line, Bin) %% OTP-4007
-    end;
-decode_message([{version3,prev3a}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3a) -> entry"),
-    case megaco_text_scanner:scan(Bin) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3A_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	{error, Reason, Tokens, Line} ->
-	    scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->               %% OTP-4007
-	    scan_error(Reason, Line, Bin) %% OTP-4007
-    end;
 decode_message([{flex, Port}], _, Bin) when is_binary(Bin) ->
     %% d("decode_message(flex) -> entry"),
     case megaco_flex_scanner:scan(Bin, Port) of
@@ -229,6 +172,8 @@ decode_message([{flex, Port}], _, Bin) when is_binary(Bin) ->
 	{error, Reason, Line} ->               %% OTP-4007
 	    scan_error(Reason, Line, Bin) %% OTP-4007
     end;
+
+%% <BACKWARD-COMPAT-CLAUSE>
 decode_message([{version3,v3},{flex, Port}], _, Bin) when is_binary(Bin) ->
     %% d("decode_message(v3,flex) -> entry"),
     case megaco_flex_scanner:scan(Bin, Port) of
@@ -250,69 +195,8 @@ decode_message([{version3,v3},{flex, Port}], _, Bin) when is_binary(Bin) ->
 	{error, Reason, Line} ->               %% OTP-4007
 	    scan_error(Reason, Line, Bin) %% OTP-4007
     end;
-decode_message([{version3,prev3c},{flex, Port}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3c,flex) -> entry"),
-    case megaco_flex_scanner:scan(Bin, Port) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
+%% <BACKWARD-COMPAT-CLAUSE>
 
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3C_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	%% {error, Reason, Tokens, Line} ->
-	%%     scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->
-	    scan_error(Reason, Line, Bin)
-    end;
-decode_message([{version3,prev3b},{flex, Port}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3b,flex) -> entry"),
-    case megaco_flex_scanner:scan(Bin, Port) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3B_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	%% {error, Reason, Tokens, Line} ->
-	%%     scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->               %% OTP-4007
-	    scan_error(Reason, Line, Bin) %% OTP-4007
-    end;
-decode_message([{version3,prev3a},{flex, Port}], _, Bin) when is_binary(Bin) ->
-    %% d("decode_message(prev3a,flex) -> entry"),
-    case megaco_flex_scanner:scan(Bin, Port) of
-	{ok, Tokens, 1, _LastLine} ->
-	    do_decode_message(?V1_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 2, _LastLine} ->
-	    do_decode_message(?V2_PARSE_MOD, Tokens, Bin);
-
-	{ok, Tokens, 3, _LastLine} ->
-	    do_decode_message(?PREV3A_PARSE_MOD, Tokens, Bin);
-
-	{ok, _Tokens, V, _LastLine} ->
-	    {error, {unsupported_version, V}};
-
-	%% {error, Reason, Tokens, Line} ->
-	%%     scan_error(Reason, Line, Tokens, Bin);
-
-	{error, Reason, Line} ->               %% OTP-4007
-	    scan_error(Reason, Line, Bin) %% OTP-4007
-    end;
 decode_message(EC, _, Bin) when is_binary(Bin) ->
     {error, {bad_encoding_config, EC}};
 decode_message(_EC, _, _BadBin) ->
@@ -387,22 +271,28 @@ l2i(L) when is_list(L) ->
 %% Convert a transaction record into a deep io list
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_transaction([{version3,_}|EC], 1, Trans) ->
     megaco_compact_text_encoder_v1:encode_transaction(EC, Trans);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_transaction(EC, 1, Trans) ->
     megaco_compact_text_encoder_v1:encode_transaction(EC, Trans);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_transaction([{version3,_}|EC], 2, Trans) ->
     megaco_compact_text_encoder_v2:encode_transaction(EC, Trans);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_transaction(EC, 2, Trans) ->
     megaco_compact_text_encoder_v2:encode_transaction(EC, Trans);
-encode_transaction([{version3,prev3c}|EC], 3, Trans) ->
-    megaco_compact_text_encoder_prev3c:encode_transaction(EC, Trans);
-encode_transaction([{version3,prev3b}|EC], 3, Trans) ->
-    megaco_compact_text_encoder_prev3b:encode_transaction(EC, Trans);
-encode_transaction([{version3,prev3a}|EC], 3, Trans) ->
-    megaco_compact_text_encoder_prev3a:encode_transaction(EC, Trans);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_transaction([{version3,v3}|EC], 3, Trans) ->
     megaco_compact_text_encoder_v3:encode_transaction(EC, Trans);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_transaction(EC, 3, Trans) ->
     megaco_compact_text_encoder_v3:encode_transaction(EC, Trans);
 encode_transaction(_EC, V, _Trans) ->
@@ -413,28 +303,31 @@ encode_transaction(_EC, V, _Trans) ->
 %% Convert a list of ActionRequest record's into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_requests([{version3,_}|EC], 1, ActReqs) 
   when is_list(ActReqs) ->
     megaco_compact_text_encoder_v1:encode_action_requests(EC, ActReqs);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_requests(EC, 1, ActReqs) when is_list(ActReqs) ->
     megaco_compact_text_encoder_v1:encode_action_requests(EC, ActReqs);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_requests([{version3,_}|EC], 2, ActReqs) 
   when is_list(ActReqs) ->
     megaco_compact_text_encoder_v2:encode_action_requests(EC, ActReqs);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_requests(EC, 2, ActReqs) when is_list(ActReqs) ->
     megaco_compact_text_encoder_v2:encode_action_requests(EC, ActReqs);
-encode_action_requests([{version3,prev3c}|EC], 3, ActReqs) 
-  when is_list(ActReqs) ->
-    megaco_compact_text_encoder_prev3c:encode_action_requests(EC, ActReqs);
-encode_action_requests([{version3,prev3b}|EC], 3, ActReqs) 
-  when is_list(ActReqs) ->
-    megaco_compact_text_encoder_prev3b:encode_action_requests(EC, ActReqs);
-encode_action_requests([{version3,prev3a}|EC], 3, ActReqs) 
-  when is_list(ActReqs) ->
-    megaco_compact_text_encoder_prev3a:encode_action_requests(EC, ActReqs);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_requests([{version3,v3}|EC], 3, ActReqs) 
   when is_list(ActReqs) ->
     megaco_compact_text_encoder_v3:encode_action_requests(EC, ActReqs);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_requests(EC, 3, ActReqs) when is_list(ActReqs) ->
     megaco_compact_text_encoder_v3:encode_action_requests(EC, ActReqs);
 encode_action_requests(_EC, V, _ActReqs) ->
@@ -445,22 +338,28 @@ encode_action_requests(_EC, V, _ActReqs) ->
 %% Convert a ActionRequest record into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_request([{version3,_}|EC], 1, ActReq) ->
     megaco_compact_text_encoder_v1:encode_action_request(EC, ActReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_request(EC, 1, ActReq) ->
     megaco_compact_text_encoder_v1:encode_action_request(EC, ActReq);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_request([{version3,_}|EC], 2, ActReq) ->
     megaco_compact_text_encoder_v2:encode_action_request(EC, ActReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_request(EC, 2, ActReq) ->
     megaco_compact_text_encoder_v2:encode_action_request(EC, ActReq);
-encode_action_request([{version3,prev3c}|EC], 3, ActReq) ->
-    megaco_compact_text_encoder_prev3c:encode_action_request(EC, ActReq);
-encode_action_request([{version3,prev3b}|EC], 3, ActReq) ->
-    megaco_compact_text_encoder_prev3b:encode_action_request(EC, ActReq);
-encode_action_request([{version3,prev3a}|EC], 3, ActReq) ->
-    megaco_compact_text_encoder_prev3a:encode_action_request(EC, ActReq);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_request([{version3,v3}|EC], 3, ActReq) ->
     megaco_compact_text_encoder_v3:encode_action_request(EC, ActReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_request(EC, 3, ActReq) ->
     megaco_compact_text_encoder_v3:encode_action_request(EC, ActReq);
 encode_action_request(_EC, V, _ActReq) ->
@@ -471,22 +370,28 @@ encode_action_request(_EC, V, _ActReq) ->
 %% Convert a CommandRequest record into a deep io list
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_command_request([{version3,_}|EC], 1, CmdReq) ->
     megaco_compact_text_encoder_v1:encode_command_request(EC, CmdReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_command_request(EC, 1, CmdReq) ->
     megaco_compact_text_encoder_v1:encode_command_request(EC, CmdReq);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_command_request([{version3,_}|EC], 2, CmdReq) ->
     megaco_compact_text_encoder_v2:encode_command_request(EC, CmdReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_command_request(EC, 2, CmdReq) ->
     megaco_compact_text_encoder_v2:encode_command_request(EC, CmdReq);
-encode_command_request([{version3,prev3c}|EC], 3, CmdReq) ->
-    megaco_compact_text_encoder_prev3c:encode_command_request(EC, CmdReq);
-encode_command_request([{version3,prev3b}|EC], 3, CmdReq) ->
-    megaco_compact_text_encoder_prev3b:encode_command_request(EC, CmdReq);
-encode_command_request([{version3,prev3a}|EC], 3, CmdReq) ->
-    megaco_compact_text_encoder_prev3a:encode_command_request(EC, CmdReq);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_command_request([{version3,v3}|EC], 3, CmdReq) ->
     megaco_compact_text_encoder_v3:encode_command_request(EC, CmdReq);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_command_request(EC, 3, CmdReq) ->
     megaco_compact_text_encoder_v3:encode_command_request(EC, CmdReq);
 encode_command_request(_EC, V, _CmdReq) ->
@@ -497,22 +402,28 @@ encode_command_request(_EC, V, _CmdReq) ->
 %% Convert a action reply into a deep io list
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_reply([{version3,_}|EC], 1, ActRep) ->
     megaco_compact_text_encoder_v1:encode_action_reply(EC, ActRep);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_reply(EC, 1, ActRep) ->
     megaco_compact_text_encoder_v1:encode_action_reply(EC, ActRep);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_reply([{version3,_}|EC], 2, ActRep) ->
     megaco_compact_text_encoder_v2:encode_action_reply(EC, ActRep);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_reply(EC, 2, ActRep) ->
     megaco_compact_text_encoder_v2:encode_action_reply(EC, ActRep);
-encode_action_reply([{version3,prev3c}|EC], 3, ActRep) ->
-    megaco_compact_text_encoder_prev3c:encode_action_reply(EC, ActRep);
-encode_action_reply([{version3,prev3b}|EC], 3, ActRep) ->
-    megaco_compact_text_encoder_prev3b:encode_action_reply(EC, ActRep);
-encode_action_reply([{version3,prev3a}|EC], 3, ActRep) ->
-    megaco_compact_text_encoder_prev3a:encode_action_reply(EC, ActRep);
+
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_action_reply([{version3,v3}|EC], 3, ActRep) ->
     megaco_compact_text_encoder_v3:encode_action_reply(EC, ActRep);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_action_reply(EC, 3, ActRep) ->
     megaco_compact_text_encoder_v3:encode_action_reply(EC, ActRep);
 encode_action_reply(_EC, V, _ActRep) ->
@@ -541,21 +452,7 @@ token_tag2string(Tag, 3) ->
     token_tag2string(Tag, v3);
 token_tag2string(Tag, v3) ->
     megaco_compact_text_encoder_v3:token_tag2string(Tag);
-token_tag2string(Tag, prev3b) ->
-    megaco_compact_text_encoder_prev3b:token_tag2string(Tag);
-token_tag2string(Tag, prev3c) ->
-    megaco_compact_text_encoder_prev3c:token_tag2string(Tag);
+
 token_tag2string(Tag, _Vsn) ->
     token_tag2string(Tag, ?TT2S_BEST_VERSION).
 
-
-%% d(F) ->
-%%     d(F, []).
-
-%% d(F, A) ->
-%%     d(get(dbg), F, A).
-
-%% d(true, F, A) ->
-%%     io:format("~p:" ++ F ++ "~n", [?MODULE|A]);
-%% d(_, _, _) ->
-%%     ok.

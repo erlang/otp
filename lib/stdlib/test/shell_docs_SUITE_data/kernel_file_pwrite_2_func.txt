@@ -1,0 +1,17 @@
+
+  [;1m-spec pwrite(IoDevice, LocBytes) -> ok | {error, {N, Reason}}[0m
+  [;1m                when[0m
+  [;1m                    IoDevice :: io_device(),[0m
+  [;1m                    LocBytes ::[0m
+  [;1m                        [{Location :: location(), Bytes :: iodata()}],[0m
+  [;1m                    N :: non_neg_integer(),[0m
+  [;1m                    Reason :: posix() | badarg | terminated.[0m
+
+  Performs a sequence of [;;4mpwrite/3[0m in one operation, which is more
+  efficient than calling them one at a time. Returns [;;4mok[0m or [;;4m[0m
+  [;;4m{error, {N, Reason}}[0m, where [;;4mN[0m is the number of successful
+  writes done before the failure.
+
+  When positioning in a file with other [;;4mencoding[0m than [;;4mlatin1[0m,
+  caution must be taken to set the position on a correct character
+  boundary. For details, see [;;4mposition/2[0m.

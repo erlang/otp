@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,120 +18,173 @@
 %% %CopyrightEnd%
 %%
 
+-module(client).
+
 %%
-%% An example Diameter client that can sends base protocol RAR
+%% An example Diameter client that can sends base protocol ACR
 %% requests to a connected peer.
 %%
-%% The simplest usage is as follows this to connect to a server
-%% listening on the default port on the local host, assuming diameter
-%% is already started (eg. diameter:start()).
+%% Simplest usage to connect to a server listening on TCP at
+%% 127.0.0.1:3868:
 %%
 %%   client:start().
 %%   client:connect(tcp).
 %%   client:call().
 %%
-%% The first call starts the a service with the default name of
-%% ?MODULE, the second defines a connecting transport that results in
-%% a connection to the peer (if it's listening), the third sends it a
-%% RAR and returns the answer.
-%%
-
--module(client).
-
--include_lib("diameter/include/diameter.hrl").
 
 -export([start/1,     %% start a service
          start/2,     %%
          connect/2,   %% add a connecting transport
-         call/1,      %% send using the record encoding
-         cast/1,      %% send using the list encoding and detached
+         call/2,      %% send a request
          stop/1]).    %% stop a service
-%% A real application would typically choose an encoding and whether
-%% they want the call to return the answer or not. Sending with
-%% both the record and list encoding here, one detached and one not,
-%% is just for demonstration purposes.
 
 %% Convenience functions using the default service name.
 -export([start/0,
          connect/1,
          stop/0,
          call/0,
-         cast/0]).
+         call/1]).
 
 -define(DEF_SVC_NAME, ?MODULE).
 -define(L, atom_to_list).
+-define(LOOPBACK, {127,0,0,1}).
 
-%% The service configuration. As in the server example, a client
-%% supporting multiple Diameter applications may or may not want to
-%% configure a common callback module on all applications.
+%% Service configuration.
 -define(SERVICE(Name), [{'Origin-Host', ?L(Name) ++ ".example.com"},
                         {'Origin-Realm', "example.com"},
                         {'Vendor-Id', 0},
                         {'Product-Name', "Client"},
                         {'Auth-Application-Id', [0]},
-                        {string_decode, false},
                         {decode_format, map},
+                        {restrict_connections, false},
+                        {strict_mbit, false},
+                        {string_decode, false},
                         {application, [{alias, common},
                                        {dictionary, diameter_gen_base_rfc6733},
-                                       {module, client_cb}]}]).
+                                       {module, client_cb},
+                                       {answer_errors, callback},
+                                       {call_mutates_state, false}]}]).
+
+%% start/2
+
+start(Name, Opts) ->
+    Defaults = [T || {K,_} = T <- ?SERVICE(Name),
+                     not lists:keymember(K, 1, Opts)],
+    diameter:start_service(Name, Opts ++ Defaults).
 
 %% start/1
 
-start(Name)
-  when is_atom(Name) ->
-    start(Name, []);
-
-start(Opts)
-  when is_list(Opts) ->
+start(Opts) ->
     start(?DEF_SVC_NAME, Opts).
 
 %% start/0
 
 start() ->
-    start(?DEF_SVC_NAME).
+    start(?DEF_SVC_NAME, []).
 
-%% start/2
+%% connect/1
 
-start(Name, Opts) ->
-    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
-                                   false == lists:keymember(K, 1, Opts)]).
+connect(Opts) ->
+    connect(?DEF_SVC_NAME, Opts).
 
 %% connect/2
 
-connect(Name, T) ->
-    node:connect(Name, T).
+connect(Name, Opts)
+  when is_list(Opts) ->
+    diameter:add_transport(Name, {connect, lists:flatmap(fun opts/1, Opts)});
 
-connect(T) ->
-    connect(?DEF_SVC_NAME, T).
+%% backwards compatibility with old config
+connect(Name, {T, Opts}) ->
+    connect(Name, [T | Opts]);
+connect(Name, T) ->
+    connect(Name, [T]).
+
+%% call/2
+
+call(Name, #{'Session-Id' := _} = Avps) ->
+    Defaults = #{'Destination-Realm' => "example.com",
+                 'Accounting-Record-Type' => 1,  %% EVENT_RECORD
+                 'Accounting-Record-Number' => 0},
+    ACR = ['ACR' | maps:merge(Defaults, Avps)],
+    diameter:call(Name, common, ACR, []);
+
+call(Name, #{} = Avps) ->
+    call(Name, Avps#{'Session-Id' => diameter:session_id(?L(Name))});
+
+call(Name, Avps) ->
+    call(Name, maps:from_list(Avps)).
 
 %% call/1
 
-call(Name) ->
-    SId = diameter:session_id(?L(Name)),
-    RAR = ['RAR' | #{'Session-Id' => SId,
-                     'Auth-Application-Id' => 0,
-                     'Re-Auth-Request-Type' => 0}],
-    diameter:call(Name, common, RAR, []).
+call(Avps) ->
+    call(?DEF_SVC_NAME, Avps).
+
+%% call/0
 
 call() ->
-    call(?DEF_SVC_NAME).
-
-%% cast/1
-
-cast(Name) ->
-    SId = diameter:session_id(?L(Name)),
-    RAR = ['RAR', {'Session-Id', SId},
-                  {'Auth-Application-Id', 0},
-                  {'Re-Auth-Request-Type', 1}],
-    diameter:call(Name, common, RAR, [detach]).
-
-cast() ->
-    cast(?DEF_SVC_NAME).
+    call(?DEF_SVC_NAME, #{}).
 
 %% stop/1
 
 stop(Name) ->
-    node:stop(Name).
+    diameter:stop_service(Name).
 
 stop() ->
     stop(?DEF_SVC_NAME).
+
+%% ===========================================================================
+
+%% opts/1
+%%
+%% Map some terms to transport_module/transport_config pairs as a
+%% convenience, pass everything else unmodified.
+
+opts(T)
+  when T == any;
+       T == tcp;
+       T == sctp ->
+   opts({T, loopback, 3868});
+
+opts({T, RA, RP}) ->
+    opts({T, [], RA, RP});
+
+opts({T, loopback, RA, RP}) ->
+    opts({T, ?LOOPBACK, RA, RP});
+
+opts({T, LA, RA, RP})
+  when is_tuple(LA) ->
+    opts({T, [{ip, LA}], RA, RP});
+
+opts({any, Opts, RA, RP}) ->
+    All = Opts ++ opts(RA, RP),
+    [{transport_module, diameter_sctp},
+     {transport_config, All, 2000},
+     {transport_module, diameter_tcp},
+     {transport_config, All}];
+
+opts({tcp, Opts, RA, RP}) ->
+    opts({diameter_tcp, Opts, RA, RP});
+
+opts({sctp, Opts, RA, RP}) ->
+    opts({diameter_sctp, Opts, RA, RP});
+
+opts({Mod, Opts, loopback, RP}) ->
+    opts({Mod, Opts, ?LOOPBACK, RP});
+
+opts({Mod, Opts, RA, default}) ->
+    opts({Mod, Opts, RA, 3868});
+
+opts({Mod, Opts, RA, RP}) ->
+    [{transport_module, Mod},
+     {transport_config, opts(RA, RP) ++ Opts}];
+
+opts(T) ->
+    [T].
+
+%% opts/2
+
+opts(loopback, RP) ->
+    opts(?LOOPBACK, RP);
+
+opts(RA, RP) ->
+    [{raddr, RA}, {rport, RP}, {reuseaddr, true}].

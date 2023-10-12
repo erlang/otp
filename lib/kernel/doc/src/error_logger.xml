@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>error_logger</module>
+  <module since="">error_logger</module>
   <modulesummary>Erlang error logger.</modulesummary>
   <description>
 
@@ -41,19 +41,19 @@
 	automatically started when an event handler is added
 	with <c>error_logger:add_report_handler/1,2</c>. The <c>error_logger</c>
 	module is then also added as a handler to the new logger.</p>
-      <p>See  <seealso marker="logger"><c>logger(3)</c></seealso> and
-	the <seealso marker="logger_chapter">Logging</seealso> chapter
+      <p>See  <seeerl marker="logger"><c>logger(3)</c></seeerl> and
+	the <seeguide marker="logger_chapter">Logging</seeguide> chapter
 	in the User's Guide for more information.</p>
     </note>
 
     <p>The Erlang <em>error logger</em> is an event manager (see
-      <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
-      <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>),
+      <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide> and
+      <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>),
       registered as <c>error_logger</c>.</p>
     <p>Error logger is no longer started by default, but is
       automatically started when an event handler is added
-      with <seealso marker="#add_report_handler/1">
-	<c>add_report_handler/1,2</c></seealso>. The <c>error_logger</c>
+      with <seemfa marker="#add_report_handler/1">
+	<c>add_report_handler/1,2</c></seemfa>. The <c>error_logger</c>
       module is then also added as a handler to the new logger,
       causing log events to be forwarded from logger to error logger,
       and consequently to all installed error logger event
@@ -76,56 +76,56 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="add_report_handler" arity="1"/>
-      <name name="add_report_handler" arity="2"/>
+      <name name="add_report_handler" arity="1" since=""/>
+      <name name="add_report_handler" arity="2" since=""/>
       <fsummary>Add an event handler to the error logger.</fsummary>
       <desc>
         <p>Adds a new event handler to the error logger. The event
           handler must be implemented as a <c>gen_event</c> callback
           module, see
-          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
+          <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>.</p>
         <p><c><anno>Handler</anno></c> is typically the name of the callback module
           and <c><anno>Args</anno></c> is an optional term (defaults to []) passed
           to the initialization callback function <c><anno>Handler</anno>:init/1</c>.
           The function returns <c>ok</c> if successful.</p>
         <p>The event handler must be able to handle the events in this module, see
-          section <seealso marker="#events">Events</seealso>.</p>
+          section <seeerl marker="#events">Events</seeerl>.</p>
 	<p>The first time this function is called,
 	  <c>error_logger</c> is added as a Logger handler, and
 	  the <c>error_logger</c> process is started.</p>
       </desc>
     </func>
     <func>
-      <name name="delete_report_handler" arity="1"/>
+      <name name="delete_report_handler" arity="1" since=""/>
       <fsummary>Delete an event handler from the error logger.</fsummary>
       <desc>
         <p>Deletes an event handler from the error logger by calling
           <c>gen_event:delete_handler(error_logger, <anno>Handler</anno>, [])</c>,
-          see <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
+          see <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>.</p>
 	<p>If no more event handlers exist after the deletion,
 	  <c>error_logger</c> is removed as a Logger handler, and
 	  the <c>error_logger</c> process is stopped.</p>
       </desc>
     </func>
     <func>
-      <name name="error_msg" arity="1"/>
-      <name name="error_msg" arity="2"/>
-      <name name="format" arity="2"/>
+      <name name="error_msg" arity="1" since=""/>
+      <name name="error_msg" arity="2" since=""/>
+      <name name="format" arity="2" since=""/>
       <fsummary>Log a standard error event.</fsummary>
       <desc>
         <p>Log a standard error event. The <c><anno>Format</anno></c>
           and <c><anno>Data</anno></c> arguments are the same as the
           arguments of
-	  <seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
+	  <seemfa marker="stdlib:io#format/2"><c>io:format/2</c></seemfa>
 	  in STDLIB.</p>
         <p>Error logger forwards the event to Logger, including
           metadata that allows backwards compatibility with legacy
           error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler.</p>
 	<p>These functions are kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_ERROR</c></seeerl> macro or
+	  <seemfa marker="logger#error/1"><c>logger:error/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -142,7 +142,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="error_report" arity="1"/>
+      <name name="error_report" arity="1" since=""/>
       <fsummary>Log a standard error event.</fsummary>
       <desc>
         <p>Log a standard error event. Error logger forwards the event
@@ -150,9 +150,9 @@ ok</pre>
           compatibility with legacy error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_ERROR</c></seeerl> macro or
+	  <seemfa marker="logger#error/1"><c>logger:error/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -169,7 +169,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="error_report" arity="2"/>
+      <name name="error_report" arity="2" since=""/>
       <fsummary>Log a user-defined error event.</fsummary>
       <desc>
         <p>Log a user-defined error event. Error logger forwards the
@@ -182,16 +182,16 @@ ok</pre>
           event handler, must be added to handle this event.</p>
         <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for
-	<seealso marker="#error_report/1"><c>error_report/1</c></seealso>.</p>
+	<seemfa marker="#error_report/1"><c>error_report/1</c></seemfa>.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_ERROR</c></seeerl> macro or
+	  <seemfa marker="logger#error/1"><c>logger:error/1,2,3</c></seemfa>
 	  instead.</p>
       </desc>
     </func>
     <func>
-      <name name="get_format_depth" arity="0"/>
+      <name name="get_format_depth" arity="0" since="OTP 20.0"/>
       <fsummary>Get the value of the Kernel application variable
                 <c>error_logger_format_depth</c>.</fsummary>
       <desc>
@@ -201,9 +201,9 @@ ok</pre>
 	<c>unlimited</c> is returned.</p>
 	<note>
 	  <p>The <c>error_logger_format_depth</c> variable
-	    is <seealso marker="kernel_app#deprecated-configuration-parameters">
-	    deprecated</seealso> since
-	    the <seealso marker="logger">Logger API</seealso> was
+	    is <seeapp marker="kernel_app#deprecated-configuration-parameters">
+	    deprecated</seeapp> since
+	    the <seeerl marker="logger">Logger API</seeerl> was
 	    introduced in Erlang/OTP 21.0. The variable, and this
 	    function, are kept for backwards compatibility since they
 	    still might be used by legacy report handlers.</p>
@@ -211,23 +211,23 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_msg" arity="1"/>
-      <name name="info_msg" arity="2"/>
+      <name name="info_msg" arity="1" since=""/>
+      <name name="info_msg" arity="2" since=""/>
       <fsummary>Log a standard information event.</fsummary>
       <desc>
         <p>Log a standard information event. The <c><anno>Format</anno></c>
           and <c><anno>Data</anno></c> arguments are the same as the
           arguments of
-	  <seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
+	  <seemfa marker="stdlib:io#format/2"><c>io:format/2</c></seemfa>
 	  in STDLIB.</p>
         <p>Error logger forwards the event to Logger, including
           metadata that allows backwards compatibility with legacy
           error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler.</p>
 	<p>These functions are kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_INFO</c></seeerl> macro or
+	  <seemfa marker="logger#info/1"><c>logger:info/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -244,7 +244,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_report" arity="1"/>
+      <name name="info_report" arity="1" since=""/>
       <fsummary>Log a standard information event.</fsummary>
       <desc>
         <p>Log a standard information event. Error logger forwards the
@@ -252,9 +252,9 @@ ok</pre>
           compatibility with legacy error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_INFO</c></seeerl> macro or
+	  <seemfa marker="logger#info/1"><c>logger:info/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -271,7 +271,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_report" arity="2"/>
+      <name name="info_report" arity="2" since=""/>
       <fsummary>Log a user-defined information event.</fsummary>
       <desc>
         <p>Log a user-defined information event. Error logger forwards
@@ -285,18 +285,18 @@ ok</pre>
           event handler, must be added to handle this event.</p>
         <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for
-	<seealso marker="#info_report/1"><c>info_report/1</c></seealso>.</p>
+	<seemfa marker="#info_report/1"><c>info_report/1</c></seemfa>.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_INFO</c></seeerl> macro or
+	  <seemfa marker="logger#info/1"><c>logger:info/1,2,3</c></seemfa>
 	  instead.</p>
       </desc>
     </func>
     <func>
-      <name name="logfile" arity="1" clause_i="1"/>
-      <name name="logfile" arity="1" clause_i="2"/>
-      <name name="logfile" arity="1" clause_i="3"/>
+      <name name="logfile" arity="1" clause_i="1" since=""/>
+      <name name="logfile" arity="1" clause_i="2" since=""/>
+      <name name="logfile" arity="1" clause_i="3" since=""/>
       <fsummary>Enable or disable error printouts to a file.</fsummary>
       <type variable="Filename"/>
       <type variable="OpenReason" name_i="1"/>
@@ -316,9 +316,9 @@ ok</pre>
 	<p>This function is useful as a shortcut during development
 	  and testing, but must not be used in a production
 	  system. See
-	  section <seealso marker="logger_chapter">Logging</seealso>
+	  section <seeguide marker="logger_chapter">Logging</seeguide>
 	  in the Kernel User's Guide, and
-	  the <seealso marker="logger"><c>logger(3)</c></seealso>
+	  the <seeerl marker="logger"><c>logger(3)</c></seeerl>
 	  manual page for information about how to configure Logger
 	  for live systems.</p>
         <p><c>Request</c> is one of the following:</p>
@@ -346,7 +346,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="tty" arity="1"/>
+      <name name="tty" arity="1" since=""/>
       <fsummary>Enable or disable printouts to the terminal.</fsummary>
       <desc>
         <p>Enables (<c><anno>Flag</anno> == true</c>) or disables
@@ -355,15 +355,15 @@ ok</pre>
 	<p>This is done by manipulating the Logger configuration. The
 	  function is useful as a shortcut during development and
 	  testing, but must not be used in a production system. See
-	  section <seealso marker="logger_chapter">Logging</seealso>
+	  section <seeguide marker="logger_chapter">Logging</seeguide>
 	  in the Kernel User's Guide, and
-	  the <seealso marker="logger"><c>logger(3)</c></seealso>
+	  the <seeerl marker="logger"><c>logger(3)</c></seeerl>
 	  manual page for information about how to configure Logger
 	  for live systems.</p>
       </desc>
     </func>
     <func>
-      <name name="warning_map" arity="0"/>
+      <name name="warning_map" arity="0" since=""/>
       <fsummary>Return the current mapping for warning events.</fsummary>
       <desc>
         <p>Returns the current mapping for warning events. Events sent
@@ -400,25 +400,25 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_msg" arity="1"/>
-      <name name="warning_msg" arity="2"/>
+      <name name="warning_msg" arity="1" since=""/>
+      <name name="warning_msg" arity="2" since=""/>
       <fsummary>Log a standard warning event.</fsummary>
       <desc>
         <p>Log a standard warning event. The <c><anno>Format</anno></c>
           and <c><anno>Data</anno></c> arguments are the same as the
           arguments of
-	  <seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
+	  <seemfa marker="stdlib:io#format/2"><c>io:format/2</c></seemfa>
 	  in STDLIB.</p>
         <p>Error logger forwards the event to Logger, including
           metadata that allows backwards compatibility with legacy
           error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler. The log
 	  level can be changed to error or info, see
-          <seealso marker="#warning_map/0"><c>warning_map/0</c></seealso>.</p>
+          <seemfa marker="#warning_map/0"><c>warning_map/0</c></seemfa>.</p>
 	<p>These functions are kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_WARNING</c></seeerl> macro or
+	  <seemfa marker="logger#warning/1"><c>logger:warning/1,2,3</c></seemfa>
 	  instead.</p>
         <warning>
           <p>If the Unicode translation modifier (<c>t</c>) is used in
@@ -429,7 +429,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_report" arity="1"/>
+      <name name="warning_report" arity="1" since=""/>
       <fsummary>Log a standard warning event.</fsummary>
       <desc>
         <p>Log a standard warning event. Error logger forwards the event
@@ -437,16 +437,16 @@ ok</pre>
           compatibility with legacy error logger event handlers.</p>
 	<p>The event is handled by the default Logger handler. The log
 	  level can be changed to error or info, see
-          <seealso marker="#warning_map/0"><c>warning_map/0</c></seealso>.</p>
+          <seemfa marker="#warning_map/0"><c>warning_map/0</c></seemfa>.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_WARNING</c></seeerl> macro or
+	  <seemfa marker="logger#warning/1"><c>logger:warning/1,2,3</c></seemfa>
 	  instead.</p>
       </desc>
     </func>
     <func>
-      <name name="warning_report" arity="2"/>
+      <name name="warning_report" arity="2" since=""/>
       <fsummary>Log a user-defined warning event.</fsummary>
       <desc>
         <p>Log a user-defined warning event. Error logger forwards the
@@ -458,14 +458,14 @@ ok</pre>
           the event. A different Logger handler, or an error logger
           event handler, must be added to handle this event.</p>
 	<p>The log level can be changed to error or info, see
-          <seealso marker="#warning_map/0"><c>warning_map/0</c></seealso>.</p>
+          <seemfa marker="#warning_map/0"><c>warning_map/0</c></seemfa>.</p>
         <p>It is recommended that <c><anno>Report</anno></c> follows the same
           structure as for
-	<seealso marker="#warning_report/1"><c>warning_report/1</c></seealso>.</p>
+	<seemfa marker="#warning_report/1"><c>warning_report/1</c></seemfa>.</p>
 	<p>This functions is kept for backwards compatibility and
-	  must not be used by new code. Use the <seealso marker="logger#macros">
-	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  must not be used by new code. Use the <seeerl marker="logger#macros">
+	    <c>?LOG_WARNING</c></seeerl> macro or
+	  <seemfa marker="logger#warning/1"><c>logger:warning/1,2,3</c></seemfa>
 	  instead.</p>
       </desc>
     </func>
@@ -529,11 +529,11 @@ ok</pre>
   </section>
   <section>
     <title>See Also</title>
-    <p><seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>,
-       <seealso marker="kernel:logger"><c>logger(3)</c></seealso>,
-       <seealso marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seealso>,
-       <seealso marker="kernel_app"><c>kernel(6)</c></seealso>,
-       <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso></p>
+    <p><seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>,
+       <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>,
+       <seeerl marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seeerl>,
+       <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>,
+       <seeapp marker="sasl:sasl_app"><c>sasl(6)</c></seeapp></p>
   </section>
 </erlref>
 

@@ -25,7 +25,8 @@
 
 -module(test_server_gl).
 -export([start_link/1,stop/1,set_minor_fd/3,unset_minor_fd/1,
-	 get_tc_supervisor/1,print/4,set_props/2]).
+	 get_tc_supervisor/1,print/4,set_props/2,
+	 capture_start/2, capture_stop/1]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).
 
@@ -88,6 +89,24 @@ set_minor_fd(GL, Fd, MFA) ->
 unset_minor_fd(GL) ->
     req(GL, unset_minor_fd).
 
+%% capture_start(GL, Who)
+%%  GL = Pid for the group leader process
+%%  Who = Process that wants to start capturing output
+%%
+%% capture_stop(GL)
+%%  GL = Pid for the group leader process
+%%
+%% Starts/stops capturing all output from io:format, and similar. Capturing
+%% output doesn't stop output from happening. It just makes it possible
+%% to retrieve the output using capture_get/0.
+%% Starting and stopping capture doesn't affect already captured output.
+%% All output is stored as messages in the message queue until retrieved.
+
+capture_start(GL, Who) ->
+    req(GL, {capture, Who}).
+
+capture_stop(GL) ->
+    req(GL, {capture, false}).
 
 %% get_tc_supervisor(GL)
 %%  GL = Pid for the group leader process
@@ -165,7 +184,13 @@ handle_call({set_props,PropList}, _From, St) ->
     {reply,ok,do_set_props(PropList, St)};
 handle_call({print,Detail,Msg,Printer}, {From,_}, St) ->
     output(Detail, Msg, Printer, From, St),
-    {reply,ok,St}.
+    {reply,ok,St};
+handle_call({capture, Who}, {_From, _}, St) ->
+    Cap = case Who of
+	      false -> none;
+	      Pid when is_pid(Pid) -> Pid
+	  end,
+    {reply, ok, St#st{capture=Cap}}.
 
 handle_cast(stop, St) ->
     {stop,normal,St}.
@@ -185,12 +210,6 @@ handle_info({'DOWN',Ref,process,_,_}, #st{tsio_monitor=Ref}=St) ->
     {stop,normal,St};
 handle_info({permit_io,Pid}, #st{permit_io=P}=St) ->
     {noreply,St#st{permit_io=gb_sets:add(Pid, P)}};
-handle_info({capture,Cap0}, St) ->
-    Cap = case Cap0 of
-	      false -> none;
-	      Pid when is_pid(Cap0) -> Pid
-	  end,
-    {noreply,St#st{capture=Cap}};
 handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
     _ = try io_req(Req, From, St) of
 	passthrough ->

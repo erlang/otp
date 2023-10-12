@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@
 		   userconfig=[],
 		   event_handler=[],
 		   ct_hooks=[],
+                   ct_hooks_order,
 		   enable_builtin_hooks=true,
 		   release_shell=false,
 		   include=[],
@@ -62,6 +63,7 @@
 		   merge_tests=true}).
 
 -record(cover, {app=none,
+                local_only=false,
 		level=details,
 		excl_mods=[],
 		incl_mods=[],

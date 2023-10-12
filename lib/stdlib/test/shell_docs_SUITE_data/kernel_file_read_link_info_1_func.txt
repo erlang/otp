@@ -1,0 +1,24 @@
+
+  [;1m-spec read_link_info(Name) -> {ok, FileInfo} | {error, Reason}[0m
+  [;1m                        when[0m
+  [;1m                            Name :: name_all(),[0m
+  [;1m                            FileInfo :: file_info(),[0m
+  [;1m                            Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R15B
+
+  Works like [;;4mread_file_info/1,2[0m except that if [;;4mName[0m is a
+  symbolic link, information about the link is returned in the [;;4m[0m
+  [;;4mfile_info[0m record and the [;;4mtype[0m field of the record is set to [;;4m[0m
+  [;;4msymlink[0m.
+
+  If the option [;;4mraw[0m is set, the file server is not called and only
+  information about local files is returned. Note that this will
+  break this module's atomicity guarantees as it can race with a
+  concurrent call to [;;4mwrite_file_info/1,2[0m
+
+  If [;;4mName[0m is not a symbolic link, this function returns the same
+  result as [;;4mread_file_info/1[0m. On platforms that do not support
+  symbolic links, this function is always equivalent to [;;4m[0m
+  [;;4mread_file_info/1[0m.

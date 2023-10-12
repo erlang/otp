@@ -1,0 +1,18 @@
+
+  [;1m-spec erlang:system_profile() -> ProfilerSettings[0m
+  [;1m                               when[0m
+  [;1m                                   ProfilerSettings ::[0m
+  [;1m                                       undefined |[0m
+  [;1m                                       {ProfilerPid, Options},[0m
+  [;1m                                   ProfilerPid :: pid() | port(),[0m
+  [;1m                                   Options :: [system_profile_option()].[0m
+
+  Types:
+    -type system_profile_option() ::
+          exclusive | runnable_ports | runnable_procs | scheduler |
+          timestamp | monotonic_timestamp | strict_monotonic_timestamp.
+
+  Returns the current system profiling settings set by [;;4m[0m
+  [;;4merlang:system_profile/2[0m as [;;4m{ProfilerPid, Options}[0m, or [;;4m[0m
+  [;;4mundefined[0m if there are no settings. The order of the options can
+  be different from the one that was set.

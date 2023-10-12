@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 -export([test/2, test/3,
          init_per_testcase/3,
-	 start/2, send_term/2, finish/1, send_eot/1, recv_eot/1,
+	 start/2, start/3, send_term/2, finish/1, send_eot/1, recv_eot/1,
 	 get_term/1, get_term/2]).
 
 -define(default_timeout, 5000).
@@ -55,14 +55,21 @@ test(Config, Tc, Timeout) ->
 %%
 %% Returns: {ok, Port}
 
-start(Config, {Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
-    Port = open_port({spawn, prog_cmd(Config, Prog)},
+start(Config, ProgTc) ->
+    start(Config, ProgTc, []).
+
+start(Config, {Prog, Tc}, Opt) when is_list(Prog), is_integer(Tc) ->
+    Port = open_port({spawn, prog_cmd(Config, Prog, Opt)},
                      [{packet, 4}, exit_status]),
     Command = [Tc div 256, Tc rem 256],
     Port ! {self(), {command, Command}},
     Port.
 
-prog_cmd(Config, Prog) ->
+prog_cmd(Config, Prog0, Opt) ->
+    Prog = case Opt of
+               rr -> "rr " ++ Prog0;
+               [] -> Prog0
+           end,
     case proplists:get_value(valgrind_cmd_fun, Config) of
         undefined ->
             Prog;

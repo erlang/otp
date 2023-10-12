@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2018. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2023. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -456,11 +456,11 @@
   </xsl:template>
 
   <!-- Section/Title -->
-  <xsl:template match="section/title">
+  <xsl:template match="section/title|fsdescription/title">
   </xsl:template>
 
   <!-- *ref/Section -->
-  <xsl:template match="erlref/section|comref/section|cref/section|fileref/section|appref/section">
+  <xsl:template match="erlref/section|comref/section|cref/section|fileref/section|appref/section|funcs/fsdescription">
       <xsl:text>&#10;.SH "</xsl:text><xsl:call-template name="replace-string">
         <xsl:with-param name="text" select="translate(title, 'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')" />
         <xsl:with-param name="replace" select="&quot;\&quot;" />
@@ -539,6 +539,17 @@
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
+  <!-- Change -->
+  <xsl:template match="change">
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Change:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
   <!-- Warning -->
   <xsl:template match="warning">
     <xsl:text>&#10;.LP&#10;</xsl:text>
@@ -572,7 +583,7 @@
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
-  <xsl:template match="warning/p | note/p | dont/p | do/p">
+  <xsl:template match="warning/p | note/p | change/p | dont/p | do/p">
     <xsl:variable name="content">
       <xsl:text>&#10;</xsl:text>
       <xsl:apply-templates/>
@@ -765,8 +776,9 @@
 
   <!-- Funcs -->
   <xsl:template match="funcs">
+    <xsl:apply-templates select="fsdescription"/>
     <xsl:text>&#10;.SH EXPORTS</xsl:text>
-    <xsl:apply-templates/>
+    <xsl:apply-templates select="func"/>
   </xsl:template>
 
   <!-- Func -->

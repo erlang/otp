@@ -1,0 +1,4 @@
+
+  [;1m-type file_info() :: #file_info{}.[0m
+
+  There is no documentation for file_info/0

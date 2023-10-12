@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,15 +24,15 @@
 -export([module/4]).
 -export([encode/2]).
 
--export_type([fail/0,label/0,reg/0,reg_num/0,src/0,module_code/0,function_name/0]).
+-export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
+-import(lists, [append/1,duplicate/2,map/2,member/2,keymember/3,splitwith/2]).
+
 -include("beam_opcodes.hrl").
+-include("beam_asm.hrl").
 
 %% Common types for describing operands for BEAM instructions.
--type reg_num() :: 0..1023.
--type reg() :: {'x',reg_num()} | {'y',reg_num()}.
--type src() :: reg() |
+-type src() :: beam_reg() |
 	       {'literal',term()} |
 	       {'atom',atom()} |
 	       {'integer',integer()} |
@@ -64,11 +64,20 @@ module(Code, ExtraChunks, CompileInfo, CompilerOpts) ->
 assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
+    {0,Dict2} = beam_dict:type(any, Dict1),
+    Dict3 = reject_unsupported_versions(Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    Exp = cerl_sets:from_list(Exp0),
-    {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, ExtraChunks, CompileInfo, CompilerOpts).
+    Exp = sets:from_list(Exp0, [{version, 2}]),
+    {Code,Dict} = assemble_1(Asm, Exp, Dict3, []),
+    build_file(Code, Attr, Dict, NumLabels, NumFuncs,
+               ExtraChunks, CompileInfo, CompilerOpts).
+
+reject_unsupported_versions(Dict) ->
+    %% Emit an instruction that was added in our lowest supported
+    %% version so that it cannot be loaded by earlier releases.
+    Instr = beam_opcodes:opcode(make_fun3, 3),  %OTP 24
+    beam_dict:opcode(Instr, Dict).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -93,7 +102,7 @@ insert_on_load_instruction(Is0, Entry) ->
     Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
-    Dict1 = case cerl_sets:is_element({Name,Arity}, Exp) of
+    Dict1 = case sets:is_element({Name,Arity}, Exp) of
 		true ->
 		    beam_dict:export(Name, Arity, Entry, Dict0);
 		false ->
@@ -111,7 +120,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, CompilerOpts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -123,9 +132,8 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		      Code),
 
     %% Create the atom table chunk.
-    AtomEncoding = atom_encoding(CompilerOpts),
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict, AtomEncoding),
-    AtomChunk = chunk(atom_chunk_name(AtomEncoding), <<NumAtoms:32>>, AtomTab),
+    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
+    AtomChunk = chunk(<<"AtU8">>, <<NumAtoms:32>>, AtomTab),
 
     %% Create the import table chunk.
 
@@ -172,13 +180,27 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		   end,
 
     %% Create the line chunk.
-    
     LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
+
+    %% Create the type table chunk.
+    {NumTypes, TypeTab} = beam_dict:type_table(Dict),
+    TypeChunk = chunk(<<"Type">>,
+                      <<?BEAM_TYPES_VERSION:32, NumTypes:32>>,
+                      TypeTab),
+
+    %% Create the meta chunk
+    Meta = proplists:get_value(<<"Meta">>, ExtraChunks0, empty),
+    MetaChunk = case Meta of
+                    empty -> [];
+                    Meta -> chunk(<<"Meta">>, Meta)
+                end,
+    %% Remove Meta chunk from ExtraChunks since it is essential
+    ExtraChunks = ExtraChunks0 -- [{<<"Meta">>, Meta}],
 
     %% Create the attributes and compile info chunks.
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
-		   ExpChunk,LambdaChunk,LiteralChunk],
+		   ExpChunk,LambdaChunk,LiteralChunk,MetaChunk],
     Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
     MD5 = module_md5(Essentials1),
     Essentials = finalize_fun_table(Essentials1, MD5),
@@ -193,22 +215,15 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
     %% Create IFF chunk.
 
     Chunks = case member(slim, CompilerOpts) of
-		 true ->
-		     [Essentials,AttrChunk];
-		 false ->
-		     [Essentials,LocChunk,AttrChunk,
-		      CompileChunk,CheckedChunks,LineChunk]
-	     end,
+                 true when NumTypes > 0 ->
+                     [Essentials,AttrChunk,TypeChunk];
+                 true when NumTypes =:= 0 ->
+                     [Essentials,AttrChunk];
+                 false ->
+                     [Essentials,LocChunk,AttrChunk,
+                      CompileChunk,CheckedChunks,LineChunk,TypeChunk]
+             end,
     build_form(<<"BEAM">>, Chunks).
-
-atom_encoding(Opts) ->
-    case proplists:get_bool(no_utf8_atoms, Opts) of
-	false -> utf8;
-	true -> latin1
-    end.
-
-atom_chunk_name(utf8) -> <<"AtU8">>;
-atom_chunk_name(latin1) -> <<"Atom">>.
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the
@@ -365,11 +380,16 @@ make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail,Op,Live|Ops++[Dst]], Dict);
-make_op({make_fun2,{f,Lbl},_Index,_OldUniq,NumFree}, Dict0) ->
+make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
+    NumFree = length(Env),
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
-    make_op({make_fun2,Fun}, Dict);
-make_op({kill,Y}, Dict) ->
-    make_op({init,Y}, Dict);
+    make_op({make_fun3,Fun,Dst,{list,Env}}, Dict);
+make_op({call_fun2,{f,Lbl},Arity,Func}, Dict0) ->
+    %% call_fun with known target, fill in the fun entry.
+    #tr{t=#t_fun{target={_Name, TotalArity}}} = Func, %Assertion.
+    NumFree = TotalArity - Arity,
+    {Lambda,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
+    make_op({call_fun2,Lambda,Arity,Func}, Dict);
 make_op({Name,Arg1}, Dict) ->
     encode_op(Name, [Arg1], Dict);
 make_op({Name,Arg1,Arg2}, Dict) ->
@@ -378,14 +398,9 @@ make_op({Name,Arg1,Arg2,Arg3}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3], Dict);
 make_op({Name,Arg1,Arg2,Arg3,Arg4}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3,Arg4], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6], Dict);
-%% make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7}, Dict) ->
-%%     encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8], Dict);
+make_op(Instr, Dict) when tuple_size(Instr) >= 6 ->
+    [Name|Args] = tuple_to_list(Instr),
+    encode_op(Name, Args, Dict);
 make_op(Op, Dict) when is_atom(Op) ->
     encode_op(Op, [], Dict).
 
@@ -399,6 +414,23 @@ encode_op_1([A0|As], Dict0, Acc) ->
     encode_op_1(As, Dict, [Acc,A]);
 encode_op_1([], Dict, Acc) -> {Acc,Dict}.
 
+encode_arg(#tr{r={x, X},t=Type}, Dict0) when is_integer(X), X >= 0 ->
+    %% Gracefully prevent this module from being loaded in OTP 24 and below by
+    %% forcing an opcode it doesn't understand. It would of course fail to load
+    %% without this, but the error message wouldn't be very helpful.
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_x, X),
+            encode(?tag_u, Index)],
+    {Data, Dict};
+encode_arg(#tr{r={y, Y},t=Type}, Dict0) when is_integer(Y), Y >= 0 ->
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_y, Y),
+            encode(?tag_u, Index)],
+    {Data, Dict};
 encode_arg({x, X}, Dict) when is_integer(X), X >= 0 ->
     {encode(?tag_x, X), Dict};
 encode_arg({y, Y}, Dict) when is_integer(Y), Y >= 0 ->
@@ -407,14 +439,14 @@ encode_arg({atom, Atom}, Dict0) when is_atom(Atom) ->
     {Index, Dict} = beam_dict:atom(Atom, Dict0),
     {encode(?tag_a, Index), Dict};
 encode_arg({integer, N}, Dict) ->
-    %% Conservatily assume that all integers whose absolute
+    %% Conservatively assume that all integers whose absolute
     %% value is greater than 1 bsl 128 will be bignums in
     %% the runtime system.
     if
         N >= 1 bsl 128 ->
-            encode_arg({literal, N}, Dict);
+            encode_literal(N, Dict);
         N =< -(1 bsl 128) ->
-            encode_arg({literal, N}, Dict);
+            encode_literal(N, Dict);
         true ->
             {encode(?tag_i, N), Dict}
     end;
@@ -424,8 +456,8 @@ encode_arg({f, W}, Dict) ->
     {encode(?tag_f, W), Dict};
 %% encode_arg({'char', C}, Dict) ->
 %%     {encode(?tag_h, C), Dict};
-encode_arg({string, String}, Dict0) ->
-    {Offset, Dict} = beam_dict:string(String, Dict0),
+encode_arg({string, BinString}, Dict0) when is_binary(BinString) ->
+    {Offset, Dict} = beam_dict:string(BinString, Dict0),
     {encode(?tag_u, Offset), Dict};
 encode_arg({extfunc, M, F, A}, Dict0) ->
     {Index, Dict} = beam_dict:import(M, F, A, Dict0),
@@ -433,8 +465,15 @@ encode_arg({extfunc, M, F, A}, Dict0) ->
 encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
+encode_arg({commands, List0}, Dict) ->
+    List1 = [begin
+                 [H|T] = tuple_to_list(Tuple),
+                 [{atom,H}|T]
+             end || Tuple <- List0],
+    List = append(List1),
+    encode_arg({list, List}, Dict);
 encode_arg({float, Float}, Dict) when is_float(Float) ->
-    encode_arg({literal,Float}, Dict);
+    encode_literal(Float, Dict);
 encode_arg({fr,Fr}, Dict) ->
     {[encode(?tag_z, 2),encode(?tag_u, Fr)], Dict};
 encode_arg({field_flags,Flags0}, Dict) ->
@@ -442,11 +481,23 @@ encode_arg({field_flags,Flags0}, Dict) ->
     {encode(?tag_u, Flags), Dict};
 encode_arg({alloc,List}, Dict) ->
     encode_alloc_list(List, Dict);
-encode_arg({literal,Lit}, Dict0) ->
-    {Index,Dict} = beam_dict:literal(Lit, Dict0),
-    {[encode(?tag_z, 4),encode(?tag_u, Index)],Dict};
+encode_arg({literal,Lit}, Dict) ->
+    if
+        Lit =:= [] ->
+            encode_arg(nil, Dict);
+        is_atom(Lit) ->
+            encode_arg({atom,Lit}, Dict);
+        is_integer(Lit) ->
+            encode_arg({integer,Lit}, Dict);
+        true ->
+            encode_literal(Lit, Dict)
+    end;
 encode_arg(Int, Dict) when is_integer(Int) ->
     {encode(?tag_u, Int),Dict}.
+
+encode_literal(Literal, Dict0) ->
+    {Index,Dict} = beam_dict:literal(Literal, Dict0),
+    {[encode(?tag_z, 4),encode(?tag_u, Index)],Dict}.
 
 %%flag_to_bit(aligned) -> 16#01; %% No longer useful.
 flag_to_bit(little)  -> 16#02;
@@ -472,18 +523,21 @@ encode_alloc_list_1([{words,Words}|T], Dict, Acc0) ->
 encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
     Acc = [Acc0,encode(?tag_u, 1),encode(?tag_u, Floats)],
     encode_alloc_list_1(T, Dict, Acc);
+encode_alloc_list_1([{funs,Funs}|T], Dict, Acc0) ->
+    Acc = [Acc0,encode(?tag_u, 2),encode(?tag_u, Funs)],
+    encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
 
 -spec encode(non_neg_integer(), integer()) -> iolist() | integer().
 
-encode(Tag, N) when N < 0 ->
+encode(Tag, N) when is_integer(N), N < 0 ->
     encode1(Tag, negative_to_bytes(N));
-encode(Tag, N) when N < 16 ->
+encode(Tag, N) when is_integer(N), N < 16 ->
     (N bsl 4) bor Tag;
-encode(Tag, N) when N < 16#800  ->
+encode(Tag, N) when is_integer(N), N < 16#800  ->
     [((N bsr 3) band 2#11100000) bor Tag bor 2#00001000, N band 16#ff];
-encode(Tag, N) ->
+encode(Tag, N) when is_integer(N) ->
     encode1(Tag, to_bytes(N)).
 
 encode1(Tag, Bytes) ->

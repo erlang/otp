@@ -1,0 +1,371 @@
+
+  [;1m-spec open_port(PortName, PortSettings) -> port()[0m
+  [;1m                   when[0m
+  [;1m                       PortName ::[0m
+  [;1m                           {spawn, Command :: string() | binary()} |[0m
+  [;1m                           {spawn_driver,[0m
+  [;1m                            Command :: string() | binary()} |[0m
+  [;1m                           {spawn_executable,[0m
+  [;1m                            FileName :: file:name_all()} |[0m
+  [;1m                           {fd,[0m
+  [;1m                            In :: non_neg_integer(),[0m
+  [;1m                            Out :: non_neg_integer()},[0m
+  [;1m                       PortSettings :: [Opt],[0m
+  [;1m                       Opt ::[0m
+  [;1m                           {packet, N :: 1 | 2 | 4} |[0m
+  [;1m                           stream |[0m
+  [;1m                           {line, L :: non_neg_integer()} |[0m
+  [;1m                           {cd, Dir :: string() | binary()} |[0m
+  [;1m                           {env,[0m
+  [;1m                            Env ::[0m
+  [;1m                                [{Name :: os:env_var_name(),[0m
+  [;1m                                  Val :: os:env_var_value() | false}]} |[0m
+  [;1m                           {args, [string() | binary()]} |[0m
+  [;1m                           {arg0, string() | binary()} |[0m
+  [;1m                           exit_status | use_stdio | nouse_stdio |[0m
+  [;1m                           stderr_to_stdout | in | out | binary | eof |[0m
+  [;1m                           {parallelism, Boolean :: boolean()} |[0m
+  [;1m                           hide |[0m
+  [;1m                           {busy_limits_port,[0m
+  [;1m                            {non_neg_integer(), non_neg_integer()} |[0m
+  [;1m                            disabled} |[0m
+  [;1m                           {busy_limits_msgq,[0m
+  [;1m                            {non_neg_integer(), non_neg_integer()} |[0m
+  [;1m                            disabled}.[0m
+
+  Returns a port identifier as the result of opening a new Erlang
+  port. A port can be seen as an external Erlang process.
+
+  The name of the executable as well as the arguments specified in [;;4m[0m
+  [;;4mcd[0m, [;;4menv[0m, [;;4margs[0m, and [;;4marg0[0m are subject to Unicode filename
+  translation if the system is running in Unicode filename mode. To
+  avoid translation or to force, for example UTF-8, supply the
+  executable and/or arguments as a binary in the correct encoding.
+  For details, see the module [;;4mfile(3)[0m, the function [;;4m[0m
+  [;;4mfile:native_name_encoding/0[0m in Kernel, and the [;;4mUsing Unicode in[0m
+  [;;4mErlang[0m User's Guide.
+
+  Note:
+    The characters in the name (if specified as a list) can only
+    be > 255 if the Erlang virtual machine is started in Unicode
+    filename translation mode. Otherwise the name of the
+    executable is limited to the ISO Latin-1 character set.
+
+  [;;4mPortName[0ms:
+
+  [;;4m[;;4m{spawn, Command}[0m[0m:
+    Starts an external program. [;;4mCommand[0m is the name of the
+    external program to be run. [;;4mCommand[0m runs outside the Erlang
+    work space unless an Erlang driver with the name [;;4mCommand[0m is
+    found. If found, that driver is started. A driver runs in the
+    Erlang work space, which means that it is linked with the
+    Erlang runtime system.
+
+    For external programs, [;;4mPATH[0m is searched (or an equivalent
+    method is used to find programs, depending on the OS). This is
+    done by invoking the shell on certain platforms. The first
+    space-separated token of the command is considered as the name
+    of the executable (or driver). This (among other things) makes
+    this option unsuitable for running programs with spaces in
+    filenames or directory names. If spaces in executable
+    filenames are desired, use [;;4m{spawn_executable, Command}[0m
+    instead.
+
+  [;;4m[;;4m{spawn_driver, Command}[0m[0m:
+    Works like [;;4m{spawn, Command}[0m, but demands the first
+    (space-separated) token of the command to be the name of a
+    loaded driver. If no driver with that name is loaded, a [;;4m[0m
+    [;;4mbadarg[0m error is raised.
+
+  [;;4m[;;4m{spawn_executable, FileName}[0m[0m:
+    Works like [;;4m{spawn, FileName}[0m, but only runs external
+    executables. [;;4mFileName[0m in its whole is used as the name of
+    the executable, including any spaces. If arguments are to be
+    passed, the [;;4mPortSettings[0m [;;4margs[0m and [;;4marg0[0m can be used.
+
+    The shell is usually not invoked to start the program, it is
+    executed directly. [;;4mPATH[0m (or equivalent) is not searched. To
+    find a program in [;;4mPATH[0m to execute, use [;;4mos:find_executable/1[0m.
+
+    Only if a shell script or [;;4m.bat[0m file is executed, the
+    appropriate command interpreter is invoked implicitly, but
+    there is still no command-argument expansion or implicit [;;4mPATH[0m
+    search.
+
+    If [;;4mFileName[0m cannot be run, an error exception is raised,
+    with the POSIX error code as the reason. The error reason can
+    differ between OSs. Typically the error [;;4menoent[0m is raised
+    when an attempt is made to run a program that is not found and [;;4m[0m
+    [;;4meacces[0m is raised when the specified file is not executable.
+
+  [;;4m[;;4m{fd, In, Out}[0m[0m:
+    Allows an Erlang process to access any currently opened file
+    descriptors used by Erlang. The file descriptor [;;4mIn[0m can be
+    used for standard input, and the file descriptor [;;4mOut[0m for
+    standard output. It is only used for various servers in the
+    Erlang OS ([;;4mshell[0m and [;;4muser[0m). Hence, its use is limited.
+
+  [;;4mPortSettings[0m is a list of settings for the port. The valid
+  settings are as follows:
+
+  [;;4m[;;4m{packet, N}[0m[0m:
+    Messages are preceded by their length, sent in [;;4mN[0m bytes, with
+    the most significant byte first. The valid values for [;;4mN[0m are
+    1, 2, and 4.
+
+  [;;4m[;;4mstream[0m[0m:
+    Output messages are sent without packet lengths. A
+    user-defined protocol must be used between the Erlang process
+    and the external object.
+
+  [;;4m[;;4m{line, L}[0m[0m:
+    Messages are delivered on a per line basis. Each line
+    (delimited by the OS-dependent newline sequence) is delivered
+    in a single message. The message data format is [;;4m{Flag, Line}[0m,
+    where [;;4mFlag[0m is [;;4meol[0m or [;;4mnoeol[0m, and [;;4mLine[0m is the data
+    delivered (without the newline sequence).
+
+    [;;4mL[0m specifies the maximum line length in bytes. Lines longer
+    than this are delivered in more than one message, with [;;4mFlag[0m
+    set to [;;4mnoeol[0m for all but the last message. If end of file is
+    encountered anywhere else than immediately following a newline
+    sequence, the last line is also delivered with [;;4mFlag[0m set to [;;4m[0m
+    [;;4mnoeol[0m. Otherwise lines are delivered with [;;4mFlag[0m set to [;;4meol[0m.
+
+    The [;;4m{packet, N}[0m and [;;4m{line, L}[0m settings are mutually
+    exclusive.
+
+  [;;4m[;;4m{cd, Dir}[0m[0m:
+    Only valid for [;;4m{spawn, Command}[0m and [;;4m{spawn_executable,[0m
+    [;;4mFileName}[0m. The external program starts using [;;4mDir[0m as its
+    working directory. [;;4mDir[0m must be a string.
+
+  [;;4m[;;4m{env, Env}[0m[0m:
+    Types:
+      [;;4mName = [0m[;;4mos:env_var_name()[0m
+      [;;4mVal = [0m[;;4mos:env_var_value()[0m[;;4m | false[0m
+      [;;4mEnv = [{Name, Val}][0m
+
+    Only valid for [;;4m{spawn, Command}[0m, and [;;4m{spawn_executable,[0m
+    [;;4mFileName}[0m. The environment of the started process is extended
+    using the environment specifications in [;;4mEnv[0m.
+
+    [;;4mEnv[0m is to be a list of tuples [;;4m{Name, Val}[0m, where [;;4mName[0m is
+    the name of an environment variable, and [;;4mVal[0m is the value it
+    is to have in the spawned port process. Both [;;4mName[0m and [;;4mVal[0m
+    must be strings. The one exception is [;;4mVal[0m being the atom [;;4m[0m
+    [;;4mfalse[0m (in analogy with [;;4mos:getenv/1[0m), which removes the
+    environment variable.
+
+    For information about encoding requirements, see documentation
+    of the types for [;;4mName[0m and [;;4mVal[0m.
+
+  [;;4m[;;4m{args, [ string() | binary() ]}[0m[0m:
+    Only valid for [;;4m{spawn_executable, FileName}[0m and specifies
+    arguments to the executable. Each argument is specified as a
+    separate string and (on Unix) eventually ends up as one
+    element each in the argument vector. On other platforms, a
+    similar behavior is mimicked.
+
+    The arguments are not expanded by the shell before they are
+    supplied to the executable. Most notably this means that file
+    wildcard expansion does not occur. To expand wildcards for the
+    arguments, use [;;4mfilelib:wildcard/1[0m. Notice that even if the
+    program is a Unix shell script, meaning that the shell
+    ultimately is invoked, wildcard expansion does not occur, and
+    the script is provided with the untouched arguments. On
+    Windows, wildcard expansion is always up to the program
+    itself, therefore this is not an issue.
+
+    The executable name (also known as [;;4margv[0][0m) is not to be
+    specified in this list. The proper executable name is
+    automatically used as [;;4margv[0][0m, where applicable.
+
+    If you explicitly want to set the program name in the argument
+    vector, option [;;4marg0[0m can be used.
+
+  [;;4m[;;4m{arg0, string() | binary()}[0m[0m:
+    Only valid for [;;4m{spawn_executable, FileName}[0m and explicitly
+    specifies the program name argument when running an
+    executable. This can in some circumstances, on some OSs, be
+    desirable. How the program responds to this is highly
+    system-dependent and no specific effect is guaranteed.
+
+  [;;4m[;;4mexit_status[0m[0m:
+    Only valid for [;;4m{spawn, Command}[0m, where [;;4mCommand[0m refers to
+    an external program, and for [;;4m{spawn_executable, FileName}[0m.
+
+    When the external process connected to the port exits, a
+    message of the form [;;4m{Port,{exit_status,Status}}[0m is sent to
+    the connected process, where [;;4mStatus[0m is the exit status of
+    the external process. If the program aborts on Unix, the same
+    convention is used as the shells do (that is, 128+signal).
+
+    If option [;;4meof[0m is specified also, the messages [;;4meof[0m and [;;4m[0m
+    [;;4mexit_status[0m appear in an unspecified order.
+
+    If the port program closes its [;;4mstdout[0m without exiting,
+    option [;;4mexit_status[0m does not work.
+
+  [;;4m[;;4muse_stdio[0m[0m:
+    Only valid for [;;4m{spawn, Command}[0m and [;;4m{spawn_executable,[0m
+    [;;4mFileName}[0m. It allows the standard input and output (file
+    descriptors 0 and 1) of the spawned (Unix) process for
+    communication with Erlang.
+
+  [;;4m[;;4mnouse_stdio[0m[0m:
+    The opposite of [;;4muse_stdio[0m. It uses file descriptors 3 and 4
+    for communication with Erlang.
+
+  [;;4m[;;4mstderr_to_stdout[0m[0m:
+    Affects ports to external programs. The executed program gets
+    its standard error file redirected to its standard output
+    file. [;;4mstderr_to_stdout[0m and [;;4mnouse_stdio[0m are mutually
+    exclusive.
+
+  [;;4m[;;4moverlapped_io[0m[0m:
+    Affects ports to external programs on Windows only. The
+    standard input and standard output handles of the port program
+    are, if this option is supplied, opened with flag [;;4m[0m
+    [;;4mFILE_FLAG_OVERLAPPED[0m, so that the port program can (and must)
+    do overlapped I/O on its standard handles. This is not
+    normally the case for simple port programs, but an option of
+    value for the experienced Windows programmer. On all other
+    platforms, this option is silently discarded.
+
+  [;;4m[;;4min[0m[0m:
+    The port can only be used for input.
+
+  [;;4m[;;4mout[0m[0m:
+    The port can only be used for output.
+
+  [;;4m[;;4mbinary[0m[0m:
+    All I/O from the port is binary data objects as opposed to
+    lists of bytes.
+
+  [;;4m[;;4meof[0m[0m:
+    The port is not closed at the end of the file and does not
+    produce an exit signal. Instead, it remains open and a [;;4m{Port,[0m
+    [;;4meof}[0m message is sent to the process holding the port.
+
+  [;;4m[;;4mhide[0m[0m:
+    When running on Windows, suppresses creation of a new console
+    window when spawning the port program. (This option has no
+    effect on other platforms.)
+
+  [;;4m[;;4m{parallelism, Boolean}[0m[0m:
+    Sets scheduler hint for port parallelism. If set to [;;4mtrue[0m,
+    the virtual machine schedules port tasks; when doing so, it
+    improves parallelism in the system. If set to [;;4mfalse[0m, the
+    virtual machine tries to perform port tasks immediately,
+    improving latency at the expense of parallelism. The default
+    can be set at system startup by passing command-line argument [;;4m[0m
+    [;;4m+spp[0m to [;;4merl(1)[0m.
+
+  [;;4m[;;4m{busy_limits_port, {Low, High} | disabled}[0m[0m:
+    Sets limits that will be used for controlling the busy state
+    of the port.
+
+    When the ports internal output queue size becomes larger than
+    or equal to [;;4mHigh[0m bytes, it enters the busy state. When it
+    becomes less than [;;4mLow[0m bytes it leaves the busy state. When
+    the port is in the busy state, processes sending commands to
+    it will be suspended until the port leaves the busy state.
+    Commands are in this context either [;;4mPort ! {Owner, {command,[0m
+    [;;4mData}}[0m or [;;4mport_command/[2,3][0m.
+
+    The [;;4mLow[0m limit is automatically adjusted to the same as [;;4mHigh[0m
+    if it is set larger then [;;4mHigh[0m. Valid range of values for [;;4m[0m
+    [;;4mLow[0m and [;;4mHigh[0m is [;;4m[1, (1 bsl[0m
+    [;;4m(8*erlang:system_info(wordsize)))-2][0m. If the atom [;;4mdisabled[0m
+    is passed, the port will never enter the busy state.
+
+    The defaults are [;;4mLow = 4096[0m and [;;4mHigh = 8192[0m.
+
+    Note that this option is only valid when spawning an
+    executable (port program) by opening the spawn driver and when
+    opening the [;;4mfd[0m driver. This option will cause a failure with
+    a [;;4mbadarg[0m exception when opening other drivers.
+
+  [;;4m[;;4m{busy_limits_msgq, {Low, High} | disabled}[0m[0m:
+    Sets limits that will be used for controlling the busy state
+    of the port message queue.
+
+    When the ports message queue size becomes larger than or equal
+    to [;;4mHigh[0m bytes it enters the busy state. When it becomes less
+    than [;;4mLow[0m bytes it leaves the busy state. When the port
+    message queue is in the busy state, processes sending commands
+    to it will be suspended until the port message queue leaves
+    the busy state. Commands are in this context either [;;4mPort ![0m
+    [;;4m{Owner, {command, Data}}[0m or [;;4mport_command/[2,3][0m.
+
+    The [;;4mLow[0m limit is automatically adjusted to the same as [;;4mHigh[0m
+    if it is set larger then [;;4mHigh[0m. Valid range of values for [;;4m[0m
+    [;;4mLow[0m and [;;4mHigh[0m is [;;4m[1, (1 bsl[0m
+    [;;4m(8*erlang:system_info(wordsize)))-2][0m. If the atom [;;4mdisabled[0m
+    is passed, the port message queue will never enter the busy
+    state.
+
+    Note that if the driver statically has disabled the use of
+    this feature, a failure with a [;;4mbadarg[0m exception will be
+    raised unless this option also is set to [;;4mdisable[0m or not
+    passed at all.
+
+    The defaults are [;;4mLow = 4096[0m and [;;4mHigh = 8192[0m unless the
+    driver itself does modifications of these values.
+
+    Note that the driver might fail if it also adjust these
+    limits by itself and you have disabled this feature.
+
+    The spawn driver (used when spawning an executable) and the [;;4m[0m
+    [;;4mfd[0m driver do not disable this feature and do not adjust these
+    limits by themselves.
+
+    For more information see the documentation [;;4m[0m
+    [;;4merl_drv_busy_msgq_limits()[0m.
+
+  Default is [;;4mstream[0m for all port types and [;;4muse_stdio[0m for spawned
+  ports.
+
+  Failure: if the port cannot be opened, the exit reason is [;;4mbadarg[0m, [;;4m[0m
+  [;;4msystem_limit[0m, or the POSIX error code that most closely describes
+  the error, or [;;4meinval[0m if no POSIX code is appropriate:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    Bad input arguments to [;;4mopen_port[0m.
+
+  [;;4m[;;4msystem_limit[0m[0m:
+    All available ports in the Erlang emulator are in use.
+
+  [;;4m[;;4menomem[0m[0m:
+    Not enough memory to create the port.
+
+  [;;4m[;;4meagain[0m[0m:
+    No more available OS processes.
+
+  [;;4m[;;4menametoolong[0m[0m:
+    Too long external command.
+
+  [;;4m[;;4memfile[0m[0m:
+    No more available file descriptors (for the OS process that
+    the Erlang emulator runs in).
+
+  [;;4m[;;4menfile[0m[0m:
+    Full file table (for the entire OS).
+
+  [;;4m[;;4meacces[0m[0m:
+    [;;4mCommand[0m specified in [;;4m{spawn_executable, Command}[0m does not
+    point out an executable file.
+
+  [;;4m[;;4menoent[0m[0m:
+    [;;4mFileName[0m specified in [;;4m{spawn_executable, FileName}[0m does not
+    point out an existing file.
+
+  During use of a port opened using [;;4m{spawn, Name}[0m, [;;4m{spawn_driver,[0m
+  [;;4mName}[0m, or [;;4m{spawn_executable, Name}[0m, errors arising when sending
+  messages to it are reported to the owning process using signals of
+  the form [;;4m{'EXIT', Port, PosixCode}[0m. For the possible values of [;;4m[0m
+  [;;4mPosixCode[0m, see [;;4mfile(3)[0m.
+
+  The maximum number of ports that can be open at the same time can
+  be configured by passing command-line flag [;;4m+Q[0m to [;;4merl(1)[0m.

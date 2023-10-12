@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,411 @@
   </header>
   <p>This document describes the changes made to the Observer
     application.</p>
+
+<section><title>Observer 2.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Closing the trace log window via the menu did not work.</p>
+          <p>
+	    Own Id: OTP-18722 Aux Id: PR-7462 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+        <item>
+          <p>
+	    Added <c>start/1</c>, <c>start_and_wait functions/1|2</c>
+	    functions.</p>
+          <p>
+	    Own Id: OTP-18430 Aux Id: PR-6397 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecates <c>dbg:stop_clear/0</c> because it is simply a
+	    function alias to <c>dbg:stop/0</c></p>
+          <p>
+	    Own Id: OTP-18478 Aux Id: GH-6903 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A WX event race could causes a crash in when handling
+	    socket or port info.</p>
+          <p>
+	    Own Id: OTP-18339</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve the nodes menu to include more nodes.</p>
+          <p>
+	    Own Id: OTP-18269 Aux Id: PR-6030 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed units in gui.</p>
+          <p>
+	    Own Id: OTP-18151 Aux Id: PR-6063 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed default handling of Mac specific menus.</p>
+          <p>
+	    Own Id: OTP-17996 Aux Id: PR-5795 </p>
+        </item>
+        <item>
+          <p>
+	    Reading port socket options on macOS and Windows "skips"
+	    invalid options.</p>
+          <p>
+	    Own Id: OTP-18012 Aux Id: #5798 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The configuration files <seecom
+	    marker="erts:erl"><c>.erlang</c></seecom>, <seeguide
+	    marker="system/reference_manual:distributed"><c>.erlang.cookie</c></seeguide>
+	    and <seeerl
+	    marker="stdlib:beam_lib#.erlang.crypt"><c>.erlang.crypt</c></seeerl>
+	    can now be located in the XDG Config Home directory.</p>
+          <p>
+	    See the documentation for each file and
+	    <c>filename:basedir/2</c> for more details.</p>
+          <p>
+	    Own Id: OTP-17554 Aux Id: GH-5016 PR-5408 OTP-17821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed node information lookup for remote process
+	    identifiers in <c>crashdump_viewer</c>.</p>
+          <p>
+	    Own Id: OTP-17995 Aux Id: PR-5804 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calculate the display width in <c>etop</c>, instead of
+	    hard-coding it to 89 characters.</p>
+          <p>
+	    Own Id: OTP-17880 Aux Id: PR-5557 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in crash dumps where the stackframe of a process
+	    would be printed using an incorrect format.</p>
+          <p>
+	    Crash dump viewer has also been fixed to be able read the
+	    broken stack format.</p>
+          <p>
+	    The bug has existed since Erlang/OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17814 Aux Id: PR-5462 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Atoms with Unicode code points greater than 255 (for
+	    example Greek or Cyrillic characters) would not be
+	    displayed correctly by <c>crashdump_viewer</c>.</p>
+          <p>
+	    Own Id: OTP-17377</p>
+        </item>
+        <item>
+          <p>
+	    Fix the crashdump_viewer to be able to parse <seemfa
+	    marker="erts:erlang#monitor_node/2"><c>monitor_node/2</c></seemfa>
+	    monitors correctly.</p>
+          <p>
+	    Own Id: OTP-17425 Aux Id: PR-4799 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Observer now has a sectiion for new socket.</p>
+          <p>
+	    Own Id: OTP-17346</p>
+        </item>
+        <item>
+          <p>
+	    Added a trace all button to the trace window.</p>
+          <p>
+	    Own Id: OTP-17520 Aux Id: PR-4962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated gui parts to work with the new wx version.</p>
+          <p>
+	    Own Id: OTP-17214</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix graph windows flickering on windows.</p>
+          <p>
+	    Own Id: OTP-16778</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crashdump Viewer how handles crash dumps where the Old
+	    Binary VHeap has overflowed.</p>
+          <p>
+	    Own Id: OTP-16296</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug after a user followed link on a pid from an
+	    expanded term window.</p>
+          <p>
+	    Own Id: OTP-15980 Aux Id: PR-2201 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved dark mode colors on Linux.</p>
+          <p>
+	    Own Id: OTP-15916 Aux Id: ERL-921 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Since Logger was introduced in OTP-21.0, menu choice
+	    <em>Log &gt; Toggle Log View</em> in observer would cause
+	    a crash unless an <c>error_logger</c> event handler was
+	    explicitly installed. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15553 Aux Id: ERL-848 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Since persistent_term was introduced, observer would
+	    sometimes crash when expanding a term from a process
+	    state. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15493 Aux Id: ERL-810 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>OBSERVER_SCALE</c> environment variable for HiDPI
+	    support.</p>
+          <p>
+	    Own Id: OTP-15586 Aux Id: PR-2105 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Literals such as <c>#{"one"=>1}</c> dumped to a crash
+	    dump would cause <c>crashdump_viewer</c> to crash.</p>
+          <p>
+	    Own Id: OTP-15365 Aux Id: ERL-722 </p>
+        </item>
+        <item>
+          <p>
+	    <c>crashdump_viewer</c> would sometimes crash when
+	    processing a dump which was truncated in the
+	    <c>literals</c> area. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15377</p>
+        </item>
+        <item>
+          <p>
+	    Since OTP-20.2, <c>crashdump_viewer</c> was very slow
+	    when opening a crash dump with many processes. An
+	    ets:select per process could be removed, which improved
+	    the performance a lot.</p>
+          <p>
+	    A bug when parsing heap data in a crashdump caused
+	    <c>crashdump_viewer</c> to crash when multiple <c>Yc</c>
+	    lines referenced the same reference counted binary. This
+	    is now corrected.</p>
+          <p>
+	    Own Id: OTP-15391</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Observer 2.8.1</title>
 

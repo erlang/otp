@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2014. All Rights Reserved.
+# Copyright Ericsson AB 2014-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 
-version="1.0.1"
+version="1.0.2"
 
 force=
 lib_path=
@@ -223,7 +223,7 @@ export ERL_TOP="$sdir"
 test -f "$sdir/otp_build" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/OTP_VERSION" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/otp_versions.table" || error "$ERL_TOP" $invalid_src
-test -f "$sdir/erts/autoconf/config.guess" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/make/autoconf/config.guess" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/make/verify_runtime_dependencies" || error "$ERL_TOP" $invalid_src
 test -x "$sdir/bootstrap/bin/erl" || error $not_built
 test -x "$sdir/bootstrap/bin/erlc" || error $not_built
@@ -293,7 +293,7 @@ mkdir=`find_prog mkdir`
 
 # Setup build stuff
 if [ "x$TARGET" = "x" ]; then
-    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
+    TARGET=`$ERL_TOP/make/autoconf/config.guess`
 fi
 BUILDSYS=$TARGET
 if [ -z "$MAKE" ]; then
@@ -388,9 +388,7 @@ if [ $install_docs = yes ]; then
 	    TESTROOT="$idir" release_docs) || exit 1
     done
 
-    (cd "$sdir/system/doc/top" && $MAKE clean)
-
-    (cd "$sdir/system/doc/top" && \
+    (cd "$sdir/system/doc" && \
 	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
 	TESTROOT="$idir" release_docs) || exit 1
 

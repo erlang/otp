@@ -1,0 +1,5 @@
+
+  [;1m-type maybe_improper_list() :: maybe_improper_list(any(), any()).[0m
+
+  An Erlang list that is not guaranteed to end with a [], and
+  where the list elements can be of any type.

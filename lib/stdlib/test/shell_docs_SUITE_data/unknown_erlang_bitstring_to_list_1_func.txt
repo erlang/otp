@@ -1,0 +1,14 @@
+
+  [;1m-spec bitstring_to_list(Bitstring) -> [byte() | bitstring()][0m
+  [;1m                           when Bitstring :: bitstring().[0m
+
+  Returns a list of integers corresponding to the bytes of [;;4m[0m
+  [;;4mBitstring[0m. If the number of bits in the binary is not divisible
+  by 8, the last element of the list is a bitstring containing the
+  remaining 1-7 bits. Examples:
+
+    > bitstring_to_list(<<433:16>>).
+    [1,177]
+
+    > bitstring_to_list(<<433:16,3:3>>).
+    [1,177,<<3:3>>]

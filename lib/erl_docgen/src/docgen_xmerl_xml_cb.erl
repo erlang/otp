@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ convert_tag(a, [Attr]) ->
 		true ->
 		    {url, [Attr]};
 		false ->
-		    {seealso, [Attr#xmlAttribute{name=marker}]}
+		    makesee(Val)
 	    end;
 	name ->
 	    {marker, [Attr#xmlAttribute{name=id}]}
@@ -87,9 +87,14 @@ convert_tag(underline, Attrs)  -> {em, Attrs};
 convert_tag(Tag, Attrs)        -> {Tag, Attrs}.
 
 is_url("http:"++_) -> true;
+is_url("https:"++_) -> true;
 is_url("../"++_) -> true;
 is_url(FileRef) ->
     case filename:extension(FileRef) of
 	"" -> false; % no extension = xml file
 	_Ext -> true % extension
     end.
+
+makesee(Ref) ->
+    {Tag, Marker} = docgen_edoc_xml_cb:makesee(Ref),
+    {Tag,[#xmlAttribute{name = marker, value = Marker}]}.

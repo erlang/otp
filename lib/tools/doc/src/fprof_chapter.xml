@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,7 @@
     processes.
     </p>
   <p><c>fprof</c> uses tracing with timestamps to collect profiling
-    data. Therfore there is no need for special compilation of any
+    data. Therefore there is no need for special compilation of any
     module to be profiled.
     </p>
   <p><c>fprof</c> presents wall clock times from the host machine OS,
@@ -72,7 +72,7 @@
     </p>
   <p>The following sections show some examples of how to profile with
     Fprof. See also the reference manual 
-    <seealso marker="fprof">fprof(3)</seealso>.
+    <seeerl marker="fprof">fprof(3)</seeerl>.
     </p>
 
   <section>
@@ -95,12 +95,12 @@
       <c>fprof:analyse([{dest, "my_fprof.analysis"}, {cols, 120}])</c>
       for a wider listing on non-default filename.
       </p>
-    <p>See the <seealso marker="fprof">fprof(3)</seealso> manual page
+    <p>See the <seeerl marker="fprof">fprof(3)</seeerl> manual page
       for more options and arguments to the functions
-      <seealso marker="fprof#trace">trace</seealso>,
-      <seealso marker="fprof#profile">profile</seealso>
+      <seemfa marker="fprof#trace/2">trace</seemfa>,
+      <seemfa marker="fprof#profile/0">profile</seemfa>
       and 
-      <seealso marker="fprof#analyse">analyse</seealso>.
+      <seemfa marker="fprof#analyse/0">analyse</seemfa>.
       </p>
   </section>
 

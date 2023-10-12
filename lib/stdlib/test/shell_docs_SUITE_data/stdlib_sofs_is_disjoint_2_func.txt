@@ -1,0 +1,9 @@
+
+  [;1m-spec is_disjoint(Set1, Set2) -> Bool[0m
+  [;1m                     when[0m
+  [;1m                         Bool :: boolean(),[0m
+  [;1m                         Set1 :: a_set(),[0m
+  [;1m                         Set2 :: a_set().[0m
+
+  Returns [;;4mtrue[0m if [;;4mSet1[0m and [;;4mSet2[0m are disjoint, otherwise [;;4m[0m
+  [;;4mfalse[0m.

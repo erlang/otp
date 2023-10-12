@@ -1,0 +1,9 @@
+
+  [;1m-spec replace(Subject, RE, Replacement) -> iodata() | unicode:charlist()[0m
+  [;1m                 when[0m
+  [;1m                     Subject :: iodata() | unicode:charlist(),[0m
+  [;1m                     RE :: mp() | iodata(),[0m
+  [;1m                     Replacement ::[0m
+  [;1m                         iodata() | unicode:charlist() | replace_fun().[0m
+
+  Same as [;;4mreplace(Subject, RE, Replacement, [])[0m.

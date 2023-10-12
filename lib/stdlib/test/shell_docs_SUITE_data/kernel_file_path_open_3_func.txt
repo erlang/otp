@@ -1,0 +1,28 @@
+
+  [;1m-spec path_open(Path, Filename, Modes) ->[0m
+  [;1m                   {ok, IoDevice, FullName} | {error, Reason}[0m
+  [;1m                   when[0m
+  [;1m                       Path :: [Dir :: name_all()],[0m
+  [;1m                       Filename :: name_all(),[0m
+  [;1m                       Modes :: [mode() | directory],[0m
+  [;1m                       IoDevice :: io_device(),[0m
+  [;1m                       FullName :: filename_all(),[0m
+  [;1m                       Reason :: posix() | badarg | system_limit.[0m
+
+  Searches the path [;;4mPath[0m (a list of directory names) until the
+  file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m
+  [;;4mPath[0m is ignored. Then opens the file in the mode determined by [;;4m[0m
+  [;;4mModes[0m.
+
+  Returns one of the following:
+
+  [;;4m[;;4m{ok, IoDevice, FullName}[0m[0m:
+    The file is opened in the requested mode. [;;4mIoDevice[0m is a
+    reference to the file and [;;4mFullName[0m is the full name of the
+    file.
+
+  [;;4m[;;4m{error, enoent}[0m[0m:
+    The file cannot be found in any of the directories in [;;4mPath[0m.
+
+  [;;4m[;;4m{error, atom()}[0m[0m:
+    The file cannot be opened.

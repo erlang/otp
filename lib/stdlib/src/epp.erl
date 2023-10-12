@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@
 
 %% An Erlang code preprocessor.
 
--export([open/1, open/2,open/3,open/5,close/1,format_error/1]).
+-export([open/1,open/2,open/3,close/1,format_error/1]).
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
--export([parse_file/1, parse_file/2, parse_file/3]).
+-export([scan_file/1, scan_file/2, parse_file/1, parse_file/2, parse_file/3]).
 -export([default_encoding/0, encoding_to_string/1,
          read_encoding_from_binary/1, read_encoding_from_binary/2,
          set_encoding/1, set_encoding/2, read_encoding/1, read_encoding/2]).
@@ -34,7 +34,7 @@
 
 -export_type([source_encoding/0]).
 
--type macros() :: [atom() | {atom(), term()}].
+-type macros() :: [atom() | {atom(), term()} | {atom(), term(), 'redefine'}].
 -type epp_handle() :: pid().
 -type source_encoding() :: latin1 | utf8.
 
@@ -72,17 +72,23 @@
               uses = #{}			%Macro use structure
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
-	      pre_opened = false :: boolean(),
-	      fname = [] :: function_name_type()
+              pre_opened = false :: boolean(),
+              in_prefix = true :: boolean(),
+              erl_scan_opts = [] :: [_],
+              features = [] :: [atom()],
+              else_reserved = false :: boolean(),
+              fname = [] :: function_name_type(),
+              deterministic = false :: boolean()
 	     }).
 
 %% open(Options)
 %% open(FileName, IncludePath)
 %% open(FileName, IncludePath, PreDefMacros)
-%% open(FileName, IoDevice, StartLocation, IncludePath, PreDefMacros)
 %% close(Epp)
 %% scan_erl_form(Epp)
 %% parse_erl_form(Epp)
+%% scan_file(Epp)
+%% scan_file(FileName, Options)
 %% parse_file(Epp)
 %% parse_file(FileName, Options)
 %% parse_file(FileName, IncludePath, PreDefMacros)
@@ -107,40 +113,39 @@ open(Name, Path) ->
       ErrorDescriptor :: term().
 
 open(Name, Path, Pdm) ->
-    internal_open([{name, Name}, {includes, Path}, {macros, Pdm}], #epp{}).
-
-open(Name, File, StartLocation, Path, Pdm) ->
-    internal_open([{name, Name}, {includes, Path}, {macros, Pdm}],
-		  #epp{file=File, pre_opened=true, location=StartLocation}).
+    open([{name, Name}, {includes, Path}, {macros, Pdm}]).
 
 -spec open(Options) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
 		  {'source_name', SourceName :: file:name()} |
+		  {'deterministic', Enabled :: boolean()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
-		  'extra'],
+		  {'location',StartLocation :: erl_anno:location()} |
+		  {'fd',FileDescriptor :: file:io_device()} |
+		  'extra' |
+                  {'compiler_internal', [term()]}],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       ErrorDescriptor :: term().
 
 open(Options) ->
-    internal_open(Options, #epp{}).
-
-internal_open(Options, St) ->
     case proplists:get_value(name, Options) of
         undefined ->
             erlang:error(badarg);
         Name ->
             Self = self(),
-            Epp = spawn(fun() -> server(Self, Name, Options, St) end),
+            Epp = spawn(fun() -> server(Self, Name, Options) end),
+            Extra = proplists:get_bool(extra, Options),
             case epp_request(Epp) of
-                {ok, Pid, Encoding} ->
-                    case proplists:get_bool(extra, Options) of
-                        true -> {ok, Pid, [{encoding, Encoding}]};
-                        false -> {ok, Pid}
-                    end;
+                {ok, Pid, Encoding} when Extra ->
+                    {ok, Pid, [{encoding, Encoding}]};
+                {ok, Pid, _} ->
+                    {ok, Pid};
+                {ok, Pid} when Extra ->
+                    {ok, Pid, []};
                 Other ->
                     Other
             end
@@ -157,15 +162,24 @@ close(Epp) ->
     receive {'DOWN',Ref,_,_,_} -> ok end,
     R.
 
+-spec scan_erl_form(Epp) ->
+    {'ok', Tokens} | {error, ErrorInfo} |
+    {'warning',WarningInfo} | {'eof',Line} when
+      Epp :: epp_handle(),
+      Tokens :: erl_scan:tokens(),
+      Line :: erl_anno:line(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      WarningInfo :: warning_info().
+
 scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
 
 -spec parse_erl_form(Epp) ->
     {'ok', AbsForm} | {error, ErrorInfo} |
-    {'warning',WarningInfo} | {'eof',Line} when
+    {'warning',WarningInfo} | {'eof',Location} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
-      Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -190,8 +204,12 @@ format_error(cannot_parse) ->
     io_lib:format("cannot parse file, giving up", []);
 format_error({bad,W}) ->
     io_lib:format("badly formed '~s'", [W]);
+format_error({duplicated_argument, Arg}) ->
+    io_lib:format("argument '~ts' already used", [Arg]);
 format_error(missing_parenthesis) ->
     io_lib:format("badly formed define: missing closing right parenthesis",[]);
+format_error(missing_comma) ->
+    io_lib:format("badly formed define: missing comma",[]);
 format_error(premature_end) ->
     "premature end";
 format_error({call,What}) ->
@@ -230,15 +248,52 @@ format_error({error,Term}) ->
     io_lib:format("-error(~tp).", [Term]);
 format_error({warning,Term}) ->
     io_lib:format("-warning(~tp).", [Term]);
+format_error(ftr_after_prefix) ->
+    "feature directive not allowed after exports or record definitions";
 format_error(E) -> file:format_error(E).
+
+-spec scan_file(FileName, Options) ->
+        {'ok', [Form], Extra} | {error, OpenError} when
+      FileName :: file:name(),
+      Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
+		  {'macros', PredefMacros :: macros()} |
+		  {'default_encoding', DefEncoding :: source_encoding()}],
+      Form :: erl_scan:tokens() | {'error', ErrorInfo} | {'eof', Loc},
+      Loc :: erl_anno:location(),
+      ErrorInfo :: erl_scan:error_info(),
+      Extra :: [{'encoding', source_encoding() | 'none'}],
+      OpenError :: file:posix() | badarg | system_limit.
+
+scan_file(Ifile, Options) ->
+    case open([{name, Ifile}, extra | Options]) of
+	{ok,Epp,Extra} ->
+	    Forms = scan_file(Epp),
+	    close(Epp),
+	    {ok,Forms,Extra};
+	{error,E} ->
+	    {error,E}
+    end.
+
+scan_file(Epp) ->
+    case scan_erl_form(Epp) of
+	{ok,Toks} ->
+            [Toks|scan_file(Epp)];
+	{error,E} ->
+	    [{error,E}|scan_file(Epp)];
+	{eof,Location} ->
+	    [{eof,Location}]
+    end.
 
 -spec parse_file(FileName, IncludePath, PredefMacros) ->
                 {'ok', [Form]} | {error, OpenError} when
       FileName :: file:name(),
       IncludePath :: [DirectoryName :: file:name()],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      Form :: erl_parse:abstract_form()
+            | {'error', ErrorInfo}
+            | {'eof',Location},
       PredefMacros :: macros(),
-      Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       OpenError :: file:posix() | badarg | system_limit.
 
@@ -252,23 +307,31 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
-		  'extra'],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+		  {'location',StartLocation :: erl_anno:location()} |
+                  {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
+                  {'features', [Feature :: atom()]} |
+		  'extra' |
+                  {'compiler_internal', [term()]}],
+      Form :: erl_parse:abstract_form()
+            | {'error', ErrorInfo}
+            | {'eof',Location},
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       OpenError :: file:posix() | badarg | system_limit.
 
 parse_file(Ifile, Options) ->
-    case internal_open([{name, Ifile} | Options], #epp{}) of
+    case open([{name, Ifile} | Options]) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    close(Epp),
-	    {ok,Forms};
+	    {ok, Forms};
 	{ok,Epp,Extra} ->
 	    Forms = parse_file(Epp),
+            Epp ! {get_features, self()},
+            Ftrs = receive {features, X} -> X end,
 	    close(Epp),
-	    {ok,Forms,Extra};
+	    {ok, Forms, [{features, Ftrs} | Extra]};
 	{error,E} ->
 	    {error,E}
     end.
@@ -276,8 +339,8 @@ parse_file(Ifile, Options) ->
 -spec parse_file(Epp) -> [Form] when
       Epp :: epp_handle(),
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} |
-	      {'warning',WarningInfo} | {'eof',Line},
-      Line :: erl_anno:line(),
+	      {'warning',WarningInfo} | {'eof',Location},
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -514,69 +577,108 @@ normalize_typed_record_fields([Field|Rest], NewFields, Typed) ->
 
 restore_typed_record_fields([]) ->
     [];
-restore_typed_record_fields([{attribute,La,record,{Record,_NewFields}},
-                             {attribute,La,type,{{record,Record},Fields,[]}}|
+restore_typed_record_fields([{attribute,A,record,{Record,_NewFields}},
+                             {attribute,A,type,{{record,Record},Fields,[]}}|
                              Forms]) ->
-    [{attribute,La,record,{Record,Fields}}|
+    [{attribute,A,record,{Record,Fields}}|
      restore_typed_record_fields(Forms)];
-restore_typed_record_fields([{attribute,La,type,{{record,Record},Fields,[]}}|
+restore_typed_record_fields([{attribute,A,type,{{record,Record},Fields,[]}}|
                              Forms]) ->
     %% This clause is due to the compiler's 'E' option.
     %% Record information kept by erl_expand_records.
-    [{attribute,La,record,{Record,Fields}}|
+    [{attribute,A,record,{Record,Fields}}|
      restore_typed_record_fields(Forms)];
 restore_typed_record_fields([Form|Forms]) ->
     [Form|restore_typed_record_fields(Forms)].
 
-server(Pid, Name, Options, #epp{pre_opened=PreOpened}=St) ->
+server(Pid, Name, Options) ->
     process_flag(trap_exit, true),
-    case PreOpened of
-        false ->
+    St = #epp{},
+    case proplists:get_value(fd, Options) of
+        undefined ->
             case file:open(Name, [read]) of
                 {ok,File} ->
                     init_server(Pid, Name, Options, St#epp{file = File});
                 {error,E} ->
                     epp_reply(Pid, {error,E})
             end;
-        true ->
-            init_server(Pid, Name, Options, St)
+        Fd ->
+            init_server(Pid, Name, Options, St#epp{file = Fd, pre_opened=true})
     end.
 
 init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
-    Ms0 = predef_macros(FileName),
+    Features = proplists:get_value(features, Options, []),
+    Internal = proplists:get_value(compiler_internal, Options, []),
+    ParseChecks = proplists:get_bool(ssa_checks, Internal),
+    Ms0 = predef_macros(SourceName, Features),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
-	    #epp{file = File, location = AtLocation} = St0,
             DefEncoding = proplists:get_value(default_encoding, Options,
                                               ?DEFAULT_ENCODING),
-            Encoding = set_encoding(File, DefEncoding),
+            Encoding = set_encoding(St0#epp.file, DefEncoding),
             epp_reply(Pid, {ok,self(),Encoding}),
             %% ensure directory of current source file is
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+            ResWordFun =
+                proplists:get_value(reserved_word_fun, Options,
+                                    fun erl_scan:f_reserved_word/1),
+            %% the default location is 1 for backwards compatibility, not {1,1}
+            AtLocation = proplists:get_value(location, Options, 1),
+
+            Deterministic = proplists:get_value(deterministic, Options, false),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
-			 path=Path, macs=Ms1,
-			 default_encoding=DefEncoding},
+			 path=Path, location=AtLocation, macs=Ms1,
+			 default_encoding=DefEncoding,
+                         erl_scan_opts =
+                             [{text_fun, keep_ftr_keywords()},
+                              {reserved_word_fun, ResWordFun}]
+                         ++ if ParseChecks ->
+                                    [{compiler_internal,[ssa_checks]}];
+                               true -> []
+                            end,
+                         features = Features,
+                         else_reserved = ResWordFun('else'),
+                         deterministic = Deterministic},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
-			     AtLocation, code),
+			     AtLocation, code, Deterministic),
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
+    end.
+
+%% Return a function that keeps quoted atoms that are keywords in
+%% configurable features.  Need in erl_lint to avoid warning about
+%% them.
+keep_ftr_keywords() ->
+    Features = erl_features:configurable(),
+    Keywords = lists:flatmap(fun erl_features:keywords/1, Features),
+    F = fun(Atom) -> atom_to_list(Atom) ++ "'" end,
+    Strings = lists:map(F, Keywords),
+    fun(atom, [$'|S]) -> lists:member(S, Strings);
+       (_, _) -> false
     end.
 
 %% predef_macros(FileName) -> Macrodict
 %%  Initialise the macro dictionary with the default predefined macros,
 %%  FILE, LINE, MODULE as undefined, MACHINE and MACHINE value.
 
-predef_macros(File) ->
+predef_macros(File, EnabledFeatures0) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
+    AvailableFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) /= rejected],
+    PermanentFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) == permanent],
+    EnabledFeatures = EnabledFeatures0 ++ PermanentFeatures,
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -587,9 +689,35 @@ predef_macros(File) ->
 	    {'BASE_MODULE_STRING', undefined},
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
 	    {Machine,	           {none,[{atom,Anno,true}]}},
-	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}}
+	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}},
+            {'FEATURE_AVAILABLE',  [ftr_macro(AvailableFeatures)]},
+            {'FEATURE_ENABLED', [ftr_macro(EnabledFeatures)]}
 	   ],
     maps:from_list(Defs).
+
+%% Make macro definition from a list of features.  The macro takes one
+%% argument and returns true when argument is available as a feature.
+ftr_macro(Features) ->
+    Anno = line1(),
+    Arg = 'X',
+    Fexp = fun(Ftr) -> [{'(', Anno},
+                        {var, Anno, Arg},
+                        {')', Anno},
+                        {'==', Anno},
+                        {atom, Anno, Ftr}]
+           end,
+    Body =
+        case Features of
+            [] -> [{atom, Anno, false}];
+            [Ftr| Ftrs] ->
+                [{'(', Anno}|
+                 lists:foldl(fun(F, Expr) ->
+                                     Fexp(F) ++ [{'orelse', Anno} | Expr]
+                            end,
+                            Fexp(Ftr) ++ [{')', Anno}],
+                            Ftrs)]
+        end,
+    {1, {[Arg], Body}}.
 
 %% user_predef(PreDefMacros, Macros) ->
 %%	{ok,MacroDict} | {error,E}
@@ -625,9 +753,12 @@ user_predef([], Ms) -> {ok,Ms}.
 wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
+        {get_features, From} ->
+            From ! {features, St#epp.features},
+            wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
-	    Defs = [{{atom,K},V} || {K,V} <- maps:to_list(St#epp.macs)],
+	    Defs = [{{atom,K},V} || K := V <- St#epp.macs],
 	    epp_reply(From, Defs),
 	    wait_request(St);
 	{epp_request,From,close} ->
@@ -679,9 +810,15 @@ enter_file(NewName, Inc, From, St) ->
 
 enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Anno = erl_anno:new(AtLocation),
-    enter_file_reply(From, Pname, Anno, AtLocation, code),
-    Ms0 = St0#epp.macs,
-    Ms = Ms0#{'FILE':={none,[{string,Anno,Pname}]}},
+    enter_file_reply(From, Pname, Anno, AtLocation, code, St0#epp.deterministic),
+    #epp{macs = Ms0,
+         default_encoding = DefEncoding,
+         in_prefix = InPrefix,
+         erl_scan_opts = ScanOpts,
+         else_reserved = ElseReserved,
+         features = Ftrs,
+         deterministic = Deterministic} = St0,
+    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St0,Pname)}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
     %% relative to its current location (this is also how C does it); note
@@ -689,20 +826,24 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     %% the path) must be dropped, otherwise the path used within the current
     %% file will depend on the order of file inclusions in the parent files
     Path = [filename:dirname(Pname) | tl(St0#epp.path)],
-    DefEncoding = St0#epp.default_encoding,
     _ = set_encoding(NewF, DefEncoding),
     #epp{file=NewF,location=AtLocation,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms,
-         default_encoding=DefEncoding}.
+         in_prefix = InPrefix,
+         features = Ftrs,
+         erl_scan_opts = ScanOpts,
+         else_reserved = ElseReserved,
+         default_encoding=DefEncoding,
+         deterministic=Deterministic}.
 
-enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
-    Anno0 = loc_anno(AtLocation),
+enter_file_reply(From, Name, LocationAnno, AtLocation, Where, Deterministic) ->
+    Anno0 = erl_anno:new(AtLocation),
     Anno = case Where of
                code -> Anno0;
                generated -> erl_anno:set_generated(true, Anno0)
            end,
     Rep = {ok, [{'-',Anno},{atom,Anno,file},{'(',Anno},
-		{string,Anno,Name},{',',Anno},
+		{string,Anno,source_name(Deterministic,Name)},{',',Anno},
 		{integer,Anno,get_line(LocationAnno)},{')',LocationAnno},
                 {dot,Anno}]},
     epp_reply(From, Rep).
@@ -734,9 +875,17 @@ leave_file(From, St) ->
                     CurrLoc = add_line(OldLoc, Delta),
                     Anno = erl_anno:new(CurrLoc),
 		    Ms0 = St#epp.macs,
-		    Ms = Ms0#{'FILE':={none,[{string,Anno,OldName2}]}},
-                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses},
-		    enter_file_reply(From, OldName, Anno, CurrLoc, code),
+                    InPrefix = St#epp.in_prefix,
+                    Ftrs = St#epp.features,
+                    ElseReserved = St#epp.else_reserved,
+                    ScanOpts = St#epp.erl_scan_opts,
+		    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St,OldName2)}]}},
+                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses,
+                                       in_prefix = InPrefix,
+                                       features = Ftrs,
+                                       else_reserved = ElseReserved,
+                                       erl_scan_opts = ScanOpts},
+		    enter_file_reply(From, OldName, Anno, CurrLoc, code, St#epp.deterministic),
                     case OldName2 =:= OldName of
                         true ->
                             ok;
@@ -744,7 +893,7 @@ leave_file(From, St) ->
                             NFrom = wait_request(NextSt),
                             OldAnno = erl_anno:new(OldLoc),
                             enter_file_reply(NFrom, OldName2, OldAnno,
-                                             CurrLoc, generated)
+                                             CurrLoc, generated, St#epp.deterministic)
                         end,
                     wait_req_scan(NextSt);
 		[] ->
@@ -757,27 +906,30 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
-	{ok,Toks,Cl} ->
-	    scan_toks(Toks, From, St#epp{location=Cl});
-	{error,E,Cl} ->
-	    epp_reply(From, {error,E}),
-	    wait_req_scan(St#epp{location=Cl});
-	{eof,Cl} ->
-	    leave_file(From, St#epp{location=Cl});
-	{error,_E} ->
+    #epp{file = File, location = Loc, erl_scan_opts = ScanOpts} = St,
+    case io:scan_erl_form(File, '', Loc, ScanOpts) of
+        {ok,Toks,Cl} ->
+            scan_toks(Toks, From, St#epp{location=Cl});
+        {error,E,Cl} ->
+            epp_reply(From, {error,E}),
+            wait_req_scan(St#epp{location=Cl});
+        {eof,Cl} ->
+            leave_file(From, St#epp{location=Cl});
+        {error,_E} ->
             epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(wait_request(St), St)	%This serious, just exit!
+            leave_file(wait_request(St), St)	%This serious, just exit!
     end.
 
+scan_toks([{'-',_Lh},{atom,_Ld,feature}=Feature|Toks], From, St) ->
+    scan_feature(Toks, Feature, From, St);
 scan_toks([{'-',_Lh},{atom,_Ld,define}=Define|Toks], From, St) ->
     scan_define(Toks, Define, From, St);
 scan_toks([{'-',_Lh},{atom,_Ld,undef}=Undef|Toks], From, St) ->
-    scan_undef(Toks, Undef, From, St);
+    scan_undef(Toks, Undef, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Ld,error}=Error|Toks], From, St) ->
-    scan_err_warn(Toks, Error, From, St);
+    scan_err_warn(Toks, Error, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Ld,warning}=Warn|Toks], From, St) ->
-    scan_err_warn(Toks, Warn, From, St);
+    scan_err_warn(Toks, Warn, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Li,include}=Inc|Toks], From, St) ->
     scan_include(Toks, Inc, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include_lib}=IncLib|Toks], From, St) ->
@@ -787,6 +939,10 @@ scan_toks([{'-',_Lh},{atom,_Li,ifdef}=IfDef|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,_Li,ifndef}=IfnDef|Toks], From, St) ->
     scan_ifndef(Toks, IfnDef, From, St);
 scan_toks([{'-',_Lh},{atom,_Le,'else'}=Else|Toks], From, St) ->
+    scan_else(Toks, Else, From, St);
+%% conditionally allow else as a keyword
+scan_toks([{'-',_Lh},{'else',_Le}=Else|Toks], From, St)
+  when St#epp.else_reserved ->
     scan_else(Toks, Else, From, St);
 scan_toks([{'-',_Lh},{'if',_Le}=If|Toks], From, St) ->
     scan_if(Toks, If, From, St);
@@ -805,32 +961,56 @@ scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
 scan_toks(Toks0, From, St) ->
     case catch expand_macros(Toks0, St#epp{fname=Toks0}) of
 	Toks1 when is_list(Toks1) ->
+            InPrefix =
+                St#epp.in_prefix
+                andalso case Toks1 of
+                            [] -> true;
+                            [{'-', _Loc}, Tok | _] ->
+                                in_prefix(Tok);
+                            _ ->
+                                false
+                        end,
 	    epp_reply(From, {ok,Toks1}),
-	    wait_req_scan(St#epp{macs=scan_module(Toks1, St#epp.macs)});
+	    wait_req_scan(St#epp{in_prefix = InPrefix,
+                                 macs=scan_module(Toks1, St#epp.macs)});
 	{error,ErrL,What} ->
 	    epp_reply(From, {error,{ErrL,epp,What}}),
 	    wait_req_scan(St)
     end.
 
-scan_module([{'-',_Lh},{atom,_Lm,module},{'(',_Ll}|Ts], Ms) ->
+%% Determine whether we have passed the prefix where a -feature
+%% directive is allowed.
+in_prefix({atom, _, Atom}) ->
+    %% These directives are allowed inside the prefix
+    lists:member(Atom, ['module', 'feature',
+                        'if', 'else', 'elif', 'endif', 'ifdef', 'ifndef',
+                        'define', 'undef',
+                        'include', 'include_lib']);
+in_prefix(_T) ->
+    false.
+
+leave_prefix(#epp{} = St) ->
+    St#epp{in_prefix = false}.
+
+scan_module([{'-',_Ah},{atom,_Am,module},{'(',_Al}|Ts], Ms) ->
     scan_module_1(Ts, Ms);
-scan_module([{'-',_Lh},{atom,_Lm,extends},{'(',_Ll}|Ts], Ms) ->
+scan_module([{'-',_Ah},{atom,_Am,extends},{'(',_Al}|Ts], Ms) ->
     scan_extends(Ts, Ms);
 scan_module(_Ts, Ms) -> Ms.
 
-scan_module_1([{atom,_,_}=A,{',',L}|Ts], Ms) ->
+scan_module_1([{atom,_,_}=A,{',',Anno}|Ts], Ms) ->
     %% Parameterized modules.
-    scan_module_1([A,{')',L}|Ts], Ms);
-scan_module_1([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+    scan_module_1([A,{')',Anno}|Ts], Ms);
+scan_module_1([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
     Ms = Ms0#{'MODULE':={none,[ModAtom]}},
-    Ms#{'MODULE_STRING':={none,[{string,Ln,ModString}]}};
+    Ms#{'MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_module_1(_Ts, Ms) -> Ms.
 
-scan_extends([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+scan_extends([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
     Ms = Ms0#{'BASE_MODULE':={none,[ModAtom]}},
-    Ms#{'BASE_MODULE_STRING':={none,[{string,Ln,ModString}]}};
+    Ms#{'BASE_MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_extends(_Ts, Ms) -> Ms.
 
 scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->
@@ -847,17 +1027,67 @@ scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->
 	    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}})
     end,
     wait_req_scan(St);
-scan_err_warn(_Toks, {atom,_,Tag}=Token, From, St) ->
-    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}}),
+scan_err_warn(Toks, {atom,_,Tag}=Token, From, St) ->
+    T = no_match(Toks, Token),
+    epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
     wait_req_scan(St).
+
+%% scan a feature directive
+scan_feature([{'(', _Ap}, {atom, _Am, Ftr},
+              {',', _}, {atom, _, Ind}, {')', _}, {dot, _}],
+             Feature, From, St)
+  when St#epp.in_prefix,
+       (Ind =:= enable
+        orelse Ind =:= disable) ->
+    case update_features(St, Ind, Ftr, loc(Feature)) of
+        {ok, St1} ->
+            scan_toks(From, St1);
+        {error, {{Mod, Reason}, ErrLoc}} ->
+            epp_reply(From, {error, {ErrLoc, Mod, Reason}}),
+            wait_req_scan(St)
+    end;
+scan_feature([{'(', _Ap}, {atom, _Am, _Ind},
+              {',', _}, {atom, _, _Ftr}, {')', _}, {dot, _}| _Toks],
+             Feature, From, St) when not St#epp.in_prefix ->
+    epp_reply(From, {error, {loc(Feature), epp,
+                             ftr_after_prefix}}),
+    wait_req_scan(St);
+scan_feature(Toks, {atom, _, Tag} = Token, From, St) ->
+    T = no_match(Toks, Token),
+    epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
+    wait_req_scan(St).
+
+update_features(St0, Ind, Ftr, Loc) ->
+    Ftrs0 = St0#epp.features,
+    ScanOpts0 = St0#epp.erl_scan_opts,
+    KeywordFun =
+        case proplists:get_value(reserved_word_fun, ScanOpts0) of
+            undefined -> fun erl_scan:f_reserved_word/1;
+            Fun -> Fun
+        end,
+    case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
+        {error, Reason} ->
+            {error, {Reason, Loc}};
+        {ok, {Ftrs1, ResWordFun1}} ->
+            Macs0 = St0#epp.macs,
+            Macs1 = Macs0#{'FEATURE_ENABLED' => [ftr_macro(Ftrs1)]},
+            ScanOpts1 = proplists:delete(reserved_word_fun, ScanOpts0),
+            St = St0#epp{erl_scan_opts =
+                             [{reserved_word_fun, ResWordFun1}| ScanOpts1],
+                         features = Ftrs1,
+                         else_reserved = ResWordFun1('else'),
+                         macs = Macs1},
+            {ok, St}
+    end.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{Type,_Lm,_}=Mac|Toks], Def, From, St)
+scan_define([{'(',_Ap},{Type,_Am,_}=Mac|Toks], Def, From, St)
   when Type =:= atom; Type =:= var ->
     scan_define_1(Toks, Mac, Def, From, St);
-scan_define(_Toks, Def, From, St) ->
-    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+scan_define(Toks, Def, From, St) ->
+    T = find_mismatch(['(', var_or_atom], Toks, Def),
+    epp_reply(From, {error,{loc(T),epp,{bad,define}}}),
     wait_req_scan(St).
 
 scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
@@ -868,20 +1098,18 @@ scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
-scan_define_1([{'(',_Lc}|Toks], Mac, Def, From, St) ->
-    case catch macro_pars(Toks, []) of
+scan_define_1([{'(',_Ac}=T|Toks], Mac, _Def, From, St) ->
+    case catch macro_pars(Toks, [], T) of
         {ok,{As,_}=MacroDef} ->
             Len = length(As),
 	    scan_define_2(Len, MacroDef, Mac, From, St);
 	{error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
-            wait_req_scan(St);
-        _ ->
-            epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
             wait_req_scan(St)
     end;
-scan_define_1(_Toks, _Mac, Def, From, St) ->
-    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+scan_define_1(Toks, _Mac, Def, From, St) ->
+    T = no_match(Toks, Def),
+    epp_reply(From, {error,{loc(T),epp,{bad,define}}}),
     wait_req_scan(St).
 
 scan_define_2(Arity, Def, {_,_,Key}=Mac, From, #epp{macs=Ms}=St) ->
@@ -924,8 +1152,8 @@ scan_define_cont(F, #epp{macs=Ms0}=St, M, Defs, Arity, Def) ->
 	    Uses = Uses0#{M=>Val},
             scan_toks(F, St#epp{uses=Uses,macs=Ms})
     catch
-        {error, Line, Reason} ->
-            epp_reply(F, {error,{Line,epp,Reason}}),
+        {error, Location, Reason} ->
+            epp_reply(F, {error,{Location,epp,Reason}}),
             wait_req_scan(St)
     end.
 
@@ -950,16 +1178,17 @@ macro_ref([_Token | Rest]) ->
 
 %% scan_undef(Tokens, UndefToken, From, EppState)
 
-scan_undef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From, St) ->
+scan_undef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _Undef, From, St) ->
     Macs = maps:remove(M, St#epp.macs),
     Uses = maps:remove(M, St#epp.uses),
     scan_toks(From, St#epp{macs=Macs, uses=Uses});
-scan_undef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From,St) ->
+scan_undef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _Undef, From,St) ->
     Macs = maps:remove(M, St#epp.macs),
     Uses = maps:remove(M, St#epp.uses),
     scan_toks(From, St#epp{macs=Macs, uses=Uses});
-scan_undef(_Toks, Undef, From, St) ->
-    epp_reply(From, {error,{loc(Undef),epp,{bad,undef}}}),
+scan_undef(Toks, Undef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, Undef),
+    epp_reply(From, {error,{loc(T),epp,{bad,undef}}}),
     wait_req_scan(St).
 
 %% scan_include(Tokens, IncludeToken, From, St)
@@ -968,12 +1197,13 @@ scan_include(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include1(Tokens, Inc, From, St).
 
-scan_include1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
-              From, St) ->
+scan_include1([{'(',_Alp},{string,_Af,NewName0}=StringT,{')',_Arp},{dot,_Ad}],
+              _Inc, From, St) ->
     NewName = expand_var(NewName0),
-    enter_file(NewName, Inc, From, St);
-scan_include1(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{loc(Inc),epp,{bad,include}}}),
+    enter_file(NewName, StringT, From, St);
+scan_include1(Toks, Inc, From, St) ->
+    T = find_mismatch(['(',string,')',dot], Toks, Inc),
+    epp_reply(From, {error,{loc(T),epp,{bad,include}}}),
     wait_req_scan(St).
 
 %% scan_include_lib(Tokens, IncludeToken, From, EppState)
@@ -995,13 +1225,13 @@ scan_include_lib(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include_lib1(Tokens, Inc, From, St).
 
-scan_include_lib1([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
+scan_include_lib1([{'(',_Alp},{string,_Af,_NewName0},{')',_Arp},{dot,_Ad}],
                   Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
     epp_reply(From, {error,{loc(Inc),epp,{depth,"include_lib"}}}),
     wait_req_scan(St);
-scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
-                  Inc, From, St) ->
+scan_include_lib1([{'(',_Alp},{string,_Af,NewName0}=N,{')',_Arp},{dot,_Ad}],
+                  _Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
     case file:path_open(St#epp.path, NewName, [read]) of
@@ -1016,18 +1246,19 @@ scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                                                       St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
-				      {error,{loc(Inc),epp,
+				      {error,{loc(N),epp,
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
 		error ->
-		    epp_reply(From, {error,{loc(Inc),epp,
+		    epp_reply(From, {error,{loc(N),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
 	    end
     end;
-scan_include_lib1(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),
+scan_include_lib1(Toks, Inc, From, St) ->
+    T = find_mismatch(['(',string,')',dot], Toks, Inc),
+    epp_reply(From, {error,{loc(T),epp,{bad,include_lib}}}),
     wait_req_scan(St).
 
 %% scan_ifdef(Tokens, IfdefToken, From, EppState)
@@ -1035,47 +1266,56 @@ scan_include_lib1(_Toks, Inc, From, St) ->
 %%  Handle the conditional parsing of a file.
 %%  Report a badly formed if[n]def test and then treat as undefined macro.
 
-scan_ifdef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfD, From, St) ->
-    case St#epp.macs of
-	#{M:=_Def} ->
+scan_ifdef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _IfD, From, St) ->
+    case is_macro_defined(M, St) of
+        true ->
 	    scan_toks(From, St#epp{istk=[ifdef|St#epp.istk]});
-	_ ->
+        false ->
 	    skip_toks(From, St, [ifdef])
     end;
-scan_ifdef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfD, From, St) ->
-    case St#epp.macs of
-	#{M:=_Def} ->
+scan_ifdef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfD, From, St) ->
+    case is_macro_defined(M, St) of
+        true ->
 	    scan_toks(From, St#epp{istk=[ifdef|St#epp.istk]});
-	_ ->
+        false ->
 	    skip_toks(From, St, [ifdef])
     end;
-scan_ifdef(_Toks, IfDef, From, St) ->
-    epp_reply(From, {error,{loc(IfDef),epp,{bad,ifdef}}}),
+scan_ifdef(Toks, IfDef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, IfDef),
+    epp_reply(From, {error,{loc(T),epp,{bad,ifdef}}}),
     wait_req_skip(St, [ifdef]).
 
-scan_ifndef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfnD, From, St) ->
-    case St#epp.macs of
-	#{M:=_Def} ->
+scan_ifndef([{'(',_Alp},{atom,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
+    case is_macro_defined(M, St) of
+        true ->
 	    skip_toks(From, St, [ifndef]);
-	_ ->
+        false ->
 	    scan_toks(From, St#epp{istk=[ifndef|St#epp.istk]})
     end;
-scan_ifndef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _IfnD, From, St) ->
-    case St#epp.macs of
-	#{M:=_Def} ->
+scan_ifndef([{'(',_Alp},{var,_Am,M},{')',_Arp},{dot,_Ad}], _IfnD, From, St) ->
+    case is_macro_defined(M, St) of
+        true ->
 	    skip_toks(From, St, [ifndef]);
-	_ ->
+        false ->
 	    scan_toks(From, St#epp{istk=[ifndef|St#epp.istk]})
     end;
-scan_ifndef(_Toks, IfnDef, From, St) ->
-    epp_reply(From, {error,{loc(IfnDef),epp,{bad,ifndef}}}),
+scan_ifndef(Toks, IfnDef, From, St) ->
+    T = find_mismatch(['(',var_or_atom,')',dot], Toks, IfnDef),
+    epp_reply(From, {error,{loc(T),epp,{bad,ifndef}}}),
     wait_req_skip(St, [ifndef]).
+
+is_macro_defined(Name, #epp{macs=Macs}) ->
+    case Macs of
+        #{Name := undefined} -> false;
+        #{Name := _Def} -> true;
+        #{} -> false
+    end.
 
 %% scan_else(Tokens, ElseToken, From, EppState)
 %%  If we are in an if body then convert to else and skip, if we are in an
 %%  else or not in anything report an error.
 
-scan_else([{dot,_Ld}], Else, From, St) ->
+scan_else([{dot,_Ad}], Else, From, St) ->
     case St#epp.istk of
 	['else'|Cis] ->
 	    epp_reply(From, {error,{loc(Else),
@@ -1088,8 +1328,9 @@ scan_else([{dot,_Ld}], Else, From, St) ->
                                     {illegal,"unbalanced",'else'}}}),
 	    wait_req_scan(St)
     end;
-scan_else(_Toks, Else, From, St) ->
-    epp_reply(From, {error,{loc(Else),epp,{bad,'else'}}}),
+scan_else(Toks, Else, From, St) ->
+    T = no_match(Toks, Else),
+    epp_reply(From, {error,{loc(T),epp,{bad,'else'}}}),
     wait_req_scan(St).
 
 %% scan_if(Tokens, IfToken, From, EppState)
@@ -1106,14 +1347,17 @@ scan_if([{'(',_}|_]=Toks, If, From, St) ->
 	    Error = case Error0 of
 			{_,erl_parse,_} ->
 			    {error,Error0};
+                        {error,ErrL,What} ->
+                            {error,{ErrL,epp,What}};
 			_ ->
 			    {error,{loc(If),epp,Error0}}
 		    end,
 	    epp_reply(From, Error),
 	    wait_req_skip(St, ['if'])
     end;
-scan_if(_Toks, If, From, St) ->
-    epp_reply(From, {error,{loc(If),epp,{bad,'if'}}}),
+scan_if(Toks, If, From, St) ->
+    T = no_match(Toks, If),
+    epp_reply(From, {error,{loc(T),epp,{bad,'if'}}}),
     wait_req_skip(St, ['if']).
 
 eval_if(Toks0, St) ->
@@ -1122,7 +1366,7 @@ eval_if(Toks0, St) ->
 	      {ok,Es0} -> Es0;
 	      {error,E} -> throw(E)
 	  end,
-    Es = rewrite_expr(Es1, St),
+    Es = evaluate_builtins(Es1, St),
     assert_guard_expr(Es),
     Bs = erl_eval:new_bindings(),
     LocalFun = fun(_Name, _Args) ->
@@ -1136,8 +1380,7 @@ eval_if(Toks0, St) ->
 	    false
     end.
 
-assert_guard_expr([E0]) ->
-    E = rewrite_expr(E0, none),
+assert_guard_expr([E]) ->
     case erl_lint:is_guard_expr(E) of
 	false ->
 	    throw({bad,'if'});
@@ -1147,45 +1390,22 @@ assert_guard_expr([E0]) ->
 assert_guard_expr(_) ->
     throw({bad,'if'}).
 
-%% Dual-purpose rewriting function. When the second argument is
-%% an #epp{} record, calls to defined(Symbol) will be evaluated.
-%% When the second argument is 'none', legal calls to our built-in
-%% functions are eliminated in order to turn the expression into
-%% a legal guard expression.
-
-rewrite_expr({call,_,{atom,_,defined},[N0]}, #epp{macs=Macs}) ->
+%% evaluate_builtins(AbstractForm0, #epp{}) -> AbstractForm.
+%%   Evaluate call to special functions for the preprocessor.
+evaluate_builtins({call,_,{atom,_,defined},[N0]}, #epp{macs=Macs}) ->
     %% Evaluate defined(Symbol).
     N = case N0 of
 	    {var,_,N1} -> N1;
 	    {atom,_,N1} -> N1;
 	    _ -> throw({bad,'if'})
 	end,
-    {atom,0,maps:is_key(N, Macs)};
-rewrite_expr({call,_,{atom,_,Name},As0}, none) ->
-    As = rewrite_expr(As0, none),
-    Arity = length(As),
-    case erl_internal:bif(Name, Arity) andalso
-	not erl_internal:guard_bif(Name, Arity) of
-	false ->
-	    %% A guard BIF, an -if built-in, or an unknown function.
-	    %% Eliminate the call so that erl_lint will not complain.
-	    %% The call might fail later at evaluation time.
-	    to_conses(As);
-	true ->
-	    %% An auto-imported BIF (not guard BIF). Not allowed.
-	    throw({bad,'if'})
-    end;
-rewrite_expr([H|T], St) ->
-    [rewrite_expr(H, St)|rewrite_expr(T, St)];
-rewrite_expr(Tuple, St) when is_tuple(Tuple) ->
-    list_to_tuple(rewrite_expr(tuple_to_list(Tuple), St));
-rewrite_expr(Other, _) ->
+    {atom,erl_anno:new(0),maps:is_key(N, Macs)};
+evaluate_builtins([H|T], St) ->
+    [evaluate_builtins(H, St)|evaluate_builtins(T, St)];
+evaluate_builtins(Tuple, St) when is_tuple(Tuple) ->
+    list_to_tuple(evaluate_builtins(tuple_to_list(Tuple), St));
+evaluate_builtins(Other, _) ->
     Other.
-
-to_conses([H|T]) ->
-    {cons,0,H,to_conses(T)};
-to_conses([]) ->
-    {nil,0}.
 
 %% scan_elif(Tokens, EndifToken, From, EppState)
 %%  Handle the conditional parsing of a file.
@@ -1208,7 +1428,7 @@ scan_elif(_Toks, Elif, From, St) ->
 %% scan_endif(Tokens, EndifToken, From, EppState)
 %%  If we are in an if body then exit it, else report an error.
 
-scan_endif([{dot,_Ld}], Endif, From, St) ->
+scan_endif([{dot,_Ad}], Endif, From, St) ->
     case St#epp.istk of
 	[_I|Cis] ->
 	    scan_toks(From, St#epp{istk=Cis});
@@ -1217,8 +1437,9 @@ scan_endif([{dot,_Ld}], Endif, From, St) ->
                                     {illegal,"unbalanced",endif}}}),
 	    wait_req_scan(St)
     end;
-scan_endif(_Toks, Endif, From, St) ->
-    epp_reply(From, {error,{loc(Endif),epp,{bad,endif}}}),
+scan_endif(Toks, Endif, From, St) ->
+    T = no_match(Toks, Endif),
+    epp_reply(From, {error,{loc(T),epp,{bad,endif}}}),
     wait_req_scan(St).
 
 %% scan_file(Tokens, FileToken, From, EppState)
@@ -1229,18 +1450,19 @@ scan_file(Tokens0, Tf, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_file1(Tokens, Tf, From, St).
 
-scan_file1([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
-            {dot,_Ld}], Tf, From, St) ->
+scan_file1([{'(',_Alp},{string,_As,Name},{',',_Ac},{integer,_Ai,Ln},{')',_Arp},
+            {dot,_Ad}], Tf, From, St) ->
     Anno = erl_anno:new(Ln),
-    enter_file_reply(From, Name, Anno, loc(Tf), generated),
+    enter_file_reply(From, Name, Anno, loc(Tf), generated, St#epp.deterministic),
     Ms0 = St#epp.macs,
-    Ms = Ms0#{'FILE':={none,[{string,line1(),Name}]}},
+    Ms = Ms0#{'FILE':={none,[{string,line1(),source_name(St,Name)}]}},
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
     Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
     wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
-scan_file1(_Toks, Tf, From, St) ->
-    epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
+scan_file1(Toks, Tf, From, St) ->
+    T = find_mismatch(['(', string, ',', integer, ')', dot], Toks, Tf),
+    epp_reply(From, {error,{loc(T),epp,{bad,file}}}),
     wait_req_scan(St).
 
 new_location(Ln, Le, Lf) when is_integer(Lf) ->
@@ -1253,18 +1475,22 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
-	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
+    ElseReserved = St#epp.else_reserved,
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.erl_scan_opts) of
+	{ok,[{'-',_Ah},{atom,_Ai,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{atom,_Ai,ifndef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifndef,I|Sis]);
-	{ok,[{'-',_Lh},{'if',_Li}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{'if',_Ai}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, ['if',I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,'else'}=Else|_Toks],Cl}->
+	{ok,[{'-',_Ah},{atom,_Ae,'else'}=Else|_Toks],Cl}->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,'elif'}=Elif|Toks],Cl}->
+        %% conditionally allow else as reserved word
+	{ok,[{'-',_Ah},{'else',_Ae}=Else|_Toks],Cl} when ElseReserved ->
+	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
+	{ok,[{'-',_Ah},{atom,_Ae,'elif'}=Elif|Toks],Cl}->
 	    skip_elif(Toks, Elif, From, St#epp{location=Cl}, [I|Sis]);
-	{ok,[{'-',_Lh},{atom,_Le,endif}|_Toks],Cl} ->
+	{ok,[{'-',_Ah},{atom,_Ae,endif}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, Sis);
 	{ok,_Toks,Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [I|Sis]);
@@ -1309,44 +1535,66 @@ skip_elif(Toks, Elif, From, St, [_I]) ->
 skip_elif(_Toks, _Elif, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
-%% macro_pars(Tokens, ArgStack)
-%% macro_expansion(Tokens, Anno)
+%% macro_pars(Tokens, ArgStack, Token)
+%% macro_expansion(Tokens, Token)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
-macro_pars([{')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
-    {ok, {lists:reverse(Args), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_,Name}, {')',_Lp}, {',',_Ld}=Comma|Ex], Args) ->
-    false = lists:member(Name, Args),		%Prolog is nice
-    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Comma)}};
-macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
-    false = lists:member(Name, Args),
-    macro_pars(Ts, [Name|Args]).
+macro_pars([{')',_Ap}=Par|Ex], Args, _T0) ->
+    {ok, {lists:reverse(Args), macro_pars_end(Ex, Par)}};
+macro_pars([{var,_,Name}=T|Ex], Args, _T0) ->
+    check_macro_arg(Name, Args, T),
+    macro_pars_cont(Ex, [Name|Args], T);
+macro_pars(Toks, _Args, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),{bad,define}}).
 
-macro_expansion([{')',_Lp},{dot,_Ld}], _T0) -> [];
+macro_pars_cont([{')',_Ap}=Par|Ex], Args, _T0) ->
+    {ok, {lists:reverse(Args), macro_pars_end(Ex, Par)}};
+macro_pars_cont([{',',_Ad},{var,_,Name}=T|Ex], Args, _T0) ->
+    check_macro_arg(Name, Args, T),
+    macro_pars_cont(Ex, [Name|Args], T);
+macro_pars_cont(Toks, _Args, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),{bad,define}}).
+
+macro_pars_end([{',',_Ad}=Comma|Ex], _T0) ->
+    macro_expansion(Ex, Comma);
+macro_pars_end(Toks, T0) ->
+    T = no_match(Toks, T0),
+    throw({error,loc(T),missing_comma}).
+
+macro_expansion([{')',_Ap},{dot,_Ad}], _T0) -> [];
 macro_expansion([{dot,_}=Dot], _T0) ->
     throw({error,loc(Dot),missing_parenthesis});
 macro_expansion([T|Ts], _T0) ->
     [T|macro_expansion(Ts, T)];
 macro_expansion([], T0) -> throw({error,loc(T0),premature_end}).
 
+check_macro_arg(Name, Args, T) ->
+    case lists:member(Name, Args) of
+        true ->
+            throw({error,loc(T),{duplicated_argument,Name}});
+        false ->
+            ok
+    end.
+
 %% expand_macros(Tokens, St)
-%% expand_macro(Tokens, MacroToken, RestTokens)
 %%  Expand the macros in a list of tokens, making sure that an expansion
 %%  gets the same location as the macro call.
 
 expand_macros(MacT, M, Toks, St) ->
     #epp{macs=Ms,uses=U} = St,
     Lm = loc(MacT),
-    Tinfo = element(2, MacT),
+    Anno = element(2, MacT),
     case expand_macro1(Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
 	    check_uses([{M,none}], [], U, Lm),
-	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), St),
+	    Toks1 = expand_macros(expand_macro(Exp, Anno, [], #{}), St),
 	    expand_macros(Toks1++Toks, St);
 	{ok,{As,Exp}} ->
 	    check_uses([{M,length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, #{}),
-	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), St)
+	    expand_macros(expand_macro(Exp, Anno, Toks1, Bs), St)
     end.
 
 expand_macro1(Lm, M, Toks, Ms) ->
@@ -1395,32 +1643,32 @@ get_macro_uses({M,Arity}, U) ->
 
 %% Macro expansion
 %% Note: io:scan_erl_form() does not return comments or white spaces.
-expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], St) ->
+expand_macros([{'?',_Aq},{atom,_Am,M}=MacT|Toks], St) ->
     expand_macros(MacT, M, Toks, St);
 %% Special macros
-expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_NAME'}=Token|Toks], St0) ->
+expand_macros([{'?',_Aq},{var,Lm,'FUNCTION_NAME'}=Token|Toks], St0) ->
     St = update_fun_name(Token, St0),
     case St#epp.fname of
 	undefined ->
-	    [{'?',_Lq},Token];
+	    [{'?',_Aq},Token];
 	{Name,_} ->
 	    [{atom,Lm,Name}]
     end ++ expand_macros(Toks, St);
-expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_ARITY'}=Token|Toks], St0) ->
+expand_macros([{'?',_Aq},{var,Lm,'FUNCTION_ARITY'}=Token|Toks], St0) ->
     St = update_fun_name(Token, St0),
     case St#epp.fname of
 	undefined ->
-	    [{'?',_Lq},Token];
+	    [{'?',_Aq},Token];
 	{_,Arity} ->
 	    [{integer,Lm,Arity}]
     end ++ expand_macros(Toks, St);
-expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], St) ->
+expand_macros([{'?',_Aq},{var,Lm,'LINE'}=Tok|Toks], St) ->
     Line = erl_scan:line(Tok),
     [{integer,Lm,Line}|expand_macros(Toks, St)];
-expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], St) ->
+expand_macros([{'?',_Aq},{var,_Am,M}=MacT|Toks], St) ->
     expand_macros(MacT, M, Toks, St);
 %% Illegal macros
-expand_macros([{'?',_Lq},Token|_Toks], _St) ->
+expand_macros([{'?',_Aq},Token|_Toks], _St) ->
     T = case erl_scan:text(Token) of
             Text when is_list(Text) ->
                 Text;
@@ -1436,17 +1684,17 @@ expand_macros([], _St) -> [].
 %% bind_args(Tokens, MacroLocation, MacroName, ArgumentVars, Bindings)
 %%  Collect the arguments to a macro call.
 
-bind_args([{'(',_Llp},{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
+bind_args([{'(',_Alp},{')',_Arp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
-bind_args([{'(',_Llp}|Toks0], Lm, M, [A|As], Bs) ->
+bind_args([{'(',_Alp}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 bind_args(_Toks, Lm, M, _As, _Bs) ->
     throw({error,Lm,{mismatch,M}}). % Cannot happen.
 
-macro_args([{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
+macro_args([{')',_Arp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
-macro_args([{',',_Lc}|Toks0], Lm, M, [A|As], Bs) ->
+macro_args([{',',_Ac}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 macro_args([], Lm, M, _As, _Bs) ->
@@ -1461,21 +1709,21 @@ store_arg(_L, _M, A, Arg, Bs) ->
 
 %% count_args(Tokens, MacroLine, MacroName)
 %%  Count the number of arguments in a macro call.
-count_args([{'(', _Llp},{')',_Lrp}|_Toks], _Lm, _M) ->
+count_args([{'(', _Alp},{')',_Arp}|_Toks], _Lm, _M) ->
     0;
-count_args([{'(', _Llp},{',',_Lc}|_Toks], Lm, M) ->
+count_args([{'(', _Alp},{',',_Ac}|_Toks], Lm, M) ->
     throw({error,Lm,{arg_error,M}});
-count_args([{'(',_Llp}|Toks0], Lm, M) ->
+count_args([{'(',_Alp}|Toks0], Lm, M) ->
     {_Arg,Toks1} = macro_arg(Toks0, [], []),
     count_args(Toks1, Lm, M, 1);
 count_args(_Toks, _Lm, _M) ->
     none.
 
-count_args([{')',_Lrp}|_Toks], _Lm, _M, NbArgs) ->
+count_args([{')',_Arp}|_Toks], _Lm, _M, NbArgs) ->
     NbArgs;
-count_args([{',',_Lc},{')',_Lrp}|_Toks], Lm, M, _NbArgs) ->
+count_args([{',',_Ac},{')',_Arp}|_Toks], Lm, M, _NbArgs) ->
     throw({error,Lm,{arg_error,M}});
-count_args([{',',_Lc}|Toks0], Lm, M, NbArgs) ->
+count_args([{',',_Ac}|Toks0], Lm, M, NbArgs) ->
     {_Arg,Toks1} = macro_arg(Toks0, [], []),
     count_args(Toks1, Lm, M, NbArgs+1);
 count_args([], Lm, M, _NbArgs) ->
@@ -1523,36 +1771,37 @@ macro_arg([T|Toks], E, Arg) ->
 macro_arg([], _E, Arg) ->
     {lists:reverse(Arg),[]}.
 
-%% expand_macro(MacroDef, MacroTokenInfo, RestTokens, Bindings)
-%% expand_arg(Argtokens, MacroTokens, MacroLocation, RestTokens, Bindings)
+%% expand_macro(MacroDef, MacroTokenAnno, RestTokens, Bindings)
+%% expand_arg(Argtokens, MacroTokens, TokenAnno, RestTokens, Bindings)
 %%  Insert the macro expansion replacing macro parameters with their
 %%  argument values, inserting the location of first the macro call
 %%  and then the macro arguments, i.e. simulate textual expansion.
 
-expand_macro([{var,_Lv,V}|Ts], L, Rest, Bs) ->
+expand_macro([{var,_Av,V}|Ts], Anno, Rest, Bs) ->
     case Bs of
 	#{V:=Val} ->
-	    expand_arg(Val, Ts, L, Rest, Bs);
+	    expand_arg(Val, Ts, Anno, Rest, Bs);
 	_ ->
-	    [{var,L,V}|expand_macro(Ts, L, Rest, Bs)]
+	    [{var,Anno,V}|expand_macro(Ts, Anno, Rest, Bs)]
     end;
-expand_macro([{'?', _}, {'?', _}, {var,_Lv,V}|Ts], L, Rest, Bs) ->
+expand_macro([{'?', _}, {'?', _}, {var,_Av,V}|Ts], Anno, Rest, Bs) ->
     case Bs of
 	#{V:=Val} ->
-            expand_arg(stringify(Val, L), Ts, L, Rest, Bs);
+            expand_arg(stringify(Val, Anno), Ts, Anno, Rest, Bs);
 	_ ->
-	    [{var,L,V}|expand_macro(Ts, L, Rest, Bs)]
+	    [{var,Anno,V}|expand_macro(Ts, Anno, Rest, Bs)]
     end;
-expand_macro([T|Ts], L, Rest, Bs) ->
-    [setelement(2, T, L)|expand_macro(Ts, L, Rest, Bs)];
-expand_macro([], _L, Rest, _Bs) -> Rest.
+expand_macro([T|Ts], Anno, Rest, Bs) ->
+    [setelement(2, T, Anno)|expand_macro(Ts, Anno, Rest, Bs)];
+expand_macro([], _Anno, Rest, _Bs) -> Rest.
 
-expand_arg([A|As], Ts, _L, Rest, Bs) ->
-    %% It is not obvious that the location of arguments should replace L.
-    NextL = element(2, A),
-    [A|expand_arg(As, Ts, NextL, Rest, Bs)];
-expand_arg([], Ts, L, Rest, Bs) ->
-    expand_macro(Ts, L, Rest, Bs).
+expand_arg([A|As], Ts, _Anno, Rest, Bs) ->
+    %% It is not obvious that the annotation of arguments should
+    %% replace _Anno.
+    NextAnno = element(2, A),
+    [A|expand_arg(As, Ts, NextAnno, Rest, Bs)];
+expand_arg([], Ts, Anno, Rest, Bs) ->
+    expand_macro(Ts, Anno, Rest, Bs).
 
 %%%
 %%% Here follows support for the ?FUNCTION_NAME and ?FUNCTION_ARITY
@@ -1641,7 +1890,7 @@ classify_token_1('>>') -> right;
 classify_token_1(_) -> other.
 
 
-%%% stringify(Ts, L) returns a list of one token: a string which when
+%%% stringify(Ts, Anno) returns a list of one token: a string which when
 %%% tokenized would yield the token list Ts.
 
 %% erl_scan:text(T) is not backward compatible with this.
@@ -1664,9 +1913,9 @@ stringify1([]) ->
 stringify1([T | Tokens]) ->
     [io_lib:format(" ~ts", [token_src(T)]) | stringify1(Tokens)].
 
-stringify(Ts, L) ->
+stringify(Ts, Anno) ->
     [$\s | S] = lists:flatten(stringify1(Ts)),
-    [{string, L, S}].
+    [{string, Anno, S}].
 
 coalesce_strings([{string,A,S} | Tokens]) ->
     coalesce_strings(Tokens, A, [S]);
@@ -1679,6 +1928,22 @@ coalesce_strings([{string,_,S}|Tokens], A, S0) ->
     coalesce_strings(Tokens, A, [S | S0]);
 coalesce_strings(Tokens, A, S) ->
     [{string,A,lists:append(lists:reverse(S))} | coalesce_strings(Tokens)].
+
+find_mismatch([Tag|Tags], [{Tag,_A}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([Tag|Tags], [{Tag,_A,_V}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([var_or_atom|Tags], [{var,_A,_V}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch([var_or_atom|Tags], [{atom,_A,_N}=T|Ts], _T0) ->
+    find_mismatch(Tags, Ts, T);
+find_mismatch(_, Ts, T0) ->
+    no_match(Ts, T0).
+
+no_match([T|_], _T0) ->
+    T;
+no_match(_, T0) ->
+    T0.
 
 %% epp_request(Epp)
 %% epp_request(Epp, Request)
@@ -1728,12 +1993,6 @@ fname_join(["." | [_|_]=Rest]) ->
 fname_join(Components) ->
     filename:join(Components).
 
-%% The line only. (Other tokens may have the column and text as well...)
-loc_anno(Line) when is_integer(Line) ->
-    erl_anno:new(Line);
-loc_anno({Line,_Column}) ->
-    erl_anno:new(Line).
-
 loc(Token) ->
     erl_scan:location(Token).
 
@@ -1768,7 +2027,7 @@ get_line(Anno) ->
 %% of the abstract code would then point into different windows
 %% depending on the -file attribute. [Note that if, as is the case for
 %% yecc, code has been copied into the file, then it is possible that
-%% the copied code differ from the one referred to by the -file
+%% the copied code differs from the one referred to by the -file
 %% attribute, which means that line numbers can mismatch.] In practice
 %% however it is very rare with Erlang functions in included files, so
 %% only one window is used per module. This means that the line
@@ -1782,11 +2041,8 @@ get_line(Anno) ->
 %%
 %% It turns out to be difficult to distinguish -file attributes in the
 %% input file from the ones added by epp unless some action is taken.
-%% The (less than perfect) solution employed is to let epp assign
-%% negative line numbers to user supplied -file attributes.
-
-%% Note: it is assumed that the second element is a line or a key-list
-%% where 'line' can be found.
+%% The solution employed is to let epp label the annotation of user
+%% supplied -file attributes as 'generated'.
 
 interpret_file_attribute(Forms) ->
     interpret_file_attr(Forms, 0, []).
@@ -1819,3 +2075,11 @@ interpret_file_attr([Form0 | Forms], Delta, Fs) ->
 interpret_file_attr([], _Delta, _Fs) ->
     [].
 
+-spec source_name(#epp{} | boolean(), file:filename_all()) -> file:filename_all().
+source_name(Deterministic, Name) when is_boolean(Deterministic) ->
+    case Deterministic of
+        true -> filename:basename(Name);
+        false -> Name
+    end;
+source_name(St, Name) ->
+    source_name(St#epp.deterministic, Name).

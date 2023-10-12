@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1,
-	 erl_202/1,repro/1,local_cse/1,second_block_pass/1]).
+	 erl_202/1,repro/1,local_cse/1,second_block_pass/1,
+         coverage/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -41,7 +42,8 @@ groups() ->
        erl_202,
        repro,
        local_cse,
-       second_block_pass
+       second_block_pass,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -304,6 +306,46 @@ second_block_pass(_Config) ->
 
 second_1(Fs, TS) ->
     [F#{dts=>DTS / TS} || #{dts:=DTS} = F <- Fs].
+
+coverage(Config) ->
+    [] = coverage_1(),
+
+    [42,Config] = (coverage_2(Config))({fun id/1}),
+
+    {b,a,badarith} = coverage_3(a, b),
+    ok = coverage_3(0, 1),
+
+    {'EXIT',{badarg,_}} = catch coverage_4(a, b),
+
+    ok.
+
+coverage_1() ->
+    [(bnot head):bar(hdr, case kind of
+                              [] -> whatever
+                          end) || 7 <- []].
+
+coverage_2(Cmds) ->
+    fun({CollecFun}) ->
+            [id(42), CollecFun(Cmds)]
+    end.
+
+coverage_3(Node, Nodes) ->
+    try id(Node) + 1 of
+	_ ->
+            ok
+    catch
+        _:Reason ->
+	    coverage_3(Nodes, Node, Reason)
+    end.
+
+coverage_3(A, B, C) ->
+    id({A,B,C}).
+
+coverage_4(A, B) ->
+    do_coverage_4(ok, (ok xor ok)#{ok := ok}, B, ok) =:= A.
+
+do_coverage_4(_, _, _, _) ->
+    ok.
 
 %%%
 %%% Common functions.

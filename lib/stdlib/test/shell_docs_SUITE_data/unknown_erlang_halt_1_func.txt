@@ -1,0 +1,20 @@
+
+  [;1m-spec halt(Status :: non_neg_integer()) -> no_return().[0m
+
+  The same as calling [;;4mhalt(Status, [])[0m. Example:
+
+    > halt(17).
+    os_prompt% echo $?
+    17
+    os_prompt%
+
+  [;1m-spec halt(Abort :: abort) -> no_return().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  The same as calling [;;4mhalt(abort, [])[0m.
+
+  [;1m-spec halt(CrashDumpSlogan :: string()) -> no_return().[0m
+
+  The same as calling [;;4mhalt(CrashDumpSlogan, [])[0m.

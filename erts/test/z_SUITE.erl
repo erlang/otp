@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 
 -include_lib("kernel/include/file.hrl").
 	    
--record(core_search_conf, {search_dir,
+-record(core_search_conf, {db_top_dir,
+                           search_dir,
 			   extra_search_dir,
 			   cerl,
 			   file,
@@ -48,7 +49,7 @@ all() ->
 core_files(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
-	    {skipped, "No idea searching for core-files on windows"};
+            win32_search(true, os:getenv("OTP_DAILY_BUILD_TOP_DIR"));
 	{unix, darwin} ->
 	    core_file_search(
 	      core_search_conf(true,
@@ -63,7 +64,7 @@ core_files(Config) when is_list(Config) ->
 search_for_core_files(Dir) ->
     case os:type() of
 	{win32, _} ->
-	    io:format("No idea searching for core-files on windows");
+            win32_search(false, Dir);
 	{unix, darwin} ->
 	    core_file_search(core_search_conf(false, Dir, "/cores"));
 	_ ->
@@ -88,10 +89,10 @@ find_cerl(DBTop) ->
 	[Cerl | _ ] ->
 	    case filelib:is_regular(Cerl) of
 		true -> Cerl;
-		_ -> false
+		_ -> find_cerl(false)
 	    end;
 	_ ->
-	    false
+	    find_cerl(false)
     end.
 
 is_dir(false) ->
@@ -103,18 +104,7 @@ core_search_conf(RunByTS, DBTop) ->
     core_search_conf(RunByTS, DBTop, false).
 
 core_search_conf(RunByTS, DBTop, XDir) ->
-    SearchDir = case is_dir(DBTop) of
-		    false ->
-			case code:which(test_server) of
-			    non_existing ->
-				{ok, CWD} = file:get_cwd(),
-				CWD;
-			    TS ->
-				filename:dirname(filename:dirname(TS))
-			end;
-		    true ->
-			DBTop
-		end,
+    SearchDir = search_dir(DBTop),
     XSearchDir = case is_dir(XDir) of
 		     false ->
 			 false;
@@ -124,11 +114,26 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 			     _ -> XDir
 			 end
 		 end,
-    #core_search_conf{search_dir = SearchDir,
+    #core_search_conf{db_top_dir = DBTop,
+                      search_dir = SearchDir,
 		      extra_search_dir = XSearchDir,
 		      cerl = find_cerl(DBTop),
 		      file = os:find_executable("file"),
 		      run_by_ts = RunByTS}.
+
+search_dir(DBTop) ->
+    case is_dir(DBTop) of
+        false ->
+            case code:which(test_server) of
+                non_existing ->
+                    {ok, CWD} = file:get_cwd(),
+                    CWD;
+                TS ->
+                    filename:dirname(filename:dirname(TS))
+            end;
+        true ->
+            DBTop
+    end.
 
 file_inspect(#core_search_conf{file = File}, Core) ->
     FRes0 = os:cmd(File ++ " " ++ Core),
@@ -186,14 +191,13 @@ dump_core(#core_search_conf{ cerl = false }, _) ->
 dump_core(_, {ignore, _Core}) ->
     ok;
 dump_core(#core_search_conf{ cerl = Cerl }, Core) ->
-    Dump = case test_server:is_debug() of
-	       true ->
-		   os:cmd(Cerl ++ " -debug -dump " ++ Core);
-	       _ ->
-		   os:cmd(Cerl ++ " -dump " ++ Core)
-	   end,
+    Dump = case erlang:system_info(build_type) of
+               opt ->
+                   os:cmd(Cerl ++ " -dump " ++ Core);
+               Type ->
+		   os:cmd(lists:concat([Cerl," -",Type," -dump ",Core]))
+           end,
     ct:log("~ts~n~n~ts",[Core,Dump]).
-
 
 format_core(Conf, {ignore, Core}) ->
     format_core(Conf, Core, "[ignored] ");
@@ -230,17 +234,24 @@ core_file_search(#core_search_conf{search_dir = Base,
 				   extra_search_dir = XBase,
 				   cerl = Cerl,
 				   run_by_ts = RunByTS} = Conf) ->
-    case {Cerl,test_server:is_debug()} of
+    case {Cerl,erlang:system_info(build_type)} of
 	{false,_} -> ok;
-	{_,true} ->
-	    catch io:format("A cerl script that probably can be used for "
-			    "inspection of emulator cores:~n  ~s -debug~n",
-			    [Cerl]);
-	_ ->
+	{_,opt} ->
 	    catch io:format("A cerl script that probably can be used for "
 			    "inspection of emulator cores:~n  ~s~n",
-			    [Cerl])
+			    [Cerl]);
+	{_,Type} ->
+	    catch io:format("A cerl script that probably can be used for "
+			    "inspection of emulator cores:~n  ~s -emu_type ~p~n",
+			    [Cerl,Type])
     end,
+
+    case os:getenv("DOCKER_BUILD_INFO") of
+        false -> ok;
+        Info ->
+            io:format(Info)
+    end,
+
     io:format("Searching for core-files in: ~s~s~n",
 	      [case XBase of
 		   false -> "";
@@ -317,7 +328,91 @@ core_file_search(#core_search_conf{search_dir = Base,
 	    case {RunByTS, ICores, FCores} of
 		{true, [], []} -> ok;
 		{true, _, []} -> {comment, Res};
-		{true, _, _} -> ct:fail(Res);
-		_ -> Res
+		{true, _, _} ->
+                    docker_export_otp_src(Conf),
+                    ct:fail(Res);
+		_ ->
+                    Res
 	    end
+    end.
+
+docker_export_otp_src(#core_search_conf{db_top_dir = DbTop}) ->
+    %% If this is a docker run, export the otp_src directory
+    %% to not get lost when the docker image is purged.
+    try
+        case {is_dir(DbTop), is_dir("/daily_build/otp_src/erts")}  of
+            {true, true} ->
+                %% Stolen from get_otp_src script.
+                %% Basically it's a recursive copy of otp_src dir
+                %% with preserved permissions, etc.
+                run("cd /daily_build && "
+                    "tar -cf - otp_src | (cd "++DbTop++" && tar -xpf -)"),
+                OtpSrc = DbTop ++ "/otp_src",
+                run("cd " ++ OtpSrc ++ "/erts && "
+                    "ERL_TOP=" ++ OtpSrc ++ " make local_setup"),
+                io:format("otp_src directory exported from docker image");
+            _ ->
+                ok
+        end
+    catch
+        C:E:S ->
+            io:format("Failed to export otp_src directory:"
+                      "Exception: ~p\nReason: ~p\nStack: ~p\n",
+                      [C, E, S])
+    end.
+
+run(Cmd) ->
+    Options = [binary, exit_status,stderr_to_stdout,{line,4096}],
+    Port = open_port({spawn,"sh -c \"" ++ Cmd ++ "\""}, Options),
+    run_loop(Cmd, Port, []).
+
+run_loop(Cmd, Port, Output) ->
+    receive
+        {Port, {exit_status,0}} ->
+            lists:reverse(Output);
+        {Port, {exit_status,Status}} ->
+            io:format("Failed command (~p): ~p\nOutput: ~p\n", [Status, Cmd, Output]),
+            error(bailout);
+        {Port, {data,{eol,Bin}}} ->
+            run_loop(Cmd, Port, [Bin|Output]);
+        Msg ->
+            io:format("Unexpected message: ~p\nCommand was: ~p\n", [Msg, Cmd]),
+            error(bailout)
+    end.
+
+
+win32_search(RunByTS, DBTop) ->
+    case os:getenv("WSLENV") of
+        false when RunByTS ->
+            {skipped, "No idea searching for core-files on old windows"};
+        false ->
+            io:format("No idea searching for core-files on old windows");
+        _ ->
+            win32_search_2(RunByTS, DBTop)
+    end.
+
+win32_search_2(true, DBTop0) ->
+    DBTop = search_dir(DBTop0),
+    Dir = "c:/ldisk/daily_build",
+    io:format("Find and move 'dmp' files in: ~s to ~s~n",[Dir, DBTop]),
+    case filelib:wildcard("*.dmp", Dir) of
+        [] -> ok;
+        Dumps ->
+            %% We move the "daily" dmp files to this test-run
+            Str = lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))]),
+            Rename = fun(File) ->
+                             FP = filename:join(Dir, File),
+                             _ = file:rename(FP, filename:join(DBTop, File))
+                     end,
+            [Rename(File) || File <- Dumps],
+            ct:fail(Str)
+    end;
+win32_search_2(false, _DBTop0) ->
+    DBTop = search_dir("c:/ldisk/daily_build"),
+    io:format("Search for 'dmp' files in: ~s~n",[DBTop]),
+    case filelib:wildcard("*.dmp", DBTop) of
+        [] -> "Core-files found: Ignored core-files found:";
+        Dumps ->
+            io:format("The dmp files must be removed manually\n", []),
+            lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))])
     end.

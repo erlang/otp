@@ -153,10 +153,12 @@
 
 -export([empty/0, is_empty/1, size/1, singleton/1, is_member/2,
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
-	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
-	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1,
-         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
+	 union/1, intersection/2, intersection/1, is_equal/2,
+	 is_disjoint/2, difference/2, is_subset/2, to_list/1,
+	 from_list/1, from_ordset/1, smallest/1, largest/1,
+	 take_smallest/1, take_largest/1, iterator/1,
+	 iterator_from/2, next/1, filter/2, fold/3, map/2,
+	 filtermap/2, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -205,13 +207,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec empty() -> Set when
-      Set :: set().
+      Set :: set(none()).
 
 empty() ->
     {0, nil}.
 
 -spec new() -> Set when
-      Set :: set().
+      Set :: set(none()).
 
 new() -> empty().
 
@@ -228,6 +230,32 @@ is_empty(_) ->
 
 size({Size, _}) ->
     Size.
+
+-spec is_equal(Set1, Set2) -> boolean() when
+      Set1 :: set(),
+      Set2 :: set().
+
+is_equal({Size, S1}, {Size, _} = S2)  ->
+    try is_equal_1(S1, to_list(S2)) of
+        [] ->
+            true
+    catch
+        throw:not_equal ->
+            false
+    end;
+is_equal({_, _}, {_, _}) ->
+    false.
+
+is_equal_1(nil, Keys) ->
+    Keys;
+is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
+    [Key2 | Keys] = is_equal_1(Smaller, Keys0),
+    if
+        Key1 == Key2 ->
+            is_equal_1(Bigger, Keys);
+        true ->
+            throw(not_equal)
+    end.
 
 -spec singleton(Element) -> set(Element).
 
@@ -259,13 +287,13 @@ is_member_1(_, nil) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-insert(Key, {S, T}) ->
+insert(Key, {S, T}) when is_integer(S), S >= 0 ->
     S1 = S + 1,
     {S1, insert_1(Key, T, ?pow(S1, ?p))}.
 
 insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 -> 
     case insert_1(Key, Smaller, ?div2(S)) of
-	{T1, H1, S1} when is_integer(H1) ->
+	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, T1, Bigger},
 	    {H2, S2} = count(Bigger),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -282,7 +310,7 @@ insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 ->
     end;
 insert_1(Key, {Key1, Smaller, Bigger}, S) when Key > Key1 -> 
     case insert_1(Key, Bigger, ?div2(S)) of
-	{T1, H1, S1} when is_integer(H1) ->
+	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, Smaller, T1},
 	    {H2, S2} = count(Smaller),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -317,7 +345,7 @@ count(nil) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-balance({S, T}) ->
+balance({S, T}) when is_integer(S), S >= 0 ->
     {S, balance(T, S)}.
 
 balance(T, S) ->
@@ -550,9 +578,9 @@ next([]) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-union({N1, T1}, {N2, T2}) when N2 < N1 ->
+union({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2), N2 < N1 ->
     union(to_list_1(T2), N2, T1, N1);
-union({N1, T1}, {N2, T2}) ->
+union({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2) ->
     union(to_list_1(T1), N1, T2, N2).
 
 %% We avoid the expensive mathematical computations if there is little
@@ -633,7 +661,7 @@ push([X | Xs], As) ->
 push([], As) ->
     As.
 
-balance_revlist(L, S) ->
+balance_revlist(L, S) when is_integer(S) ->
     {T, _} = balance_revlist_1(L, S),
     T.
 
@@ -670,9 +698,9 @@ union_list(S, []) -> S.
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-intersection({N1, T1}, {N2, T2}) when N2 < N1 ->
+intersection({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2), N2 < N1 ->
     intersection(to_list_1(T2), N2, T1, N1);
-intersection({N1, T1}, {N2, T2}) ->
+intersection({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2) ->
     intersection(to_list_1(T1), N1, T2, N2).
 
 intersection(L, _N1, T2, N2) when N2 < 10 ->
@@ -770,7 +798,8 @@ subtract(S1, S2) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-difference({N1, T1}, {N2, T2}) ->
+difference({N1, T1}, {N2, T2}) when is_integer(N1), N1 >= 0,
+                                    is_integer(N2), N2 >= 0 ->
     difference(to_list_1(T1), N1, T2, N2).
 
 difference(L, N1, T2, N2) when N2 < 10 ->
@@ -820,7 +849,8 @@ difference_2(Xs, [], As, S) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-is_subset({N1, T1}, {N2, T2}) ->
+is_subset({N1, T1}, {N2, T2}) when is_integer(N1), N1 >= 0,
+                                   is_integer(N2), N2 >= 0 ->
     is_subset(to_list_1(T1), N1, T2, N2).
 
 is_subset(L, _N1, T2, N2) when N2 < 10 ->
@@ -871,8 +901,39 @@ is_set(_) -> false.
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-filter(F, S) ->
+filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
+
+-spec map(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> Element2),
+      Set1 :: set(Element1),
+      Set2 :: set(Element2).
+
+map(F, {_, T}) when is_function(F, 1) ->
+    from_list(map_1(T, F, [])).
+
+map_1({Key, Small, Big}, F, L) ->
+    map_1(Small, F, [F(Key) | map_1(Big, F, L)]);
+map_1(nil, _F, L) -> L.
+
+-spec filtermap(Fun, Set1) -> Set2 when
+      Fun :: fun((Element1) -> boolean() | {true, Element2}),
+      Set1 :: set(Element1),
+      Set2 :: set(Element1 | Element2).
+
+filtermap(F, {_, T}) when is_function(F, 1) ->
+    from_list(filtermap_1(T, F, [])).
+
+filtermap_1({Key, Small, Big}, F, L) ->
+    case F(Key) of
+        true ->
+            filtermap_1(Small, F, [Key | filtermap_1(Big, F, L)]);
+        {true,Val} ->
+            filtermap_1(Small, F, [Val | filtermap_1(Big, F, L)]);
+        false ->
+            filtermap_1(Small, F, filtermap_1(Big, F, L))
+    end;
+filtermap_1(nil, _F, L) -> L.
 
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),

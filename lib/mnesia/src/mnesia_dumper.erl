@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,10 +67,13 @@ get_log_writes() ->
 incr_log_writes() ->
     Left = mnesia_lib:incr_counter(trans_log_writes_left, -1),
     if
-	Left > 0 ->
-	    ignore;
+	Left =:= 0 ->
+	    %% It doesn't matter which process adjusts counters and sends
+	    %% cast to a dumper so to avoid potential lag on global:set_lock
+	    %% we delegate it to new process
+	    spawn(fun() -> adjust_log_writes(true) end);
 	true ->
-	    adjust_log_writes(true)
+	    ignore
     end.
 
 adjust_log_writes(DoCast) ->
@@ -83,7 +86,7 @@ adjust_log_writes(DoCast) ->
 		false ->
 		    ignore;
 		true ->
-		    mnesia_controller:async_dump_log(write_threshold)
+		    ?CATCH(mnesia_controller:async_dump_log(write_threshold))
 	    end,
 	    Max = mnesia_monitor:get_env(dump_log_write_threshold),
 	    Left = mnesia_lib:read_counter(trans_log_writes_left),
@@ -272,17 +275,12 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	    end
     end,
     D = Rec#commit.disc_copies,
-    ExtOps = commit_ext(Rec),
     insert_ops(Tid, disc_copies, D, InPlace, InitBy, LogV),
-    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-	{Ext, Ops} <- ExtOps,
-	storage_semantics(Ext) == disc_copies],
+    insert_ext_ops(Tid, commit_ext(Rec), InPlace, InitBy),
     case InitBy of
 	startup ->
 	    DO = Rec#commit.disc_only_copies,
-	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV),
-	    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-		{Ext, Ops} <- ExtOps, storage_semantics(Ext) == disc_only_copies];
+	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV);
 	_ ->
 	    ignore
     end.
@@ -290,11 +288,8 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 commit_ext(#commit{ext = []}) -> [];
 commit_ext(#commit{ext = Ext}) ->
     case lists:keyfind(ext_copies, 1, Ext) of
-	{_, C} ->
-	    lists:foldl(fun({Ext0, Op}, D) ->
-				orddict:append(Ext0, Op, D)
-			end, orddict:new(), C);
-	false -> []
+        {_, C} -> C;
+        false -> []
     end.
 
 update(_Tid, [], _DumperMode) ->
@@ -329,6 +324,21 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 	    close_files(InPlace, Error, InitBy),
             fatal("Schema update error ~tp ~tp", [{Reason,ST}, SchemaOps])
     end.
+
+insert_ext_ops(Tid, ExtOps, InPlace, InitBy) ->
+  %% Note: ext ops cannot be part of pre-4.3 logs, so there's no need
+  %% to support the old operation order, as in `insert_ops'
+  lists:foreach(
+    fun ({Ext, Op}) ->
+        case storage_semantics(Ext) of
+          Semantics when Semantics == disc_copies;
+                         Semantics == disc_only_copies, InitBy == startup ->
+            insert_op(Tid, Ext, Op, InPlace, InitBy);
+          _Other ->
+            ok
+        end
+    end,
+    ExtOps).
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
 insert_ops(Tid, Storage, [Op], InPlace, InitBy, Ver)  when Ver >= "4.3"->
@@ -516,8 +526,8 @@ disc_delete_table(Tab, Storage) ->
 disc_delete_indecies(Tab, Cs, Storage) ->
     case storage_semantics(Storage) of
 	disc_only_copies ->
-	    Indecies = Cs#cstruct.index,
-	    mnesia_index:del_transient(Tab, Indecies, Storage);
+	    Indices = Cs#cstruct.index,
+	    mnesia_index:del_transient(Tab, Indices, Storage);
 	_ ->
 	    ok
     end.
@@ -805,7 +815,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			ram_copies ->
 			    ignore;
 			_ ->
-			    %% Indecies are still created by loader
+			    %% Indices are still created by loader
 			    disc_delete_indecies(Tab, Cs, Storage)
 			    %% disc_delete_table(Tab, Storage)
 		    end,
@@ -1423,10 +1433,10 @@ chunk_from_log(eof, _, _, _) ->
 %%
 %% This is a poor mans substitute for a fair scheduler algorithm
 %% in the Erlang emulator. The mnesia_dumper process performs many
-%% costly BIF invokations and must pay for this. But since the
+%% costly BIF invocations and must pay for this. But since the
 %% Emulator does not handle this properly we must compensate for
 %% this with some form of load regulation of ourselves in order to
-%% not steal all computation power in the Erlang Emulator ans make
+%% not steal all computation power in the Erlang Emulator and make
 %% other processes starve. Hopefully this is a temporary solution.
 
 start_regulator() ->

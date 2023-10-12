@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,8 +37,8 @@
     separate sections:
    </p>
   <list type="bulleted">
-    <item><p><seealso marker="macros">Preprocessor</seealso></p></item>
-    <item><p><seealso marker="records">Records</seealso></p></item>
+    <item><p><seeguide marker="macros">Preprocessor</seeguide></p></item>
+    <item><p><seeguide marker="records">Records</seeguide></p></item>
   </list>
 
   <section>
@@ -82,7 +82,7 @@ Phone_number
 _
 _Height</pre>
     <p>Variables are bound to values using
-      <seealso marker="patterns">pattern matching</seealso>. Erlang
+      <seeguide marker="patterns">pattern matching</seeguide>. Erlang
       uses <em>single assignment</em>, that is, a variable can only be bound
       once.</p>
     <p>The <em>anonymous variable</em> is denoted by underscore (_) and
@@ -92,9 +92,9 @@ _Height</pre>
     <pre>
 [H|_] = [1,2,3]</pre>
     <p>Variables starting with underscore (_), for example,
-      <c>_Height</c>, are normal variables, not anonymous. They are
-      however ignored by the compiler in the sense that they do not
-      generate any warnings for unused variables.</p>
+      <c>_Height</c>, are normal variables, not anonymous. However,
+      they are ignored by the compiler in the sense that they do not
+      generate warnings.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
     <pre>
@@ -138,18 +138,22 @@ member(_Elem, []) ->
 Name1
 [H|T]
 {error,Reason}</pre>
-    <p>Patterns are allowed in clause heads, <c>case</c> and
-      <c>receive</c> expressions, and match expressions.</p>
+     <p>Patterns are allowed in clause heads,
+     <seeguide marker="#case">case expressions</seeguide>,
+     <seeguide marker="#receive">receive expressions</seeguide>,
+     and
+     <seeguide marker="#match_operator">match expressions</seeguide>.</p>
 
     <section>
-      <title>Match Operator = in Patterns</title>
+      <marker id="compound_pattern_operator"></marker>
+      <title>The Compound Pattern Operator</title>
       <p>If <c>Pattern1</c> and <c>Pattern2</c> are valid patterns,
         the following is also a valid pattern:</p>
       <pre>
 Pattern1 = Pattern2</pre>
       <p>When matched against a term, both <c>Pattern1</c> and
-        <c>Pattern2</c> are  matched against the term. The idea
-        behind this feature is to avoid reconstruction of terms.</p>
+      <c>Pattern2</c> are matched against the term. The idea behind
+      this feature is to avoid reconstruction of terms.</p>
        <p><em>Example:</em></p>
       <pre>
 f({connect,From,To,Number,Options}, To) ->
@@ -163,6 +167,11 @@ f({connect,_,To,_,_} = Signal, To) ->
     ...;
 f(Signal, To) ->
     ignore.</pre>
+
+    <p>The compound pattern operator does not imply that its operands
+    are matched in any particular order. That means that it is not
+    legal to bind a variable in <c>Pattern1</c> and use it in <c>Pattern2</c>,
+    or vice versa.</p>
     </section>
 
     <section>
@@ -192,22 +201,121 @@ case {Value, Result} of
   </section>
 
   <section>
-    <title>Match</title>
-    <p>The following matches <c>Expr1</c>, a pattern, against
-      <c>Expr2</c>:</p>
+    <marker id="match_operator"></marker>
+    <title>The Match Operator</title>
+    <p>The following matches <c>Pattern</c> against
+      <c>Expr</c>:</p>
     <pre>
-Expr1 = Expr2</pre>
+Pattern = Expr</pre>
     <p>If the matching succeeds, any unbound variable in the pattern
-      becomes bound and the value of <c>Expr2</c> is returned.</p>
+    becomes bound and the value of <c>Expr</c> is returned.</p>
+    <p>If multiple match operators are applied in sequence, they will be
+    evaluated from right to left.</p>
     <p>If the matching fails, a <c>badmatch</c> run-time error occurs.</p>
     <p><em>Examples:</em></p>
     <pre>
-1> <input>{A, B} = {answer, 42}.</input>
+1> <input>{A, B} = T = {answer, 42}.</input>
 {answer,42}
 2> <input>A.</input>
 answer
-3> <input>{C, D} = [1, 2].</input>
+3> <input>B.</input>
+42
+4> <input>T.</input>
+{answer,42}
+5> <input>{C, D} = [1, 2].</input>
 ** exception error: no match of right-hand side value [1,2]</pre>
+
+    <p>Because multiple match operators are evaluated from right to left,
+    it means that:</p>
+
+    <pre>
+Pattern1 = Pattern2 = . . . = PatternN = Expression</pre>
+
+    <p>is equivalent to:</p>
+    <pre>
+Temporary = Expression,
+PatternN = Temporary,
+   .
+   .
+   .,
+Pattern2 = Temporary,
+Pattern = Temporary</pre>
+  </section>
+
+  <section>
+    <title>The Match Operator and the Compound Pattern Operator</title>
+    <note><p>This is an advanced section, which references to topics not
+    yet introduced. It can safely be skipped on a first
+    reading.</p></note>
+
+    <p>The <c>=</c> character is used to denote two similar but
+    distinct operators: the match operator and the compound pattern
+    operator. Which one is meant is determined by context.</p>
+
+    <p>The <em>compound pattern operator</em> is used to construct a
+    compound pattern from two patterns. Compound patterns are accepted
+    everywhere a pattern is accepted. A compound pattern matches if
+    all of its constituent patterns match. It is not legal for a
+    pattern that is part of a compound pattern to use variables (as
+    keys in map patterns or sizes in binary patterns) bound in other
+    sub patterns of the same compound pattern.</p>
+    <p><em>Examples:</em></p>
+
+    <pre>
+1> <input>fun(#{Key := Value} = #{key := Key}) -> Value end.</input>
+* 1:7: variable 'Key' is unbound
+2> <input>F = fun({A, B} = E) -> {E, A + B} end, F({1,2}).</input>
+{{1,2},3}
+3> <input>G = fun(&lt;&lt;A:8,B:8>> = &lt;&lt;C:16>>) -> {A, B, C} end, G(&lt;&lt;42,43>>).</input>
+{42,43,10795}</pre>
+
+    <p>The <em>match operator</em> is allowed everywhere an expression
+    is allowed. It is used to match the value of an expression to a pattern.
+    If multiple match operators are applied in sequence, they will be
+    evaluated from right to left.</p>
+
+    <p><em>Examples:</em></p>
+    <pre>
+1> <input>M = #{key => key2, key2 => value}.</input>
+#{key => key2,key2 => value}
+2> <input>f(Key), #{Key := Value} = #{key := Key} = M, Value.</input>
+value
+3> <input>f(Key), #{Key := Value} = (#{key := Key} = M), Value.</input>
+value
+4> <input>f(Key), (#{Key := Value} = #{key := Key}) = M, Value.</input>
+* 1:12: variable 'Key' is unbound
+5> <input>&lt;&lt;X:Y&gt;&gt; = begin Y = 8, &lt;&lt;42:8&gt;&gt; end, X.</input>
+42</pre>
+
+    <p>The expression at prompt <em>2&gt;</em> first matches the value of
+    variable <c>M</c> against pattern <c>#{key := Key}</c>, binding
+    variable <c>Key</c>. It then matches the value of <c>M</c> against
+    pattern <c>#{Key := Value}</c> using variable <c>Key</c> as the
+    key, binding variable <c>Value</c>.</p>
+
+    <p>The expression at prompt <em>3&gt;</em> matches expression
+    <c>(#{key := Key} = M)</c> against pattern <c>#{Key :=
+    Value}</c>. The expression inside the parentheses is evaluated
+    first. That is, <c>M</c> is matched against <c>#{key := Key}</c>,
+    and then the value of <c>M</c> is matched against pattern <c>#{Key
+    := Value}</c>. That is the same evaluation order as in <em>2</em>;
+    therefore, the parentheses are redundant.</p>
+
+    <p>In the expression at prompt <em>4&gt;</em> the expression <c>M</c>
+    is matched against a pattern inside parentheses. Since the
+    construct inside the parentheses is a pattern, the <c>=</c> that
+    separates the two patterns is the compound pattern operator
+    (<em>not</em> the match operator). The match fails because the two
+    sub patterns are matched at the same time, and the variable
+    <c>Key</c> is therefore not bound when matching against pattern
+    <c>#{Key := Value}</c>.</p>
+
+    <p>In the expression at prompt <em>5&gt;</em> the expressions
+    inside the <seeguide marker="#block_expressions">block
+    expression</seeguide> are evaluated first, binding variable
+    <c>Y</c> and creating a binary.  The binary is then matched
+    against pattern <c>&lt;&lt;X:Y&gt;&gt;</c> using the value of
+    <c>Y</c> as the size of the segment.</p>
   </section>
 
   <section>
@@ -254,9 +362,9 @@ spawn(m, init, [])</code>
     <p>Notice that when calling a local function, there is a difference
     between using the implicitly or fully qualified function name.
     The latter always refers to the latest version of the module.
-    See <seealso marker="code_loading">Compilation and Code Loading
-    </seealso> and <seealso marker="functions#eval">
-    Function Evaluation</seealso>.</p>
+    See <seeguide marker="code_loading">Compilation and Code Loading
+    </seeguide> and <seeguide marker="functions#eval">
+    Function Evaluation</seeguide>.</p>
 
     <section>
       <title>Local Function Names Clashing With  Auto-Imported BIFs</title>
@@ -268,13 +376,13 @@ spawn(m, init, [])</code>
     being auto-imported. In certain situations, such a compile-directive
     is mandatory.</p>
 
-    <warning><p>Before OTP R14A (ERTS version 5.8), an implicitly
+    <change><p>Before OTP R14A (ERTS version 5.8), an implicitly
     qualified function call to a function having the same name as an
     auto-imported BIF always resulted in the BIF being called. In
     newer versions of the compiler, the local function is called instead.
     This is to avoid that future additions to the
     set of auto-imported BIFs do not silently change the behavior
-    of old code.</p>
+    of old code.</p></change>
 
     <p>However, to avoid that old (pre R14) code changed its
     behavior when compiled with OTP version R14A or later, the
@@ -284,7 +392,7 @@ spawn(m, init, [])</code>
     your code, you either need to explicitly remove the auto-import
     using a compiler directive, or replace the call with a fully
     qualified function call. Otherwise you get a compilation
-    error. See the following example:</p> </warning>
+    error. See the following example:</p>
 
     <code type="none">
 -export([length/1,f/1]).
@@ -395,6 +503,138 @@ is_valid_signal(Signal) ->
   </section>
 
   <section>
+    <marker id="maybe"></marker>
+    <title>Maybe</title>
+    <change><p><c>maybe</c> is an experimental <seeguide
+    marker="system/reference_manual:features#features">feature</seeguide>
+    introduced in Erlang/OTP 25. By default, it is disabled. To enable
+    <c>maybe</c>, either use the <c>-feature(maybe_expr,enable)</c>
+    directive (from within source code), or the compiler option
+    <c>{feature,maybe_expr,enable}</c>.</p>
+    </change>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+end]]></code>
+
+    <p>The expressions in a <c>maybe</c> block are evaluated sequentially. If all
+    expressions are evaluated successfully, the return value of the <c>maybe</c>
+    block is <c>ExprN</c>. However, execution can be short-circuited by a
+    conditional match expression:</p>
+
+    <code type="erl"><![CDATA[
+Expr1 ?= Expr2]]></code>
+
+    <p><c>?=</c> is called the conditional match operator. It is only
+    allowed to be used at the top-level of a <c>maybe</c> block. It
+    matches the pattern <c>Expr1</c> against <c>Expr2</c>. If the
+    matching succeeds, any unbound variable in the pattern becomes
+    bound. If the expression is the last expression in the
+    <c>maybe</c> block, it also returns the value of <c>Expr2</c>. If the
+    matching is unsuccessful, the rest of the expressions in the <c>maybe</c>
+    block are skipped and the return value of the <c>maybe</c>
+    block is <c>Expr2</c>.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be
+    used in the code that follows the block.</p>
+
+    <p>Here is an example:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+end]]></code>
+
+    <p>Let us first assume that <c>a()</c> returns <c>{ok,42}</c> and
+    <c>b()</c> returns <c>{ok,58}</c>. With those return values, all
+    of the match operators will succeed, and the return value of the
+    <c>maybe</c> block is <c>A + B</c>, which is equal to <c>42 +
+    58 = 100</c>.</p>
+
+    <p>Now let us assume that <c>a()</c> returns <c>error</c>. The
+    conditional match operator in <c>{ok, A} ?= a()</c> fails to
+    match, and the return value of the <c>maybe</c> block is the
+    value of the expression that failed to match, namely <c>error</c>.
+    Similarly, if <c>b()</c> returns <c>wrong</c>, the return value of
+    the <c>maybe</c> block is <c>wrong</c>.</p>
+
+    <p>Finally, let us assume that <c>a()</c> returns
+    <c>-1</c>. Because <c>true = A >= 0</c> uses the match operator
+    <c>=</c>, a <c>{badmatch,false}</c> run-time error occurs when the
+    expression fails to match the pattern.</p>
+
+    <p>The example can be written in a less succient way using nested
+    case expressions:</p>
+
+    <code type="erl"><![CDATA[
+case a() of
+    {ok, A} ->
+        true = A >= 0,
+        case b() of
+            {ok, B} ->
+                A + B;
+            Other1 ->
+                Other1
+        end;
+    Other2 ->
+        Other2
+end]]></code>
+
+    <p>The <c>maybe</c> block can be augmented with <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+else
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+end]]></code>
+
+    <p>If a conditional match operator fails, the failed expression is
+    matched against the patterns in all clauses between the
+    <c>else</c> and <c>end</c> keywords. If a match succeeds and the
+    optional guard sequence <c>GuardSeq</c> is true, the corresponding
+    <c>Body</c> is evaluated. The value returned from the body is the
+    return value of the <c>maybe</c> block.</p>
+
+    <p>If there is no matching pattern with a true guard sequence,
+    an <c>else_clause</c> run-time error occurs.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be used in
+    the <c>else</c> clauses. None of the variables bound in the <c>else</c> clauses
+    must be used in the code that follows the <c>maybe</c> block.</p>
+
+    <p>Here is the previous example augmented with a <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+else
+    error -> error;
+    wrong -> error
+end]]></code>
+
+    <p>The <c>else</c> clauses translate the failing value from
+    the conditional match operators to the value <c>error</c>. If the
+    failing value is not one of the recognized values, a
+    <c>else_clause</c> run-time error occurs.</p>
+  </section>
+
+  <section>
     <marker id="send"></marker>
     <title>Send</title>
     <pre>
@@ -402,12 +642,15 @@ Expr1 ! Expr2</pre>
     <p>Sends the value of <c>Expr2</c> as a message to the process
       specified by <c>Expr1</c>. The value of <c>Expr2</c> is also
       the return value of the expression.</p>
-    <p><c>Expr1</c> must evaluate to a pid, a registered name (atom), or
+    <p><c>Expr1</c> must evaluate to a pid, an alias (reference),
+      a port, a registered name (atom), or
       a tuple <c>{Name,Node}</c>. <c>Name</c> is an atom and
       <c>Node</c> is a node name, also an atom.</p>
     <list type="bulleted">
       <item>If <c>Expr1</c> evaluates to a name, but this name is not
        registered, a <c>badarg</c> run-time error occurs.</item>
+      <item>Sending a message to a reference never fails, even if the
+       reference is no longer (or never was) an alias.</item>
       <item>Sending a message to a pid never fails, even if the pid
        identifies a non-existing process.</item>
       <item>Distributed message sending, that is, if <c>Expr1</c>
@@ -427,14 +670,19 @@ receive
     PatternN [when GuardSeqN] ->
         BodyN
 end</pre>
-    <p>Receives messages sent to the process using the send operator
-      (!). The patterns <c>Pattern</c> are sequentially matched
-      against the first message in time order in the mailbox, then
-      the second, and so on. If a match succeeds and the optional
-      guard sequence <c>GuardSeq</c> is true, the corresponding
-      <c>Body</c> is evaluated. The matching message is consumed, that
-      is, removed from the mailbox, while any other messages in
-      the mailbox remain unchanged.</p>
+    <p>
+      Fetches a received message present in the message queue of
+      the process. The first message in the message queue is matched
+      sequentially against the patterns from top to bottom. If no
+      match was found, the matching sequence is repeated for the second
+      message in the queue, and so on. Messages are queued in the
+      <seeguide marker="processes#message-queue-order">order they were
+      received</seeguide>. If a match succeeds, that
+      is, if the <c>Pattern</c> matches and the optional guard sequence
+      <c>GuardSeq</c> is true, then the message is removed from the message
+      queue and the corresponding <c>Body</c> is evaluated. All other
+      messages in the message queue remain unchanged.
+    </p>
     <p>The return value of <c>Body</c> is the return value of
       the <c>receive</c> expression.</p>
     <p><c>receive</c> never fails. The execution is suspended, possibly
@@ -464,13 +712,21 @@ after
     ExprT ->
         BodyT
 end</pre>
-    <p><c>ExprT</c> is to evaluate to an integer. The highest allowed
-      value is 16#FFFFFFFF, that is, the value must fit in 32 bits.
-      <c>receive..after</c> works exactly as <c>receive</c>, except
+    <p><c>receive..after</c> works exactly as <c>receive</c>, except
       that if no matching message has arrived within <c>ExprT</c>
       milliseconds, then <c>BodyT</c> is evaluated instead. The
       return value of <c>BodyT</c> then becomes the return value
-      of the <c>receive..after</c> expression.</p>
+      of the <c>receive..after</c> expression. <c>ExprT</c> is to
+      evaluate to an integer, or the atom <c>infinity</c>. The allowed
+      integer range is from 0 to 4294967295, that is, the longest possible
+      timeout is almost 50 days. With a zero value the timeout occurs
+      immediately if there is no matching message in the message queue.
+    </p>
+    <p>
+      The atom <c>infinity</c> will make the process wait indefinitely for a
+      matching message. This is the same as not using a timeout. It can be
+      useful for timeout values that are calculated at runtime.
+    </p>
     <p><em>Example:</em></p>
     <pre>
 wait_for_onhook() ->
@@ -508,16 +764,6 @@ timer(Pid) ->
         5000 ->
             Pid ! timeout
     end.</pre>
-    <p>There are two special cases for the timeout value <c>ExprT</c>:</p>
-    <taglist>
-      <tag><c>infinity</c></tag>
-      <item>The process is to wait indefinitely for a matching message;
-       this is the same as not using a timeout. This can be
-       useful for timeout values that are calculated at runtime.</item>
-      <tag>0</tag>
-      <item>If there is no matching message in the mailbox, the timeout
-       occurs immediately.</item>
-    </taglist>
   </section>
 
   <section>
@@ -555,11 +801,11 @@ Expr1 <input>op</input> Expr2</pre>
       </row>
       <row>
         <cell align="left" valign="middle">=:=</cell>
-        <cell align="left" valign="middle">Exactly equal to</cell>
+        <cell align="left" valign="middle">Term equivalence</cell>
       </row>
       <row>
         <cell align="left" valign="middle">=/=</cell>
-        <cell align="left" valign="middle">Exactly not equal to</cell>
+        <cell align="left" valign="middle">Term non-equivalence</cell>
       </row>
       <tcaption>Term Comparison Operators.</tcaption>
     </table>
@@ -574,6 +820,8 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
+    <p>Bit strings are compared bit by bit. If one bit string is a
+      prefix of the other, the shorter bit string is considered smaller.</p>
     <p>Maps are ordered by size, two maps with the same size are compared by keys in
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
@@ -588,6 +836,29 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
       depending on the size of the float because otherwise comparison of large
       floats and integers would lose their transitivity.</p>
 
+    <p>The term equivalence operators, <c>=:=</c> and <c>=/=</c>, return
+      whether two terms are indistinguishable. While the other operators
+      consider the same <em>numbers</em> equal even when their types differ
+      (<c>1 == 1.0</c> is true), the term equivalence operators return whether
+      or not there exists a way to tell the arguments apart.</p>
+
+    <p>For example, while the terms <c>0</c> and <c>0.0</c> represent the same
+      <em>number</em>, we can tell them apart by using the <c>is_integer/1</c>
+      function. Hence, <c>=:=</c> and <c>=/=</c> consider them different.</p>
+
+    <p>Furthermore, the terms <c>0.0</c> and <c>-0.0</c> also represent the
+      same <em>number</em>, but they yield different results when converted to
+      string form through <c>float_to_list/1</c>: when given the former it
+      returns a string without a sign, and when given the latter it returns a
+      string with a sign. Therefore, <c>=:=</c> and <c>=/=</c> consider
+      them different.</p>
+
+    <p>The term equivalence operators are useful when reasoning about terms as 
+      opaque values, for example in associative containers or memoized
+      functions where using the equal-to operator (<c>==</c>) risks producing
+      incorrect results as a consequence of mixing up numbers of different
+      types.</p>
+
     <p>Term comparison operators return the Boolean value of the
       expression, <c>true</c> or <c>false</c>.</p>
 
@@ -597,12 +868,35 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
 true
 2> <input>1=:=1.0.</input>
 false
-3> <input>1 > a.</input>
+3> <input>0=:=0.0.</input>
 false
-4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+4> <input>0.0=:=-0.0.</input>
 false
-4> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
-true</pre>
+5> <input>0.0=:=+0.0.</input>
+true
+6> <input>1 > a.</input>
+false
+7> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+false
+8> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+true
+9> <input>&lt;&lt;2:2>> &lt; &lt;&lt;128>>.</input>
+true
+10> <input>&lt;&lt;3:2>> &lt; &lt;&lt;128>>.</input>
+false
+</pre>
+    <note>
+      <p>Prior to OTP 27, the term equivalence operators had a bug where they
+        considered <c>0.0</c> and <c>-0.0</c> to be the same term.</p>
+      <p>This was fixed in OTP 27 but legacy code may have expected them to
+        be considered the same. To help users catch errors that may arise from
+        an upgrade, the compiler raises a warning when <c>0.0</c> is
+        pattern-matched or used in a term equivalence test.</p>
+      <p>If you need to match <c>0.0</c> specifically, then the warning can be
+        silenced by writing <c>+0.0</c> instead, which produces the same term
+        but makes the compiler interpret the match as being done on
+        purpose.</p>
+    </note>
   </section>
 
   <section>
@@ -791,16 +1085,21 @@ case A >= -1.0 andalso math:sqrt(A+1) > B of</pre>
 OnlyOne = is_atom(L) orelse
          (is_list(L) andalso length(L) == 1),</pre>
 
-    <p>From Erlang/OTP R13A, <c>Expr2</c> is no longer required to evaluate to a
-    Boolean value. As a consequence, <c>andalso</c> and <c>orelse</c>
-    are now tail-recursive.  For instance, the following function is
-    tail-recursive in Erlang/OTP R13A and later:</p>
+    <p><c>Expr2</c> is not required to evaluate to a Boolean
+    value. Because of that, <c>andalso</c> and <c>orelse</c> are
+    tail-recursive.</p>
 
+    <p><em>Example 3 (tail-recursive function):</em></p>
     <pre>
 all(Pred, [Hd|Tail]) ->
     Pred(Hd) andalso all(Pred, Tail);
 all(_, []) ->
     true.</pre>
+
+    <change><p>Before Erlang/OTP R13A, <c>Expr2</c> was required to
+    evaluate to a Boolean value, and as consequence, <c>andalso</c>
+    and <c>orelse</c> were <strong>not</strong>
+    tail-recursive.</p></change>
   </section>
 
   <section>
@@ -811,7 +1110,7 @@ Expr1 -- Expr2</pre>
     <p>The list concatenation operator <c>++</c> appends its second
       argument to its first and returns the resulting list.</p>
     <p>The list subtraction operator <c>--</c> produces a list that
-      is a copy of the first argument. The procedure is a follows:
+      is a copy of the first argument. The procedure is as follows:
       for each element in the second argument, the first
       occurrence of this element (if any) is removed.</p>
     <p><em>Example:</em></p>
@@ -821,10 +1120,6 @@ Expr1 -- Expr2</pre>
 2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
 [3,1,2]</pre>
 
-     <warning><p>The complexity of <c>A -- B</c> is
-     proportional to <c>length(A)*length(B)</c>. That is, it
-     becomes very slow if both <c>A</c> and <c>B</c> are
-     long lists.</p></warning>
    </section>
 
   <section>
@@ -924,7 +1219,7 @@ M4 = #{{"w", 1} => f()}.  % compound key associated with an evaluated expression
 	  </p>
 	  <p>
 		  If key <c>K</c> does not match any existing keys in map <c>M</c>, an exception
-		  of type <c>badarg</c> is triggered at runtime. If a matching key <c>K</c>
+		  of type <c>badkey</c> is triggered at runtime. If a matching key <c>K</c>
 		  is present in map <c>M</c>, its associated value is replaced by the new
 		  value <c>V</c>, and the evaluated map expression returns a new map.
 	  </p>
@@ -944,7 +1239,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Here <c>M0</c> is any map. It follows that <c>M1 .. M4</c> are maps as well.
 	  </p>
 	  <p>
-		  More <em>Examples:</em>
+		  <em>More examples:</em>
 	  </p>
 <pre>
 1> <input>M = #{1 => a}.</input>
@@ -973,15 +1268,20 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 
 	  <code>#{ K := V } = M</code>
 	  <p>
-		  Here <c>M</c> is any map. The key <c>K</c> must be an expression with bound
-		  variables or literals. <c>V</c> can be any pattern with either bound or
-		  unbound variables.
+	    Here <c>M</c> is any map. The key <c>K</c> must be a
+	    <seeguide marker="#guard_expressions">guard
+	    expression</seeguide>, with all variables already bound.
+	    <c>V</c> can be any pattern with either bound or unbound
+	    variables.
 	  </p>
 	  <p>
 		  If the variable <c>V</c> is unbound, it becomes bound to the value associated
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
+	  <change><p>Before Erlang/OTP 23, the expression defining the key
+	  <c>K</c> was restricted to be either a single variable or a
+	  literal.</p></change>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -998,9 +1298,12 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  </p>
 	  <code>#{ K1 := V1, .., Kn := Vn } = M</code>
 	  <p>
-		  Here keys <c>K1 .. Kn</c> are any expressions with literals or bound variables. If all
-		  keys exist in map <c>M</c>, all variables in <c>V1 .. Vn</c> is  matched to the
-		  associated values of their respective keys.
+		  Here keys <c>K1 .. Kn</c> are any expressions with
+		  literals or bound variables. If all key expressions
+		  evaluate successfully and all keys exist in map
+		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
+		  matched to the associated values of their respective
+		  keys.
 	  </p>
 	  <p>
 		  If the matching conditions are not met, the match fails, either with:
@@ -1034,6 +1337,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  This expression matches if the expression <c>Expr</c> is of type map, otherwise
 		  it fails with an exception <c>badmatch</c>.
 	  </p>
+	  <p>Here the key to be retrieved is constructed from an expression:</p>
+	  <code>#{{tag,length(List)} := V} = Map</code>
+	  <p><c>List</c> must be an already bound variable.</p>
 	  <section>
 		  <title>Matching Syntax</title>
 		  <p>
@@ -1057,15 +1363,23 @@ handle_call(change, From, #{ state := start } = S) ->
 		  Maps are allowed in guards as long as all subexpressions are valid guard expressions.
 	  </p>
 	  <p>
-		  Two guard BIFs handle maps:
+		  The following guard BIFs handle maps:
 	  </p>
 	  <list>
 		  <item>
-			  <seealso marker="erts:erlang#is_map/1">is_map/1</seealso>
+			  <seemfa marker="erts:erlang#is_map/1">is_map/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
-			  <seealso marker="erts:erlang#map_size/1">map_size/1</seealso>
+			  <seemfa marker="erts:erlang#is_map_key/2">is_map_key/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
+			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
+			  <seemfa marker="erts:erlang#map_size/1">map_size/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 	  </list>
@@ -1075,33 +1389,52 @@ handle_call(change, From, #{ state := start } = S) ->
   <section>
     <marker id="bit_syntax"></marker>
     <title>Bit Syntax Expressions</title>
-    <code type="none"><![CDATA[<<>>
+    <p>
+      The bit syntax operates on <em>bit strings</em>.
+      A bit string is a sequence of bits ordered
+      from the most significant bit to the least significant bit.
+    </p>
+    <code type="none"><![CDATA[<<>>  % The empty bit string, zero length
+<<E1>>
 <<E1,...,En>>]]></code>
-    <p>Each element <c>Ei</c> specifies a <em>segment</em> of
-      the bit string. Each element <c>Ei</c> is a value, followed by an
-      optional <em>size expression</em> and an optional <em>type specifier list</em>.</p>
+    <p>
+      Each element <c>Ei</c> specifies a <em>segment</em> of
+      the bit string.  The segments are ordered left to right
+      from the most significant bit to the least significant bit
+      of the bit string.
+    </p>
+    <p>
+      Each segment specification <c>Ei</c> is a value, followed by an
+      optional <em>size expression</em>
+      and an optional <em>type specifier list</em>.
+    </p>
     <pre>
 Ei = Value |
      Value:Size |
      Value/TypeSpecifierList |
      Value:Size/TypeSpecifierList</pre>
-    <p>Used in a bit string construction, <c>Value</c> is an expression
+    <p>When used in a bit string construction, <c>Value</c> is an expression
     that is to evaluate to an integer, float, or bit string.  If the
     expression is not a single literal or variable, it
     is to be enclosed in parentheses.</p>
 
-    <p>Used in a bit string matching, <c>Value</c> must be a variable,
+    <p>When used in a bit string matching, <c>Value</c> must be a variable,
     or an integer, float, or string.</p>
 
     <p>Notice that, for example, using a string literal as in
     <c><![CDATA[<<"abc">>]]></c> is syntactic sugar for
     <c><![CDATA[<<$a,$b,$c>>]]></c>.</p>
 
-    <p>Used in a bit string construction, <c>Size</c> is an expression
+    <p>When used in a bit string construction, <c>Size</c> is an expression
     that is to evaluate to an integer.</p>
     
-    <p>Used in a bit string matching, <c>Size</c> must be an integer, or a
-    variable bound to an integer.</p>
+    <p>When used in a bit string matching, <c>Size</c> must be a
+    <seeguide marker="#guard_expressions">guard expression</seeguide>
+    that evaluates to an integer. All variables in the guard expression
+    must be already bound.</p>
+
+    <change><p>Before Erlang/OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></change>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1112,14 +1445,45 @@ Ei = Value |
       <item>For <c>binary</c> and <c>bitstring</c> it is
       the whole binary or bit string.</item>
     </list>
-    <p>In matching, this default value is only
-    valid for the last element. All other bit string or binary
-    elements in the matching must have a size specification.</p>
+    <p>In matching, the default value for a binary or bit string
+    segment is only valid for the last element. All other bit string
+    or binary elements in the matching must have a size
+    specification.</p>
+
+    <marker id="binaries"></marker>
+    <p><strong>Binaries</strong></p>
+    <p>
+      A bit string with a length that is a multiple of 8 bits
+      is known as a <em>binary</em>, which is the most
+      common and useful type of bit string.
+    </p>
+    <p>
+      A binary has a canonical representation in memory.
+      Here follows a sequence of bytes where each byte&apos;s
+      value is its sequence number:
+    </p>
+    <pre>&lt;&lt;1, 2, 3, 4, 5, 6, 7, 8, 9, 10&gt;&gt;</pre>
+    <p>
+      Bit strings are a later generalization of binaries,
+      so many texts and much information about binaries
+      apply just as well for bit strings.
+    </p>
+
+    <p><strong>Example:</strong></p>
+    <pre>
+1> <input>&lt;&lt;A/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+* 1:3: a binary field without size is only allowed at the end of a binary pattern
+2> <input>&lt;&lt;A:3/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+&lt;&lt;"abcde">>
+3> <input>A.</input>
+&lt;&lt;"abc">>
+4> <input>B.</input>
+&lt;&lt;"de">></pre>
 
     <p>For the <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> types,
     <c>Size</c> must not be given. The size of the segment is implicitly
     determined by the type and value itself.</p>
-    
+
     <p><c>TypeSpecifierList</c> is a list of type specifiers, in any
     order, separated by hyphens (-). Default values are used for any
     omitted type specifiers.</p>
@@ -1137,67 +1501,172 @@ Ei = Value |
       The default is <c>unsigned</c>.</item>
 
       <tag><c>Endianness</c>= <c>big</c> | <c>little</c> | <c>native</c></tag>
-      <item>Native-endian means that the endianness is resolved at load
-       time to be either big-endian or little-endian, depending on
-       what is native for the CPU that the Erlang machine is run on.
-       Endianness only matters when the Type is either <c>integer</c>,
-       <c>utf16</c>, <c>utf32</c>, or <c>float</c>. The default is <c>big</c>.
-       </item>
+      <item>
+        Specifies byte level (octet level) endianness (byte order).
+        Native-endian means that the endianness is resolved at load
+        time to be either big-endian or little-endian, depending on
+        what is native for the CPU that the Erlang machine is run on.
+        Endianness only matters when the Type is either <c>integer</c>,
+        <c>utf16</c>, <c>utf32</c>, or <c>float</c>. The default is <c>big</c>.
+        <pre>&lt;&lt;16#1234:16/little>> = &lt;&lt;16#3412:16>> = &lt;&lt;16#34:8, 16#12:8>></pre>
+      </item>
 
       <tag><c>Unit</c>= <c>unit:IntegerLiteral</c></tag>
-      <item>The allowed range is 1..256. Defaults to 1 for <c>integer</c>,
-       <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
-       No unit specifier must be given for the types 
-       <c>utf8</c>, <c>utf16</c>, and <c>utf32</c>.
-       </item>
+      <item>The allowed range is 1 through 256. Defaults to 1 for <c>integer</c>,
+      <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
+      For types <c>bitstring</c>, <c>bits</c>, and <c>bytes</c>, it is not allowed
+      to specify a unit value different from the default value.
+      No unit specifier must be given for the types <c>utf8</c>, <c>utf16</c>,
+      and <c>utf32</c>.
+      </item>
     </taglist>
-    <p>The value of <c>Size</c> multiplied with the unit gives
-      the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8.</p>
 
-    <note><p>When constructing binaries, if the size <c>N</c> of an integer
-    segment is too small to contain the given integer, the most significant
-    bits of the integer are silently discarded and only the <c>N</c> least
-    significant bits are put into the binary.</p></note>
+    <section>
+      <title>Integer segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives the
+      size of the segment in bits.</p>
 
-    <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
-    encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
-    and UTF-32, respectively.</p>
+      <p>When constructing bit strings, if the size <c>N</c> of an integer
+      segment is too small to contain the given integer, the most significant
+      bits of the integer are silently discarded and only the <c>N</c> least
+      significant bits are put into the bit string. For example, <c>&lt;&lt;16#ff:4&gt;&gt;</c>
+      will result in the bit string <c>&lt;&lt;15:4&gt;&gt;</c>.</p>
+    </section>
 
-    <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in the range 0..16#D7FF or
-    16#E000....16#10FFFF. Construction
-    fails with a <c>badarg</c> exception if <c>Value</c> is
-    outside the allowed ranges. The size of the resulting binary
-    segment depends on the type or <c>Value</c>, or both:</p>
-     <list type="bulleted">
-      <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
-      <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
-      <item>For <c>utf32</c>, <c>Value</c> is always be encoded in 4 bytes.</item>
-    </list>
+    <section>
+      <title>Float segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives
+      the size of the segment in bits. The size of a float segment in bits must be
+      one of 16, 32, or 64.</p>
 
-    <p>When constructing, a literal string can be given followed
-    by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
-    which is syntactic sugar for
-    <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+      <p>When constructing bit strings, if the size of a float segment is too small
+      to contain the representation of the given float value, an exception is raised.</p>
 
-    <p>A successful match of a segment of a <c>utf</c> type, results
-    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
-    The match fails if the returned value falls outside those ranges.</p>
+      <p>When matching bit strings, matching of float segments fails if the bits of the segment
+      does not contain the representation of a finite floating point value.</p>
+    </section>
 
-    <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
-    if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-3629 or the Unicode standard.)</p>
+    <section>
+      <title>Binary segments</title>
+      <p>In this section, the phrase "binary segment" refers to any
+      one of the segment types <c>binary</c>, <c>bitstring</c>,
+      <c>bytes</c>, and <c>bits</c>.</p>
 
-    <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
-    The match fails if the binary at the match position does not contain
-    a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
-    the Unicode standard.)</p>
+      <p>
+        See also the paragraphs about
+        <seeguide marker="#binaries">Binaries</seeguide>.
+      </p>
 
-    <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
-    same way as an <c>integer</c> segment matches 32 bits.
-    The match fails if the resulting integer is outside the legal ranges
-    mentioned above.</p>
+      <p>When constructing binaries and no size is specified for a
+      binary segment, the entire binary value is interpolated into the
+      binary being constructed. However, the size in bits of the
+      binary being interpolated must be evenly divisible by the unit
+      value for the segment; otherwise an exception is raised.</p>
+
+      <p>For example, the following examples all succeed:</p>
+
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>)/bitstring>>.</input>
+&lt;&lt;"abc">>
+2> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary-unit:1>>.</input>
+&lt;&lt;"abc">>
+3> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary>>.</input>
+&lt;&lt;"abc">></pre>
+
+      <p>The first two examples have a unit value of 1 for the segment,
+      while the third segment has a unit value of 8.</p>
+
+      <p>Attempting to interpolate a bit string of size 1 into a
+      binary segment with unit 8 (the default unit for <c>binary</c>)
+      fails as shown in this example:</p>
+
+      <pre>
+<input>1> &lt;&lt;(&lt;&lt;1:1&gt;&gt;)/binary&gt;&gt;.</input>
+** exception error: bad argument</pre>
+
+      <p>For the construction to succeed, the unit value of the
+      segment must be 1:</p>
+
+      <pre>
+2> <input>&lt;&lt;(&lt;&lt;1:1>>)/bitstring>>.</input>
+&lt;&lt;1:1>>
+3> <input>&lt;&lt;(&lt;&lt;1:1>>)/binary-unit:1>>.</input>
+&lt;&lt;1:1>></pre>
+
+      <p>Similarly, when matching a binary segment with no size
+      specified, the match succeeds if and only if the size in bits of
+      the rest of the binary is evenly divisible by the unit
+      value:</p>
+
+      <pre>
+1> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"">>.</input>
+&lt;&lt;>>
+2> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"a">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"a">>
+3> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"ab">>.</input>
+&lt;&lt;"ab">>
+4> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abc">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"abc">>
+5> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abcd">>.</input>
+&lt;&lt;"abcd">></pre>
+
+      <p>When a size is explicitly specified for a binary segment,
+      the segment size in bits is the value of <c>Size</c> multiplied
+      by the default or explicit unit value.</p>
+
+      <p>When constructing binaries, the size of the binary being interpolated
+      into the constructed binary must be at least as large as the size of
+      the binary segment.</p>
+
+      <p><strong>Examples:</strong></p>
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>):2/binary>>.</input>
+&lt;&lt;"ab">>
+2> <input>&lt;&lt;(&lt;&lt;"a">>):2/binary>>.</input>
+** exception error: construction of binary failed
+        *** segment 1 of type 'binary': the value &lt;&lt;"a">> is shorter than the size of the segment</pre>
+    </section>
+
+    <section>
+      <title>Unicode segments</title>
+      <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
+      encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
+      and UTF-32, respectively.</p>
+
+      <p>When constructing a segment of a <c>utf</c> type,
+      <c>Value</c> must be an integer in the range 0 through 16#D7FF
+      or 16#E000 through 16#10FFFF. Construction fails with a
+      <c>badarg</c> exception if <c>Value</c> is outside the allowed
+      ranges. The sizes of the encoded values are as follows:</p>
+      <list type="bulleted">
+        <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
+        <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
+        <item>For <c>utf32</c>, <c>Value</c> is encoded in 4 bytes.</item>
+      </list>
+
+      <p>When constructing, a literal string can be given followed
+      by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
+      which is syntactic sugar for
+      <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+
+      <p>A successful match of a segment of a <c>utf</c> type, results
+      in an integer in the range 0 through 16#D7FF or 16#E000 through 16#10FFFF.
+      The match fails if the returned value falls outside those ranges.</p>
+
+      <p>A segment of type <c>utf8</c> matches 1-4 bytes in the bit string,
+      if the bit string at the match position contains a valid UTF-8 sequence.
+      (See RFC-3629 or the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the bit string.
+      The match fails if the bit string at the match position does not contain
+      a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
+      the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf32</c> can match 4 bytes in the bit string in the
+      same way as an <c>integer</c> segment matches 32 bits.
+      The match fails if the resulting integer is outside the legal ranges
+      previously mentioned.</p>
+    </section>
 
     <p><em>Examples:</em></p>
     <pre>
@@ -1205,6 +1674,7 @@ Ei = Value |
 &lt;&lt;1,17,42&gt;&gt;
 2> <input>Bin2 = &lt;&lt;"abc"&gt;&gt;.</input>
 &lt;&lt;97,98,99&gt;&gt;
+
 3> <input>Bin3 = &lt;&lt;1,17,42:16&gt;&gt;.</input>
 &lt;&lt;1,17,0,42&gt;&gt;
 4> <input>&lt;&lt;A,B,C:16&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</input>
@@ -1221,20 +1691,26 @@ Ei = Value |
 &lt;&lt;1,17,0,42&gt;&gt;
 10> <input>H.</input>
 &lt;&lt;17,0,42&gt;&gt;
-11> <input>&lt;&lt;G,H/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
-&lt;&lt;1,17,1,10:4&gt;&gt;
-12> <input>H.</input>
-&lt;&lt;17,1,10:4&gt;&gt;
+11> <input>&lt;&lt;G,J/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
+&lt;&lt;1,17,2,10:4&gt;&gt;
+12> <input>J.</input>
+&lt;&lt;17,2,10:4&gt;&gt;
+
 13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
 &lt;&lt;208,128&gt;&gt;
+
+14> <input>&lt;&lt;1:1,0:7&gt;&gt;.</input>
+&lt;&lt;128&gt;&gt;
+15> <input>&lt;&lt;16#123:12/little&gt;&gt; = &lt;&lt;16#231:12&gt;&gt; = &lt;&lt;2:4, 3:4, 1:4&gt;&gt;.</input>
+&lt;&lt;35,1:4&gt;&gt;
 </pre>
     <p>Notice that bit string patterns cannot be nested.</p>
     <p>Notice also that "<c><![CDATA[B=<<1>>]]></c>" is interpreted as
-      "<c><![CDATA[B =<<1>>]]></c>" which is a syntax error. The correct way is
-      to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
+      "<c><![CDATA[B =< <1>>]]></c>" which is a syntax error. The correct way is
+      to write a space after '=': "<c><![CDATA[B = <<1>>]]></c>.</p>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples</seealso>.</p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1251,7 +1727,7 @@ end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them is to be a function
       declaration, similar to a
-      <seealso marker="functions#syntax">regular function declaration</seealso>,
+      <seeguide marker="functions#syntax">regular function declaration</seeguide>,
       except that the function name is optional and is to be a variable, if
       any.</p>
     <p>Variables in a fun head shadow the function name and both shadow
@@ -1281,17 +1757,18 @@ fun Module:Name/Arity</pre>
       syntactic sugar for:</p>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
-    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer. Starting from Erlang/OTP R15,
-      <c>Module</c>, <c>Name</c>, and <c>Arity</c> can also be variables.
-      A fun defined in this way refers to the function <c>Name</c>
-      with arity <c>Arity</c> in the <em>latest</em> version of module
-      <c>Module</c>. A fun defined in this way is not dependent on
-      the code for the module in which it is defined.
-      </p>
+    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are
+    atoms and <c>Arity</c> is an integer. <c>Module</c>, <c>Name</c>,
+    and <c>Arity</c> can also be variables. A fun defined in this way
+    refers to the function <c>Name</c> with arity <c>Arity</c> in the
+    <em>latest</em> version of module <c>Module</c>. A fun defined in
+    this way is not dependent on the code for the module in which it
+    is defined.</p>
+    <change><p>Before Erlang/OTP R15, <c>Module</c>, <c>Name</c>, and <c>Arity</c> were
+    not allowed to be variables.</p></change>
     <p>More examples are provided in
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1313,30 +1790,39 @@ catch Expr</code>
       <c>Term</c> is returned.</p>
     <p><c>Reason</c> depends on the type of error that occurred, and
       <c>Stack</c> is the stack of recent function calls, see
-      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+      <seeguide marker="errors#exit_reasons">Exit Reasons</seeguide>.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>catch 1+2.</input>
 3
 2> <input>catch 1+a.</input>
 {'EXIT',{badarith,[...]}}</pre>
-    <p>Notice that <c>catch</c> has low precedence and catch
-      subexpressions often needs to be enclosed in a block
-      expression or in parentheses:</p>
-    <pre>
-3> <input>A = catch 1+2.</input>
-** 1: syntax error before: 'catch' **
-4> <input>A = (catch 1+2).</input>
-3</pre>
     <p>The BIF <c>throw(Any)</c> can be used for non-local return from
       a function. It must be evaluated within a <c>catch</c>, which
       returns the value <c>Any</c>.</p>
       <p><em>Example:</em></p>
     <pre>
-5> <input>catch throw(hello).</input>
+3> <input>catch throw(hello).</input>
 hello</pre>
     <p>If <c>throw/1</c> is not evaluated within a catch, a
       <c>nocatch</c> run-time error occurs.</p>
+
+      <change><p>Before Erlang/OTP 24, the <c>catch</c> operator had
+      the lowest precedence, making it necessary to add parentheses when
+      combining it with the <c>match</c> operator:</p>
+      <pre>
+1> <input>A = (catch 42).</input>
+42
+2> <input>A.</input>
+42</pre>
+
+      <p>Starting from Erlang/OTP 24, the parentheses can be omitted:</p>
+      <pre>
+1> <input>A = catch 42.</input>
+42
+2> <input>A.</input>
+42</pre>
+      </change>
   </section>
 
   <section>
@@ -1351,7 +1837,7 @@ catch
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso>.
+      <seeguide marker="#catch">catch</seeguide>.
       It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
@@ -1412,10 +1898,12 @@ end</code>
     <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
       the patterns <c>Pattern</c> are sequentially matched against
       the result in the same way as for a
-      <seealso marker="#case">case</seealso> expression, except that if
-      the matching fails, a <c>try_clause</c> run-time error occurs.</p>
-    <p>An exception occurring during the evaluation of <c>Body</c> is
-      not caught.</p>
+      <seeguide marker="#case">case</seeguide> expression, except that if
+      the matching fails, a <c>try_clause</c> run-time error occurs instead of a
+      <c>case_clause</c>.</p>
+    <p>Only exceptions occurring during the evaluation of <c>Exprs</c> can be
+      caught by the <c>catch</c> section. Exceptions occurring in a <c>Body</c>
+      or due to a failed match are not caught.</p>
     <p>The <c>try</c> expression can also be augmented with an
       <c>after</c> section, intended to be used for cleanup with side
       effects:</p>
@@ -1491,6 +1979,20 @@ catch
     exit:Reason -> {'EXIT',Reason}
     error:Reason:Stk -> {'EXIT',{Reason,Stk}}
 end</code>
+
+    <p>Variables bound in the various parts of these expressions have different scopes.
+      Variables bound just after the <c>try</c> keyword are:</p>
+    <list type="bulleted">
+      <item>bound in the <c>of</c> section</item>
+      <item>unsafe in both the <c>catch</c> and <c>after</c> sections, as well as after the whole construct</item>
+    </list>
+    <p>Variables bound in <c>of</c> section are:</p>
+    <list type="bulleted">
+      <item>unbound in the <c>catch</c> section</item>
+      <item>unsafe in both the <c>after</c> section, as well as after the whole construct</item>
+    </list>
+    <p>Variables bound in the <c>catch</c> section are unsafe in the <c>after</c> section, as well as after the whole construct.</p>
+    <p>Variables bound in the <c>after</c> section are unsafe after the whole construct.</p>
   </section>
 
   <section>
@@ -1498,7 +2000,7 @@ end</code>
     <pre>
 (Expr)</pre>
     <p>Parenthesized expressions are useful to override
-      <seealso marker="#prec">operator precedences</seealso>,
+      <seeguide marker="#prec">operator precedences</seeguide>,
       for example, in arithmetic expressions:</p>
     <pre>
 1> <input>1 + 2 * 3.</input>
@@ -1508,6 +2010,7 @@ end</code>
   </section>
 
   <section>
+    <marker id="block_expressions"></marker>
     <title>Block Expressions</title>
     <pre>
 begin
@@ -1522,98 +2025,204 @@ end</pre>
 
   <section>
     <marker id="lcs"></marker>
-    <title>List Comprehensions</title>
-    <p>List comprehensions is a feature of many modern functional
-      programming languages. Subject to certain rules, they provide a
-      succinct notation for generating elements in a list.</p>
-    <p>List comprehensions are analogous to set comprehensions in
-      Zermelo-Frankel set theory and are called ZF expressions in
-      Miranda. They are analogous to the <c>setof</c> and
-      <c>findall</c> predicates in Prolog.</p>
-    <p>List comprehensions are written with the following syntax:</p>
+    <title>Comprehensions</title>
+    <p>Comprehensions provide a succinct notation for iterating over
+    one or more terms and constructing a new term. Comprehensions come
+    in three different flavors, depending on the type of term they
+    build.</p>
+    <p>List comprehensions construct lists. They have the following syntax:</p>
     <pre>
-[Expr || Qualifier1,...,QualifierN]</pre>
+[Expr || Qualifier1, . . ., QualifierN]</pre>
     <p>Here, <c>Expr</c> is an arbitrary expression, and each
-      <c>Qualifier</c> is either a generator or a filter.</p>
-    <list type="bulleted">
-      <item>A <em>generator</em> is written as:      <br></br>
+    <c>Qualifier</c> is either a <strong>generator</strong> or a
+    <strong>filter</strong>.</p>
 
-       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-<c>ListExpr</c> must be an expression, which evaluates to a
-       list of terms.</item>
-<item>A <em>bit string generator</em> is written as:      <br></br>
+    <p>Bit string comprehensions construct bit strings or binaries.
+    They have the following syntax:</p>
+    <pre>
+&lt;&lt; BitStringExpr || Qualifier1, . . ., QualifierN &gt;&gt;</pre>
 
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression, which evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>.</item>
-    </list>
-    <p>The variables in the generator patterns, shadow variables in the function
-    clause, surrounding the list comprehensions.</p> <p>A list comprehension
-    returns a list, where the elements are the result of evaluating <c>Expr</c>
-    for each combination of generator list elements and bit string generator
-    elements, for which all filters are true.</p>
-    <p><em>Example:</em></p>
+    <p><c>BitStringExpr</c> is an expression that evaluates to a bit string.
+    If <c>BitStringExpr</c> is a function call, it must be
+    enclosed in parentheses.  Each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <p>Map comprehensions construct maps. They have the following syntax:</p>
+    <pre>
+#{KeyExpr => ValueExpr || Qualifier1, . . ., QualifierN}</pre>
+    <p>Here, <c>KeyExpr</c> and <c>ValueExpr</c> are arbitrary
+    expressions, and each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <change><p>Map comprehensions and map generators were introduced
+    in Erlang/OTP 26.</p></change>
+
+    <p>There are three kinds of generators.</p>
+
+    <p>A <em>list generator</em> has the following syntax:</p>
+
+<pre>
+Pattern &lt;- ListExpr</pre>
+
+    <p>where <c>ListExpr</c> is an expression that evaluates to a
+    list of terms.</p>
+
+    <p>A <em>bit string generator</em> has the following syntax:</p>
+
+    <pre>
+BitstringPattern &lt;= BitStringExpr</pre>
+
+    <p>where <c>BitStringExpr</c> is an expression that evaluates to a
+    bit string.</p>
+
+    <p>A <em>map generator</em> has the following syntax:</p>
+
+    <pre>
+KeyPattern := ValuePattern &lt;- MapExpression</pre>
+
+    <p>where <c>MapExpr</c> is an expression that evaluates to a map,
+    or a map iterator obtained by calling <seemfa
+    marker="stdlib:maps#iterator/1">maps:iterator/1</seemfa> or
+    <seemfa
+    marker="stdlib:maps#iterator/2">maps:iterator/2</seemfa>.</p>
+
+    <p>A <em>filter</em> is an expression that evaluates to
+    <c>true</c> or <c>false</c>.</p>
+
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
+
+    <p>Variables bound in a generator expression are not visible outside the expression:</p>
+
+    <pre>
+1> <input>[{E,L} || E &lt;- L=[1,2,3]].</input>
+* 1:5: variable 'L' is unbound</pre>
+
+    <p>A <strong>list comprehension</strong> returns a list, where the list elements are the
+    result of evaluating <c>Expr</c> for each combination of generator
+    elements for which all filters are true.</p>
+
+    <p>A <strong>bit string comprehension</strong> returns a bit string, which is
+    created by concatenating the results of evaluating <c>BitStringExpr</c> for
+    each combination of bit string generator elements for which all
+    filters are true.</p>
+
+    <p>A <strong>map comprehension</strong> returns a map, where the
+    map elements are the result of evaluating <c>KeyExpr</c> and
+    <c>ValueExpr</c> for each combination of generator elements for
+    which all filters are true. If the key expressions are not unique,
+    the last occurrence is stored in the map.</p>
+
+    <p><strong>Examples:</strong></p>
+
+    <p>Multiplying each element in a list by two:</p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
 [2,4,6]</pre>
-    <p>When there are no generators or bit string generators, a list comprehension
-    returns either a list with one element (the result of evaluating <c>Expr</c>)
-    if all filters are true or an empty list otherwise.</p>
+
+    <p>Multiplying each byte in a binary by two, returning a list:</p>
+    <pre>
+1> <input>[X*2 || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+[2,4,6]</pre>
+
+    <p>Multiplying each byte in a binary by two:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Multiplying each element in a list by two, returning a binary:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || X &lt;- [1,2,3]].</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Creating a mapping from an integer to its square:</p>
+    <pre>
+1> <input>#{X => X*X || X &lt;- [1,2,3]}.</input>
+#{1 => 1,2 => 4,3 => 9}</pre>
+
+    <p>Multiplying the value of each element in a map by two:</p>
+    <pre>
+1> <input>#{K => 2*V || K := V &lt;- #{a => 1,b => 2,c => 3}}.</input>
+#{a => 2,b => 4,c => 6}</pre>
+
+    <p>Filtering a list, keeping odd numbers:</p>
+    <pre>
+1> <input>[X || X &lt;- [1,2,3,4,5], X rem 2 =:= 1].</input>
+[1,3,5]</pre>
+
+    <p>Filtering a list, keeping only elements that match:</p>
+    <pre>
+1> <input>[X || {_,_}=X &lt;- [{a,b}, [a], {x,y,z}, {1,2}]].</input>
+[{a,b},{1,2}]</pre>
+
+    <p>Combining elements from two list generators:</p>
+    <pre>
+1> <input>[{P,Q} || P &lt;- [a,b,c], Q &lt;- [1,2]].</input>
+[{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
+</pre>
+
+    <p>More examples are provided in
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
+
+    <p>When there are no generators, a comprehension returns either a
+    term constructed from a single element (the result of evaluating
+    <c>Expr</c>) if all filters are true, or a term constructed from
+    no elements (that is, <c>[]</c> for list comprehension,
+    <c>&lt;&lt;&gt;&gt;</c> for a bit string comprehension, and
+    <c>#{}</c> for a map comprehension).</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[2 || is_integer(2)].</input>
 [2]
 2> <input>[x || is_integer(x)].</input>
 []</pre>
-    <p>More examples are provided in
-    <seealso marker="doc/programming_examples:list_comprehensions">
-    Programming Examples.</seealso></p>
 
-  </section>
+    <p>What happens when the filter expression does not evaluate to
+    a boolean value depends on the expression:</p>
 
-<section>
-    <title>Bit String Comprehensions</title> 
-   
-    <p>Bit string comprehensions are
-    analogous to List Comprehensions. They are used to generate bit strings
-    efficiently and succinctly.</p> 
-    <p>Bit string comprehensions are written with
-    the following syntax:</p>
-    <pre>
-&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p><c>BitStringExpr</c> is an expression that evalutes to a bit
-    string. If <c>BitStringExpr</c> is a function call, it must be
-    enclosed in parentheses.  Each <c>Qualifier</c> is either a
-    generator, a bit string generator or a filter.</p>
-    <list type="bulleted">
- <item>A <em>generator</em> is written as:      <br></br>
-      &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-       <c>ListExpr</c> must be an expression that evaluates to a
-       list of terms.</item>
-      <item>A <em>bit string generator</em> is written as:      <br></br>
+    <list>
+      <item><p>If the expression is a <seeguide
+      marker="#guard_expressions">guard expression</seeguide>, failure
+      to evaluate or evaluating to a non-boolean value is equivalent
+      to evaluating to <c>false</c>.</p></item>
 
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression that evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression that evaluates to
-      <c>true</c> or <c>false</c>.</item>
+      <item><p>If the expression is not a guard expression and
+      evaluates to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime. If the
+      evaluation of the expression raises an exception, it is not
+      caught by the comprehension.</p></item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in
-      the function clause, surrounding the bit string comprehensions.</p>
-    <p>A bit string comprehension returns a bit string, which is 
-      created by concatenating the results of evaluating <c>BitString</c> 
-      for each combination of bit string generator elements, for which all
-      filters are true.</p>
-    <p><em>Example:</em></p>
+
+    <p><strong>Examples</strong> (using a guard expression as filter):</p>
+
     <pre>
-1> <input>&lt;&lt; &lt;&lt; (X*2) &gt;&gt; ||
-&lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
-&lt;&lt;2,4,6&gt;&gt;</pre>
-    <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples.</seealso></p>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>[E || E &lt;- List, E rem 2].</input>
+[]
+3> <input>[E || E &lt;- List, E rem 2 =:= 0].</input>
+[2,4]</pre>
+
+    <p><strong>Examples</strong> (using a non-guard expression as filter):</p>
+
+    <pre>
+1> <input>List = [1,2,a,b,c,3,4].</input>
+[1,2,a,b,c,3,4]
+2> <input>FaultyIsEven = fun(E) -> E rem 2 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+3> <input>[E || E &lt;- List, FaultyIsEven(E)].</input>
+** exception error: bad filter 1
+4> <input>IsEven = fun(E) -> E rem 2 =:= 0 end.</input>
+#Fun&lt;erl_eval.42.17316486&gt;
+5> <input>[E || E &lt;- List, IsEven(E)].</input>
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  rem/2
+        called as a rem 2
+6> <input>[E || E &lt;- List, is_integer(E), IsEven(E)].</input>
+[2,4]</pre>
   </section>
 
   <section>
@@ -1629,16 +2238,26 @@ end</pre>
       by comma (,). The guard is true if all guard expressions
       evaluate to <c>true</c>.</p>
     <p><c>GuardExpr1,...,GuardExprN</c></p>
-    <p>The set of valid <em>guard expressions</em> (sometimes called
-      guard tests) is a subset of the set of valid Erlang expressions.
-      The reason for restricting the set of valid expressions is that
-      evaluation of a guard expression must be guaranteed to be free
-      of side effects. Valid guard expressions are the following:</p>
+  </section>
+
+  <section>
+    <marker id="guard_expressions"></marker>
+    <title>Guard Expressions</title>
+    <p>The set of valid <em>guard expressions</em> is a subset of the
+    set of valid Erlang expressions.  The reason for restricting the
+    set of valid expressions is that evaluation of a guard expression
+    must be guaranteed to be free of side effects. Valid guard
+    expressions are the following:</p>
     <list type="bulleted">
-      <item>The atom <c>true</c></item>
-      <item>Other constants (terms and bound variables), all regarded
-       as false</item>
-      <item>Calls to the BIFs specified in table <c>Type Test BIFs</c></item>
+      <item>Variables</item>
+      <item>Constants (atoms, integer, floats, lists, tuples, records,
+      binaries, and maps)</item>
+      <item>Expressions that construct atoms, integer, floats, lists,
+      tuples, records, binaries, and maps</item>
+      <item>Expressions that update a map</item>
+      <item>The record expressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
+      <item>Calls to the BIFs specified in tables <em>Type Test BIFs</em> and
+      <em>Other BIFs Allowed in Guard Expressions</em></item>
       <item>Term comparisons</item>
       <item>Arithmetic expressions</item>
       <item>Boolean expressions</item>
@@ -1723,10 +2342,22 @@ end</pre>
         <cell align="left" valign="middle"><c>hd(List)</c></cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>is_map_key(Key, Map)</c></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>map_get(Key, Map)</c></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>map_size(Map)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>max(A, B)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>min(A, B)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
@@ -1755,6 +2386,9 @@ end</pre>
       <tcaption>Other BIFs Allowed in Guard Expressions</tcaption>
     </table>
 
+    <change><p>The <c>min/2</c> and <c>max/2</c> BIFs are allowed to be
+    used in guards from Erlang/OTP 26.</p></change>
+
     <p>If an arithmetic expression, a Boolean expression, a
     short-circuit expression, or a call to a guard BIF fails (because
     of invalid arguments), the entire guard fails. If the guard was
@@ -1766,7 +2400,7 @@ end</pre>
   <section>
     <marker id="prec"></marker>
     <title>Operator Precedence</title>
-    <p>Operator precedence in falling priority:</p>
+    <p>Operator precedence in descending order:</p>
     <table>
       <row>
         <cell align="left" valign="middle">:</cell>
@@ -1782,49 +2416,68 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle">/ * div rem band and</cell>
-        <cell align="left" valign="middle">Left associative</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">+ - bor bxor bsl bsr or xor</cell>
-        <cell align="left" valign="middle">Left associative</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">++ --</cell>
-        <cell align="left" valign="middle">Right associative</cell>
+        <cell align="left" valign="middle">Right-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">== /= =&lt; &lt; >= > =:= =/=</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Non-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">andalso</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">orelse</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">= !</cell>
-        <cell align="left" valign="middle">Right associative</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">catch</cell>
         <cell align="left" valign="middle">&nbsp;</cell>
       </row>
+      <row>
+        <cell align="left" valign="middle">= !</cell>
+        <cell align="left" valign="middle">Right-associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">?=</cell>
+        <cell align="left" valign="middle">Non-associative</cell>
+      </row>
       <tcaption>Operator Precedence</tcaption>
     </table>
+    <change><p>Before Erlang/OTP 24, the <c>catch</c> operator had the lowest
+    precedence.</p></change>
+    <note><p>The <c>=</c> operator in the table is the
+    <seeguide marker="#match_operator">match operator</seeguide>.
+    The character <c>=</c> can also denote the
+    <seeguide marker="#compound_pattern_operator">compound pattern operator</seeguide>,
+    which can only be used in patterns.</p>
+    <p><c>?=</c> is restricted in that it can only be used at
+    the top-level inside a <c>maybe</c> block.</p>
+    </note>
     <p>When evaluating an expression, the operator with the highest
-      priority is evaluated first. Operators with the same priority
-      are evaluated according to their associativity.</p>
-      <p><em>Example:</em></p>
-      <p>The left associative arithmetic operators are evaluated left to
+      precedence is evaluated first. Operators with the same precedence
+      are evaluated according to their associativity. Non-associative
+      operators cannot be combined with operators of the same precedence.</p>
+      <p><em>Examples:</em></p>
+      <p>The left-associative arithmetic operators are evaluated left to
       right:</p>
     <pre>
 <input>6 + 5 * 4 - 3 / 2</input> evaluates to
 <input>6 + 20 - 1.5</input> evaluates to
 <input>26 - 1.5</input> evaluates to
 <input>24.5</input></pre>
+
+<p>The non-associative operators cannot be combined:</p>
+    <pre>
+1> <input>1 &lt; X &lt; 10.</input>
+* 1:7: syntax error before: '&lt;'</pre>
   </section>
 </chapter>
-

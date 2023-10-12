@@ -183,8 +183,6 @@
 	 comment/2,
 	 comment_padding/1,
 	 comment_text/1,
-	 cond_expr/1,
-	 cond_expr_clauses/1,
 	 conjunction/1,
 	 conjunction_body/1,
          constrained_function_type/2,
@@ -195,6 +193,8 @@
          constraint_body/1,
 	 disjunction/1,
 	 disjunction_body/1,
+         else_expr/1,
+         else_expr_clauses/1,
 	 eof_marker/0,
 	 error_marker/1,
 	 error_marker_info/1,
@@ -246,6 +246,9 @@
 	 macro/2,
 	 macro_arguments/1,
 	 macro_name/1,
+         map_comp/2,
+         map_comp_template/1,
+         map_comp_body/1,
          map_expr/1,
          map_expr/2,
          map_expr_argument/1,
@@ -256,6 +259,9 @@
          map_field_exact/2,
          map_field_exact_name/1,
          map_field_exact_value/1,
+         map_generator/2,
+         map_generator_body/1,
+         map_generator_pattern/1,
          map_type/0,
          map_type/1,
          map_type_fields/1,
@@ -268,6 +274,13 @@
 	 match_expr/2,
 	 match_expr_body/1,
 	 match_expr_pattern/1,
+         maybe_expr/1,
+         maybe_expr/2,
+         maybe_expr_body/1,
+         maybe_expr_else/1,
+         maybe_match_expr/2,
+         maybe_match_expr_pattern/1,
+         maybe_match_expr_body/1,
 	 module_qualifier/2,
 	 module_qualifier_argument/1,
 	 module_qualifier_body/1,
@@ -364,23 +377,28 @@
 	 data/1,
 	 is_tree/1]).
 
--export_type([forms/0, syntaxTree/0, syntaxTreeAttributes/0, padding/0]).
+-export_type([forms/0, syntaxTree/0, syntaxTreeAttributes/0, padding/0, annotation_or_location/0]).
 
 %% =====================================================================
 %% IMPLEMENTATION NOTES:
 %%
 %% All nodes are represented by tuples of arity 2 or greater, whose
 %% first element is an atom which uniquely identifies the type of the
-%% node. (In the backwards-compatible representation, the interpretation
-%% is also often dependent on the context; the second element generally
-%% holds the position information - with a couple of exceptions; see
-%% `get_pos' and `set_pos' for details). In the documentation of this
-%% module, `Pos' is the source code position information associated with
-%% a node; usually, this is a positive integer indicating the original
-%% source code line, but no assumptions are made in this module
-%% regarding the format or interpretation of position information. When
-%% a syntax tree node is constructed, its associated position is by
-%% default set to the integer zero.
+%% node. (In the backwards-compatible representation, the
+%% interpretation is also often dependent on the context; the second
+%% element generally holds the annotation (see module {@link
+%% //stdlib/erl_anno} for details) which includes the position
+%% information - with a couple of exceptions; see `get_pos' and
+%% `set_pos' for details.) In the documentation of this module, `Pos'
+%% is the annotation associated with a node. No assumptions are made
+%% in this module regarding the format or interpretation of the
+%% annotations. Use module erl_anno to inspect and modify annotations.
+%% In particular, use {@link //stdlib/erl_anno:location/1} to get the
+%% position information, and use {@link
+%% //stdlib/erl_anno:set_location/2} or {@link
+%% //stdlib/erl_anno:set_line/2} to change the position information.
+%% When a syntax tree node is constructed, its associated position is
+%% by default set to the integer zero.
 %% =====================================================================
 
 -define(NO_UNUSED, true).
@@ -431,6 +449,7 @@
 -record(tree, {type           :: atom(),
 	       attr = #attr{} :: #attr{},
 	       data           :: term()}).
+-type tree() :: #tree{}.
 
 %% `wrapper' records are used for attaching new-form node information to
 %% `erl_parse' trees.
@@ -446,18 +465,20 @@
 -record(wrapper, {type           :: atom(),
 		  attr = #attr{} :: #attr{},
 		  tree           :: erl_parse()}).
+-type wrapper() :: #wrapper{}.
 
 %% =====================================================================
 
--type syntaxTree() :: #tree{} | #wrapper{} | erl_parse().
+-type syntaxTree() :: tree() | wrapper() | erl_parse().
 
 -type erl_parse() :: erl_parse:abstract_clause()
                    | erl_parse:abstract_expr()
                    | erl_parse:abstract_form()
                    | erl_parse:abstract_type()
                    | erl_parse:form_info()
-                     %% To shut up Dialyzer:
-                   | {bin_element, _, _, _, _}.
+                   | erl_parse:af_binelement(term())
+                   | erl_parse:af_generator()
+                   | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
 %% `erl_parse'. This is a subset of the {@link syntaxTree()} type.
@@ -494,42 +515,45 @@
 %%   <td>class_qualifier</td>
 %%   <td>clause</td>
 %%   <td>comment</td>
-%%   <td>cond_expr</td>
-%%  </tr><tr>
 %%   <td>conjunction</td>
+%%  </tr><tr>
 %%   <td>constrained_function_type</td>
 %%   <td>constraint</td>
 %%   <td>disjunction</td>
 %%  </tr><tr>
+%%   <td>else_expr</td>
 %%   <td>eof_marker</td>
 %%   <td>error_marker</td>
+%%  </tr><tr>
 %%   <td>float</td>
 %%   <td>form_list</td>
-%%  </tr><tr>
 %%   <td>fun_expr</td>
 %%   <td>fun_type</td>
 %%   <td>function</td>
 %%   <td>function_type</td>
-%%  </tr><tr>
 %%   <td>generator</td>
+%%  </tr><tr>
 %%   <td>if_expr</td>
 %%   <td>implicit_fun</td>
 %%   <td>infix_expr</td>
-%%  </tr><tr>
 %%   <td>integer</td>
+%%  </tr><tr>
 %%   <td>integer_range_type</td>
 %%   <td>list</td>
 %%   <td>list_comp</td>
-%%  </tr><tr>
 %%   <td>macro</td>
+%%  </tr><tr>
 %%   <td>map_expr</td>
 %%   <td>map_field_assoc</td>
 %%   <td>map_field_exact</td>
-%%  </tr><tr>
 %%   <td>map_type</td>
+%%  </tr><tr>
 %%   <td>map_type_assoc</td>
 %%   <td>map_type_exact</td>
 %%   <td>match_expr</td>
+%%  </tr><tr>
+%%   <td>maybe_expr</td>
+%%   <td>maybe_match_expr</td>
 %%   <td>module_qualifier</td>
 %%  </tr><tr>
 %%   <td>named_fun_expr</td>
@@ -556,6 +580,7 @@
 %%   <td>tuple_type</td>
 %%   <td>typed_record_field</td>
 %%   <td>type_application</td>
+%%  </tr><tr>
 %%   <td>type_union</td>
 %%   <td>underscore</td>
 %%   <td>user_type_application</td>
@@ -587,11 +612,11 @@
 %% @see class_qualifier/2
 %% @see clause/3
 %% @see comment/2
-%% @see cond_expr/1
 %% @see conjunction/1
 %% @see constrained_function_type/2
 %% @see constraint/2
 %% @see disjunction/1
+%% @see else_expr/1
 %% @see eof_marker/0
 %% @see error_marker/1
 %% @see float/1
@@ -618,6 +643,9 @@
 %% @see map_type_assoc/2
 %% @see map_type_exact/2
 %% @see match_expr/2
+%% @see maybe_expr/1
+%% @see maybe_expr/2
+%% @see maybe_match_expr/2
 %% @see module_qualifier/2
 %% @see named_fun_expr/2
 %% @see nil/0
@@ -673,12 +701,14 @@ type(Node) ->
 	%% Composite types
 	{'case', _, _, _} -> case_expr;
 	{'catch', _, _} -> catch_expr;
-	{'cond', _, _} -> cond_expr;
 	{'fun', _, {clauses, _}} -> fun_expr;
 	{named_fun, _, _, _} -> named_fun_expr;
 	{'fun', _, {function, _, _}} -> implicit_fun;
 	{'fun', _, {function, _, _, _}} -> implicit_fun;
 	{'if', _, _} -> if_expr;
+        {'maybe', _, _} -> maybe_expr;
+        {'maybe', _, _, _} -> maybe_expr;
+        {'else', _, _} -> else_expr;
 	{'receive', _, _, _, _} -> receive_expr;
 	{'receive', _, _} -> receive_expr;
 	{attribute, _, _, _} -> attribute;
@@ -691,13 +721,16 @@ type(Node) ->
 	{function, _, _, _, _} -> function;
 	{b_generate, _, _, _} -> binary_generator;
 	{generate, _, _, _} -> generator;
+	{m_generate, _, _, _} -> map_generator;
 	{lc, _, _, _} -> list_comp;
-	{bc, _, _, _} -> binary_comp;		
+	{bc, _, _, _} -> binary_comp;
+	{mc, _, _, _} -> map_comp;
 	{match, _, _, _} -> match_expr;
         {map, _, _, _} -> map_expr;
         {map, _, _} -> map_expr;
         {map_field_assoc, _, _, _} -> map_field_assoc;
         {map_field_exact, _, _, _} -> map_field_exact;
+        {maybe_match, _, _, _} -> maybe_match_expr;
 	{op, _, _, _, _} -> infix_expr;
 	{op, _, _, _} -> prefix_expr;
 	{record, _, _, _, _} -> record_expr;
@@ -850,23 +883,26 @@ is_form(Node) ->
 
 
 %% =====================================================================
-%% @doc Returns the position information associated with
-%% `Node'. This is usually a nonnegative integer (indicating
-%% the source code line number), but may be any term. By default, all
-%% new tree nodes have their associated position information set to the
-%% integer zero.
+
+%% @doc Returns the annotation (see {@link //stdlib/erl_anno})
+%% associated with `Node'. By default, all new tree nodes have their
+%% associated position information set to the integer zero. Use {@link
+%% //stdlib/erl_anno:location/1} or {@link //stdlib/erl_anno:line/1}
+%% to get the position information.
 %%
 %% @see set_pos/2
 %% @see get_attrs/1
 
 %% All `erl_parse' tree nodes are represented by tuples whose second
-%% field is the position information (usually an integer), *with the
+%% field is the annotation, *with the
 %% exceptions of* `{error, ...}' (type `error_marker') and `{warning,
-%% ...}' (type `warning_marker'), which only contain the associated line
-%% number *of the error descriptor*; this is all handled transparently
+%% ...}' (type `warning_marker'), which only contain the associated location
+%% *of the error descriptor*; this is all handled transparently
 %% by `get_pos' and `set_pos'.
 
--spec get_pos(syntaxTree()) -> term().
+-type annotation_or_location() :: erl_anno:anno() | erl_anno:location().
+
+-spec get_pos(syntaxTree()) -> annotation_or_location().
 
 get_pos(#tree{attr = Attr}) ->
     Attr#attr.pos;
@@ -877,8 +913,8 @@ get_pos({error, {Pos, _, _}}) ->
 get_pos({warning, {Pos, _, _}}) ->
     Pos;
 get_pos(Node) ->
-    %% Here, we assume that we have an `erl_parse' node with position
-    %% information in element 2.
+    %% Here, we assume that we have an `erl_parse' node with an
+    %% annotation in element 2.
     element(2, Node).
 
 
@@ -888,7 +924,7 @@ get_pos(Node) ->
 %% @see get_pos/1
 %% @see copy_pos/2
 
--spec set_pos(syntaxTree(), term()) -> syntaxTree().
+-spec set_pos(syntaxTree(), annotation_or_location()) -> syntaxTree().
 
 set_pos(Node, Pos) ->
     case Node of
@@ -904,7 +940,7 @@ set_pos(Node, Pos) ->
 
 
 %% =====================================================================
-%% @doc Copies the position information from `Source' to `Target'.
+%% @doc Copies the annotation from `Source' to `Target'.
 %%
 %% This is equivalent to `set_pos(Target,
 %% get_pos(Source))', but potentially more efficient.
@@ -2192,11 +2228,11 @@ revert_map_field_assoc(Node) ->
 -spec map_field_assoc_name(syntaxTree()) -> syntaxTree().
 
 map_field_assoc_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {map_field_assoc, _, Name, _} ->
             Name;
-        _ ->
-            (data(Node))#map_field_assoc.name
+        Node1 ->
+            (data(Node1))#map_field_assoc.name
     end.
 
 
@@ -2208,11 +2244,11 @@ map_field_assoc_name(Node) ->
 -spec map_field_assoc_value(syntaxTree()) -> syntaxTree().
 
 map_field_assoc_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {map_field_assoc, _, _, Value} ->
             Value;
-        _ ->
-            (data(Node))#map_field_assoc.value
+        Node1 ->
+            (data(Node1))#map_field_assoc.value
     end.
 
 
@@ -2250,11 +2286,11 @@ revert_map_field_exact(Node) ->
 -spec map_field_exact_name(syntaxTree()) -> syntaxTree().
 
 map_field_exact_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {map_field_exact, _, Name, _} ->
             Name;
-        _ ->
-            (data(Node))#map_field_exact.name
+        Node1 ->
+            (data(Node1))#map_field_exact.name
     end.
 
 
@@ -2266,11 +2302,11 @@ map_field_exact_name(Node) ->
 -spec map_field_exact_value(syntaxTree()) -> syntaxTree().
 
 map_field_exact_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {map_field_exact, _, _, Value} ->
             Value;
-        _ ->
-            (data(Node))#map_field_exact.value
+        Node1 ->
+            (data(Node1))#map_field_exact.value
     end.
 
 
@@ -4128,12 +4164,77 @@ match_expr_body(Node) ->
 
 
 %% =====================================================================
+%% @doc Creates an abstract maybe-expression, as used in <code>maybe</code>
+%% blocks. The result represents
+%% "<code><em>Pattern</em> ?= <em>Body</em></code>".
+%%
+%% @see maybe_match_expr_pattern/1
+%% @see maybe_match_expr_body/1
+%% @see maybe_expr/2
+
+-record(maybe_match_expr, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = maybe_expr
+%% data(Node) = #maybe_expr{pattern :: Pattern, body :: Body}
+%%
+%%	Pattern = Body = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {maybe_match, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+%%
+
+-spec maybe_match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+maybe_match_expr(Pattern, Body) ->
+    tree(maybe_match_expr, #maybe_match_expr{pattern = Pattern, body = Body}).
+
+revert_maybe_match_expr(Node) ->
+    Pos = get_pos(Node),
+    Pattern = maybe_match_expr_pattern(Node),
+    Body = maybe_match_expr_body(Node),
+    {maybe_match, Pos, Pattern, Body}.
+
+%% =====================================================================
+%% @doc Returns the pattern subtree of a `maybe_expr' node.
+%%
+%% @see maybe_match_expr/2
+
+-spec maybe_match_expr_pattern(syntaxTree()) -> syntaxTree().
+
+maybe_match_expr_pattern(Node) ->
+    case unwrap(Node) of
+        {maybe_match, _, Pattern, _} ->
+            Pattern;
+        Node1 ->
+            (data(Node1))#maybe_match_expr.pattern
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the body subtree of a `maybe_expr' node.
+%%
+%% @see maybe_match_expr/2
+
+-spec maybe_match_expr_body(syntaxTree()) -> syntaxTree().
+
+maybe_match_expr_body(Node) ->
+    case unwrap(Node) of
+        {maybe_match, _, _, Body} ->
+            Body;
+        Node1 ->
+            (data(Node1))#maybe_match_expr.body
+    end.
+
+%% =====================================================================
 %% @doc Creates an abstract operator. The name of the operator is the
 %% character sequence represented by `Name'. This is
 %% analogous to the print name of an atom, but an operator is never
 %% written within single-quotes; e.g., the result of
-%% `operator('++')' represents "`++'" rather
-%% than "`'++''".
+%% <code>operator('++')</code> represents "<code>++</code>" rather
+%% than "<code>'++'</code>".
 %%
 %% @see operator_name/1
 %% @see operator_literal/1
@@ -5178,7 +5279,7 @@ function_type(Type) ->
 %%      Arguments = [erl_parse()]
 %%      Type = erl_parse()
 
--spec function_type('any_arity' | syntaxTree(), syntaxTree()) -> syntaxTree().
+-spec function_type('any_arity' | [syntaxTree()], syntaxTree()) -> syntaxTree().
 
 function_type(Arguments, Return) ->
     tree(function_type,
@@ -5339,11 +5440,11 @@ revert_map_type_assoc(Node) ->
 -spec map_type_assoc_name(syntaxTree()) -> syntaxTree().
 
 map_type_assoc_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_assoc, [Name, _]} ->
             Name;
-        _ ->
-            (data(Node))#map_type_assoc.name
+        Node1 ->
+            (data(Node1))#map_type_assoc.name
     end.
 
 
@@ -5355,11 +5456,11 @@ map_type_assoc_name(Node) ->
 -spec map_type_assoc_value(syntaxTree()) -> syntaxTree().
 
 map_type_assoc_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_assoc, [_, Value]} ->
             Value;
-        _ ->
-            (data(Node))#map_type_assoc.value
+        Node1 ->
+            (data(Node1))#map_type_assoc.value
     end.
 
 
@@ -5397,11 +5498,11 @@ revert_map_type_exact(Node) ->
 -spec map_type_exact_name(syntaxTree()) -> syntaxTree().
 
 map_type_exact_name(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_exact, [Name, _]} ->
             Name;
-        _ ->
-            (data(Node))#map_type_exact.name
+        Node1 ->
+            (data(Node1))#map_type_exact.name
     end.
 
 
@@ -5413,11 +5514,11 @@ map_type_exact_name(Node) ->
 -spec map_type_exact_value(syntaxTree()) -> syntaxTree().
 
 map_type_exact_value(Node) ->
-    case Node of
+    case unwrap(Node) of
         {type, _, map_field_exact, [_, Value]} ->
             Value;
-        _ ->
-            (data(Node))#map_type_exact.value
+        Node1 ->
+            (data(Node1))#map_type_exact.value
     end.
 
 
@@ -6045,6 +6146,72 @@ binary_comp_body(Node) ->
 	    (data(Node1))#binary_comp.body
     end.
 
+%% =====================================================================
+%% @doc Creates an abstract map comprehension. If `Body' is
+%% `[E1, ..., En]', the result represents
+%% "<code>#{<em>Template</em> || <em>E1</em>, ..., <em>En</em>}</code>".
+%%
+%% @see map_comp_template/1
+%% @see map_comp_body/1
+%% @see generator/2
+
+-record(map_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
+
+%% type(Node) = map_comp
+%% data(Node) = #map_comp{template :: Template, body :: Body}
+%%
+%%	Template = Node = syntaxTree()
+%%	Body = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {mc, Pos, Template, Body}
+%%
+%%	Template = erl_parse()
+%%	Body = [erl_parse()] \ []
+
+-spec map_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+map_comp(Template, Body) ->
+    tree(map_comp, #map_comp{template = Template, body = Body}).
+
+revert_map_comp(Node) ->
+    Pos = get_pos(Node),
+    Template = map_comp_template(Node),
+    Body = map_comp_body(Node),
+    {mc, Pos, Template, Body}.
+
+
+%% =====================================================================
+%% @doc Returns the template subtree of a `map_comp' node.
+%%
+%% @see map_comp/2
+
+-spec map_comp_template(syntaxTree()) -> syntaxTree().
+
+map_comp_template(Node) ->
+    case unwrap(Node) of
+	{mc, _, Template, _} ->
+	    Template;
+	Node1 ->
+	    (data(Node1))#map_comp.template
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the list of body subtrees of a `map_comp' node.
+%%
+%% @see map_comp/2
+
+-spec map_comp_body(syntaxTree()) -> [syntaxTree()].
+
+map_comp_body(Node) ->
+    case unwrap(Node) of
+	{mc, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#map_comp.body
+    end.
 
 %% =====================================================================
 %% @doc Creates an abstract generator. The result represents
@@ -6179,6 +6346,72 @@ binary_generator_body(Node) ->
 
 
 %% =====================================================================
+%% @doc Creates an abstract map_generator. The result represents
+%% "<code><em>Pattern</em> &lt;- <em>Body</em></code>".
+%%
+%% @see map_generator_pattern/1
+%% @see map_generator_body/1
+%% @see list_comp/2
+%% @see map_comp/2
+
+-record(map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = map_generator
+%% data(Node) = #map_generator{pattern :: Pattern, body :: Body}
+%%
+%%	Pattern = Argument = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {m_generate, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+-spec map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+map_generator(Pattern, Body) ->
+    tree(map_generator, #map_generator{pattern = Pattern, body = Body}).
+
+revert_map_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = map_generator_pattern(Node),
+    Body = map_generator_body(Node),
+    {m_generate, Pos, Pattern, Body}.
+
+
+%% =====================================================================
+%% @doc Returns the pattern subtree of a `generator' node.
+%%
+%% @see map_generator/2
+
+-spec map_generator_pattern(syntaxTree()) -> syntaxTree().
+
+map_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{m_generate, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#map_generator.pattern
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the body subtree of a `generator' node.
+%%
+%% @see map_generator/2
+
+-spec map_generator_body(syntaxTree()) -> syntaxTree().
+
+map_generator_body(Node) ->
+    case unwrap(Node) of
+	{m_generate, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#map_generator.body
+    end.
+
+
+%% =====================================================================
 %% @doc Creates an abstract block expression. If `Body' is
 %% `[B1, ..., Bn]', the result represents "<code>begin
 %% <em>B1</em>, ..., <em>Bn</em> end</code>".
@@ -6290,7 +6523,6 @@ if_expr_clauses(Node) ->
 %% @see case_expr_argument/1
 %% @see clause/3
 %% @see if_expr/1
-%% @see cond_expr/1
 
 -record(case_expr, {argument :: syntaxTree(), clauses :: [syntaxTree()]}).
 
@@ -6355,60 +6587,130 @@ case_expr_clauses(Node) ->
 	    (data(Node1))#case_expr.clauses
     end.
 
-
 %% =====================================================================
-%% @doc Creates an abstract cond-expression. If `Clauses' is
-%% `[C1, ..., Cn]', the result represents "<code>cond
-%% <em>C1</em>; ...; <em>Cn</em> end</code>". More exactly, if each
-%% `Ci' represents "<code>() <em>Ei</em> ->
-%% <em>Bi</em></code>", then the result represents "<code>cond
-%% <em>E1</em> -> <em>B1</em>; ...; <em>En</em> -> <em>Bn</em>
-%% end</code>".
+%% @doc Creates an abstract else-expression. If `Clauses' is `[C1,
+%% ..., Cn]', the result represents "<code>else <em>C1</em>; ...; <em>Cn</em>
+%% end</code>". More exactly, if each `Ci' represents
+%% "<code>(<em>Pi</em>) <em>Gi</em> -> <em>Bi</em></code>", then the
+%% result represents "<code>else <em>G1</em> -> <em>B1</em>; ...;
+%% <em>Pn</em> <em>Gn</em> -> <em>Bn</em> end</code>".
 %%
-%% @see cond_expr_clauses/1
+%% @see maybe_expr/2
+%% @see else_expr_clauses/1
 %% @see clause/3
-%% @see case_expr/2
 
-%% type(Node) = cond_expr
-%% data(Node) = Clauses
-%%
-%%	Clauses = [syntaxTree()]
-%%
-%% `erl_parse' representation:
-%%
-%% {'cond', Pos, Clauses}
-%%
-%%	Clauses = [Clause] \ []
-%%	Clause = {clause, ...}
-%%
-%%	See `clause' for documentation on `erl_parse' clauses.
+else_expr(Clauses) ->
+    tree(else_expr, Clauses).
 
--spec cond_expr([syntaxTree()]) -> syntaxTree().
-
-cond_expr(Clauses) ->
-    tree(cond_expr, Clauses).
-
-revert_cond_expr(Node) ->
+revert_else_expr(Node) ->
     Pos = get_pos(Node),
-    Clauses = [revert_clause(C) || C <- cond_expr_clauses(Node)],
-    {'cond', Pos, Clauses}.
-
+    Clauses = else_expr_clauses(Node),
+    {'else', Pos, Clauses}.
 
 %% =====================================================================
-%% @doc Returns the list of clause subtrees of a `cond_expr' node.
+%% @doc Returns the list of clause subtrees of an `else_expr' node.
 %%
-%% @see cond_expr/1
+%% @see else_expr/1
 
--spec cond_expr_clauses(syntaxTree()) -> [syntaxTree()].
+-spec else_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
-cond_expr_clauses(Node) ->
+else_expr_clauses(Node) ->
     case unwrap(Node) of
-	{'cond', _, Clauses} ->
+	{'else', _, Clauses} ->
 	    Clauses;
 	Node1 ->
 	    data(Node1)
     end.
 
+%% =====================================================================
+%% @equiv maybe_expr(Body, none)
+
+-spec maybe_expr([syntaxTree()]) -> syntaxTree().
+
+maybe_expr(Body) ->
+    maybe_expr(Body, none).
+
+%% =====================================================================
+%% @doc Creates an abstract maybe-expression. If `Body' is `[B1, ...,
+%% Bn]', and `OptionalElse' is `none', the result represents
+%% "<code>maybe <em>B1</em>, ..., <em>Bn</em> end</code>".  If `Body'
+%% is `[B1, ..., Bn]', and `OptionalElse' reprsents an `else_expr' node
+%% with clauses `[C1, ..., Cn]', the result represents "<code>maybe
+%% <em>B1</em>, ..., <em>Bn</em> else <em>C1</em>; ..., <em>Cn</em>
+%% end</code>".
+%%
+%%	See `clause' for documentation on `erl_parse' clauses.
+%%
+%% @see maybe_expr_body/1
+%% @see maybe_expr_else/1
+
+-record(maybe_expr, {body :: [syntaxTree()],
+                     'else' = none :: 'none' | syntaxTree()}).
+
+%% type(Node) = maybe_expr
+%% data(Node) = #maybe_expr{body :: Body, 'else' :: 'none' | Else}
+%%
+%%     Body = [syntaxTree()]
+%%     Else = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {block, Pos, Body}
+%% {block, Pos, Body, Else}
+%%
+%%    Body = [erl_parse()] \ []
+%%    Else = {'else', Pos, Clauses}
+%%    Clauses = [Clause] \ []
+%%    Clause = {clause, ...}
+
+-spec maybe_expr([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
+
+maybe_expr(Body, OptionalElse) ->
+    tree(maybe_expr, #maybe_expr{body = Body,
+                                 'else' = OptionalElse}).
+revert_maybe_expr(Node) ->
+    Pos = get_pos(Node),
+    Body = maybe_expr_body(Node),
+    case maybe_expr_else(Node) of
+        none ->
+            {'maybe', Pos, Body};
+        Else ->
+            {'maybe', Pos, Body, Else}
+    end.
+
+%% =====================================================================
+%% @doc Returns the list of body subtrees of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_body(syntaxTree()) -> [syntaxTree()].
+
+maybe_expr_body(Node) ->
+    case unwrap(Node) of
+	{'maybe', _, Body} ->
+            Body;
+	{'maybe', _, Body, _Else} ->
+            Body;
+        Node1 ->
+            (data(Node1))#maybe_expr.body
+    end.
+
+%% =====================================================================
+%% @doc Returns the else subtree of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_else(syntaxTree()) -> 'none' | syntaxTree().
+
+maybe_expr_else(Node) ->
+    case unwrap(Node) of
+        {'maybe', _, _Body} ->
+            none;
+        {'maybe', _, _Body, Else} ->
+            Else;
+        Node1 ->
+            (data(Node1))#maybe_expr.'else'
+    end.
 
 %% =====================================================================
 %% @equiv receive_expr(Clauses, none, [])
@@ -6928,15 +7230,7 @@ implicit_fun_name(Node) ->
 	{'fun', Pos, {function, Atom, Arity}} ->
 	    arity_qualifier(set_pos(atom(Atom), Pos),
 			    set_pos(integer(Arity), Pos));
-	{'fun', Pos, {function, Module, Atom, Arity}}
-	  when is_atom(Module), is_atom(Atom), is_integer(Arity) ->
-	    %% Backward compatibility with pre-R15 abstract format.
-	    module_qualifier(set_pos(atom(Module), Pos),
-			     arity_qualifier(
-			       set_pos(atom(Atom), Pos),
-			       set_pos(integer(Arity), Pos)));
 	{'fun', _Pos, {function, Module, Atom, Arity}} ->
-	    %% New in R15: fun M:F/A.
 	    %% XXX: Perhaps set position for this as well?
 	    module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
@@ -7366,7 +7660,7 @@ concrete(Node) ->
 		eval_bits:expr_grp(Fs, [],
 				   fun(F, _) ->
 					   {value, concrete(F), []}
-				   end, [], true),
+				   end),
 	    B;
         arity_qualifier ->
             A = erl_syntax:arity_qualifier_argument(Node),
@@ -7526,20 +7820,20 @@ revert_root(Node) ->
             revert_bitstring_type(Node);
 	block_expr ->
 	    revert_block_expr(Node);
-	case_expr ->
+        'case_expr' ->                          %Quoted to help Emacs.
 	    revert_case_expr(Node);
-	catch_expr ->
+        'catch_expr' ->                         %Quoted to help Emacs.
 	    revert_catch_expr(Node);
 	char ->
 	    revert_char(Node);
 	clause ->
 	    revert_clause(Node);
-	cond_expr ->
-	    revert_cond_expr(Node);
         constrained_function_type ->
             revert_constrained_function_type(Node);
         constraint ->
             revert_constraint(Node);
+        else_expr ->
+            revert_else_expr(Node);
 	eof_marker ->
 	    revert_eof_marker(Node);
 	error_marker ->
@@ -7570,12 +7864,16 @@ revert_root(Node) ->
 	    revert_list(Node);
 	list_comp ->
 	    revert_list_comp(Node);
+        map_comp ->
+	    revert_map_comp(Node);
         map_expr ->
             revert_map_expr(Node);
         map_field_assoc ->
             revert_map_field_assoc(Node);
         map_field_exact ->
             revert_map_field_exact(Node);
+        map_generator ->
+            revert_map_generator(Node);
         map_type ->
             revert_map_type(Node);
         map_type_assoc ->
@@ -7584,6 +7882,10 @@ revert_root(Node) ->
             revert_map_type_exact(Node);
 	match_expr ->
 	    revert_match_expr(Node);
+        maybe_match_expr ->
+            revert_maybe_match_expr(Node);
+        maybe_expr ->
+            revert_maybe_expr(Node);
 	module_qualifier ->
 	    revert_module_qualifier(Node);
 	named_fun_expr ->
@@ -7788,7 +8090,7 @@ subtrees(T) ->
 		case_expr ->
 		    [[case_expr_argument(T)],
 		     case_expr_clauses(T)];
-		catch_expr ->
+                'catch_expr' ->                 %Quoted to help Emacs.
 		    [[catch_expr_body(T)]];
 		class_qualifier ->
                     [[class_qualifier_argument(T)],
@@ -7802,8 +8104,6 @@ subtrees(T) ->
 			    [clause_patterns(T), [G],
 			     clause_body(T)]
 		    end;
-		cond_expr ->
-		    [cond_expr_clauses(T)];
 		conjunction ->
 		    [conjunction_body(T)];
                 constrained_function_type ->
@@ -7815,6 +8115,8 @@ subtrees(T) ->
                      constraint_body(T)];
 		disjunction ->
 		    [disjunction_body(T)];
+		else_expr ->
+                    [else_expr_clauses(T)];
 		form_list ->
 		    [form_list_elements(T)];
 		fun_expr ->
@@ -7859,6 +8161,8 @@ subtrees(T) ->
 			As ->
 			    [[macro_name(T)], As]
 		    end;
+                map_comp ->
+                    [[map_comp_template(T)], map_comp_body(T)];
                 map_expr ->
                     case map_expr_argument(T) of
                         none ->
@@ -7872,6 +8176,9 @@ subtrees(T) ->
                 map_field_exact ->
                     [[map_field_exact_name(T)],
                      [map_field_exact_value(T)]];
+	        map_generator ->
+                    [[map_generator_pattern(T)],
+                     [map_generator_body(T)]];
                 map_type ->
                     [map_type_fields(T)];
                 map_type_assoc ->
@@ -7883,6 +8190,17 @@ subtrees(T) ->
 		match_expr ->
 		    [[match_expr_pattern(T)],
 		     [match_expr_body(T)]];
+                maybe_expr ->
+                    case maybe_expr_else(T) of
+                        none ->
+                            [maybe_expr_body(T)];
+                        E ->
+                            [maybe_expr_body(T),
+                             [E]]
+                    end;
+                maybe_match_expr ->
+                    [[maybe_match_expr_pattern(T)],
+                     [maybe_match_expr_body(T)]];
 		module_qualifier ->
 		    [[module_qualifier_argument(T)],
 		     [module_qualifier_body(T)]];
@@ -8017,12 +8335,12 @@ make_tree(class_qualifier, [[A], [B]]) -> class_qualifier(A, B);
 make_tree(class_qualifier, [[A], [B], [C]]) -> class_qualifier(A, B, C);
 make_tree(clause, [P, B]) -> clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> clause(P, G, B);
-make_tree(cond_expr, [C]) -> cond_expr(C);
 make_tree(conjunction, [E]) -> conjunction(E);
 make_tree(constrained_function_type, [[F],C]) ->
     constrained_function_type(F, C);
 make_tree(constraint, [[N], Ts]) -> constraint(N, Ts);
 make_tree(disjunction, [E]) -> disjunction(E);
+make_tree(else_expr, [E]) -> else_expr(E);
 make_tree(form_list, [E]) -> form_list(E);
 make_tree(fun_expr, [C]) -> fun_expr(C);
 make_tree(function, [[N], C]) -> function(N, C);
@@ -8038,14 +8356,19 @@ make_tree(list, [P, [S]]) -> list(P, S);
 make_tree(list_comp, [[T], B]) -> list_comp(T, B);
 make_tree(macro, [[N]]) -> macro(N);
 make_tree(macro, [[N], A]) -> macro(N, A);
+make_tree(map_comp, [[T], B]) -> map_comp(T, B);
 make_tree(map_expr, [Fs]) -> map_expr(Fs);
 make_tree(map_expr, [[E], Fs]) -> map_expr(E, Fs);
 make_tree(map_field_assoc, [[K], [V]]) -> map_field_assoc(K, V);
 make_tree(map_field_exact, [[K], [V]]) -> map_field_exact(K, V);
+make_tree(map_generator, [[P], [E]]) -> map_generator(P, E);
 make_tree(map_type, [Fs]) -> map_type(Fs);
 make_tree(map_type_assoc, [[N],[V]]) -> map_type_assoc(N, V);
 make_tree(map_type_exact, [[N],[V]]) -> map_type_exact(N, V);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
+make_tree(maybe_expr, [Body]) -> maybe_expr(Body);
+make_tree(maybe_expr, [Body, [Else]]) -> maybe_expr(Body, Else);
+make_tree(maybe_match_expr, [[P], [E]]) -> maybe_match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);
@@ -8239,7 +8562,7 @@ meta_call(F, As) ->
 %% =====================================================================
 %% @equiv tree(Type, [])
 
--spec tree(atom()) -> #tree{}.
+-spec tree(atom()) -> tree().
 
 tree(Type) ->
     tree(Type, []).
@@ -8274,7 +8597,7 @@ tree(Type) ->
 %% @see data/1
 %% @see type/1
 
--spec tree(atom(), term()) -> #tree{}.
+-spec tree(atom(), term()) -> tree().
 
 tree(Type, Data) ->
     #tree{type = Type, data = Data}.
@@ -8330,7 +8653,7 @@ data(T) -> erlang:error({badarg, T}).
 %% trees. <em>Attaching a wrapper onto another wrapper structure is an
 %% error</em>.
 
--spec wrap(erl_parse()) -> #wrapper{}.
+-spec wrap(erl_parse()) -> wrapper().
 
 wrap(Node) ->
     %% We assume that Node is an old-school `erl_parse' tree.
@@ -8344,7 +8667,7 @@ wrap(Node) ->
 %% `erl_parse' tree; otherwise it returns `Node'
 %% itself.
 
--spec unwrap(syntaxTree()) -> #tree{} | erl_parse().
+-spec unwrap(syntaxTree()) -> tree() | erl_parse().
 
 unwrap(#wrapper{tree = Node}) -> Node;
 unwrap(Node) -> Node.	 % This could also be a new-form node.

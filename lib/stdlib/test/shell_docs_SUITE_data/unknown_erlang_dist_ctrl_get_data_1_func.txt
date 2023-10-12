@@ -1,0 +1,34 @@
+
+  [;1m-spec erlang:dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | none[0m
+  [;1m                                   when[0m
+  [;1m                                       Size :: non_neg_integer(),[0m
+  [;1m                                       DHandle :: dist_handle(),[0m
+  [;1m                                       Data :: iovec().[0m
+
+[;;4mSince[0m:
+  OTP 21.0
+
+  Get distribution channel data from the local node that is to be
+  passed to the remote node. The distribution channel is identified
+  by [;;4mDHandle[0m. If no data is available, the atom [;;4mnone[0m is
+  returned. One can request to be informed by a message when more
+  data is available by calling [;;4m[0m
+  [;;4merlang:dist_ctrl_get_data_notification(DHandle)[0m.
+
+  The returned value when there are data available depends on the
+  value of the [;;4mget_size[0m option configured on the distribution
+  channel identified by [;;4mDHandle[0m. For more information see the
+  documentation of the [;;4mget_size[0m option for the [;;4m[0m
+  [;;4merlang:dist_ctrl_set_opt/3[0m function.
+
+  Note:
+    Only the process registered as distribution controller for the
+    distribution channel identified by [;;4mDHandle[0m is allowed to
+    call this function.
+
+  This function is used when implementing an alternative
+  distribution carrier using processes as distribution controllers. [;;4m[0m
+  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
+  More information can be found in the documentation of ERTS User's
+  Guide ➜ How to implement an Alternative Carrier for the Erlang
+  Distribution ➜ Distribution Module.

@@ -13,13 +13,11 @@
 %% @copyright 1999-2002 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Core Erlang abstract syntax trees.
-%%
 %% <p> This module defines an abstract data type for representing Core
 %% Erlang source code as syntax trees.</p>
 %%
 %% <p>A recommended starting point for the first-time user is the
-%% documentation of the function <a
-%% href="#type-1"><code>type/1</code></a>.</p>
+%% documentation of the function {@link type/1}.</p>
 %%
 %% <h3><b>NOTES:</b></h3>
 %%
@@ -49,9 +47,9 @@
 %% @type cerl(). An abstract Core Erlang syntax tree.
 %%
 %% <p>Every abstract syntax tree has a <em>type</em>, given by the
-%% function <a href="#type-1"><code>type/1</code></a>.  In addition,
-%% each syntax tree has a list of <em>user annotations</em> (cf.  <a
-%% href="#get_ann-1"><code>get_ann/1</code></a>), which are included
+%% function {@link type/1}.  In addition,
+%% each syntax tree has a list of <em>user annotations</em>
+%% (cf. {@link get_ann/1}), which are included
 %% in the Core Erlang syntax.</p>
 
 -module(cerl).
@@ -156,6 +154,7 @@
 -type c_map()     :: #c_map{}.
 -type c_map_pair() :: #c_map_pair{}.
 -type c_module()  :: #c_module{}.
+-type c_opaque()  :: #c_opaque{}.
 -type c_primop()  :: #c_primop{}.
 -type c_receive() :: #c_receive{}.
 -type c_seq()     :: #c_seq{}.
@@ -168,7 +167,8 @@
               | c_call()   | c_case()   | c_catch()   | c_clause()  | c_cons()
               | c_fun()    | c_let()    | c_letrec()  | c_literal()
 	      | c_map()    | c_map_pair()
-	      | c_module() | c_primop() | c_receive() | c_seq()
+	      | c_module() | c_opaque()
+              | c_primop() | c_receive() | c_seq()
               | c_try()    | c_tuple()  | c_values()  | c_var().
 
 -type var_name() :: integer() | atom() | {atom(), integer()}.
@@ -189,6 +189,11 @@
 %% explicitly given as arguments should be copied (generally, this is
 %% the annotation field only).
 %% =====================================================================
+
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
+               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
+               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
+               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
 
 %% @spec type(Node::cerl()) -> atom()
 %%
@@ -262,12 +267,6 @@
 %% @see data_type/1
 %% @see subtrees/1
 %% @see meta/1
-
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst' | 'call' | 'case'
-               | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
-               | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
-               | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
-
 -spec type(cerl()) -> ctype().
 
 type(#c_alias{}) -> alias;
@@ -292,7 +291,8 @@ type(#c_seq{}) -> seq;
 type(#c_try{}) -> 'try';
 type(#c_tuple{}) -> tuple;
 type(#c_values{}) -> values;
-type(#c_var{}) -> var.
+type(#c_var{}) -> var;
+type(#c_opaque{}) -> opaque.
 
 
 %% @spec is_leaf(Node::cerl()) -> boolean()
@@ -1603,7 +1603,7 @@ map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
     [ann_c_map_pair(As,
                     #c_literal{anno=As,val='assoc'},
                     #c_literal{anno=As,val=K},
-                    #c_literal{anno=As,val=V}) || {K,V} <- maps:to_list(M)];
+                    #c_literal{anno=As,val=V}) || K := V <- M];
 map_es(#c_map{es = Es}) ->
     Es.
 
@@ -1647,34 +1647,41 @@ ann_c_map(As, Es) ->
 
 -spec ann_c_map([term()], c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
-ann_c_map(As,#c_literal{val=M},Es) when is_map(M) ->
-    fold_map_pairs(As,Es,M);
-ann_c_map(As,M,Es) ->
-    #c_map{arg=M, es=Es, anno=As }.
-
-fold_map_pairs(As,[],M) -> #c_literal{anno=As,val=M};
-%% M#{ K => V}
-fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}=E|Es],M) ->
-    case is_lit_list([Ck,Cv]) of
-	true ->
-	    [K,V] = lit_list_vals([Ck,Cv]),
-	    fold_map_pairs(As,Es,maps:put(K,V,M));
-	false ->
-	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+ann_c_map(As, #c_literal{val=M0}=Lit, Es) when is_map(M0) ->
+    case update_map_literal(Es, M0) of
+        none ->
+            #c_map{arg=Lit, es=Es, anno=As};
+        M1 ->
+            #c_literal{anno=As, val=M1}
     end;
-%% M#{ K := V}
-fold_map_pairs(As,[#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}=E|Es],M) ->
+ann_c_map(As, M, Es) ->
+    #c_map{arg=M, es=Es, anno=As}.
+
+update_map_literal([#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}|Es], M) ->
+    %% M#{K => V}
     case is_lit_list([Ck,Cv]) of
 	true ->
 	    [K,V] = lit_list_vals([Ck,Cv]),
-	    case maps:is_key(K,M) of
-		true -> fold_map_pairs(As,Es,maps:put(K,V,M));
+	    update_map_literal(Es, M#{K => V});
+	false ->
+	    none
+    end;
+update_map_literal([#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}|Es], M) ->
+    %% M#{K := V}
+    case is_lit_list([Ck,Cv]) of
+	true ->
+	    [K,V] = lit_list_vals([Ck,Cv]),
+	    case is_map_key(K, M) of
+		true ->
+                    update_map_literal(Es, M#{K => V});
 		false ->
-		    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
+		    none
 	    end;
 	false ->
-	    #c_map{arg=#c_literal{val=M,anno=As}, es=[E|Es], anno=As }
-    end.
+            none
+    end;
+update_map_literal([], M) ->
+    M.
 
 -spec update_c_map(c_map(), cerl(), [cerl()]) -> c_map() | c_literal().
 
@@ -2157,12 +2164,16 @@ values_arity(Node) ->
 
 %% @spec c_binary(Segments::[cerl()]) -> cerl()
 %%
-%% @doc Creates an abstract binary-template. A binary object is a
-%% sequence of 8-bit bytes. It is specified by zero or more bit-string
-%% template <em>segments</em> of arbitrary lengths (in number of bits),
-%% such that the sum of the lengths is evenly divisible by 8. If
-%% <code>Segments</code> is <code>[S1, ..., Sn]</code>, the result
-%% represents "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
+
+%% @doc Creates an abstract binary-template. A binary object is in
+%% this context a sequence of an arbitrary number of bits. (The number
+%% of bits used to be evenly divisible by 8, but after the
+%% introduction of bit strings in the Erlang language, the choice was
+%% made to use the binary template for all bit strings.) It is
+%% specified by zero or more bit-string template <em>segments</em> of
+%% arbitrary lengths (in number of bits). If <code>Segments</code> is
+%% <code>[S1, ..., Sn]</code>, the result represents
+%% "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
 %% <code>Si</code> must have type <code>bitstr</code>.
 %%
 %% @see ann_c_binary/2
@@ -2371,21 +2382,22 @@ bitstr_size(Node) ->
 -spec bitstr_bitsize(c_bitstr()) -> 'all' | 'any' | 'utf' | non_neg_integer().
 
 bitstr_bitsize(Node) ->
-    Size = Node#c_bitstr.size,
+    #c_bitstr{size=Size,type=Type,unit=Unit} = Node,
     case is_literal(Size) of
-	true ->
-	    case concrete(Size) of
-		all ->
-		    all;
-		undefined ->
-		     %% just an assertion below
-		    "utf" ++ _ = atom_to_list(concrete(Node#c_bitstr.type)),
-		    utf;
-		S when is_integer(S) ->
-		    S * concrete(Node#c_bitstr.unit)
-	    end;
-	false ->
-	    any
+        true ->
+            case {concrete(Size), concrete(Type)} of
+                {all, binary} ->
+                    all;
+                {undefined, T} when T =:= utf8; T =:= utf16; T =:= utf32 ->
+                    utf;
+                {S, _} when is_integer(S), S >= 0 ->
+                    S * concrete(Unit);
+                {_, _} ->
+                    %% Bogus literal size, fails in runtime.
+                    any
+            end;
+        false ->
+            any
     end.
 
 

@@ -1,0 +1,33 @@
+
+  [;1m-spec erlang:memory(Type :: memory_type()) -> non_neg_integer();[0m
+  [;1m                   (TypeList :: [memory_type()]) ->[0m
+  [;1m                       [{memory_type(), non_neg_integer()}].[0m
+
+  Types:
+    -type memory_type() ::
+          total | processes | processes_used | system | atom |
+          atom_used | binary | code | ets.
+
+  Returns the memory size in bytes allocated for memory of type [;;4m[0m
+  [;;4mType[0m. The argument can also be specified as a list of [;;4m[0m
+  [;;4mmemory_type()[0m atoms, in which case a corresponding list of [;;4m[0m
+  [;;4m{memory_type(), Size :: integer >= 0}[0m tuples is returned.
+
+  Change:
+    As from ERTS 5.6.4, [;;4merlang:memory/1[0m requires that all [;;4m[0m
+    [;;4merts_alloc(3)[0m allocators are enabled (default behavior).
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mType[0m is not one of the memory types listed in the
+    description of [;;4merlang:memory/0[0m.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mmaximum[0m is passed as [;;4mType[0m and the emulator is not run
+    in instrumented mode.
+
+  [;;4m[;;4mnotsup[0m[0m:
+    If an [;;4merts_alloc(3)[0m allocator has been disabled.
+
+  See also [;;4merlang:memory/0[0m.

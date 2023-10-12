@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 	}).
 
 -record(proc,
-	%% Initial data according to the follwoing:
+	%% Initial data according to the following:
 	%% 
 	%% msg_q_len, reds, memory and stack_heap are integers because it must
 	%% be possible to sort on them. All other fields are strings

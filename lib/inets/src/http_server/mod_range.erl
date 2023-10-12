@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 %% do
 
 do(Info) ->
-    ?DEBUG("do -> entry",[]),
     case Info#mod.method of
 	"GET" ->
 	    case proplists:get_value(status, Info#mod.data) of
@@ -66,7 +65,6 @@ do(Info) ->
     end.
 
 do_get_range(Info,Ranges) ->
-    ?DEBUG("do_get_range -> Request URI: ~p",[Info#mod.request_uri]), 
      Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
 			  Info#mod.request_uri),
     {FileInfo, LastModified} = get_modification_date(Path),
@@ -76,7 +74,6 @@ do_get_range(Info,Ranges) ->
 send_range_response(Path, Info, Ranges, FileInfo, LastModified)->
     case parse_ranges(Ranges) of
 	error->
-	    ?ERROR("send_range_response-> Unparsable range request",[]),
 	    {proceed,Info#mod.data};
 	{multipart,RangeList}->
 	    send_multi_range_response(Path, Info, RangeList);
@@ -85,7 +82,7 @@ send_range_response(Path, Info, Ranges, FileInfo, LastModified)->
 				LastModified)
     end.
 %%More than one range specified
-%%Send a multipart reponse to the user
+%%Send a multipart response to the user
 %
 %%An example of an multipart range response
 
@@ -110,15 +107,12 @@ send_multi_range_response(Path,Info,RangeList)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    ?DEBUG("send_multi_range_response -> FileDescriptor: ~p",
-		   [FileDescriptor]),
-	    Suffix = httpd_util:suffix(Path),
+	    Suffix = httpd_util:strip_extension_dot(Path),
 	    PartMimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 							  Suffix,"text/plain"),
 	    {FileInfo,  LastModified} = get_modification_date(Path),
 	    case valid_ranges(RangeList,Path,FileInfo) of
 		{ValidRanges,true}->
-		    ?DEBUG("send_multi_range_response ->Ranges are valid:",[]),
 		    %Apache breaks the standard by sending the size
 		    %field in the Header.
 		    Header = 
@@ -127,8 +121,6 @@ send_multi_range_response(Path,Info,RangeList)->
 			  "=RangeBoundarySeparator"}, 
 			 {etag, httpd_util:create_etag(FileInfo)} | 
 			 LastModified],
-		    ?DEBUG("send_multi_range_response -> Valid Ranges: ~p",
-			   [RagneList]),
 		    Body = {fun send_multiranges/4,
 			    [ValidRanges, Info, PartMimeType, Path]},
 		    {proceed,[{response,
@@ -138,12 +130,10 @@ send_multi_range_response(Path,Info,RangeList)->
 					 bad_range_boundaries }}]}
 	    end;
 	{error, _Reason} ->
-	    ?ERROR("do_get -> failed open file: ~p",[_Reason]),
 	    {proceed,Info#mod.data}
     end.
 
 send_multiranges(ValidRanges,Info,PartMimeType,Path)->    
-    ?DEBUG("send_multiranges -> Start sending the ranges",[]),
     case file:open(Path, [raw,binary]) of
 	{ok,FileDescriptor} ->
 	    lists:foreach(fun(Range)->
@@ -195,9 +185,7 @@ send_range_response(Path, Info, Start, Stop, FileInfo, LastModified)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    ?DEBUG("send_range_response -> FileDescriptor: ~p",
-		   [FileDescriptor]),
-	    Suffix = httpd_util:suffix(Path),
+	    Suffix = httpd_util:strip_extension_dot(Path),
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 						      Suffix,"text/plain"),
 	    Size = get_range_size(Start,Stop,FileInfo),
@@ -219,13 +207,11 @@ send_range_response(Path, Info, Start, Stop, FileInfo, LastModified)->
 		    {proceed, [{status, {416, Reason, bad_range_boundaries }}]}
 	    end;
 	{error, _Reason} ->
-	    ?ERROR("send_range_response -> failed open file: ~p",[_Reason]),
 	    {proceed,Info#mod.data}
     end.
 
 
 send_range_body(SocketType,Socket,Path,Start,End) ->
-    ?DEBUG("mod_range -> send_range_body",[]),
     case file:open(Path, [raw,binary]) of
 	{ok,FileDescriptor} ->
 	    send_part_start(SocketType,Socket,FileDescriptor,Start,End),
@@ -268,8 +254,6 @@ send_part(SocketType,Socket,FileDescriptor,End)->
 			   case httpd_socket:deliver(SocketType,Socket,
 						     Binary) of
 			       socket_closed ->
-				   ?LOG("send_range of body -> socket "   
-					"closed while sending",[]),
 				   socket_close;
 			       _ ->
 				   send_part(SocketType,Socket,
@@ -358,7 +342,7 @@ get_file_chunk_size(Position, End, _DefaultChunkSize) ->
 
 %Get the size of the range to send. Remember that
 %A range is from startbyte up to endbyte which means that
-%the nuber of byte in a range is (StartByte-EndByte)+1
+%the number of byte in a range is (StartByte-EndByte)+1
 
 get_range_size(from_end, Stop, _FileInfo)->
     integer_to_list(-1*Stop);
@@ -393,7 +377,7 @@ format_range({StartByte,[]})->
     {from_start,list_to_integer(StartByte)};
 format_range({StartByte,EndByte})->        
     {list_to_integer(StartByte),list_to_integer(EndByte)}.
-%Last case return the splitted range
+%Last case return the split range
 split_range([],Current,Other)->
     {lists:reverse(Other),lists:reverse(Current)};
 
@@ -406,15 +390,12 @@ split_range([N|Rest],Current,End) ->
 send_body(SocketType,Socket,FileDescriptor) ->
     case file:read(FileDescriptor,?FILE_CHUNK_SIZE) of
 	{ok,Binary} ->
-	    ?DEBUG("send_body -> send another chunk: ~p",[size(Binary)]),
 	    case httpd_socket:deliver(SocketType,Socket,Binary) of
 		socket_closed ->
-		    ?LOG("send_body -> socket closed while sending",[]),
 		    socket_close;
 		_ ->
 		    send_body(SocketType,Socket,FileDescriptor)
 	    end;
 	eof ->
-	    ?DEBUG("send_body -> done with this file",[]),
 	    eof
     end.

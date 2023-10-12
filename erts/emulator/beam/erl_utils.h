@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@
 #define ERL_UTILS_H__
 
 #include "sys.h"
+#include "atom.h"
 #include "erl_printf.h"
+#include "erl_term_hashing.h"
 
 struct process;
 
@@ -62,16 +64,11 @@ erts_current_interval_acqb(erts_interval_t *icp)
  */
 void erts_silence_warn_unused_result(long unused);
 
-
 int erts_fit_in_bits_int64(Sint64);
 int erts_fit_in_bits_int32(Sint32);
 int erts_fit_in_bits_uint(Uint);
 Sint erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
-Uint32 block_hash(byte *, unsigned, Uint32);
-Uint32 make_hash2(Eterm);
-Uint32 make_hash(Eterm);
-Uint32 make_internal_hash(Eterm, Uint32 salt);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
@@ -104,18 +101,21 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 
 void erts_init_utils(void);
 void erts_init_utils_mem(void);
+void erts_utils_sched_spec_data_init(void);
 
-erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
+erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint) ERTS_ATTR_MALLOC_D(erts_destroy_tmp_dsbuf,1);
 
 int eq(Eterm, Eterm);
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
-int erts_cmp_atoms(Eterm a, Eterm b);
-Sint erts_cmp(Eterm, Eterm, int, int);
+ERTS_GLB_INLINE Sint erts_cmp(Eterm, Eterm, int, int);
+ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b);
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm, Eterm);
+
 Sint erts_cmp_compound(Eterm, Eterm, int, int);
-Sint cmp(Eterm a, Eterm b);
+
 #define CMP(A,B)                         erts_cmp(A,B,0,0)
 #define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
 #define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
@@ -128,15 +128,28 @@ Sint cmp(Eterm a, Eterm b);
 #define CMP_GT(a,b)          ((a) != (b) && CMP((a),(b)) >  0)
 
 #define CMP_EQ_ACTION(X,Y,Action)	\
-    if ((X) != (Y)) { CMP_SPEC((X),(Y),!=,Action,1); }
+    if ((X) != (Y)) { EQ_SPEC((X),(Y),!=,Action); }
 #define CMP_NE_ACTION(X,Y,Action)	\
-    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),==,Action,1); }
-#define CMP_GE_ACTION(X,Y,Action)	\
-    if ((X) != (Y)) { CMP_SPEC((X),(Y),<,Action,0); }
-#define CMP_LT_ACTION(X,Y,Action)	\
-    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),>=,Action,0); }
+    if ((X) == (Y)) { Action; } else { EQ_SPEC((X),(Y),==,Action); }
 
-#define CMP_SPEC(X,Y,Op,Action,EqOnly)				\
+#define EQ_SPEC(X,Y,Op,Action)                                  \
+    if (is_both_immed(X, Y)) {                                  \
+        if (X Op Y) { Action; };                                \
+    } else if (is_float(X) && is_float(Y)) {                    \
+        FloatDef af, bf;                                        \
+        GET_DOUBLE(X, af);                                      \
+        GET_DOUBLE(Y, bf);                                      \
+        if (af.fd Op bf.fd) { Action; };                        \
+    } else {                                                    \
+        if (erts_cmp_compound(X,Y,0,1) Op 0) { Action; };       \
+    }
+
+#define CMP_GE_ACTION(X,Y,Action)                       \
+    if ((X) != (Y)) { CMP_SPEC((X),(Y),<,Action); }
+#define CMP_LT_ACTION(X,Y,Action)	\
+    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),>=,Action); }
+
+#define CMP_SPEC(X,Y,Op,Action)                                 \
     if (is_atom(X) && is_atom(Y)) {				\
 	if (erts_cmp_atoms(X, Y) Op 0) { Action; };		\
     } else if (is_both_small(X, Y)) {				\
@@ -147,7 +160,89 @@ Sint cmp(Eterm a, Eterm b);
         GET_DOUBLE(Y, bf);					\
         if (af.fd Op bf.fd) { Action; };			\
     } else {							\
-	if (erts_cmp_compound(X,Y,0,EqOnly) Op 0) { Action; };	\
+	if (erts_cmp_compound(X,Y,0,0) Op 0) { Action; };	\
     }
+
+/*
+ * When either operand for is_lt or is_ge is a literal, that literal is
+ * almost always an integer and almost never an atom. Therefore, only
+ * special case the comparison of small integers before calling the
+ * general compare function.
+ */
+
+#define CMP_GE_LITERAL_ACTION(X,Y,Action)                       \
+    if ((X) != (Y)) { CMP_LITERAL_SPEC((X),(Y),<,Action); }
+#define CMP_LT_LITERAL_ACTION(X,Y,Action)	\
+    if ((X) == (Y)) { Action; } else { CMP_LITERAL_SPEC((X),(Y),>=,Action); }
+
+#define CMP_LITERAL_SPEC(X,Y,Op,Action)                         \
+    if (is_both_small(X, Y)) {                                  \
+        if (signed_val(X) Op signed_val(Y)) { Action; };        \
+    } else {                                                    \
+        if (erts_cmp_compound(X,Y,0,0) Op 0) { Action; };       \
+    }
+
+#define erts_float_comp(x,y) (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
+    Atom *aa = atom_tab(atom_val(a));
+    Atom *bb = atom_tab(atom_val(b));
+
+    byte *name_a, *name_b;
+    int len_a, len_b, diff;
+
+    diff = aa->ord0 - bb->ord0;
+
+    if (diff != 0) {
+        return diff;
+    }
+
+    name_a = &aa->name[3];
+    name_b = &bb->name[3];
+    len_a = aa->len-3;
+    len_b = bb->len-3;
+
+    if (len_a > 0 && len_b > 0) {
+        diff = sys_memcmp(name_a, name_b, MIN(len_a, len_b));
+
+        if (diff != 0) {
+            return diff;
+        }
+    }
+
+    return len_a - len_b;
+}
+
+ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
+    if (is_atom(a) && is_atom(b)) {
+        return erts_cmp_atoms(a, b);
+    } else if (is_both_small(a, b)) {
+        return (signed_val(a) - signed_val(b));
+    } else if (is_float(a) && is_float(b)) {
+        FloatDef af, bf;
+
+        GET_DOUBLE(a, af);
+        GET_DOUBLE(b, bf);
+
+        return erts_float_comp(af.fd, bf.fd);
+    }
+
+    return erts_cmp_compound(a,b,exact,eq_only);
+}
+
+/*
+ * Only to be used for the *internal* sort order of flatmap keys.
+ */
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm key_a, Eterm key_b) {
+    if (is_atom(key_a) && is_atom(key_b)) {
+        return key_a - key_b;
+    }
+    return erts_cmp(key_a, key_b, 1, 0);
+}
+
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif

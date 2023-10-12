@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -289,7 +289,7 @@ eep37(Config) when is_list(Config) ->
     10 = Add(9),
     50 = UnusedName(8),
     [1,1,2,6,24,120] = lists:map(F, lists:seq(0, 5)),
-    {'EXIT',{{badarity,_},_}} = (catch lists:map(fun G() -> G() end, [1])),
+    {'EXIT',{function_clause,_}} = (catch lists:map(fun G() -> G() end, [1])),
     {'EXIT',{{badarity,_},_}} = (catch F()),
 
     ok.

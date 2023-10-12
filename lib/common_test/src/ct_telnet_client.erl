@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,15 +83,16 @@ open(Server, Port, Timeout, KeepAlive, ConnName) ->
 
 open(Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
     Self = self(),
-    Pid = spawn(fun() ->
-			init(Self, Server, Port, Timeout,
-			     KeepAlive, NoDelay, ConnName)
-		end),
-    receive 
-	{open,Pid} ->
-	    {ok,Pid};
-	{Error,Pid} ->
-	    Error
+    {Pid, MRef} = spawn_monitor(fun() ->
+                                        init(Self, Server, Port, Timeout,
+                                             KeepAlive, NoDelay, ConnName)
+                                end),
+    receive
+        {Result, Pid} ->
+            demonitor(MRef, [flush]),
+            if Result == open -> {ok, Pid}; true -> Result end;
+        {'DOWN', MRef, process, _, _} = T ->
+            {error, T}
     end.
 
 close(Pid) ->
@@ -101,18 +102,24 @@ close(Pid) ->
     end.	    
 
 send_data(Pid, Data) ->
-    send_data(Pid, Data, true).
+    send_data(Pid, Data, "\n").
 send_data(Pid, Data, true) ->
-    send_data(Pid, Data++"\n", false);
+    send_data(Pid, Data, "\n");
+send_data(Pid, Data, Newline) when is_list(Newline) ->
+    send_data(Pid, Data++Newline, false);
 send_data(Pid, Data, false) ->
     Pid ! {send_data, Data},
     ok.
 
 get_data(Pid) ->
-    Pid ! {get_data,self()},
-    receive 
-	{data,Data} ->
-	    {ok,Data}
+    MRef = monitor(process, Pid),
+    Pid ! {get_data, self()},
+    receive
+        {data, Data} ->
+            demonitor(MRef, [flush]),
+            {ok, Data};
+        {'DOWN', MRef, process, _, _} = T ->
+            {error, T}
     end.
 
 %%%-----------------------------------------------------------------

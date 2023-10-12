@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,8 +63,8 @@ read_term(File) ->
     end.
 
 read_term_from_stream(Stream, File) ->
-    _ = epp:set_encoding(Stream),
-    R = io:request(Stream, {get_until,'',erl_scan,tokens,[1]}),
+    Encoding = epp:set_encoding(Stream),
+    R = io:request(Stream, {get_until,Encoding,'',erl_scan,tokens,[1]}),
     case R of
 	{ok,Toks,_EndLine} ->
 	    case erl_parse:parse_term(Toks) of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -404,6 +404,7 @@ handle_exec({expect_receive, Desc, {Verify, To}},
             e("received unknown message: ~p", [Else]),
             {error, {expect_receive, {unexpected_message, Else}}}
     after To ->
+            e("(expect) receive timeout: ~w", [To]),
             {error, {expect_receive, timeout}}
     end;
 
@@ -412,14 +413,14 @@ handle_exec({expect_closed, To},
 	    result     = Acc} = State) ->
     p("expect_closed ~w", [To]),
     inet:setopts(Sock, [{active, once}]),
-    p("expect_closed - await closed", []),
+    d("expect_closed - await closed", []),
     receive
         {tcp_closed, Sock} ->
             p("expect_closed - received closed"),
             {ok, State#state{connection = undefined,
 			     result     = [closed|Acc]}}
     after To ->
-            e("expect_closed timeout after ~w", [To]),
+            e("(expect) closed timeout after ~w", [To]),
             {error, {expect_closed, timeout}}
     end;
 
@@ -428,13 +429,13 @@ handle_exec({expect_nothing, To},
 	    result     = Acc} = State) ->
     p("expect_nothing ~w", [To]),
     inet:setopts(Sock, [{active, once}]),
-    p("expect_nothing - await anything", []),
+    d("expect_nothing - await anything", []),
     receive
         Any ->
             e("expect_nothing - received: ~p", [Any]),
             {error, {expect_nothing, Any}}
     after To ->
-            p("expect_nothing timeout after ~w", [To]),
+            p("got nothing (~w) as expected", [To]),
             {ok, State#state{result = [{nothing, To}|Acc]}}
     end;
 
@@ -502,6 +503,6 @@ e(F, A) -> megaco_test_generator:error(F, A).
 
 p(F      ) -> p("", F, []).
 p(F,    A) -> p("", F, A).
-p(P, F, A) -> megaco_test_generator:print(P,    F, A).
+p(P, F, A) -> megaco_test_generator:print(P, F, A).
 
 

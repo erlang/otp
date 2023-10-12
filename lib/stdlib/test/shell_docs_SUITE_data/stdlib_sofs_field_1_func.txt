@@ -1,0 +1,12 @@
+
+  [;1m-spec field(BinRel) -> Set[0m
+  [;1m               when BinRel :: binary_relation(), Set :: a_set().[0m
+
+  Returns the field of the binary relation [;;4mBinRel[0m.
+
+    1> R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),
+    S = sofs:field(R),
+    sofs:to_external(S).
+    [1,2,a,b,c]
+
+  [;;4mfield(R)[0m is equivalent to [;;4munion(domain(R), range(R))[0m.

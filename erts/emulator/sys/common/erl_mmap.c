@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,29 @@
 #include "atom.h"
 #include "erl_mmap.h"
 #include <stddef.h>
+
+#ifdef HAVE_SYS_MMAN_H
+#include <sys/mman.h>
+#endif
+
+int erts_mem_guard(void *p, UWord size) {
+#if defined(WIN32)
+    DWORD oldProtect;
+    BOOL success;
+
+    success = VirtualProtect((LPVOID*)p,
+                             size,
+                             PAGE_NOACCESS,
+                             &oldProtect);
+
+    return success ? 0 : -1;
+#elif defined(HAVE_SYS_MMAN_H)
+    return mprotect(p, size, PROT_NONE);
+#else
+    errno = ENOTSUP;
+    return -1;
+#endif
+}
 
 #if HAVE_ERTS_MMAP
 
@@ -304,7 +327,7 @@ struct ErtsMemMapper_ {
      * Super unaligned area is located above super aligned
      * area. That is, `sa.bot` is beginning of the super
      * carrier, `sua.top` is the end of the super carrier,
-     * and sa.top and sua.bot moves towards eachother.
+     * and sa.top and sua.bot moves towards each other.
      */
     struct {
 	char *top;
@@ -733,7 +756,8 @@ rbt_delete(RBTree* tree, RBTNode* del)
 	y = z;
     else
 	/* Set y to z:s successor */
-	for(y = z->right; y->left; y = y->left);
+	for(y = z->right; y->left; y = y->left)
+            ;
     /* splice out y */
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);
@@ -1812,7 +1836,7 @@ void *
 erts_mremap(ErtsMemMapper* mm,
             Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 {
-    void *new_ptr;
+    void *new_ptr = NULL;
     Uint32 superaligned;
     UWord asize;
 
@@ -1872,9 +1896,9 @@ erts_mremap(ErtsMemMapper* mm,
 	}
 #endif
 #ifdef ERTS_HAVE_OS_MREMAP
-	if (superaligned)
-	    return remap_move(mm, flags, new_ptr, old_size, sizep);
-	else {
+	if (superaligned) {
+	    return remap_move(mm, flags, ptr, old_size, sizep);
+	} else {
 	    new_ptr = os_mremap(ptr, old_size, asize, 0);
 	    if (!new_ptr)
 		return NULL;
@@ -2130,13 +2154,18 @@ void
 erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
     static int is_first_call = 1;
-    int virtual_map = 0;
     char *start = NULL, *end = NULL;
     UWord pagesize;
+    int virtual_map = 0;
+
+    (void)virtual_map;
+
 #if defined(__WIN32__)
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    pagesize = (UWord) sysinfo.dwPageSize;
+    {
+        SYSTEM_INFO sysinfo;
+        GetSystemInfo(&sysinfo);
+        pagesize = (UWord) sysinfo.dwPageSize;
+    }
 #elif defined(_SC_PAGESIZE)
     pagesize = (UWord) sysconf(_SC_PAGESIZE);
 #elif defined(HAVE_GETPAGESIZE)
@@ -2558,10 +2587,10 @@ static void print_tree(enum SortOrder order, RBTNode*);
 
 /*
  * Checks that the order between parent and children are correct,
- * and that the Red-Black Tree properies are satisfied. if size > 0,
+ * and that the Red-Black Tree properties are satisfied. if size > 0,
  * check_tree() returns the node that satisfies "address order first fit"
  *
- * The Red-Black Tree properies are:
+ * The Red-Black Tree properties are:
  *   1. Every node is either red or black.
  *   2. Every leaf (NIL) is black.
  *   3. If a node is red, then both its children are black.

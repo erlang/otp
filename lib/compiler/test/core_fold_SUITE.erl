@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(core_fold_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -28,7 +29,9 @@
 	 mixed_matching_clauses/1,unnecessary_building/1,
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
-         empty_values/1,cover_letrec_effect/1]).
+         empty_values/1,cover_letrec_effect/1,
+         receive_effect/1,nested_lets/1,
+         map_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -48,8 +51,9 @@ groups() ->
        mixed_matching_clauses,unnecessary_building,
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
-       empty_values,cover_letrec_effect]}].
-
+       empty_values,cover_letrec_effect,
+       receive_effect,nested_lets,
+       map_effect]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -110,6 +114,8 @@ setelement(Config) when is_list(Config) ->
     {a,b,[1,2,3]} = id(setelement(3, {a,b,c}, New)),
     {a,b,[1,2,3]} = id(setelement(3, {a,X,c}, New)),
 
+    {{d,c,b,a,x}, {z,c,b,a,x}} = setelement_cover(erlang:make_tuple(5, x)),
+
     {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
     error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
 
@@ -117,6 +123,14 @@ setelement(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch setelement(3, {a,b}, New)),
 
     ok.
+
+setelement_cover(T0) ->
+    T1 = setelement(4, T0, a),
+    T2 = setelement(3, T1, b),
+    T3 = setelement(2, T2, c),
+    T4 = setelement(1, T3, d),
+    T5 = setelement(1, T3, z),
+    {T4,T5}.
 
 setelement_crash(Tuple) ->
     %% Used to crash the compiler because sys_core_dsetel did not notice that
@@ -307,6 +321,13 @@ coverage(Config) when is_list(Config) ->
 		{_,_} ->
 		    Tuple =:= true
 	    end,
+
+    %% Cover is literal_fun/1.
+    {'EXIT',{{case_clause,42},_}} = (catch cover_is_literal_fun()),
+
+    %% Cover core_lib.
+    ok = cover_core_lib([ok,nok]),
+
     ok.
 
 cover_will_match_list_type(A) ->
@@ -374,13 +395,28 @@ cover_eval_is_function(X) ->
 bsm_an_inlined(<<_:8>>, _) -> ok;
 bsm_an_inlined(_, _) -> error.
 
+cover_is_literal_fun() ->
+    [case id(42) of
+         [] ->
+             try right of
+                 wrong -> true
+             catch
+                 error:_ -> error
+             end
+     end]().
+
+cover_core_lib(Modules) ->
+    R = id(Modules),
+    _ = [id(Error) || Error <- R, element(1, Error) =/= ok],
+    ok.
+
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "unused_multiple_values_error"),
     Opts = [no_copt,clint,ssalint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],
-    {error,[{unused_multiple_values_error,
+    {error,[{"unused_multiple_values_error",
 	     [{none,core_lint,{return_mismatch,{hello,1}}}]}],
      []} = c:c(Core, Opts),
     ok.
@@ -502,7 +538,7 @@ source(true, Activities) ->
 	    Activities
     end.
 
-tim(#{reduction := Emergency}) ->
+tim(#{reduction := _Emergency}) ->
     try
 	fun() -> surgery end
     catch
@@ -532,7 +568,7 @@ configuration(_Config) ->
     ok.
 
 configuration() ->
-    [forgotten || Components <- enemy, is_tuple(fun art/0)].
+    [forgotten || _Components <- enemy, is_tuple(fun art/0)].
 
 art() ->
  creating.
@@ -639,6 +675,204 @@ cover_letrec_effect(_Config) ->
         Any ->
             #{k := {{tag,42},<<42:16>>}} = Any
     end,
+
+    _ = catch cover_letrec_effect_1(),
+    _ = catch cover_letrec_effect_2(),
+
     ok.
+
+cover_letrec_effect_1() ->
+    try
+        _ = catch ""
+    after
+        case any_atom of
+            31 when any_atom, force ->
+                true
+        end,
+        case "RG" of
+            1 when car, cdr, 3; 3, 4 ->
+                false
+        end
+    end.
+
+cover_letrec_effect_2() ->
+    maybe
+	<< ok || ok, _ <- (catch ok)>>,
+	ok
+    end.
+
+receive_effect(_Config) ->
+    self() ! whatever,
+    {} = do_receive_effect(),
+    ok.
+
+do_receive_effect() ->
+    {} = receive _ -> {} = {} end.
+
+nested_lets(_Config) ->
+    {'EXIT',{{case_clause,ok},_}} = catch nested_lets_1(<<42>>),
+    {'EXIT',{badarith,_}} = catch nested_lets_2(id(0), id(0)),
+    {'EXIT',{badarith,_}} = catch nested_lets_3(),
+    {'EXIT',{undef,_}} = catch nested_lets_4(),
+    {'EXIT',{{case_clause,_},_}} = catch nested_lets_5(),
+    {'EXIT',{badarith,_}} = catch nested_lets_6(),
+
+    ok.
+
+%% GH-6572: Deeply nested `let` expressions caused `sys_core_fold` to generate
+%% unsafe code that it would attempt to fix up later. Unfortunately it did so
+%% through a limited fixpoint iteration, and would leak said code once the
+%% limit was hit.
+nested_lets_1(<<X>>) ->
+    Y =
+        case ok of
+            X ->
+                true = (ok > (Y = -1)),
+                <<>> =
+                    {id(
+                       <<
+                         (ok - ok),
+                         (bnot ok),
+                         (nested_lets_1_f() band ok),
+                         (nested_lets_1_f()),
+                         (not ok),
+                         (ok or nested_lets_1_f()),
+                         (id(
+                            id(
+                              <<
+                                (id(
+                                   <<
+                                     (id(
+                                        <<0 || _ <- []>>
+                                       ))
+                                   >>
+                                  ) * ok)
+                              >>
+                             )
+                           ))
+                       >>
+                      )}
+        end.
+
+nested_lets_1_f() ->
+    ok.
+
+%% GH-6612: A variant of GH-6572 that slipped through the initial fix.
+nested_lets_2(X, 0) ->
+    try
+        0 = {
+             _ = 0 + 0,
+             Z = bnot ok,
+             {(_ = ok), (_ = X)}#{ok => ok},
+             ok +
+                 (nested_lets_2_f(
+                    ok +
+                        nested_lets_2_f(
+                          ok +
+                              (nested_lets_2_f(
+                                                (Y =
+                                                     -nested_lets_2_f(
+                                                        #{
+                                                            (ok +
+                                                                 (ok +
+                                                                      nested_lets_2_f(
+                                                                        case
+                                                                            try ok of
+                                                                                _ ->
+                                                                                    fun(_) ->
+                                                                                            ok
+                                                                                    end
+                                                                            after
+                                                                                ok
+                                                                            end
+                                                                        of
+                                                                            #{} ->
+                                                                                ok
+                                                                        end
+                                                                       ))) => ok
+                                                         } > ok
+                                                       ))
+                                ) + ok)
+                         ) >
+                        ok
+                   ))
+            }
+    of
+        _ ->
+            Z;
+        _ ->
+            Y
+    after
+        ok
+    end.
+
+nested_lets_2_f(_) ->
+    ok.
+
+nested_lets_3() ->
+    try ((true = [X | _]) = (ok * (_ = ok))) of
+        _ ->
+            X
+    after
+        ok
+    end.
+
+nested_lets_4() ->
+    try
+        not (case {(_ = ok), (Y = ?MODULE:undef())} of
+            a ->
+                ok;
+            0 ->
+                ok
+        end)
+    of
+        _ ->
+            Y
+    after
+        ok
+    end.
+
+%% GH-6633.
+nested_lets_5() ->
+    case self() of
+        [_ | X] ->
+            ok;
+        false ->
+            {ok#{
+                (X = ok) :=
+                    ((ok /=
+                        maybe
+                            ok
+                        end) =/= ok)
+            }}
+    end,
+    X.
+
+%% GH-6635.
+nested_lets_6() ->
+    try {not (false orelse (ok#{(1 / 0) := ok})), X = ok} of
+        X ->
+            ok
+    after
+        ok
+    end.
+
+map_effect(_Config) ->
+    {'EXIT',{{badkey,key},_}} = catch map_effect_1(),
+
+    {'EXIT',{{badkey,key},_}} = catch map_effect_2(#{}),
+    {'EXIT',{{badmap,no_map},_}} = catch map_effect_2(no_map),
+
+    ok.
+
+map_effect_1() ->
+    #{}#{key := value},
+    ok.
+
+map_effect_2(Map) ->
+    Map#{key := value},
+    ok.
+
+%%% Common utility functions.
 
 id(I) -> I.

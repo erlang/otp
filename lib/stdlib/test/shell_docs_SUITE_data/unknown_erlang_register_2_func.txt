@@ -1,0 +1,31 @@
+
+  [;1m-spec register(RegName, PidOrPort) -> true[0m
+  [;1m                  when RegName :: atom(), PidOrPort :: port() | pid().[0m
+
+  Registers the name [;;4mRegName[0m with a process identifier (pid) or a
+  port identifier in the [;;4mname registry[0m. [;;4mRegName[0m, which must be
+  an atom, can be used instead of the pid or port identifier in send
+  operator ([;;4mRegName ! Message[0m) and most other BIFs that take a pid
+  or port identifies as an argument. Example:
+
+    > register(db, Pid).
+    true
+
+  The registered name is considered a Directly Visible Erlang
+  Resource and is automatically unregistered when the process
+  terminates.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPidOrPort[0m is not an existing local process or port.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mRegName[0m is already in use.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the process or port is already registered (already has a
+    name).
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mRegName[0m is the atom [;;4mundefined[0m.

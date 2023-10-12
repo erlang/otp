@@ -17,114 +17,158 @@
 %% %CopyrightEnd%
 %%
 -module(map_SUITE).
+-feature(maybe_expr, enable).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	init_per_group/2,end_per_group/2
     ]).
 
 -export([
-	%% literals
-	t_build_and_match_literals/1, t_build_and_match_literals_large/1,
-	t_update_literals/1, t_update_literals_large/1,
-        t_match_and_update_literals/1, t_match_and_update_literals_large/1,
-	t_update_map_expressions/1,
-	t_update_assoc/1, t_update_assoc_large/1,
-        t_update_exact/1, t_update_exact_large/1,
-	t_guard_bifs/1,
-        t_guard_sequence/1, t_guard_sequence_large/1,
-        t_guard_update/1, t_guard_update_large/1,
-	t_guard_receive/1, t_guard_receive_large/1,
-        t_guard_fun/1,
-	t_list_comprehension/1,
-	t_map_sort_literals/1,
-	t_map_size/1, t_map_get/1,
-	t_build_and_match_aliasing/1,
-	t_is_map/1,
+         %% literals
+         t_build_and_match_literals/1, t_build_and_match_literals_large/1,
+         t_update_literals/1, t_update_literals_large/1,
+         t_match_and_update_literals/1, t_match_and_update_literals_large/1,
+         t_update_map_expressions/1,
+         t_update_assoc/1, t_update_assoc_large/1,
+         t_update_exact/1, t_update_exact_large/1,
+         t_guard_bifs/1,
+         t_guard_sequence/1, t_guard_sequence_large/1,
+         t_guard_update/1, t_guard_update_large/1,
+         t_guard_receive/1, t_guard_receive_large/1,
+         t_guard_fun/1,
+         t_list_comprehension/1,
+         t_map_sort_literals/1,
+         t_map_size/1, t_map_get/1,
+         t_build_and_match_aliasing/1,
+         t_is_map/1,
 
-	%% variables
-	t_build_and_match_variables/1,
-	t_update_assoc_variables/1,t_update_exact_variables/1,
-	t_nested_pattern_expressions/1,
-	t_guard_update_variables/1,
-	t_guard_sequence_variables/1,
-	t_guard_sequence_mixed/1,
-	t_frequency_table/1,
+         %% variables
+         t_build_and_match_variables/1,
+         t_update_assoc_variables/1,t_update_exact_variables/1,
+         t_nested_pattern_expressions/1,
+         t_guard_update_variables/1,
+         t_guard_sequence_variables/1,
+         t_guard_sequence_mixed/1,
+         t_frequency_table/1,
 
-	%% warnings
-	t_warn_useless_build/1,
-	t_warn_pair_key_overloaded/1,
+         %% warnings
+         t_warn_useless_build/1,
+         t_warn_pair_key_overloaded/1,
 
-	%% not covered in 17.0-rc1
-	t_build_and_match_over_alloc/1,
-	t_build_and_match_empty_val/1,
-	t_build_and_match_val/1,
-	t_build_and_match_nil/1,
-	t_build_and_match_structure/1,
+         %% not covered in 17.0-rc1
+         t_build_and_match_over_alloc/1,
+         t_build_and_match_empty_val/1,
+         t_build_and_match_val/1,
+         t_build_and_match_nil/1,
+         t_build_and_match_structure/1,
 
-	%% errors in 17.0-rc1
-	t_update_values/1,
-        t_expand_map_update/1,
-        t_export/1,
+         %% errors in 17.0-rc1
+         t_update_values/1,
+         t_expand_map_update/1,
+         t_export/1,
 
-	%% errors in 18
-        t_register_corruption/1,
-	t_bad_update/1,
+         %% errors in 18
+         t_register_corruption/1,
+         t_bad_update/1,
 
-        %% new in OTP 21
-        t_reused_key_variable/1
-    ]).
+         %% new in OTP 21
+         t_reused_key_variable/1,
+
+         %% new in OTP 22
+         t_mixed_clause/1,cover_beam_trim/1,
+         t_duplicate_keys/1,
+
+         %% new in OTP 23
+         t_key_expressions/1,
+
+         %% cover more code in beam_call_types
+         t_bif_map_find/1,
+         t_fold_3/1, t_from_keys/1, t_map_2/1, t_maps_take_2/1,
+         t_update_with_3/1, t_update_with_4/1,
+         t_with_2/1,
+
+         %% miscellaneous
+         t_conflicting_destinations/1,
+         t_cse_assoc/1,
+         shared_key_tuples/1,
+         map_aliases/1,
+         coverage/1
+        ]).
+
+-define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+-define(badkey(K, F, Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
+-define(badarg(F, Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
 
 suite() -> [].
 
 all() ->
     [
-	%% literals
-	t_build_and_match_literals, t_build_and_match_literals_large,
-	t_update_literals, t_update_literals_large,
-        t_match_and_update_literals, t_match_and_update_literals_large,
-	t_update_map_expressions,
-	t_update_assoc, t_update_assoc_large,
-        t_update_exact, t_update_exact_large,
-	t_guard_bifs,
-        t_guard_sequence, t_guard_sequence_large,
-        t_guard_update, t_guard_update_large,
-	t_guard_receive, t_guard_receive_large,
-        t_guard_fun, t_list_comprehension,
-	t_map_sort_literals,
-	t_map_size, t_map_get,
-	t_build_and_match_aliasing,
-	t_is_map,
+     %% literals
+     t_build_and_match_literals, t_build_and_match_literals_large,
+     t_update_literals, t_update_literals_large,
+     t_match_and_update_literals, t_match_and_update_literals_large,
+     t_update_map_expressions,
+     t_update_assoc, t_update_assoc_large,
+     t_update_exact, t_update_exact_large,
+     t_guard_bifs,
+     t_guard_sequence, t_guard_sequence_large,
+     t_guard_update, t_guard_update_large,
+     t_guard_receive, t_guard_receive_large,
+     t_guard_fun, t_list_comprehension,
+     t_map_sort_literals,
+     t_map_size, t_map_get,
+     t_build_and_match_aliasing,
+     t_is_map,
 
-	%% variables
-	t_build_and_match_variables,
-	t_update_assoc_variables,t_update_exact_variables,
-	t_nested_pattern_expressions,
-	t_guard_update_variables,
-	t_guard_sequence_variables,
-	t_guard_sequence_mixed,
-	t_frequency_table,
+     %% variables
+     t_build_and_match_variables,
+     t_update_assoc_variables,t_update_exact_variables,
+     t_nested_pattern_expressions,
+     t_guard_update_variables,
+     t_guard_sequence_variables,
+     t_guard_sequence_mixed,
+     t_frequency_table,
 
-	%% warnings
-	t_warn_useless_build,
-	t_warn_pair_key_overloaded,
+     %% warnings
+     t_warn_useless_build,
+     t_warn_pair_key_overloaded,
 
-	%% not covered in 17.0-rc1
-	t_build_and_match_over_alloc,
-	t_build_and_match_empty_val,
-	t_build_and_match_val,
-	t_build_and_match_nil,
-	t_build_and_match_structure,
+     %% not covered in 17.0-rc1
+     t_build_and_match_over_alloc,
+     t_build_and_match_empty_val,
+     t_build_and_match_val,
+     t_build_and_match_nil,
+     t_build_and_match_structure,
 
-	%% errors in 17.0-rc1
-	t_update_values,
-        t_expand_map_update,
-        t_export,
+     %% errors in 17.0-rc1
+     t_update_values,
+     t_expand_map_update,
+     t_export,
 
-	%% errors in 18
-        t_register_corruption,
-        t_bad_update,
+     %% errors in 18
+     t_register_corruption,
+     t_bad_update,
 
-        %% new in OTP 21
-        t_reused_key_variable
+     %% new in OTP 21
+     t_reused_key_variable,
+
+     %% new in OTP 22
+     t_mixed_clause,cover_beam_trim,
+     t_duplicate_keys,
+
+     %% new in OTP 23
+     t_key_expressions,
+
+     %% cover more code
+     t_bif_map_find,
+     t_fold_3, t_from_keys, t_map_2, t_maps_take_2,
+     t_update_with_3, t_update_with_4, t_with_2,
+
+     %% miscellaneous
+     t_conflicting_destinations,
+     t_cse_assoc,
+     shared_key_tuples,
+     map_aliases,
+     coverage
     ].
 
 groups() -> [].
@@ -965,6 +1009,24 @@ t_update_assoc(Config) when is_list(Config) ->
     BadMap = id(badmap),
     {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
     {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
+    F1 = fun() ->
+                 0 #{part => V = false},
+                 V
+         end,
+    {'EXIT',{{badmap,0},_}} = (catch F1()),
+    F2 = fun() ->
+                 case 42 of
+                     V ->
+                         [];
+                     power ->
+                         []#{key =>
+                                 receive
+                                     V -> false
+                                 end}
+                 end,
+                 V
+         end,
+    42 = F2(),
 
     %% Evaluation order.
     {'EXIT',{blurf,_}} =
@@ -1231,6 +1293,10 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_is_key_head_not(#{}),
     false  = map_is_key_head_not(not_a_map),
 
+    b = map_get_head_badmap1(),
+    b = map_get_head_badmap2(),
+    b = map_get_head_badmap3(),
+
     true   = map_guard_body(#{a=>1}),
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
@@ -1305,6 +1371,15 @@ map_get_head(_) -> false.
 map_get_head_not(M) when not map_get(a, M) -> true;
 map_get_head_not(_) -> false.
 
+map_get_head_badmap1() when map_get(key, not_a_map), false -> a;
+map_get_head_badmap1() -> b.
+
+map_get_head_badmap2() when map_get(key, not_a_map), true -> a;
+map_get_head_badmap2() -> b.
+
+map_get_head_badmap3() when map_get(key, not_a_map) -> a;
+map_get_head_badmap3() -> b.
+
 map_is_key_head(M) when is_map_key(a, M) -> true;
 map_is_key_head(_) -> false.
 
@@ -1373,22 +1448,22 @@ map_usage(Def, Used) ->
 
 
 t_guard_sequence(Config) when is_list(Config) ->
-	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
-	{2, "b"} = map_guard_sequence_1(#{seq=>2,val=>id("b")}),
-	{3, "c"} = map_guard_sequence_1(#{seq=>3,val=>id("c")}),
-	{4, "d"} = map_guard_sequence_1(#{seq=>4,val=>id("d")}),
-	{5, "e"} = map_guard_sequence_1(#{seq=>5,val=>id("e")}),
+    {1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
+    {2, "b"} = map_guard_sequence_1(#{seq=>2,val=>id("b")}),
+    {3, "c"} = map_guard_sequence_1(#{seq=>3,val=>id("c")}),
+    {4, "d"} = map_guard_sequence_1(#{seq=>4,val=>id("d")}),
+    {5, "e"} = map_guard_sequence_1(#{seq=>5,val=>id("e")}),
 
-	{1,M1}       = map_guard_sequence_2(M1 = id(#{a=>3})),
-	{2,M2}       = map_guard_sequence_2(M2 = id(#{a=>4, b=>4})),
-	{3,gg,M3}    = map_guard_sequence_2(M3 = id(#{a=>gg, b=>4})),
-	{4,sc,sc,M4} = map_guard_sequence_2(M4 = id(#{a=>sc, b=>3, c=>sc2})),
-	{5,kk,kk,M5} = map_guard_sequence_2(M5 = id(#{a=>kk, b=>other, c=>sc2})),
-	
-	%% error case
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(#{seq=>6,val=>id("e")})),
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
-	ok.
+    {1,M1}       = map_guard_sequence_2(M1 = id(#{a=>3})),
+    {2,M2}       = map_guard_sequence_2(M2 = id(#{a=>4, b=>4})),
+    {3,gg,M3}    = map_guard_sequence_2(M3 = id(#{a=>gg, b=>4})),
+    {4,sc,sc,M4} = map_guard_sequence_2(M4 = id(#{a=>sc, b=>3, c=>sc2})),
+    {5,kk,kk,M5} = map_guard_sequence_2(M5 = id(#{a=>kk, b=>other, c=>sc2})),
+
+    %% error case
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(#{seq=>6,val=>id("e")})),
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
+    ok.
 
 t_guard_sequence_large(Config) when is_list(Config) ->
     M0 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00",03]}=>"10",
@@ -1443,21 +1518,21 @@ t_guard_sequence_large(Config) when is_list(Config) ->
                   18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
                   19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 2" }),
 
-	{1, "a"} = map_guard_sequence_1(M0#{seq=>1,val=>id("a")}),
-	{2, "b"} = map_guard_sequence_1(M0#{seq=>2,val=>id("b")}),
-	{3, "c"} = map_guard_sequence_1(M0#{seq=>3,val=>id("c")}),
-	{4, "d"} = map_guard_sequence_1(M0#{seq=>4,val=>id("d")}),
-	{5, "e"} = map_guard_sequence_1(M0#{seq=>5,val=>id("e")}),
+    {1, "a"} = map_guard_sequence_1(M0#{seq=>1,val=>id("a")}),
+    {2, "b"} = map_guard_sequence_1(M0#{seq=>2,val=>id("b")}),
+    {3, "c"} = map_guard_sequence_1(M0#{seq=>3,val=>id("c")}),
+    {4, "d"} = map_guard_sequence_1(M0#{seq=>4,val=>id("d")}),
+    {5, "e"} = map_guard_sequence_1(M0#{seq=>5,val=>id("e")}),
 
-	{1,M1}       = map_guard_sequence_2(M1 = id(M0#{a=>3})),
-	{2,M2}       = map_guard_sequence_2(M2 = id(M0#{a=>4, b=>4})),
-	{3,gg,M3}    = map_guard_sequence_2(M3 = id(M0#{a=>gg, b=>4})),
-	{4,sc,sc,M4} = map_guard_sequence_2(M4 = id(M0#{a=>sc, b=>3, c=>sc2})),
-	{5,kk,kk,M5} = map_guard_sequence_2(M5 = id(M0#{a=>kk, b=>other, c=>sc2})),
+    {1,M1}       = map_guard_sequence_2(M1 = id(M0#{a=>3})),
+    {2,M2}       = map_guard_sequence_2(M2 = id(M0#{a=>4, b=>4})),
+    {3,gg,M3}    = map_guard_sequence_2(M3 = id(M0#{a=>gg, b=>4})),
+    {4,sc,sc,M4} = map_guard_sequence_2(M4 = id(M0#{a=>sc, b=>3, c=>sc2})),
+    {5,kk,kk,M5} = map_guard_sequence_2(M5 = id(M0#{a=>kk, b=>other, c=>sc2})),
 
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(M0#{seq=>6,val=>id("e")})),
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(M0#{b=>5})),
-        ok.
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(M0#{seq=>6,val=>id("e")})),
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(M0#{b=>5})),
+    ok.
 
 map_guard_sequence_1(#{seq:=1=Seq, val:=Val}) -> {Seq,Val};
 map_guard_sequence_1(#{seq:=2=Seq, val:=Val}) -> {Seq,Val};
@@ -1963,6 +2038,15 @@ t_nested_pattern_expressions(Config) when is_list(Config) ->
     F1 = F0(wat),
     F2 = F1(watzor),
     {yep,ok} = F2(M0),
+
+    %% Test matching of nested maps. There used to be an unsafe optimization in beam_peep.
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        nested_map(),
+
+    InnerMap = #{a => id({a,value})},
+    OuterMap = #{inner_map => InnerMap},
+    #{inner_map := #{a := {a,value}}} = OuterMap,
+
     ok.
 
 map_nested_pattern_funs(M) ->
@@ -1981,6 +2065,10 @@ map_nested_pattern_funs(M) ->
 		    end
 	    end
     end.
+
+nested_map() ->
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        #{ <<"result">> => #{<<"foo">> => <<"6">> } }.
 
 t_guard_update_variables(Config) when is_list(Config) ->
     error  = map_guard_update_variables(n,#{},#{}),
@@ -2079,7 +2167,7 @@ t_register_corruption(Config) when is_list(Config) ->
     {3,wanted,<<"value">>} = register_corruption_foo(wanted,M),
     ok.
 
-register_corruption_foo(A,#{a := V1, b := V2}) ->
+register_corruption_foo(_,#{a := V1, b := V2}) ->
     register_corruption_dummy_call(1,V1,V2);
 register_corruption_foo(A,#{b := V}) ->
     register_corruption_dummy_call(2,A,V);
@@ -2161,6 +2249,380 @@ t_reused_key_variable(Config) when is_list(Config) ->
             ok
     end.
 
+t_mixed_clause(_Config) ->
+    put(fool_inliner, x),
+    K = get(fool_inliner),
+    {42,100} = case #{K=>42,y=>100} of
+                   #{x:=X,y:=Y} ->
+                       {X,Y}
+               end,
+    nomatch = case #{K=>42,y=>100} of
+                  #{x:=X,y:=0} ->
+                      {X,Y};
+                  #{} ->
+                      nomatch
+              end,
+    ok.
+
+cover_beam_trim(_Config) ->
+    val = do_cover_beam_trim(id, max, max, id, #{id=>val}),
+    ok.
+
+do_cover_beam_trim(Id, OldMax, Max, Id, M) ->
+    OldMax = id(Max),
+    #{Id:=Val} = id(M),
+    Val.
+
+t_key_expressions(_Config) ->
+    Int = id(42),
+    #{{tag,Int} := 42} = id(#{{tag,Int} => 42}),
+    #{{tag,Int+1} := 42} = id(#{{tag,Int+1} => 42}),
+    #{{a,b} := x, {tag,Int} := 42, Int := 0} =
+        id(#{{a,b} => x, {tag,Int} => 42, Int => 0}),
+
+    F1 = fun(#{Int + 1 := Val}) -> Val end,
+    val = F1(#{43 => val}),
+    {'EXIT',_} = (catch F1(a)),
+
+    F2 = fun(M, X, Y) ->
+                 case M of
+                     #{element(X, Y) := <<Sz:16,Bin:Sz/binary>>} ->
+                         Bin;
+                     #{} ->
+                         not_found;
+                     {A,B} ->
+                         A + B
+                 end
+         end,
+    <<"xyz">> = F2(#{b => <<3:16,"xyz">>}, 2, {a,b,c}),
+    not_found = F2(#{b => <<3:16,"xyz">>}, 999, {a,b,c}),
+    13 = F2({6,7}, 1, 2),
+
+    #{<<"Спутник"/utf8>> := 1} = id(#{<<"Спутник"/utf8>> => 1}),
+
+    F3 = fun(Arg) ->
+                 erase(once),
+                 RunOnce = fun(I) ->
+                                   undefined = put(once, twice),
+                                   id(I)
+                           end,
+                 case RunOnce(Arg) of
+                     #{{tag,<<Int:42>>} := Value} -> Value;
+                     {X,Y} -> X + Y
+                 end
+         end,
+    10 = F3({7,3}),
+    whatever = F3(#{{tag,<<Int:42>>} => whatever}),
+
+    F4 = fun(K1, K2, M) ->
+                 case M of
+                     #{K1 div K2 := V} -> V;
+                     #{} -> no_match
+                 end
+         end,
+    value = F4(42, 21, #{2 => value}),
+    no_match = F4(42, 21, #{}),
+    no_match = F4(42, 0, #{2 => value}),
+    no_match = F4(42, a, #{2 => value}),
+
+    F5 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{[<<(3 bsr 30 + 2):0,$k:[]/signed-integer>>] := _} ->
+                         ok;
+                     0.5 ->
+                         error
+                 end
+         end,
+    error = F5(0.5),
+
+    F6 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{<<a/utf8>> := {a,b,c}} -> ok;
+                     Other -> {error,Other}
+                 end
+         end,
+    {error,any} = F6(any),
+
+    F7 = fun(Term) ->
+                 self() ! Term,
+                 (?MODULE:all()):a(catch
+                                       receive
+                                           <<1.14:{<<"a":(tuple_size(1))>>}>> ->
+                                               4;
+                                           Other ->
+                                               Other
+                                       end)
+         end,
+    {'EXIT',{badarg,_}} = (catch F7(whatever)),
+
+    ok.
+
+t_duplicate_keys(Config) when is_list(Config) ->
+    Map = #{ gurka => gaffel },
+    Map = dup_keys_1(id(Map)),
+
+    ok = dup_keys_1(#{ '__struct__' => ok }),
+
+    ok.
+
+dup_keys_1(Map) ->
+    case Map of
+        #{'__struct__' := _} ->
+            case Map of
+                #{'__struct__' := _} ->
+                    ok;
+                O1 ->
+                    O1
+            end;
+        O2 ->
+            O2
+    end.
+
+t_fold_3(_Config) ->
+    Vs = lists:seq(1, 200),
+    M0 = maps:from_list([{{k,I},I} || I<-Vs]),
+    #{ {k,1} := 1, {k,200} := 200} = M0,
+    Tot0 = lists:sum(Vs),
+    Tot1 = maps:fold(fun({k,_},V,A) -> A + V end, 0, M0),
+    true = Tot0 =:= Tot1,
+    Tot2 = maps:fold(fun({k,_},V,A) -> A + V end, 0, maps:iterator(M0)),
+    true = Tot0 =:= Tot2,
+
+    %% error case
+    ?badmap(a, fold, [_,0,a]) = catch maps:fold(fun(_,_,_) -> ok end, 0, id(a)),
+    ?badarg(fold, [<<>>,0,#{}]) = catch maps:fold(id(<<>>),0,#{}),
+    ok.
+
+t_from_keys(_Config) ->
+    Map0 = maps:from_keys(["a", 2, {three}], value),
+    3 = map_size(Map0),
+    #{"a":=value,2:=value,{three}:=value} = Map0,
+
+    Map1 = maps:from_keys([1, 2, 2], {complex,value}),
+    2 = map_size(Map1),
+    #{1:={complex,value},2:={complex,value}} = Map1,
+
+    Map2 = maps:from_keys([], value),
+    0 = map_size(Map2),
+
+    ?badarg(from_keys, [[a|b],value]) = catch maps:from_keys([a|b], value),
+    ?badarg(from_keys, [not_list,value]) = catch maps:from_keys(not_list, value),
+    ok.
+
+t_map_2(_Config) ->
+    Vs = lists:seq(1,200),
+    M0 = maps:from_list([{{k,I},I}||I<-Vs]),
+    #{ {k,1} := 1, {k,200} := 200} = M0,
+    M1 = maps:map(fun({k,_},V) -> V + 42 end, M0),
+    #{ {k,1} := 43, {k,200} := 242} = M1,
+    M2 = maps:map(fun({k,_},V) -> V + 42 end, maps:iterator(M0)),
+    #{ {k,1} := 43, {k,200} := 242} = M2,
+
+    %% error case
+    ?badmap(a, map, [_,a]) = catch maps:map(fun(_,_) -> ok end, id(a)),
+    ?badarg(map, [<<>>,#{}]) = catch maps:map(id(<<>>), #{}),
+    ok.
+
+t_maps_take_2(_Config) ->
+    {yes,Map0} = maps:take(a, #{a => yes, b => no}),
+    true = Map0 =:= #{b => no},
+
+    error = maps:take(a, #{b => no}),
+
+    NotMap = not_map(b),
+    {'EXIT',{{badmap,b},_}} = catch maps:take(a, b),
+
+    ok.
+
+not_map(Term) -> Term.
+
+t_update_with_3(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
+
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1, Fun, Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2, Fun, Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3", Fun, Map),
+
+    %% error case
+    ?badmap(b, update_with, [[a,b],a,b]) = catch maps:update_with([a,b], id(a), b),
+    ?badarg(update_with, [[a,b],a,#{}]) = catch maps:update_with([a,b], id(a), #{}),
+    ?badkey([a,b], update_with, [[a,b],Fun,#{}]) = catch maps:update_with([a,b], Fun,#{}),
+    ok.
+
+t_update_with_4(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
+    Init = 3,
+
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1, Fun, Init, Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2, Fun, Init, Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3", Fun, Init, Map),
+
+    #{ key3 := Init } = maps:update_with(key3, Fun, Init, Map),
+
+    %% error case
+    ?badmap(b, update_with, [[a,b],a,b]) = catch maps:update_with([a,b],id(a), b),
+    ?badarg(update_with, [[a,b],a,#{}]) = catch maps:update_with([a,b], id(a), #{}),
+    ok.
+
+t_with_2(_Config) ->
+    Ki = [11,22,33,44,55,66,77,88,99],
+    M0 = maps:from_list([{{k,I},{v,I}} || I <- lists:seq(1, 100)]),
+    M1 = maps:from_list([{{k,I},{v,I}} || I <- Ki]),
+    M1 = maps:with([{k,I} || I <- Ki], M0),
+
+    %% error case
+    ?badmap(a, with, [[a,b],a]) = catch maps:with([a,b], id(a)),
+    ?badmap(a, with, [{a,b},a]) = catch maps:with({a,b}, id(a)),
+    ?badmap({0,<<>>,97}, with, [[],{0,<<>>,97}]) = catch maps:with([], {0,<<>>,97}),
+    ?badmap({0,<<>>,97}, with, [[false, -20, -8],{0,<<>>,97}]) = catch maps:with([false, -20, -8], {0, <<>>, 97}),
+    ?badarg(with, [a,#{}]) = catch maps:with(a,#{}),
+    ok.
+
+t_bif_map_find(Config) when is_list(Config) ->
+    {ok, 1}     = maps:find(a, #{ a=> 1}),
+    {ok, 2}     = maps:find(b, #{ a=> 1, b => 2}),
+    {ok, "int"} = maps:find(1, #{ 1   => "int"}),
+    {ok, "float"} = maps:find(1.0, #{ 1.0=> "float"}),
+
+    {ok, "hi"} = maps:find("hello", #{ a=>1, "hello" => "hi"}),
+    {ok, "tuple hi"} = maps:find({1,1.0}, #{ a=>a, {1,1.0} => "tuple hi"}),
+
+    M0 = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    {ok, "v4"} = maps:find(<<"k2">>, M0#{ <<"k2">> => "v4" }),
+
+
+    %% error case
+    error = maps:find(a, #{}),
+    error = maps:find(a, #{b=>1, c=>2}),
+    error = maps:find(1.0, #{ 1 => "int"}),
+    error = maps:find(1, #{ 1.0  => "float"}),
+    error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
+
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{maps,find,_,_}|_]}} =
+			  catch maps:find(a, T)
+	      end),
+    ok.
+
+t_conflicting_destinations(_Config) ->
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{[something] => 42}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true,
+                             #{} => <<0>>,
+                             [something] => 42}),
+    ok.
+
+do_conflicts(#{{tag,whatever} := true,
+               #{} := <<bad_integer,0:(is_integer(a))>>} =
+                 #{[something] := 42}) ->
+    ok.
+
+t_cse_assoc(_Config) ->
+    {'EXIT',{{case_clause,#{key:=any}},_}} = catch do_cse_assoc(id(any)),
+
+    {'EXIT',{{case_clause,#{key:=value}},_}} = catch do_cse_assoc(id(#{}), id(value)),
+    42 = do_cse_assoc(id(#{assoc => 42}), id(any)),
+
+    ok.
+
+do_cse_assoc(V) ->
+    case #{key => V} of
+        #{assoc := Assoc} ->
+            %% The CSE optimization would consider the first two arguments in
+            %% the argument for `put_map` to be the key `alloc` and the value
+            %% `#{}`.
+            Assoc
+    end.
+
+do_cse_assoc(M, V) ->
+    case M#{key => V} of
+        #{assoc := Assoc} ->
+            Assoc
+    end.
+
+shared_key_tuples(_Config) ->
+    A = decimal(0),
+    B = decimal(1),
+
+    case ?MODULE of
+        map_inline_SUITE ->
+            %% With inlining, two separate map literals will be created. They
+            %% will not share keys.
+            ok;
+        _ ->
+            %% The two instances should share the key tuple.
+            true = erts_debug:same(erts_internal:map_to_tuple_keys(A),
+                                   erts_internal:map_to_tuple_keys(B))
+    end,
+    ok.
+
+decimal(Int) ->
+    #{type => decimal, int => Int, exp => 0}.
+
+%% GH-6348/OTP-18297: Extend parallel matching of maps.
+map_aliases(_Config) ->
+    F1 = fun(M) ->
+                 #{K := V} = #{k := {a,K}} = M,
+                 V
+         end,
+    value = F1(id(#{k => {a,key}, key => value})),
+
+    F2 = fun(#{} = #{}) -> ok end,
+    ok = F2(id(#{})),
+    ok = F2(id(#{key => whatever})),
+
+    F3 = fun(#{a := V} = #{}) -> V end,
+    {a,b,c} = F3(id(#{a => {a,b,c}})),
+
+    F4 = fun(Map) ->
+                 [#{Key := Value} | _] = [_ | Key] = id(Map),
+                 Value
+         end,
+    bar = F4([#{foo => bar} | foo]),
+
+    F5 = fun(Map) ->
+                 {#{Key := Value}, _} = {_, Key} = id(Map),
+                 Value
+         end,
+    light = F5({#{frotz => light}, frotz}),
+
+    F6 = fun(E) ->
+                 #{Y := _} = (Y = ((_ = X) = E))
+         end,
+    {'EXIT',{{badmatch,0},_}} = catch F6(id(0)),
+    {'EXIT',{{badmatch,#{}},_}} = catch F6(id(#{})),
+    {'EXIT',{{badmatch,#{key := value}},_}} = catch F6(id(#{key => value})),
+
+    ok.
+
+coverage(_Config) ->
+    {'EXIT',{{badmatch,ok},_}} = catch coverage_1(),
+
+    ok.
+
+coverage_1() ->
+    %% Cover beam_block:simplify_get_map_elements/4 when the type
+    %% optimization pass is disabled.
+    try #{ok := _V5, ok := _V4} = (maybe ok end) of
+        #{ok := _V7, _V5 := _V7, ok := _V6, _V4 := _V6}  ->
+            ok
+    after
+        ok
+    end.
+
 %% aux
 
 rand_terms(0) -> [];
@@ -2219,7 +2681,11 @@ rand_map() ->
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }
     end.
 
-
+do_badmap(Test) ->
+    Terms = [Test,fun erlang:abs/1,make_ref(),self(),0.0/id(-1),
+	     <<0:1024>>,<<1:1>>,<<>>,<<1,2,3>>,
+	     [],{a,b,c},[a,b],atom,10.0,42,(1 bsl 65) + 3],
+    [Test(T) || T <- Terms].
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

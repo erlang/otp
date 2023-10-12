@@ -1,0 +1,25 @@
+
+  [;1m-spec apply(Module, Function, Args) -> term()[0m
+  [;1m               when[0m
+  [;1m                   Module :: module(),[0m
+  [;1m                   Function :: atom(),[0m
+  [;1m                   Args :: [term()].[0m
+
+  Returns the result of applying [;;4mFunction[0m in [;;4mModule[0m to [;;4mArgs[0m.
+  The applied function must be exported from [;;4mModule[0m. The arity of
+  the function is the length of [;;4mArgs[0m. Example:
+
+    > apply(lists, reverse, [[a, b, c]]).
+    [c,b,a]
+    > apply(erlang, atom_to_list, ['Erlang']).
+    "Erlang"
+
+  If the number of arguments are known at compile time, the call is
+  better written as [;;4mModule:Function(Arg1, Arg2, ..., ArgN)[0m.
+
+  Failure: [;;4merror_handler:undefined_function/3[0m is called if the
+  applied function is not exported. The error handler can be
+  redefined (see [;;4mprocess_flag/2[0m). If [;;4merror_handler[0m is undefined,
+  or if the user has redefined the default [;;4merror_handler[0m so the
+  replacement module is undefined, an error with reason [;;4mundef[0m is
+  generated.

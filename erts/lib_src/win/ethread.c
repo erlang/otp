@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ static unsigned __stdcall thr_wrapper(LPVOID vtwd)
 
     ethr_set_stacklimit__(&c, twd->stacksize);
 
-    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep, 0);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
@@ -607,6 +607,30 @@ ethr_tsd_get(ethr_tsd_key key)
  */
 
 ethr_ts_event *
+ethr_lookup_ts_event__(int busy_dup)
+{
+    return ethr_lookup_ts_event____(busy_dup);
+}
+
+ethr_ts_event *
+ethr_peek_ts_event(void)
+{
+    return ethr_peek_ts_event__();
+}
+
+void
+ethr_unpeek_ts_event(ethr_ts_event *tsep)
+{
+    ethr_unpeek_ts_event__(tsep);
+}
+
+ethr_ts_event *
+ethr_use_ts_event(ethr_ts_event *tsep)
+{
+    return ethr_use_ts_event__(tsep);
+}
+
+ethr_ts_event *
 ethr_get_ts_event(void)
 {
     return ethr_get_ts_event__();
@@ -618,10 +642,3 @@ ethr_leave_ts_event(ethr_ts_event *tsep)
     ethr_leave_ts_event__(tsep);
 }
 
-ethr_ts_event *
-ethr_create_ts_event__(void)
-{
-    ethr_ts_event *tsep;
-    ethr_make_ts_event__(&tsep);
-    return tsep;
-}

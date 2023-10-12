@@ -1,0 +1,29 @@
+
+  [;1m-spec monitor_node(Node, Flag) -> true[0m
+  [;1m                      when Node :: node(), Flag :: boolean().[0m
+
+  Monitor the status of the node [;;4mNode[0m. If [;;4mFlag[0m is [;;4mtrue[0m,
+  monitoring is turned on. If [;;4mFlag[0m is [;;4mfalse[0m, monitoring is
+  turned off.
+
+  Making several calls to [;;4mmonitor_node(Node, true)[0m for the same [;;4m[0m
+  [;;4mNode[0m is not an error; it results in as many independent
+  monitoring instances.
+
+  If [;;4mNode[0m fails or does not exist, the message [;;4m{nodedown, Node}[0m
+  is delivered to the process. If a process has made two calls to [;;4m[0m
+  [;;4mmonitor_node(Node, true)[0m and [;;4mNode[0m terminates, two [;;4mnodedown[0m
+  messages are delivered to the process. If there is no connection
+  to [;;4mNode[0m, an attempt is made to create one. If this fails, a [;;4m[0m
+  [;;4mnodedown[0m message is delivered.
+
+  The delivery of the [;;4mnodedown[0m signal is not ordered with respect
+  to other link or monitor signals from the node that goes down. If
+  you need a guarantee that all signals from the remote node has
+  been delivered before the [;;4mnodedown[0m signal is sent, you should
+  use [;;4mnet_kernel:monitor_nodes/1[0m.
+
+  Nodes connected through hidden connections can be monitored as any
+  other nodes.
+
+  Failure: [;;4mnotalive[0m if the local node is not alive.

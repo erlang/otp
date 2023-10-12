@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{seconds,10}}].
 
 all() ->
     [{group, start},
@@ -37,11 +37,15 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, state_enter, event_order,
-     state_timeout, event_types, generic_timers, code_change,
+     shutdown, loop_start_fail, stop_and_reply, state_enter, event_order,
+     state_timeout, timeout_cancel_and_update,
+     event_types, generic_timers, code_change,
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_terminate].
+     undef_in_terminate, {group, format_log},
+     reply_by_alias_with_payload,
+     send_request_receive_reqid_collection, send_request_wait_reqid_collection,
+     send_request_check_reqid_collection].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -51,11 +55,13 @@ groups() ->
      {abnormal, [], tcs(abnormal)},
      {abnormal_handle_event, [], tcs(abnormal)},
      {sys, [], tcs(sys)},
+     {format_status, [], tcs(format_status)},
      {sys_handle_event, [], tcs(sys)},
-     {undef_callbacks, [], tcs(undef_callbacks)}].
+     {undef_callbacks, [], tcs(undef_callbacks)},
+     {format_log, [], tcs(format_log)}].
 
 tcs(start) ->
-    [start1, start2, start3, start4, start5, start6, start7,
+    [start1, start2, start3, start4, start5a, start5b, start6, start7,
      start8, start9, start10, start11, start12, next_events];
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
@@ -63,11 +69,15 @@ tcs(abnormal) ->
     [abnormal1, abnormal1clean, abnormal1dirty,
      abnormal2, abnormal3, abnormal4];
 tcs(sys) ->
-    [sys1, call_format_status,
-     error_format_status, terminate_crash_format,
-     get_state, replace_state];
+    [sys1, {group, format_status}, get_state, replace_state];
+tcs(format_status) ->
+    [call_format_status, error_format_status, terminate_crash_format,
+     format_all_status];
 tcs(undef_callbacks) ->
-    [undef_code_change, undef_terminate1, undef_terminate2].
+    [undef_code_change, undef_terminate1, undef_terminate2,
+     pop_too_many];
+tcs(format_log) ->
+    [format_log_1, format_log_2].
 
 init_per_suite(Config) ->
     Config.
@@ -82,9 +92,13 @@ init_per_group(GroupName, Config)
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
 init_per_group(undef_callbacks, Config) ->
-    DataDir = ?config(data_dir, Config),
-    StatemPath = filename:join(DataDir, "oc_statem.erl"),
-    {ok, oc_statem} = compile:file(StatemPath),
+    try compile_oc_statem(Config)
+    catch Class : Reason : Stacktrace ->
+             {fail,{Class,Reason,Stacktrace}}
+    end,
+    Config;
+init_per_group(sys, Config) ->
+    compile_format_status_statem(Config),
     Config;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -97,6 +111,9 @@ init_per_testcase(_CaseName, Config) ->
 %%%    dbg:tracer(),
 %%%    dbg:p(all, c),
 %%%    dbg:tpl(gen_statem, cx),
+%%%    dbg:tpl(gen_statem, loop_receive, cx),
+%%%    dbg:tpl(gen_statem, loop_state_callback, cx),
+%%%    dbg:tpl(gen_statem, loop_callback_mode_result, cx),
 %%%    dbg:tpl(proc_lib, cx),
 %%%    dbg:tpl(gen, cx),
 %%%    dbg:tpl(sys, cx),
@@ -105,6 +122,18 @@ init_per_testcase(_CaseName, Config) ->
 end_per_testcase(_CaseName, Config) ->
 %%%    dbg:stop(),
     Config.
+
+compile_oc_statem(Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "oc_statem.erl"),
+    {ok, oc_statem} = compile:file(StatemPath),
+    ok.
+
+compile_format_status_statem(Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "format_status_statem.erl"),
+    {ok, format_status_statem} = compile:file(StatemPath),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(EXPECT_FAILURE(Code, Reason),
@@ -131,8 +160,18 @@ start1(Config) ->
 %%	?EXPECT_FAILURE(gen_statem:call(Pid0, hej), Reason),
 
     %%process_flag(trap_exit, OldFl),
-    ok = verify_empty_msgq().
+    ok = verify_empty_msgq(),
 
+    {ok,{Pid1,Mon1}} = gen_statem:start_monitor(?MODULE, start_arg(Config, []), []),
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    stop_it(Pid1),
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+    ok = verify_empty_msgq().
+    
 %% anonymous w. shutdown
 start2(Config) ->
     %% Dont link when shutdown
@@ -171,10 +210,20 @@ start4(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with stop
-start5(Config) ->
+start5a(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% anonymous with shutdown
+start5b(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {error, foobar} =
+        gen_statem:start(?MODULE, start_arg(Config, {error, foobar}), []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -188,7 +237,7 @@ start6(Config) ->
 
     ok = verify_empty_msgq().
 
-%% global register linked
+%% global register linked & monitored
 start7(Config) ->
     STM = {global,my_stm},
 
@@ -198,12 +247,36 @@ start7(Config) ->
 	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
     {error,{already_started,Pid}} =
 	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
     ok = do_func_test(STM),
     ok = do_sync_func_test(STM),
     stop_it(STM),
+
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(STM),
+    ok = do_sync_func_test(STM),
+    stop_it(STM),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
 
     ok = verify_empty_msgq().
 
@@ -228,7 +301,7 @@ start8(Config) ->
     %%process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
 
-%% local register linked
+%% local register linked & monitored
 start9(Config) ->
     %%OldFl = process_flag(trap_exit, true),
     Name = my_stm,
@@ -246,6 +319,24 @@ start9(Config) ->
     stop_it(Pid),
 
     %%process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(Name),
+    ok = do_sync_func_test(Name),
+    stop_it(Pid1),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+
     ok = verify_empty_msgq().
 
 %% global register
@@ -387,19 +478,19 @@ stop7(Config) ->
 
 %% Anonymous on remote node
 stop8(Config) ->
-    Node = gen_statem_stop8,
-    {ok,NodeName} = ct_slave:start(Node),
+    {ok,Peer,NodeName} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName, code, add_path, [Dir]),
+    rpc:block_call(NodeName, code, add_path, [Dir]),
     {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem,start,
-	  [?MODULE,start_arg(Config, []),[]]),
+        rpc:block_call(
+          NodeName, gen_statem,start,
+          [?MODULE,start_arg(Config, []),[]]),
     ok = gen_statem:stop(Pid),
-    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
+    false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
     noproc =
-	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+        ?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
+
+    peer:stop(Peer),
     {{nodedown,NodeName},{sys,terminate,_}} =
 	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason2),
     ok.
@@ -408,42 +499,43 @@ stop8(Config) ->
 stop9(Config) ->
     Name = to_stop,
     LocalSTM = {local,Name},
-    Node = gen_statem__stop9,
-    {ok,NodeName} = ct_slave:start(Node),
+    {ok,Peer,NodeName} = ?CT_PEER(),
+
     STM = {Name,NodeName},
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName, code, add_path, [Dir]),
+    rpc:block_call(NodeName, code, add_path, [Dir]),
     {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem, start,
-	  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
+        rpc:block_call(
+          NodeName, gen_statem, start,
+          [LocalSTM,?MODULE,start_arg(Config, []),[]]),
     ok = gen_statem:stop(STM),
-    undefined = rpc:call(NodeName,erlang,whereis,[Name]),
-    false = rpc:call(NodeName,erlang,is_process_alive,[Pid]),
+    undefined = rpc:block_call(NodeName,erlang,whereis,[Name]),
+    false = rpc:block_call(NodeName,erlang,is_process_alive,[Pid]),
     noproc =
-	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+        ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
+    peer:stop(Peer),
+
     {{nodedown,NodeName},{sys,terminate,_}} =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
 
 %% Globally registered name on remote node
 stop10(Config) ->
-    Node = gen_statem_stop10,
     STM = {global,to_stop},
-    {ok,NodeName} = ct_slave:start(Node),
+    {ok,Peer,NodeName} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(NodeName,code,add_path,[Dir]),
+    rpc:block_call(NodeName,code,add_path,[Dir]),
     {ok,Pid} =
-	rpc:call(
-	  NodeName, gen_statem, start,
-	  [STM,?MODULE,start_arg(Config, []),[]]),
+        rpc:block_call(
+          NodeName, gen_statem, start,
+          [STM,?MODULE,start_arg(Config, []),[]]),
     global:sync(),
     ok = gen_statem:stop(STM),
-    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
+    false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
     noproc =
-	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    {ok,NodeName} = ct_slave:stop(Node),
+        ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
+    peer:stop(Peer),
+
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
@@ -457,13 +549,13 @@ abnormal1(Config) ->
 	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
 
     %% timeout call.
-    delayed = gen_statem:call(Name, {delayed_answer,1}, 100),
+    delayed = gen_statem:call(Name, {delayed_answer,100}, 2000),
     {timeout,_} =
 	?EXPECT_FAILURE(
-	   gen_statem:call(Name, {delayed_answer,1000}, 10),
+	   gen_statem:call(Name, {delayed_answer,2000}, 100),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     ok = verify_empty_msgq().
 
 %% Check that time outs in calls work
@@ -483,7 +575,7 @@ abnormal1clean(Config) ->
 	     Name, {delayed_answer,1000}, {clean_timeout,10}),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     ok = verify_empty_msgq().
 
 %% Check that time outs in calls work
@@ -503,23 +595,25 @@ abnormal1dirty(Config) ->
 	     Name, {delayed_answer,1000}, {dirty_timeout,10}),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     case flush() of
-	[{Ref,delayed}] when is_reference(Ref) ->
-	    ok
+	[] -> ok
     end.
 
 %% Check that bad return values makes the stm crash. Note that we must
 %% trap exit since we must link to get the real bad_return_ error
 abnormal2(Config) ->
     OldFl = process_flag(trap_exit, true),
-    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} =
+        gen_statem:start_link(
+          ?MODULE, start_arg(Config, []), [{debug,[log]}]),
 
     %% bad return value in the gen_statem loop
-    {{{bad_return_from_state_function,badreturn},_},_} =
+    Cause = bad_return_from_state_function,
+    {{{Cause,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
-	{'EXIT',Pid,{{bad_return_from_state_function,badreturn},_}} -> ok
+	{'EXIT',Pid,{{Cause,badreturn},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -531,13 +625,16 @@ abnormal2(Config) ->
 %% trap exit since we must link to get the real bad_return_ error
 abnormal3(Config) ->
     OldFl = process_flag(trap_exit, true),
-    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} =
+        gen_statem:start_link(
+          ?MODULE, start_arg(Config, []), [{debug,[log]}]),
 
     %% bad return value in the gen_statem loop
-    {{{bad_action_from_state_function,badaction},_},_} =
+    Cause = bad_action_from_state_function,
+    {{{Cause,badaction},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badaction), Reason),
     receive
-	{'EXIT',Pid,{{bad_action_from_state_function,badaction},_}} -> ok
+	{'EXIT',Pid,{{Cause,badaction},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -549,14 +646,17 @@ abnormal3(Config) ->
 %% trap exit since we must link to get the real bad_return_ error
 abnormal4(Config) ->
     OldFl = process_flag(trap_exit, true),
-    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} =
+        gen_statem:start_link(
+          ?MODULE, start_arg(Config, []), [{debug,[log]}]),
 
     %% bad return value in the gen_statem loop
     BadTimeout = {badtimeout,4711,ouch},
-    {{{bad_action_from_state_function,BadTimeout},_},_} =
-	?EXPECT_FAILURE(gen_statem:call(Pid, BadTimeout), Reason),
+    Cause = bad_action_from_state_function,
+    {{{Cause,BadTimeout},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, {badtimeout,BadTimeout}), Reason),
     receive
-	{'EXIT',Pid,{{bad_action_from_state_function,BadTimeout},_}} -> ok
+	{'EXIT',Pid,{{Cause,BadTimeout},_}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -584,6 +684,53 @@ shutdown(Config) ->
     after 500 ->
 	    ok
     end.
+
+
+loop_start_fail(Config) ->
+    _ = process_flag(trap_exit, true),
+    loop_start_fail(
+      Config,
+      [{start, []}, {start, [link]},
+       {start_link, []},
+       {start_monitor, [link]}, {start_monitor, []}]).
+
+loop_start_fail(_Config, []) ->
+    ok;
+loop_start_fail(Config, [{Start, Opts} | Start_Opts]) ->
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, {stop, failed_to_start}}}, Opts,
+      fun ({error, failed_to_start}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, ignore}}, Opts,
+      fun (ignore) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, 4711}}, Opts,
+      fun ({error, {bad_return_from_init, 4711}}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, error, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, exit, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {wait, 1000, void}}, [{timeout, 200} | Opts],
+      fun ({error, timeout}) -> ok end),
+    loop_start_fail(Config, Start_Opts).
+
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun) ->
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, 5).
+%%
+loop_start_fail(_GenStartFun, _Arg, _Opts, _ValidateFun, 0) ->
+    ok;
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N) ->
+    ok = ValidateFun(GenStartFun(?MODULE, Arg, Opts)),
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N - 1).
 
 
 
@@ -689,7 +836,10 @@ state_enter(_Config) ->
 	      end},
     {ok,STM} =
 	gen_statem:start_link(
-	  ?MODULE, {map_statem,Machine,[state_enter]}, [{debug,[trace]}]),
+	  ?MODULE, {map_statem,Machine,[state_enter]},
+          [{debug,[trace,{log,17}]}]),
+    ok = sys:log(STM, false),
+    ok = sys:log(STM, true),
 
     [{1,enter,start,start}] = flush(),
     {2,echo,start} = gen_statem:call(STM, echo),
@@ -708,6 +858,11 @@ state_enter(_Config) ->
      {13,internal,start,wait}] = flush(),
     {14,repeat,start} = gen_statem:call(STM, repeat),
     [{15,enter,start,start}] = flush(),
+
+    {ok,Log} = sys:log(STM, get),
+    io:format("sys:log ~p~n", [Log]),
+    ok = sys:log(STM, print),
+
     {16,stop} = gen_statem:call(STM, {stop,bye}),
     [{'EXIT',STM,bye}] = flush(),
 
@@ -808,7 +963,8 @@ state_timeout(_Config) ->
 		      self() ! message_to_self,
 		      {next_state, state1, {Time,From},
 		       %% Verify that internal events goes before external
-		       [{state_timeout,Time,1},
+		       [{timeout,Time,1}, % Exercise different cancel code path
+                        {state_timeout,Time,1},
 			{next_event,internal,1}]}
 	      end,
 	  state1 =>
@@ -836,13 +992,11 @@ state_timeout(_Config) ->
 		       [{timeout,0,4},{state_timeout,0,5}]};
 		  (timeout, 4, {ok,3,Data}) ->
 		      %% Verify that timeout 0 is cancelled by
-		      %% enqueued state_timeout 0 and that
-		      %% multiple state_timeout 0 can be enqueued
+		      %% a state_timeout 0 event and that
+		      %% state_timeout 0 can be restarted
 		      {keep_state, {ok,4,Data},
 		       [{state_timeout,0,6},{timeout,0,7}]};
-		  (state_timeout, 5, {ok,4,Data}) ->
-		      {keep_state, {ok,5,Data}};
-		  (state_timeout, 6, {ok,5,{Time,From}}) ->
+		  (state_timeout, 6, {ok,4,{Time,From}}) ->
 		      {next_state, state3, 6,
 		       [{reply,From,ok},
 			{state_timeout,Time,8}]}
@@ -858,8 +1012,9 @@ state_timeout(_Config) ->
 		       {reply,From,ok}}
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
-    sys:trace(STM, true),
+    {ok,STM} =
+        gen_statem:start_link(
+          ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
     TRef = erlang:start_timer(1000, self(), kull),
     ok = gen_statem:call(STM, {go,500}),
     ok = gen_statem:call(STM, check),
@@ -882,6 +1037,88 @@ state_timeout(_Config) ->
     end,
 
     verify_empty_msgq().
+
+
+
+timeout_cancel_and_update(_Config) ->
+    process_flag(trap_exit, true),
+    %%
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,0}
+	      end,
+	  start =>
+	      fun
+		  ({call,From}, test, 0)  ->
+		      self() ! message_to_self,
+		      {next_state, state1, From,
+		       %% Verify that internal events goes before external
+		       [{state_timeout,17,1},
+			{next_event,internal,1}]}
+	      end,
+	  state1 =>
+	      fun
+		  (internal, 1, _) ->
+                      {keep_state_and_data,
+                       [{state_timeout,cancel},
+                        {{timeout,a},17,1}]};
+                  (info, message_to_self, _) ->
+                      {keep_state_and_data,
+                       [{{timeout,a},update,a}]};
+                  ({timeout,a}, a, Data) ->
+                      {next_state,state2,Data,
+                       [{state_timeout,17,2},
+                        {next_event,internal,2}]}
+              end,
+	  state2 =>
+	      fun
+		  (internal, 2, _) ->
+                      receive after 50 -> ok end,
+                      %% Now state_timeout 17 should have triggered
+                      {keep_state_and_data,
+                       [{state_timeout,update,b},
+                        {timeout,17,2}]};
+                  (state_timeout, b, From) ->
+                      {next_state,state3,3,
+                       [{reply,From,ok},
+                        17000]}
+	      end,
+          state3 =>
+              fun
+                  ({call,From}, stop, 3) ->
+                      {stop_and_reply, normal,
+                       [{reply,From,ok}]}
+              end
+         },
+    %%
+    {ok,STM} =
+        gen_statem:start_link(
+          ?MODULE, {map_statem,Machine,[]}, [{debug,[trace]}]),
+    ok = gen_statem:call(STM, test),
+    {status, STM, {module,gen_statem}, Info} = sys:get_status(STM),
+    ct:log("Status info: ~p~n", [Info]),
+    {_,Timeouts} = dig_data_tuple(Info),
+    {_, {1,[{timeout,17000}]}} = lists:keyfind("Time-outs", 1, Timeouts),
+    %%
+    ok = gen_statem:call(STM, stop),
+    receive
+	{'EXIT',STM,normal} ->
+	    ok
+    after 500 ->
+	    ct:fail(did_not_stop)
+    end,
+    %%
+    verify_empty_msgq().
+
+dig_data_tuple([{data,_} = DataTuple|_]) -> DataTuple;
+dig_data_tuple([H|T]) when is_list(H) ->
+    case dig_data_tuple(H) of
+        false -> dig_data_tuple(T);
+        DataTuple -> DataTuple
+    end;
+dig_data_tuple([_|T]) -> dig_data_tuple(T);
+dig_data_tuple([]) -> false.
 
 
 
@@ -1028,7 +1265,8 @@ generic_timers(_Config) ->
 
 sys1(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
-    {status, Pid, {module,gen_statem}, _} = sys:get_status(Pid),
+    {status, Pid, {module,gen_statem}, Info} = sys:get_status(Pid),
+    ct:log("Status info: ~p~n", [Info]),
     sys:suspend(Pid),
     Parent = self(),
     Tag = make_ref(),
@@ -1063,20 +1301,24 @@ code_change(_Config) ->
     stop_it(Pid).
 
 call_format_status(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    call_format_status(Config,?MODULE,format_status_called),
+    call_format_status(Config, format_status_statem,
+                       {data,[{"State",{format_status_called,format_data}}]}).
+call_format_status(Config, Module, Match) ->
+    {ok,Pid} = gen_statem:start(Module, start_arg(Config, []), []),
     Status = sys:get_status(Pid),
     {status,Pid,_Mod,[_PDict,running,_,_, Data]} = Status,
-    [format_status_called|_] = lists:reverse(Data),
+    [Match|_] = lists:reverse(Data),
     stop_it(Pid),
 
     %% check that format_status can handle a name being an atom (pid is
     %% already checked by the previous test)
     {ok, Pid2} =
 	gen_statem:start(
-	  {local, gstm}, ?MODULE, start_arg(Config, []), []),
+	  {local, gstm}, Module, start_arg(Config, []), []),
     Status2 = sys:get_status(gstm),
-    {status,Pid2,_Mod,[_PDict2,running,_,_,Data2]} = Status2,
-    [format_status_called|_] = lists:reverse(Data2),
+    {status,Pid2,Mod,[_PDict2,running,_,_,Data2]} = Status2,
+    [Match|_] = lists:reverse(Data2),
     stop_it(Pid2),
 
     %% check that format_status can handle a name being a term other than a
@@ -1084,47 +1326,54 @@ call_format_status(Config) ->
     GlobalName1 = {global,"CallFormatStatus"},
     {ok,Pid3} =
 	gen_statem:start(
-	  GlobalName1, ?MODULE, start_arg(Config, []), []),
+	  GlobalName1, Module, start_arg(Config, []), []),
     Status3 = sys:get_status(GlobalName1),
-    {status,Pid3,_Mod,[_PDict3,running,_,_,Data3]} = Status3,
-    [format_status_called|_] = lists:reverse(Data3),
+    {status,Pid3,Mod,[_PDict3,running,_,_,Data3]} = Status3,
+    [Match|_] = lists:reverse(Data3),
     stop_it(Pid3),
     GlobalName2 = {global,{name, "term"}},
     {ok,Pid4} =
 	gen_statem:start(
-	  GlobalName2, ?MODULE, start_arg(Config, []), []),
+	  GlobalName2, Module, start_arg(Config, []), []),
     Status4 = sys:get_status(GlobalName2),
-    {status,Pid4,_Mod,[_PDict4,running,_,_, Data4]} = Status4,
-    [format_status_called|_] = lists:reverse(Data4),
+    {status,Pid4,Mod,[_PDict4,running,_,_, Data4]} = Status4,
+    [Match|_] = lists:reverse(Data4),
     stop_it(Pid4),
 
     %% check that format_status can handle a name being a term other than a
     %% pid or atom
     dummy_via:reset(),
     ViaName1 = {via,dummy_via,"CallFormatStatus"},
-    {ok,Pid5} = gen_statem:start(ViaName1, ?MODULE, start_arg(Config, []), []),
+    {ok,Pid5} = gen_statem:start(ViaName1, Module, start_arg(Config, []), []),
     Status5 = sys:get_status(ViaName1),
-    {status,Pid5,_Mod, [_PDict5,running,_,_, Data5]} = Status5,
-    [format_status_called|_] = lists:reverse(Data5),
+    {status,Pid5,Mod, [_PDict5,running,_,_, Data5]} = Status5,
+    [Match|_] = lists:reverse(Data5),
     stop_it(Pid5),
     ViaName2 = {via,dummy_via,{name,"term"}},
     {ok, Pid6} =
 	gen_statem:start(
-	  ViaName2, ?MODULE, start_arg(Config, []), []),
+	  ViaName2, Module, start_arg(Config, []), []),
     Status6 = sys:get_status(ViaName2),
-    {status,Pid6,_Mod,[_PDict6,running,_,_,Data6]} = Status6,
-    [format_status_called|_] = lists:reverse(Data6),
+    {status,Pid6,Mod,[_PDict6,running,_,_,Data6]} = Status6,
+    [Match|_] = lists:reverse(Data6),
     stop_it(Pid6).
-
-
 
 error_format_status(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        error_format_status(Config,?MODULE,{formatted,idle,"called format_status"}),
+        error_format_status(Config,format_status_statem,
+                            {{formatted,idle},{formatted,"called format_status"}})
+    after
+            process_flag(trap_exit, OldFl),
+            error_logger_forwarder:unregister()
+    end.
+error_format_status(Config,Module,Match) ->
     Data = "called format_status",
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  Module, start_arg(Config, {data,Data}), []),
     %% bad return value in the gen_statem loop
     {{{bad_return_from_state_function,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
@@ -1133,18 +1382,15 @@ error_format_status(Config) ->
 	 {Pid,
 	  "** State machine"++_,
 	  [Pid,{{call,_},badreturn},
-	   {formatted,idle,Data},
+	   Match,
 	   error,{bad_return_from_state_function,badreturn}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
-	    error_logger_forwarder:unregister(),
 	    ct:fail({unexpected,Other})
     after 1000 ->
-	    error_logger_forwarder:unregister(),
-	    ct:fail(timeout)
+	    ct:fail({timeout,(fun F() -> receive M -> [M|F()] after 0 -> [] end end)()})
     end,
-    process_flag(trap_exit, OldFl),
-    error_logger_forwarder:unregister(),
+
     receive
 	%% Comes with SASL
 	{error_report,_,{Pid,crash_report,_}} ->
@@ -1155,12 +1401,24 @@ error_format_status(Config) ->
     ok = verify_empty_msgq().
 
 terminate_crash_format(Config) ->
+    dbg:tracer(),
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        terminate_crash_format(Config,?MODULE,{formatted,idle,crash_terminate}),
+        terminate_crash_format(Config,format_status_statem,
+                               {{formatted,idle},{formatted,crash_terminate}})
+    after
+        dbg:stop(),
+        process_flag(trap_exit, OldFl),
+        error_logger_forwarder:unregister()
+    end.
+
+terminate_crash_format(Config, Module, Match) ->
     Data = crash_terminate,
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  Module, start_arg(Config, {data,Data}), []),
     stop_it(Pid),
     Self = self(),
     receive
@@ -1169,18 +1427,14 @@ terminate_crash_format(Config) ->
 	  "** State machine"++_,
 	  [Pid,
 	   {{call,{Self,_}},stop},
-	   {formatted,idle,Data},
-	   exit,{crash,terminate}|_]}} ->
+	   Match,exit,{crash,terminate}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
-	    error_logger_forwarder:unregister(),
 	    ct:fail({unexpected,Other})
     after 1000 ->
-	    error_logger_forwarder:unregister(),
-	    ct:fail(timeout)
+	    ct:fail({timeout,flush()})
     end,
-    process_flag(trap_exit, OldFl),
-    error_logger_forwarder:unregister(),
+
     receive
 	%% Comes with SASL
 	{error_report,_,{Pid,crash_report,_}} ->
@@ -1190,6 +1444,67 @@ terminate_crash_format(Config) ->
     end,
     ok = verify_empty_msgq().
 
+%% We test that all of the different status items can be
+%% formatted by the format_status/1 callback.
+format_all_status(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+
+    Data = fun(M) ->
+                   maps:map(
+                     fun(Key, Values) when Key =:= log;
+                                           Key =:= queue;
+                                           Key =:= postponed;
+                                           Key =:= timeouts ->
+                             [{Key, Value} || Value <- Values];
+                        (Key, Value) ->
+                             {Key, Value}
+                     end, M)
+           end,
+    {ok,Pid} =
+	gen_statem:start(
+	  format_status_statem, start_arg(Config, {data,Data}), []),
+    sys:log(Pid, true),
+    ok = gen_statem:cast(Pid, postpone_event),
+    ok = gen_statem:cast(Pid, {timeout, 100000}),
+
+    {status,Pid, _, [_,_,_,_,Info]} = sys:get_status(Pid),
+    [{header, _Hdr},
+     {data, [_Status,_Parent,_Modules,
+             {"Time-outs",{1,[{timeouts,_}]}},
+             {"Logged Events",[{log,_}|_]},
+             {"Postponed",[{postponed,_}]}]},
+     {data, [{"State",{{state,idle},{data,Data}}}]}] = Info,
+
+    %% bad return value in the gen_statem loop
+    {{{bad_return_from_state_function,badreturn},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
+    Self = self(),
+    receive
+	{error,_GroupLeader,
+	 {Pid,
+	  "** State machine"++_,
+	  [Pid,
+	   {queue,{{call,{Self,_}},badreturn}},
+	   {{state,idle},{data,Data}},error,
+           {reason,{bad_return_from_state_function,badreturn}},
+           __Modules,_StateFunctions,
+           [{postponed,{cast,postpone_event}}],
+           [_|_] = _Stacktrace,
+           {1,[{timeouts,{timeout,idle}}]},
+           [{log,_}|_] |_]}} ->
+	    ok;
+	Other when is_tuple(Other), element(1, Other) =:= error ->
+	    ct:fail({unexpected,Other})
+    after 1000 ->
+	    ct:fail({timeout,flush()})
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+    error_logger_forwarder:unregister(),
+    process_flag(trap_exit, OldFl),
+    ok.
 
 get_state(Config) ->
     State = self(),
@@ -1248,17 +1563,25 @@ replace_state(Config) ->
     {state0,NState3} = sys:replace_state(Pid, Replace4),
     ok = sys:resume(Pid),
     {state0,NState3} = sys:get_state(Pid, 5000),
+    %% State 'error' does not exist but is never touched,
+    %% just verify that sys handles it as a state, not as an error return
+    {error,NState3} =
+        sys:replace_state(Pid, fun ({state0, SD}) -> {error, SD} end),
+    {error, NState3} = sys:get_state(Pid),
+    {state0,NState3} =
+        sys:replace_state(Pid, fun ({error, SD}) -> {state0, SD} end),
     stop_it(Pid),
     ok = verify_empty_msgq().
 
 %% Hibernation
 hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
+    WaitHibernate = 500,
 
     {ok,Pid0} =
 	gen_statem:start_link(
 	  ?MODULE, start_arg(Config, hiber_now), []),
-    is_in_erlang_hibernate(Pid0),
+    wait_erlang_hibernate(Pid0, WaitHibernate),
     stop_it(Pid0),
     receive
 	{'EXIT',Pid0,normal} -> ok
@@ -1271,38 +1594,38 @@ hibernate(Config) ->
     true = ({current_function,{erlang,hibernate,3}} =/=
 		erlang:process_info(Pid,current_function)),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
 
-    Pid ! hibernate_later,
+    Pid ! {hibernate_later, WaitHibernate div 2},
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
     Pid ! hibernate_now,
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
@@ -1310,37 +1633,37 @@ hibernate(Config) ->
 	     erlang:process_info(Pid, current_function)),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok  = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     sys:suspend(Pid),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     sys:resume(Pid),
-    is_in_erlang_hibernate(Pid),
-    receive after 1000 -> ok end,
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
+    receive after WaitHibernate -> ok end,
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     good_morning  = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1353,72 +1676,74 @@ hibernate(Config) ->
 %% Auto-hibernation timeout
 auto_hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
-    HibernateAfterTimeout = 100,
+    HibernateAfterTimeout = 500,
+    WaitTime = 1000,
 
     {ok,Pid} =
         gen_statem:start_link(
-            ?MODULE, start_arg(Config, []), [{hibernate_after, HibernateAfterTimeout}]),
+            ?MODULE, start_arg(Config, []),
+          [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After info test
     Pid ! {hping, self()},
     receive
         {Pid, hpong} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(info)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After cast test
     ok = gen_statem:cast(Pid, {hping, self()}),
     receive
         {Pid, hpong} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(cast)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After call test
     hpong = gen_statem:call(Pid, hping),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 1
-    TimerTimeout1 = 50,
-    ok = gen_statem:call(Pid, {arm_htimer, self(), TimerTimeout1}),
-    is_not_in_erlang_hibernate(Pid),
+    TimerTimeout1 = HibernateAfterTimeout div 2,
+    ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout1}),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(TimerTimeout1),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     receive
-        {Pid, htimer_armed} ->
+        {Pid, htimer_timeout} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(timer1)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 2
-    TimerTimeout2 = 150,
-    ok = gen_statem:call(Pid, {arm_htimer, self(), TimerTimeout2}),
-    is_not_in_erlang_hibernate(Pid),
+    TimerTimeout2 = HibernateAfterTimeout * 2,
+    ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout2}),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     receive
-        {Pid, htimer_armed} ->
+        {Pid, htimer_timeout} ->
             ok
-    after 1000 ->
+    after TimerTimeout2 ->
         ct:fail(timer2)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1428,38 +1753,38 @@ auto_hibernate(Config) ->
     end,
     ok = verify_empty_msgq().
 
-is_in_erlang_hibernate(Pid) ->
-    receive after 1 -> ok end,
-    is_in_erlang_hibernate_1(200, Pid).
 
-is_in_erlang_hibernate_1(0, Pid) ->
+wait_erlang_hibernate(Pid, Time) ->
+    receive after 1 -> ok end,
+    wait_erlang_hibernate_1(Pid, Time, Time div 100).
+
+wait_erlang_hibernate_1(Pid, Time, _T) when Time =< 0 ->
     ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
-    ct:fail(not_in_erlang_hibernate_3);
-is_in_erlang_hibernate_1(N, Pid) ->
+    ct:fail(should_be_in_erlang_hibernate_3);
+wait_erlang_hibernate_1(Pid, Time, T) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
 	{erlang,hibernate,3} ->
 	    ok;
 	_ ->
-	    receive after 10 -> ok end,
-	    is_in_erlang_hibernate_1(N-1, Pid)
+	    receive after T -> ok end,
+	    wait_erlang_hibernate_1(Pid, Time - T, T)
     end.
 
-is_not_in_erlang_hibernate(Pid) ->
+is_not_in_erlang_hibernate(Pid, Time) ->
     receive after 1 -> ok end,
-    is_not_in_erlang_hibernate_1(200, Pid).
+    is_not_in_erlang_hibernate_1(Pid, Time, Time div 100).
 
-is_not_in_erlang_hibernate_1(0, Pid) ->
-    ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
-    ct:fail(not_in_erlang_hibernate_3);
-is_not_in_erlang_hibernate_1(N, Pid) ->
+is_not_in_erlang_hibernate_1(_Pid, Time, _T) when Time =< 0 ->
+    ct:fail(should_not_be_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(Pid, Time, T) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
-	{erlang,hibernate,3} ->
-	    receive after 10 -> ok end,
-	    is_not_in_erlang_hibernate_1(N-1, Pid);
-	_ ->
-	    ok
+ 	{erlang,hibernate,3} ->
+	    receive after T -> ok end,
+	    is_not_in_erlang_hibernate_1(Pid, Time - T, T);
+ 	_ ->
+ 	    ok
     end.
 
 
@@ -1470,7 +1795,8 @@ enter_loop(_Config) ->
 
     %% Locally registered process + {local,Name}
     {ok,Pid1a} =
-	proc_lib:start_link(?MODULE, enter_loop, [local,local]),
+	proc_lib:start_link(
+          ?MODULE, enter_loop, [local,local,[{debug,[{log,7}]}]]),
     yes = gen_statem:call(Pid1a, 'alive?'),
     stopped = gen_statem:call(Pid1a, stop),
     receive
@@ -1482,7 +1808,8 @@ enter_loop(_Config) ->
 
     %% Unregistered process + {local,Name}
     {ok,Pid1b} =
-	proc_lib:start_link(?MODULE, enter_loop, [anon,local]),
+	proc_lib:start_link(
+          ?MODULE, enter_loop, [anon,local,[{debug,[log]}]]),
     receive
 	{'EXIT',Pid1b,process_not_registered} ->
 	    ok
@@ -1591,6 +1918,9 @@ enter_loop(_Config) ->
     ok = verify_empty_msgq().
 
 enter_loop(Reg1, Reg2) ->
+    enter_loop(Reg1, Reg2, []).
+%%
+enter_loop(Reg1, Reg2, Opts) ->
     process_flag(trap_exit, true),
     case Reg1 of
 	local -> register(armitage, self());
@@ -1602,19 +1932,19 @@ enter_loop(Reg1, Reg2) ->
     case Reg2 of
 	local ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], state0, [], {local,armitage});
+	      ?MODULE, Opts, state0, [], {local,armitage});
 	global ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], state0, [], {global,armitage});
+	      ?MODULE, Opts, state0, [], {global,armitage});
 	via ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], state0, [], {via, dummy_via, armitage});
+	      ?MODULE, Opts, state0, [], {via, dummy_via, armitage});
 	anon ->
-	    gen_statem:enter_loop(?MODULE, [], state0, [])
+	    gen_statem:enter_loop(?MODULE, Opts, state0, [])
     end.
 
 undef_code_change(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug, [trace]}]),
     {error, {'EXIT',
              {undef, [{oc_statem, code_change, [_, _, _, _], _}|_]}}}
         = fake_upgrade(Statem, oc_statem).
@@ -1627,7 +1957,7 @@ fake_upgrade(Pid, Mod) ->
     Ret.
 
 undef_terminate1(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem),
     verify_down(Statem, MRef, normal),
@@ -1635,14 +1965,16 @@ undef_terminate1(_Config) ->
 
 undef_terminate2(_Config) ->
     Reason = {error, test},
-    {ok, Statem} = oc_statem:start(),
+    {ok, Statem} = oc_statem:start([{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem, Reason, infinity),
     verify_down(Statem, MRef, Reason).
 
 undef_in_terminate(_Config) ->
     Data =  {undef_in_terminate, {?MODULE, terminate}},
-    {ok, Statem} = gen_statem:start(?MODULE, {data, Data}, []),
+    {ok, Statem} =
+        gen_statem:start(
+          ?MODULE, {data, Data}, [{debug,[log]}]),
     try
         gen_statem:stop(Statem),
         ct:fail(should_crash)
@@ -1659,6 +1991,57 @@ verify_down(Statem, MRef, Reason) ->
         ct:fail(default_terminate_failed)
     end.
 
+
+pop_too_many(_Config) ->
+    _ = process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,state_1,undefined}
+	      end,
+	  state_1 =>
+	      fun (enter, state_2, undefined) ->
+                      {keep_state, enter}; % OTP-18239, should not be called
+                  ({call, From}, {change_callback_module, _Module} = Action,
+                   undefined = Data) ->
+                      {next_state, state_2, Data,
+                       [Action,
+                        {reply,From,ok}]};
+                  ({call, From}, {verify, ?MODULE},
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [{reply,From,ok}]};
+                  ({call, From}, pop_callback_module = Action,
+                   undefined = Data) ->
+                      {next_state, state_2, Data,
+                       [Action,
+                        {reply,From,ok}]}
+	      end},
+    {ok, STM} =
+	gen_statem:start_link(
+          ?MODULE,
+          {map_statem, Machine, []},
+          [{debug, [trace]}]),
+
+    ok    = gen_statem:call(STM, {change_callback_module, oc_statem}),
+    enter = gen_statem:call(STM, get_data), % OTP-18239
+    ok    = gen_statem:call(STM, {push_callback_module, ?MODULE}),
+    ok    = gen_statem:call(STM, {verify, ?MODULE}),
+    ok    = gen_statem:call(STM, pop_callback_module),
+    BadAction = {bad_action_from_state_function, pop_callback_module},
+    {{BadAction, _},
+     {gen_statem,call,[STM,pop_callback_module,infinity]}} =
+        ?EXPECT_FAILURE(gen_statem:call(STM, pop_callback_module), Reason),
+
+    receive
+        {'EXIT', STM, {BadAction, _}} ->
+            ok;
+        Other ->
+            ct:fail({surprise, Other})
+    end.
+
+
 %% Test the order for multiple {next_event,T,C}
 next_events(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
@@ -1669,6 +2052,637 @@ next_events(Config) ->
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason).
 
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report1 = simple_report(Name, Term, Reason),
+    Report2 = elaborate_report(Name, Term, Reason),
+
+    {F1,A1} = gen_statem:format_log(Report1),
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1 = "** State machine ~tp terminating~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
+        "** Callback mode = ~tp~n",
+    FExpected1 = F1,
+    [Name,Term,error,Reason,[?MODULE],state_functions] = A1,
+
+    {F3,A3} = gen_statem:format_log(Report2),
+    ct:log("F3: ~ts~nA3: ~tp",[F3,A3]),
+    FExpected3 = "** State machine ~tp terminating~n"
+        "** Last event = ~tp~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
+        "** Callback mode = ~tp~n"
+        "** Queued = ~tp~n"
+        "** Postponed = ~tp~n"
+        "** Stacktrace =~n**  ~tp~n"
+        "** Time-outs: ~tp~n"
+        "** Log =~n**  ~tp~n"
+        "** Client ~tp stacktrace~n"
+        "** ~tp~n",
+    FExpected3 = F3,
+    Stacktrace = stacktrace(),
+    [Name,Term,Term,error,Reason,[?MODULE],[state_functions,state_enter],[Term],
+     [{internal,Term}],Stacktrace,{1,[{timeout,message}]},[Term],Name,[]] = A3,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_statem:format_log(Report1),
+    ct:log("F2: ~ts~nA2: ~tp",[F2,A2]),
+    FExpected2 = "** State machine ~tP terminating~n"
+        "** When server state  = ~tP~n"
+        "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
+        "** Callback mode = ~tP~n",
+    FExpected2 = F2,
+    [Name,Depth,Limited,Depth,error,Depth,Reason,Depth,
+     [?MODULE],Depth,state_functions,Depth] = A2,
+
+    {F4,A4} = gen_statem:format_log(Report2),
+    ct:log("F4: ~ts~nA4: ~tp",[F4,A4]),
+    FExpected4 = "** State machine ~tP terminating~n"
+        "** Last event = ~tP~n"
+        "** When server state  = ~tP~n"
+        "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
+        "** Callback mode = ~tP~n"
+        "** Queued = ~tP~n"
+        "** Postponed = ~tP~n"
+        "** Stacktrace =~n**  ~tP~n"
+        "** Time-outs: ~tP~n"
+        "** Log =~n**  ~tP~n"
+        "** Client ~tP stacktrace~n"
+        "** ~tP~n",
+    FExpected4 = F4,
+    LimitedPostponed = [{internal,[1,2,3,4,5,6,'...']}],
+    LimitedStacktrace = io_lib:limit_term(Stacktrace, Depth),
+    LimitedQueue = io_lib:limit_term([Term], Depth),
+    [Name,Depth,Limited,Depth,Limited,Depth,error,Depth,Reason,Depth,
+     [?MODULE],Depth,[state_functions,state_enter],Depth,LimitedQueue,Depth,
+     LimitedPostponed,Depth,LimitedStacktrace,Depth,{1,[{timeout,message}]},
+     Depth,[Limited],Depth,Name,Depth,[],Depth] = A4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    format_log_2_simple(),
+    format_log_2_elaborate(),
+    ok.
+
+format_log_2_simple() ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report = simple_report(Name, Term, Reason),
+
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    Expected1 = Str1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "State: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    Expected4 = Str4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "State: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    Expected5 = Str5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>100},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: ",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+format_log_2_elaborate() ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report = elaborate_report(Name, Term, Reason),
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = lists:prefix(Expected1, Str1),
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
+        "** Callback mode = [state_functions,state_enter]\n"
+        "** Queued = [[1,2,3,4,5,6,7,8|...]]\n"
+        "** Postponed = [{internal,[1,2,3,4,5,6|...]}]\n"
+        "** Stacktrace =\n"
+        "**  [{m,f,1,[1,2,3,4|...]}]\n"
+        "** Time-outs: {1,[{timeout,message}]}\n"
+        "** Log =\n"
+        "**  [[1,2,3,4,5,6,7,8|...]]\n"
+        "** Client "++NameStr ++ " stacktrace\n"
+        "** []\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    Expected2 = Str2,
+
+    FormatOpts3 = #{chars_limit=>300},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = ",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "Stack: [{m,f,1,[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}]. "
+        "Last event: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "State: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Log: [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]. "
+        "Client " ++ NameStr ++ " stacktrace: [].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    Expected4 = Str4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "Stack: [{m,f,1,[1,2,3,4|...]}]. "
+        "Last event: [1,2,3,4,5,6,7,8,9|...]. "
+        "State: [1,2,3,4,5,6,7,8,9|...]. "
+        "Log: [[1,2,3,4,5,6,7,8|...]]. "
+        "Client " ++ NameStr ++ " stacktrace: [].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    Expected5 = Str5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>300},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason:",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+simple_report(Name, Term, Reason) ->
+    #{label=>{gen_statem,terminate},
+      name=>Name,
+      queue=>[],
+      postponed=>[],
+      modules=>[?MODULE],
+      callback_mode=>state_functions,
+      state_enter=>false,
+      state=>Term,
+      timeouts=>{0,[]},
+      log=>[],
+      reason=>{error,Reason,[]},
+      client_info=>undefined}.
+
+elaborate_report(Name, Term, Reason) ->
+    #{label=>{gen_statem,terminate},
+      name=>Name,
+      queue=>[Term,Term],
+      postponed=>[{internal,Term}],
+      modules=>[?MODULE],
+      callback_mode=>state_functions,
+      state_enter=>true,
+      state=>Term,
+      timeouts=>{1,[{timeout,message}]},
+      log=>[Term],
+      reason=>{error,Reason,stacktrace()},
+      client_info=>{self(),{self(),[]}}}.
+
+stacktrace() ->
+    [{m,f,1,lists:seq(1, 15)}].
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_statem:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_statem:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_statem:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end.
+
+send_request_receive_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_receive_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_receive_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, infinity, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:receive_response(ReqIdC4, 5678, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:receive_response(ReqIdC5, 5000, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:receive_response(ReqIdC6, 5000, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_statem:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_statem:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    timeout = gen_statem:receive_response(ReqIdC4, {abs, Deadline}, true),
+
+    Abandoned = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Abandoned = lists:sort(gen_statem:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were abandoned...
+    timeout = gen_statem:receive_response(ReqIdC4, {abs, Deadline+1000}, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, 2000, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:receive_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:receive_response(ReqIdC4, infinity, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_wait_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_wait_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, infinity, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:wait_response(ReqIdC4, 5678, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:wait_response(ReqIdC5, 5000, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:wait_response(ReqIdC6, 5000, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_statem:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_statem:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    timeout = gen_statem:wait_response(ReqIdC4, {abs, Deadline}, true),
+
+    Unhandled = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Unhandled = lists:sort(gen_statem:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were not abandoned...
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0),
+
+    ok.
+    
+send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, 2000, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:wait_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:wait_response(ReqIdC4, infinity, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_check_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_check_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_check_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_check_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqIdC1 = gen_statem:send_request(Pid1, {delayed_answer,400}, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqId2 = gen_statem:send_request(Pid2, {delayed_answer,1}),
+    ReqIdC2 = gen_statem:reqids_add(ReqId2, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+    no_reply = gen_statem:check_response(Msg0, ReqIdC3, true),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:check_response(next_msg(), ReqIdC4, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:check_response(next_msg(), ReqIdC5, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:check_response(Msg0, ReqIdC6, true),
+
+    {reply, yes} = gen_statem:check_response(Msg0, ReqId0),
+
+    ok.
+    
+send_request_check_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+
+    no_reply = gen_statem:check_response(Msg0, ReqIdC3, true),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC4, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC4, false),
+
+    {reply, yes} = gen_statem:check_response(Msg0, ReqId0),
+
+    ok.
+
+next_msg() ->
+    receive M -> M end.
 
 %%
 %% Functionality check
@@ -1700,12 +2714,22 @@ do_func_test(STM) ->
     ok = do_connect(STM),
     ok = gen_statem:cast(STM, {'alive?',self()}),
     wfor(yes),
-    ?t:do_times(3, ?MODULE, do_msg, [STM]),
+    test_server:do_times(3, ?MODULE, do_msg, [STM]),
     ok = gen_statem:cast(STM, {'alive?',self()}),
     wfor(yes),
     ok = do_disconnect(STM),
     ok = gen_statem:cast(STM, {'alive?',self()}),
+    P0 = gen_statem:send_request(STM, 'alive?'),
+    timeout = gen_statem:wait_response(P0, 0),
     wfor(yes),
+    {reply, yes} = gen_statem:wait_response(P0, infinity),
+    _ = flush(),
+    P1 = gen_statem:send_request(STM, 'alive?'),
+    receive Msg ->
+            no_reply = gen_statem:check_response(Msg, P0),
+            {reply, yes} = gen_statem:check_response(Msg, P1)
+    after 1000 -> exit(timeout)
+    end,
     ok.
 
 
@@ -1741,7 +2765,7 @@ do_sync_func_test(STM) ->
     yes = gen_statem:call(STM, 'alive?'),
     ok = do_sync_connect(STM),
     yes = gen_statem:call(STM, 'alive?'),
-    ?t:do_times(3, ?MODULE, do_sync_msg, [STM]),
+    test_server:do_times(3, ?MODULE, do_sync_msg, [STM]),
     yes = gen_statem:call(STM, 'alive?'),
     ok = do_sync_disconnect(STM),
     yes = gen_statem:call(STM, 'alive?'),
@@ -1793,37 +2817,82 @@ start_arg(Config, Arg) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ignore) ->
+    io:format("init(ignore)~n", []),
     ignore;
 init(stop) ->
+    io:format("init(stop)~n", []),
     {stop,stopped};
+init({error, Reason}) ->
+    io:format("init(error) -> Reason: ~p~n", [Reason]),
+    {error, Reason};
 init(stop_shutdown) ->
+    io:format("init(stop_shutdown)~n", []),
     {stop,shutdown};
 init(sleep) ->
-    ?t:sleep(1000),
-    {ok,idle,data};
+    io:format("init(sleep)~n", []),
+    ct:sleep(1000),
+    init_sup({ok,idle,data});
 init(hiber) ->
-    {ok,hiber_idle,[]};
+    io:format("init(hiber)~n", []),
+    init_sup({ok,hiber_idle,[]});
 init(hiber_now) ->
-    {ok,hiber_idle,[],[hibernate]};
+    io:format("init(hiber_now)~n", []),
+    init_sup({ok,hiber_idle,[],[hibernate]});
 init({data, Data}) ->
-    {ok,idle,Data};
+    io:format("init(data)~n", []),
+    init_sup({ok,idle,Data});
 init({callback_mode,CallbackMode,Arg}) ->
+    io:format("init(callback_mode)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
 init({map_statem,#{init := Init}=Machine,Modes}) ->
+    io:format("init(map_statem)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
 	{ok,State,Data,Ops} ->
-	    {ok,State,[Data|Machine],Ops};
+	    init_sup({ok,State,[Data|Machine],Ops});
 	{ok,State,Data} ->
-	    {ok,State,[Data|Machine]};
+	    init_sup({ok,State,[Data|Machine]});
 	Other ->
-	    Other
+	    init_sup(Other)
     end;
+init({ets, InitResult}) ->
+    ?MODULE = ets:new(?MODULE, [named_table]),
+    init_sup(
+      case InitResult of
+          {return, Value} ->
+              Value;
+          {crash, Class, Reason} ->
+              erlang:Class(Reason);
+          {wait, Time, Value} ->
+              receive after Time -> Value end
+      end);
 init([]) ->
-    {ok,idle,data}.
+    io:format("init~n", []),
+    init_sup({ok,idle,data}).
+
+%% Supervise state machine parent i.e the test case, and if it dies
+%% (fails due to some reason), kill the state machine,
+%% just to not leak resources (process, name, ETS table, etc...)
+%%
+init_sup(Result) ->
+    Parent = gen:get_parent(),
+    Statem = self(),
+    _Supervisor =
+        spawn(
+          fun () ->
+                  StatemRef = monitor(process, Statem),
+                  ParentRef = monitor(process, Parent),
+                  receive
+                      {'DOWN', StatemRef, _, _, Reason} ->
+                          exit(Reason);
+                      {'DOWN', ParentRef, _, _, _} ->
+                          exit(Statem, kill)
+                  end
+          end),
+    Result.
 
 callback_mode() ->
     try ets:lookup(?MODULE, callback_mode) of
@@ -1856,10 +2925,10 @@ idle(cast, {hping,Pid}, Data) ->
     {keep_state, Data};
 idle({call, From}, hping, _Data) ->
     {keep_state_and_data, [{reply, From, hpong}]};
-idle({call, From}, {arm_htimer, Pid, Timeout}, _Data) ->
-    {keep_state_and_data, [{reply, From, ok}, {timeout, Timeout, {arm_htimer, Pid}}]};
-idle(timeout, {arm_htimer, Pid}, _Data) ->
-    Pid ! {self(), htimer_armed},
+idle({call, From}, {start_htimer, Pid, Timeout}, _Data) ->
+    {keep_state_and_data, [{reply, From, ok}, {timeout, Timeout, {htimer, Pid}}]};
+idle(timeout, {htimer, Pid}, _Data) ->
+    Pid ! {self(), htimer_timeout},
     keep_state_and_data;
 idle(cast, {connect,Pid}, Data) ->
     Pid ! accept,
@@ -1871,7 +2940,7 @@ idle({call,_From}, badreturn, _Data) ->
     badreturn;
 idle({call,_From}, badaction, Data) ->
     {keep_state, Data, [badaction]};
-idle({call,_From}, {badtimeout,_,_} = BadTimeout, Data) ->
+idle({call,_From}, {badtimeout,BadTimeout}, Data) ->
     {keep_state, Data, BadTimeout};
 idle({call,From}, {delayed_answer,T}, Data) ->
     receive
@@ -1883,6 +2952,11 @@ idle({call,From}, {timeout,Time}, _Data) ->
     AbsTime = erlang:monotonic_time(millisecond) + Time,
     {next_state,timeout,{From,Time},
      {timeout,AbsTime,idle,[{abs,true}]}};
+idle(cast, {timeout,Time}, _Data) ->
+    AbsTime = erlang:monotonic_time(millisecond) + Time,
+    {keep_state_and_data,{timeout,AbsTime,idle,[{abs,true}]}};
+idle(cast, postpone_event, _Data) ->
+    {keep_state_and_data,postpone};
 idle(cast, next_event, _Data) ->
     {next_state,next_events,[a,b,c],
      [{next_event,internal,a},
@@ -1988,8 +3062,8 @@ hiber_idle({call,From}, hibernate_sync, Data) ->
     {next_state,hiber_wakeup,Data,
      [{reply,From,hibernating},
       hibernate]};
-hiber_idle(info, hibernate_later, _) ->
-    Tref = erlang:start_timer(1000, self(), hibernate),
+hiber_idle(info, {hibernate_later, Time}, _) ->
+    Tref = erlang:start_timer(Time, self(), hibernate),
     {keep_state,Tref};
 hiber_idle(info, hibernate_now, Data) ->
     {keep_state,Data,

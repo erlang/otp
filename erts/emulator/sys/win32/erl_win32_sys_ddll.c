@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* e
 
     /* LOAD_WITH_ALTERED_SEARCH_PATH adds the specified DLL's directory to the
      * dependency search path. This also removes the directory we started in,
-     * but we've explicitly added that in in erl_sys_ddll_init. */
+     * but we've explicitly added that in erl_sys_ddll_init. */
     if ((hinstance = LoadLibraryExW(wcp, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)) == NULL) {
 	code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
 	if (err != NULL) {

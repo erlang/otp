@@ -5,10 +5,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES =  \
 	dyntrace_SUITE \
 	dyntrace_lttng_SUITE \
+	instrument_SUITE \
 	runtime_tools_SUITE \
 	system_information_SUITE \
 	dbg_SUITE \
-	erts_alloc_config_SUITE \
 	scheduler_SUITE \
 	msacc_SUITE \
 	zzz_SUITE
@@ -30,7 +30,8 @@ RELSYSDIR = $(RELEASE_PATH)/runtime_tools_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -42,7 +43,7 @@ make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
 	> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -65,5 +66,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) runtime_tools.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/system_information_SUITE_data"
 
 release_docs_spec:

@@ -1,2 +1,2 @@
 
-blame_contract_range_suppressed.erl:8: Function foo/0 has no local return
+blame_contract_range_suppressed.erl:8:1: Function foo/0 has no local return

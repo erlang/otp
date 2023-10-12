@@ -1,0 +1,17 @@
+
+  [;1m-spec unregister(RegName) -> true when RegName :: atom().[0m
+
+  Removes the [;;4mregistered name[0m [;;4mRegName[0m associated with a process
+  identifier or a port identifier from the [;;4mname registry[0m. For
+  example:
+
+    > unregister(db).
+    true
+
+  Keep in mind that you can still receive signals associated with
+  the registered name after it has been unregistered as the sender
+  may have looked up the name before sending to it.
+
+  Users are advised not to unregister system processes.
+
+  Failure: [;;4mbadarg[0m if [;;4mRegName[0m is not a registered name.

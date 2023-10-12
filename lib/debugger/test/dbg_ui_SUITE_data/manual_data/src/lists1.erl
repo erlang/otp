@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ sublist([H|T], L) when L > 0 ->
 sublist(List, L) -> [].
 
 %% delete(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete(Item, [Item|Rest]) -> Rest;
 delete(Item, [H|Rest]) ->
@@ -221,7 +221,7 @@ flatten([], [H|Cont], Tail) ->
 flatten([], [], Tail) ->
     Tail.
 
-%% flat_length(List) (undocumented can be rmove later)
+%% flat_length(List) (undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length(List) -> flatlength(List).

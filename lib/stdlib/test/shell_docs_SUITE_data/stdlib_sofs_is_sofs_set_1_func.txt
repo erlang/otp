@@ -1,0 +1,7 @@
+
+  [;1m-spec is_sofs_set(Term) -> Bool when Bool :: boolean(), Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m appears to be an unordered set, an
+  ordered set, or an atomic set, otherwise [;;4mfalse[0m. Note that this
+  function will return [;;4mtrue[0m for any term that coincides with the
+  representation of a [;;4msofs[0m set. See also note on data types.

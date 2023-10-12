@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -327,7 +327,7 @@ list_dirs([], _I, _Exts, C, E) ->
 
 %% Returns functions that are present in all modules.
 predefined_functions() ->
-    [{module_info,0}, {module_info,1}].
+    [{module_info,0}, {module_info,1}, {behaviour_info,1}].
 
 %% Returns true if an MFA takes functional arguments.
 is_funfun(erlang, apply, 2) -> true;

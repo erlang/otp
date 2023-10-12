@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 -module(dbg_SUITE).
 
 %% Test functions
--export([all/0, suite/0,
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
          big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 send/1, recv/1,
-         ip_port/1, file_port/1, file_port2/1,
+         ip_port/1, file_port/1, file_port2/1, file_tracer/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
@@ -41,11 +41,17 @@ suite() ->
 all() -> 
     [big, tiny, simple, message, distributed, port, ip_port,
      send, recv,
-     file_port, file_port2, ip_port_busy,
+     file_port, file_port2, file_tracer, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop,
      erl_tracer, distributed_erl_tracer].
 
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    dbg:stop(),
+    ok.
 
 %% Rudimentary interface test
 big(Config) when is_list(Config) ->
@@ -66,7 +72,7 @@ big(Config) when is_list(Config) ->
         Pid = spawn_link(dbg_test, loop, [Config]),
         true = register(dbg_test_loop, Pid),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
+        {ok,[{matched, _, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         dbg_test_loop ! {dbg_test, stop},
@@ -76,7 +82,7 @@ big(Config) when is_list(Config) ->
         %% run/debug a Pid.
         Pid2=spawn_link(dbg_test,loop,[Config]),
         {ok,_} = dbg:tracer(),
-        {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
+        {ok,[{matched, _, 1}]} = dbg:p(Pid2,[s,r,p]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
         Pid2 ! {dbg_test, stop},
@@ -114,7 +120,7 @@ tiny(Config) when is_list(Config) ->
                 failure
         end
     after
-        ok = dbg:stop(),
+        dbg:stop(),
         ok = file:set_cwd(OldCurDir)
     end,
     ok.
@@ -146,7 +152,7 @@ message(Config) when is_list(Config) ->
         ok = dbg:ltp(),
         ok = dbg:ln()
     after
-        stop()
+        dbg:stop()
     end,
     S = self(),
     [{trace,S,call,{dbg,ltp,[]},S},
@@ -155,9 +161,9 @@ message(Config) when is_list(Config) ->
 
 send(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     rpc:call(Node, code, add_patha,
-             [filename:join(proplists:get_value(data_dir, Config), "..")]),
+             [filename:dirname(proplists:get_value(data_dir, Config))]),
     try
         Echo = fun F() ->
                        receive {From, M} ->
@@ -166,7 +172,7 @@ send(Config) when is_list(Config) ->
                        end
                end,
 	Rcvr = spawn_link(Echo),
-        RemoteRcvr = spawn_link(Node, Echo),
+        RemoteRcvr = spawn(Node, Echo),
 
 	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, send),
 
@@ -176,7 +182,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, [{[self(),'_'],[],[]}]),
 
         %% Test that self() is not the receiving process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe(send, [{['$1','_'],[{'==','$1',{self}}],[]}]),
         send_test(Rcvr, make_ref(), false),
 
@@ -191,7 +197,7 @@ send(Config) when is_list(Config) ->
         send_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe(send),
+        {ok, [{matched, _, 1}]} = dbg:ctpe(send),
         send_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -216,7 +222,7 @@ send(Config) when is_list(Config) ->
         %% Test that distributed dbg works
         dbg:tracer(Node, process, {fun myhandler/2, self()}),
         Rcvr2 = spawn_link(Echo),
-        RemoteRcvr2 = spawn_link(Node, Echo),
+        RemoteRcvr2 = spawn(Node, Echo),
         dbg:p(Rcvr2, [send]),
         dbg:p(RemoteRcvr2, [send]),
         dbg:tpe(send, [{['_', hej],[],[]}]),
@@ -229,7 +235,8 @@ send(Config) when is_list(Config) ->
         ok
 
     after
-	stop()
+	dbg:stop(),
+        peer:stop(Peer)
     end.
 
 send_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -264,7 +271,7 @@ send_test_rcv(Pid, Msg, S, TraceEvent) ->
 
 recv(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     rpc:call(Node, code, add_patha,
              [filename:join(proplists:get_value(data_dir, Config), "..")]),
     try
@@ -275,7 +282,7 @@ recv(Config) when is_list(Config) ->
                        end
                end,
 	Rcvr = spawn_link(Echo),
-        RemoteRcvr = spawn_link(Node, Echo),
+        RemoteRcvr = spawn(Node, Echo),
 
 	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, 'receive'),
 
@@ -285,7 +292,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, [{[node(), self(), '_'],[],[]}]),
 
         %% Test that self() is the not sending process
-        {ok, [{matched, _node, 1}, {saved, 2}]} =
+        {ok, [{matched, _, 1}, {saved, 2}]} =
             dbg:tpe('receive', [{[node(), '$1','_'],[{'==','$1',{self}}],[]}]),
         recv_test(Rcvr, make_ref(), false),
 
@@ -300,7 +307,7 @@ recv(Config) when is_list(Config) ->
         recv_test(Rcvr, 2, make_ref(), false),
 
         %% Test clearing of trace pattern
-        {ok, [{matched, _node, 1}]} = dbg:ctpe('receive'),
+        {ok, [{matched, _, 1}]} = dbg:ctpe('receive'),
         recv_test(Rcvr, make_ref(), true),
 
         %% Test complex message inspection
@@ -327,7 +334,7 @@ recv(Config) when is_list(Config) ->
         %% Test that distributed dbg works
         dbg:tracer(Node, process, {fun myhandler/2, self()}),
         Rcvr2 = spawn_link(Echo),
-        RemoteRcvr2 = spawn_link(Node, Echo),
+        RemoteRcvr2 = spawn(Node, Echo),
         dbg:p(Rcvr2, ['receive']),
         dbg:p(RemoteRcvr2, ['receive']),
         dbg:tpe('receive', [{[node(), '_', '$1'],[{'==',{element,2,'$1'}, hej}],[]}]),
@@ -340,7 +347,8 @@ recv(Config) when is_list(Config) ->
         ok
 
     after
-	stop()
+	dbg:stop(),
+        peer:stop(Peer)
     end.
 
 recv_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -376,7 +384,7 @@ recv_test_rcv(Pid, Msg, TraceEvent) ->
 %% Simple test of distributed tracing
 distributed(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     try
         RexPid = rpc:call(Node, erlang, whereis, [rex]),
         RexPidList = pid_to_list(RexPid),
@@ -404,8 +412,8 @@ distributed(Config) when is_list(Config) ->
         %%
         stop()
     after
-        stop_slave(Node),
-        stop()
+        dbg:stop(),
+        peer:stop(Peer)
     end,
     ok.
 
@@ -427,13 +435,13 @@ local_trace(Config) when is_list(Config) ->
         Z = list_to_integer(LZ),
         XYZ = {X, Y, Z},
         io:format("Self = ~w = ~w~n", [S,XYZ]),
-        {ok, [{matched, _node, 1}]} = dbg:p(S,call),
-        {ok, [{matched, _node, 1}]} = dbg:p(XYZ,call),
+        {ok, [{matched, _, 1}]} = dbg:p(S,call),
+        {ok, [{matched, _, 1}]} = dbg:p(XYZ,call),
         if Z =:= 0 ->
-               {ok, [{matched, _node, 1}]} = dbg:p(Y,call);
+               {ok, [{matched, _, 1}]} = dbg:p(Y,call);
            true -> ok
         end,
-        {ok, [{matched, _node, 1}]} = dbg:p(L,call),
+        {ok, [{matched, _, 1}]} = dbg:p(L,call),
         {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
         4 = not_exported(2),
         [{trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
@@ -455,7 +463,7 @@ local_trace(Config) when is_list(Config) ->
           {dbg_SUITE,not_exported,1},
           {error,badarith}}] = flush()
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -500,13 +508,13 @@ saved_patterns(Config) when is_list(Config) ->
     {ok, _} = start(),
     try
         dbg:rtp(File),
-        {ok,[{matched,_node,1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
-        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, [{matched, _, 1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
+        {ok, [{matched, _, 1}]} = dbg:p(self(),call),
         dbg:ltp(),
         S = self(),
         [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -538,7 +546,7 @@ ip_port(Config) when is_list(Config) ->
         [{trace,S,call,{dbg,ltp,[]},S},
          {trace,S,call,{dbg,ln,[]},hej}] = flush()
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -558,15 +566,10 @@ ip_port_busy(Config) when is_list(Config) ->
     end,
     ok.
 
-
-
 %% Test tracing to file port (simple)
 file_port(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     Port = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port),
     try
@@ -584,7 +587,7 @@ file_port(Config) when is_list(Config) ->
          {trace,S,call,{dbg,ln,[]},hej},
          end_of_trace] = flush()
     after
-        stop(),
+        dbg:stop(),
         file:delete(FName)
     end,
     ok.
@@ -592,12 +595,8 @@ file_port(Config) when is_list(Config) ->
 %% Test tracing to file port with 'follow_file'
 file_port2(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    %% Ok, lets try with flush and follow_file, not a chance on VxWorks
-    %% with NFS caching...
+    FName = make_temp_name(Config),
+    %% Ok, lets try with flush and follow_file.
     Port2 = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port2),
     try
@@ -617,7 +616,32 @@ file_port2(Config) when is_list(Config) ->
         stop(),
         [] = flush()
     after
-        stop(),
+        dbg:stop(),
+        file:delete(FName)
+    end,
+    ok.
+
+%% Test tracing to file
+file_tracer(Config) when is_list(Config) ->
+    stop(),
+    FName = make_temp_name(Config),
+    %% Ok, lets try with flush and follow_file.
+    {ok, _} = dbg:tracer(file, FName),
+    try
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+        {ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+        ok = dbg:ltp(),
+        timer:sleep(100),
+        {ok, LTP} = file:read_file(FName),
+        <<"dbg:ltp()",_/binary>> = string:find(LTP, "dbg:ltp() ("++pid_to_list(self())++")"),
+        ok = dbg:ln(),
+        timer:sleep(100),
+        {ok, LN} = file:read_file(FName),
+        <<"dbg:ln()",_/binary>> = string:find(LN, "dbg:ln() (hej)"),
+        stop()
+    after
+        dbg:stop(),
         file:delete(FName)
     end,
     ok.
@@ -626,11 +650,8 @@ file_port2(Config) when is_list(Config) ->
 wrap_port(Config) when is_list(Config) ->
     Self = self(),
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    FNameWildcard = FName++"*"++".trace",
+    FName = make_temp_name(Config),
+    FNameWildcard = FName ++ "*" ++ ".trace",
     %% WrapSize=0 and WrapCnt=11 will force the trace to wrap after
     %% every trace message, and to contain only the last 10 entries
     %% after trace stop since the last file will be empty waiting
@@ -688,7 +709,7 @@ wrap_port(Config) when is_list(Config) ->
         %%
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -720,10 +741,7 @@ wrap_port_result([{trace, S, call, {?MODULE, tracee2, [M]}, hej},
 %% Test tracing to time limited wrapping file port
 wrap_port_time(Config) when is_list(Config) ->
     stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
+    FName = make_temp_name(Config),
     %% WrapTime=2 and WrapCnt=4 will force the trace to wrap after
     %% every 2 seconds, and to contain between 3*2 and 4*2 seconds
     %% of trace entries.
@@ -763,7 +781,7 @@ wrap_port_time(Config) when is_list(Config) ->
          end_of_trace] = flush(),
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -789,7 +807,7 @@ with_seq_trace(Config) when is_list(Config) ->
          {seq_trace,0,{send,_,Server,S,{dbg,{ok,Tracer}}}}] =
         flush()
     after
-        stop()
+        dbg:stop()
     end,
     ok.
 
@@ -800,7 +818,7 @@ dead_suspend(Config) when is_list(Config) ->
     try
         survived = run_dead_suspend()
     after
-        stop()
+        dbg:stop()
     end.
 
 run_dead_suspend() ->
@@ -879,7 +897,7 @@ distributed_erl_tracer(Config) ->
     ok = load_nif(Config),
 
     LNode = node(),
-    RNode = start_slave(),
+    {ok, Peer, RNode} = ?CT_PEER(),
     true = rpc:call(RNode, code, add_patha, [filename:join(proplists:get_value(data_dir, Config), "..")]),
     ok = rpc:call(RNode, ?MODULE, load_nif, [Config]),
 
@@ -908,7 +926,7 @@ distributed_erl_tracer(Config) ->
     RCall = spawn_link(RNode, fun() -> ?MODULE:dummy() end),
     [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, #{}}] = flush(),
 
-
+    peer:stop(Peer),
     ok.
 
 load_nif(Config) ->
@@ -930,30 +948,6 @@ trace(_, _, _, _, _) ->
 %%
 %% Support functions
 %%
-
-start_slave() ->
-    {A, B, C} = now(),
-    Name = "asdkxlkmd" ++ integer_to_list(A+B+C),
-    {ok, Node} = test_server:start_node(Name,slave,[]),
-    ok = wait_node(Node, 15),
-    Node.
-
-stop_slave(Node) ->
-    test_server:stop_node(Node).
-
-wait_node(_,0) ->
-    no;
-wait_node(Node, N) ->
-    case net_adm:ping(Node) of
-        pong ->
-            ok;
-        pang ->
-            receive
-            after 1000 ->
-                      ok
-            end,
-            wait_node(Node, N - 1)
-    end.
 
 myhandler(Message, {wait_for_go,Pid}) ->
     receive
@@ -986,120 +980,8 @@ start() ->
 stop() ->
     dbg:stop().
 
-
-
-schedstat_handler(TraceMsg, {Parent, Tag, Data} = State) ->
-    case TraceMsg of
-        {trace_ts, Pid, in, _, Ts} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, Acc}} ->
-                    [{Pid, Acc, Ts} | lists:keydelete(Pid, 1, Data)];
-                false ->
-                    [{Pid, {0, 0, 0}, Ts} | Data];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts, Pid, out, _, {A3, B3, C3}} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-                     lists:keydelete(Pid, 1, Data)];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts,_Pid,spawned,_OtherPid,_,_Ts} ->
-            State;
-        {trace_ts,_Pid,getting_linked,_OtherPid,_Ts} ->
-            State;
-        {trace_ts, Pid, exit, normal, {A3, B3, C3}} ->
-            NewData =
-            case lists:keysearch(Pid, 1, Data) of
-                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-                     lists:keydelete(Pid, 1, Data)];
-                {value, {Pid, _Acc}} ->
-                    Data;
-                false ->
-                    [{Pid, {0, 0, 0}} | Data];
-                Other ->
-                    exit(Parent, {?MODULE, ?LINE, Other}),
-                    erlang:display({?MODULE, ?LINE, Other}),
-                    Data
-            end,
-            {Parent, Tag, NewData};
-        {trace_ts, _Pid, send, _Msg, _OtherPid, _Ts} ->
-            State;
-        end_of_trace ->
-            Parent ! {Tag, Data},
-            State
-    end.
-
-
-
-pass_token(Token, Next, Loops) ->
-    receive
-        {Token, 1} = Msg ->
-            sendloop(Loops),
-            Next ! Msg;
-        {Token, _Cnt} = Msg->
-            sendloop(Loops),
-            Next ! Msg,
-            pass_token(Token, Next, Loops)
-    end.
-
-pass_token(Token, Final, Cnt, Loops) ->
-    receive
-        {Token, start, Next} ->
-            sendloop(Loops),
-            Msg = {Token, Cnt},
-            Next ! Msg,
-            pass_token(Token, Final, Next, Cnt, Loops)
-    end.
-
-pass_token(Token, Final, Next, Cnt, Loops) ->
-    receive
-        {Token, 1} ->
-            sendloop(Loops),
-            Msg = {Token, done},
-            Final ! Msg;
-        {Token, Cnt} ->
-            sendloop(Loops),
-            NextCnt = Cnt-1,
-            Msg = {Token, NextCnt},
-            Next ! Msg,
-            pass_token(Token, Final, Next, NextCnt, Loops)
-    end.
-
-sendloop(Loops) ->
-    sendloop(make_ref(), Loops).
-
-sendloop(_Tag, 0) ->
-    ok;
-sendloop(Tag, Loops) ->
-    self() ! {Tag, Loops},
-    receive {Tag, Loops} -> ok end,
-    sendloop(Tag, Loops-1).
-
-token_volleyball(N, Cnt, Loops)
-  when is_integer(N), N >= 1, is_integer(Cnt), Cnt >= 1,
-       is_integer(Loops), Loops >= 0 ->
-    Self = self(),
-    Token = make_ref(),
-    Last = spawn_link(fun() -> pass_token(Token, Self, Cnt, Loops) end),
-    First = token_volleyball(Token, Last, N-1, Loops),
-    Last ! {Token, start, First},
-    receive {Token, done} -> ok end.
-
-token_volleyball(Token, Next, 1, Loops) ->
-    spawn_link(fun() -> pass_token(Token, Next, Loops) end);
-token_volleyball(Token, Next, N, Loops) ->
-    Pid = spawn_link(fun() -> pass_token(Token, Next, Loops) end),
-    token_volleyball(Token, Pid, N-1, Loops).
+make_temp_name(Config) ->
+    {A,B,C} = erlang:timestamp(),
+    FTMP = atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    filename:join(proplists:get_value(data_dir, Config), FTMP).

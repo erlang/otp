@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,11 @@ typedef struct {
 
 erts_cpu_info_t *erts_cpu_info_create(void);
 void erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo);
-int erts_cpu_info_update(erts_cpu_info_t *cpuinfo);
+int erts_cpu_info_update(erts_cpu_info_t *cpuinfo, int skip_read_topology);
 int erts_get_cpu_configured(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_online(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_available(erts_cpu_info_t *cpuinfo);
+int erts_get_cpu_quota(erts_cpu_info_t *cpuinfo);
 char *erts_get_unbind_from_cpu_str(erts_cpu_info_t *cpuinfo);
 int erts_get_available_cpu(erts_cpu_info_t *cpuinfo, int no);
 int erts_get_cpu_topology_size(erts_cpu_info_t *cpuinfo);

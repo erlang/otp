@@ -24,6 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 
 SUB_DIRECTORIES = design_principles \
+		  general_info \
 		  getting_started  \
 		  system_architecture_intro \
 		  embedded \

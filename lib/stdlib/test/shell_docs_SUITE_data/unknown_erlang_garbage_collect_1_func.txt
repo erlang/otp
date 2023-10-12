@@ -1,0 +1,5 @@
+
+  [;1m-spec garbage_collect(Pid) -> GCResult[0m
+  [;1m                         when Pid :: pid(), GCResult :: boolean().[0m
+
+  The same as [;;4mgarbage_collect(Pid, [])[0m.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1152,7 +1152,9 @@ enc_ammDescriptor({Tag, Desc}, State) ->
         statisticsDescriptor  -> enc_StatisticsDescriptor(Desc, State);
 	_ ->
 	    error({invalid_ammDescriptor_tag, Tag})
-    end.
+    end;
+enc_ammDescriptor(Tag, State) when is_atom(Tag) ->
+    enc_ammDescriptor({Tag, []}, State).
 
 enc_AmmsReply(#'AmmsReply'{terminationID    = TIDs, 
 			   terminationAudit = asn1_NOVALUE}, State) ->
@@ -3208,13 +3210,19 @@ enc_PackagesItem(Val, State)
 
 enc_StatisticsDescriptor({'StatisticsDescriptor',Val}, State) ->
     enc_StatisticsDescriptor(Val, State);
-enc_StatisticsDescriptor(List, State) when is_list(List) ->
+enc_StatisticsDescriptor(List, State)
+  when is_list(List) andalso (List =/= []) ->
     [
      ?StatsToken,
      ?LBRKT_INDENT(State),
      enc_list([{List, fun enc_StatisticsParameter/2}], ?INC_INDENT(State)),
      ?RBRKT_INDENT(State)
+    ];
+enc_StatisticsDescriptor([], _State) ->
+    [
+     ?StatsToken
     ].
+
 
 enc_StatisticsParameter(Val, State)
   when is_record(Val, 'StatisticsParameter') ->
@@ -3353,6 +3361,7 @@ enc_integer(Val, _State, Min, Max) ->
 enc_list(List, State) ->
     enc_list(List, State, fun(_S) -> ?COMMA_INDENT(_S) end, false).
 
+-dialyzer({nowarn_function, enc_list/4}). % Future compat
 enc_list([], _State, _SepEncoder, _NeedsSep) ->
     [];
 enc_list([{Elems, ElemEncoder} | Tail], State, SepEncoder, NeedsSep) ->

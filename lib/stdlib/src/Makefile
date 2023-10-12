@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(VSN)
 # ----------------------------------------------------
 MODULES= \
 	array \
+	argparse \
 	base64 \
 	beam_lib \
 	binary \
@@ -56,7 +57,10 @@ MODULES= \
 	digraph \
 	digraph_utils \
 	edlin \
+	edlin_key \
+	edlin_context \
 	edlin_expand \
+	edlin_type_suggestion \
 	epp \
 	erl_abstract_code \
 	erl_anno \
@@ -65,12 +69,14 @@ MODULES= \
 	erl_error \
 	erl_eval \
 	erl_expand_records \
+	erl_features \
 	erl_internal \
 	erl_lint \
 	erl_parse \
 	erl_posix_msg \
 	erl_pp \
 	erl_scan \
+	erl_stdlib_errors \
 	erl_tar \
 	error_logger_file_h \
 	error_logger_tty_h \
@@ -101,6 +107,7 @@ MODULES= \
 	orddict \
 	ordsets \
 	re \
+	peer \
 	pool \
 	proc_lib \
 	proplists \
@@ -112,6 +119,7 @@ MODULES= \
 	sets \
 	shell \
 	shell_default \
+	shell_docs \
 	slave \
 	sofs \
 	string \
@@ -133,7 +141,7 @@ HRL_FILES= \
 	../include/qlc.hrl \
 	../include/zip.hrl
 
-INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl
+INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl otp_internal.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -149,20 +157,30 @@ APPUP_FILE= stdlib.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
+ifeq ($(TARGET),win32)
+  EXE_SUFFIX=.exe
+else
+  EXE_SUFFIX=
+endif
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
+ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
+
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
 endif
-ERL_COMPILE_FLAGS += -I../include -I../../kernel/include -Werror
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -177,22 +195,25 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_anno.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_error.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_features.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
   $(BOOTSTRAP_COMPILER)/ebin/io.beam \
-  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam
+  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_internal.beam
+
 
 $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl
 	$(gen_verbose)
-	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/egen erl_parse.yrl
-	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(BOOTSTRAP_COMPILER)/egen/erl_parse.erl
+	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/egen $(DETERMINISM_FLAG) erl_parse.yrl
+	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG) $(BOOTSTRAP_COMPILER)/egen/erl_parse.erl
 
 $(BOOTSTRAP_TOP)/lib/stdlib/egen/erl_parse.erl: erl_parse.yrl
 	$(yecc_verbose)$(ERLC) $(YRL_FLAGS) -o$(BOOTSTRAP_TOP)/lib/stdlib/egen erl_parse.yrl
 
 $(BOOTSTRAP_COMPILER)/ebin/%.beam: %.erl
-	$(V_ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $<
+	$(V_ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG) $<
 
 # ----------------------------------------------------
 # Special Build Targets
@@ -205,7 +226,7 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 unicode_util.erl: ../uc_spec/*
-	escript ../uc_spec/gen_unicode_mod.escript
+	escript$(EXE_SUFFIX) ../uc_spec/gen_unicode_mod.escript
 
 # ----------------------------------------------------
 # Release Target

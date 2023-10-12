@@ -1,0 +1,521 @@
+
+  [;1m-spec erlang:system_flag(backtrace_depth, Depth) -> OldDepth[0m
+  [;1m                            when[0m
+  [;1m                                Depth :: non_neg_integer(),[0m
+  [;1m                                OldDepth :: non_neg_integer().[0m
+
+  Sets the maximum depth of call stack back-traces in the exit
+  reason element of [;;4m'EXIT'[0m tuples. The flag also limits the
+  stacktrace depth returned by [;;4mprocess_info[0m item [;;4m[0m
+  [;;4mcurrent_stacktrace.[0m
+
+  Returns the old value of the flag.
+
+  [;1m-spec erlang:system_flag(cpu_topology, CpuTopology) -> OldCpuTopology[0m
+  [;1m                            when[0m
+  [;1m                                CpuTopology :: cpu_topology(),[0m
+  [;1m                                OldCpuTopology :: cpu_topology().[0m
+
+  Types:
+    -type cpu_topology() :: [LevelEntry :: level_entry()] | undefined.
+    -type info_list() :: [].
+    -type level_entry() ::
+          {LevelTag :: level_tag(), SubLevel :: sub_level()} |
+          {LevelTag :: level_tag(),
+           InfoList :: info_list(),
+           SubLevel :: sub_level()}.
+    -type level_tag() :: core | node | processor | thread.
+    -type sub_level() ::
+          [LevelEntry :: level_entry()] |
+          (LogicalCpuId :: {logical, non_neg_integer()}).
+
+  Warning:
+    This argument is deprecated. Instead of using this argument,
+    use command-line argument [;;4m+sct[0m in [;;4merl(1)[0m.
+
+    When this argument is removed, a final CPU topology to use is
+    determined at emulator boot time.
+
+  Sets the user-defined [;;4mCpuTopology[0m. The user-defined CPU topology
+  overrides any automatically detected CPU topology. By passing [;;4m[0m
+  [;;4mundefined[0m as [;;4mCpuTopology[0m, the system reverts to the CPU
+  topology automatically detected. The returned value equals the
+  value returned from [;;4merlang:system_info(cpu_topology)[0m before the
+  change was made.
+
+  Returns the old value of the flag.
+
+  The CPU topology is used when binding schedulers to logical
+  processors. If schedulers are already bound when the CPU topology
+  is changed, the schedulers are sent a request to rebind according
+  to the new CPU topology.
+
+  The user-defined CPU topology can also be set by passing
+  command-line argument [;;4m+sct[0m to [;;4merl(1)[0m.
+
+  For information on type [;;4mCpuTopology[0m and more, see [;;4m[0m
+  [;;4merlang:system_info(cpu_topology)[0m as well as command-line flags [;;4m[0m
+  [;;4m+sct[0m and [;;4m+sbt[0m in [;;4merl(1)[0m.
+
+  [;1m-spec erlang:system_flag(dirty_cpu_schedulers_online,[0m
+  [;1m                         DirtyCPUSchedulersOnline) ->[0m
+  [;1m                            OldDirtyCPUSchedulersOnline[0m
+  [;1m                            when[0m
+  [;1m                                DirtyCPUSchedulersOnline ::[0m
+  [;1m                                    pos_integer(),[0m
+  [;1m                                OldDirtyCPUSchedulersOnline ::[0m
+  [;1m                                    pos_integer().[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Sets the number of dirty CPU schedulers online. Range is [;;4m1 <=[0m
+  [;;4mDirtyCPUSchedulersOnline <= N[0m, where [;;4mN[0m is the smallest of the
+  return values of [;;4merlang:system_info(dirty_cpu_schedulers)[0m and [;;4m[0m
+  [;;4merlang:system_info(schedulers_online)[0m.
+
+  Returns the old value of the flag.
+
+  The number of dirty CPU schedulers online can change if the number
+  of schedulers online changes. For example, if 12 schedulers and 6
+  dirty CPU schedulers are online, and [;;4msystem_flag/2[0m is used to
+  set the number of schedulers online to 6, then the number of dirty
+  CPU schedulers online is automatically decreased by half as well,
+  down to 3. Similarly, the number of dirty CPU schedulers online
+  increases proportionally to increases in the number of schedulers
+  online.
+
+  For more information, see [;;4m[0m
+  [;;4merlang:system_info(dirty_cpu_schedulers)[0m and [;;4m[0m
+  [;;4merlang:system_info(dirty_cpu_schedulers_online)[0m.
+
+  [;1m-spec erlang:system_flag(erts_alloc, {Alloc, F, V}) -> ok | notsup[0m
+  [;1m                            when[0m
+  [;1m                                Alloc :: atom(),[0m
+  [;1m                                F :: atom(),[0m
+  [;1m                                V :: integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.2.3
+
+  Sets system flags for [;;4merts_alloc(3)[0m. [;;4mAlloc[0m is the allocator to
+  affect, for example [;;4mbinary_alloc[0m. [;;4mF[0m is the flag to change and [;;4m[0m
+  [;;4mV[0m is the new value.
+
+  Only a subset of all [;;4merts_alloc[0m flags can be changed at run
+  time. This subset is currently only the flag [;;4msbct[0m.
+
+  Returns [;;4mok[0m if the flag was set or [;;4mnotsup[0m if not supported by [;;4m[0m
+  [;;4merts_alloc[0m.
+
+  [;1m-spec erlang:system_flag(fullsweep_after, Number) -> OldNumber[0m
+  [;1m                            when[0m
+  [;1m                                Number :: non_neg_integer(),[0m
+  [;1m                                OldNumber :: non_neg_integer().[0m
+
+  Sets system flag [;;4mfullsweep_after[0m. [;;4mNumber[0m is a non-negative
+  integer indicating how many times generational garbage collections
+  can be done without forcing a fullsweep collection. The value
+  applies to new processes, while processes already running are not
+  affected.
+
+  Returns the old value of the flag.
+
+  In low-memory systems (especially without virtual memory), setting
+  the value to [;;4m0[0m can help to conserve memory.
+
+  This value can also be set through (OS) environment variable [;;4m[0m
+  [;;4mERL_FULLSWEEP_AFTER[0m.
+
+  [;1m-spec erlang:system_flag(microstate_accounting, Action) -> OldState[0m
+  [;1m                            when[0m
+  [;1m                                Action :: true | false | reset,[0m
+  [;1m                                OldState :: true | false.[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Turns on/off microstate accounting measurements. When passing
+  reset, all counters are reset to 0.
+
+  For more information see [;;4mstatistics(microstate_accounting)[0m.
+
+  [;1m-spec erlang:system_flag(min_heap_size, MinHeapSize) -> OldMinHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MinHeapSize :: non_neg_integer(),[0m
+  [;1m                                OldMinHeapSize :: non_neg_integer().[0m
+
+  Sets the default minimum heap size for processes. The size is
+  specified in words. The new [;;4mmin_heap_size[0m effects only processes
+  spawned after the change of [;;4mmin_heap_size[0m has been made. [;;4m[0m
+  [;;4mmin_heap_size[0m can be set for individual processes by using [;;4m[0m
+  [;;4mspawn_opt/4[0m or [;;4mprocess_flag/2[0m.
+
+  Returns the old value of the flag.
+
+  [;1m-spec erlang:system_flag(min_bin_vheap_size, MinBinVHeapSize) ->[0m
+  [;1m                            OldMinBinVHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MinBinVHeapSize :: non_neg_integer(),[0m
+  [;1m                                OldMinBinVHeapSize :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R13B04
+
+  Sets the default minimum binary virtual heap size for processes.
+  The size is specified in words. The new [;;4mmin_bin_vhheap_size[0m
+  effects only processes spawned after the change of [;;4m[0m
+  [;;4mmin_bin_vheap_size[0m has been made. [;;4mmin_bin_vheap_size[0m can be set
+  for individual processes by using [;;4mspawn_opt/2,3,4[0m or [;;4m[0m
+  [;;4mprocess_flag/2[0m.
+
+  Returns the old value of the flag.
+
+  [;1m-spec erlang:system_flag(max_heap_size, MaxHeapSize) -> OldMaxHeapSize[0m
+  [;1m                            when[0m
+  [;1m                                MaxHeapSize :: max_heap_size(),[0m
+  [;1m                                OldMaxHeapSize :: max_heap_size().[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+
+  Sets the default maximum heap size settings for processes. The
+  size is specified in words. The new [;;4mmax_heap_size[0m effects only
+  processes spawned after the change has been made. [;;4mmax_heap_size[0m
+  can be set for individual processes using [;;4mspawn_opt/2,3,4[0m or [;;4m[0m
+  [;;4mprocess_flag/2[0m.
+
+  Returns the old value of the flag.
+
+  For details on how the heap grows, see Sizing the heap in the
+  ERTS internal documentation.
+
+  [;1m-spec erlang:system_flag(multi_scheduling, BlockState) -> OldBlockState[0m
+  [;1m                            when[0m
+  [;1m                                BlockState ::[0m
+  [;1m                                    block | unblock | block_normal |[0m
+  [;1m                                    unblock_normal,[0m
+  [;1m                                OldBlockState ::[0m
+  [;1m                                    blocked | disabled | enabled.[0m
+
+  If multi-scheduling is enabled, more than one scheduler thread is
+  used by the emulator. Multi-scheduling can be blocked in two
+  different ways. Either all schedulers but one is blocked, or all 
+  normal schedulers but one is blocked. When only normal schedulers
+  are blocked, dirty schedulers are free to continue to schedule
+  processes.
+
+  If [;;4mBlockState =:= block[0m, multi-scheduling is blocked. That is,
+  one and only one scheduler thread will execute. If [;;4mBlockState =:=[0m
+  [;;4munblock[0m and no one else blocks multi-scheduling, and this process
+  has blocked only once, multi-scheduling is unblocked.
+
+  If [;;4mBlockState =:= block_normal[0m, normal multi-scheduling is
+  blocked. That is, only one normal scheduler thread will execute,
+  but multiple dirty schedulers can execute. If [;;4mBlockState =:=[0m
+  [;;4munblock_normal[0m and no one else blocks normal multi-scheduling,
+  and this process has blocked only once, normal multi-scheduling is
+  unblocked.
+
+  One process can block multi-scheduling and normal multi-scheduling
+  multiple times. If a process has blocked multiple times, it must
+  unblock exactly as many times as it has blocked before it has
+  released its multi-scheduling block. If a process that has blocked
+  multi-scheduling or normal multi-scheduling exits, it
+  automatically releases its blocking of multi-scheduling and normal
+  multi-scheduling.
+
+  The return values are [;;4mdisabled[0m, [;;4mblocked[0m, [;;4mblocked_normal[0m, or [;;4m[0m
+  [;;4menabled[0m. The returned value describes the state just after the
+  call to [;;4merlang:system_flag(multi_scheduling, BlockState)[0m has
+  been made. For information about the return values, see [;;4m[0m
+  [;;4merlang:system_info(multi_scheduling)[0m.
+
+  Note:
+    Blocking of multi-scheduling and normal multi-scheduling is
+    normally not needed. If you feel that you need to use these
+    features, consider it a few more times again. Blocking
+    multi-scheduling is only to be used as a last resort, as it is
+    most likely a very inefficient way to solve the problem.
+
+  See also [;;4merlang:system_info(multi_scheduling)[0m, [;;4m[0m
+  [;;4merlang:system_info(normal_multi_scheduling_blockers)[0m, [;;4m[0m
+  [;;4merlang:system_info(multi_scheduling_blockers)[0m, and [;;4m[0m
+  [;;4merlang:system_info(schedulers)[0m.
+
+  [;1m-spec erlang:system_flag(outstanding_system_requests_limit, NewLimit) ->[0m
+  [;1m                            OldLimit[0m
+  [;1m                            when[0m
+  [;1m                                NewLimit :: 1..134217727,[0m
+  [;1m                                OldLimit :: 1..134217727.[0m
+
+[;;4mSince[0m:
+  OTP 24.2
+
+  Sets a limit on the amount of outstanding requests made by a
+  system process orchestrating system wide changes. Currently there
+  are two such processes:
+
+  [;;4mThe Code Purger[0m:
+    The code purger orchestrates checking of references to old
+    code before old code is removed from the system.
+
+  [;;4mThe Literal Area Collector[0m:
+    The literal area collector orchestrates copying of references
+    from old literal areas before removal of such areas from the
+    system.
+
+  Each of these processes are allowed to have as many outstanding
+  requests as this limit is set to. By default this limit is set to
+  twice the amount of schedulers on the system. This will ensure
+  that schedulers will have enough work scheduled to perform these
+  operations as quickly as possible at the same time as other work
+  will be interleaved with this work. Currently used limit can be
+  checked by calling [;;4m[0m
+  [;;4merlang:system_info(outstanding_system_requests_limit)[0m.
+
+  This limit can also be set by passing the command line argument [;;4m[0m
+  [;;4m+zosrl <Limit>[0m to [;;4merl[0m.
+
+  [;1m-spec erlang:system_flag(scheduler_bind_type, How) -> OldBindType[0m
+  [;1m                            when[0m
+  [;1m                                How ::[0m
+  [;1m                                    scheduler_bind_type() | default_bind,[0m
+  [;1m                                OldBindType :: scheduler_bind_type().[0m
+
+  Types:
+    -type scheduler_bind_type() ::
+          no_node_processor_spread | no_node_thread_spread | no_spread |
+          processor_spread | spread | thread_spread |
+          thread_no_node_processor_spread | unbound.
+
+  Warning:
+    This argument is deprecated. Instead of using this argument,
+    use command-line argument [;;4m+sbt[0m in [;;4merl(1)[0m. When this
+    argument is removed, a final scheduler bind type to use is
+    determined at emulator boot time.
+
+  Controls if and how schedulers are bound to logical processors.
+
+  When [;;4merlang:system_flag(scheduler_bind_type, How)[0m is called, an
+  asynchronous signal is sent to all schedulers online, causing them
+  to try to bind or unbind as requested.
+
+  Note:
+    If a scheduler fails to bind, this is often silently ignored,
+    as it is not always possible to verify valid logical processor
+    identifiers. If an error is reported, an error event is
+    logged. To verify that the schedulers have bound as requested,
+    call [;;4merlang:system_info(scheduler_bindings)[0m.
+
+  Schedulers can be bound on newer Linux, Solaris, FreeBSD, and
+  Windows systems, but more systems will be supported in future
+  releases.
+
+  In order for the runtime system to be able to bind schedulers, the
+  CPU topology must be known. If the runtime system fails to detect
+  the CPU topology automatically, it can be defined. For more
+  information on how to define the CPU topology, see command-line
+  flag [;;4m+sct[0m in [;;4merl(1)[0m.
+
+  The runtime system does by default not bind schedulers to
+  logical processors.
+
+  Note:
+    If the Erlang runtime system is the only OS process binding
+    threads to logical processors, this improves the performance
+    of the runtime system. However, if other OS processes (for
+    example, another Erlang runtime system) also bind threads to
+    logical processors, there can be a performance penalty
+    instead. Sometimes this performance penalty can be severe. If
+    so, it is recommended to not bind the schedulers.
+
+  Schedulers can be bound in different ways. Argument [;;4mHow[0m
+  determines how schedulers are bound and can be any of the
+  following:
+
+  [;;4m[;;4munbound[0m[0m:
+    Same as command-line argument [;;4m+sbt u[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ns[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mthread_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ts[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mprocessor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt ps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mspread[0m[0m:
+    Same as command-line argument [;;4m+sbt s[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_node_thread_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt nnts[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mno_node_processor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt nnps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mthread_no_node_processor_spread[0m[0m:
+    Same as command-line argument [;;4m+sbt tnnps[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mdefault_bind[0m[0m:
+    Same as command-line argument [;;4m+sbt db[0m in [;;4merl(1)[0m.
+
+  The returned value equals [;;4mHow[0m before flag [;;4mscheduler_bind_type[0m
+  was changed.
+
+  Failures:
+
+  [;;4m[;;4mnotsup[0m[0m:
+    If binding of schedulers is not supported.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mHow[0m is not one of the documented alternatives.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If CPU topology information is unavailable.
+
+  The scheduler bind type can also be set by passing command-line
+  argument [;;4m+sbt[0m to [;;4merl(1)[0m.
+
+  For more information, see [;;4merlang:system_info(scheduler_bind_type)[0m, [;;4m[0m
+  [;;4merlang:system_info(scheduler_bindings)[0m, as well as command-line
+  flags [;;4m+sbt[0m and [;;4m+sct[0m in [;;4merl(1)[0m.
+
+  [;1m-spec erlang:system_flag(scheduler_wall_time, Boolean) -> OldBoolean[0m
+  [;1m                            when[0m
+  [;1m                                Boolean :: boolean(),[0m
+  [;1m                                OldBoolean :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  Try enable or disable scheduler wall time measurements by passing [;;4m[0m
+  [;;4mBoolean[0m as either [;;4mtrue[0m or [;;4mfalse[0m.
+
+  For more information about how to use scheduler wall time
+  measurements, see [;;4mstatistics(scheduler_wall_time)[0m.
+
+  Scheduler wall time measurements has a node global state. It is
+  either enabled for all processes on the node or disabled for all
+  processes. Each process has a logical counter initialized as zero.
+  A call with [;;4mBoolean[0m as [;;4mtrue[0m will increase that counter one
+  step for the calling process. A call with [;;4mfalse[0m will decrease it
+  one step unless it already is zero. The node global state for [;;4m[0m
+  [;;4mscheduler_wall_time[0m will be enabled as long as there is at least
+  one process alive with a counter value larger than zero. When a
+  process terminates, its counter will also disappear. To ensure [;;4m[0m
+  [;;4mscheduler_wall_time[0m is kept enabled, the process that enabled it
+  must therefore be kept alive.
+
+  Returns the old value of the node global state, [;;4mtrue[0m if
+  scheduler wall time measurements were enabled, [;;4mfalse[0m if it were
+  disabled.
+
+  Scheduler wall time measurements do consume some cpu overhead and
+  should not be left turned on unless used.
+
+  [;1m-spec erlang:system_flag(schedulers_online, SchedulersOnline) ->[0m
+  [;1m                            OldSchedulersOnline[0m
+  [;1m                            when[0m
+  [;1m                                SchedulersOnline :: pos_integer(),[0m
+  [;1m                                OldSchedulersOnline :: pos_integer().[0m
+
+  Sets the number of schedulers online. Range is [;;4m1 <=[0m
+  [;;4mSchedulersOnline <= erlang:system_info(schedulers)[0m.
+
+  Returns the old value of the flag.
+
+  If the emulator was built with support for dirty schedulers,
+  changing the number of schedulers online can also change the
+  number of dirty CPU schedulers online. For example, if 12
+  schedulers and 6 dirty CPU schedulers are online, and [;;4m[0m
+  [;;4msystem_flag/2[0m is used to set the number of schedulers online to
+  6, then the number of dirty CPU schedulers online is automatically
+  decreased by half as well, down to 3. Similarly, the number of
+  dirty CPU schedulers online increases proportionally to increases
+  in the number of schedulers online.
+
+  For more information, see [;;4merlang:system_info(schedulers)[0m and [;;4m[0m
+  [;;4merlang:system_info(schedulers_online)[0m.
+
+  [;1m-spec erlang:system_flag(system_logger, Logger) -> PrevLogger[0m
+  [;1m                            when[0m
+  [;1m                                Logger :: logger | undefined | pid(),[0m
+  [;1m                                PrevLogger :: logger | undefined | pid().[0m
+
+[;;4mSince[0m:
+  OTP 21.3
+
+  Sets the process that will receive the logging messages generated
+  by ERTS. If set to [;;4mundefined[0m, all logging messages generated by
+  ERTS will be dropped. The messages will be in the format:
+
+    {log,Level,Format,ArgList,Metadata} where
+    
+    Level = atom(),
+    Format = string(),
+    ArgList = list(term()),
+    Metadata = #{ pid => pid(),
+       group_leader => pid(),
+       time := logger:timestamp(),
+       error_logger := #{ emulator := true, tag := atom() }
+
+  If the [;;4msystem_logger[0m process dies, this flag will be reset to [;;4m[0m
+  [;;4mlogger[0m.
+
+  The default is the process named [;;4mlogger[0m.
+
+  Returns the old value of the flag.
+
+  Note:
+    This function is designed to be used by the KERNEL [;;4mlogger[0m.
+    Be careful if you change it to something else as log messages
+    may be lost. If you want to intercept emulator log messages,
+    do it by adding a specialized handler to the KERNEL logger.
+
+  [;1m-spec erlang:system_flag(trace_control_word, TCW) -> OldTCW[0m
+  [;1m                            when[0m
+  [;1m                                TCW :: non_neg_integer(),[0m
+  [;1m                                OldTCW :: non_neg_integer().[0m
+
+  Sets the value of the node trace control word to [;;4mTCW[0m, which is
+  to be an unsigned integer. For more information, see function [;;4m[0m
+  [;;4mset_tcw[0m in section "Match Specifications in Erlang" in the User's
+  Guide.
+
+  Returns the old value of the flag.
+
+  [;1m-spec erlang:system_flag(time_offset, finalize) -> OldState[0m
+  [;1m                            when[0m
+  [;1m                                OldState ::[0m
+  [;1m                                    preliminary | final | volatile.[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Finalizes the time offset when single time warp mode is used.
+  If another time warp mode is used, the time offset state is left
+  unchanged.
+
+  Returns the old state identifier, that is:
+
+   • If [;;4mpreliminary[0m is returned, finalization was performed and
+     the time offset is now final.
+
+   • If [;;4mfinal[0m is returned, the time offset was already in the
+     final state. This either because another [;;4m[0m
+     [;;4merlang:system_flag(time_offset, finalize)[0m call or because 
+     no time warp mode is used.
+
+   • If [;;4mvolatile[0m is returned, the time offset cannot be
+     finalized because multi-time warp mode is used.

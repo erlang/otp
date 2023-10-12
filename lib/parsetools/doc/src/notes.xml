@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,134 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
+
+<section><title>Parsetools 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Leex has been extended with optional column number
+	    support.</p>
+          <p>
+	    Own Id: OTP-18491 Aux Id: PR-6882 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>In the generated code, <c>yecc</c> will now quote all
+	    atoms coming from terminals in the grammar, in order to
+	    avoid conflicts with future reserved words.</p>
+          <p>
+	    Own Id: OTP-17755</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The default parser include file for yecc
+	    (<c>yeccpre</c>) will no longer crash when attempting to
+	    print tokens when reporting an error.</p>
+          <p>
+	    Own Id: OTP-17721</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug in Leex which caused the Erlang Compiler to
+	    generate warnings.</p>
+          <p>
+	    Own Id: OTP-17499 Aux Id: GH-4918 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in Yecc which caused the Erlang Compiler to
+	    generate warnings.</p>
+          <p>
+	    Own Id: OTP-17535 Aux Id: GH-5067 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-16957</p>
+        </item>
+        <item>
+          <p>
+	    Let Leex and Yecc recognize the environment variable
+	    ERL_COMPILER_OPTIONS. Add Yecc option <c>{error_location,
+	    column | line}</c>.</p>
+          <p>
+	    Own Id: OTP-17023</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Parsetools 2.1.8</title>
 
@@ -378,7 +506,7 @@
     <section><title>Improvements and New Features</title>
       <list>
         <item>
-	    <p> The formating of Yecc's error messages has been
+	    <p> The formatting of Yecc's error messages has been
 	    improved. (Thanks to Joe Armstrong.) </p>
           <p>
 	    Own Id: OTP-8919</p>

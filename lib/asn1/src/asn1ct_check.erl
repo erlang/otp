@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -695,7 +695,7 @@ check_object(S,_ObjDef,#'Object'{classname=ClassRef,def=ObjectDef}) ->
 	    {po,{object,DefObj},ArgsList} ->
 		{_,Object} = get_referenced_type(S,DefObj),%DefObj is a 
 		%%#'Externalvaluereference' or a #'Externaltypereference'
-		%% Maybe this call should be catched and in case of an exception
+		%% Maybe this call should be caught and in case of an exception
 		%% a not initialized parameterized object should be returned.
 		instantiate_po(S,ClassDef,Object,ArgsList);
 	    {pv,{simpledefinedvalue,ObjRef},ArgList} ->
@@ -1170,7 +1170,7 @@ gen_incl1(_,_,[]) ->
 gen_incl1(S,Fields,[C|CFields]) ->
     case element(1,C) of
 	typefield ->
-	    true; %% should check that field is OPTIONAL or DEFUALT if
+	    true; %% should check that field is OPTIONAL or DEFAULT if
                   %% the object lacks this field
 	objectfield ->
 	    case lists:keysearch(element(2,C),1,Fields) of
@@ -1710,7 +1710,7 @@ check_value(S,#valuedef{pos=Pos,name=Name,type=Type,
     {valueset,
      check_type(S,#typedef{pos=Pos,name=Name,typespec=NewType},NewType)};
 check_value(S, #valuedef{}=V) ->
-    ?dbg("check_value, V: ~p~n",[V0]),
+    ?dbg("check_value, V: ~p~n",[V]),
     case V of
 	#valuedef{checked=true} ->
 	    V;
@@ -1721,7 +1721,8 @@ check_value(S, #valuedef{}=V) ->
 check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
     #valuedef{name=Name,type=Vtype0,value=Value,module=ModName} = V0,
     V = V0#valuedef{checked=true},
-    Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype0},Vtype0),
+    Vtype1 = expand_valuedef_type(Vtype0),
+    Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype1},Vtype1),
     Def = Vtype#type.def,
     S1 = S0#state{tname=Def},
     SVal = update_state(S1, ModName),
@@ -1766,6 +1767,27 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	_ ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, TopName)}
     end.
+
+expand_valuedef_type(#type{def=Seq}=Type)
+  when is_record(Seq,'SEQUENCE') ->
+    NewComponents = case Seq#'SEQUENCE'.components of
+                        {R1,_Ext,R2} -> R1 ++ R2;
+                        {Root,_Ext} -> Root;
+                        Root -> take_only_rootset(Root)
+                    end,
+    NewSeq = Seq#'SEQUENCE'{components = NewComponents},
+    Type#type{def=NewSeq};
+expand_valuedef_type(#type{def=Set}=Type)
+  when is_record(Set,'SET') ->
+    NewComponents = case Set#'SET'.components of
+                        {R1,_Ext,R2} -> R1 ++ R2;
+                        {Root,_Ext} -> Root;
+                        Root -> take_only_rootset(Root)
+                    end,
+    NewSet = Set#'SET'{components = NewComponents},
+    Type#type{def=NewSet};
+expand_valuedef_type(Type) ->
+    Type.
 
 is_contextswitchtype(#typedef{name='EXTERNAL'})->
     true;
@@ -1833,8 +1855,8 @@ validate_oid(S, OidType, [{'NamedNumber',_Name,Value}|Vrest], Acc)
     validate_oid(S, OidType, Vrest, [Value|Acc]);
 validate_oid(S, OidType, [#'Externalvaluereference'{}=Id|Vrest], Acc) ->
     NeededOidType = case Acc of
-			[] -> o_id;
-			[_|_] -> rel_oid
+			[] when OidType =:= o_id -> o_id;
+			_ -> rel_oid
 		    end,
     try get_oid_value(S, NeededOidType, true, Id) of
 	Val when is_integer(Val) ->
@@ -1998,7 +2020,8 @@ normalize_value(S, Type, {'DEFAULT',Value}, NameList) ->
 	{'ENUMERATED',CType,_} ->
 	    normalize_enumerated(S,Value,CType);
 	{'CHOICE',CType,NewNameList} ->
-	    normalize_choice(S,Value,CType,NewNameList);
+	    ChoiceComponents = get_choice_components(S, {'CHOICE',CType}),
+	    normalize_choice(S,Value,ChoiceComponents,NewNameList);
 	{'SEQUENCE',CType,NewNameList} ->
 	    normalize_sequence(S,Value,CType,NewNameList);
 	{'SEQUENCE OF',CType,NewNameList} ->
@@ -2140,6 +2163,9 @@ normalize_octetstring(S, Value) ->
 		_ ->
 		    asn1_error(S, illegal_octet_string_value)
 	    end;
+        Val when is_binary(Val) ->
+            %% constant default value
+            Val;
 	_ ->
 	    asn1_error(S, illegal_octet_string_value)
     end.
@@ -2268,9 +2294,8 @@ use_maps(#state{options=Opts}) ->
 
 create_map_value(Components, ListOfVals) ->
     Zipped = lists:zip(Components, ListOfVals),
-    L = [{Name,V} || {#'ComponentType'{name=Name},V} <- Zipped,
-                     V =/= asn1_NOVALUE],
-    maps:from_list(L).
+    #{Name => V || {#'ComponentType'{name=Name},V} <- Zipped,
+                   V =/= asn1_NOVALUE}.
 
 normalize_seq_or_set(SorS, S,
 		     [{#seqtag{val=Cname},V}|Vs],
@@ -2383,7 +2408,7 @@ normalize_s_of(SorS,S,Value,Type,NameList)
 %% character string list case
 normalize_restrictedstring(S,[H|T],CType) when is_list(H);is_tuple(H) ->
     [normalize_restrictedstring(S,H,CType)|normalize_restrictedstring(S,T,CType)];
-%% character sting case
+%% character string case
 normalize_restrictedstring(_S,CString,_) when is_list(CString) ->
     CString;
 %% definedvalue case or argument in a parameterized type
@@ -2464,22 +2489,22 @@ check_ptype(S,Type,Ts) when is_record(Ts,type) ->
     NewDef= 
 	case Def of 
 	    Seq when is_record(Seq,'SEQUENCE') ->
-		Components = expand_components(S,Seq#'SEQUENCE'.components),
-		#newt{type=Seq#'SEQUENCE'{pname=get_datastr_name(Type),
-					  components = Components}};
+			Components = expand_components(S,Seq#'SEQUENCE'.components),			
+			#newt{type=Seq#'SEQUENCE'{pname=get_datastr_name(Type),
+									components = Components}};
 	    Set when is_record(Set,'SET') ->
-		Components = expand_components(S,Set#'SET'.components),
-		#newt{type=Set#'SET'{pname=get_datastr_name(Type),
+			Components = expand_components(S,Set#'SET'.components),
+			#newt{type=Set#'SET'{pname=get_datastr_name(Type),
 				     components = Components}};
 	    _Other ->
-		#newt{}
+			#newt{}
 	end,
     Ts2 = case NewDef of
 	      #newt{type=unchanged} ->
-		  Ts;
+		  	Ts;
 	      #newt{type=TDef}->
-		  Ts#type{def=TDef}
-	  end,
+		  	Ts#type{def=TDef}
+	end,
     Ts2;
 %% parameterized class
 check_ptype(_S,_PTDef,Ts) when is_record(Ts,objectclass) ->
@@ -2751,8 +2776,9 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		TempNewDef#newt{type={'SEQUENCE OF',check_sequenceof(S,Type,Components)},
 				tag=
 				merge_tags(Tag,?TAG_CONSTRUCTED(?N_SEQUENCE))};
-	    {'CHOICE',Components} ->
+	    {'CHOICE',_} = Choice->
 		Ct = maybe_illicit_implicit_tag(S, choice, Tag),
+                Components = get_choice_components(S, Choice),
 		TempNewDef#newt{type={'CHOICE',check_choice(S,Type,Components)},tag=Ct};
 	    Set when is_record(Set,'SET') ->
 		RecordName=
@@ -2789,7 +2815,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				inlined=yes};
 
 	    #'ObjectClassFieldType'{classname=ClRef0}=OCFT0 ->
-		%% this case occures in a SEQUENCE when 
+		%% this case occurs in a SEQUENCE when 
 		%% the type of the component is a ObjectClassFieldType
 		ClRef = match_parameter(S, ClRef0),
 		OCFT = OCFT0#'ObjectClassFieldType'{classname=ClRef},
@@ -3400,10 +3426,10 @@ check_componentrelation(S, {objectset,Opos,Objset0}, Id) ->
 %%% creating sets, and maintained by the intersection and union
 %%% operators.
 %%%
-%%% Example of invalid set representaions:
+%%% Example of invalid set representations:
 %%%
 %%%   [{range,0,10},{range,5,10}]    %Overlapping ranges
-%%%   [{range,0,5},{range,6,10}]     %Adjancent ranges
+%%%   [{range,0,5},{range,6,10}]     %Adjacent ranges
 %%%   [{range,10,20},{a_range,100}]  %Not sorted
 %%%
 
@@ -3533,6 +3559,20 @@ range_union_1([]) ->
 finish_constraints(Cs) ->
     finish_constraints_1(Cs, fun smart_collapse/1).
 
+finish_constraints_1([{element_set,{'SizeConstraint',
+                                    {element_set,Root,none}},
+                       {set,[]}=Set}|T],
+                     Collapse) ->
+    %% Rewrite:
+    %%
+    %%     (SIZE (Lower..Upper), ...)
+    %%
+    %% to:
+    %%
+    %%     (SIZE (Lower..Upper, ...))
+
+    C = {element_set,{'SizeConstraint',{element_set,Root,Set}},none},
+    finish_constraints_1([C|T], Collapse);
 finish_constraints_1([{element_set,{Tag,{element_set,_,_}=Set0},none}|T],
 		     Collapse0) ->
     Collapse = collapse_fun(Tag),
@@ -4361,38 +4401,18 @@ check_sequence(S,Type,Comps)  ->
 	    %% type
 	    {CRelInf,NewComps2} = componentrelation_leadingattr(S,NewComps),
 
-	    %% CompListWithTblInf has got a lot unecessary info about
+	    %% CompListWithTblInf has got a lot unnecessary info about
 	    %% the involved class removed, as the class of the object
 	    %% set.
 	    CompListWithTblInf = get_tableconstraint_info(S,Type,NewComps2),
 
 	    NewComps3 = textual_order(CompListWithTblInf),
 	    NewComps4 = simplify_comps(NewComps3),
-	    CompListTuple = complist_as_tuple(NewComps4),
+	    CompListTuple = asn1ct_gen:complist_as_tuple(NewComps4),
 	    {CRelInf,CompListTuple};
 	Dupl ->
 	    asn1_error(S, {duplicate_identifier, error_value(hd(Dupl))})
     end.
-
-complist_as_tuple(CompList) ->
-    complist_as_tuple(CompList, [], [], [], root).
-
-complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, root) ->
-    complist_as_tuple(T, Acc, Ext, Acc2, ext);
-complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, ext) ->
-    complist_as_tuple(T, Acc, Ext, Acc2, root2);
-complist_as_tuple([C|T], Acc, Ext, Acc2, root) ->
-    complist_as_tuple(T, [C|Acc], Ext, Acc2, root);
-complist_as_tuple([C|T], Acc, Ext, Acc2, ext) ->
-    complist_as_tuple(T, Acc, [C|Ext], Acc2, ext);
-complist_as_tuple([C|T], Acc, Ext, Acc2, root2) ->
-    complist_as_tuple(T, Acc, Ext, [C|Acc2], root2);
-complist_as_tuple([], Acc, _Ext, _Acc2, root) ->
-    lists:reverse(Acc);
-complist_as_tuple([], Acc, Ext, _Acc2, ext) ->
-    {lists:reverse(Acc),lists:reverse(Ext)};
-complist_as_tuple([], Acc, Ext, Acc2, root2) ->
-    {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
 
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
@@ -4400,7 +4420,12 @@ expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
 expand_components(S,[H|T]) ->
     [H|expand_components(S,T)];
 expand_components(_,[]) ->
-    [].
+    [];
+expand_components(S, {Acc,Ext,Acc2}) ->
+    expand_components(S,Acc ++ Ext ++ Acc2);
+expand_components(S, {Acc,Ext}) ->
+    expand_components(S, Acc ++ Ext).
+
 expand_components2(_S,{_,#typedef{typespec=#type{def=Seq}}}) 
   when is_record(Seq,'SEQUENCE') ->
     case Seq#'SEQUENCE'.components of
@@ -4437,7 +4462,7 @@ take_only_rootset([H|T]) ->
     [H|take_only_rootset(T)].
 
 check_unique_sequence_tags(S,CompList) ->
-    TagComps = case complist_as_tuple(CompList) of
+    TagComps = case asn1ct_gen:complist_as_tuple(CompList) of
 		   {R1,Ext,R2} ->
 		       R1 ++ [C#'ComponentType'{prop='OPTIONAL'}||
 				 C = #'ComponentType'{} <- Ext]++R2;
@@ -4700,7 +4725,7 @@ check_choice(S,Type,Components) when is_list(Components) ->
 				     end,NewComps),
 	    NewComps3 = simplify_comps(NewComps2),
 	    check_unique_tags(S, NewComps3),
-	    complist_as_tuple(NewComps3);
+	    asn1ct_gen:complist_as_tuple(NewComps3);
 	Dupl ->
 	    asn1_error(S, {duplicate_identifier,error_value(hd(Dupl))})
     end;
@@ -5171,7 +5196,7 @@ any_component_relation(_,[],_,_,Acc) ->
 %% evaluate_atpath/4 finds out whether the at notation refers to the
 %% search level. The list of referenced names in the AtNot list shall
 %% begin with a name that exists on the level it refers to. If the
-%% found AtPath is refering to the same sub-branch as the simple table
+%% found AtPath is referring to the same sub-branch as the simple table
 %% has, then there shall not be any leading attribute info on this
 %% level.
 evaluate_atpath(_,[],Cnames,{innermost,AtPath=[Ref|_Refs]}) ->
@@ -5342,7 +5367,7 @@ innertype_comprel1(S,T = #type{def=Def,constraint=Cons,tablecinf=TCI},Path) ->
 	case lists:keyfind(componentrelation, 1, Cons) of
 	    {_,{_,_,ObjectSet},AtList} ->
 		%% This AtList must have an "outermost" at sign to be
-		%% relevent here.
+		%% relevant here.
 		[{_,AL=[#'Externalvaluereference'{value=_Attr}|_R1]}|_R2] 
 		    = AtList,
 		ClassDef = get_ObjectClassFieldType_classdef(S,Def),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,10 +107,9 @@ typedef struct {
 
 typedef struct {
     Allctr_t *deallctr[ERTS_ALC_A_MAX+1];
-    int pref_ix[ERTS_ALC_A_MAX+1];
-    int flist_ix[ERTS_ALC_A_MAX+1];
-    int pre_alc_ix;
-} ErtsSchedAllocData;
+    int delayed_dealloc_handler;
+    int alc_ix;
+} ErtsThrAllocData;
 
 void erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop);
 void erts_alloc_late_init(void);
@@ -147,10 +146,13 @@ typedef struct {
     void *extra;
 } ErtsAllocatorFunctions_t;
 
+extern erts_tsd_key_t erts_thr_alloc_data_key;
 extern ErtsAllocatorFunctions_t
     ERTS_WRITE_UNLIKELY(erts_allctrs[ERTS_ALC_A_MAX+1]);
 extern ErtsAllocatorInfo_t
     ERTS_WRITE_UNLIKELY(erts_allctrs_info[ERTS_ALC_A_MAX+1]);
+
+extern Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_alloc_instances);
 
 typedef struct {
     int enabled;
@@ -162,23 +164,13 @@ typedef struct {
 
 extern ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
 
-typedef struct ErtsAllocatorWrapper_t_ {
-    void (*lock)(void);
-    void (*unlock)(void);
-    struct ErtsAllocatorWrapper_t_* next;
-}ErtsAllocatorWrapper_t;
-extern ErtsAllocatorWrapper_t *erts_allctr_wrappers;
-extern int erts_allctr_wrapper_prelocked;
-extern erts_tsd_key_t erts_allctr_prelock_tsd_key;
-void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper);
-void erts_allctr_wrapper_pre_lock(void);
-void erts_allctr_wrapper_pre_unlock(void);
-
 void erts_alloc_register_scheduler(void *vesdp);
-void erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
-						 int *need_thr_progress,
-						 ErtsThrPrgrVal *thr_prgr_p,
-						 int *more_work);
+void erts_alloc_register_delayed_dealloc_handler_thread(ErtsThrAllocData *tadp,
+							int ix);
+void erts_alloc_handle_delayed_dealloc(ErtsThrAllocData *thr_alloc_data,
+				       int *need_thr_progress,
+				       ErtsThrPrgrVal *thr_prgr_p,
+				       int *more_work);
 erts_aint32_t erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs);
 
 __decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,Uint)		
@@ -221,19 +213,21 @@ Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
 
 #if !ERTS_ALC_DO_INLINE
 
-void *erts_alloc(ErtsAlcType_t type, Uint size);
-void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size);
 void erts_free(ErtsAlcType_t type, void *ptr);
-void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
-void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
+void *erts_alloc(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
+void *erts_alloc_fnf(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
 int erts_is_allctr_wrapper_prelocked(void);
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
 int erts_is_in_literal_range(void* ptr);
 #endif
+ErtsThrAllocData *erts_get_thr_alloc_data(void);
+int erts_get_thr_alloc_ix(void);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
-void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assumed cache line size */
@@ -315,10 +309,18 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 }
 
 ERTS_ALC_INLINE
-int erts_is_allctr_wrapper_prelocked(void)
+ErtsThrAllocData *erts_get_thr_alloc_data(void)
 {
-    return erts_allctr_wrapper_prelocked                 /* locked */
-	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
+    return (ErtsThrAllocData *) erts_tsd_get(erts_thr_alloc_data_key);
+}
+
+ERTS_ALC_INLINE
+int erts_get_thr_alloc_ix(void)
+{
+    ErtsThrAllocData *tadp = (ErtsThrAllocData *) erts_tsd_get(erts_thr_alloc_data_key);
+    if (!tadp)
+        return 0;
+    return tadp->alc_ix;
 }
 
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
@@ -345,8 +347,6 @@ int erts_is_in_literal_range(void* ptr)
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
 
-#define ERTS_ALC_GET_THR_IX() ((int) erts_get_scheduler_id())
-
 typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
 
 erts_alloc_verify_func_t
@@ -355,26 +355,23 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 #define ERTS_ALC_DATA_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / 8) + 1) * 8)
 
+#if defined(ARCH_64)
+#define ERTS_ALC_WORD_ALIGN_SIZE(SZ) \
+    ERTS_ALC_DATA_ALIGN_SIZE((SZ))
+#elif defined(ARCH_32)
+#define ERTS_ALC_WORD_ALIGN_SIZE(SZ) \
+    (((((SZ) - 1) / 4) + 1) * 4)
+#else
+#error "Not supported word size"
+#endif
+
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
+
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
     ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
-
-#define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
-
-#define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-static erts_spinlock_t NAME##_lck;					\
-ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
-		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
-		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
-		    erts_spin_lock(&NAME##_lck),			\
-		    erts_spin_unlock(&NAME##_lck))
-
-
-#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-  ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)
 
 
 #define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
@@ -606,6 +603,69 @@ NAME##_free(TYPE *p)							\
 			  (char *) p);					\
 }
 
+#else /* !defined(VALGRIND) && !defined(ADDRESS_SANITIZER) */
+
+/*
+ * For VALGRIND and ADDRESS_SANITIZER we short circuit all preallocation
+ * with dummy wrappers around malloc and free.
+ */
+
+#define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
+    ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
+
+#define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
+static void init_##NAME##_alloc(void)                                   \
+{                                                                       \
+}                                                                       \
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{                                                                       \
+    return malloc(sizeof(TYPE));                                        \
+}				                                        \
+static ERTS_INLINE void NAME##_free(TYPE *p)                            \
+{                                                                       \
+    free((void *) p);                                                   \
+}
+
+#define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
+  ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
+ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	\
+        ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
+
+#define ERTS_THR_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	        \
+void erts_##NAME##_pre_alloc_init_thread(void)				\
+{									\
+}                                                                       \
+static void init_##NAME##_alloc(int nthreads)				\
+{									\
+}									\
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{									\
+    return malloc(sizeof(TYPE));				        \
+}									\
+static ERTS_INLINE void NAME##_free(TYPE *p)				\
+{									\
+    free(p);					                        \
+}
+
+#define ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)		  \
+static void init_##NAME##_alloc(void)                                     \
+{                                                                         \
+}                                                                         \
+static TYPE* NAME##_alloc(void)                                           \
+{                                                                         \
+    return (TYPE *) malloc(sizeof(TYPE));                                 \
+}                                                                         \
+static int NAME##_free(TYPE *p)                                           \
+{                                                                         \
+    free(p);                                                              \
+    return 1;                                                             \
+}
+
+#endif /* VALGRIND ||  ADDRESS_SANITIZER */
 
 #ifdef DEBUG
 #define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))

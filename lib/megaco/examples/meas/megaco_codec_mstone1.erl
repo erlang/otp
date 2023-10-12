@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,22 +29,21 @@
 
 %% API
 -export([
-	 start/0,          start/1,          start/2,
+	 start/0, start/1, start/2, start/3,
 	 start_flex/0,     start_flex/1,     start_flex/2,
 	 start_no_drv/0,   start_no_drv/1,   start_no_drv/2,
 	 start_only_drv/0, start_only_drv/1, start_only_drv/2
 	]).
 
 %% Internal exports
--export([mstone_runner_init/5]).
+-export([mstone_runner_init/6]).
 
 
 -define(LIB, megaco_codec_mstone_lib).
 
--ifndef(MSTONE_TIME).
--define(MSTONE_TIME, 10).
+-ifndef(MSTONE_RUN_TIME).
+-define(MSTONE_RUN_TIME, 10). % minutes
 -endif.
--define(MSTONE_RUN_TIME, timer:minutes(?MSTONE_TIME)).
 
 -ifndef(MSTONE_VERSION3).
 -define(MSTONE_VERSION3, v3).
@@ -74,64 +73,94 @@ start() ->
     start(?DEFAULT_FACTOR).
 
 start([Factor]) ->
-    start(?DEFAULT_MESSAGE_PACKAGE, Factor);
+    start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start([MessagePackage, Factor]) ->
-    start(MessagePackage, Factor);
+    start(MessagePackage, ?MSTONE_RUN_TIME, Factor);
+start([MessagePackage, RunTime, Factor]) ->
+    start(MessagePackage, RunTime, Factor);
 start(Factor) ->
-    start(?DEFAULT_MESSAGE_PACKAGE, Factor).
+    start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
-start(MessagePackage, Factor) ->
-    do_start(MessagePackage, Factor, ?DEFAULT_DRV_INCLUDE).
+start(RunTime, default = _Factor)
+  when is_integer(RunTime) ->
+    start(?DEFAULT_MESSAGE_PACKAGE, RunTime, ?DEFAULT_FACTOR);
+start(RunTime, Factor)
+  when is_integer(RunTime) andalso is_integer(Factor) ->
+    start(?DEFAULT_MESSAGE_PACKAGE, RunTime, Factor);
+start(MessagePackage, Factor)
+  when is_atom(MessagePackage) andalso is_integer(Factor) ->
+    start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
+
+start(MessagePackage, RunTime, Factor) ->
+    do_start(MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE).
 
 
 start_flex() ->
     start_flex(?DEFAULT_FACTOR).
 
 start_flex([Factor]) ->
-    start_flex(?DEFAULT_MESSAGE_PACKAGE, Factor);
+    start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_flex([MessagePackage, Factor]) ->
-    start_flex(MessagePackage, Factor);
+    start_flex(MessagePackage, ?MSTONE_RUN_TIME, Factor);
+start_flex([MessagePackage, RunTime, Factor]) ->
+    start_flex(MessagePackage, RunTime, Factor);
 start_flex(Factor) ->
-    start_flex(?DEFAULT_MESSAGE_PACKAGE, Factor).
+    start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 start_flex(MessagePackage, Factor) ->
-    do_start(MessagePackage, Factor, flex).
+    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
+
+start_flex(MessagePackage, RunTime, Factor) ->
+    do_start(MessagePackage, RunTime, Factor, flex).
 
 
 start_only_drv() ->
     start_only_drv(?DEFAULT_FACTOR).
 
 start_only_drv([Factor]) ->
-    start_only_drv(?DEFAULT_MESSAGE_PACKAGE, Factor);
+    start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_only_drv([MessagePackage, Factor]) ->
-    start_only_drv(MessagePackage, Factor);
+    start_only_drv(MessagePackage, ?MSTONE_RUN_TIME, Factor);
+start_only_drv([MessagePackage, RunTime, Factor]) ->
+    start_only_drv(MessagePackage, RunTime, Factor);
 start_only_drv(Factor) ->
-    start_only_drv(?DEFAULT_MESSAGE_PACKAGE, Factor).
+    start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 start_only_drv(MessagePackage, Factor) ->
-    do_start(MessagePackage, Factor, only_drv).
+    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, only_drv).
+
+start_only_drv(MessagePackage, RunTime, Factor) ->
+    do_start(MessagePackage, RunTime, Factor, only_drv).
 
 
 start_no_drv() ->
     start_no_drv(?DEFAULT_FACTOR).
 
 start_no_drv([Factor]) ->
-    start_no_drv(?DEFAULT_MESSAGE_PACKAGE, Factor);
+    start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_no_drv([MessagePackage, Factor]) ->
-    start_no_drv(MessagePackage, Factor);
+    start_no_drv(MessagePackage, ?MSTONE_RUN_TIME, Factor);
+start_no_drv([MessagePackage, RunTime, Factor]) ->
+    start_no_drv(MessagePackage, RunTime, Factor);
 start_no_drv(Factor) ->
-    start_no_drv(?DEFAULT_MESSAGE_PACKAGE, Factor).
+    start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 start_no_drv(MessagePackage, Factor) ->
-    do_start(MessagePackage, Factor, no_drv).
+    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
+
+start_no_drv(MessagePackage, RunTime, Factor) ->
+    do_start(MessagePackage, RunTime, Factor, no_drv).
 
     
-do_start(MessagePackageRaw, FactorRaw, DrvInclude) ->
+do_start(MessagePackageRaw, RunTimeRaw, FactorRaw, DrvInclude) ->
+    RunTime        = parse_runtime(RunTimeRaw),
     Factor         = parse_factor(FactorRaw),
     MessagePackage = parse_message_package(MessagePackageRaw),
-    mstone_init(MessagePackage, Factor, DrvInclude).
-	
+    mstone_init(MessagePackage, RunTime, Factor, DrvInclude).
 
+
+parse_runtime(RunTimeAtom) ->
+    ?LIB:parse_runtime(RunTimeAtom).
 
 parse_factor(FactorAtom) when is_atom(FactorAtom) ->
     case (catch list_to_integer(atom_to_list(FactorAtom))) of
@@ -168,43 +197,54 @@ parse_message_package(BadMessagePackage) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-mstone_init(MessagePackage, Factor, DrvInclude) ->
-%%     io:format("mstone_init -> entry with"
-%% 	      "~n   MessagePackage: ~p"
-%% 	      "~n   Factor:         ~p"
-%% 	      "~n   DrvInclude:     ~p"
-%% 	      "~n", [MessagePackage, Factor, DrvInclude]),
+mstone_init(MessagePackage, RunTime, Factor, DrvInclude) ->
+    %% io:format("MStone init with:"
+    %%           "~n   MessagePackage: ~p"
+    %%           "~n   RunTime:        ~p ms"
+    %%           "~n   Factor:         ~p"
+    %%           "~n   DrvInclude:     ~p"
+    %%           "~n", [MessagePackage, RunTime, Factor, DrvInclude]),
     Codecs = ?MSTONE_CODECS, 
-    mstone_init(MessagePackage, Factor, Codecs, DrvInclude).
+    mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude).
 
-mstone_init(MessagePackage, Factor, Codecs, DrvInclude) ->
+mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     Parent = self(), 
     Pid = spawn(
 	    fun() -> 
 		    process_flag(trap_exit, true),
-		    do_mstone(MessagePackage, Factor, Codecs, DrvInclude),  
-		    Parent ! {done, self()}
+		    Done = do_mstone(MessagePackage,
+                                     RunTime, Factor, Codecs, DrvInclude),  
+		    Parent ! {Done, self()}
 	    end),
     receive
 	{done, Pid} ->
-	    ok
+	    ok;
+        {{error, _} = ERROR, Pid} ->
+            ERROR
     end.
 			 
-do_mstone(MessagePackage, Factor, Codecs, DrvInclude) ->
+do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     io:format("~n", []),
     ?LIB:display_os_info(),
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
     io:format("~n", []),
-    (catch asn1rt_driver_handler:load_driver()),
-    {Pid, Conf} = ?LIB:start_flex_scanner(),
-    put(flex_scanner_conf, Conf),
-    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
-    EMsgs  = duplicate(Factor, EMessages),
-    MStone = t1(EMsgs),
-    ?LIB:stop_flex_scanner(Pid),
-    io:format("~n", []),
-    io:format("MStone: ~p~n", [MStone]).
+    try ?LIB:start_flex_scanner() of
+        {Pid, Conf} when is_pid(Pid) ->
+            put(flex_scanner_conf, Conf),
+            EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
+            EMsgs  = duplicate(Factor, EMessages),
+            MStone = t1(RunTime, EMsgs),
+            ?LIB:stop_flex_scanner(Pid),
+            io:format("~n", []),
+            io:format("MStone: ~p~n", [MStone]),
+            done
+    catch
+        throw:{error, Reason} = ERROR ->
+            io:format("<ERROR> Failed starting flex scanner: "
+                      "~n      ~p", [Reason]),
+            ERROR
+    end.
 
 duplicate(N, Elements) ->
     duplicate(N, Elements, []).
@@ -214,11 +254,11 @@ duplicate(_N, [], Acc) ->
 duplicate(N, [H|T], Acc) ->
     duplicate(N, T, [lists:duplicate(N, H)|Acc]).
 
-t1(EMsgs) ->
+t1(RunTime, EMsgs) ->
     io:format(" * starting runners [~w] ", [length(EMsgs)]),
-    t1(EMsgs, []).
+    t1(RunTime, EMsgs, []).
 
-t1([], Runners) ->
+t1(_RunTime, [], Runners) ->
     io:format(" done~n * await runners ready ", []),
     await_runners_ready(Runners),
     io:format(" done~n * now snooze", []),
@@ -226,10 +266,10 @@ t1([], Runners) ->
     io:format("~n * release them~n", []),
     lists:foreach(fun(P) -> P ! {go, self()} end, Runners),
     t2(1, [], Runners);
-t1([H|T], Runners) ->
-    Runner = init_runner(H),
+t1(RunTime, [H|T], Runners) ->
+    Runner = init_runner(RunTime, H),
     io:format(".", []),
-    t1(T, [Runner|Runners]).
+    t1(RunTime, T, [Runner|Runners]).
 
 await_runners_ready([]) ->
     ok;
@@ -312,11 +352,11 @@ t2(N, Acc, Runners) ->
 	    t2(N + 1, [MStone|Acc], lists:delete(Pid, Runners))
     end.
 
-init_runner({Codec, Mod, Conf, Msgs}) ->
+init_runner(RunTime, {Codec, Mod, Conf, Msgs}) ->
     Conf1 = runner_conf(Conf),
     Conf2 = [{version3,?VERSION3}|Conf1],
     Pid   = spawn_opt(?MODULE, mstone_runner_init, 
-		      [Codec, self(), Mod, Conf2, Msgs],
+		      [RunTime, Codec, self(), Mod, Conf2, Msgs],
 		      ?MSTONE_RUNNER_OPTS),
     Pid.
 
@@ -336,7 +376,7 @@ detect_versions(Codec, Conf, [{_Name, Bin}|Bins], Acc) ->
     detect_versions(Codec, Conf, Bins, [Data|Acc]).
 	    
 
-mstone_runner_init(_Codec, Parent, Mod, Conf, Msgs0) ->
+mstone_runner_init(RunTime, _Codec, Parent, Mod, Conf, Msgs0) ->
     Msgs = detect_versions(Mod, Conf, Msgs0, []),
     warmup(Mod, Conf, Msgs, []),
     Parent ! {ready, self()},
@@ -344,7 +384,7 @@ mstone_runner_init(_Codec, Parent, Mod, Conf, Msgs0) ->
         {go, Parent} ->
             ok
     end,
-    erlang:send_after(?MSTONE_RUN_TIME, self(), stop),
+    erlang:send_after(RunTime, self(), stop),
     mstone_runner_loop(Parent, Mod, Conf, 0, Msgs).
 
 mstone_runner_loop(Parent, Mod, Conf, N, Msgs1) ->

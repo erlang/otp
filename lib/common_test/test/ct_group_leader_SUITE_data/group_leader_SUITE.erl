@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ p1(_) ->
     %% respond to IO messages. The process is still group leader for the
     %% external app, however, which is wrong. It's the IO process for the
     %% parallel test case that should be group leader - but only for the
-    %% particular invokation, since other parallel test cases could be
+    %% particular invocation, since other parallel test cases could be
     %% invoking the external app too.
     print("hej\n").
 

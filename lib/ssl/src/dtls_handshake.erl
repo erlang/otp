@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the DTLS (specific parts of)
+%% Purpose: Help functions for handling the DTLS (specific parts of)
 %%% SSL/TLS/DTLS handshake protocol
 %%----------------------------------------------------------------------
 -module(dtls_handshake).
@@ -30,64 +30,67 @@
 -include("ssl_alert.hrl").
 
 %% Handshake handling
--export([client_hello/8, client_hello/9, cookie/4, hello/4, 
+-export([client_hello/6, client_hello/8, cookie/4, hello/5, hello/4,
 	 hello_verify_request/2]).
-        
+
 %% Handshake encoding
 -export([fragment_handshake/2, encode_handshake/3]).
 
-%% Handshake decodeing
--export([get_dtls_handshake/3]). 
+%% Handshake decoding
+-export([get_dtls_handshake/4]).
 
--type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | 
+-type dtls_handshake() :: #client_hello{} | #hello_verify_request{} |
 			  ssl_handshake:ssl_handshake().
 
 %%====================================================================
 %% Handshake handling
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), ssl_record:connection_states(),
-		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
-			  #client_hello{}.
+-spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
+		   ssl_options(), binary(), boolean()) ->
+          #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, SslOpts,
-	     Cache, CacheCb, Renegotiation, OwnCert) ->
+	     Id, Renegotiation) ->
     %% First client hello (two sent in DTLS ) uses empty Cookie
     client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
-		 Cache, CacheCb, Renegotiation, OwnCert).
+		 Id, Renegotiation,  undefined).
 
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+-spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
+		   ssl_options(), binary(),boolean(), binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
-client_hello(Host, Port, Cookie, ConnectionStates,
-	     #ssl_options{versions = Versions,
-			  ciphers = UserSuites,
-                          fallback = Fallback
-			 } = SslOpts,
-	     Cache, CacheCb, Renegotiation, OwnCert) ->
+client_hello(_Host, _Port, Cookie, ConnectionStates,
+	     #{versions := Versions,
+               ciphers := UserSuites,
+               fallback := Fallback} = SslOpts,
+	     Id, Renegotiation, OcspNonce) ->
     Version =  dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = maps:get(security_parameters, Pending),
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
     CipherSuites = ssl_handshake:available_suites(UserSuites, TLSVersion),
 
-    Extensions = ssl_handshake:client_hello_extensions(TLSVersion, CipherSuites,
-                                                       SslOpts, ConnectionStates, 
-                                                       Renegotiation),
-    Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
-
+    Extensions = ssl_handshake:client_hello_extensions(TLSVersion,
+                                                       CipherSuites,
+                                                       SslOpts,
+                                                       ConnectionStates,
+                                                       Renegotiation,
+                                                       undefined,
+                                                       undefined,
+                                                       OcspNonce,
+                                                       undefined,
+                                                       undefined),
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = 
                       ssl_handshake:cipher_suites(CipherSuites, 
                                                   Renegotiation, Fallback),
-		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  cookie = Cookie,
 		  extensions = Extensions
@@ -95,35 +98,35 @@ client_hello(Host, Port, Cookie, ConnectionStates,
 
 hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
-		    compression_method = Compression,
 		    session_id = SessionId, extensions = HelloExt},
-      #ssl_options{versions = SupportedVersions} = SslOpt,
-      ConnectionStates0, Renegotiation) ->
+      #{versions := SupportedVersions} = SslOpt,
+      ConnectionStates0, Renegotiation, OldId) ->
+    IsNew = ssl_session:is_new(OldId, SessionId),
     case dtls_record:is_acceptable_version(Version, SupportedVersions) of
 	true ->
 	    handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-					   Compression, HelloExt, SslOpt, 
-                                           ConnectionStates0, Renegotiation);
+					   HelloExt, SslOpt, 
+                                           ConnectionStates0, Renegotiation, IsNew);
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
-    end;
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
+    end.
 hello(#client_hello{client_version = ClientVersion} = Hello,
-      #ssl_options{versions = Versions} = SslOpts,
+      #{versions := Versions} = SslOpts,
       Info, Renegotiation) ->
     Version = ssl_handshake:select_version(dtls_record, ClientVersion, Versions),
     handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation).
 
-cookie(Key, Address, Port, #client_hello{client_version = {Major, Minor},
+cookie(Key, Address, Port, #client_hello{client_version = Version,
 					 random = Random,
 					 session_id = SessionId,
-					 cipher_suites = CipherSuites,
-					 compression_methods = CompressionMethods}) ->
+					 cipher_suites = CipherSuites}) ->
+    {Major, Minor} = Version,
     CookieData = [address_to_bin(Address, Port),
 		  <<?BYTE(Major), ?BYTE(Minor)>>,
-		  Random, SessionId, CipherSuites, CompressionMethods],
-    crypto:hmac(sha, Key, CookieData).
+		  Random, SessionId, CipherSuites, [?NO_COMPRESSION]],
+    crypto:mac(hmac, sha, Key, CookieData).
 %%--------------------------------------------------------------------
--spec hello_verify_request(binary(),  dtls_record:dtls_version()) -> #hello_verify_request{}.
+-spec hello_verify_request(binary(),  ssl_record:ssl_version()) -> #hello_verify_request{}.
 %%
 %% Description: Creates a hello verify request message sent by server to
 %% verify client
@@ -139,27 +142,28 @@ fragment_handshake(Bin, _) when is_binary(Bin)->
     %% This is the change_cipher_spec not a "real handshake" but part of the flight
     Bin;
 fragment_handshake([MsgType, Len, Seq, _, Len, Bin], Size) ->
-    Bins = bin_fragments(Bin, Size),
+    Bins = bin_fragments(Bin, Size-26),  %% Remove packet headers
     handshake_fragments(MsgType, Seq, Len, Bins, []).
+
 encode_handshake(Handshake, Version, Seq) ->
     {MsgType, Bin} = enc_handshake(Handshake, Version),
     Len = byte_size(Bin),
     [MsgType, ?uint24(Len), ?uint16(Seq), ?uint24(0), ?uint24(Len), Bin].
   
 %%--------------------------------------------------------------------
-%%% Handshake decodeing
+%%% Handshake decoding
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(dtls_record:dtls_version(), binary(), #protocol_buffers{}) ->
-                                {[dtls_handshake()], #protocol_buffers{}}.                
+-spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, ssl_options()) ->
+                                {[{dtls_handshake(), binary()}], #protocol_buffers{}}.                
 %%
 %% Description:  Given buffered and new data from dtls_record, collects
 %% and returns it as a list of handshake messages, also returns 
 %% possible leftover data in the new "protocol_buffers".
 %%--------------------------------------------------------------------
-get_dtls_handshake(Version, Fragment, ProtocolBuffers) ->
-    handle_fragments(Version, Fragment, ProtocolBuffers, []).
+get_dtls_handshake(Version, Fragment, ProtocolBuffers, Options) ->
+    handle_fragments(Version, Fragment, ProtocolBuffers, Options, []).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -167,14 +171,13 @@ get_dtls_handshake(Version, Fragment, ProtocolBuffers) ->
 handle_client_hello(Version, 
                     #client_hello{session_id = SugesstedId,
                                   cipher_suites = CipherSuites,
-                                  compression_methods = Compressions,
                                   random = Random,
                                   extensions = HelloExt},
-		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns,
-                                 eccs = SupportedECCs,
-				 honor_ecc_order = ECCOrder} = SslOpts,
-		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, 
+		    #{versions := Versions,
+                      signature_algs := SupportedHashSigns,
+                      eccs := SupportedECCs,
+                      honor_ecc_order := ECCOrder} = SslOpts,
+		    {SessIdTracker, Session0, ConnectionStates0, CertKeyPairs, _},
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
@@ -182,22 +185,23 @@ handle_client_hello(Version,
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, Cert,TLSVersion),
+				   ClientHashSigns, SupportedHashSigns, TLSVersion),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
-	    {Type, #session{cipher_suite = CipherSuite} = Session1}
-		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
-                                               AvailableHashSigns, Compressions,
-					       Port, Session0#session{ecc = ECCCurve}, TLSVersion,
-					       SslOpts, Cache, CacheCb, Cert),
+	    {Type, #session{cipher_suite = CipherSuite,
+                            own_certificates = [OwnCert |_]} = Session1}
+		= ssl_handshake:select_session(SugesstedId, CipherSuites,
+                                               AvailableHashSigns,
+					       SessIdTracker, Session0#session{ecc = ECCCurve},
+                                               TLSVersion, SslOpts, CertKeyPairs),
 	    case CipherSuite of
 		no_suite ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+		    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY));
 		_ ->
-		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_definition(CipherSuite),
-		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, 
+		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, OwnCert, KeyExAlg,
 						       SupportedHashSigns, TLSVersion) of
 			#alert{} = Alert ->
-			    Alert;
+			    throw(Alert);
 			HashSign ->
 			    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
 							   SslOpts, Session1, ConnectionStates0,
@@ -205,60 +209,55 @@ handle_client_hello(Version,
 		    end
 	    end;
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
-    try ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
-						     HelloExt, dtls_v1:corresponding_tls_version(Version),
-						     SslOpts, Session0, 
-                                                     ConnectionStates0, Renegotiation) of
-	#alert{} = Alert ->
-	    Alert;
-	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
-    catch throw:Alert ->
-	    Alert
-    end.
+    {Session, ConnectionStates, Protocol, ServerHelloExt} =
+        ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
+                                                     HelloExt,
+                                                     dtls_v1:corresponding_tls_version(Version),
+                                                     SslOpts, Session0,
+                                                     ConnectionStates0, Renegotiation,
+                                                     Session0#session.is_resumable),
+    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
-    case ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
-						      Compression, HelloExt,
-						      dtls_v1:corresponding_tls_version(Version),
-						      SslOpt, ConnectionStates0, Renegotiation) of
-	#alert{} = Alert ->
-	    Alert;
-	{ConnectionStates, ProtoExt, Protocol} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
-    end.
-
+			       HelloExt, SslOpt, ConnectionStates0,
+                               Renegotiation, IsNew) ->
+    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+        ssl_handshake:handle_server_hello_extensions(
+          dtls_record, Random, CipherSuite, HelloExt,
+          dtls_v1:corresponding_tls_version(Version), SslOpt, ConnectionStates0,
+          Renegotiation, IsNew),
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
 
 %%--------------------------------------------------------------------
 
-enc_handshake(#hello_verify_request{protocol_version = {Major, Minor},
- 				       cookie = Cookie}, _Version) ->
+enc_handshake(#hello_verify_request{protocol_version = Version,
+                                    cookie = Cookie}, _Version) ->
     CookieLength = byte_size(Cookie),
+    {Major,Minor} = Version,
     {?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
  			      ?BYTE(CookieLength),
  			      Cookie:CookieLength/binary>>};
 enc_handshake(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};
-enc_handshake(#client_hello{client_version = {Major, Minor},
-			       random = Random,
-			       session_id = SessionID,
-			       cookie = Cookie,
-			       cipher_suites = CipherSuites,
-			       compression_methods = CompMethods,
-			       extensions = HelloExtensions}, _Version) ->
+enc_handshake(#client_hello{client_version = ClientVersion,
+                            random = Random,
+                            session_id = SessionID,
+                            cookie = Cookie,
+                            cipher_suites = CipherSuites,
+                            extensions = HelloExtensions}, _Version) ->
     SIDLength = byte_size(SessionID),
     CookieLength = byte_size(Cookie),
-    BinCompMethods = list_to_binary(CompMethods),
+    BinCompMethods = list_to_binary([?NO_COMPRESSION]),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
     ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
+    {Major,Minor} = ClientVersion,
 
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
  		      ?BYTE(SIDLength), SessionID/binary,
@@ -287,7 +286,7 @@ handshake_bin(Type, Length, Seq, FragmentData) ->
       FragmentData:Length/binary>>.  
   
 bin_fragments(Bin, Size) ->
-     bin_fragments(Bin, size(Bin), Size, 0, []).
+     bin_fragments(Bin, byte_size(Bin), Size, 0, []).
 bin_fragments(Bin, BinSize,  FragSize, Offset, Fragments) ->
     case (BinSize - Offset - FragSize)  > 0 of
 	true ->
@@ -301,7 +300,7 @@ bin_fragments(Bin, BinSize,  FragSize, Offset, Fragments) ->
 handshake_fragments(_, _, _, [], Acc) ->
     lists:reverse(Acc);
 handshake_fragments(MsgType, Seq, Len, [{Bin, Offset} | Bins], Acc) ->
-    FragLen = size(Bin),
+    FragLen = byte_size(Bin),
     handshake_fragments(MsgType, Seq, Len, Bins, 
       [<<?BYTE(MsgType), Len/binary, Seq/binary, ?UINT24(Offset),
 	 ?UINT24(FragLen), Bin/binary>> | Acc]).
@@ -313,20 +312,21 @@ address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
 
 %%--------------------------------------------------------------------
 
-handle_fragments(Version, FragmentData, Buffers0, Acc) ->
+handle_fragments(Version, FragmentData, Buffers0, Options, Acc) ->
     Fragments = decode_handshake_fragments(FragmentData),
-    do_handle_fragments(Version, Fragments, Buffers0, Acc).
+    do_handle_fragments(Version, Fragments, Buffers0, Options, Acc).
 
-do_handle_fragments(_, [], Buffers, Acc) ->
+do_handle_fragments(_, [], Buffers, _Options, Acc) ->
     {lists:reverse(Acc), Buffers};
-do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Acc) ->
+do_handle_fragments(Version, [Fragment | Fragments], Buffers0, #{log_level := LogLevel} = Options, Acc) ->
     case reassemble(Version, Fragment, Buffers0) of
 	{more_data, Buffers} when Fragments == [] ->
 	    {lists:reverse(Acc), Buffers};
 	{more_data, Buffers} ->
-	    do_handle_fragments(Version, Fragments, Buffers, Acc);
-	{HsPacket, Buffers} ->
-	    do_handle_fragments(Version, Fragments, Buffers, [HsPacket | Acc])
+	    do_handle_fragments(Version, Fragments, Buffers, Options, Acc);
+	{{Handshake, _} = HsPacket, Buffers} ->
+            ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
+	    do_handle_fragments(Version, Fragments, Buffers, Options, [HsPacket | Acc])
     end.
 
 decode_handshake(Version, <<?BYTE(Type), Bin/binary>>) ->
@@ -340,11 +340,12 @@ decode_handshake(Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
 					    ?BYTE(CookieLength), Cookie:CookieLength/binary,
 					    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-					    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
+                                            ?BYTE(Cm_length), _CompMethods:Cm_length/binary,
 					    Extensions/binary>>) ->
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    LegacyVersion = dtls_v1:corresponding_tls_version({Major, Minor}),
     Exts = ssl_handshake:decode_vector(Extensions),
-    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, client),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, LegacyVersion, client),
 
     #client_hello{
        client_version = {Major,Minor},
@@ -352,7 +353,6 @@ decode_handshake(Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
        cookie = Cookie,
        session_id = Session_ID,
        cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
-       compression_methods = Comp_methods,
        extensions = DecodedExtensions
       };
 decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?UINT24(_), ?UINT16(_),
@@ -360,14 +360,14 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?UINT24(_), ?UINT16(_),
 						    ?BYTE(Major), ?BYTE(Minor),
 						    ?BYTE(CookieLength),
 						    Cookie:CookieLength/binary>>) ->
-    #hello_verify_request{protocol_version = {Major, Minor},
-			  cookie = Cookie};
+    #hello_verify_request{protocol_version = {Major,Minor},
+                          cookie = Cookie};
 decode_handshake(Version, Tag,  <<?UINT24(_), ?UINT16(_),
 				  ?UINT24(_),  ?UINT24(_), Msg/binary>>) -> 
     %% DTLS specifics stripped
-    decode_tls_thandshake(Version, Tag, Msg).
+    decode_tls_handshake(Version, Tag, Msg).
 
-decode_tls_thandshake(Version, Tag, Msg) ->
+decode_tls_handshake(Version, Tag, Msg) ->
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
     ssl_handshake:decode_handshake(TLSVersion, Tag, Msg).
 
@@ -386,9 +386,9 @@ decode_handshake_fragments(<<?BYTE(Type), ?UINT24(Length),
 
 reassemble(Version,  #handshake_fragment{message_seq = Seq} = Fragment, 
 	   #protocol_buffers{dtls_handshake_next_seq = Seq,
-			     dtls_handshake_next_fragments = Fragments0,
-			     dtls_handshake_later_fragments = LaterFragments0} = 
-	       Buffers0)-> 
+                         dtls_handshake_next_fragments = Fragments0,
+                         dtls_handshake_later_fragments = LaterFragments0} =
+               Buffers0)->
     case reassemble_fragments(Fragment, Fragments0) of
 	{more_data, Fragments} ->
 	    {more_data,  Buffers0#protocol_buffers{dtls_handshake_next_fragments = Fragments}};
@@ -428,74 +428,135 @@ merge_fragment(Frag0, [Frag1 | Rest]) ->
 	Frag ->
 	    merge_fragment(Frag, Rest)
     end.
-%% Duplicate
+
+
+%% Duplicate (fully contained fragment)
+%% 2,5 _ _ P P P P P
+%% 2,5 _ _ C C C C C
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
+		   fragment_offset = PreviousOffSet,
 		   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
+		  } = Previous,
 		#handshake_fragment{
 		   fragment_offset = PreviousOffSet,
 		   fragment_length = PreviousLen,
 		   fragment = PreviousData}) ->
     Previous;
 
-%% Lager fragment save new data
+%% Duplicate (fully contained fragment)
+%% 2,5 _ _ P P P P P
+%% 2,2 _ _ C C
+%% 0,3 X X X
+%% 5,3 _ _ _ _ _ X X X
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen,
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen})
+  when PreviousOffset =< CurrentOffset andalso
+       CurrentOffset =< PreviousOffset + PreviousLen andalso
+       CurrentOffset + CurrentLen =< PreviousOffset + PreviousLen ->
+    Previous;
+
+%% Fully overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 0,8 C C C C C C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen
+                  },
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen} = Current)
+  when CurrentOffset =< PreviousOffset andalso
+       CurrentOffset + CurrentLen >= PreviousOffset + PreviousLen ->
+    Current;
+
+%% Overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 0,3 C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = PreviousOffSet,
-		   fragment_length = CurrentLen,
-		   fragment = CurrentData}) when CurrentLen > PreviousLen ->
-    NewLength = CurrentLen - PreviousLen,
-    <<_:PreviousLen/binary, NewData/binary>> = CurrentData, 
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset < PreviousOffset andalso
+       CurrentOffset + CurrentLen < PreviousOffset + PreviousLen ->
+    NewDataLen = PreviousOffset - CurrentOffset,
+    <<NewData:NewDataLen/binary, _/binary>> = CurrentData,
     Previous#handshake_fragment{
-      fragment_length = PreviousLen + NewLength,
+      fragment_length = PreviousLen + NewDataLen,
+      fragment = <<NewData/binary, PreviousData/binary>>
+     };
+
+%% Overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 5,3 _ _ _ _ _ C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
+		   fragment = PreviousData
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset > PreviousOffset andalso
+       CurrentOffset < PreviousOffset + PreviousLen ->
+    NewDataLen = CurrentOffset + CurrentLen - (PreviousOffset + PreviousLen),
+    DropLen = CurrentLen - NewDataLen,
+    <<_:DropLen/binary, NewData/binary>> = CurrentData,
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + NewDataLen,
       fragment = <<PreviousData/binary, NewData/binary>>
      };
 
-%% Smaller fragment
+%% Adjacent fragments
+%% 2,5 _ _ P P P P P
+%% 7,3 _ _ _ _ _ _ _ C C C
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = PreviousOffSet,
-		   fragment_length = CurrentLen}) when CurrentLen < PreviousLen ->
-    Previous;
-%% Next fragment, might be overlapping
-merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen,
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = CurrentOffSet,
-		   fragment_length = CurrentLen,
-                  fragment = CurrentData})
-  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
-       PreviousOffSet + PreviousLen < CurrentOffSet + CurrentLen ->
-    CurrentStart = PreviousOffSet + PreviousLen - CurrentOffSet,
-    <<_:CurrentStart/bytes, Data/binary>> = CurrentData,
-    Previous#handshake_fragment{
-      fragment_length =  PreviousLen + CurrentLen - CurrentStart,
-      fragment = <<PreviousData/binary, Data/binary>>};
-%% already fully contained fragment
-merge_fragments(#handshake_fragment{
-                   fragment_offset = PreviousOffSet, 
-                   fragment_length = PreviousLen
-                  } = Previous, 
+                  } = Previous,
                 #handshake_fragment{
-                   fragment_offset = CurrentOffSet,
-                   fragment_length = CurrentLen})
-  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
-       PreviousOffSet + PreviousLen >= CurrentOffSet + CurrentLen ->
-    Previous;
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset =:= PreviousOffset + PreviousLen ->
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + CurrentLen,
+      fragment = <<PreviousData/binary, CurrentData/binary>>
+     };
+
+%% Adjacent fragments
+%% 2,5 _ _ P P P P P
+%% 0,2 C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
+		   fragment = PreviousData
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when PreviousOffset =:= CurrentOffset + CurrentLen ->
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + CurrentLen,
+      fragment = <<CurrentData/binary, PreviousData/binary>>
+     };
 
 %% No merge there is a gap
+%% 3,5 _ _ _ P P P P
+%% 0,2 C C
 merge_fragments(Previous, Current) ->
     [Previous, Current].
 

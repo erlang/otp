@@ -1,0 +1,11 @@
+
+  [;1m-type iodata() :: iolist() | binary().[0m
+
+  A binary or list containing bytes and/or iodata. This datatype is
+  used to represent data that is meant to be output using any I/O
+  module. For example: file:write/2 or gen_tcp:send/2.
+
+  To convert an iodata() term to binary() you can use 
+  iolist_to_binary/2. To transcode a string() or 
+  unicode:chardata() to iodata() you can use 
+  unicode:characters_to_binary/1.

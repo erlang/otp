@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 %% An "asynchronous" error has been detected 
 
 -callback handle_error(
-	    ReqId :: integer(), 
+	    ReqId :: netif | integer(), 
 	    Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
 		      {invalid_sec_info,
 		       SecInfo :: term(),
@@ -120,5 +120,9 @@
 	      RTargetName :: snmpm:target_name(), 
 	      AgentConfig :: [snmpm:agent_config()]}.
 
+-callback handle_invalid_result(In, Out) -> no_return() when
+      In :: {Fun :: atom(), Args :: list()},
+      Out :: {crash, CrashInfo} | {result, InvalidResult :: term()},
+      CrashInfo :: {ErrorType :: atom(), Error :: term(), Stacktrace :: erlang:stacktrace()}.
 
-
+-optional_callbacks([handle_invalid_result/2]).

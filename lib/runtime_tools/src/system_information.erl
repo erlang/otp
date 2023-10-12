@@ -38,7 +38,6 @@
          application/1, application/2,
          environment/0, environment/1,
          module/1, module/2,
-         modules/1,
          sanity_check/0]).
 
 %% gen_server callbacks
@@ -124,10 +123,6 @@ module(M) when is_atom(M) -> module(M, []).
 module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
-modules(Opt) when is_atom(Opt) ->
-    gen_server:call(?SERVER, {modules, Opt}, infinity).
-
-
 -spec sanity_check() -> ok | {failed, Failures} when
       Application :: atom(),
       ApplicationVersion :: string(),
@@ -190,12 +185,6 @@ handle_call({module, M, Opts}, _From, #state{ report = Report } = S) ->
     print_modules_from_code(M, Mods, Opts),
     {reply, ok, S};
 
-handle_call({modules, native}, _From, #state{ report = Report } = S) ->
-    Codes = get_native_modules_from_code(get_value([code],Report)),
-    io:format("~p~n", [Codes]),
-    {reply, ok, S};
-
-
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -249,31 +238,6 @@ find_modules(M, [{M, _}=Info|Ms]) -> [Info|find_modules(M,Ms)];
 find_modules(M, [_|Ms]) -> find_modules(M, Ms);
 find_modules(_, []) -> [].
 
-get_native_modules_from_code([{application, {App, Info}}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    Vsn  = get_value([vsn], Info),
-	    [{App, Vsn, Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([{code, Info}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    [{Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([]) -> [].
-
-get_native_modules([]) -> [];
-get_native_modules([{Mod, Info}|Ms]) ->
-    case proplists:get_value(native, Info) of
-	false -> get_native_modules(Ms);
-	_     -> [Mod|get_native_modules(Ms)]
-    end.
-
-
 %% print information
 
 print_applications([{application, App}|Apps], Opts) ->
@@ -320,14 +284,12 @@ print_module_from_code(M, {Path, [{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (no application):~n", [Path]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok;
 print_module_from_code(M, {App,Vsn,Path,[{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (~w-~s):~n", [Path,App,Vsn]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -335,7 +297,6 @@ print_module({Mod, ModInfo}) ->
     io:format("   - ~w:~n", [Mod]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -387,7 +348,6 @@ os_getenv_erts_specific() ->
     os_getenv_erts_specific([
 	    "BINDIR",
 	    "DIALYZER_EMULATOR",
-	    "CERL_DETACHED_PROG",
 	    "EMU",
 	    "ERL_CONSOLE_MODE",
 	    "ERL_CRASH_DUMP",
@@ -397,7 +357,6 @@ os_getenv_erts_specific() ->
 	    "ERL_EMULATOR_DLL",
 	    "ERL_FULLSWEEP_AFTER",
 	    "ERL_LIBS",
-	    "ERL_MALLOC_LIB",
 	    "ERL_MAX_PORTS",
 	    "ERL_MAX_ETS_TABLES",
 	    "ERL_NO_KERNEL_POLL",
@@ -565,7 +524,6 @@ emit_module_info(EmitChunk, Beam) ->
     {ok,{Mod, Md5}} = beam_lib:md5(Beam),
 
     CompilerVersion = get_compiler_version(Beam),
-    Native = beam_is_native_compiled(Beam),
 
     Loaded = case code:is_loaded(Mod) of
         false -> false;
@@ -574,11 +532,10 @@ emit_module_info(EmitChunk, Beam) ->
 
     EmitChunk("{~w,["
                   "{loaded,~w},"
-                  "{native,~w},"
                   "{compiler,~w},"
                   "{md5,~w}"
               "]}",
-        [Mod, Loaded, Native, CompilerVersion, hexstring(Md5)]).
+        [Mod, Loaded, CompilerVersion, hexstring(Md5)]).
 
 comma_separated_foreach(_EmitChunk, _Fun, []) ->
     ok;
@@ -606,47 +563,6 @@ get_compiler_version(Beam) ->
 	    proplists:get_value(version, Info);
 	_ -> undefined
     end.
-
-%% we don't know the specific chunk names of native code
-%% we don't want to load the code to check it
-beam_is_native_compiled(Beam) ->
-    Chunks = get_value([chunks], beam_lib:info(Beam)),
-    case check_known_hipe_chunks(Chunks) of
-	[] -> false;
-	[Arch] -> {true, Arch};
-	Archs  -> {true, Archs}
-    end.
-
-
-check_known_hipe_chunks([{Tag,_,_}|Cs]) ->
-    case is_chunk_tag_hipe_arch(Tag) of
-	false -> check_known_hipe_chunks(Cs);
-	{true, Arch} -> [Arch|check_known_hipe_chunks(Cs)]
-    end;
-check_known_hipe_chunks([]) -> [].
-
-%% these values are taken from hipe_unified_loader
-%% perhaps these should be exported in that module?
-
--define(HS8P_TAG,"HS8P").
--define(HPPC_TAG,"HPPC").
--define(HP64_TAG,"HP64").
--define(HARM_TAG,"HARM").
--define(HX86_TAG,"HX86").
--define(HA64_TAG,"HA64").
-
-is_chunk_tag_hipe_arch(Tag) ->
-    case Tag of
-	?HA64_TAG -> {true, amd64};       %% HiPE, x86_64, (implicit: 64-bit, Unix)
-	?HARM_TAG -> {true, arm};         %% HiPE, arm, v5 (implicit: 32-bit, Linux)
-	?HPPC_TAG -> {true, powerpc};     %% HiPE, PowerPC (implicit: 32-bit, Linux)
-	?HP64_TAG -> {true, ppc64};       %% HiPE, ppc64 (implicit: 64-bit, Linux)
-	?HS8P_TAG -> {true, ultrasparc};  %% HiPE, SPARC, V8+ (implicit: 32-bit)
-	%% Future:     HSV9               %% HiPE, SPARC, V9 (implicit: 64-bit)
-	%%             HW32               %% HiPE, x86, Win32
-	_ -> false
-    end.
-
 
 get_dynamic_libraries() ->
     Beam = filename:join([os:getenv("BINDIR"),get_beam_name()]),
@@ -892,7 +808,7 @@ get_apps([Path|Paths], Apps) ->
 	[AppFile] ->
 	    get_apps(Paths, [app_file_to_app(AppFile) | Apps]);
 	[_AppFile| _] = AppFiles ->
-	    %% Strange with multple .app files... Lets put them
+	    %% Strange with multiple .app files... Lets put them
 	    %% all in the list and see what we get...
 	    lists:map(fun (AF) ->
 			      app_file_to_app(AF)

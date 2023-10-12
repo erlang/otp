@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html">wxQueryNewPaletteEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>query_new_palette</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxQueryNewPalette(). #wxQueryNewPalette{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxQueryNewPaletteEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxQueryNewPaletteEvent).
 -include("wxe.hrl").
 -export([getPaletteRealized/1,setPaletteRealized/2]).
@@ -38,28 +26,29 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxQueryNewPaletteEvent/0]).
+-type wxQueryNewPaletteEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxQueryNewPaletteEventType() :: 'query_new_palette'.
+-export_type([wxQueryNewPaletteEvent/0, wxQueryNewPalette/0, wxQueryNewPaletteEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxQueryNewPaletteEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
 -spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
-setPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef},Realized)
+setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
  when is_boolean(Realized) ->
   ?CLASS(ThisT,wxQueryNewPaletteEvent),
-  wxe_util:cast(?wxQueryNewPaletteEvent_SetPaletteRealized,
-  <<ThisRef:32/?UI,(wxe_util:from_bool(Realized)):32/?UI>>).
+  wxe_util:queue_cmd(This,Realized,?get_env(),?wxQueryNewPaletteEvent_SetPaletteRealized).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventgetpaletterealized">external documentation</a>.
 -spec getPaletteRealized(This) -> boolean() when
 	This::wxQueryNewPaletteEvent().
-getPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPaletteRealized(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxQueryNewPaletteEvent),
-  wxe_util:call(?wxQueryNewPaletteEvent_GetPaletteRealized,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxQueryNewPaletteEvent_GetPaletteRealized),
+  wxe_util:rec(?wxQueryNewPaletteEvent_GetPaletteRealized).
 
  %% From wxEvent
 %% @hidden

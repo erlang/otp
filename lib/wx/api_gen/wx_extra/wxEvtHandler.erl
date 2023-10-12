@@ -13,10 +13,10 @@
 %% (in another process) to handle the event. The callback should be of
 %% arity 2.  fun(EventRecord::wx(), EventObject::wxObject()).
 %%
-%% Beware that the callback will be in executed in new process each time.
+%% Beware that the callback will be executed in a new process each time.
 %%
 %% <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html">
-%% The orginal documentation</a>. 
+%% The original documentation</a>. 
 %%
 %%
 -module(wxEvtHandler).
@@ -51,8 +51,9 @@ connect(This, EventType) ->
 %%    {skip,  boolean()},   If skip is true further event_handlers will be called.
 %%                          This is not used if the 'callback' option is used. 
 %%                          Default false.
+%%    callback              Use `wx_object' callback `handle_sync_event/3'.
 %%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject()) 
-%%                          to process the event. Default not specfied i.e. a message will
+%%                          to process the event. Default not specified i.e. a message will
 %%                          be delivered to the process calling this function.
 %%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> 'ok' when
@@ -128,34 +129,17 @@ disconnect(This=#wx_ref{type=ThisT,ref=_ThisRef}, EventType, Opts) ->
 
 
 %% @hidden
-connect_impl(#wx_ref{type=ThisT,ref=ThisRef},
+connect_impl(#wx_ref{type=ThisT}=This,
 	     #evh{id=Winid, lastId=LastId, et=EventType,
-		  skip=Skip, userdata=Userdata, cb=FunID})
+		  skip=Skip, userdata=UserData, cb=FunID})
   when is_integer(FunID)->
-    EventTypeBin = list_to_binary([atom_to_list(EventType)|[0]]),
-    ThisTypeBin = list_to_binary([atom_to_list(ThisT)|[0]]),
-    UD = if Userdata =:= [] -> 0;
-	    true ->
-		 wxe_util:send_bin(term_to_binary(Userdata)),
-		 1
-	 end,
-    wxe_util:call(100, <<ThisRef:32/?UI,
-			Winid:32/?UI,LastId:32/?UI,
-			(wxe_util:from_bool(Skip)):32/?UI,
-			UD:32/?UI,
-			FunID:32/?UI,
-			(size(EventTypeBin)):32/?UI,
-			(size(ThisTypeBin)):32/?UI,
-			%% Note no alignment
-			EventTypeBin/binary,ThisTypeBin/binary>>).
+    wxe_util:queue_cmd(This, Winid, LastId, Skip, UserData,
+                       FunID, EventType, ThisT, ?get_env(), 100),
+    wxe_util:rec(100).
 
 %% @hidden
-disconnect_impl(#wx_ref{type=_ThisT,ref=ThisRef},
+disconnect_impl(#wx_ref{type=_ThisT}=This,
 		#evh{id=Winid, lastId=LastId, et=EventType,
-		     handler=#wx_ref{type=wxeEvtListener,ref=EvtList}}) ->
-    EventTypeBin = list_to_binary([atom_to_list(EventType)|[0]]),
-    wxe_util:call(101, <<EvtList:32/?UI,
-			ThisRef:32/?UI,Winid:32/?UI,LastId:32/?UI,
-			(size(EventTypeBin)):32/?UI,
-			%% Note no alignment
-			EventTypeBin/binary>>).
+		     handler=#wx_ref{type=wxeEvtListener}=EvtList}) ->
+    wxe_util:queue_cmd(EvtList, This, Winid,LastId, EventType, ?get_env(), 101),
+    wxe_util:rec(101).

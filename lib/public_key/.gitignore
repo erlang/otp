@@ -1,7 +1,10 @@
 # public_key
 
-asn1/*.asn1db
-asn1/*.erl
-asn1/*.hrl
+src/*.asn1db
+src/OTP-PUB-KEY.erl
+src/OTP-PUB-KEY.hrl
+src/PKCS-FRAME.erl
+src/PKCS-FRAME.hrl
 include/OTP-PUB-KEY.hrl
 include/PKCS-FRAME.hrl
+priv/lib/

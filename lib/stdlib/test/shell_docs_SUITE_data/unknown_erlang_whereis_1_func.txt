@@ -1,0 +1,10 @@
+
+  [;1m-spec whereis(RegName) -> pid() | port() | undefined[0m
+  [;1m                 when RegName :: atom().[0m
+
+  Returns the process identifier or port identifier with the [;;4m[0m
+  [;;4mregistered name[0m [;;4mRegName[0m from the [;;4mname registry[0m. Returns [;;4m[0m
+  [;;4mundefined[0m if the name is not registered. Example:
+
+    > whereis(db).
+    <0.43.0>

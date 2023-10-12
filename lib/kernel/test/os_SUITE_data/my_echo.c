@@ -1,3 +1,4 @@
+#include <stdio.h>
 #ifdef __WIN32__
 #include <windows.h>
 
@@ -24,8 +25,6 @@ int wmain(int argc, wchar_t **argv)
     return 0;
 }
 #else
-
-#include <stdio.h>
 
 int
 main(int argc, char** argv)

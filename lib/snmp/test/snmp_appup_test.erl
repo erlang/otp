@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,4 +87,4 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 
 %% Perform a simple check of the appup file
 appup_file(Config) when is_list(Config) ->
-    ok = ?t:appup_test(snmp).
+    ok = test_server:appup_test(snmp).

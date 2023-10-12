@@ -1,0 +1,4 @@
+
+  [;1m-spec binary_to_list(Binary) -> [byte()] when Binary :: binary().[0m
+
+  Returns a list of integers corresponding to the bytes of [;;4mBinary[0m.

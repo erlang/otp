@@ -1,0 +1,7 @@
+
+  [;1m-spec pre_loaded() -> [module()].[0m
+
+  Returns a list of Erlang modules that are preloaded in the
+  run-time system. Pre-loaded modules are Erlang modules that are
+  needed to bootstrap the system to load the first Erlang modules
+  from either disk or by using [;;4merl_boot_server[0m.

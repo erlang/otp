@@ -1,0 +1,5 @@
+FROM ssh_compat:bld
+    
+# Start the daemon, but keep it in foreground to avoid killing the container
+CMD /buildroot/ssh/sbin/sshd -D -p 1234
+

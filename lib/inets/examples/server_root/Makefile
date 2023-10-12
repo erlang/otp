@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ AUTH_FILES = auth/group \
 	auth/passwd 
 CGI_FILES = cgi-bin/printenv.sh 
 CONF_FILES = conf/8080.conf \
-	conf/8888.conf \
 	conf/httpd.conf \
 	conf/ssl.conf \
 	conf/mime.types 
@@ -163,7 +162,7 @@ ERL_COMPILE_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-debug opt: 
+$(TYPES): 
 
 clean:
 

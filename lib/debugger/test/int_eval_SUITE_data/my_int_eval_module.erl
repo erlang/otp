@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@
 -import(lists, [member/2]).
 
 -define(line,put(test_server_loc,{?MODULE,?LINE}),).
--define(t,test_server).
 -define(m,test_server:match).
 -define(config,test_server:lookup_config).
 
@@ -119,7 +118,7 @@ external_call_test(Data) ->
     {yes,Data} = i_am_exported(Data),
     {yes,Data} = ?MODULE:i_am_exported(Data),
 
-    %% Excercise the function cache in the interpreter.
+    %% Exercise the function cache in the interpreter.
 
     {ok,Data,[a,b]} = not_exported(Data, [a,b]),
     {yes,Data} = i_am_exported(Data),

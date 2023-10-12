@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ MODULES= \
 	mnesia_monitor \
 	mnesia_recover \
 	mnesia_registry \
+	mnesia_rpc \
 	mnesia_schema\
 	mnesia_snmp_hook \
 	mnesia_subscr \
@@ -105,8 +106,8 @@ ERL_COMPILE_FLAGS += \
 
 opt: $(TARGET_FILES)
 
-debug:
-	@${MAKE} TYPE=debug
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:
 	rm -f $(TARGET_FILES)

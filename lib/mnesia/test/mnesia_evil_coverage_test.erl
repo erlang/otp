@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -export([system_info/1, table_info/1, error_description/1,
          db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
          checkpoint/1, table_lifecycle/1, storage_options/1,
-         add_copy_conflict/1, add_copy_when_going_down/1,
+         add_copy_conflict/1, add_copy_when_going_down/1, add_copy_when_dst_going_down/1,
          add_copy_with_down/1,
          replica_management/1, clear_table_during_load/1,
          schema_availability/1, local_content/1,
@@ -66,7 +66,8 @@ all() ->
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
      checkpoint, table_lifecycle, storage_options, 
      add_copy_conflict,
-     add_copy_when_going_down, add_copy_with_down, replica_management,
+     add_copy_when_going_down, add_copy_when_dst_going_down, add_copy_with_down,
+     replica_management,
      clear_table_during_load,
      schema_availability, local_content,
      {group, table_access_modifications}, replica_location,
@@ -140,6 +141,7 @@ system_info(Config) when is_list(Config) ->
     ?match(A when is_atom(A), mnesia:system_info(dump_log_update_in_place)),
     ?match(I when is_integer(I), mnesia:system_info(transaction_log_writes)),
     ?match(I when is_integer(I), mnesia:system_info(send_compressed)),
+    ?match(I when is_integer(I), mnesia:system_info(max_transfer_size)),
     ?match(L when is_list(L), mnesia:system_info(all)),
     ?match(L when is_list(L), mnesia:system_info(backend_types)),
     ?match({'EXIT', {aborted, Reason }} when element(1, Reason) == badarg
@@ -695,7 +697,7 @@ verify_ll_queue(N) ->
     ?match(granted,mnesia_controller:block_controller()),
     case mnesia_controller:get_info(1000) of
 	{info,{state,_,true,[],_Loader,[],[],[],_,_,_,_,_,_}} ->
-	    %% Very slow SMP machines havn't loaded it yet..
+	    %% Very slow SMP machines haven't loaded it yet..
 	    mnesia_controller:unblock_controller(),
 	    timer:sleep(10),
 	    verify_ll_queue(N-1);
@@ -733,6 +735,54 @@ add_copy_when_going_down(Config) ->
     mnesia_test_lib:kill_mnesia([Node1]),
     ?match_receive({test,{aborted,_}}),
     ?verify_mnesia([Node2], []).
+
+add_copy_when_dst_going_down(suite) -> [];
+add_copy_when_dst_going_down(doc) ->
+    ["Table copy destination node goes down. Verify that the issue fixed in erlang/otp#6013 doesn't happen again, whitebox testing."];
+add_copy_when_dst_going_down(Config) ->
+    [Node1, Node2] = ?acquire_nodes(2, Config),
+    ?match({atomic, ok}, mnesia:create_table(a, [{ram_copies, [Node1]}])),
+    lists:foreach(fun(I) ->
+                          ok = mnesia:sync_dirty(fun() -> mnesia:write({a, I, I}) end)
+                  end,
+                  lists:seq(1, 100000)),
+    ?match({ok, _}, mnesia:change_config(extra_db_nodes, [Node2])),
+
+    %% Start table copy
+    Tester = self(),
+    spawn_link(fun() ->
+                       mnesia:add_table_copy(a, Node2, ram_copies),
+                       Tester ! add_table_copy_finished
+               end),
+    timer:sleep(10),  % Wait for `mnesia_loader:send_more/6` has started
+
+    %% Grab a write lock
+    spawn_link(fun() ->
+                       Fun = fun() ->
+                                     ok = mnesia:write_lock_table(a),
+                                     Tester ! {write_lock_acquired, self()},
+                                     receive node2_mnesia_killed -> ok
+                                     end,
+                                     Tester ! write_lock_released,
+                                     ok
+                             end,
+                       mnesia:transaction(Fun)
+               end),
+    receive {write_lock_acquired, Locker} -> ok
+    end,
+    timer:sleep(200),  % Wait for `mnesia_loader:send_more/6` has finished
+    ?match([], mnesia_test_lib:kill_mnesia([Node2])),
+    Locker ! node2_mnesia_killed,
+
+    receive write_lock_released -> ok
+    end,
+    receive add_table_copy_finished -> ok
+    end,
+    timer:sleep(1000),  % Wait for `mnesia_loader:finish_copy/5` has acquired the read lock
+
+    %% Grab a write lock
+    ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write_lock_table(a) end, 10)),
+    ?verify_mnesia([Node1], []).
 
 add_copy_with_down(suite) -> [];
 add_copy_with_down(Config) ->
@@ -1294,7 +1344,7 @@ offline_set_master_nodes(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Syncronize table with log or disc
+%% Synchronize table with log or disc
 %%
 
 %% Dump ram tables on disc
@@ -2090,7 +2140,7 @@ test_ext_sub(Tab1, Tab2, Tab3) ->
 
 
 subscribe_standard(doc) ->
-    ["Tests system events and the orignal table events"];
+    ["Tests system events and the original table events"];
 subscribe_standard(suite) -> [];
 subscribe_standard(Config) when is_list(Config)-> 
     [N1, N2]=?acquire_nodes(2, Config),
@@ -2571,8 +2621,8 @@ index_cleanup(Config) when is_list(Config) ->
     Tabs = [i_set, i_bag, i_oset],
 
     Add = fun(Tab) ->
-                  Write = fun(Tab) ->
-                                  Recs = [{Tab, N, N rem 5} || N <- lists:seq(1,10)],
+                  Write = fun(Table) ->
+                                  Recs = [{Table, N, N rem 5} || N <- lists:seq(1,10)],
                                   [ok = mnesia:write(Rec) || Rec <- Recs],
                                   Recs
                           end,
@@ -2581,8 +2631,8 @@ index_cleanup(Config) when is_list(Config) ->
           end,
 
     IRead = fun(Tab) ->
-                    Read = fun(Tab) ->
-                                   [mnesia:index_read(Tab, N, val) || N <- lists:seq(0,4)]
+                    Read = fun(Table) ->
+                                   [mnesia:index_read(Table, N, val) || N <- lists:seq(0,4)]
                            end,
                     {atomic, Recs} = mnesia:transaction(Read, [Tab]),
                     lists:sort(lists:flatten(Recs))

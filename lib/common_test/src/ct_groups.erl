@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,23 +101,34 @@ find(Mod, [], TCs, Tests, _Known, _Defs, false) ->
 				  [{Mod,TC}];
 			     ({group,_}) ->
 				  [];
+                             ({testcase,TC,[Prop]}) when is_atom(TC), TC ==all ->
+                                  [{repeat,{Mod,TC},Prop}];
 			     ({_,_}=TC) when TCs == all ->
 				  [TC];
-			     (TC) ->
-				  if is_atom(TC) ->
-					  Tuple = {Mod,TC},
-					  case lists:member(Tuple, TCs) of
-					      true  ->
-						  [Tuple];
-					      false ->
-						  case lists:member(TC, TCs) of
-						      true  -> [{Mod,TC}];
-						      false -> []
-						  end
-					  end;
-				     true ->
-					  []
-				  end
+			     (TC) when is_atom(TC) ->
+                                  Tuple = {Mod,TC},
+                                  case lists:member(Tuple, TCs) of
+                                      true  ->
+                                          [Tuple];
+                                      false ->
+                                          case lists:member(TC, TCs) of
+                                              true  -> [Tuple];
+                                              false -> []
+                                          end
+                                  end;
+                             ({testcase,TC,[Prop]}) when is_atom(TC) ->
+                                  Tuple = {Mod,TC},
+                                  case lists:member(Tuple, TCs) of
+                                      true  ->
+                                          [{repeat,Tuple,Prop}];
+                                      false ->
+                                          case lists:member(TC, TCs) of
+                                              true  -> [{repeat,Tuple,Prop}];
+                                              false -> []
+                                          end
+                                  end;
+                             (_) ->
+                                  []
 			  end, Tests),
     if Cases == [] -> ['NOMATCH'];
        true -> Cases
@@ -172,12 +183,19 @@ find(Mod, GrNames, all, [{M,TC} | Gs], Known,
      Defs, FindAll) when is_atom(M), M /= group, is_atom(TC) ->
     [{M,TC} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
 
+%% Save test case
+find(Mod, GrNames, all, [{testcase,TC,[Prop]} | Gs], Known,
+     Defs, FindAll) when is_atom(TC) ->
+    [{repeat,{Mod,TC},Prop} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
+
 %% Check if test case should be saved
-find(Mod, GrNames, TCs, [TC | Gs], Known,
-     Defs, FindAll) when is_atom(TC) orelse 
-			 ((size(TC) == 2) and (element(1,TC) /= group)) ->
+find(Mod, GrNames, TCs, [TC | Gs], Known, Defs, FindAll)
+  when is_atom(TC) orelse
+       ((tuple_size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
+       ((tuple_size(TC) == 2) andalso (element(1,TC) /= group)) ->
     Case =
-	if is_atom(TC) ->
+        case TC of
+            _ when is_atom(TC) ->
 		Tuple = {Mod,TC},
 		case lists:member(Tuple, TCs) of
 		    true  ->
@@ -188,7 +206,18 @@ find(Mod, GrNames, TCs, [TC | Gs], Known,
 			    false -> []
 			end
 		end;
-	   true ->
+            {testcase,TC0,[Prop]} when is_atom(TC0) ->
+		Tuple = {Mod,TC0},
+		case lists:member(Tuple, TCs) of
+		    true  ->
+			{repeat,Tuple,Prop};
+		    false ->
+			case lists:member(TC0, TCs) of
+			    true  -> {repeat,{Mod,TC0},Prop};
+			    false -> []
+			end
+		end;
+            _ ->
 		case lists:member(TC, TCs) of
 		    true  -> {Mod,TC};
 		    false -> []
@@ -200,7 +229,7 @@ find(Mod, GrNames, TCs, [TC | Gs], Known,
 	    [Case | find(Mod, GrNames, TCs, Gs, Known, Defs, FindAll)]
     end;
 
-%% Unexpeted term in group list
+%% Unexpected term in group list
 find(Mod, _GrNames, _TCs, [BadTerm | _Gs], Known, _Defs, _FindAll) ->
     Where = if length(Known) == 0 ->
 		    atom_to_list(Mod)++":groups/0";
@@ -289,13 +318,22 @@ modify_tc_list(GrSpecTs, TSCs, []) ->
     modify_tc_list1(GrSpecTs, TSCs);
     
 modify_tc_list(GrSpecTs, _TSCs, _) ->
-    [Test || Test <- GrSpecTs, not is_atom(Test)].
+    [Test || Test <- GrSpecTs, not is_atom(Test), element(1,Test)=/=testcase].
 
 modify_tc_list1(GrSpecTs, TSCs) ->
     %% remove all cases in group tc list that should not be executed
     GrSpecTs1 =
-	lists:flatmap(fun(Test) when is_tuple(Test),
-				     (size(Test) > 2) ->
+	lists:flatmap(fun(Test={testcase,TC,_}) ->
+			      case lists:keysearch(TC, 2, TSCs) of
+				  {value,_} ->
+				      [Test];
+				  _ ->
+				      case lists:member(TC, TSCs) of
+					  true  -> [Test];
+					  false -> []
+				      end
+			      end;
+                         (Test) when tuple_size(Test) > 2 ->
 			      [Test];
 			 (Test={group,_}) ->
 			      [Test];
@@ -511,11 +549,11 @@ search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
     Suite = ?val(suite, Props),
     case lists:keysearch(Name, 1, ORSpec) of
 	{value,{Name,default}} ->
-	    [Conf];
+	    [{conf, Props, Init,  search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,ORProps}} ->
-	    [{conf,InsProps(Name,Suite,ORProps),Init,Tests,End}];
+	    [{conf,InsProps(Name,Suite,ORProps),Init, search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,default,[]}} ->
-	    [Conf];
+	    [{conf, Props, Init,  search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,default,SubORSpec}} ->
 	    override_props([Conf], SubORSpec, Name,Mod);
 	{value,{Name,ORProps,SubORSpec}} ->
@@ -523,7 +561,8 @@ search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
 			    Init,Tests,End}], SubORSpec, Name,Mod);
 	_ ->
 	    [{conf,Props,Init,search_and_override(Tests,ORSpec,Mod),End}]
-    end.
+    end;
+search_and_override(Tests, _, _) -> Tests.
 
 %% Modify the Tests element according to the override specification
 override_props([{conf,Props,Init,Tests,End} | Confs], SubORSpec, Name,Mod) ->

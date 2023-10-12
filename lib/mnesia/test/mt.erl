@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@
 	 read_config/0, write_config/1      % Config admin
 	]).
 
--include("mnesia_test_lib.hrl").
+-compile({no_auto_import,[alias/1]}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Aliases for the (sub) test suites
@@ -67,6 +67,7 @@ alias(recovery) -> mnesia_recovery_test;
 alias(registry) -> mnesia_registry_test;
 alias(suite) -> mnesia_SUITE;
 alias(trans) -> mnesia_trans_access_test;
+alias(ixp) -> mnesia_index_plugin_test;
 alias(Other) -> Other.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,7 +235,7 @@ ping() ->
     Nodes = mnesia_test_lib:select_nodes(all, Config, ?FILE, ?LINE),
     [{N, net_adm:ping(N)} || N <- Nodes].
 
-%% Slave start all nodes in config spec
+%% Start all nodes in config spec
 start_nodes() ->
     Config = read_config(),
     Nodes = mnesia_test_lib:select_nodes(all, Config, ?FILE, ?LINE),
@@ -244,30 +245,32 @@ start_nodes() ->
 %% loop one testcase /suite until it fails
 
 loop(Case) ->
-    loop_1(Case,-1,read_config()).
+    loop_1(Case,1,infinity,read_config()).
 
 loop(M,F) when is_atom(F) ->
-    loop_1({M,F},-1,read_config());
+    loop_1({M,F},1, infinity, read_config());
 loop(Case,N) when is_integer(N) ->
-    loop_1(Case, N,read_config()).
+    loop_1(Case, 1, N,read_config()).
 
 loop(M,F,N) when is_integer(N) ->
-    loop_1({M,F},N,read_config()).
+    loop_1({M,F},1, N,read_config()).
 
-loop_1(Case,N,Config) when N /= 0 ->
-    io:format("Loop test ~p ~n", [abs(N)]),
+loop_1(Case,N,Max,Config) when N < Max ->
+    io:format("~nLoop test ~p ~n", [abs(N)]),
+
     case ok_result(Res = t(Case,Config)) of
 	true ->
-	    loop_1(Case,N-1,Config);
+	    loop_1(Case,N+1,Max,Config);
 	error ->
+            io:format("Failed after ~p~n", [N]),
 	    Res
     end;
-loop_1(_,_,_) ->
+loop_1(_,_,_,_) ->
     ok.
-	    
+
 ok_result([{_T,{ok,_,_}}|R]) -> 
     ok_result(R);
-ok_result([{_T,{TC,List}}|R]) when is_tuple(TC), is_list(List) -> 
+ok_result([{_T,{TC,List}}|R]) when is_tuple(TC), is_list(List) ->
     ok_result(List) andalso ok_result(R);
 ok_result([]) -> true;
 ok_result(_) -> error.

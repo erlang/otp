@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,16 +24,17 @@
 
 -module(diameter_compiler_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([format/1,    format/2,
-         replace/1,   replace/2,
-         generate/1,  generate/4,
-         flatten1/1,  flatten1/3,
+         format/1,
+         replace/1,
+         generate/1,
+         flatten1/1,
          flatten2/1]).
 
 -export([dict/0]).  %% fake dictionary module
@@ -364,7 +365,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 10}}].
+    [{timetrap, {seconds, 200}}].
 
 all() ->
     [format,
@@ -373,36 +374,55 @@ all() ->
      flatten1,
      flatten2].
 
-%% Error handling testcases will make an erroneous dictionary out of
-%% the base dictionary and check that the expected error results.
-%% ?REPLACE encodes the modifications and expected error.
-init_per_suite(Config) ->
+%% ===========================================================================
+
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1
+
+run(List)
+  when is_list(List) ->
+    Tmp = ?util:mktemp("diameter_compiler"),
+    try
+        run(List, Tmp)
+    after
+        file:del_dir_r(Tmp)
+    end.
+
+%% run/2
+
+run(List, Dir)
+  when is_list(List) ->
     Path = filename:join([code:lib_dir(diameter, src), "dict", ?base]),
     {ok, Bin} = file:read_file(Path),
-    [{base, Bin} | Config].
+    ?util:run([{{?MODULE, F, [{Bin, Dir}]}, 180000} || F <- List]);
 
-end_per_suite(_Config) ->
-    ok.
+run(F, Config) ->
+    run([F], proplists:get_value(priv_dir, Config)).
 
 %% ===========================================================================
 %% format/1
 %%
 %% Ensure that parse o format is the identity map.
 
-format(Config) ->
-    Bin = proplists:get_value(base, Config),
-    [] = ?util:run([{?MODULE, [format, M, Bin]}
-                    || E <- ?REPLACE,
-                       {ok, M} <- [norm(E)]]).
+format({<<_/binary>> = Bin, _Dir}) ->
+    ?util:run([{?MODULE, format, [{M, Bin}]} || E <- ?REPLACE,
+                                                {ok, M} <- [norm(E)]]);
 
-format(Mods, Bin) ->
+format({Mods, Bin}) ->
     B = modify(Bin, Mods),
-    {ok, Dict} = parse(B, []),
-    {ok, D} = parse(diameter_make:format(Dict), []),
-    {Dict, Dict} = {Dict, D}.
+    {ok, Dict} = parse(B),
+    {ok, D} = parse(diameter_make:format(Dict)),
+    {Dict, Dict} = {Dict, D};
 
-parse(File, Opts) ->
-    case diameter_make:codec(File, [parse, hrl, return | Opts]) of
+format(Config) ->
+    run(format, Config).
+
+parse(File) ->
+    case diameter_make:codec(File, [parse, hrl, return]) of
         {ok, [Dict, _]} ->
             {ok, Dict};
         {error, _} = E ->
@@ -415,20 +435,21 @@ parse(File, Opts) ->
 %% Ensure the expected success/error when parsing a morphed common
 %% dictionary.
 
-replace(Config) ->
-    Bin = proplists:get_value(base, Config),
-    [] = ?util:run([{?MODULE, [replace, N, Bin]}
-                    || E <- ?REPLACE,
-                       N <- [norm(E)]]).
+replace({<<_/binary>> = Bin, _Dir}) ->
+    ?util:run([{?MODULE, replace, [{N, Bin}]} || E <- ?REPLACE,
+                                                 N <- [norm(E)]]);
 
-replace({E, Mods}, Bin) ->
+replace({{E, Mods}, Bin}) ->
     B = modify(Bin, Mods),
-    case {E, parse(B, [{include, here()}]), Mods} of
+    case {E, parse(B), Mods} of
         {ok, {ok, Dict}, _} ->
             Dict;
         {_, {error, {E,_} = T}, _} when E /= ok ->
             diameter_make:format_error(T)
-    end.
+    end;
+
+replace(Config) ->
+    run(replace, Config).
 
 re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
@@ -438,23 +459,26 @@ re({RE, Repl}, Bin) ->
 %%
 %% Ensure success when generating code and compiling.
 
-generate(Config) ->
-    Bin = proplists:get_value(base, Config),
+generate({<<_/binary>> = Bin, Dir}) ->
     Rs  = lists:zip(?REPLACE, lists:seq(1, length(?REPLACE))),
-    [] = ?util:run([{?MODULE, [generate, M, Bin, N, T]}
-                    || {E,N} <- Rs,
-                       {ok, M} <- [norm(E)],
-                       T <- [erl, hrl, parse, forms]]).
+    ?util:run([{?MODULE, generate, [{M, Bin, N, T, Dir}]}
+               || {E,N} <- Rs,
+                  {ok, M} <- [norm(E)],
+                  T <- [erl, hrl, parse, forms]]);
 
-generate(Mods, Bin, N, Mode) ->
+generate({Mods, Bin, N, Mode, Dir}) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
-    {ok, Dict} = parse(B, []),
+    {ok, Dict} = parse(B),
     File = "dict" ++ integer_to_list(N),
     {_, ok} = {Dict, diameter_make:codec(Dict,
                                          [{name, File},
                                           {prefix, "base"},
+                                          {outdir, Dir},
                                           Mode])},
-    generate(Mode, File, Dict).
+    generate(Mode, filename:join(Dir, File), Dict);
+
+generate(Config) ->
+    run(generate, Config).
 
 generate(erl, File, _) ->
     {ok, _} = compile:file(File ++ ".erl", [return_errors]);
@@ -473,21 +497,21 @@ generate(hrl, _, _) ->
 %% ===========================================================================
 %% flatten1/1
 
-flatten1(_Config) ->
-    [Vsn | BaseD] = diameter_gen_base_rfc6733:dict(),
-    {ok, I} = parse("@inherits diameter_gen_base_rfc6733\n", []),
-    [Vsn | FlatD] = diameter_make:flatten(I),
-    [] = ?util:run([{?MODULE, [flatten1, K, BaseD, FlatD]}
-                    || K <- [avp_types, grouped, enum]]).
-
-flatten1(Key, BaseD, FlatD) ->
+flatten1({Key, BaseD, FlatD}) ->
     Vs = orddict:fetch(Key, BaseD),
-    Vs = orddict:fetch(Key, FlatD).
+    Vs = orddict:fetch(Key, FlatD);
+
+flatten1(_) ->
+    [Vsn | BaseD] = diameter_gen_base_rfc6733:dict(),
+    {ok, I} = parse("@inherits diameter_gen_base_rfc6733\n"),
+    [Vsn | FlatD] = diameter_make:flatten(I),
+    ?util:run([{?MODULE, flatten1, [{K, BaseD, FlatD}]}
+               || K <- [avp_types, grouped, enum]]).
 
 %% ===========================================================================
 %% flatten2/1
 
-flatten2(_Config) ->
+flatten2(_) ->
     Dict1 =
         "@name diameter_test1\n"
         "@prefix diameter_test1\n"
@@ -575,9 +599,6 @@ norm({E, RE, Repl}) ->
     {E, [{RE, Repl}]};
 norm({_,_} = T) ->
     T.
-
-here() ->
-    filename:dirname(code:which(?MODULE)).
 
 dict() ->
     [0 | orddict:new()].

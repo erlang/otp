@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,8 @@ MODULES= \
 	mnesia_measure_test \
 	mnesia_cost \
 	mnesia_dbn_meters \
-	ext_test
+	ext_test \
+	mnesia_index_plugin_test
 
 DocExamplesDir := ../doc/src/
 
@@ -90,6 +91,7 @@ RELSYSDIR = $(RELEASE_PATH)/mnesia_test
 # FLAGS
 # ----------------------------------------------------
 #ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -97,7 +99,9 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES)
+tests $(TYPES): $(TARGET_FILES)
+
+$(TARGET_FILES): $(HRL_FILES)
 
 $(EBIN)/%.beam: $(DocExamplesDir)/%.erl
 	$(ERLC) -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<

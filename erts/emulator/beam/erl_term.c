@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_sane_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
 ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);
-ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_fun);
+ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_any_fun);
 ET_DEFINE_CHECKED(int,bignum_header_is_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Eterm,bignum_header_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Uint,bignum_header_arity,Eterm,_is_bignum_header);
@@ -132,24 +132,22 @@ ET_DEFINE_CHECKED(struct erl_node_*,internal_pid_node,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_port_node,Eterm,is_internal_port);
 ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Wterm,is_internal_ref);
 ET_DEFINE_CHECKED(Uint32*,internal_magic_ref_numbers,Wterm,is_internal_magic_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_ordinary_ref_numbers,Wterm,is_internal_ordinary_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Wterm,is_internal_non_magic_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
 ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_pid_data_words,Wterm,is_external_pid);
-ET_DEFINE_CHECKED(Uint,external_pid_data,Wterm,is_external_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,external_pid_node,Wterm,is_external_pid);
 ET_DEFINE_CHECKED(Uint,external_port_data_words,Wterm,is_external_port);
-ET_DEFINE_CHECKED(Uint,external_port_data,Wterm,is_external_port);
+ET_DEFINE_CHECKED(Uint*,external_port_data,Wterm,is_external_port);
 ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Wterm,is_external_port);
 ET_DEFINE_CHECKED(Uint,external_ref_data_words,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(Uint32*,external_ref_data,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Eterm*,export_val,Wterm,is_export);
-ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
+ET_DEFINE_CHECKED(Uint,external_thing_data_words,const ExternalThing*,is_thing_ptr);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
-ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
+ET_DEFINE_CHECKED(Eterm,make_cp,ErtsCodePtr,_is_legal_cp);
+ET_DEFINE_CHECKED(ErtsCodePtr,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,loader_x_reg_index,Uint,_is_loader_x_reg);
 ET_DEFINE_CHECKED(Uint,loader_y_reg_index,Uint,_is_loader_y_reg);

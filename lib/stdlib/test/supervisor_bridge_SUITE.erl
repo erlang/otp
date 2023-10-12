@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,starting/1,
 	 mini_terminate/1,mini_die/1,badstart/1,
-         simple_global_supervisor/1]).
+         simple_global_supervisor/1, format_log_1/1, format_log_2/1]).
 -export([client/1,init/1,internal_loop_init/1,terminate/2,server9212/0]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -35,7 +35,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [starting, mini_terminate, mini_die, badstart, simple_global_supervisor].
+    [starting, mini_terminate, mini_die, badstart, simple_global_supervisor,
+     format_log_1, format_log_2].
 
 groups() -> 
     [].
@@ -227,3 +228,202 @@ simple_global_supervisor(Config) when is_list(Config) ->
 
 server9212() ->
     supervisor_bridge:start_link({global,?bridge_name}, ?MODULE, 3).
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1, 15),
+    Supervisor = my_supervisor,
+    Name = self(),
+    Error = error,
+    Offender = [{pid,Name},{mod,a_module}],
+    Report = #{label=>{supervisor,Error},
+               report=>[{supervisor,Supervisor},
+                        {errorContext,Error},
+                        {reason,Term},
+                        {offender,Offender}]},
+    {F1, A1} = supervisor_bridge:format_log(Report),
+    FExpected1 = "    supervisor: ~tp~n"
+        "    errorContext: ~tp~n"
+        "    reason: ~tp~n"
+        "    offender: ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1 = F1,
+    [Supervisor,Error,Term,Offender] = A1,
+
+    Started = [{pid,Name},{mfa,{a_module,init,[Term]}}],
+    Progress = #{label=>{supervisor,progress},
+                 report=>[{supervisor,Supervisor},{started,Started}]},
+    {PF1,PA1} = supervisor_bridge:format_log(Progress),
+    PFExpected1 = "    supervisor: ~tp~n    started: ~tp~n",
+    ct:log("PF1: ~ts~nPA1: ~tp", [PF1,PA1]),
+    PFExpected1 = PF1,
+    [Supervisor,Started] = PA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = supervisor_bridge:format_log(Report),
+    FExpected2 = "    supervisor: ~tP~n"
+        "    errorContext: ~tP~n"
+        "    reason: ~tP~n"
+        "    offender: ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
+    FExpected2 = F2,
+    LimitedOffender = Offender,
+    [Supervisor,Depth,Error,Depth,Limited,Depth,LimitedOffender,Depth] = A2,
+
+    LimitedStarted =
+        [{pid,Name},{mfa,{a_module,init,[[1,2,3,4,5,6,7,8,9,'...']]}}],
+    {PF2,PA2} = supervisor_bridge:format_log(Progress),
+    PFExpected2 = "    supervisor: ~tP~n    started: ~tP~n",
+    ct:log("PF2: ~ts~nPA2: ~tp", [PF2,PA2]),
+    PFExpected2 = PF2,
+    [Supervisor,Depth,LimitedStarted,Depth] = PA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1, 15),
+    Supervisor = my_supervisor,
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Error = shutdown_error,
+    Offender = [{pid,Name},{mod,a_module}],
+    Report = #{label=>{supervisor,Error},
+               report=>[{supervisor,Supervisor},
+                        {errorContext,Error},
+                        {reason,Term},
+                        {offender,Offender}]},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "    supervisor: my_supervisor\n"
+        "    errorContext: shutdown_error\n"
+        "    reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "    offender: [{pid,"++NameStr++"},{mod,a_module}]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = Expected1 =:= Str1,
+
+    Started = [{pid,Name},{mfa,{a_module,init,[Term]}}],
+    Progress = #{label=>{supervisor,progress},
+                 report=>[{supervisor,Supervisor},{started,Started}]},
+    PStr1 = flatten_format_log(Progress, FormatOpts1),
+    PL1 = length(PStr1),
+    PExpected1 = "    supervisor: my_supervisor\n"
+        "    started: [{pid,"++NameStr++"},\n"
+        "              {mfa,{a_module,init,"
+                           "[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]}}]\n",
+    ct:log("PStr1: ~ts", [PStr1]),
+    ct:log("length(PStr1): ~p", [PL1]),
+    true = PExpected1 =:= PStr1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "    supervisor: my_supervisor\n"
+        "    errorContext: shutdown_error\n"
+        "    reason: [1,2,3,4,5,6,7,8,9|...]\n"
+        "    offender: [{pid,"++NameStr++"},{mod,a_module}]\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    PStr2 = flatten_format_log(Progress, FormatOpts2),
+    PL2 = length(PStr2),
+    PExpected2 = "    supervisor: my_supervisor\n"
+        "    started: [{pid,"++NameStr++"},"
+        "{mfa,{a_module,init,[[1|...]]}}]\n",
+    ct:log("PStr2: ~ts", [PStr2]),
+    ct:log("length(PStr2): ~p", [PL2]),
+    true = PExpected2 =:= PStr2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "    supervisor: my_supervisor\n"
+        "    errorContext: shutdown_error\n"
+        "    reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "    offender: [{pid,"++NameStr++"},{mod,a_module}]\n",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = Expected3 =:= Str3,
+
+    PFormatOpts3 = #{chars_limit=>80},
+    PStr3 = flatten_format_log(Progress, PFormatOpts3),
+    PL3 = length(PStr3),
+    PExpected3 = "    supervisor: my_supervisor\n    started:",
+    ct:log("PStr3: ~ts", [PStr3]),
+    ct:log("length(PStr3): ~p", [PL3]),
+    true = lists:prefix(PExpected3, PStr3),
+    true = PL3 < PL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "Supervisor: my_supervisor. Context: shutdown_error. "
+        "Reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Offender: pid="++NameStr++",mod=a_module.",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    true = Expected4 =:= Str4,
+
+    PStr4 = flatten_format_log(Progress, FormatOpts4),
+    PL4 = length(PStr4),
+    PExpected4 = "Supervisor: my_supervisor. "
+        "Started: pid="++NameStr++",mfa={a_module,init,"
+                "[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]}.",
+    ct:log("PStr4: ~ts", [PStr4]),
+    ct:log("length(PStr4): ~p", [PL4]),
+    true = PExpected4 =:= PStr4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Supervisor: my_supervisor. Context: shutdown_error. "
+        "Reason: [1,2,3,4,5,6,7,8,9|...]. "
+        "Offender: pid="++NameStr++",mod=a_module.",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    true = Expected5 =:= Str5,
+
+    PStr5 = flatten_format_log(Progress, FormatOpts5),
+    PL5 = length(PStr5),
+    PExpected5 = "Supervisor: my_supervisor. "
+        "Started: pid="++NameStr++",mfa={a_module,init,[[1,2,3,4,5|...]]}.",
+    ct:log("PStr5: ~ts", [PStr5]),
+    ct:log("length(PStr5): ~p", [PL5]),
+    true = PExpected5 =:= PStr5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>100},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Supervisor: my_supervisor. Context:",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    PFormatOpts6 = #{single_line=>true, chars_limit=>60},
+    PStr6 = flatten_format_log(Progress, PFormatOpts6),
+    PL6 = length(PStr6),
+    PExpected6 = "Supervisor: my_supervisor.",
+    ct:log("PStr6: ~ts", [PStr6]),
+    ct:log("length(PStr6): ~p", [PL6]),
+    true = lists:prefix(PExpected6, PStr6),
+    true = PL6 < PL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(supervisor_bridge:format_log(Report, Format)).

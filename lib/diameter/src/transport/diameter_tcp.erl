@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 %%
 
 -module(diameter_tcp).
+
+-dialyzer(no_improper_lists).
 
 -behaviour(gen_server).
 
@@ -41,6 +43,7 @@
 -export([listener/1,%% diameter_sync callback
          info/1]).  %% service_info callback
 
+%% test
 -export([ports/0,
          ports/1]).
 
@@ -92,9 +95,9 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, pos_integer()}
-                        | {ssl_options, true | [ssl:connect_option()]}
+                        | {ssl_options, true | [ssl:tls_client_option()]}
                         | option()
-                        | ssl:connect_option()
+                        | ssl:tls_client_option()
                         | gen_tcp:connect_option().
 
 -type match() :: inet:ip_address()
@@ -102,9 +105,9 @@
                | [match()].
 
 -type listen_option() :: {accept, match()}
-                       | {ssl_options, true | [ssl:listen_option()]}
+                       | {ssl_options, true | [ssl:tls_server_option()]}
                        | option()
-                       | ssl:listen_option()
+                       | ssl:tls_server_option()
                        | gen_tcp:listen_option().
 
 -type option() :: {port, non_neg_integer()}
@@ -448,16 +451,20 @@ sock(_, Sock) ->
 resolve(Type, S) ->
     Sock = sock(Type, S),
     try
-        ok(portnr(Sock))
+        {ok, T} = portnr(Sock),
+        T
     catch
         _:_ -> Sock
     end.
 
-portnr(Sock)
-  when is_port(Sock) ->
-    portnr(gen_tcp, Sock);
+%% Assume either ssl or gen_tcp. In particular, this can't deal with a
+%% transport module that called start/3 with an own module option.
 portnr(Sock) ->
-    portnr(ssl, Sock).
+    try
+        {ok, _} = portnr(ssl, Sock)
+    catch
+        _:_ -> portnr(gen_tcp, Sock)
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # handle_call/3
@@ -569,7 +576,11 @@ m({'DOWN', M, process, P, _} = T, #monitor{parent = MRef,
 
 %% l/2
 %%
-%% Transition listener state.
+%% Transition listener state. Or not anymore since any message causes
+%% the process to exit.
+
+-spec l(tuple(), #listener{})
+   -> no_return().
 
 %% Service process has died.
 l({'DOWN', _, process, Pid, _} = T, #listener{service = Pid,
@@ -609,7 +620,7 @@ transition({P, Sock, Bin}, #transport{socket = Sock,
        P == tcp ->
     recv(acc(Frag, Bin), S);
 
-%% Capabilties exchange has decided on whether or not to run over TLS.
+%% Capabilities exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
                                             = S) ->
     true = is_boolean(B),  %% assert

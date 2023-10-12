@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,12 +21,14 @@
 -module(beam_trim).
 -export([module/2]).
 
--import(lists, [reverse/1,reverse/2,splitwith/2,sort/1]).
+-import(lists, [any/2,reverse/1,reverse/2,seq/2,sort/1]).
+
+-include("beam_asm.hrl").
 
 -record(st,
-	{safe :: gb_sets:set(beam_asm:label()), %Safe labels.
-	 lbl :: beam_utils:code_index()         %Code at each label.
-	 }).
+        {safe :: sets:set(beam_asm:label()),    %Safe labels.
+         fsz :: non_neg_integer()
+        }).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -36,264 +38,568 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 function({function,Name,Arity,CLabel,Is0}) ->
-    %%ok = io:fwrite("~w: ~p\n", [?LINE,{Name,Arity}]),
-    St = #st{safe=safe_labels(Is0, []),lbl=beam_utils:index_labels(Is0)},
-    Is = trim(Is0, St, []),
-    {function,Name,Arity,CLabel,Is}.
-
-trim([{kill,_}|_]=Is0, St, Acc) ->
-    {Kills0,Is1} = splitwith(fun({kill,_}) -> true;
-			       (_) -> false
-			    end, Is0),
-    Kills = sort(Kills0),
     try
-	{FrameSize,Layout} = frame_layout(Is1, Kills, St),
-	Configs = trim_instructions(Layout),
-	try_remap(Configs, Is1, FrameSize)
-	of
-	{Is,TrimInstr} ->
-	    trim(Is, St, reverse(TrimInstr)++Acc)
+        St = #st{safe=safe_labels(Is0, []),fsz=0},
+        Usage = none,
+        Is = trim(Is0, Usage, St),
+        {function,Name,Arity,CLabel,Is}
     catch
-	not_possible ->
-	    trim(Is1, St, reverse(Kills, Acc))
+        Class:Error:Stack ->
+	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+	    erlang:raise(Class, Error, Stack)
+    end.
+
+trim([{init_yregs,_}=I|Is], none, St0) ->
+    case usage(Is, St0) of
+        none ->
+            [I|trim(Is, none, St0)];
+        {FrameSize,Us} ->
+            St = St0#st{fsz=FrameSize},
+            trim([I|Is], Us, St)
     end;
-trim([I|Is], St, Acc) ->
-    trim(Is, St, [I|Acc]);
-trim([], _, Acc) ->
-    reverse(Acc).
+trim([{init_yregs,{list,Killed}}=I|Is0], [U|Us], St) ->
+    FrameSize = St#st.fsz,
 
-%% trim_instructions([{kill,R}|{live,R}|{dead,R}]) -> {[Instruction],MapFun}
-%%  Figure out the sequence of moves and trim to use.
+    %% Find out layout of the stack frame. Example of a layout:
+    %%
+    %%    [{kill,{y,0}},{dead,{y,1},{live,{y,2}},{kill,{y,3}}]
+    %%
+    %% That means that y0 and y3 are to be killed, that y1
+    %% has been killed previously, and that y2 is live.
+    Layout = frame_layout(FrameSize, Killed, U),
 
-trim_instructions(Layout) ->
-    Cost = length([I || {kill,_}=I <- Layout]),
-    trim_instructions_1(Layout, 0, [], {Cost,[]}).
+    %% Find a trim recipe.
+    IsNotRecursive = is_not_recursive(Is0),
+    case trim_recipe(Layout, IsNotRecursive, U) of
+        none ->
+            %% No recipe worked out. Use the original init_yregs/1
+            %% instruction.
+	    [I|trim(Is0, Us, St)];
+        R ->
+            %% Apply the recipe.
+            {TrimInstr,Remap} = expand_recipe(R, FrameSize),
+            Is = remap(Is0, Remap),
+	    TrimInstr ++ trim(Is, none, St)
+    end;
+trim([I|Is], [_|Us], St) ->
+    [I|trim(Is, Us, St)];
+trim([I|Is], none, St) ->
+    [I|trim(Is, none, St)];
+trim([I|Is], [], St) ->
+    [I|trim(Is, none, St)];
+trim([], _, _) -> [].
 
-trim_instructions_1([{kill,{y,Trim0}}|Ks], Trim0, Moves, Config0) ->
+%% is_not_recursive([Instruction]) -> true|false.
+%%  Test whether the next call or apply instruction may
+%%  do a recursive call. Return `true` if the call is
+%%  definitely not recursive, and `false` otherwise.
+is_not_recursive([{call_ext,_,Ext}|_]) ->
+    case Ext of
+        {extfunc,M,F,A} ->
+            erl_bifs:is_pure(M, F, A);
+        _ ->
+            false
+    end;
+is_not_recursive([{block,_}|Is]) -> is_not_recursive(Is);
+is_not_recursive([{line,_}|Is]) -> is_not_recursive(Is);
+is_not_recursive(_) -> false.
+
+%% trim_recipe([{kill,R}|{live,R}|{dead,R}]) -> Recipe | none.
+%%      Recipe = {Kills,NumberToTrim,Moves}
+%%      Kills = [{kill,Y}]
+%%      Moves = [{move,SrcY,DstY}]
+%%
+%%  Calculate how to best trim the stack and kill the correct
+%%  Y registers. Return the recipe that trims the most.
+
+trim_recipe(Layout, IsNotRecursive, {Us,Ns}) ->
+    UsedRegs = ordsets:union(Us, Ns),
+    Recipes = construct_recipes(Layout, 0, [], []),
+    NumOrigKills = length([I || {kill,_}=I <- Layout]),
+    IsTooExpensive = is_too_expensive_fun(IsNotRecursive),
+    Rs = [R || R <- Recipes,
+               is_recipe_viable(R, UsedRegs),
+               not is_too_expensive(R, NumOrigKills, IsTooExpensive)],
+    case Rs of
+        [] -> none;
+        [R|_] -> R
+    end.
+
+construct_recipes([{kill,{y,Trim0}}|Ks], Trim0, Moves, Acc) ->
     Trim = Trim0 + 1,
-    Config = save_config(Ks, Trim, Moves, Config0),
-    trim_instructions_1(Ks, Trim, Moves, Config);
-trim_instructions_1([{dead,{y,Trim0}}|Ks], Trim0, Moves, Config0) ->
+    Recipe = {Ks,Trim,Moves},
+    construct_recipes(Ks, Trim, Moves, [Recipe|Acc]);
+construct_recipes([{dead,{y,Trim0}}|Ks], Trim0, Moves, Acc) ->
     Trim = Trim0 + 1,
-    Config = save_config(Ks, Trim, Moves, Config0),
-    trim_instructions_1(Ks, Trim, Moves, Config);
-trim_instructions_1([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Config0) ->
+    Recipe = {Ks,Trim,Moves},
+    construct_recipes(Ks, Trim, Moves, [Recipe|Acc]);
+construct_recipes([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Acc) ->
     case take_last_dead(Ks0) of
 	none ->
-	    {_,ConfigList} = Config0,
-	    ConfigList;
+            %% No more recipes are possible.
+            Acc;
 	{Dst,Ks} ->
 	    Trim = Trim0 + 1,
 	    Moves = [{move,Src,Dst}|Moves0],
-	    Config = save_config(Ks, Trim, Moves, Config0),
-	    trim_instructions_1(Ks, Trim, Moves, Config)
+            Recipe = {Ks,Trim,Moves},
+            construct_recipes(Ks, Trim, Moves, [Recipe|Acc])
     end;
-trim_instructions_1([], _, _, {_,ConfigList}) ->
-    ConfigList.
+construct_recipes(_, _, _, Acc) ->
+    Acc.
 
 take_last_dead(L) ->
     take_last_dead_1(reverse(L)).
 
+take_last_dead_1([{live,_}|Is]) ->
+    take_last_dead_1(Is);
 take_last_dead_1([{kill,Reg}|Is]) ->
     {Reg,reverse(Is)};
 take_last_dead_1([{dead,Reg}|Is]) ->
     {Reg,reverse(Is)};
 take_last_dead_1(_) -> none.
 
-save_config(Ks, Trim, Moves, {MaxCost,Acc}=Config) ->
-    case config_cost(Ks, Moves) of
-	Cost when Cost =< MaxCost ->
-	    {MaxCost,[{Ks,Trim,Moves}|Acc]};
-	_Cost ->
-	    Config
+%% Is trimming too expensive?
+is_too_expensive({Ks,_,Moves}, NumOrigKills, IsTooExpensive) ->
+    NumKills = num_kills(Ks, 0),
+    NumMoves = length(Moves),
+    IsTooExpensive(NumKills, NumMoves, NumOrigKills).
+
+num_kills([{kill,_}|T], Acc) ->
+    num_kills(T, Acc+1);
+num_kills([_|T], Acc) ->
+    num_kills(T, Acc);
+num_kills([], Acc) -> Acc.
+
+is_too_expensive_fun(true) ->
+    %% This call is not recursive (because it is a call to a BIF).
+    %% Here we should avoid trimming if the trimming sequence is
+    %% likely to be more expensive than the original sequence.
+    fun(NumKills, NumMoves, NumOrigKills) ->
+            Penalty =
+                if
+                    %% Slightly penalize the use of any `move`
+                    %% instruction to avoid replacing two `kill`
+                    %% instructions with a `move` and a `trim`.
+                    NumMoves =/= 0 -> 1;
+                    true -> 0
+                end,
+            1 + Penalty + NumKills + NumMoves > NumOrigKills
+    end;
+is_too_expensive_fun(false) ->
+    %% This call **may** be recursive. In a recursive function that
+    %% builds up a huge stack, having unused stack slots will be very
+    %% expensive. Therefore, we want to be biased towards trimming.
+    %% We will do that by not counting the `trim` instruction in
+    %% the formula below.
+    fun(NumKills, NumMoves, NumOrigKills) ->
+            NumKills + NumMoves > NumOrigKills
     end.
 
-config_cost(Ks, Moves) ->
-    %% We estimate that a {move,{y,_},{y,_}} instruction is roughly twice as
-    %% expensive as a {kill,{y,_}} instruction. A {trim,_} instruction is
-    %% roughly as expensive as a {kill,{y,_}} instruction.
-
-    config_cost_1(Ks, 1+2*length(Moves)).
-
-config_cost_1([{kill,_}|Ks], Cost) ->
-    config_cost_1(Ks, Cost+1);
-config_cost_1([_|Ks], Cost) ->
-    config_cost_1(Ks, Cost);
-config_cost_1([], Cost) -> Cost.
-
-expand_config({Layout,Trim,Moves}, FrameSize) ->
-    Kills = [Kill || {kill,_}=Kill <- Layout],
-    {Kills++reverse(Moves, [{trim,Trim,FrameSize-Trim}]),create_map(Trim, Moves)}.
-
-create_map(Trim, []) ->
-    fun({y,Y}) when Y < Trim -> throw(not_possible);
-       ({y,Y}) -> {y,Y-Trim};
-       ({frame_size,N}) -> N - Trim;
-       (Any) -> Any
-    end;
-create_map(Trim, Moves) ->
-    GbTree0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
-    GbTree = gb_trees:from_orddict(sort(GbTree0)),
-    IllegalTargets = gb_sets:from_list([Dst || {move,_,{y,Dst}} <- Moves]),
-    fun({y,Y0}) when Y0 < Trim ->
-	    case gb_trees:lookup(Y0, GbTree) of
-		{value,Y} -> {y,Y};
-		none -> throw(not_possible)
-	    end;
-       ({y,Y}) ->
-	    case gb_sets:is_element(Y, IllegalTargets) of
-		true -> throw(not_possible);
-		false -> {y,Y-Trim}
-	    end;
-       ({frame_size,N}) -> N - Trim;
-       (Any) -> Any
+is_recipe_viable({_,Trim,Moves}, UsedRegs) ->
+    Moved = ordsets:from_list([Src || {move,Src,_} <- Moves]),
+    Illegal = ordsets:from_list([Dst || {move,_,Dst} <- Moves]),
+    Eliminated = [{y,N} || N <- seq(0, Trim - 1)],
+    %% All eliminated registers that are also in the used set must be moved.
+    UsedEliminated = ordsets:intersection(Eliminated, UsedRegs),
+    case ordsets:is_subset(UsedEliminated, Moved) andalso
+        ordsets:is_disjoint(Illegal, UsedRegs) of
+        true ->
+            UsedEliminated = Moved,                        %Assertion.
+            true;
+        _ ->
+            false
     end.
 
-try_remap([C|Cs], Is, FrameSize) ->
-    {TrimInstr,Map} = expand_config(C, FrameSize),
-    try
-	{remap(Is, Map, []),TrimInstr}
-    catch
-	throw:not_possible ->
-	    try_remap(Cs, Is, FrameSize)
-    end;
-try_remap([], _, _) -> throw(not_possible).
+expand_recipe({Layout,Trim,Moves}, FrameSize) ->
+    Is = reverse(Moves, [{trim,Trim,FrameSize-Trim}]),
+    Map = #{Src => Dst - Trim || {move,{y,Src},{y,Dst}} <- Moves},
+    Remap = {Trim,Map},
+    case [Y || {kill,Y} <- Layout] of
+        [] ->
+            {Is,Remap};
+        [_|_]=Yregs ->
+            {[{init_yregs,{list,Yregs}}|Is],Remap}
+    end.
 
-remap([{block,Bl0}|Is], Map, Acc) ->
-    Bl = remap_block(Bl0, Map, []),
-    remap(Is, Map, [{block,Bl}|Acc]);
-remap([{call_fun,_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{call,_,_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{call_ext,_,_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{apply,_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
-    I = {bif,Name,Fail,[Map(S) || S <- Ss],Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
-    I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{get_map_elements,Fail,M,{list,L0}}|Is], Map, Acc) ->
-    L = [Map(E) || E <- L0],
-    I = {get_map_elements,Fail,Map(M),{list,L}},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
-    Ss = [Map(Src) || Src <- Ss0],
-    Dst = Map(Dst0),
-    I = {bs_init,Fail,Info,Live,Ss,Dst},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
-    I = {Op,Fail,Info,[Map(S) || S <- Ss]},
-    remap(Is, Map, [I|Acc]);
-remap([{kill,Y}|T], Map, Acc) ->
-    remap(T, Map, [{kill,Map(Y)}|Acc]);
-remap([{make_fun2,_,_,_,_}=I|T], Map, Acc) ->
-    remap(T, Map, [I|Acc]);
-remap([{deallocate,N}|Is], Map, Acc) ->
-    I = {deallocate,Map({frame_size,N})},
-    remap(Is, Map, [I|Acc]);
-remap([{test,Name,Fail,Ss}|Is], Map, Acc) ->
-    I = {test,Name,Fail,[Map(S) || S <- Ss]},
-    remap(Is, Map, [I|Acc]);
-remap([{test,Name,Fail,Live,Ss,Dst}|Is], Map, Acc) ->
-    I = {test,Name,Fail,Live,[Map(S) || S <- Ss],Map(Dst)},
-    remap(Is, Map, [I|Acc]);
-remap([return|_]=Is, _, Acc) ->
-    reverse(Acc, Is);
-remap([{line,_}=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]).
-    
-remap_block([{set,Ds0,Ss0,Info}|Is], Map, Acc) ->
-    Ds = [Map(D) || D <- Ds0],
-    Ss = [Map(S) || S <- Ss0],
-    remap_block(Is, Map, [{set,Ds,Ss,Info}|Acc]);
-remap_block([], _, Acc) -> reverse(Acc).
-    
-safe_labels([{label,L},{line,_},{badmatch,{Tag,_}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},{line,_},{case_end,{Tag,_}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},{line,_},if_end|Is], Acc) ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},
-	     {block,[{set,[{x,0}],[{Tag,_}],move}]},
-	     {line,_},
-	     {call_ext,1,{extfunc,erlang,error,1}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
+remap([{'%',Comment}=I0|Is], Remap) ->
+    case Comment of
+        {var_info,{y,_}=Var,Type} ->
+            I = {'%',{var_info,remap_arg(Var, Remap),Type}},
+            [I|remap(Is, Remap)];
+        _ ->
+            [I0|remap(Is, Remap)]
+    end;
+remap([{block,Bl0}|Is], Remap) ->
+    Bl = remap_block(Bl0, Remap),
+    I = {block,Bl},
+    [I|remap(Is, Remap)];
+remap([{bs_create_bin,Fail,Alloc,Live,Unit,Dst0,{list,Ss0}}|Is], Remap) ->
+    Dst = remap_arg(Dst0, Remap),
+    Ss = remap_args(Ss0, Remap),
+    I = {bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Ss}},
+    [I|remap(Is, Remap)];
+remap([{bs_get_tail,Src,Dst,Live}|Is], Remap) ->
+    I = {bs_get_tail,remap_arg(Src, Remap),remap_arg(Dst, Remap),Live},
+    [I|remap(Is, Remap)];
+remap([{bs_start_match4,Fail,Live,Src,Dst}|Is], Remap) ->
+    I = {bs_start_match4,Fail,Live,remap_arg(Src, Remap),remap_arg(Dst, Remap)},
+    [I|remap(Is, Remap)];
+remap([{bs_set_position,Src1,Src2}|Is], Remap) ->
+    I = {bs_set_position,remap_arg(Src1, Remap),remap_arg(Src2, Remap)},
+    [I|remap(Is, Remap)];
+remap([{call_fun,_}=I|Is], Remap) ->
+    [I|remap(Is, Remap)];
+remap([{call_fun2,Tag,Arity,Func}=I|Is], Remap) ->
+    I = {call_fun2,Tag,Arity,remap_arg(Func, Remap)},
+    [I|remap(Is, Remap)];
+remap([{call,_,_}=I|Is], Remap) ->
+    [I|remap(Is, Remap)];
+remap([{call_ext,_,_}=I|Is], Remap) ->
+    [I|remap(Is, Remap)];
+remap([{apply,_}=I|Is], Remap) ->
+    [I|remap(Is, Remap)];
+remap([{bif,Name,Fail,Ss,D}|Is], Remap) ->
+    I = {bif,Name,Fail,remap_args(Ss, Remap),remap_arg(D, Remap)},
+    [I|remap(Is, Remap)];
+remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Remap) ->
+    I = {gc_bif,Name,Fail,Live,remap_args(Ss, Remap),remap_arg(D, Remap)},
+    [I|remap(Is, Remap)];
+remap([{get_map_elements,Fail,M,{list,L0}}|Is], Remap) ->
+    L = remap_args(L0, Remap),
+    I = {get_map_elements,Fail,remap_arg(M, Remap),{list,L}},
+    [I|remap(Is, Remap)];
+remap([{init_yregs,{list,Yregs0}}|Is], Remap) ->
+    Yregs = sort(remap_args(Yregs0, Remap)),
+    I = {init_yregs,{list,Yregs}},
+    [I|remap(Is, Remap)];
+remap([{make_fun3,F,Index,OldUniq,Dst0,{list,Env0}}|Is], Remap) ->
+    Env = remap_args(Env0, Remap),
+    Dst = remap_arg(Dst0, Remap),
+    I = {make_fun3,F,Index,OldUniq,Dst,{list,Env}},
+    [I|remap(Is, Remap)];
+remap([{update_record,Hint,Size,Src0,Dst0,{list,Updates0}}|Is], Remap) ->
+    Updates = remap_args(Updates0, Remap),
+    Src = remap_arg(Src0, Remap),
+    Dst = remap_arg(Dst0, Remap),
+    I = {update_record,Hint,Size,Src,Dst,{list,Updates}},
+    [I|remap(Is, Remap)];
+remap([{deallocate,N}|Is], {Trim,_}=Remap) ->
+    I = {deallocate,N-Trim},
+    [I|remap(Is, Remap)];
+remap([{recv_marker_clear,Ref}|Is], Remap) ->
+    I = {recv_marker_clear,remap_arg(Ref, Remap)},
+    [I|remap(Is, Remap)];
+remap([{recv_marker_reserve,Mark}|Is], Remap) ->
+    I = {recv_marker_reserve,remap_arg(Mark, Remap)},
+    [I|remap(Is, Remap)];
+remap([{swap,Reg1,Reg2}|Is], Remap) ->
+    I = {swap,remap_arg(Reg1, Remap),remap_arg(Reg2, Remap)},
+    [I|remap(Is, Remap)];
+remap([{test,Name,Fail,Ss}|Is], Remap) ->
+    I = {test,Name,Fail,remap_args(Ss, Remap)},
+    [I|remap(Is, Remap)];
+remap([{test,Name,Fail,Live,Ss,Dst}|Is], Remap) ->
+    I = {test,Name,Fail,Live,remap_args(Ss, Remap),remap_arg(Dst, Remap)},
+    [I|remap(Is, Remap)];
+remap([return|_]=Is, _) ->
+    Is;
+remap([{line,_}=I|Is], Remap) ->
+    [I|remap(Is, Remap)].
+
+remap_block([{set,[{x,_}]=Ds,Ss0,Info}|Is], Remap) ->
+    Ss = remap_args(Ss0, Remap),
+    [{set,Ds,Ss,Info}|remap_block(Is, Remap)];
+remap_block([{set,Ds0,Ss0,Info}|Is], Remap) ->
+    Ds = remap_args(Ds0, Remap),
+    Ss = remap_args(Ss0, Remap),
+    [{set,Ds,Ss,Info}|remap_block(Is, Remap)];
+remap_block([], _) -> [].
+
+remap_args(Args, {Trim,Map}) ->
+    [remap_arg(Arg, Trim, Map) || Arg <- Args].
+
+remap_arg(Arg, {Trim,Map}) ->
+    remap_arg(Arg, Trim, Map).
+
+remap_arg(Arg, Trim, Map) ->
+    case Arg of
+        {y,Y} when Y < Trim ->
+            {y,map_get(Y, Map)};
+        {y,Y} ->
+            {y,Y-Trim};
+        #tr{r={y,Y},t=Type} when Y < Trim ->
+            #tr{r={y,map_get(Y, Map)},t=Type};
+        #tr{r={y,Y},t=Type} ->
+            #tr{r={y,Y-Trim},t=Type};
+        Other ->
+            Other
+    end.
+
+%% safe_labels([Instruction], Accumulator) -> gb_set()
+%%  Build a gb_set of safe labels. The code at a safe
+%%  label does not depend on the values in a specific
+%%  Y register, only that all Y registers are initialized
+%%  so that it safe to scan the stack when an exception
+%%  is generated.
+%%
+%%  In other words, code at a safe label will continue
+%%  to work if Y registers have been renumbered and
+%%  the size of the stack frame has changed.
+
+safe_labels([{label,L}|Is], Acc) ->
+    case is_safe_label(Is) of
+        true -> safe_labels(Is, [L|Acc]);
+        false -> safe_labels(Is, Acc)
+    end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> gb_sets:from_list(Acc).
+safe_labels([], Acc) -> sets:from_list(Acc, [{version, 2}]).
+
+is_safe_label([{'%',_}|Is]) ->
+    is_safe_label(Is);
+is_safe_label([{line,_}|Is]) ->
+    is_safe_label(Is);
+is_safe_label([{badmatch,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([{case_end,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([{try_case_end,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([if_end|_]) ->
+    true;
+is_safe_label([{badrecord,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([{block,Bl}|Is]) ->
+    is_safe_label_block(Bl) andalso is_safe_label(Is);
+is_safe_label([{call_ext,_,{extfunc,M,F,A}}|_]) ->
+    erl_bifs:is_exit_bif(M, F, A);
+is_safe_label(_) -> false.
+
+is_safe_label_block([{set,Ds,Ss,_}|Is]) ->
+    IsYreg = fun(#tr{r={y,_}}) -> true;
+                ({y,_}) -> true;
+                (_) -> false
+             end,
+    %% This instruction is safe if the instruction
+    %% neither reads or writes Y registers.
+    not (any(IsYreg, Ss) orelse any(IsYreg, Ds)) andalso
+        is_safe_label_block(Is);
+is_safe_label_block([]) -> true.
 
 %% frame_layout([Instruction], [{kill,_}], St) ->
 %%      [{kill,Reg} | {live,Reg} | {dead,Reg}]
 %%  Figure out the layout of the stack frame.
 
-frame_layout(Is, Kills, #st{safe=Safe,lbl=D}) ->
-    N = frame_size(Is, Safe),
-    IsKilled = fun(R) -> beam_utils:is_not_used(R, Is, D) end,
-    {N,frame_layout_1(Kills, 0, N, IsKilled, [])}.
+frame_layout(N, Killed, {U,_}) ->
+    Dead0 = [{y,R} || R <- seq(0, N - 1)],
+    Dead = ordsets:subtract(Dead0, ordsets:union(U, Killed)),
+    Is = [[{R,{live,R}} || R <- U],
+          [{R,{dead,R}} || R <- Dead],
+          [{R,{kill,R}} || R <- Killed]],
+    [I || {_,I} <- lists:merge(Is)].
 
-frame_layout_1([{kill,{y,Y}}=I|Ks], Y, N, IsKilled, Acc) ->
-    frame_layout_1(Ks, Y+1, N, IsKilled, [I|Acc]);
-frame_layout_1(Ks, Y, N, IsKilled, Acc) when Y < N ->
-    R = {y,Y},
-    I = case IsKilled(R) of
-	    false -> {live,R};
-	    true -> {dead,R}
-	end,
-    frame_layout_1(Ks, Y+1, N, IsKilled, [I|Acc]);
-frame_layout_1([], Y, Y, _, Acc) ->
-    frame_layout_2(Acc).
+%% usage([Instruction], SafeLabels) -> {FrameSize,[UsedYRegs]}
+%%  Find out the frame size and usage information by looking at the
+%%  code that follows.
+%%
+%%  Implicitly, also check that the instructions are a straight
+%%  sequence of code that ends in a return. Any branches are
+%%  to safe labels (i.e., the code at those labels don't depend
+%%  on the contents of any Y register).
 
-frame_layout_2([{live,_}|Is]) -> frame_layout_2(Is);
-frame_layout_2(Is) -> reverse(Is).
+usage(Is0, St) ->
+    Is = usage_1(Is0, []),
+    do_usage(Is, St).
 
-%% frame_size([Instruction], SafeLabels) -> FrameSize
-%%  Find out the frame size by looking at the code that follows.
+usage_1([{label,_}|_], Acc) ->
+    Acc;
+usage_1([I|Is], Acc) ->
+    usage_1(Is, [I|Acc]);
+usage_1([], Acc) ->
+    Acc.
 
-frame_size([{block,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{call_fun,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{call,_,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{call_ext,_,_}=I|Is], Safe) ->
-    case beam_jump:is_exit_instruction(I) of
-	true -> throw(not_possible);
-	false -> frame_size(Is, Safe)
-    end;
-frame_size([{apply,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{bif,_,{f,L},_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{gc_bif,_,{f,L},_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{test,_,{f,L},_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{kill,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{deallocate,N}|_], _) -> N;
-frame_size([{line,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size(_, _) -> throw(not_possible).
-
-frame_size_branch(0, Is, Safe) ->
-    frame_size(Is, Safe);
-frame_size_branch(L, Is, Safe) ->
-    case gb_sets:is_member(L, Safe) of
-	false -> throw(not_possible);
-	true -> frame_size(Is, Safe)
+do_usage(Is0, #st{safe=Safe}) ->
+    case Is0 of
+        [return,{deallocate,N}|Is] ->
+            Regs = [],
+            case do_usage(Is, Safe, Regs, [], []) of
+                none ->
+                    none;
+                Us ->
+                    {N,Us}
+            end;
+        _ ->
+            none
     end.
+
+do_usage([{'%',_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{apply,_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{block,Blk}|Is], Safe, Regs0, Ns0, Acc) ->
+    {Regs,Ns} = U = do_usage_blk(Blk, Regs0, Ns0),
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{bs_create_bin,Fail,_,_,_,Dst,{list,Args}}|Is], Safe, Regs0, Ns0, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            Regs1 = ordsets:del_element(Dst, Regs0),
+            Regs = ordsets:union(Regs1, yregs(Args)),
+            Ns = ordsets:union(yregs([Dst]), Ns0),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{bs_get_tail,Src,Dst,_}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs1 = ordsets:del_element(Dst, Regs0),
+    Regs = ordsets:union(Regs1, yregs([Src])),
+    Ns = ordsets:union(yregs([Dst]), Ns0),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{bs_set_position,Src1,Src2}|Is], Safe, Regs0, Ns, Acc) ->
+    Regs = ordsets:union(Regs0, yregs([Src1,Src2])),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{bs_start_match4,Fail,_Live,Src,Dst}|Is], Safe, Regs0, Ns, Acc) ->
+    case (Fail =:= {atom,no_fail} orelse
+          Fail =:= {atom,resume} orelse
+          is_safe_branch(Fail, Safe)) of
+        true ->
+            Regs = ordsets:union(Regs0, yregs([Src,Dst])),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{call,_,_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{call_ext,_,_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{call_fun,_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{call_fun2,_,_,Ss}|Is], Safe, Regs0, Ns, Acc) ->
+    Regs = ordsets:union(Regs0, yregs([Ss])),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{bif,_,Fail,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            Regs1 = ordsets:del_element(Dst, Regs0),
+            Regs = ordsets:union(Regs1, yregs(Ss)),
+            Ns = ordsets:union(yregs([Dst]), Ns0),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{gc_bif,_,Fail,_,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            Regs1 = ordsets:del_element(Dst, Regs0),
+            Regs = ordsets:union(Regs1, yregs(Ss)),
+            Ns = ordsets:union(yregs([Dst]), Ns0),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{get_map_elements,Fail,S,{list,List}}|Is], Safe, Regs0, Ns0, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            {Ss,Ds1} = beam_utils:split_even(List),
+            Ds = yregs(Ds1),
+            Regs1 = ordsets:subtract(Regs0, Ds),
+            Regs = ordsets:union(Regs1, yregs([S|Ss])),
+            Ns = ordsets:union(Ns0, Ds),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{init_yregs,{list,Ds}}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs = ordsets:subtract(Regs0, Ds),
+    Ns = ordsets:union(Ns0, Ds),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{make_fun3,_,_,_,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs1 = ordsets:del_element(Dst, Regs0),
+    Regs = ordsets:union(Regs1, yregs(Ss)),
+    Ns = ordsets:union(yregs([Dst]), Ns0),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{update_record,_,_,Src,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs1 = ordsets:del_element(Dst, Regs0),
+    Regs = ordsets:union(Regs1, yregs([Src|Ss])),
+    Ns = ordsets:union(yregs([Dst]), Ns0),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{line,_}|Is], Safe, Regs, Ns, Acc) ->
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{recv_marker_clear,Src}|Is], Safe, Regs0, Ns, Acc) ->
+    Regs = ordsets:union(Regs0, yregs([Src])),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{recv_marker_reserve,Src}|Is], Safe, Regs0, Ns, Acc) ->
+    Regs = ordsets:union(Regs0, yregs([Src])),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{swap,R1,R2}|Is], Safe, Regs0, Ns0, Acc) ->
+    Ds = yregs([R1,R2]),
+    Regs = ordsets:union(Regs0, Ds),
+    Ns = ordsets:union(Ns0, Ds),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{test,_,Fail,Ss}|Is], Safe, Regs0, Ns, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            Regs = ordsets:union(Regs0, yregs(Ss)),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([{test,_,Fail,_,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
+    case is_safe_branch(Fail, Safe) of
+        true ->
+            Regs1 = ordsets:del_element(Dst, Regs0),
+            Regs = ordsets:union(Regs1, yregs(Ss)),
+            Ns = ordsets:union(yregs([Dst]), Ns0),
+            U = {Regs,Ns},
+            do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+        false ->
+            none
+    end;
+do_usage([_I|_], _, _, _, _) ->
+    none;
+do_usage([], _Safe, _Regs, _Ns, Acc) -> Acc.
+
+do_usage_blk([{set,Ds0,Ss,_}|Is], Regs0, Ns0) ->
+    Ds = yregs(Ds0),
+    {Regs1,Ns1} = do_usage_blk(Is, Regs0, Ns0),
+    Regs2 = ordsets:subtract(Regs1, Ds),
+    Regs = ordsets:union(Regs2, yregs(Ss)),
+    Ns = ordsets:union(Ns1, Ds),
+    {Regs,Ns};
+do_usage_blk([], Regs, Ns) -> {Regs,Ns}.
+
+is_safe_branch({f,0}, _Safe) ->
+    true;
+is_safe_branch({f,L}, Safe) ->
+    sets:is_element(L, Safe).
+
+yregs(Rs) ->
+    ordsets:from_list(yregs_1(Rs)).
+
+yregs_1([{y,_}=Y|Rs]) ->
+    [Y|yregs_1(Rs)];
+yregs_1([{tr,{y,_}=Y,_}|Rs]) ->
+    [Y|yregs_1(Rs)];
+yregs_1([_|Rs]) ->
+    yregs_1(Rs);
+yregs_1([]) -> [].

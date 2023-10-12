@@ -278,7 +278,7 @@ log_loop_info(Args) ->
 		    ForceStop ->
 			io_lib:format("force_stop is set to: ~w",[ForceStop])
 		end,			
-	    ct_logs:log("Test loop info",LogStr1++LogStr2++LogStr3++LogStr4,[])
+	    ct_logs:log("Test loop info","~ts", [LogStr1++LogStr2++LogStr3++LogStr4])
     end.
 
 ts(Secs) ->

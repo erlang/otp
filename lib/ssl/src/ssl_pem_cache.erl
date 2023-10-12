@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 20016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 20016-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 
 %%----------------------------------------------------------------------
 %% Purpose: Manages ssl sessions and trusted certifacates
+%% (Note: See the document internal_doc/pem_and_cert_cache.md for additional
+%% information)
 %%----------------------------------------------------------------------
 
 -module(ssl_pem_cache).
@@ -45,12 +47,11 @@
 
 -record(state, {
 	  pem_cache,                  
-	  last_pem_check             :: erlang:timestamp(),
+	  last_pem_check             :: integer(),
 	  clear            :: integer()
 	 }).
 
 -define(CLEAR_PEM_CACHE, 120000).
--define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
 %%====================================================================
 %% API
@@ -134,8 +135,9 @@ init([Name]) ->
     PemCache = ssl_pkix_db:create_pem_cache(Name),
     Interval = pem_check_interval(),
     erlang:send_after(Interval, self(), clear_pem_cache),
+    erlang:system_time(second),
     {ok, #state{pem_cache = PemCache,
-		last_pem_check =  os:timestamp(),
+		last_pem_check =  erlang:convert_time_unit(os:system_time(), native, second),
 		clear = Interval 	
 	       }}.
 
@@ -153,7 +155,8 @@ init([Name]) ->
 handle_call({unconditionally_clear_pem_cache, _},_, 
 	    #state{pem_cache = PemCache} = State) ->
     ssl_pkix_db:clear(PemCache),
-    {reply, ok,  State}.
+    Result = ssl_manager:refresh_trusted_db(ssl_manager_type()),
+    {reply, Result,  State}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -169,6 +172,7 @@ handle_cast({cache_pem, File, Content}, #state{pem_cache = Db} = State) ->
 
 handle_cast({invalidate_pem, File}, #state{pem_cache = Db} = State) ->
     ssl_pkix_db:remove(File, Db),
+    ssl_manager:refresh_trusted_db(ssl_manager_type(), File),
     {noreply, State}.
 
 
@@ -183,7 +187,7 @@ handle_cast({invalidate_pem, File}, #state{pem_cache = Db} = State) ->
 handle_info(clear_pem_cache, #state{pem_cache = PemCache,
 				    clear = Interval,
 				    last_pem_check = CheckPoint} = State) ->
-    NewCheckPoint = os:timestamp(),
+    NewCheckPoint = erlang:convert_time_unit(os:system_time(), native, second),
     start_pem_cache_validator(PemCache, CheckPoint),
     erlang:send_after(Interval, self(), clear_pem_cache),
     {noreply, State#state{last_pem_check = NewCheckPoint}};
@@ -229,23 +233,13 @@ init_pem_cache_validator([CacheName, PemCache, CheckPoint]) ->
 		      CheckPoint, PemCache).
 
 pem_cache_validate({File, _}, CheckPoint) ->
-    case file:read_file_info(File, []) of
-	{ok, #file_info{mtime = Time}} ->
-	    case is_before_checkpoint(Time, CheckPoint) of
-		true ->
-		    ok;
-		false ->
-		    invalidate_pem(File)
-	    end;
+    case file:read_file_info(File, [{time, posix}]) of
+	{ok, #file_info{mtime = Time}} when Time < CheckPoint ->
+	    ok;
 	_  ->
 	    invalidate_pem(File)
     end,
     CheckPoint.
-
-is_before_checkpoint(Time, CheckPoint) ->
-    calendar:datetime_to_gregorian_seconds(
-      calendar:now_to_datetime(CheckPoint)) -
-	calendar:datetime_to_gregorian_seconds(Time) > 0.
 
 pem_check_interval() ->
     case application:get_env(ssl, ssl_pem_cache_clean) of
@@ -261,4 +255,12 @@ bypass_cache() ->
 	    Bool;
 	_ ->
 	    false
+    end.
+
+ssl_manager_type() ->
+    case get(ssl_pem_cache) of
+        ?MODULE ->
+            normal;
+        _ ->
+            dist
     end.

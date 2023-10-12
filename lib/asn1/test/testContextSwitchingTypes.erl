@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@
 %%
 -module(testContextSwitchingTypes).
 
--export([test/1]).
+-export([test/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
-test(Config) ->
+test(jer,_Config) -> ok;
+test(_Rule,Config) ->
     ValT_1 = 'ContextSwitchingTypes':'val1-T'(),
     check_EXTERNAL(enc_dec('T', ValT_1)),
 

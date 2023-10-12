@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
  */
 
 #include <stdio.h>
-#include "wxe_driver.h"
+#include <erl_nif.h>
 
 /* Platform specific initialisation stuff */ 
 #ifdef _MACOSX
@@ -29,19 +29,8 @@
 
 extern OSErr  CPSSetProcessName (ProcessSerialNumber *psn, char *processname);
 
-void * wxe_ps_init() 
+void * wxe_ps_init()
 {
-   ProcessSerialNumber psn;
-   // Enable GUI 
-   if(!GetCurrentProcess(&psn)) {
-      TransformProcessType(&psn, kProcessTransformToForegroundApplication);
-#ifdef  MAC_OS_X_VERSION_10_6
-      [[NSRunningApplication currentApplication] activateWithOptions:
-       (NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
-#else 
-      SetFrontProcess(&psn);
-#endif
-   }
    return (void *) 0;
 }
 
@@ -64,13 +53,16 @@ void * wxe_ps_init2() {
    size_t app_len = 127;
    char app_title_buf[128];
    char * app_title;
+   size_t app_icon_len = 1023;
+   char app_icon_buf[1024];
+
    // Setup and enable gui
    pool = [[NSAutoreleasePool alloc] init];
 
    if( !is_packaged_app() ) {
       // Undocumented function (but no documented way of doing this exists)
-      int res = erl_drv_getenv("WX_APP_TITLE", app_title_buf, &app_len);
-      if (res >= 0) {
+      int res = enif_getenv("WX_APP_TITLE", app_title_buf, &app_len);
+      if (res == 0) {
           app_title = app_title_buf;
       } else {
           app_title = NULL;
@@ -78,11 +70,22 @@ void * wxe_ps_init2() {
       if(!GetCurrentProcess(&psn)) {
       	 CPSSetProcessName(&psn, app_title?app_title:"Erlang");
       }
-      // Load and set icon
+      // Enable setting custom application icon for Mac OS X
+      res = enif_getenv("WX_APP_ICON", app_icon_buf, &app_icon_len);
       NSMutableString *file = [[NSMutableString alloc] init];
-      [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo64.png"];
-      NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
-      [NSApp setApplicationIconImage: icon];
+      if (res == 0) {
+          [file appendFormat:@"%s", app_icon_buf];
+      } else {
+          res = enif_getenv("WX_PRIV_DIR", app_icon_buf, &app_icon_len);
+          if(res == 0) {
+              [file appendFormat:@"%s/%s", app_icon_buf, "erlang-logo128.png"];
+          }
+      }
+      if(res == 0) {
+          // Load and set icon
+          NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
+          [NSApp setApplicationIconImage: icon];
+      }
    };
 
    return pool;
@@ -90,10 +93,43 @@ void * wxe_ps_init2() {
 
 /* _MACOSX */
 #else
+#ifdef _WIN32
+#include <windows.h>
+
+void * wxe_ps_init()
+{
+    int res;
+    size_t dir_len = 1023;
+    char dir_utf8[1024];
+    wchar_t *npath;
+    size_t path_len;
+
+    res = enif_getenv("WX_PRIV_DIR", dir_utf8, &dir_len);
+    if(res == 0) {
+        dir_len = MultiByteToWideChar(CP_UTF8, 0, dir_utf8, dir_len+1, NULL, 0);
+        path_len = GetEnvironmentVariableW(L"PATH",NULL,0);
+        if( dir_len > 0 && dir_len < 1024 && path_len > 0 ) {
+            npath = (wchar_t *) malloc((path_len+dir_len+2)*sizeof(wchar_t));
+            if(GetEnvironmentVariableW(L"PATH",npath,path_len) != (path_len-1)) {
+                free(npath);
+                return NULL;
+            }
+            npath[path_len-1] = L';';
+            if(MultiByteToWideChar(CP_UTF8, 0, dir_utf8, dir_len, npath+path_len, dir_len+1) > 0) {
+                SetEnvironmentVariableW(L"PATH",npath);
+            }
+            free(npath);
+        }
+    }
+    return (void *) 0;
+}
+#else
 void * wxe_ps_init()
 {
    return (void *) 0;
 }
+#endif
+
 void * wxe_ps_init2()
 {
    return (void *) 0;

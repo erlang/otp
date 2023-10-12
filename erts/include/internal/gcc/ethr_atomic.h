@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -496,13 +496,13 @@ ETHR_NATMC_FUNC__(or_retold_mb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
-			   ETHR_AINT_T__ new,
+			   ETHR_AINT_T__ new_val,
 			   ETHR_AINT_T__ exp)
 {
     ETHR_AINT_T__ xchg = exp;
     if (__atomic_compare_exchange_n(&var->value,
 				    &xchg,
-				    new,
+				    new_val,
 				    0, /* No spurious failures, please */
 				    __ATOMIC_RELAXED,
 				    __ATOMIC_RELAXED))
@@ -522,13 +522,13 @@ ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
-				ETHR_AINT_T__ new,
+				ETHR_AINT_T__ new_val,
 				ETHR_AINT_T__ exp)
 {
     ETHR_AINT_T__ xchg = exp;
     if (__atomic_compare_exchange_n(&var->value,
 				    &xchg,
-				    new,
+				    new_val,
 				    0, /* No spurious failures, please */
 				    __ATOMIC_ACQUIRE,
 				    __ATOMIC_ACQUIRE))
@@ -551,10 +551,10 @@ ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_mb)(ETHR_ATMC_T__ *var,
-			      ETHR_AINT_T__ new,
+			      ETHR_AINT_T__ new_val,
 			      ETHR_AINT_T__ old)
 {
-    return __sync_val_compare_and_swap(&var->value, old, new);
+    return __sync_val_compare_and_swap(&var->value, old, new_val);
 }
 
 #endif /* ETHR_HAVE___sync_val_compare_and_swap */

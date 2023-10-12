@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #endif
 
 #include "global.h"
+#include "erl_dyn_lock_check.h"
 #include <string.h>
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
@@ -34,9 +35,9 @@
    + sizeof(((ErlDrvThreadOpts *) 0)->LAST_FIELD))
 
 static void
-fatal_error(int err, char *func)
+fatal_error(int err, const char *func)
 {
-    char *estr = strerror(err);
+    const char *estr = strerror(err);
     if (!estr) {
 	if (err == ENOTSUP)
 	    estr = "Not supported";
@@ -57,6 +58,9 @@ struct ErlDrvMutex_ {
     erts_lcnt_ref_t lcnt;
 #endif
     char *name;
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_t dlc;
+#endif
 };
 
 struct ErlDrvCond_ {
@@ -163,6 +167,9 @@ erl_drv_mutex_create(char *name)
         } else {
 	    dmtx->name = no_name;
 	}
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_create_lock(&dmtx->dlc, name);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&dmtx->lcnt, dmtx->name, NIL,
         ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_IO);
@@ -198,6 +205,9 @@ erl_drv_mutex_trylock(ErlDrvMutex *dmtx)
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_trylock()");
     res = ethr_mutex_trylock(&dmtx->mtx);
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_trylock(&dmtx->dlc, res != EBUSY);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_trylock(&dmtx->lcnt, res);
 #endif
@@ -209,6 +219,9 @@ erl_drv_mutex_lock(ErlDrvMutex *dmtx)
 {
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_lock()");
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_lock(&dmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock(&dmtx->lcnt);
 #endif
@@ -223,6 +236,9 @@ erl_drv_mutex_unlock(ErlDrvMutex *dmtx)
 {
     if (!dmtx)
 	fatal_error(EINVAL, "erl_drv_mutex_unlock()");
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_unlock(&dmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock(&dmtx->lcnt);
 #endif
@@ -593,6 +609,7 @@ erl_drv_thread_create(char *name,
     struct ErlDrvTid_ *dtid;
     ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_thr_opts *use_opts;
+    char name_buff[ETHR_THR_NAME_MAX + 1];
 
     if (!opts && !name)
 	use_opts = NULL;
@@ -600,7 +617,8 @@ erl_drv_thread_create(char *name,
 	if(opts)
 	    ethr_opts.suggested_stack_size = opts->suggested_stack_size;
 
-        ethr_opts.name = name;
+	erts_snprintf(name_buff, sizeof(name_buff), "%s", name);
+	ethr_opts.name = name_buff;
 	use_opts = &ethr_opts;
     }
 

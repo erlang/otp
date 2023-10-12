@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ public class OtpErlangExternalFun extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = 6443965570641913886L;
 
-    private final String module;
-    private final String function;
-    private final int arity;
+    public final String module;
+    public final String function;
+    public final int arity;
 
     public OtpErlangExternalFun(final String module, final String function,
             final int arity) {

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,8 +59,3 @@ int strn_catf(char* dst, size_t size, const char* format, ...);
  * without regard to '\0' characters.
  */
 char* find_str(const char* haystack, int size, const char* needle);
-
-#ifndef HAVE_MEMMOVE
-void* memmove(void *dest, const void *src, size_t n);
-#endif
-

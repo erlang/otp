@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 
 %% Internal export
 -export([init/1, terminate_all_children/1,
-         middle9212/0, gen_server9212/0, handle_info/2]).
+         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -44,9 +44,11 @@
           sup_start_child_returns_error_simple/1,
 	  sup_start_map/1, sup_start_map_simple/1,
 	  sup_start_map_faulty_specs/1,
-	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_brutal_kill/1,
-	  child_adm/1, child_adm_simple/1, child_specs/1, extra_return/1,
-	  sup_flags/1]).
+	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
+	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
+	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
+	  extra_return/1, sup_flags/1]).
 
 %% Tests concept permanent, transient and temporary 
 -export([ permanent_normal/1, transient_normal/1,
@@ -63,9 +65,19 @@
 	  one_for_one_escalation/1, one_for_all/1,
 	  one_for_all_escalation/1, one_for_all_other_child_fails_restart/1,
 	  simple_one_for_one/1, simple_one_for_one_escalation/1,
+          simple_one_for_one_corruption/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
 	  rest_for_one_other_child_fails_restart/1,
 	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
+
+%% Significant child tests
+-export([ nonsignificant_temporary/1, nonsignificant_transient/1,
+	  significant_temporary/1, significant_transient/1,
+	  significant_simple/1, significant_bystander/1,
+	  significant_escalation/1, significant_upgrade_never_any/1,
+	  significant_upgrade_any_never/1, significant_upgrade_never_all/1,
+	  significant_upgrade_all_never/1, significant_upgrade_any_all/1,
+	  significant_upgrade_all_any/1, significant_upgrade_child/1]).
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children/1, count_children_supervisor/1,
@@ -77,7 +89,8 @@
 	 hanging_restart_loop_rest_for_one/1,
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
-         order_of_children/1, scale_start_stop_many_children/1]).
+         order_of_children/1, scale_start_stop_many_children/1,
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -87,7 +100,7 @@ suite() ->
 
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
-     child_adm_simple, extra_return, child_specs, sup_flags,
+     child_adm_simple, extra_return, child_specs, child_specs_map, sup_flags,
      multiple_restarts,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
@@ -96,6 +109,7 @@ all() ->
      {group, normal_termination},
      {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
+     {group, significant},
      count_children, count_children_supervisor, count_restarting_children,
      get_callback_module,
      do_not_save_start_parameters_for_temporary_children,
@@ -104,7 +118,8 @@ all() ->
      simple_global_supervisor, hanging_restart_loop,
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
-     order_of_children, scale_start_stop_many_children].
+     order_of_children, scale_start_stop_many_children,
+     format_log_1, format_log_2, already_started_outside_supervisor].
 
 groups() -> 
     [{sup_start, [],
@@ -120,8 +135,9 @@ groups() ->
      {sup_start_map, [],
       [sup_start_map, sup_start_map_simple, sup_start_map_faulty_specs]},
      {sup_stop, [],
-      [sup_stop_infinity, sup_stop_timeout,
-       sup_stop_brutal_kill]},
+      [sup_stop_infinity, sup_stop_timeout, sup_stop_timeout_dynamic,
+       sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
+       sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
      {normal_termination, [],
       [permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
@@ -137,10 +153,20 @@ groups() ->
        one_for_all_other_child_fails_restart]},
      {restart_simple_one_for_one, [],
       [simple_one_for_one, simple_one_for_one_shutdown,
-       simple_one_for_one_extra, simple_one_for_one_escalation]},
+       simple_one_for_one_extra, simple_one_for_one_escalation,
+       simple_one_for_one_corruption]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation,
-       rest_for_one_other_child_fails_restart]}].
+       rest_for_one_other_child_fails_restart]},
+     {significant, [],
+      [nonsignificant_temporary, nonsignificant_transient,
+       significant_temporary, significant_transient,
+       significant_simple, significant_bystander,
+       significant_escalation,
+       significant_upgrade_never_any, significant_upgrade_any_never,
+       significant_upgrade_never_all, significant_upgrade_all_never,
+       significant_upgrade_any_all, significant_upgrade_all_any,
+       significant_upgrade_child]}].
 
 init_per_suite(Config) ->
     Config.
@@ -174,7 +200,7 @@ start_link(InitResult) ->
 
 %% Simulate different supervisors callback.  
 init(fail) ->
-    erlang:error({badmatch,2});
+    erlang:error(fail);
 init(InitResult) ->
     InitResult.
 
@@ -201,7 +227,7 @@ sup_start_normal(Config) when is_list(Config) ->
 sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ignore = start_link(ignore),
-    check_exit_reason(normal).
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns ignore.
@@ -299,15 +325,20 @@ sup_start_ignore_permanent_child_start_child_simple(Config)
 %% Tests what happens if init-callback returns a invalid value.
 sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(invalid),
-    check_exit_reason(Term).
+    %% The bad return is processed in supervisor:init/1
+    InitResult = invalid,
+    {error, {bad_return, {?MODULE, init, InitResult}}} =
+        start_link(InitResult),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback fails.
 sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(fail),
-    check_exit_reason(Term).
+    %% The exception is processed in gen_server:init_it/2
+    ErrorReason = fail,
+    {error, {ErrorReason, _Stacktrace}} = start_link(ErrorReason),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Test what happens when the start function for a child returns
@@ -408,7 +439,8 @@ sup_start_map_simple(Config) when is_list(Config) ->
     {ok, Child2} = supervisor:start_child(Pid, []),
     {ok, Child3} = supervisor:start_child(Pid, []),
 
-    Spec = ChildSpec#{type=>worker, shutdown=>5000, modules=>[supervisor_1]},
+    Spec = ChildSpec#{type=>worker, shutdown=>5000, modules=>[supervisor_1],
+		      significant=>false},
 
     {ok, Spec} = supervisor:get_childspec(Pid, Child1),
     {ok, Spec} = supervisor:get_childspec(Pid, Child2),
@@ -474,6 +506,20 @@ sup_stop_timeout(Config) when is_list(Config) ->
     check_exit_reason(CPid1, shutdown),
     check_exit_reason(CPid2, killed).
 
+sup_stop_timeout_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_1, start_child, []}, temporary, 1000, worker, []},
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, CPid1} = supervisor:start_child(Pid, []),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(Pid, []),
+    link(CPid2),
+    CPid2 ! {sleep, 200000},
+    terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, killed).
+
 
 %%-------------------------------------------------------------------------
 %% See sup_stop/1 when Shutdown = brutal_kill
@@ -493,6 +539,116 @@ sup_stop_brutal_kill(Config) when is_list(Config) ->
 
     check_exit_reason(CPid1, shutdown),
     check_exit_reason(CPid2, killed).
+
+sup_stop_brutal_kill_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_4, start_child, []}, temporary, brutal_kill, worker, []},
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    CPids = lists:map(
+        fun (_) ->
+            {ok, CPid} = supervisor:start_child(Pid, []),
+            link(CPid),
+            CPid
+        end,
+        lists:seq(1, 10)),
+    terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    lists:foreach(
+        fun (CPid) ->
+            check_exit_reason(CPid, killed)
+        end,
+        CPids
+    ).
+
+%%-------------------------------------------------------------------------
+%% Tests that a supervisor completes its shutdown properly while children
+%% exit by themselves for reasons other than shutdown
+sup_stop_race(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, CPidA} = supervisor:start_child(Pid,
+        #{id => child_a,
+          start => {supervisor_1, start_child, []},
+          restart => temporary,
+          shutdown => 1000}),
+    link(CPidA),
+    CPids = lists:foldl(
+        fun ({Restart, Reason}, Acc) ->
+            {ok, CPid} = supervisor:start_child(Pid,
+                #{id => {child, make_ref()},
+                  start => {supervisor_4, start_child, [Reason]},
+                  restart => Restart,
+                  shutdown => 1000
+                }),
+            link(CPid),
+            Acc#{CPid => Reason}
+        end,
+        #{},
+        [
+            {Restart, Reason}
+            || Restart <- [temporary, transient, permanent],
+               Reason <- [normal, shutdown, {shutdown, test}, other]
+        ]
+    ),
+    {ok, CPidZ} = supervisor:start_child(Pid,
+        #{
+            id => child_z,
+            start => {supervisor_2, start_child, [1000]},
+            restart => temporary,
+            shutdown => 2000
+        }),
+    link(CPidZ),
+    Self = self(),
+    spawn_link(
+        fun () ->
+            timer:sleep(200),
+            maps:foreach(
+                fun (CPid, _) ->
+                    CPid ! stop
+                end,
+                CPids
+            ),
+            unlink(Self)
+        end
+    ),
+    ok = terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    check_exit_reason(CPidZ, shutdown),
+    maps:foreach(
+        fun (CPid, Reason) ->
+            check_exit_reason(CPid, Reason)
+        end,
+        CPids),
+    check_exit_reason(CPidA, shutdown).
+
+%%-------------------------------------------------------------------------
+%% Tests that a simple_one_for_one supervisor shuts down correctly when
+%% some children exit with a reason other than shutdown
+sup_stop_non_shutdown_exit_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    lists:foreach(
+        fun (Restart) ->
+            Child = {child, {supervisor_4, start_child, []}, Restart, 5000, worker, []},
+            {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+            CPids = lists:foldl(
+                fun (Reason, Acc) ->
+                    {ok, CPid} = supervisor:start_child(Pid, [Reason]),
+                    link(CPid),
+                    Acc#{CPid => Reason}
+                end,
+                #{},
+                [normal, shutdown, {shutdown, test}, other]
+            ),
+            ok = terminate(Pid, shutdown),
+            check_exit_reason(Pid, shutdown),
+            maps:foreach(
+                fun (CPid, Reason) ->
+                    check_exit_reason(CPid, Reason)
+                end,
+                CPids)
+        end,
+        [temporary, transient, permanent]
+    ).
 
 %%-------------------------------------------------------------------------
 %% The start function provided to start a child may return {ok, Pid}
@@ -555,11 +711,15 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+
+    %% Test that supervisors of static nature are hibernated after start
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid, current_function),
+
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
     link(CPid),
-
     %% Start of an already runnig process 
     {error,{already_started, CPid}} =
 	supervisor:start_child(sup_test, Child),
@@ -620,7 +780,13 @@ child_adm(Config) when is_list(Config) ->
 child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+
+       %% Test that supervisors of dynamic nature are not hibernated after start
+    {current_function, {_, Function, _}} =
+	process_info(Pid, current_function),
+    true = Function =/= hibernate,
+
     %% In simple_one_for_one all children are added dynamically 
     [] = supervisor:which_children(sup_test),
     [1,0,0,0] = get_child_counts(sup_test),
@@ -664,7 +830,7 @@ child_adm_simple(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-%% Tests child specs, invalid formats should be rejected.
+%% Tests child specs (tuple form), invalid formats should be rejected.
 child_specs(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
@@ -677,15 +843,6 @@ child_specs(Config) when is_list(Config) ->
     B4 = {child, {m,f,[a]}, permanent, 10, wrker, []},
     B5 = {child, {m,f,[a]}, permanent, 1000, worker, dy},
     B6 = {child, {m,f,[a]}, permanent, 1000, worker, [1,2,3]},
-
-    %% Correct child specs!
-    %% <Modules> (last parameter in a child spec) can be [] as we do 
-    %% not test code upgrade here.  
-    C1 = {child, {m,f,[a]}, permanent, infinity, supervisor, []},
-    C2 = {child, {m,f,[a]}, permanent, 1000, supervisor, []},
-    C3 = {child, {m,f,[a]}, temporary, 1000, worker, dynamic},
-    C4 = {child, {m,f,[a]}, transient, 1000, worker, [m]},
-    C5 = {child, {m,f,[a]}, permanent, infinity, worker, [m]},
 
     {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
     {error, {invalid_restart_type, prmanent}} =
@@ -708,11 +865,22 @@ child_specs(Config) when is_list(Config) ->
     {error, {invalid_module, 1}} =
 	supervisor:check_childspecs([B6]),
 
-    ok = supervisor:check_childspecs([C1]),
-    ok = supervisor:check_childspecs([C2]),
-    ok = supervisor:check_childspecs([C3]),
-    ok = supervisor:check_childspecs([C4]),
-    ok = supervisor:check_childspecs([C5]),
+    lists:foreach(
+	fun (ChildSpec) ->
+	    ok = supervisor:check_childspecs([ChildSpec])
+	end,
+	[
+	    {child, {m, f, [a]}, Restart, Shutdown, Type, Modules}
+	    ||
+		Restart <- [permanent, transient, temporary],
+		Shutdown <- [0, 1000, infinity, brutal_kill],
+		Type <- [supervisor, worker],
+		Modules <- [dynamic, [], [m], [m1, m2]]
+	]
+    ),
+
+    C1 = {child, {m,f,[a]}, permanent, infinity, supervisor, []},
+    C2 = {child, {m,f,[a]}, permanent, 1000, supervisor, []},
 
     {error,{duplicate_child_name,child}} = supervisor:check_childspecs([C1,C2]),
 
@@ -729,6 +897,119 @@ child_specs(Config) when is_list(Config) ->
 	start_link({ok, {{simple_one_for_one, 2, 3600}, []}}),
     {error,{bad_start_spec,[C1,C2]}} =
 	start_link({ok, {{simple_one_for_one, 2, 3600}, [C1,C2]}}),
+
+    ok.
+
+%%-------------------------------------------------------------------------
+%% Tests child specs (map form), invalid formats should be rejected.
+child_specs_map(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {#{}, []}}),
+    {error, _} = supervisor:start_child(sup_test, hej),
+
+    CS0 = #{id => child, start => {m, f, [a]}},
+
+    %% Bad child specs 
+    B1 = #{},
+    B2 = #{id => child},
+    B3 = #{start => {m, f, [a]}},
+    B4 = CS0#{start => mfa},
+    B5 = CS0#{restart => prmanent}, 
+    B6 = CS0#{shutdown => -10},
+    B7 = CS0#{type => wrker},
+    B8 = CS0#{modules => dy},
+    B9 = CS0#{modules => [1,2,3]},
+    B10 = CS0#{significant => 'maybe'},
+
+    {error, missing_id} = supervisor:start_child(sup_test, B1),
+    {error, missing_start} = supervisor:start_child(sup_test, B2),
+    {error, missing_id} = supervisor:start_child(sup_test, B3),
+    {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B4),
+    {error, {invalid_restart_type, prmanent}} =
+	supervisor:start_child(sup_test, B5),
+    {error,  {invalid_shutdown,-10}}
+	= supervisor:start_child(sup_test, B6),
+    {error, {invalid_child_type,wrker}}
+	= supervisor:start_child(sup_test, B7),
+    {error, {invalid_modules,dy}}
+	= supervisor:start_child(sup_test, B8),
+
+    {error, {badarg, _}} = supervisor:check_childspecs(B1), % should be list
+    {error, missing_id} = supervisor:check_childspecs([B1]),
+    {error, missing_start} = supervisor:check_childspecs([B2]),
+    {error, missing_id} = supervisor:check_childspecs([B3]),
+    {error, {invalid_mfa,mfa}} = supervisor:check_childspecs([B4]),
+    {error, {invalid_restart_type,prmanent}} =
+	supervisor:check_childspecs([B5]),
+    {error, {invalid_shutdown,-10}} = supervisor:check_childspecs([B6]),
+    {error, {invalid_child_type,wrker}}
+	= supervisor:check_childspecs([B7]),
+    {error, {invalid_modules,dy}} = supervisor:check_childspecs([B8]),
+    {error, {invalid_module, 1}} =
+	supervisor:check_childspecs([B9]),
+    {error, {invalid_significant, 'maybe'}} =
+	supervisor:check_childspecs([B10]),
+
+    CSFilter = fun (CS) -> maps:filter(fun (_, V) -> V =/= undefined end, CS) end,
+    lists:foreach(
+	fun
+	    ({never, ChildSpec = #{significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], never),
+		[{auto_shutdown, never}, {significant, true}] = lists:sort(BadOpts);
+	    ({AutoShutdown, ChildSpec = #{restart := undefined, significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown),
+		[{restart, permanent}, {significant, true}] = lists:sort(BadOpts);
+	    ({AutoShutdown, ChildSpec = #{restart := permanent, significant := true}}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		{error, {bad_combination, BadOpts}} =
+		    supervisor:check_childspecs([ChildSpec1], AutoShutdown),
+		[{restart, permanent}, {significant, true}] = lists:sort(BadOpts);
+	    ({AutoShutdown, ChildSpec}) ->
+		ChildSpec1 = CSFilter(ChildSpec),
+		ok = supervisor:check_childspecs([ChildSpec1], AutoShutdown)
+	end,
+	[
+	    {AutoShutdown,
+	     CS0#{restart => Restart,
+		  shutdown => Shutdown,
+		  type => Type,
+		  modules => Modules,
+		  significant => Significant,
+		  dummy => Dummy}}
+	    ||
+		AutoShutdown <- [undefined, never, any_significant, all_significant],
+		Restart <- [undefined, permanent, transient, temporary],
+		Shutdown <- [undefined, 0, 1000, infinity, brutal_kill],
+		Type <- [undefined, supervisor, worker],
+		Modules <- [undefined, dynamic, [], [m], [m1, m2]],
+		Significant <- [undefined, true, false],
+		Dummy <- [undefined, dummy]
+	]
+    ),
+
+    {error,{duplicate_child_name,child}} = supervisor:check_childspecs([CS0,CS0]),
+
+    terminate(Pid, shutdown),
+
+    %% Faulty child specs in supervisor start
+    {error, {start_spec, {invalid_mfa, mfa}}} =
+	 start_link({ok, {{one_for_one, 2, 3600}, [B4]}}),
+    {error, {start_spec, {invalid_restart_type, prmanent}}} =
+	start_link({ok, {{simple_one_for_one, 2, 3600}, [B5]}}),
+
+    %% simple_one_for_one needs exactly one child
+    {error,{bad_start_spec,[]}} =
+	start_link({ok, {{simple_one_for_one, 2, 3600}, []}}),
+    {error,{bad_start_spec,[CS0,CS0]}} =
+	start_link({ok, {{simple_one_for_one, 2, 3600}, [CS0,CS0]}}),
+
+    %% auto_shutdown => never should not accept significant children
+    {error, {start_spec, {bad_combination, _}}} =
+	start_link({ok, {#{auto_shutdown => never}, [CS0#{significant => true}]}}),
 
     ok.
 
@@ -752,6 +1033,8 @@ sup_flags(_Config) ->
 	start_link({ok, {{one_for_one, 2, infinity}, []}}),
     {error,{supervisor_data,{invalid_period,_}}} =
 	start_link({ok, {#{period=>infinity}, []}}),
+    {error,{supervisor_data,{invalid_auto_shutdown,_}}} =
+	start_link({ok, {#{auto_shutdown=>sometimes}, []}}),
 
     %% SupFlags other than a map or a 3-tuple
     {error,{supervisor_data,{invalid_type,_}}} =
@@ -1274,6 +1557,62 @@ simple_one_for_one_extra(Config) when is_list(Config) ->
     [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit([SupPid]).
+
+%%-------------------------------------------------------------------------
+%% Test for subtle corruption of internal state for a
+%% simple_one_for_one supervisor. Thanks to Zeyu Zhang (@zzydxm) and
+%% Maxim Fedorov for noticing this bug. (OTP-16804)
+simple_one_for_one_corruption(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+
+    logger:add_handler(?MODULE, ?MODULE, #{test_case_pid => self()}),
+
+    try
+        Child = #{id => child, start => {supervisor_1, start_child, []},
+                  restart => temporary, shutdown => 1000,
+                  type => worker, modules => []},
+        {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+        {ok, CPid1} = supervisor:start_child(sup_test, []),
+
+        terminate(SupPid, CPid1, child1, abnormal),
+
+        %% The first time a child of simple_one_for_one supervisor
+        %% with restart strategy `temporary` dies, the internal state
+        %% for the supervisor will become inconsistent (the `dynamics`
+        %% field would change from `{mapsets,Map}` to
+        %% `{maps,Map}`). That inconsistency will make the supervisor
+        %% retain the start arguments even for temporary processes.
+        %%
+        %% To test that the bug is fixed, start a new child process
+        %% with a large term in its argument list.
+
+        N = 50000,
+        BigData = binary_to_list(<<0:N/unit:8>>),
+        {ok, CPid2, BigData} = supervisor:start_child(sup_test, [BigData]),
+
+        %% Since the child is temporary, the supervisor should not keep
+        %% the argument list for the child and the supervisor's heap
+        %% size should shrink after a GC.
+
+        true = erlang:garbage_collect(SupPid),
+        {total_heap_size, HeapSize} = process_info(SupPid, total_heap_size),
+        if
+            HeapSize > 2*N ->
+                %% The start arguments for the child have been kept.
+                ct:fail({excessive_heap_size,HeapSize});
+            true ->
+                ok
+        end,
+
+        terminate(SupPid, CPid2, child2, abnormal),
+
+        exit(SupPid, kill)
+    after
+        logger:remove_handler(?MODULE)
+    end,
+
+    ok.
+
 
 %%-------------------------------------------------------------------------
 %% Test restart escalation on a simple_one_for_one supervisor.
@@ -2294,7 +2633,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected1],
     terminate(Pid3, abnormal),
     receive {exited,ExitedPids1} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids1 of
                 Expected1 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2302,7 +2641,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids1}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
 
@@ -2323,7 +2662,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected2],
     exit(SupPid,shutdown),
     receive {exited,ExitedPids2} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids2 of
                 Expected2 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2331,7 +2670,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids2}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
     ok.
@@ -2379,11 +2718,21 @@ scale_start_stop_many_children() ->
     ct:log("~w children, start time: ~w ms, stop time: ~w ms",
            [N2, StartT2 div 1000, StopT2 div 1000]),
 
+    TimerAdjustment =
+        case os:type() of
+            {win32,_} ->
+                %% Windows timer unit is really bad...
+                16000;
+            _ ->
+                %% To avoid div by zero
+                1
+        end,
+
     %% Scaling should be more or less linear, but allowing a bit more
-    %% to avoid false alarms
+    %% to avoid false alarms (add 1 to avoid div zero)
     ScaleLimit = (N2 div N1) * 10,
-    StartScale = StartT2 div StartT1,
-    StopScale = StopT2 div StopT1,
+    StartScale = StartT2 div (StartT1+TimerAdjustment),
+    StopScale = StopT2 div (StopT1+TimerAdjustment),
 
     ct:log("Scale limit: ~w~nStart scale: ~w~nStop scale: ~w",
            [ScaleLimit, StartScale, StopScale]),
@@ -2396,6 +2745,961 @@ scale_start_stop_many_children() ->
             ok
     end,
 
+    ok.
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1, 15),
+    Supervisor = my_supervisor,
+    Name = self(),
+    Error = shutdown_error,
+    Child = [{pid,Name},{id,any_id},
+             {mfargs,{mod,func,[any,Term]}},
+             {restart_type,temporary},
+             {shutdown,brutal_kill},
+             {child_type,worker}],
+    Report = #{label=>{supervisor,Error},
+               report=>[{supervisor,Supervisor},
+                        {errorContext,Error},
+                        {reason,Term},
+                        {offender,Child}]},
+    {F1, A1} = supervisor:format_log(Report),
+    FExpected1 = "    supervisor: ~tp~n"
+        "    errorContext: ~tp~n"
+        "    reason: ~tp~n"
+        "    offender: ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1 = F1,
+    [Supervisor,Error,Term,Child] = A1,
+
+    Progress = #{label=>{supervisor,progress},
+                 report=>[{supervisor,Supervisor},{started,Child}]},
+    {PF1,PA1} = supervisor:format_log(Progress),
+    PFExpected1 = "    supervisor: ~tp~n    started: ~tp~n",
+    ct:log("PF1: ~ts~nPA1: ~tp", [PF1,PA1]),
+    PFExpected1 = PF1,
+    [Supervisor,Child] = PA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = supervisor:format_log(Report),
+    FExpected2 = "    supervisor: ~tP~n"
+        "    errorContext: ~tP~n"
+        "    reason: ~tP~n"
+        "    offender: ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
+    FExpected2 = F2,
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    LimitedChild = [{pid,Name},{id,any_id},
+                    {mfargs,{mod,func,[any,'...']}},
+                    {restart_type,temporary},
+                    {shutdown,brutal_kill},
+                    {child_type,worker}],
+
+    [Supervisor,Depth,Error,Depth,Limited,Depth,LimitedChild,Depth] = A2,
+
+    {PF2,PA2} = supervisor:format_log(Progress),
+    PFExpected2 = "    supervisor: ~tP~n    started: ~tP~n",
+    ct:log("PF2: ~ts~nPA2: ~tp", [PF2,PA2]),
+    PFExpected2 = PF2,
+    [Supervisor,Depth,LimitedChild,Depth] = PA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1, 15),
+    Supervisor = my_supervisor,
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Error = shutdown_error,
+    Child = [{pid,Name},{id,any_id},
+             {mfargs,{mod,func,[Term]}},
+             {restart_type,temporary},
+             {shutdown,brutal_kill},
+             {child_type,worker}],
+    Report = #{label=>{supervisor,Error},
+               report=>[{supervisor,Supervisor},
+                        {errorContext,Error},
+                        {reason,Term},
+                        {offender,Child}]},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "    supervisor: my_supervisor\n"
+        "    errorContext: shutdown_error\n"
+        "    reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "    offender: [{pid,"++NameStr++"},\n"
+        "               {id,any_id},\n"
+        "               {mfargs,{mod,func,"
+                          "[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]}},\n"
+        "               {restart_type,temporary},\n"
+        "               {shutdown,brutal_kill},\n"
+        "               {child_type,worker}]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = Expected1 =:= Str1,
+
+    Progress = #{label=>{supervisor,progress},
+                 report=>[{supervisor,Supervisor},{started,Child}]},
+    PStr1 = flatten_format_log(Progress, FormatOpts1),
+    PL1 = length(PStr1),
+    PExpected1 = "    supervisor: my_supervisor\n"
+        "    started: [{pid,"++NameStr++"},\n"
+        "              {id,any_id},\n"
+        "              {mfargs,{mod,func,"
+                          "[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]}},\n"
+        "              {restart_type,temporary},\n"
+        "              {shutdown,brutal_kill},\n"
+        "              {child_type,worker}]\n",
+    ct:log("PStr1: ~ts", [PStr1]),
+    ct:log("length(PStr1): ~p", [PL1]),
+    true = PExpected1 =:= PStr1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "    supervisor: my_supervisor\n"
+        "    errorContext: shutdown_error\n"
+        "    reason: [1,2,3,4,5,6,7,8,9|...]\n"
+        "    offender: [{pid,"++NameStr++"},\n"
+        "               {id,any_id},\n"
+        "               {mfargs,{mod,func,[[...]]}},\n"
+        "               {restart_type,temporary},\n"
+        "               {shutdown,brutal_kill},\n"
+        "               {child_type,worker}]\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    PStr2 = flatten_format_log(Progress, FormatOpts2),
+    PL2 = length(PStr2),
+    PExpected2 = "    supervisor: my_supervisor\n"
+        "    started: [{pid,"++NameStr++"},\n"
+        "              {id,any_id},\n"
+        "              {mfargs,{mod,func,[[...]]}},\n"
+        "              {restart_type,temporary},\n"
+        "              {shutdown,brutal_kill},\n"
+        "              {child_type,worker}]\n",
+    ct:log("PStr2: ~ts", [PStr2]),
+    ct:log("length(PStr2): ~p", [PL2]),
+    true = PExpected2 =:= PStr2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "    supervisor: my_supervisor\n"
+        "    errorContext: ",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    PFormatOpts3 = #{chars_limit=>80},
+    PStr3 = flatten_format_log(Progress, PFormatOpts3),
+    PL3 = length(PStr3),
+    PExpected3 = "    supervisor: my_supervisor\n    started:",
+    ct:log("PStr3: ~ts", [PStr3]),
+    ct:log("length(PStr3): ~p", [PL3]),
+    true = lists:prefix(PExpected3, PStr3),
+    true = PL3 < PL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+
+    Expected4 = "Supervisor: my_supervisor. Context: shutdown_error. "
+        "Reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Offender: id=any_id,pid="++NameStr++".",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    true = Expected4 =:= Str4,
+
+    PStr4 = flatten_format_log(Progress, FormatOpts4),
+    PL4 = length(PStr4),
+    PExpected4 = "Supervisor: my_supervisor. "
+        "Started: id=any_id,pid="++NameStr++".",
+    ct:log("PStr4: ~ts", [PStr4]),
+    ct:log("length(PStr4): ~p", [PL4]),
+    true = PExpected4 =:= PStr4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Supervisor: my_supervisor. Context: shutdown_error. "
+        "Reason: [1,2,3,4,5,6,7,8,9|...]. "
+        "Offender: id=any_id,pid="++NameStr++".",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    true = Expected5 =:= Str5,
+
+    PStr5 = flatten_format_log(Progress, FormatOpts5),
+    PL5 = length(PStr5),
+    PExpected5 = "Supervisor: my_supervisor. "
+        "Started: id=any_id,pid="++NameStr++".",
+    ct:log("PStr5: ~ts", [PStr5]),
+    ct:log("length(PStr5): ~p", [PL5]),
+    true = PExpected5 =:= PStr5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>200},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Supervisor: my_supervisor. Context:",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    PFormatOpts6 = #{single_line=>true, chars_limit=>60},
+    PStr6 = flatten_format_log(Progress, PFormatOpts6),
+    PL6 = length(PStr6),
+    PExpected6 = "Supervisor: my_supervisor.",
+    ct:log("PStr6: ~ts", [PStr6]),
+    ct:log("length(PStr6): ~p", [PL6]),
+    true = lists:prefix(PExpected6, PStr6),
+    true = PL6 < PL4,
+
+    Child2 = [{nb_children,7},{id,any_id},
+              {mfargs,{mod,func,[Term]}},
+              {restart_type,temporary},
+              {shutdown,brutal_kill},
+              {child_type,worker}],
+    Report2 = #{label=>{supervisor,Error},
+                report=>[{supervisor,Supervisor},
+                         {errorContext,Error},
+                         {reason,Term},
+                         {offender,Child2}]},
+    Str7 = flatten_format_log(Report2, FormatOpts6),
+    L7 = length(Str7),
+    ct:log("Str7: ~ts", [Str7]),
+    ct:log("length(Str7): ~p", [L7]),
+    true = string:find(Str7, "Offender: id=any_id,nb_children=7.") =/= nomatch,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(supervisor:format_log(Report, Format)).
+
+% Test that terminations of temporary non-significant children do not
+% trigger auto-shutdown regardless of the supervisor's auto_shutdown
+% mode.
+nonsignificant_temporary(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => false},
+
+    lists:foreach(
+	fun (AutoShutdown) ->
+	    {ok, Sup1} = start_link({ok, {#{auto_shutdown => AutoShutdown}, []}}),
+
+	    % Terminating a temporary non-significant child via the supervisor
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid1),
+	    terminate(Sup1, ChildPid1, child1, supervisor),
+	    ok = check_exit([ChildPid1]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Killing a temporary non-significant child should not trigger
+	    % auto-shutdown.
+	    {ok, ChildPid2} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid2),
+	    terminate(ChildPid2, kill),
+	    ok = check_exit([ChildPid2]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Abnormal termination of a temporary non-significant child
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid3} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid3),
+	    terminate(ChildPid3, abnormal),
+	    ok = check_exit([ChildPid3]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Normal termination of a temporary non-significant child
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid4} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid4),
+	    terminate(ChildPid4, normal),
+	    ok = check_exit([ChildPid4]),
+	    error = check_exit([Sup1], 1000),
+
+	    terminate(Sup1, shutdown),
+	    ok = check_exit([Sup1])
+	end,
+	[never, any_significant, all_significant]),
+
+    ok.
+
+% Test that terminations of transient non-significant children do not
+% trigger auto-shutdown regardless of the supervisor's auto_shutdown
+% mode.
+nonsignificant_transient(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => false},
+
+    lists:foreach(
+	fun (AutoShutdown) ->
+	    {ok, Sup1} = start_link({ok, {#{intensity => 5,
+					    auto_shutdown => AutoShutdown}, []}}),
+
+	    % Terminating a transient non-significant child via the supervisor
+	    % should not trigger auto-shutdown.
+	    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+	    link(ChildPid1),
+	    terminate(Sup1, ChildPid1, child1, supervisor),
+	    ok = check_exit([ChildPid1]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Killing a transient non-significant child should not trigger
+	    % auto-shutdown. The killed child should be restarted.
+	    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+	    link(ChildPid2),
+	    terminate(ChildPid2, kill),
+	    ok = check_exit([ChildPid2]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Abnormal termination of a transient non-significant child should
+	    % not trigger auto-shutdown. The terminated child should be restarted.
+	    [{child1, ChildPid3, _, _}] = supervisor:which_children(Sup1),
+	    link(ChildPid3),
+	    terminate(ChildPid3, abnormal),
+	    ok = check_exit([ChildPid3]),
+	    error = check_exit([Sup1], 1000),
+
+	    % Normal termination of a transient non-significant child should not
+	    % trigger  auto-shutdown.
+	    [{child1, ChildPid4, _, _}] = supervisor:which_children(Sup1),
+	    link(ChildPid4),
+	    terminate(ChildPid4, normal),
+	    ok = check_exit([ChildPid4]),
+	    error = check_exit([Sup1], 1000),
+
+	    terminate(Sup1, shutdown),
+	    ok = check_exit([Sup1])
+	end,
+	[never, any_significant, all_significant]),
+
+    ok.
+
+% Test the auto-shutdown feature with temporary significant children.
+significant_temporary(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => true},
+    Child3 = #{id => child3,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => false},
+
+    % Test auto-shutdown on the exit of any significant child.
+
+    % Terminating a temporary significant child via the supervisor should not
+    % trigger auto-shutdown.
+    {ok, Sup1} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => any_significant}, []}}),
+    supervisor:start_child(Sup1, Child1),
+    supervisor:start_child(Sup1, Child2),
+    supervisor:start_child(Sup1, Child3),
+    [{child3, ChildPid1_3, _, _},
+     {child2, ChildPid1_2, _, _},
+     {child1, ChildPid1_1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid1_1),
+    link(ChildPid1_2),
+    link(ChildPid1_3),
+    terminate(Sup1, ChildPid1_1, child1, supervisor),
+    ok = check_exit([ChildPid1_1]),
+    error = check_exit([ChildPid1_2], 1000),
+    error = check_exit([ChildPid1_3], 1000),
+    error = check_exit([Sup1], 1000),
+
+    % Killing a temporary significant child should trigger auto-shutdown.
+    supervisor:start_child(Sup1, Child1),
+    [{child1, ChildPid2_1, _, _},
+     {child3, ChildPid2_3, _, _},
+     {child2, ChildPid2_2, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid2_1),
+    link(ChildPid2_2),
+    link(ChildPid2_3),
+    terminate(ChildPid2_1, kill),
+    ok = check_exit([ChildPid2_1, ChildPid2_2, ChildPid2_3, Sup1]),
+
+    % Abnormal termination of a temporary significant child should trigger
+    % auto-shutdown.
+    {ok, Sup2} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => any_significant}, []}}),
+    supervisor:start_child(Sup2, Child1),
+    supervisor:start_child(Sup2, Child2),
+    supervisor:start_child(Sup2, Child3),
+    [{child3, ChildPid3_3, _, _},
+     {child2, ChildPid3_2, _, _},
+     {child1, ChildPid3_1, _, _}] = supervisor:which_children(Sup2),
+    link(ChildPid3_1),
+    link(ChildPid3_2),
+    link(ChildPid3_3),
+    terminate(ChildPid3_1, abnormal),
+    ok = check_exit([ChildPid3_1, ChildPid3_2, ChildPid3_3, Sup2]),
+
+    % Normal termination of a temporary significant child should trigger
+    % auto-shutdown.
+    {ok, Sup3} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => any_significant}, []}}),
+    supervisor:start_child(Sup3, Child1),
+    supervisor:start_child(Sup3, Child2),
+    supervisor:start_child(Sup3, Child3),
+    [{child3, ChildPid4_3, _, _},
+     {child2, ChildPid4_2, _, _},
+     {child1, ChildPid4_1, _, _}] = supervisor:which_children(Sup3),
+    link(ChildPid4_1),
+    link(ChildPid4_2),
+    link(ChildPid4_3),
+    terminate(ChildPid4_1, normal),
+    ok = check_exit([ChildPid4_1, ChildPid4_2, ChildPid4_3, Sup3]),
+
+    % Test auto-shutdown on the exit of all significant children.
+
+    {ok, Sup4} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => all_significant}, []}}),
+
+    % The termination of only one of the two significant children should
+    % not trigger auto-shutdown. The termination of the second (last of the two)
+    % significant child should trigger auto-shutdown.
+    supervisor:start_child(Sup4, Child1),
+    supervisor:start_child(Sup4, Child2),
+    supervisor:start_child(Sup4, Child3),
+    [{child3, ChildPid5_3, _, _},
+     {child2, ChildPid5_2, _, _},
+     {child1, ChildPid5_1, _, _}] = supervisor:which_children(Sup4),
+    link(ChildPid5_1),
+    link(ChildPid5_2),
+    link(ChildPid5_3),
+    terminate(ChildPid5_1, normal),
+    ok = check_exit([ChildPid5_1]),
+    error = check_exit([ChildPid5_2], 1000),
+    error = check_exit([ChildPid5_3], 1000),
+    error = check_exit([Sup4], 1000),
+    terminate(ChildPid5_2, normal),
+    ok = check_exit([ChildPid5_2, ChildPid5_3, Sup4]),
+
+    ok.
+
+% Test the auto-shutdown feature with transient significant children.
+significant_transient(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => true},
+    Child2 = #{id => child2,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => true},
+    Child3 = #{id => child3,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => false},
+
+    % Test auto-shutdown on the exit of any significant child.
+
+    {ok, Sup1} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => any_significant}, []}}),
+
+    % Terminating a transient significant child via the supervisor should not
+    % trigger auto-shutdown.
+    supervisor:start_child(Sup1, Child1),
+    supervisor:start_child(Sup1, Child2),
+    supervisor:start_child(Sup1, Child3),
+    [{child3, ChildPid1_3, _, _},
+     {child2, ChildPid1_2, _, _},
+     {child1, ChildPid1_1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid1_1),
+    link(ChildPid1_2),
+    link(ChildPid1_3),
+    terminate(Sup1, ChildPid1_1, child1, supervisor),
+    ok = check_exit([ChildPid1_1]),
+    error = check_exit([ChildPid1_2], 1000),
+    error = check_exit([ChildPid1_3], 1000),
+    error = check_exit([Sup1], 1000),
+    supervisor:restart_child(Sup1, child1),
+
+    % Killing a transient significant child should not trigger
+    % auto-shutdown. The killed child should be restarted.
+    [{child3, ChildPid2_3, _, _},
+     {child2, ChildPid2_2, _, _},
+     {child1, ChildPid2_1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid2_1),
+    link(ChildPid2_2),
+    link(ChildPid2_3),
+    terminate(ChildPid2_1, kill),
+    ok = check_exit([ChildPid2_1]),
+    error = check_exit([ChildPid2_2], 1000),
+    error = check_exit([ChildPid2_3], 1000),
+    error = check_exit([Sup1], 1000),
+
+    % Abnormal termination of a transient significant child should not trigger
+    % auto-shutdown. The terminated child should be restarted.
+    [{child3, ChildPid3_3, _, _},
+     {child2, ChildPid3_2, _, _},
+     {child1, ChildPid3_1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid3_1),
+    link(ChildPid3_2),
+    link(ChildPid3_3),
+    terminate(ChildPid3_1, abnormal),
+    ok = check_exit([ChildPid3_1]),
+    error = check_exit([ChildPid3_2], 1000),
+    error = check_exit([ChildPid3_3], 1000),
+    error = check_exit([Sup1], 1000),
+
+    % Normal termination of a transient significant child should trigger
+    % auto-shutdown.
+    [{child3, ChildPid4_3, _, _},
+     {child2, ChildPid4_2, _, _},
+     {child1, ChildPid4_1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid4_1),
+    link(ChildPid4_2),
+    link(ChildPid4_3),
+    terminate(ChildPid4_1, normal),
+    ok = check_exit([ChildPid4_1, ChildPid4_2, ChildPid4_3, Sup1]),
+
+    % Test auto-shutdown on the exit of all significant children.
+
+    {ok, Sup2} = start_link({ok, {#{intensity => 5,
+				    auto_shutdown => all_significant}, []}}),
+
+    % The termination of only one of the two significant children should
+    % not trigger auto-shutdown. The termination of the second (last of the two)
+    % significant child should trigger auto-shutdown.
+    supervisor:start_child(Sup2, Child1),
+    supervisor:start_child(Sup2, Child2),
+    supervisor:start_child(Sup2, Child3),
+    [{child3, ChildPid5_3, _, _},
+     {child2, ChildPid5_2, _, _},
+     {child1, ChildPid5_1, _, _}] = supervisor:which_children(Sup2),
+    link(ChildPid5_1),
+    link(ChildPid5_2),
+    link(ChildPid5_3),
+    terminate(ChildPid5_1, normal),
+    ok = check_exit([ChildPid5_1]),
+    error = check_exit([ChildPid5_2], 1000),
+    error = check_exit([ChildPid5_3], 1000),
+    error = check_exit([Sup2], 1000),
+    terminate(ChildPid5_2, normal),
+    ok = check_exit([ChildPid5_2, ChildPid5_3, Sup2]),
+
+    ok.
+
+% Test the auto-shutdown feature in a simple_one_for_one supervisor.
+significant_simple(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => temporary,
+	       significant => true},
+
+    % Test auto-shutdown on the exit of any significant child.
+    {ok, Sup1} = start_link({ok, {#{strategy => simple_one_for_one,
+				    auto_shutdown => any_significant},
+				  [Child1]}}),
+    {ok, ChildPid1_1} = supervisor:start_child(Sup1, []),
+    {ok, ChildPid1_2} = supervisor:start_child(Sup1, []),
+    link(ChildPid1_1),
+    link(ChildPid1_2),
+    terminate(ChildPid1_1, normal),
+    ok = check_exit([ChildPid1_1, ChildPid1_2, Sup1]),
+
+    % Test auto-shutdown on the exit of all significant children.
+    {ok, Sup2} = start_link({ok, {#{strategy => simple_one_for_one,
+				    auto_shutdown => all_significant},
+				  [Child1]}}),
+    {ok, ChildPid2_1} = supervisor:start_child(Sup2, []),
+    {ok, ChildPid2_2} = supervisor:start_child(Sup2, []),
+    link(ChildPid2_1),
+    link(ChildPid2_2),
+    terminate(ChildPid2_1, normal),
+    ok = check_exit([ChildPid2_1]),
+    error = check_exit([ChildPid2_2], 1000),
+    error = check_exit([Sup2], 1000),
+    terminate(ChildPid2_2, normal),
+    ok = check_exit([ChildPid2_2, Sup2]),
+
+    ok.
+
+% Test that terminations of significant children caused by
+% the death of a sibling does not trigger auto-shutdown.
+significant_bystander(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => true},
+    Child2 = #{id => child2,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => false},
+    Child3 = #{id => child3,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => true},
+
+    lists:foreach(
+        fun ({Strategy, AutoShutdown}) ->
+            {ok, Sup} = start_link({ok, {#{strategy => Strategy,
+                                           intensity => 5,
+                                           auto_shutdown => AutoShutdown}, []}}),
+            supervisor:start_child(Sup, Child1),
+            supervisor:start_child(Sup, Child2),
+            supervisor:start_child(Sup, Child3),
+            [{child3, ChildPid3, _, _},
+             {child2, ChildPid2, _, _},
+             {child1, ChildPid1, _, _}] = supervisor:which_children(Sup),
+            link(ChildPid1),
+            link(ChildPid2),
+            link(ChildPid3),
+            terminate(ChildPid2, kill),
+            _ = case Strategy of
+		one_for_one ->
+		    ok = check_exit([ChildPid2]),
+		    error = check_exit([ChildPid1], 1000),
+		    error = check_exit([ChildPid2], 1000);
+                one_for_all ->
+                    ok = check_exit([ChildPid1, ChildPid2, ChildPid3]);
+                rest_for_one ->
+                    ok = check_exit([ChildPid2, ChildPid3]),
+                    error = check_exit([ChildPid1], 1000)
+            end,
+            error = check_exit([Sup], 1000),
+            terminate(Sup, shutdown),
+            ok = check_exit([Sup])
+        end,
+        [
+            {Strategy, AutoShutdown}
+            ||
+                Strategy <- [one_for_one, one_for_all, rest_for_one],
+                AutoShutdown <- [any_significant, all_significant]
+        ]
+    ),
+
+    ok.
+
+% Test auto-shutdown escalation. 
+significant_escalation(_Config) ->
+    process_flag(trap_exit, true),
+    ChildSup1 = #{id => sup1,
+		  start => {supervisor,
+			    start_link,
+			    [?MODULE, {ok, {#{auto_shutdown => any_significant}, []}}]},
+		  restart => transient,
+                  type => supervisor},
+    Child1 = #{id => child1,
+               start => {supervisor_1, start_child, []},
+               restart => transient,
+               significant => true},
+
+    % Supervisor A has another supervisor B as a significant child, and supervisor B
+    % has a worker C as a significant child. A and B have auto-shutdown enabled.
+    % When C terminates, it should cause the auto-shutdown of B, and the termination
+    % of B should in turn cause the auto-shutdown of A.
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => any_significant}, []}}),
+    {ok, ChildSupPid1} = supervisor:start_child(Sup1, ChildSup1#{significant => true}),
+    {ok, ChildPid1} = supervisor:start_child(ChildSupPid1, Child1),
+    link(ChildSupPid1),
+    link(ChildPid1),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1, ChildSupPid1, Sup1]),
+
+    % Supervisor A has another supervisor B as a non-significant child, and supervisor B
+    % has a worker C as a significant child. A and B have auto-shutdown enabled.
+    % When C terminates, it should cause the auto-shutdown of B, but the termination
+    % of B should not in turn cause the auto-shutdown of A.
+    {ok, Sup2} = start_link({ok, {#{auto_shutdown => any_significant}, []}}),
+    {ok, ChildSupPid2} = supervisor:start_child(Sup2, ChildSup1#{significant => false}),
+    {ok, ChildPid2} = supervisor:start_child(ChildSupPid2, Child1),
+    link(ChildSupPid2),
+    link(ChildPid2),
+    terminate(ChildPid2, normal),
+    ok = check_exit([ChildPid2, ChildSupPid2]),
+    error = check_exit([Sup2], 1000),
+    terminate(Sup2, shutdown),
+    ok = check_exit([Sup2]),
+
+    ok.
+
+% Test upgrading auto-shutdown from never to any_significant.
+significant_upgrade_never_any(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child1),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => any_significant}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1, ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading auto-shutdown from any_significant to never.
+significant_upgrade_any_never(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => any_significant}, []}}),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    link(ChildPid1),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => never}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    error = check_exit([ChildPid1], 1000),
+    error = check_exit([Sup1], 1000),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child2),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1]),
+    error = check_exit([Sup1], 1000),
+    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+    link(ChildPid2),
+    terminate(Sup1, shutdown),
+    ok = check_exit([ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading auto-shutdown from never to all_significant.
+significant_upgrade_never_all(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, []}}),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child1),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => all_significant}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1]),
+    error = check_exit([ChildPid2], 1000),
+    error = check_exit([Sup1], 1000),
+    terminate(ChildPid2, normal),
+    ok = check_exit([ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading auto-shutdown from all_significant to never.
+significant_upgrade_all_never(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => all_significant}, []}}),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    link(ChildPid1),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => never}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    error = check_exit([ChildPid1], 1000),
+    error = check_exit([Sup1], 1000),
+    {error, {bad_combination, _}} = supervisor:start_child(Sup1, Child2),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1]),
+    error = check_exit([Sup1], 1000),
+    {ok, ChildPid2} = supervisor:restart_child(Sup1, child1),
+    link(ChildPid2),
+    terminate(Sup1, shutdown),
+    ok = check_exit([ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading auto-shutdown from any_significant to all_significant.
+significant_upgrade_any_all(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => any_significant}, []}}),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => all_significant}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    error = check_exit([ChildPid1], 1000),
+    error = check_exit([ChildPid2], 1000),
+    error = check_exit([Sup1], 1000),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1]),
+    error = check_exit([ChildPid2], 1000),
+    error = check_exit([Sup1], 1000),
+    terminate(ChildPid2, normal),
+    ok = check_exit([ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading auto-shutdown from all_significant to any_significant.
+significant_upgrade_all_any(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child1,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    Child2 = #{id => child2,
+	       start => {supervisor_1, start_child, []},
+	       restart => transient,
+	       significant => true},
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => all_significant}, []}}),
+    {ok, ChildPid1} = supervisor:start_child(Sup1, Child1),
+    {ok, ChildPid2} = supervisor:start_child(Sup1, Child2),
+    link(ChildPid1),
+    link(ChildPid2),
+    S1 = sys:get_state(Sup1),
+    ok = fake_upgrade(Sup1, {ok, {#{auto_shutdown => any_significant}, []}}),
+    S2 = sys:get_state(Sup1),
+    true = (S1 /= S2),
+    error = check_exit([ChildPid1], 1000),
+    error = check_exit([ChildPid2], 1000),
+    error = check_exit([Sup1], 1000),
+    terminate(ChildPid1, normal),
+    ok = check_exit([ChildPid1, ChildPid2, Sup1]),
+    ok.
+
+% Test upgrading a child from non-significant to significant
+% and vice versa.
+significant_upgrade_child(_Config) ->
+    process_flag(trap_exit, true),
+    Child1 = #{id => child,
+	      start => {supervisor_1, start_child, []},
+	      restart => transient,
+	      significant => false},
+    Child2 = #{id => child,
+	      start => {supervisor_1, start_child, []},
+	      restart => transient,
+	      significant => true},
+
+    % A supervisor with auto-shutdown set to never should not allow upgrading
+    % a non-significant child to significant.
+    {ok, Sup1} = start_link({ok, {#{auto_shutdown => never}, [Child1]}}),
+    [{child, ChildPid1, _, _}] = supervisor:which_children(Sup1),
+    link(ChildPid1),
+    S1_1 = sys:get_state(Sup1),
+    {error, _} = fake_upgrade(Sup1, {ok, {#{auto_shutdown => never}, [Child2]}}),
+    S1_2 = sys:get_state(Sup1),
+    true = (S1_1 /= S1_2),
+    error = check_exit([ChildPid1], 1000),
+    error = check_exit([Sup1], 1000),
+    terminate(Sup1, shutdown),
+    ok = check_exit([ChildPid1, Sup1]),
+
+    % Start with a non-significant child, upgrade it to significant
+    % and ensure that it triggers auto-shutdown.
+    {ok, Sup2} = start_link({ok, {#{auto_shutdown => any_significant}, [Child1]}}),
+    [{child, ChildPid2, _, _}] = supervisor:which_children(Sup2),
+    link(ChildPid2),
+    S2_1 = sys:get_state(Sup2),
+    ok = fake_upgrade(Sup2, {ok, {#{auto_shutdown => any_significant}, [Child2]}}),
+    S2_2 = sys:get_state(Sup2),
+    true = (S2_1 /= S2_2),
+    error = check_exit([ChildPid2], 1000),
+    error = check_exit([Sup2], 1000),
+    terminate(ChildPid2, normal),
+    ok = check_exit([ChildPid2, Sup2]),
+
+    % Start with a significant child, upgrade it to non-significant
+    % and ensure that it does not trigger auto-shutdown.
+    {ok, Sup3} = start_link({ok, {#{auto_shutdown => any_significant}, [Child2]}}),
+    [{child, ChildPid3, _, _}] = supervisor:which_children(Sup3),
+    link(ChildPid3),
+    S3_1 = sys:get_state(Sup3),
+    ok = fake_upgrade(Sup3, {ok, {#{auto_shutdown => any_significant}, [Child1]}}),
+    S3_2 = sys:get_state(Sup3),
+    true = (S3_1 /= S3_2),
+    error = check_exit([ChildPid3], 1000),
+    error = check_exit([Sup3], 1000),
+    terminate(ChildPid3, normal),
+    ok = check_exit([ChildPid3]),
+    error = check_exit([Sup3], 1000),
+    terminate(Sup3, shutdown),
+    ok = check_exit([Sup3]),
+
+    ok.
+
+%% Test trying to start a child that uses an already registered name.
+already_started_outside_supervisor(_Config) ->
+    %% Avoid inter-testcase flakiness
+    ensure_supervisor_is_stopped(),
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+    RegName = registered_name,
+    Child = #{id => child,
+	      start => {?MODULE, start_registered_name, [RegName]},
+	      restart => transient,
+	      significant => false},
+    %% We start another process and register the name.
+    Pid = spawn_link(fun() ->
+                             true = register(RegName, self()),
+                             receive
+                                 die -> ok
+                             end
+                     end),
+    {error, {already_started, P}} = supervisor:start_child(SupPid, Child),
+    Pid = P,
+    terminate(SupPid, shutdown),
+    Pid ! die,
+    ok = check_exit([SupPid]),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -2462,26 +3766,42 @@ not_in_child_list([Pid | Rest], Pids) ->
 is_in_child_list(Pid, ChildPids) ->
     lists:member(Pid, ChildPids).
 
-check_exit([]) ->
+check_exit(Pids) ->
+    check_exit(Pids, infinity).
+
+check_exit([], _Timeout) ->
     ok;
-check_exit([Pid | Pids]) ->
+check_exit([Pid | Pids], Timeout) ->
     receive
 	{'EXIT', Pid, _} ->
-	    check_exit(Pids)
+	    check_exit(Pids, Timeout)
+    after Timeout ->
+	error
     end.
 
-check_exit_reason(Reason) ->
-    receive
-	{'EXIT', _, Reason} ->
-	    ok;
-	{'EXIT', _, Else} ->
-	    ct:fail({bad_exit_reason, Else})
-    end.
-
-check_exit_reason(Pid, Reason) ->
+check_exit_reason(Pid, Reason) when is_pid(Pid) ->
     receive
 	{'EXIT', Pid, Reason} ->
 	    ok;
 	{'EXIT', Pid, Else} ->
 	    ct:fail({bad_exit_reason, Else})
+    end.
+
+check_no_exit(Timeout) ->
+    receive
+        {'EXIT', Pid, _} = Exit when is_pid(Pid) ->
+            ct:fail({unexpected_message, Exit})
+    after Timeout ->
+            ok
+    end.
+
+start_registered_name(Name) ->
+    supervisor:start_link({local, Name}, ?MODULE, []).
+
+ensure_supervisor_is_stopped() ->
+    case whereis(sup_test) of
+        undefined ->
+            ok;
+        Pid ->
+            terminate(Pid, shutdown)
     end.

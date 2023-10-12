@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,39 +40,5 @@
 	 {timefmt,"%A, %d-%b-%y %T %Z"},
 	 {sizefmt,"abbrev"}]).
 
-
--ifdef(inets_error).
--define(ERROR(Format, Args), io:format("E(~p:~p:~p) : "++Format++"~n",
-				       [self(),?MODULE,?LINE]++Args)).
--else.
--define(ERROR(F,A),[]).
--endif.
-
--ifdef(inets_log).
--define(LOG(Format, Args), io:format("L(~p:~p:~p) : "++Format++"~n",
-				     [self(),?MODULE,?LINE]++Args)).
--else.
--define(LOG(F,A),[]).
--endif.
-
--ifdef(inets_debug).
--define(DEBUG(Format, Args), io:format("D(~p:~p:~p) : "++Format++"~n",
-				       [self(),?MODULE,?LINE]++Args)).
--else.
--define(DEBUG(F,A),[]).
--endif.
-
--ifdef(inets_cdebug).
--define(CDEBUG(Format, Args), io:format("C(~p:~p:~p) : "++Format++"~n",
-				       [self(),?MODULE,?LINE]++Args)).
--else.
--define(CDEBUG(F,A),[]).
--endif.
-
--define(SERVICE, httpd).
--define(hdri(Label, Content), ?report_important(Label, ?SERVICE, Content)).
--define(hdrv(Label, Content), ?report_verbose(Label,   ?SERVICE, Content)).
--define(hdrd(Label, Content), ?report_debug(Label,     ?SERVICE, Content)).
--define(hdrt(Label, Content), ?report_trace(Label,     ?SERVICE, Content)).
 
 -endif. % -ifdef(httpd_internal_hrl).

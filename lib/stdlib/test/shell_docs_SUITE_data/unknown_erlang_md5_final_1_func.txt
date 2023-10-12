@@ -1,0 +1,6 @@
+
+  [;1m-spec erlang:md5_final(Context) -> Digest[0m
+  [;1m                          when Context :: binary(), Digest :: binary().[0m
+
+  Finishes the update of an MD5 [;;4mContext[0m and returns the computed [;;4m[0m
+  [;;4mMD5[0m message digest.

@@ -1,0 +1,38 @@
+
+  [;1m-spec demonitor(MonitorRef) -> true when MonitorRef :: reference().[0m
+
+  If [;;4mMonitorRef[0m is a reference that the calling process obtained
+  by calling [;;4mmonitor/2[0m, this monitoring is turned off. If the
+  monitoring is already turned off, nothing happens.
+
+  Once [;;4mdemonitor(MonitorRef)[0m has returned, it is guaranteed that
+  no [;;4m{'DOWN', MonitorRef, _, _, _}[0m message, because of the
+  monitor, will be placed in the caller message queue in the future.
+  However, a [;;4m{'DOWN', MonitorRef, _, _, _}[0m message can have been
+  placed in the caller message queue before the call. It is
+  therefore usually advisable to remove such a [;;4m'DOWN'[0m message from
+  the message queue after monitoring has been stopped. [;;4m[0m
+  [;;4mdemonitor(MonitorRef, [flush])[0m can be used instead of [;;4m[0m
+  [;;4mdemonitor(MonitorRef)[0m if this cleanup is wanted.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
+  Change:
+    Before Erlang/OTP R11B (ERTS 5.5) [;;4mdemonitor/1[0m behaved
+    completely asynchronously, that is, the monitor was active
+    until the "demonitor signal" reached the monitored entity.
+    This had one undesirable effect. You could never know when you
+    were guaranteed not to receive a [;;4mDOWN[0m message because of
+    the monitor.
+
+    The current behavior can be viewed as two combined operations:
+    asynchronously send a "demonitor signal" to the monitored
+    entity and ignore any future results of the monitor.
+
+  Failure: It is an error if [;;4mMonitorRef[0m refers to a monitoring
+  started by another process. Not all such cases are cheap to check.
+  If checking is cheap, the call fails with [;;4mbadarg[0m, for example if [;;4m[0m
+  [;;4mMonitorRef[0m is a remote reference.

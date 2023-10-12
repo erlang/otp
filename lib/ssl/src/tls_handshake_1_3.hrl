@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,17 +19,17 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the TLS-handshake protocol
+%% Purpose: Record and constant definitions for the TLS-handshake protocol
 %% see RFC 8446. Also includes supported hello extensions.
 %%----------------------------------------------------------------------
 
 -ifndef(tls_handshake_1_3).
 -define(tls_handshake_1_3, true).
 
-%% Common to TLS-1.3 and previous TLS versions 
-%% Some defenitions may not exist in TLS-1.3 this is 
+%% Common to TLS-1.3 and previous TLS versions
+%% Some definitions may not exist in TLS-1.3 this is
 %% handled elsewhere
--include("tls_handshake.hrl"). 
+-include("tls_handshake.hrl").
 
 %% New handshake types in TLS-1.3 RFC 8446 B.3
 -define(NEW_SESSION_TICKET, 4).
@@ -59,7 +59,7 @@
           key_exchange %key_exchange<1..2^16-1>;
          }).
 -record(key_share_client_hello, {
-          entries  %% KeyShareEntry client_shares<0..2^16-1>;
+          client_shares   %% KeyShareEntry client_shares<0..2^16-1>;
          }).
 -record(key_share_hello_retry_request, {
           selected_group  %%  NamedGroup
@@ -74,29 +74,54 @@
           y                %     opaque Y[coordinate_length];
          }).
 
+%% RFC 8446 4.2.9.  Pre-Shared Key Exchange Modes
+
+%% enum { psk_ke(0), psk_dhe_ke(1), (255) } PskKeyExchangeMode;
 -define(PSK_KE, 0).
 -define(PSK_DHE_KE, 1).
 
--record(psk_keyexchange_modes, {
+-record(psk_key_exchange_modes, {
           ke_modes % ke_modes<1..255>
          }).
+
+%% RFC 8446 4.2.10.  Early Data Indication
 -record(empty, {
          }).
--record(early_data_indication, {
-          indication % uint32 max_early_data_size (new_session_ticket) | 
-          %% #empty{} (client_hello, encrypted_extensions)
+
+%% #empty{} (client_hello, encrypted_extensions)
+-record(early_data_indication, {}).
+-record(early_data_indication_nst, {
+          indication % uint32 max_early_data_size (new_session_ticket)
          }).
--record(psk_identity, {
-          identity, %     opaque identity<1..2^16-1>
-          obfuscated_ticket_age %  uint32
-         }).
--record(offered_psks, {
-          psk_identity,    %identities<7..2^16-1>;
-          psk_binder_entry %binders<33..2^16-1>,  opaque PskBinderEntry<32..255>
-         }).
--record(pre_shared_keyextension,{ 
-          extension %OfferedPsks (client_hello) | uint16 selected_identity (server_hello)
-         }).
+
+%% RFC 8446 4.2.11. Pre-Shared Key Extension
+-record(psk_identity,
+        {
+         identity,             % opaque identity<1..2^16-1>
+         obfuscated_ticket_age % uint32
+        }).
+
+-record(offered_psks,
+        {
+         identities,    % PskIdentity identities<7..2^16-1>;
+         binders        % PskBinderEntry binders<33..2^16-1>; opaque PskBinderEntry<32..255>
+        }).
+
+%% struct {
+%%     select (Handshake.msg_type) {
+%%         case client_hello: OfferedPsks;
+%%         case server_hello: uint16 selected_identity;
+%%     };
+%% } PreSharedKeyExtension;
+-record(pre_shared_key_client_hello,
+        {
+         offered_psks
+        }).
+
+-record(pre_shared_key_server_hello,
+        {
+         selected_identity
+        }).
 
 %% RFC 8446 B.3.1.2.
 -record(cookie, {
@@ -154,7 +179,7 @@
 
 %%  RFC 8446 B.3.2 Server Parameters Messages
 %%  opaque DistinguishedName<1..2^16-1>;XS
--record(certificate_authoritie_sextension, {
+-record(certificate_authorities, {
           authorities  %DistinguishedName authorities<3..2^16-1>;
          }).
 
@@ -191,7 +216,7 @@
           %%     case RawPublicKey:
           %%       /* From RFC 7250 ASN.1_subjectPublicKeyInfo */
           %%       opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
-
+          %%
           %%     case X509:
           %%       opaque cert_data<1..2^24-1>;
           %% };
@@ -200,8 +225,13 @@
 
 -record(certificate_1_3, {
           certificate_request_context, % opaque certificate_request_context<0..2^8-1>;
-          entries    % CertificateEntry certificate_list<0..2^24-1>;
+          certificate_list             % CertificateEntry certificate_list<0..2^24-1>;
          }).
+
+-record(certificate_verify_1_3, {
+          algorithm, % SignatureScheme
+          signature  % signature<0..2^16-1>
+	 }).
 
 %% RFC 8446 B.3.4. Ticket Establishment
 -record(new_session_ticket, {
@@ -222,5 +252,15 @@
 -record(key_update, {
           request_update
          }).
+
+-type tls_handshake_1_3() :: #encrypted_extensions{} |
+                             #certificate_request_1_3{} |
+                             #certificate_1_3{} |
+                             #certificate_verify_1_3{} |
+                             #new_session_ticket{} |
+                             #key_update{}.
+
+-export_type([tls_handshake_1_3/0]).
+
 
 -endif. % -ifdef(tls_handshake_1_3).

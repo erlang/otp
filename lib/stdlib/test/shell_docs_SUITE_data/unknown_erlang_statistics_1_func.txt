@@ -1,0 +1,565 @@
+
+  [;1m-spec statistics(active_tasks) -> [ActiveTasks][0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  Returns the same as [;;4mstatistics(active_tasks_all)[0m with the
+  exception that no information about the dirty IO run queue and its
+  associated schedulers is part of the result. That is, only tasks
+  that are expected to be CPU bound are part of the result.
+
+  [;1m-spec statistics(active_tasks_all) -> [ActiveTasks][0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  Returns a list where each element represents the amount of active
+  processes and ports on each run queue and its associated
+  schedulers. That is, the number of processes and ports that are
+  ready to run, or are currently running. Values for normal run
+  queues and their associated schedulers are located first in the
+  resulting list. The first element corresponds to scheduler number
+  1 and so on. If support for dirty schedulers exist, an element
+  with the value for the dirty CPU run queue and its associated
+  dirty CPU schedulers follow and then as last element the value for
+  the the dirty IO run queue and its associated dirty IO schedulers
+  follow. The information is not gathered atomically. That is, the
+  result is not necessarily a consistent snapshot of the state, but
+  instead quite efficiently gathered.
+
+  Note:
+    Each normal scheduler has one run queue that it manages. If
+    dirty schedulers schedulers are supported, all dirty CPU
+    schedulers share one run queue, and all dirty IO schedulers
+    share one run queue. That is, we have multiple normal run
+    queues, one dirty CPU run queue and one dirty IO run queue.
+    Work can not migrate between the different types of run
+    queues. Only work in normal run queues can migrate to other
+    normal run queues. This has to be taken into account when
+    evaluating the result.
+
+  See also [;;4mstatistics(total_active_tasks)[0m, [;;4m[0m
+  [;;4mstatistics(run_queue_lengths)[0m, [;;4mstatistics(run_queue_lengths_all)[0m, [;;4m[0m
+  [;;4mstatistics(total_run_queue_lengths)[0m, and [;;4m[0m
+  [;;4mstatistics(total_run_queue_lengths_all)[0m.
+
+  [;1m-spec statistics(context_switches) -> {ContextSwitches, 0}[0m
+  [;1m                    when ContextSwitches :: non_neg_integer().[0m
+
+  Returns the total number of context switches since the system
+  started.
+
+  [;1m-spec statistics(exact_reductions) ->[0m
+  [;1m                    {Total_Exact_Reductions,[0m
+  [;1m                     Exact_Reductions_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Exact_Reductions :: non_neg_integer(),[0m
+  [;1m                        Exact_Reductions_Since_Last_Call ::[0m
+  [;1m                            non_neg_integer().[0m
+
+  Returns the number of exact reductions.
+
+  Note:
+    [;;4mstatistics(exact_reductions)[0m is a more expensive operation
+    than statistics(reductions).
+
+  [;1m-spec statistics(garbage_collection) ->[0m
+  [;1m                    {Number_of_GCs, Words_Reclaimed, 0}[0m
+  [;1m                    when[0m
+  [;1m                        Number_of_GCs :: non_neg_integer(),[0m
+  [;1m                        Words_Reclaimed :: non_neg_integer().[0m
+
+  Returns information about garbage collection, for example:
+
+    > statistics(garbage_collection).
+    {85,23961,0}
+
+  This information can be invalid for some implementations.
+
+  [;1m-spec statistics(io) -> {{input, Input}, {output, Output}}[0m
+  [;1m                    when[0m
+  [;1m                        Input :: non_neg_integer(),[0m
+  [;1m                        Output :: non_neg_integer().[0m
+
+  Returns [;;4mInput[0m, which is the total number of bytes received
+  through ports, and [;;4mOutput[0m, which is the total number of bytes
+  output to ports.
+
+  [;1m-spec statistics(microstate_accounting) -> [MSAcc_Thread] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        MSAcc_Thread ::[0m
+  [;1m                            #{type := MSAcc_Thread_Type,[0m
+  [;1m                              id := MSAcc_Thread_Id,[0m
+  [;1m                              counters := MSAcc_Counters},[0m
+  [;1m                        MSAcc_Thread_Type ::[0m
+  [;1m                            async | aux | dirty_io_scheduler |[0m
+  [;1m                            dirty_cpu_scheduler | poll | scheduler,[0m
+  [;1m                        MSAcc_Thread_Id :: non_neg_integer(),[0m
+  [;1m                        MSAcc_Counters ::[0m
+  [;1m                            #{MSAcc_Thread_State => non_neg_integer()},[0m
+  [;1m                        MSAcc_Thread_State ::[0m
+  [;1m                            alloc | aux | bif | busy_wait | check_io |[0m
+  [;1m                            emulator | ets | gc | gc_fullsweep | nif |[0m
+  [;1m                            other | port | send | sleep | timers.[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Microstate accounting can be used to measure how much time the
+  Erlang runtime system spends doing various tasks. It is designed
+  to be as lightweight as possible, but some overhead exists when
+  this is enabled. Microstate accounting is meant to be a profiling
+  tool to help finding performance bottlenecks. To [;;4mstart[0m/[;;4mstop[0m/[;;4m[0m
+  [;;4mreset[0m microstate accounting, use system flag [;;4m[0m
+  [;;4mmicrostate_accounting[0m.
+
+  [;;4mstatistics(microstate_accounting)[0m returns a list of maps
+  representing some of the OS threads within ERTS. Each map contains [;;4m[0m
+  [;;4mtype[0m and [;;4mid[0m fields that can be used to identify what thread it
+  is, and also a counters field that contains data about how much
+  time has been spent in the various states.
+
+  Example:
+
+    > erlang:statistics(microstate_accounting).
+    [#{counters => #{aux => 1899182914,
+                     check_io => 2605863602,
+                     emulator => 45731880463,
+                     gc => 1512206910,
+                     other => 5421338456,
+                     port => 221631,
+                     sleep => 5150294100},
+       id => 1,
+       type => scheduler}|...]
+
+  The time unit is the same as returned by [;;4mos:perf_counter/0[0m. So,
+  to convert it to milliseconds, you can do something like this:
+
+    lists:map(
+      fun(#{ counters := Cnt } = M) ->
+              MsCnt = maps:map(fun(_K, PerfCount) ->
+                                       erlang:convert_time_unit(PerfCount, perf_counter, 1000)
+                               end, Cnt),
+             M#{ counters := MsCnt }
+      end, erlang:statistics(microstate_accounting)).
+
+  Notice that these values are not guaranteed to be the exact time
+  spent in each state. This is because of various optimisation done
+  to keep the overhead as small as possible.
+
+  [;;4mMSAcc_Thread_Type[0ms:
+
+  [;;4m[;;4mscheduler[0m[0m:
+    The main execution threads that do most of the work. See erl
+    +S for more details.
+
+  [;;4m[;;4mdirty_cpu_scheduler[0m[0m:
+    The threads for long running cpu intensive work. See erl
+    +SDcpu for more details.
+
+  [;;4m[;;4mdirty_io_scheduler[0m[0m:
+    The threads for long running I/O work. See erl +SDio for
+    more details.
+
+  [;;4m[;;4masync[0m[0m:
+    Async threads are used by various linked-in drivers (mainly
+    the file drivers) do offload non-CPU intensive work. See erl
+    +A for more details.
+
+  [;;4m[;;4maux[0m[0m:
+    Takes care of any work that is not specifically assigned to a
+    scheduler.
+
+  [;;4m[;;4mpoll[0m[0m:
+    Does the IO polling for the emulator. See erl +IOt for more
+    details.
+
+  The following [;;4mMSAcc_Thread_State[0ms are available. All states are
+  exclusive, meaning that a thread cannot be in two states at once.
+  So, if you add the numbers of all counters in a thread, you get
+  the total runtime for that thread.
+
+  [;;4m[;;4maux[0m[0m:
+    Time spent handling auxiliary jobs.
+
+  [;;4m[;;4mcheck_io[0m[0m:
+    Time spent checking for new I/O events.
+
+  [;;4m[;;4memulator[0m[0m:
+    Time spent executing Erlang processes.
+
+  [;;4m[;;4mgc[0m[0m:
+    Time spent doing garbage collection. When extra states are
+    enabled this is the time spent doing non-fullsweep garbage
+    collections.
+
+  [;;4m[;;4mother[0m[0m:
+    Time spent doing unaccounted things.
+
+  [;;4m[;;4mport[0m[0m:
+    Time spent executing ports.
+
+  [;;4m[;;4msleep[0m[0m:
+    Time spent sleeping.
+
+  More fine-grained [;;4mMSAcc_Thread_State[0ms can be added through
+  configure (such as [;;4m./configure --with-microstate-accounting=extra[0m
+  ). Enabling these states causes performance degradation when
+  microstate accounting is turned off and increases the overhead
+  when it is turned on.
+
+  [;;4m[;;4malloc[0m[0m:
+    Time spent managing memory. Without extra states this time is
+    spread out over all other states.
+
+  [;;4m[;;4mbif[0m[0m:
+    Time spent in BIFs. Without extra states this time is part of
+    the [;;4memulator[0m state.
+
+  [;;4m[;;4mbusy_wait[0m[0m:
+    Time spent busy waiting. This is also the state where a
+    scheduler no longer reports that it is active when using [;;4m[0m
+    [;;4mstatistics(scheduler_wall_time)[0m. So, if you add all other
+    states but this and sleep, and then divide that by all time in
+    the thread, you should get something very similar to the [;;4m[0m
+    [;;4mscheduler_wall_time[0m fraction. Without extra states this time
+    is part of the [;;4mother[0m state.
+
+  [;;4m[;;4mets[0m[0m:
+    Time spent executing ETS BIFs. Without extra states this time
+    is part of the [;;4memulator[0m state.
+
+  [;;4m[;;4mgc_full[0m[0m:
+    Time spent doing fullsweep garbage collection. Without extra
+    states this time is part of the [;;4mgc[0m state.
+
+  [;;4m[;;4mnif[0m[0m:
+    Time spent in NIFs. Without extra states this time is part of
+    the [;;4memulator[0m state.
+
+  [;;4m[;;4msend[0m[0m:
+    Time spent sending messages (processes only). Without extra
+    states this time is part of the [;;4memulator[0m state.
+
+  [;;4m[;;4mtimers[0m[0m:
+    Time spent managing timers. Without extra states this time is
+    part of the [;;4mother[0m state.
+
+  The utility module [;;4mmsacc(3)[0m can be used to more easily analyse
+  these statistics.
+
+  Returns [;;4mundefined[0m if system flag [;;4mmicrostate_accounting[0m is
+  turned off.
+
+  The list of thread information is unsorted and can appear in
+  different order between calls.
+
+  Note:
+    The threads and states are subject to change without any prior
+    notice.
+
+  [;1m-spec statistics(reductions) ->[0m
+  [;1m                    {Total_Reductions, Reductions_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Reductions :: non_neg_integer(),[0m
+  [;1m                        Reductions_Since_Last_Call :: non_neg_integer().[0m
+
+  Returns information about reductions, for example:
+
+    > statistics(reductions).
+    {2046,11}
+
+  Change:
+    As from ERTS 5.5 (Erlang/OTP R11B), this value does not
+    include reductions performed in current time slices of
+    currently scheduled processes. If an exact value is wanted,
+    use [;;4mstatistics(exact_reductions)[0m.
+
+  [;1m-spec statistics(run_queue) -> non_neg_integer().[0m
+
+  Returns the total length of all normal and dirty CPU run queues.
+  That is, queued work that is expected to be CPU bound. The
+  information is gathered atomically. That is, the result is a
+  consistent snapshot of the state, but this operation is much more
+  expensive compared to [;;4mstatistics(total_run_queue_lengths)[0m,
+  especially when a large amount of schedulers is used.
+
+  [;1m-spec statistics(run_queue_lengths) -> [RunQueueLength][0m
+  [;1m                    when RunQueueLength :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  Returns the same as [;;4mstatistics(run_queue_lengths_all)[0m with the
+  exception that no information about the dirty IO run queue is part
+  of the result. That is, only run queues with work that is expected
+  to be CPU bound is part of the result.
+
+  [;1m-spec statistics(run_queue_lengths_all) -> [RunQueueLength][0m
+  [;1m                    when RunQueueLength :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  Returns a list where each element represents the amount of
+  processes and ports ready to run for each run queue. Values for
+  normal run queues are located first in the resulting list. The
+  first element corresponds to the normal run queue of scheduler
+  number 1 and so on. If support for dirty schedulers exist, values
+  for the dirty CPU run queue and the dirty IO run queue follow (in
+  that order) at the end. The information is not gathered
+  atomically. That is, the result is not necessarily a consistent
+  snapshot of the state, but instead quite efficiently gathered.
+
+  Note:
+    Each normal scheduler has one run queue that it manages. If
+    dirty schedulers schedulers are supported, all dirty CPU
+    schedulers share one run queue, and all dirty IO schedulers
+    share one run queue. That is, we have multiple normal run
+    queues, one dirty CPU run queue and one dirty IO run queue.
+    Work can not migrate between the different types of run
+    queues. Only work in normal run queues can migrate to other
+    normal run queues. This has to be taken into account when
+    evaluating the result.
+
+  See also [;;4mstatistics(run_queue_lengths)[0m, [;;4m[0m
+  [;;4mstatistics(total_run_queue_lengths_all)[0m, [;;4m[0m
+  [;;4mstatistics(total_run_queue_lengths)[0m, [;;4mstatistics(active_tasks)[0m, [;;4m[0m
+  [;;4mstatistics(active_tasks_all)[0m, and [;;4mstatistics(total_active_tasks)[0m, [;;4m[0m
+  [;;4mstatistics(total_active_tasks_all)[0m.
+
+  [;1m-spec statistics(runtime) -> {Total_Run_Time, Time_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Run_Time :: non_neg_integer(),[0m
+  [;1m                        Time_Since_Last_Call :: non_neg_integer().[0m
+
+  Returns information about runtime, in milliseconds.
+
+  This is the sum of the runtime for all threads in the Erlang
+  runtime system and can therefore be greater than the wall clock
+  time.
+
+  Warning:
+    This value might wrap due to limitations in the underlying
+    functionality provided by the operating system that is used.
+
+  Example:
+
+    > statistics(runtime).
+    {1690,1620}
+
+  [;1m-spec statistics(scheduler_wall_time) ->[0m
+  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        SchedulerId :: pos_integer(),[0m
+  [;1m                        ActiveTime :: non_neg_integer(),[0m
+  [;1m                        TotalTime :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  Returns information describing how much time normal and dirty
+  CPU schedulers in the system have been busy. This value is
+  normally a better indicator of how much load an Erlang node is
+  under instead of looking at the CPU utilization provided by tools
+  such as [;;4mtop[0m or [;;4msysstat[0m. This is because [;;4mscheduler_wall_time[0m
+  also includes time where the scheduler is waiting for some other
+  reasource (such as an internal mutex) to be available but does not
+  use the CPU. In order to better understand what a scheduler is
+  busy doing you can use microstate accounting.
+
+  The definition of a busy scheduler is when it is not idle and not 
+  busy waiting for new work, that is:
+
+   • Executing process code
+
+   • Executing linked-in driver or NIF code
+
+   • Executing BIFs, or any other runtime handling
+
+   • Garbage collecting
+
+   • Handling any other memory management
+
+  Notice that a scheduler can also be busy even if the OS has
+  scheduled out the scheduler thread.
+
+  Note:
+    It is recommended to use the module [;;4mscheduler[0m instead of
+    this function directly as it provides an easier way to get the
+    information that you usually want.
+
+  If enabled this function returns a list of tuples with [;;4m[0m
+  [;;4m{SchedulerId, ActiveTime, TotalTime}[0m, where [;;4mSchedulerId[0m is an
+  integer ID of the scheduler, [;;4mActiveTime[0m is the duration the
+  scheduler has been busy, and [;;4mTotalTime[0m is the total time
+  duration since [;;4mscheduler_wall_time[0m activation for the specific
+  scheduler. The time unit returned is undefined and can be subject
+  to change between releases, OSs, and system restarts. [;;4m[0m
+  [;;4mscheduler_wall_time[0m is only to be used to calculate relative
+  values for scheduler utilization. The [;;4mActiveTime[0m can never
+  exceed [;;4mTotalTime[0m. The list of scheduler information is unsorted
+  and can appear in different order between calls.
+
+  The disabled this function returns [;;4mundefined[0m.
+
+  The activation time can differ significantly between schedulers.
+  Currently dirty schedulers are activated at system start while
+  normal schedulers are activated some time after the [;;4m[0m
+  [;;4mscheduler_wall_time[0m functionality is enabled.
+
+  Only information about schedulers that are expected to handle CPU
+  bound work is included in the return values from this function. If
+  you also want information about dirty I/O schedulers, use [;;4m[0m
+  [;;4mstatistics(scheduler_wall_time_all)[0m instead.
+
+  Normal schedulers will have scheduler identifiers in the range [;;4m1[0m
+  [;;4m=< SchedulerId =< [0m[;;4merlang:system_info(schedulers)[0m. Dirty CPU
+  schedulers will have scheduler identifiers in the range [;;4m[0m
+  [;;4merlang:system_info(schedulers) < SchedulerId =<[0m
+  [;;4merlang:system_info(schedulers) + [0m[;;4m[0m
+  [;;4merlang:system_info(dirty_cpu_schedulers)[0m.
+
+  Note:
+    The different types of schedulers handle specific types of
+    jobs. Every job is assigned to a specific scheduler type. Jobs
+    can migrate between different schedulers of the same type, but
+    never between schedulers of different types. This fact has to
+    be taken under consideration when evaluating the result
+    returned.
+
+  You can use [;;4mscheduler_wall_time[0m to calculate scheduler
+  utilization. First you take a sample of the values returned by [;;4m[0m
+  [;;4merlang:statistics(scheduler_wall_time)[0m.
+
+    > erlang:system_flag(scheduler_wall_time, true).
+    false
+    > Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
+    ok
+
+  Some time later the user takes another snapshot and calculates
+  scheduler utilization per scheduler, for example:
+
+    > Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
+    ok
+    > lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
+    	{I, (A1 - A0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).
+    [{1,0.9743474730177548},
+     {2,0.9744843782751444},
+     {3,0.9995902361669045},
+     {4,0.9738012596572161},
+     {5,0.9717956667018103},
+     {6,0.9739235846420741},
+     {7,0.973237033077876},
+     {8,0.9741297293248656}]
+
+  Using the same snapshots to calculate a total scheduler
+  utilization:
+
+    > {A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
+    	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)),
+    	TotalSchedulerUtilization = A/T.
+    0.9769136803764825
+
+  Total scheduler utilization will equal [;;4m1.0[0m when all schedulers
+  have been active all the time between the two measurements.
+
+  Another (probably more) useful value is to calculate total
+  scheduler utilization weighted against maximum amount of available
+  CPU time:
+
+    > WeightedSchedulerUtilization = (TotalSchedulerUtilization
+                                      * (erlang:system_info(schedulers)
+                                         + erlang:system_info(dirty_cpu_schedulers)))
+                                     / erlang:system_info(logical_processors_available).
+    0.9769136803764825
+
+  This weighted scheduler utilization will reach [;;4m1.0[0m when
+  schedulers are active the same amount of time as maximum available
+  CPU time. If more schedulers exist than available logical
+  processors, this value may be greater than [;;4m1.0[0m.
+
+  As of ERTS version 9.0, the Erlang runtime system will as default
+  have more schedulers than logical processors. This due to the
+  dirty schedulers.
+
+  Note:
+    [;;4mscheduler_wall_time[0m is by default disabled. To enable it, use [;;4m[0m
+    [;;4merlang:system_flag(scheduler_wall_time, true)[0m.
+
+  [;1m-spec statistics(scheduler_wall_time_all) ->[0m
+  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        SchedulerId :: pos_integer(),[0m
+  [;1m                        ActiveTime :: non_neg_integer(),[0m
+  [;1m                        TotalTime :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  The same as [;;4mstatistics(scheduler_wall_time)[0m, except that it also
+  include information about all dirty I/O schedulers.
+
+  Dirty IO schedulers will have scheduler identifiers in the range [;;4m[0m
+  [;;4merlang:system_info(schedulers)[0m[;;4m + [0m[;;4m[0m
+  [;;4merlang:system_info(dirty_cpu_schedulers)[0m[;;4m < SchedulerId =<[0m
+  [;;4merlang:system_info(schedulers) +[0m
+  [;;4merlang:system_info(dirty_cpu_schedulers) + [0m[;;4m[0m
+  [;;4merlang:system_info(dirty_io_schedulers)[0m.
+
+  Note:
+    Note that work executing on dirty I/O schedulers are expected
+    to mainly wait for I/O. That is, when you get high scheduler
+    utilization on dirty I/O schedulers, CPU utilization is not
+    expected to be high due to this work.
+
+  [;1m-spec statistics(total_active_tasks) -> ActiveTasks[0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  The same as calling [;;4mlists:sum([0m[;;4mstatistics(active_tasks)[0m[;;4m)[0m, but
+  more efficient.
+
+  [;1m-spec statistics(total_active_tasks_all) -> ActiveTasks[0m
+  [;1m                    when ActiveTasks :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  The same as calling [;;4mlists:sum([0m[;;4mstatistics(active_tasks_all)[0m[;;4m)[0m,
+  but more efficient.
+
+  [;1m-spec statistics(total_run_queue_lengths) -> TotalRunQueueLengths[0m
+  [;1m                    when TotalRunQueueLengths :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.3
+
+  The same as calling [;;4mlists:sum([0m[;;4mstatistics(run_queue_lengths)[0m[;;4m)[0m,
+  but more efficient.
+
+  [;1m-spec statistics(total_run_queue_lengths_all) -> TotalRunQueueLengths[0m
+  [;1m                    when TotalRunQueueLengths :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  The same as calling [;;4mlists:sum([0m[;;4mstatistics(run_queue_lengths_all)[0m[;;4m)[0m,
+  but more efficient.
+
+  [;1m-spec statistics(wall_clock) ->[0m
+  [;1m                    {Total_Wallclock_Time,[0m
+  [;1m                     Wallclock_Time_Since_Last_Call}[0m
+  [;1m                    when[0m
+  [;1m                        Total_Wallclock_Time :: non_neg_integer(),[0m
+  [;1m                        Wallclock_Time_Since_Last_Call ::[0m
+  [;1m                            non_neg_integer().[0m
+
+  Returns information about wall clock. [;;4mwall_clock[0m can be used in
+  the same manner as [;;4mruntime[0m, except that real time is measured as
+  opposed to runtime or CPU time.

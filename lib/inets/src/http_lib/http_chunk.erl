@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 %%      MaxHeaderSize = integer()
 %%
 %% Description: Decodes a body encoded by the chunked transfer
-%% encoding. If the ChunkedBody is not compleate it returns {Module,
+%% encoding. If the ChunkedBody is not complete it returns {Module,
 %% Function, Args} so that decoding can be continued when more of the
 %% data has been received by calling Module:Function([NewData | Args]).
 %%
@@ -71,8 +71,8 @@ decode(ChunkedBody, MaxBodySize, MaxHeaderSize) ->
 %%              input format. When sending the data on the both formats 
 %%              are accepted.
 %%-------------------------------------------------------------------------
-encode(Chunk) when is_binary(Chunk)->
-    HEXSize = list_to_binary(http_util:integer_to_hexlist(size(Chunk))),
+encode(Chunk) when is_binary(Chunk) ->
+    HEXSize = list_to_binary(http_util:integer_to_hexlist(byte_size(Chunk))),
     <<HEXSize/binary, ?CR, ?LF, Chunk/binary, ?CR, ?LF>>;
 
 encode([<<>>]) ->
@@ -124,7 +124,7 @@ handle_headers(ResponseHeaderRecord = #http_response_h{},  ChunkedHeaders) ->
     NewHeaders#http_response_h{'transfer-encoding' = TransferEncoding}.
 
 %% Functions that may be returned during the decoding process
-%% if the input data is incompleate. 
+%% if the input data is incomplete. 
 decode_size([Bin, Rest, HexList, AccSize, Info]) ->
     decode_size(<<Rest/binary, Bin/binary>>, HexList, AccSize, Info).
 
@@ -202,7 +202,7 @@ ignore_extensions(<<_Octet, Rest/binary>>, RemainingSize, TotalMaxHeaderSize, Ne
 
 decode_data(ChunkSize, TotalChunk,
 	    Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize}) 
-  when ChunkSize =< size(TotalChunk) ->
+  when is_binary(TotalChunk), ChunkSize =< byte_size(TotalChunk) ->
     case TotalChunk of
 	%% Last chunk
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ";">> ->

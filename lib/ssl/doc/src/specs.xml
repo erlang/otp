@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_ssl_crl_cache_api.xml"/>
+  <xi:include href="../specs/specs_ssl_crl_cache.xml"/>
+  <xi:include href="../specs/specs_ssl_session_cache_api.xml"/>
+  <xi:include href="../specs/specs_ssl.xml"/>
+</specs>
+
+ 

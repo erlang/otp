@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2017. All Rights Reserved.
+# Copyright Ericsson AB 2001-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
-IMG_FILES = \
+IMAGE_FILES = \
 	single_node_config.gif \
 	distr_node_config.gif \
 	megaco_sys_arch.gif \

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1,
-	 float_middle_endian/1]).
+	 float_middle_endian/1,unsafe_get_binary_reuse/1, fp16/1,
+         bad_bs_match/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +37,9 @@ all() ->
     [bound_var, bound_tail, t_float, little_float, sean,
      kenneth, encode_binary, native, happi, size_var, wiger,
      x0_context, huge_float_field, writable_binary_matched,
-     otp_7198, unordered_bindings, float_middle_endian].
+     otp_7198, unordered_bindings, float_middle_endian,
+     unsafe_get_binary_reuse, fp16,
+     bad_bs_match].
 
 
 %% Test matching of bound variables.
@@ -75,7 +78,7 @@ t_float(Config) when is_list(Config) ->
     fcmp(F, match_float(<<1:13,F:32/float,127:3>>, 32, 13)),
     fcmp(F, match_float(<<1:13,F:64/float,127:3>>, 64, 13)),
 
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16, 0)),
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
 
     ok.
@@ -88,6 +91,7 @@ float_middle_endian(Config) when is_list(Config) ->
     ok.
 
 
+fcmp(0.0, 0.0) -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
     
 match_float(Bin0, Fsz, I) ->
@@ -289,11 +293,15 @@ native(Config) when is_list(Config) ->
 native_big() ->
     <<37.33:64/native-float>> = <<37.33:64/big-float>>,
     <<3974:16/native-integer>> = <<3974:16/big-integer>>,
+    <<$W/native-utf16>> = id(<<0,$W>>),
+    <<$W/native-utf32>> = id(<<0,0,0,$W>>),
     {comment,"Big endian"}.
 
 native_little() ->
     <<37869.32343:64/native-float>> = <<37869.32343:64/little-float>>,
     <<7974:16/native-integer>> = <<7974:16/little-integer>>,
+    <<$W/native-utf16>> = id(<<$W,0>>),
+    <<$W/native-utf32>> = id(<<$W,0,0,0>>),
     {comment,"Little endian"}.
 
 happi(Config) when is_list(Config) ->
@@ -556,5 +564,104 @@ unordered_bindings(CompressedLength, HashSize, PadLength, T) ->
      Padding:PadLength/binary,PadLength>> = T,
     {Content,Mac,Padding}.
 
+%% ERL-901: A load-time optimization assumed that match contexts had no further
+%% uses when a bs_get_binary2 overwrote the match context's register, and
+%% figured it would be safe to reuse the match context's memory for the
+%% resulting binary.
+%%
+%% This is no longer safe as of OTP 22, as a match context may be reused after
+%% being passed to another function.
+unsafe_get_binary_reuse(Config) when is_list(Config) ->
+    <<_First, Rest/binary>> = <<"hello">>,
+    ubgr_1(Rest),
+    <<Second,_/bits>> = Rest,
+    $e = Second,
+    ok.
 
+ubgr_1(<<_CP/utf8, Rest/binary>>) -> id(Rest);
+ubgr_1(_) -> false.
+
+-define(FP16(EncodedInt, Float),
+        (fun(NlInt, NlFloat) ->
+                  <<F1:16/float>> = <<NlInt:16>>,
+                  fcmp(F1, NlFloat),
+                  <<F2:16/float>> = <<(NlInt+16#8000):16>>,
+                  fcmp(F2, NlFloat),
+                  <<F3:16/float-little>> = <<NlInt:16/little>>,
+                  fcmp(F3, NlFloat),
+                  <<F4:16/float-little>> = <<(NlInt+16#8000):16/little>>,
+                  fcmp(F4, NlFloat),
+                  <<F5:16/float-native>> = <<NlInt:16/native>>,
+                  fcmp(F5, NlFloat),
+                  <<F6:16/float-native>> = <<(NlInt+16#8000):16/native>>,
+                  fcmp(F6, NlFloat)
+         end)(nonliteral(EncodedInt), nonliteral(Float)),
+        (fun() ->
+                  <<F1:16/float>> = <<EncodedInt:16>>,
+                  fcmp(F1, Float),
+                  <<F2:16/float>> = <<(EncodedInt+16#8000):16>>,
+                  fcmp(F2, Float),
+                  <<F3:16/float-little>> = <<EncodedInt:16/little>>,
+                  fcmp(F3, Float),
+                  <<F4:16/float-little>> = <<(EncodedInt+16#8000):16/little>>,
+                  fcmp(F4, Float),
+                  <<F3:16/float-native>> = <<EncodedInt:16/native>>,
+                  fcmp(F3, Float),
+                  <<F4:16/float-native>> = <<(EncodedInt+16#8000):16/native>>,
+                  fcmp(F4, Float)
+         end)()).
+
+nonliteral(X) -> X.
+
+fp16(_Config) ->
+    %% smallest positive subnormal number
+    ?FP16(16#0001, 0.000000059604645),
+    %% largest positive subnormal number
+    ?FP16(16#03ff, 0.000060975552),
+    %% smallest positive normal number
+    ?FP16(16#0400, 0.00006103515625),
+    %% largest normal number
+    ?FP16(16#7bff, 65504),
+    ?FP16(16#7bff, 65504.0),
+    %% largest number less than one
+    ?FP16(16#3bff, 0.99951172),
+    %% zero
+    ?FP16(16#0000, 0.0),
+    %% one
+    ?FP16(16#3c00, 1),
+    ?FP16(16#3c00, 1.0),
+    %% smallest number larger than one
+    ?FP16(16#3c01, 1.00097656),
+    %% rounding of 1/3 to nearest
+    ?FP16(16#3555, 0.33325195),
+    %% others
+    ?FP16(16#4000, 2),
+    ?FP16(16#4000, 2.0),
+    ok.
+
+bad_bs_match(_Config) ->
+    Lines = ["-module(bad_bs_match).",
+             "-export([f/1]).",
+             "f(<<X:16,_/binary>>) -> X."],
+    {Forms,_} =
+        lists:mapfoldl(fun(Line, L0) ->
+                               {ok,Tokens,L} = erl_scan:string(Line ++ "\n", L0),
+                               {ok,Form} = erl_parse:parse_form(Tokens),
+                               {Form,L}
+                       end, 1, Lines),
+    {ok,Mod,Beam0} = compile:forms(Forms, [binary]),
+
+    %% Introduce a non-existing sub command of the bs_match instruction.
+    Beam = binary:replace(Beam0, <<"ensure_at_least">>, <<"future_cool_cmd">>),
+    true = Beam0 =/= Beam,
+
+    %% There should be an error when attempting to load this BEAM
+    %% file, not a runtime crash.
+    {error,badfile} = code:load_binary(Mod, "", Beam),
+
+    ok.
+
+
+%%% Common utilities.
 id(I) -> I.
+

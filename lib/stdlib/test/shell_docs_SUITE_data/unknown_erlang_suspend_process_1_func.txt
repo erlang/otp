@@ -1,0 +1,8 @@
+
+  [;1m-spec erlang:suspend_process(Suspendee) -> true when Suspendee :: pid().[0m
+
+  Suspends the process identified by [;;4mSuspendee[0m. The same as
+  calling [;;4merlang:suspend_process(Suspendee, [])[0m.
+
+  Warning:
+    This BIF is intended for debugging only.

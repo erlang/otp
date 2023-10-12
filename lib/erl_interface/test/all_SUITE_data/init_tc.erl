@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,11 +77,7 @@ generate_c(Cases, File, TcName) ->
     lists:foreach(fun(Case) -> io:format(File, "  ~s,~n", [Case]) end, Cases),
     io:format(File, "~s",
 	      [["};\n\n",
-		"#ifdef VXWORKS\n",
-		"int ",	TcName,	"(int argc, char* argv[])\n",
-		"#else\n",
 		"int main(int argc, char* argv[])\n",
-		"#endif\n",
 		"{\n",
 		"    run_tests(argv[0], test_cases, ",
 		"sizeof(test_cases)/sizeof(test_cases[0]));\n",

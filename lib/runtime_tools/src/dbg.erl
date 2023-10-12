@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,13 +34,14 @@
 -export([fun2ms/1]).
 
 %% Local exports
--export([erlang_trace/3,get_info/0,deliver_and_flush/1]).
+-export([erlang_trace/3,get_info/0,deliver_and_flush/1,do_relay/2]).
 
 %% Debug exports
 -export([wrap_presort/2, wrap_sort/2, wrap_postsort/1, wrap_sortfix/2,
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
 
+-deprecated([{stop_clear,0, "use dbg:stop/0 instead"}]).
 
 %%% Shell callable utility
 fun2ms(ShellFun) when is_function(ShellFun) ->
@@ -317,8 +318,17 @@ tracer(process, {Handler,HandlerData}) ->
 tracer(module, Fun) when is_function(Fun) ->
     start(Fun);
 tracer(module, {Module, State}) ->
-    start(fun() -> {Module, State} end).
+    start(fun() -> {Module, State} end);
 
+tracer(file, Filename) ->
+    tracer(process,
+           {fun F(E, undefined) ->
+                    {ok, D} = file:open(Filename, [write]),
+                    F(E, D);
+                F(E, D) ->
+                    dhandler(E, D),
+                    D
+            end, undefined}).
 
 remote_tracer(port, Fun) when is_function(Fun) ->
     remote_start(Fun);
@@ -573,14 +583,14 @@ c(M, F, A, Flags) ->
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
-		    stop_clear(),
+		    stop(),
 		    {error, Reason};
 		{Pid, Res} ->
 		    erlang:demonitor(Mref, [flush]),
 		    %% 'sleep' prevents the tracer (recv_all_traces) from
 		    %% receiving garbage {'EXIT',...} when dbg i stopped.
 		    timer:sleep(1),
-		    stop_clear(),
+		    stop(),
 		    Res
 	    end
     end.
@@ -595,15 +605,23 @@ c(Parent, M, F, A, Flags) ->
     Parent ! {self(), Res}.
 
 stop() ->
+    {ok, _} = ctp(),
+    {ok, _} = ctpe('receive'),
+    {ok, _} = ctpe('send'),
+
     Mref = erlang:monitor(process, dbg),
     catch dbg ! {self(),stop},
+
     receive
-	{'DOWN',Mref,_,_,_} ->
-	    ok
+        {'DOWN',Mref,_,_,_} -> ok
     end.
 
+%% This is a vestigial function that used to be documented as a variant of
+%% `stop/0` that also clears global function traces. Since `stop/0` now clears
+%% all tracing as the user would expect it to, we've removed this from the
+%% documentation but keep it around for backwards compatibility, much like
+%% `queue:lait`.
 stop_clear() ->
-    {ok, _} = ctp(),
     stop().
 
 %%% Calling the server.
@@ -942,9 +960,9 @@ erlang_trace(AtomPid, How, Flags) ->
 
 relay(Node,To) when Node /= node() ->
     case get(Node) of
-	undefined -> 
+	undefined ->
 	    S = self(),
-	    Pid = spawn_link(Node, fun() -> do_relay(S,To) end),
+	    Pid = spawn_link(Node, dbg, do_relay, [S, To]),
 	    receive {started,Remote} -> put(Node, {Pid,Remote}) end,
 	    {ok,Pid};
 	{_Relay,PortOrPid} ->
@@ -1591,14 +1609,14 @@ new_pattern_table() ->
 		term_to_binary(x)}),
     ets:insert(PT,
 	       {c,
-		term_to_binary([{'_',[],[{message,{caller}}]}])}),
+		term_to_binary([{'_',[],[{message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_trace,
 		term_to_binary(c)}),
     ets:insert(PT,
 	       {cx,
 		term_to_binary([{'_',[],[{exception_trace},
-					 {message,{caller}}]}])}),
+					 {message,{caller_line}}]}])}),
     ets:insert(PT,
 	       {caller_exception_trace,
 		term_to_binary(cx)}),
@@ -1936,6 +1954,6 @@ h(stop) ->
 h(stop_clear) ->
     help_display(
       ["stop_clear() -> ok",
-       " - Stops the dbg server and the tracing of all processes,",
+       " - Deprecated. Stops the dbg server and the tracing of all processes,",
        "   and clears all trace patterns."]).
 

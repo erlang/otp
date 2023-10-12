@@ -74,7 +74,12 @@ start_all_windows(_Config) ->
     %% Test that server pid can be fetched, and that server is alive
     {ok, Server} = ?msym({ok,_}, reltool:get_server(SysPid)),
     ?m(true, erlang:is_process_alive(Server)),
-    ?m({ok,{sys,[]}}, reltool:get_config(Server)),
+    Sys =
+        case reltool_test_lib:erl_libs() of
+            [] -> [];
+            Libs -> [{lib_dirs,Libs}]
+        end,
+    ?m({ok,{sys,Sys}}, reltool:get_config(Server)),
 
     %% Terminate
     check_no_win_crash(),

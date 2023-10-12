@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
     <p>This product includes software written by Tim Hudson
       (tjh@cryptsoft.com).
       </p>
-    <p>For full OpenSSL and SSLeay license texts, see <seealso marker="licenses#licenses">Licenses</seealso>.
+    <p>For full OpenSSL and SSLeay license texts, see <seeguide marker="licenses#licenses">Licenses</seeguide>.
       </p>
   </description>
   <xi:include href="licenses.xml"/>
@@ -51,4 +51,5 @@
   <xi:include href="engine_load.xml"/>
   <xi:include href="engine_keys.xml"/>
   <xi:include href="algorithm_details.xml"/>
+  <xi:include href="new_api.xml"/>
 </part>

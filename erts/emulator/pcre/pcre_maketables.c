@@ -108,7 +108,7 @@ exclusive ones - in some locales things may be different.
 
 Note that the table for "space" includes everything "isspace" gives, including
 VT in the default locale. This makes it work for the POSIX class [:space:].
-From release 8.34 is is also correct for Perl space, because Perl added VT at
+From release 8.34 is also correct for Perl space, because Perl added VT at
 release 5.18.
 
 Note also that it is possible for a character to be alnum or alpha without

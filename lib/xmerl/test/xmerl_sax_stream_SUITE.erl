@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -207,7 +207,7 @@ one_document_and_junk(Config) ->
 
 %%----------------------------------------------------------------------
 %% Test of continuation when end of stream
-end_of_stream(Config) ->
+end_of_stream(_Config) ->
     Stream = <<"<?xml version=\"1.0\" encoding=\"utf-8\"?><a>hej</a>">>,
     {ok, undefined, <<>>} = xmerl_sax_parser:stream(Stream, []),
     ok.

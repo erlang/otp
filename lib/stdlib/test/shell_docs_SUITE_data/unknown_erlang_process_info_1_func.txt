@@ -1,0 +1,140 @@
+
+  [;1m-spec process_info(Pid) -> Info[0m
+  [;1m                      when[0m
+  [;1m                          Pid :: pid(),[0m
+  [;1m                          Info :: [InfoTuple] | undefined,[0m
+  [;1m                          InfoTuple :: process_info_result_item().[0m
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+    -type priority_level() :: low | normal | high | max.
+    -type process_info_result_item() ::
+          {async_dist, Enabled :: boolean()} |
+          {backtrace, Bin :: binary()} |
+          {binary,
+           BinInfo ::
+               [{non_neg_integer(),
+                 non_neg_integer(),
+                 non_neg_integer()}]} |
+          {catchlevel, CatchLevel :: non_neg_integer()} |
+          {current_function,
+           {Module :: module(), Function :: atom(), Arity :: arity()} |
+           undefined} |
+          {current_location,
+           {Module :: module(),
+            Function :: atom(),
+            Arity :: arity(),
+            Location ::
+                [{file, Filename :: string()} |
+                 {line, Line :: pos_integer()}]}} |
+          {current_stacktrace, Stack :: [stack_item()]} |
+          {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
+          {error_handler, Module :: module()} |
+          {garbage_collection, GCInfo :: [{atom(), non_neg_integer()}]} |
+          {garbage_collection_info,
+           GCInfo :: [{atom(), non_neg_integer()}]} |
+          {group_leader, GroupLeader :: pid()} |
+          {heap_size, Size :: non_neg_integer()} |
+          {initial_call, mfa()} |
+          {links, PidsAndPorts :: [pid() | port()]} |
+          {last_calls, false | (Calls :: [mfa()])} |
+          {memory, Size :: non_neg_integer()} |
+          {message_queue_len, MessageQueueLen :: non_neg_integer()} |
+          {messages, MessageQueue :: [term()]} |
+          {min_heap_size, MinHeapSize :: non_neg_integer()} |
+          {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
+          {max_heap_size, MaxHeapSize :: max_heap_size()} |
+          {monitored_by,
+           MonitoredBy :: [pid() | port() | nif_resource()]} |
+          {monitors,
+           Monitors ::
+               [{process | port,
+                 Pid ::
+                     pid() |
+                     port() |
+                     {RegName :: atom(), Node :: node()}}]} |
+          {message_queue_data, MQD :: message_queue_data()} |
+          {parent, pid() | undefined} |
+          {priority, Level :: priority_level()} |
+          {reductions, Number :: non_neg_integer()} |
+          {registered_name, [] | (Atom :: atom())} |
+          {sequential_trace_token,
+           [] | (SequentialTraceToken :: term())} |
+          {stack_size, Size :: non_neg_integer()} |
+          {status,
+           Status ::
+               exiting | garbage_collecting | waiting | running |
+               runnable | suspended} |
+          {suspending,
+           SuspendeeList ::
+               [{Suspendee :: pid(),
+                 ActiveSuspendCount :: non_neg_integer(),
+                 OutstandingSuspendCount :: non_neg_integer()}]} |
+          {total_heap_size, Size :: non_neg_integer()} |
+          {trace, InternalTraceFlags :: non_neg_integer()} |
+          {trap_exit, Boolean :: boolean()}.
+    -type stack_item() ::
+          {Module :: module(),
+           Function :: atom(),
+           Arity :: arity() | (Args :: [term()]),
+           Location ::
+               [{file, Filename :: string()} |
+                {line, Line :: pos_integer()}]}.
+
+  Returns a list containing [;;4mInfoTuple[0ms with miscellaneous
+  information about the process identified by [;;4mPid[0m, or [;;4mundefined[0m
+  if the process is not alive.
+
+  The order of the [;;4mInfoTuple[0ms is undefined and all [;;4mInfoTuple[0ms
+  are not mandatory. The [;;4mInfoTuple[0ms part of the result can be
+  changed without prior notice.
+
+  The [;;4mInfoTuple[0ms with the following items are part of the result:
+
+   • [;;4mcurrent_function[0m
+
+   • [;;4minitial_call[0m
+
+   • [;;4mstatus[0m
+
+   • [;;4mmessage_queue_len[0m
+
+   • [;;4mlinks[0m
+
+   • [;;4mdictionary[0m
+
+   • [;;4mtrap_exit[0m
+
+   • [;;4merror_handler[0m
+
+   • [;;4mpriority[0m
+
+   • [;;4mgroup_leader[0m
+
+   • [;;4mtotal_heap_size[0m
+
+   • [;;4mheap_size[0m
+
+   • [;;4mstack_size[0m
+
+   • [;;4mreductions[0m
+
+   • [;;4mgarbage_collection[0m
+
+  If the process identified by [;;4mPid[0m has a registered name, also an [;;4m[0m
+  [;;4mInfoTuple[0m with item [;;4mregistered_name[0m is included.
+
+  For information about specific [;;4mInfoTuple[0ms, see [;;4mprocess_info/2[0m.
+
+  Warning:
+    This BIF is intended for debugging only. For all other
+    purposes, use [;;4mprocess_info/2[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPid[0m is not a local process.

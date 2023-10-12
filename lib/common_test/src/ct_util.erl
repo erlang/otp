@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,12 +156,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	{error,{already_started,_}} ->
 	    ok;
 	_ ->
-	    case whereis(vts) of
-		undefined ->
-		    ct_event:add_handler();
-		VtsPid ->
-		    ct_event:add_handler([{vts,VtsPid}])
-	    end
+            ct_event:add_handler()
     end,
 
     %% start ct_config server
@@ -791,7 +786,7 @@ listenv(Telnet) ->
 %%% Equivalent to ct:parse_table/1
 parse_table(Data) ->
     {Heading, Rest} = get_headings(Data),
-    Lines = parse_row(Rest,[],size(Heading)),
+    Lines = parse_row(Rest,[],tuple_size(Heading)),
     {Heading,Lines}.
 
 get_headings(["|" ++ Headings | Rest]) ->

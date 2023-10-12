@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([transport_factory/1,
+-export([generic_transport_factory/1, transport_factory/1,
 	 nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
 	 node_ping/1, mbox_ping/1,
 	 java_erlang_send_receive/1,
@@ -31,7 +31,12 @@
 	 java_internal_send_receive_different_nodes/1,
 	 java_internal_send_receive_self/1,
 	 java_link_and_exit/1, erl_link_and_exit/1,
-	 erl_link_java_exit/1, java_link_erl_exit/1,
+         erl_link_unlink_link_and_exit/1,
+         erl_link_java_unlink_link_and_exit/1,
+         simultaneous_erl_link_java_link_unlink/1,
+         simultaneous_erl_link_unlink_java_link/1,
+	 erl_link_java_exit/1,
+         java_link_erl_exit/1,
 	 internal_link_linking_exits/1, internal_link_linked_exits/1,
 	 internal_unlink_linking_exits/1, internal_unlink_linked_exits/1,
 	 normal_exit/1, kill_mbox/1,kill_erl_proc_from_java/1,
@@ -77,6 +82,10 @@
 -define(kill_mbox_from_erlang,12).
 -define(erl_exit_with_reason_any_term,13).
 -define(java_exit_with_reason_any_term,14).
+-define(erl_link_unlink_link_and_exit, 15).
+-define(erl_link_java_unlink_link_and_exit, 16).
+-define(simultaneous_erl_link_java_link_unlink, 17).
+-define(simultaneous_erl_link_unlink_java_link, 18).
 
 
 %% Test cases in NodeStatusHandler.java
@@ -105,14 +114,15 @@ end_per_group(_GroupName, Config) ->
 
 fundamental() ->
     [
-     transport_factory,    % TransportFactoryTest.java
-     nodename,             % Nodename.java
-     register_and_whereis, % RegisterAndWhereis.java
-     get_names,            % GetNames.java
-     boolean_atom,         % BooleanAtom.java
-     maps,                 % Maps.java
-     fun_equals,           % FunEquals.java
-     core_match_bind       % CoreMatchBind.java
+     generic_transport_factory, % GenericTransportFactoryTest.java
+     transport_factory,         % TransportFactoryTest.java
+     nodename,                  % Nodename.java
+     register_and_whereis,      % RegisterAndWhereis.java
+     get_names,                 % GetNames.java
+     boolean_atom,              % BooleanAtom.java
+     maps,                      % Maps.java
+     fun_equals,                % FunEquals.java
+     core_match_bind            % CoreMatchBind.java
     ].
 
 ping() ->
@@ -148,6 +158,10 @@ link_unlink() ->
      %% Implemented in MboxLinkUnlink.java
      java_link_and_exit,
      erl_link_and_exit,
+     erl_link_unlink_link_and_exit,
+     erl_link_java_unlink_link_and_exit,
+     simultaneous_erl_link_java_link_unlink,
+     simultaneous_erl_link_unlink_java_link,
      erl_link_java_exit,
      java_link_erl_exit,
      internal_link_linking_exits,
@@ -172,6 +186,18 @@ status_handler() ->
 
 
 init_per_suite(Config) when is_list(Config) ->
+    %% Trigger usage of large pids and ports in 64-bit case...
+    case erlang:system_info(wordsize) of
+        4 ->
+            ok;
+        8 ->
+            erts_debug:set_internal_state(available_internal_state,true),
+            erts_debug:set_internal_state(next_pid, 1 bsl 32),
+            erts_debug:set_internal_state(next_port, 1 bsl 32),
+            erts_debug:set_internal_state(available_internal_state,false),
+            ok
+    end,
+
     case case code:priv_dir(jinterface) of
 	     {error,bad_name} -> false;
 	     P -> filelib:is_dir(P) end of
@@ -207,7 +233,7 @@ init_per_testcase(Case, _Config)
        Case =:= kill_mbox_from_erlang ->
     {skip, "Not yet implemented"};
 init_per_testcase(_Case,Config) ->
-    Dog = ?t:timetrap({seconds,30}),
+    Dog = test_server:timetrap({seconds,30}),
     [{watch_dog,Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
@@ -216,12 +242,23 @@ end_per_testcase(_Case,Config) ->
 	Pid -> exit(Pid,kill)
     end,
     jitu:kill_all_jnodes(),
-    ?t:timetrap_cancel(?config(watch_dog,Config)),
+    test_server:timetrap_cancel(?config(watch_dog,Config)),
     ok.
 
 
 %%%-----------------------------------------------------------------
 %%% TEST CASES
+%%%-----------------------------------------------------------------
+generic_transport_factory(doc) ->
+    ["GenericTransportFactoryTest.java: "
+     "Test custom OTP Generic Transport Factory"];
+generic_transport_factory(suite) ->
+    [];
+generic_transport_factory(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+		   ?config(data_dir, Config),
+		   "GenericTransportFactoryTest").
+
 %%%-----------------------------------------------------------------
 transport_factory(doc) ->
     ["TransportFactoryTest.java: Test custom OTP Transport Factory"];
@@ -393,6 +430,77 @@ erl_link_and_exit(Config) when is_list(Config) ->
 	      end,
     erl_java_link(LinkFun,erl_link_and_exit,Config).
 
+erl_link_unlink_link_and_exit(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+		      link(Mbox),
+                      unlink(Mbox),
+                      link(Mbox),
+		      Mbox ! {?erl_link_unlink_link_and_exit,self(),?link_test_reason},
+		      receive ok -> ok end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,erl_link_unlink_link_and_exit,Config).
+
+erl_link_java_unlink_link_and_exit(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+		      link(Mbox),
+		      Mbox ! {?erl_link_java_unlink_link_and_exit,self(),?link_test_reason},
+		      receive ok -> ok end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,erl_link_java_unlink_link_and_exit,Config).
+
+simultaneous_erl_link_java_link_unlink(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+                      GoTime = os:system_time(millisecond) + 500,
+		      Mbox ! {?simultaneous_erl_link_java_link_unlink, self(), GoTime},
+                      spin_wait_until(fun () ->
+                                              os:system_time(millisecond) >= GoTime
+                                      end),
+                      link(Mbox),
+                      receive check_link -> ok end,
+                      %% We now know the unlink should have reached us and we
+                      %% should have sent the unlink ack...
+                      Mbox ! check_link,
+                      {links, Links} = process_info(self(), links),
+                      Expect = case lists:member(Mbox, Links) of
+                                   true -> linked;
+                                   false -> not_linked
+                               end,
+                      io:format("Expect = ~p~n", [Expect]),
+                      receive
+                          MboxResult ->
+                              MboxResult = Expect
+                      end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,simultaneous_erl_link_java_link_unlink,Config).
+    
+simultaneous_erl_link_unlink_java_link(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+                      GoTime = os:system_time(millisecond) + 500,
+		      Mbox ! {?simultaneous_erl_link_unlink_java_link, self(), GoTime},
+                      spin_wait_until(fun () ->
+                                              os:system_time(millisecond) >= GoTime
+                                      end),
+                      link(Mbox),
+                      unlink(Mbox),
+                      Mbox ! check_link,
+                      receive check_link -> ok end,
+                      {links, Links} = process_info(self(), links),
+                      Expect = case lists:member(Mbox, Links) of
+                                   true -> linked;
+                                   false -> not_linked
+                               end,
+                      io:format("Expect = ~p~n", [Expect]),
+                      receive
+                          MboxResult ->
+                              MboxResult = Expect
+                      end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,simultaneous_erl_link_unlink_java_link,Config).
+    
 %%%-----------------------------------------------------------------
 erl_link_java_exit(doc) ->
     ["MboxLinkUnlink.java: "
@@ -856,3 +964,11 @@ erl_status_server([{Tag,NodeName,Up}|Rest],_) ->
     end;
 erl_status_server([],From) ->
     From ! done.
+
+spin_wait_until(Fun) ->
+    case Fun() of
+        true -> ok;
+        _ -> spin_wait_until(Fun)
+    end.
+            
+                        

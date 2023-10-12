@@ -135,7 +135,7 @@ KeySignedMaterial ::= SEQUENCE {
 	generalId		Identifier, -- slave's alias
 	mrandom	RandomVal, -- master's random value
 	srandom	RandomVal OPTIONAL, -- slave's random value
-	timeStamp	TimeStamp OPTIONAL, -- master's timestamp for unsolicted EU
+	timeStamp	TimeStamp OPTIONAL, -- master's timestamp for unsolicited EU
 	encrptval	ENCRYPTED {EncodedKeySyncMaterial }
 }
 EncodedKeySignedMaterial ::= TYPE-IDENTIFIER.&Type (KeySignedMaterial)

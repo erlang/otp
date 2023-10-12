@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,41 +24,43 @@
 
 -include("public_key.hrl").
 
--export([init_validation_state/3, prepare_for_next_cert/2,
- 	 validate_time/3, validate_signature/6,
- 	 validate_issuer/4, validate_names/6,
+-export([init_validation_state/3, 
+         prepare_for_next_cert/2,
+ 	 validate_time/3, 
+         validate_signature/6,
+ 	 validate_issuer/4, 
+         validate_names/6,
 	 validate_extensions/4,
-	 normalize_general_name/1, is_self_signed/1,
-	 is_issuer/2, issuer_id/2, distribution_points/1, 
-	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
-	 select_extension/2, match_name/3,
-	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1,
-         gen_test_certs/1, root_cert/2]).
+	 normalize_general_name/1, 
+         is_self_signed/1,
+	 is_issuer/2, 
+         issuer_id/2,
+         subject_id/1,
+         distribution_points/1, 
+	 is_fixed_dh_cert/1, 
+         verify_data/1, 
+         verify_fun/4, 
+	 select_extension/2, 
+         match_name/3,
+	 extensions_list/1, 
+         cert_auth_key_id/1, 
+         time_str_2_gregorian_sec/1,
+         gen_test_certs/1, 
+         x509_pkix_sign_types/1,
+         root_cert/2]).
 
 -define(NULL, 0).
 
--export_type([cert_opt/0, chain_opts/0, conf_opt/0,
-              test_config/0, test_root_cert/0]).
-
--type cert_opt()  :: {digest, public_key:digest_type()} | 
-                     {key, public_key:key_params() | public_key:private_key()} | 
-                     {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
-                     {extensions, [#'Extension'{}]}.
--type chain_end()   :: root | peer.
--type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
--type conf_opt()    :: {cert, public_key:der_encoded()} | 
-                       {key,  public_key:private_key()} |
-                       {cacerts, [public_key:der_encoded()]}.
--type test_config() ::
-        #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
--type test_root_cert() ::
-        #{cert := binary(), key := public_key:private_key()}.
 %%====================================================================
-%% Internal application APIu
+%% Internal application APIs
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec verify_data(DER::binary()) -> {md5 | sha,  binary(), binary()}.
+-spec verify_data(DER::binary()) ->
+           {DigestType, PlainText, Signature}
+               when DigestType :: md5 | crypto:sha1() | crypto:sha2() | none,
+                    PlainText  :: binary(),
+                    Signature  :: binary().
 %%
 %% Description: Extracts data from DerCert needed to call public_key:verify/4.
 %%--------------------------------------------------------------------	 
@@ -70,7 +72,7 @@ verify_data(DerCert) ->
 -spec init_validation_state(#'OTPCertificate'{}, integer(), list()) ->
 				   #path_validation_state{}.
 %%
-%% Description: Creates inital version of path_validation_state for
+%% Description: Creates initial version of path_validation_state for
 %% basic path validation of x509 certificates.
 %%--------------------------------------------------------------------	 
 init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen, 
@@ -132,7 +134,7 @@ prepare_for_next_cert(OtpCert, ValidationState = #path_validation_state{
      }.
 
  %%--------------------------------------------------------------------
--spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term().
+-spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate validity period includes the 
 %% current time.
@@ -142,8 +144,8 @@ validate_time(OtpCert, UserState, VerifyFun) ->
     {'Validity', NotBeforeStr, NotAfterStr} 
 	= TBSCert#'OTPTBSCertificate'.validity,
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
-    NotBefore = time_str_2_gregorian_sec(NotBeforeStr),
-    NotAfter = time_str_2_gregorian_sec(NotAfterStr),
+    NotBefore = time_str_2_gregorian_sec(notBefore, NotBeforeStr),
+    NotAfter = time_str_2_gregorian_sec(notAfter, NotAfterStr),
 
     case ((NotBefore =< Now) and (Now =< NotAfter)) of
 	true ->
@@ -152,7 +154,7 @@ validate_time(OtpCert, UserState, VerifyFun) ->
 	    verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
--spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term().
+-spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate issuer name is the working_issuer_name
 %% in path_validation_state.
@@ -167,7 +169,7 @@ validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
     end. 
 %%--------------------------------------------------------------------
 -spec validate_signature(#'OTPCertificate'{}, DER::binary(),
-			 term(),term(), term(), fun()) -> term().
+			 term(),term(), term(), fun()) -> term() | no_return().
 				
 %%
 %% Description: Check that the signature on the certificate can be verified using
@@ -185,7 +187,7 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
     end.
 %%--------------------------------------------------------------------
 -spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
-		     term(), term(), fun())-> term().
+		     term(), term(), fun())-> term() | no_return().
 %%
 %% Description: Validate Subject Alternative Name.
 %%--------------------------------------------------------------------	
@@ -242,12 +244,12 @@ validate_extensions(OtpCert, ValidationState, UserState, VerifyFun) ->
 	    {ValidationState, UserState}
     end.
 %%--------------------------------------------------------------------
--spec normalize_general_name({rdnSequence, term()}) -> {rdnSequence, term()}. 
+-spec normalize_general_name({rdnSequence, term()}| binary()) -> {rdnSequence, term()}. 
 %%
 %% Description: Normalizes a general name so that it can be easily
-%%              compared to another genral name. 
+%%              compared to another general name. 
 %%--------------------------------------------------------------------	
-normalize_general_name({rdnSequence, Issuer}) ->
+normalize_general_name({rdnSequence, Issuer}) ->    
     NormIssuer = do_normalize_general_name(Issuer),
     {rdnSequence, NormIssuer}.
 
@@ -291,6 +293,20 @@ issuer_id(Otpcert, self) ->
     SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
     {ok, {SerialNr, normalize_general_name(Issuer)}}.  
 
+
+%%--------------------------------------------------------------------
+-spec subject_id(#'OTPCertificate'{}) -> 
+		       {integer(), term()}.
+%%
+%% Description: Extracts the subject and serial number from a certificate.
+%%--------------------------------------------------------------------
+subject_id(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate, 
+    Subject = TBSCert#'OTPTBSCertificate'.subject,
+    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
+    {SerialNr, normalize_general_name(Subject)}.  
+
+
 distribution_points(Otpcert) ->
     TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
     Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
@@ -317,7 +333,7 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 %%--------------------------------------------------------------------
 -spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
-		 valid | valid_peer, term(), fun()) -> term().
+		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
 %% Description: Gives the user application the opportunity handle path
 %% validation errors and unknown extensions and optional do other
@@ -354,6 +370,9 @@ select_extension(_, asn1_NOVALUE) ->
     undefined;
 select_extension(_, []) ->
     undefined;
+select_extension(Id, [#'Extension'{extnID = ?'id-ce-cRLDistributionPoints' = Id,
+                                   extnValue = Value} = Extension | _]) when is_binary(Value) ->
+    Extension#'Extension'{extnValue = public_key:der_decode('CRLDistributionPoints', Value)};
 select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
     Extension;
 select_extension(Id, [_ | Extensions]) ->
@@ -392,9 +411,8 @@ match_name(emailAddress, Name, [PermittedName | Rest]) ->
 match_name(dNSName, Name, [PermittedName | Rest]) ->
     Fun = fun(Domain, [$.|Domain]) -> true;
 	     (Name1,Name2) ->
-		  lists:suffix(string:to_lower(Name2),
-			       string:to_lower(Name1))
-	  end,
+		  is_suffix(Name2, Name1)
+          end,
     match_name(Fun, Name, [$.|PermittedName], Rest);
 
 match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
@@ -436,11 +454,11 @@ match_name(Fun, Name, PermittedName, [Head | Tail]) ->
     end.
 
 %%%
--spec gen_test_certs(#{server_chain:= chain_opts(),
-                       client_chain:= chain_opts()} |
-                     chain_opts()) ->
-                            test_config() |
-                            [conf_opt()].
+-spec gen_test_certs(#{server_chain:= public_key:chain_opts(),
+                       client_chain:= public_key:chain_opts()} |
+                     public_key:chain_opts()) ->
+                            public_key:test_config() |
+                            [public_key:conf_opt()].
 %%
 %% Generates server and and client configuration for testing
 %% purposes. All certificate options have default values
@@ -503,21 +521,35 @@ gen_test_certs(
     DERCAs = ca_config(RootCert, CAsKeys),
     [{cert, DERCert}, {key, DERKey}, {cacerts, DERCAs}].
 
+
+x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                           parameters = #'RSASSA-PSS-params'{saltLength = SaltLen, hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
+    Hash = public_key:pkix_hash_type(Alg),
+    {Hash, rsa_pss_pss, [{rsa_padding, rsa_pkcs1_pss_padding},
+                         {rsa_pss_saltlen, SaltLen},
+                         {rsa_mgf1_md, Hash}]};
+x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
+    {Hash, Sign} = public_key:pkix_sign_types(Alg),
+    {Hash, Sign, []}.
+
 %%%
--spec root_cert(string(), [cert_opt()]) -> test_root_cert().
+-spec root_cert(string(), [public_key:cert_opt()]) -> public_key:test_root_cert().
 %%
 %% Generate a self-signed root cert
 root_cert(Name, Opts) ->
     PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
     TBS = cert_template(),
     Issuer = subject("root", Name),
+    SignatureId =  sign_algorithm(PrivKey, Opts),
+    SPI = public_key(PrivKey, SignatureId),
+    
     OTPTBS =
         TBS#'OTPTBSCertificate'{
-          signature = sign_algorithm(PrivKey, Opts),
+          signature = SignatureId,
           issuer = Issuer,
           validity = validity(Opts),
           subject = Issuer,
-          subjectPublicKeyInfo = public_key(PrivKey),
+          subjectPublicKeyInfo = SPI,
           extensions = extensions(undefined, ca, Opts)
          },
     #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
@@ -528,11 +560,11 @@ root_cert(Name, Opts) ->
 %%--------------------------------------------------------------------
 do_normalize_general_name(Issuer) ->
     Normalize = fun([{Description, Type, {printableString, Value}}]) ->
-			NewValue = string:to_lower(strip_spaces(Value)),
-			[{Description, Type, {printableString, NewValue}}];
-		   (Atter)  ->
-			Atter
-		end,
+            NewValue = string:casefold(strip_spaces(Value, false)),
+            [{Description, Type, {printableString, NewValue}}];
+           (Atter)  ->
+            Atter
+        end,
     lists:map(Normalize, Issuer).
 
 %% See rfc3280 4.1.2.6 Subject: regarding emails.
@@ -552,17 +584,21 @@ extensions_list(Extensions) ->
 
 extract_verify_data(OtpCert, DerCert) ->
     Signature = OtpCert#'OTPCertificate'.signature,
-    SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
-    SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
+    SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
     PlainText = encoded_tbs_cert(DerCert),
-    {DigestType,_} = public_key:pkix_sign_types(SigAlg),
+    {DigestType,_,_} = x509_pkix_sign_types(SigAlg),
     {DigestType, PlainText, Signature}.
 
 verify_signature(OtpCert, DerCert, Key, KeyParams) ->
     {DigestType, PlainText, Signature} = extract_verify_data(OtpCert, DerCert),
     case Key of
 	#'RSAPublicKey'{} ->
-	    public_key:verify(PlainText, DigestType, Signature, Key);
+            case KeyParams of
+                #'RSASSA-PSS-params'{} ->
+                    public_key:verify(PlainText, DigestType, Signature, Key, verify_options(KeyParams));
+                'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key)
+            end;
 	_ ->
 	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
     end.
@@ -589,26 +625,54 @@ public_key_info(PublicKeyInfo,
 	case PublicKeyParams of
 	    {null, 'NULL'} when WorkingAlgorithm == Algorithm ->
 		WorkingParams;
-	    {params, Params} ->
+            asn1_NOVALUE when Algorithm == ?'id-Ed25519';
+                              Algorithm == ?'id-Ed448' ->
+                {namedCurve, Algorithm};
+            {params, Params} ->
 		Params;
-	    Params ->
+            Params ->
 		Params
 	end,
     {Algorithm, PublicKey, NewPublicKeyParams}.
 
-time_str_2_gregorian_sec({utcTime, [Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z]}) ->
-    case list_to_integer([Y1,Y2]) of
-	N when N >= 50 ->
-	    time_str_2_gregorian_sec({generalTime, 
-				      [$1,$9,Y1,Y2,M1,M2,D1,D2,
-				       H1,H2,M3,M4,S1,S2,Z]});
-	_ ->
-	    time_str_2_gregorian_sec({generalTime, 
-				      [$2,$0,Y1,Y2,M1,M2,D1,D2,
-				       H1,H2,M3,M4,S1,S2,Z]}) 
-    end;
+%% time_str_2_gregorian_sec/2 is a wrapper (decorator pattern) over
+%% time_str_2_gregorian_sec/1. the decorator deals with notBefore and notAfter
+%% property differently when we pass utcTime because the data format is
+%% ambiguous YYMMDD. on generalTime the year ambiguity cannot happen because
+%% years are expressed in a 4-digit format, i.e., YYYYMMDD.
+-spec time_str_2_gregorian_sec(PeriodOfTime, Time) -> Seconds :: non_neg_integer() when
+      PeriodOfTime :: notBefore | notAfter,
+      Time :: {utcTime | generalTime, [non_neg_integer() | char()]}.
+time_str_2_gregorian_sec(notBefore, {utcTime, [FirstDigitYear | _]=UtcTime}) ->
+    %% To be compliant with PKITS Certification Path Validation,
+    %% we must accept certificates with notBefore = 50, meaning 1950.
+    %% Once the PKITS certification path validation is updated,
+    %% we must update this function body and test case
+    %% {"4.2.3", "Valid pre2000 UTC notBefore Date Test3 EE"}
+    %% in pkits_SUITE.erl
+    Y1 = erlang:list_to_integer([FirstDigitYear]),
+    YearPrefix = case (Y1 > 4 andalso Y1 =< 9) of
+                     true -> [$1, $9];
+                     false  ->
+                         {Y, _M, _D} = erlang:date(),
+                         integer_to_list(Y div 100)
+                 end,
+    time_str_2_gregorian_sec({generalTime, YearPrefix ++ UtcTime});
 
-time_str_2_gregorian_sec({_,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
+time_str_2_gregorian_sec(notAfter, {utcTime, UtcTime}) ->
+    SlidingDate = sliding_year_window(UtcTime),
+    time_str_2_gregorian_sec({generalTime, SlidingDate});
+
+time_str_2_gregorian_sec(_, {generalTime, _Time}=GeneralTime) ->
+    time_str_2_gregorian_sec(GeneralTime).
+
+%% converts 'Time' as a string into gregorian time in seconds.
+-spec time_str_2_gregorian_sec(Time) -> Seconds :: non_neg_integer() when
+      Time :: {generalTime | utcTime, string()}.
+time_str_2_gregorian_sec({utcTime, UtcTime}) ->
+    time_str_2_gregorian_sec(notAfter, {utcTime, UtcTime});
+
+time_str_2_gregorian_sec({generalTime,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
     Year  = list_to_integer([Y1, Y2, Y3, Y4]),
     Month = list_to_integer([M1, M2]),
     Day   = list_to_integer([D1, D2]),
@@ -617,6 +681,28 @@ time_str_2_gregorian_sec({_,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
     Sec   = list_to_integer([S1, S2]),
     calendar:datetime_to_gregorian_seconds({{Year, Month, Day},
 					    {Hour, Min, Sec}}).
+
+%% Sliding window algorithm to calculate the time.
+%% The value is set as taking {Y1, Y2} from the first two digits of
+%% current_date - 50 or current_date - 49.
+sliding_year_window([Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z]) ->
+    {{CurrentYear,_, _}, _} = calendar:universal_time(),
+    LastTwoDigitYear = CurrentYear rem 100,
+    MinYear = mod(LastTwoDigitYear - 50, 100),
+    YearWindow = case list_to_integer([Y1,Y2]) of
+                     N when N < MinYear -> CurrentYear + 50;
+                     N when N >= MinYear -> CurrentYear - 49
+                 end,
+    [Year1, Year2] = integer_to_list(YearWindow div 100),
+    [Year1,Year2,Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z].
+
+
+%% Helper function to perform modulo calculation for integer
+-spec mod(A :: integer(), B :: non_neg_integer()) -> non_neg_integer().
+mod(A, B) when A > 0 -> A rem B;
+mod(A, B) when A < 0 -> mod(A+B, B);
+mod(0, _) -> 0.
+
 
 is_dir_name([], [], _Exact) ->    true;
 is_dir_name([H|R1],[H|R2], Exact) -> is_dir_name(R1,R2, Exact);
@@ -631,14 +717,28 @@ is_dir_name(_,[],false) ->
 is_dir_name(_,_,_) ->
     false.
 
-is_dir_name2(Value, Value) -> true;
-is_dir_name2({printableString, Value1}, {printableString, Value2}) ->
-    string:to_lower(strip_spaces(Value1)) =:= 
-	string:to_lower(strip_spaces(Value2));
-is_dir_name2({utf8String, Value1}, String) ->
-    is_dir_name2({printableString, unicode:characters_to_list(Value1)}, String);
-is_dir_name2(String, {utf8String, Value1}) ->
-    is_dir_name2(String, {printableString, unicode:characters_to_list(Value1)});
+%% attribute values in types other than PrintableString are case
+%% sensitive (this permits matching of attribute values as binary
+%% objects); that is term comparison will compare. Rules origninate
+%% from RFC 3280 section 4.1.24. However fallback to case insensite
+%% matching also for utf8 strings, as this is done by the
+%% pkits_suite interop suite
+is_dir_name2(Str, Str) ->
+    true;
+is_dir_name2({T1, Str1}, Str2)
+  when T1 == printableString; T1 == utf8String ->
+    is_dir_name2(Str1, Str2);
+is_dir_name2(Str1, {T2, Str2})
+  when T2 == printableString; T2 == utf8String ->
+    is_dir_name2(Str1, Str2);
+is_dir_name2(Str1, Str2)
+  when (is_list(Str1) orelse is_binary(Str1)) andalso
+       (is_list(Str2) orelse is_binary(Str2)) ->
+    %%attribute values in PrintableString are compared after
+    %%removing leading and trailing white space and converting internal
+    %%substrings of one or more consecutive white space characters to a
+    %%single space. They are case insensetive.
+    string:equal(strip_spaces(Str1, true), strip_spaces(Str2, true), true);
 is_dir_name2(_, _) ->
     false.
 
@@ -656,13 +756,19 @@ decode_general_name([{directoryName, Issuer}]) ->
 decode_general_name([{_, Issuer}]) ->
     Issuer.
 
-%% Strip all leading and trailing spaces and make
-%% sure there is no double spaces in between. 
-strip_spaces(String) ->   
-    NewString = 
-	lists:foldl(fun(Char, Acc) -> Acc ++ Char ++ " " end, [], 
-		    string:tokens(String, " ")),
-    string:strip(NewString).
+strip_spaces(String0, KeepDeep) ->
+    Trimmed = string:trim(String0),
+    strip_many_spaces(string:split(Trimmed, "  ", all), KeepDeep).
+
+strip_many_spaces([OnlySingleSpace], _) ->
+    OnlySingleSpace;
+strip_many_spaces(Strings, KeepDeep) ->
+    Split = [string:trim(Str, leading, " ") || Str <- Strings, Str /= []],
+    DeepList = lists:join(" ", Split),
+    case KeepDeep of
+        true -> DeepList;
+        false -> unicode:characters_to_list(DeepList)
+    end.
 
 %% No extensions present
 validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
@@ -990,6 +1096,8 @@ is_permitted_ip([CandidatIp | CandidatIpRest],
 mask_cmp(Canditate, Permitted, Mask) ->
     (Canditate band Mask) == Permitted.
 
+is_valid_host_or_domain([], _) ->
+    false; %% Can happen if URI was not a HTTP URI
 is_valid_host_or_domain(Canditate, [$.|_] = Permitted) ->
     is_suffix(Permitted, Canditate);
 is_valid_host_or_domain(Canditate, Permitted) ->
@@ -1010,9 +1118,9 @@ is_valid_email_address(Canditate, Permitted, [_, _]) ->
     case_insensitive_match(Canditate, Permitted).
 
 is_suffix(Suffix, Str) ->
-    lists:suffix(string:to_lower(Suffix), string:to_lower(Str)).
+    lists:suffix(string:casefold(Suffix), string:casefold(Str)).
 case_insensitive_match(Str1, Str2) ->
-    string:to_lower(Str1) == string:to_lower(Str2).
+    string:equal(Str1, Str2, true).
 
 is_or_address(Address, Canditate) ->
     %% TODO: Is case_insensitive_match sufficient?
@@ -1119,6 +1227,8 @@ is_key(#'DSAPrivateKey'{}) ->
     true;
 is_key(#'RSAPrivateKey'{}) ->
     true;
+is_key({#'RSAPrivateKey'{}, _}) ->
+    true;
 is_key(#'ECPrivateKey'{}) ->
     true;
 is_key(_) ->
@@ -1166,26 +1276,65 @@ validity(Opts) ->
     DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
-    Format =
+    
+    GenFormat =
         fun({Y,M,D}) ->
                 lists:flatten(
-                  io_lib:format("~4..0w~2..0w~2..0w000000Z",[Y,M,D]))
+                  io_lib:format("~4..0w~2..0w~2..0w130000Z",[Y,M,D]))
         end,
-    #'Validity'{notBefore={generalTime, Format(DefFrom)},
-		notAfter ={generalTime, Format(DefTo)}}.
+    
+    UTCFormat =
+        fun({Y,M,D}) ->
+                [_, _, Y3, Y4] = integer_to_list(Y),
+                lists:flatten(
+                  io_lib:format("~s~2..0w~2..0w130000Z",[[Y3, Y4],M,D]))
+        end,
+    
+    #'Validity'{notBefore = validity_format(DefFrom, GenFormat, UTCFormat),
+                notAfter = validity_format(DefTo, GenFormat, UTCFormat)}.
 
-sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
-    Type = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
-    #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = 'NULL'};
+validity_format({Year, _, _} = Validity, GenFormat, _UTCFormat) when Year >= 2049 ->
+    {generalTime, GenFormat(Validity)};
+validity_format(Validity, _GenFormat, UTCFormat) ->
+    {utcTime, UTCFormat(Validity)}.
+
+
+sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
+      case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
+        rsa_pkcs1_pss_padding ->
+            DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
+            rsa_sign_algo(Key, DigestId, 'NULL');
+        rsa_pss_rsae ->
+            DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha256)),
+            rsa_sign_algo(Key, DigestId, 'NULL')
+      end;
+sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
+    rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
+        
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     #'SignatureAlgorithm'{algorithm  = ?'id-dsa-with-sha1',
                           parameters = {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
+sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts) when EDCurve == ?'id-Ed25519';
+                                                                                EDCurve == ?'id-Ed448' ->
+    #'SignatureAlgorithm'{algorithm  = EDCurve,
+                          parameters = asn1_NOVALUE};
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
                           parameters = Parms}.
+
+rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = Params};   
+rsa_sign_algo(#'RSAPrivateKey'{}, Type, Parms) ->
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = Parms}.
+
+rsa_digest_oid(Oid) when is_tuple(Oid) ->     
+    Oid;
 rsa_digest_oid(sha1) ->
+    ?'sha1WithRSAEncryption';
+rsa_digest_oid(sha) ->
     ?'sha1WithRSAEncryption';
 rsa_digest_oid(sha512) ->
     ?'sha512WithRSAEncryption';
@@ -1194,9 +1343,13 @@ rsa_digest_oid(sha384) ->
 rsa_digest_oid(sha256) ->
     ?'sha256WithRSAEncryption';
 rsa_digest_oid(md5) ->
-   ?'md5WithRSAEncryption'.
+    ?'md5WithRSAEncryption'.
 
+ecdsa_digest_oid(Oid) when is_tuple(Oid) ->     
+    Oid;
 ecdsa_digest_oid(sha1) ->
+    ?'ecdsa-with-SHA1';
+ecdsa_digest_oid(sha) ->
     ?'ecdsa-with-SHA1';
 ecdsa_digest_oid(sha512) ->
     ?'ecdsa-with-SHA512';
@@ -1219,18 +1372,19 @@ cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
     Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
-                " Intermidiate CA " ++ integer_to_list(N), CAOpts, ca),
+                " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
     cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
      PrivKey, Key, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
+    SignAlgoId = sign_algorithm(PrivKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
-               signature = sign_algorithm(PrivKey, Opts),
+               signature = SignAlgoId,
                issuer =  Issuer,
                validity = validity(Opts),  
                subject = subject(Contact, atom_to_list(Role) ++ Name),
-               subjectPublicKeyInfo = public_key(Key),
+               subjectPublicKeyInfo = public_key(Key, SignAlgoId),
                extensions = extensions(Role, Type, Opts)
               },
     public_key:pkix_sign(OTPTBS, PrivKey).
@@ -1247,19 +1401,47 @@ default_key_gen() ->
             {namedCurve, Oid}
     end.
 
-public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}) ->
+public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
+           #'SignatureAlgorithm'{algorithm  = ?rsaEncryption,
+                                 parameters = #'RSASSA-PSS-params'{} = Params}) ->
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters = Params},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = Public};
+public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{} = Params}, 
+           #'SignatureAlgorithm'{algorithm  = ?'id-RSASSA-PSS',
+                                 parameters = #'RSASSA-PSS-params'{} = Params}) ->
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-RSASSA-PSS', parameters= Params},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = Public};
+public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
     Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
-public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
+public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
 				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
 public_key(#'ECPrivateKey'{version = _Version,
-			  privateKey = _PrivKey,
-			  parameters = Params,
-			  publicKey = PubKey}) ->
+                           privateKey = _PrivKey,
+                           parameters = {namedCurve, ?'id-Ed25519' = ID},
+                           publicKey = PubKey}, _) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ID, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}};
+public_key(#'ECPrivateKey'{version = _Version,
+                           privateKey = _PrivKey,
+                           parameters = {namedCurve, ?'id-Ed448' = ID},
+                           publicKey = PubKey}, _) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ID, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}};
+public_key(#'ECPrivateKey'{version = _Version,
+                           privateKey = _PrivKey,
+                           parameters = Params,
+                           publicKey = PubKey}, _) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
@@ -1302,6 +1484,9 @@ add_default_extensions(Defaults0, Exts) ->
                                end, Defaults0),
     Exts ++ Defaults.
 
+encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
 encode_key(#'RSAPrivateKey'{} = Key) ->
     {'RSAPrivateKey', public_key:der_encode('RSAPrivateKey', Key)};
 encode_key(#'ECPrivateKey'{} = Key) ->
@@ -1309,3 +1494,11 @@ encode_key(#'ECPrivateKey'{} = Key) ->
 encode_key(#'DSAPrivateKey'{} = Key) ->
     {'DSAPrivateKey', public_key:der_encode('DSAPrivateKey', Key)}.
 
+verify_options(#'RSASSA-PSS-params'{saltLength = SaltLen,
+                                    maskGenAlgorithm = 
+                                        #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                            parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    HashAlgo = public_key:pkix_hash_type(HashOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, SaltLen},
+     {rsa_mgf1_md, HashAlgo}].

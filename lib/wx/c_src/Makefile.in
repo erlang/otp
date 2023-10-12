@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,17 +35,20 @@ SO_EXT    = @SO_EXT@
 OBJC_CC=@OBJC_CC@
 OBJC_CFLAGS=@OBJC_CFLAGS@
 
-GENERAL     = wxe_driver wxe_ps_init wxe_main wxe_impl wxe_helpers wxe_callback_impl wxe_return wxe_gl
-GENERAL_H   = wxe_callback_impl.h  wxe_driver.h  wxe_events.h  wxe_gl.h \
-	wxe_helpers.h  wxe_impl.h  wxe_memory.h  wxe_return.h
+GENERAL     = wxe_nif wxe_ps_init wxe_main wxe_impl \
+		wxe_helpers wxe_callback_impl wxe_return wxe_gl
+GENERAL_H   = wxe_callback_impl.h  wxe_events.h  wxe_gl.h \
+		wxe_helpers.h  wxe_impl.h  wxe_memory.h  wxe_return.h
 
-GENERATED_F = wxe_funcs wxe_events wxe_init
-GENERATED_H = gen/wxe_macros.h 
+GENERATED_F = wxe_wrapper_1 wxe_wrapper_2 wxe_wrapper_3 wxe_wrapper_4 \
+	wxe_wrapper_5 wxe_wrapper_6 wxe_wrapper_7 wxe_wrapper_8 \
+	wxe_events wxe_init wxe_func_table
+GENERATED_H = gen/wxe_macros.h
 
-GL_H = egl_impl.h gen/glu_finit.h gen/gl_finit.h gen/gl_fdefs.h 
+GL_H = egl_impl.h gen/gl_finit.h gen/gl_fdefs.h
 
 HAVE_OPENGL = true
-OPENGL_F = gl_funcs egl_impl
+OPENGL_F = gl_nif glu_nif egl_impl
 
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/output.mk
@@ -63,18 +66,24 @@ else
 	GL_OBJECTS = 
 endif
 
+TARGET_DIR = ../priv/$(SYS_TYPE)
+
 RC_FILE_EXT = @RC_FILE_TYPE@
 ifeq ($(SYS_TYPE),win32)
-RC_FILE     = $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT)
-else 
-RC_FILE     = 
+	RC_FILE     = $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT)
+	WEBVIEW_LOADER_DLL_ORIG = @WX_WEBVIEW_DLL@
+else
+	RC_FILE     =
+	WEBVIEW_LOADER_DLL_ORIG =
 endif
 
-WX_OBJECTS  = $(GENERAL_O) $(GENERATED_O) $(RC_FILE)
+ifneq ($(WEBVIEW_LOADER_DLL_ORIG),)
+	WEBVIEW_LOADER_DLL_DEST = ../priv/WebView2Loader.dll
+endif
+
+WX_OBJECTS  =  $(GENERATED_O) $(GENERAL_O) $(RC_FILE)
 
 OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
-
-TARGET_DIR = ../priv/$(SYS_TYPE)
 
 # -O2 -funroll-loops  -ffast-math -fomit-frame-pointer 
 
@@ -86,25 +95,27 @@ LD		= $(CXX)
 LDFLAGS		= @LDFLAGS@
 RESCOMP		= @WX_RESCOMP@
 
-ifeq (@WX_HAVE_STATIC_LIBS@,true) 
+ifeq (@WX_HAVE_STATIC_LIBS@,true)
 OPT_WX_LIBS      =  @WX_LIBS_STATIC@
-DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@ @GLIB_LIBS@
 else
-OPT_WX_LIBS      =  @WX_LIBS@
-DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@
+OPT_WX_LIBS      =  @WX_LIBS@ @GLIB_LIBS@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@ @GLIB_LIBS@
 endif
 
 ifeq ($(TYPE),debug)
 WX_CFLAGS	= @DEBUG_WX_CFLAGS@
 CFLAGS          = @DEBUG_CFLAGS@
-WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@ 
-CXX_FLAGS       = @DEBUG_CXXFLAGS@
+WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@
+CXX_FLAGS       = @DEBUG_CXXFLAGS@ @GLIB_CFLAGS@
+CXX_NO_OPT_FLAGS = @DEBUG_CXXFLAGS@ @GLIB_CFLAGS@
 WX_LIBS		= $(DEBUG_WX_LIBS)
 else
 WX_CFLAGS	= @WX_CFLAGS@
 CFLAGS          = @CFLAGS@
-WX_CXX_FLAGS	= @WX_CXXFLAGS@ 
-CXX_FLAGS       = @CXXFLAGS@
+WX_CXX_FLAGS	= @WX_CXXFLAGS@
+CXX_FLAGS       = @CXXFLAGS@ @GLIB_CFLAGS@
+CXX_NO_OPT_FLAGS = @CXXNOOPTFLAGS@ @GLIB_CFLAGS@
 WX_LIBS		= $(OPT_WX_LIBS)
 endif
 
@@ -113,13 +124,14 @@ GL_LIBS         = @GL_LIBS@
 CC_O		= $(V_CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 CXX_O		= $(V_CXX) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
+CXX_O_NO_OPT    = $(V_CXX) -c $(CXX_NO_OPT_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
 
 # Targets
 
-opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT)
+opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT) $(WEBVIEW_LOADER_DLL_DEST)
 
-debug:   
-	@${MAKE} TYPE=debug
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:  
 	rm -f $(OBJECTS) 
@@ -152,9 +164,9 @@ $(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c
 	$(V_at)mkdir -p $(SYS_TYPE)
 	$(cc_verbose)$(OBJC_CC_O) $< -o $@
 
-$(SYS_TYPE)/%.o: gen/%.cpp 
+$(SYS_TYPE)/%.o: gen/%.cpp
 	$(V_at)mkdir -p $(SYS_TYPE)
-	$(CXX_O) $< -o $@
+	$(CXX_O_NO_OPT) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.c 
 	$(V_at)mkdir -p $(SYS_TYPE)
@@ -170,8 +182,10 @@ $(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
 
 $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 	$(V_at)mkdir -p $(TARGET_DIR)
-	$(V_CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
+	$(V_CXX) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
+$(WEBVIEW_LOADER_DLL_DEST): $(WEBVIEW_LOADER_DLL_ORIG)
+	$(INSTALL_PROGRAM) $< $@
 
 # ----------------------------------------------------
 # Release Target
@@ -181,7 +195,15 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
 	$(INSTALL_DATA) ../priv/erlang-logo32.png "$(RELSYSDIR)/priv/"
 	$(INSTALL_DATA) ../priv/erlang-logo64.png "$(RELSYSDIR)/priv/"
+	$(INSTALL_DATA) ../priv/erlang-logo128.png "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver$(SO_EXT) "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) "$(RELSYSDIR)/priv/"
+ifneq ($(WEBVIEW_LOADER_DLL_ORIG),)
+	$(INSTALL_PROGRAM) $(WEBVIEW_LOADER_DLL_DEST) "$(RELSYSDIR)/priv/"
+endif
+ifeq ($(SYS_TYPE),win32)
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver.pdb "$(RELSYSDIR)/priv/"
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl.pdb "$(RELSYSDIR)/priv/"
+endif
 
 release_docs_spec:

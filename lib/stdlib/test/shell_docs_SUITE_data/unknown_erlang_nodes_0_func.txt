@@ -1,0 +1,6 @@
+
+  [;1m-spec nodes() -> Nodes when Nodes :: [node()].[0m
+
+  Returns a list of all nodes connected to this node through normal
+  connections (that is, hidden nodes are not listed). Same as 
+  nodes(visible).

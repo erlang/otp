@@ -2,42 +2,23 @@
 
 -export([do/4]).
 
-%% Resurrect line macro when hipe compiled
--ifdef(hipe).
--define(line, put(the_line,?LINE),).
-do(Priv, Data, Type, Opts) ->
-    try do_it(Priv, Data, Type, Opts)
-    catch
-        C:E ->
-            ST = erlang:get_stacktrace(),
-            io:format("Caught exception from line ~p:\n~p\n",
-                      [get(the_line), ST]),
-            io:format("Message queue: ~p\n", [process_info(self(), messages)]),
-            erlang:raise(C, E, ST)
-    end.
--else.
 -define(line,).
 do(P,D,T,O) ->
     do_it(P,D,T,O).
--endif.
-
 
 do_it(Priv, Data, Type, Opts) ->
-    File = filename:join(Data, "my_code_test2"),
-    Code = filename:join(Priv, "my_code_test2"),
+    OrigFile = filename:join(Data, "call_purged_fun"),
+    Code = filename:join(Priv, "call_purged_fun"),
 
-    catch erlang:purge_module(my_code_test2),
-    catch erlang:delete_module(my_code_test2),
-    catch erlang:purge_module(my_code_test2),
+    catch erlang:purge_module(call_purged_fun),
+    catch erlang:delete_module(call_purged_fun),
+    catch erlang:purge_module(call_purged_fun),
 
-    ?line {ok,my_code_test2} = c:c(File, [{outdir,Priv} | Opts]),
+    {ok,call_purged_fun} = c:c(OrigFile, [{outdir,Priv} | Opts]),
 
-    ?line IsNative = lists:member(native,Opts),
-    ?line IsNative = code:is_module_native(my_code_test2),
-
-    ?line T = ets:new(my_code_test2_fun_table, []),
-    ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
-    ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
+    T = ets:new(call_purged_fun_fun_table, []),
+    ets:insert(T, {my_fun,call_purged_fun:make_fun(4711)}),
+    ets:insert(T, {my_fun2,call_purged_fun:make_fun2()}),
 
     Papa = self(),
     {P0,M0} = spawn_monitor(fun () ->
@@ -50,92 +31,128 @@ do_it(Priv, Data, Type, Opts) ->
                                     exit(completed)
                             end),
 
-    ?line PurgeType = case Type of
+    PurgeType = case Type of
 		    code_gone ->
 			ok = file:delete(Code++".beam"),
 			true;
 		    code_reload ->
 			true;
+		    code_altered ->
+			true;
 		    code_there ->
 			false
 		end,
 
-    ?line true = erlang:delete_module(my_code_test2),
+    %% fun_info/1,2 must behave as documented on purged funs.
+    FunInfoBefore = fun(F) ->
+                            {module, call_purged_fun} = erlang:fun_info(F, module),
+                            {name, []} = erlang:fun_info(F, name),
+                            {arity, 1} = erlang:fun_info(F, arity)
+                    end,
+    FunInfoAfter = fun(F) ->
+                           {module, call_purged_fun} = erlang:fun_info(F, module),
+                           {name, Name} = erlang:fun_info(F, name),
+                           true = is_atom(Name),
+                           {arity, 1} = erlang:fun_info(F, arity)
+                   end,
 
-    ?line ok = receive {P0, "going to sleep"} -> ok
-               after 1000 -> timeout
-               end,
+    true = erlang:delete_module(call_purged_fun),
 
-    ?line Purge = start_purge(my_code_test2, PurgeType),
+    case Type of
+        code_altered -> 
+            AlteredFile = filename:join(Data, "call_purged_fun_altered.erl"),
+            {ok,call_purged_fun,AlteredBin} =
+                compile:file(AlteredFile, [no_error_module_mismatch,
+                                           binary | Opts]),
+            code:load_binary(call_purged_fun, AlteredFile, AlteredBin);
+        _ ->
+            ok
+    end,
 
-    ?line {P1, M1} = spawn_monitor(fun () ->
-                                           ?line [{my_fun,F}] = ets:lookup(T, my_fun),
-                                           ?line 4712 = F(1),
-                                           exit(completed)
-			     end),
+    ok = receive {P0, "going to sleep"} -> ok
+	 after 1000 -> timeout
+	 end,
 
-   ?line ok =  wait_until(fun () ->
-                                  {status, suspended}
-                                      == process_info(P1, status)
-                          end),
+    Purge = start_purge(call_purged_fun, PurgeType),
 
-    ?line ok = continue_purge(Purge),
+    {P1, M1} = spawn_monitor(fun () ->
+                                     [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
+                                     4712 = F(1),
+                                     FunInfoAfter(F),
+                                     exit(completed)
+                             end),
 
-    ?line {P2, M2} = spawn_monitor(fun () ->
-                                           ?line [{my_fun,F}] = ets:lookup(T, my_fun),
-                                           ?line 4713 = F(2),
-                                           exit(completed)
-			     end),
-    ?line {P3, M3} = spawn_monitor(fun () ->
-                                           ?line [{my_fun,F}] = ets:lookup(T, my_fun),
-                                           ?line 4714 = F(3),
-                                           exit(completed)
-			     end),
+    ok =  wait_until(fun () ->
+			     {status, suspended}
+				 == process_info(P1, status)
+		     end),
 
-    ?line ok = wait_until(fun () ->
-                                  {status, suspended}
-                                      == process_info(P2, status)
-                          end),
-    ?line ok = wait_until(fun () ->
-                                  {status, suspended}
-                                      == process_info(P3, status)
-                          end),
+    ok = continue_purge(Purge),
 
-    ?line {current_function,
+    {P2, M2} = spawn_monitor(fun () ->
+                                     [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
+                                     4713 = F(2),
+                                     FunInfoAfter(F),
+                                     exit(completed)
+                             end),
+    {P3, M3} = spawn_monitor(fun () ->
+                                     [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
+                                     4714 = F(3),
+                                     FunInfoAfter(F),
+                                     exit(completed)
+                             end),
+
+    ok = wait_until(fun () ->
+			    {status, suspended}
+				== process_info(P2, status)
+		    end),
+    ok = wait_until(fun () ->
+			    {status, suspended}
+				== process_info(P3, status)
+		    end),
+
+    {current_function,
      {erts_code_purger,
       pending_purge_lambda,
       3}} = process_info(P1, current_function),
-    ?line {current_function,
+    {current_function,
      {erts_code_purger,
       pending_purge_lambda,
       3}} = process_info(P2, current_function),
-    ?line {current_function,
+    {current_function,
      {erts_code_purger,
       pending_purge_lambda,
       3}} = process_info(P3, current_function),
 
     case Type of
 	code_there ->
-	    ?line false = complete_purge(Purge),
+	    false = complete_purge(Purge),
             P0 ! {self(), "wake up"},
-            ?line completed = wait_for_down(P0,M0);
+            completed = wait_for_down(P0,M0);
 	_ ->
-	    ?line {true, true} = complete_purge(Purge),
-            ?line killed = wait_for_down(P0,M0)
+	    {true, true} = complete_purge(Purge),
+            killed = wait_for_down(P0,M0)
     end,
 
     case Type of
 	code_gone ->
-            ?line {undef, _} = wait_for_down(P1,M1),
-            ?line {undef, _} = wait_for_down(P2,M2),
-            ?line {undef, _} = wait_for_down(P3,M3);
+            {undef, _} = wait_for_down(P1,M1),
+            {undef, _} = wait_for_down(P2,M2),
+            {undef, _} = wait_for_down(P3,M3);
+	code_altered ->
+            {{badfun, _}, _} = wait_for_down(P1,M1),
+            {{badfun, _}, _} = wait_for_down(P2,M2),
+            {{badfun, _}, _} = wait_for_down(P3,M3);
 	_ ->
-            ?line completed = wait_for_down(P1,M1),
-            ?line completed = wait_for_down(P2,M2),
-            ?line completed = wait_for_down(P3,M3),
-	    catch erlang:purge_module(my_code_test2),
-	    catch erlang:delete_module(my_code_test2),
-	    catch erlang:purge_module(my_code_test2)
+            completed = wait_for_down(P1,M1),
+            completed = wait_for_down(P2,M2),
+            completed = wait_for_down(P3,M3),
+	    catch erlang:purge_module(call_purged_fun),
+	    catch erlang:delete_module(call_purged_fun),
+	    catch erlang:purge_module(call_purged_fun)
     end,
     ok.
 

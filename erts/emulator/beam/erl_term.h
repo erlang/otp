@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 #if defined(ARCH_64)
 #  define TAG_PTR_MASK__	0x7
-#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION) || defined(DEBUG)
 #    define TAG_LITERAL_PTR	0x4
 #  else
 #    undef TAG_LITERAL_PTR
@@ -129,7 +129,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define REF_SUBTAG		(0x4 << _TAG_PRIMARY_SIZE) /* REF */
 #define FUN_SUBTAG		(0x5 << _TAG_PRIMARY_SIZE) /* FUN */
 #define FLOAT_SUBTAG		(0x6 << _TAG_PRIMARY_SIZE) /* FLOAT */
-#define EXPORT_SUBTAG		(0x7 << _TAG_PRIMARY_SIZE) /* FLOAT */
 #define _BINARY_XXX_MASK	(0x3 << _TAG_PRIMARY_SIZE)
 #define REFC_BINARY_SUBTAG	(0x8 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
@@ -146,7 +145,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_POS_BIG        (TAG_PRIMARY_HEADER|POS_BIG_SUBTAG)
 #define _TAG_HEADER_NEG_BIG        (TAG_PRIMARY_HEADER|NEG_BIG_SUBTAG)
 #define _TAG_HEADER_FLOAT          (TAG_PRIMARY_HEADER|FLOAT_SUBTAG)
-#define _TAG_HEADER_EXPORT         (TAG_PRIMARY_HEADER|EXPORT_SUBTAG)
 #define _TAG_HEADER_REF            (TAG_PRIMARY_HEADER|REF_SUBTAG)
 #define _TAG_HEADER_REFC_BIN       (TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
 #define _TAG_HEADER_HEAP_BIN       (TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
@@ -181,6 +179,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
 
+#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE)
 
 /* boxed object access methods */
 
@@ -283,7 +282,7 @@ _ET_DECLARE_CHECKED(Sint,signed_val,Eterm)
 #endif
 
 /* NIL access methods */
-#define NIL		((~((Uint) 0) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_NIL)
+#define NIL		((Eterm)(_TAG_IMMED2_NIL))
 #define is_nil(x)	((x) == NIL)
 #define is_not_nil(x)	((x) != NIL)
 
@@ -300,8 +299,10 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 /* header (arityval or thing) access methods */
 #define _make_header(sz,tag) ((Uint)(((Uint)(sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
-#define _unchecked_header_arity(x) \
-    (is_map_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
+#define _unchecked_header_arity(x)                                            \
+    (is_map_header(x) ? MAP_HEADER_ARITY(x) :                                 \
+     (is_fun_header(x) ? (ERL_FUN_SIZE - 1) :                                 \
+      ((x) >> _HEADER_ARITY_OFFS)))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
@@ -313,13 +314,26 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define MAX_ARITYVAL            ((((Uint)1) << 24) - 1)
 #define ERTS_MAX_TUPLE_SIZE     MAX_ARITYVAL
 
+/*
+  Due to an optimization that assumes that the word after the arity
+  word is allocated, one should generally not create tuples of arity
+  zero. One should instead use the literal that can be obtained by
+  calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+
+  If one really wants to create a zero arityval one should use
+  make_arityval_zero() or make_arityval_unchecked(sz)
+ */
+#define make_arityval_zero()	(_make_header(0,_TAG_HEADER_ARITYVAL))
 #define make_arityval(sz)	(ASSERT((sz) <= MAX_ARITYVAL), \
+                                 ASSERT((sz) > 0),                     \
                                  _make_header((sz),_TAG_HEADER_ARITYVAL))
+#define make_arityval_unchecked(sz)	(ASSERT((sz) <= MAX_ARITYVAL),  \
+                                         _make_header((sz),_TAG_HEADER_ARITYVAL))
 #define is_arity_value(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
 				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
 #define is_not_arity_value(x)	(!is_arity_value((x)))
-#define _unchecked_arityval(x)	_unchecked_header_arity((x))
+#define _unchecked_arityval(x)	((x) >> _HEADER_ARITY_OFFS)
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 #define arityval(x)		_ET_APPLY(arityval,(x))
 
@@ -350,16 +364,11 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
  * needs to be tagged as a header of some sort.
  */
 #if ET_DEBUG
-# ifdef HIPE
-   /* A very large (or negative) value as work-around for ugly hipe-bifs
-      that return untagged integers (eg hipe_bs_put_utf8) */
-#  define THE_NON_VALUE	_make_header((Uint)~0,_TAG_HEADER_FLOAT)
-# else
-#  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
-# endif
+#define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
 #else
 #define THE_NON_VALUE	(TAG_PRIMARY_HEADER)
 #endif
+
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)
 
@@ -379,29 +388,41 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 /* process binaries stuff (special case of binaries) */
 #define HEADER_PROC_BIN	_make_header(PROC_BIN_SIZE-1,_TAG_HEADER_REFC_BIN)
 
-/* fun & export objects */
-#define is_any_fun(x)   (is_fun((x)) || is_export((x)))
-#define is_not_any_fun(x) (!is_any_fun((x)))
+/* Fun objects.
+ *
+ * These have a special tag scheme to make the representation as compact as
+ * possible. For normal headers, we have:
+ *
+ *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
+ *
+ * Since the arity and number of free variables are both limited to 255, and we
+ * only need one bit to signify whether the fun is local or external, we can
+ * fit all of that information in the header word.
+ *
+ *     0000000effffffff aaaaaaaa00010100       external:1, free:8, arity:8
+ *
+ * Note that the lowest byte contains only the function subtag, and the next
+ * byte after that contains only the arity. This lets us combine the type
+ * and/or arity check into a single comparison without masking, by using 8- or
+ * 16-bit operations on the header word. */
 
-/* fun objects */
-#define HEADER_FUN		_make_header(ERL_FUN_SIZE-2,_TAG_HEADER_FUN)
-#define is_fun_header(x)	((x) == HEADER_FUN)
-#define make_fun(x)		make_boxed((Eterm*)(x))
-#define is_fun(x)		(is_boxed((x)) && is_fun_header(*boxed_val((x))))
-#define is_not_fun(x)		(!is_fun((x)))
+#define FUN_HEADER_ARITY_OFFS (_HEADER_ARITY_OFFS + 2)
+#define FUN_HEADER_NUM_FREE_OFFS (FUN_HEADER_ARITY_OFFS + 8)
+#define FUN_HEADER_EXTERNAL_OFFS (FUN_HEADER_NUM_FREE_OFFS + 8)
+
+#define MAKE_FUN_HEADER(Arity, NumFree, External)                             \
+    (_TAG_HEADER_FUN |                                                        \
+     (((Arity)) << FUN_HEADER_ARITY_OFFS) |                                   \
+     (((NumFree)) << FUN_HEADER_NUM_FREE_OFFS) |                              \
+     ((!!(External)) << FUN_HEADER_EXTERNAL_OFFS))
+
+#define is_fun_header(x)        (((x) & _HEADER_SUBTAG_MASK) == FUN_SUBTAG)
+#define make_fun(x)             make_boxed((Eterm*)(x))
+#define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))
+#define is_not_any_fun(x)       (!is_any_fun((x)))
 #define _unchecked_fun_val(x)   _unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 #define fun_val(x)		_ET_APPLY(fun_val,(x))
-
-/* export access methods */
-#define make_export(x)	 make_boxed((x))
-#define is_export(x)     (is_boxed((x)) && is_export_header(*boxed_val((x))))
-#define is_not_export(x) (!is_export((x)))
-#define _unchecked_export_val(x)   _unchecked_boxed_val(x)
-_ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
-#define export_val(x)	_ET_APPLY(export_val,(x))
-#define is_export_header(x)	((x) == HEADER_EXPORT)
-#define HEADER_EXPORT   _make_header(1,_TAG_HEADER_EXPORT)
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -416,7 +437,12 @@ _ET_DECLARE_CHECKED(Eterm,bignum_header_neg,Eterm)
 #define _unchecked_bignum_header_arity(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,bignum_header_arity,Eterm)
 #define bignum_header_arity(x)	_ET_APPLY(bignum_header_arity,(x))
-#define BIG_ARITY_MAX		((1 << 19)-1)
+
+#if defined(ARCH_64)
+#  define BIG_ARITY_MAX		((1 << 16)-1)
+#else
+#  define BIG_ARITY_MAX		((1 << 17)-1)
+#endif
 #define make_big(x)	make_boxed((x))
 #define is_big(x)	(is_boxed((x)) && _is_bignum_header(*boxed_val((x))))
 #define is_not_big(x)	(!is_big((x)))
@@ -482,15 +508,18 @@ typedef union float_def
 #define is_tuple(x)	(is_boxed((x)) && is_arity_value(*boxed_val((x))))
 #define is_not_tuple(x)	(!is_tuple((x)))
 #define is_tuple_arity(x, a) \
-   (is_boxed((x)) && *boxed_val((x)) == make_arityval((a)))
+   (is_boxed((x)) && *boxed_val((x)) == make_arityval_unchecked((a)))
 #define is_not_tuple_arity(x, a) (!is_tuple_arity((x),(a)))
 #define _unchecked_tuple_val(x)	_unchecked_boxed_val(x)
 _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define tuple_val(x)	_ET_APPLY(tuple_val,(x))
 
-#define TUPLE0(t) \
-        ((t)[0] = make_arityval(0), \
-        make_tuple(t))
+/*
+  Due to an optimization that assumes that the word after the arity
+  word is allocated, one should generally not create tuples of arity
+  zero on heaps. One should instead use the literal that can be
+  obtained by calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+ */
 #define TUPLE1(t,e1) \
         ((t)[0] = make_arityval(1), \
         (t)[1] = (e1), \
@@ -590,9 +619,9 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
  */
 
 #define _PID_SER_SIZE		(_PID_DATA_SIZE - _PID_NUM_SIZE)
-#define _PID_NUM_SIZE 		15
+#define _PID_NUM_SIZE 		28
 
-#define _PID_DATA_SIZE		28
+#define _PID_DATA_SIZE		(ERTS_SIZEOF_TERM*8 - _TAG_IMMED1_SIZE)
 #define _PID_DATA_SHIFT		(_TAG_IMMED1_SIZE)
 
 #define _GET_PID_DATA(X)	_GETBITS((X),_PID_DATA_SHIFT,_PID_DATA_SIZE)
@@ -640,7 +669,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
  */
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
-#define _PORT_DATA_SIZE		28
+#define _PORT_DATA_SIZE		(ERTS_SIZEOF_TERM*8 - _TAG_IMMED1_SIZE)
 #define _PORT_DATA_SHIFT	(_TAG_IMMED1_SIZE)
 
 #define _GET_PORT_DATA(X)	_GETBITS((X),_PORT_DATA_SHIFT,_PORT_DATA_SIZE)
@@ -717,8 +746,14 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 /* Old maximum number of references in the system */
 #define MAX_REFERENCE		(1 << _REF_NUM_SIZE)
 #define REF_MASK		(~(~((Uint)0) << _REF_NUM_SIZE))
-#define ERTS_MAX_REF_NUMBERS	3
-#define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
+#define ERTS_REF_NUMBERS	3
+#if defined(ARCH_64)
+#define ERTS_PID_REF_NUMBERS	(ERTS_REF_NUMBERS + 2)
+#else
+#define ERTS_PID_REF_NUMBERS	(ERTS_REF_NUMBERS + 1)
+#endif
+#define ERTS_MAX_INTERNAL_REF_NUMBERS ERTS_PID_REF_NUMBERS
+#define ERTS_MAX_REF_NUMBERS	5
 
 #ifndef ERTS_ENDIANNESS
 # error ERTS_ENDIANNESS not defined...
@@ -744,6 +779,17 @@ typedef struct {
     Uint32 marker;
 #endif
 } ErtsORefThing;
+
+typedef struct {
+    Eterm header;
+#if ERTS_ENDIANNESS <= 0
+    Uint32 marker;
+#endif
+    Uint32 num[ERTS_PID_REF_NUMBERS];
+#if ERTS_ENDIANNESS > 0
+    Uint32 marker;
+#endif
+} ErtsPRefThing;
 
 typedef struct {
     Eterm header;
@@ -790,11 +836,12 @@ typedef struct {
  * +--------------+--------------+
  *
  * Both pointers in the magic ref are 64-bit aligned. That is,
- * least significant bits are zero. The marker 32-bit word is
- * placed over the least significant bits of one of the pointers.
- * That is, we can distinguish between magic and ordinary ref
- * by looking at the marker field.
- * 
+ * least significant bits are zero. The marker 32-bit word of
+ * an ordinary ref is placed over the least significant bits
+ * of one of the pointers. That is, we can distinguish between
+ * magic and ordinary ref by looking at the marker field.
+ * Pid refs are larger than ordinary and magic refs, so we
+ * can distinguish pid refs from the other by the header word.
  */
 
 #define write_ref_thing(Hp, R0, R1, R2)					\
@@ -835,12 +882,34 @@ do {									\
 
 #endif /* !ERTS_ENDIANNESS */
 
+#define write_pid_ref_thing(Hp, R0, R1, R2, PID)                        \
+do {									\
+  ((ErtsPRefThing *) (Hp))->header = ERTS_PID_REF_THING_HEADER;		\
+  ((ErtsPRefThing *) (Hp))->marker = ERTS_ORDINARY_REF_MARKER;          \
+  ((ErtsPRefThing *) (Hp))->num[0] = (R0);				\
+  ((ErtsPRefThing *) (Hp))->num[1] = (R1);				\
+  ((ErtsPRefThing *) (Hp))->num[2] = (R2);				\
+  ((ErtsPRefThing *) (Hp))->num[3] = (Uint32) ((PID) & 0xffffffff);     \
+  ((ErtsPRefThing *) (Hp))->num[4] = (Uint32) (((PID) >> 32)            \
+                                               & 0xffffffff);           \
+} while (0)
+
+#define pid_ref_thing_get_pid(Hp)                                       \
+    (ASSERT(is_pid_ref_thing((Hp))),                                    \
+     (((Eterm) ((ErtsPRefThing *) (Hp))->num[3])                        \
+      | ((((Eterm) ((ErtsPRefThing *) (Hp))->num[4]) << 32))))
+
 #else /* ARCH_32 */
 
 typedef struct {
     Eterm header;
     Uint32 num[ERTS_REF_NUMBERS];
 } ErtsORefThing;
+
+typedef struct {
+    Eterm header;
+    Uint32 num[ERTS_PID_REF_NUMBERS];
+} ErtsPRefThing;
 
 typedef struct {
     Eterm header;
@@ -866,11 +935,26 @@ do {									\
   ASSERT(erts_is_ref_numbers_magic((Binp)->refn));			\
 } while (0)
 
+#define write_pid_ref_thing(Hp, R0, R1, R2, PID)                        \
+do {									\
+  ((ErtsPRefThing *) (Hp))->header = ERTS_PID_REF_THING_HEADER;		\
+  ((ErtsPRefThing *) (Hp))->num[0] = (R0);				\
+  ((ErtsPRefThing *) (Hp))->num[1] = (R1);				\
+  ((ErtsPRefThing *) (Hp))->num[2] = (R2);				\
+  ((ErtsPRefThing *) (Hp))->num[3] = (Uint32) (PID);                    \
+} while (0)
+
+#define pid_ref_thing_get_pid(Hp)                                       \
+    (ASSERT(is_pid_ref_thing((Hp))),                                    \
+     ((Eterm) ((ErtsPRefThing *) (Hp))->num[3]))
+
+
 #endif /* ARCH_32 */
 
 typedef union {
     ErtsMRefThing m;
     ErtsORefThing o;
+    ErtsPRefThing p;
 } ErtsRefThing;
 
 /* for copy sharing */
@@ -880,6 +964,7 @@ typedef union {
 #define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
 
 #define ERTS_REF_THING_SIZE (sizeof(ErtsORefThing)/sizeof(Uint))
+#define ERTS_PID_REF_THING_SIZE (sizeof(ErtsPRefThing)/sizeof(Uint))
 #define ERTS_MAGIC_REF_THING_SIZE (sizeof(ErtsMRefThing)/sizeof(Uint))
 #define ERTS_MAX_INTERNAL_REF_SIZE (sizeof(ErtsRefThing)/sizeof(Uint))
 
@@ -887,56 +972,58 @@ typedef union {
     _make_header((Words)-1,_TAG_HEADER_REF)
 
 #define ERTS_REF_THING_HEADER _make_header(ERTS_REF_THING_SIZE-1,_TAG_HEADER_REF)
+#define ERTS_PID_REF_THING_HEADER _make_header(ERTS_PID_REF_THING_SIZE-1,_TAG_HEADER_REF)
 
-#if defined(ARCH_64) && ERTS_ENDIANNESS /* All internal refs of same size... */
+#  define is_ref_thing_header(x)					\
+    (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
+
+#if defined(ARCH_64) && ERTS_ENDIANNESS
+/* Ordinary and magic refs of same size, but pid ref larger */
 
 #  undef ERTS_MAGIC_REF_THING_HEADER
 
-#  define is_ref_thing_header(x) ((x) == ERTS_REF_THING_HEADER)
+#define is_pid_ref_thing(x)						\
+    (*((Eterm *)(x)) == ERTS_PID_REF_THING_HEADER)
 
-#ifdef SHCOPY
-#define is_ordinary_ref_thing(x)                                           \
-    (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#else
-#define is_ordinary_ref_thing(x)                                           \
-    (ASSERT(is_ref_thing_header((*((Eterm *)(x))) & ~BOXED_VISITED_MASK)), \
-     ((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#endif
+#define is_ordinary_ref_thing(x)                                        \
+    ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
+     && (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
 
-#define is_magic_ref_thing(x)						\
-    (!is_ordinary_ref_thing((x)))
-
-#define is_internal_magic_ref(x)					\
-    ((_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER) \
-     && is_magic_ref_thing(boxed_val((x))))
-
-#define is_internal_ordinary_ref(x)					\
-    ((_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER) \
-     && is_ordinary_ref_thing(boxed_val((x))))
+/* the _with_hdr variant usable when header word may be broken (copy_shared) */
+#define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
+    (((HDR) == ERTS_REF_THING_HEADER)                                   \
+     && (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
 
 #else /* Ordinary and magic references of different sizes... */
 
 #  define ERTS_MAGIC_REF_THING_HEADER					\
     _make_header(ERTS_MAGIC_REF_THING_SIZE-1,_TAG_HEADER_REF)
 
-#  define is_ref_thing_header(x)					\
-    (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
-
 #define is_ordinary_ref_thing(x)					\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_REF_THING_HEADER)
+    (*((Eterm *)(x)) == ERTS_REF_THING_HEADER)
 
-#define is_magic_ref_thing(x)						\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_MAGIC_REF_THING_HEADER)
+#define is_pid_ref_thing(x)					        \
+    (*((Eterm *)(x)) == ERTS_PID_REF_THING_HEADER)
 
-#define is_internal_magic_ref(x)					\
-    (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_MAGIC_REF_THING_HEADER)
-
-#define is_internal_ordinary_ref(x)					\
-    (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER)
+#define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
+    ((HDR) == ERTS_MAGIC_REF_THING_HEADER)
 
 #endif
+
+#define is_magic_ref_thing(PTR)						\
+    is_magic_ref_thing_with_hdr(PTR, *(Eterm *)(PTR))
+
+#define is_internal_magic_ref(x)					\
+    (_unchecked_is_boxed((x)) && is_magic_ref_thing(boxed_val((x))))
+
+#define is_internal_non_magic_ref(x)					\
+    (is_internal_ordinary_ref((x)) || is_internal_pid_ref((x)))
+
+#define is_internal_ordinary_ref(x)					\
+    (_unchecked_is_boxed((x)) && is_ordinary_ref_thing(boxed_val((x))))
+
+#define is_internal_pid_ref(x)					        \
+    (_unchecked_is_boxed((x)) && is_pid_ref_thing(boxed_val((x))))
 
 #define make_internal_ref(x)	make_boxed((Eterm*)(x))
 
@@ -960,10 +1047,13 @@ typedef union {
 _ET_DECLARE_CHECKED(Eterm*,internal_ref_val,Wterm)
 #define internal_ref_val(x) _ET_APPLY(internal_ref_val,(x))
 
-#define internal_ordinary_thing_ref_numbers(ort) (((ErtsORefThing *)(ort))->num)
-#define _unchecked_internal_ordinary_ref_numbers(x) (internal_ordinary_thing_ref_numbers(_unchecked_ordinary_ref_thing_ptr(x)))
-_ET_DECLARE_CHECKED(Uint32*,internal_ordinary_ref_numbers,Wterm)
-#define internal_ordinary_ref_numbers(x) _ET_APPLY(internal_ordinary_ref_numbers,(x))
+#define internal_non_magic_ref_thing_numbers(rt) (((ErtsORefThing *)(rt))->num)
+#define _unchecked_internal_non_magic_ref_numbers(x) (internal_non_magic_ref_thing_numbers(_unchecked_ordinary_ref_thing_ptr(x)))
+_ET_DECLARE_CHECKED(Uint32*,internal_non_magic_ref_numbers,Wterm)
+#define internal_non_magic_ref_numbers(x) _ET_APPLY(internal_non_magic_ref_numbers,(x))
+
+#define internal_ordinary_ref_numbers(x) internal_non_magic_ref_numbers((x))
+#define internal_pid_ref_numbers(x) internal_non_magic_ref_numbers((x))
 
 #if defined(ARCH_64) && !ERTS_ENDIANNESS
 #define internal_magic_thing_ref_numbers(mrt) (((ErtsMRefThing *)(mrt))->num)
@@ -1008,9 +1098,11 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *  E : ErlNode pointer
  *  X : Type specific data
  *
- *  External pid and port layout:
- *    External pids and ports only have one data word (Data 0) which has
- *    the same layout as internal pids resp. internal ports.
+ *  External pid layout (OTP 24):
+ *    External pids always have two 32-bit words (num and seq).
+ *
+ *  External port layout (OTP 24):
+ *    External ports always have two 32-bit words.
  *
  *  External refs layout:
  *    External refs has the same layout for the data words as in the internal
@@ -1018,14 +1110,6 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *
  */
 
-/* XXX:PaN - this structure is not perfect for halfword heap, it takes
-   a lot of memory due to padding, and the array will not begin at the end of the
-   structure, as otherwise expected. Be sure to access data.ui32 array and not try
-   to do pointer manipulation on an Eterm * to reach the actual data...
-
-   XXX:Sverk - Problem made worse by "one off-heap list" when 'next' pointer
-     must align with 'next' in ProcBin, erl_fun_thing and erl_off_heap_header.
-*/
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */
@@ -1033,20 +1117,44 @@ typedef struct external_thing_ {
     struct erl_off_heap_header* next;   /* |                        */
     /*                                 ----+                        */
     union {
+        struct {
+            Uint32 num;
+            Uint32 ser;
+        } pid;
+	struct {
+#ifdef ARCH_64
+	    Uint64 id;
+#else
+	    Uint32 low;
+	    Uint32 high;
+#endif
+	} port;
 	Uint32              ui32[1];
 	Uint                ui[1];
     } data;
 } ExternalThing;
 
-#define EXTERNAL_THING_HEAD_SIZE (sizeof(ExternalThing)/sizeof(Uint) - 1)
+#define EXTERNAL_THING_HEAD_SIZE (offsetof(ExternalThing,data) / sizeof(Uint))
 
-#define make_external_pid_header(DW) \
-  _make_header((DW)+EXTERNAL_THING_HEAD_SIZE-1,_TAG_HEADER_EXTERNAL_PID)
+/* external pid data is always 64 bits */
+#define EXTERNAL_PID_DATA_WORDS (8 / sizeof(Uint))
+
+#define EXTERNAL_PID_HEAP_SIZE \
+    (EXTERNAL_THING_HEAD_SIZE + EXTERNAL_PID_DATA_WORDS)
+
+#define make_external_pid_header() \
+  _make_header(EXTERNAL_PID_HEAP_SIZE-1,_TAG_HEADER_EXTERNAL_PID)
 #define is_external_pid_header(x) \
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_PID)
 
-#define make_external_port_header(DW) \
-  _make_header((DW)+EXTERNAL_THING_HEAD_SIZE-1,_TAG_HEADER_EXTERNAL_PORT)
+/* external port data is always 64 bits */
+#define EXTERNAL_PORT_DATA_WORDS (8 / sizeof(Uint))
+
+#define EXTERNAL_PORT_HEAP_SIZE \
+    (EXTERNAL_THING_HEAD_SIZE + EXTERNAL_PID_DATA_WORDS)
+
+#define make_external_port_header() \
+  _make_header(EXTERNAL_PORT_HEAP_SIZE-1,_TAG_HEADER_EXTERNAL_PORT)
 #define is_external_port_header(x) \
   (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_EXTERNAL_PORT)
 
@@ -1093,7 +1201,7 @@ _ET_DECLARE_CHECKED(Eterm*,external_val,Wterm)
 
 #define _unchecked_external_thing_data_words(thing) \
     (_unchecked_thing_arityval((thing)->header) + (1 - EXTERNAL_THING_HEAD_SIZE))
-_ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
+_ET_DECLARE_CHECKED(Uint,external_thing_data_words,const ExternalThing*)
 #define external_thing_data_words(thing) _ET_APPLY(external_thing_data_words,(thing))
 
 #define _unchecked_external_data_words(x) \
@@ -1112,31 +1220,33 @@ _ET_DECLARE_CHECKED(Uint,external_data_words,Wterm)
 _ET_DECLARE_CHECKED(Uint,external_pid_data_words,Wterm)
 #define external_pid_data_words(x) _ET_APPLY(external_pid_data_words,(x))
 
-#define _unchecked_external_pid_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_pid_data,Wterm)
-#define external_pid_data(x) _ET_APPLY(external_pid_data,(x))
-
 #define _unchecked_external_pid_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Wterm)
 #define external_pid_node(x) _ET_APPLY(external_pid_node,(x))
 
-#define external_pid_number(x) _GET_PID_NUM(external_pid_data((x)))
-#define external_pid_serial(x) _GET_PID_SER(external_pid_data((x)))
+#define external_pid_number(x) (external_thing_ptr(x)->data.pid.num)
+#define external_pid_serial(x) (external_thing_ptr(x)->data.pid.ser)
 
 #define _unchecked_external_port_data_words(x) \
   _unchecked_external_data_words((x))
 _ET_DECLARE_CHECKED(Uint,external_port_data_words,Wterm)
 #define external_port_data_words(x) _ET_APPLY(external_port_data_words,(x))
 
-#define _unchecked_external_port_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_port_data,Wterm)
+#define _unchecked_external_port_data(x) _unchecked_external_data((x))
+_ET_DECLARE_CHECKED(Uint*,external_port_data,Wterm)
 #define external_port_data(x) _ET_APPLY(external_port_data,(x))
 
 #define _unchecked_external_port_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_port_node,Wterm)
 #define external_port_node(x) _ET_APPLY(external_port_node,(x))
 
-#define external_port_number(x) _GET_PORT_NUM(external_port_data((x)))
+#ifdef ARCH_64
+#define external_port_number(x) ((Uint64) external_thing_ptr((x))->data.port.id)
+#else
+#define external_port_number(x)						\
+    ((((Uint64) external_thing_ptr((x))->data.port.high) << 32)		\
+     | ((Uint64) external_thing_ptr((x))->data.port.low))
+#endif
 
 #define _unchecked_external_ref_data_words(x) \
   _unchecked_external_data_words((x))
@@ -1191,15 +1301,12 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 
 #define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
 
-#define MAP0_SZ MAP_SZ(0)
 #define MAP1_SZ MAP_SZ(1)
 #define MAP2_SZ MAP_SZ(2)
 #define MAP3_SZ MAP_SZ(3)
 #define MAP4_SZ MAP_SZ(4)
 #define MAP5_SZ MAP_SZ(5)
-#define MAP0(hp)                                                \
-    (MAP_HEADER(hp, 0, TUPLE0(hp+MAP_HEADER_FLATMAP_SZ)),       \
-     make_flatmap(hp))
+
 #define MAP1(hp, k1, v1)                                                \
     (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
      (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
@@ -1215,22 +1322,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
      (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
      (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
      make_flatmap(hp))
-#define MAP4(hp, k1, v1, k2, v2, k3, v3, k4, v4)                \
-    (MAP_HEADER(hp, 4, TUPLE4(hp+4+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4)), \
-     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
-     make_flatmap(hp))
-#define MAP5(hp, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5)                \
-    (MAP_HEADER(hp, 5, TUPLE5(hp+5+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4, k5)), \
-     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+4] = v5,                                \
-     make_flatmap(hp))
-
+/* MAP4 and greater have to be created with erts_map_from_ks_and_vs as in the
+   debug emulator maps > 3 are hashmaps. */
 
 /* number tests */
 
@@ -1249,15 +1342,16 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
+#define _is_legal_cp(x)	 (((Uint)(x) & _CPMASK) == 0)
 #define _unchecked_make_cp(x)	((Eterm)(x))
-_ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*)
+_ET_DECLARE_CHECKED(Eterm,make_cp,ErtsCodePtr)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
-#define _unchecked_cp_val(x)	((BeamInstr*) (x))
-_ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm)
+#define _unchecked_cp_val(x)	((ErtsCodePtr) (x))
+_ET_DECLARE_CHECKED(ErtsCodePtr,cp_val,Eterm)
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
 #define make_catch(x)	(((x) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_CATCH)
@@ -1325,7 +1419,6 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 #define EXTERNAL_PID_DEF	0x6
 #define PORT_DEF		0x7
 #define EXTERNAL_PORT_DEF	0x8
-#define EXPORT_DEF		0x9
 #define FUN_DEF			0xa
 #define REF_DEF			0xb
 #define EXTERNAL_REF_DEF	0xc
@@ -1381,7 +1474,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 #define line __LINE__
 #endif
 {
-    static char *msg = "tag_val_def error";
 
     switch (x & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
@@ -1396,7 +1488,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):	return FLOAT_DEF;
-	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):     return EXPORT_DEF;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):	return FUN_DEF;
 	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PID_DEF;
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PORT_DEF;
@@ -1426,7 +1517,7 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 	  break;
       }
     }
-    erl_assert_error(msg, __FUNCTION__, file, line);
+    erl_assert_error("tag_val_def error", __FUNCTION__, file, line);
 #undef file
 #undef line
 }

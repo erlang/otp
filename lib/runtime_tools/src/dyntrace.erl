@@ -1,3 +1,23 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+%%
 -module(dyntrace).
 
 %%% @doc The Dynamic tracing interface module
@@ -62,6 +82,18 @@
          enabled/3]).
 
 -export([user_trace_i4s4/9]). % Know what you're doing!
+
+-nifs([available/0, user_trace_s1/1, user_trace_i4s4/9, user_trace_n/10,
+
+       trace_procs/5, trace_ports/5, trace_running_procs/5,
+       trace_running_ports/5, trace_call/5, trace_send/5,
+       trace_receive/5, trace_garbage_collection/5, enabled_procs/3,
+       enabled_ports/3, enabled_running_procs/3, enabled_running_ports/3,
+       enabled_call/3, enabled_send/3, enabled_receive/3,
+       enabled_garbage_collection/3,
+
+       enabled/3, trace/5]).
+
 -compile(no_native).
 -on_load(on_load/0).
 
@@ -88,7 +120,9 @@ on_load() ->
                          filename:join([PrivDir, "lib", 
                                         erlang:system_info(system_architecture)]),
                      Candidate =
-                         filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+                         filelib:wildcard(
+                           filename:join([ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
                      case Candidate of
                          [] -> Error1;
                          _ ->

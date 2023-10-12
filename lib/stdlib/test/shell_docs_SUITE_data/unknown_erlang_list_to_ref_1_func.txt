@@ -1,0 +1,18 @@
+
+  [;1m-spec list_to_ref(String) -> reference() when String :: string().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  Returns a reference whose text representation is a [;;4mString[0m, for
+  example:
+
+    > list_to_ref("#Ref<0.4192537678.4073193475.71181>").
+    #Ref<0.4192537678.4073193475.71181>
+
+  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
+  reference.
+
+  Warning:
+    This BIF is intended for debugging and is not to be used in
+    application programs.

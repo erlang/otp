@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,12 +35,12 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_Case,Config) ->
-    Dog = ?t:timetrap({minutes,10}),
+    Dog = test_server:timetrap({minutes,10}),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 

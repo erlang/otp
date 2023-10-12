@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
 -export([connect/1, disconnect/1, disconnect_cb/1, connect_msg_20/1, connect_cb_20/1,
          mouse_on_grid/1, spin_event/1, connect_in_callback/1, recursive/1,
-         dialog/1, char_events/1, callback_clean/1, handler_clean/1
+         dialog/1, char_events/1, mouse_events/1, callback_clean/1, handler_clean/1
         ]).
 
 -include("wx_test_lib.hrl").
@@ -52,7 +52,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 all() ->
     [connect, disconnect, disconnect_cb, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
-     dialog, char_events, callback_clean, handler_clean
+     dialog, char_events, mouse_events, callback_clean, handler_clean
     ].
 
 groups() -> 
@@ -496,6 +496,52 @@ char_events(Config) ->
 
     wx_test_lib:wx_destroy(Frame, Config).
 
+mouse_events(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+mouse_events(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Press mouse keys"),
+    SB = wxFrame:createStatusBar(Frame),
+    Panel = wxPanel:new(Frame, []),
+    Status = fun(#wxMouse{x=X,y=Y}) ->
+                     HasC = wxPanel:hasCapture(Panel),
+                     Str = io_lib:format("Pos: X=~w Y=~w Captured: ~w~n",[X,Y, HasC]),
+                     wxStatusBar:setStatusText(SB, Str),
+                     ok
+             end,
+    MouseEvent = fun(#wx{event=#wxMouse{type=mousewheel, wheelRotation=Rot}=Ev}, Obj) ->
+                         Status(Ev),
+                         Axis = wxMouseEvent:getWheelAxis(Obj),
+                         io:format("Got wheel ~w ~w~n",[Rot,Axis]),
+                         wxEvent:skip(Obj);
+                    (#wx{event=#wxMouse{type=right_up}=Ev}, _Obj) ->
+                         case wxPanel:hasCapture(Panel) of
+                             true  ->
+                                 io:format("right_up: release mouse~n"),
+                                 wxPanel:releaseMouse(Panel);
+                             false ->
+                                 io:format("right_up: capture mouse (release with right_up again)~n"),
+                                 wxPanel:captureMouse(Panel)
+                         end,
+                         Status(Ev);
+                    (#wx{event=#wxMouse{type=What}=Ev},Obj) ->
+                         io:format("Got ~p~n",[What]),
+                         Status(Ev),
+                         wxEvent:skip(Obj)
+                 end,
+    [wxWindow:connect(Panel, Types, [{callback,MouseEvent}])
+     || Types <- [left_down, left_up, right_up, right_down,
+                  middle_up, middle_down, mousewheel]],
+    Motion = fun(#wx{event=Ev}, Obj) ->
+                     Status(Ev),
+                     wxEvent:skip(Obj)
+             end,
+    wxWindow:connect(Panel, motion, [{callback,Motion}]),
+
+    wxFrame:show(Frame),
+    wx_test_lib:flush(),
+
+    wx_test_lib:wx_destroy(Frame, Config).
+
 callback_clean(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 callback_clean(Config) ->
     %% Be sure that event handling are cleanup up correctly and don't keep references to old
@@ -564,7 +610,7 @@ white_box_check_event_handlers() ->
     {_,_,Server,_} = wx:get_env(),
     {status, _, _, [Env, _, _, _, Data]} = sys:get_status(Server),
     [_H, _data, {data, [{_, Record}]}] = Data,
-    {state, _Port1, _Port2, Users, [], CBs, _Next} = Record,
+    {state, _Port1, Users, [], CBs, _Next} = Record,
     {[{Pid, Evs} ||
 	 {Pid, {user, Evs}} <- gb_trees:to_list(Users),
 	 Evs =/= []], %% Ignore empty

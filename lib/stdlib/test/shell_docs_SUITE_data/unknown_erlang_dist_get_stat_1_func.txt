@@ -1,0 +1,6 @@
+
+[;1m  dist_get_stat/1[0m
+
+  The documentation for dist_get_stat/1 is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.

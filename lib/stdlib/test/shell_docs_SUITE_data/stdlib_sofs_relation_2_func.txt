@@ -1,0 +1,15 @@
+
+  [;1m-spec relation(Tuples, Type) -> Relation[0m
+  [;1m                  when[0m
+  [;1m                      N :: integer(),[0m
+  [;1m                      Type :: N | type(),[0m
+  [;1m                      Relation :: relation(),[0m
+  [;1m                      Tuples :: [tuple()].[0m
+
+  Creates a relation. [;;4mrelation(R, T)[0m is equivalent to [;;4m[0m
+  [;;4mfrom_term(R, T)[0m, if T is a type and the result is a relation.
+  If [;;4mType[0m is an integer N, then [;;4m[{atom, ..., atom}])[0m, where the
+  tuple size is N, is used as type of the relation. If no type is
+  explicitly specified, the size of the first tuple of [;;4mTuples[0m is
+  used if there is such a tuple. [;;4mrelation([])[0m is equivalent to [;;4m[0m
+  [;;4mrelation([], 2)[0m.

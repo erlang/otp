@@ -1,0 +1,5 @@
+
+bs_segments.erl:10:1: Function f/0 has no local return
+bs_segments.erl:11:10: Binary construction will fail since the size field 'undefined' in segment 0 has type 'undefined'
+bs_segments.erl:6:1: Function t/1 has no local return
+bs_segments.erl:6:1: The pattern <<_>> can never match the type any()

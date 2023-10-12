@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 %%
 -module(logger_std_h).
 
--behaviour(gen_server).
-
 -include("logger.hrl").
 -include("logger_internal.hrl").
 -include("logger_h_common.hrl").
@@ -28,35 +26,23 @@
 -include_lib("kernel/include/file.hrl").
 
 %% API
--export([start_link/3, info/1, filesync/1, reset/1]).
+-export([filesync/1]).
 
-%% gen_server and proc_lib callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
+-behaviour(logger_handler).
+
+%% logger_h_common callbacks
+-export([init/2, check_config/4, config_changed/3, reset_state/2,
+         filesync/3, write/4, handle_info/3, terminate/3]).
 
 %% logger callbacks
--export([log/2, adding_handler/1, removing_handler/1, changing_config/2]).
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
+         filter_config/1]).
 
-%% handler internal
--export([log_handler_info/4]).
+-define(DEFAULT_CALL_TIMEOUT, 5000).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-
-%%%-----------------------------------------------------------------
-%%% Start a standard handler process and link to caller.
-%%% This function is called by the kernel supervisor when this
-%%% handler process gets added
--spec start_link(Name, Config, HandlerState) -> {ok,Pid} | {error,Reason} when
-      Name :: atom(),
-      Config :: logger:handler_config(),
-      HandlerState :: map(),
-      Pid :: pid(),
-      Reason :: term().
-
-start_link(Name, Config, HandlerState) ->
-    proc_lib:start_link(?MODULE,init,[[Name,Config,HandlerState]]).
 
 %%%-----------------------------------------------------------------
 %%%
@@ -64,342 +50,234 @@ start_link(Name, Config, HandlerState) ->
       Name :: atom(),
       Reason :: handler_busy | {badarg,term()}.
 
-filesync(Name) when is_atom(Name) ->
-    try
-        gen_server:call(?name_to_reg_name(?MODULE,Name),
-                        filesync, ?DEFAULT_CALL_TIMEOUT)
-    catch
-        _:{timeout,_} -> {error,handler_busy}
-    end;
 filesync(Name) ->
-    {error,{badarg,{filesync,[Name]}}}.
-
-%%%-----------------------------------------------------------------
-%%%
--spec info(Name) -> Info | {error,Reason} when
-      Name :: atom(),
-      Info :: term(),
-      Reason :: handler_busy | {badarg,term()}.
-
-info(Name) when is_atom(Name) ->
-    try
-        gen_server:call(?name_to_reg_name(?MODULE,Name),
-                        info, ?DEFAULT_CALL_TIMEOUT)
-    catch
-        _:{timeout,_} -> {error,handler_busy}
-    end;
-info(Name) ->
-    {error,{badarg,{info,[Name]}}}.
-
-%%%-----------------------------------------------------------------
-%%%
--spec reset(Name) -> ok | {error,Reason} when
-      Name :: atom(),
-      Reason :: handler_busy | {badarg,term()}.
-
-reset(Name) when is_atom(Name) ->
-    try
-        gen_server:call(?name_to_reg_name(?MODULE,Name),
-                        reset, ?DEFAULT_CALL_TIMEOUT)
-    catch
-        _:{timeout,_} -> {error,handler_busy}
-    end;      
-reset(Name) ->
-    {error,{badarg,{reset,[Name]}}}.
-
+    logger_h_common:filesync(?MODULE,Name).
 
 %%%===================================================================
-%%% logger callbacks
+%%% logger callbacks - just forward to logger_h_common
 %%%===================================================================
 
 %%%-----------------------------------------------------------------
 %%% Handler being added
-adding_handler(#{id:=Name}=Config) ->
-    case check_config(adding, Config) of
-        {ok, Config1} ->
-            %% create initial handler state by merging defaults with config
-            HConfig = maps:get(config, Config1, #{}),
-            HState = maps:merge(get_init_state(), HConfig),
-            case logger_h_common:overload_levels_ok(HState) of
-                true ->
-                    start(Name, Config1, HState);
-                false ->
-                    #{sync_mode_qlen := SMQL,
-                      drop_mode_qlen := DMQL,
-                      flush_qlen     := FQL} = HState, 
-                    {error,{invalid_levels,{SMQL,DMQL,FQL}}}
-            end;
-        Error ->
-            Error
-    end.
+-spec adding_handler(Config) -> {ok,Config} | {error,Reason} when
+      Config :: logger_handler:config(),
+      Reason :: term().
+
+adding_handler(Config) ->
+    logger_h_common:adding_handler(Config).
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(OldConfig=#{id:=Name, config:=OldHConfig},
-                NewConfig=#{id:=Name}) ->
-    #{type:=Type, handler_pid:=HPid, mode_tab:=ModeTab} = OldHConfig,
-    NewHConfig = maps:get(config, NewConfig, #{}),
-    case maps:get(type, NewHConfig, Type) of
-        Type ->
-            NewHConfig1 = NewHConfig#{type=>Type,
-                                      handler_pid=>HPid,
-                                      mode_tab=>ModeTab},
-            changing_config1(HPid, OldConfig,
-                             NewConfig#{config=>NewHConfig1});
-        _ ->
-            {error,{illegal_config_change,OldConfig,NewConfig}}
-    end;
-changing_config(OldConfig, NewConfig) ->
-    {error,{illegal_config_change,OldConfig,NewConfig}}.
+-spec changing_config(SetOrUpdate, OldConfig, NewConfig) ->
+                              {ok,Config} | {error,Reason} when
+      SetOrUpdate :: set | update,
+      OldConfig :: logger_handler:config(),
+      NewConfig :: logger_handler:config(),
+      Config :: logger_handler:config(),
+      Reason :: term().
 
-changing_config1(HPid, OldConfig, NewConfig) ->
-    case check_config(changing, NewConfig) of
-        Result = {ok,NewConfig1} ->
-            try gen_server:call(HPid, {change_config,OldConfig,NewConfig1},
-                                ?DEFAULT_CALL_TIMEOUT) of
-                ok      -> Result;
-                HError  -> HError
-            catch
-                _:{timeout,_} -> {error,handler_busy}
-            end;
-        Error ->
-            Error
-    end.    
-
-check_config(adding, Config) ->
-    %% Merge in defaults on handler level
-    HConfig0 = maps:get(config, Config, #{}),
-    HConfig = maps:merge(#{type => standard_io},
-                         HConfig0),
-    case check_h_config(maps:to_list(HConfig)) of
-        ok ->
-            {ok,Config#{config=>HConfig}};
-        Error ->
-            Error
-    end;
-check_config(changing, Config) ->
-    HConfig = maps:get(config, Config, #{}),
-    case check_h_config(maps:to_list(HConfig)) of
-        ok    -> {ok,Config};
-        Error -> Error
-    end.
-
-check_h_config([{type,Type} | Config]) when Type == standard_io;
-                                            Type == standard_error ->
-    check_h_config(Config);
-check_h_config([{type,{file,File}} | Config]) when is_list(File) ->
-    check_h_config(Config);
-check_h_config([{type,{file,File,Modes}} | Config]) when is_list(File),
-                                                         is_list(Modes) ->
-    check_h_config(Config);
-check_h_config([Other | Config]) ->
-    case logger_h_common:check_common_config(Other) of
-        valid ->
-            check_h_config(Config);
-        invalid ->
-            {error,{invalid_config,?MODULE,Other}}
-    end;
-check_h_config([]) ->
-    ok.
-
+changing_config(SetOrUpdate, OldConfig, NewConfig) ->
+    logger_h_common:changing_config(SetOrUpdate, OldConfig, NewConfig).
 
 %%%-----------------------------------------------------------------
 %%% Handler being removed
-removing_handler(#{id:=Name}) ->
-    stop(Name).
+-spec removing_handler(Config) -> ok when
+      Config :: logger_handler:config().
+
+removing_handler(Config) ->
+    logger_h_common:removing_handler(Config).
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok when
       LogEvent :: logger:log_event(),
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
-log(LogEvent, Config = #{id := Name,
-                         config := #{handler_pid := HPid,
-                                     mode_tab := ModeTab}}) ->
-    %% if the handler has crashed, we must drop this event
-    %% and hope the handler restarts so we can try again
-    true = is_process_alive(HPid),
-    Bin = logger_h_common:log_to_binary(LogEvent, Config),
-    logger_h_common:call_cast_or_drop(Name, HPid, ModeTab, Bin).
+log(LogEvent, Config) ->
+    logger_h_common:log(LogEvent, Config).
+
+%%%-----------------------------------------------------------------
+%%% Remove internal fields from configuration
+-spec filter_config(Config) -> Config when
+      Config :: logger_handler:config().
+
+filter_config(Config) ->
+    logger_h_common:filter_config(Config).
 
 %%%===================================================================
-%%% gen_server callbacks
+%%% logger_h_common callbacks
 %%%===================================================================
-
-init([Name, Config = #{config := HConfig},
-      State0 = #{type := Type, file_ctrl_sync_int := FileCtrlSyncInt}]) ->    
-    RegName = ?name_to_reg_name(?MODULE,Name),
-    register(RegName, self()),
-    process_flag(trap_exit, true),
-    process_flag(message_queue_data, off_heap),
-
-    ?init_test_hooks(),
-    ?start_observation(Name),
-
-    case do_init(Name, Type) of
-        {ok,InitState} ->
-            try ets:new(Name, [public]) of
-                ModeTab ->
-                    ?set_mode(ModeTab, async),
-                    State = maps:merge(State0, InitState),
-                    T0 = ?timestamp(),
-                    State1 =
-                        ?merge_with_stats(State#{
-                                            mode_tab => ModeTab,
-                                            mode => async,
-                                            file_ctrl_sync => FileCtrlSyncInt,
-                                            last_qlen => 0,
-                                            last_log_ts => T0,
-                                            last_op => sync,
-                                            burst_win_ts => T0,
-                                            burst_msg_count => 0}),
-                    Config1 =
-                        Config#{config => HConfig#{handler_pid => self(),
-                                                   mode_tab => ModeTab}},
-                    proc_lib:init_ack({ok,self(),Config1}),
-                    gen_server:cast(self(), repeated_filesync),
-                    gen_server:enter_loop(?MODULE, [], State1)
-            catch
-                _:Error ->
-                    unregister(RegName),
-                    logger_h_common:error_notify({init_handler,Name,Error}),
-                    proc_lib:init_ack(Error)
-            end;
-        Error ->
-            unregister(RegName),
-            logger_h_common:error_notify({init_handler,Name,Error}),
-            proc_lib:init_ack(Error)
-    end.
-
-do_init(Name, Type) ->
-    case open_log_file(Name, Type) of
+init(Name, Config) ->
+    MyConfig = maps:with([type,file,modes,file_check,max_no_bytes,
+                          max_no_files,compress_on_rotate],Config),
+    case file_ctrl_start(Name, MyConfig) of
         {ok,FileCtrlPid} ->
-            case logger_h_common:unset_restart_flag(Name, ?MODULE) of
-                true ->
-                    %% inform about restart
-                    gen_server:cast(self(), {log_handler_info,
-                                             "Handler ~p restarted",
-                                             [Name]});
-                false ->
-                    %% initial start
-                    ok
-            end,
-            {ok,#{id=>Name,type=>Type,file_ctrl_pid=>FileCtrlPid}};
+            {ok,MyConfig#{file_ctrl_pid=>FileCtrlPid}};
         Error ->
             Error
     end.
 
-%% This is the synchronous log event.
-handle_call({log, Bin}, _From, State) ->
-    {Result,State1} = do_log(Bin, call, State),
-    %% Result == ok | dropped
-    {reply,Result, State1};
-
-handle_call(filesync, _From, State = #{type := Type,
-                                       file_ctrl_pid := FileCtrlPid}) ->
-    if is_atom(Type) ->
-            {reply, ok, State};
-       true ->
-            {reply, file_ctrl_filesync_sync(FileCtrlPid), State#{last_op=>sync}}
-    end;
-
-handle_call({change_config,_OldConfig,NewConfig}, _From,
-            State = #{filesync_repeat_interval := FSyncInt0}) ->
-    HConfig = maps:get(config, NewConfig, #{}),
-    State1 = maps:merge(State, HConfig),
-    case logger_h_common:overload_levels_ok(State1) of
-        true ->
-            _ =
-                case maps:get(filesync_repeat_interval, HConfig, undefined) of
-                    undefined ->
-                        ok;
-                    no_repeat ->
-                        _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref,
-                                                                  State,
-                                                                  undefined));
-                    FSyncInt0 ->
-                        ok;
-                    _FSyncInt1 ->
-                        _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref,
-                                                                  State,
-                                                                  undefined)),
-                        gen_server:cast(self(), repeated_filesync)
-                end,
-            {reply, ok, State1};
-        false ->
-            #{sync_mode_qlen := SMQL,
-              drop_mode_qlen := DMQL,
-              flush_qlen     := FQL} = State1,
-            {reply, {error,{invalid_levels,{SMQL,DMQL,FQL}}}, State}
-    end;
-
-handle_call(info, _From, State) ->
-    {reply, State, State};
-
-handle_call(reset, _From, State) ->
-    State1 = ?merge_with_stats(State),
-    {reply, ok, State1#{last_qlen => 0,
-                        last_log_ts => ?timestamp()}};
-
-handle_call(stop, _From, State) ->
-    {stop, {shutdown,stopped}, ok, State}.
-
-%% This is the asynchronous log event.
-handle_cast({log, Bin}, State) ->
-    {_,State1} = do_log(Bin, cast, State),
-    {noreply, State1};
-
-handle_cast({log_handler_info, Format, Args}, State = #{id:=Name}) ->
-    log_handler_info(Name, Format, Args, State),
-    {noreply, State};
-
-%% If FILESYNC_REPEAT_INTERVAL is set to a millisec value, this
-%% clause gets called repeatedly by the handler. In order to
-%% guarantee that a filesync *always* happens after the last log
-%% event, the repeat operation must be active!
-handle_cast(repeated_filesync,
-            State = #{type := Type,
-                      file_ctrl_pid := FileCtrlPid,
-                      filesync_repeat_interval := FSyncInt,
-                      last_op := LastOp}) ->
-    State1 =
-        if not is_atom(Type), is_integer(FSyncInt) ->
-                %% only do filesync if something has been
-                %% written since last time we checked
-                if LastOp == sync ->
-                        ok;
-                   true ->
-                        file_ctrl_filesync_async(FileCtrlPid)
-                end,
-                {ok,TRef} =
-                    timer:apply_after(FSyncInt, gen_server,cast,
-                                      [self(),repeated_filesync]),
-                State#{rep_sync_tref => TRef, last_op => sync};
-           true ->
-                State
+check_config(Name,set,undefined,NewHConfig) ->
+    check_h_config(merge_default_config(Name,normalize_config(NewHConfig)));
+check_config(Name,SetOrUpdate,OldHConfig,NewHConfig0) ->
+    WriteOnce = maps:with([type,file,modes],OldHConfig),
+    Default =
+        case SetOrUpdate of
+            set ->
+                %% Do not reset write-once fields to defaults
+                merge_default_config(Name,WriteOnce);
+            update ->
+                OldHConfig
         end,
-    {noreply,State1}.
 
-handle_info({'EXIT',Pid,Why}, State = #{id := Name, type := FileInfo}) ->
-    case maps:get(file_ctrl_pid, State, undefined) of
-        Pid ->
-            %% file error, terminate handler
-            logger_h_common:handler_exit(Name,
-                                         {error,{write_failed,FileInfo,Why}});
-        _Other ->
-            %% ignore EXIT
-            ok
-    end,
-    {noreply, State};
+    NewHConfig = maps:merge(Default, normalize_config(NewHConfig0)),
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+    %% Fail if write-once fields are changed
+    case maps:with([type,file,modes],NewHConfig) of
+        WriteOnce ->
+            check_h_config(NewHConfig);
+        Other ->
+            {error,{illegal_config_change,?MODULE,WriteOnce,Other}}
+    end.
 
-terminate(Reason, State = #{id:=Name, file_ctrl_pid:=FWPid,
-                            type:=_FileInfo}) ->
-    _ = logger_h_common:cancel_timer(maps:get(rep_sync_tref, State,
-                                              undefined)),
+check_h_config(HConfig) ->
+    case check_h_config(maps:get(type,HConfig),maps:to_list(HConfig)) of
+        ok ->
+            {ok,fix_file_opts(HConfig)};
+        {error,{Key,Value}} ->
+            {error,{invalid_config,?MODULE,#{Key=>Value}}}
+    end.
+
+check_h_config(Type,[{type,Type} | Config]) when Type =:= standard_io;
+                                                 Type =:= standard_error;
+                                                 Type =:= file ->
+    check_h_config(Type,Config);
+check_h_config({device,Device},[{type,{device,Device}} | Config]) ->
+    check_h_config({device,Device},Config);
+check_h_config(file,[{file,File} | Config]) when is_list(File) ->
+    check_h_config(file,Config);
+check_h_config(file,[{modes,Modes} | Config]) when is_list(Modes) ->
+    check_h_config(file,Config);
+check_h_config(file,[{max_no_bytes,Size} | Config])
+  when (is_integer(Size) andalso Size>0) orelse Size=:=infinity ->
+    check_h_config(file,Config);
+check_h_config(file,[{max_no_files,Num} | Config]) when is_integer(Num), Num>=0 ->
+    check_h_config(file,Config);
+check_h_config(file,[{compress_on_rotate,Bool} | Config]) when is_boolean(Bool) ->
+    check_h_config(file,Config);
+check_h_config(file,[{file_check,FileCheck} | Config])
+  when is_integer(FileCheck), FileCheck>=0 ->
+    check_h_config(file,Config);
+check_h_config(_Type,[Other | _]) ->
+    {error,Other};
+check_h_config(_Type,[]) ->
+    ok.
+
+normalize_config(#{type:={file,File}}=HConfig) ->
+    normalize_config(HConfig#{type=>file,file=>File});
+normalize_config(#{type:={file,File,Modes}}=HConfig) ->
+    normalize_config(HConfig#{type=>file,file=>File,modes=>Modes});
+normalize_config(#{file:=File}=HConfig) ->
+    HConfig#{file=>filename:absname(File)};
+normalize_config(HConfig) ->
+    HConfig.
+
+merge_default_config(Name,#{type:=Type}=HConfig) ->
+    merge_default_config(Name,Type,HConfig);
+merge_default_config(Name,#{file:=_}=HConfig) ->
+    merge_default_config(Name,file,HConfig);
+merge_default_config(Name,HConfig) ->
+    merge_default_config(Name,standard_io,HConfig).
+
+merge_default_config(Name,Type,HConfig) ->
+    maps:merge(get_default_config(Name,Type),HConfig).
+
+get_default_config(Name,file) ->
+     #{type => file,
+       file => filename:absname(atom_to_list(Name)),
+       modes => [raw,append],
+       file_check => 0,
+       max_no_bytes => infinity,
+       max_no_files => 0,
+       compress_on_rotate => false};
+get_default_config(_Name,Type) ->
+     #{type => Type}.
+
+fix_file_opts(#{modes:=Modes}=HConfig) ->
+    HConfig#{modes=>fix_modes(Modes)};
+fix_file_opts(HConfig) ->
+    HConfig#{filesync_repeat_interval=>no_repeat}.
+
+fix_modes(Modes) ->
+    %% Ensure write|append|exclusive
+    Modes1 =
+        case [M || M <- Modes,
+                   lists:member(M,[write,append,exclusive])] of
+            [] -> [append|Modes];
+            _ -> Modes
+        end,
+    %% Ensure raw
+    Modes2 =
+        case lists:member(raw,Modes) of
+            false -> [raw|Modes1];
+            true -> Modes1
+        end,
+    %% Ensure delayed_write
+    case lists:partition(fun(delayed_write) -> true;
+                            ({delayed_write,_,_}) -> true;
+                            (_) -> false
+                         end, Modes2) of
+        {[],_} ->
+            [delayed_write|Modes2];
+        _ ->
+            Modes2
+    end.
+
+config_changed(_Name,
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress},
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress}=State) ->
+    State;
+config_changed(_Name,
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress},
+               #{file_ctrl_pid := FileCtrlPid} = State) ->
+    FileCtrlPid ! {update_config,#{file_check=>FileCheck,
+                                   max_no_bytes=>Size,
+                                   max_no_files=>Count,
+                                   compress_on_rotate=>Compress}},
+    State#{file_check:=FileCheck,
+           max_no_bytes:=Size,
+           max_no_files:=Count,
+           compress_on_rotate:=Compress};
+config_changed(_Name,_NewHConfig,State) ->
+    State.
+
+filesync(_Name, SyncAsync, #{file_ctrl_pid := FileCtrlPid} = State) ->
+    Result = file_ctrl_filesync(SyncAsync, FileCtrlPid),
+    {Result,State}.
+
+write(_Name, SyncAsync, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
+    Result = file_write(SyncAsync, FileCtrlPid, Bin),
+    {Result,State}.
+
+reset_state(_Name, State) ->
+    State.
+
+handle_info(_Name, {'EXIT',Pid,Why}, #{file_ctrl_pid := Pid}=State) ->
+    %% file_ctrl_pid died, file error, terminate handler
+    exit({error,{write_failed,maps:with([type,file,modes],State),Why}});
+handle_info(_, _, State) ->
+    State.
+
+terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
     case is_process_alive(FWPid) of
         true ->
             unlink(FWPid),
@@ -410,17 +288,12 @@ terminate(Reason, State = #{id:=Name, file_ctrl_pid:=FWPid,
                     ok
             after
                 ?DEFAULT_CALL_TIMEOUT ->
-                    exit(FWPid, kill)
+                    exit(FWPid, kill),
+                    ok
             end;
         false ->
             ok
-    end,
-    ok = logger_h_common:stop_or_restart(Name, Reason, State),
-    unregister(?name_to_reg_name(?MODULE, Name)),
-    ok.
-                                                  
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+    end.
 
 %%%===================================================================
 %%% Internal functions
@@ -428,217 +301,31 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%-----------------------------------------------------------------
 %%%
-get_init_state() ->
-     #{sync_mode_qlen              => ?SYNC_MODE_QLEN,
-       drop_mode_qlen              => ?DROP_MODE_QLEN,
-       flush_qlen                  => ?FLUSH_QLEN,
-       burst_limit_enable          => ?BURST_LIMIT_ENABLE,
-       burst_limit_max_count       => ?BURST_LIMIT_MAX_COUNT,
-       burst_limit_window_time     => ?BURST_LIMIT_WINDOW_TIME,
-       overload_kill_enable        => ?OVERLOAD_KILL_ENABLE,
-       overload_kill_qlen          => ?OVERLOAD_KILL_QLEN,
-       overload_kill_mem_size      => ?OVERLOAD_KILL_MEM_SIZE,
-       overload_kill_restart_after => ?OVERLOAD_KILL_RESTART_AFTER,
-       file_ctrl_sync_int          => ?CONTROLLER_SYNC_INTERVAL,
-       filesync_ok_qlen            => ?FILESYNC_OK_QLEN,
-       filesync_repeat_interval    => ?FILESYNC_REPEAT_INTERVAL}.
-
-%%%-----------------------------------------------------------------
-%%% Add a standard handler to the logger.
-%%% This starts a dedicated handler process which should always
-%%% exist if the handler is registered with logger (and should not
-%%% exist if the handler is not registered).
-%%%
-%%% Handler specific config should be provided with a sub map associated
-%%% with a key named 'config', e.g:
-%%%
-%%% Config = #{config => #{sync_mode_qlen => 50}
-%%%
-%%% The standard handler process is linked to logger_sup, which is
-%%% part of the kernel application's supervision tree.
-start(Name, Config, HandlerState) ->
-    LoggerStdH =
-        #{id       => Name,
-          start    => {?MODULE, start_link, [Name,Config,HandlerState]},
-          restart  => temporary,
-          shutdown => 2000,
-          type     => worker,
-          modules  => [?MODULE]},
-    case supervisor:start_child(logger_sup, LoggerStdH) of
-        {ok,Pid,Config1} ->
-            ok = logger_handler_watcher:register_handler(Name,Pid),
-            {ok,Config1};
-        Error ->
-            Error
-    end.
-
-%%%-----------------------------------------------------------------
-%%% Stop and remove the handler.
-stop(Name) ->
-    case whereis(?name_to_reg_name(?MODULE,Name)) of
-        undefined ->
-            ok;
-        Pid ->
-            %% We don't want to do supervisor:terminate_child here
-            %% since we need to distinguish this explicit stop from a
-            %% system termination in order to avoid circular attempts
-            %% at removing the handler (implying deadlocks and
-            %% timeouts).
-            %% And we don't need to do supervisor:delete_child, since
-            %% the restart type is temporary, which means that the
-            %% child specification is automatically removed from the
-            %% supervisor when the process dies.
-            _ = gen_server:call(Pid, stop),
-            ok
-    end.
-
-%%%-----------------------------------------------------------------
-%%% Logging and overload control.
--define(update_file_ctrl_sync(C, Interval),
-        if C == 0 -> Interval;
-           true -> C-1 end).
-
-%% check for overload between every event (and set Mode to async,
-%% sync or drop accordingly), but never flush the whole mailbox
-%% before LogWindowSize events have been handled
-do_log(Bin, CallOrCast, State = #{id:=Name, mode:=Mode0}) ->
-    T1 = ?timestamp(),
-
-    %% check if the handler is getting overloaded, or if it's
-    %% recovering from overload (the check must be done for each
-    %% event to react quickly to large bursts of events and
-    %% to ensure that the handler can never end up in drop mode
-    %% with an empty mailbox, which would stop operation)
-    {Mode1,QLen,Mem,State1} = logger_h_common:check_load(State),
-
-    if (Mode1 == drop) andalso (Mode0 =/= drop) ->
-            log_handler_info(Name, "Handler ~p switched to drop mode",
-                             [Name], State);
-       (Mode0 == drop) andalso ((Mode1 == async) orelse (Mode1 == sync)) ->
-            log_handler_info(Name, "Handler ~p switched to ~w mode",
-                             [Name,Mode1], State);
-       true ->
-            ok
-    end,
-
-    %% kill the handler if it can't keep up with the load
-    logger_h_common:kill_if_choked(Name, QLen, Mem, ?MODULE, State),
-
-    if Mode1 == flush ->
-            flush(Name, QLen, T1, State1);
-       true ->
-            write(Name, Mode1, T1, Bin, CallOrCast, State1)
-    end.
-
-%% this clause is called by do_log/3 after an overload check
-%% has been performed, where QLen > FlushQLen
-flush(Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
-    %% flush messages in the mailbox (a limited number in
-    %% order to not cause long delays)
-    NewFlushed = logger_h_common:flush_log_events(?FLUSH_MAX_N),
-
-    %% write info in log about flushed messages
-    log_handler_info(Name, "Handler ~p flushed ~w log events",
-                     [Name,NewFlushed], State),
-
-    %% because of the receive loop when flushing messages, the
-    %% handler will be scheduled out often and the mailbox could
-    %% grow very large, so we'd better check the queue again here
-    {_,_QLen1} = process_info(self(), message_queue_len),
-    ?observe(Name,{max_qlen,_QLen1}),
-    
-    %% Add 1 for the current log event
-    ?observe(Name,{flushed,NewFlushed+1}),
- 
-    State1 = ?update_max_time(?diff_time(T1,_T0),State),
-    {dropped,?update_other(flushed,FLUSHED,NewFlushed,
-                           State1#{mode => ?set_mode(ModeTab,async),
-                                   last_qlen => 0,
-                                   last_log_ts => T1})}.
-
-%% this clause is called to write to file
-write(_Name, Mode, T1, Bin, _CallOrCast,
-      State = #{mode_tab := ModeTab,
-                file_ctrl_pid := FileCtrlPid,
-                file_ctrl_sync := FileCtrlSync,
-                last_qlen := LastQLen,
-                last_log_ts := T0,
-                file_ctrl_sync_int := FileCtrlSyncInt}) ->
-    %% check if we need to limit the number of writes
-    %% during a burst of log events
-    {DoWrite,BurstWinT,BurstMsgCount} = logger_h_common:limit_burst(State),
-
-    %% only send a synhrounous event to the file controller process
-    %% every FileCtrlSyncInt time, to give the handler time between
-    %% file writes so it can keep up with incoming messages
-    {Result,LastQLen1} =
-        if DoWrite, FileCtrlSync == 0 ->
-                ?observe(_Name,{_CallOrCast,1}),
-                file_write_sync(FileCtrlPid, Bin, false),
-                {ok,element(2, process_info(self(), message_queue_len))};
-           DoWrite ->
-                ?observe(_Name,{_CallOrCast,1}),
-                file_write_async(FileCtrlPid, Bin),
-                {ok,LastQLen};
-           not DoWrite ->
-                ?observe(_Name,{flushed,1}),
-                {dropped,LastQLen}
-        end,
-    
-    %% Check if the time since the previous log event is long enough -
-    %% and the queue length small enough - to assume the mailbox has
-    %% been emptied, and if so, do filesync operation and reset mode to
-    %% async. Note that this is the best we can do to detect an idle
-    %% handler without setting a timer after each log call/cast. If the
-    %% time between two consecutive log events is fast and no new
-    %% event comes in after the last one, idle state won't be detected!
-    Time = ?diff_time(T1,T0),
-    {Mode1,BurstMsgCount1} =
-        if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
-           (Time > ?IDLE_DETECT_TIME_USEC) ->
-                %% do filesync if necessary
-                case maps:get(type, State) of
-                    Std when is_atom(Std) ->
-                        ok;
-                    _File ->
-                        file_ctrl_filesync_async(FileCtrlPid)
-                end,
-                {?change_mode(ModeTab, Mode, async),0};
-           true ->
-                {Mode,BurstMsgCount}
-        end,
-    State1 =
-        ?update_calls_or_casts(_CallOrCast,1,State),
-    State2 =
-        ?update_max_time(Time,
-                         State1#{mode => Mode1,
-                                 last_qlen := LastQLen1,
-                                 last_log_ts => T1,
-                                 last_op => write,
-                                 burst_win_ts => BurstWinT,
-                                 burst_msg_count => BurstMsgCount1,
-                                 file_ctrl_sync =>
-                                     ?update_file_ctrl_sync(FileCtrlSync,
-                                                            FileCtrlSyncInt)}),
-    {Result,State2}.
-
-open_log_file(HandlerName, FileInfo) ->
-    case file_ctrl_start(HandlerName, FileInfo) of
-        OK = {ok,_FileCtrlPid} -> OK;
-        Error -> Error
-    end.
-
-do_open_log_file({file,File}) ->
-    do_open_log_file({file,File,[raw,append,delayed_write]});
-
-do_open_log_file({file,File,[]}) ->
-    do_open_log_file({file,File,[raw,append,delayed_write]});
-
-do_open_log_file({file,File,Modes}) ->
+open_log_file(HandlerName,#{type:=file,
+                            file:=FileName,
+                            modes:=Modes,
+                            file_check:=FileCheck}) ->
     try
-        case filelib:ensure_dir(File) of
+        case filelib:ensure_dir(FileName) of
             ok ->
-                file:open(File, Modes);
+                case file:open(FileName, Modes) of
+                    {ok, Fd} ->
+                        {ok,#file_info{inode=INode}} =
+                            file:read_file_info(FileName,[raw]),
+                        UpdateModes = [append | Modes--[write,append,exclusive]],
+                        {ok,#{handler_name=>HandlerName,
+                              file_name=>FileName,
+                              modes=>UpdateModes,
+                              file_check=>FileCheck,
+                              fd=>Fd,
+                              inode=>INode,
+                              last_check=>timestamp(),
+                              synced=>false,
+                              write_res=>ok,
+                              sync_res=>ok}};
+                    Error ->
+                        Error
+                end;
             Error ->
                 Error
         end
@@ -646,34 +333,32 @@ do_open_log_file({file,File,Modes}) ->
         _:Reason -> {error,Reason}
     end.
 
-close_log_file(Std) when Std == standard_io; Std == standard_error ->
+close_log_file(#{fd:=Fd}) ->
+    _ = file:datasync(Fd), %% file:datasync may return error as it will flush the delayed_write buffer
+    _ = file:close(Fd),
     ok;
-close_log_file(Fd) ->
-    _ = file:datasync(Fd),
-    _ = file:close(Fd).
-
-
-log_handler_info(Name, Format, Args, #{file_ctrl_pid := FileCtrlPid}) ->
-    Config =
-        case logger:get_handler_config(Name) of
-            {ok,Conf} -> Conf;
-            _ -> #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}
-        end,
-    Meta = #{time=>erlang:system_time(microsecond)},
-    Bin = logger_h_common:log_to_binary(#{level => notice,
-                                          msg => {Format,Args},
-                                          meta => Meta}, Config),
-    _ = file_write_async(FileCtrlPid, Bin),
+close_log_file(_) ->
     ok.
+
+%% A special close that closes the FD properly when the delayed write close failed
+delayed_write_close(#{fd:=Fd}) ->
+    case file:close(Fd) of
+        %% We got an error while closing, could be a delayed write failing
+        %% So we close again in order to make sure the file is closed.
+        {error, _} ->
+            file:close(Fd);
+        Res ->
+            Res
+    end.
 
 %%%-----------------------------------------------------------------
 %%% File control process
 
-file_ctrl_start(HandlerName, FileInfo) ->
+file_ctrl_start(HandlerName, HConfig) ->
     Starter = self(),
     FileCtrlPid =
         spawn_link(fun() ->
-                           file_ctrl_init(HandlerName, FileInfo, Starter)
+                           file_ctrl_init(HandlerName, HConfig, Starter)
                    end),
     receive
         {FileCtrlPid,ok} ->
@@ -688,28 +373,21 @@ file_ctrl_start(HandlerName, FileInfo) ->
 file_ctrl_stop(Pid) ->
     Pid ! stop.
 
-file_write_async(Pid, Bin) ->
+file_write(async, Pid, Bin) ->
     Pid ! {log,Bin},
-    ok.
+    ok;
+file_write(sync, Pid, Bin) ->
+    file_ctrl_call(Pid, {log,Bin}).
 
-file_write_sync(Pid, Bin, FileSync) ->
-    case file_ctrl_call(Pid, {log,self(),Bin,FileSync}) of
-        {error,Reason} ->
-            {error,{write_failed,Bin,Reason}};
-        Result ->
-            Result
-    end.
-
-file_ctrl_filesync_async(Pid) ->
+file_ctrl_filesync(async, Pid) ->
     Pid ! filesync,
-    ok.
-
-file_ctrl_filesync_sync(Pid) ->
-    file_ctrl_call(Pid, {filesync,self()}).
+    ok;
+file_ctrl_filesync(sync, Pid) ->
+    file_ctrl_call(Pid, filesync).
 
 file_ctrl_call(Pid, Msg) ->
     MRef = monitor(process, Pid),
-    Pid ! {Msg,MRef},
+    Pid ! {Msg,{self(),MRef}},
     receive
         {MRef,Result} ->
             demonitor(MRef, [flush]),
@@ -718,111 +396,288 @@ file_ctrl_call(Pid, Msg) ->
             {error,Reason}
     after
         ?DEFAULT_CALL_TIMEOUT ->
+            %% If this timeout triggers we will get a stray
+            %% reply message in our mailbox eventually.
+            %% That does not really matter though as it will
+            %% end up in this module's handle_info and be ignored
+            demonitor(MRef, [flush]),
             {error,{no_response,Pid}}
-    end.    
+    end.
 
-file_ctrl_init(HandlerName, FileInfo, Starter) when is_tuple(FileInfo) ->
+file_ctrl_init(HandlerName,
+               #{type:=file,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress,
+                 file:=FileName} = HConfig,
+               Starter) ->
     process_flag(message_queue_data, off_heap),
-    FileName = element(2, FileInfo),
-    case do_open_log_file(FileInfo) of
-        {ok,Fd} ->
+    case open_log_file(HandlerName,HConfig) of
+        {ok,State} ->
             Starter ! {self(),ok},
-            file_ctrl_loop(Fd, file, FileName, false, ok, ok, HandlerName);
+            %% Do the initial rotate (if any) after we ack the starting
+            %% process as otherwise startup of the system will be
+            %% delayed/crash
+            RotState = update_rotation({Size,Count,Compress},State),
+            file_ctrl_loop(RotState);
         {error,Reason} ->
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
-file_ctrl_init(HandlerName, StdDev, Starter) ->
+file_ctrl_init(HandlerName, #{type:={device,Dev}}, Starter) ->
     Starter ! {self(),ok},
-    file_ctrl_loop(StdDev, standard_io, StdDev, false, ok, ok, HandlerName).
+    file_ctrl_loop(#{handler_name=>HandlerName,dev=>Dev});
+file_ctrl_init(HandlerName, #{type:=StdDev}, Starter) ->
+    Starter ! {self(),ok},
+    file_ctrl_loop(#{handler_name=>HandlerName,dev=>StdDev}).
 
-file_ctrl_loop(Fd, Type, DevName, Synced,
-               PrevWriteResult, PrevSyncResult, HandlerName) ->
+file_ctrl_loop(State) ->
     receive
         %% asynchronous event
         {log,Bin} ->
-            Result = if Type == file ->
-                             write_to_dev(Fd, Bin, DevName,
-                                          PrevWriteResult, HandlerName);
-                        true ->
-                             io:put_chars(Fd, Bin)
-                     end,
-            file_ctrl_loop(Fd, Type, DevName, false,
-                           Result, PrevSyncResult, HandlerName);
+            State1 = write_to_dev(Bin,State),
+            file_ctrl_loop(State1);
 
         %% synchronous event
-        {{log,From,Bin,FileSync},MRef} ->
-            if Type == file ->
-                    %% check that file hasn't been deleted
-                    CheckFile =
-                        fun() -> {ok,_} = file:read_file_info(DevName) end,
-                    spawn_link(CheckFile),
-                    WResult = write_to_dev(Fd, Bin, DevName,
-                                           PrevWriteResult, HandlerName),
-                    {Synced1,SResult} =
-                        if not FileSync ->
-                                {false,PrevSyncResult};
-                           true ->
-                                case sync_dev(Fd, DevName,
-                                              PrevSyncResult, HandlerName) of
-                                    ok     -> {true,ok};
-                                    Error  -> {false,Error}
-                                end
-                        end,
-                    From ! {MRef,ok},
-                    file_ctrl_loop(Fd, Type, DevName, Synced1,
-                                   WResult, SResult, HandlerName);
-               true ->
-                    _ = io:put_chars(Fd, Bin),
-                    From ! {MRef,ok},
-                    file_ctrl_loop(Fd, Type, DevName, false,
-                                   ok, PrevSyncResult, HandlerName)
-            end;
-
-        filesync when not Synced ->
-            Result = sync_dev(Fd, DevName, PrevSyncResult, HandlerName),
-            file_ctrl_loop(Fd, Type, DevName, true,
-                           PrevWriteResult, Result, HandlerName);
+        {{log,Bin},{From,MRef}} ->
+            State1 = ensure_file(State),
+            State2 = write_to_dev(Bin,State1),
+            From ! {MRef,ok},
+            file_ctrl_loop(State2);
 
         filesync ->
-            file_ctrl_loop(Fd, Type, DevName, true,
-                           PrevWriteResult, PrevSyncResult, HandlerName);
+            State1 = sync_dev(State),
+            file_ctrl_loop(State1);
 
-        {{filesync,From},MRef} ->
-            Result = if not Synced ->
-                             sync_dev(Fd, DevName, PrevSyncResult, HandlerName);
-                        true ->
-                             ok
-                     end,
+        {filesync,{From,MRef}} ->
+            State1 = ensure_file(State),
+            State2 = sync_dev(State1),
             From ! {MRef,ok},
-            file_ctrl_loop(Fd, Type, DevName, true,
-                           PrevWriteResult, Result, HandlerName);
+            file_ctrl_loop(State2);
+
+        {update_config,#{file_check:=FileCheck,
+                         max_no_bytes:=Size,
+                         max_no_files:=Count,
+                         compress_on_rotate:=Compress}} ->
+            State1 = update_rotation({Size,Count,Compress},State),
+            file_ctrl_loop(State1#{file_check=>FileCheck});
 
         stop ->
-            _ = close_log_file(Fd),
+            close_log_file(State),
             stopped
     end.
 
-write_to_dev(Fd, Bin, FileName, PrevWriteResult, HandlerName) ->
-    case ?file_write(Fd, Bin) of
+maybe_ensure_file(#{file_check:=0}=State) ->
+    ensure_file(State);
+maybe_ensure_file(#{last_check:=T0,file_check:=CheckInt}=State)
+  when is_integer(CheckInt) ->
+    T = timestamp(),
+    if T-T0 > CheckInt -> ensure_file(State);
+       true -> State
+    end;
+maybe_ensure_file(State) ->
+    State.
+
+%% In order to play well with tools like logrotate, we need to be able
+%% to re-create the file if it has disappeared (e.g. if rotated by
+%% logrotate)
+ensure_file(#{inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
+    case file:read_file_info(FileName,[raw]) of
+        {ok,#file_info{inode=INode0}} ->
+            State#{last_check=>timestamp()};
+        _ ->
+            close_log_file(State),
+            {ok, Fd} = ensure_open(FileName, Modes),
+            {ok,#file_info{inode=INode}} =
+                file:read_file_info(FileName,[raw]),
+            State#{fd=>Fd,inode=>INode,
+                   last_check=>timestamp(),
+                   synced=>true,sync_res=>ok}
+    end;
+ensure_file(State) ->
+    State.
+
+ensure_open(Filename, Modes) ->
+    case filelib:ensure_dir(Filename) of
         ok ->
-            ok;
-        PrevWriteResult ->
-            %% don't report same error twice
-            PrevWriteResult;
+            case file:open(Filename, Modes) of
+                {ok, Fd} ->
+                    {ok, Fd};
+                Error ->
+                    exit({could_not_reopen_file,Error})
+            end;
         Error ->
-            logger_h_common:error_notify({HandlerName,write,FileName,Error}),
-            Error
+            exit({could_not_create_dir_for_file,Error})
     end.
 
-sync_dev(Fd, DevName, PrevSyncResult, HandlerName) ->
-    case ?file_datasync(Fd) of
-        ok ->
+write_to_dev(Bin,#{dev:=standard_io}=State) ->
+    try
+        io:put_chars(user, Bin)
+    catch _E:_R ->
+            io:put_chars(
+              standard_error, "Failed to write log message to stdout, trying stderr\n"),
+            io:put_chars(standard_error, Bin)
+    end,
+    State;
+write_to_dev(Bin,#{dev:=DevName}=State) ->
+    io:put_chars(DevName, Bin),
+    State;
+write_to_dev(Bin, State) ->
+    State1 = #{fd:=Fd} = maybe_ensure_file(State),
+    Result = ?file_write(Fd, Bin),
+    State2 = maybe_rotate_file(Bin,State1),
+    maybe_notify_error(write,Result,State2),
+    State2#{synced=>false,write_res=>Result}.
+
+sync_dev(#{synced:=false}=State) ->
+    State1 = #{fd:=Fd} = maybe_ensure_file(State),
+    Result = ?file_datasync(Fd),
+    maybe_notify_error(filesync,Result,State1),
+    State1#{synced=>true,sync_res=>Result};
+sync_dev(State) ->
+    State.
+
+update_rotation({infinity,_,_},State) ->
+    maybe_remove_archives(0,State),
+    maps:remove(rotation,State);
+update_rotation({Size,Count,Compress},#{file_name:=FileName} = State) ->
+    maybe_remove_archives(Count,State),
+    {ok,#file_info{size=CurrSize}} = file:read_file_info(FileName,[raw]),
+    State1 = State#{rotation=>#{size=>Size,
+                                count=>Count,
+                                compress=>Compress,
+                                curr_size=>CurrSize}},
+    maybe_update_compress(0,State1),
+    maybe_rotate_file(0,State1).
+
+maybe_remove_archives(Count,#{file_name:=FileName}=State) ->
+    Archive = rot_file_name(FileName,Count,false),
+    CompressedArchive = rot_file_name(FileName,Count,true),
+    case {file:read_file_info(Archive,[raw]),
+          file:read_file_info(CompressedArchive,[raw])} of
+        {{error,enoent},{error,enoent}} ->
             ok;
-        PrevSyncResult ->
-            %% don't report same error twice
-            PrevSyncResult;
-        Error ->
-            logger_h_common:error_notify({HandlerName,filesync,DevName,Error}),
-            Error
+        _ ->
+            _ = file:delete(Archive),
+            _ = file:delete(CompressedArchive),
+            maybe_remove_archives(Count+1,State)
     end.
 
+maybe_update_compress(Count,#{rotation:=#{count:=Count}}) ->
+    ok;
+maybe_update_compress(N,#{file_name:=FileName,
+                          rotation:=#{compress:=Compress}}=State) ->
+    Archive = rot_file_name(FileName,N,not Compress),
+    case file:read_file_info(Archive,[raw]) of
+        {ok,_} when Compress ->
+            compress_file(Archive);
+        {ok,_} ->
+            decompress_file(Archive);
+        _ ->
+            ok
+    end,
+    maybe_update_compress(N+1,State).
+
+maybe_rotate_file(Bin,#{rotation:=_}=State) when is_binary(Bin) ->
+    maybe_rotate_file(byte_size(Bin),State);
+maybe_rotate_file(AddSize,#{rotation:=#{size:=RotSize,
+                                        curr_size:=CurrSize}=Rotation}=State) ->
+    NewSize = CurrSize + AddSize,
+    if NewSize>RotSize ->
+            rotate_file(State#{rotation=>Rotation#{curr_size=>NewSize}});
+       true ->
+            State#{rotation=>Rotation#{curr_size=>NewSize}}
+    end;
+maybe_rotate_file(_Bin,State) ->
+    State.
+
+rotate_file(#{file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
+    State1 = sync_dev(State),
+    _ = delayed_write_close(State),
+    rotate_files(FileName,maps:get(count,Rotation),maps:get(compress,Rotation)),
+    {ok, Fd} = ensure_open(FileName,Modes),
+    {ok,#file_info{inode=INode}} = file:read_file_info(FileName,[raw]),
+    State1#{fd=>Fd,inode=>INode,rotation=>Rotation#{curr_size=>0}}.
+
+rotate_files(FileName,0,_Compress) ->
+    _ = file:delete(FileName),
+    ok;
+rotate_files(FileName,1,Compress) ->
+    FileName0 = FileName++".0",
+    Rename = file:rename(FileName,FileName0),
+    %% Rename may fail if file has been deleted. If it has, then
+    %% we do not need to compress it...
+    if Rename =:= ok, Compress -> compress_file(FileName0);
+       true -> ok
+    end,
+    ok;
+rotate_files(FileName,Count,Compress) ->
+    _ = file:rename(rot_file_name(FileName,Count-2,Compress),
+                    rot_file_name(FileName,Count-1,Compress)),
+    rotate_files(FileName,Count-1,Compress).
+
+rot_file_name(FileName,Count,false) ->
+    FileName ++ "." ++ integer_to_list(Count);
+rot_file_name(FileName,Count,true) ->
+    rot_file_name(FileName,Count,false) ++ ".gz".
+
+compress_file(FileName) ->
+    {ok,In} = file:open(FileName,[read,binary]),
+    {ok,Out} = file:open(FileName++".gz",[write]),
+    Z = zlib:open(),
+    zlib:deflateInit(Z, default, deflated, 31, 8, default),
+    compress_data(Z,In,Out),
+    zlib:deflateEnd(Z),
+    zlib:close(Z),
+    _ = file:close(In),
+    _ = file:close(Out),
+    _ = file:delete(FileName),
+    ok.
+
+compress_data(Z,In,Out) ->
+    case file:read(In,100000) of
+        {ok,Data} ->
+            Compressed = zlib:deflate(Z, Data),
+            _ = file:write(Out,Compressed),
+            compress_data(Z,In,Out);
+        eof ->
+            Compressed = zlib:deflate(Z, <<>>, finish),
+            _ = file:write(Out,Compressed),
+            ok
+    end.
+
+decompress_file(FileName) ->
+    {ok,In} = file:open(FileName,[read,binary]),
+    {ok,Out} = file:open(filename:rootname(FileName,".gz"),[write]),
+    Z = zlib:open(),
+    zlib:inflateInit(Z, 31),
+    decompress_data(Z,In,Out),
+    zlib:inflateEnd(Z),
+    zlib:close(Z),
+    _ = file:close(In),
+    _ = file:close(Out),
+    _ = file:delete(FileName),
+    ok.
+
+decompress_data(Z,In,Out) ->
+    case file:read(In,1000) of
+        {ok,Data} ->
+            Decompressed = zlib:inflate(Z, Data),
+            _ = file:write(Out,Decompressed),
+            decompress_data(Z,In,Out);
+        eof ->
+            ok
+    end.
+
+maybe_notify_error(_Op, ok, _State) ->
+    ok;
+maybe_notify_error(Op, Result, #{write_res:=WR,sync_res:=SR})
+  when (Op==write andalso Result==WR) orelse
+       (Op==filesync andalso Result==SR) ->
+    %% don't report same error twice
+    ok;
+maybe_notify_error(Op, Error, #{handler_name:=HandlerName,file_name:=FileName}) ->
+    logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
+    ok.
+
+timestamp() ->
+    erlang:monotonic_time(millisecond).

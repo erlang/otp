@@ -39,7 +39,7 @@ EXAMPLE_FILES = xref_examples.erl
 # Targets
 # ----------------------------------------------------
 
-debug opt:
+$(TYPES):
 
 clean:
 

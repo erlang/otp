@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,9 @@
 -export([id/1]).
 -export([init/2]).
 
+-export([post_all/3]).
+-export([post_groups/2]).
+
 -export([pre_init_per_suite/3]).
 -export([post_init_per_suite/4]).
 -export([pre_end_per_suite/3]).
@@ -70,6 +73,31 @@
 			{'EXIT',reason()}.
 
 -record(state, { id = ?MODULE :: term()}).
+
+%% Called after groups/0.
+%% You can change the return value in this function.
+-spec post_groups(Suite :: atom(), Groups :: list()) -> list().
+post_groups(Suite,Groups) ->
+    gen_event:notify(
+      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+			     data = {?MODULE, post_groups,
+				     [Suite,Groups]}}),
+    ct:log("~w:post_groups(~w) called", [?MODULE,Suite]),
+    Groups.
+
+%% Called after all/0.
+%% You can change the return value in this function.
+-spec post_all(Suite :: atom(),
+               Tests :: list(),
+               Groups :: term()) ->
+    list().
+post_all(Suite,Tests,Groups) ->
+    gen_event:notify(
+      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+			     data = {?MODULE, post_all,
+				     [Suite,Tests,Groups]}}),
+    ct:log("~w:post_all(~w) called", [?MODULE,Suite]),
+    Tests.
 
 %% Always called before any other callback function. Use this to initiate
 %% any common state. It should return an state for this CTH.

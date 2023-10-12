@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledirpickerevent.html">wxFileDirPickerEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>command_filepicker_changed</em>, <em>command_dirpicker_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxFileDirPicker(). #wxFileDirPicker{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxFileDirPickerEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFileDirPickerEvent).
 -include("wxe.hrl").
 -export([getPath/1]).
@@ -41,26 +28,28 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxFileDirPickerEvent/0]).
+-type wxFileDirPickerEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxFileDirPickerEventType() :: 'command_filepicker_changed' | 'command_dirpicker_changed'.
+-export_type([wxFileDirPickerEvent/0, wxFileDirPicker/0, wxFileDirPickerEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFileDirPickerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledirpickerevent.html#wxfiledirpickereventgetpath">external documentation</a>.
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFileDirPickerEvent().
-getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDirPickerEvent),
-  wxe_util:call(?wxFileDirPickerEvent_GetPath,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxFileDirPickerEvent_GetPath),
+  wxe_util:rec(?wxFileDirPickerEvent_GetPath).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

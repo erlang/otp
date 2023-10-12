@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,11 +27,14 @@
 
 -module(diameter_gen_tcp_SUITE).
 
--export([suite/0,
-         all/0]).
+%% testcases, not common_test dependency
+-export([run/0,
+         run/1]).
 
-%% testcases
--export([send_long/1,
+%% common_test wrapping
+-export([suite/0,
+         all/0,
+         send_long/1,
          connect/1]).
 
 -define(LOOPBACK, {127,0,0,1}).
@@ -46,24 +49,40 @@ all() ->
     [connect,     %% Appears to fail only when run first.
      send_long].
 
+send_long(_) ->
+    send_long().
+
+connect(_) ->
+    connect().
+
 %% ===========================================================================
 
-%% send_long/1
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1
+
+run(List) ->
+    diameter_util:run([{{?MODULE, F, [[]]}, 10000} || F <- List]).
+
+%% send_long/0
 %%
 %% Test that a long message is received.
 
-send_long(_) ->
+send_long() ->
     {Sock, SendF} = connection(),
     B = binary:copy(<<$X>>, 1 bsl 20),
     ok = SendF(B),
-    B = recv(Sock, size(B), []).
+    B = recv(Sock, byte_size(B), []).
 
 recv(_, 0, Acc) ->
     list_to_binary(lists:reverse(Acc));
 recv(Sock, N, Acc) ->
     receive
         {tcp, Sock, Bin} ->
-            recv(Sock, N - size(Bin), [Bin | Acc]);
+            recv(Sock, N - byte_size(Bin), [Bin | Acc]);
         T ->
             {T, Acc}
     end.
@@ -101,13 +120,13 @@ send(Sock, Bin) ->
 
 %% ===========================================================================
 
-%% connect/1
+%% connect/0
 %%
 %% Test that simultaneous connections succeed. This fails sporadically
 %% on OS X at the time of writing, when gen_tcp:connect/2 returns
 %% {error, econnreset}.
 
-connect(_) ->
+connect() ->
     {ok, LSock} = gen_tcp:listen(0, ?GEN_OPTS),
     {ok, {_,PortNr}} = inet:sockname(LSock),
     Count = lists:seq(1,8),  %% 8 simultaneous connects

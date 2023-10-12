@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,11 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint16   ErtsHalfDigit;
 
+#elif (SIZEOF_VOID_P == 8) && defined(__GNUC__) && (__GNUC__ >= 4)
+typedef __uint128_t ErtsDoubleDigit;
+#define BIG_HAVE_DOUBLE_DIGIT 1
+
 #elif (SIZEOF_VOID_P == 8)
-/* Assume 64-bit machine, does it exist 128 bit long long long ? */
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
@@ -64,7 +67,6 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define BIG_SIGN(xp)     (!!bignum_header_is_neg(*xp))
 #define BIG_ARITY(xp)    ((Uint)bignum_header_arity(*(xp)))
 #define BIG_DIGIT(xp,i)  *(BIG_V(xp)+(i))
-#define BIG_DIGITS_PER_WORD (sizeof(Uint)/sizeof(ErtsDigit))
 
 #define BIG_SIZE(xp)  BIG_ARITY(xp)
 
@@ -81,7 +83,11 @@ typedef Uint  dsize_t;	 /* Vector size type */
  * a Uint64 argument. Therefore, we must test the size of the argument
  * to ensure that the cast does not discard the high-order 32 bits.
  */
-#define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#if defined(ARCH_32)
+#  define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#else
+#  define _IS_SSMALL32(x) (1)
+#endif
 #define _IS_SSMALL64(x) (((Uint64) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
 #define IS_SSMALL(x) (sizeof(x) == sizeof(Uint32) ? _IS_SSMALL32(x) : _IS_SSMALL64(x))
 
@@ -119,16 +125,21 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_decimal_estimate(Wterm);
-Eterm erts_big_to_list(Eterm, Eterm**);
-char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
-Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz);
+int big_integer_estimate(Wterm, Uint base);
+Eterm erts_big_to_list(Eterm, int base, Eterm**);
+char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz);
+Uint erts_big_to_binary_bytes(Eterm x, int base, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
 Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
+
+int big_div_rem(Eterm lhs, Eterm rhs,
+                Eterm *q_hp, Eterm *q,
+                Eterm *r_hp, Eterm *r);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
 
@@ -149,10 +160,11 @@ Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);
 Eterm erts_make_integer(Uint, Process *);
+Eterm erts_make_integer_fact(Uint, ErtsHeapFactory *);
 Eterm erts_make_integer_from_uword(UWord x, Process *p);
 
 dsize_t big_bytes(Eterm);
-Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
+Eterm bytes_to_big(const byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
@@ -164,24 +176,12 @@ Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif
+int term_to_Uint32(Eterm, Uint32*);
+
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);
 
 Eterm erts_uint64_to_big(Uint64, Eterm **);
 Eterm erts_sint64_to_big(Sint64, Eterm **);
-
-Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
-
-/* How list_to_integer classifies the input, was it even a string? */
-typedef enum {
-    LTI_BAD_STRUCTURE = 0,
-    LTI_NO_INTEGER    = 1,
-    LTI_SOME_INTEGER  = 2,
-    LTI_ALL_INTEGER   = 3
-} LTI_result_t;
-
-LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
-                                  const Uint base,
-                                  Eterm *integer_out, Eterm *tail_out);
 #endif

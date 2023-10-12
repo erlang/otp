@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,8 +57,7 @@ logfile(Config) ->
 
     do_one_logfile(Log, Ev, unlimited),
 
-    Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-    {ok,Node} = start_node(logfile, Pa),
+    {ok,Peer,Node} = ?CT_PEER(),
     error_logger:logfile({open,Log}),
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     AtNode = iolist_to_binary(["** at node ",atom_to_list(Node)," **"]),
@@ -67,19 +66,19 @@ logfile(Config) ->
     analyse_events(Log, Ev, [AtNode], unlimited),
 
     %% Make sure that the file_io_server process has been stopped
-    [] = lists:filtermap(
-           fun(X) ->
-                   case {process_info(X, [current_function]),
-                         file:pid2name(X)} of
-                       {[{current_function, {file_io_server, _, _}}],
-                        {ok,P2N = Log}} ->
-                           {true, {X, P2N}};
-                       _ ->
-                           false
-                   end
-           end, processes()),
+    [] = lists:filtermap(fun(X) ->
+        case process_info(X, [current_function]) of
+            [{current_function, {file_io_server, _, _}}] ->
+                case file:pid2name(X) of
+                    {ok, Log} -> {true, {X, Log}};
+                    _ -> false
+                end;
+            _ ->
+                false
+        end
+    end, processes()),
 
-    test_server:stop_node(Node),
+    peer:stop(Peer),
 
     cleanup(Log),
     ok.
@@ -119,8 +118,7 @@ tty(Config) ->
 
     do_one_tty(Log, Ev, unlimited),
 
-    Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-    {ok,Node} = start_node(tty, Pa),
+    {ok,Peer,Node} = ?CT_PEER(),
     tty_log_open(Log),
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     tty_log_close(),
@@ -128,7 +126,7 @@ tty(Config) ->
     timer:sleep(1000), % some time get all log events in the log
     analyse_events(Log, Ev, [AtNode], unlimited),
 
-    test_server:stop_node(Node),
+    peer:stop(Peer),
 
     cleanup(Log),
     ok.
@@ -338,14 +336,6 @@ match_head(Tag, Head) ->
 	   " REPORT==== \\d\\d?-[A-Z][a-z][a-z]-\\d{4}::"
 	   "\\d\\d:\\d\\d:\\d\\d ===$">>,
     {match,_} = re:run(Head, Re).
-
-start_node(Name, Args) ->
-    case test_server:start_node(Name, slave, [{args,Args}]) of
-	{ok,Node} ->
-	    {ok,Node};
-	Error  ->
-	    ct:fail(Error)
-    end.
 
 cleanup(File) ->
     %% The point of this test case is not to test file operations.

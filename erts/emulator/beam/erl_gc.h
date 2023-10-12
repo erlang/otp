@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 #if defined(ERL_WANT_GC_INTERNALS__) || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)
 
-/* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
+/* GC declarations used by beam/erl_gc.c */
 
 #define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
@@ -82,7 +82,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
         if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
         else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
     break;
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free+1; break;
+    case FUN_SUBTAG: nelts+=fun_num_free((ErlFunThing*)(ptr)); break;
     }
     gval    = make_boxed(htop);
     *orig   = gval;
@@ -124,19 +124,25 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 
 #endif
 
-#endif /* ERL_GC_C__ || HIPE_GC_C__ */
+#endif
 
 /*
  * Global exported
  */
 
-#define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop)			\
-    ((((STop) - (HTop) < (Proc)->mbuf_sz))				\
+#define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop, XtraFlags)	\
+    ((((STop) - (HTop) < (Sint)(Proc)->mbuf_sz))                        \
      | ((Proc)->off_heap.overhead > (Proc)->bin_vheap_sz)		\
-     | !!((Proc)->flags & F_FORCE_GC))
+     | !!((Proc)->flags & (F_FORCE_GC|XtraFlags)))
 
 #define ERTS_IS_GC_DESIRED(Proc)					\
-    ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop)
+    ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop, 0)
+
+/* ERTS_IS_GC_AFTER_BIF_DESIRED also triggers for flag F_DISABLE_GC,
+ * not to actually do GC but we need to call erts_gc_after_bif_call_lhf
+ * for some bookkeeping of live_hf_end. */
+#define ERTS_IS_GC_AFTER_BIF_DESIRED(Proc)			        \
+    ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop, F_DISABLE_GC)
 
 #define ERTS_FORCE_GC_INTERNAL(Proc, FCalls)				\
     do {								\
@@ -154,7 +160,7 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
-#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*4 + 1 + MAP_HEADER_FLATMAP_SZ)
 
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
@@ -163,8 +169,8 @@ Eterm erts_process_gc_info(struct process*, Uint *, Eterm **, Uint, Uint);
 
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
-int erts_garbage_collect_nobump(struct process*, int, Eterm*, int, int);
-void erts_garbage_collect(struct process*, int, Eterm*, int);
+int erts_garbage_collect_nobump(struct process*, Uint, Eterm*, int, int);
+void erts_garbage_collect(struct process*, Uint, Eterm*, int);
 void erts_garbage_collect_hibernate(struct process* p);
 Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
 				 Eterm result, Eterm* regs, Uint arity);
@@ -180,13 +186,26 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
-Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+Eterm erts_max_heap_size_map(ErtsHeapFactory *factory, Sint, Uint);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
 void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
                         ErlHeapFragment *bp, Eterm *refs, int nrefs);
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
+#endif
+
+#ifdef DEBUG
+/* Validates the frame chain, ensuring that it always points within the stack
+ * and that no frames are skipped. */
+void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top);
+int
+erts_dbg_check_heap_terms(int (*check_eterm)(Eterm),
+                          Process *p,
+                          Eterm *real_htop);
+void
+erts_dbg_check_no_empty_boxed_non_literal_on_heap(Process *p,
+                                                  Eterm *real_htop);
 #endif
 
 #endif /* __ERL_GC_H__ */

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@
         {'access_mode', 'read_write' | 'read_only'} |
         {'attributes', [atom()]} |
         {'disc_copies', [node()]} |
-        {'disc_only_copies', [node]} |
+        {'disc_only_copies', [node()]} |
         {'index', [index_attr()]} |
         {'load_order', non_neg_integer()} |
         {'majority', boolean()} |
@@ -155,12 +155,13 @@
         {'user_properties', proplists:proplist()}.
 
 -type t_result(Res) :: {'atomic', Res} | {'aborted', Reason::term()}.
+-type result() :: 'ok' | {'error', Reason::term()}.
 -type activity() :: 'ets' | 'async_dirty' | 'sync_dirty' | 'transaction' | 'sync_transaction' |
                     {'transaction', Retries::non_neg_integer()} |
                     {'sync_transaction', Retries::non_neg_integer()}.
 -type table() :: atom().
 -type storage_type() :: 'ram_copies' | 'disc_copies' | 'disc_only_copies'.
--type index_attr() :: atom() | non_neg_integer().
+-type index_attr() :: atom() | non_neg_integer() | {atom()}.
 -type write_locks() :: 'write' | 'sticky_write'.
 -type read_locks() :: 'read'.
 -type lock_kind() :: write_locks() | read_locks().
@@ -168,9 +169,10 @@
 -type snmp_struct() :: [{atom(), snmp_type() | tuple_of(snmp_type())}].
 -type snmp_type() :: 'fix_string' | 'string' | 'integer'.
 -type tuple_of(_T) :: tuple().
--type config_key() :: extra_db_nodes | dc_dump_limit.
+-type config_key() :: 'extra_db_nodes' | 'dc_dump_limit'.
 -type config_value() :: [node()] | number().
--type config_result() :: {ok, config_value()} | {error, term()}.
+-type config_result() :: {'ok', config_value()} | {'error', term()}.
+-type debug_level() :: 'none' | 'verbose' | 'debug' | 'trace'.
 
 -define(DEFAULT_ACCESS, ?MODULE).
 
@@ -230,7 +232,7 @@ e_has_var(X, Pos) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start and stop
--spec start() -> 'ok' | {'error', term()}.
+-spec start() -> result().
 start() ->
     start([]).
 
@@ -250,7 +252,7 @@ start_() ->
 	    {error, R}
     end.
 
--spec start([{Option::atom(), Value::_}]) -> 'ok' | {'error', term()}.
+-spec start([{Option::atom(), Value::_}]) -> result().
 start(ExtraEnv) when is_list(ExtraEnv) ->
     case mnesia_lib:ensure_loaded(?APPLICATION) of
 	ok ->
@@ -281,8 +283,8 @@ stop() ->
 	Other -> Other
     end.
 
--spec change_config(Config::config_key(), Value::config_value()) ->
-	  config_result().
+-spec change_config(Config, Value) -> config_result() when
+      Config :: config_key(), Value :: config_value().
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
@@ -299,6 +301,10 @@ change_config(BadKey, _BadVal) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Debugging
 
+
+-spec set_debug_level(Level  :: debug_level()) ->
+          OldLevel :: debug_level().
+
 set_debug_level(Level) ->
     mnesia_subscr:set_debug_level(Level).
 
@@ -310,28 +316,30 @@ kill() ->
 
 ms() ->
     [
+     mnesia_sup,
+     mnesia_kernel_sup,
+     mnesia_checkpoint_sup,
+     mnesia_snmp_sup,
+     mnesia_ext_sup,
+
      mnesia,
      mnesia_app,
      mnesia_backup,
      mnesia_bup,
      mnesia_checkpoint,
-     mnesia_checkpoint_sup,
      mnesia_controller,
      mnesia_dumper,
      mnesia_loader,
      mnesia_frag,
      mnesia_frag_hash,
      mnesia_index,
-     mnesia_kernel_sup,
      mnesia_late_loader,
      mnesia_lib,
      mnesia_log,
      mnesia_registry,
      mnesia_schema,
      mnesia_snmp_hook,
-     mnesia_snmp_sup,
      mnesia_subscr,
-     mnesia_sup,
      mnesia_text,
      mnesia_tm,
      mnesia_recover,
@@ -339,7 +347,6 @@ ms() ->
 
      %% Keep these last in the list, so
      %% mnesia_sup kills these last
-     mnesia_ext_sup,
      mnesia_monitor,
      mnesia_event
     ].
@@ -371,7 +378,7 @@ transaction(Fun) ->
 -spec transaction(Fun, Retries) -> t_result(Res) when
       Fun :: fun(() -> Res),
       Retries :: non_neg_integer() | 'infinity';
-                 (Fun, [Arg::_]) -> t_result(Res) when
+                 (Fun, Args::[Arg::_]) -> t_result(Res) when
       Fun :: fun((...) -> Res).
 transaction(Fun, Retries) when is_integer(Retries), Retries >= 0 ->
     transaction(get(mnesia_activity_state), Fun, [], Retries, ?DEFAULT_ACCESS, async);
@@ -392,9 +399,9 @@ sync_transaction(Fun) ->
     transaction(get(mnesia_activity_state), Fun, [], infinity, ?DEFAULT_ACCESS, sync).
 
 -spec sync_transaction(Fun, Retries) -> t_result(Res) when
-      Fun :: fun(() -> Res),
+      Fun :: fun(() -> Res) | fun((...) -> Res),
       Retries :: non_neg_integer() | 'infinity';
-                      (Fun, [Arg::_]) -> t_result(Res) when
+                      (Fun, Args :: [Arg::_]) -> t_result(Res) when
       Fun :: fun((...) -> Res).
 sync_transaction(Fun, Retries) when is_integer(Retries), Retries >= 0 ->
     transaction(get(mnesia_activity_state), Fun, [], Retries, ?DEFAULT_ACCESS, sync);
@@ -506,7 +513,7 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
 %% read lock is only set on the first node
 %% Nodes may either be a list of nodes or one node as an atom
 %% Mnesia on all Nodes must be connected to each other, but
-%% it is not neccessary that they are up and running.
+%% it is not necessary that they are up and running.
 -spec lock(LockItem, LockKind) -> list() | tuple() | no_return() when
       LockItem :: {'record', table(), Key::term()} |
                   {'table',  table()} |
@@ -524,7 +531,7 @@ lock(LockItem, LockKind) ->
 
 -spec lock_table(Tab::table(), LockKind) -> [MnesiaNode] | no_return() when
       MnesiaNode :: node(),
-      LockKind :: lock_kind() | load.
+      LockKind :: lock_kind() | 'load'.
 lock_table(Tab, LockKind) ->
     lock({table, Tab}, LockKind).
 
@@ -546,13 +553,13 @@ lock(Tid, Ts, LockItem, LockKind) ->
     end.
 
 %% Grab a read lock on a whole table
--spec read_lock_table(Tab::table()) -> ok.
+-spec read_lock_table(Tab::table()) -> 'ok'.
 read_lock_table(Tab) ->
     lock({table, Tab}, read),
     ok.
 
 %% Grab a write lock on a whole table
--spec write_lock_table(Tab::table()) -> ok.
+-spec write_lock_table(Tab::table()) -> 'ok'.
 write_lock_table(Tab) ->
     lock({table, Tab}, write),
     ok.
@@ -782,7 +789,8 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      ?ets_match_delete(Store, {Oid, Val, '_'}),
 		      ?ets_insert(Store, {Oid, Val, delete_object});
 		  _ ->
-		      case ?ets_match_object(Store, {Oid, '_', write}) of
+		      case ?ets_match_object(Store, {Oid, '_', write}) ++
+                          ?ets_match_object(Store, {Oid, '_', delete}) of
 			      [] ->
 			          ?ets_match_delete(Store, {Oid, Val, '_'}),
 			          ?ets_insert(Store, {Oid, Val, delete_object});
@@ -838,18 +846,20 @@ read(Tid, Ts, Tab, Key, LockKind)
 	tid ->
 	    Store = Ts#tidstore.store,
 	    Oid = {Tab, Key},
-	    Objs =
-		case LockKind of
-		    read ->
-			mnesia_locker:rlock(Tid, Store, Oid);
-		    write ->
-			mnesia_locker:rwlock(Tid, Store, Oid);
-		    sticky_write ->
-			mnesia_locker:sticky_rwlock(Tid, Store, Oid);
-		    _ ->
-			abort({bad_type, Tab, LockKind})
-		end,
-	    add_written(?ets_lookup(Store, Oid), Tab, Objs);
+	    ObjsFun =
+                fun() ->
+                        case LockKind of
+                            read ->
+                                mnesia_locker:rlock(Tid, Store, Oid);
+                            write ->
+                                mnesia_locker:rwlock(Tid, Store, Oid);
+                            sticky_write ->
+                                mnesia_locker:sticky_rwlock(Tid, Store, Oid);
+                            _ ->
+                                abort({bad_type, Tab, LockKind})
+                        end
+                end,
+	    add_written(?ets_lookup(Store, Oid), Tab, ObjsFun, LockKind);
 	_Protocol ->
 	    dirty_read(Tab, Key)
     end;
@@ -1079,6 +1089,8 @@ ts_keys_1([], Acc) ->
 foldl(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab, read).
 
+-spec foldl(Fun, Acc0, Tab::table(), LockKind :: lock_kind()) -> Acc when
+      Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldl(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1120,6 +1132,8 @@ do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab) ->
     foldr(Fun, Acc, Tab, read).
+-spec foldr(Fun, Acc0, Tab::table(), LockKind::lock_kind()) -> Acc when
+      Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
 	{?DEFAULT_ACCESS, Tid, Ts} ->
@@ -1202,23 +1216,38 @@ add_previous(_Tid, Ts, _Type, Tab) ->
 %% This routine fixes up the return value from read/1 so that
 %% it is correct with respect to what this particular transaction
 %% has already written, deleted .... etc
+%% The actual read from the table is not done if not needed due to local
+%% transaction context, and if so, no extra read lock is needed either.
 
-add_written([], _Tab, Objs) ->
-    Objs;  % standard normal fast case
-add_written(Written, Tab, Objs) ->
+add_written([], _Tab, ObjsFun, _LockKind) ->
+    ObjsFun();  % standard normal fast case
+add_written(Written, Tab, ObjsFun, LockKind) ->
     case val({Tab, setorbag}) of
 	bag ->
-	    add_written_to_bag(Written, Objs, []);
+	    add_written_to_bag(Written, ObjsFun(), []);
+        _ when LockKind == read;
+               LockKind == write ->
+	    add_written_to_set(Written, ObjsFun);
 	_   ->
-	    add_written_to_set(Written)
+            %% Fall back to request new lock and read from source
+	    add_written_to_set(Written, ObjsFun())
     end.
 
-add_written_to_set(Ws) ->
+add_written_to_set(Ws, ObjsOrFun) ->
     case lists:last(Ws) of
 	{_, _, delete} -> [];
 	{_, Val, write} -> [Val];
-	{_, _, delete_object} -> []
+	{Oid, _, delete_object} ->
+            %% May be several 'delete_object' in Ws; need to check if any
+            %% deleted Val exists in source table; if not return whatever
+            %% is/is not in the source table (ie as the Val is only deleted
+            %% if matched at commit this needs to be reflected here)
+            [Val || Val <- get_objs(ObjsOrFun),
+                    not lists:member({Oid, Val, delete_object}, Ws)]
     end.
+
+get_objs(ObjsFun) when is_function(ObjsFun) -> ObjsFun();
+get_objs(Objs) when is_list(Objs)           -> Objs.
 
 add_written_to_bag([{_, Val, write} | Tail], Objs, Ack) ->
     add_written_to_bag(Tail, lists:delete(Val, Objs), [Val | Ack]);
@@ -1269,6 +1298,14 @@ match_object(Tid, Ts, Tab, Pat, LockKind)
 match_object(_Tid, _Ts, Tab, Pat, _LockKind) ->
     abort({bad_type, Tab, Pat}).
 
+add_written_index(Store, Pos, Tab, Key, Objs) when is_integer(Pos) ->
+    Pat = setelement(Pos, val({Tab, wild_pattern}), Key),
+    add_written_match(Store, Pat, Tab, Objs);
+add_written_index(Store, Pos, Tab, Key, Objs) when is_tuple(Pos) ->
+    IxF = mnesia_index:index_vals_f(val({Tab, storage_type}), Tab, Pos),
+    Ops = find_ops(Store, Tab, '_'),
+    add_ix_match(Ops, Objs, IxF, Key, val({Tab, setorbag})).
+
 add_written_match(S, Pat, Tab, Objs) ->
     Ops = find_ops(S, Tab, Pat),
     FixedRes = add_match(Ops, Objs, val({Tab, setorbag})),
@@ -1294,6 +1331,46 @@ add_match([{_Oid, Val, write}|R], Objs, bag) ->
     add_match(R, [Val | lists:delete(Val, Objs)], bag);
 add_match([{Oid, Val, write}|R], Objs, set) ->
     add_match(R, [Val | deloid(Oid,Objs)],set).
+
+add_ix_match([], Objs, _IxF, _Key, _Type) ->
+    Objs;
+add_ix_match(Written, Objs, IxF, Key, ordered_set) ->
+    %% Must use keysort which is stable
+    add_ordered_match(lists:keysort(1, ix_filter_ops(IxF, Key, Written)), Objs, []);
+add_ix_match([{Oid, _, delete}|R], Objs, IxF, Key, Type) ->
+    add_ix_match(R, deloid(Oid, Objs), IxF, Key, Type);
+add_ix_match([{_Oid, Val, delete_object}|R], Objs, IxF, Key, Type) ->
+    case ix_match(Val, IxF, Key) of
+        true ->
+            add_ix_match(R, lists:delete(Val, Objs), IxF, Key, Type);
+        false ->
+            add_ix_match(R, Objs, IxF, Key, Type)
+    end;
+add_ix_match([{_Oid, Val, write}|R], Objs, IxF, Key, bag) ->
+    case ix_match(Val, IxF, Key) of
+        true ->
+            add_ix_match(R, [Val | lists:delete(Val, Objs)], IxF, Key, bag);
+        false ->
+            add_ix_match(R, Objs, IxF, Key, bag)
+    end;
+add_ix_match([{Oid, Val, write}|R], Objs, IxF, Key, set) ->
+    case ix_match(Val, IxF, Key) of
+        true ->
+            add_ix_match(R, [Val | deloid(Oid,Objs)],IxF,Key,set);
+        false ->
+            add_ix_match(R, Objs, IxF, Key, set)
+    end.
+
+ix_match(Val, IxF, Key) ->
+    lists:member(Key, IxF(Val)).
+
+ix_filter_ops(IxF, Key, Ops) ->
+    lists:filter(
+      fun({_Oid, Obj, write}) ->
+              ix_match(Obj, IxF, Key);
+         (_) ->
+              true
+      end, Ops).
 
 %% For ordered_set only !!
 add_ordered_match(Written = [{{_, Key}, _, _}|_], [Obj|Objs], Acc)
@@ -1633,6 +1710,16 @@ index_match_object(Tid, Ts, Tab, Pat, Attr, LockKind)
 	    dirty_index_match_object(Tab, Pat, Attr); % Should be optimized?
 	tid ->
 	    case mnesia_schema:attr_tab_to_pos(Tab, Attr) of
+                {_} ->
+                    case LockKind of
+                        read ->
+			    Store = Ts#tidstore.store,
+			    mnesia_locker:rlock_table(Tid, Store, Tab),
+			    Objs = dirty_match_object(Tab, Pat),
+			    add_written_match(Store, Pat, Tab, Objs);
+                        _ ->
+                            abort({bad_type, Tab, LockKind})
+                    end;
 		Pos when Pos =< tuple_size(Pat) ->
 		    case LockKind of
 			read ->
@@ -1680,8 +1767,8 @@ index_read(Tid, Ts, Tab, Key, Attr, LockKind)
 			false ->
 			    Store = Ts#tidstore.store,
 			    Objs = mnesia_index:read(Tid, Store, Tab, Key, Pos),
-			    Pat = setelement(Pos, val({Tab, wild_pattern}), Key),
-			    add_written_match(Store, Pat, Tab, Objs);
+                            add_written_index(
+                              Ts#tidstore.store, Pos, Tab, Key, Objs);
 			true ->
 			    abort({bad_type, Tab, Attr, Key})
 		    end;
@@ -1817,7 +1904,7 @@ remote_dirty_match_object(Tab, Pat) ->
 	false ->
 	    mnesia_lib:db_match_object(Tab, Pat);
 	true ->
-	    PosList = val({Tab, index}),
+            PosList = regular_indexes(Tab),
 	    remote_dirty_match_object(Tab, Pat, PosList)
     end.
 
@@ -1849,7 +1936,7 @@ remote_dirty_select(Tab, Spec) ->
 		false ->
 		    mnesia_lib:db_select(Tab, Spec);
 		true  ->
-		    PosList = val({Tab, index}),
+		    PosList = regular_indexes(Tab),
 		    remote_dirty_select(Tab, Spec, PosList)
 	    end;
 	_ ->
@@ -1916,6 +2003,8 @@ dirty_index_match_object(Pat, _Attr) ->
 dirty_index_match_object(Tab, Pat, Attr)
   when is_atom(Tab), Tab /= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     case mnesia_schema:attr_tab_to_pos(Tab, Attr) of
+        {_} ->
+            dirty_match_object(Tab, Pat);
 	Pos when Pos =< tuple_size(Pat) ->
 	    case has_var(element(2, Pat)) of
 		false ->
@@ -1989,8 +2078,14 @@ dirty_rpc(Tab, M, F, Args) ->
 
 do_dirty_rpc(_Tab, nowhere, _, _, Args) ->
     mnesia:abort({no_exists, Args});
+do_dirty_rpc(_Tab, Local, M, F, Args) when Local =:= node() ->
+    try apply(M,F,Args)
+    catch
+        throw:Res -> Res;
+        _:_ -> mnesia:abort({badarg, Args})
+    end;
 do_dirty_rpc(Tab, Node, M, F, Args) ->
-    case rpc:call(Node, M, F, Args) of
+    case mnesia_rpc:call(Node, M, F, Args) of
 	{badrpc, Reason} ->
 	    timer:sleep(20), %% Do not be too eager, and can't use yield on SMP
 	    %% Sync with mnesia_monitor
@@ -2098,7 +2193,7 @@ raw_table_info(Tab, Item) ->
 	    disc_only_copies ->
 		info_reply(dets:info(Tab, Item), Tab, Item);
             {ext, Alias, Mod} ->
-                info_reply(catch Mod:info(Alias, Tab, Item), Tab, Item);
+                info_reply(Mod:info(Alias, Tab, Item), Tab, Item);
 	    unknown ->
 		bad_info_reply(Tab, Item)
 	end
@@ -2116,12 +2211,12 @@ bad_info_reply(_Tab, memory) -> 0;
 bad_info_reply(Tab, Item) -> abort({no_exists, Tab, Item}).
 
 %% Raw info about all tables
--spec schema() -> ok.
+-spec schema() -> 'ok'.
 schema() ->
     mnesia_schema:info().
 
 %% Raw info about one tables
--spec schema(Tab::table()) -> ok.
+-spec schema(Tab::table()) -> 'ok'.
 schema(Tab) ->
     mnesia_schema:info(Tab).
 
@@ -2129,7 +2224,7 @@ schema(Tab) ->
 error_description(Err) ->
     mnesia_lib:error_desc(Err).
 
--spec info() -> ok.
+-spec info() -> 'ok'.
 info() ->
     case mnesia_lib:is_running() of
 	yes ->
@@ -2463,6 +2558,7 @@ system_info2(core_dir) ->  mnesia_monitor:get_env(core_dir);
 system_info2(no_table_loaders) ->  mnesia_monitor:get_env(no_table_loaders);
 system_info2(dc_dump_limit) ->  mnesia_monitor:get_env(dc_dump_limit);
 system_info2(send_compressed) -> mnesia_monitor:get_env(send_compressed);
+system_info2(max_transfer_size) -> mnesia_monitor:get_env(max_transfer_size);
 
 system_info2(Item) -> exit({badarg, Item}).
 
@@ -2508,6 +2604,7 @@ system_info_items(yes) ->
      no_table_loaders,
      dc_dump_limit,
      send_compressed,
+     max_transfer_size,
      version
     ];
 system_info_items(no) ->
@@ -2563,18 +2660,18 @@ load_mnesia_or_abort() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Database mgt
 
--spec create_schema(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec create_schema(Ns::[node()]) -> result().
 create_schema(Ns) ->
     create_schema(Ns, []).
 
--spec create_schema(Ns::[node()], [Prop]) -> 'ok' | {'error', Reason::term()} when
+-spec create_schema(Ns::[node()], [Prop]) -> result() when
       Prop :: BackendType | IndexPlugin,
-      BackendType :: {backend_types, [{Name::atom(), Module::module()}]},
-      IndexPlugin :: {index_plugins, [{{Name::atom()}, Module::module(), Function::atom()}]}.
+      BackendType :: {'backend_types', [{Name::atom(), Module::module()}]},
+      IndexPlugin :: {'index_plugins', [{{Name::atom()}, Module::module(), Function::atom()}]}.
 create_schema(Ns, Properties) ->
     mnesia_bup:create_schema(Ns, Properties).
 
--spec delete_schema(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec delete_schema(Ns::[node()]) -> result().
 delete_schema(Ns) ->
     mnesia_schema:delete_schema(Ns).
 
@@ -2582,12 +2679,12 @@ delete_schema(Ns) ->
 add_backend_type(Alias, Module) ->
     mnesia_schema:add_backend_type(Alias, Module).
 
--spec backup(Dest::term()) -> 'ok' | {'error', Reason::term()}.
+-spec backup(Dest::term()) -> result().
 backup(Opaque) ->
     mnesia_log:backup(Opaque).
 
 -spec backup(Dest::term(), Mod::module()) ->
-                    'ok' | {'error', Reason::term()}.
+          result().
 backup(Opaque, Mod) ->
     mnesia_log:backup(Opaque, Mod).
 
@@ -2605,12 +2702,12 @@ traverse_backup(S, T, Fun, Acc) ->
 traverse_backup(S, SM, T, TM, F, A) ->
     mnesia_bup:traverse_backup(S, SM, T, TM, F, A).
 
--spec install_fallback(Src::term()) -> 'ok' | {'error', Reason::term()}.
+-spec install_fallback(Src::term()) -> result().
 install_fallback(Opaque) ->
     mnesia_bup:install_fallback(Opaque).
 
 -spec install_fallback(Src::term(), Mod::module()|[Opt]) ->
-                              'ok' | {'error', Reason::term()} when
+          result() when
       Opt :: Module | Scope | Dir,
       Module :: {'module', Mod::module()},
       Scope :: {'scope', 'global' | 'local'},
@@ -2618,11 +2715,11 @@ install_fallback(Opaque) ->
 install_fallback(Opaque, Mod) ->
     mnesia_bup:install_fallback(Opaque, Mod).
 
--spec uninstall_fallback() -> 'ok' | {'error', Reason::term()}.
+-spec uninstall_fallback() -> result().
 uninstall_fallback() ->
     mnesia_bup:uninstall_fallback().
 
--spec uninstall_fallback(Args) -> 'ok' | {'error', Reason::term()} when
+-spec uninstall_fallback(Args) -> result() when
       Args :: [{'mnesia_dir', Dir::string()}].
 uninstall_fallback(Args) ->
     mnesia_bup:uninstall_fallback(Args).
@@ -2633,16 +2730,17 @@ uninstall_fallback(Args) ->
 activate_checkpoint(Args) ->
     mnesia_checkpoint:activate(Args).
 
--spec deactivate_checkpoint(Name::_) -> 'ok' | {'error', Reason::term()}.
+-spec deactivate_checkpoint(Name::_) -> result().
 deactivate_checkpoint(Name) ->
     mnesia_checkpoint:deactivate(Name).
 
--spec backup_checkpoint(Name::_, Dest::_) -> 'ok' | {'error', Reason::term()}.
+-spec backup_checkpoint(Name, Dest) -> result() when
+      Name :: term(), Dest :: term().
 backup_checkpoint(Name, Opaque) ->
     mnesia_log:backup_checkpoint(Name, Opaque).
 
--spec backup_checkpoint(Name::_, Dest::_, Mod::module()) ->
-                               'ok' | {'error', Reason::term()}.
+-spec backup_checkpoint(Name, Dest, Mod) -> result() when
+      Name :: term(), Dest :: term(), Mod :: module().
 backup_checkpoint(Name, Opaque, Mod) ->
     mnesia_log:backup_checkpoint(Name, Opaque, Mod).
 
@@ -2663,32 +2761,35 @@ create_table(Arg) ->
 create_table(Name, Arg) when is_list(Arg) ->
     mnesia_schema:create_table([{name, Name}| Arg]);
 create_table(Name, Arg) ->
-    {aborted, badarg, Name, Arg}.
+    {aborted, {badarg, Name, Arg}}.
 
 -spec delete_table(Tab::table()) -> t_result('ok').
 delete_table(Tab) ->
     mnesia_schema:delete_table(Tab).
 
--spec add_table_copy(Tab::table(), N::node(), ST::storage_type()) -> t_result(ok).
+-spec add_table_copy(Tab, N, ST) -> t_result('ok') when
+      Tab :: table(), N::node(), ST::storage_type().
 add_table_copy(Tab, N, S) ->
     mnesia_schema:add_table_copy(Tab, N, S).
 
--spec del_table_copy(Tab::table(), N::node()) -> t_result(ok).
+-spec del_table_copy(Tab::table(), N::node()) -> t_result('ok').
 del_table_copy(Tab, N) ->
     mnesia_schema:del_table_copy(Tab, N).
 
--spec move_table_copy(Tab::table(), From::node(), To::node()) -> t_result(ok).
+-spec move_table_copy(Tab::table(), From::node(), To::node()) -> t_result('ok').
 move_table_copy(Tab, From, To) ->
     mnesia_schema:move_table(Tab, From, To).
 
--spec add_table_index(Tab::table(), I::index_attr()) -> t_result(ok).
+-spec add_table_index(Tab, I) -> t_result('ok') when
+      Tab :: table(), I :: index_attr().
 add_table_index(Tab, Ix) ->
     mnesia_schema:add_table_index(Tab, Ix).
--spec del_table_index(Tab::table(), I::index_attr()) -> t_result(ok).
+-spec del_table_index(Tab, I) -> t_result('ok') when
+      Tab::table(), I::index_attr().
 del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
--spec transform_table(Tab::table(), Fun, [Attr]) -> t_result(ok) when
+-spec transform_table(Tab::table(), Fun, [Attr]) -> t_result('ok') when
       Attr :: atom(),
       Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA) ->
@@ -2698,18 +2799,18 @@ transform_table(Tab, Fun, NewA) ->
 	    mnesia:abort(Reason)
     end.
 
--spec transform_table(Tab::table(), Fun, [Attr], RecName) -> t_result(ok) when
+-spec transform_table(Tab::table(), Fun, [Attr], RecName) -> t_result('ok') when
       RecName :: atom(),
       Attr :: atom(),
       Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
 transform_table(Tab, Fun, NewA, NewRN) ->
     mnesia_schema:transform_table(Tab, Fun, NewA, NewRN).
 
--spec change_table_copy_type(Tab::table(), Node::node(), To::storage_type()) -> t_result(ok).
+-spec change_table_copy_type(Tab::table(), Node::node(), To::storage_type()) -> t_result('ok').
 change_table_copy_type(T, N, S) ->
     mnesia_schema:change_table_copy_type(T, N, S).
 
--spec clear_table(Tab::table()) -> t_result(ok).
+-spec clear_table(Tab::table()) -> t_result('ok').
 clear_table(Tab) ->
     case get(mnesia_activity_state) of
 	State = {Mod, Tid, _Ts} when element(1, Tid) =/= tid ->
@@ -2743,18 +2844,18 @@ clear_table(Tid, Ts, Tab, Obj) when element(1, Tid) =:= tid ->
 read_table_property(Tab, PropKey) ->
     val({Tab, user_property, PropKey}).
 
--spec write_table_property(Tab::table(), Prop::tuple()) -> t_result(ok).
+-spec write_table_property(Tab::table(), Prop::tuple()) -> t_result('ok').
 write_table_property(Tab, Prop) ->
     mnesia_schema:write_table_property(Tab, Prop).
 
--spec delete_table_property(Tab::table(), PropKey::term()) -> t_result(ok).
+-spec delete_table_property(Tab::table(), PropKey::term()) -> t_result('ok').
 delete_table_property(Tab, PropKey) ->
     mnesia_schema:delete_table_property(Tab, PropKey).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - user properties
 
--spec change_table_frag(Tab::table(), FP::term()) -> t_result(ok).
+-spec change_table_frag(Tab::table(), FP::term()) -> t_result('ok').
 change_table_frag(Tab, FragProp) ->
     mnesia_schema:change_table_frag(Tab, FragProp).
 
@@ -2762,13 +2863,13 @@ change_table_frag(Tab, FragProp) ->
 %% Table mgt - table load
 
 %% Dump a ram table to disc
--spec dump_tables([Tab::table()]) -> t_result(ok).
+-spec dump_tables([Tab::table()]) -> t_result('ok').
 dump_tables(Tabs) ->
     mnesia_schema:dump_tables(Tabs).
 
 %% allow the user to wait for some tables to be loaded
 -spec wait_for_tables([Tab::table()], TMO::timeout()) ->
-      'ok' | {'timeout', [table()]} | {'error', Reason::term()}.
+      result() | {'timeout', [table()]}.
 wait_for_tables(Tabs, Timeout) ->
     mnesia_controller:wait_for_tables(Tabs, Timeout).
 
@@ -2779,21 +2880,21 @@ force_load_table(Tab) ->
 	Other -> Other
     end.
 
--spec change_table_access_mode(Tab::table(), Mode) -> t_result(ok) when
+-spec change_table_access_mode(Tab::table(), Mode) -> t_result('ok') when
       Mode :: 'read_only'|'read_write'.
 change_table_access_mode(T, Access) ->
     mnesia_schema:change_table_access_mode(T, Access).
 
--spec change_table_load_order(Tab::table(), Order) -> t_result(ok) when
+-spec change_table_load_order(Tab::table(), Order) -> t_result('ok') when
       Order :: non_neg_integer().
 change_table_load_order(T, O) ->
     mnesia_schema:change_table_load_order(T, O).
 
--spec change_table_majority(Tab::table(), M::boolean()) -> t_result(ok).
+-spec change_table_majority(Tab::table(), M::boolean()) -> t_result('ok').
 change_table_majority(T, M) ->
     mnesia_schema:change_table_majority(T, M).
 
--spec set_master_nodes(Ns::[node()]) -> 'ok' | {'error', Reason::term()}.
+-spec set_master_nodes(Ns::[node()]) -> result().
 set_master_nodes(Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),
     IsRunning = system_info(is_running),
@@ -2832,8 +2933,7 @@ log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning) ->
     Args = lists:map(Fun, Cstructs),
     mnesia_recover:log_master_nodes(Args, UseDir, IsRunning).
 
--spec set_master_nodes(Tab::table(), Ns::[node()]) ->
-                              'ok' | {'error', Reason::term()}.
+-spec set_master_nodes(Tab::table(), Ns::[node()]) -> result().
 set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),
     IsRunning = system_info(is_running),
@@ -2888,7 +2988,7 @@ set_master_nodes(Tab, Nodes) ->
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
 
--spec sync_log() -> 'ok' | {'error', Reason::term()}.
+-spec sync_log() -> result().
 sync_log() ->
     mnesia_monitor:sync_log(latest_log).
 
@@ -2908,11 +3008,11 @@ report_event(Event) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Snmp
--spec snmp_open_table(Tab::table(), Snmp::snmp_struct()) -> ok.
+-spec snmp_open_table(Tab::table(), Snmp::snmp_struct()) -> 'ok'.
 snmp_open_table(Tab, Us) ->
     mnesia_schema:add_snmp(Tab, Us).
 
--spec snmp_close_table(Tab::table()) -> ok.
+-spec snmp_close_table(Tab::table()) -> 'ok'.
 snmp_close_table(Tab) ->
     mnesia_schema:del_snmp(Tab).
 
@@ -3058,11 +3158,11 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Textfile access
--spec load_textfile(File::file:filename()) -> t_result(ok) | {'error', term()}.
+-spec load_textfile(File::file:filename()) -> t_result('ok') | {'error', term()}.
 load_textfile(F) ->
     mnesia_text:load_textfile(F).
 
--spec dump_to_textfile(File :: file:filename()) -> 'ok' | 'error' | {'error', term()}.
+-spec dump_to_textfile(File :: file:filename()) -> result() | 'error'.
 dump_to_textfile(F) ->
     mnesia_text:dump_to_textfile(F).
 
@@ -3076,7 +3176,7 @@ table(Tab) ->
 -spec table(Tab::table(), Options) -> qlc:query_handle() when
       Options   :: Option | [Option],
       Option    :: MnesiaOpt | QlcOption,
-      MnesiaOpt :: {'traverse', SelectOp} | {lock, lock_kind()} | {n_objects, non_neg_integer()},
+      MnesiaOpt :: {'traverse', SelectOp} | {'lock', lock_kind()} | {'n_objects', non_neg_integer()},
       SelectOp  ::  'select' | {'select', ets:match_spec()},
       QlcOption :: {'key_equality', '==' | '=:='}.
 table(Tab,Opts) ->
@@ -3246,3 +3346,7 @@ put_activity_id(Activity) ->
     mnesia_tm:put_activity_id(Activity).
 put_activity_id(Activity,Fun) ->
     mnesia_tm:put_activity_id(Activity,Fun).
+
+regular_indexes(Tab) ->
+    PosList = val({Tab, index}),
+    [P || P <- PosList, is_integer(P)].

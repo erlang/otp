@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 -include("../../kernel/src/logger_internal.hrl").
 
 -behaviour(gen_server).
+-behaviour(ct_hooks).
 
 -record(eh_state, {log_func,
 		   curr_suite,
@@ -58,7 +59,7 @@ id(_Opts) ->
 init(?MODULE, _Opts) ->
     ct_util:mark_process(),
     ok = start_log_handler(),
-    tc_log_async.
+    {ok, tc_log_async}.
 
 pre_init_per_suite(Suite, Config, State) ->
     set_curr_func({Suite,init_per_suite}, Config),
@@ -129,10 +130,16 @@ start_log_handler() ->
         _Pid ->
             ok
     end,
+    {DefaultFormatter, DefaultLevel} =
+        case logger:get_handler_config(default) of
+            {ok, Default} ->
+                {maps:get(formatter, Default), maps:get(level, Default)};
+            _Else ->
+                {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
+        end,
     ok = logger:add_handler(?MODULE,?MODULE,
-                            #{level=>info,
-                              formatter=>{?DEFAULT_FORMATTER,
-                                          ?DEFAULT_FORMAT_CONFIG}}).
+                            #{level=>DefaultLevel,
+                              formatter=>DefaultFormatter}).
 
 init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.
@@ -174,7 +181,7 @@ add_log_category(#{meta:=Meta}=Log,Category) ->
     Log#{meta=>Meta#{?MODULE=>#{category=>Category}}}.
 
 do_log(Log,Config) ->
-    gen_server:call(?MODULE,{log,Log,Config}).
+    gen_server:call(?MODULE,{log,Log,Config},infinity).
 
 handle_cast(_, State) ->
     {noreply,State}.
@@ -194,10 +201,10 @@ handle_call({log,
     case LogFunc of
         tc_log ->
             ct_logs:tc_log(Category, ?STD_IMPORTANCE,
-                           Header, String, [], []);
+                           Header, "~ts", [String], []);
         tc_log_async ->
             ct_logs:tc_log_async(sasl, ?STD_IMPORTANCE,
-                                 Header, String, [])
+                                 Header, "~ts", [String])
     end,
     {reply,ok,State};
 
@@ -248,47 +255,47 @@ terminate(_Arg, _State) ->
     ok.
 
 set_curr_func(CurrFunc, Config) ->
-    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}).
+    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}, infinity).
 
 set_log_func(Func) ->
-    gen_server:call(?MODULE, {set_logfunc, Func}).
+    gen_server:call(?MODULE, {set_logfunc, Func}, infinity).
 
 handle_remote_events(Bool) ->
-    gen_server:call(?MODULE, {handle_remote_events, Bool}).
+    gen_server:call(?MODULE, {handle_remote_events, Bool}, infinity).
 
 %%%-----------------------------------------------------------------
 
 format_header(#eh_state{curr_suite = undefined,
 			curr_group = undefined,
 			curr_func = undefined}) ->
-    io_lib:format("System report", []);
+    lists:flatten(io_lib:format("System report", []));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = undefined}) ->
-    io_lib:format("System report during ~w", [Suite]);
+    lists:flatten(io_lib:format("System report during ~w", [Suite]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = TcOrConf}) ->
-    io_lib:format("System report during ~w:~tw/1",
-		  [Suite,TcOrConf]);
+    lists:flatten(io_lib:format("System report during ~w:~tw/1",
+                                [Suite,TcOrConf]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = Conf}) when Conf == init_per_group;
 						Conf == end_per_group ->
-    io_lib:format("System report during ~w:~w/2 for ~tw",
-		  [Suite,Conf,Group]);
+    lists:flatten(io_lib:format("System report during ~w:~w/2 for ~tw",
+                                [Suite,Conf,Group]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			parallel_tcs = true}) ->
-    io_lib:format("System report during ~tw in ~w",
-		  [Group,Suite]);
+    lists:flatten(io_lib:format("System report during ~tw in ~w",
+                                [Group,Suite]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = TC}) ->
-    io_lib:format("System report during ~w:~tw/1 in ~tw",
-		  [Suite,TC,Group]).
+    lists:flatten(io_lib:format("System report during ~w:~tw/1 in ~tw",
+                                [Suite,TC,Group])).

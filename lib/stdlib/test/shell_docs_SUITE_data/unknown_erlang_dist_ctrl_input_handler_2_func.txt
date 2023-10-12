@@ -1,0 +1,26 @@
+
+  [;1m-spec erlang:dist_ctrl_input_handler(DHandle, InputHandler) -> ok[0m
+  [;1m                                        when[0m
+  [;1m                                            DHandle :: dist_handle(),[0m
+  [;1m                                            InputHandler :: pid().[0m
+
+[;;4mSince[0m:
+  OTP 21.0
+
+  Register an alternate input handler process for the distribution
+  channel identified by [;;4mDHandle[0m. Once this function has been
+  called, [;;4mInputHandler[0m is the only process allowed to call [;;4m[0m
+  [;;4merlang:dist_ctrl_put_data(DHandle, Data)[0m with the [;;4mDHandle[0m
+  identifying this distribution channel.
+
+  Note:
+    Only the process registered as distribution controller for the
+    distribution channel identified by [;;4mDHandle[0m is allowed to
+    call this function.
+
+  This function is used when implementing an alternative
+  distribution carrier using processes as distribution controllers. [;;4m[0m
+  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
+  More information can be found in the documentation of ERTS User's
+  Guide ➜ How to implement an Alternative Carrier for the Erlang
+  Distribution ➜ Distribution Module.

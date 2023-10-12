@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2018</year>
+      <year>2001</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,7 +39,9 @@
 
       <p>The unit of measurement is memory words. There exists both a
       32-bit and a 64-bit implementation. A word is therefore 4 bytes or
-      8 bytes, respectively.</p>
+      8 bytes, respectively. The value for a running system can be
+      determined by calling <seeerl marker="erts:erlang#system_info_wordsize">
+      <c>erlang:system_info(wordsize)</c></seeerl>.</p>
     <table>
       <row>
         <cell><em>Data Type</em></cell>
@@ -100,27 +102,29 @@
       </row>
       <row>
         <cell>Pid</cell>
-        <cell>1 word for a process identifier from the current local node
-	+ 5 words for a process identifier from another node.<br></br>
+        <cell>1 word for a process identifier from the current local node.<br/>
+	On 32-bit: 6 words for a process identifier from another node.<br/>
+	On 64-bit: 5 words for a process identifier from another node.<br/>
 	A process identifier refers into a process table and a node table,
 	which also consumes memory.</cell>
       </row>
       <row>
         <cell>Port</cell>
-        <cell>1 word for a port identifier from the current local node
-	+ 5 words for a port identifier from another node.<br></br>
+        <cell>1 word for a port identifier from the current local node.<br/>
+	5 words for a port identifier from another node.<br/>
 	A port identifier refers into a port table and a node table,
 	which also consumes memory.</cell>
       </row>
       <row>
         <cell>Reference</cell>
-        <cell>On 32-bit architectures: 5 words for a reference from the
-	current local node + 7 words for a reference from another
-	node.<br></br>
-	On 64-bit architectures: 4 words for a reference from the current
-	local node + 6 words for a reference from another node.<br></br>
-	A reference refers into a node table, which also consumes
-	memory.</cell>
+        <cell>On 32-bit architectures: 4-7 words for a reference from the
+	current local node, and 7-9 words for a reference from another
+	node.<br/>
+	On 64-bit architectures: 4-6 words for a reference from the current
+	local node, and 6-7 words for a reference from another node.<br/>
+	A reference also refers into more or less emulator internal data
+	structures which also consumes memory. At a minimum it
+	refers into the node tables.</cell>
       </row>
       <row>
         <cell>Fun</cell>
@@ -151,12 +155,22 @@
       <row>
         <cell>Processes</cell>
         <cell>The maximum number of simultaneously alive Erlang processes
-	is by default 262,144. This limit can be configured at startup.
+	is by default 1,048,576. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
+	<seecom marker="erts:erl#max_processes"><c>+P</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso>
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom>
 	manual page in ERTS.</cell>
+      </row>
+      <row>
+        <cell>
+          <marker id="unique_pids"/>Unique Local Process Identifiers on a
+          Runtime System Instance
+        </cell>
+        <cell>
+          On a 64 bit system at most <c>2⁶⁰ - 1</c> unique process identifiers
+          can be created and on a 32 bit system at most <c>2²⁸ - 1</c>.
+        </cell>
       </row>
       <row>
 	<cell>Known nodes</cell>
@@ -164,7 +178,7 @@
 	any pids, ports, references, or funs (Erlang data types) from Y
 	on X, or if X and Y are connected. The maximum number of remote
 	nodes simultaneously/ever known to a node is limited by the
-	<seealso marker="#atoms">maximum number of atoms</seealso>
+	<seeguide marker="#atoms">maximum number of atoms</seeguide>
 	available for node names. All data concerning remote nodes,
 	except for the node name atom, are garbage-collected.</cell>
       </row>
@@ -173,9 +187,9 @@
 	<cell>The maximum number of simultaneously connected nodes is
 	limited by either the maximum number of simultaneously known
 	remote nodes,
-	<seealso marker="#ports">the maximum number of (Erlang) ports</seealso>
+	<seeguide marker="#ports">the maximum number of (Erlang) ports</seeguide>
 	available, or
-	<seealso marker="#files_sockets">the maximum number of sockets</seealso>
+	<seeguide marker="#files_sockets">the maximum number of sockets</seeguide>
 	available.</cell>
       </row>
       <row>
@@ -226,17 +240,27 @@
 	<cell>The maximum number of simultaneously open Erlang ports is
 	often by default 16,384. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
+	<seecom marker="erts:erl#max_ports"><c>+Q</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso> manual page
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page
 	in ERTS.</cell>
+      </row>
+      <row>
+        <cell>
+          <marker id="unique_ports"/>Unique Local Port Identifiers on a
+          Runtime System Instance
+        </cell>
+        <cell>
+          On a 64 bit system at most <c>2⁶⁰ - 1</c> unique port identifiers
+          can be created and on a 32 bit system at most <c>2²⁸ - 1</c>.
+        </cell>
       </row>
       <row>
 	<cell><marker id="files_sockets"></marker>Open files and
 	sockets</cell>
 	<cell>The maximum number of simultaneously open files and
 	sockets depends on
-	<seealso marker="#ports">the maximum number of Erlang ports</seealso>
+	<seeguide marker="#ports">the maximum number of Erlang ports</seeguide>
 	available, as well as on operating system-specific settings
 	and limits.</cell>
       </row>
@@ -260,7 +284,7 @@
         <cell><marker id="unique_integers"/>Unique Integers on a Runtime System Instance</cell>
         <cell>
 	    There are two types of unique integers both created using the
-            <seealso marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seealso>
+            <seemfa marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seemfa>
             BIF:
 	    <br/><br/>
 	    <em>1.</em> Unique integers created <em>with</em> the

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,9 +26,10 @@
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
-	 memory/1,unicode/1,read_other_implementations/1,
+	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
-         roundtrip_metadata/1, apply_file_info_opts/1]).
+         roundtrip_metadata/1, apply_file_info_opts/1,
+         incompatible_options/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -41,9 +42,9 @@ all() ->
      extract_from_binary_compressed, extract_from_open_file,
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
-     read_other_implementations,
+     read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts].
+     apply_file_info_opts,incompatible_options].
 
 groups() -> 
     [].
@@ -112,8 +113,8 @@ borderline_test(Size, TempDir, IsUstar) ->
     Name = filename:join(TempDir, Prefix++SizeList),
 
     %% Create a file and archive it.
-    X0 = erlang:monotonic_time(),
-    ok = file:write_file(Name, random_byte_list(X0, Size)),
+    RandomBytes = rand:bytes(Size),
+    ok = file:write_file(Name, RandomBytes),
     ok = erl_tar:create(Archive, [Name]),
     ok = file:delete(Name),
 
@@ -124,7 +125,7 @@ borderline_test(Size, TempDir, IsUstar) ->
 
     %% Verify contents of extracted file.
     {ok, Bin} = file:read_file(Name),
-    true = match_byte_list(X0, binary_to_list(Bin)),
+    RandomBytes = Bin,
 
     %% Verify that Unix tar can read it.
     case IsUstar of
@@ -197,34 +198,6 @@ make_cmd(Cmd) ->
 	{win32, _} -> lists:concat(["cmd /c",  Cmd]);
 	{unix, _}  -> lists:concat(["sh -c '",  Cmd,  "'"])
     end.
-
-%% Verifies a random byte list.
-
-match_byte_list(X0, [Byte|Rest]) ->
-    X = next_random(X0),
-    case (X bsr 26) band 16#ff of
-	Byte -> match_byte_list(X, Rest);
-	_ -> false
-    end;
-match_byte_list(_, []) ->
-    true.
-
-%% Generates a random byte list.
-
-random_byte_list(X0, Count) ->
-    random_byte_list(X0, Count, []).
-
-random_byte_list(X0, Count, Result) when Count > 0->
-    X = next_random(X0),
-    random_byte_list(X, Count-1, [(X bsr 26) band 16#ff|Result]);
-random_byte_list(_X, 0, Result) ->
-    lists:reverse(Result).
-
-%% This RNG is from line 21 on page 102 in Knuth: The Art of Computer Programming,
-%% Volume II, Seminumerical Algorithms.
-
-next_random(X) ->
-    (X*17059465+1) band 16#fffffffff.
 
 %% Test the 'atomic' operations: create/extract/table, on compressed
 %% and uncompressed archives.
@@ -509,6 +482,11 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
     io:format("~p\n", [Files]),
     19 = length(Files),
 
+    %% Try taking contents when already uncompressed.
+    {ok,Files} = erl_tar:table({binary,zlib:gunzip(Bin)}, [compressed]),
+    io:format("~p\n", [Files]),
+    19 = length(Files),
+
     %% Trying extracting from a binary.
     ok = erl_tar:extract({binary,Bin}, [compressed,{cwd,ExtractDir}]),
     {ok,List} = file:list_dir(filename:join(ExtractDir, "ddll_SUITE_data")),
@@ -574,23 +552,49 @@ extract_from_open_file(Config) when is_list(Config) ->
 
     verify_ports(Config).
 
+%% Make sure incompatible options are rejected when opening archives with file
+%% descriptors.
+incompatible_options(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Long = filename:join(DataDir, "no_fancy_stuff.tar"),
+
+    {ok, File} = file:open(Long, [read]),
+    Handle = {file, File},
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:open(Handle, [read, compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:open(Handle, [read, cooked]),
+
+    {error, {Handle, {incompatible_option, compressed}}}
+        = erl_tar:extract(Handle, [compressed]),
+    {error, {Handle, {incompatible_option, cooked}}}
+        = erl_tar:extract(Handle, [cooked]),
+
+    ok = file:close(File),
+
+    verify_ports(Config).
+
 %% Test that archives containing symlinks can be created and extracted.
 symlinks(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "symlinks"),
+    VulnerableDir = filename:join(PrivDir, "vulnerable_symlinks"),
     ok = file:make_dir(Dir),
+    ok = file:make_dir(VulnerableDir),
     ABadSymlink = filename:join(Dir, "bad_symlink"),
-    PointsTo = "/a/definitely/non_existing/path",
-    Res = case make_symlink("/a/definitely/non_existing/path", ABadSymlink) of
+    PointsTo = "a/definitely/non_existing/path",
+    Res = case make_symlink("a/definitely/non_existing/path", ABadSymlink) of
 	      {error, enotsup} ->
 		  {skip, "Symbolic links not supported on this platform"};
 	      ok ->
 		  symlinks(Dir, "bad_symlink", PointsTo),
-		  long_symlink(Dir)
+		  long_symlink(Dir),
+                  symlink_vulnerability(VulnerableDir)
 	  end,
 
     %% Clean up.
-    delete_files([Dir]),
+    delete_files([Dir,VulnerableDir]),
     verify_ports(Config),
     Res.
 
@@ -678,7 +682,7 @@ long_symlink(Dir) ->
     ok = file:set_cwd(Dir),
 
     AFile = "long_symlink",
-    RequiresPAX = "/tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
+    RequiresPAX = "tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
     ok = file:make_symlink(RequiresPAX, AFile),
     ok = erl_tar:create(Tar, [AFile], [verbose]),
     false = is_ustar(Tar),
@@ -688,6 +692,23 @@ long_symlink(Dir) ->
     ok = file:set_cwd(NewDir),
     {ok, #file_info{type=symlink}} = file:read_link_info(AFile),
     {ok, RequiresPAX} = file:read_link(AFile),
+    ok.
+
+symlink_vulnerability(Dir) ->
+    ok = file:set_cwd(Dir),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    ok = file:make_symlink("..", "link"),
+    ok = file:write_file("../file", <<>>),
+    ok = erl_tar:create("../my.tar", ["link","link/file"]),
+    ok = erl_tar:tt("../my.tar"),
+
+    ok = file:set_cwd(Dir),
+    delete_files(["file","tar"]),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    {error,{"..",unsafe_symlink}} = erl_tar:extract("../my.tar"),
+
     ok.
 
 init(Config) when is_list(Config) ->
@@ -842,6 +863,17 @@ do_read_other_implementations([File|Rest], DataDir) ->
     {ok, _} = erl_tar:extract(Full, [memory]),
     do_read_other_implementations(Rest, DataDir).
 
+%% test block padding with compressed tar from bsdtar or tape
+bsdtgz(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = "example_pad.tgz",
+    Full = filename:join(DataDir, File),
+    io:format("~nTrying ~s", [File]),
+    Table = ["autofs.conf","rpc"],
+    {ok, Table} = erl_tar:table(Full, [compressed]),
+    {ok, Bin} = file:read_file(Full),
+    {ok, Table} = erl_tar:table({binary, Bin}, [compressed]),
+    verify_ports(Config).
 
 %% Test handling of sparse files
 sparse(Config) when is_list(Config) ->
@@ -865,23 +897,20 @@ do_sparse([Name|Rest], DataDir, PrivDir) ->
 
 %% Test filenames with characters outside the US ASCII range.
 unicode(Config) when is_list(Config) ->
-    run_unicode_node(Config, "+fnu"),
+    run_unicode_node(Config, ["+fnu"]),
     case has_transparent_naming() of
 	true ->
-	    run_unicode_node(Config, "+fnl");
+	    run_unicode_node(Config, ["+fnl"]);
 	false ->
 	    ok
     end.
 
-run_unicode_node(Config, Option) ->
+run_unicode_node(Config, Args) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Pa = filename:dirname(code:which(?MODULE)),
-    Args = Option ++ " -pa "++Pa,
-    io:format("~s\n", [Args]),
-    Node = start_node(unicode, Args),
+    {ok, Peer, Node} = ?CT_PEER(Args),
     ok = rpc:call(Node, erlang, apply,
 		  [fun() -> do_unicode(PrivDir) end,[]]),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 has_transparent_naming() ->
@@ -893,21 +922,25 @@ has_transparent_naming() ->
 
 do_unicode(PrivDir) ->
     ok = file:set_cwd(PrivDir),
-    ok = file:make_dir("unicöde"),
+    case file:make_dir("unicöde") of
+        ok ->
+            Names = lists:sort(unicode_create_files()),
+            Tar = "unicöde.tar",
+            ok = erl_tar:create(Tar, ["unicöde"], []),
 
-    Names = lists:sort(unicode_create_files()),
-    Tar = "unicöde.tar",
-    ok = erl_tar:create(Tar, ["unicöde"], []),
-
-    %% Unicode filenames require PAX format.
-    false = is_ustar(Tar),
-    {ok,Names0} = erl_tar:table(Tar, []),
-    Names = lists:sort(Names0),
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = erl_tar:extract(Tar),
-    _ = [{ok,_} = file:read_file(Name) || Name <- Names],
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = file:del_dir("unicöde"),
+            %% Unicode filenames require PAX format.
+            false = is_ustar(Tar),
+            {ok,Names0} = erl_tar:table(Tar, []),
+            Names = lists:sort(Names0),
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = erl_tar:extract(Tar),
+            _ = [{ok,_} = file:read_file(Name) || Name <- Names],
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = file:del_dir("unicöde");
+        {error,eilseq} ->
+            %% The FS (eg zfs) does not support transparent naming
+            ok
+    end,
     ok.
 
 unicode_create_files() ->
@@ -965,7 +998,7 @@ roundtrip_metadata(Config) ->
 
 do_roundtrip_metadata(Dir, File) ->
     Tar = filename:join(Dir, atom_to_list(?FUNCTION_NAME)++".tar"),
-    BeamFile = code:which(compile),
+    BeamFile = code:which(?MODULE),
     {ok,Fd} = erl_tar:open(Tar, [write]),
     ok = erl_tar:add(Fd, BeamFile, File, []),
     ok = erl_tar:close(Fd),
@@ -1080,17 +1113,6 @@ make_temp_dir(Base, I) ->
     case file:make_dir(Name) of
 	ok -> Name;
 	{error,eexist} -> make_temp_dir(Base, I+1)
-    end.
-
-start_node(Name, Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    ct:log("Trying to start ~w@~s~n", [Name,Host]),
-    case test_server:start_node(Name, peer, [{args,Args}]) of
-	{error,Reason} ->
-	    ct:fail(Reason);
-	{ok,Node} ->
-	    ct:log("Node ~p started~n", [Node]),
-	    Node
     end.
 
 %% Test that the given tar file is a plain USTAR archive,

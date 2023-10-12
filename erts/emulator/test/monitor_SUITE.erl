@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,28 +24,38 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2, end_per_testcase/2,
          case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
-         demon_2/1, demon_3/1, demonitor_flush/1,
+         demon_2/1, demon_3/1, demonitor_flush/1, gh_5225_demonitor_alias/1,
          local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
          large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
-         monitor_time_offset/1]).
+         monitor_time_offset/1, monitor_tag_storage/1,
+         unexpected_alias_at_demonitor_gh5310/1,
+         down_on_alias_gh5310/1, monitor_3_noproc_gh6185/1]).
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 15}}].
+     {timetrap, {seconds, 30}}].
 
 all() -> 
     [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,
-     demon_1, mon_1, mon_2, demon_2, demon_3,
-     demonitor_flush, {group, remove_monitor}, large_exit,
+     demon_1, mon_1, mon_2, demon_2, demon_3, demonitor_flush,
+     gh_5225_demonitor_alias, {group, remove_monitor}, large_exit,
      list_cleanup, mixer, named_down, otp_5827,
-     monitor_time_offset].
+     monitor_time_offset, monitor_tag_storage,
+     unexpected_alias_at_demonitor_gh5310,
+     down_on_alias_gh5310, monitor_3_noproc_gh6185].
 
 groups() -> 
     [{remove_monitor, [],
       [local_remove_monitor, remote_remove_monitor]}].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% A monitors B, B kills A and then exits (yielded core dump)
 case_1(Config) when is_list(Config) ->
@@ -137,13 +147,13 @@ expect_no_msg() ->
 %%% Error cases for monitor/2
 
 mon_e_1(Config) when is_list(Config) ->
-    {ok, N} = test_server:start_node(hej, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
     mon_error(plutt, self()),
     mon_error(process, [bingo]),
     mon_error(process, {rex, N, junk}),
     mon_error(process, 1),
 
-    true = test_server:stop_node(N),
+    peer:stop(Peer),
     ok.
 
 %%% We would also like to have a test case that tries to monitor something
@@ -165,7 +175,7 @@ mon_error(Type, Item) ->
 %%% Error cases for demonitor/1
 
 demon_e_1(Config) when is_list(Config) ->
-    {ok, N} = test_server:start_node(hej, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
     demon_error(plutt, badarg),
     demon_error(1, badarg),
 
@@ -188,7 +198,7 @@ demon_e_1(Config) when is_list(Config) ->
             ct:fail({rec, Other2})
     end,
 
-    true = test_server:stop_node(N),
+    peer:stop(Peer),
     ok.
 
 demon_error(Ref, Reason) ->
@@ -243,22 +253,22 @@ demon_2(Config) when is_list(Config) ->
 
 %% Distributed case for demonitor/1 (OTP-3499)
 demon_3(Config) when is_list(Config) ->
-    {ok, N} = test_server:start_node(hej, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
 
     %% 'DOWN' before demonitor
     P2 = spawn(N, timer, sleep, [100000]),
     R2 = erlang:monitor(process, P2),
-    true = test_server:stop_node(N),
+    peer:stop(Peer),
     true = erlang:demonitor(R2),
     expect_down(R2, P2, noconnection),
 
-    {ok, N2} = test_server:start_node(hej, slave, []),
+    {ok, Peer2, N2} = ?CT_PEER(),
 
     %% Demonitor before 'DOWN'
     P3 = spawn(N2, timer, sleep, [100000]),
     R3 = erlang:monitor(process, P3),
     true = erlang:demonitor(R3),
-    true = test_server:stop_node(N2),
+    peer:stop(Peer2),
     expect_no_msg(),
 
     ok.
@@ -267,9 +277,9 @@ demonitor_flush(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), flush)),
     {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), [flus])),
     {'EXIT', {badarg, _}} = (catch erlang:demonitor(x, [flush])),
-    {ok, N} = test_server:start_node(demonitor_flush, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
     ok = demonitor_flush_test(N),
-    true = test_server:stop_node(N),
+    peer:stop(Peer),
     ok = demonitor_flush_test(node()).
 
 demonitor_flush_test(Node) ->
@@ -293,6 +303,25 @@ demonitor_flush_test(Node) ->
               ok
     end.
 
+gh_5225_demonitor_alias(Config) when is_list(Config) ->
+    %% Demonitor using a reference that was an active alias, but not an
+    %% active monitor, used to crash the runtime system.
+    Alias = alias(),
+    erlang:demonitor(Alias),
+    erlang:demonitor(Alias, [flush]),
+    {Pid, MonAlias1} = spawn_opt(fun () ->
+                                         ok
+                                 end,
+                                 [{monitor, [{alias, explicit_unalias}]}]),
+    receive {'DOWN', MonAlias1, process, Pid, normal} -> ok end,
+    erlang:demonitor(MonAlias1),
+    erlang:demonitor(MonAlias1, [flush]),
+    MonAlias2 = erlang:monitor(process, Pid, [{alias, explicit_unalias}]),
+    receive {'DOWN', MonAlias2, process, Pid, noproc} -> ok end,
+    erlang:demonitor(MonAlias2),
+    erlang:demonitor(MonAlias2, [flush]),
+    ok.
+
 -define(RM_MON_GROUPS, 100).
 -define(RM_MON_GPROCS, 100).
 
@@ -313,7 +342,7 @@ local_remove_monitor(Config) when is_list(Config) ->
      "True = "++integer_to_list(True)++"; False = "++integer_to_list(False)}.
 
 remote_remove_monitor(Config) when is_list(Config) ->
-    {ok, N} = test_server:start_node(demonitor_flush, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
     Gs = generate(fun () -> start_remove_monitor_group(N) end,
                   ?RM_MON_GROUPS),
     {True, False} = lists:foldl(fun (G, {T, F}) ->
@@ -325,7 +354,7 @@ remote_remove_monitor(Config) when is_list(Config) ->
                                 {0, 0},
                                 Gs),
     erlang:display({remote_remove_monitor, True, False}),
-    true = test_server:stop_node(N),
+    peer:stop(Peer),
     {comment,
      "True = "++integer_to_list(True)++"; False = "++integer_to_list(False)}.
 
@@ -410,7 +439,7 @@ mon_1(Config) when is_list(Config) ->
 
 %% Distributed cases for monitor/2
 mon_2(Config) when is_list(Config) ->
-    {ok, N1} = test_server:start_node(hej1, slave, []),
+    {ok, Peer, N1} = ?CT_PEER(),
 
     %% Normal case
     P2 = spawn(N1, timer, sleep, [4000]),
@@ -431,7 +460,7 @@ mon_2(Config) when is_list(Config) ->
     P5 = spawn(N1, timer, sleep, [100000]),
     R5 = erlang:monitor(process, P5),
 
-    true = test_server:stop_node(N1),
+    peer:stop(Peer),
 
     expect_down(R5, P5, noconnection),
 
@@ -442,9 +471,7 @@ mon_2(Config) when is_list(Config) ->
     true = (R6_Reason == noconnection) orelse (R6_Reason == noproc),
 
     %% Start a new node that can load code in this module
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok, N2} = test_server:start_node
-    (hej2, slave, [{args, "-pa " ++ PA}]),
+    {ok, Peer2, N2} = ?CT_PEER(),
 
     %% Normal case (named process)
     P7 = start_jeeves({jeeves, N2}),
@@ -466,7 +493,7 @@ mon_2(Config) when is_list(Config) ->
     _P10 = start_jeeves({jeeves, N2}),
     R10 = erlang:monitor(process, {jeeves, N2}),
 
-    true = test_server:stop_node(N2),
+    peer:stop(Peer2),
 
     expect_down(R10, {jeeves, N2}, noconnection),
 
@@ -519,7 +546,6 @@ large_exit_sub(S) ->
 list_cleanup(Config) when is_list(Config) ->
     P0 = self(),
     M  = node(),
-    PA = filename:dirname(code:which(?MODULE)),
     true = register(master_bertie, self()),
 
     %% Normal local case, monitor and demonitor
@@ -555,8 +581,7 @@ list_cleanup(Config) when is_list(Config) ->
     {[], []} = monitors(),
 
     %% Start a new node that can load code in this module
-    {ok, J} = test_server:start_node
-    (jeeves, slave, [{args, "-pa " ++ PA}]),
+    {ok, Peer, J} = ?CT_PEER(),
 
     %% Normal remote case, monitor and demonitor
     P3 = start_jeeves({jeeves, J}),
@@ -599,7 +624,7 @@ list_cleanup(Config) when is_list(Config) ->
     {[], [P5]} = monitors(),
     expect_jeeves(P5, monitors, 
                   {monitors, {[{process, P0}], []}} ),
-    test_server:stop_node(J),
+    peer:stop(Peer),
     timer:sleep(4000),
     {[], []} = monitors(),
 
@@ -610,12 +635,7 @@ list_cleanup(Config) when is_list(Config) ->
 %%% Mixed internal and external monitors
 
 mixer(Config) when is_list(Config) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    NN = [j0,j1,j2],
-    NL0 = [begin
-               {ok, J} = test_server:start_node(X,slave,[{args, "-pa " ++ PA}]),
-               J
-           end  || X <- NN],
+    {_, Peers, NL0} = lists:unzip3([?CT_PEER() || _ <- lists:seq(1, 3)]),
     NL1 = lists:duplicate(2,node()) ++ NL0,
     Perm = perm(NL1),
     lists:foreach(
@@ -689,7 +709,7 @@ mixer(Config) when is_list(Config) ->
               [tell_jeeves(P,{exit,flaff}) || P <- Js]
       end,
       Perm),
-    [test_server:stop_node(K) || K <- NL0],
+    [peer:stop(P) || P <- Peers],
     ok.
 
 %% Test that DOWN message for a named monitor isn't
@@ -769,7 +789,7 @@ otp_5827(Config) when is_list(Config) ->
     end.
 
 monitor_time_offset(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config, "+C single_time_warp"),
+    {ok, Peer, Node} = ?CT_PEER(["+C", "single_time_warp"]),
     Me = self(),
     PMs = lists:map(fun (_) ->
                             Pid = spawn(Node,
@@ -799,7 +819,7 @@ monitor_time_offset(Config) when is_list(Config) ->
                                   ct:fail(Reason)
                           end
                   end, PMs),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 check_monitor_time_offset(Leader) ->
@@ -848,9 +868,417 @@ check_monitor_time_offset(Leader) ->
     end,
     Leader ! {change_messages_received, self()}.
 
+
+monitor_tag_storage(Config) when is_list(Config) ->
+    process_flag(priority, max),
+    %% WHITEBOX:
+    %%
+    %% There are three scenarios we want to test. The receiver of the
+    %% DOWN message with tag:
+    %% * has on-heap message queue data enabled and can allocate
+    %%   DOWN message on the heap
+    %% * has on-heap message queue data enabled and cannot allocate
+    %%   DOWN message on the heap, i.e. the message will be allocated
+    %%   in a heap fragment
+    %% * has off-heap message queue data enabled, i.e. the message
+    %%   will be allocated in a combined message/heap fragment.
+
+    %%
+    %% Testing the two on heap message queue data scenarios. Initially
+    %% there will be room on the heap, but eventually DOWN messages
+    %% will be placed in heap fragments.
+    %%    
+    ok = monitor_tag_storage_test(on_heap),
+
+    %%
+    %% Testing the off heap message queue data scenarios.
+    %%
+    ok = monitor_tag_storage_test(off_heap).
+
+monitor_tag_storage_test(MQD) ->
+    Len = 1000,
+    Tag = make_ref(),
+    Parent = self(),
+    Ps = lists:map(fun (_) ->
+                           spawn_opt(fun () ->
+                                              receive after infinity -> ok end
+                                     end, [link,{priority,high}])
+                   end, lists:seq(1, Len)),
+    {Recvr, RMon} = spawn_opt(fun () ->
+                                      lists:foreach(fun (P) ->
+                                                            erlang:monitor(process,
+                                                                           P,
+                                                                           [{tag, Tag}])
+                                                    end, Ps),
+                                      Parent ! {ready, self()},
+                                      receive {continue, Parent} -> ok end,
+                                      garbage_collect(),
+                                      Msgs = receive_tagged_down_msgs(Tag, []),
+                                      Len = length(Msgs),
+                                      garbage_collect(),
+                                      id(Msgs)
+                              end, [link, monitor, {message_queue_data, MQD}]),
+    receive {ready, Recvr} -> ok end,
+    lists:foreach(fun (P) -> unlink(P), exit(P, bang) end, Ps),
+    wait_until(fun () ->
+                       {message_queue_len, Len} == process_info(Recvr,
+                                                                message_queue_len)
+               end),
+    {messages, Msgs} = process_info(Recvr, messages),
+    lists:foreach(fun (Msg) ->
+                          {Tag, _Mon, process, _Pid, bang} = Msg
+                  end,
+                  Msgs),
+    garbage_collect(),
+    id(Msgs),
+    Recvr ! {continue, self()},
+    receive
+        {'DOWN', RMon, process, Recvr, Reason} ->
+            normal = Reason
+    end,
+    ok.
+
+receive_tagged_down_msgs(Tag, Msgs) ->
+    receive
+        {Tag, _Mon, process, _Pid, bang} = Msg ->
+            receive_tagged_down_msgs(Tag, [Msg|Msgs])
+    after
+        0 ->
+            Msgs
+    end.
+
+unexpected_alias_at_demonitor_gh5310(Config) when is_list(Config) ->
+    %% The demonitor operation erroneously behaved as if the
+    %% monitor had been created using the {alias, explicit_unalias}
+    %% option...
+    Pid = spawn_link(fun () ->
+                             receive
+                                 {alias, Alias} ->
+                                     Alias ! {hello_via_alias, self()}
+                             end
+                     end),
+    Mon = erlang:monitor(process, Pid),
+    AliasMon = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
+    erlang:demonitor(AliasMon, [flush]),
+    Pid ! {alias, AliasMon},
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            ok
+    end,
+    receive
+        {hello_via_alias, Pid} ->
+            ct:fail(unexpected_message_via_alias)
+    after
+        0 ->
+            ok
+    end.
+
+down_on_alias_gh5310(Config) when is_list(Config) ->
+    %% Could only occur when the internal monitor structure was transformed
+    %% into an alias structure during the demonitor() operation, the target
+    %% terminated before the demonitor signal reached it, and the exit reason
+    %% wasn't an immediate. We test with both immediate and compound exit
+    %% reason just to make sure we don't introduce the bug in the immediate
+    %% case at a later time...
+    process_flag(scheduler, 1),
+    {DeMonSched, TermSched} = case erlang:system_info(schedulers) of
+                                  1 -> {1, 1};
+                                  2 -> {1, 2};
+                                  _ -> {2, 3}
+                              end,
+    lists:foreach(fun (N) ->
+                          ImmedExitReason = case N rem 2 of
+                                      0 -> true;
+                                      _ -> false
+                                  end,
+                          down_on_alias_gh5310_test(ImmedExitReason,
+                                                    DeMonSched, TermSched)
+                  end,
+                  lists:seq(1, 200)),
+    ok.
+
+down_on_alias_gh5310_test(ImmedExitReason, DeMonSched, TermSched) ->
+    Go = make_ref(),
+    Done = make_ref(),
+    Parent = self(),
+    TermPid = spawn_opt(fun () ->
+                                Parent ! {ready, self()},
+                                receive Go ->
+                                        if ImmedExitReason == true ->
+                                                exit(bye);
+                                           true ->
+                                                exit(Go)
+                                        end
+                                end
+                        end, [{scheduler, TermSched}]),
+    DeMonPid = spawn_opt(fun () ->
+                                 AliasMon = erlang:monitor(process, TermPid,
+                                                           [{alias, explicit_unalias}]),
+                                 Parent ! {ready, self()},
+                                 receive Go -> ok end,
+                                 erlang:demonitor(AliasMon, [flush]),
+                                 busy_wait_until(fun () ->
+                                                         not is_process_alive(TermPid)
+                                                 end),
+                                 receive
+                                     {'DOWN', AliasMon, process, _, _} = DownMsg ->
+                                         exit({unexpected_msg, DownMsg})
+                                 after
+                                     0 ->
+                                         Parent ! Done
+                                 end
+                         end, [{scheduler, DeMonSched}, link]),
+    receive {ready, TermPid} -> ok end,
+    receive {ready, DeMonPid} -> ok end,
+    erlang:yield(),
+    TermPid ! Go,
+    DeMonPid ! Go,
+    receive Done -> ok end.
+
+
+monitor_3_noproc_gh6185(Config) when is_list(Config) ->
+    monitor_3_noproc_gh6185_test(false, false),
+    monitor_3_noproc_gh6185_test(true, false),
+    monitor_3_noproc_gh6185_test(false, true),
+    monitor_3_noproc_gh6185_test(true, true),
+    monitor_3_noproc_gh6185_exit_test(false, false),
+    monitor_3_noproc_gh6185_exit_test(true, false),
+    monitor_3_noproc_gh6185_exit_test(false, true),
+    monitor_3_noproc_gh6185_exit_test(true, true).
+
+monitor_3_noproc_gh6185_test(AliasTest, TagTest) ->
+    NodeName = node(),
+    UN = undefined_name_gh6185,
+    UNN = {UN, NodeName},
+    undefined = whereis(UN),
+
+    {AliasOpt, CheckAlias}
+        = case AliasTest of
+              false ->
+                  {[], fun (_NotAnAlias) -> ok end};
+              true ->
+                  {[{alias, explicit_unalias}],
+                   fun (Alias) ->
+                           AMsg1 = make_ref(),
+                           OMsg1 = make_ref(),
+                           Alias ! AMsg1,
+                           self() ! OMsg1,
+                           receive OMsg1 -> ok end,
+                           receive AMsg1 -> ok
+                           after 0 -> ct:fail(missing_alias_message)
+                           end,
+                           unalias(Alias),
+                           AMsg2 = make_ref(),
+                           OMsg2 = make_ref(),
+                           Alias ! AMsg2,
+                           self() ! OMsg2,
+                           receive OMsg2 -> ok end,
+                           receive AMsg2 -> ct:fail(unexpected_alias_message)
+                           after 0 -> ok
+                           end
+                   end}
+          end,
+
+    TagFun = case TagTest of
+                 false ->
+                     fun () ->
+                             {'DOWN', []}
+                     end;
+                 true ->
+                     fun () ->
+                             Tag = make_ref(),
+                             {Tag, [{tag, Tag}]}
+                     end
+             end,
+
+    %% not registerd process...
+    {Tag1, TagOpt1} = TagFun(),
+    M1 = erlang:monitor(process, UN, AliasOpt ++ TagOpt1),
+    receive
+        {Tag1, M1, process, UNN, noproc} ->
+            ok;
+        ID1 when element(2, ID1) == M1 ->
+            ct:fail({invalid_down, ID1})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M1),
+
+    {Tag2, TagOpt2} = TagFun(),
+    M2 = erlang:monitor(process, UNN, AliasOpt ++ TagOpt2),
+    receive
+        {Tag2, M2, process, UNN, noproc} ->
+            ok;
+        ID2 when element(2, ID2) == M2 ->
+            ct:fail({invalid_down, ID2})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M2),
+
+    %% Not registered port...
+    {Tag3, TagOpt3} = TagFun(),
+    M3 = erlang:monitor(port, UN, AliasOpt ++ TagOpt3),
+    receive
+        {Tag3, M3, port, UNN, noproc} ->
+            ok;
+        ID3 when element(2, ID3) == M3 ->
+            ct:fail({invalid_down, ID3})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M3),
+
+    {Tag4, TagOpt4} = TagFun(),
+    M4 = erlang:monitor(port, UNN, AliasOpt ++ TagOpt4),
+    receive
+        {Tag4, M4, port, UNN, noproc} ->
+            ok;
+        ID4 when element(2, ID4) == M4 ->
+            ct:fail({invalid_down, ID4})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M4),
+
+
+    OldCreation = case erlang:system_info(creation) of
+                      Creation when Creation =< 4 -> 16#ffffffff;
+                      Creation -> Creation - 1
+                  end,
+
+    %% Process of old incarnation...
+    Pid = erts_test_utils:mk_ext_pid({NodeName, OldCreation}, 4711, 0),
+    {Tag5, TagOpt5} = TagFun(),
+    M5 = erlang:monitor(process, Pid, AliasOpt ++ TagOpt5),
+    receive
+        {Tag5, M5, process, Pid, noproc} ->
+            ok;
+        ID5 when element(2, ID5) == M5 ->
+            ct:fail({invalid_down, ID5})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M5),
+
+    %% Port of old incarnation...
+    Prt = erts_test_utils:mk_ext_port({NodeName, OldCreation}, 4711),
+    {Tag6, TagOpt6} = TagFun(),
+    M6 = erlang:monitor(port, Prt, AliasOpt ++ TagOpt6),
+    receive
+        {Tag6, M6, port, Prt, noproc} ->
+            ok;
+        ID6 when element(2, ID6) == M6 ->
+            ct:fail({invalid_down, ID6})
+    after 100 ->
+            ct:fail(missing_down)
+    end,
+    CheckAlias(M6),
+
+    ok.
+
+monitor_3_noproc_gh6185_exit_test(AliasTest, TagTest) ->
+    %%
+    %% Testing that we handle these quite unusual monitors correct
+    %% in case the monotoring process dies right after setting up
+    %% the monitor. We cannot check any results, but we might hit
+    %% asserts, crashes, or memory leaks if any bugs exist...
+    %%
+
+    NodeName = node(),
+    UN = undefined_name_gh6185,
+    UNN = {UN, NodeName},
+    undefined = whereis(UN),
+
+    AliasOpt = case AliasTest of
+                   false -> [];
+                   true -> [{alias, explicit_unalias}]
+               end,
+
+    TagOpt = case TagTest of
+                 false -> [];
+                 true -> [{tag, make_ref()}]
+             end,
+
+    %% not registerd process...
+    {P1, M1} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, UN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M1, process, P1, bang} -> ok end,
+    {P2, M2} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, UNN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M2, process, P2, bang} -> ok end,
+
+    %% Not registered port...
+    {P3, M3} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, UN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M3, process, P3, bang} -> ok end,
+    {P4, M4} = spawn_monitor(fun () ->
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, UNN, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M4, process, P4, bang} -> ok end,
+
+
+    OldCreation = case erlang:system_info(creation) of
+                      Creation when Creation =< 4 -> 16#ffffffff;
+                      Creation -> Creation - 1
+                  end,
+
+    %% Process of old incarnation...
+    {P5, M5} = spawn_monitor(fun () ->
+                                     Pid = erts_test_utils:mk_ext_pid({NodeName,
+                                                                       OldCreation},
+                                                                      4711, 0),
+                                     erlang:yield(),
+                                     _ = erlang:monitor(process, Pid, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M5, process, P5, bang} -> ok end,
+
+    %% Port of old incarnation...
+    {P6, M6} = spawn_monitor(fun () ->
+                                     Prt = erts_test_utils:mk_ext_port({NodeName,
+                                                                        OldCreation},
+                                                                       4711),
+                                     erlang:yield(),
+                                     _ = erlang:monitor(port, Prt, AliasOpt ++ TagOpt),
+                                     exit(bang)
+                             end),
+    receive {'DOWN', M6, process, P6, bang} -> ok end,
+    ok.
+
 %%
 %% ...
 %%
+
+id(X) -> X.
+
+busy_wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            busy_wait_until(Fun)
+    end.
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 wait_for_m(_,_,0) ->
     exit(monitor_wait_timeout);
@@ -973,22 +1401,3 @@ generate(_Fun, 0) ->
     [];
 generate(Fun, N) ->
     [Fun() | generate(Fun, N-1)].
-
-start_node(Config, Args) ->
-    TestCase = proplists:get_value(testcase, Config),
-    PA = filename:dirname(code:which(?MODULE)),
-    ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
-    Unique = erlang:unique_integer([positive]),
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(TestCase)
-                        ++ "-"
-                        ++ integer_to_list(ESTime)
-                        ++ "-"
-                        ++ integer_to_list(Unique)),
-    test_server:start_node(Name,
-                           slave,
-                           [{args, "-pa " ++ PA ++ " " ++ Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

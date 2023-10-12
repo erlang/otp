@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,10 +71,10 @@
 typedef unsigned short erts_lock_flags_t;
 typedef unsigned short erts_lock_options_t;
 
-/* @brief Gets the type name of the lock, honoring the RW flag if supplied. */
+/** @brief Gets the type name of the lock, honoring the RW flag if supplied. */
 const char *erts_lock_flags_get_type_name(erts_lock_flags_t flags);
 
-/* @brief Gets a short-form description of the given lock options. (rw/r/w) */
+/** @brief Gets a short-form description of the given lock options. (rw/r/w) */
 const char *erts_lock_options_get_short_desc(erts_lock_options_t options);
 
 #endif /* ERTS_LOCK_FLAGS_H__ */

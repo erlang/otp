@@ -1,0 +1,1053 @@
+
+  [;1m-spec erlang:system_info(sequential_tracer) ->[0m
+  [;1m                            {sequential_tracer,[0m
+  [;1m                             pid() | port() | {module(), term()} | false}.[0m
+
+  Returns information about the current system. The documentation of
+  this function is broken into the following sections in order to
+  make it easier to navigate.
+
+  [;;4m[;;4mMemory Allocation[0m[0m:
+    [;;4mallocated_areas[0m, [;;4mallocator[0m, [;;4malloc_util_allocators[0m, [;;4m[0m
+    [;;4mallocator_sizes[0m
+
+  [;;4m[;;4mCPU Topology[0m[0m:
+    [;;4mcpu_topology[0m, [;;4mlogical_processors[0m, [;;4mcpu_quota[0m, [;;4m[0m
+    [;;4mupdate_cpu_info[0m
+
+  [;;4m[;;4mProcess Information[0m[0m:
+    [;;4mfullsweep_after[0m, [;;4mgarbage_collection[0m, [;;4mheap_sizes[0m, [;;4m[0m
+    [;;4mheap_type[0m, [;;4mmax_heap_size[0m, [;;4mmessage_queue_data[0m, [;;4m[0m
+    [;;4mmin_heap_size[0m, [;;4mmin_bin_vheap_size[0m, [;;4mprocs[0m
+
+  [;;4m[;;4mSystem Limits[0m[0m:
+    [;;4matom_count[0m, [;;4matom_limit[0m, [;;4mets_count[0m, [;;4mets_limit[0m, [;;4m[0m
+    [;;4mport_count[0m, [;;4mport_limit[0m, [;;4mprocess_count[0m, [;;4mprocess_limit[0m
+
+  [;;4m[;;4mSystem Time[0m[0m:
+    [;;4mend_time[0m, [;;4mos_monotonic_time_source[0m, [;;4mos_system_time_source[0m, [;;4m[0m
+    [;;4mstart_time[0m, [;;4mtime_correction[0m, [;;4mtime_offset[0m, [;;4mtime_warp_mode[0m, [;;4m[0m
+    [;;4mtolerant_timeofday[0m
+
+  [;;4m[;;4mScheduler Information[0m[0m:
+    [;;4mdirty_cpu_schedulers[0m, [;;4mdirty_cpu_schedulers_online[0m, [;;4m[0m
+    [;;4mdirty_io_schedulers[0m, [;;4mmulti_scheduling[0m, [;;4m[0m
+    [;;4mmulti_scheduling_blockers[0m, [;;4mnormal_multi_scheduling_blockers[0m, [;;4m[0m
+    [;;4mscheduler_bind_type[0m, [;;4mscheduler_bindings[0m, [;;4mscheduler_id[0m, [;;4m[0m
+    [;;4mschedulers[0m, [;;4msmp_support[0m, [;;4mthreads[0m, [;;4mthread_pool_size[0m
+
+  [;;4m[;;4mDistribution Information[0m[0m:
+    [;;4masync_dist[0m, [;;4mcreation[0m, [;;4mdelayed_node_table_gc[0m, [;;4mdist[0m, [;;4m[0m
+    [;;4mdist_buf_busy_limit[0m, [;;4mdist_ctrl[0m
+
+  [;;4m[;;4mSystem Information[0m[0m:
+    [;;4mc_compiler_used[0m, [;;4mcheck_io[0m, [;;4mcompat_rel[0m, [;;4mdebug_compiled[0m, [;;4m[0m
+    [;;4mdriver_version[0m, [;;4mdynamic_trace[0m, [;;4mdynamic_trace_probes[0m, [;;4m[0m
+    [;;4memu_flavor[0m, [;;4memu_type[0m, [;;4minfo[0m, [;;4mkernel_poll[0m, [;;4mloaded[0m, [;;4m[0m
+    [;;4mmachine[0m, [;;4mmodified_timing_level[0m, [;;4mnif_version[0m, [;;4motp_release[0m, [;;4m[0m
+    [;;4moutstanding_system_requests_limit[0m, [;;4mport_parallelism[0m, [;;4m[0m
+    [;;4msystem_architecture[0m, [;;4msystem_logger[0m, [;;4msystem_version[0m, [;;4m[0m
+    [;;4mtrace_control_word[0m, [;;4mversion[0m, [;;4mwordsize[0m
+
+  [;1m-spec erlang:system_info(allocated_areas) -> [tuple()];[0m
+  [;1m                        (allocator) ->[0m
+  [;1m                            {Allocator, Version, Features, Settings}[0m
+  [;1m                            when[0m
+  [;1m                                Allocator :: undefined | glibc,[0m
+  [;1m                                Version :: [non_neg_integer()],[0m
+  [;1m                                Features :: [atom()],[0m
+  [;1m                                Settings ::[0m
+  [;1m                                    [{Subsystem :: atom(),[0m
+  [;1m                                      [{Parameter :: atom(),[0m
+  [;1m                                        Value :: term()}]}];[0m
+  [;1m                        ({allocator, Alloc}) -> [_] when Alloc :: atom();[0m
+  [;1m                        (alloc_util_allocators) -> [Alloc][0m
+  [;1m                            when Alloc :: atom();[0m
+  [;1m                        ({allocator_sizes, Alloc}) -> [_][0m
+  [;1m                            when Alloc :: atom().[0m
+
+  Returns various information about the memory allocators of the
+  current system (emulator) as specified by [;;4mItem[0m:
+
+  [;;4m[;;4mallocated_areas[0m[0m:
+    Returns a list of tuples with information about miscellaneous
+    allocated memory areas.
+
+    Each tuple contains an atom describing the type of memory as
+    first element and the amount of allocated memory in bytes as
+    second element. When information about allocated and used
+    memory is present, also a third element is present, containing
+    the amount of used memory in bytes.
+
+    [;;4merlang:system_info(allocated_areas)[0m is intended for
+    debugging, and the content is highly implementation-dependent.
+    The content of the results therefore changes when needed
+    without prior notice.
+
+    Notice that the sum of these values is not the total amount
+    of memory allocated by the emulator. Some values are part of
+    other values, and some memory areas are not part of the
+    result. For information about the total amount of memory
+    allocated by the emulator, see [;;4merlang:memory/0,1[0m.
+
+  [;;4m[;;4mallocator[0m[0m:
+    Returns [;;4m{Allocator, Version, Features, Settings[0m, where:
+
+     • [;;4mAllocator[0m corresponds to the [;;4mmalloc()[0m implementation
+       used. If [;;4mAllocator[0m equals [;;4mundefined[0m, the [;;4mmalloc()[0m
+       implementation used cannot be identified. [;;4mglibc[0m can be
+       identified.
+
+     • [;;4mVersion[0m is a list of integers (but not a string)
+       representing the version of the [;;4mmalloc()[0m
+       implementation used.
+
+     • [;;4mFeatures[0m is a list of atoms representing the allocation
+       features used.
+
+     • [;;4mSettings[0m is a list of subsystems, their configurable
+       parameters, and used values. Settings can differ between
+       different combinations of platforms, allocators, and
+       allocation features. Memory sizes are given in bytes.
+
+    See also "System Flags Effecting erts_alloc" in [;;4merts_alloc(3)[0m.
+
+  [;;4m[;;4m{allocator, Alloc}[0m[0m:
+    Returns information about the specified allocator. As from
+    ERTS 5.6.1, the return value is a list of [;;4m{instance,[0m
+    [;;4mInstanceNo, InstanceInfo}[0m tuples, where [;;4mInstanceInfo[0m
+    contains information about a specific instance of the
+    allocator. If [;;4mAlloc[0m is not a recognized allocator, [;;4m[0m
+    [;;4mundefined[0m is returned. If [;;4mAlloc[0m is disabled, [;;4mfalse[0m is
+    returned.
+
+    Notice that the information returned is highly
+    implementation-dependent and can be changed or removed at any
+    time without prior notice. It was initially intended as a tool
+    when developing new allocators, but as it can be of interest
+    for others it has been briefly documented.
+
+    The recognized allocators are listed in [;;4merts_alloc(3)[0m.
+    Information about super carriers can be obtained from ERTS 8.0
+    with [;;4m{allocator, erts_mmap}[0m or from ERTS 5.10.4; the
+    returned list when calling with [;;4m{allocator, mseg_alloc}[0m also
+    includes an [;;4m{erts_mmap, _}[0m tuple as one element in the list.
+
+    After reading the [;;4merts_alloc(3)[0m documentation, the returned
+    information more or less speaks for itself, but it can be
+    worth explaining some things. Call counts are presented by two
+    values, the first value is giga calls, and the second value is
+    calls. [;;4mmbcs[0m and [;;4msbcs[0m denote multi-block carriers, and
+    single-block carriers, respectively. Sizes are presented in
+    bytes. When a size is not presented, it is the amount of
+    something. Sizes and amounts are often presented by three
+    values:
+
+     • The first is the current value.
+
+     • The second is the maximum value since the last call to [;;4m[0m
+       [;;4merlang:system_info({allocator, Alloc})[0m.
+
+     • The third is the maximum value since the emulator was
+       started.
+
+    If only one value is present, it is the current value. [;;4m[0m
+    [;;4mfix_alloc[0m memory block types are presented by two values. The
+    first value is the memory pool size and the second value is
+    the used memory size.
+
+  [;;4m[;;4malloc_util_allocators[0m[0m:
+    Returns a list of the names of all allocators using the ERTS
+    internal [;;4malloc_util[0m framework as atoms. For more
+    information, see section The alloc_util framework in [;;4m[0m
+    [;;4merts_alloc(3)[0m.
+
+  [;;4m[;;4m{allocator_sizes, Alloc}[0m[0m:
+    Returns various size information for the specified allocator.
+    The information returned is a subset of the information
+    returned by [;;4merlang:system_info({allocator, Alloc})[0m.
+
+  [;1m-spec erlang:system_info(cpu_topology) -> CpuTopology[0m
+  [;1m                            when CpuTopology :: cpu_topology();[0m
+  [;1m                        ({cpu_topology, defined | detected | used}) ->[0m
+  [;1m                            CpuTopology[0m
+  [;1m                            when CpuTopology :: cpu_topology();[0m
+  [;1m                        (creation) -> integer();[0m
+  [;1m                        (machine) -> string();[0m
+  [;1m                        (version) -> string().[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  Types:
+    -type cpu_topology() :: [LevelEntry :: level_entry()] | undefined.
+      All [;;4mLevelEntry[0ms of a list must contain the same [;;4m[0m
+      [;;4mLevelTag[0m, except on the top level where both [;;4mnode[0m and [;;4m[0m
+      [;;4mprocessor[0m[;;4mLevelTag[0ms can coexist.
+    -type info_list() :: [].
+      The [;;4minfo_list()[0m can be extended in a future release.
+    -type level_entry() ::
+          {LevelTag :: level_tag(), SubLevel :: sub_level()} |
+          {LevelTag :: level_tag(),
+           InfoList :: info_list(),
+           SubLevel :: sub_level()}.
+      [;;4m{LevelTag, SubLevel} == {LevelTag, [], SubLevel}[0m
+    -type level_tag() :: core | node | processor | thread.
+      More [;;4mLevelTag[0ms can be introduced in a future release.
+    -type sub_level() ::
+          [LevelEntry :: level_entry()] |
+          (LogicalCpuId :: {logical, non_neg_integer()}).
+
+  Returns various information about the CPU topology of the current
+  system (emulator) as specified by [;;4mItem[0m:
+
+  [;;4m[;;4mcpu_topology[0m[0m:
+    Returns the [;;4mCpuTopology[0m currently used by the emulator. The
+    CPU topology is used when binding schedulers to logical
+    processors. The CPU topology used is the user-defined CPU
+    topology, if such exists, otherwise the automatically
+    detected CPU topology, if such exists. If no CPU topology
+    exists, [;;4mundefined[0m is returned.
+
+    [;;4mnode[0m refers to Non-Uniform Memory Access (NUMA) nodes. [;;4m[0m
+    [;;4mthread[0m refers to hardware threads (for example, Intel
+    hyper-threads).
+
+    A level in term [;;4mCpuTopology[0m can be omitted if only one entry
+    exists and [;;4mInfoList[0m is empty.
+
+    [;;4mthread[0m can only be a sublevel to [;;4mcore[0m. [;;4mcore[0m can be a
+    sublevel to [;;4mprocessor[0m or [;;4mnode[0m. [;;4mprocessor[0m can be on the
+    top level or a sublevel to [;;4mnode[0m. [;;4mnode[0m can be on the top
+    level or a sublevel to [;;4mprocessor[0m. That is, NUMA nodes can be
+    processor internal or processor external. A CPU topology can
+    consist of a mix of processor internal and external NUMA
+    nodes, as long as each logical CPU belongs to one NUMA node.
+    Cache hierarchy is not part of the [;;4mCpuTopology[0m type, but
+    will be in a future release. Other things can also make it
+    into the CPU topology in a future release. So, expect the [;;4m[0m
+    [;;4mCpuTopology[0m type to change.
+
+  [;;4m[;;4m{cpu_topology, defined}[0m[0m:
+    Returns the user-defined [;;4mCpuTopology[0m. For more information,
+    see command-line flag [;;4m+sct[0m in [;;4merl(1)[0m and argument [;;4m[0m
+    [;;4mcpu_topology[0m.
+
+  [;;4m[;;4m{cpu_topology, detected}[0m[0m:
+    Returns the automatically detected [;;4mCpuTopologyy[0m. The
+    emulator detects the CPU topology on some newer Linux,
+    Solaris, FreeBSD, and Windows systems. On Windows system with
+    more than 32 logical processors, the CPU topology is not
+    detected.
+
+    For more information, see argument [;;4mcpu_topology[0m.
+
+  [;;4m[;;4m{cpu_topology, used}[0m[0m:
+    Returns [;;4mCpuTopology[0m used by the emulator. For more
+    information, see argument [;;4mcpu_topology[0m.
+
+  [;;4m[;;4mlogical_processors[0m[0m:
+    Returns the detected number of logical processors configured
+    in the system. The return value is either an integer, or the
+    atom [;;4munknown[0m if the emulator cannot detect the configured
+    logical processors.
+
+  [;;4m[;;4mlogical_processors_available[0m[0m:
+    Returns the detected number of logical processors available to
+    the Erlang runtime system. The return value is either an
+    integer, or the atom [;;4munknown[0m if the emulator cannot detect
+    the available logical processors. The number of available
+    logical processors is less than or equal to the number of 
+    logical processors online.
+
+  [;;4m[;;4mlogical_processors_online[0m[0m:
+    Returns the detected number of logical processors online on
+    the system. The return value is either an integer, or the atom [;;4m[0m
+    [;;4munknown[0m if the emulator cannot detect logical processors
+    online. The number of logical processors online is less than
+    or equal to the number of logical processors configured.
+
+  [;;4m[;;4mcpu_quota[0m[0m:
+    Returns the detected CPU quota the emulator is limited by. The
+    return value is an integer saying how many processors' worth
+    of runtime we get (between 1 and the number of logical
+    processors), or the atom [;;4munknown[0m if the emulator cannot
+    detect a quota.
+
+  [;;4m[;;4mupdate_cpu_info[0m[0m:
+    The runtime system rereads the CPU information available and
+    updates its internally stored information about the detected
+    CPU topology and the number of logical processors configured, 
+    online, available, and cpu quota.
+
+    If the CPU information has changed since the last time it was
+    read, the atom [;;4mchanged[0m is returned, otherwise the atom [;;4m[0m
+    [;;4munchanged[0m. If the CPU information has changed, you probably
+    want to adjust the number of schedulers online. You
+    typically want to have as many schedulers online as logical
+    processors available.
+
+  [;1m-spec erlang:system_info(garbage_collection) -> [{atom(), integer()}];[0m
+  [;1m                        (heap_sizes) -> [non_neg_integer()];[0m
+  [;1m                        (heap_type) -> private;[0m
+  [;1m                        (info) -> binary();[0m
+  [;1m                        (message_queue_data) -> message_queue_data();[0m
+  [;1m                        (min_heap_size) ->[0m
+  [;1m                            {min_heap_size,[0m
+  [;1m                             MinHeapSize :: pos_integer()};[0m
+  [;1m                        (min_bin_vheap_size) ->[0m
+  [;1m                            {min_bin_vheap_size,[0m
+  [;1m                             MinBinVHeapSize :: pos_integer()};[0m
+  [;1m                        (modified_timing_level) -> integer() | undefined;[0m
+  [;1m                        (scheduler_bind_type) ->[0m
+  [;1m                            spread | processor_spread | thread_spread |[0m
+  [;1m                            thread_no_node_processor_spread |[0m
+  [;1m                            no_node_processor_spread |[0m
+  [;1m                            no_node_thread_spread | no_spread | unbound.[0m
+
+[;;4mSince[0m:
+  OTP 19.0,OTP R13B04
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+
+  Returns information about the default process heap settings:
+
+  [;;4m[;;4mfullsweep_after[0m[0m:
+    Returns [;;4m{fullsweep_after, integer() >= 0}[0m, which is the [;;4m[0m
+    [;;4mfullsweep_after[0m garbage collection setting used by default.
+    For more information, see [;;4mgarbage_collection[0m described
+    below.
+
+  [;;4m[;;4mgarbage_collection[0m[0m:
+    Returns a list describing the default garbage collection
+    settings. A process spawned on the local node by a [;;4mspawn[0m or [;;4m[0m
+    [;;4mspawn_link[0m uses these garbage collection settings. The
+    default settings can be changed by using [;;4merlang:system_flag/2[0m. [;;4m[0m
+    [;;4mspawn_opt/2,3,4[0m can spawn a process that does not use the
+    default settings.
+
+  [;;4m[;;4mheap_sizes[0m[0m:
+    Returns a list of integers representing valid heap sizes in
+    words. All Erlang heaps are sized from sizes in this list.
+
+  [;;4m[;;4mheap_type[0m[0m:
+    Returns the heap type used by the current emulator. One heap
+    type exists:
+
+    [;;4m[;;4mprivate[0m[0m:
+      Each process has a heap reserved for its use and no
+      references between heaps of different processes are
+      allowed. Messages passed between processes are copied
+      between heaps.
+
+  [;;4m[;;4mmax_heap_size[0m[0m:
+    Returns [;;4m{max_heap_size, MaxHeapSize}[0m, where [;;4mMaxHeapSize[0m is
+    the current system-wide maximum heap size settings for spawned
+    processes. This setting can be set using the command-line
+    flags [;;4m+hmax[0m, [;;4m+hmaxk[0m, [;;4m+hmaxel[0m and [;;4m+hmaxibl[0m in [;;4merl(1)[0m.
+    It can also be changed at runtime using [;;4m[0m
+    [;;4merlang:system_flag(max_heap_size, MaxHeapSize)[0m. For more
+    details about the [;;4mmax_heap_size[0m process flag, see [;;4m[0m
+    [;;4mprocess_flag(max_heap_size, MaxHeapSize)[0m.
+
+  [;;4m[;;4mmessage_queue_data[0m[0m:
+    Returns the default value of the [;;4mmessage_queue_data[0m process
+    flag, which can be either [;;4moff_heap[0m or [;;4mon_heap[0m. The default
+    value is set by the command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m.
+    For more information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.
+
+  [;;4m[;;4mmin_heap_size[0m[0m:
+    Returns [;;4m{min_heap_size, MinHeapSize}[0m, where [;;4mMinHeapSize[0m is
+    the current system-wide minimum heap size for spawned
+    processes.
+
+  [;;4m[;;4mmin_bin_vheap_size[0m[0m:
+    Returns [;;4m{min_bin_vheap_size, MinBinVHeapSize}[0m, where [;;4m[0m
+    [;;4mMinBinVHeapSize[0m is the current system-wide minimum binary
+    virtual heap size for spawned processes.
+
+  [;;4m[;;4mprocs[0m[0m:
+    Returns a binary containing a string of process and port
+    information formatted as in Erlang crash dumps. For more
+    information, see section How to interpret the Erlang crash
+    dumps in the User's Guide.
+
+  [;1m-spec erlang:system_info(atom_count) -> pos_integer();[0m
+  [;1m                        (atom_limit) -> pos_integer();[0m
+  [;1m                        (ets_limit) -> pos_integer();[0m
+  [;1m                        (fullsweep_after) ->[0m
+  [;1m                            {fullsweep_after, non_neg_integer()};[0m
+  [;1m                        (port_count) -> non_neg_integer();[0m
+  [;1m                        (port_limit) -> pos_integer();[0m
+  [;1m                        (process_count) -> pos_integer();[0m
+  [;1m                        (process_limit) -> pos_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0,OTP 21.1,OTP R16B,OTP R16B03
+
+  Returns information about the current system (emulator) limits as
+  specified by [;;4mItem[0m:
+
+  [;;4m[;;4matom_count[0m[0m:
+    Returns the number of atoms currently existing at the local
+    node. The value is given as an integer.
+
+  [;;4m[;;4matom_limit[0m[0m:
+    Returns the maximum number of atoms allowed. This limit can be
+    increased at startup by passing command-line flag [;;4m+t[0m to [;;4m[0m
+    [;;4merl(1)[0m.
+
+  [;;4m[;;4mets_count[0m[0m:
+    Returns the number of ETS tables currently existing at the
+    local node.
+
+  [;;4m[;;4mets_limit[0m[0m:
+    Returns the limit for number of ETS tables. This limit is 
+    partially obsolete and number of tables are only limited by
+    available memory.
+
+  [;;4m[;;4mport_count[0m[0m:
+    Returns the number of ports currently existing at the local
+    node. The value is given as an integer. This is the same value
+    as returned by [;;4mlength(erlang:ports())[0m, but more efficient.
+
+  [;;4m[;;4mport_limit[0m[0m:
+    Returns the maximum number of simultaneously existing ports at
+    the local node as an integer. This limit can be configured at
+    startup by using command-line flag [;;4m+Q[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mprocess_count[0m[0m:
+    Returns the number of processes currently existing at the
+    local node. The value is given as an integer. This is the same
+    value as returned by [;;4mlength(processes())[0m, but more
+    efficient.
+
+  [;;4m[;;4mprocess_limit[0m[0m:
+    Returns the maximum number of simultaneously existing
+    processes at the local node. The value is given as an integer.
+    This limit can be configured at startup by using command-line
+    flag [;;4m+P[0m in [;;4merl(1)[0m.
+
+  [;1m-spec erlang:system_info(ets_count) -> pos_integer();[0m
+  [;1m                        (os_system_time_source) -> [{atom(), term()}];[0m
+  [;1m                        (outstanding_system_requests_limit) ->[0m
+  [;1m                            1..134217727;[0m
+  [;1m                        (system_architecture) -> string();[0m
+  [;1m                        (time_offset) -> preliminary | final | volatile;[0m
+  [;1m                        (time_warp_mode) ->[0m
+  [;1m                            no_time_warp | single_time_warp |[0m
+  [;1m                            multi_time_warp;[0m
+  [;1m                        (tolerant_timeofday) -> enabled | disabled;[0m
+  [;1m                        (trace_control_word) -> non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 17.1,OTP 18.0
+
+  Returns information about the current system (emulator) time as
+  specified by [;;4mItem[0m:
+
+  [;;4m[;;4mend_time[0m[0m:
+    The last Erlang monotonic time in [;;4mnative[0m time unit that
+    can be represented internally in the current Erlang runtime
+    system instance. The time between the start time and the end
+    time is at least a quarter of a millennium.
+
+  [;;4m[;;4mos_monotonic_time_source[0m[0m:
+    Returns a list containing information about the source of OS
+    monotonic time that is used by the runtime system.
+
+    If [;;4m[][0m is returned, no OS monotonic time is available. The
+    list contains two-tuples with [;;4mKey[0ms as first element, and [;;4m[0m
+    [;;4mValue[0ms as second element. The order of these tuples is
+    undefined. The following tuples can be part of the list, but
+    more tuples can be introduced in the future:
+
+    [;;4m[;;4m{function, Function}[0m[0m:
+      [;;4mFunction[0m is the name of the function used. This tuple
+      always exists if OS monotonic time is available to the
+      runtime system.
+
+    [;;4m[;;4m{clock_id, ClockId}[0m[0m:
+      This tuple only exists if [;;4mFunction[0m can be used with
+      different clocks. [;;4mClockId[0m corresponds to the clock
+      identifier used when calling [;;4mFunction[0m.
+
+    [;;4m[;;4m{resolution, OsMonotonicTimeResolution}[0m[0m:
+      Highest possible resolution of current OS monotonic time
+      source as parts per second. If no resolution information
+      can be retrieved from the OS, [;;4mOsMonotonicTimeResolution[0m
+      is set to the resolution of the time unit of [;;4mFunction[0ms
+      return value. That is, the actual resolution can be lower
+      than [;;4mOsMonotonicTimeResolution[0m. Notice that the
+      resolution does not say anything about the accuracy or
+      whether the precision aligns with the resolution. You
+      do, however, know that the precision is not better than [;;4m[0m
+      [;;4mOsMonotonicTimeResolution[0m.
+
+    [;;4m[;;4m{extended, Extended}[0m[0m:
+      [;;4mExtended[0m equals [;;4myes[0m if the range of time values has
+      been extended; otherwise [;;4mExtended[0m equals [;;4mno[0m. The range
+      must be extended if [;;4mFunction[0m returns values that wrap
+      fast. This typically is the case when the return value is
+      a 32-bit value.
+
+    [;;4m[;;4m{parallel, Parallel}[0m[0m:
+      [;;4mParallel[0m equals [;;4myes[0m if [;;4mFunction[0m is called in parallel
+      from multiple threads. If it is not called in parallel,
+      because calls must be serialized, [;;4mParallel[0m equals [;;4mno[0m.
+
+    [;;4m[;;4m{time, OsMonotonicTime}[0m[0m:
+      [;;4mOsMonotonicTime[0m equals current OS monotonic time in [;;4m[0m
+      [;;4mnative[0m time unit.
+
+  [;;4m[;;4mos_system_time_source[0m[0m:
+    Returns a list containing information about the source of OS
+    system time that is used by the runtime system.
+
+    The list contains two-tuples with [;;4mKey[0ms as first element, and [;;4m[0m
+    [;;4mValue[0ms as second element. The order of these tuples is
+    undefined. The following tuples can be part of the list, but
+    more tuples can be introduced in the future:
+
+    [;;4m[;;4m{function, Function}[0m[0m:
+      [;;4mFunction[0m is the name of the function used.
+
+    [;;4m[;;4m{clock_id, ClockId}[0m[0m:
+      Exists only if [;;4mFunction[0m can be used with different
+      clocks. [;;4mClockId[0m corresponds to the clock identifier used
+      when calling [;;4mFunction[0m.
+
+    [;;4m[;;4m{resolution, OsSystemTimeResolution}[0m[0m:
+      Highest possible resolution of current OS system time
+      source as parts per second. If no resolution information
+      can be retrieved from the OS, [;;4mOsSystemTimeResolution[0m is
+      set to the resolution of the time unit of [;;4mFunction[0ms
+      return value. That is, the actual resolution can be lower
+      than [;;4mOsSystemTimeResolution[0m. Notice that the resolution
+      does not say anything about the accuracy or whether the 
+      precision do align with the resolution. You do, however,
+      know that the precision is not better than [;;4m[0m
+      [;;4mOsSystemTimeResolution[0m.
+
+    [;;4m[;;4m{parallel, Parallel}[0m[0m:
+      [;;4mParallel[0m equals [;;4myes[0m if [;;4mFunction[0m is called in parallel
+      from multiple threads. If it is not called in parallel,
+      because calls needs to be serialized, [;;4mParallel[0m equals [;;4m[0m
+      [;;4mno[0m.
+
+    [;;4m[;;4m{time, OsSystemTime}[0m[0m:
+      [;;4mOsSystemTime[0m equals current OS system time in [;;4mnative[0m 
+      time unit.
+
+  [;;4m[;;4mstart_time[0m[0m:
+    The Erlang monotonic time in [;;4mnative[0m time unit at the
+    time when current Erlang runtime system instance started.
+
+    See also [;;4merlang:system_info(end_time)[0m.
+
+  [;;4m[;;4mtime_correction[0m[0m:
+    Returns a boolean value indicating whether time correction
+    is enabled or not.
+
+  [;;4m[;;4mtime_offset[0m[0m:
+    Returns the state of the time offset:
+
+    [;;4m[;;4mpreliminary[0m[0m:
+      The time offset is preliminary, and will be changed and
+      finalized later. The preliminary time offset is used
+      during the preliminary phase of the single time warp mode.
+
+    [;;4m[;;4mfinal[0m[0m:
+      The time offset is final. This either because no time
+      warp mode is used, or because the time offset have been
+      finalized when single time warp mode is used.
+
+    [;;4m[;;4mvolatile[0m[0m:
+      The time offset is volatile. That is, it can change at any
+      time. This is because multi-time warp mode is used.
+
+  [;;4m[;;4mtime_warp_mode[0m[0m:
+    Returns a value identifying the time warp mode that is used:
+
+    [;;4m[;;4mno_time_warp[0m[0m:
+      The no time warp mode is used.
+
+    [;;4m[;;4msingle_time_warp[0m[0m:
+      The single time warp mode is used.
+
+    [;;4m[;;4mmulti_time_warp[0m[0m:
+      The multi-time warp mode is used.
+
+  [;;4m[;;4mtolerant_timeofday[0m[0m:
+    Returns whether a pre ERTS 7.0 backwards compatible
+    compensation for sudden changes of system time is [;;4menabled[0m or [;;4m[0m
+    [;;4mdisabled[0m. Such compensation is [;;4menabled[0m when the time
+    offset is [;;4mfinal[0m, and time correction is enabled.
+
+  [;1m-spec erlang:system_info(dirty_cpu_schedulers_online) ->[0m
+  [;1m                            non_neg_integer();[0m
+  [;1m                        (dirty_io_schedulers) -> non_neg_integer();[0m
+  [;1m                        (dist) -> binary();[0m
+  [;1m                        (multi_scheduling_blockers) -> [Pid :: pid()];[0m
+  [;1m                        (nif_version) -> string();[0m
+  [;1m                        (otp_release) -> string();[0m
+  [;1m                        (scheduler_bindings) -> tuple();[0m
+  [;1m                        (scheduler_id) -> SchedulerId :: pos_integer();[0m
+  [;1m                        (schedulers | schedulers_online) ->[0m
+  [;1m                            pos_integer();[0m
+  [;1m                        (smp_support) -> boolean();[0m
+  [;1m                        (start_time) -> integer();[0m
+  [;1m                        (thread_pool_size) -> non_neg_integer();[0m
+  [;1m                        (time_correction) -> true | false.[0m
+
+[;;4mSince[0m:
+  OTP 17.0,OTP 19.0
+
+  Returns information about schedulers, scheduling and threads in
+  the current system as specified by [;;4mItem[0m:
+
+  [;;4m[;;4mdirty_cpu_schedulers[0m[0m:
+    Returns the number of dirty CPU scheduler threads used by the
+    emulator. Dirty CPU schedulers execute CPU-bound native
+    functions, such as NIFs, linked-in driver code, and BIFs that
+    cannot be managed cleanly by the normal emulator schedulers.
+
+    The number of dirty CPU scheduler threads is determined at
+    emulator boot time and cannot be changed after that. However,
+    the number of dirty CPU scheduler threads online can be
+    changed at any time. The number of dirty CPU schedulers can be
+    set at startup by passing command-line flag [;;4m+SDcpu[0m or [;;4m[0m
+    [;;4m+SDPcpu[0m in [;;4merl(1)[0m.
+
+    See also [;;4merlang:system_flag(dirty_cpu_schedulers_online,[0m
+    [;;4mDirtyCPUSchedulersOnline)[0m, [;;4m[0m
+    [;;4merlang:system_info(dirty_cpu_schedulers_online)[0m, [;;4m[0m
+    [;;4merlang:system_info(dirty_io_schedulers)[0m, [;;4m[0m
+    [;;4merlang:system_info(schedulers)[0m, [;;4m[0m
+    [;;4merlang:system_info(schedulers_online)[0m, and [;;4m[0m
+    [;;4merlang:system_flag(schedulers_online, SchedulersOnline)[0m.
+
+  [;;4m[;;4mdirty_cpu_schedulers_online[0m[0m:
+    Returns the number of dirty CPU schedulers online. The return
+    value satisfies [;;4m1 <= DirtyCPUSchedulersOnline <= N[0m, where [;;4mN[0m
+    is the smallest of the return values of [;;4m[0m
+    [;;4merlang:system_info(dirty_cpu_schedulers)[0m and [;;4m[0m
+    [;;4merlang:system_info(schedulers_online)[0m.
+
+    The number of dirty CPU schedulers online can be set at
+    startup by passing command-line flag [;;4m+SDcpu[0m in [;;4merl(1)[0m.
+
+    For more information, see [;;4m[0m
+    [;;4merlang:system_info(dirty_cpu_schedulers)[0m, [;;4m[0m
+    [;;4merlang:system_info(dirty_io_schedulers)[0m, [;;4m[0m
+    [;;4merlang:system_info(schedulers_online)[0m, and [;;4m[0m
+    [;;4merlang:system_flag(dirty_cpu_schedulers_online,[0m
+    [;;4mDirtyCPUSchedulersOnline)[0m.
+
+  [;;4m[;;4mdirty_io_schedulers[0m[0m:
+    Returns the number of dirty I/O schedulers as an integer.
+    Dirty I/O schedulers execute I/O-bound native functions, such
+    as NIFs and linked-in driver code, which cannot be managed
+    cleanly by the normal emulator schedulers.
+
+    This value can be set at startup by passing command-line
+    argument [;;4m+SDio[0m in [;;4merl(1)[0m.
+
+    For more information, see [;;4m[0m
+    [;;4merlang:system_info(dirty_cpu_schedulers)[0m, [;;4m[0m
+    [;;4merlang:system_info(dirty_cpu_schedulers_online)[0m, and [;;4m[0m
+    [;;4merlang:system_flag(dirty_cpu_schedulers_online,[0m
+    [;;4mDirtyCPUSchedulersOnline)[0m.
+
+  [;;4m[;;4mmulti_scheduling[0m[0m:
+    Returns one of the following:
+
+    [;;4m[;;4mdisabled[0m[0m:
+      The emulator has been started with only one scheduler
+      thread.
+
+    [;;4m[;;4mblocked[0m[0m:
+      The emulator has more than one scheduler thread, but all
+      scheduler threads except one are blocked. That is, only
+      one scheduler thread schedules Erlang processes and
+      executes Erlang code.
+
+    [;;4m[;;4mblocked_normal[0m[0m:
+      The emulator has more than one scheduler thread, but all
+      normal scheduler threads except one are blocked. Notice
+      that dirty schedulers are not blocked, and can schedule
+      Erlang processes and execute native code.
+
+    [;;4m[;;4menabled[0m[0m:
+      The emulator has more than one scheduler thread, and no
+      scheduler threads are blocked. That is, all available
+      scheduler threads schedule Erlang processes and execute
+      Erlang code.
+
+    See also [;;4merlang:system_flag(multi_scheduling, BlockState)[0m, [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling_blockers)[0m, [;;4m[0m
+    [;;4merlang:system_info(normal_multi_scheduling_blockers)[0m, and [;;4m[0m
+    [;;4merlang:system_info(schedulers)[0m.
+
+  [;;4m[;;4mmulti_scheduling_blockers[0m[0m:
+    Returns a list of [;;4mPid[0ms when multi-scheduling is blocked,
+    otherwise the empty list is returned. The [;;4mPid[0ms in the list
+    represent all the processes currently blocking
+    multi-scheduling. A [;;4mPid[0m occurs only once in the list, even
+    if the corresponding process has blocked multiple times.
+
+    See also [;;4merlang:system_flag(multi_scheduling, BlockState)[0m, [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling)[0m, [;;4m[0m
+    [;;4merlang:system_info(normal_multi_scheduling_blockers)[0m, and [;;4m[0m
+    [;;4merlang:system_info(schedulers)[0m.
+
+  [;;4m[;;4mnormal_multi_scheduling_blockers[0m[0m:
+    Returns a list of [;;4mPid[0ms when normal multi-scheduling is
+    blocked (that is, all normal schedulers but one is blocked),
+    otherwise the empty list is returned. The [;;4mPid[0ms in the list
+    represent all the processes currently blocking normal
+    multi-scheduling. A [;;4mPid[0m occurs only once in the list, even
+    if the corresponding process has blocked multiple times.
+
+    See also [;;4merlang:system_flag(multi_scheduling, BlockState)[0m, [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling)[0m, [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling_blockers)[0m, and [;;4m[0m
+    [;;4merlang:system_info(schedulers)[0m.
+
+  [;;4m[;;4mscheduler_bind_type[0m[0m:
+    Returns information about how the user has requested
+    schedulers to be bound or not bound.
+
+    Notice that although a user has requested schedulers to be
+    bound, they can silently have failed to bind. To inspect the
+    scheduler bindings, call [;;4m[0m
+    [;;4merlang:system_info(scheduler_bindings)[0m.
+
+    For more information, see command-line argument [;;4m+sbt[0m in [;;4m[0m
+    [;;4merl(1)[0m and [;;4merlang:system_info(scheduler_bindings)[0m.
+
+  [;;4m[;;4mscheduler_bindings[0m[0m:
+    Returns information about the currently used scheduler
+    bindings.
+
+    A tuple of a size equal to [;;4merlang:system_info(schedulers)[0m is
+    returned. The tuple elements are integers or the atom [;;4munbound[0m.
+    Logical processor identifiers are represented as integers. The [;;4m[0m
+    [;;4mN[0mth element of the tuple equals the current binding for the
+    scheduler with the scheduler identifier equal to [;;4mN[0m. For
+    example, if the schedulers are bound, [;;4m[0m
+    [;;4melement(erlang:system_info(scheduler_id),[0m
+    [;;4merlang:system_info(scheduler_bindings))[0m returns the
+    identifier of the logical processor that the calling process
+    is executing on.
+
+    Notice that only schedulers online can be bound to logical
+    processors.
+
+    For more information, see command-line argument [;;4m+sbt[0m in [;;4m[0m
+    [;;4merl(1)[0m and [;;4merlang:system_info(schedulers_online)[0m.
+
+  [;;4m[;;4mscheduler_id[0m[0m:
+    Returns the scheduler ID ([;;4mSchedulerId[0m) of the scheduler
+    thread that the calling process is executing on. [;;4mSchedulerId[0m
+    is a positive integer, where [;;4m1 <= SchedulerId <=[0m
+    [;;4merlang:system_info(schedulers)[0m.
+
+    See also [;;4merlang:system_info(schedulers)[0m.
+
+  [;;4m[;;4mschedulers[0m[0m:
+    Returns the number of scheduler threads used by the emulator.
+    Scheduler threads online schedules Erlang processes and Erlang
+    ports, and execute Erlang code and Erlang linked-in driver
+    code.
+
+    The number of scheduler threads is determined at emulator boot
+    time and cannot be changed later. However, the number of
+    schedulers online can be changed at any time.
+
+    See also [;;4merlang:system_flag(schedulers_online,[0m
+    [;;4mSchedulersOnline)[0m, [;;4merlang:system_info(schedulers_online)[0m, [;;4m[0m
+    [;;4merlang:system_info(scheduler_id)[0m, [;;4m[0m
+    [;;4merlang:system_flag(multi_scheduling, BlockState)[0m, [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling)[0m, [;;4m[0m
+    [;;4merlang:system_info(normal_multi_scheduling_blockers)[0m and [;;4m[0m
+    [;;4merlang:system_info(multi_scheduling_blockers)[0m.
+
+  [;;4m[;;4mschedulers_online[0m[0m:
+    Returns the number of schedulers online. The scheduler
+    identifiers of schedulers online satisfy the relationship [;;4m1[0m
+    [;;4m<= SchedulerId <= erlang:system_info(schedulers_online)[0m.
+
+    For more information, see [;;4merlang:system_info(schedulers)[0m and [;;4m[0m
+    [;;4merlang:system_flag(schedulers_online, SchedulersOnline)[0m.
+
+  [;;4m[;;4msmp_support[0m[0m:
+    Returns [;;4mtrue[0m.
+
+  [;;4m[;;4mthreads[0m[0m:
+    Returns [;;4mtrue[0m.
+
+  [;;4m[;;4mthread_pool_size[0m[0m:
+    Returns the number of async threads in the async thread pool
+    used for asynchronous driver calls ( [;;4m[0m
+    [;;4merl_driver:driver_async()[0m). The value is given as an integer.
+
+  [;1m-spec erlang:system_info(debug_compiled) -> boolean();[0m
+  [;1m                        (dirty_cpu_schedulers) -> non_neg_integer();[0m
+  [;1m                        (dist_buf_busy_limit) -> non_neg_integer();[0m
+  [;1m                        (dist_ctrl) ->[0m
+  [;1m                            [{Node :: node(),[0m
+  [;1m                              ControllingEntity :: port() | pid()}];[0m
+  [;1m                        (driver_version) -> string();[0m
+  [;1m                        (overview) -> boolean().[0m
+
+[;;4mSince[0m:
+  OTP 18.0,OTP 25.3,OTP R14B01
+
+  Returns information about Erlang Distribution in the current
+  system as specified by [;;4mItem[0m:
+
+  [;;4m[;;4masync_dist[0m[0m:
+    Since: OTP 25.3
+
+    Returns the value of the command line argument +pad <boolean>
+    which the runtime system use. This value determines the
+    default [;;4masync_dist[0m value for newly spawned processes.
+
+  [;;4m[;;4mcreation[0m[0m:
+    Returns the "creation" value of the local node as an integer.
+    The creation is changed when a node is restarted. The creation
+    of a node is stored in process identifiers, port identifiers,
+    and references. This makes it possible to distinguish between
+    identifiers from different incarnations of a node. Creation
+    values are currently 32-bit positive integers, but this may
+    change in future releases. If the node is not alive, [;;4m0[0m is
+    returned.
+
+  [;;4m[;;4mdelayed_node_table_gc[0m[0m:
+    Returns the amount of time in seconds garbage collection of an
+    entry in a node table is delayed. This limit can be set on
+    startup by passing command-line flag [;;4m+zdntgc[0m to [;;4merl(1)[0m.
+    For more information, see the documentation of the
+    command-line flag.
+
+  [;;4m[;;4mdist[0m[0m:
+    Returns a binary containing a string of distribution
+    information formatted as in Erlang crash dumps. For more
+    information, see section How to interpret the Erlang crash
+    dumps in the User's Guide.
+
+  [;;4m[;;4mdist_buf_busy_limit[0m[0m:
+    Returns the value of the distribution buffer busy limit in
+    bytes. This limit can be set at startup by passing
+    command-line flag [;;4m+zdbbl[0m to [;;4merl(1)[0m.
+
+  [;;4m[;;4mdist_ctrl[0m[0m:
+    Returns a list of tuples [;;4m{Node, ControllingEntity}[0m, one
+    entry for each connected remote node. [;;4mNode[0m is the node name
+    and [;;4mControllingEntity[0m is the port or process identifier
+    responsible for the communication to that node. More
+    specifically, [;;4mControllingEntity[0m for nodes connected through
+    TCP/IP (the normal case) is the socket used in communication
+    with the specific node.
+
+  [;1m-spec erlang:system_info(c_compiler_used) -> {atom(), term()};[0m
+  [;1m                        (check_io) -> [_];[0m
+  [;1m                        (compat_rel) -> integer();[0m
+  [;1m                        (delayed_node_table_gc) ->[0m
+  [;1m                            infinity | non_neg_integer();[0m
+  [;1m                        (dynamic_trace) -> none | dtrace | systemtap;[0m
+  [;1m                        (dynamic_trace_probes) -> boolean();[0m
+  [;1m                        (eager_check_io) -> boolean();[0m
+  [;1m                        (emu_type) ->[0m
+  [;1m                            opt | debug | gcov | valgrind | gprof |[0m
+  [;1m                            lcnt | frmptr;[0m
+  [;1m                        (end_time) -> non_neg_integer();[0m
+  [;1m                        (kernel_poll) -> boolean();[0m
+  [;1m                        (loaded) -> binary();[0m
+  [;1m                        (logical_processors |[0m
+  [;1m                         logical_processors_available |[0m
+  [;1m                         logical_processors_online) ->[0m
+  [;1m                            unknown | pos_integer();[0m
+  [;1m                        (max_heap_size) ->[0m
+  [;1m                            {max_heap_size,[0m
+  [;1m                             MaxHeapSize :: max_heap_size()};[0m
+  [;1m                        (multi_scheduling) ->[0m
+  [;1m                            disabled | blocked | blocked_normal |[0m
+  [;1m                            enabled;[0m
+  [;1m                        (normal_multi_scheduling_blockers) ->[0m
+  [;1m                            [Pid :: pid()];[0m
+  [;1m                        (os_monotonic_time_source) -> [{atom(), term()}];[0m
+  [;1m                        (port_parallelism) -> boolean();[0m
+  [;1m                        (port_count) -> non_neg_integer();[0m
+  [;1m                        (system_logger) -> logger | undefined | pid();[0m
+  [;1m                        (system_version) -> string();[0m
+  [;1m                        (threads) -> boolean();[0m
+  [;1m                        (update_cpu_info) -> changed | unchanged;[0m
+  [;1m                        (wordsize |[0m
+  [;1m                         {wordsize, internal} |[0m
+  [;1m                         {wordsize, external}) ->[0m
+  [;1m                            4 | 8;[0m
+  [;1m                        (async_dist) -> boolean().[0m
+
+[;;4mSince[0m:
+  OTP 17.4,OTP 21.3,OTP 24.0,OTP 24.2,OTP R15B01,OTP R16B
+
+  Returns various information about the current system (emulator) as
+  specified by [;;4mItem[0m:
+
+  [;;4m[;;4mbuild_type[0m[0m:
+    Deprecated, use emu_type instead
+
+  [;;4m[;;4mc_compiler_used[0m[0m:
+    Returns a two-tuple describing the C compiler used when
+    compiling the runtime system. The first element is an atom
+    describing the name of the compiler, or [;;4mundefined[0m if
+    unknown. The second element is a term describing the version
+    of the compiler, or [;;4mundefined[0m if unknown.
+
+  [;;4m[;;4mcheck_io[0m[0m:
+    Returns a list containing miscellaneous information about the
+    emulators internal I/O checking. Notice that the content of
+    the returned list can vary between platforms and over time. It
+    is only guaranteed that a list is returned.
+
+  [;;4m[;;4mcompat_rel[0m[0m:
+    Returns the compatibility mode of the local node as an
+    integer. The integer returned represents the Erlang/OTP
+    release that the current emulator has been set to be backward
+    compatible with. The compatibility mode can be configured at
+    startup by using command-line flag [;;4m+R[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4mdebug_compiled[0m[0m:
+    Returns [;;4mtrue[0m if the emulator has been debug-compiled,
+    otherwise [;;4mfalse[0m.
+
+  [;;4m[;;4mdriver_version[0m[0m:
+    Returns a string containing the Erlang driver version used by
+    the runtime system. It has the form "<major ver>.<minor ver>".
+
+  [;;4m[;;4mdynamic_trace[0m[0m:
+    Returns an atom describing the dynamic trace framework
+    compiled into the virtual machine. It can be [;;4mdtrace[0m, [;;4m[0m
+    [;;4msystemtap[0m, or [;;4mnone[0m. For a commercial or standard build, it
+    is always [;;4mnone[0m. The other return values indicate a custom
+    configuration (for example, [;;4m./configure[0m
+    [;;4m--with-dynamic-trace=dtrace[0m). For more information about
+    dynamic tracing, see [;;4mdyntrace(3)[0m manual page and the [;;4m[0m
+    [;;4mREADME.dtrace[0m/[;;4mREADME.systemtap[0m files in the Erlang source
+    code top directory.
+
+  [;;4m[;;4mdynamic_trace_probes[0m[0m:
+    Returns a [;;4mboolean()[0m indicating if dynamic trace probes ([;;4m[0m
+    [;;4mdtrace[0m or [;;4msystemtap[0m) are built into the emulator. This can
+    only be [;;4mtrue[0m if the virtual machine was built for dynamic
+    tracing (that is, [;;4msystem_info(dynamic_trace)[0m returns [;;4mdtrace[0m
+    or [;;4msystemtap[0m).
+
+  [;;4m[;;4memu_flavor[0m[0m:
+    Returns an atom describing the flavor of the runtime system.
+    This will be either [;;4memu[0m or [;;4mjit[0m. Possible return values can
+    be added or removed at any time without prior notice.
+
+  [;;4m[;;4memu_type[0m[0m:
+    Returns an atom describing the build type of the runtime
+    system. This is normally the atom [;;4mopt[0m for optimized. Other
+    possible return values are [;;4mdebug[0m, [;;4mgcov[0m, [;;4mvalgrind[0m, [;;4mgprof[0m,
+    and [;;4mlcnt[0m. Possible return values can be added or removed at
+    any time without prior notice.
+
+  [;;4m[;;4minfo[0m[0m:
+    Returns a binary containing a string of miscellaneous system
+    information formatted as in Erlang crash dumps. For more
+    information, see section How to interpret the Erlang crash
+    dumps in the User's Guide.
+
+  [;;4m[;;4mkernel_poll[0m[0m:
+    Returns [;;4mtrue[0m if the emulator uses some kind of kernel-poll
+    implementation, otherwise [;;4mfalse[0m.
+
+  [;;4m[;;4mloaded[0m[0m:
+    Returns a binary containing a string of loaded module
+    information formatted as in Erlang crash dumps. For more
+    information, see section How to interpret the Erlang crash
+    dumps in the User's Guide.
+
+  [;;4m[;;4mmachine[0m[0m:
+    Returns a string containing the Erlang machine name.
+
+  [;;4m[;;4mmodified_timing_level[0m[0m:
+    Returns the modified timing-level (an integer) if modified
+    timing is enabled, otherwise [;;4mundefined[0m. For more information
+    about modified timing, see command-line flag [;;4m+T[0m in [;;4merl(1)[0m
+
+  [;;4m[;;4mnif_version[0m[0m:
+    Returns a string containing the version of the Erlang NIF
+    interface used by the runtime system. It is on the form
+    "<major ver>.<minor ver>".
+
+  [;;4m[;;4motp_release[0m[0m:
+    Returns a string containing the OTP release number of the OTP
+    release that the currently executing ERTS application is part
+    of.
+
+    As from Erlang/OTP 17, the OTP release number corresponds to
+    the major OTP version number. No [;;4merlang:system_info()[0m
+    argument gives the exact OTP version. This is because the
+    exact OTP version in the general case is difficult to
+    determine. For more information, see the description of
+    versions in System principles in System Documentation.
+
+  [;;4m[;;4moutstanding_system_requests_limit[0m[0m:
+    Returns the limit on the amount of outstanding requests made
+    by a system process orchestrating system wide changes. See [;;4m[0m
+    [;;4merlang:system_flag(outstanding_system_requests_limit, Limit)[0m
+    for more information.
+
+  [;;4m[;;4mport_parallelism[0m[0m:
+    Returns the default port parallelism scheduling hint used. For
+    more information, see command-line argument [;;4m+spp[0m in [;;4merl(1)[0m.
+
+  [;;4m[;;4msystem_architecture[0m[0m:
+    Returns a string containing the processor and OS architecture
+    the emulator is built for.
+
+  [;;4m[;;4msystem_logger[0m[0m:
+    Returns the current [;;4msystem_logger[0m as set by [;;4m[0m
+    [;;4merlang:system_flag(system_logger, _)[0m.
+
+  [;;4m[;;4msystem_version[0m[0m:
+    Returns a string containing version number and some important
+    properties, such as the number of schedulers.
+
+  [;;4m[;;4mtrace_control_word[0m[0m:
+    Returns the value of the node trace control word. For more
+    information, see function [;;4mget_tcw[0m in section Match
+    Specifications in Erlang in the User's Guide.
+
+  [;;4m[;;4mversion[0m[0m:
+    Returns a string containing the version number of the
+    emulator.
+
+  [;;4m[;;4mwordsize[0m[0m:
+    Same as [;;4m{wordsize, internal}[0m.
+
+  [;;4m[;;4m{wordsize, internal}[0m[0m:
+    Returns the size of Erlang term words in bytes as an integer,
+    that is, 4 is returned on a 32-bit architecture, and 8 is
+    returned on a 64-bit architecture.
+
+  [;;4m[;;4m{wordsize, external}[0m[0m:
+    Returns the true word size of the emulator, that is, the size
+    of a pointer. The value is given in bytes as an integer. On a
+    pure 32-bit architecture, 4 is returned. On a 64-bit
+    architecture, 8 is returned.

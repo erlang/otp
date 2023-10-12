@@ -1,0 +1,21 @@
+
+  [;1m-spec atom_to_binary(Atom, Encoding) -> binary()[0m
+  [;1m                        when[0m
+  [;1m                            Atom :: atom(),[0m
+  [;1m                            Encoding :: latin1 | unicode | utf8.[0m
+
+  Returns a binary corresponding to the text representation of [;;4mAtom[0m.
+  If [;;4mEncoding[0m is [;;4mlatin1[0m, one byte exists for each character in
+  the text representation. If [;;4mEncoding[0m is [;;4mutf8[0m or [;;4municode[0m, the
+  characters are encoded using UTF-8 where characters may require
+  multiple bytes.
+
+  Change:
+    As from Erlang/OTP 20, atoms can contain any Unicode character
+    and [;;4matom_to_binary(Atom, latin1)[0m may fail if the text
+    representation for [;;4mAtom[0m contains a Unicode character > 255.
+
+  Example:
+
+    > atom_to_binary('Erlang', latin1).
+    <<"Erlang">>

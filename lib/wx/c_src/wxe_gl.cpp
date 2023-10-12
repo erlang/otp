@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,145 +22,150 @@
 #include <string.h>
 #ifndef _WIN32
 #include <dlfcn.h>
-#else
-#include <windows.h>
 #endif
 #include "wxe_impl.h"
 #include "wxe_return.h"
 #include "wxe_gl.h"
 
+#define GLE_LIB_START 5000
+
 /* ****************************************************************************
+ *
  * Opengl context management *
+ * This is wx part of opengl context and dispatch handling
+ * it is part of the wxe_driver dll
+ *
  * ****************************************************************************/
 
-int erl_gl_initiated = FALSE;
-ErlDrvTermData gl_active = 0;
+ErlNifUInt64 gl_active_index = 0;
+ErlNifPid gl_active_pid;
+
+int egl_initiated = 0;
+
 wxeGLC glc;
+typedef void * (*WXE_GL_LOOKUP) (int);
+void * wxe_not_loaded(int x);
+WXE_GL_LOOKUP wxe_gl_lookup_func = (WXE_GL_LOOKUP) wxe_not_loaded;
+typedef void * (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, const ERL_NIF_TERM argv[]);
 
-typedef void (*WXE_GL_DISPATCH) (int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
-WXE_GL_DISPATCH wxe_gl_dispatch;
+typedef const char * (*WXE_GL_FUNC_NAME) (int);
+WXE_GL_FUNC_NAME wxe_gl_lookup_func_name;
 
-#ifdef _WIN32
-#define RTLD_LAZY 0
-typedef HMODULE DL_LIB_P;
-void * dlsym(HMODULE Lib, const char *func) {
-  void * funcp;
-  if((funcp = (void *) GetProcAddress(Lib, func)))
-    return funcp;
-  else
-    return (void *) wglGetProcAddress(func);
+extern "C" {
+void wxe_initOpenGL(void * fptr, void *name_fptr) {
+  wxe_gl_lookup_func = (WXE_GL_LOOKUP) fptr;
+  wxe_gl_lookup_func_name = (WXE_GL_FUNC_NAME) name_fptr;
+  enif_set_pid_undefined(&gl_active_pid);
+}
 }
 
-HMODULE dlopen(const char *path, int unused) {
-  WCHAR * DLL;
-  int len = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
-  DLL = (WCHAR *) malloc(len * sizeof(WCHAR));
-  MultiByteToWideChar(CP_ACP, 0, path, -1, DLL, len);
-  HMODULE lib = LoadLibrary(DLL);
-  free(DLL);
-  return lib;
+void * wxe_not_loaded(int x) {
+  return NULL;
 }
 
-void dlclose(HMODULE Lib) {
-  FreeLibrary(Lib);
-}
-#else
-typedef void * DL_LIB_P;
-#endif
-
-void wxe_initOpenGL(wxeReturn *rt, char *bp) {
-  DL_LIB_P LIBhandle;
-  int (*init_opengl)(void *);
-#ifdef _WIN32
-  void * erlCallbacks = &WinDynDriverCallbacks;
-#else 
-  void * erlCallbacks = NULL;
-#endif
-  
-  if(erl_gl_initiated == FALSE) {
-    if((LIBhandle = dlopen(bp, RTLD_LAZY))) {
-      *(void **) (&init_opengl) = dlsym(LIBhandle, "egl_init_opengl");
-      wxe_gl_dispatch = (WXE_GL_DISPATCH) dlsym(LIBhandle, "egl_dispatch");
-      if(init_opengl && wxe_gl_dispatch) {
-	(*init_opengl)(erlCallbacks);
-	rt->addAtom((char *) "ok");
-	rt->add(wxString::FromAscii("initiated"));
-	rt->addTupleCount(2);
-	erl_gl_initiated = TRUE;
-      } else {
-	wxString msg;
-	msg.Printf(wxT("In library: "));
-	msg += wxString::FromAscii(bp);
-	msg += wxT(" functions: ");
-	if(!init_opengl) 
-	  msg += wxT("egl_init_opengl ");
-	if(!wxe_gl_dispatch) 
-	  msg += wxT("egl_dispatch ");
-	rt->addAtom((char *) "error");
-	rt->add(msg);
-	rt->addTupleCount(2);
-      }
-    } else {
-      wxString msg;
-      msg.Printf(wxT("Could not load dll: "));
-      msg += wxString::FromAscii(bp);
-      rt->addAtom((char *) "error");
-      rt->add(msg);
-      rt->addTupleCount(2);
-    }
-  } else {
-    rt->addAtom((char *) "ok");
-    rt->add(wxString::FromAscii("already initilized"));
-    rt->addTupleCount(2);
-  }
-  rt->send();
-}
-
-void setActiveGL(ErlDrvTermData caller, wxGLCanvas *canvas)
+ErlNifUInt64 wxe_make_hash(ErlNifEnv *env, ErlNifPid *pid)
 {
-  gl_active = caller;
-  glc[caller] = canvas;
+  ERL_NIF_TERM term = enif_make_pid(env, pid);
+  return enif_hash(ERL_NIF_INTERNAL_HASH, term, 786234121);
+}
+
+void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLContext *context)
+{
+  ErlNifUInt64 callId = wxe_make_hash(memenv->tmp_env, &caller);
+  wxe_glc * entry = glc[callId];
+  gl_active_index = callId;
+  gl_active_pid = caller;
+
+  if(!entry) {
+    entry = (wxe_glc *) malloc(sizeof(wxe_glc));
+    entry->canvas = NULL;
+    entry->context = NULL;
+  }
+
+  if(entry->canvas == canvas && entry->context == context)
+    return;
+
+  entry->canvas = canvas;
+  entry->context = context;
+  glc[gl_active_index] = entry;
+  //fprintf(stderr, "set caller %p => %p\r\n", caller, canvas);
+  if(!egl_initiated && wxe_gl_lookup_func) {
+    WXE_GL_FUNC fptr;
+    if((fptr = (WXE_GL_FUNC) wxe_gl_lookup_func(GLE_LIB_START))) {
+      fptr(memenv->tmp_env, &caller, NULL);
+      egl_initiated = 1;
+    }
+  }
 }
 
 void deleteActiveGL(wxGLCanvas *canvas)
 {
-  gl_active = 0;
+  gl_active_index = 0;
+  enif_set_pid_undefined(&gl_active_pid);
+
   wxeGLC::iterator it;
   for(it = glc.begin(); it != glc.end(); ++it) {
-    if(it->second == canvas) { 
-      it->second = (wxGLCanvas *) 0;
+    wxe_glc * temp = it->second;
+    if(temp && temp->canvas == canvas) {
+      it->second = NULL;
+      free(temp);
     }
   }
 }
 
-void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins){
-  if(caller != gl_active) {
-    wxGLCanvas * current = glc[caller];
-    if(current) {
-      if(current != glc[gl_active]) {
-	current->SetCurrent();
-      }
-      gl_active = caller;
-    } else {
-      ErlDrvTermData rt[] = // Error msg
-	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
-	 ERL_DRV_INT,  (ErlDrvTermData) op,
-	 ERL_DRV_ATOM, driver_mk_atom((char *) "no_gl_context"),
-	 ERL_DRV_TUPLE,3};
-      erl_drv_send_term(WXE_DRV_PORT,caller,rt,8);
-      return ;
-    }
-  };
-  char * bs[3];
-  int bs_sz[3];
-  for(int i=0; i<3; i++) {
-    if(bins[i].from) {
-      bs[i] = bins[i].base;
-      bs_sz[i] = bins[i].size;
-    }
-    else
-      break;
+void no_context(wxeCommand *event) {
+  enif_send(NULL, &event->caller, event->env,
+            enif_make_tuple3(event->env,
+                             enif_make_atom(event->env, "_egl_error_"),
+                             enif_make_int(event->env, event->op),
+                             enif_make_atom(event->env, "no_gl_context")));
+  enif_clear_env(event->env);
+}
+
+void gl_print_cmd(wxeCommand *event)
+{
+  int i;
+  const char *func = wxe_gl_lookup_func_name(event->op);
+  enif_fprintf(stderr, "  %T %d %s(", event->caller, event->op, func);
+  for(i=0; i < event->argc; i++) {
+    wx_print_term(event->env, event->args[i]);
+    if(i < event->argc - 1)
+      enif_fprintf(stderr, ", ");
   }
-  wxe_gl_dispatch(op, bp, WXE_DRV_PORT_HANDLE, caller, bs, bs_sz);
+  enif_fprintf(stderr, ")\r\n");
+}
+
+void gl_dispatch(wxeCommand *event)
+{
+  WXE_GL_FUNC fptr;
+  if((fptr = (WXE_GL_FUNC) wxe_gl_lookup_func(event->op))) {
+    if(enif_compare_pids(&(event->caller),&gl_active_pid) != 0) {
+      ErlNifUInt64 caller_index = wxe_make_hash(event->env, &(event->caller));
+      wxe_glc * current = glc[caller_index];
+      if(current) {
+        wxe_glc * active = gl_active_index ? glc[gl_active_index] : NULL;
+        if(!active || current->canvas != active->canvas || current->context != active->context) {
+          current->canvas->SetCurrent(*current->context);
+        }
+        gl_active_index = caller_index;
+        gl_active_pid = event->caller;
+      } else {
+        no_context(event);
+        return;
+      }
+    }
+    // enif_fprintf(stderr, "GL: caller %T gl_active %T %d\r\n", event->caller, gl_active_pid, event->op);
+    if(wxe_debug) {
+      gl_print_cmd(event);
+    }
+    fptr(event->env, &event->caller, event->args);
+  } else {
+    enif_send(NULL, &event->caller, event->env,
+              enif_make_tuple3(event->env,
+                               enif_make_atom(event->env, "_egl_error_"),
+                               enif_make_int(event->env, event->op),
+                               enif_make_atom(event->env, "undef")));
+  }
+  enif_clear_env(event->env);
 }
 

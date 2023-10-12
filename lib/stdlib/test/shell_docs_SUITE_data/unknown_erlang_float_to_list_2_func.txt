@@ -1,0 +1,62 @@
+
+  [;1m-spec float_to_list(Float, Options) -> string()[0m
+  [;1m                       when[0m
+  [;1m                           Float :: float(),[0m
+  [;1m                           Options :: [Option],[0m
+  [;1m                           Option ::[0m
+  [;1m                               {decimals, Decimals :: 0..253} |[0m
+  [;1m                               {scientific, Decimals :: 0..249} |[0m
+  [;1m                               compact | short.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns a string corresponding to the text representation of [;;4m[0m
+  [;;4mFloat[0m using fixed decimal point formatting.
+
+  Available options:
+
+   • If option [;;4mdecimals[0m is specified, the returned value
+     contains at most [;;4mDecimals[0m number of digits past the
+     decimal point. If the number does not fit in the internal
+     static buffer of 256 bytes, the function throws [;;4mbadarg[0m.
+
+   • If option [;;4mcompact[0m is specified, the trailing zeros at the
+     end of the list are truncated. This option is only
+     meaningful together with option [;;4mdecimals[0m.
+
+   • If option [;;4mscientific[0m is specified, the float is formatted
+     using scientific notation with [;;4mDecimals[0m digits of
+     precision.
+
+   • If option [;;4mshort[0m is specified, the float is formatted with
+     the smallest number of digits that still guarantees that [;;4mF[0m
+     [;;4m=:= list_to_float(float_to_list(F, [short]))[0m. When the
+     float is inside the range (-2⁵³, 2⁵³), the notation that
+     yields the smallest number of characters is used (scientific
+     notation or normal decimal notation). Floats outside the
+     range (-2⁵³, 2⁵³) are always formatted using scientific
+     notation to avoid confusing results when doing arithmetic
+     operations.
+
+   • If [;;4mOptions[0m is [;;4m[][0m, the function behaves as [;;4m[0m
+     [;;4mfloat_to_list/1[0m.
+
+  Examples:
+
+    > float_to_list(7.12, [{decimals, 4}]).
+    "7.1200"
+    > float_to_list(7.12, [{decimals, 4}, compact]).
+    "7.12"
+    > float_to_list(7.12, [{scientific, 3}]).
+    "7.120e+00"
+    > float_to_list(7.12, [short]).
+    "7.12"
+    > float_to_list(0.1+0.2, [short]).
+    "0.30000000000000004"
+    > float_to_list(0.1+0.2)
+    "3.00000000000000044409e-01"
+
+  In the last example, [;;4mfloat_to_list(0.1+0.2)[0m evaluates to [;;4m[0m
+  [;;4m"3.00000000000000044409e-01"[0m. The reason for this is explained in 
+  Representation of Floating Point Numbers.

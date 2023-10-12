@@ -1,0 +1,4 @@
+
+[;1m  tuple_of(T)[0m
+
+  A tuple where the elements are of type [;;4mT[0m.

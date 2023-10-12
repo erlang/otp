@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,14 +24,16 @@
 
 -export([form/1,form/2,
          attribute/1,attribute/2,function/1,function/2,
-         guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4]).
+         guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4,
+         legalize_vars/1]).
 
--import(lists, [append/1,foldr/3,mapfoldl/3,reverse/1,reverse/2]).
+-import(lists, [append/1,foldr/3,map/2,mapfoldl/3,reverse/1,reverse/2]).
 -import(io_lib, [write/1,format/2]).
 -import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
                     type_inop_prec/1, type_preop_prec/1]).
 
--define(MAXLINE, 72).
+-define(DEFAULT_LINEWIDTH, 72).
+-define(DEFAULT_INDENT, 4).
 
 -type(hook_function() :: none
                        | fun((Expr :: erl_parse:abstract_expr(),
@@ -41,10 +43,14 @@
                                    io_lib:chars())).
 
 -type(option() :: {hook, hook_function()}
-                | {encoding, latin1 | unicode | utf8}).
+                | {encoding, latin1 | unicode | utf8}
+                | {quote_singleton_atom_types, boolean()}
+                | {linewidth, pos_integer()}
+                | {indent, pos_integer()}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {value_fun, string_fun, char_fun}).
+-record(pp, {value_fun, singleton_atom_type_fun, string_fun, char_fun,
+	     linewidth=?DEFAULT_LINEWIDTH, indent=?DEFAULT_INDENT}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -53,7 +59,7 @@
 -ifdef(DEBUG).
 -define(FORM_TEST(T),
         _ = case T of
-                {eof, _Line} -> ok;
+                {eof, _Location} -> ok;
                 {warning, _W} -> ok;
                 {error, _E} -> ok;
                 _ -> ?TEST(T)
@@ -194,6 +200,34 @@ expr(E, I, P, Options) ->
     ?TEST(E),
     frmt(lexpr(E, P, options(Options)), I, state(Options)).
 
+-spec(legalize_vars(Function) -> erl_parse:abstract_form() when
+      Function :: erl_parse:abstract_form()).
+
+legalize_vars({function,ANNO,Name0,Arity,Clauses0}) ->
+    ?TEST(F),
+    %% Collect all used variables in this function and classify them
+    %% as either syntactically valid or not.
+    F = fun({var,_Anno,Name}, {Valid, Invalid}) ->
+                Str = [First|_] = atom_to_list(Name),
+                case First of
+                    X when X >= $a, X =< $z ->
+                        {Valid,Invalid#{Name => Str}};
+                    _ ->
+                        {Valid#{Name => Name},Invalid}
+                end
+        end,
+    {Valid, Invalid} = fold_vars(F, {#{}, #{}}, Clauses0),
+    %% Make up an unique variable name for each key in Invalid, then
+    %% replace all invalid names.
+    Mapping = maps:fold(fun legalize_name/3, Valid, Invalid),
+    Subs = fun({var,Anno,Name}) ->
+                   {var,Anno,map_get(Name, Mapping)}
+           end,
+    Clauses = map_vars(Subs, Clauses0),
+    {function,ANNO,Name0,Arity,Clauses};
+legalize_vars(Form) ->
+    erlang:error(badarg, [Form]).
+
 %%%
 %%% Local functions
 %%%
@@ -206,22 +240,47 @@ options(Hook) ->
     #options{hook = Hook, encoding = encoding([]), opts = Hook}.
 
 state(Options) when is_list(Options) ->
-    case encoding(Options) of
-        latin1 -> state();
-        unicode -> unicode_state()
-    end;
+    Quote = proplists:get_bool(quote_singleton_atom_types, Options),
+    State =
+	case encoding(Options) of
+	    latin1 -> latin1_state(Quote);
+	    unicode -> unicode_state(Quote)
+	end,
+    Indent = proplists:get_value(indent, Options, ?DEFAULT_INDENT),
+    LineWidth = proplists:get_value(linewidth, Options, ?DEFAULT_LINEWIDTH),
+    State#pp{indent=Indent, linewidth=LineWidth};
 state(_Hook) ->
-    state().
+    latin1_state(false).
 
-state() ->
+latin1_state(Quote) ->
     Options = [{encoding,latin1}],
-    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+    ValueFun = fun(V) -> io_lib_pretty:print(V, Options) end,
+    SingletonFun =
+        case Quote of
+            true ->
+                fun(A) ->
+                        io_lib:write_string_as_latin1(atom_to_list(A), $')
+                end; %'
+            false ->
+                ValueFun
+        end,
+    #pp{value_fun  = ValueFun,
+        singleton_atom_type_fun = SingletonFun,
         string_fun = fun io_lib:write_string_as_latin1/1,
         char_fun   = fun io_lib:write_char_as_latin1/1}.
 
-unicode_state() ->
+unicode_state(Quote) ->
     Options = [{encoding,unicode}],
-    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+    ValueFun = fun(V) -> io_lib_pretty:print(V, Options) end,
+    SingletonFun =
+        case Quote of
+            true ->
+                fun(A) -> io_lib:write_string(atom_to_list(A), $') end; %'
+            false ->
+                ValueFun
+        end,
+    #pp{value_fun = ValueFun,
+        singleton_atom_type_fun = SingletonFun,
         string_fun = fun io_lib:write_string/1,
         char_fun   = fun io_lib:write_char/1}.
 
@@ -232,16 +291,16 @@ encoding(Options) ->
         unicode -> unicode
     end.
 
-lform({attribute,Line,Name,Arg}, Opts) ->
-    lattribute({attribute,Line,Name,Arg}, Opts);
-lform({function,Line,Name,Arity,Clauses}, Opts) ->
-    lfunction({function,Line,Name,Arity,Clauses}, Opts);
+lform({attribute,Anno,Name,Arg}, Opts) ->
+    lattribute({attribute,Anno,Name,Arg}, Opts);
+lform({function,Anno,Name,Arity,Clauses}, Opts) ->
+    lfunction({function,Anno,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
 lform({error,_}=E, Opts) ->
     message(E, Opts);
 lform({warning,_}=W, Opts) ->
     message(W, Opts);
-lform({eof,_Line}, _Opts) ->
+lform({eof,_Location}, _Opts) ->
     $\n.
 
 message(M, #options{encoding = Encoding}) ->
@@ -251,15 +310,15 @@ message(M, #options{encoding = Encoding}) ->
         end,
     leaf(format(F, [M])).
 
-lattribute({attribute,_Line,type,Type}, Opts) ->
+lattribute({attribute,_Anno,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,opaque,Type}, Opts) ->
+lattribute({attribute,_Anno,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,spec,Arg}, _Opts) ->
+lattribute({attribute,_Anno,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
-lattribute({attribute,_Line,callback,Arg}, _Opts) ->
+lattribute({attribute,_Anno,callback,Arg}, _Opts) ->
     [specattr(callback, Arg),leaf(".\n")];
-lattribute({attribute,_Line,Name,Arg}, Opts) ->
+lattribute({attribute,_Anno,Name,Arg}, Opts) ->
     [lattribute(Name, Arg, Opts),leaf(".\n")].
 
 lattribute(module, {M,Vs}, _Opts) ->
@@ -281,8 +340,8 @@ lattribute(optional_callbacks, Falist, Opts) ->
     try attrib(optional_callbacks, falist(Falist))
     catch _:_ -> attr(optional_callbacks, [abstract(Falist, Opts)])
     end;
-lattribute(file, {Name,Line}, _Opts) ->
-    attr(file, [{string,a0(),Name},{integer,a0(),Line}]);
+lattribute(file, {Name,Anno}, _Opts) ->
+    attr(file, [{string,a0(),Name},{integer,a0(),Anno}]);
 lattribute(record, {Name,Is}, Opts) ->
     Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
@@ -299,58 +358,60 @@ typeattr(Tag, {TypeName,Type,Args}, _Opts) ->
 ltype(T) ->
     ltype(T, 0).
 
-ltype({ann_type,_Line,[V,T]}, Prec) ->
-    {_L,P,_R} = type_inop_prec('::'),
-    E = typed(lexpr(V, options(none)), T),
-    maybe_paren(P, Prec, E);
-ltype({paren_type,_Line,[T]}, P) ->
+ltype({ann_type,_Anno,[V,T]}, Prec) ->
+    {L,P,R} = type_inop_prec('::'),
+    Vl = ltype(V, L),
+    Tr = ltype(T, R),
+    El = {list,[{cstep,[Vl,' ::'],Tr}]},
+    maybe_paren(P, Prec, El);
+ltype({paren_type,_Anno,[T]}, P) ->
     %% Generated before Erlang/OTP 18.
     ltype(T, P);
-ltype({type,_Line,union,Ts}, Prec) ->
+ltype({type,_Anno,union,Ts}, Prec) ->
     {_L,P,R} = type_inop_prec('|'),
     E = {seq,[],[],[' |'],ltypes(Ts, R)},
     maybe_paren(P, Prec, E);
-ltype({type,_Line,list,[T]}, _) ->
+ltype({type,_Anno,list,[T]}, _) ->
     {seq,$[,$],$,,[ltype(T)]};
-ltype({type,_Line,nonempty_list,[T]}, _) ->
+ltype({type,_Anno,nonempty_list,[T]}, _) ->
     {seq,$[,$],[$,],[ltype(T),leaf("...")]};
-ltype({type,Line,nil,[]}, _) ->
-    lexpr({nil,Line}, options(none));
-ltype({type,Line,map,any}, _) ->
-    simple_type({atom,Line,map}, []);
-ltype({type,_Line,map,Pairs}, Prec) ->
+ltype({type,Anno,nil,[]}, _) ->
+    lexpr({nil,Anno}, options(none));
+ltype({type,Anno,map,any}, _) ->
+    simple_type({atom,Anno,map}, []);
+ltype({type,_Anno,map,Pairs}, Prec) ->
     {P,_R} = type_preop_prec('#'),
     E = map_type(Pairs),
     maybe_paren(P, Prec, E);
-ltype({type,Line,tuple,any}, _) ->
-    simple_type({atom,Line,tuple}, []);
-ltype({type,_Line,tuple,Ts}, _) ->
+ltype({type,Anno,tuple,any}, _) ->
+    simple_type({atom,Anno,tuple}, []);
+ltype({type,_Anno,tuple,Ts}, _) ->
     tuple_type(Ts, fun ltype/2);
-ltype({type,_Line,record,[{atom,_,N}|Fs]}, Prec) ->
+ltype({type,_Anno,record,[{atom,_,N}|Fs]}, Prec) ->
     {P,_R} = type_preop_prec('#'),
     E = record_type(N, Fs),
     maybe_paren(P, Prec, E);
-ltype({type,_Line,range,[_I1,_I2]=Es}, Prec) ->
+ltype({type,_Anno,range,[_I1,_I2]=Es}, Prec) ->
     {_L,P,R} = type_inop_prec('..'),
     F = fun(E, Opts) -> lexpr(E, R, Opts) end,
     E = expr_list(Es, '..', F, options(none)),
     maybe_paren(P, Prec, E);
-ltype({type,_Line,binary,[I1,I2]}, _) ->
+ltype({type,_Anno,binary,[I1,I2]}, _) ->
     binary_type(I1, I2); % except binary()
-ltype({type,_Line,'fun',[]}, _) ->
+ltype({type,_Anno,'fun',[]}, _) ->
     leaf("fun()");
 ltype({type,_,'fun',[{type,_,any},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
-ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType, _) ->
+ltype({type,_Anno,'fun',[{type,_,product,_},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
-ltype({type,Line,T,Ts}, _) ->
-    simple_type({atom,Line,T}, Ts);
-ltype({user_type,Line,T,Ts}, _) ->
-    simple_type({atom,Line,T}, Ts);
-ltype({remote_type,Line,[M,F,Ts]}, _) ->
-    simple_type({remote,Line,M,F}, Ts);
+ltype({type,Anno,T,Ts}, _) ->
+    simple_type({atom,Anno,T}, Ts);
+ltype({user_type,Anno,T,Ts}, _) ->
+    simple_type({atom,Anno,T}, Ts);
+ltype({remote_type,Anno,[M,F,Ts]}, _) ->
+    simple_type({remote,Anno,M,F}, Ts);
 ltype({atom,_,T}, _) ->
-    {atom,T};
+    {singleton_atom_type,T};
 ltype(E, P) ->
     lexpr(E, P, options(none)).
 
@@ -360,7 +421,12 @@ binary_type(I1, I2) ->
     P = max_prec(),
     E1 = [[leaf("_:"),lexpr(I1, P, options(none))] || B],
     E2 = [[leaf("_:_*"),lexpr(I2, P, options(none))] || U],
-    {seq,'<<','>>',[$,],E1++E2}.
+    case E1++E2 of
+        [] ->
+            leaf("<<>>");
+        Es ->
+            {seq,'<<','>>',[$,],Es}
+    end.
 
 map_type(Fs) ->
     {first,[$#],map_pair_types(Fs)}.
@@ -368,9 +434,9 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/2).
 
-map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
+map_pair_type({type,_Anno,map_field_assoc,[KType,VType]}, Prec) ->
     {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]};
-map_pair_type({type,_Line,map_field_exact,[KType,VType]}, Prec) ->
+map_pair_type({type,_Anno,map_field_exact,[KType,VType]}, Prec) ->
     {list,[{cstep,[ltype(KType, Prec),leaf(" :=")],ltype(VType, Prec)}]}.
 
 record_type(Name, Fields) ->
@@ -379,13 +445,14 @@ record_type(Name, Fields) ->
 field_types(Fs) ->
     tuple_type(Fs, fun field_type/2).
 
-field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
+field_type({type,_Anno,field_type,[Name,Type]}, _Prec) ->
     typed(lexpr(Name, options(none)), Type).
 
 typed(B, Type) ->
-    {_L,_P,R} = type_inop_prec('::'),
-    {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
+    {list,[{cstep,[B,' ::'],ltype(Type)}]}.
 
+tuple_type([], _) ->
+    leaf("{}");
 tuple_type(Ts, F) ->
     {seq,${,$},[$,],ltypes(Ts, F, 0)}.
 
@@ -402,7 +469,7 @@ specattr(SpecKind, {FuncSpec,TypeSpecs}) ->
 spec_clauses(TypeSpecs) ->
     {prefer_nl,[$;],[sig_type(T) || T <- TypeSpecs]}.
 
-sig_type({type,_Line,bounded_fun,[T,Gs]}) ->
+sig_type({type,_Anno,bounded_fun,[T,Gs]}) ->
     guard_type(fun_type([], T), Gs);
 sig_type(FunType) ->
     fun_type([], FunType).
@@ -412,16 +479,16 @@ guard_type(Before, Gs) ->
     Gl = {list,[{step,'when',expr_list(Gs, [$,], fun constraint/2, Opts)}]},
     {list,[{step,Before,Gl}]}.
 
-constraint({type,_Line,constraint,[{atom,_,is_subtype},[{var,_,_}=V,Type]]},
+constraint({type,_Anno,constraint,[{atom,_,is_subtype},[{var,_,_}=V,Type]]},
            _Opts) ->
     typed(lexpr(V, options(none)), Type);
-constraint({type,_Line,constraint,[Tag,As]}, _Opts) ->
+constraint({type,_Anno,constraint,[Tag,As]}, _Opts) ->
     simple_type(Tag, As).
 
 fun_type(Before, {type,_,'fun',[FType,Ret]}) ->
     {first,Before,{step,[type_args(FType),' ->'],ltype(Ret)}}.
 
-type_args({type,_Line,any}) ->
+type_args({type,_Anno,any}) ->
     leaf("(...)");
 type_args({type,_line,product,Ts}) ->
     targs(Ts).
@@ -454,7 +521,7 @@ pname(A) when is_atom(A) ->
     write(A).
 
 falist([]) ->
-    [leaf("[]")];
+    ['[]'];
 falist(Falist) ->
     L = [begin
              {Name,Arity} = Fa,
@@ -462,12 +529,12 @@ falist(Falist) ->
          end || Fa <- Falist],
     [{seq,$[,$],$,,L}].
 
-lfunction({function,_Line,Name,_Arity,Cs}, Opts) ->
+lfunction({function,_Anno,Name,_Arity,Cs}, Opts) ->
     Cll = nl_clauses(fun (C, H) -> func_clause(Name, C, H) end, $;, Opts, Cs),
     [Cll,leaf(".\n")].
 
-func_clause(Name, {clause,Line,Head,Guard,Body}, Opts) ->
-    Hl = call({atom,Line,Name}, Head, 0, Opts),
+func_clause(Name, {clause,Anno,Head,Guard,Body}, Opts) ->
+    Hl = call({atom,Anno,Name}, Head, 0, Opts),
     Gl = guard_when(Hl, Guard, Opts),
     Bl = body(Body, Opts),
     {step,Gl,Bl}.
@@ -513,15 +580,15 @@ lexpr({cons,_,H,T}, _, Opts) ->
 lexpr({lc,_,E,Qs}, _Prec, Opts) ->
     Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,$[,[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$]]};
-    %% {list,[{step,$[,Lcl},$]]};
 lexpr({bc,_,E,Qs}, _Prec, Opts) ->
-    Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    P = max_prec(),
+    Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,'<<',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},'>>']};
-    %% {list,[{step,'<<',Lcl},'>>']};
+lexpr({mc,_,E,Qs}, _Prec, Opts) ->
+    Lcl = {list,[{step,[map_field(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    {list,[{seq,'#{',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$}]};
 lexpr({tuple,_,Elts}, _, Opts) ->
     tuple(Elts, Opts);
-%%lexpr({struct,_,Tag,Elts}, _, Opts) ->
-%%  {first,format("~w", [Tag]),tuple(Elts, Opts)};
 lexpr({record_index, _, Name, F}, Prec, Opts) ->
     {P,R} = preop_prec('#'),
     Nl = record_name(Name),
@@ -535,14 +602,16 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
-    Nl = [$#,{atom,Name},$.],
+    Sep = hash_after_integer(Rec, [$#]),
+    Nl = [Sep,{atom,Name},$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
+    Sep = hash_after_integer(Rec, []),
     Nl = record_name(Name),
-    El = {first,[Rl,Nl],record_fields(Fs, Opts)},
+    El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, {atom,_,''}, F}, Prec, Opts) ->
     {_L,P,R} = inop_prec('.'),
@@ -559,56 +628,53 @@ lexpr({map, _, Fs}, Prec, Opts) ->
 lexpr({map, _, Map, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Map, L, Opts),
-    El = {first,[Rl,$#],map_fields(Fs, Opts)},
+    Sep = hash_after_integer(Map, [$#]),
+    El = {first,[Rl|Sep],map_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
-    {list,[{step,'begin',body(Es, Opts)},'end']};
+    {list,[{step,'begin',body(Es, Opts)},{reserved,'end'}]};
 lexpr({'if',_,Cs}, _, Opts) ->
-    {list,[{step,'if',if_clauses(Cs, Opts)},'end']};
+    {list,[{step,'if',if_clauses(Cs, Opts)},{reserved,'end'}]};
 lexpr({'case',_,Expr,Cs}, _, Opts) ->
-    {list,[{step,{list,[{step,'case',lexpr(Expr, Opts)},'of']},
+    {list,[{step,{list,[{step,'case',lexpr(Expr, Opts)},{reserved,'of'}]},
             cr_clauses(Cs, Opts)},
-           'end']};
+           {reserved,'end'}]};
 lexpr({'cond',_,Cs}, _, Opts) ->
-    {list,[{step,leaf("cond"),cond_clauses(Cs, Opts)},'end']};
+    {list,[{step,leaf("cond"),cond_clauses(Cs, Opts)},{reserved,'end'}]};
 lexpr({'receive',_,Cs}, _, Opts) ->
-    {list,[{step,'receive',cr_clauses(Cs, Opts)},'end']};
+    {list,[{step,'receive',cr_clauses(Cs, Opts)},{reserved,'end'}]};
 lexpr({'receive',_,Cs,To,ToOpt}, _, Opts) ->
     Al = {list,[{step,[lexpr(To, Opts),' ->'],body(ToOpt, Opts)}]},
     {list,[{step,'receive',cr_clauses(Cs, Opts)},
            {step,'after',Al},
-           'end']};
+           {reserved,'end'}]};
 lexpr({'fun',_,{function,F,A}}, _Prec, _Opts) ->
     [leaf("fun "),{atom,F},leaf(format("/~w", [A]))];
-lexpr({'fun',L,{function,_,_}=Func,Extra}, Prec, Opts) ->
-    {force_nl,fun_info(Extra),lexpr({'fun',L,Func}, Prec, Opts)};
-lexpr({'fun',L,{function,M,F,A}}, Prec, Opts)
-  when is_atom(M), is_atom(F), is_integer(A) ->
-    %% For backward compatibility with pre-R15 abstract format.
-    Mod = erl_parse:abstract(M),
-    Fun = erl_parse:abstract(F),
-    Arity = erl_parse:abstract(A),
-    lexpr({'fun',L,{function,Mod,Fun,Arity}}, Prec, Opts);
+lexpr({'fun',A,{function,_,_}=Func,Extra}, Prec, Opts) ->
+    {force_nl,fun_info(Extra),lexpr({'fun',A,Func}, Prec, Opts)};
 lexpr({'fun',_,{function,M,F,A}}, _Prec, Opts) ->
-    %% New format in R15.
     NameItem = lexpr(M, Opts),
     CallItem = lexpr(F, Opts),
     ArityItem = lexpr(A, Opts),
     ["fun ",NameItem,$:,CallItem,$/,ArityItem];
 lexpr({'fun',_,{clauses,Cs}}, _Prec, Opts) ->
-    {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']};
+    {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},{reserved,'end'}]};
 lexpr({named_fun,_,Name,Cs}, _Prec, Opts) ->
-    {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']};
+    {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},
+           {reserved,'end'}]};
 lexpr({'fun',_,{clauses,Cs},Extra}, _Prec, Opts) ->
     {force_nl,fun_info(Extra),
-     {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},'end']}};
+     {list,[{first,'fun',fun_clauses(Cs, Opts, unnamed)},{reserved,'end'}]}};
 lexpr({named_fun,_,Name,Cs,Extra}, _Prec, Opts) ->
     {force_nl,fun_info(Extra),
-     {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},'end']}};
+     {list,[{first,['fun', " "],fun_clauses(Cs, Opts, {named, Name})},
+            {reserved,'end'}]}};
 lexpr({call,_,{remote,_,{atom,_,M},{atom,_,F}=N}=Name,Args}, Prec, Opts) ->
     case erl_internal:bif(M, F, length(Args)) of
-        true ->
+        true when F =/= float ->
             call(N, Args, Prec, Opts);
+        true ->
+            call(Name, Args, Prec, Opts);
         false ->
             call(Name, Args, Prec, Opts)
     end;
@@ -619,35 +685,49 @@ lexpr({'try',_,Es,Scs,Ccs,As}, _, Opts) ->
                Scs =:= [] ->
                    {step,'try',body(Es, Opts)};
                true ->
-                   {step,{list,[{step,'try',body(Es, Opts)},'of']},
+                   {step,{list,[{step,'try',body(Es, Opts)},{reserved,'of'}]},
                     cr_clauses(Scs, Opts)}
-           end,
+           end] ++
            if
                Ccs =:= [] ->
                    [];
                true ->
-                   {step,'catch',try_clauses(Ccs, Opts)}
-           end,
+                   [{step,'catch',try_clauses(Ccs, Opts)}]
+           end ++
            if
                As =:= [] ->
                    [];
                true ->
-                   {step,'after',body(As, Opts)}
-           end,
-           'end']};
+                   [{step,'after',body(As, Opts)}]
+           end ++
+           [{reserved,'end'}]};
 lexpr({'catch',_,Expr}, Prec, Opts) ->
     {P,R} = preop_prec('catch'),
     El = {list,[{step,'catch',lexpr(Expr, R, Opts)}]},
     maybe_paren(P, Prec, El);
+lexpr({'maybe',_,Es}, _, Opts) ->
+    {list,[{step,'maybe',body(Es, Opts)},{reserved,'end'}]};
+lexpr({'maybe',_,Es,{'else',_,Cs}}, _, Opts) ->
+    {list,[{step,'maybe',body(Es, Opts)},{step,'else',cr_clauses(Cs, Opts)},{reserved,'end'}]};
+lexpr({maybe_match,_,Lhs,Rhs}, _, Opts) ->
+    Pl = lexpr(Lhs, 0, Opts),
+    Rl = lexpr(Rhs, 0, Opts),
+    {list,[{cstep,[Pl,leaf(" ?=")],Rl}]};
 lexpr({match,_,Lhs,Rhs}, Prec, Opts) ->
     {L,P,R} = inop_prec('='),
     Pl = lexpr(Lhs, L, Opts),
     Rl = lexpr(Rhs, R, Opts),
     El = {list,[{cstep,[Pl,' ='],Rl}]},
     maybe_paren(P, Prec, El);
+lexpr({op,_,Op,Arg}, Prec, Opts) when Op =:= '+';
+                                      Op =:= '-' ->
+    {P,R} = preop_prec(Op),
+    Ol = {reserved, leaf(atom_to_list(Op))},
+    El = [Ol,lexpr(Arg, R, Opts)],
+    maybe_paren(P, Prec, El);
 lexpr({op,_,Op,Arg}, Prec, Opts) ->
     {P,R} = preop_prec(Op),
-    Ol = leaf(format("~s ", [Op])),
+    Ol = {reserved, leaf(format("~s ", [Op]))},
     El = [Ol,lexpr(Arg, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({op,_,Op,Larg,Rarg}, Prec, Opts)  when Op =:= 'orelse';
@@ -655,14 +735,14 @@ lexpr({op,_,Op,Larg,Rarg}, Prec, Opts)  when Op =:= 'orelse';
     %% Breaks lines since R12B.
     {L,P,R} = inop_prec(Op),
     Ll = lexpr(Larg, L, Opts),
-    Ol = leaf(format("~s", [Op])),
+    Ol = {reserved, leaf(format("~s", [Op]))},
     Lr = lexpr(Rarg, R, Opts),
     El = {prefer_nl,[[]],[Ll,Ol,Lr]},
     maybe_paren(P, Prec, El);
 lexpr({op,_,Op,Larg,Rarg}, Prec, Opts) ->
     {L,P,R} = inop_prec(Op),
     Ll = lexpr(Larg, L, Opts),
-    Ol = leaf(format("~s", [Op])),
+    Ol = {reserved, leaf(format("~s", [Op]))},
     Lr = lexpr(Rarg, R, Opts),
     El = {list,[Ll,Ol,Lr]},
     maybe_paren(P, Prec, El);
@@ -687,6 +767,17 @@ lexpr(HookExpr, Precedence, #options{hook = {Mod,Func,Eas}})
 lexpr(HookExpr, Precedence, #options{hook = Func, opts = Options}) ->
     {hook,HookExpr,Precedence,Func,Options}.
 
+%% An integer is separated from the following '#' by a space, which
+%% erl_scan can handle.
+hash_after_integer({integer, _, _}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer(_, C) ->
+    C.
+
 call(Name, Args, Prec, Opts) ->
     {F,P} = func_prec(),
     Item = {first,lexpr(Name, F, Opts),args(Args, Opts)},
@@ -697,6 +788,8 @@ fun_info(Extra) ->
 
 %% BITS:
 
+bit_grp([], _Opts) ->
+    leaf("<<>>");
 bit_grp(Fs, Opts) ->
     append([['<<'], [bit_elems(Fs, Opts)], ['>>']]).
 
@@ -806,12 +899,6 @@ cr_clause({clause,_,[T],G,B}, Opts) ->
 try_clauses(Cs, Opts) ->
     clauses(fun try_clause/2, Opts, Cs).
 
-try_clause({clause,_,[{tuple,_,[{atom,_,throw},V,S]}],G,B}, Opts) ->
-    El = lexpr(V, 0, Opts),
-    Sl = stack_backtrace(S, [El], Opts),
-    Gl = guard_when(Sl, G, Opts),
-    Bl = body(B, Opts),
-    {step,Gl,Bl};
 try_clause({clause,_,[{tuple,_,[C,V,S]}],G,B}, Opts) ->
     Cs = lexpr(C, 0, Opts),
     El = lexpr(V, 0, Opts),
@@ -870,6 +957,9 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({m_generate,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
@@ -880,16 +970,18 @@ lc_qual(Q, Opts) ->
     lexpr(Q, 0, Opts).
 
 proper_list(Es, Opts) ->
-    {seq,$[,$],$,,lexprs(Es, Opts)}.
+    {seq,$[,$],[$,],lexprs(Es, Opts)}.
 
 improper_list(Es, Opts) ->
-    {seq,$[,$],{$,,$|},lexprs(Es, Opts)}.
+    {seq,$[,$],[{$,,' |'}],lexprs(Es, Opts)}.
 
 tuple(L, Opts) ->
     tuple(L, fun lexpr/2, Opts).
 
+tuple([], _F, _Opts) ->
+    leaf("{}");
 tuple(Es, F, Opts) ->
-    {seq,${,$},$,,lexprs(Es, F, Opts)}.
+    {seq,${,$},[$,],lexprs(Es, F, Opts)}.
 
 args(As, Opts) ->
     {seq,$(,$),[$,],lexprs(As, Opts)}.
@@ -937,6 +1029,7 @@ frmt(Item, I, PP) ->
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {atom,A}: an atom
+%%% - {singleton_atom_type,A}: a singleton atom type
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
 %%% - {value,T}: a term.
@@ -973,7 +1066,7 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT, PP) ->
                     true ->
                         0
                 end,
-    case same_line(I0, Sizes, NSepChars) of
+    case same_line(I0, Sizes, NSepChars, PP) of
         {yes,Size} ->
             Chars = if
                         NSepChars > 0 -> insert_sep(CharsL, $\s);
@@ -981,8 +1074,10 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT, PP) ->
                     end,
             {BCharsL++Chars,Size};
         no ->
-            {BCharsL++insert_newlines(CharsSizeL, I, ST),
-             nsz(lists:last(Sizes), I0)}
+            CharsList = handle_step(CharsSizeL, I, ST, PP),
+            {LChars, LSize} =
+                maybe_newlines(CharsList, LItems, I, NSepChars, ST, PP),
+            {[BCharsL,LChars],nsz(LSize, I0)}
     end;
 f({force_nl,_ExtraInfoItem,Item}, I, ST, WT, PP) when I < 0 ->
     %% Extra info is a comment; cannot have that on the same line
@@ -998,26 +1093,29 @@ f({prefer_nl,Sep,LItems}, I0, ST, WT, PP) ->
         Sizes =:= [] ->
             {[], 0};
         true ->
-            {insert_newlines(CharsSize2L, I0, ST),nsz(lists:last(Sizes), I0)}
+            {insert_newlines(CharsSize2L, I0, ST, PP),
+             nsz(lists:last(Sizes), I0)}
     end;
 f({value,V}, I, ST, WT, PP) ->
     f(write_a_value(V, PP), I, ST, WT, PP);
 f({atom,A}, I, ST, WT, PP) ->
     f(write_an_atom(A, PP), I, ST, WT, PP);
+f({singleton_atom_type,A}, I, ST, WT, PP) ->
+    f(write_a_singleton_atom_type(A, PP), I, ST, WT, PP);
 f({char,C}, I, ST, WT, PP) ->
     f(write_a_char(C, PP), I, ST, WT, PP);
 f({string,S}, I, ST, WT, PP) ->
     f(write_a_string(S, I, PP), I, ST, WT, PP);
+f({reserved,R}, I, ST, WT, PP) ->
+    f(R, I, ST, WT, PP);
 f({hook,HookExpr,Precedence,Func,Options}, I, _ST, _WT, _PP) ->
     Chars = Func(HookExpr, I, Precedence, Options),
     {Chars,indentation(Chars, I)};
 f({ehook,HookExpr,Precedence,{Mod,Func,Eas}=ModFuncEas}, I, _ST, _WT, _PP) ->
     Chars = apply(Mod, Func, [HookExpr,I,Precedence,ModFuncEas|Eas]),
     {Chars,indentation(Chars, I)};
-f(WordName, _I, _ST, WT, _PP) -> % when is_atom(WordName)
+f(WordName, _I, _ST, WT, _PP) when is_atom(WordName) ->
     word(WordName, WT).
-
--define(IND, 4).
 
 %% fl(ListItems, I0, ST, WT) -> [[CharsSize1,CharsSize2]]
 %% ListItems = [{Item,Items}|Item]
@@ -1026,21 +1124,27 @@ fl([], _Sep, I0, After, ST, WT, PP) ->
 fl(CItems, Sep0, I0, After, ST, WT, PP) ->
     F = fun({step,Item1,Item2}, S) ->
                 [f(Item1, I0, ST, WT, PP),
-                 f([Item2,S], incr(I0, ?IND), ST, WT, PP)];
+                 f([Item2,S], incr(I0, PP#pp.indent), ST, WT, PP)];
            ({cstep,Item1,Item2}, S) ->
                 {_,Sz1} = CharSize1 = f(Item1, I0, ST, WT, PP),
                 if
-                    is_integer(Sz1), Sz1 < ?IND ->
+                    is_integer(Sz1), Sz1 < PP#pp.indent ->
                         Item2p = [leaf("\s"),Item2,S],
                         [consecutive(Item2p, CharSize1, I0, ST, WT, PP),{[],0}];
                     true ->
-                        [CharSize1,f([Item2,S], incr(I0, ?IND), ST, WT, PP)]
+                        [CharSize1,f([Item2,S], incr(I0, PP#pp.indent), ST, WT, PP)]
                 end;
+           ({reserved,Word}, S) ->
+                [f([Word,S], I0, ST, WT, PP),{[],0}];
            (Item, S) ->
                 [f([Item,S], I0, ST, WT, PP),{[],0}]
         end,
-    {Sep,LastSep}  = case Sep0 of {_,_} -> Sep0; _ -> {Sep0,Sep0} end,
+    {Sep,LastSep} = sep(Sep0),
     fl1(CItems, F, Sep, LastSep, After).
+
+sep([{S,LS}]) -> {[S],[LS]};
+sep({_,_}=Sep) -> Sep;
+sep(S) -> {S, S}.
 
 fl1([CItem], F, _Sep, _LastSep, After) ->
     [F(CItem,After)];
@@ -1067,20 +1171,64 @@ unz1(CharSizes) ->
 nonzero(CharSizes) ->
     lists:filter(fun({_,Sz}) -> Sz =/= 0 end, CharSizes).
 
-insert_newlines(CharsSizesL, I, ST) when I >= 0 ->
-    insert_nl(foldr(fun([{_C1,0},{_C2,0}], A) ->
-                            A;
-                       ([{C1,_Sz1},{_C2,0}], A) ->
-                            [C1|A];
-                       ([{C1,_Sz1},{C2,Sz2}], A) when Sz2 > 0 ->
-                            [insert_nl([C1,C2], I+?IND, ST)|A]
-                    end, [], CharsSizesL), I, ST).
+maybe_newlines([{Chars,Size}], [], _I, _NSepChars, _ST, _PP) ->
+    {Chars,Size};
+maybe_newlines(CharsSizeList, Items, I, NSepChars, ST, PP) when I >= 0 ->
+    maybe_sep(CharsSizeList, Items, I, NSepChars, nl_indent(I, ST), PP).
 
+maybe_sep([{Chars1,Size1}|CharsSizeL], [Item|Items], I0, NSepChars, Sep, PP) ->
+    I1 = case classify_item(Item) of
+             atomic ->
+                 I0 + Size1;
+             _ ->
+                 PP#pp.linewidth+1
+         end,
+    maybe_sep1(CharsSizeL, Items, I0, I1, Sep, NSepChars, Size1, [Chars1], PP).
+
+maybe_sep1([{Chars,Size}|CharsSizeL], [Item|Items],
+           I0, I, Sep, NSepChars, Sz0, A, PP) ->
+    case classify_item(Item) of
+        atomic when is_integer(Size) ->
+            Size1 = Size + 1,
+            I1 = I + Size1,
+            if
+                I1 =< PP#pp.linewidth ->
+                    A1 = if
+                             NSepChars > 0 -> [Chars,$\s|A];
+                             true -> [Chars|A]
+                         end,
+                    maybe_sep1(CharsSizeL, Items, I0, I1, Sep, NSepChars,
+                               Sz0 + Size1, A1, PP);
+                true ->
+                    A1 = [Chars,Sep|A],
+                    maybe_sep1(CharsSizeL, Items, I0, I0 + Size, Sep,
+                               NSepChars, Size1, A1, PP)
+            end;
+        _ ->
+            A1 = [Chars,Sep|A],
+            maybe_sep1(CharsSizeL, Items, I0, PP#pp.linewidth+1, Sep, NSepChars,
+                       0, A1, PP)
+    end;
+maybe_sep1(_CharsSizeL, _Items, _Io, _I, _Sep, _NSepChars, Sz, A, _PP) ->
+    {lists:reverse(A), Sz}.
+
+insert_newlines(CharsSizesL, I, ST, PP) when I >= 0 ->
+    {CharsL, _} = unz1(handle_step(CharsSizesL, I, ST, PP)),
+    insert_nl(CharsL, I, ST).
+
+handle_step(CharsSizesL, I, ST, PP) ->
+    map(fun([{_C1,0},{_C2,0}]) ->
+                {[], 0};
+           ([{C1,Sz1},{_C2,0}]) ->
+                {C1, Sz1};
+           ([{C1,Sz1},{C2,Sz2}]) when Sz2 > 0 ->
+                {insert_nl([C1,C2], I+PP#pp.indent, ST),line_size([Sz1,Sz2])}
+        end, CharsSizesL).
 
 insert_nl(CharsL, I, ST) ->
     insert_sep(CharsL, nl_indent(I, ST)).
 
-insert_sep([Chars1 | CharsL], Sep) ->
+insert_sep([Chars1|CharsL], Sep) ->
     [Chars1 | [[Sep,Chars] || Chars <- CharsL]].
 
 nl_indent(0, _T) ->
@@ -1088,10 +1236,16 @@ nl_indent(0, _T) ->
 nl_indent(I, T) when I > 0 ->
     [$\n|spaces(I, T)].
 
-same_line(I0, SizeL, NSepChars) ->
+classify_item({atom, _}) -> atomic;
+classify_item({singleton_atom_type, _}) -> atomic;
+classify_item(Atom) when is_atom(Atom) -> atomic;
+classify_item({leaf, _, _}) -> atomic;
+classify_item(_) -> complex.
+
+same_line(I0, SizeL, NSepChars, PP) ->
     try
         Size = lists:sum(SizeL) + NSepChars,
-        true = incr(I0, Size) =< ?MAXLINE,
+        true = incr(I0, Size) =< PP#pp.linewidth,
         {yes,Size}
     catch _:_ ->
         no
@@ -1148,6 +1302,9 @@ write_a_value(V, PP) ->
 write_an_atom(A, PP) ->
     flat_leaf(write_atom(A, PP)).
 
+write_a_singleton_atom_type(A, PP) ->
+    flat_leaf(write_singleton_atom_type(A, PP)).
+
 write_a_char(C, PP) ->
     flat_leaf(write_char(C, PP)).
 
@@ -1156,7 +1313,7 @@ write_a_char(C, PP) ->
 write_a_string(S, I, PP) when I < 0; S =:= [] ->
     flat_leaf(write_string(S, PP));
 write_a_string(S, I, PP) ->
-    Len = erlang:max(?MAXLINE-I, ?MIN_SUBSTRING),
+    Len = erlang:max(PP#pp.linewidth-I, ?MIN_SUBSTRING),
     {list,write_a_string(S, Len, Len, PP)}.
 
 write_a_string([], _N, _Len, _PP) ->
@@ -1181,6 +1338,9 @@ write_value(V, PP) ->
 
 write_atom(A, PP) ->
     (PP#pp.value_fun)(A).
+
+write_singleton_atom_type(A, PP) ->
+    (PP#pp.singleton_atom_type_fun)(A).
 
 write_string(S, PP) ->
     (PP#pp.string_fun)(S).
@@ -1211,7 +1371,7 @@ wordtable() ->
     L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
-                  " |"]],
+                  " |","maybe","else","#{"]],
     list_to_tuple(L).
 
 word(' ->', WT) -> element(1, WT);
@@ -1232,4 +1392,40 @@ word('try', WT) -> element(15, WT);
 word('when', WT) -> element(16, WT);
 word(' ::', WT) -> element(17, WT);
 word('..', WT) -> element(18, WT);
-word(' |', WT) -> element(19, WT).
+word(' |', WT) -> element(19, WT);
+word('maybe', WT) -> element(20, WT);
+word('else', WT) -> element(21, WT);
+word('#{', WT) -> element(22, WT).
+
+%% Make up an unique variable name for Name that won't clash with any
+%% name in Used. We first try by converting the name to uppercase and
+%% if that fails we start prepending 'X'es until we find an unused
+%% name.
+legalize_name(InvalidName, StringName, Used) ->
+    Upper = string:to_upper(StringName),
+    NewName = list_to_atom(Upper),
+    case Used of
+        #{ NewName := _ } ->
+            legalize_name(InvalidName, [$X|StringName], Used);
+        #{} ->
+            Used#{ InvalidName => NewName }
+    end.
+
+fold_vars(F, Acc0, Forms) when is_list(Forms) ->
+    lists:foldl(fun(Elem, Acc) -> fold_vars(F, Acc, Elem) end, Acc0, Forms);
+fold_vars(F, Acc0, V={var,_,_}) ->
+    F(V, Acc0);
+fold_vars(F, Acc0, Form) when is_tuple(Form) ->
+    lists:foldl(fun(Elem, Acc) -> fold_vars(F, Acc, Elem) end,
+                Acc0, tuple_to_list(Form));
+fold_vars(_, Acc, _) ->
+    Acc.
+
+map_vars(F, Forms) when is_list(Forms) ->
+    [map_vars(F, Form) || Form <- Forms];
+map_vars(F, V={var,_,_}) ->
+    F(V);
+map_vars(F, Form) when is_tuple(Form) ->
+    list_to_tuple([map_vars(F, Elem) || Elem <- tuple_to_list(Form)]);
+map_vars(_, Form) ->
+    Form.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 		module,           % MFA which called the currently
 		function,         %  interpreted function
 		arguments,        %
+                error_info = [],  % [{error_info,Map}] | []
 
 		%% True if the current expression is at the top level
 		%% (i.e. the next call will leave interpreted code).

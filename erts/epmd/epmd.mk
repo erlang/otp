@@ -1,8 +1,8 @@
-# 
+#
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1998-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1998-2021. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,9 +14,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
-# 
+#
 # ------------------------------------------------
 # Server defines
 #
@@ -41,8 +41,8 @@ EPMD_PORT_NO=4369
 #   (110 = R6 nodes (explicit flags for differences between nodes))
 #
 # What epmd has been told, differs very much between versions, both
-# 111 and 110 seems to have been used to tell epmd, while 
-# the actual nodetypes has still been 104 and 109. 
+# 111 and 110 seems to have been used to tell epmd, while
+# the actual nodetypes has still been 104 and 109.
 # EPMD does not care about this, why we move back to using
 # the correct tag (an 'n') for all nodes.
 #
@@ -55,17 +55,19 @@ EPMD_NODE_TYPE=110
 #   3 = R5C
 #   4 = R6 (development)
 #   5 = R6
+#   6 = 23
 # There was no protocol change in release R5, so we didn't need to raise
 # the version number. But now that R5A is released, it's best to keep it
 # this way.
 # The number was inadvertently raised for R5C, so we increase it again
 # for R6.
 # Distribution version 4 means a) distributed monitor and b) larger references
-# in the distribution format. 
+# in the distribution format.
 # In format 5, nodes can explicitly tell each other which of the above
 # mentioned capabilities they can handle.
 # Distribution format 5 contains the new md5 based handshake.
+# Distribution protocol version 6 introduced in OTP 23 supports 32-bit creation
+# values in local node.
 
 EPMD_DIST_LOW=5
-EPMD_DIST_HIGH=5
-
+EPMD_DIST_HIGH=6

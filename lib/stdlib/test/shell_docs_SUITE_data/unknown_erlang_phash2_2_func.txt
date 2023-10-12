@@ -1,0 +1,20 @@
+
+  [;1m-spec erlang:phash2(Term, Range) -> Hash[0m
+  [;1m                       when[0m
+  [;1m                           Term :: term(),[0m
+  [;1m                           Range :: pos_integer(),[0m
+  [;1m                           Hash :: non_neg_integer().[0m
+
+  Portable hash function that gives the same hash for the same
+  Erlang term regardless of machine architecture and ERTS version
+  (the BIF was introduced in ERTS 5.2). The function returns a hash
+  value for [;;4mTerm[0m within the range [;;4m0..Range-1[0m. The maximum value
+  for [;;4mRange[0m is 2^32. When without argument [;;4mRange[0m, a value in the
+  range 0..2^27-1 is returned.
+
+  This BIF is always to be used for hashing terms. It distributes
+  small integers better than [;;4mphash/2[0m, and it is faster for bignums
+  and binaries.
+
+  Notice that the range [;;4m0..Range-1[0m is different from the range of [;;4m[0m
+  [;;4mphash/2[0m, which is [;;4m1..Range[0m.

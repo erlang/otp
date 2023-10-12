@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,19 +27,38 @@
 
 -include("inet_sctp.hrl").
 
--export([open/0,open/1,open/2,close/1]).
--export([listen/2,peeloff/2]).
--export([connect/4,connect/5,connect_init/4,connect_init/5]).
--export([eof/2,abort/2]).
--export([send/3,send/4,recv/1,recv/2]).
+-export([open/0, open/1, open/2, close/1]).
+-export([listen/2, peeloff/2]).
+-export([connect/3, connect/4, connect/5,
+         connect_init/3, connect_init/4, connect_init/5,
+         connectx_init/3, connectx_init/4,connectx_init/5]).
+-export([eof/2, abort/2]).
+-export([send/3, send/4, recv/1, recv/2]).
 -export([error_string/1]).
 -export([controlling_process/2]).
 
 -type assoc_id() :: term().
+
 -type option() ::
+        elementary_option() |
+        record_option().
+
+-type option_name() ::
+        elementary_option_name() |
+        record_option() |
+        ro_option().
+
+-type option_value() ::
+        elementary_option() |
+        record_option() |
+        ro_option().
+
+-type elementary_option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
+        {debug, boolean()} |
         {dontroute, boolean()} |
+        {exclusiveaddruse, boolean()} |
         {high_msgq_watermark, pos_integer()} |
         {linger, {boolean(), non_neg_integer()}} |
         {low_msgq_watermark, pos_integer()} |
@@ -47,35 +66,28 @@
         {priority, non_neg_integer()} |
         {recbuf, non_neg_integer()} |
         {reuseaddr, boolean()} |
+        {reuseport, boolean()} |
+        {reuseport_lb, boolean()} |
 	{ipv6_v6only, boolean()} |
-        {sctp_adaptation_layer, #sctp_setadaptation{}} |
-        {sctp_associnfo, #sctp_assocparams{}} |
+        {sndbuf, non_neg_integer()} |
         {sctp_autoclose, non_neg_integer()} |
-        {sctp_default_send_param, #sctp_sndrcvinfo{}} |
-        {sctp_delayed_ack_time, #sctp_assoc_value{}} |
         {sctp_disable_fragments, boolean()} |
-        {sctp_events, #sctp_event_subscribe{}} |
-        {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
         {sctp_i_want_mapped_v4_addr, boolean()} |
-        {sctp_initmsg, #sctp_initmsg{}} |
         {sctp_maxseg, non_neg_integer()} |
         {sctp_nodelay, boolean()} |
-        {sctp_peer_addr_params, #sctp_paddrparams{}} |
-        {sctp_primary_addr, #sctp_prim{}} |
-        {sctp_rtoinfo, #sctp_rtoinfo{}} |
-        {sctp_set_peer_primary_addr, #sctp_setpeerprim{}} |
-        {sctp_status, #sctp_status{}} |
-        {sndbuf, non_neg_integer()} |
         {tos, non_neg_integer()} |
         {tclass, non_neg_integer()} |
         {ttl, non_neg_integer()} |
         {recvtos, boolean()} |
         {recvtclass, boolean()} |
         {recvttl, boolean()}.
--type option_name() ::
+
+-type elementary_option_name() ::
         active |
         buffer |
+        debug |
         dontroute |
+        exclusiveaddruse |
         high_msgq_watermark |
         linger |
         low_msgq_watermark |
@@ -83,24 +95,14 @@
         priority |
         recbuf |
         reuseaddr |
+        reuseport |
+        reuseport_lb |
 	ipv6_v6only |
-        sctp_adaptation_layer |
-        sctp_associnfo |
         sctp_autoclose |
-        sctp_default_send_param |
-        sctp_delayed_ack_time |
         sctp_disable_fragments |
-        sctp_events |
-        sctp_get_peer_addr_info |
         sctp_i_want_mapped_v4_addr |
-        sctp_initmsg |
         sctp_maxseg |
         sctp_nodelay |
-        sctp_peer_addr_params |
-        sctp_primary_addr |
-        sctp_rtoinfo |
-        sctp_set_peer_primary_addr |
-        sctp_status |
         sndbuf |
         tos |
         tclass |
@@ -108,9 +110,27 @@
         recvtos |
         recvtclass |
         recvttl.
+
+-type record_option() ::
+        {sctp_adaptation_layer, #sctp_setadaptation{}} |
+        {sctp_associnfo, #sctp_assocparams{}} |
+        {sctp_default_send_param, #sctp_sndrcvinfo{}} |
+        {sctp_delayed_ack_time, #sctp_assoc_value{}} |
+        {sctp_events, #sctp_event_subscribe{}} |
+        {sctp_initmsg, #sctp_initmsg{}} |
+        {sctp_peer_addr_params, #sctp_paddrparams{}} |
+        {sctp_primary_addr, #sctp_prim{}} |
+        {sctp_rtoinfo, #sctp_rtoinfo{}} |
+        {sctp_set_peer_primary_addr, #sctp_setpeerprim{}}.
+
+-type ro_option() ::
+        {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
+        {sctp_status, #sctp_status{}}.
+
 -type sctp_socket() :: port().
 
--export_type([assoc_id/0, option/0, option_name/0, sctp_socket/0]).
+-export_type(
+   [assoc_id/0, option/0, option_name/0,  option_value/0, sctp_socket/0]).
 
 -spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().
@@ -123,18 +143,19 @@ open() ->
               Socket :: sctp_socket();
           (Opts) -> {ok, Socket} | {error, inet:posix()} when
               Opts :: [Opt],
-              Opt :: {ip,IP}
-                   | {ifaddr,IP}
+              Opt :: {ifaddr, IP | SockAddr}
+                   | {ip, IP}
+                   | {port, Port}
                    | inet:address_family()
-                   | {port,Port}
-		   | {type,SockType}
+        	   | {type, SockType}
                    | {netns, file:filename_all()}
                    | {bind_to_device, binary()}
                    | option(),
-              IP :: inet:ip_address() | any | loopback,
-              Port :: inet:port_number(),
+              IP       :: inet:ip_address() | any | loopback,
+              SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+              Port     :: inet:port_number(),
 	      SockType :: seqpacket | stream,
-              Socket :: sctp_socket().
+              Socket   :: sctp_socket().
 
 open(Opts0) when is_list(Opts0) ->
     {Mod, Opts} = inet:sctp_module(Opts0),
@@ -152,16 +173,19 @@ open(X) ->
 
 -spec open(Port, Opts) -> {ok, Socket} | {error, inet:posix()} when
       Opts :: [Opt],
-              Opt :: {ip,IP}
-                   | {ifaddr,IP}
-                   | inet:address_family()
-                   | {port,Port}
-		   | {type,SockType}
+              Opt :: {ifaddr, IP | SockAddr}
+                   | {ip, IP}
+                   | {port, Port}
+		   | inet:address_family()
+                   | {type, SockType}
+                   | {netns, file:filename_all()}
+                   | {bind_to_device, binary()}
                    | option(),
-      IP :: inet:ip_address() | any | loopback,
-      Port :: inet:port_number(),
+      IP       :: inet:ip_address() | any | loopback,
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Port     :: inet:port_number(),
       SockType :: seqpacket | stream,
-      Socket :: sctp_socket().
+      Socket   :: sctp_socket().
 
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
     open([{port,Port}|Opts]);
@@ -217,24 +241,58 @@ peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
 	Error -> Error
     end.
 
--spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, inet:posix()} when
-      Socket :: sctp_socket(),
-      Addr :: inet:ip_address() | inet:hostname(),
-      Port :: inet:port_number(),
-      Opts :: [Opt :: option()],
-      Assoc :: #sctp_assoc_change{}.
+-spec connect(Socket, SockAddr, Opts) ->
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
+      Socket   :: sctp_socket(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [Opt :: option()].
 
+connect(S, SockAddr, Opts) ->
+    connect(S, SockAddr, Opts, infinity).
+
+-spec connect(Socket, SockAddr, Opts, Timeout) ->
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
+      Socket   :: sctp_socket(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [Opt :: option()],
+      Timeout  :: timeout();
+             (Socket, Addr, Port, Opts) ->
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
+      Socket :: sctp_socket(),
+      Addr   :: inet:ip_address() | inet:hostname(),
+      Port   :: inet:port_number(),
+      Opts   :: [Opt :: option()].
+
+connect(S, SockAddr, Opts, Timeout)
+  when is_map(SockAddr) andalso is_list(Opts) ->
+    case do_connect(S, SockAddr, Opts, Timeout, true) of
+	badarg ->
+	    erlang:error(badarg, [S, SockAddr, Opts, Timeout]);
+	Result ->
+	    Result
+    end;
 connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
 
 -spec connect(Socket, Addr, Port, Opts, Timeout) ->
-                     {ok, Assoc} | {error, inet:posix()} when
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
       Socket :: sctp_socket(),
       Addr :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
       Opts :: [Opt :: option()],
-      Timeout :: timeout(),
-      Assoc :: #sctp_assoc_change{}.
+      Timeout :: timeout().
 
 connect(S, Addr, Port, Opts, Timeout) ->
     case do_connect(S, Addr, Port, Opts, Timeout, true) of
@@ -244,13 +302,36 @@ connect(S, Addr, Port, Opts, Timeout) ->
 	    Result
     end.
 
--spec connect_init(Socket, Addr, Port, Opts) ->
+-spec connect_init(Socket, SockAddr, Opts) ->
+                          ok | {error, inet:posix()} when
+      Socket   :: sctp_socket(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [option()].
+
+connect_init(S, SockAddr, Opts) ->
+    connect_init(S, SockAddr, Opts, infinity).
+
+-spec connect_init(Socket, SockAddr, Opts, Timeout) ->
+                          ok | {error, inet:posix()} when
+      Socket   :: sctp_socket(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [option()],
+      Timeout  :: timeout();
+                  (Socket, Addr, Port, Opts) ->
                           ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
-      Addr :: inet:ip_address() | inet:hostname(),
-      Port :: inet:port_number(),
-      Opts :: [option()].
+      Addr   :: inet:ip_address() | inet:hostname(),
+      Port   :: inet:port_number(),
+      Opts   :: [option()].
 
+connect_init(S, SockAddr, Opts, Timeout)
+  when is_map(SockAddr) andalso is_list(Opts) ->
+    case do_connect(S, SockAddr, Opts, Timeout, false) of
+	badarg ->
+	    erlang:error(badarg, [S, SockAddr, Opts, Timeout]);
+	Result ->
+	    Result
+    end;
 connect_init(S, Addr, Port, Opts) ->
     connect_init(S, Addr, Port, Opts, infinity).
 
@@ -270,10 +351,36 @@ connect_init(S, Addr, Port, Opts, Timeout) ->
 	    Result
     end.
 
-do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts) ->
+
+do_connect(S, SockAddr, Opts, Timeout, ConnWait)
+  when is_port(S) andalso is_list(Opts) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    case Mod:getserv(Port) of
+            try inet:start_timer(Timeout) of
+                Timer ->
+                    ConnectTimer = if ConnWait == false ->
+                                           nowait;
+                                      true ->
+                                           Timer
+                                   end,
+                    Mod:connect(S, inet:ensure_sockaddr(SockAddr), Opts,
+                                ConnectTimer)
+            catch
+                error:badarg ->
+                    badarg
+            end;
+	Error ->
+            Error
+    end;
+do_connect(_S, _SockAddr, _Opts, _Timeout, _ConnWait) ->
+    badarg.
+
+
+do_connect(S, Addr, Service, Opts, Timeout, ConnWait)
+  when is_port(S) andalso is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    case Mod:getserv(Service) of
 		{ok,Port} ->
 		    try inet:start_timer(Timeout) of
 			Timer ->
@@ -299,6 +406,177 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts
     end;
 do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
     badarg.
+
+
+
+-spec connectx_init(Socket, SockAddrs, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket   :: sctp_socket(),
+      SockAddrs:: [{inet:ip_address(), inet:port_number()} |
+                   inet:family_address() |
+                   socket:sockaddr_in() | socket:sockaddr_in6()],
+      Opts     :: [option()].
+%%
+connectx_init(S, SockAddrs, Opts) ->
+    case do_connectx(S, SockAddrs, Opts) of
+	badarg ->
+	    erlang:error(badarg, [S, SockAddrs, Opts]);
+	Result ->
+	    Result
+    end.
+
+-spec connectx_init(Socket, Addrs, Port, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number() | atom(),
+      Opts :: [option()].
+%%
+connectx_init(S, Addrs, Port, Opts) ->
+    connectx_init(S, Addrs, Port, Opts, infinity).
+
+-spec connectx_init(Socket, Addrs, Port, Opts, Timeout) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number() | atom(),
+      Opts :: [option()],
+      Timeout :: timeout().
+%%
+connectx_init(S, Addrs, Port, Opts, Timeout) ->
+    case do_connectx(S, Addrs, Port, Opts, Timeout) of
+	badarg ->
+	    erlang:error(badarg, [S, Addrs, Port, Opts, Timeout]);
+	Result ->
+	    Result
+    end.
+
+
+do_connectx(S, SockAddrs, Opts)
+  when is_port(S), is_list(SockAddrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+        {ok, Mod} ->
+            case ensure_sockaddrs(SockAddrs) of
+                {SockAddrs_1, Port} ->
+                    SockAddrs_2 = set_port(SockAddrs_1, Port),
+                    Mod:connectx(S, SockAddrs_2, Opts);
+                Error1 ->
+                    Error1
+            end;
+        {error, _} = Error2->
+            Error2
+    end;
+do_connectx(_S, _SockAddrs, _Opts) ->
+    badarg.
+
+do_connectx(S, Addrs, Service, Opts, Timeout)
+  when is_port(S), is_list(Addrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    case Mod:getserv(Service) of
+		{ok,Port} ->
+		    try inet:start_timer(Timeout) of
+			Timer ->
+                            try
+                                case getaddrs(Mod, Addrs, Timer) of
+                                    IPs when is_list(IPs) ->
+                                        Mod:connectx(S, IPs, Port, Opts);
+                                    Error1 ->
+                                        Error1
+                                end
+                            after
+                                _ = inet:stop_timer(Timer)
+                            end
+		    catch
+			error:badarg ->
+                            badarg
+		    end;
+		{error, _} = Error2 ->
+                    Error2
+	    end;
+	{error, _} = Error3 ->
+            Error3
+    end;
+do_connectx(_S, _Addrs, _Port, _Opts, _Timeout) ->
+    badarg.
+
+ensure_sockaddrs(SockAddrs) ->
+    ensure_sockaddrs(SockAddrs, 0, []).
+%%
+ensure_sockaddrs([SockAddr | SockAddrs], Port, Acc) ->
+    case SockAddr of
+        {IP, P} when is_tuple(IP) ->
+            ensure_sockaddrs(SockAddrs, Port, [SockAddr | Acc], P);
+        {Family, {_, P}}
+          when Family =:= inet;
+               Family =:= inet6 ->
+            ensure_sockaddrs(SockAddrs, Port, [SockAddr | Acc], P);
+        #{family := Family}
+          when Family =:= inet;
+               Family =:= inet6 ->
+            SockAddr_1 = inet:ensure_sockaddr(SockAddr),
+            ensure_sockaddrs(
+              SockAddrs, Port, [SockAddr_1 | Acc],
+              maps:get(port, SockAddr_1, 0));
+        _ -> badarg
+    end;
+ensure_sockaddrs([], 0, _) ->
+    badarg;
+ensure_sockaddrs([], Port, Acc) ->
+    {lists:reverse(Acc), Port}.
+%%
+ensure_sockaddrs(SockAddrs, Port, Acc, P) ->
+    if
+        is_integer(P) ->
+            if
+                0 < P ->
+                    ensure_sockaddrs(SockAddrs, P, Acc);
+                P < 0 ->
+                    badarg;
+                true ->
+                    ensure_sockaddrs(SockAddrs, Port, Acc)
+            end;
+        true ->
+            badarg
+    end.
+
+set_port([SockAddr | SockAddrs], Port) ->
+    case SockAddr of
+        {IP, P} when is_tuple(IP) ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> {IP, Port} end);
+        {Family, {Addr, P}} ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> {Family, {Addr, Port}} end);
+        #{port := P} ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> SockAddr#{port := Port} end)
+    end;
+set_port([], _Port) ->
+    [].
+%%
+set_port(SockAddrs, Port, SockAddr, P, NewSockAddrFun) ->
+    [case P of
+         Port -> SockAddr;
+         _    -> NewSockAddrFun()
+     end | set_port(SockAddrs, Port)].
+
+getaddrs(Mod, Addrs, Timer) ->
+    getaddrs(Mod, Addrs, Timer, []).
+%%
+getaddrs(Mod, [Addr | Addrs], Timer, Acc) ->
+    case Mod:getaddr(Addr, Timer) of
+        {ok, IP} ->
+            getaddrs(Mod, Addrs, Timer, [IP | Acc]);
+        {error, _} ->
+            badarg
+    end;
+getaddrs(_Mod, [], _Timer, Acc) ->
+    lists:reverse(Acc).
+
 
 
 -spec eof(Socket, Assoc) -> ok | {error, Reason} when

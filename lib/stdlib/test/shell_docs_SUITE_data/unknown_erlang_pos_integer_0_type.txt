@@ -1,0 +1,4 @@
+
+  [;1m-type pos_integer() :: pos_integer().[0m
+
+  An integer greater than zero.

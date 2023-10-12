@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,12 +26,13 @@
          init_per_group/2, end_per_group/2,
          all/0, groups/0]).
 
--export([write/1, read/1, wread/1, delete/1, delete_object/1,
-         match_object/1, select/1, select14/1, all_keys/1, transaction/1,
+-export([write/1, read/1, wread/1, delete/1,
+         delete_object_bag/1, delete_object_set/1,
+         match_object/1, select/1, select14/1, all_keys/1, transaction/1, transaction_counters/1,
          basic_nested/1, mix_of_nested_activities/1,
          nested_trans_both_ok/1, nested_trans_child_dies/1,
          nested_trans_parent_dies/1, nested_trans_both_dies/1,
-         index_match_object/1, index_read/1,index_write/1,
+         index_match_object/1, index_read/1,index_write/1, index_delete_object/1,
          index_update_set/1, index_update_bag/1,
          add_table_index_ram/1, add_table_index_disc/1,
          add_table_index_disc_only/1, create_live_table_index_ram/1,
@@ -63,8 +64,8 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() ->
-    [write, read, wread, delete, delete_object,
-     match_object, select, select14, all_keys, transaction,
+    [write, read, wread, delete, delete_object_bag, delete_object_set,
+     match_object, select, select14, all_keys, transaction, transaction_counters,
      {group, nested_activities}, {group, index_tabs},
      {group, index_lifecycle}].
 
@@ -77,7 +78,7 @@ groups() ->
        nested_trans_parent_dies, nested_trans_both_dies]},
      {index_tabs, [],
       [index_match_object, index_read, {group, index_update},
-       index_write]},
+       index_write, index_delete_object]},
      {index_update, [],
       [index_update_set, index_update_bag]},
      {index_lifecycle, [],
@@ -221,14 +222,26 @@ delete(Config) when is_list(Config) ->
 
 %% Delete matching record
 
-delete_object(suite) -> [];
-delete_object(Config) when is_list(Config) ->
+delete_object_bag(suite) -> [];
+delete_object_bag(Config) when is_list(Config) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config),
+    ?match(ok, delete_object(Node1, bag)),
+    ?verify_mnesia(Nodes, []).
+
+delete_object_set(suite) -> [];
+delete_object_set(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    ?match(ok, delete_object(Node1, set)),
+    ?verify_mnesia(Nodes, []).
+
+delete_object(Node1, Type) ->
     Tab = delete_object,
-    Schema = [{name, Tab}, {type, bag}, {attributes, [k, v]}, {ram_copies, [Node1]}],
+    Schema = [{name, Tab}, {type, Type},
+              {attributes, [k, v]}, {ram_copies, [Node1]}],
     ?match({atomic, ok},  mnesia:create_table(Schema)),
 
     OneRec = {Tab, 1, 2},
+    OtherRec = {Tab, 1, 3},
     ?match({aborted, {bad_type, _}},
 	   mnesia:transaction(fun() -> mnesia:delete_object([]) end)),
     ?match({aborted, {bad_type, _}},
@@ -237,16 +250,88 @@ delete_object(Config) when is_list(Config) ->
 	   mnesia:transaction(fun() -> mnesia:delete_object({Tab, 1}) end)),
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+
+    %% Delete already existing object
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
-	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete already existing object (written twice)
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
-	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete object written in same transaction
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [] = mnesia:read(Tab, 1),
+                                      ok = mnesia:write(OneRec),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete other object than written in same transaction
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [] = mnesia:read(Tab, 1),
+                                      ok = mnesia:write(OneRec),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([OneRec], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete other object than already existing
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([OneRec], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete object in combination with delete
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete({Tab, 1}),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Several delete_object in same transaction (last on non existing record)
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
 
     ?match({'EXIT', {aborted, no_transaction}},  mnesia:delete_object(OneRec)),
 
@@ -255,7 +340,8 @@ delete_object(Config) when is_list(Config) ->
     ?match({aborted, {bad_type, Tab, _}},
 	   mnesia:transaction(fun() -> mnesia:delete_object({Tab, {['$5']}, 21}) end)),
 
-    ?verify_mnesia(Nodes, []).
+    ?match({atomic, ok},  mnesia:delete_table(Tab)),
+    ok.
 
 %% Read matching records
 
@@ -460,6 +546,28 @@ transaction(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+transaction_counters(suite) -> [];
+transaction_counters(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+
+    {atomic, {{Participants1, Coordinators1}, {Participants2, Coordinators2}}} =
+        mnesia:transaction(fun get_transactions_counters/0),
+
+    ?match(Coordinators1, Coordinators2),
+    ?match(Coordinators1, 1),
+    ?match(Participants1, Participants2),
+    ?match(Participants1, 0),
+
+    ?verify_mnesia(Nodes, []).
+
+get_transactions_counters() ->
+    {count_sides(mnesia_tm:get_transactions()), mnesia_tm:get_transactions_count()}.
+
+count_sides(TransactionsList) ->
+    lists:foldl(
+        fun({_Tid, _Pid, participant}, {Participants, Coordinators}) -> {Participants + 1, Coordinators};
+            ({_Tid, _Pid, coordinator}, {Participants, Coordinators}) -> {Participants, Coordinators + 1}
+        end, {0, 0}, TransactionsList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -636,7 +744,7 @@ nested_transactions(Config, Child, Father) ->
 		     {[{Tab, father, not_updated}], [{Tab, child, not_updated}]}
 	end,
 
-    %% Syncronize things!!
+    %% Synchronize things!!
     ?match({atomic, ok}, mnesia:sync_transaction(fun() -> mnesia:write({Tab, sync, sync}) end)),
 
     ?match(ChildRes, rpc:call(Node1, mnesia, dirty_read, [{Tab, child}])),
@@ -1078,9 +1186,39 @@ index_write(Config)when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 
+index_delete_object(suite) -> [];
+index_delete_object(doc) -> ["See issue: GH-5040"];
+index_delete_object(Config) when is_list(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+    {atomic, ok} = mnesia:create_table(ram_set,[{index, [ix]}, {attributes, [key, ix, val]},
+                                                {ram_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(do_set, [{index, [ix]}, {attributes, [key, ix, val]},
+                                                {disc_only_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(ram_bag,[{index, [ix]}, {attributes, [key, ix, val]},
+                                                {ram_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(do_bag, [{index, [ix]}, {attributes, [key, ix, val]},
+                                                {disc_only_copies, Nodes}]),
+    Test = fun(Tab) ->
+                   io:format("Testing: ~p~n",[Tab]),
+                   Rec = {Tab, 2, 4, data},
+                   Rec2 = {Tab, 3, 5, data},
+                   ok = mnesia:dirty_write(Rec),
+                   ok = mnesia:dirty_write(Rec2),
+                   [Rec] = mnesia:dirty_index_read(Tab, 4, ix),
+                   ?match(ok, mnesia:dirty_delete_object({Tab, 2, 4, does_not_exist})),
+                   [Rec] = mnesia:dirty_read(Tab, 2),
+                   [Rec] = mnesia:dirty_index_read(Tab, 4, ix),
+                   ?match(ok, mnesia:dirty_delete_object(Rec)),
+                   [] = mnesia:dirty_read(Tab, 2),
+                   [] = mnesia:dirty_index_read(Tab, 4, ix),
+                   [Rec2] = mnesia:dirty_read(Tab, 3),
+                   [Rec2] = mnesia:dirty_index_read(Tab, 5, ix)
+           end,
+    [Test(Tab) || Tab <- [ram_set,do_set,ram_bag,do_bag]],
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Add and drop indecies
+%% Add and drop indices
 
 
 add_table_index_ram(suite) -> [];

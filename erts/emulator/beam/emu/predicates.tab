@@ -1,0 +1,83 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+pred.is_offset(X, Y, Offset) {
+    return X.type == Y.type && X.val + Offset == Y.val;
+}
+
+pred.succ(X, Y) {
+    return X.type == Y.type && X.val + 1 == Y.val;
+}
+
+pred.succ3(X, Y) {
+    return X.type == Y.type && X.val + 3 == Y.val;
+}
+
+pred.succ4(X, Y) {
+    return X.type == Y.type && X.val + 4 == Y.val;
+}
+
+// Test whether the following two moves are independent:
+//
+//    move Src1 Dst1
+//    move Src2 Dst2
+//
+pred.independent_moves(Src1, Dst1, Src2, Dst2) {
+    return (Src1.type != Dst2.type || Src1.val != Dst2.val) &&
+        (Src2.type != Dst1.type || Src2.val != Dst1.val) &&
+        (Dst1.type != Dst2.type ||Dst1.val != Dst2.val);
+}
+
+pred.needs_nif_padding() {
+    Export *e = erts_active_export_entry(S->module, S->function, S->arity);
+
+    if (e != NULL && e->bif_number != -1) {
+        return 1;
+    }
+
+    /* If the module may load a NIF lib, all functions or functions declared as
+     * -nifs() must be able to hold a NIF stub. So we'll pad to that size at the
+     * end of every potential NIF function.
+     */
+    return S->may_load_nif &&
+        (S->code_hdr->are_nifs == NULL ||
+         S->code_hdr->are_nifs[S->function_number-1]);
+}
+
+// Test whether the given literal is a map.
+pred.literal_is_map(Lit) {
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = beamfile_get_literal(&S->beam, Lit.val);
+    return is_map(term);
+}
+
+// Test whether the negation of the given number is small.
+pred.negation_is_small(Int) {
+    /*
+     * Check for the rare case of overflow in BeamInstr (UWord) -> Sint.
+     * Cast to the correct type before using IS_SSMALL (Sint).
+     */
+    return Int.type == TAG_i &&
+        !(Int.val & ~((((BeamInstr)1) << ((sizeof(Sint)*8)-1))-1)) &&
+        IS_SSMALL(-((Sint)Int.val));
+}

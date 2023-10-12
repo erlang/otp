@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2017. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_tcp_dist).
@@ -30,16 +30,16 @@
 %% VM.
 %%
 %% This code is a rewrite of the lib/kernel/src/inet_tcp_dist.erl
-%% distribution impementation for TCP used by default. That
-%% implementation use distribution ports instead of distribution
+%% distribution implementation for TCP used by default. The default
+%% implementation uses distribution ports instead of distribution
 %% processes and is more efficient compared to this implementation.
-%% This since this implementation more or less gets the
-%% distribution processes in between the VM and the ports without
-%% any gain specific gain.
+%% This example more or less gets the distribution processes
+%% in between the VM and the ports without any specific gain.
 %%
 
 -export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+	 setup/5, close/1, select/1, is_node_name/1,
+         address/0]).
 
 %% Optional
 -export([setopts/2, getopts/2]).
@@ -53,10 +53,10 @@
 
 -import(error_logger,[error_msg/2]).
 
--include("net_address.hrl").
+-include_lib("kernel/include/net_address.hrl").
 
--include("dist.hrl").
--include("dist_util.hrl").
+-include_lib("kernel/include/dist.hrl").
+-include_lib("kernel/include/dist_util.hrl").
 
 %% ------------------------------------------------------------
 %%  Select this protocol based on node name
@@ -72,6 +72,12 @@ select(Node) ->
             end;
 	_ -> false
     end.
+
+%% ------------------------------------------------------------
+%% Get the address family that this distribution uses
+%% ------------------------------------------------------------
+address() ->
+    get_tcp_address().
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
@@ -184,7 +190,7 @@ flush_controller(Pid, Socket) ->
 accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
 	      [self(), AcceptPid, DistCtrl, MyNode, Allowed, SetupTime],
-	      [link, {priority, max}]).
+	      dist_util:net_ticker_spawn_options()).
 
 do_accept(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     ?trace("~p~n",[{?MODULE, do_accept, self(), MyNode}]),
@@ -231,7 +237,7 @@ nodelay() ->
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     spawn_opt(?MODULE, do_setup, 
 	      [self(), Node, Type, MyNode, LongOrShortNames, SetupTime],
-	      [link, {priority, max}]).
+	      dist_util:net_ticker_spawn_options()).
 
 do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{?MODULE, do_setup, self(), Node}]),
@@ -345,9 +351,12 @@ split_node([], _, Ack)        -> [lists:reverse(Ack)].
 %% ------------------------------------------------------------
 get_tcp_address(Socket) ->
     {ok, Address} = inet:sockname(Socket),
+    NetAddr = get_tcp_address(),
+    NetAddr#net_address{address = Address}.
+
+get_tcp_address() ->
     {ok, Host} = inet:gethostname(),
     #net_address {
-		  address = Address,
 		  host = Host,
 		  protocol = tcp,
 		  family = inet
@@ -401,6 +410,10 @@ is_node_name(_Node) ->
 hs_data_common(DistCtrl) ->
     TickHandler = call_ctrlr(DistCtrl, tick_handler),
     Socket = call_ctrlr(DistCtrl, socket),
+    RejectFlags = case init:get_argument(gen_tcp_dist_reject_flags) of
+                      {ok,[[Flags]]} -> list_to_integer(Flags);
+                      _ -> #hs_data{}#hs_data.reject_flags
+                  end,
     #hs_data{f_send = send_fun(),
              f_recv = recv_fun(),
              f_setopts_pre_nodeup = setopts_pre_nodeup_fun(),
@@ -411,7 +424,8 @@ hs_data_common(DistCtrl) ->
              mf_setopts = setopts_fun(DistCtrl, Socket),
              mf_getopts = getopts_fun(DistCtrl, Socket),
              mf_getstat = getstat_fun(DistCtrl, Socket),
-             mf_tick = tick_fun(DistCtrl, TickHandler)}.
+             mf_tick = tick_fun(DistCtrl, TickHandler),
+             reject_flags = RejectFlags}.
 
 %%% ------------------------------------------------------------
 %%% Distribution controller processes
@@ -440,7 +454,7 @@ hs_data_common(DistCtrl) ->
 %%   the connection down if no incoming traffic is seen.
 %%   This process also executes on max priority.
 %%
-%%   These parties are linked togheter so should one
+%%   These parties are linked together so should one
 %%   of them fail, all of them are terminated and the
 %%   connection is taken down.
 %%
@@ -565,7 +579,7 @@ call_ctrlr(Ctrlr, Msg) ->
 %% non-blocking send operation exposed in its API
 %% and we don't want to run the distribution
 %% controller under high priority. Therefore this
-%% sparate process with max prio that dispatches
+%% separate process with max prio that dispatches
 %% ticks.
 %%
 dist_cntrlr_tick_handler(Socket) ->
@@ -679,7 +693,14 @@ dist_cntrlr_setup_loop(Socket, TickHandler, Sup) ->
             %% From now on we execute on normal priority
             process_flag(priority, normal),
             erlang:dist_ctrl_get_data_notification(DHandle),
-            dist_cntrlr_output_loop(DHandle, Socket)
+            case init:get_argument(gen_tcp_dist_output_loop) of
+                error ->
+                    dist_cntrlr_output_loop(DHandle, Socket);
+                {ok, [[ModStr, FuncStr]]} -> % For testing...
+                    apply(list_to_atom(ModStr),
+                          list_to_atom(FuncStr),
+                          [DHandle, Socket])
+            end
     end.
 
 %% We use active 10 for good throughput while still
@@ -689,7 +710,7 @@ dist_cntrlr_setup_loop(Socket, TickHandler, Sup) ->
 
 dist_cntrlr_input_setup(DHandle, Socket, Sup) ->
     link(Sup),
-    %% Ensure we don't try to put data before registerd
+    %% Ensure we don't try to put data before we are registered
     %% as input handler...
     receive
         DHandle ->
@@ -764,7 +785,7 @@ death_row() ->
 
 death_row(normal) ->
     %% We do not want to exit with normal
-    %% exit reason since it wont bring down
+    %% exit reason since it won't bring down
     %% linked processes...
     death_row();
 death_row(Reason) ->

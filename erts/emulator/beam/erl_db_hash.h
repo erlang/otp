@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,11 @@
 
 typedef struct fixed_deletion {
     UWord slot : sizeof(UWord)*8 - 2;
-    UWord all : 1;
+
+    /* Used by delete_all_objects: */
+    UWord all : 1;  /* marks [0 -> slot] */
     UWord trap : 1;
+
     struct fixed_deletion *next;
 } FixedDeletion;
 
@@ -53,34 +56,57 @@ typedef struct hash_db_term {
 #define DB_HASH_LOCK_CNT 64
 #endif
 
-typedef struct db_table_hash_fine_locks {
+typedef struct DbTableHashLockAndCounter {
+    erts_atomic_t nitems;
+    Sint lck_stat;
+    erts_rwmtx_t lck;
+} DbTableHashLockAndCounter;
+
+typedef struct db_table_hash_fine_lock_slot {
     union {
-	erts_rwmtx_t lck;
-	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
-    }lck_vec[DB_HASH_LOCK_CNT];
-} DbTableHashFineLocks;
+	DbTableHashLockAndCounter lck_ctr;
+	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(DbTableHashLockAndCounter))];
+    } u;
+} DbTableHashFineLockSlot;
 
 typedef struct db_table_hash {
     DbTableCommon common;
-
-    /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
+    erts_atomic_t lock_array_resize_state;
+    /* szm, nactive, shrink_limit are write-protected by is_resizing or table write lock */
     erts_atomic_t szm;     /* current size mask. */
     erts_atomic_t nactive; /* Number of "active" slots */
+    erts_atomic_t shrink_limit; /* Shrink table when fewer objects than this */
 
     erts_atomic_t segtab;  /* The segment table (struct segment**) */
     struct segment* first_segtab[1];
 
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
+    int nlocks;       /* Needs to be smaller or equal to nactive */
     int nslots;       /* Total number of slots */
     int nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_atomic_t fixdel;  /* (FixedDeletion*) */
     erts_atomic_t is_resizing; /* grow/shrink in progress */
-    DbTableHashFineLocks* locks;
+    DbTableHashFineLockSlot* locks;
 } DbTableHash;
 
+typedef enum {
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL = 0,
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW   = 1,
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_SHRINK = 2
+} db_hash_lock_array_resize_state;
 
+/* To adapt number of locks if hash table with {write_concurrency, auto} */
+void db_hash_adapt_number_of_locks(DbTable* tb);
+#define  DB_HASH_ADAPT_NUMBER_OF_LOCKS(TB)                                   \
+    do {                                                                     \
+        if (IS_HASH_WITH_AUTO_TABLE(TB->common.type)                         \
+            && (erts_atomic_read_nob(&tb->hash.lock_array_resize_state)      \
+                != DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL)) {               \
+            db_hash_adapt_number_of_locks(tb);                               \
+        }                                                                    \
+    }while(0)
 /*
 ** Function prototypes, looks the same (except the suffix) for all 
 ** table types. The process is always an [in out] parameter.
@@ -93,7 +119,7 @@ Uint db_kept_items_hash(DbTableHash *tb);
 int db_create_hash(Process *p, 
 		   DbTable *tbl /* [in out] */);
 
-int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail);
+int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail, SWord* consumed_reds_p);
 
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
@@ -110,6 +136,9 @@ typedef struct {
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
 Eterm erts_ets_hash_sizeof_ext_segtab(void);
+void
+erts_db_foreach_thr_prgr_offheap_hash(void (*func)(ErlOffHeap *, void *),
+                                      void *arg);
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable);

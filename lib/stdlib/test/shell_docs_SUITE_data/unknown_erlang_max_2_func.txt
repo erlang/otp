@@ -1,0 +1,28 @@
+
+  [;1m-spec max(Term1, Term2) -> Maximum[0m
+  [;1m             when Term1 :: term(), Term2 :: term(), Maximum :: term().[0m
+
+  Returns the largest of [;;4mTerm1[0m and [;;4mTerm2[0m. If the terms compare
+  equal with the [;;4m==[0m operator, [;;4mTerm1[0m is returned.
+
+  The Expressions section contains descriptions of the [;;4m==[0m
+  operator and how terms are ordered.
+
+  Examples:
+
+    > max(1, 2).
+    2
+
+    > max(1.0, 1).
+    1.0
+
+    > max(1, 1.0).
+    1
+
+    > max("abc", "b").
+    "b"
+
+  Allowed in guard tests.
+
+  Change:
+    Allowed in guards tests from Erlang/OTP 26.

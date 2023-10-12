@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
          y_registers/1,user_predef/1,scan_f/1,cafu/1,
          receive_label/1,read_size_file_version/1,not_used/1,
-         is_used_fr/1]).
+         is_used_fr/1,unsafe_is_function/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +53,8 @@ groups() ->
        cafu,
        read_size_file_version,
        not_used,
-       is_used_fr
+       is_used_fr,
+       unsafe_is_function
       ]}].
 
 init_per_suite(Config) ->
@@ -196,7 +197,7 @@ do_bs_init_4(Arg1, Arg2) ->
                          id(Rewrite)
                  end/binary,
                  "/shared">>);
-        Other ->
+        _Other ->
             error
     end.
 
@@ -391,9 +392,9 @@ merchant([Merchant, Laws, Electric]) ->
 	     if true; Electric -> Laws end) + 42.
 oklahoma([], Int) -> Int.
 
-town(overall, {{If}, Healing = alcohol})
-  when Healing#{[] => Healing}; include ->
-    [If || Healing <- awareness].
+town(overall, {{If}, _Healing = alcohol})
+  when _Healing#{[] => _Healing}; include ->
+    [If || _Healing <- awareness].
 
 %% Cover is_reg_used_at/3.
 resulting([Conservation], stone) ->
@@ -552,7 +553,7 @@ not_used_p(_C, S, K, L) when is_record(K, k) ->
             id(K)
     end.
 
-is_used_fr(Config) ->
+is_used_fr(_Config) ->
     1 = is_used_fr(self(), self()),
     1 = is_used_fr(self(), other),
     receive 1 -> ok end,
@@ -569,6 +570,24 @@ is_used_fr(X, Y) ->
             _ -> error
         end,
     X ! 1.
+
+%% ERL-778.
+unsafe_is_function(_Config) ->
+    {undefined,any} = unsafe_is_function(undefined, any),
+    {ok,any} = unsafe_is_function(fun() -> ok end, any),
+    {'EXIT',{{case_clause,_},_}} = (catch unsafe_is_function(fun(_) -> ok end, any)),
+    ok.
+
+unsafe_is_function(F, M) ->
+    %% There would be an internal consistency failure:
+    %%   Instruction: {bif,is_function,{f,0},[{x,0},{integer,0}],{x,2}}
+    %%   Error:       {uninitialized_reg,{y,0}}:
+
+    NewValue = case is_function(F, 0) of
+                true -> F();
+                false when F =:= undefined -> undefined
+            end,
+    {NewValue,M}.
 
 
 %% The identity function.

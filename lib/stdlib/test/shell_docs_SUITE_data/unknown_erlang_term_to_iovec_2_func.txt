@@ -1,0 +1,31 @@
+
+  [;1m-spec term_to_iovec(Term, Options) -> ext_iovec()[0m
+  [;1m                       when[0m
+  [;1m                           Term :: term(),[0m
+  [;1m                           Options ::[0m
+  [;1m                               [compressed |[0m
+  [;1m                                {compressed, Level :: 0..9} |[0m
+  [;1m                                deterministic |[0m
+  [;1m                                {minor_version, Version :: 0..2} |[0m
+  [;1m                                local].[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  Returns the encoding of [;;4mTerm[0m according to the Erlang external
+  term format as [;;4mext_iovec()[0m.
+
+  This function produce the same encoding as [;;4mterm_to_binary/2[0m, but
+  with another return type. The call [;;4m[0m
+  [;;4miolist_to_binary(term_to_iovec(Term, Opts))[0m will produce exactly
+  the same result as [;;4mterm_to_binary(Term, Opts)[0m.
+
+  Currently recognised options are all options recognised by [;;4m[0m
+  [;;4mterm_to_binary/2[0m.
+
+  [;;4mterm_to_iovec()[0m is a pure optimization of the functionality [;;4m[0m
+  [;;4mterm_to_binary()[0m provide. [;;4mterm_to_iovec()[0m can for example refer
+  directly to off heap binaries instead of copying the binary data
+  into the result.
+
+  See also [;;4mterm_to_binary/2[0m.

@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #ifndef __WIN32__
 #include <unistd.h>
@@ -32,7 +33,7 @@
     exit(1); \
 }
 
-#define MAIN(argc, argv) main(argc, argv)
+#define MAIN(argc, argv) int main(argc, argv)
 
 extern int errno;
 
@@ -535,7 +536,7 @@ char* spec;			/* Specification for reply. */
 
     buf = (char *) malloc(total_size);
     if (buf == NULL) {
-	fprintf(stderr, "%s: insufficent memory for reply buffer of size %d\n",
+	fprintf(stderr, "%s: insufficient memory for reply buffer of size %d\n",
 		port_data->progname, total_size);
 	exit(1);
     }

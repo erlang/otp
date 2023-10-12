@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,19 +22,20 @@
 -module(beam_clean).
 
 -export([module/2]).
--export([clean_labels/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
-    All = maps:from_list([{Lbl,Func} || {function,_,_,Lbl,_}=Func <- Fs0]),
+    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs0},
     WorkList = rootset(Fs0, Exp, Attr),
-    Used = find_all_used(WorkList, All, cerl_sets:from_list(WorkList)),
+    Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
-    Fs = maybe_remove_lines(Fs2, Opts),
+    Fs3 = fix_bs_create_bin(Fs2, Opts),
+    Fs4 = fix_badrecord(Fs3, Opts),
+    Fs = maybe_remove_lines(Fs4, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -52,12 +53,8 @@ rootset(Fs, Root0, Attr) ->
 
 %% Remove the unused functions.
 
-remove_unused([F|Fs], Used, All) ->
-    case cerl_sets:is_element(F, Used) of
-	false -> remove_unused(Fs, Used, All);
-	true -> [map_get(F, All)|remove_unused(Fs, Used, All)]
-    end;
-remove_unused([], _, _) -> [].
+remove_unused(Fs, Used, All) ->
+    [map_get(F, All) || F <- Fs, sets:is_element(F, Used)].
 
 %% Find all used functions.
 
@@ -69,16 +66,16 @@ find_all_used([], _All, Used) -> Used.
 
 update_work_list([{call,_,{f,L}}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
+update_work_list([{make_fun3,{f,L},_,_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([_|Is], Sets) ->
     update_work_list(Is, Sets);
 update_work_list([], Sets) -> Sets.
 
 add_to_work_list(F, {Fs,Used}=Sets) ->
-    case cerl_sets:is_element(F, Used) of
+    case sets:is_element(F, Used) of
 	true -> Sets;
-	false -> {[F|Fs],cerl_sets:add_element(F, Used)}
+	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
 
@@ -94,9 +91,6 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	     entry :: beam_asm:label(),   %Number of entry label.
 	     lc :: non_neg_integer()      %Label counter
 	     }).
-
--spec clean_labels([beam_utils:instruction()]) ->
-                          {[beam_utils:instruction()],pos_integer()}.
 
 clean_labels(Fs0) ->
     St0 = #st{lmap=[],entry=1,lc=1},
@@ -143,25 +137,190 @@ function_replace([], _, Acc) -> Acc.
 maybe_remove_lines(Fs, Opts) ->
     case proplists:get_bool(no_line_info, Opts) of
 	false -> Fs;
-	true -> remove_lines(Fs)
+	true -> fold_functions(fun remove_lines/1, Fs)
     end.
 
-remove_lines([{function,N,A,Lbl,Is0}|T]) ->
-    Is = remove_lines_fun(Is0),
-    [{function,N,A,Lbl,Is}|remove_lines(T)];
-remove_lines([]) -> [].
-
-remove_lines_fun([{line,_}|Is]) ->
-    remove_lines_fun(Is);
-remove_lines_fun([{block,Bl0}|Is]) ->
+remove_lines([{line,_}|Is]) ->
+    remove_lines(Is);
+remove_lines([{block,Bl0}|Is]) ->
     Bl = remove_lines_block(Bl0),
-    [{block,Bl}|remove_lines_fun(Is)];
-remove_lines_fun([I|Is]) ->
-    [I|remove_lines_fun(Is)];
-remove_lines_fun([]) -> [].
+    [{block,Bl}|remove_lines(Is)];
+remove_lines([I|Is]) ->
+    [I|remove_lines(Is)];
+remove_lines([]) -> [].
 
 remove_lines_block([{set,_,_,{line,_}}|Is]) ->
     remove_lines_block(Is);
 remove_lines_block([I|Is]) ->
     [I|remove_lines_block(Is)];
 remove_lines_block([]) -> [].
+
+%%%
+%%% If compatibility with a previous release (OTP 24 or earlier) has
+%%% been requested, eliminate bs_create_bin instructions by translating
+%%% them to the old binary syntax instructions.
+%%%
+
+fix_bs_create_bin(Fs, Opts) ->
+    case proplists:get_bool(no_bs_create_bin, Opts) of
+        false -> Fs;
+        true -> fold_functions(fun fix_bs_create_bin/1, Fs)
+    end.
+
+fix_bs_create_bin([{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,List}}|Is]) ->
+    Tail = fix_bs_create_bin(Is),
+    Flags = {field_flags,[]},
+    try bs_pre_size_calc(List) of
+        SizeCalc0 ->
+            SizeCalc = fold_size_calc(SizeCalc0, 0, []),
+            TmpDst = SizeReg = {x,Live},
+            SizeIs0 = bs_size_calc(SizeCalc, Fail, SizeReg, {x,Live+1}),
+            SizeIs = [{move,{integer,0},SizeReg}|SizeIs0],
+            RestIs = bs_puts(List, Fail) ++ [{move,TmpDst,Dst}|Tail],
+            case List of
+                [{atom,append},_,_,_,Src|_] ->
+                    SizeIs ++ [{bs_append,Fail,SizeReg,Alloc,Live+1,Unit,Src,Flags,TmpDst}|RestIs];
+                [{atom,private_append},_,_,_,Src|_] ->
+                    TestHeap = {test_heap,Alloc,Live+1},
+                    SizeIs ++ [TestHeap,{bs_private_append,Fail,SizeReg,Unit,Src,Flags,TmpDst}|RestIs];
+                _ ->
+                    SizeIs ++ [{bs_init_bits,Fail,SizeReg,Alloc,Live+1,Flags,TmpDst}|RestIs]
+            end
+    catch
+        throw:invalid_size ->
+            [{move,{atom,badarg},{x,0}},
+             {call_ext_only,1,{extfunc,erlang,error,1}}|Tail]
+    end;
+fix_bs_create_bin([I|Is]) ->
+    [I|fix_bs_create_bin(Is)];
+fix_bs_create_bin([]) -> [].
+
+bs_pre_size_calc([Type,_Seg,Unit,_Flags,Src,Size|Segs]) ->
+    case Type of
+        {atom,T} when T =:= append; T =:= private_append ->
+            bs_pre_size_calc(Segs);
+        _ ->
+            [bs_pre_size_calc_1(Type, Unit, Src, Size)|bs_pre_size_calc(Segs)]
+    end;
+bs_pre_size_calc([]) -> [].
+
+bs_pre_size_calc_1({atom,Type}, Unit, Src, Size) ->
+    case {Unit,Size} of
+        {0,{atom,undefined}} ->
+            %% No size/unit given.
+            {8,case Type of
+                   utf8 -> {{instr,bs_utf8_size},Src};
+                   utf16 -> {{instr,bs_utf16_size},Src};
+                   utf32 -> {term,{integer,4}}
+               end};
+        {Unit,_} ->
+            case {Type,Size} of
+                {binary,{atom,all}} ->
+                    case Unit rem 8 of
+                        0 -> {8,{{bif,byte_size},Src}};
+                        _ -> {1,{{bif,bit_size},Src}}
+                    end;
+                {_,_} ->
+                    ensure_valid_size(Size),
+                    {Unit,{term,Size}}
+            end
+    end.
+
+ensure_valid_size({x,_}) -> ok;
+ensure_valid_size({y,_}) -> ok;
+ensure_valid_size({integer,Size}) when Size >= 0 -> ok;
+ensure_valid_size(_) -> throw(invalid_size).
+
+fold_size_calc([{Unit,{term,{integer,Size}}}|T], Bits, Acc) ->
+    fold_size_calc(T, Bits + Unit*Size, Acc);
+fold_size_calc([{Unit,{{bif,Bif},{literal,Lit}}}=H|T], Bits, Acc) ->
+    try erlang:Bif(Lit) of
+        Result ->
+            fold_size_calc([{Unit,{term,{integer,Result}}}|T], Bits, Acc)
+    catch
+        _:_ ->
+            fold_size_calc(T, Bits, [H|Acc])
+    end;
+fold_size_calc([{U,_}=H|T], Bits, Acc) when U =:= 1; U =:= 8 ->
+    fold_size_calc(T, Bits, [H|Acc]);
+fold_size_calc([{U,Var}|T], Bits, Acc) ->
+    fold_size_calc(T, Bits, [{1,{'*',{term,{integer,U}},Var}}|Acc]);
+fold_size_calc([], Bits, Acc) ->
+    Bytes = Bits div 8,
+    RemBits = Bits rem 8,
+    Sizes = [{1,{term,{integer,RemBits}}},{8,{term,{integer,Bytes}}}|Acc],
+    [Pair || {_,Sz}=Pair <- Sizes, Sz =/= {term,{integer,0}}].
+
+bs_size_calc([{Unit,{{bif,Bif},Reg}}|T], Fail, SizeReg, TmpReg) ->
+    Live = element(2, SizeReg) + 1,
+    [{gc_bif,Bif,Fail,Live,[Reg],TmpReg},
+     {bs_add,Fail,[SizeReg,TmpReg,Unit],SizeReg}|bs_size_calc(T, Fail, SizeReg, TmpReg)];
+bs_size_calc([{Unit,{'*',{term,Term1},{term,Term2}}}|T], Fail, SizeReg, TmpReg) ->
+    Live = element(2, SizeReg) + 1,
+    [{gc_bif,'*',Fail,Live,[Term1,Term2],TmpReg},
+     {bs_add,Fail,[SizeReg,TmpReg,Unit],SizeReg}|bs_size_calc(T, Fail, SizeReg, TmpReg)];
+bs_size_calc([{Unit,{{instr,Instr},Reg}}|T], Fail, SizeReg, TmpReg) ->
+    [{Instr,Fail,Reg,TmpReg},
+     {bs_add,Fail,[SizeReg,TmpReg,Unit],SizeReg}|bs_size_calc(T, Fail, SizeReg, TmpReg)];
+bs_size_calc([{Unit,{term,Term}}|T], Fail, SizeReg, TmpReg) ->
+    [{bs_add,Fail,[SizeReg,Term,Unit],SizeReg}|bs_size_calc(T, Fail, SizeReg, TmpReg)];
+bs_size_calc([], _Fail, _SizeReg, _TmpReg) -> [].
+
+bs_puts([{atom,string},_Seg,_Unit,_Flags,{string,_}=Str,{integer,Size}|Is], Fail) ->
+    [{bs_put_string,Size,Str}|bs_puts(Is, Fail)];
+bs_puts([{atom,append},_,_,_,_,_|Is], Fail) ->
+    bs_puts(Is, Fail);
+bs_puts([{atom,private_append},_,_,_,_,_|Is], Fail) ->
+    bs_puts(Is, Fail);
+bs_puts([{atom,Type},_Seg,Unit,Flags0,Src,Size|Is], Fail) ->
+    Op = case Type of
+             integer -> bs_put_integer;
+             float   -> bs_put_float;
+             binary  -> bs_put_binary;
+             utf8    -> bs_put_utf8;
+             utf16   -> bs_put_utf16;
+             utf32   -> bs_put_utf32
+         end,
+    Flags = case Flags0 of
+                nil -> [];
+                {literal,Fs} -> Fs
+            end,
+    I = if
+            Unit =:= 0 ->
+                {bs_put,Fail,{Op,{field_flags,Flags}},[Src]};
+            true ->
+                {bs_put,Fail,{Op,Unit,{field_flags,Flags}},[Size,Src]}
+        end,
+    [I|bs_puts(Is, Fail)];
+bs_puts([], _Fail) -> [].
+
+%%%
+%%% If compatibility with a previous release (OTP 24 or earlier) has
+%%% been requested, eliminate badrecord instructions by translating
+%%% them to calls to error({badrecord,Value}).
+%%%
+
+fix_badrecord(Fs, Opts) ->
+    case proplists:get_bool(no_badrecord, Opts) of
+        false -> Fs;
+        true -> fold_functions(fun fix_badrecord/1, Fs)
+    end.
+
+fix_badrecord([{badrecord,Value}|Is]) ->
+    [{move,Value,{x,0}},
+     {test_heap,3,1},
+     {put_tuple2,{x,0},{list,[{atom,badrecord},{x,0}]}},
+     {call_ext_only,1,{extfunc,erlang,error,1}}|fix_badrecord(Is)];
+fix_badrecord([I|Is]) ->
+    [I|fix_badrecord(Is)];
+fix_badrecord([]) -> [].
+
+
+%%%
+%%% Helpers.
+%%%
+
+fold_functions(F, [{function,N,A,Lbl,Is0}|T]) ->
+    Is = F(Is0),
+    [{function,N,A,Lbl,Is}|fold_functions(F, T)];
+fold_functions(_F, []) -> [].

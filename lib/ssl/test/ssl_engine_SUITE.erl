@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,11 +21,22 @@
 %%
 -module(ssl_engine_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_testcase/2
+        ]).
+%% Test cases
+-export([private_key/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -46,14 +57,21 @@ init_per_suite(Config) ->
                     ssl_test_lib:clean_start(),
                     case crypto:get_test_engine() of
                          {ok, EngineName} ->
-                            try crypto:engine_load(<<"dynamic">>,
-                                                    [{<<"SO_PATH">>, EngineName},
-                                                     <<"LOAD">>],
-                                                   []) of
+                            try
+                                %% The test engine has it's own fake rsa sign/verify that
+                                %% you don't want to use, so exclude it from methods to load:
+                                Methods = 
+                                    crypto:engine_get_all_methods() -- [engine_method_rsa],
+                                crypto:engine_load(<<"dynamic">>,
+                                                   [{<<"SO_PATH">>, EngineName},
+                                                    <<"LOAD">>],
+                                                   [],
+                                                   Methods)
+                            of
                                 {ok, Engine} ->
                                     [{engine, Engine} |Config];
                                 {error, Reason} ->
-                                    ct:pal("Reason ~p", [Reason]),
+                                    ?CT_PAL("Reason ~p", [Reason]),
                                     {skip, "No dynamic engine support"}
                             catch error:notsup ->
                                     {skip, "No engine support in OpenSSL"}    
@@ -90,17 +108,22 @@ end_per_testcase(_TestCase, Config) ->
 private_key(Config) when is_list(Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client_engine"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server_engine"]),
+    Ext = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
     #{server_config := ServerConf,
       client_config := ClientConf} = GenCertData =
         public_key:pkix_test_data(#{server_chain => 
-                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha256},
+                                                            {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{extensions, Ext}, {digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}
                                                   ]},
                                     client_chain => 
-                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
-                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+                                      #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}, {digest, sha256}],
+                                        intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(6)},{digest, sha256}]}}),
     [{server_config, FileServerConf}, 
      {client_config, FileClientConf}] = 
         x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
@@ -131,10 +154,16 @@ private_key(Config) when is_list(Config) ->
     %% Test with engine
     test_tls_connection(EngineServerConf, EngineClientConf, Config),
     
-    %% Test with engine and present file arugments
+    %% Test with engine and rsa keyexchange
+    RSASuites = all_kex_rsa_suites([{tls_version, 'tlsv1.2'} | Config]),
+    
+    test_tls_connection([{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineServerConf], 
+                        [{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineClientConf], Config),
+    
+    %% Test with engine and present file arguments
     test_tls_connection(EngineFileServerConf, EngineFileClientConf, Config),
     
-    %% Test that sofware fallback is available
+    %% Test that software fallback is available
     test_tls_connection(ServerConf, [{reuse_sessions, false} |ClientConf], Config).
     
 engine_key(Conf) ->
@@ -160,3 +189,8 @@ test_tls_connection(ServerConf, ClientConf, Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+all_kex_rsa_suites(Config) ->
+    Version = proplists:get_value(tls_version, Config),
+    All = ssl:cipher_suites(all, Version),
+    ssl:filter_cipher_suites(All,[{key_exchange, fun(rsa) -> true;(_) -> false end}]).

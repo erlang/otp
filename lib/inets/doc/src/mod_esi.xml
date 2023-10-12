@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,7 +25,7 @@
     <title>mod_esi</title>
     <file>mod_esi.sgml</file>
   </header>
-  <module>mod_esi</module>
+  <module since="">mod_esi</module>
   <modulesummary>Erlang Server Interface</modulesummary>
   <description>
     <p>This module defines the Erlang Server Interface (ESI) API.
@@ -61,7 +61,7 @@
 	<tag><c>{server_port, integer()}</c></tag>
 	<item><p>Servers port number.</p></item>
 	
-	<tag><c>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
+	<tag><c>{request_method, "GET" | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
 	<item><p>HTTP request method.</p></item>
 		
 	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
@@ -88,7 +88,7 @@
 
  <funcs>
    <func>
-     <name>deliver(SessionID, Data) -> ok | {error, Reason}</name>
+     <name since="">deliver(SessionID, Data) -> ok | {error, Reason}</name>
      <fsummary>Sends <c>Data</c> back to client.</fsummary>
      <type>
         <v>SessionID = term()</v>
@@ -115,20 +115,21 @@
    </func>
  </funcs>
   
- <section>
-   <title>ESI Callback Functions</title>
- </section>
+
 
  <funcs>
+    <fsdescription>
+     <title>ESI Callback Functions</title>
+   </fsdescription>
    <func>
-     <name>Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
+     <name since="">Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
      <fsummary>Creates a dynamic web page and returns it chunk by chunk 
      to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
      <type>
        <v>SessionID = term()</v>
-       <v>Env = env()</v>
-       <v>Input = string() | chunked_data()</v>
-       <v>chunked_data() = {first, Data::binary()} |
+       <v>Env = [env()]</v>
+       <v>Input = string() | ChunkedData</v>
+       <v>ChunkedData = {first, Data::binary()} |
        {continue, Data::binary(), State::term()} |
        {last, Data::binary(), State::term()} </v>
        <v>State = term()</v>
@@ -149,17 +150,24 @@
 	that is, <c>"\r\n\r\n",</c> the server assumes that no HTTP
 	header fields will be generated.</p>
 
-	<p><c>Env</c> environment data of the request see description above.</p>
+	<p>To set the response status code, the special <c>status</c> response
+	header can be sent. For instance, to acknowledge creation of a resource
+	and annotate the response content type with JSON, one could respond with
+	the following headers:</p>
+
+	<code type="erl">"status: 201 Created\r\n content-type: application/json\r\n\r\n"</code>
+
+	<p><c>Env</c> environment data of the request, see description above.</p>
 		
 	<p><c>Input</c> is query data of a GET request or the body of
 	a PUT or POST request. The default behavior (legacy reasons)
 	for delivering the body, is that the whole body is gathered and
 	converted to a string. But if the httpd config parameter
-	<seealso
-	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	<seeerl
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seeerl>
 	is set, the body will be delivered as binary chunks
-	instead. The maximum size of the chunks is either <seealso
-	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	instead. The maximum size of the chunks is either <seeerl
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seeerl>
 	or decide by the client if it uses HTTP chunked encoding
 	to send the body. When using the chunking
 	mechanism this callback must return {continue, State::term()}
@@ -176,24 +184,7 @@
 	any data that it needs to keep track of when handling the chunks.
 	</p>
       </desc>
-   </func>
-
-   <func>
-     <name>Module:Function(Env, Input)-> Response </name>
-     <fsummary>Creates a dynamic web page and returns it as a list. 
-     This function is deprecated and is only kept for backwards compatibility.</fsummary>
-     <type>
-       <v>Env = env()</v>
-       <v>Input = string() </v>
-       <v>Response = string()</v>
-     </type>
-      <desc>
-        <p>This callback format consumes much memory, as the
-        whole response must be generated before it is sent to the
-        user. This callback format is deprecated. 
-        For new development, use <c>Module:Function/3</c>.</p>
-      </desc>
-   </func>
+   </func>  
  </funcs>
  
 </erlref>

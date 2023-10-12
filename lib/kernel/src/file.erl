@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(file).
+-deprecated([{pid2name,1,"this functionality is no longer supported"}]).
 
 %% Interface module for the file server and the file io servers.
 
@@ -27,15 +28,16 @@
 
 -export([format_error/1]).
 %% File system and metadata.
--export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
-	 make_dir/1, del_dir/1, list_dir/1, list_dir_all/1,
+-export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, delete/2, rename/2,
+	 make_dir/1, del_dir/1, del_dir_r/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
 	 altname/1,
 	 read_link_info/1, read_link_info/2,
 	 read_link/1, read_link_all/1,
 	 make_link/2, make_symlink/2,
-	 read_file/1, write_file/2, write_file/3]).
+	 read_file/1, read_file/2,
+	 write_file/2, write_file/3]).
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
@@ -69,7 +71,7 @@
 
 %% Types that can be used from other modules -- alphabetically ordered.
 -export_type([date_time/0, fd/0, file_info/0, filename/0, filename_all/0,
-              io_device/0, mode/0, name/0, name_all/0, posix/0]).
+              io_device/0, location/0, mode/0, name/0, name_all/0, posix/0]).
 
 %%% Includes and defines
 -include("file_int.hrl").
@@ -95,7 +97,7 @@
                       Size :: non_neg_integer(),
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
-		   | 'read_ahead' | 'compressed'
+		   | 'read_ahead' | 'compressed' | 'compressed_one'
 		   | {'encoding', unicode:encoding()}
 		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
@@ -123,10 +125,12 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
+-type delete_option() :: 'raw'.
+-type read_file_option() :: 'raw'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}
 			 | {use_threads, boolean()}.
--type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
-			  | {'time', 'posix'} | raw.
+-type file_info_option() :: {'time', 'local'} | {'time', 'universal'}
+			  | {'time', 'posix'} | 'raw'.
 %%% BIFs
 
 -export([native_name_encoding/0]).
@@ -171,16 +175,9 @@ format_error(ErrorId) ->
       Pid :: pid().
 
 pid2name(Pid) when is_pid(Pid) ->
-    case whereis(?FILE_SERVER) of
-	undefined ->
-	    undefined;
-	_ ->
-	    case ets:lookup(?FILE_IO_SERVER_TABLE, Pid) of
-		[{_, Name} | _] ->
-		    {ok, Name};
-		_ ->
-		    undefined
-	    end
+    case file_request(Pid, pid2name) of
+        {ok, _} = Ok -> Ok;
+        _ -> undefined
     end.
 
 %%%-----------------------------------------------------------------
@@ -217,6 +214,25 @@ set_cwd(Dirname) ->
 delete(Name) ->
     check_and_call(delete, [file_name(Name)]).
 
+-spec delete(Filename, Opts) -> ok | {error, Reason} when
+      Filename :: name_all(),
+      Opts :: [delete_option()],
+      Reason :: posix() | badarg.
+
+delete(Name, Opts) when is_list(Opts) ->
+    FileName = file_name(Name),
+    case check_args(Opts) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    ?PRIM_FILE:delete(FileName);
+                false ->
+                    call(delete, [FileName])
+            end;
+        Error ->
+            Error
+    end.
+
 -spec rename(Source, Destination) -> ok | {error, Reason} when
       Source :: name_all(),
       Destination :: name_all(),
@@ -239,19 +255,48 @@ make_dir(Name) ->
 del_dir(Name) ->
     check_and_call(del_dir, [file_name(Name)]).
 
--spec read_file_info(Filename) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec del_dir_r(File) -> ok | {error, Reason} when
+      File :: name_all(),
+      Reason :: posix() | badarg.
+
+del_dir_r(File) -> % rm -rf File
+    case read_link_info(File) of
+	{ok, #file_info{type = directory}} ->
+	    case list_dir_all(File) of
+		{ok, Names} ->
+		    lists:foreach(fun(Name) ->
+				      del_dir_r(filename:join(File, Name))
+				  end, Names);
+		{error, _Reason} -> ok
+	    end,
+	    del_dir(File);
+	{ok, _FileInfo} -> delete(File);
+	{error, _Reason} = Error -> Error
+    end.
+
+-spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice)
+  when is_pid(IoDevice); is_record(IoDevice, file_descriptor) ->
+    read_file_info(IoDevice, []);
 
 read_file_info(Name) ->
     check_and_call(read_file_info, [file_name(Name)]).
 
--spec read_file_info(Filename, Opts) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec read_file_info(File, Opts) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice, Opts) when is_pid(IoDevice), is_list(Opts) ->
+    file_request(IoDevice, {read_handle_info, Opts});
+
+read_file_info(#file_descriptor{module = Module} = Handle, Opts) when is_list(Opts) ->
+    Module:read_handle_info(Handle, Opts);
 
 read_file_info(Name, Opts) when is_list(Opts) ->
     Args = [file_name(Name), Opts],
@@ -374,6 +419,26 @@ list_dir_all(Name) ->
 read_file(Name) ->
     check_and_call(read_file, [file_name(Name)]).
 
+-spec read_file(Filename, Opts) -> {ok, Binary} | {error, Reason} when
+      Filename :: name_all(),
+      Opts :: [read_file_option()],
+      Binary :: binary(),
+      Reason :: posix() | badarg | terminated | system_limit.
+
+read_file(Name, Opts) when is_list(Opts) ->
+    FileName = file_name(Name),
+    case check_args(Opts) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    ?PRIM_FILE:read_file(FileName);
+                false ->
+                    call(read_file, [FileName])
+            end;
+        Error ->
+            Error
+    end.
+
 -spec make_link(Existing, New) -> ok | {error, Reason} when
       Existing :: name_all(),
       New :: name_all(),
@@ -460,7 +525,7 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 -spec open(File, Modes) -> {ok, IoDevice} | {error, Reason} when
       File :: Filename | iodata(),
       Filename :: name_all(),
-      Modes :: [mode() | ram],
+      Modes :: [mode() | ram | directory],
       IoDevice :: io_device(),
       Reason :: posix() | badarg | system_limit.
 
@@ -476,10 +541,12 @@ open(Item, ModeList) when is_list(ModeList) ->
                 Error ->
                     Error
             end;
-        {true, _Either} ->
+        {true, false} ->
             raw_file_io:open(file_name(Item), ModeList);
         {false, true} ->
-            ram_file:open(Item, ModeList)
+            ram_file:open(Item, ModeList);
+        {true, true} ->
+            erlang:error(badarg, [Item, ModeList])
     end;
 
 %% Old obsolete mode specification in atom or 2-tuple format
@@ -536,7 +603,7 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
     Module:allocate(Handle, Offset, Length).
 
 -spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Number :: non_neg_integer(),
       Data :: string() | binary(),
       Reason :: posix()
@@ -545,7 +612,7 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
               | {no_translation, unicode, latin1}.
 
 read(File, Sz) when (is_pid(File) orelse is_atom(File)), is_integer(Sz), Sz >= 0 ->
-    case io:request(File, {get_chars, '', Sz}) of
+    case io:request(File, {get_chars, latin1, '', Sz}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
 	Other ->
@@ -558,7 +625,7 @@ read(_, _) ->
     {error, badarg}.
 
 -spec read_line(IoDevice) -> {ok, Data} | eof | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Data :: string() | binary(),
       Reason :: posix()
               | badarg
@@ -566,7 +633,7 @@ read(_, _) ->
               | {no_translation, unicode, latin1}.
 
 read_line(File) when (is_pid(File) orelse is_atom(File)) ->
-    case io:request(File, {get_line, ''}) of
+    case io:request(File, {get_line, latin1, ''}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
 	Other ->
@@ -622,7 +689,7 @@ pread(_, _, _) ->
     {error, badarg}.
 
 -spec write(IoDevice, Bytes) -> ok | {error, Reason} when
-      IoDevice :: io_device() | atom(),
+      IoDevice :: io_device() | io:device(),
       Bytes :: iodata(),
       Reason :: posix() | badarg | terminated.
 
@@ -1143,7 +1210,7 @@ path_script(Path, File, Bs) ->
              {ok, IoDevice, FullName} | {error, Reason} when
       Path :: [Dir :: name_all()],
       Filename :: name_all(),
-      Modes :: [mode()],
+      Modes :: [mode() | directory],
       IoDevice :: io_device(),
       FullName :: filename_all(),
       Reason :: posix() | badarg | system_limit.
@@ -1238,7 +1305,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
 				closed | badarg | not_owner} when
       RawFile :: fd(),
-      Socket :: inet:socket(),
+      Socket :: inet:socket() | socket:socket() |
+                fun ((iolist()) -> ok | {error, inet:posix() | closed}),
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
@@ -1263,9 +1331,10 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
-				closed | badarg | not_owner}
-      when Filename :: name_all(),
-	   Socket :: inet:socket().
+				closed | badarg | not_owner} when
+      Filename :: name_all(),
+      Socket :: inet:socket() | socket:socket() |
+                fun ((iolist()) -> ok | {error, inet:posix() | closed}).
 sendfile(Filename, Sock)  ->
     case file:open(Filename, [read, raw, binary]) of
 	{error, Reason} ->
@@ -1276,58 +1345,115 @@ sendfile(Filename, Sock)  ->
 	    Res
     end.
 
+-define(module_socket(Handler, Handle),
+        {'$inet', (Handler), (Handle)}).
+-define(socket(Handle),
+        {'$socket', (Handle)}).
+
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
 	 ChunkSize, Headers, Trailers, Opts)
-  when is_port(Sock) ->
-    case Mod:sendfile(Fd, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-		      Opts) of
-	{error, enotsup} ->
-	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
-			      Headers, Trailers);
-	Else ->
-	    Else
+  when is_integer(Offset), is_integer(Bytes) ->
+    case Sock of
+        ?socket(_) when Headers =:= [], Trailers =:= [] ->
+            try socket:sendfile(Sock, Fd, Offset, Bytes, infinity)
+            catch error : notsup ->
+                    sendfile_fallback(
+                      Fd, socket_send(Sock), Offset, Bytes, ChunkSize,
+                      Headers, Trailers)
+            end;
+        ?socket(_) ->
+            sendfile_fallback(
+              Fd, socket_send(Sock), Offset, Bytes, ChunkSize,
+              Headers, Trailers);
+        ?module_socket(GenTcpMod, _) when Headers =:= [], Trailers =:= [] ->
+            case
+                GenTcpMod:sendfile(Sock, Fd, Offset, Bytes)
+            of
+                {error, enotsup} ->
+                    sendfile_fallback(
+                      Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
+                      Headers, Trailers);
+                Else ->
+                    Else
+            end;
+        ?module_socket(_, _) ->
+            sendfile_fallback(
+              Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
+              Headers, Trailers);
+        _ when is_port(Sock) ->
+            case Mod:sendfile(
+                   Fd, Sock, Offset, Bytes, ChunkSize,
+                   Headers, Trailers, Opts) of
+                {error, enotsup} ->
+                    sendfile_fallback(
+                      Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
+                      Headers, Trailers);
+                Else ->
+                    Else
+            end;
+        _ when is_function(Sock, 1) ->
+            sendfile_fallback(
+              Fd, Sock, Offset, Bytes, ChunkSize,
+              Headers, Trailers)
     end;
 sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
 
+socket_send(Sock) ->
+    fun (Data) ->
+            socket:send(Sock, Data)
+    end.
+
+gen_tcp_send(Sock) ->
+    fun (Data) ->
+            gen_tcp:send(Sock, Data)
+    end.
+
 %%%
 %% Sendfile Fallback
 %%%
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize,
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize,
 		  Headers, Trailers)
   when Headers == []; is_integer(Headers) ->
-    case sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) of
+    case sendfile_fallback(File, Send, Offset, Bytes, ChunkSize) of
 	{ok, BytesSent} when is_list(Trailers),
 			     Trailers =/= [],
 			     is_integer(Headers) ->
-	    sendfile_send(Sock, Trailers, BytesSent+Headers);
+	    sendfile_send(Send, Trailers, BytesSent+Headers);
 	{ok, BytesSent} when is_list(Trailers), Trailers =/= [] ->
-	    sendfile_send(Sock, Trailers, BytesSent);
+	    sendfile_send(Send, Trailers, BytesSent);
 	{ok, BytesSent} when is_integer(Headers) ->
 	    {ok, BytesSent + Headers};
 	Else ->
 	    Else
     end;
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers) ->
-    case sendfile_send(Sock, Headers, 0) of
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize, Headers, Trailers) ->
+    case sendfile_send(Send, Headers, 0) of
 	{ok, BytesSent} ->
-	    sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, BytesSent,
+	    sendfile_fallback(File, Send, Offset, Bytes, ChunkSize, BytesSent,
 			      Trailers);
 	Else ->
 	    Else
     end.
 
 
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) ->
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize)
+  when 0 =< Bytes ->
     {ok, CurrPos} = file:position(File, {cur, 0}),
-    {ok, _NewPos} = file:position(File, {bof, Offset}),
-    Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
-    _ = file:position(File, {bof, CurrPos}),
-    Res.
+    case file:position(File, {bof, Offset}) of
+        {ok, _NewPos} ->
+            Res = sendfile_fallback_int(File, Send, Bytes, ChunkSize, 0),
+            _ = file:position(File, {bof, CurrPos}),
+            Res;
+        Error ->
+            Error
+    end;
+sendfile_fallback(_, _, _, _, _) ->
+    {error, einval}.
 
 
-sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
+sendfile_fallback_int(File, Send, Bytes, ChunkSize, BytesSent)
   when Bytes > BytesSent; Bytes == 0 ->
     Size = if Bytes == 0 ->
 		   ChunkSize;
@@ -1338,10 +1464,10 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
 	   end,
     case file:read(File, Size) of
 	{ok, Data} ->
-	    case sendfile_send(Sock, Data, BytesSent) of
+	    case sendfile_send(Send, Data, BytesSent) of
 		{ok,NewBytesSent} ->
 		    sendfile_fallback_int(
-		      File, Sock, Bytes, ChunkSize,
+		      File, Send, Bytes, ChunkSize,
 		      NewBytesSent);
 		Error ->
 		    Error
@@ -1351,12 +1477,12 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
 	Error ->
 	    Error
     end;
-sendfile_fallback_int(_File, _Sock, BytesSent, _ChunkSize, BytesSent) ->
+sendfile_fallback_int(_File, _Send, BytesSent, _ChunkSize, BytesSent) ->
     {ok, BytesSent}.
 
-sendfile_send(Sock, Data, Old) ->
+sendfile_send(Send, Data, Old) ->
     Len = iolist_size(Data),
-    case gen_tcp:send(Sock, Data) of
+    case Send(Data) of
 	ok ->
 	    {ok, Len+Old};
 	Else ->

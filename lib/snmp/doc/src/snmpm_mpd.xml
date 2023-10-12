@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,13 +32,13 @@
     <rev></rev>
     <file>snmpm_mpd.xml</file>
   </header>
-  <module>snmpm_mpd</module>
+  <module since="">snmpm_mpd</module>
   <modulesummary>Message Processing and Dispatch module for the SNMP manager</modulesummary>
   <description>
     <p>The module <c>snmpm_mpd</c> implements the version independent
       Message Processing and Dispatch functionality in SNMP for the manager. 
       It is supposed to be used from a Network Interface process 
-      (<seealso marker="snmp_manager_netif">Definition of Manager Net if</seealso>).
+      (<seeguide marker="snmp_manager_netif">Definition of Manager Net if</seeguide>).
       </p>
 
     <p>Legacy API function <c>process_msg/7</c> that has got separate
@@ -48,7 +48,7 @@
 
   <funcs>
     <func>
-      <name>init_mpd(Vsns) -> mpd_state()</name>
+      <name since="">init(Vsns) -> mpd_state()</name>
       <fsummary>Initialize the MPD module</fsummary>
       <type>
         <v>Vsns = [Vsn]</v>
@@ -64,12 +64,12 @@
       </desc>
     </func>
     <func>
-      <name>process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
       <fsummary>Process a message received from the network</fsummary>
       <type>
         <v>Msg = binary()</v>
         <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+	<v>Addr = {<seetype marker="kernel:inet#ip_address">inet:ip_address(), inet:port_number()</seetype>} </v>
         <v>State = mpd_state()</v>
         <v>NoteStore = pid()</v>
         <v>Logger = function()</v>
@@ -92,7 +92,7 @@
       </desc>
     </func>
     <func>
-      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="">generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a request message to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
@@ -117,7 +117,7 @@
       </desc>
     </func>
     <func>
-      <name>generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="">generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a response packet to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
@@ -133,7 +133,7 @@
           </p>
         <p><c>MsgData</c> is the message specific data used in the SNMP 
           message. This value is received from the 
-          <seealso marker="snmpm_mpd#process_msg">process_msg</seealso> 
+          <seeerl marker="snmpm_mpd#process_msg">process_msg</seeerl> 
           function.
           </p>
       </desc>

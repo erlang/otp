@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,23 +18,24 @@
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
-
 -export([forget/1, records/1, known_bugs/1, otp_5226/1, otp_5327/1,
 	 otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
 	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
 	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
 	 bs_construct_SUITE/1,
-	 refman_bit_syntax/1, 
-	 progex_bit_syntax/1, progex_records/1, 
+	 refman_bit_syntax/1,
+	 progex_bit_syntax/1, progex_records/1,
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
-         otp_14285/1, otp_14296/1, typed_records/1]).
+         otp_14285/1, otp_14296/1, typed_records/1, types/1]).
 
--export([ start_restricted_from_shell/1, 
+-export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
+
+-export([ start_interactive/1, whereis/1 ]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -47,7 +48,6 @@
 
 -ifdef(STANDALONE).
 -define(config(A,B),config(A,B)).
--define(t,test_server).
 -export([config/2]).
 -define(line, noop, ).
 config(priv_dir,_) ->
@@ -64,8 +64,9 @@ end_per_testcase(_Case, Config) ->
     OrigPath = proplists:get_value(orig_path,Config),
     code:set_path(OrigPath),
     application:unset_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    (catch code:delete(user_default)),
+    purge_and_delete(user_default),
+    %% used by `records' test case
+    purge_and_delete(test),
     ok.
 -endif.
 
@@ -73,19 +74,21 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,10}}].
 
-all() -> 
+all() ->
     [forget, known_bugs, otp_5226, otp_5327,
-     otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
+     otp_5435, otp_5195, otp_5915, otp_5916,
+     start_interactive, whereis, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
-     {group, restricted}, {group, records}].
+     {group, restricted}, {group, records}, {group, definitions}].
 
-groups() -> 
+groups() ->
     [{restricted, [],
       [start_restricted_from_shell,
        start_restricted_on_command_line, restricted_local]},
      {bits, [],
       [bs_match_misc_SUITE, bs_match_tail_SUITE,
        bs_match_bin_SUITE, bs_construct_SUITE]},
+     {definitions, [], [types]},
      {records, [],
       [records, typed_records]},
      {refman, [], [refman_bit_syntax]},
@@ -190,16 +193,15 @@ ok.
 
 %% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_1,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			       " -stdlib restricted_shell foo"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "-stdlib", "restricted_shell", "foo"]),
     "Warning! Restricted shell module foo not found: nofile"++_ =
 	t({Node, <<"begin m() end.">>}),
     "exception exit: restricted shell does not allow m()" =
 	comm_err({Node, <<"begin m() end.">>}),
     [ok] =
 	(catch scan({Node, <<"begin q() end.">>})),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted2.erl"),
     Contents = <<"-module(test_restricted2).
@@ -217,9 +219,8 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
                       {false,State}.
                  ">>,
     ok = compile_file(Config, Test, Contents, []),
-    {ok,Node2} = start_node(shell_suite_helper_2,
-				 "-pa "++proplists:get_value(priv_dir,Config)++
-				 " -stdlib restricted_shell test_restricted2"),
+    {ok, Peer2, Node2} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+				  "-stdlib", "restricted_shell", "test_restricted2"]),
     "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     "exception exit: restricted shell does not allow c(foo)" =
 	comm_err({Node2,<<"begin c(foo) end.">>}),
@@ -235,7 +236,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
 	comm_err({Node2,<<"begin shell:stop_restricted() end.">>}),
     [ok] =
 	scan({Node2, <<"begin q() end.">>}),
-    test_server:stop_node(Node2),
+    peer:stop(Peer2),
     ok.
 
 %% Tests calling local shell functions with spectacular arguments in
@@ -258,6 +259,8 @@ restricted_local(Config) when is_list(Config) ->
                   local_allowed(_,_,State) ->
                       {false,State}.
 
+                  non_local_allowed({erlang,raise},[error, _, _],State) ->
+                      {true,State};
                   non_local_allowed({shell,stop_restricted},[],State) ->
                       {true,State};
                   non_local_allowed(_,_,State) ->
@@ -298,44 +301,101 @@ restricted_local(Config) when is_list(Config) ->
 	comm_err(<<"begin shell:stop_restricted() end.">>),
     undefined =
 	application:get_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    true = (catch code:delete(user_default)),
+    true = purge_and_delete(user_default),
     ok.
-    
+
 
 %% f/0 and f/1.
 forget(Config) when is_list(Config) ->
     %% f/0
     [ok] = scan(<<"begin f() end.">>),
-    "1: variable 'A' is unbound" =
+    "1:13: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(), A.">>),
     [ok] = scan(<<"A = 3, A = f(), A.">>),
 
     %% f/1
     [ok] = scan(<<"begin f(A) end.">>),
-    "1: variable 'A' is unbound" =
+    "1:14: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(A), A.">>),
     [ok] = scan(<<"A = 3, A = f(A), A.">>),
     "exception error: no function clause matching call to f/1" =
         comm_err(<<"f(a).">>),
     ok.
 
+%% type definition support
+types(Config) when is_list(Config) ->
+    %% type
+    [ok] = scan(<<"-type baz() :: integer().">>),
+    %% record
+    [ok] = scan(<<"-record(foo, {bar :: baz()}).">>),
+    %% spec
+    [ok] = scan(<<"-spec foo(Bar) -> Baz when
+        Bar :: string(),
+        Baz :: integer().">>),
+    shell_attribute_test(Config),
+    ok.
+shell_attribute_test(Config) ->
+    Path =     filename:join([proplists:get_value(priv_dir, Config),
+    "shell_history", "function_def"]),
+    rtnode:run(
+      [{putline, "foo(Bar) -> Bar."},
+       {expect, "ok"},
+       {putline, "fl()."},
+       {expect, "\\Q{function,{shell_default,foo,1}}\\E"},
+       {putline, "foo(1)."},
+       {expect, "1"},
+       {putline, "shell_default:foo(2)."},
+       {expect, "2"}
+      ],[],"", ["-kernel","shell_history","enabled",
+      "-kernel","shell_history_path","\"" ++ Path ++ "\"",
+      "-kernel","shell_history_drop","[\"init:stop().\"]"]),
+    receive after 1000 -> ok end,
+    rtnode:run(
+        [{putline, "-record(hej, {a = 0 :: integer()})."},
+         {expect, "ok"},
+         {putline, "rl()."},
+         {expect, "\\Q-record(hej,{a = 0 :: integer()}).\\E"},
+         {putline, "#hej{a=1}."},
+         {expect, "\\Q#hej{a = 1}\\E"}
+        ],[],"", ["-kernel","shell_history","enabled",
+        "-kernel","shell_history_path","\"" ++ Path ++ "\"",
+        "-kernel","shell_history_drop","[\"init:stop().\"]"]),
+    receive after 1000 -> ok end,
+    rtnode:run(
+        [{putline, "-spec foo(Bar) -> Bar when Bar :: integer()."},
+         {expect, "ok"},
+         {putline, "fl()."},
+         {expect, "\\Q{function_type,{shell_default,foo,1}}\\E"}
+        ],[],"", ["-kernel","shell_history","enabled",
+        "-kernel","shell_history_path","\"" ++ Path ++ "\"",
+        "-kernel","shell_history_drop","[\"init:stop().\"]"]),
+    receive after 1000 -> ok end,
+    rtnode:run(
+        [{putline, "-type my_type() :: boolean() | integer()."},
+         {expect, "ok"},
+         {putline, "fl()."},
+         {expect, "\\Q{type,my_type}\\E"}
+        ],[],"", ["-kernel","shell_history","enabled",
+        "-kernel","shell_history_path","\"" ++ Path ++ "\"",
+        "-kernel","shell_history_drop","[\"init:stop().\"]"]),
+    ok.
+
 %% Test of the record support. OTP-5063.
 records(Config) when is_list(Config) ->
     %% rd/2
     [{attribute,_,record,{bar,_}},ok] =
-        scan(<<"rd(foo,{bar}), 
+        scan(<<"rd(foo,{bar}),
                 rd(bar,{foo = (#foo{})#foo.bar}),
                 rl(bar).">>),
     "variable 'R' is unbound" = % used to work (before OTP-5878, R11B)
-        exit_string(<<"rd(foo,{bar}), 
+        exit_string(<<"rd(foo,{bar}),
                        R = #foo{},
                        rd(bar,{foo = R#foo.bar}).">>),
     "exception error: no function clause matching call to rd/2" =
         comm_err(<<"rd({foo},{bar}).">>),
     "bad record declaration" = exit_string(<<"A = bar, rd(foo,A).">>),
     [foo] = scan(<<"begin rd(foo,{bar}) end.">>),
-    "1: record foo undefined" =
+    "1:22: record foo undefined" =
          comm_err(<<"begin rd(foo,{bar}), #foo{} end.">>),
     ['f o o'] = scan(<<"rd('f o o', {bar}).">>),
     [foo] = scan(<<"rd(foo,{bar}), rd(foo,{foo = #foo{}}).">>),
@@ -343,7 +403,7 @@ records(Config) when is_list(Config) ->
     %% rf/0,1
     [_, {attribute,_,record,{foo,_}},ok] =
          scan(<<"rf('_'). rd(foo,{bar}),rl().">>),
-    "1: record foo undefined" =
+    "1:33: record foo undefined" =
         comm_err(<<"rd(foo,{bar}), #foo{}, rf(foo), #foo{}.">>),
     [ok,{foo,undefined}] =
         scan(<<"rd(foo,{bar}), A = #foo{}, rf(foo). A.">>),
@@ -402,7 +462,7 @@ records(Config) when is_list(Config) ->
     [{attribute,A1,record,{test1,_}},ok] = scan(RR5),
     RR6 = "rr(\"" ++ Test ++ "\", '_', {d,test2}), rl([test1,test2]).",
     [{attribute,A1,record,{test2,_}},ok] = scan(RR6),
-    RR7 = "rr(\"" ++ Test ++ 
+    RR7 = "rr(\"" ++ Test ++
            "\", '_', [{d,test1},{d,test2,17}]), rl([test1,test2]).",
     [{attribute,A1,record,{test1,_}},{attribute,A1,record,{test2,_}},ok] =
         scan(RR7),
@@ -427,6 +487,30 @@ records(Config) when is_list(Config) ->
     [{error,nofile}] = scan(<<"rr(not_a_module).">>),
     [{error,invalid_filename}] = scan(<<"rr({foo}).">>),
     [[]] = scan(<<"rr(\"not_a_file\").">>),
+
+    %% load record from archive
+    true = purge_and_delete(test),
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    AppDir = filename:join(PrivDir, "test_app"),
+    ok = file:make_dir(AppDir),
+    AppEbinDir = filename:join(AppDir, "ebin"),
+    ok = file:make_dir(AppEbinDir),
+
+    ok = file:write_file(Test, Contents),
+    {ok, test} = compile:file(Test, [{outdir, AppEbinDir}]),
+
+    Ext = init:archive_extension(),
+    Archive = filename:join(PrivDir, "test_app" ++ Ext),
+    {ok, _} = zip:create(Archive, ["test_app"], [{compress, []}, {cwd, PrivDir}]),
+
+    ArchiveEbinDir = filename:join(Archive, "test_app/ebin"),
+    true = code:add_path(ArchiveEbinDir),
+    {module, test} = code:load_file(test),
+    BeamInArchive = filename:join(ArchiveEbinDir, "test.beam"),
+    BeamInArchive = code:which(test),
+
+    [[state]] = scan(<<"rr(test).">>),
 
     %% using records
     [2] = scan(<<"rd(foo,{bar}), record_info(size, foo).">>),
@@ -480,7 +564,7 @@ records(Config) when is_list(Config) ->
 
     [ok] =
         scan(<<"rd(a,{}), is_record({a},a) andalso true, b().">>),
-    
+
     %% nested record defs
     "#b{a = #a{}}.\n" = t(<<"rd(a,{}), rd(b, {a = #a{}}), #b{}.">>),
 
@@ -567,11 +651,11 @@ otp_5327(Config) when is_list(Config) ->
                                       default,default}]}),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>):3/binary>>.">>),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>)/binary>>.">>),
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<(<<\"abc\">>):4/binary>>.">>),
     true = byte_size(hd(scan("<<3.14:64/float>>."))) =:= 8,
     true = byte_size(hd(scan("<<3.14:32/float>>."))) =:= 4,
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<3.14:128/float>>.">>),
     "exception error: bad argument" =
         comm_err(<<"<<10:default>>.">>),
@@ -601,7 +685,7 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<103133:64/binary>> = <<103133:64/float>>.">>),
     "exception error: interpreted function with arity 1 called with two arguments" =
         comm_err(<<"(fun(X) -> X end)(a,b).">>),
-    {'EXIT', {{illegal_pattern,_}, _}} =
+    {'EXIT', {{badmatch,<<17:32>>}, _}} =
         (catch evaluate("<<A:a>> = <<17:32>>.", [])),
     C = <<"
          <<A:4,B:4,C:4,D:4,E:4,F:4>> = <<\"hej\">>,
@@ -614,6 +698,9 @@ otp_5327(Config) when is_list(Config) ->
     %% unbound_var would be nicer...
     {'EXIT',{{illegal_pattern,_},_}} =
         (catch evaluate(<<"<<A:B>> = <<17:32>>.">>, [])),
+    %% A badarith exception is turned into badmatch.
+    {'EXIT', {{badmatch,<<1777:32>>}, _}} =
+        (catch evaluate(<<"<<A:(1/0)>> = <<1777:32>>.">>, [])),
     %% undefined_bittype is turned into badmatch:
     {'EXIT',{{badmatch,<<17:32>>},_}} =
         (catch evaluate(<<"<<A/apa>> = <<17:32>>.">>, [])),
@@ -635,14 +722,10 @@ otp_5435(Config) when is_list(Config) ->
     true = <<103133.0:64/float>> =:=
         evaluate(<<"<<103133.0:64/float>> = <<103133:64/float>>.">>, []),
     true = is_alive(),
-    {ok, Node} = start_node(shell_SUITE_otp_5435),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, otp_5435_2, []),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
-
-start_node(Name) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 otp_5435_2() ->
     true = code:del_path(compiler),
@@ -650,7 +733,7 @@ otp_5435_2() ->
     %% application being in the path.
     %% OTP-5876.
     [{attribute,_,record,{bar,_}},ok] =
-        scan(<<"rd(foo,{bar}), 
+        scan(<<"rd(foo,{bar}),
                 rd(bar,{foo = (#foo{})#foo.bar}),
 	       rl(bar).">>),
     ok.
@@ -663,10 +746,10 @@ otp_5195(Config) when is_list(Config) ->
 
     %% An experimental shell used to translate error tuples:
     %% "(qlc) \"1: generated variable 'X' must not be used in "
-    %% "list expression\".\n" = 
+    %% "list expression\".\n" =
     %%    t(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     %% Same as last one (if the shell does not translate error tuples):
-    [{error,qlc,{1,qlc,{used_generator_variable,'X'}}}] =
+    [{error,qlc,{{1,31},qlc,{used_generator_variable,'X'}}}] =
         scan(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     {error,qlc,{1,qlc,{used_generator_variable,'X'}}} =
         evaluate(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>, []),
@@ -675,7 +758,7 @@ otp_5195(Config) when is_list(Config) ->
     {'EXIT',{undef,_}} = (catch evaluate(Ugly, [])),
 
     V_1 = <<"qlc:e(qlc:q([X || X <- qlc:append([[1,2,3],v(-1)])])).">>,
-    "- 1: command not found" = comm_err(V_1),
+    "-1: command not found" = comm_err(V_1),
     {'EXIT', {undef,_}} = (catch evaluate(V_1, [])),
 
     "1\n2\n3\n3.\n" =
@@ -1182,7 +1265,7 @@ bs_match_int_SUITE(Config) when is_list(Config) ->
 						      Int -> ok;
 						      Other ->
 							  io:format(\"Bin = ~p,\", [Bin]),
-                                     io:format(\"SkipBef = ~p, N = ~p\", 
+                                     io:format(\"SkipBef = ~p, N = ~p\",
                                                [SkipBef,N]),
 								    io:format(\"Expected ~p, got ~p\",
                                                [Int,Other])
@@ -1289,8 +1372,8 @@ ok = evaluate(C, []).
 
 %% OTP-5327. Adopted from emulator/test/bs_match_bin_SUITE.erl.
 bs_match_bin_SUITE(Config) when is_list(Config) ->
-    ByteSplitBinary = 
-        <<"ByteSplit = 
+    ByteSplitBinary =
+        <<"ByteSplit =
              fun(L, B, Pos, Fun) when Pos >= 0 ->
                      Sz1 = Pos,
                      Sz2 = size(B) - Pos,
@@ -1321,7 +1404,7 @@ ok = evaluate(ByteSplitBinary, []),
 BitSplitBinary =
 <<"Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
 
-           MakeInt = 
+           MakeInt =
   fun(List, 0, Acc, _F) -> Acc;
      ([H|T], N, Acc, F) -> F(T, N-1, Acc bsl 1 bor H, F)
   end,
@@ -1430,7 +1513,7 @@ bs_construct_SUITE(Config) when is_list(Config) ->
 				?FAIL(<<<<23,56,0,2>>:(-16)/binary>>) ","
 				?FAIL(<<<<23,56,0,2>>:(2.5)/binary>>) ","
 				?FAIL(<<<<23,56,0,2>>:(anka)>>) "
-       end,                 
+       end,
 	   TestF(),
 
 	   NotUsed1 = fun(I, BinString) -> <<I:32,BinString/binary>>, ok end,
@@ -1490,7 +1573,7 @@ ok = evaluate(C1, []),
 C2 = <<"
        I = fun(X) -> X end,
 
-       Fail = fun() -> 
+       Fail = fun() ->
 
 		      I_minus_777 = I(-777),
 		      I_minus_2047 = I(-2047),
@@ -1612,8 +1695,8 @@ progex_bit_syntax(Config) when is_list(Config) ->
 
     Fun4 = fun(Dgram) ->
                    DgramSize = byte_size(Dgram),
-                   case Dgram of 
-                       <<?IP_VERSION:4, HLen:4, SrvcType:8, TotLen:16, 
+                   case Dgram of
+                       <<?IP_VERSION:4, HLen:4, SrvcType:8, TotLen:16,
 			 ID:16, Flgs:3, FragOff:13,
 			 TTL:8, Proto:8, HdrChkSum:16,
 			 SrcIP:32, DestIP:32,
@@ -1714,7 +1797,7 @@ triples_to_bin1(T) ->
 
 triples_to_bin1([{X,Y,Z} | T], Acc) ->
     triples_to_bin1(T, <<Acc/binary, X:32, Y:32, Z:32>>);   % inefficient
-triples_to_bin1([], Acc) -> 
+triples_to_bin1([], Acc) ->
     Acc.
 
 triples_to_bin2(T) ->
@@ -1722,12 +1805,12 @@ triples_to_bin2(T) ->
 
 triples_to_bin2([{X,Y,Z} | T], Acc) ->
     triples_to_bin2(T, [<<X:32, Y:32, Z:32>> | Acc]);
-triples_to_bin2([], Acc) -> 
+triples_to_bin2([], Acc) ->
     list_to_binary(lists:reverse(Acc)).
 
 %% Record examples from Programming Examples. OTP-5237.
 progex_records(Config) when is_list(Config) ->
-    Test1 = 
+    Test1 =
 	<<"-module(recs).
           -record(person, {name = \"\", phone = [], address}).
           -record(name, {first = \"Robert\", last = \"Ericsson\"}).
@@ -1764,7 +1847,7 @@ t() ->
 					    c),
 
 			     P3 = #person{name=\"Joe\", phone=[0,0,7], address=\"A street\"},
-              #person{name = Name} = P3, 
+              #person{name = Name} = P3,
 					  \"Joe\" = Name,
 
               \"Robert\" = demo(),
@@ -1832,7 +1915,7 @@ Test1_shell =
 						 Find),
 
 			 P3 = #person{name=\"Joe\", phone=[0,0,7], address=\"A street\"},
-          #person{name = Name} = P3, 
+          #person{name = Name} = P3,
 				      \"Joe\" = Name,
 
           Demo = fun() ->
@@ -1862,7 +1945,7 @@ print(#person{name = Name, age = Age,
     io:format(\"Name: ~s, Age: ~w, Phone: ~w ~n\"
                         \"Dictionary: ~w.~n\", [Name, Age, Phone, Dict]).
 
-          birthday(P) when record(P, person) -> 
+          birthday(P) when record(P, person) ->
 		     P#person{age = P#person.age + 1}.
 
 register_two_hackers() ->
@@ -1880,7 +1963,7 @@ ok.
 
 %% List comprehension examples from Programming Examples. OTP-5237.
 progex_lc(Config) when is_list(Config) ->
-    Test1 = 
+    Test1 =
 	<<"-module(lc).
           -export([t/0]).
 
@@ -2014,7 +2097,7 @@ ok.
 
 %% Funs examples from Programming Examples. OTP-5237.
 progex_funs(Config) when is_list(Config) ->
-    Test1 = 
+    Test1 =
 	<<"-module(funs).
           -export([t/0]).
 
@@ -2251,7 +2334,7 @@ Test2_shell =
        \"ERLANG\" = Upcase_word(\"Erlang\"),
           [\"I\",\"LIKE\",\"ERLANG\"] = lists:map(Upcase_word, L),
           {[\"I\",\"LIKE\",\"ERLANG\"],11} =
-               lists:mapfoldl(fun(Word, Sum) -> 
+               lists:mapfoldl(fun(Word, Sum) ->
 				      {Upcase_word(Word), Sum + length(Word)}
                               end, 0, L),
 	    [500,12,45] = lists:filter(Big, [500,12,2,45,6,7]),
@@ -2296,10 +2379,10 @@ otp_6166(Config) when is_list(Config) ->
                    -record(r6, {f = #r5{}}).            % r6 > r0
                    -record(r0, {f = #r5{}, g = #r5{}}). % r0 < r5">>,
     ok = file:write_file(Test2, Contents2),
-    
-    RR12 = "[r1,r2,r3,r4,r5] = rr(\"" ++ Test1 ++ "\"), 
-            [r0,r1,r2,r3,r4,r5,r6] = rr(\"" ++ Test2 ++ "\"), 
-            R0 = #r0{}, R6 = #r6{}, 
+
+    RR12 = "[r1,r2,r3,r4,r5] = rr(\"" ++ Test1 ++ "\"),
+            [r0,r1,r2,r3,r4,r5,r6] = rr(\"" ++ Test2 ++ "\"),
+            R0 = #r0{}, R6 = #r6{},
             true = is_record(R0, r0),
             true = is_record(R6, r6),
             ok. ",
@@ -2341,6 +2424,10 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"fun(X) -> not X end(a).">>),
     "exception error: bad argument: a" =
         comm_err(<<"fun(A, B) -> A orelse B end(a, b).">>),
+    "exception error: bad key: key" =
+        comm_err(<<"map_get(key, #{}).">>),
+    "exception error: bad map: not_a_map" =
+        comm_err(<<"map_get(key, not_a_map).">>),
     "exception error: an error occurred when evaluating an arithmetic expression" =
         comm_err(<<"math:sqrt(2)/round(math:sqrt(0)).">>),
     "exception error: interpreted function with arity 1 called with no arguments" =
@@ -2370,26 +2457,19 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"V = lists:seq(1, 20), case V of a -> ok end.">>),
     "exception error: no function clause matching" =
         comm_err(<<"fun(P) when is_pid(P) -> true end(a).">>),
-    case test_server:is_native(erl_eval) of
-	true ->
-	    %% Native code has different exit reason. Don't bother
-	    %% testing them.
-	    ok;
-	false ->
-	    "exception error: {function_clause," =
-		comm_err(<<"erlang:error(function_clause, "
-			  "[unproper | list]).">>),
-	    %% Cheating:
-	    "exception error: no function clause matching "
-		"shell:apply_fun(4)" ++ _ =
-		comm_err(<<"erlang:error(function_clause, [4]).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(" ++ _ =
-		comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(34) (lists.erl, line " ++ _ =
-		comm_err(<<"lists:reverse(34).">>)
-    end,
+    "exception error: {function_clause," =
+        comm_err(<<"erlang:error(function_clause, "
+                   "[unproper | list]).">>),
+    %% Cheating:
+    "exception error: no function clause matching "
+        "shell:apply_fun(4)" ++ _ =
+        comm_err(<<"erlang:error(function_clause, [4]).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(" ++ _ =
+        comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(34) (lists.erl, line " ++ _ =
+        comm_err(<<"lists:reverse(34).">>),
     "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
     "exception error: no function clause matching" ++ _ =
@@ -2419,7 +2499,7 @@ otp_6554(Config) when is_list(Config) ->
     "exception error: undefined function math:sqrt/2" =
         comm_err(<<"math:sqrt(2, 2).">>),
     "exception error: limit of number of arguments to interpreted function "
-          "exceeded" = 
+          "exceeded" =
         comm_err(<<"fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U) ->"
                    "   a end().">>),
     "exception error: bad filter a" =
@@ -2483,7 +2563,7 @@ otp_6554(Config) when is_list(Config) ->
     application:unset_env(stdlib, shell_history_length),
     [true] = scan(<<"begin <<10:(1024*1024*10)>>,"
                           "<<10:(1024*1024*10)>>, garbage_collect() end.">>),
-    "1: syntax error before: '.'" = comm_err("1-."),
+    "1:3: syntax error before: '.'" = comm_err("1-."),
     %% comm_err(<<"exit().">>), % would hang
     "exception error: no function clause matching call to history/1" =
         comm_err(<<"history(foo).">>),
@@ -2517,7 +2597,7 @@ otp_6554(Config) when is_list(Config) ->
              t(<<"results(2). 1. v(2). h().">>),
     application:unset_env(stdlib, shell_saved_results),
     "1\nfoo\n17\nB = foo\nC = 17\nF = fun() ->\n           foo"
-          "\n    end.\nok.\n" = 
+          "\n    end.\nok.\n" =
         t(<<"begin F = fun() -> foo end, 1 end. B = F(). C = 17. b().">>),
 
     "3: command not found" = comm_err(<<"#{v(3) => v}.">>),
@@ -2543,9 +2623,9 @@ otp_7184(Config) when is_list(Config) ->
            t(<<"P = self(),
                 spawn_link(fun() -> process_flag(trap_exit,true),
                                     P ! up,
-                                    receive X -> 
+                                    receive X ->
                                         otp_7184 ! {otp_7184, X}
-                                    end 
+                                    end
                            end),
                 receive up -> ok end,
                 erlang:raise(throw, thrown, []).">>),
@@ -2555,9 +2635,9 @@ otp_7184(Config) when is_list(Config) ->
            t(<<"P = self(),
                 spawn_link(fun() -> process_flag(trap_exit,true),
                                     P ! up,
-                                    receive X -> 
+                                    receive X ->
                                         otp_7184 ! {otp_7184, X}
-                                    end 
+                                    end
                            end),
                 receive up -> ok end,
                 erlang:raise(exit, fini, []).">>),
@@ -2567,9 +2647,9 @@ otp_7184(Config) when is_list(Config) ->
            t(<<"P = self(),
                 spawn_link(fun() -> process_flag(trap_exit,true),
                                     P ! up,
-                                    receive X -> 
+                                    receive X ->
                                         otp_7184 ! {otp_7184,X}
-                                    end 
+                                    end
                            end),
                 receive up -> ok end,
                 erlang:raise(error, bad, []).">>),
@@ -2591,7 +2671,7 @@ otp_7184(Config) when is_list(Config) ->
 otp_7232(Config) when is_list(Config) ->
     Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([55296,56296],\n"
+    "qlc:sort([55296, 56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"
@@ -2694,7 +2774,7 @@ exit_term(B) ->
 -endif.
 
 error_string(B) ->
-    "** exception error:" ++ Reply = t(B),    
+    "** exception error:" ++ Reply = t(B),
     caught_string(Reply).
 
 exit_string(B) ->
@@ -2727,9 +2807,8 @@ prompt_err(B) ->
 
 %% OTP-10302. Unicode. Also OTP-14285, Unicode atoms.
 otp_10302(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_2,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2752,7 +2831,7 @@ otp_10302(Config) when is_list(Config) ->
            h().">>,
 
     "ok.\n\"\x{400}\"\nA = \"\x{400}\".\nok.\n"
-    "1: io:setopts([{encoding,utf8}])\n-> ok.\n"
+    "1: io:setopts([{encoding, utf8}])\n-> ok.\n"
     "2: A = [1024] = \"\x{400}\"\n-> \"\x{400}\"\n"
     "3: b()\n-> ok.\nok.\n" = t({Node,Test4}),
 
@@ -2802,7 +2881,7 @@ otp_10302(Config) when is_list(Config) ->
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
-    
+
     "ok.\n** exception error: an error occurred when evaluating"
         " an arithmetic expression\n     in operator  '/'/2\n"
         "        called as <<\"ª\">> / <<\"ª\">>.\n" = t({Node,Test7}),
@@ -2879,7 +2958,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n** exception error: undefined function "
     "shell_SUITE:'\x{447}\x{435}'/0.\n" =
         t({Node,Test17}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_13719(Config) when is_list(Config) ->
@@ -2896,9 +2975,8 @@ otp_13719(Config) when is_list(Config) ->
     ok.
 
 otp_14285(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_4,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+        "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2908,7 +2986,7 @@ otp_14285(Config) ->
            end.">>,
     "-record('\x{400}',{'\x{400}' = '\x{400}'}).\nok.\n" =
         t({Node,Test1}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_14296(Config) when is_list(Config) ->
@@ -2916,7 +2994,7 @@ otp_14296(Config) when is_list(Config) ->
             F = fun() -> a end,
             LocalFun = term_to_string(F),
             S = LocalFun ++ ".",
-            "1: syntax error before: Fun" = comm_err(S)
+            "1:2: syntax error before: Fun" = comm_err(S)
     end(),
 
     fun() ->
@@ -2930,7 +3008,7 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPid = "<100000.0.0>",
             S = UnknownPid ++ ".",
-            "1: syntax error before: '<'" = comm_err(S)
+            "1:1: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
@@ -2941,7 +3019,7 @@ otp_14296(Config) when is_list(Config) ->
     end(),
 
     fun() ->
-            Port = open_port({spawn, "ls"}, [{line,1}]),
+            Port = open_port({spawn, "erl -s erlang halt"}, [{line,1}]),
             KnownPort = erlang:port_to_list(Port),
             S = KnownPort ++ ".",
             R = KnownPort ++ ".\n",
@@ -2951,13 +3029,13 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPort = "#Port<100000.0>",
             S = UnknownPort ++ ".",
-            "1: syntax error before: Port" = comm_err(S)
+            "1:2: syntax error before: Port" = comm_err(S)
     end(),
 
     fun() ->
             UnknownRef = "#Ref<100000.0.0.0>",
             S = UnknownRef ++ ".",
-            "1: syntax error before: Ref" = comm_err(S)
+            "1:2: syntax error before: Ref" = comm_err(S)
     end(),
 
     fun() ->
@@ -2997,11 +3075,198 @@ otp_14296(Config) when is_list(Config) ->
     {error, {_,_,"bad term"}} = TF("1, 2"),
     ok.
 
+start_interactive(_Config) ->
+    start_interactive_shell([]),
+    start_interactive_shell(["-env","TERM","dumb"]).
+
+start_interactive_shell(ExtraArgs) ->
+
+    %% Basic test case
+    rtnode:run(
+      [{expect, "eval_test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive() end},
+       {expect, "1>"},
+       {expect, "2>"},
+       {eval, fun() -> {error,already_started} = shell:start_interactive(), ok end}
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+
+    %% Test that custom MFA works
+    rtnode:run(
+      [{expect, "eval_test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive({shell,start,[]}) end},
+       {expect, "1>"},
+       {expect, "2>"}
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+
+    %% Test that we can start noshell and then a shell
+    rtnode:run(
+      [{expect, "eval_test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive(noshell) end},
+       {eval, fun() -> io:format(user,"~ts",[io:get_line(user, "")]) end},
+       {expect, "test\\."},
+       {eval, fun() -> shell:start_interactive() end},
+       {expect, "1>"},
+       {putline, "test."},
+       {expect, "2>"}
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+
+    %% Test that we can start various remote shell combos
+    [ begin
+          {ok, Peer, Node} = ?CT_PEER(),
+          SNode = atom_to_list(Node),
+          rtnode:run(
+            [{expect, "eval_test"},
+             {putline, "test."},
+             {eval, fun() -> shell:start_interactive(Arg(Node)) end},
+             {expect, "\\Q("++SNode++")\\E2>"}
+            ] ++ quit_hosting_node(),
+            [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+          peer:stop(Peer)
+      end || Arg <- [fun(Node) -> {Node, {shell,start,[]}} end,
+                     fun(Node) -> {remote, atom_to_list(Node)} end,
+                     fun(Node) -> {remote, hd(string:split(atom_to_list(Node),"@"))} end,
+                     fun(Node) -> {remote, atom_to_list(Node), {shell,start,[]}} end
+                    ]],
+
+    %% Test that errors work as they should
+    {ok, Peer, Node} = ?CT_PEER(),
+    rtnode:run(
+      [{expect, "eval_test"},
+       {eval, fun() ->
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node"}),
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node",
+                                                {invalid_module, start, []}}),
+                      {error,nofile} = shell:start_interactive(
+                                         {remote,atom_to_list(Node),
+                                          {invalid_module, start, []}}),
+                      shell:start_interactive({remote, atom_to_list(Node)})
+              end},
+       {expect, "1> $"}
+      ] ++ quit_hosting_node(),
+      [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+    peer:stop(Peer),
+
+    ok.
+
+whereis(_Config) ->
+    Proxy = spawn_link(
+              fun() ->
+                      (fun F(P) ->
+                               receive
+                                   {set,NewPid} ->
+                                       F(NewPid);
+                                   {get,From} ->
+                                       From ! P,
+                                       F(P)
+                               end
+                       end)(undefined)
+              end),
+
+    %% Test that shell:whereis() works with JCL in newshell
+    rtnode:run(
+      [{expect,"1> $"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {set,shell:whereis()},
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "s"},
+       {expect,  "--> $"},
+       {putline, "c"},
+       {expect,  "\r\nEshell"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     io:format("~p =:= ~p~n",[PrevPid, shell:whereis()]),
+                     false = PrevPid =:= shell:whereis(),
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "c 1"},
+       {expect, "\r\n"},
+       {putline, ""},
+       {expect, "2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     true = PrevPid =:= shell:whereis(),
+                     ok
+             end}]),
+
+    %% Test that shell:whereis() works in oldshell
+    rtnode:run(
+      [{expect,"1>"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     true = is_pid(shell:whereis()),
+                     ok
+             end}],
+     [],"",["-env","TERM","dumb"]),
+
+    %% Test that noinput and noshell gives undefined shell process
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noinput"]),
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noshell"]),
+
+    %% Test that remsh gives the correct shell process
+    {ok, Peer, Node} = ?CT_PEER(),
+    NodeStr = lists:flatten(io_lib:format("~w",[Node])),
+    rtnode:run(
+      [{expect, "1>"},
+       {putline,"shell:whereis()."},
+       {expect,"\n<0[.]"},
+       {expect, "2>"},
+       {eval, fun() ->
+                      group_leader(erlang:whereis(user),self()),
+                      true = Node =:= node(shell:whereis()),
+                      ok
+              end}] ++ quit_hosting_node(),
+      peer:random_name(?FUNCTION_NAME), " ", "-remsh " ++ NodeStr  ++
+          " -pa " ++ filename:dirname(code:which(?MODULE))),
+
+    peer:stop(Peer),
+
+    ok.
+
+quit_hosting_node() ->
+    [{putline, "\^g"},
+     {expect, "--> $"},
+     {putline, "s"},
+     {expect, "--> $"},
+     {putline, "c"},
+     {expect, ["Eshell"]},
+     {expect, ["1> $"]}].
+
 term_to_string(T) ->
     lists:flatten(io_lib:format("~w", [T])).
 
 scan(B) ->
-    F = fun(Ts) -> 
+    F = fun(Ts) ->
                 case erl_parse:parse_term(Ts) of
                     {ok,Term} ->
                         Term;
@@ -3042,18 +3307,18 @@ t1(Parent, {Bin,Enc}, F) ->
     S = #state{bin = Bin, unic = Enc, reply = [], leader = group_leader()},
     group_leader(self(), self()),
     _Shell = F(),
-    try 
+    try
         server_loop(S)
     catch exit:R -> Parent ! {self(), R};
           throw:{?MODULE,LoopReply,latin1} ->
-	    L0 = binary_to_list(list_to_binary(LoopReply)),
-	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-	    Parent ! {self(), dotify(L1)};
+            L0 = binary_to_list(list_to_binary(LoopReply)),
+            [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+            Parent ! {self(), dotify(L1)};
           throw:{?MODULE,LoopReply,_Uni} ->
-	    Tmp = unicode:characters_to_binary(LoopReply),
-	    L0 = unicode:characters_to_list(Tmp),
-	    [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
-	    Parent ! {self(), dotify(L1)}
+            Tmp = unicode:characters_to_binary(LoopReply),
+            L0 = unicode:characters_to_list(Tmp),
+            [$\n | L1] = lists:dropwhile(fun(X) -> X =/= $\n end, L0),
+            Parent ! {self(), dotify(L1)}
     after group_leader(S#state.leader, self())
     end.
 
@@ -3085,20 +3350,20 @@ start_new_shell(Node) ->
 %% This is a very minimal implementation of the IO protocol...
 
 server_loop(S) ->
-    receive 
+    receive
         {io_request, From, ReplyAs, Request} when is_pid(From) ->
-	    server_loop(do_io_request(Request, From, S, ReplyAs));
-	NotExpected ->
+            server_loop(do_io_request(Request, From, S, ReplyAs));
+        NotExpected ->
             exit(NotExpected)
     end.
-            
+
 do_io_request(Req, From, S, ReplyAs) ->
     case io_requests([Req], [], S) of
         {_Status,{eof,_},S1} ->
-	    io_reply(From, ReplyAs, {error,terminated}),
-	    throw({?MODULE,S1#state.reply,S1#state.unic});
-	{_Status,Reply,S1} ->
-	    io_reply(From, ReplyAs, Reply),
+            io_reply(From, ReplyAs, {error,terminated}),
+            throw({?MODULE,S1#state.reply,S1#state.unic});
+    {_Status,Reply,S1} ->
+        io_reply(From, ReplyAs, Reply),
 	    S1
     end.
 
@@ -3116,7 +3381,7 @@ io_requests([R | Rs], Cont, S) ->
     end;
 io_requests([], [Rs|Cont], S) ->
     io_requests(Rs, Cont, S);
-io_requests([], [], S) -> 
+io_requests([], [], S) ->
     {ok,ok,S}.
 
 io_request({setopts, Opts}, S) ->
@@ -3141,25 +3406,16 @@ io_request({get_geometry,columns}, S) ->
     {ok,80,S};
 io_request({get_geometry,rows}, S) ->
     {ok,24,S};
-io_request({put_chars,Chars}, S) ->
-    {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,latin1,Chars}, S) ->
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,unicode,Chars0}, S) ->
     Chars = unicode:characters_to_list(Chars0),
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
-io_request({put_chars,Mod,Func,Args}, S) ->
-    case catch apply(Mod, Func, Args) of
-        Chars when is_list(Chars) -> 
-            io_request({put_chars,Chars}, S)
-    end;
 io_request({put_chars,Enc,Mod,Func,Args}, S) ->
     case catch apply(Mod, Func, Args) of
-        Chars when is_list(Chars) -> 
+        Chars when is_list(Chars) ->
             io_request({put_chars,Enc,Chars}, S)
     end;
-io_request({get_until,_Prompt,Mod,Func,ExtraArgs}, S) ->
-    get_until(Mod, Func, ExtraArgs, S, latin1);
 io_request({get_until,Enc,_Prompt,Mod,Func,ExtraArgs}, S) ->
     get_until(Mod, Func, ExtraArgs, S, Enc).
 
@@ -3170,7 +3426,7 @@ get_until_loop(M, F, As, S, {more,Cont}, Enc) ->
     Bin = S#state.bin,
     case byte_size(Bin) of
         0 ->
-            get_until_loop(M, F, As, S, 
+            get_until_loop(M, F, As, S,
                            catch apply(M, F, [Cont,eof|As]), Enc);
 	_ when S#state.unic =:= latin1 ->
 	    get_until_loop(M, F, As, S#state{bin = <<>>},
@@ -3200,7 +3456,7 @@ run_file(Config, Module, Test) ->
     ok = file:write_file(FileName, Test),
     ok = compile_file(Config, FileName, Test, []),
     code:purge(Module),
-    {module, Module} = code:load_abs(LoadBeamFile), 
+    {module, Module} = code:load_abs(LoadBeamFile),
     ok = Module:t(),
     file:delete(FileName),
     file:delete(BeamFile),
@@ -3219,8 +3475,6 @@ filename(Name, Config) when is_atom(Name) ->
 filename(Name, Config) ->
     filename:join(proplists:get_value(priv_dir, Config), Name).
 
-start_node(Name, Xargs) ->
-    N = test_server:start_node(Name, slave, [{args, " " ++ Xargs}]),
-    global:sync(),
-    N.
-
+purge_and_delete(Module) ->
+    (catch code:purge(Module)),
+    (catch code:delete(Module)).

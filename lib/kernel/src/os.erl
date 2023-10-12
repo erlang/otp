@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,13 +27,10 @@
 
 -export_type([env_var_name/0, env_var_value/0, env_var_name_value/0]).
 
--export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1]).
-
-%%% BIFs
-
--export([get_env_var/1, getpid/0, list_env_vars/0, perf_counter/0,
-         perf_counter/1, set_env_var/2, set_signal/2, system_time/0,
-         system_time/1, timestamp/0, unset_env_var/1]).
+-export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1,
+         getpid/0, env/0, perf_counter/0,
+         perf_counter/1, set_signal/2, system_time/0,
+         system_time/1, timestamp/0]).
 
 -type os_command() :: atom() | io_lib:chars().
 -type os_command_opts() :: #{ max_size => non_neg_integer() | infinity }.
@@ -46,14 +43,18 @@
 
 -type env_var_name_value() :: nonempty_string().
 
--spec list_env_vars() -> [{env_var_name(), env_var_value()}].
-list_env_vars() ->
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_cause/2, badarg_with_info/1]}).
+
+-spec env() -> [{env_var_name(), env_var_value()}].
+env() ->
     erlang:nif_error(undef).
 
--spec get_env_var(VarName) -> Value | false when
+-spec getenv(VarName) -> Value | false when
       VarName :: env_var_name(),
       Value :: env_var_value().
-get_env_var(_VarName) ->
+getenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec getpid() -> Value when
@@ -72,12 +73,17 @@ perf_counter() ->
       Unit :: erlang:time_unit().
 
 perf_counter(Unit) ->
-      erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
+    try
+        erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit)
+    catch
+        error:_ ->
+            badarg_with_info([Unit])
+    end.
 
--spec set_env_var(VarName, Value) -> true when
+-spec putenv(VarName, Value) -> true when
       VarName :: env_var_name(),
       Value :: env_var_value().
-set_env_var(_, _) ->
+putenv(_VarName, _Value) ->
     erlang:nif_error(undef).
 
 -spec system_time() -> integer().
@@ -97,9 +103,9 @@ system_time(_Unit) ->
 timestamp() ->
     erlang:nif_error(undef).
 
--spec unset_env_var(VarName) -> true when
+-spec unsetenv(VarName) -> true when
       VarName :: env_var_name().
-unset_env_var(_) ->
+unsetenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec set_signal(Signal, Option) -> 'ok' when
@@ -115,36 +121,22 @@ set_signal(_Signal, _Option) ->
 
 -spec getenv() -> [env_var_name_value()].
 getenv() ->
-    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:list_env_vars() ].
-
--spec getenv(VarName) -> Value | false when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-getenv(VarName) ->
-    os:get_env_var(VarName).
+    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:env() ].
 
 -spec getenv(VarName, DefaultValue) -> Value when
       VarName :: env_var_name(),
       DefaultValue :: env_var_value(),
       Value :: env_var_value().
 getenv(VarName, DefaultValue) ->
-    case os:getenv(VarName) of
+    try os:getenv(VarName) of
         false ->
            DefaultValue;
         Value ->
             Value
+    catch
+        error:_ ->
+            badarg_with_info([VarName, DefaultValue])
     end.
-
--spec putenv(VarName, Value) -> true when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-putenv(VarName, Value) ->
-    os:set_env_var(VarName, Value).
-
--spec unsetenv(VarName) -> true when
-      VarName :: env_var_name().
-unsetenv(VarName) ->
-    os:unset_env_var(VarName).
 
 -spec type() -> {Osfamily, Osname} when
       Osfamily :: unix | win32,
@@ -265,23 +257,53 @@ extensions() ->
 -spec cmd(Command) -> string() when
       Command :: os_command().
 cmd(Cmd) ->
-    cmd(Cmd, #{ }).
+    try
+        do_cmd(Cmd, #{ })
+    catch
+        throw:{open_port, Reason} ->
+            badarg_with_cause([Cmd], {open_port, Reason});
+        throw:badarg ->
+            badarg_with_info([Cmd])
+    end.
 
 -spec cmd(Command, Options) -> string() when
       Command :: os_command(),
       Options :: os_command_opts().
 cmd(Cmd, Opts) ->
+    try
+        do_cmd(Cmd, Opts)
+    catch
+        throw:badopt ->
+            badarg_with_cause([Cmd, Opts], badopt);
+        throw:{open_port, Reason} ->
+            badarg_with_cause([Cmd, Opts], {open_port, Reason});
+        throw:badarg ->
+            badarg_with_info([Cmd, Opts])
+    end.
+
+do_cmd(Cmd, Opts) ->
+    MaxSize = get_option(max_size, Opts, infinity),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
-    Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
-                                         stream, in, hide | SpawnOpts]),
+    Port = try open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
+                                             stream, in, hide | SpawnOpts])
+           catch error:Reason ->
+                   throw({open_port, Reason})
+           end,
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, MonRef, Eot, [], 0, maps:get(max_size, Opts, infinity)),
+    Bytes = get_data(Port, MonRef, Eot, [], 0, MaxSize),
     demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
 	true -> binary_to_list(Bytes)
+    end.
+
+get_option(Opt, Options, Default) ->
+    case Options of
+        #{Opt := Value} -> Value;
+        #{} -> Default;
+        _ -> throw(badopt)
     end.
 
 mk_cmd({win32,Wtype}, Cmd) ->
@@ -293,8 +315,27 @@ mk_cmd({win32,Wtype}, Cmd) ->
     {Command, [], [], <<>>};
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
-    %% cd and ulimit available
-    {"/bin/sh -s unix:cmd", [out],
+    %% cd and ulimit available.
+    %%
+    %% We use an absolute path here because we do not want the path to be
+    %% searched in case a stale NFS handle is somewhere in the path before
+    %% the sh command.
+    %%
+    %% Check if the default shell is located in /bin/sh as expected usually
+    %% or in /system/bin/sh as implemented on Android. The raw option is
+    %% used to bypass the file server and speed up the file access.
+    Shell = case file:read_file_info("/bin/sh",[raw]) of
+                {ok,#file_info{type=regular}} ->
+                    "/bin/sh";
+                _ ->
+                    case file:read_file_info("/system/bin/sh",[raw]) of
+                        {ok,#file_info{type=regular}} ->
+                            "/system/bin/sh";
+                        _ ->
+                            "/bin/sh"
+                    end
+            end,
+    {Shell ++ " -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
      %%
@@ -312,34 +353,39 @@ mk_cmd(_,Cmd) ->
      ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
      <<$\^D>>}.
 
-validate(Atom) when is_atom(Atom) ->
-    validate(atom_to_list(Atom));
-validate(List) when is_list(List) ->
-    case validate1(List) of
+validate(Term) ->
+    try validate1(Term)
+    catch error:_ -> throw(badarg)
+    end.
+
+validate1(Atom) when is_atom(Atom) ->
+    validate1(atom_to_list(Atom));
+validate1(List) when is_list(List) ->
+    case validate2(List) of
         false ->
             List;
-        true -> 
+        true ->
             %% Had zeros at end; remove them...
             string:trim(List, trailing, [0])
     end.
 
-validate1([0|Rest]) ->
+validate2([0|Rest]) ->
+    validate3(Rest);
+validate2([C|Rest]) when is_integer(C), C > 0 ->
     validate2(Rest);
-validate1([C|Rest]) when is_integer(C), C > 0 ->
-    validate1(Rest);
-validate1([List|Rest]) when is_list(List) ->
-    validate1(List) or validate1(Rest);
-validate1([]) ->
+validate2([List|Rest]) when is_list(List) ->
+    validate2(List) or validate2(Rest);
+validate2([]) ->
     false.
 
 %% Ensure that the rest is zero only...
-validate2([]) ->
+validate3([]) ->
     true;
-validate2([0|Rest]) ->
-    validate2(Rest);
-validate2([List|Rest]) when is_list(List) ->
-    validate2(List),
-    validate2(Rest).
+validate3([0|Rest]) ->
+    validate3(Rest);
+validate3([List|Rest]) when is_list(List) ->
+    validate3(List),
+    validate3(Rest).
 
 get_data(Port, MonRef, Eot, Sofar, Size, Max) ->
     receive
@@ -392,3 +438,9 @@ flush_exit(Port) ->
     after 0 ->
             ok
     end.
+
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors,
+                                               cause => Cause}}]).
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors}}]).

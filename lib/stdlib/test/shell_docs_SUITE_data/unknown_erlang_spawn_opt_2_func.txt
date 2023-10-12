@@ -1,0 +1,34 @@
+
+  [;1m-spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()}[0m
+  [;1m                   when[0m
+  [;1m                       Fun :: function(),[0m
+  [;1m                       Options :: [spawn_opt_option()].[0m
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+    -type priority_level() :: low | normal | high | max.
+    -type spawn_opt_option() ::
+          link | monitor |
+          {monitor, MonitorOpts :: [monitor_option()]} |
+          {priority, Level :: priority_level()} |
+          {fullsweep_after, Number :: non_neg_integer()} |
+          {min_heap_size, Size :: non_neg_integer()} |
+          {min_bin_vheap_size, VSize :: non_neg_integer()} |
+          {max_heap_size, Size :: max_heap_size()} |
+          {message_queue_data, MQD :: message_queue_data()} |
+          {async_dist, Enabled :: boolean()}.
+
+  Returns the process identifier (pid) of a new process started by
+  the application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works
+  like [;;4mspawn_opt/4[0m.
+
+  If option [;;4mmonitor[0m is specified, the newly created process is
+  monitored, and both the pid and reference for the monitor are
+  returned.

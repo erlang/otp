@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,10 +23,12 @@
 
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,
-	 string/2,lambda/3,literal/2,line/2,fname/2,
-	 atom_table/2,local_table/1,export_table/1,import_table/1,
+	 string/2,lambda/3,literal/2,line/2,fname/2,type/2,
+	 atom_table/1,local_table/1,export_table/1,import_table/1,
 	 string_table/1,lambda_table/1,literal_table/1,
-	 line_table/1]).
+	 line_table/1,type_table/1]).
+
+-include("beam_types.hrl").
 
 -type label() :: beam_asm:label().
 
@@ -36,27 +38,32 @@
 -type import_tab() :: gb_trees:tree(mfa(), index()).
 -type fname_tab()  :: #{Name :: term() => index()}.
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
--type literal_tab() :: dict:dict(Literal :: term(), index()).
+-type literal_tab() :: #{Literal :: term() => index()}.
+-type type_tab() :: #{ Type :: binary() => index()}.
 
 -type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
 -type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
+-type wrapper() :: #{label() => index()}.
 
 -record(asm,
-	{atoms = #{}                :: atom_tab(),
-	 exports = []		    :: [{label(), arity(), label()}],
-	 locals = []		    :: [{label(), arity(), label()}],
-	 imports = gb_trees:empty() :: import_tab(),
-	 strings = <<>>		    :: binary(),	%String pool
-	 lambdas = {0,[]}           :: lambda_tab(),
-	 literals = dict:new()	    :: literal_tab(),
-	 fnames = #{}               :: fname_tab(),
-	 lines = #{}                :: line_tab(),
-	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
-	 next_import = 0	    :: non_neg_integer(),
-	 string_offset = 0	    :: non_neg_integer(),
-	 next_literal = 0	    :: non_neg_integer(),
-	 highest_opcode = 0	    :: non_neg_integer()
-	}).
+        {atoms = #{}                :: atom_tab(),
+         exports = []               :: [{label(), arity(), label()}],
+         locals = []                :: [{label(), arity(), label()}],
+         imports = gb_trees:empty() :: import_tab(),
+         strings = <<>>             :: binary(),    %String pool
+         lambdas = {0,[]}           :: lambda_tab(),
+         types = #{}                :: type_tab(),
+         wrappers = #{}             :: wrapper(),
+         literals = #{}	            :: literal_tab(),
+         fnames = #{}               :: fname_tab(),
+         lines = #{}                :: line_tab(),
+         num_lines = 0              :: non_neg_integer(), %Number of line instructions
+         next_import = 0            :: non_neg_integer(),
+         string_offset = 0          :: non_neg_integer(),
+         next_literal = 0           :: non_neg_integer(),
+         highest_opcode = 0         :: non_neg_integer()
+        }).
+
 -type bdict() :: #asm{}.
 
 %%-----------------------------------------------------------------------------
@@ -126,18 +133,17 @@ import(Mod0, Name0, Arity, #asm{imports=Imp0,next_import=NextIndex}=D0)
 	    {NextIndex,D2#asm{imports=Imp,next_import=NextIndex+1}}
     end.
 
-%% Returns the index for a string in the string table (adding the string to the
-%% table if necessary).
+%% Returns the index for a binary string in the string table (adding
+%% the string to the table if necessary).
 %%    string(String, Dict) -> {Offset, Dict'}
--spec string(string(), bdict()) -> {non_neg_integer(), bdict()}.
+-spec string(binary(), bdict()) -> {non_neg_integer(), bdict()}.
 
-string(Str, Dict) when is_list(Str) ->
+string(BinString, Dict) when is_binary(BinString) ->
     #asm{strings=Strings,string_offset=NextOffset} = Dict,
-    StrBin = list_to_binary(Str),
-    case old_string(StrBin, Strings) of
+    case old_string(BinString, Strings) of
 	none ->
-	    NewDict = Dict#asm{strings = <<Strings/binary,StrBin/binary>>,
-			       string_offset=NextOffset+byte_size(StrBin)},
+	    NewDict = Dict#asm{strings = <<Strings/binary,BinString/binary>>,
+			       string_offset=NextOffset+byte_size(BinString)},
 	    {NextOffset,NewDict};
 	Offset when is_integer(Offset) ->
 	    {NextOffset-Offset,Dict}
@@ -148,22 +154,48 @@ string(Str, Dict) when is_list(Str) ->
 -spec lambda(label(), non_neg_integer(), bdict()) ->
         {non_neg_integer(), bdict()}.
 
-lambda(Lbl, NumFree, #asm{lambdas={OldIndex,Lambdas0}}=Dict) ->
-    %% Set Index the same as OldIndex.
-    Index = OldIndex,
-    Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
-    {OldIndex,Dict#asm{lambdas={OldIndex+1,Lambdas}}}.
+lambda(Lbl, NumFree, #asm{wrappers=Wrappers0,
+                          lambdas={OldIndex,Lambdas0}}=Dict) ->
+    case Wrappers0 of
+        #{Lbl:=Index} ->
+            %% OTP 23: There old is a fun entry for this wrapper function.
+            %% Share the fun entry.
+            {Index,Dict};
+        #{} ->
+            %% Set Index the same as OldIndex.
+            Index = OldIndex,
+            Wrappers = Wrappers0#{Lbl=>Index},
+            Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
+            {OldIndex,Dict#asm{wrappers=Wrappers,
+                               lambdas={OldIndex+1,Lambdas}}}
+    end.
 
 %% Returns the index for a literal (adding it to the literal table if necessary).
 %%    literal(Literal, Dict) -> {Index,Dict'}
 -spec literal(term(), bdict()) -> {non_neg_integer(), bdict()}.
 
-literal(Lit, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
-    case dict:find(Lit, Tab0) of
-	{ok,Index} ->
+-dialyzer({no_improper_lists, literal/2}).
+
+literal(Lit, Dict) when is_float(Lit) ->
+    %% A literal 0.0 actually has two representations: 0.0 and -0.0.
+    %% While they are equal, they must be encoded differently (the bit sign).
+    if
+        %% We do not explicitly match on 0.0 because a buggy compiler
+        %% could replace Lit by 0.0, which would discard its sign.
+        Lit > 0.0; Lit < 0.0 ->
+            literal1([term|Lit], Dict);
+        true ->
+            literal1([binary|my_term_to_binary(Lit)], Dict)
+    end;
+literal(Lit, Dict) ->
+    literal1([term|Lit], Dict).
+
+literal1(Key, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
+    case Tab0 of
+        #{Key:=Index} ->
 	    {Index,Dict};
-	error ->
-	    Tab = dict:store(Lit, NextIndex, Tab0),
+        #{} ->
+	    Tab = Tab0#{Key=>NextIndex},
 	    {NextIndex,Dict#asm{literals=Tab,next_literal=NextIndex+1}}
     end.
 
@@ -175,7 +207,7 @@ line([], #asm{num_lines=N}=Dict) ->
     %% No location available. Return the special pre-defined
     %% index 0.
     {0,Dict#asm{num_lines=N+1}};
-line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
+line([{location,Name,Line}|_], #asm{lines=Lines,num_lines=N}=Dict0) ->
     {FnameIndex,Dict1} = fname(Name, Dict0),
     Key = {FnameIndex,Line},
     case Lines of
@@ -183,7 +215,9 @@ line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
         _ ->
 	    Index = maps:size(Lines) + 1,
             {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
-    end.
+    end;
+line([_|T], #asm{}=Dict) ->
+    line(T, Dict).
 
 -spec fname(nonempty_string(), bdict()) ->
                    {non_neg_integer(), bdict()}.
@@ -196,28 +230,41 @@ fname(Name, #asm{fnames=Fnames}=Dict) ->
 	    {Index,Dict#asm{fnames=Fnames#{Name=>Index}}}
     end.
 
+-spec type(type(), bdict()) -> {non_neg_integer(), bdict()} | none.
+
+type(Type, #asm{types=Types0}=Dict) ->
+    ExtType = beam_types:encode_ext(Type),
+    case Types0 of
+        #{ ExtType := Index } ->
+            {Index, Dict};
+        #{} ->
+            Index = map_size(Types0),
+            Types = Types0#{ ExtType => Index },
+            {Index, Dict#asm{types=Types}}
+    end.
+
 %% Returns the atom table.
 %%    atom_table(Dict, Encoding) -> {LastIndex,[Length,AtomString...]}
--spec atom_table(bdict(), latin1 | utf8) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
+-spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
-atom_table(#asm{atoms=Atoms}, Encoding) ->
+atom_table(#asm{atoms=Atoms}) ->
     NumAtoms = maps:size(Atoms),
     Sorted = lists:keysort(2, maps:to_list(Atoms)),
     {NumAtoms,[begin
-                   L = atom_to_binary(A, Encoding),
+                   L = atom_to_binary(A, utf8),
                    [byte_size(L),L]
                end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
--spec local_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec local_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 local_table(#asm{locals = Locals}) ->
     {length(Locals),Locals}.
 
 %% Returns the export table.
 %%    export_table(Dict) -> {NumExports, [{Function, Arity, Label}...]}
--spec export_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec export_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 export_table(#asm{exports = Exports}) ->
     {length(Exports),Exports}.
@@ -238,15 +285,17 @@ string_table(#asm{strings=Strings,string_offset=Size}) ->
 
 -spec lambda_table(bdict()) -> {non_neg_integer(), [<<_:192>>]}.
 
-lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
+lambda_table(#asm{locals=Loc0,exports=Ext0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
-    Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
+    Ext = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Ext0]),
+    All = sofs:union(Loc, Ext),
+    Lambdas2 = sofs:relative_product1(Lambdas1, All),
     %% Initialize OldUniq to 0. It will be set to an unique value
     %% based on the MD5 checksum of the BEAM code for the module.
     OldUniq = 0,
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
-		  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
+                  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
     {NumLambdas,Lambdas}.
 
 %% Returns the literal table.
@@ -254,15 +303,35 @@ lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
 -spec literal_table(bdict()) -> {non_neg_integer(), [[binary(),...]]}.
 
 literal_table(#asm{literals=Tab,next_literal=NumLiterals}) ->
-    L0 = dict:fold(fun(Lit, Num, Acc) ->
-			   [{Num,my_term_to_binary(Lit)}|Acc]
+    L0 = maps:fold(fun
+			([term|Lit], Num, Acc) ->
+			   [{Num,my_term_to_binary(Lit)}|Acc];
+			([binary|Lit], Num, Acc) ->
+			   [{Num,Lit}|Acc]
 		   end, [], Tab),
     L1 = lists:sort(L0),
     L = [[<<(byte_size(Term)):32>>,Term] || {_,Term} <- L1],
     {NumLiterals,L}.
 
 my_term_to_binary(Term) ->
-    term_to_binary(Term, [{minor_version,1}]).
+    %% Use the latest possible minor version. Minor version 2 can be
+    %% be decoded by OTP 16, which is as far back as we have compatibility
+    %% options for the compiler. (When this comment was written, some time
+    %% after the release of OTP 22, the default minor version was 1.)
+
+    term_to_binary(Term, [{minor_version,2},deterministic]).
+
+%% Returns the type table.
+-spec type_table(bdict()) -> {non_neg_integer(), binary()}.
+
+type_table(#asm{types=Types}) ->
+    Sorted = lists:keysort(2, maps:to_list(Types)),
+    {map_size(Types), build_type_table(Sorted, <<>>)}.
+
+build_type_table([{ExtType, _} | Sorted], Acc) ->
+    build_type_table(Sorted, <<Acc/binary, ExtType/binary>>);
+build_type_table([], Acc) ->
+    Acc.
 
 %% Return the line table.
 -spec line_table(bdict()) ->

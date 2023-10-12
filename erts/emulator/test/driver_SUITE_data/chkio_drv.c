@@ -90,7 +90,7 @@ typedef struct chkio_smp_select {
     int next_read;
     int next_write;
     int first_write;
-    enum {Closed, Opened, Selected, Waiting} state;
+    enum {Closed, Opened, Selected, Waiting, WaitingDone} state;
     int wasSelected;
     unsigned rand_state;
 }ChkioSmpSelect;
@@ -292,18 +292,20 @@ stop_steal_aux(ChkioDrvData *cddp)
 static void free_smp_select(ChkioSmpSelect* pip, ErlDrvPort port)
 {	
     switch (pip->state) {
+    case WaitingDone:
     case Waiting: {
 	int word;
-	fprintf(stderr, "Closing pipe in state Waiting. Event lost?\n");
+	fprintf(stderr, "Closing pipe in state Waiting*. Event lost?\r\n");
 	for (;;) {
 	    int bytes = read(pip->read_fd, &word, sizeof(word));
 	    if (bytes != sizeof(word)) {
 		if (bytes != 0) {
-		    fprintf(stderr, "Failed to read from pipe, bytes=%d, errno=%d\n", bytes, errno);
+		    fprintf(stderr, "Failed to read from pipe, bytes=%d, errno=%d\r\n",
+                            bytes, errno);
 		}
 		break;
 	    }
-	    fprintf(stderr, "Read from pipe: %d\n", word);
+	    fprintf(stderr, "Read from pipe: %d\r\n", word);
 	}
 	abort();
     }
@@ -318,6 +320,8 @@ static void free_smp_select(ChkioSmpSelect* pip, ErlDrvPort port)
 	close(pip->write_fd);
 	pip->state = Closed;
 	break;
+    case Closed:
+        break;
     }
     driver_free(pip);
 }
@@ -383,6 +387,9 @@ chkio_drv_start(ErlDrvPort port, char *command)
     cddp->id = driver_mk_port(port);
     cddp->test = CHKIO_STOP;
     cddp->test_data = NULL;
+
+    drv_use_singleton.fd_stop_select = -2; /* disable stop_select asserts */
+
     return (ErlDrvData) cddp;
 #endif
 }
@@ -526,7 +533,7 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	    printf("Read event on uninitiated pipe %d\n", fd);
 	    abort(); 
 	}
-	if (pip->state != Selected && pip->state != Waiting) { 
+	if (pip->state != Selected && pip->state != Waiting && pip->state != WaitingDone) {
 	    printf("Read event on pipe in strange state %d\n", pip->state);
 	    abort(); 
 	}
@@ -536,9 +543,9 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	inPipe = (pip->next_write - pip->next_read);
 	if (inPipe == 0) {
 	    bytes = read(pip->read_fd, &word, sizeof(word));
-	    printf("Unexpected empty pipe, expected %u -> %u, bytes=%d, word=%d, written=%d\n",
-		   pip->next_read, pip->next_write-1, bytes, word,
-		   (pip->next_write - pip->first_write));
+	    printf("Unexpected empty pipe: ptr=%p, fds=%d->%d, read bytes=%d, word=%d, written=%d\n",
+                   pip, pip->write_fd, pip->read_fd,
+		   bytes, word, (pip->next_write - pip->first_write));
 	    /*abort();
     	      Allow unexpected events as it's been seen to be triggered by epoll
 	      on Linux. Most of the time the unwanted events are filtered by
@@ -564,7 +571,20 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	    TRACEF(("Read %d from fd=%d\n", word, fd));
 	    pip->next_read++;
 	}
-	pip->state = Selected; /* not Waiting anymore */
+        if (pip->state == WaitingDone) {
+            if (pip->next_write == pip->next_read) {
+                /* All data read, send {Port, done} */
+                ErlDrvTermData spec[] = {ERL_DRV_PORT, driver_mk_port(cddp->port),
+                                         ERL_DRV_ATOM, driver_mk_atom("done"),
+                                         ERL_DRV_TUPLE, 2};
+                erl_drv_output_term(driver_mk_port(cddp->port),
+                                    spec, sizeof(spec) / sizeof(spec[0]));
+                pip->state = Selected;
+            }
+        }
+        else {
+            pip->state = Selected; /* not Waiting anymore */
+        }
 	break;
     }
     case CHKIO_DRV_USE:
@@ -962,6 +982,16 @@ chkio_drv_control(ErlDrvData drv_data,
     }
     case CHKIO_SMP_SELECT: {
 	ChkioSmpSelect* pip = (ChkioSmpSelect*) cddp->test_data;
+        if (len == 4 && memcmp(buf, "done", 4) == 0) {
+            if (pip && pip->state == Waiting) {
+                pip->state = WaitingDone;
+                res_str = "wait";
+            }
+            else
+                res_str = "ok";
+            res_len = -1;
+            break;
+        }
 	if (pip == NULL) {
 	    erl_drv_mutex_lock(smp_pipes_mtx);
 	    if (smp_pipes) {
@@ -1014,7 +1044,6 @@ chkio_drv_control(ErlDrvData drv_data,
 		if (pip->wasSelected && (op & 1)) {
 		    TRACEF(("%T: Close pipe [%d->%d]\n", cddp->id, pip->write_fd,
                             pip->read_fd));
-                    drv_use_singleton.fd_stop_select = -2; /* disable stop_select asserts */
 		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd,
                                       DO_READ|ERL_DRV_USE, 0)
                         || close(pip->write_fd)) {

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2017. All Rights Reserved.
+# Copyright Ericsson AB 2004-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,13 +86,14 @@ RELSYSDIR = $(RELEASE_PATH)/xmerl_test
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-tests debug opt:  xmerl_test.erl
+tests $(TYPES):  xmerl_test.erl
 
 info:
 	@echo "HRL_FILES: $(HRL_FILES)"
@@ -122,6 +123,7 @@ release_tests_spec: opt
 	cp $(XML_FILES) "$(RELSYSDIR)"
 	@tar cfh - xmerl_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_std_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_sax_std_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

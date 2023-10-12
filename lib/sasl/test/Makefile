@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2011-2016. All Rights Reserved.
+# Copyright Ericsson AB 2011-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,10 +35,13 @@ MODULES= \
 	systools_rc_SUITE \
 	rb_SUITE \
 	rh_test_lib \
+	otp_vsns
 
 ERL_FILES= $(MODULES:%=%.erl)
 
-HRL_FILES= test_lib.hrl
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table
+
+HRL_FILES=
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
@@ -55,6 +58,7 @@ RELSYSDIR = $(RELEASE_PATH)/sasl_test
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 
@@ -68,7 +72,7 @@ make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
 	>> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -87,9 +91,11 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(EXTRA_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) sasl.spec sasl.cover $(EMAKEFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cfh - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/sasl_SUITE_data"
+	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/sasl_SUITE_data"
 
 release_docs_spec:

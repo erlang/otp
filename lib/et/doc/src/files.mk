@@ -1,7 +1,7 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2018. All Rights Reserved.
+# Copyright Ericsson AB 2002-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ GEN_XML = \
 	et_desc.xml \
 	et_examples.xml
 
-
 BOOK_FILES = book.xml
 
 IMAGE_FILES = \
@@ -53,4 +52,3 @@ IMAGE_FILES = \
 	sim_trans_mgr_actors.png \
 	sim_trans_move_actor.png \
 	sim_trans_write_lock.png
-

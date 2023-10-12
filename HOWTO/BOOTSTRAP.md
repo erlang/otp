@@ -2,7 +2,7 @@ Notes about prebuilt beam files under version control
 =====================================================
 
 This information applies mostly to developers, some parts only
-to developers of the main branch i.e. Ericsson and HiPE personel.
+to developers of the main branch i.e. Ericsson and HiPE personnel.
 
 There are two types of derived code under version control, namely:
 

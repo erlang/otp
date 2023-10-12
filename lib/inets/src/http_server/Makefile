@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2015. All Rights Reserved.
+# Copyright Ericsson AB 2005-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ MODULES = \
 	httpd_file\
 	httpd_instance_sup \
 	httpd_log \
+	httpd_logger \
 	httpd_manager \
 	httpd_misc_sup \
 	httpd_request \
@@ -73,14 +74,12 @@ MODULES = \
 	mod_auth_dets \
 	mod_auth_mnesia \
 	mod_auth_server \
-	mod_browser \
 	mod_cgi \
 	mod_dir \
 	mod_disk_log \
 	mod_esi \
 	mod_get \
 	mod_head \
-	mod_htaccess \
 	mod_log \
 	mod_range \
 	mod_responsecontrol \
@@ -118,7 +117,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES)

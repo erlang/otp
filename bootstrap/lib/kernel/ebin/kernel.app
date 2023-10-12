@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "6.0"},
+  {vsn, "9.0.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -32,9 +32,13 @@
 	     code_server,
 	     dist_util,
 	     erl_boot_server,
+	     erl_compile_server,
 	     erl_distribution,
+             erl_erts_errors,
 	     erl_reply,
+             erl_kernel_errors,
              erl_signal_handler,
+	     erpc,
 	     error_handler,
 	     error_logger,
 	     file,
@@ -46,12 +50,13 @@
 	     group,
 	     group_history,
 	     heart,
-	     hipe_unified_loader,
 	     inet6_tcp,
 	     inet6_tcp_dist,
 	     inet6_udp,
 	     inet6_sctp,
 	     inet_config,
+             inet_epmd_dist,
+             inet_epmd_socket,
 	     inet_hosts,
 	     inet_gethost_native,
 	     inet_tcp_dist,
@@ -68,6 +73,8 @@
              logger_formatter,
              logger_h_common,
              logger_handler_watcher,
+             logger_olp,
+             logger_proxy,
              logger_server,
              logger_simple_h,
              logger_std_h,
@@ -78,9 +85,9 @@
 	     os,
 	     ram_file,
 	     rpc,
-	     user,
 	     user_drv,
 	     user_sup,
+             prim_tty,
              disk_log,
              disk_log_1,
              disk_log_server,
@@ -90,16 +97,20 @@
              erl_epmd,
 	     erts_debug,
              gen_tcp,
+	     gen_tcp_socket,
              gen_udp,
+	     gen_udp_socket,
 	     gen_sctp,
              inet,
              inet_db,
              inet_dns,
+             inet_dns_tsig,
              inet_parse,
              inet_res,
              inet_tcp,
              inet_udp,
 	     inet_sctp,
+             pg,
              pg2,
              raw_file_io,
              raw_file_io_compressed,
@@ -107,8 +118,8 @@
              raw_file_io_delayed,
              raw_file_io_inflate,
              raw_file_io_list,
-             raw_file_io_raw,
 	     seq_trace,
+             socket,
 	     standard_error,
 	     wrap_log_reader]},
   {registered, [application_controller,
@@ -140,12 +151,17 @@
                 ddll_server,
                 erl_epmd,
                 inet_db,
-                pg2]},
+                pg]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         {net_tickintensity, 4},
+         {net_ticktime, 60},
+         {prevent_overlapping_partitions, true},
+         {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-10.0", "stdlib-3.5", "sasl-3.0"]}
- ]
+  {runtime_dependencies, ["erts-14.0", "stdlib-5.0",
+                          "sasl-3.0", "crypto-5.0"]}
+  ]
 }.

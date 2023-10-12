@@ -1,0 +1,4 @@
+
+  [;1m-spec is_type(Term) -> Bool when Bool :: boolean(), Term :: term().[0m
+
+  Returns [;;4mtrue[0m if term [;;4mTerm[0m is a type.

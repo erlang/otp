@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,16 +25,17 @@
 
 -export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,lm/0,mm/0,
          memory/0,memory/1,uptime/0,
-	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
+         erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1,
          y/1, y/2,
-	 xm/1, bt/1, q/0,
-	 ni/0, nregs/0]).
+         xm/1, bt/1, q/0,
+         h/1, h/2, h/3, ht/1, ht/2, ht/3, hcb/1, hcb/2, hcb/3,
+         ni/0, nregs/0]).
 
 -export([ih/0,iv/0,im/0,ii/1,ii/2,iq/1,ini/1,ini/2,inq/1,ib/2,ib/3,
-	 ir/2,ir/3,ibd/2,ibe/2,iba/3,ibc/3,
-	 ic/0,ir/1,ir/0,il/0,ipb/0,ipb/1,iaa/1,iaa/2,ist/1,ia/1,ia/2,ia/3,
-	 ia/4,ip/0]).
-
+         ir/2,ir/3,ibd/2,ibe/2,iba/3,ibc/3,
+         ic/0,ir/1,ir/0,il/0,ipb/0,ipb/1,iaa/1,iaa/2,ist/1,ia/1,ia/2,ia/3,
+         ia/4,ip/0]).
+-export(['$handle_undefined_function'/2]).
 -import(io, [format/1]).
 
 help() ->
@@ -43,7 +44,16 @@ help() ->
     format("e(N)       -- repeat the expression in query <N>\n"),
     format("f()        -- forget all variable bindings\n"),
     format("f(X)       -- forget the binding of variable X\n"),
-    format("h()        -- history\n"),    
+    format("h()        -- history\n"),
+    format("h(Mod)     -- help about module\n"),
+    format("h(Mod,Func)-- help about function in module\n"),
+    format("h(Mod,Func,Arity) -- help about function with arity in module\n"),
+    format("ht(Mod)    -- help about a module's types\n"),
+    format("ht(Mod,Type) -- help about type in module\n"),
+    format("ht(Mod,Type,Arity) -- help about type with arity in module\n"),
+    format("hcb(Mod)    -- help about a module's callbacks\n"),
+    format("hcb(Mod,CB) -- help about callback in module\n"),
+    format("hcb(Mod,CB,Arity) -- help about callback with arity in module\n"),
     format("history(N) -- set how many previous commands to keep\n"),
     format("results(N) -- set how many previous command results to keep\n"),
     format("catch_exception(B) -- how exceptions are handled\n"),
@@ -68,33 +78,42 @@ help() ->
 %% these are in alphabetic order it would be nice if they
 %% were to *stay* so!
 
-bi(I) 		-> c:bi(I).
-bt(Pid)		-> c:bt(Pid).
-c(File) 	-> c:c(File).
+bi(I)           -> c:bi(I).
+bt(Pid)         -> c:bt(Pid).
+c(File)         -> c:c(File).
 c(File, Opt)    -> c:c(File, Opt).
 c(File, Opt, Filter) -> c:c(File, Opt, Filter).
 cd(D)           -> c:cd(D).
-erlangrc(X) 	-> c:erlangrc(X).
+erlangrc(X)     -> c:erlangrc(X).
 flush()         -> c:flush().
-i() 		-> c:i().
-i(X,Y,Z) 	-> c:i(X,Y,Z).
-l(Mod)       	-> c:l(Mod).
-lc(X)  		-> c:lc(X).
+h(M)            -> c:h(M).
+h(M,F)          -> c:h(M,F).
+h(M,F,A)        -> c:h(M,F,A).
+ht(M)           -> c:ht(M).
+ht(M,F)         -> c:ht(M,F).
+ht(M,F,A)       -> c:ht(M,F,A).
+hcb(M)          -> c:hcb(M).
+hcb(M,F)        -> c:hcb(M,F).
+hcb(M,F,A)      -> c:hcb(M,F,A).
+i()             -> c:i().
+i(X,Y,Z)        -> c:i(X,Y,Z).
+l(Mod)          -> c:l(Mod).
+lc(X)           -> c:lc(X).
 ls()            -> c:ls().
 ls(S)           -> c:ls(S).
-m() 		-> c:m().
-m(Mod) 		-> c:m(Mod).
+m()             -> c:m().
+m(Mod)          -> c:m(Mod).
 lm()            -> c:lm().
 mm()            -> c:mm().
 memory()        -> c:memory().
 memory(Type)    -> c:memory(Type).
-nc(X)     	-> c:nc(X).
+nc(X)           -> c:nc(X).
 ni()            -> c:ni().
-nl(Mod) 	-> c:nl(Mod).
+nl(Mod)         -> c:nl(Mod).
 nregs()         -> c:nregs().
-pid(X,Y,Z) 	-> c:pid(X,Y,Z).
+pid(X,Y,Z)      -> c:pid(X,Y,Z).
 pwd()           -> c:pwd().
-q()		-> c:q().
+q()             -> c:q().
 regs()          -> c:regs().
 uptime()        -> c:uptime().
 xm(Mod)         -> c:xm(Mod).
@@ -135,3 +154,11 @@ iv()            -> calli(iv, []).
 
 calli(F, Args) ->
     c:appcall(debugger, i, F, Args).
+
+'$handle_undefined_function'(Func, Args) ->
+    case shell:get_function(Func, length(Args)) of
+       undefined ->
+           error_handler:raise_undef_exception(?MODULE, Func, Args);
+       Fun when is_function(Fun, length(Args)) ->
+           apply(Fun, Args)
+    end.

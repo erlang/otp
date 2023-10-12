@@ -1,0 +1,139 @@
+
+  [;1m-spec erlang:system_monitor(MonitorPid, Options) -> MonSettings[0m
+  [;1m                               when[0m
+  [;1m                                   MonitorPid :: pid(),[0m
+  [;1m                                   Options :: [system_monitor_option()],[0m
+  [;1m                                   MonSettings ::[0m
+  [;1m                                       undefined |[0m
+  [;1m                                       {OldMonitorPid, OldOptions},[0m
+  [;1m                                   OldMonitorPid :: pid(),[0m
+  [;1m                                   OldOptions ::[0m
+  [;1m                                       [system_monitor_option()].[0m
+
+  Types:
+    -type system_monitor_option() ::
+          busy_port | busy_dist_port |
+          {long_gc, non_neg_integer()} |
+          {long_schedule, non_neg_integer()} |
+          {large_heap, non_neg_integer()}.
+
+  Sets the system performance monitoring options. [;;4mMonitorPid[0m is a
+  local process identifier (pid) receiving system monitor messages.
+  The second argument is a list of monitoring options:
+
+  [;;4m[;;4m{long_gc, Time}[0m[0m:
+    If a garbage collection in the system takes at least [;;4mTime[0m
+    wall clock milliseconds, a message [;;4m{monitor, GcPid, long_gc,[0m
+    [;;4mInfo}[0m is sent to [;;4mMonitorPid[0m. [;;4mGcPid[0m is the pid that was
+    garbage collected. [;;4mInfo[0m is a list of two-element tuples
+    describing the result of the garbage collection.
+
+    One of the tuples is [;;4m{timeout, GcTime}[0m, where [;;4mGcTime[0m is
+    the time for the garbage collection in milliseconds. The other
+    tuples are tagged with [;;4mheap_size[0m, [;;4mheap_block_size[0m, [;;4m[0m
+    [;;4mstack_size[0m, [;;4mmbuf_size[0m, [;;4mold_heap_size[0m, and [;;4m[0m
+    [;;4mold_heap_block_size[0m. These tuples are explained in the
+    description of trace message [;;4mgc_minor_start[0m (see [;;4m[0m
+    [;;4merlang:trace/3[0m). New tuples can be added, and the order of
+    the tuples in the [;;4mInfo[0m list can be changed at any time
+    without prior notice.
+
+  [;;4m[;;4m{long_schedule, Time}[0m[0m:
+    If a process or port in the system runs uninterrupted for at
+    least [;;4mTime[0m wall clock milliseconds, a message [;;4m{monitor,[0m
+    [;;4mPidOrPort, long_schedule, Info}[0m is sent to [;;4mMonitorPid[0m. [;;4m[0m
+    [;;4mPidOrPort[0m is the process or port that was running. [;;4mInfo[0m is
+    a list of two-element tuples describing the event.
+
+    If a [;;4mpid()[0m, the tuples [;;4m{timeout, Millis}[0m, [;;4m{in, Location}[0m,
+    and [;;4m{out, Location}[0m are present, where [;;4mLocation[0m is either
+    an MFA ([;;4m{Module, Function, Arity}[0m) describing the function
+    where the process was scheduled in/out, or the atom [;;4mundefined[0m.
+
+    If a [;;4mport()[0m, the tuples [;;4m{timeout, Millis}[0m and [;;4m[0m
+    [;;4m{port_op,Op}[0m are present. [;;4mOp[0m is one of [;;4mproc_sig[0m, [;;4mtimeout[0m, [;;4m[0m
+    [;;4minput[0m, [;;4moutput[0m, [;;4mevent[0m, or [;;4mdist_cmd[0m, depending on which
+    driver callback was executing.
+
+    [;;4mproc_sig[0m is an internal operation and is never to appear,
+    while the others represent the corresponding driver callbacks [;;4m[0m
+    [;;4mtimeout[0m, [;;4mready_input[0m, [;;4mready_output[0m, [;;4mevent[0m, and [;;4moutputv[0m
+    (when the port is used by distribution). Value [;;4mMillis[0m in
+    tuple [;;4mtimeout[0m informs about the uninterrupted execution time
+    of the process or port, which always is equal to or higher
+    than the [;;4mTime[0m value supplied when starting the trace. New
+    tuples can be added to the [;;4mInfo[0m list in a future release.
+    The order of the tuples in the list can be changed at any time
+    without prior notice.
+
+    This can be used to detect problems with NIFs or drivers that
+    take too long to execute. 1 ms is considered a good maximum
+    time for a driver callback or a NIF. However, a time-sharing
+    system is usually to consider everything < 100 ms as
+    "possible" and fairly "normal". However, longer schedule times
+    can indicate swapping or a misbehaving NIF/driver. Misbehaving
+    NIFs and drivers can cause bad resource utilization and bad
+    overall system performance.
+
+  [;;4m[;;4m{large_heap, Size}[0m[0m:
+    If a garbage collection in the system results in the allocated
+    size of a heap being at least [;;4mSize[0m words, a message [;;4m[0m
+    [;;4m{monitor, GcPid, large_heap, Info}[0m is sent to [;;4mMonitorPid[0m. [;;4m[0m
+    [;;4mGcPid[0m and [;;4mInfo[0m are the same as for [;;4mlong_gc[0m earlier,
+    except that the tuple tagged with [;;4mtimeout[0m is not present.
+
+    The monitor message is sent if the sum of the sizes of all
+    memory blocks allocated for all heap generations after a
+    garbage collection is equal to or higher than [;;4mSize[0m.
+
+    When a process is killed by [;;4mmax_heap_size[0m, it is killed
+    before the garbage collection is complete and thus no large
+    heap message is sent.
+
+  [;;4m[;;4mbusy_port[0m[0m:
+    If a process in the system gets suspended because it sends to
+    a busy port, a message [;;4m{monitor, SusPid, busy_port, Port}[0m is
+    sent to [;;4mMonitorPid[0m. [;;4mSusPid[0m is the pid that got suspended
+    when sending to [;;4mPort[0m.
+
+  [;;4m[;;4mbusy_dist_port[0m[0m:
+    If a process in the system gets suspended because it sends to
+    a process on a remote node whose inter-node communication was
+    handled by a busy port, a message [;;4m{monitor, SusPid,[0m
+    [;;4mbusy_dist_port, Port}[0m is sent to [;;4mMonitorPid[0m. [;;4mSusPid[0m is
+    the pid that got suspended when sending through the inter-node
+    communication port [;;4mPort[0m.
+
+  Returns the previous system monitor settings just like [;;4m[0m
+  [;;4merlang:system_monitor/0[0m.
+
+  The arguments to [;;4msystem_monitor/2[0m specifies how all system
+  monitoring on the node should be done, not how it should be
+  changed. This means only one process at a time ([;;4mMonitorPid[0m) can
+  be the receiver of system monitor messages. Also, the way to clear
+  a specific monitor option is to not include it in the list [;;4m[0m
+  [;;4mOptions[0m. All system monitoring will, however, be cleared if the
+  process identified by [;;4mMonitorPid[0m terminates.
+
+  There are no special option values (like zero) to clear an option.
+  Some of the options have a unspecified minimum value. Lower values
+  will be adjusted to the minimum value. For example, it is
+  currently not possible to monitor all garbage collections with [;;4m[0m
+  [;;4m{long_gc, 0}[0m.
+
+  Note:
+    If a monitoring process gets so large that it itself starts to
+    cause system monitor messages when garbage collecting, the
+    messages enlarge the process message queue and probably make
+    the problem worse.
+
+    Keep the monitoring process neat and do not set the system
+    monitor limits too tight.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mMonitorPid[0m does not exist.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mMonitorPid[0m is not a local process.

@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,11 +16,53 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"3.4.5",
- %% Up from - max one major revision back
- [{<<"3\\.4(\\.[0-9]+)*">>,[restart_new_emulator]}, % OTP-20.*
-  {<<"3\\.5(\\.[0-9]+)*">>,[restart_new_emulator]}],% OTP-21.*
- %% Down to - max one major revision back
- [{<<"3\\.4(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.*
-  {<<"3\\.5(\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-20.*
-}.
+%%
+%% We allow upgrade from, and downgrade to all previous
+%% versions from the following OTP releases:
+%% - OTP 23
+%% - OTP 24
+%% - OTP 25
+%%
+%% We also allow upgrade from, and downgrade to all
+%% versions that have branched off from the above
+%% stated previous versions.
+%%
+{"4.0",
+ [{<<"^3\\.13$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.14$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.15$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.16$">>,[restart_new_emulator]},
+  {<<"^3\\.16\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.16\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.17$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+ [{<<"^3\\.13$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.13\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.14$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.14\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.15$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.15\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.16$">>,[restart_new_emulator]},
+  {<<"^3\\.16\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.16\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.17$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.17\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,86 +24,76 @@
 
 -module(diameter_reg_SUITE).
 
--export([suite/0,
-         all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1]).
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
 
-%% testcases
--export([add/1,
-         add_new/1,
-         remove/1,
-         down/1,
-         terms/1,
-         pids/1]).
+%% common_test wrapping
+-export([all/0,
+         parallel/1]).
 
--define(reg,  diameter_reg).
--define(util, diameter_util).
+-define(reg, diameter_reg).
 
 %% ===========================================================================
-
-suite() ->
-    [{timetrap, {seconds, 60}}].
 
 all() ->
-    [{group, all},
-     {group, all, [parallel]}].
+    [parallel].
 
-groups() ->
-    [{all, [], tc()}].
-
-tc() ->
-    [add,
-     add_new,
-     remove,
-     down,
-     terms,
-     pids].
-
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
 
-add(_) ->
+%% run/0
+
+run() ->
+    run([add, add_new, remove, down, terms, pids]).
+
+%% run/1
+
+run(List)
+  when is_list(List) ->
+    ok = diameter:start(),
+    try
+        diameter_util:run([{[fun run/1, T], 10000} || T <- List])
+    after
+        ok = diameter:stop()
+    end;
+
+run(add) ->
     Ref = make_ref(),
     true = ?reg:add(Ref),
     true = ?reg:add(Ref),
     [{Ref, Pid}] = ?reg:match(Ref),
-    Pid = self().
+    Pid = self();
 
-add_new(_) ->
+run(add_new) ->
     Ref = make_ref(),
     true = ?reg:add_new(Ref),
-    false = ?reg:add_new(Ref).
+    false = ?reg:add_new(Ref);
 
-remove(_) ->
+run(remove) ->
     Ref = make_ref(),
     true = ?reg:add_new(Ref),
     true = ?reg:add_new({Ref}),
     true = ?reg:remove({Ref}),
     [{Ref, Pid}] = ?reg:match(Ref),
-    Pid = self().
+    Pid = self();
 
-down(_) ->
+run(down) ->
     Ref = make_ref(),
     {_, MRef} = spawn_monitor(fun() -> ?reg:add_new(Ref), timer:sleep(1000) end),
     receive {'DOWN', MRef, process, _, _} -> ok end,
     timer:sleep(1000),
-    [] = ?reg:match(Ref).
+    [] = ?reg:match(Ref);
 
-terms(_) ->
+run(terms) ->
     Ref = make_ref(),
     true = ?reg:add_new(Ref),
     [[Pid]] = [L || {T,L} <- ?reg:terms(), T == Ref],
-    Pid = self().
+    Pid = self();
 
-pids(_) ->
+run(pids) ->
     Ref = make_ref(),
     true = ?reg:add_new(Ref),
     %% Don't match [[Ref]] since this will only necessarily be the

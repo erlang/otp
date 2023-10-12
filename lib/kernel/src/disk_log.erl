@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,13 +24,13 @@
 -export([start/0, istart_link/1, 
 	 log/2, log_terms/2, blog/2, blog_terms/2,
 	 alog/2, alog_terms/2, balog/2, balog_terms/2,
-	 close/1, lclose/1, lclose/2, sync/1, open/1, 
+	 close/1, sync/1, open/1, 
 	 truncate/1, truncate/2, btruncate/2,
 	 reopen/2, reopen/3, breopen/3, inc_wrap_file/1, change_size/2,
 	 change_notify/3, change_header/2, 
 	 chunk/2, chunk/3, bchunk/2, bchunk/3, chunk_step/3, chunk_info/1,
 	 block/1, block/2, unblock/1, info/1, format_error/1,
-	 accessible_logs/0]).
+	 all/0, next_file/1]).
 
 %% Internal exports
 -export([init/2, internal_open/2,
@@ -46,6 +46,12 @@
 -export([pid2name/1]).
 
 -export_type([continuation/0]).
+
+-deprecated([{inc_wrap_file, 1, "use disk_log:next_file/1 instead"}]).
+
+-removed([{accessible_logs, 0, "use disk_log:all/0 instead"},
+          {lclose, 1, "use disk_log:close/1 instead"},
+          {lclose, 2, "use disk_log:close/1 instead"}]).
 
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
@@ -102,16 +108,13 @@
                         | {'invalid_header', invalid_header()}
                         | {'file_error', file:filename(), file_error()}
                         | {'node_already_open', Log :: log()}.
--type dist_error_rsn() :: 'nodedown' | open_error_rsn().
--type ret()            :: {'ok', Log :: log()}
+-type open_ret()       :: {'ok', Log :: log()}
                         | {'repaired', Log :: log(),
                            {'recovered', Rec :: non_neg_integer()},
-                           {'badbytes', Bad :: non_neg_integer()}}.
--type open_ret()       :: ret() | {'error', open_error_rsn()}.
--type dist_open_ret()  :: {[{node(), ret()}],
-			   [{node(), {'error', dist_error_rsn()}}]}.
+                           {'badbytes', Bad :: non_neg_integer()}}
+                        | {'error', open_error_rsn()}.
 
--spec open(ArgL) -> open_ret() | dist_open_ret() when
+-spec open(ArgL) -> open_ret() when
       ArgL :: dlog_options().
 open(A) ->
     disk_log_server:open(check_arg(A, #arg{options = A})).
@@ -133,7 +136,7 @@ log(Log, Term) ->
 blog(Log, Bytes) ->
     req(Log, {log, external, [ensure_binary(Bytes)]}).
 
--spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
+-spec log_terms(Log, TermList) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       TermList :: [term()].
 log_terms(Log, Terms) ->
@@ -183,20 +186,6 @@ balog_terms(Log, Bytess) ->
       Log :: log().
 close(Log) -> 
     req(Log, close).
-
--type lclose_error_rsn() :: 'no_such_log'
-                          | {'file_error', file:filename(), file_error()}.
-
--spec lclose(Log) -> 'ok' | {'error', lclose_error_rsn()} when
-      Log :: log().
-lclose(Log) ->
-    lclose(Log, node()).
-
--spec lclose(Log, Node) -> 'ok' | {'error', lclose_error_rsn()} when
-      Log :: log(),
-      Node :: node().
-lclose(Log, Node) ->
-    lreq(Log, close, Node).
 
 -type trunc_error_rsn() :: 'no_such_log' | 'nonode'
                          | {'read_only_mode', log()}
@@ -250,11 +239,19 @@ reopen(Log, NewFile, NewHead) ->
 breopen(Log, NewFile, NewHead) ->
     req(Log, {reopen, NewFile, {ok, ensure_binary(NewHead)}, breopen, 3}).
 
--type inc_wrap_error_rsn() :: 'no_such_log' | 'nonode'
+-type next_file_error_rsn() :: 'no_such_log' | 'nonode'
                             | {'read_only_mode', log()}
                             | {'blocked_log', log()} | {'halt_log', log()}
+                            | {'rotate_log', log()}
                             | {'invalid_header', invalid_header()}
                             | {'file_error', file:filename(), file_error()}.
+
+-spec next_file(Log) -> 'ok' | {'error', next_file_error_rsn()} when
+      Log :: log().
+next_file(Log) -> 
+    req(Log, next_file).
+
+-type inc_wrap_error_rsn() :: next_file_error_rsn().
 
 -spec inc_wrap_file(Log) -> 'ok' | {'error', inc_wrap_error_rsn()} when
       Log :: log().
@@ -337,9 +334,8 @@ format_error(Error) ->
                    | {status, Status ::
                         ok | {blocked, QueueLogRecords :: boolean()}}
                    | {node, Node :: node()}
-                   | {distributed, Dist :: local | [node()]}
                    | {head, Head :: none
-                                  | {head, term()}
+                                  | {head, binary()}
                                   | (MFA :: {atom(), atom(), list()})}
                    | {no_written_items, NoWrittenItems ::non_neg_integer()}
                    | {full, Full :: boolean}
@@ -353,7 +349,7 @@ format_error(Error) ->
       Log :: log(),
       InfoList :: [dlog_info()].
 info(Log) -> 
-    sreq(Log, info).
+    req(Log, info).
 
 -spec pid2name(Pid) -> {'ok', Log} | 'undefined' when
       Pid :: pid(),
@@ -366,7 +362,7 @@ pid2name(Pid) ->
     end.
 
 %% This function Takes 3 args, a Log, a Continuation and N.
-%% It retuns a {Cont2, ObjList} | eof | {error, Reason}
+%% It returns a {Cont2, ObjList} | eof | {error, Reason}
 %% The initial continuation is the atom 'start'
 
 -type chunk_error_rsn() :: no_such_log
@@ -401,7 +397,7 @@ chunk(Log, Cont, N) when is_integer(N), N > 0 ->
     ichunk(Log, Cont, N).
 
 ichunk(Log, start, N) ->
-    R = sreq(Log, {chunk, 0, [], N}),
+    R = req(Log, {chunk, 0, [], N}),
     ichunk_end(R, Log);
 ichunk(Log, More, N) when is_record(More, continuation) ->
     R = req2(More#continuation.pid, 
@@ -484,7 +480,7 @@ bchunk(Log, Cont, N) when is_integer(N), N > 0 ->
     bichunk(Log, Cont, N).
 
 bichunk(Log, start, N) ->
-    R = sreq(Log, {chunk, 0, [], N}),
+    R = req(Log, {chunk, 0, [], N}),
     bichunk_end(R);
 bichunk(_Log, #continuation{pid = Pid, pos = Pos, b = B}, N) ->
     R = req2(Pid, {chunk, Pos, B, N}),
@@ -511,7 +507,7 @@ chunk_step(Log, Cont, N) when is_integer(N) ->
     ichunk_step(Log, Cont, N).
 
 ichunk_step(Log, start, N) ->
-    sreq(Log, {chunk_step, 0, N});
+    req(Log, {chunk_step, 0, N});
 ichunk_step(_Log, More, N) when is_record(More, continuation) ->
     req2(More#continuation.pid, {chunk_step, More#continuation.pos, N});
 ichunk_step(_Log, _, _) ->
@@ -526,11 +522,10 @@ chunk_info(More = #continuation{}) ->
 chunk_info(BadCont) ->
    {error, {no_continuation, BadCont}}.
 
--spec accessible_logs() -> {[LocalLog], [DistributedLog]} when
-      LocalLog :: log(),
-      DistributedLog :: log().
-accessible_logs() ->
-    disk_log_server:accessible_logs().
+-spec all() -> [Log] when
+      Log :: log().
+all() ->
+    disk_log_server:all().
 
 istart_link(Server) ->  
     {ok, proc_lib:spawn_link(disk_log, init, [self(), Server])}.
@@ -586,6 +581,8 @@ check_arg([], Res) ->
 	    {OldSize, Version} = 
 		disk_log_1:read_size_file_version(Res#arg.file),
 	    check_wrap_arg(Ret, OldSize, Version);
+        Res#arg.type =:= rotate ->
+            {ok, Res#arg{format = external}};
 	true ->
 	    Ret
     end;
@@ -614,6 +611,8 @@ check_arg([{size, {MaxB,MaxF}}|Tail], Res) when is_integer(MaxB),
 						MaxB > 0, MaxB =< ?MAX_BYTES,
 						MaxF > 0, MaxF < ?MAX_FILES ->
     check_arg(Tail, Res#arg{size = {MaxB, MaxF}});
+check_arg([{type, rotate}|Tail], Res) ->
+    check_arg(Tail, Res#arg{type = rotate});
 check_arg([{type, wrap}|Tail], Res) ->
     check_arg(Tail, Res#arg{type = wrap});
 check_arg([{type, halt}|Tail], Res) ->
@@ -622,10 +621,6 @@ check_arg([{format, internal}|Tail], Res) ->
     check_arg(Tail, Res#arg{format = internal});
 check_arg([{format, external}|Tail], Res) ->
     check_arg(Tail, Res#arg{format = external});
-check_arg([{distributed, []}|Tail], Res) ->
-    check_arg(Tail, Res#arg{distributed = false});
-check_arg([{distributed, Nodes}|Tail], Res) when is_list(Nodes) ->
-    check_arg(Tail, Res#arg{distributed = {true, Nodes}});
 check_arg([{notify, true}|Tail], Res) ->
     check_arg(Tail, Res#arg{notify = true});
 check_arg([{notify, false}|Tail], Res) ->
@@ -646,17 +641,19 @@ check_arg(Arg, _) ->
 check_wrap_arg({ok, Res}, {0,0}, _Version) when Res#arg.size =:= infinity ->
     {error, {badarg, size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.size =:= infinity ->
-    NewRes = Res#arg{size = OldSize},
-    check_wrap_arg({ok, NewRes}, OldSize, Version);
+    {ok,  Res#arg{version = Version, old_size = OldSize, size = OldSize}};
 check_wrap_arg({ok, Res}, {0,0}, Version) ->
-    {ok, Res#arg{version = Version}};
+    {ok, Res#arg{version = Version, old_size = Res#arg.size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when OldSize =:= Res#arg.size ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, _OldSize, Version) when Res#arg.repair =:= truncate,
-						  is_tuple(Res#arg.size) ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, OldSize, _Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.repair =:= truncate,
+                                                 is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, _Version) when Res#arg.size =/= OldSize,
+                                                  Res#arg.mode =:= read_only ->
     {error, {size_mismatch, OldSize, Res#arg.size}};
+check_wrap_arg({ok, Res}, OldSize, Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
 check_wrap_arg({ok, _Res}, _OldSize, _Version) ->
     {error, {badarg, size}};
 check_wrap_arg(Ret, _OldSize, _Version) ->
@@ -763,7 +760,7 @@ handle({From, {truncate, Head, F, A}}=Message, S) ->
 		ok ->
 		    erase(is_full),
 		    notify_owners({truncated, S#state.cnt}),
-		    N = if Head =:= none -> 0; true -> 1 end,
+		    N = if H =:= none -> 0; true -> 1 end,
 		    reply(From, ok, (state_ok(S))#state{cnt = N});
 		Error ->
 		    do_exit(S, From, Error, ?failure(Error, F, A))
@@ -875,18 +872,49 @@ handle({From, inc_wrap_file}=Message, S) ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	#log{type = halt}=L ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
+	#log{type = rotate}=L ->
+	    reply(From, {error, {rotate_log, L#log.name}}, S);
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
 	#log{status = ok}=L ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
 		    put(log, L2),
-		    notify_owners({wrap, Lost}),
+		    notify_owners({L#log.type, Lost}),
 		    reply(From, ok, S#state{cnt = S#state.cnt-Lost});
 		{error, Error, L2} ->
 		    put(log, L2),		    
 		    reply(From, Error, state_err(S, Error))
 	    end;
+	#log{status = {blocked, false}}=L ->
+	    reply(From, {error, {blocked_log, L#log.name}}, S);
+	#log{blocked_by = From}=L ->
+	    reply(From, {error, {blocked_log, L#log.name}}, S);
+	_ ->
+	    enqueue(Message, S)
+    end;
+handle({From, next_file}=Message, S) ->
+    case get(log) of
+	#log{mode = read_only}=L ->
+	    reply(From, {error, {read_only_mode, L#log.name}}, S);
+	#log{type = halt}=L ->
+	    reply(From, {error, {halt_log, L#log.name}}, S);
+	#log{status = ok} when S#state.cache_error =/= ok ->
+	    loop(cache_error(S, [From]));
+	#log{status = ok, type = wrap}=L ->
+	    case catch do_inc_wrap_file(L) of
+		{ok, L2, Lost} ->
+		    put(log, L2),
+		    notify_owners({L#log.type, Lost}),
+		    reply(From, ok, S#state{cnt = S#state.cnt-Lost});
+		{error, Error, L2} ->
+		    put(log, L2),		    
+		    reply(From, Error, state_err(S, Error))
+	    end;
+        #log{status = ok, type = rotate}=L ->
+            {ok, L2} = do_inc_rotate_file(L),
+	    put(log, L2),
+	    reply(From, ok, S);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	#log{blocked_by = From}=L ->
@@ -906,7 +934,7 @@ handle({From, {reopen, NewFile, Head, F, A}}, S) ->
 	    case catch close_disk_log2(L) of
 		closed ->
 		    File = L#log.filename,
-		    case catch rename_file(File, NewFile, L#log.type) of
+		    case catch rename_file(File, NewFile, L) of
 			ok ->
 			    H = merge_head(Head, L#log.head),
 			    case do_open((S#state.args)#arg{name = L#log.name,
@@ -944,7 +972,23 @@ handle({Server, {internal_open, A}}, S) ->
 	    case do_open(A) of % does the put
 		{ok, Res, L, Cnt} ->
 		    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
-		    reply(Server, Res, S#state{args=A, cnt=Cnt});
+                    #arg{size = Size, old_size = OldSize} = A,
+                    S1 = S#state{args=A, cnt=Cnt},
+                    case Size =:= OldSize of
+                        true ->
+                            reply(Server, Res, S1);
+                        false ->
+                            case catch do_change_size(get(log), Size) of % does the put
+                                ok ->
+                                    reply(Server, Res, S1);
+                                {big, _CurSize} ->
+                                    %% Note: halt logs are opened even if the
+                                    %% given size is too small.
+                                    reply(Server, Res, S1);
+                                Else ->
+                                    reply(Server, Else, S1)
+                            end
+                    end;
 		Res ->
 		    do_fast_exit(S, Server, Res)
 	    end;
@@ -1131,7 +1175,7 @@ system_terminate(Reason, _Parent, _, State) ->
     exit(Reason).
 
 %%-----------------------------------------------------------------
-%% Temporay code for upgrade.
+%% Temporary code for upgrade.
 %%-----------------------------------------------------------------
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.
@@ -1213,15 +1257,19 @@ is_owner(Pid, L) ->
     end.
 
 %% ok | throw(Error)
-rename_file(File, NewFile, halt) ->
+rename_file(File, NewFile, #log{type = halt}) ->
     case file:rename(File, NewFile) of
         ok ->
             ok;
         Else ->
             file_error(NewFile, Else)
     end;
-rename_file(File, NewFile, wrap) ->
-    rename_file(wrap_file_extensions(File), File, NewFile, ok).
+rename_file(File, NewFile, #log{type = wrap}) ->
+    rename_file(wrap_file_extensions(File), File, NewFile, ok);
+rename_file(File, NewFile, #log{type = rotate, extra = Handle}) ->
+    {_MaxB, MaxF} = disk_log_1:get_rotate_size(Handle),
+    disk_log_1:rotate_files(Handle#rotate_handle.file, MaxF),
+    rename_file(rotate_file_extensions(File, MaxF), File, NewFile, ok).
 
 rename_file([Ext|Exts], File, NewFile0, Res) ->
     NewFile = add_ext(NewFile0, Ext),
@@ -1271,17 +1319,35 @@ compare_arg(format, F, A) when F =/= A#arg.format ->
 compare_arg(repair, R, A) when R =/= A#arg.repair ->
     %% not used, but check it anyway...
     {not_ok, A#arg.repair};
+compare_arg(size, Sz, A) when Sz =/= A#arg.size, A#arg.type =:= wrap ->
+    %% Note: if the given size does not match the size of an open
+    %% halt log, the given size is ignored.
+    {error, {size_mismatch, A#arg.size, Sz}};
 compare_arg(_Attr, _Val, _A) -> 
     ok.
 
 %% -> {ok, Res, log(), Cnt} | Error
+do_open(#arg{type = rotate} = A) ->
+    #arg{name = Name, size = Size, mode = Mode, head = Head0,
+         format = Format, type = Type, file = FName} = A,
+    Head = mk_head(Head0, Format),
+    case disk_log_1:open_rotate_log_file(FName, Size, Head) of
+        {ok, RotHandle} ->
+            L = #log{name = Name, type = Type, format = Format,
+                     filename = FName, size = Size, mode = Mode,
+                     extra = RotHandle, format_type = rotate_ext,
+                     head = Head},
+            {ok, {ok, Name}, L, 0};
+        Error ->
+            Error
+    end;
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
-         quiet = Quiet, version = V} = A,
+         quiet = Quiet, version = V, old_size = OldSize} = A,
     disk_log_1:set_quiet(Quiet),
     Head = mk_head(Head0, Format),
-    case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
+    case do_open2(Type, Format, Name, FName, Repair, OldSize, Mode, Head, V) of
         {ok, Ret, Extra, FormatType, NoItems} ->
             L = #log{name = Name, type = Type, format = Format,
                      filename = FName, size = Size,
@@ -1344,6 +1410,11 @@ do_change_size(#log{type = wrap}=L, NewSize) ->
     {ok, Handle} = disk_log_1:change_size_wrap(Extra, NewSize, Version),
     erase(is_full),
     put(log, L#log{extra = Handle}),
+    ok;
+do_change_size(#log{type =rotate, extra = Extra} = L, NewSize) ->
+    {ok, Handle} = disk_log_1:change_size_rotate(Extra, NewSize),
+    erase(is_full),
+    put(log, L#log{extra = Handle}),
     ok.
 
 %% -> {ok, Head} | Error; Head = none | {head, H} | {M,F,A}
@@ -1365,13 +1436,14 @@ check_head({head, Term}, internal) ->
 check_head(_Head, _Format) ->
     {error, {badarg, head}}.
 
-check_size(wrap, {NewMaxB,NewMaxF}) when
-  is_integer(NewMaxB), is_integer(NewMaxF),
-  NewMaxB > 0, NewMaxB =< ?MAX_BYTES, NewMaxF > 0, NewMaxF < ?MAX_FILES ->
-    ok;
 check_size(halt, NewSize) when is_integer(NewSize), NewSize > 0 ->
     ok;
 check_size(halt, infinity) ->
+    ok;
+check_size(Type, {NewMaxB,NewMaxF}) when
+    (Type =:= wrap orelse Type =:= rotate) andalso
+    is_integer(NewMaxB), is_integer(NewMaxF),
+    NewMaxB > 0, NewMaxB =< ?MAX_BYTES, NewMaxF > 0, NewMaxF < ?MAX_FILES ->
     ok;
 check_size(_, _) ->
     not_ok.
@@ -1399,6 +1471,13 @@ do_inc_wrap_file(L) ->
 	    end
     end.
 
+%%-----------------------------------------------------------------
+%% Force log rotation.
+%%-----------------------------------------------------------------
+%% -> {ok, log()}
+do_inc_rotate_file(#log{extra = Handle, head = Head} = L) ->
+    Handle2 = disk_log_1:do_rotate(Handle, Head),
+    {ok, L#log{extra = Handle2}}.
 
 %%-----------------------------------------------------------------
 %% Open a log file.
@@ -1471,7 +1550,9 @@ close_disk_log2(L) ->
 	#log{format_type = halt_ext, extra = Halt} ->
 	    disk_log_1:fclose(Halt#halt.fdc, L#log.filename);
 	#log{format_type = wrap_ext, mode = Mode, extra = Handle} ->
-	    disk_log_1:mf_ext_close(Handle, Mode)
+	    disk_log_1:mf_ext_close(Handle, Mode);
+        #log{type = rotate, extra = Handle} ->
+            disk_log_1:rotate_ext_close(Handle)
     end,
     closed.
 
@@ -1519,9 +1600,6 @@ do_format_error({arg_mismatch, Option, FirstValue, ArgValue}) ->
 		  "the current value ~tp~n", [ArgValue, Option, FirstValue]);
 do_format_error({name_already_open, Log}) ->
     io_lib:format("The disk log ~tp has already opened another file~n", [Log]);
-do_format_error({node_already_open, Log}) ->
-    io_lib:format("The distribution option of the disk log ~tp does not match "
-		  "already open log~n", [Log]);
 do_format_error({open_read_write, Log}) ->
     io_lib:format("The disk log ~tp has already been opened read-write~n", 
 		  [Log]);
@@ -1570,18 +1648,11 @@ do_info(L, Cnt) ->
     Size = case Type of
 	       wrap ->
 		   disk_log_1:get_wrap_size(Extra);
+               rotate ->
+                   disk_log_1:get_rotate_size(Extra);
 	       halt ->
 		   Extra#halt.size
 	   end,
-    Distribution =
-	case disk_log_server:get_log_pids(Name) of
-	    {local, _Pid} -> 
-		local;
-	    {distributed, Pids} ->
-                [node(P) || P <- Pids];
-	    undefined -> % "cannot happen"
-		[]
-	end,
     RW = case Type of
 	     wrap when Mode =:= read_write ->
 		 #handle{curB = CurB, curF = CurF, 
@@ -1597,6 +1668,11 @@ do_info(L, Cnt) ->
 		  {current_file, CurF},
 		  {no_overflows, {NewAccFull, NoFull}}
 		 ];
+             rotate when Mode =:= read_write ->
+                 #rotate_handle{curB = CurB} = Extra,
+		 [{no_current_bytes, CurB},
+		  {no_items, Cnt}
+		 ];
 	     halt when Mode =:= read_write ->
 		 IsFull = case get(is_full) of 
 			      undefined -> false; 
@@ -1610,7 +1686,11 @@ do_info(L, Cnt) ->
 	 end,
     HeadL = case Mode of
 		read_write ->
-		    [{head, Head}];
+		    [{head, case Head of
+                                {ok, H} -> H;
+                                none -> Head;
+                                {_M, _F, _A} -> Head
+                            end}];
 		read_only ->
 		    []
 	    end,
@@ -1625,8 +1705,7 @@ do_info(L, Cnt) ->
 	     HeadL ++
 	     [{mode, Mode},
 	      {status, Status},
-	      {node, node()},
-	      {distributed, Distribution}
+	      {node, node()}
 	     ],
     Common ++ RW.
 
@@ -1698,7 +1777,11 @@ do_log(#log{format_type = wrap_ext}=L, B, _BSz) ->
 	{error, Error, Handle, Logged, Lost} ->
 	    put(log, L#log{extra = Handle}),
 	    {error, Error, Logged - Lost}
-    end.
+    end;
+do_log(#log{type = rotate}=L, B, _BSz) ->
+    {ok, Handle, Logged} = disk_log_1:rotate_ext_log(L#log.extra, B, L#log.head), %%error case here
+    put(log, L#log{extra = Handle}),
+    Logged.
 
 logl(B, external, undefined) ->
     {B, iolist_size(B)};
@@ -1748,6 +1831,10 @@ do_write_cache(#log{filename = FName, type = halt, extra = Halt} = Log) ->
 do_write_cache(#log{type = wrap, extra = Handle} = Log) ->
     {Reply, NewHandle} = disk_log_1:mf_write_cache(Handle),
     put(log, Log#log{extra = NewHandle}),
+    Reply;
+do_write_cache(#log{type = rotate, extra = Handle} = Log) ->
+    {Reply, NewHandle} = disk_log_1:rotate_write_cache(Handle),
+    put(log, Log#log{extra = NewHandle}),
     Reply.
 
 %% -> ok | Error
@@ -1755,7 +1842,7 @@ do_sync(#log{filename = FName, type = halt, extra = Halt} = Log) ->
     {Reply, NewFdC} = disk_log_1:sync(Halt#halt.fdc, FName),
     put(log, Log#log{extra = Halt#halt{fdc = NewFdC}}),
     Reply;
-do_sync(#log{type = wrap, extra = Handle} = Log) ->
+do_sync(#log{type = Type, extra = Handle} = Log) when Type == wrap orelse Type == rotate->
     {Reply, NewHandle} = disk_log_1:mf_sync(Handle),
     put(log, Log#log{extra = NewHandle}),
     Reply.
@@ -1800,7 +1887,12 @@ do_trunc(#log{type = wrap}=L, Head) ->
     NewLog2 = trunc_wrap(NewLog),
     NewHandle = (NewLog2#log.extra)#handle{noFull = 0, accFull = 0},
     do_change_size(NewLog2#log{extra = NewHandle, head = OldHead}, 
-		   {MaxB, MaxF}).
+		   {MaxB, MaxF});
+do_trunc(#log{type = rotate, head = Head, extra = Handle}=L, none) ->
+    Handle1 = disk_log_1:do_rotate(Handle, Head),
+    disk_log_1:remove_files(rotate, Handle1#rotate_handle.file, 0, Handle1#rotate_handle.maxF),
+    put(log, L#log{extra = Handle1}),
+    ok.
 
 trunc_wrap(L) ->
     case do_inc_wrap_file(L) of
@@ -1857,64 +1949,12 @@ reply(To, Reply, S) ->
     loop(S).
 
 req(Log, R) ->
-    case disk_log_server:get_log_pids(Log) of
-	{local, Pid} ->
-	    monitor_request(Pid, R);
-	undefined ->
-	    {error, no_such_log};
-	{distributed, Pids} ->
-	    multi_req({self(), R}, Pids)
-    end.
-
-multi_req(Msg, Pids) ->
-    Refs = 
-	lists:map(fun(Pid) ->
-			  Ref = erlang:monitor(process, Pid),
-			  Pid ! Msg,
-			  {Pid, Ref}
-		  end, Pids),
-    lists:foldl(fun({Pid, Ref}, Reply) ->
-			receive
-			    {'DOWN', Ref, process, Pid, _Info} ->
-				Reply;
-			    {disk_log, Pid, _Reply} ->
-				erlang:demonitor(Ref, [flush]),
-				ok
-			end
-		end, {error, nonode}, Refs).
-
-sreq(Log, R) ->
-    case nearby_pid(Log, node()) of
+    case disk_log_server:get_log_pid(Log) of
 	undefined ->
 	    {error, no_such_log};
 	Pid ->
 	    monitor_request(Pid, R)
     end.
-
-%% Local req - always talk to log on Node
-lreq(Log, R, Node) ->
-    case nearby_pid(Log, Node) of
-	Pid when is_pid(Pid), node(Pid) =:= Node ->
-	    monitor_request(Pid, R);
-	_Else ->
-	    {error, no_such_log}
-    end.
-
-nearby_pid(Log, Node) ->
-    case disk_log_server:get_log_pids(Log) of
-	undefined ->
-	    undefined;
-	{local, Pid} ->
-	    Pid;
-	{distributed, Pids} ->
-	    get_near_pid(Pids, Node)
-    end.
-
--spec get_near_pid([pid(),...], node()) -> pid().
-
-get_near_pid([Pid | _], Node) when node(Pid) =:= Node -> Pid;
-get_near_pid([Pid], _ ) -> Pid;
-get_near_pid([_ | T], Node) -> get_near_pid(T, Node).
 
 monitor_request(Pid, Req) ->
     Ref = erlang:monitor(process, Pid),
@@ -1937,7 +1977,7 @@ merge_head(Head, _) ->
     Head.
 
 %% -> List of extensions of existing files (no dot included) | throw(FileError)
-wrap_file_extensions(File) -> 
+wrap_file_extensions(File) ->
     {_CurF, _CurFSz, _TotSz, NoOfFiles} =
 	disk_log_1:read_index_file(File),
     Fs = if 
@@ -1956,18 +1996,27 @@ wrap_file_extensions(File) ->
 	  end,
     lists:filter(Fun, ["idx", "siz" | Fs]).
 
+rotate_file_extensions(File, MaxF) ->
+    rotate_file_extensions(File, MaxF, 0, []).
+
+rotate_file_extensions(_File, MaxF, MaxF, Res) ->
+    Res;
+rotate_file_extensions(File, MaxF, N, Res) ->
+    Ext = integer_to_list(N) ++ ".gz", 
+    case file:read_file_info(add_ext(File, Ext)) of
+        {ok, _} -> rotate_file_extensions(File, MaxF, N+1, [Ext|Res]);
+	_ -> rotate_file_extensions(File, MaxF, N+1, Res)
+    end.
+
 add_ext(File, Ext) ->
     lists:concat([File, ".", Ext]).
 
 notify(Log, R) ->
-    case disk_log_server:get_log_pids(Log) of
+    case disk_log_server:get_log_pid(Log) of
 	undefined ->
 	    {error, no_such_log};
-	{local, Pid} ->
+	Pid ->
 	    Pid ! R,
-	    ok;
-	{distributed, Pids} ->
-	    lists:foreach(fun(Pid) -> Pid ! R end, Pids),
 	    ok
     end.
 

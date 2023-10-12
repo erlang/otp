@@ -1,0 +1,22 @@
+
+  [;1m-spec advise(IoDevice, Offset, Length, Advise) -> ok | {error, Reason}[0m
+  [;1m                when[0m
+  [;1m                    IoDevice :: io_device(),[0m
+  [;1m                    Offset :: integer(),[0m
+  [;1m                    Length :: integer(),[0m
+  [;1m                    Advise :: posix_file_advise(),[0m
+  [;1m                    Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  Types:
+    -type posix_file_advise() ::
+          normal | sequential | random | no_reuse | will_need |
+          dont_need.
+
+  [;;4madvise/4[0m can be used to announce an intention to access file data
+  in a specific pattern in the future, thus allowing the operating
+  system to perform appropriate optimizations.
+
+  On some platforms, this function might have no effect.

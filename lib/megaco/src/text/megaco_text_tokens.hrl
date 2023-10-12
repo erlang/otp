@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,18 +97,14 @@
 -define(PrettyContextAttrToken           , "ContextAttr"           ). % v3
 -define(PrettyContextListToken           , "ContextList"           ). % v3
 -define(PrettyDigitMapToken              , "DigitMap"              ).
--ifdef(encoder_version_pre_prev3c).
--define(PrettyDirectionToken             , "Direction"             ). % v3 
--else.
 -define(PrettyDirectionToken             , "SPADirection"          ). % v3 
--endif.
 -define(PrettyDiscardToken               , "Discard"               ).
 -define(PrettyDisconnectedToken          , "Disconnected"          ).
 -define(PrettyDelayToken                 , "Delay"                 ).
 -define(PrettyDurationToken              , "Duration"              ).
 -define(PrettyEmbedToken                 , "Embed"                 ).
 -define(PrettyEmergencyToken             , "Emergency"             ).
--ifdef(encoder_version_pre_prev3c).
+-ifdef(encoder_pre_version_3).
 -define(PrettyEmergencyOffToken          , "EmergencyOffToken"     ). % v2
 -else.
 -define(PrettyEmergencyOffToken          , "EmergencyOff"          ). % v3
@@ -177,11 +173,7 @@
 -define(PrettyResetEventsDescriptorToken , "ResetEventsDescriptor" ). % v3
 -define(PrettyRestartToken               , "Restart"               ).
 -define(PrettyRemoteToken                , "Remote"                ).
--ifdef(encoder_version_pre_prev3c).
--define(PrettyRequestIDToken             , "RequestID"             ). % v3
--else.
 -define(PrettyRequestIDToken             , "SPARequestID"          ). % v3
--endif.
 -define(PrettyReservedGroupToken         , "ReservedGroup"         ).
 -define(PrettyReservedValueToken         , "ReservedValue"         ).
 -define(PrettySegmentationCompleteToken  , "END"                   ). % v3
@@ -235,11 +227,7 @@
 -define(CompactContextAttrToken           , "CT"                   ). % v3
 -define(CompactContextListToken           , "CLT"                  ). % v3
 -define(CompactDigitMapToken              , "DM"                   ).
--ifdef(encoder_version_pre_prev3c).
--define(CompactDirectionToken             , "DI"                   ). % v3 
--else.
 -define(CompactDirectionToken             , "SPADI"                ). % v3 
--endif.
 -define(CompactDiscardToken               , "DS"                   ).
 -define(CompactDisconnectedToken          , "DC"                   ).
 -define(CompactDelayToken                 , "DL"                   ).
@@ -311,11 +299,7 @@
 -define(CompactResetEventsDescriptorToken , "RSE"                  ). % v3
 -define(CompactRestartToken               , "RS"                   ).
 -define(CompactRemoteToken                , "R"                    ).
--ifdef(encoder_version_pre_prev3c).
--define(CompactRequestIDToken             , "RQ"                   ). % v3
--else.
 -define(CompactRequestIDToken             , "SPARQ"                ). % v3
--endif.
 -define(CompactReservedGroupToken         , "RG"                   ).
 -define(CompactReservedValueToken         , "RV"                   ).
 -define(CompactSegmentationCompleteToken  , "&"                    ). % v3

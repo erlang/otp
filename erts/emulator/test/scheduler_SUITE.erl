@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,13 +52,18 @@
 	 cpu_topology/1,
 	 update_cpu_info/1,
 	 sct_cmd/1,
+	 ssrct_cmd/1,
 	 sbt_cmd/1,
 	 scheduler_threads/1,
 	 scheduler_suspend_basic/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
+         sched_poll/1,
          poll_threads/1,
-	 reader_groups/1]).
+	 reader_groups/1,
+         otp_16446/1,
+         simultaneously_change_schedulers_online/1,
+         simultaneously_change_schedulers_online_with_exits/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -73,19 +78,26 @@ all() ->
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads,
+     sched_poll,
      poll_threads,
-     reader_groups].
+     reader_groups,
+     otp_16446,
+     simultaneously_change_schedulers_online,
+     simultaneously_change_schedulers_online_with_exits].
 
 groups() -> 
     [{scheduler_bind, [],
       [scheduler_bind_types, cpu_topology, update_cpu_info,
-       sct_cmd, sbt_cmd]}].
+       sct_cmd, sbt_cmd, ssrct_cmd]}].
 
 init_per_suite(Config) ->
-    Config.
+    [{schedulers_online, erlang:system_info(schedulers_online)} | Config].
 
 end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
+    SchedOnln = proplists:get_value(schedulers_online, Config),
+    erlang:system_flag(schedulers_online, SchedOnln),
+    erlang:system_flag(dirty_cpu_schedulers_online, SchedOnln),
     Config.
 
 init_per_testcase(update_cpu_info, Config) ->
@@ -94,6 +106,12 @@ init_per_testcase(update_cpu_info, Config) ->
 	    {skip,"Could not find 'taskset' in path"};
 	_ ->
 	    init_per_tc(update_cpu_info, Config)
+    end;
+init_per_testcase(ThreadCase, Config) when ThreadCase =:= poll_threads;
+                                           ThreadCase =:= scheduler_threads ->
+    case erlang:system_info(schedulers_online) of
+        1 -> {skip,"Needs more than one scheduler online"};
+        _ -> init_per_tc(ThreadCase, Config)
     end;
 init_per_testcase(Case, Config) when is_list(Config) ->
     init_per_tc(Case, Config).
@@ -105,7 +123,7 @@ init_per_tc(Case, Config) ->
     [{testcase, Case}, {ok_res, OkRes} |Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    ok.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 -define(ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED, (2000*2000)).
 -define(DEFAULT_TEST_REDS_PER_SCHED, 200000000).
@@ -268,7 +286,7 @@ bound_loop(NS, N, M, Sched) ->
 
 
 -define(TOPOLOGY_A_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0p0n0"
 	":L2-3t0-1c1p0n0"
 	":L4-5t0-1c0p1n0"
@@ -276,7 +294,7 @@ bound_loop(NS, N, M, Sched) ->
 	":L8-9t0-1c0p2n1"
 	":L10-11t0-1c1p2n1"
 	":L12-13t0-1c0p3n1"
-	":L14-15t0-1c1p3n1").
+	":L14-15t0-1c1p3n1"]).
 
 -define(TOPOLOGY_A_TERM,
 	[{node,[{processor,[{core,[{thread,{logical,0}},
@@ -297,7 +315,7 @@ bound_loop(NS, N, M, Sched) ->
 				   {thread,{logical,15}}]}]}]}]).
 
 -define(TOPOLOGY_B_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0n0p0"
 	":L2-3t0-1c1n0p0"
 	":L4-5t0-1c2n1p0"
@@ -305,7 +323,7 @@ bound_loop(NS, N, M, Sched) ->
 	":L8-9t0-1c0n2p1"
 	":L10-11t0-1c1n2p1"
 	":L12-13t0-1c2n3p1"
-	":L14-15t0-1c3n3p1").
+	":L14-15t0-1c3n3p1"]).
 
 -define(TOPOLOGY_B_TERM,
 	[{processor,[{node,[{core,[{thread,{logical,0}},
@@ -361,7 +379,7 @@ bound_loop(NS, N, M, Sched) ->
 
 
 -define(TOPOLOGY_C_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0p0n0"
 	":L2-3t0-1c1p0n0"
 	":L4-5t0-1c0p1n0"
@@ -377,7 +395,7 @@ bound_loop(NS, N, M, Sched) ->
 	":L24-25t0-1c0n4p5"
 	":L26-27t0-1c1n4p5"
 	":L28-29t0-1c2n5p5"
-	":L30-31t0-1c3n5p5").
+	":L30-31t0-1c3n5p5"]).
 
 -define(TOPOLOGY_D_TERM,
 	[{processor,[{node,[{core,[{thread,{logical,0}},
@@ -414,7 +432,7 @@ bound_loop(NS, N, M, Sched) ->
 				   {thread,{logical,31}}]}]}]}]).
 
 -define(TOPOLOGY_D_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0n0p0"
 	":L2-3t0-1c1n0p0"
 	":L4-5t0-1c2n1p0"
@@ -430,10 +448,10 @@ bound_loop(NS, N, M, Sched) ->
 	":L24-25t0-1c0p4n5"
 	":L26-27t0-1c1p4n5"
 	":L28-29t0-1c0p5n5"
-	":L30-31t0-1c1p5n5").
+	":L30-31t0-1c1p5n5"]).
 
 -define(TOPOLOGY_E_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0p0n0"
 	":L2-3t0-1c1p0n0"
 	":L4-5t0-1c2p0n0"
@@ -441,7 +459,7 @@ bound_loop(NS, N, M, Sched) ->
 	":L8-9t0-1c0p1n1"
 	":L10-11t0-1c1p1n1"
 	":L12-13t0-1c2p1n1"
-	":L14-15t0-1c3p1n1").
+	":L14-15t0-1c3p1n1"]).
 
 -define(TOPOLOGY_E_TERM,
 	[{node,[{processor,[{core,[{thread,{logical,0}},
@@ -462,7 +480,7 @@ bound_loop(NS, N, M, Sched) ->
 				   {thread,{logical,15}}]}]}]}]).
 
 -define(TOPOLOGY_F_CMD,
-	"+sct"
+	["+sct"
 	"L0-1t0-1c0n0p0"
 	":L2-3t0-1c1n0p0"
 	":L4-5t0-1c2n0p0"
@@ -478,7 +496,7 @@ bound_loop(NS, N, M, Sched) ->
 	":L24-25t0-1c12n3p0"
 	":L26-27t0-1c13n3p0"
 	":L28-29t0-1c14n3p0"
-	":L30-31t0-1c15n3p0").
+	":L30-31t0-1c15n3p0"]).
 
 -define(TOPOLOGY_F_TERM,
         [{processor,[{node,[{core,[{thread,{logical,0}},
@@ -535,27 +553,27 @@ bindings(Node, BindType) ->
 scheduler_bind_types(Config) when is_list(Config) ->
     OldRelFlags = clear_erl_rel_flags(),
     try
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_A_TERM,
 				  ?TOPOLOGY_A_CMD,
 				  a),
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_B_TERM,
 				  ?TOPOLOGY_B_CMD,
 				  b),
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_C_TERM,
 				  ?TOPOLOGY_C_CMD,
 				  c),
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_D_TERM,
 				  ?TOPOLOGY_D_CMD,
 				  d),
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_E_TERM,
 				  ?TOPOLOGY_E_CMD,
 				  e),
-	scheduler_bind_types_test(Config,
+	scheduler_bind_types_test(
 				  ?TOPOLOGY_F_TERM,
 				  ?TOPOLOGY_F_CMD,
 				  f)
@@ -564,17 +582,17 @@ scheduler_bind_types(Config) when is_list(Config) ->
     end,
     ok.
 
-scheduler_bind_types_test(Config, Topology, CmdLine, TermLetter) ->
+scheduler_bind_types_test(Topology, CmdLine, TermLetter) ->
     io:format("Testing (~p): ~p~n", [TermLetter, Topology]),
-    {ok, Node0} = start_node(Config),
+    {ok, Peer, Node0} = ?CT_PEER(),
     _ = rpc:call(Node0, erlang, system_flag, [cpu_topology, Topology]),
     cmp(Topology, rpc:call(Node0, erlang, system_info, [cpu_topology])),
     check_bind_types(Node0, TermLetter),
-    stop_node(Node0),
-    {ok, Node1} = start_node(Config, CmdLine),
+    peer:stop(Peer),
+    {ok, Peer1, Node1} = ?CT_PEER(CmdLine),
     cmp(Topology, rpc:call(Node1, erlang, system_info, [cpu_topology])),
     check_bind_types(Node1, TermLetter),
-    stop_node(Node1).
+    peer:stop(Peer1).
 
 check_bind_types(Node, a) ->
     {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}
@@ -699,7 +717,6 @@ cpu_topology(Config) when is_list(Config) ->
     OldRelFlags = clear_erl_rel_flags(),
     try
         cpu_topology_test(
-          Config,
           [{node,[{processor,[{core,{logical,0}},
                               {core,{logical,1}}]}]},
            {processor,[{node,[{core,{logical,2}},
@@ -708,13 +725,12 @@ cpu_topology(Config) when is_list(Config) ->
                               {core,{logical,5}}]}]},
            {processor,[{node,[{core,{logical,6}},
                               {core,{logical,7}}]}]}],
-          "+sct "
+          ["+sct",
           "L0-1c0-1p0n0"
           ":L2-3c0-1n1p1"
           ":L4-5c0-1p2n2"
-          ":L6-7c0-1n3p3"),
+          ":L6-7c0-1n3p3"]),
         cpu_topology_test(
-          Config,
           [{node,[{processor,[{core,{logical,0}},
                               {core,{logical,1}}]},
                   {processor,[{core,{logical,2}},
@@ -731,7 +747,7 @@ cpu_topology(Config) when is_list(Config) ->
                               {core,{logical,13}}]},
                        {node,[{core,{logical,14}},
                               {core,{logical,15}}]}]}],
-          "+sct "
+          ["+sct",
           "L0-1c0-1p0n0"
           ":L2-3c0-1p1n0"
           ":L4-5c0-1n1p2"
@@ -739,9 +755,8 @@ cpu_topology(Config) when is_list(Config) ->
           ":L8-9c0-1p3n3"
           ":L10-11c0-1p4n3"
           ":L12-13c0-1n4p5"
-          ":L14-15c2-3n5p5"),
+          ":L14-15c2-3n5p5"]),
         cpu_topology_test(
-          Config,
           [{node,[{processor,[{core,{logical,0}},
                               {core,{logical,1}}]}]},
            {processor,[{node,[{core,{logical,2}},
@@ -754,39 +769,45 @@ cpu_topology(Config) when is_list(Config) ->
                               {core,{logical,9}}]}]},
            {processor,[{node,[{core,{logical,10}},
                               {core,{logical,11}}]}]}],
-          "+sct "
+          ["+sct",
           "L0-1c0-1p0n0"
           ":L2-3c0-1n1p1"
           ":L4-5c0-1n2p2"
           ":L6-7c0-1p3n3"
           ":L8-9c0-1p4n4"
-          ":L10-11c0-1n5p5")
+          ":L10-11c0-1n5p5"])
     after
         restore_erl_rel_flags(OldRelFlags)
     end,
     ok.
 
-cpu_topology_test(Config, Topology, Cmd) ->
+cpu_topology_test(Topology, Cmd) ->
     io:format("Testing~n ~p~n ~p~n", [Topology, Cmd]),
-    cpu_topology_bif_test(Config, Topology),
-    cpu_topology_cmdline_test(Config, Topology, Cmd),
+    cpu_topology_bif_test(Topology),
+    cpu_topology_cmdline_test(Topology, Cmd),
     ok.
 
-cpu_topology_bif_test(_Config, false) ->
+cpu_topology_bif_test(false) ->
     ok;
-cpu_topology_bif_test(Config, Topology) ->
-    {ok, Node} = start_node(Config),
+cpu_topology_bif_test(Topology) ->
+    {ok, Peer, Node} = ?CT_PEER(),
     _ = rpc:call(Node, erlang, system_flag, [cpu_topology, Topology]),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
-    stop_node(Node),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
+    peer:stop(Peer),
     ok.
 
-cpu_topology_cmdline_test(_Config, _Topology, false) ->
+cpu_topology_cmdline_test(_Topology, false) ->
     ok;
-cpu_topology_cmdline_test(Config, Topology, Cmd) ->
-    {ok, Node} = start_node(Config, Cmd),
+cpu_topology_cmdline_test(Topology, Cmd) ->
+    {ok, Peer, Node} = ?CT_PEER(Cmd),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
-    stop_node(Node),
+    cmp(undefined,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
+    peer:stop(Peer),
     ok.
 
 update_cpu_info(Config) when is_list(Config) ->
@@ -968,16 +989,36 @@ sct_cmd(Config) when is_list(Config) ->
     Topology = ?TOPOLOGY_A_TERM,
     OldRelFlags = clear_erl_rel_flags(),
     try
-	{ok, Node} = start_node(Config, ?TOPOLOGY_A_CMD),
+	{ok, Peer, Node} = ?CT_PEER(?TOPOLOGY_A_CMD),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_info, [cpu_topology])),
+	cmp(undefined,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+	cmp(Topology,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_flag, [cpu_topology, Topology])),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_info, [cpu_topology])),
-	stop_node(Node)
+	peer:stop(Peer)
     after
 	restore_erl_rel_flags(OldRelFlags)
+    end,
+    ok.
+
+ssrct_cmd(Config) when is_list(Config) ->
+    OldRelFlags = clear_erl_rel_flags(),
+    try
+        {ok, Peer, Node} = ?CT_PEER(["+ssrct"]),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [cpu_topology])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
+        peer:stop(Peer)
+    after
+        restore_erl_rel_flags(OldRelFlags)
     end,
     ok.
 
@@ -993,69 +1034,88 @@ sct_cmd(Config) when is_list(Config) ->
 	 {"db", thread_no_node_processor_spread}]).
 
 sbt_cmd(Config) when is_list(Config) ->
-    Bind = try
-	      OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
-	      erlang:system_flag(scheduler_bind_type, OldVal),
-	      go_for_it
-	  catch
-	      error:notsup -> notsup;
-		error:_ -> go_for_it
-	  end,
-    case Bind of
-	notsup ->
-	    {skipped, "Binding of schedulers not supported"};
-	go_for_it ->
-	    CpuTCmd = case erlang:system_info({cpu_topology,detected}) of
-			  undefined ->
-			      case os:type() of
-				  linux ->
-				      case erlang:system_info(logical_processors) of
-					  1 ->
-					      "+sctL0";
-					  N when is_integer(N) ->
-					      NS = integer_to_list(N-1),
-					      "+sctL0-"++NS++"p0-"++NS;
-					  _ ->
-					      false
-				      end;
-				  _ ->
-				      false
-			      end;
-			  _ ->
-			      ""
-		      end,
-	    case CpuTCmd of
-		false ->
-		    {skipped, "Don't know how to create cpu topology"};
-		_ ->
-		    case erlang:system_info(logical_processors) of
-			LP when is_integer(LP) ->
-			    OldRelFlags = clear_erl_rel_flags(),
-			    try
-				lists:foreach(fun ({ClBt, Bt}) ->
-						      sbt_test(Config,
-								     CpuTCmd,
-								     ClBt,
-								     Bt,
-								     LP)
-					      end,
-					      ?BIND_TYPES)
-			    after
-				restore_erl_rel_flags(OldRelFlags)
-			    end,
-			    ok;
-			_ ->
-			    {skipped,
-				   "Don't know the amount of logical processors"}
-		    end
-	    end
+    case sbt_check_prereqs() of
+        {skipped, _Reason}=Skipped ->
+            Skipped;
+        ok ->
+            case sbt_make_topology_args() of
+                false ->
+                    {skipped, "Don't know how to create cpu topology"};
+                CpuTCmd ->
+                    LP = erlang:system_info(logical_processors),
+                    OldRelFlags = clear_erl_rel_flags(),
+                    try
+                        lists:foreach(fun ({ClBt, Bt}) ->
+                                              sbt_test(CpuTCmd,
+                                                       ClBt, Bt, LP)
+                                      end,
+                                      ?BIND_TYPES)
+                    after
+                        restore_erl_rel_flags(OldRelFlags)
+                    end,
+                    ok
+            end
     end.
 
-sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
+sbt_make_topology_args() ->
+    case erlang:system_info({cpu_topology,detected}) of
+        undefined ->
+            case os:type() of
+                linux ->
+                    case erlang:system_info(logical_processors) of
+                        1 ->
+                            ["+sctL0"];
+                        N ->
+                            NS = integer_to_list(N - 1),
+                            ["+sctL0-"++NS++"p0-"++NS]
+                    end;
+                _ ->
+                    false
+            end;
+        _ ->
+            ""
+    end.
+
+sbt_check_prereqs() ->
+    try
+        Available = erlang:system_info(logical_processors_available),
+        Quota = erlang:system_info(cpu_quota),
+        if
+            Quota =:= unknown; Quota >= Available ->
+                ok;
+            Quota < Available ->
+                throw({skipped, "Test requires that CPU quota is greater than "
+                                "the number of available processors."})
+        end,
+
+        try
+            OldVal = erlang:system_flag(scheduler_bind_type, default_bind),
+            erlang:system_flag(scheduler_bind_type, OldVal)
+        catch
+            error:notsup ->
+                throw({skipped, "Scheduler binding not supported."});
+            error:_ ->
+                %% ?!
+                ok
+        end,
+
+        case erlang:system_info(logical_processors) of
+            Count when is_integer(Count) ->
+                ok;
+            unknown ->
+                throw({skipped, "Can't detect number of logical processors."})
+        end,
+
+        ok
+    catch
+        throw:{skip,_Reason}=Skip -> Skip
+    end.
+
+sbt_test(CpuTCmd, ClBt, Bt, LP) ->
     io:format("Testing +sbt ~s (~p)~n", [ClBt, Bt]),
     LPS = integer_to_list(LP),
-    Cmd = CpuTCmd++" +sbt "++ClBt++" +S"++LPS++":"++LPS,
-    {ok, Node} = start_node(Config, Cmd),
+    Cmd = CpuTCmd++["+sbt", ClBt, "+S"++LPS++":"++LPS],
+    {ok, Peer, Node} = ?CT_PEER(Cmd),
     Bt = rpc:call(Node,
 			erlang,
 			system_info,
@@ -1079,16 +1139,16 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
 		      end,
 		      BS,
 		      tuple_to_list(SB)),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 scheduler_threads(Config) when is_list(Config) ->
-    {Sched, SchedOnln, _} = get_sstate(Config, ""),
+    {Sched, SchedOnln, _} = get_sstate(""),
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
     {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
                                   lists:max([1,SchedOnln div 2])},
-    {HalfSched, HalfSchedOnln, _} = get_sstate(Config, "+SP 50:50"),
+    {HalfSched, HalfSchedOnln, _} = get_sstate(["+SP", "50:50"]),
     %% Use +S to configure 4x the number of scheduler threads and
     %% 4x the number of scheduler threads online, but alter that
     %% setting using +SP to 50% scheduler threads and 25% scheduler
@@ -1097,40 +1157,60 @@ scheduler_threads(Config) when is_list(Config) ->
     TwiceSched = Sched*2,
     FourSched = integer_to_list(Sched*4),
     FourSchedOnln = integer_to_list(SchedOnln*4),
-    CombinedCmd1 = "+S "++FourSched++":"++FourSchedOnln++" +SP50:25",
-    {TwiceSched, SchedOnln, _} = get_sstate(Config, CombinedCmd1),
+    CombinedCmd1 = ["+S", FourSched++":"++FourSchedOnln, "+SP50:25"],
+    {TwiceSched, SchedOnln, _} = get_sstate(CombinedCmd1),
     %% Now do the same test but with the +S and +SP options in the
     %% opposite order, since order shouldn't matter.
-    CombinedCmd2 = "+SP50:25 +S "++FourSched++":"++FourSchedOnln,
-    {TwiceSched, SchedOnln, _} = get_sstate(Config, CombinedCmd2),
+    CombinedCmd2 = ["+SP50:25", "+S", FourSched++":"++FourSchedOnln],
+    {TwiceSched, SchedOnln, _} = get_sstate(CombinedCmd2),
     %% Apply two +SP options to make sure the second overrides the first
-    TwoCmd = "+SP 25:25 +SP 100:100",
-    {Sched, SchedOnln, _} = get_sstate(Config, TwoCmd),
+    TwoCmd = ["+SP", "25:25", "+SP", "100:100"],
+    {Sched, SchedOnln, _} = get_sstate(TwoCmd),
     %% Configure 50% of scheduler threads online only
-    {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
+    {Sched, HalfSchedOnln, _} = get_sstate(["+SP:50"]),
     %% Configure 2x scheduler threads only
-    {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
-    case {erlang:system_info(logical_processors),
-	  erlang:system_info(logical_processors_available)} of
-	{LProc, LProcAvail} when is_integer(LProc), is_integer(LProcAvail) ->
-	    %% Test resetting the scheduler counts
-	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
-	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
-	    %% Test negative +S settings, but only for SMP-enabled emulators
-	    case {LProc > 1, LProcAvail > 1} of
-		{true, true} ->
-		    SchedMinus1 = LProc-1,
-		    SchedOnlnMinus1 = LProcAvail-1,
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
-		    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
-		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
-		    ok;
-		_ ->
-		    {comment, "Skipped reduced amount of schedulers test due to too few logical processors"}
-	    end;
-	_ -> %% Skipped when missing info about logical processors...
-	    {comment, "Skipped reset amount of schedulers test, and reduced amount of schedulers test due to too unknown amount of logical processors"}
+    {TwiceSched, SchedOnln, _} = get_sstate(["+SP", "200"]),
+
+    LProc = erlang:system_info(logical_processors),
+    LProcAvail = erlang:system_info(logical_processors_available),
+    Quota = erlang:system_info(cpu_quota),
+
+    if
+        not is_integer(LProc); not is_integer(LProcAvail) ->
+            {comment, "Skipped reset amount of schedulers test, and reduced "
+                      "amount of schedulers test due to too unknown amount of "
+                      "logical processors"};
+        is_integer(LProc); is_integer(LProcAvail) ->
+            ExpectedOnln = st_expected_onln(LProcAvail, Quota),
+
+            st_reset(LProc, ExpectedOnln, FourSched, FourSchedOnln),
+
+            if
+                LProc =:= 1; LProcAvail =:= 1 ->
+                    {comment, "Skipped reduced amount of schedulers test due "
+                              "to too few logical processors"};
+                LProc > 1, LProcAvail > 1 ->
+                    st_reduced(LProc, ExpectedOnln)
+            end
     end.
+
+st_reset(LProc, ExpectedOnln, FourSched, FourSchedOnln) ->
+    %% Test resetting # of schedulers.
+    ResetCmd = ["+S", FourSched++":"++FourSchedOnln, "+S", "0:0"],
+    {LProc, ExpectedOnln, _} = get_sstate(ResetCmd),
+    ok.
+
+st_reduced(LProc, ExpectedOnln) ->
+    %% Test negative +S settings
+    SchedMinus1 = LProc-1,
+    SchedOnlnMinus1 = ExpectedOnln-1,
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(["+S", "-1"]),
+    {LProc, SchedOnlnMinus1, _} = get_sstate(["+S", ":-1"]),
+    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(["+S", "-1:-1"]),
+    ok.
+
+st_expected_onln(LProcAvail, unknown) -> LProcAvail;
+st_expected_onln(LProcAvail, Quota) -> min(LProcAvail, Quota).
 
 dirty_scheduler_threads(Config) when is_list(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -1138,18 +1218,19 @@ dirty_scheduler_threads(Config) when is_list(Config) ->
         _ -> dirty_scheduler_threads_test(Config)
     end.
 
-dirty_scheduler_threads_test(Config) ->
-    {Sched, SchedOnln, _} = get_dsstate(Config, ""),
+dirty_scheduler_threads_test(Config) when is_list(Config) ->
+    {Sched, SchedOnln, _} = get_dsstate(""),
     {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
                                   lists:max([1,SchedOnln div 2])},
-    Cmd1 = "+SDcpu "++integer_to_list(HalfSched)++":"++
-	integer_to_list(HalfSchedOnln),
-    {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, Cmd1),
-    {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, "+SDPcpu 50:50"),
+    Cmd1 = ["+SDcpu", integer_to_list(HalfSched)++":"++
+	integer_to_list(HalfSchedOnln)],
+    {HalfSched, HalfSchedOnln, _} = get_dsstate(Cmd1),
+    {HalfSched, HalfSchedOnln, _} = get_dsstate(["+SDPcpu", "50:50"]),
     IOSched = 20,
-    {_, _, IOSched} = get_dsstate(Config, "+SDio "++integer_to_list(IOSched)),
-    {ok, Node} = start_node(Config, ""),
+    {_, _, IOSched} = get_dsstate(["+SDio", integer_to_list(IOSched)]),
+    {ok, Peer, Node} = ?CT_PEER(),
     [ok] = mcall(Node, [fun() -> dirty_schedulers_online_test() end]),
+    peer:stop(Peer),
     ok.
 
 dirty_schedulers_online_test() ->
@@ -1173,16 +1254,16 @@ dirty_schedulers_online_smp_test(SchedOnln) ->
     QrtrDirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
     ok.
 
-get_sstate(Config, Cmd) ->
-    {ok, Node} = start_node(Config, Cmd),
+get_sstate(Cmd) ->
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
     [SState] = mcall(Node, [fun () ->
                                     erlang:system_info(schedulers_state)
                             end]),
-    stop_node(Node),
+    peer:stop(Peer),
     SState.
 
-get_dsstate(Config, Cmd) ->
-    {ok, Node} = start_node(Config, Cmd),
+get_dsstate(Cmd) ->
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
     [DSCPU] = mcall(Node, [fun () ->
 				   erlang:system_info(dirty_cpu_schedulers)
 			   end]),
@@ -1192,7 +1273,7 @@ get_dsstate(Config, Cmd) ->
     [DSIO] = mcall(Node, [fun () ->
 				  erlang:system_info(dirty_io_schedulers)
 			  end]),
-    stop_node(Node),
+    peer:stop(Peer),
     {DSCPU, DSCPUOnln, DSIO}.
 
 scheduler_suspend_basic(Config) when is_list(Config) ->
@@ -1201,10 +1282,12 @@ scheduler_suspend_basic(Config) when is_list(Config) ->
 	    {skip, "Nothing to test"};
 	_ ->
 	    Onln = erlang:system_info(schedulers_online),
+	    DirtyOnln = erlang:system_info(dirty_cpu_schedulers_online),
 	    try
 		scheduler_suspend_basic_test()
 	    after
-		erlang:system_flag(schedulers_online, Onln)
+		erlang:system_flag(schedulers_online, Onln),
+		erlang:system_flag(dirty_cpu_schedulers_online, DirtyOnln)
 	    end
     end.
 
@@ -1304,18 +1387,19 @@ scheduler_suspend_basic_test() ->
 
 scheduler_suspend(Config) when is_list(Config) ->
     ct:timetrap({minutes, 5}),
-    lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
+    lists:foreach(fun (S) -> scheduler_suspend_test(S) end,
 			[64, 32, 16, default]),
     ok.
-scheduler_suspend_test(Config, Schedulers) ->
+
+scheduler_suspend_test(Schedulers) ->
     Cmd = case Schedulers of
 		    default ->
 			"";
 		    _ ->
 			S = integer_to_list(Schedulers),
-			"+S"++S++":"++S
+			["+S"++S++":"++S]
 		end,
-    {ok, Node} = start_node(Config, Cmd),
+    {ok, Peer, Node} = ?CT_PEER(Cmd),
     [SState] = mcall(Node, [fun () ->
                                     erlang:system_info(schedulers_state)
                             end]),
@@ -1357,7 +1441,7 @@ scheduler_suspend_test(Config, Schedulers) ->
 								     native)),
 				    erlang:system_info(schedulers_state)
                             end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 until(Pred, MaxTime) ->
@@ -1446,58 +1530,102 @@ sst5_loop(N) ->
     erlang:system_flag(multi_scheduling, unblock_normal),
     sst5_loop(N-1).
 
+%% Test scheduler polling: +IOs true|false
+sched_poll(Config) when is_list(Config) ->
+
+    Env = case os:getenv("ERL_AFLAGS") of
+              false ->
+                  [];
+              AFLAGS1 ->
+                  %% Remove any +IOs
+                  AFLAGS2 = list_to_binary(re:replace(AFLAGS1,
+                                                      "\\+IOs (true|false)",
+                                                      "", [global])),
+                  [{"ERL_AFLAGS", binary_to_list(AFLAGS2)}]
+          end,
+
+    [PS | _] = get_iostate(""),
+    HaveSchedPoll = proplists:get_value(concurrent_updates, PS),
+
+    0 = get_sched_pollsets(["+IOs", "false"]),
+    if
+        HaveSchedPoll ->
+            1 = get_sched_pollsets(["+IOs", "true"]),
+            1 = get_sched_pollsets([], Env);
+
+        not HaveSchedPoll ->
+            fail = get_sched_pollsets(["+IOs", "true"]),
+            0 = get_sched_pollsets([], Env)
+    end,
+    fail = get_sched_pollsets(["+IOs", "bad"]),
+    ok.
+
+get_sched_pollsets(Cmd) ->
+    get_sched_pollsets(Cmd, []).
+
+get_sched_pollsets(Cmd, Env)->
+    try
+        {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd,
+                                      env => [{"ERL_LIBS", false} | Env]}),
+        [IOStates] = mcall(Node,[fun () -> erlang:system_info(check_io) end]),
+        IO = [IOState || IOState <- IOStates,
+            %% We assume non-fallbacks without threads are scheduler pollsets
+            proplists:get_value(fallback, IOState) == false,
+            proplists:get_value(poll_threads, IOState) == 0],
+        peer:stop(Peer),
+        length(IO) % number of scheduler pollsets
+    catch
+        exit:{boot_failed, _} ->
+            fail
+    end.
+
 poll_threads(Config) when is_list(Config) ->
-    {Conc, PollType, KP} = get_ioconfig(Config),
-    {Sched, SchedOnln, _} = get_sstate(Config, ""),
+    [PS | _] = get_iostate(""),
+    Conc = proplists:get_value(concurrent_updates, PS),
 
-    [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
-    [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
-
-    [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
+    [1, 1] = get_ionum(["+IOt", "2", "+IOp", "2"]),
+    [1, 1, 1, 1, 1] = get_ionum(["+IOt", "5", "+IOp", "5"]),
+    [1, 1] = get_ionum(["+S", "2", "+IOPt", "100", "+IOPp", "100"]),
 
     if
         Conc ->
-            [5] = get_ionum(Config,"+IOt 5 +IOp 1"),
-            [3, 2] = get_ionum(Config,"+IOt 5 +IOp 2"),
-            [2, 2, 2, 2, 2] = get_ionum(Config,"+IOt 10 +IOPp 50"),
 
-            [2] = get_ionum(Config, "+S 2 +IOPt 100"),
-            [4] = get_ionum(Config, "+S 4 +IOPt 100"),
-            [4] = get_ionum(Config, "+S 4:2 +IOPt 100"),
-            [4, 4] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+            [5] = get_ionum(["+IOt", "5", "+IOp", "1"]),
+            [3, 2] = get_ionum(["+IOt", "5", "+IOp", "2"]),
+            [2, 2, 2, 2, 2] = get_ionum(["+IOt", "10", "+IOPp", "50"]),
 
-            fail = get_ionum(Config, "+IOt 1 +IOp 2"),
+            [2] = get_ionum(["+S", "2", "+IOPt", "100"]),
+            [4] = get_ionum(["+S", "4", "+IOPt", "100"]),
+            [4] = get_ionum(["+S", "4:2", "+IOPt", "100"]),
+            [4, 4] = get_ionum(["+S", "8", "+IOPt", "100", "+IOPp", "25"]),
+
+            fail = get_ionum(["+IOt", "1", "+IOp", "2"]),
 
             ok;
         not Conc ->
-            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
-            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 10 +IOPp 50"),
 
-            [1, 1] = get_ionum(Config, "+S 2 +IOPt 100"),
-            [1, 1, 1, 1] = get_ionum(Config, "+S 4 +IOPt 100"),
-            [1, 1, 1, 1] = get_ionum(Config, "+S 4:2 +IOPt 100"),
-            [1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+            [1, 1, 1, 1, 1] = get_ionum(["+IOt", "5", "+IOp", "1"]),
+            [1, 1, 1, 1, 1] = get_ionum(["+IOt", "5", "+IOp", "2"]),
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(["+IOt", "10", "+IOPp", "50"]),
 
-            [1] = get_ionum(Config, "+IOt 1 +IOp 2"),
+            [1, 1] = get_ionum(["+S", "2", "+IOPt", "100"]),
+            [1, 1, 1, 1] = get_ionum(["+S", "4", "+IOPt", "100"]),
+            [1, 1, 1, 1] = get_ionum(["+S", "4:2", "+IOPt", "100"]),
+            [1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(["+S", "8", "+IOPt", "100"  "+IOPp", "25"]),
+
+            [1] = get_ionum(["+IOt", "1", "+IOp", "2"]),
 
             ok
     end,
 
-    fail = get_ionum(Config, "+IOt 1 +IOPp 101"),
-    fail = get_ionum(Config, "+IOt 0"),
-    fail = get_ionum(Config, "+IOPt 101"),
+    fail = get_ionum(["+IOt", "1", "+IOPp", "101"]),
+    fail = get_ionum(["+IOt", "0"]),
+    fail = get_ionum(["+IOPt", "101"]),
 
     ok.
 
-get_ioconfig(Config) ->
-    [PS | _] = get_iostate(Config, ""),
-    {proplists:get_value(concurrent_updates, PS),
-     proplists:get_value(primary, PS),
-     proplists:get_value(kernel_poll, PS)}.
-
-get_ionum(Config, Cmd) ->
-    case get_iostate(Config, Cmd) of
+get_ionum(Cmd) ->
+    case get_iostate(Cmd) of
         fail -> fail;
         PSs ->
             lists:reverse(
@@ -1505,17 +1633,18 @@ get_ionum(Config, Cmd) ->
                 [proplists:get_value(poll_threads, PS) || PS <- PSs]))
     end.
 
-get_iostate(Config, Cmd)->
-    case start_node(Config, Cmd) of
-        {ok, Node} ->
-            [IOStates] = mcall(Node,[fun () ->
-                                             erlang:system_info(check_io)
-                                     end]),
-            IO = [IOState || IOState <- IOStates,
-                             proplists:get_value(fallback, IOState) == false],
-            stop_node(Node),
-            IO;
-        {error,timeout} ->
+get_iostate(Cmd)->
+    try
+        {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd,
+                                      env => [{"ERL_LIBS", false}]}),
+        [IOStates] = mcall(Node,[fun () -> erlang:system_info(check_io) end]),
+        IO = [IOState || IOState <- IOStates,
+            proplists:get_value(fallback, IOState) == false,
+            proplists:get_value(poll_threads, IOState) /= 0],
+        peer:stop(Peer),
+        IO
+    catch
+        exit:{boot_failed, _} ->
             fail
     end.
 
@@ -1791,6 +1920,133 @@ reader_groups_map(CPUT, Groups) ->
     Res = erts_debug:get_internal_state({reader_groups_map, Groups}),
     erlang:system_flag(cpu_topology, Old),
     lists:sort(Res).
+
+otp_16446(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 1}),
+    
+    process_flag(priority, high),
+
+    DIO = erlang:system_info(dirty_io_schedulers),
+    NoPrioProcs = 10*DIO,
+    io:format("DIO = ~p~nNoPrioProcs = ~p~n", [DIO, NoPrioProcs]),
+
+    DirtyLoop = fun Loop(P, N) ->
+                        erts_debug:dirty_io(wait,1),
+                        receive {get, From} -> From ! {P, N}
+                        after 0 -> Loop(P,N+1)
+                        end
+                end,
+
+    Spawn = fun SpawnLoop(_Prio, 0, Acc) ->
+                    Acc;
+                SpawnLoop(Prio, N, Acc) ->
+                    Pid = spawn_opt(fun () -> DirtyLoop(Prio, 0) end,
+                                    [link, {priority, Prio}]),
+                    SpawnLoop(Prio, N-1, [Pid|Acc])
+            end,
+
+    Ns = Spawn(normal, NoPrioProcs, []),
+    Ls = Spawn(low, NoPrioProcs, []),
+
+    receive after 10000 -> ok end,
+    
+    RequestInfo = fun (P) -> P ! {get, self()} end,
+    lists:foreach(RequestInfo, Ns),
+    lists:foreach(RequestInfo, Ls),
+    
+    Collect = fun CollectFun(0, LLs, NLs) ->
+                      {LLs, NLs};
+                  CollectFun(N, LLs, NLs) ->
+                      receive
+                          {low, Calls} ->
+                              CollectFun(N-1, LLs+Calls, NLs);
+                          {normal, Calls} ->
+                              CollectFun(N-1, LLs, NLs+Calls)
+                      end
+              end,
+    
+    {LLs, NLs} = Collect(2*NoPrioProcs, 0, 0),
+    
+    %% expected ratio 0.125, but this is not especially exact...
+    Ratio = LLs / NLs,
+
+    io:format("LLs = ~p~nNLs = ~p~nRatio = ~p~n", [LLs, NLs, Ratio]),
+    
+    true = Ratio > 0.05,
+    true = Ratio < 0.5,
+    
+    WaitUntilDead = fun (P) ->
+                            case is_process_alive(P) of
+                                false ->
+                                    ok;
+                                true ->
+                                    unlink(P),
+                                    exit(P, kill),
+                                    false = is_process_alive(P)
+                            end
+                    end,
+
+    lists:foreach(WaitUntilDead, Ns),
+    lists:foreach(WaitUntilDead, Ls),
+    Comment = "low/normal ratio: " ++ erlang:float_to_list(Ratio,[{decimals,4}]),
+    erlang:display(Comment),
+    {comment, Comment}.
+
+simultaneously_change_schedulers_online(Config) when is_list(Config) ->
+    SchedOnline = erlang:system_info(schedulers_online),
+    Change = fun Change (0) ->
+                     ok;
+                 Change (N) ->
+                     %timer:sleep(rand:uniform(100)),
+                     erlang:system_flag(schedulers_online,
+                                        rand:uniform(erlang:system_info(schedulers))),
+                     Change(N-1)
+             end,
+    PMs = lists:map(fun (_) ->
+                            spawn_monitor(fun () -> Change(10) end)
+                    end, lists:seq(1,2500)),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, normal} ->
+                                  ok
+                          end
+                  end,
+                  PMs),
+    erlang:system_flag(schedulers_online, SchedOnline),
+    ok.
+
+simultaneously_change_schedulers_online_with_exits(Config) when is_list(Config) ->
+    SchedOnline = erlang:system_info(schedulers_online),
+    Change = fun Change (0) ->
+                     exit(bye);
+                 Change (N) ->
+                     %timer:sleep(rand:uniform(100)),
+                     erlang:system_flag(schedulers_online,
+                                        rand:uniform(erlang:system_info(schedulers))),
+                     Change(N-1)
+             end,
+    PMs = lists:map(fun (_) ->
+                            spawn_monitor(fun () -> Change(10) end)
+                    end, lists:seq(1,2500)),
+    %% Kill every 10:th process...
+    _ = lists:foldl(fun ({P, _M}, 0) ->
+                            exit(P, bye),
+                            10;
+                        (_PM, N) ->
+                            N-1
+                    end,
+                    10,
+                    PMs),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, Reason} ->
+                                  bye = Reason
+                          end
+                  end,
+                  PMs),
+    erlang:system_flag(schedulers_online, SchedOnline),
+    ok.
+
 
 %%
 %% Utils
@@ -2305,24 +2561,6 @@ active_schedulers() ->
 		enabled -> N
 	    end
     end.
-    
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
 
 enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of

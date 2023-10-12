@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ typedef erts_atomic_t ErtsPortTaskHandle;
 #ifndef ERL_PORT_TASK_H__
 #define ERL_PORT_TASK_H__
 
+#include "erl_poll.h"
+
 #undef ERTS_INCLUDE_SCHEDULER_INTERNALS
 #if (defined(ERL_PROCESS_C__) \
      || defined(ERL_PORT_TASK_C__) \
@@ -54,8 +56,8 @@ typedef erts_atomic_t ErtsPortTaskHandle;
 #define ERTS_PT_FLG_BAD_OUTPUT		(1 << 4)
 
 typedef enum {
-    ERTS_PORT_TASK_INPUT,
-    ERTS_PORT_TASK_OUTPUT,
+    ERTS_PORT_TASK_INPUT = 0,
+    ERTS_PORT_TASK_OUTPUT = 1,
     ERTS_PORT_TASK_TIMEOUT,
     ERTS_PORT_TASK_DIST_CMD,
     ERTS_PORT_TASK_PROC_SIG
@@ -134,6 +136,12 @@ ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE int erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp);
 
+#if defined(ERTS_INCLUDE_SCHEDULER_INTERNALS) && ERTS_POLL_USE_SCHEDULER_POLLING
+ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
+/* NOTE: Do not access any of the exported variables directly */
+extern erts_atomic_t erts_port_task_outstanding_io_tasks;
+#endif
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
@@ -163,7 +171,7 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 ERTS_GLB_INLINE void
 erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
 {
-    char *lock_str = "port_sched_lock";
+    const char *lock_str = "port_sched_lock";
     ptsp->next = NULL;
     ptsp->taskq.local.busy.first = NULL;
     ptsp->taskq.local.busy.last = NULL;
@@ -210,6 +218,15 @@ erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
 {
     erts_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
 }
+
+#if defined(ERTS_INCLUDE_SCHEDULER_INTERNALS) && ERTS_POLL_USE_SCHEDULER_POLLING
+ERTS_GLB_INLINE int
+erts_port_task_have_outstanding_io_tasks(void)
+{
+    return (erts_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
+	    != 0);
+}
+#endif
 
 #endif
 

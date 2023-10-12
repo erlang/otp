@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ whole_body([Bin, Body, Length])  ->
     whole_body(<<Body/binary, Bin/binary>>, Length).
 
 %% Functions that may be returned during the decoding process
-%% if the input data is incompleate. 
+%% if the input data is incomplete. 
 parse_version([Bin, Version, MaxHeaderSize, Result, Relaxed]) ->
     parse_version(Bin, Version, MaxHeaderSize, Result, Relaxed).
 
@@ -60,13 +60,13 @@ parse_headers([Bin, Rest,Header, Headers, MaxHeaderSize, Result, Relaxed]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, Header, Headers, 
 		  MaxHeaderSize, Result, Relaxed).
     
-whole_body(Body, Length) ->
-    case size(Body) of
+whole_body(Body, Length) when is_binary(Body)->
+    case byte_size(Body) of
 	N when (N < Length) andalso (N > 0)  ->
 	    {?MODULE, whole_body, [Body, Length]};
 	%% OBS!  The Server may close the connection to indicate that the
-	%% whole body is now sent instead of sending a lengh
-	%% indicator.In this case the lengh indicator will be
+	%% whole body is now sent instead of sending a length
+	%% indicator.In this case the length indicator will be
 	%% -1.
 	N when (N >= Length) andalso (Length >= 0) -> 
 	    %% Potential trailing garbage will be thrown away in
@@ -91,7 +91,13 @@ result(Response = {{_, Code,_}, _, _},
   when ((Code =:= 200) orelse (Code =:= 206)) andalso (Stream =/= none) ->
     stream_end(Response, Request);
 
-result(Response = {{_,100,_}, _, _}, Request) ->
+%% Ignore the body of response with status code 204 or 304
+result({{_, Code, _} = StatusLine, Headers, _Body}, Request)
+  when Code =:= 204 orelse Code =:= 304 ->
+    transparent({StatusLine, Headers, <<>>}, Request);
+
+result(Response = {{_, Code, _}, _, _}, Request)
+  when (100 =< Code andalso Code =< 199) ->
     status_continue(Response, Request);
 
 %% In redirect loop
@@ -116,17 +122,19 @@ result(Response = {{_, Code, _}, _, _},
                            (Code =:= 303) ->
     redirect(Response, Request#request{method = get});
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings =
-              #http_options{autoredirect = true},
-              method = post}) when (Code =:= 307) ->
+        Request = #request{settings =
+            #http_options{autoredirect = true},
+                method = post}) when (Code =:= 307) orelse
+                    (Code =:= 308) ->
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = true},
-			  method = Method}) when (Code =:= 301) orelse
-					       (Code =:= 302) orelse
-					       (Code =:= 303) orelse
-					       (Code =:= 307) ->
+        Request = #request{settings = 
+			#http_options{autoredirect = true},
+                method = Method}) when (Code =:= 301) orelse
+                    (Code =:= 302) orelse
+                    (Code =:= 303) orelse
+                    (Code =:= 307) orelse
+                    (Code =:= 308) ->
     case lists:member(Method, [get, head, options, trace]) of
     true ->
         redirect(Response, Request);
@@ -356,7 +364,7 @@ status_continue(_, #request{headers =
 
 status_continue({_,_, Data}, _) ->
     %% The data in the body in this case is actually part of the real
-    %% response sent after the "fake" 100-continue.
+    %% response.
     {ignore, Data}.
 
 status_service_unavailable(Response = {_, Headers, _}, Request) ->
@@ -581,18 +589,16 @@ is_server_closing(Headers) when is_record(Headers, http_response_h) ->
 	    false
     end.
 
-format_response({{"HTTP/0.9", _, _} = StatusLine, _, Body}) ->
-    {{StatusLine, [], Body}, <<>>};
 format_response({StatusLine, Headers, Body = <<>>}) ->
     {{StatusLine, http_response:header_list(Headers), Body}, <<>>};
 
-format_response({StatusLine, Headers, Body}) ->
+format_response({StatusLine, Headers, Body}) when is_binary(Body) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
 	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
-	    Length when (Length =< size(Body)) ->
+	    Length when (Length =< byte_size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,
 		{BodyThisReq, Next};
 	    _ -> %% Connection prematurely ended. 

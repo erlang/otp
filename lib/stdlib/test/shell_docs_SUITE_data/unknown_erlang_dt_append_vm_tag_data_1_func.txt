@@ -1,0 +1,6 @@
+
+[;1m  dt_append_vm_tag_data/1[0m
+
+  The documentation for dt_append_vm_tag_data/1 is hidden. This
+  probably means that it is internal and not to be used by other
+  applications.

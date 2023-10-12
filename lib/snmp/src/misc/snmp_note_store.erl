@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ handle_call({set_note, Lifetime, Key, Value}, _From,
 	    {reply, Val, NState};
 	_Crap ->
 	    ?vinfo("handle_call(set_note) -> "
-		   "failed retreiving system start time from ~w: "
+		   "failed retrieving system start time from ~w: "
 		   "~n   ~p", [Mod, _Crap]),
 	    {reply, {error, failed_retreive_system_start_time}, State}
     end;
@@ -317,13 +317,13 @@ timer(Pid, passive, Timeout) ->
 	    ?MODULE:timer(Pid, passive, Timeout);
 
 	activate ->
-	    ?d("timer(deactive) -> activate request, send ack",[]),
+	    ?d("timer(deactivate) -> activate request, send ack",[]),
 	    Pid ! activated,
-	    ?d("timer(deactive) -> activate",[]),
+	    ?d("timer(deactivate) -> activate",[]),
 	    ?MODULE:timer(Pid, active, Timeout)		% code replacement
     after
 	Timeout ->
-	    ?d("timer(deactive) -> timeout",[]),
+	    ?d("timer(deactivate) -> timeout",[]),
 	    ?MODULE:timer(Pid, passive, Timeout)
     end;
 timer(Pid, active, Timeout) ->

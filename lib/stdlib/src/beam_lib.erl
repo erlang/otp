@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,12 @@
 	 all_chunks/1,
 	 diff_dirs/2,
 	 strip/1,
+	 strip/2,
 	 strip_files/1,
+	 strip_files/2,
 	 strip_release/1,
+	 strip_release/2,
+	 significant_chunks/0,
 	 build_module/1,
 	 version/1,
 	 md5/1,
@@ -47,13 +51,16 @@
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
 -export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
+-export_type([chunkid/0]).
+-export_type([chnk_rsn/0]).
+-export_type([beam/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
 
 %%-------------------------------------------------------------------------
 
--type beam() :: module() | file:filename() | binary().
+-type beam() :: file:filename() | binary().
 -type debug_info() :: {DbgiVersion :: atom(), Backend :: module(), Data :: term()} | 'no_debug_info'.
 
 -type forms()     :: [erl_parse:abstract_form() | erl_parse:form_info()].
@@ -103,6 +110,7 @@
 -type chnk_rsn()  :: {'unknown_chunk', file:filename(), atom()}
                    | {'key_missing_or_invalid', file:filename(),
 		      'abstract_code' | 'debug_info'}
+                   | {'missing_backend', file:filename(), module()}
                    | info_rsn().
 -type cmp_rsn()   :: {'modules_different', module(), module()}
                    | {'chunks_different', chunkid()}
@@ -149,7 +157,7 @@ chunks(File, Chunks, Options) ->
     catch Error -> Error end.
 
 -spec all_chunks(beam()) ->
-           {'ok', 'beam_lib', [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
+           {'ok', module(), [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
 
 all_chunks(File) ->
     read_all_chunks(File).
@@ -188,7 +196,16 @@ diff_dirs(Dir1, Dir2) ->
       Beam2 :: beam().
 
 strip(FileName) ->
-    try strip_file(FileName)
+    strip(FileName, []).
+
+-spec strip(Beam1, AdditionalChunks) ->
+        {'ok', {module(), Beam2}} | {'error', 'beam_lib', info_rsn()} when
+      Beam1 :: beam(),
+      AdditionalChunks :: [chunkid()],
+      Beam2 :: beam().
+
+strip(FileName, AdditionalChunks) ->
+    try strip_file(FileName, AdditionalChunks)
     catch Error -> Error end.
     
 -spec strip_files(Files) ->
@@ -196,8 +213,17 @@ strip(FileName) ->
       Files :: [beam()],
       Beam :: beam().
 
-strip_files(Files) when is_list(Files) ->
-    try strip_fils(Files)
+strip_files(Files) ->
+    strip_files(Files, []).
+
+-spec strip_files(Files, AdditionalChunks) ->
+        {'ok', [{module(), Beam}]} | {'error', 'beam_lib', info_rsn()} when
+      Files :: [beam()],
+      AdditionalChunks :: [chunkid()],
+      Beam :: beam().
+
+strip_files(Files, AdditionalChunks) when is_list(Files) ->
+    try strip_fils(Files, AdditionalChunks)
     catch Error -> Error end.
 
 -spec strip_release(Dir) ->
@@ -207,7 +233,17 @@ strip_files(Files) when is_list(Files) ->
       Reason :: {'not_a_directory', term()} | info_rsn().
 
 strip_release(Root) ->
-    catch strip_rel(Root).
+    strip_release(Root, []).
+
+-spec strip_release(Dir, AdditionalChunks) ->
+        {'ok', [{module(), file:filename()}]}
+      | {'error', 'beam_lib', Reason} when
+      Dir :: atom() | file:filename(),
+      AdditionalChunks :: [chunkid()],
+      Reason :: {'not_a_directory', term()} | info_rsn().
+
+strip_release(Root, AdditionalChunks) ->
+    catch strip_rel(Root, AdditionalChunks).
 
 -spec version(Beam) ->
                      {'ok', {module(), [Version :: term()]}} |
@@ -278,6 +314,9 @@ format_error(badfun) ->
     "not a fun or the fun has the wrong arity";
 format_error(exists) ->
     "a fun has already been installed";
+format_error({missing_backend, File, Backend}) ->
+    io_lib:format("~tp: Cannot retrieve abstract code because the backend ~p is missing",
+		  [File, Backend]);
 format_error(E) ->
     io_lib:format("~tp~n", [E]).
 
@@ -401,17 +440,17 @@ cmp_lists([{Id, C1} | R1], [{Id, C2} | R2]) ->
 cmp_lists(_, _) ->
     error(different_chunks).
     
-strip_rel(Root) ->
+strip_rel(Root, AdditionalChunks) ->
     ok = assert_directory(Root),
-    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam"))).
+    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam")), AdditionalChunks).
 
 %% -> {ok, [{Mod, BinaryOrFileName}]} | throw(Error)
-strip_fils(Files) ->
-    {ok, [begin {ok, Reply} = strip_file(F), Reply end || F <- Files]}.
+strip_fils(Files, AdditionalChunks) ->
+    {ok, [begin {ok, Reply} = strip_file(F, AdditionalChunks), Reply end || F <- Files]}.
 
 %% -> {ok, {Mod, FileName}} | {ok, {Mod, binary()}} | throw(Error)
-strip_file(File) ->
-    {ok, {Mod, Chunks}} = read_significant_chunks(File, significant_chunks()),
+strip_file(File, AdditionalChunks) ->
+    {ok, {Mod, Chunks}} = read_significant_chunks(File, AdditionalChunks ++ significant_chunks()),
     {ok, Stripped0} = build_module(Chunks),
     Stripped = compress(Stripped0),
     case File of
@@ -650,10 +689,13 @@ chunks_to_data([{abst_chunk, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) -
     {NewAtoms, Ret} =
 	case catch chunk_to_data(debug_info, DbgiChunk, File, Cs, Atoms, Module) of
 	    {DbgiAtoms, {debug_info, {debug_info_v1, Backend, Metadata}}} ->
-		case Backend:debug_info(erlang_v1, Module, Metadata, []) of
+		try Backend:debug_info(erlang_v1, Module, Metadata, []) of
 		    {ok, Code} -> {DbgiAtoms, {abstract_code, {raw_abstract_v1, Code}}};
 		    {error, _} -> {DbgiAtoms, {abstract_code, no_abstract_code}}
-		end;
+                catch
+                    error:undef ->
+                        error({missing_backend,File,Backend})
+                end;
             {error,beam_lib,{key_missing_or_invalid,Path,debug_info}} ->
                 error({key_missing_or_invalid,Path,abstract_code});
 	    _ ->
@@ -668,6 +710,9 @@ chunks_to_data([{Id, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) ->
 chunks_to_data([], _Chunks, _File, _Cs, Module, _Atoms, L) ->
     {ok, {Module, reverse(L)}}.
 
+chunk_to_data(Id, missing_chunk, _File, _Cs, AtomTable, _Mod) ->
+    %% Missing chunk, only happens when 'allow_missing_chunks' is on.
+    {AtomTable, {Id, missing_chunk}};
 chunk_to_data(attributes=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
     try
 	Term = binary_to_term(Chunk),
@@ -788,8 +833,7 @@ symbol(_, AT, I1, I2, _I3, _Cnt) ->
     {atm(AT, I1), I2}.
 
 atm(AT, N) ->
-    [{_N, S}] = ets:lookup(AT, N),
-    S.
+    ets:lookup_element(AT, N, 2).
 
 %% AT is updated.
 ensure_atoms({empty, AT}, Cs) ->
@@ -824,10 +868,8 @@ extract_atom(<<Len, B/binary>>, Encoding) ->
 	     bin :: binary(),
 	     source :: binary() | string()}).
 
-open_file(<<"FOR1",_/binary>>=Binary) ->
-    #bb{bin = Binary, source = Binary};
 open_file(Binary0) when is_binary(Binary0) ->
-    Binary = uncompress(Binary0),
+    Binary = maybe_uncompress(Binary0),
     #bb{bin = Binary, source = Binary};
 open_file(FileName) ->
     case file:open(FileName, [read, raw, binary]) of
@@ -843,7 +885,7 @@ read_all(Fd, FileName, Bins) ->
 	    read_all(Fd, FileName, [Bin | Bins]);
 	eof ->
 	    ok = file:close(Fd),
-	    #bb{bin = uncompress(reverse(Bins)), source = FileName};
+	    #bb{bin = maybe_uncompress(reverse(Bins)), source = FileName};
 	Error ->
 	    ok = file:close(Fd),
 	    file_error(FileName, Error)
@@ -873,20 +915,22 @@ beam_filename(Bin) when is_binary(Bin) ->
 beam_filename(File) ->
     filename:rootname(File, ".beam") ++ ".beam".
 
+%% Do not attempt to uncompress if we have the proper .beam format.
+%% This clause matches binaries given as input.
+maybe_uncompress(<<"FOR1",_/binary>>=Binary) ->
+    Binary;
+%% This clause matches the iolist read from files.
+maybe_uncompress([<<"FOR1",_/binary>>|_]=IOData) ->
+    iolist_to_binary(IOData);
+maybe_uncompress(IOData) ->
+    try
+	zlib:gunzip(IOData)
+    catch
+	_:_ -> iolist_to_binary(IOData)
+    end.
 
-uncompress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:uncompress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
-
-compress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:compress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
+compress(IOData) ->
+    zlib:gzip(IOData).
 
 %% -> ok | throw(Error)
 assert_directory(FileName) ->
@@ -910,13 +954,13 @@ error(Reason) ->
 %% The following chunks must be kept when stripping a BEAM file.
 
 significant_chunks() ->
-    ["Line" | md5_chunks()].
+    ["Line", "Type" | md5_chunks()].
 
 %% The following chunks are significant when calculating the MD5
 %% for a module. They are listed in the order that they should be MD5:ed.
 
 md5_chunks() ->
-    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"].
+    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "Meta"].
 
 %% The following chunks are mandatory in every Beam file.
 
@@ -941,7 +985,7 @@ decrypt_chunk(Type, Module, File, Id, Bin) ->
 	KeyString = get_crypto_key({debug_info, Type, Module, File}),
 	{Type,Key,IVec,_BlockSize} = make_crypto_key(Type, KeyString),
 	ok = start_crypto(),
-	NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
+	NewBin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin, false),
 	binary_to_term(NewBin)
     catch
 	_:_ ->
@@ -1107,11 +1151,12 @@ terminate(_Reason, _State) ->
     ok.
 
 crypto_key_fun_from_file() ->
+    UserConfig = filename:basedir(user_config,"erlang"),
     case init:get_argument(home) of
 	{ok,[[Home]]} ->
-	    crypto_key_fun_from_file_1([".",Home]);
+	    crypto_key_fun_from_file_1([".", Home, UserConfig]);
 	_ ->
-	    crypto_key_fun_from_file_1(["."])
+	    crypto_key_fun_from_file_1([".", UserConfig])
     end.
 
 crypto_key_fun_from_file_1(Path) ->

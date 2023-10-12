@@ -70,7 +70,10 @@ msgs(N) ->
 msgs_ip(N) ->
     [c(client, put, [test_msg]) || _ <- lists:seq(1, N)],
     s(server, received, [a,b]),
-    timer:sleep(500). %% allow trace messages to arrive over tcp/ip
+    %% This is a very high sleep, it is needed for some of the slower
+    %% test machines. Ideally we would want to be able to react to
+    %% when the actual tcp packets arrive, but I'm not sure that is possible..
+    timer:sleep(5000). %% allow trace messages to arrive over tcp/ip
 
 run() ->
     ttb({local, "A"}),

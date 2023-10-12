@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,63 +24,59 @@
 
 -module(diameter_sync_SUITE).
 
+%% testcases, no common_test depedency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([call/1,
-         cast/1,
-         timeout/1,
-         flush/1]).
+         parallel/1]).
 
 -define(sync, diameter_sync).
--define(util, diameter_util).
-
--define(TIMEOUT, infinity).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
-    [{group, all},
-     {group, all, [parallel]}].
+    [parallel].
 
-groups() ->
-    [{all, [], tc()}].
-
-tc() ->
-    [call,
-     cast,
-     timeout,
-     flush].
-
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
 
-call(_) ->
+%% run/0
+
+run() ->
+    run([call, cast, timeout, flush]).
+
+%% run/1
+
+run(List)
+  when is_list(List) ->
+    ok = diameter:start(),
+    try
+        diameter_util:run([{[fun run/1, T], 10000} || T <- List])
+    after
+        ok = diameter:stop()
+    end;
+
+run(call) ->
     Ref = make_ref(),
     Q = {q, Ref},
     F = fun() -> Ref end,
-    Ref = ?sync:call(Q, F, infinity, ?TIMEOUT),
+    Ref = ?sync:call(Q, F, infinity, infinity),
     Ref = ?sync:call(Q, F, 0, infinity),
     Ref = call(Q, F),
     Ref = call(Q, {fun(_) -> Ref end, x}),
     timeout = call(Q, fun() -> exit(unexpected) end),
     {_,_,_} = call(Q, {erlang, now, []}),
-    {_,_,_} = call(Q, [fun erlang:now/0]).
+    {_,_,_} = call(Q, [fun erlang:now/0]);
 
-cast(_) ->
+run(cast) ->
     Ref = make_ref(),
     Q = {q, Ref},
     false = ?sync:carp(Q),
@@ -95,26 +91,21 @@ cast(_) ->
     true = 2 =< ?sync:pending(),
     true = lists:member(Q, ?sync:queues()),
     %% ... and that the max number of requests is respected.
-    rejected = ?sync:call(Q, {erlang, now, []}, 1, ?TIMEOUT),
-    rejected = ?sync:cast(Q, {erlang, now, []}, 1, ?TIMEOUT),
+    rejected = ?sync:call(Q, {erlang, now, []}, 1, infinity),
+    rejected = ?sync:cast(Q, {erlang, now, []}, 1, infinity),
     %% Monitor on the identifiable request and see that exits when we
     %% let the blocking request finish.
     MRef = erlang:monitor(process, Pid),
     {value, P} = ?sync:carp(Q),
     P ! Ref,
-    Ref = receive
-              {'DOWN', MRef, process, _, Reason} ->
-                  Reason
-          after ?TIMEOUT ->
-                  false
-          end.
+    Ref = receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
-timeout(_) ->
+run(timeout) ->
     Q = make_ref(),
     ok = ?sync:cast(Q, {timer, sleep, [2000]}, infinity, 2000),
-    timeout = ?sync:call(Q, fun() -> ok end, infinity, 1000).
+    timeout = ?sync:call(Q, fun() -> ok end, infinity, 1000);
 
-flush(_) ->
+run(flush) ->
     Q = make_ref(),
     F = {timer, sleep, [2000]},
     ok = cast(Q, F),

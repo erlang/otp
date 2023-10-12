@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,8 +74,9 @@ public class OtpEpmd {
 
     private static final byte port4req = (byte) 122;
     private static final byte port4resp = (byte) 119;
-    private static final byte publish4req = (byte) 120;
-    private static final byte publish4resp = (byte) 121;
+    private static final byte ALIVE2_REQ = (byte) 120;
+    private static final byte ALIVE2_RESP = (byte) 121;
+    private static final byte ALIVE2_X_RESP = (byte) 118;
     private static final byte names4req = (byte) 110;
 
     private static int traceLevel = 0;
@@ -287,7 +288,7 @@ public class OtpEpmd {
 
             obuf.write2BE(node.alive().length() + 13);
 
-            obuf.write1(publish4req);
+            obuf.write1(ALIVE2_REQ);
             obuf.write2BE(node.port());
 
             obuf.write1(node.type());
@@ -322,10 +323,11 @@ public class OtpEpmd {
             final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
 
             final int response = ibuf.read1();
-            if (response == publish4resp) {
+            if (response == ALIVE2_RESP || response == ALIVE2_X_RESP) {
                 final int result = ibuf.read1();
                 if (result == 0) {
-                    node.creation = ibuf.read2BE();
+                    node.setCreation(response == ALIVE2_RESP
+                                     ? ibuf.read2BE() : ibuf.read4BE());
                     if (traceLevel >= traceThreshold) {
                         System.out.println("<- OK");
                     }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,29 +43,32 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
-    {ok, {{rest_for_one, 10, 3600}, [ssl_admin_child_spec(),
-				     ssl_connection_sup()
-				    ]}}.
+init([]) ->  
+    SupFlags = #{strategy  => rest_for_one,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [ssl_admin_child_spec(),
+                  ssl_connection_sup()],    
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 ssl_admin_child_spec() ->
-    Name = ssl_admin_sup,  
-    StartFunc = {ssl_admin_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_admin_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id       => ssl_admin_sup,
+      start    =>  {ssl_admin_sup, start_link, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_admin_sup],
+      type     => supervisor
+      }.
+  
 ssl_connection_sup() ->
-    Name = ssl_connection_sup,
-    StartFunc = {ssl_connection_sup, start_link, []},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [ssl_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id        => ssl_connection_sup,
+      start     =>  {ssl_connection_sup, start_link, []},
+      restart   => permanent, 
+      shutdown  => 4000,
+      modules   => [ssl_connection_sup],
+      type      => supervisor
+     }.

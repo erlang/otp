@@ -1,0 +1,59 @@
+
+  [;1m-spec demonitor(MonitorRef, OptionList) -> boolean()[0m
+  [;1m                   when[0m
+  [;1m                       MonitorRef :: reference(),[0m
+  [;1m                       OptionList :: [Option],[0m
+  [;1m                       Option :: flush | info.[0m
+
+  The returned value is [;;4mtrue[0m unless [;;4minfo[0m is part of [;;4mOptionList[0m.
+
+  [;;4mdemonitor(MonitorRef, [])[0m is equivalent to [;;4mdemonitor(MonitorRef)[0m.
+
+  [;;4mOption[0ms:
+
+  [;;4m[;;4mflush[0m[0m:
+    Removes (one) [;;4m{_, MonitorRef, _, _, _}[0m message, if there is
+    one, from the caller message queue after monitoring has been
+    stopped.
+
+    Calling [;;4mdemonitor(MonitorRef, [flush])[0m is equivalent to the
+    following, but more efficient:
+
+      demonitor(MonitorRef),
+      receive
+          {_, MonitorRef, _, _, _} ->
+              true
+      after 0 ->
+              true
+      end
+
+  [;;4m[;;4minfo[0m[0m:
+    The returned value is one of the following:
+
+    [;;4m[;;4mtrue[0m[0m:
+      The monitor was found and removed. In this case, no [;;4m[0m
+      [;;4m'DOWN'[0m message corresponding to this monitor has been
+      delivered and will not be delivered.
+
+    [;;4m[;;4mfalse[0m[0m:
+      The monitor was not found and could not be removed. This
+      probably because someone already has placed a [;;4m'DOWN'[0m
+      message corresponding to this monitor in the caller
+      message queue.
+
+    If option [;;4minfo[0m is combined with option [;;4mflush[0m, [;;4mfalse[0m is
+    returned if a flush was needed, otherwise [;;4mtrue[0m.
+
+  Change:
+    More options can be added in a future release.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOptionList[0m is not a list.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOption[0m is an invalid option.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    The same failure as for [;;4mdemonitor/1[0m.

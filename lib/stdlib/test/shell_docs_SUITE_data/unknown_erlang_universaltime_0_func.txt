@@ -1,0 +1,12 @@
+
+  [;1m-spec erlang:universaltime() -> DateTime[0m
+  [;1m                              when DateTime :: calendar:datetime().[0m
+
+  Returns the current date and time according to Universal Time
+  Coordinated (UTC) in the form [;;4m{{Year, Month, Day}, {Hour, Minute,[0m
+  [;;4mSecond}}[0m if supported by the underlying OS. Otherwise [;;4m[0m
+  [;;4merlang:universaltime()[0m is equivalent to [;;4merlang:localtime()[0m. The
+  return value is based on the OS System Time. Example:
+
+    > erlang:universaltime().
+    {{1996,11,6},{14,18,43}}

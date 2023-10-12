@@ -1,0 +1,5 @@
+
+[;1m  fam2rel/1[0m
+
+  The documentation for fam2rel/1 is hidden. This probably means
+  that it is internal and not to be used by other applications.

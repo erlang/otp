@@ -1,0 +1,33 @@
+
+  [;1m-spec error(Reason, Args) -> no_return()[0m
+  [;1m               when Reason :: term(), Args :: [term()] | none.[0m
+
+  Raises an exception of class [;;4merror[0m with the reason [;;4mReason[0m. [;;4m[0m
+  [;;4mArgs[0m is expected to be the list of arguments for the current
+  function or the atom [;;4mnone[0m. If it is a list, it is used to
+  provide the arguments for the current function in the stack
+  back-trace. If it is [;;4mnone[0m, the arity of the calling function is
+  used in the stacktrace. As evaluating this function causes an
+  exception to be raised, it has no return value.
+
+  The intent of the exception class [;;4merror[0m is to signal that an
+  unexpected error has happened (for example, a function is called
+  with a parameter that has an incorrect type). See the guide about 
+  errors and error handling for additional information. Example:
+
+  [;;4mtest.erl[0m:
+
+    -module(test).
+    -export([example_fun/2]).
+    
+    example_fun(A1, A2) ->
+        erlang:error(my_error, [A1, A2]).
+
+  Erlang shell:
+
+    6> c(test).
+    {ok,test}
+    7> test:example_fun(arg1,"this is the second argument").
+    ** exception error: my_error
+         in function  test:example_fun/2
+             called as test:example_fun(arg1,"this is the second argument")

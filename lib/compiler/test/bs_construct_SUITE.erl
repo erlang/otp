@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,10 +27,11 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
+         verify_highest_opcode/1,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
-         cover/1]).
+         strings/1,bad_size/1,private_append/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,9 +44,10 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [two,test1,fail,float_bin,in_guard,in_catch,
+      [verify_highest_opcode,
+       two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
-       otp_8054,cover]}].
+       otp_8054,strings,bad_size,private_append]}].
 
 
 init_per_suite(Config) ->
@@ -67,6 +69,28 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
+
+verify_highest_opcode(_Config) ->
+    case ?MODULE of
+        bs_construct_r24_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 176 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        bs_construct_r25_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 180 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        _ ->
+            ok
+    end.
 
 two(Config) when is_list(Config) ->
     <<0,1,2,3,4,6,7,8,9>> = two_1([0], [<<1,2,3,4>>,<<6,7,8,9>>]),
@@ -124,10 +148,16 @@ l(I_13, I_big1, I_16, Bin) ->
 	[129]),
      ?T(<<1:3,"string",9:5>>,
 	[46,110,142,77,45,204,233]),
+
+     %% Test the native flag.
      ?T(<<37.98:64/native-float>>,
 	native_3798()),
      ?T(<<32978297842987249827298387697777669766334937:128/native-integer>>,
 	native_bignum()),
+     ?T(<<$э/native-utf16,$т/native-utf16,$о/native-utf16," спутник"/native-utf16>>,
+        native_utf16()),
+     ?T(<<$в/native-utf32,"ода"/native-utf32>>,
+	native_utf32()),
 
      ?T(<<Bin/binary>>,
         [165,90,195]),
@@ -142,7 +172,7 @@ l(I_13, I_big1, I_16, Bin) ->
      ?T(<<869:16/little,3479:I_13,Bin/binary,7:1/unit:3,Bin/binary>>,
         [101,3,108,189,42,214,31,165,90,195]),
 
-     %% Test of aligment flag.
+     %% Test of alignment flag.
      ?T(<<0:I_13/unit:8,1:6,0:2>>,
 	[0,0,0,0,0,0,0,0,0,0,0,0,0,4]),
 
@@ -153,6 +183,8 @@ l(I_13, I_big1, I_16, Bin) ->
 	[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	 16#77,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,
 	 16#FF,16#FF,16#FF,16#FF,16#FF,16#FF]),
+     ?T(<< (<<"abc",7:3>>):3/binary >>,
+        [$a,$b,$c]),
 
      %% Mix different units.
      ?T(<<37558955:(I_16-12)/unit:8,1:1>>,
@@ -169,6 +201,18 @@ native_bignum() ->
     case <<1:16/native>> of
 	<<0,1>> -> [129,205,18,177,1,213,170,101,39,231,109,128,176,11,73,217];
 	<<1,0>> -> [217,73,11,176,128,109,231,39,101,170,213,1,177,18,205,129]
+    end.
+
+native_utf16() ->
+    case <<1:16/native>> of
+	<<0,1>> -> [4,77,4,66,4,62,0,32,4,65,4,63,4,67,4,66,4,61,4,56,4,58];
+        <<1,0>> -> [77,4,66,4,62,4,32,0,65,4,63,4,67,4,66,4,61,4,56,4,58,4]
+    end.
+
+native_utf32() ->
+    case <<1:16/native>> of
+	<<0,1>> -> [0,0,4,50,0,0,4,62,0,0,4,52,0,0,4,48];
+        <<1,0>> -> [50,4,0,0,62,4,0,0,52,4,0,0,48,4,0,0]
     end.
 
 evaluate(Str, Vars) ->
@@ -192,13 +236,13 @@ eval_list([{C_bin, Str, Bytes} | Rest], Vars) ->
     end.
 
 one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
-    io:format("  ~s, ~p~n", [Str, Bytes]),
+    io:format("  ~ts, ~p~n", [Str, Bytes]),
     Bin = list_to_bitstring(Bytes),
     if
 	C_bin == Bin ->
 	    ok;
 	true ->
-	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
+	    io:format("ERROR: Compiled: ~p.~nExpected ~p.~nGot ~p.~n",
 		      [Str, Bytes, bitstring_to_list(C_bin)]),
 	    ct:fail(comp)
     end,
@@ -206,12 +250,12 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	E_bin == Bin ->
 	    ok;
 	true ->
-	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
+	    io:format("ERROR: Interpreted: ~p.~nExpected ~p.~nGot ~p.~n",
 		      [Str, Bytes, bitstring_to_list(E_bin)]),
 	    ct:fail(comp)
     end;
 one_test({C_bin, E_bin, Str, Result}) ->
-    io:format("  ~s ~p~n", [Str, C_bin]),
+    io:format("  ~ts ~p~n", [Str, C_bin]),
     if
 	C_bin == E_bin ->
 	    ok;
@@ -311,7 +355,39 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch <<0:(-(1 bsl 100))>>),
     {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-(1 bsl 100))>>),
 
+    %% Unaligned sizes with literal binaries.
+    {'EXIT',{badarg,_}} = (catch <<0,(<<7777:17>>)/binary>>),
+
+    %% Make sure that variables are bound even if binary
+    %% construction fails.
+    {'EXIT',{badarg,_}} = (catch case <<face:(V0 = 42)>> of
+                                    _Any -> V0
+                                end),
+    {'EXIT',{badarg,_}} = (catch case <<face:(V1 = 3)>> of
+                                     a when V1 ->
+                                         office
+                                 end),
+    {'EXIT',{badarg,_}} = (catch <<13:(put(?FUNCTION_NAME, 17))>>),
+    17 = erase(?FUNCTION_NAME),
+    {'EXIT',{badarg,_}} = (catch fail_1()),
+
+    %% Size exceeds length of binary. 'native' is redundant for
+    %% binaries, but when it was present sys_core_fold would not
+    %% detect the overlong binary and beam_ssa_opt would crash.
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
+
+    {'EXIT',{badarg,_}} = catch fail_2(true),
+
     ok.
+
+fail_1() ->
+    case <<(V0 = 1),[]/utf32>> of
+        _ when V0 -> true
+    end.
+
+fail_2(True) when True ->
+    <<0,True/bitstring>>.
 
 float_bin(Config) when is_list(Config) ->
     %% Some more coverage.
@@ -347,6 +423,9 @@ in_guard(Config) when is_list(Config) ->
 
     ok = in_guard_4(<<15:4>>, 255),
     nope = in_guard_4(<<15:8>>, 255),
+
+    nope = catch in_guard_5(),
+
     ok.
 
 in_guard_1(Bin, A, B) when <<A:13,B:3>> == Bin -> 1;
@@ -366,6 +445,10 @@ in_guard_3(_, _) -> nope.
 
 in_guard_4(Bin, A) when <<A:4>> =:= Bin -> ok;
 in_guard_4(_, _) -> nope.
+
+%% Would crash beam_ssa_recv when the no_copt option was given.
+in_guard_5() when 0; <<'':32,<<42/native>>>> -> ok;
+in_guard_5() -> nope.
 
 in_catch(Config) when is_list(Config) ->
     <<42,0,5>> = small(42, 5),
@@ -439,9 +522,24 @@ nasty_literals(Config) when is_list(Config) ->
     I = 16#7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF,
     id(<<I:260>>),
 
+    %% GH-6643: Excessively large literals could cause the compiler to run out
+    %% of memory.
+    catch id(<<0:16777216/big-integer-unit:1>>),
+    catch id(<<0:(16777216*2)/big-integer-unit:1>>),
+
     ok.
 
 -define(COF(Int0),
+	(fun(Int) ->
+		 true = <<Int:16/float>> =:= <<(float(Int)):16/float>>,
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:16/float>> =:= <<(float(Int0)):16/float>>,
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+
+-define(COF32(Int0),
 	(fun(Int) ->
 		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
 		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
@@ -465,8 +563,10 @@ coerce_to_float(Config) when is_list(Config) ->
     ?COF(255),
     ?COF(-255),
     ?COF(38474),
-    ?COF(387498738948729893849444444443),
-    ?COF(-37489378937773899999999999999993),
+    ?COF(65504),
+    ?COF(-65504),
+    ?COF32(387498738948729893849444444443),
+    ?COF32(-37489378937773899999999999999993),
     ?COF64(298748888888888888888888888883478264866528467367364766666666666666663),
     ?COF64(-367546729879999999999947826486652846736736476555566666663),
     ok.
@@ -491,7 +591,6 @@ opt(Config) when is_list(Config) ->
     <<1,65,136,0,0>> = id(<<1,17.0:32/float>>),
     <<1,64,8,0,0,0,0,0,0>> = id(<<1,3.0:N/float-unit:4>>),
     <<1,0,0,0,0,0,0,8,64>> = id(<<1,3.0:N/little-float-unit:4>>),
-    {'EXIT',{badarg,_}} = (catch id(<<3.1416:N/float>>)),
 
     B = <<1,2,3,4,5>>,
     <<0,1,2,3,4,5>> = id(<<0,B/binary>>),
@@ -538,6 +637,7 @@ otp_7556(Bin, A, B, C) ->
 
 float_arith(Config) when is_list(Config) ->
     {<<1,2,3,64,69,0,0,0,0,0,0>>,21.0} = do_float_arith(<<1,2,3>>, 42, 2),
+
     ok.
 
 do_float_arith(Bin0, X, Y)  ->
@@ -570,9 +670,110 @@ otp_8054_1([], Bin) -> Bin.
         "Zuo1J1J6CCwEVZ/wDc79OpDPPj/qOGhDK73F8DaMcynZ91El+01vfTn"
         "uUxNFUHLpuoQ==").
 
-cover(Config) ->
-    %% Cover handling of a huge partially literal string.
+strings(Config) ->
     L = length(Config),
+
+    <<$a:16,$b:16,$c:16,L:32>> = <<"abc":16,L:32>>,
+
+    %% Empty strings.
+    <<L:16>> = <<L:16,""/utf8>>,
+    <<L:16>> = <<L:16,"":(length(Config))>>,
+    <<L:16>> = <<L:16,"":(BindMe = 42)>>,
+    42 = BindMe,
+    <<L:16>> = <<"":70,L:16>>,
+    <<L:16>> = <<L:16,"":$F>>,
+
+    %% Cover handling of a huge partially literal string.
     Bin = id(<<L:32,?LONG_STRING>>),
     <<L:32,?LONG_STRING>> = Bin,
+
+    %% Bad sizes for empty strings.
+    {'EXIT',{badarg,_}} = (catch <<"":(-42)>>),
+    {'EXIT',{badarg,_}} = (catch <<"":bad_size>>),
+    {'EXIT',{badarg,_}} = (catch bad_empty_string_1()),
+    {'EXIT',{badarg,_}} = (catch bad_empty_string_2()),
+    error = bad_empty_string_3(),
+    error = bad_empty_string_4(true),
+    error = bad_empty_string_4(false),
+
     ok.
+
+bad_empty_string_1() ->
+    <<"":(V0 = true)>>,
+    V0.
+
+bad_empty_string_2() ->
+    <<"":(V0 = -1)>>,
+    V0.
+
+bad_empty_string_3() when <<a, "":96>> -> ok;
+bad_empty_string_3() -> error.
+
+bad_empty_string_4(V) when <<"","eFN"/utf8-native>>, V -> ok;
+bad_empty_string_4(_) -> error.
+
+bad_size(_Config) ->
+    {'EXIT',{badarg,_}} = (catch bad_float_size()),
+    {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size()),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size2()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size2()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size3(id(<<"abc">>))),
+    ok.
+
+bad_float_size() ->
+    <<4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_float_size(Bin) ->
+    <<Bin/binary,4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_integer_size() ->
+    <<0:case 0 of 0 -> art end/integer>>.
+
+bad_integer_size(Bin) ->
+    <<Bin/binary,0:case 0 of 0 -> art end/integer>>.
+
+bad_integer_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ],
+      <<(id(100))>>:7>>.
+
+bad_binary_size() ->
+    <<<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size(Bin) ->
+    <<Bin/binary,<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ]/binary,
+      <<(id(100))>>:7>>.
+
+bad_binary_size3(Bin) ->
+    <<Bin:all/binary>>.
+
+private_append(_Config) ->
+    <<"alpha=\"alpha\",beta=\"beta\"">> =
+        private_append_1(#{ <<"alpha">> => <<"alpha">>,
+                            <<"beta">> => <<"beta">> }),
+
+    <<>> = private_append_2(false),
+    {'EXIT', _} = catch private_append_2(true),
+
+    ok.
+
+%% GH-7121: Alias analysis would not mark fun arguments as aliased, fooling
+%% the beam_ssa_private_append pass.
+private_append_1(M) when is_map(M) ->
+    maps:fold(fun (K, V, Acc = <<>>) ->
+                        <<Acc/binary, K/binary, "=\"", V/binary, "\"">>;
+                    (K, V, Acc) ->
+                        <<Acc/binary, ",", K/binary, "=\"", V/binary, "\"">>
+                end, <<>>, M).
+
+%% GH-7142: The private append pass crashed on oddly structured code.
+private_append_2(Boolean) ->
+    <<<<(id(Boolean) orelse <<>>)/binary>>/binary>>.

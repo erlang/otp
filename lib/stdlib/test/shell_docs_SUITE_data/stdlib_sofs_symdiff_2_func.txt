@@ -1,0 +1,12 @@
+
+  [;1m-spec symdiff(Set1, Set2) -> Set3[0m
+  [;1m                 when Set1 :: a_set(), Set2 :: a_set(), Set3 :: a_set().[0m
+
+  Returns the symmetric difference (or the Boolean sum) of [;;4mSet1[0m
+  and [;;4mSet2[0m.
+
+    1> S1 = sofs:set([1,2,3]),
+    S2 = sofs:set([2,3,4]),
+    P = sofs:symdiff(S1, S2),
+    sofs:to_external(P).
+    [1,4]

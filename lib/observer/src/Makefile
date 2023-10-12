@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2016. All Rights Reserved.
+# Copyright Ericsson AB 2002-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/observer-$(VSN)
 # Common Macros
 # ----------------------------------------------------
 
-MODULES= \
+MODULES = \
 	crashdump_viewer \
 	cdv_atom_cb \
 	cdv_bin_cb \
@@ -50,6 +50,7 @@ MODULES= \
 	cdv_mem_cb \
 	cdv_mod_cb \
 	cdv_multi_wx \
+	cdv_persistent_cb \
 	cdv_port_cb \
 	cdv_proc_cb \
 	cdv_sched_cb \
@@ -70,6 +71,7 @@ MODULES= \
 	observer_port_wx \
 	observer_pro_wx \
 	observer_procinfo \
+	observer_sock_wx \
 	observer_sys_wx \
 	observer_trace_wx \
 	observer_traceoptions_wx \
@@ -126,7 +128,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-opt debug: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

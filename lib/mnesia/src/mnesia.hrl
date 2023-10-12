@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@
 
 -define(SAFE(OP), try (OP) catch error:_ -> ok end).
 -define(CATCH(OP), try (OP) catch _:_Reason -> {'EXIT', _Reason} end).
+
+-define(CATCHU(OP), fun() -> try (OP) catch _:_Reason -> {'EXIT', _Reason} end end()).
 
 -define(catch_val(Var), (try ?ets_lookup_element(mnesia_gvar, Var, 2)
 			 catch error:_ -> {'EXIT', {badarg, []}} end)).

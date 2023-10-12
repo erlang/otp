@@ -1,0 +1,8 @@
+
+  [;1m-spec registered() -> [RegName] when RegName :: atom().[0m
+
+  Returns a list of names that have been registered using [;;4m[0m
+  [;;4mregister/2[0m, for example:
+
+    > registered().
+    [code_server, file_server, init, user, my_db]

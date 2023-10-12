@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 	       cdv_mem_cb,
 	       cdv_mod_cb,
 	       cdv_multi_wx,
+               cdv_persistent_cb,
 	       cdv_port_cb,
 	       cdv_proc_cb,
 	       cdv_table_wx,
@@ -54,6 +55,7 @@
 	       observer_port_wx,
 	       observer_pro_wx,
 	       observer_procinfo,
+	       observer_sock_wx,
 	       observer_sys_wx,
 	       observer_trace_wx,
 	       observer_traceoptions_wx,
@@ -65,7 +67,5 @@
     {registered, []},
     {applications, [kernel, stdlib]},
     {env, []},
-    {runtime_dependencies, ["wx-1.2","stdlib-3.5","runtime_tools-1.8.14",
-			    "kernel-3.0","et-1.5","erts-7.0"]}]}.
-
-
+    {runtime_dependencies, ["wx-2.3","stdlib-5.0","runtime_tools-1.19",
+			    "kernel-9.0","et-1.5","erts-14.0"]}]}.

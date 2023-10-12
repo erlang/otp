@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,26 +20,36 @@
 
 -module(sets_test_lib).
 
--export([new/2]).
+-export([new/2, new/4]).
 
 new(Mod, Eq) ->
+    new(Mod, Eq, fun Mod:new/0, fun Mod:from_list/1).
+
+new(Mod, Eq0, New, FromList) ->
+    Eq = fun(S1, S2) ->
+             IsEqual = Eq0(S1, S2),
+             IsEqual = Mod:is_equal(S1, S2)
+         end,
     fun	(add_element, {El,S}) -> add_element(Mod, El, S);
 	(del_element, {El,S}) -> del_element(Mod, El, S);
-	(empty, []) -> Mod:new();
-	(equal, {S1,S2}) -> Eq(S1, S2);
+	(empty, []) -> New();
 	(filter, {F,S}) -> filter(Mod, F, S);
+	(filtermap, {F,S}) -> filtermap(Mod, F, S);
 	(fold, {F,A,S}) -> fold(Mod, F, A, S);
-	(from_list, L) -> Mod:from_list(L);
+	(from_list, L) -> FromList(L);
 	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
 	(intersection, Ss) -> intersection(Mod, Eq, Ss);
+	(is_equal, {S,Set}) -> Eq(S, Set);
+	(is_disjoint, {S,Set}) -> Mod:is_disjoint(S, Set);
 	(is_empty, S) -> Mod:is_empty(S);
 	(is_set, S) -> Mod:is_set(S);
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
         (iterator, S) -> Mod:iterator(S);
         (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
+	(map, {F, S}) -> map(Mod, F, S);
 	(module, []) -> Mod;
         (next, I) -> Mod:next(I);
-	(singleton, E) -> singleton(Mod, E);
+	(singleton, E) -> singleton(Mod, FromList, E);
 	(size, S) -> Mod:size(S);
 	(subtract, {S1,S2}) -> subtract(Mod, S1, S2);
 	(to_list, S) -> Mod:to_list(S);
@@ -47,10 +57,10 @@ new(Mod, Eq) ->
 	(union, Ss) -> union(Mod, Eq, Ss)
     end.
 
-singleton(Mod, E) ->
+singleton(Mod, FromList, E) ->
     case erlang:function_exported(Mod, singleton, 1) of
 	true -> Mod:singleton(E);
-	false -> Mod:from_list([E])
+	false -> FromList([E])
     end.
 
 add_element(Mod, El, S0) ->
@@ -117,3 +127,11 @@ fold(Mod, F, A, S) ->
 filter(Mod, F, S) ->
     true = Mod:is_set(S),
     Mod:filter(F, S).
+
+map(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:map(F, S).
+
+filtermap(Mod, F, S) ->
+    true = Mod:is_set(S),
+    Mod:filtermap(F, S).

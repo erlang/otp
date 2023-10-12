@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ struct _erl_drv_port {
 
     struct {
         Eterm to;
-        Uint32 ref[ERTS_MAX_REF_NUMBERS];
+        Uint32 ref[ERTS_REF_NUMBERS];
     } *async_open_port;         /* Reference used with async open port */
 };
 
@@ -250,7 +250,7 @@ erts_port_runq(Port *prt)
 
 
 ERTS_GLB_INLINE void *erts_prtsd_get(Port *p, int ix);
-ERTS_GLB_INLINE void *erts_prtsd_set(Port *p, int ix, void *new);
+ERTS_GLB_INLINE void *erts_prtsd_set(Port *p, int ix, void *new_);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -290,7 +290,7 @@ erts_prtsd_set(Port *prt, int ix, void *data)
     if (!data)
 	return NULL;
 
-    new_psd = erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
+    new_psd = (ErtsPrtSD*)erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
     for (i = 0; i < ERTS_PRTSD_SIZE; i++)
 	new_psd->data[i] = NULL;
     psd = (ErtsPrtSD *) erts_atomic_cmpxchg_mb(&prt->psd,
@@ -334,6 +334,8 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 11))
 /* Last port to terminate halts the emulator */
 #define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 12))
+/* Check if the event in ready_input should be cleaned */
+#define ERTS_PORT_SFLG_CHECK_FD_CLEANUP ((Uint32) (1 << 13))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
@@ -366,6 +368,7 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_REDS_EXIT		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_CONNECT		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_UNLINK		(CONTEXT_REDS/200)
+#define ERTS_PORT_REDS_UNLINK_ACK	(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_LINK		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_MONITOR		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_DEMONITOR	(CONTEXT_REDS/200)
@@ -715,8 +718,8 @@ erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
 			   || erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
 	}
 	else {
-	    ERTS_LC_ASSERT(prt->port_data_lock);
-	    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
+	    ERTS_LC_ASSERT(prt->port_data_lock
+                           && erts_lc_mtx_is_locked(&prt->port_data_lock->mtx));
 	}
     }
 #endif
@@ -850,7 +853,8 @@ enum {
     ERTS_P2P_SIG_TYPE_LINK      = 8,
     ERTS_P2P_SIG_TYPE_UNLINK    = 9,
     ERTS_P2P_SIG_TYPE_MONITOR   = 10,
-    ERTS_P2P_SIG_TYPE_DEMONITOR = 11
+    ERTS_P2P_SIG_TYPE_DEMONITOR = 11,
+    ERTS_P2P_SIG_TYPE_UNLINK_ACK = 12
 };
 
 #define ERTS_P2P_SIG_TYPE_BITS			4
@@ -871,7 +875,7 @@ enum {
 struct ErtsProc2PortSigData_ {
     int flags;
     Eterm caller;
-    Uint32 ref[ERTS_MAX_REF_NUMBERS];
+    Uint32 ref[ERTS_REF_NUMBERS];
     union {
 	struct {
 	    Eterm from;
@@ -912,8 +916,12 @@ struct ErtsProc2PortSigData_ {
 	} link;
 	struct {
             Eterm port_id;
-	    ErtsLink *lnk;
+	    ErtsSigUnlinkOp *sulnk;
 	} unlink;
+	struct {
+            Eterm port_id;
+	    ErtsSigUnlinkOp *sulnk;
+	} unlink_ack;
         struct {
             Eterm port_id;
             ErtsMonitor *mon;
@@ -1002,7 +1010,8 @@ ErtsPortOpResult erts_port_output(Process *, int, Port *, Eterm, Eterm, Eterm *)
 ErtsPortOpResult erts_port_exit(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_connect(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_link(Process *, Port *, ErtsLink *, Eterm *);
-ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsLink *, Eterm *);
+ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsSigUnlinkOp *, Eterm *);
+ErtsPortOpResult erts_port_unlink_ack(Process *, Port *, ErtsSigUnlinkOp *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
@@ -1016,6 +1025,6 @@ int erts_port_output_async(Port *, Eterm, Eterm);
 /*
  * Signals from ports to ports. Used by sys drivers.
  */
-int erl_drv_port_control(Eterm, char, char*, ErlDrvSizeT);
+int erl_drv_port_control(Eterm, unsigned int, char*, ErlDrvSizeT);
 
 #endif

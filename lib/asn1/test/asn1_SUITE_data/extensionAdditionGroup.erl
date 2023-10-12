@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,8 @@ run(Erule) ->
 %% From X.691 (07/2002) A.4.
 encoded_ax(per) ->  "9E000180 010291A4";
 encoded_ax(uper) -> "9E000600 040A4690";
-encoded_ax(ber) ->  none.
+encoded_ax(ber) -> none;
+encoded_ax(jer) -> none. 
 
 hex_to_binary(none) ->
     none;

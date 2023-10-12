@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #
 
 include ../vsn.mk
-ifdef TERTIARY_BOOTSTRAP
+ifdef BOOTSTRAP
  VSN = $(WX_VSN)
  include $(ERL_TOP)/make/target.mk
  include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -54,7 +54,6 @@ GEN_FILES       = $(wildcard gen/wx*.erl) \
 GEN_MODS        = $(GEN_FILES:gen/%.erl=%,)
 
 GEN_HRL		= \
-		$(EGEN)/wxe_debug.hrl \
 		$(EGEN)/wxe_funcs.hrl
 
 EXT_HRL		= $(ERLINC)/wx.hrl \
@@ -76,7 +75,7 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 ifdef TERTIARY_BOOTSTRAP
  opt: $(EBIN)/wx_object.beam
 else
- debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+ $(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 endif
 
 clean:  
@@ -111,10 +110,10 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk Makefile
 
 # Rules
 $(EBIN)/%.beam: $(ESRC)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(EBIN)/%.beam: $(EGEN)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 # ----------------------------------------------------
 # Release Target

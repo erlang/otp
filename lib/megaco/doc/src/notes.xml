@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2017</year>
+      <year>2000</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,517 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.4</title>
+  <section><title>Megaco 4.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make megaco transports handle gen_tcp | gen_udp with
+	    socket backend on Windows (completion).</p>
+          <p>
+	    Own Id: OTP-18599 Aux Id: OTP-18029 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed configure option <c>--enable-sanitizers</c>. It
+	    was untested and broken. Address sanitizer for the
+	    emulator has better support by the <c>asan</c> build
+	    target.</p>
+          <p>
+	    Own Id: OTP-18538 Aux Id: GH-7031, PR-7078 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Replace size/1 with either tuple_size/1 or byte_size/1</p>
+          <p>
+	    The <c>size/1</c> BIF is not optimized by the JIT, and
+	    its use can result in worse types for Dialyzer.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    tuple, <c>tuple_size/1</c> should always be preferred.</p>
+          <p>
+	    When one knows that the value being tested must be a
+	    binary, <c>byte_size/1</c> should be preferred. However,
+	    <c>byte_size/1</c> also accepts a bitstring (rounding up
+	    size to a whole number of bytes), so one must make sure
+	    that the call to <c>byte_size/</c> is preceded by a call
+	    to <c>is_binary/1</c> to ensure that bitstrings are
+	    rejected. Note that the compiler removes redundant calls
+	    to <c>is_binary/1</c>, so if one is not sure whether
+	    previous code had made sure that the argument is a
+	    binary, it does not harm to add an <c>is_binary/1</c>
+	    test immediately before the call to <c>byte_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-18432 Aux Id:
+	    GH-6672,PR-6793,PR-6784,PR-6787,PR-6785,PR-6682,PR-6800,PR-6797,PR-6798,PR-6799,PR-6796,PR-6813,PR-6671,PR-6673,PR-6684,PR-6694,GH-6677,PR-6696,PR-6670,PR-6674 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A very minor improvement to the measurement tool.</p>
+          <p>
+	    Own Id: OTP-18298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed various dialyzer related issues in the examples and
+	    the application proper.</p>
+          <p>
+	    Own Id: OTP-18179 Aux Id: ERIERL-836 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Megaco test suite(s) use the new peer module for node
+	    starts.</p>
+          <p>
+	    Own Id: OTP-17910</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compilation time is no longer recorded in BEAM
+	    files. There remained several undocumented functions that
+	    attempted to retrieve compilation times. Those have now
+	    been removed.</p>
+          <p>
+	    Own Id: OTP-17962</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update the performance and debug chapters of the megaco
+	    user's guide. Also some updates to the meas tools.</p>
+          <p>
+	    Own Id: OTP-17839</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    [megaco_tcp] When connect fails, include more info in the
+	    error reason.</p>
+          <p>
+	    Own Id: OTP-17817</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to configure the built-in transports
+	    (megaco_tcp and megaco udp) to use the new (gen_udp- and
+	    gen_tcp-) option 'inet_backend'.</p>
+          <p>
+	    Own Id: OTP-17533</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    All the pre-v3 codec(s) (prev3a, prev3b and prev3c) was
+	    deprecated in OTP-23.0. They have now been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16560</p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions marked for removal.</p>
+          <p>
+	    Own Id: OTP-17049</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.19.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed usage of <c>AC_CONFIG_AUX_DIRS()</c> macros in
+	    configure script sources.</p>
+          <p>
+	    Own Id: OTP-17093 Aux Id: ERL-1447, PR-2948 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The expected number of warnings when (yecc) generating v2
+	    and v3 (text) parser's was incorrect.</p>
+          <p>
+	    Own Id: OTP-16836</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The v2 and v3 parsers could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16818 Aux Id: ERIERL-526 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mini parser could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16631 Aux Id: ERIERL-491 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    The preliminary version 3 codec(s) prev3a, prev3b and
+	    prev3c has been deprecated and will be *removed* in OTP
+	    24. The encoding config option 'version3' will continue
+	    to work until OTP 24.</p>
+          <p>
+	    Own Id: OTP-16531</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The v2 and v3 parsers could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16818 Aux Id: ERIERL-526 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mini parser could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16631 Aux Id: ERIERL-491 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documented function
+	    megaco:get_sdp_record_from_PropertGroup/2 was a wrapper
+	    for megaco_sdp:get_sdp_record_from_PropertGroup/2 but did
+	    not actually exist. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Test suite completely reworked. Add (timestamp) utility
+	    functions for debugging and testing.</p>
+          <p>
+	    Own Id: OTP-16158</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The meas example had not been updated for a long time,
+	    which caused it to not work. Also, it made use of
+	    deprecated functions (now()). This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix various minor issues related to Dialyzer. Mostly
+	    these are dialyzer warnings, but there was also some
+	    minor bugs detected by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-15882</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates to build system necessary due to move of
+	    configuration of <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+        <item>
+          <p>
+	    Minor adjustments made to build system for parallel
+	    configure.</p>
+          <p>
+	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -263,7 +773,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -327,7 +837,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -613,7 +1123,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>
@@ -697,7 +1207,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>

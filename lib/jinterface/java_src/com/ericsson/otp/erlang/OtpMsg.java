@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ public class OtpMsg {
     protected OtpErlangPid from;
     protected OtpErlangPid to;
     protected String toName;
+    protected long unlink_id;
 
     // send has receiver pid but no sender information
     OtpMsg(final OtpErlangPid to, final OtpInputStream paybuf) {
@@ -77,6 +78,7 @@ public class OtpMsg {
         toName = null;
         this.paybuf = paybuf;
         payload = null;
+        this.unlink_id = 0;
     }
 
     // send has receiver pid but no sender information
@@ -87,6 +89,7 @@ public class OtpMsg {
         toName = null;
         paybuf = null;
         this.payload = payload;
+        this.unlink_id = 0;
     }
 
     // send_reg has sender pid and receiver name
@@ -98,6 +101,7 @@ public class OtpMsg {
         to = null;
         this.paybuf = paybuf;
         payload = null;
+        this.unlink_id = 0;
     }
 
     // send_reg has sender pid and receiver name
@@ -109,6 +113,7 @@ public class OtpMsg {
         to = null;
         paybuf = null;
         this.payload = payload;
+        this.unlink_id = 0;
     }
 
     // exit (etc) has from, to, reason
@@ -117,8 +122,10 @@ public class OtpMsg {
         this.tag = tag;
         this.from = from;
         this.to = to;
+        this.unlink_id = 0;
         paybuf = null;
         payload = reason;
+        this.unlink_id = 0;
     }
 
     // special case when reason is an atom (i.e. most of the time)
@@ -129,19 +136,52 @@ public class OtpMsg {
         this.to = to;
         paybuf = null;
         payload = new OtpErlangAtom(reason);
+        this.unlink_id = 0;
     }
 
-    // other message types (link, unlink)
+    // other message types (link and old unlink)
     OtpMsg(final int tag, final OtpErlangPid from, final OtpErlangPid to) {
         // convert TT-tags to equiv non-TT versions
-        int atag = tag;
-        if (tag > 10) {
-            atag -= 10;
-        }
-
-        this.tag = atag;
+        this.tag = drop_tt_tag(tag);
         this.from = from;
         this.to = to;
+        this.unlink_id = 0;
+    }
+
+    // unlink
+    OtpMsg(final int tag, final OtpErlangPid from, final OtpErlangPid to,
+           final long unlink_id) {
+        // convert TT-tags to equiv non-TT versions
+        this.tag = drop_tt_tag(tag);
+        this.from = from;
+        this.to = to;
+        this.unlink_id = unlink_id;
+    }
+
+    private int drop_tt_tag(final int tag) {
+        switch (tag) {
+        case AbstractConnection.sendTTTag:
+            return OtpMsg.sendTag;
+        case AbstractConnection.exitTTTag:
+            return OtpMsg.exitTag;
+        case AbstractConnection.regSendTTTag:
+            return OtpMsg.regSendTag;
+        case AbstractConnection.exit2TTTag:
+            return OtpMsg.exit2Tag;
+        default:
+            return tag;
+        }
+    }
+
+    /**
+     * Get unlink identifier of an unlink or unlink acknowledgment
+     * message. For package internal use only.
+     *
+     * @return the serialized Erlang term contained in this message.
+     *
+     */
+    long getUnlinkId() {
+        return this.unlink_id;
     }
 
     /**
@@ -202,7 +242,7 @@ public class OtpMsg {
      * <p>
      * The first time this method is called the actual payload is deserialized
      * and the Erlang term is created. Calling this method subsequent times will
-     * not cuase the message to be deserialized additional times, instead the
+     * not cause the message to be deserialized additional times, instead the
      * same Erlang term object will be returned.
      * </p>
      *

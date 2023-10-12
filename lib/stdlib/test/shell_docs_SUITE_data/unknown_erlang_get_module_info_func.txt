@@ -1,0 +1,12 @@
+
+[;1m  get_module_info/1[0m
+
+  The documentation for get_module_info/1 is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.
+
+[;1m  get_module_info/2[0m
+
+  The documentation for get_module_info/2 is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.

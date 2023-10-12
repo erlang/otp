@@ -1,0 +1,4 @@
+
+[;1m  fd()[0m
+
+  A file descriptor representing a file opened in [;;4mraw[0m mode.

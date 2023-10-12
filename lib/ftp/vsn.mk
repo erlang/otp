@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2018. All Rights Reserved.
+# Copyright Ericsson AB 2001-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,6 @@
 # %CopyrightEnd%
 
 APPLICATION = ftp
-FTP_VSN   = 1.0.1
+FTP_VSN   = 1.2
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(FTP_VSN)$(PRE_VSN)"

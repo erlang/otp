@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ spawn1(Config) when is_list(Config) ->
 
 %% Test spawn/2.
 spawn2(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn2),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
@@ -105,7 +105,7 @@ spawn2(Config) when is_list(Config) ->
 	    check_proc_vals(false, normal, FA, 0, PV)
     end,
 
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 
@@ -131,7 +131,7 @@ spawn3(Config) when is_list(Config) ->
 
 %% Test spawn/4.
 spawn4(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn4),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
@@ -149,7 +149,7 @@ spawn4(Config) when is_list(Config) ->
 	    check_proc_vals(false, normal, FA, 0, PV)
     end,
 
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 
@@ -171,7 +171,7 @@ spawn_link1(Config) when is_list(Config) ->
 
 %% Test spawn_link/2.
 spawn_link2(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn_link2),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
@@ -185,7 +185,7 @@ spawn_link2(Config) when is_list(Config) ->
 	    check_proc_vals(true, normal, FA, 0, PV)
     end,
 
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %% Test spawn_link/3.
@@ -210,7 +210,7 @@ spawn_link3(Config) when is_list(Config) ->
 
 %% Test spawn_link/4.
 spawn_link4(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn_link4),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
@@ -228,7 +228,7 @@ spawn_link4(Config) when is_list(Config) ->
 	    check_proc_vals(true, normal, FA, 0, PV)
     end,
 
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 
@@ -259,7 +259,7 @@ spawn_opt2(Config) when is_list(Config) ->
 
 %% Test spawn_opt/3.
 spawn_opt3(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn_opt3),
+    {ok, Peer, Node} = ?CT_PEER(),
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
     P1 = spawn_opt(Node,
@@ -281,7 +281,7 @@ spawn_opt3(Config) when is_list(Config) ->
 	    Node = node(P2),
 	    check_proc_vals(false, normal, FA, 10, PV2)
     end,
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %% Test spawn_opt/4.
@@ -316,7 +316,7 @@ spawn_opt4(Config) when is_list(Config) ->
 
 %% Test spawn_opt/5.
 spawn_opt5(Config) when is_list(Config) ->
-    {ok, Node} = start_node(spawn_opt5),
+    {ok, Peer, Node} = ?CT_PEER(),
     Parent = self(),
     {_, _, FA, _} = fetch_proc_vals(self()),
     P1 = spawn_opt(Node,
@@ -344,13 +344,13 @@ spawn_opt5(Config) when is_list(Config) ->
 	    Node = node(P2),
 	    check_proc_vals(false, normal, FA, 10, PV2)
     end,
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %% Test failure behavior of spawn bifs.
 spawn_failures(Config) when is_list(Config) ->
     ThisNode = node(),
-    {ok, Node} = start_node(spawn_remote_failure),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     %% unknown nodes
     io:format("Testing unknown nodes~n", []),
@@ -466,7 +466,7 @@ spawn_failures(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,nodes,[],[a|b])),
 
 
-    true = stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 check_proc_vals(Link, Priority, FullsweepAfter, MinHeapSize, {Ls, P, FA, HS}) ->
@@ -518,15 +518,7 @@ wilderness(Config) when is_list(Config) ->
 run_wilderness_test({Set_tt, Set_tp}, {Exp_tt, Exp_tp}) ->
     Self = self(),
     Ref = make_ref(),
-    SuiteDir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(allocator_test,
-					slave,
-					[{args,
-					  " -pa "
-					  ++ SuiteDir
-					  ++" +MYtt "++to_string(Set_tt)
-					  ++" +MYtp "++to_string(Set_tp)},
-					 {linked, false}]),
+    {ok, Peer, Node} = ?CT_PEER(["+MYtt", to_string(Set_tt), "+MYtp", to_string(Set_tp)]),
     spawn(Node, fun () ->
 			Self ! {Ref, erlang:system_info(allocator)}
 		end),
@@ -541,7 +533,7 @@ run_wilderness_test({Set_tt, Set_tp}, {Exp_tt, Exp_tp}) ->
 	    {value, {tt, Ett}} = lists:keysearch(tt, 1, SA_Opts),
 	    {value, {tp, Etp}} = lists:keysearch(tp, 1, SA_Opts)
     end,
-    stop_node(Node).
+    peer:stop(Peer).
 
 to_string(X) when is_integer(X) ->
     integer_to_list(X);
@@ -549,31 +541,6 @@ to_string(X) when is_atom(X) ->
     atom_to_list(X);
 to_string(X) when is_list(X) ->
     X.
-
-get_nodenames(N, T) ->
-    get_nodenames(N, T, []).
-
-get_nodenames(0, _, Acc) ->
-    Acc;
-get_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
-    get_nodenames(N-1, T, [list_to_atom(atom_to_list(?MODULE)
-					++ "-"
-					++ atom_to_list(T)
-					++ "-"
-					++ integer_to_list(A)
-					++ "-"
-					++ integer_to_list(B)
-					++ "-"
-					++ integer_to_list(C)) | Acc]).
-
-start_node(TestCase) ->
-    [Name] = get_nodenames(1, TestCase),
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
-
-stop_node(Node) ->
-    true = test_server:stop_node(Node).
 
 run_fun(Fun) ->
     Fun().

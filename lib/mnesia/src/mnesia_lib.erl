@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -568,10 +568,10 @@ set_remote_where_to_read(Tab, Ignore) ->
 	end,    
     Available = mnesia_lib:intersect(val({current, db_nodes}), Valid -- Ignore),    
     DiscOnlyC = val({Tab, disc_only_copies}),
-    Prefered  = Available -- DiscOnlyC,
+    Preferred  = Available -- DiscOnlyC,
     if
-	Prefered /= [] ->
-	    set({Tab, where_to_read}, hd(Prefered));
+	Preferred /= [] ->
+	    set({Tab, where_to_read}, hd(Preferred));
 	Available /= [] ->
 	    set({Tab, where_to_read}, hd(Available));
 	true ->
@@ -675,41 +675,41 @@ mkcore(CrashInfo) ->
 %   dbg_out("Making a Mnesia core dump...~p~n", [CrashInfo]),
     Nodes = [node() |nodes()],
     %%TidLocks = (catch ets:tab2list(mnesia_tid_locks)),
-    HeldLocks = (catch mnesia:system_info(held_locks)),
+    HeldLocks = ?CATCHU(mnesia:system_info(held_locks)),
     Core = [
 	    CrashInfo,
 	    {time, {date(), time()}},
 	    {self, proc_dbg_info(self())},
-	    {nodes, catch rpc:multicall(Nodes, ?MODULE, get_node_number, [])},
-	    {applications, catch lists:sort(application:loaded_applications())},
-	    {flags, catch init:get_arguments()},
-	    {code_path, catch code:get_path()},
-	    {code_loaded, catch lists:sort(code:all_loaded())},
-	    {etsinfo, catch ets_info(ets:all())},
+	    {nodes, ?CATCHU(rpc:multicall(Nodes, ?MODULE, get_node_number, []))},
+	    {applications, ?CATCHU(lists:sort(application:loaded_applications()))},
+	    {flags, ?CATCHU(init:get_arguments())},
+	    {code_path, ?CATCHU(code:get_path())},
+	    {code_loaded, ?CATCHU(lists:sort(code:all_loaded()))},
+	    {etsinfo, ?CATCHU(ets_info(ets:all()))},
 
-	    {version, catch mnesia:system_info(version)},
-	    {schema, catch ets:tab2list(schema)},
-	    {gvar, catch ets:tab2list(mnesia_gvar)},
-	    {master_nodes, catch mnesia_recover:get_master_node_info()},
+	    {version, ?CATCHU(mnesia:system_info(version))},
+	    {schema, ?CATCHU(ets:tab2list(schema))},
+	    {gvar, ?CATCHU(ets:tab2list(mnesia_gvar))},
+	    {master_nodes, ?CATCHU(mnesia_recover:get_master_node_info())},
 
-	    {processes, catch procs()},
-	    {relatives, catch relatives()},
-	    {workers, catch workers(mnesia_controller:get_workers(2000))},
-	    {locking_procs, catch locking_procs(HeldLocks)},
+	    {processes, ?CATCHU(procs())},
+	    {relatives, ?CATCHU(relatives())},
+	    {workers, ?CATCHU(workers(mnesia_controller:get_workers(2000)))},
+	    {locking_procs, ?CATCHU(locking_procs(HeldLocks))},
 
 	    {held_locks, HeldLocks},
-	    {lock_queue, catch mnesia:system_info(lock_queue)},
-	    {load_info, catch mnesia_controller:get_info(2000)},
-	    {trans_info, catch mnesia_tm:get_info(2000)},
+	    {lock_queue, ?CATCHU(mnesia:system_info(lock_queue))},
+	    {load_info, ?CATCHU(mnesia_controller:get_info(2000))},
+	    {trans_info, ?CATCHU(mnesia_tm:get_info(2000))},
 	    	    
-	    {schema_file, catch file:read_file(tab2dat(schema))},
-	    {dir_info, catch dir_info()},
-	    {logfile, catch {ok, read_log_files()}}
+	    {schema_file, ?CATCHU(file:read_file(tab2dat(schema)))},
+	    {dir_info, ?CATCHU(dir_info())},
+	    {logfile, ?CATCHU({ok, read_log_files()})}
 	   ],
     term_to_binary(Core).
 
 procs() ->
-    Fun = fun(P) -> {P, (catch lists:zf(fun proc_info/1, process_info(P)))} end,
+    Fun = fun(P) -> {P, (?CATCH(lists:zf(fun proc_info/1, process_info(P))))} end,
     lists:map(Fun, processes()).
 
 proc_info({registered_name, Val}) -> {true, Val};
@@ -730,7 +730,7 @@ have_majority(_Tab, AllNodes, HaveNodes) ->
     length(Present) > length(Missing).
 
 read_log_files() ->
-    [{F, catch file:read_file(F)} || F <- mnesia_log:log_files()].
+    [{F, ?CATCH(file:read_file(F))} || F <- mnesia_log:log_files()].
 
 dir_info() ->
     {ok, Cwd} = file:get_cwd(),
@@ -739,7 +739,7 @@ dir_info() ->
      {mnesia_dir, Dir, file:read_file_info(Dir)}] ++
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    [{mnesia_file, F, catch file:read_file_info(dir(F))} || F <- Files];
+	    [{mnesia_file, F, ?CATCH(file:read_file_info(dir(F)))} || F <- Files];
 	Other ->
 	    [Other]
     end.
@@ -854,7 +854,7 @@ vcore(Bin) when is_binary(Bin) ->
     Core = binary_to_term(Bin),
     Fun = fun({Item, Info}) ->
 		  show("***** ~tp *****~n", [Item]),
-		  case catch vcore_elem({Item, Info}) of
+		  case ?CATCHU(vcore_elem({Item, Info})) of
 		      {'EXIT', Reason} ->
 			  show("{'EXIT', ~tp}~n", [Reason]);
 		      _ -> ok
@@ -936,7 +936,7 @@ error_desc(mnesia_down) -> "A transaction involving objects at some remote "
                            "node which died while transaction was executing"
                            "*and* object(s) are no longer available elsewhere"
                            "in the network";
-error_desc(not_a_db_node) -> "A node which is non existant in "
+error_desc(not_a_db_node) -> "A node which is non existent in "
                               "the schema was mentioned";
 error_desc(bad_type)            -> "Bad type on some provided arguments";
 error_desc(node_not_running)    -> "Node not running";
@@ -950,7 +950,7 @@ error_desc({error, Reason}) ->
     error_desc(Reason);
 error_desc({aborted, Reason}) ->
     error_desc(Reason);
-error_desc(Reason) when is_tuple(Reason), size(Reason) > 0 ->
+error_desc(Reason) when tuple_size(Reason) > 0 ->
     setelement(1, Reason, error_desc(element(1, Reason)));
 error_desc(Reason) ->
     Reason.
@@ -1446,7 +1446,7 @@ eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
 			ok
 		end
 	end
-    catch error ->
+    catch _:_ ->
 	    ok
     end.
 	

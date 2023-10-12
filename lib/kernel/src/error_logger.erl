@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,8 +106,8 @@ stop() ->
 
 %%%-----------------------------------------------------------------
 %%% Callbacks for logger
--spec adding_handler(logger:handler_config()) ->
-                            {ok,logger:handler_config()} | {error,term()}.
+-spec adding_handler(logger_handler:config()) ->
+                            {ok,logger_handler:config()} | {error,term()}.
 adding_handler(#{id:=?MODULE}=Config) ->
     case start() of
         ok ->
@@ -116,12 +116,12 @@ adding_handler(#{id:=?MODULE}=Config) ->
             Error
     end.
 
--spec removing_handler(logger:handler_config()) -> ok.
+-spec removing_handler(logger_handler:config()) -> ok.
 removing_handler(#{id:=?MODULE}) ->
     stop(),
     ok.
 
--spec log(logger:log_event(),logger:handler_config()) -> ok.
+-spec log(logger:log_event(),logger_handler:config()) -> ok.
 log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
     do_log(Level,Msg,Meta).
 
@@ -147,15 +147,15 @@ do_log(Level,{report,Msg},#{?MODULE:=#{tag:=Tag}}=Meta) ->
             _ ->
                 %% From logger call which added error_logger data to
                 %% obtain backwards compatibility with error_logger:*_msg/1,2
-                case maps:get(report_cb,Meta,fun logger:format_report/1) of
+                case get_report_cb(Meta) of
                     RCBFun when is_function(RCBFun,1) ->
                         try RCBFun(Msg) of
                             {F,A} when is_list(F), is_list(A) ->
                                 {F,A};
                             Other ->
                                 {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
-                        catch C:R ->
-                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                        catch C:R:S ->
+                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R,S}]}
                         end;
                     RCBFun when is_function(RCBFun,2) ->
                         try RCBFun(Msg,#{depth=>get_format_depth(),
@@ -215,6 +215,13 @@ fix_warning_tag(_,Tag) -> Tag.
 fix_warning_type(error,std_warning) -> std_error;
 fix_warning_type(info,std_warning) -> std_info;
 fix_warning_type(_,Type) -> Type.
+
+get_report_cb(#{?MODULE:=#{report_cb:=RBFun}}) ->
+    RBFun;
+get_report_cb(#{report_cb:=RBFun}) ->
+    RBFun;
+get_report_cb(_) ->
+    fun logger:format_report/1.
 
 %%-----------------------------------------------------------------
 %% These two simple old functions generate events tagged 'error'
@@ -571,11 +578,9 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
+    case application:get_env(kernel, error_logger_format_depth, unlimited) of
+	Depth when is_integer(Depth) ->
 	    max(10, Depth);
-        {ok, unlimited} ->
-            unlimited;
-	undefined ->
-	    unlimited
+        unlimited ->
+            unlimited
     end.

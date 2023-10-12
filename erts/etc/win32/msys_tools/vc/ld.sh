@@ -3,7 +3,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2016. All Rights Reserved.
+# Copyright Ericsson AB 2002-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -178,7 +178,10 @@ if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
     RES=$?
     if [ "$RES" != "0" ]; then
 	REMOVE=`echo "$OUTPUTRES" | sed 's,\\\;[12]$,,g'`
-	CREMOVE=`cygpath $REMOVE`
+	CREMOVE=`win2msys_path.sh $REMOVE`
+        ## If Defender or Search are enabled, they will lock just created files
+        ## and then mt will fail :/
+        echo "If you get this error, make sure Windows Defender AND Windows Search is disabled">>/tmp/link.exe.${p}.1
 	rm -f "$CREMOVE"
     fi
     rm -f "$CMANIFEST"

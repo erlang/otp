@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@
 	      [self(),?MODULE] ++ begin A end)
 	end).
 
+-define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -78,14 +80,15 @@ local_proxy_cases() ->
      http_not_modified_otp_6821].
 
 local_proxy_https_cases() ->
-    [https_connect_error].
+    [https_connect_error,
+     http_timeout].
 
 %%--------------------------------------------------------------------
 
 init_per_suite(Config0) ->
     case init_apps(suite_apps(), Config0) of
 	Config when is_list(Config) ->
-	    make_cert_files(dsa, "server-", Config),
+	    make_cert_files(Config),
 	    Config;
 	Other ->
 	    Other
@@ -158,7 +161,7 @@ http_head(Config) when is_list(Config) ->
     Method = head,
     URL = url("/index.html", Config),
     Request = {URL,[]},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},[_|_],[]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -175,13 +178,13 @@ http_get(Config) when is_list(Config) ->
     Timeout = timer:seconds(1),
     ConnTimeout = Timeout + timer:seconds(1),
 
-    HttpOpts1 = [{timeout,Timeout},{connect_timeout,ConnTimeout}],
+    HttpOpts1 = [{timeout,Timeout},{connect_timeout,ConnTimeout},?SSL_NO_VERIFY],
     Opts1 = [],
     {ok,{{_,200,_},[_|_],[_|_]=B1}} =
 	httpc:request(Method, Request, HttpOpts1, Opts1),
     inets_test_lib:check_body(B1),
 
-    HttpOpts2 = [],
+    HttpOpts2 = [?SSL_NO_VERIFY],
     Opts2 = [{body_format,binary}],
     {ok,{{_,200,_},[_|_],B2}} =
 	httpc:request(Method, Request, HttpOpts2, Opts2),
@@ -195,7 +198,7 @@ http_options(Config) when is_list(Config) ->
     Method = options,
     URL = url("/index.html", Config),
     Request = {URL,[]},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},Headers,_}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -210,7 +213,7 @@ http_trace(Config) when is_list(Config) ->
     Method = trace,
     URL = url("/index.html", Config),
     Request = {URL,[]},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},[_|_],"TRACE "++_}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -226,7 +229,7 @@ http_post(Config) when is_list(Config) ->
     Method = post,
     URL = url("/index.html", Config),
     Request = {URL,[],"text/plain","foobar"},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -243,7 +246,7 @@ http_put(Config) when is_list(Config) ->
     Content =
 	"<html><body> <h1>foo</h1> <p>bar</p> </body></html>",
     Request = {URL,[],"html",Content},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,405,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -259,7 +262,7 @@ http_delete(Config) when is_list(Config) ->
     Method = delete,
     URL = url("/delete.html", Config),
     Request = {URL,[]},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,405,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -275,7 +278,7 @@ http_delete_body(Config) when is_list(Config) ->
     URL = url("/delete.html", Config),
     Content = "foo=bar",
     Request = {URL,[],"application/x-www-form-urlencoded",Content},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,405,_},[_|_],[_|_]}} =
     httpc:request(Method, Request, HttpOpts, Opts),
@@ -301,7 +304,7 @@ http_headers(Config) when is_list(Config) ->
 	 {"Referer",
 	  "http://otp.ericsson.se:8000/product/internal"}],
     Request = {URL,Headers},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -314,11 +317,11 @@ http_proxy_auth(doc) ->
 http_proxy_auth(Config) when is_list(Config) ->
     %% Our proxy seems to ignore the header, however our proxy
     %% does not requirer an auth header, but we want to know
-    %% atleast the code for sending the header does not crash!
+    %% at least the code for sending the header does not crash!
     Method = get,
     URL = url("/index.html", Config),
     Request = {URL,[]},
-    HttpOpts = [{proxy_auth,{"foo","bar"}}],
+    HttpOpts = [{proxy_auth,{"foo","bar"}}, ?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,200,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -332,7 +335,7 @@ http_doesnotexist(Config) when is_list(Config) ->
     Method = get,
     URL = url("/doesnotexist.html", Config),
     Request = {URL,[]},
-    HttpOpts = [{proxy_auth,{"foo","bar"}}],
+    HttpOpts = [{proxy_auth,{"foo","bar"}}, ?SSL_NO_VERIFY],
     Opts = [],
     {ok,{{_,404,_},[_|_],[_|_]}} =
 	httpc:request(Method, Request, HttpOpts, Opts),
@@ -346,7 +349,7 @@ http_stream(Config) when is_list(Config) ->
     Method = get,
     URL = url("/index.html", Config),
     Request = {URL,[]},
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
 
     Opts1 = [{body_format,binary}],
     {ok,{{_,200,_},[_|_],Body}} =
@@ -377,26 +380,21 @@ http_stream(RequestId, Body) ->
 %%--------------------------------------------------------------------
 
 http_emulate_lower_versions(doc) ->
-    ["Perform requests as 0.9 and 1.0 clients."];
+    ["Perform requests as 1.0 and 1.1 clients."];
 http_emulate_lower_versions(Config) when is_list(Config) ->
     Method = get,
     URL = url("/index.html", Config),
     Request = {URL,[]},
     Opts = [],
 
-    HttpOpts1 = [{version,"HTTP/0.9"}],
-    {ok,[_|_]=B1} =
-	httpc:request(Method, Request, HttpOpts1, Opts),
-    inets_test_lib:check_body(B1),
-
-    HttpOpts2 = [{version,"HTTP/1.0"}],
+    HttpOpts1 = [{version,"HTTP/1.0"},?SSL_NO_VERIFY],
     {ok,{{_,200,_},[_|_],[_|_]=B2}} =
-	httpc:request(Method, Request, HttpOpts2, Opts),
+	httpc:request(Method, Request, HttpOpts1, Opts),
     inets_test_lib:check_body(B2),
 
-    HttpOpts3 = [{version,"HTTP/1.1"}],
+    HttpOpts2 = [{version,"HTTP/1.1"},?SSL_NO_VERIFY],
     {ok,{{_,200,_},[_|_],[_|_]=B3}} =
-	httpc:request(Method, Request, HttpOpts3, Opts),
+	httpc:request(Method, Request, HttpOpts2, Opts),
     inets_test_lib:check_body(B3),
 
     ok.
@@ -410,7 +408,7 @@ http_not_modified_otp_6821(Config) when is_list(Config) ->
     Opts = [],
 
     Request1 = {URL,[]},
-    HttpOpts1 = [],
+    HttpOpts1 = [?SSL_NO_VERIFY],
     {ok,{{_,200,_},ReplyHeaders,[_|_]}} =
 	 httpc:request(Method, Request1, HttpOpts1, Opts),
      ETag = header_value("etag", ReplyHeaders),
@@ -420,7 +418,7 @@ http_not_modified_otp_6821(Config) when is_list(Config) ->
 	 {URL,
 	  [{"If-None-Match",ETag},
 	   {"If-Modified-Since",LastModified}]},
-     HttpOpts2 = [{timeout,15000}], % Limit wait for bug result
+     HttpOpts2 = [{timeout,15000}, ?SSL_NO_VERIFY], % Limit wait for bug result
      {ok,{{_,304,_},_,[]}} = % Page Unchanged
 	 httpc:request(Method, Request2, HttpOpts2, Opts),
 
@@ -444,11 +442,26 @@ https_connect_error(Config) when is_list(Config) ->
     URL = "https://" ++ HttpServer ++ ":" ++
         integer_to_list(HttpPort) ++ "/index.html",
     Opts = [],
-    HttpOpts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
     Request = {URL,[]},
     {error,{failed_connect,[_,{tls,_,_}]}} =
 	httpc:request(Method, Request, HttpOpts, Opts).
 
+%%--------------------------------------------------------------------
+http_timeout(doc) ->
+    ["Test http/https connect and upgrade timeouts."];
+http_timeout(Config) when is_list(Config) ->
+    Method = get,
+    URL = url("/index.html", Config),
+    Request = {URL,[]},
+    Timeout = timer:seconds(1),
+    HttpOpts1 = [{timeout, Timeout}, {connect_timeout, 0}, ?SSL_NO_VERIFY],
+    {error,
+     {failed_connect,
+      [{to_address,{"localhost",8000}},
+       {inet,[inet],timeout}]}}
+	= httpc:request(Method, Request, HttpOpts1, []),
+    ok.
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -494,16 +507,20 @@ app_start(App, Config) ->
 app_stop(App) ->
     application:stop(App).
 
-make_cert_files(Alg, Prefix, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg}]),
-    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg},{issuer,CaInfo}]),
-    CaCertFile = filename:join(PrivDir, Prefix++"cacerts.pem"),
-    CertFile = filename:join(PrivDir, Prefix++"cert.pem"),
-    KeyFile = filename:join(PrivDir, Prefix++"key.pem"),
-    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
-    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
-    der_to_pem(KeyFile, [CertKey]),
+make_cert_files(Config) ->
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
+    GenCertData =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}, {digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}, {digest, sha256}
+                                                  ]},
+                                    client_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)},{digest, sha256}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}, {digest, sha256}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}, {digest, sha256}]}}),
+    inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
     ok.
 
 der_to_pem(File, Entries) ->

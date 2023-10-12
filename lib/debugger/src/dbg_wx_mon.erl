@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -551,7 +551,7 @@ menus() ->
 	       {'Save Settings...', 2},
 	       separator,
 	       {'Exit', 0}]},
-     {'Edit', [{'Refresh', no},
+     {'Edit', [{'Refresh', 0},
 	       {'Kill All', no}]},
      {'Module', [{'Interpret...', 0},
 		 {'Delete All Modules', no},

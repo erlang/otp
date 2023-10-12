@@ -131,7 +131,7 @@ sendf(Config) ->
 
 no_newline(Config) ->
     {ok, Handle} = ct_telnet:open(?conn_name(?get_n(Config))),
-    IAC = 255, % interprete as command
+    IAC = 255, % interpreted as command
     AYT = 246, % are you there
     ok = ct_telnet:send(Handle, [IAC,AYT], [{newline,false}]),
     {ok,_} = ct_telnet:expect(Handle,"yes",[no_prompt_check]),

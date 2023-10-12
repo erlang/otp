@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,9 +78,7 @@ typedef struct {
 } DbTableRelease;
 
 struct ErtsSchedulerData_;
-int erts_handle_yielded_ets_all_request(struct ErtsSchedulerData_ *esdp,
-                                        ErtsEtsAllYieldData *eadp);
-
+int erts_handle_yielded_ets_all_request(ErtsAuxWorkData *awdp);
 void erts_ets_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 
 /*
@@ -96,7 +94,7 @@ union db_table {
     /*TT*/
 };
 
-#define DB_DEF_MAX_TABS 8192 /* Superseeded by environment variable
+#define DB_DEF_MAX_TABS 8192 /* Superseded by environment variable
 				"ERL_MAX_ETS_TABLES" */
 #define ERL_MAX_ETS_TABLES_ENV "ERL_MAX_ETS_TABLES"
 
@@ -111,13 +109,15 @@ typedef enum {
 } ErtsDbSpinCount;
 
 void init_db(ErtsDbSpinCount);
-int erts_db_process_exiting(Process *, ErtsProcLocks);
+int erts_db_process_exiting(Process *, ErtsProcLocks, void **);
 int erts_db_execute_free_fixation(Process*, DbFixation*);
 void db_info(fmtfn_t, void *, int);
-void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
+void erts_db_foreach_table(void (*)(DbTable *, void *), void *, int);
 void erts_db_foreach_offheap(DbTable *,
 			     void (*func)(ErlOffHeap *, void *),
 			     void *);
+void erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
+                                      void *);
 
 extern int erts_ets_rwmtx_spin_count;
 extern int user_requested_db_max_tabs; /* set in erl_init */
@@ -130,6 +130,8 @@ extern Export ets_select_continue_exp;
 extern erts_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
+int erts_ets_force_split(Eterm tid, int on);
+int erts_ets_debug_random_split_join(Eterm tid, int on);
 Uint erts_db_get_max_tabs(void);
 Eterm erts_db_make_tid(Process *c_p, DbTableCommon *tb);
 
@@ -139,7 +141,7 @@ void erts_lcnt_update_db_locks(int enable);
 #endif
 
 #ifdef ETS_DBG_FORCE_TRAP
-extern erts_aint_t erts_ets_dbg_force_trap;
+extern int erts_ets_dbg_force_trap;
 #endif
 
 #endif /* ERL_DB_H__ */
@@ -155,11 +157,15 @@ extern erts_aint_t erts_ets_dbg_force_trap;
  */
 
 #define ERTS_DB_ALC_MEM_UPDATE_(TAB, FREE_SZ, ALLOC_SZ)			\
-do {									\
-    erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
-			- ((erts_aint_t) (FREE_SZ)));			\
-    ASSERT((TAB));							\
-    erts_atomic_add_nob(&(TAB)->common.memory_size, sz__);		\
+do {                                                                    \
+    if ((TAB) != NULL) {                                                \
+        erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
+                            - ((erts_aint_t) (FREE_SZ)));               \
+        ASSERT((TAB));							\
+        erts_flxctr_add(&(TAB)->common.counters,                        \
+                        ERTS_DB_TABLE_MEM_COUNTER_ID,                   \
+                        sz__);                                          \
+    }                                                                   \
 } while (0)
 
 #define ERTS_ETS_MISC_MEM_ADD(SZ) \
@@ -167,12 +173,15 @@ do {									\
 
 ERTS_GLB_INLINE void *erts_db_alloc(ErtsAlcType_t type,
 				    DbTable *tab,
-				    Uint size);
+				    Uint size) ERTS_ATTR_MALLOC_US(3);
 ERTS_GLB_INLINE void *erts_db_alloc_fnf(ErtsAlcType_t type,
 					DbTable *tab,
-					Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_nt(ErtsAlcType_t type, Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size);
+					Uint size) ERTS_ATTR_MALLOC_US(3);
+ERTS_GLB_INLINE void*
+erts_db_alloc_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
+
+ERTS_GLB_INLINE void*
+erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -304,10 +313,11 @@ erts_db_free(ErtsAlcType_t type, DbTable *tab, void *ptr, Uint size)
     ASSERT(ptr != 0);
     ASSERT(size == ERTS_ALC_DBG_BLK_SZ(ptr));
     ERTS_DB_ALC_MEM_UPDATE_(tab, size, 0);
-
-    ASSERT(((void *) tab) != ptr
-	   || erts_atomic_read_nob(&tab->common.memory_size) == 0);
-
+    ASSERT(tab == NULL ||
+           ((void *) tab) != ptr ||
+           tab->common.counters.is_decentralized ||
+           0 == erts_flxctr_read_centralized(&tab->common.counters,
+                                             ERTS_DB_TABLE_MEM_COUNTER_ID));
     erts_free(type, ptr);
 }
 

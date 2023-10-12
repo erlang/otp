@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 -export([count_and_find/3]).
 
--record(state, {handle,owner,mref,buf,read_mode,unic}).
+-record(state, {handle,owner,mref,name,buf,read_mode,unic}).
 
 -include("file_int.hrl").
 
@@ -80,8 +80,9 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 				  Self ! {Ref, ok},
 				  server_loop(
 				    #state{handle    = Handle,
-					   owner     = Owner, 
-					   mref      = M, 
+					   owner     = Owner,
+					   mref      = M,
+					   name      = FileName,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
 					   unic = UnicodeMode})
@@ -314,7 +315,18 @@ file_request(truncate,
 	Reply ->
 	    std_reply(Reply, State)
     end;
-file_request(Unknown, 
+file_request({read_handle_info, Opts},
+             #state{handle=Handle}=State) ->
+    case ?CALL_FD(Handle, read_handle_info, [Opts]) of
+        {error,Reason}=Reply ->
+            {stop,Reason,Reply,State};
+        Reply ->
+            {reply,Reply,State}
+    end;
+file_request(pid2name,
+             #state{name=Name}=State) ->
+    {reply,{ok,Name},State};
+file_request(Unknown,
 	     #state{}=State) ->
     Reason = {request, Unknown},
     {error,{error,Reason},State}.
@@ -435,6 +447,10 @@ put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
 		    {reply,Reply,NewState}
 	    end;
 	{error,_,_} ->
+	    {stop,no_translation,
+	     {error,{no_translation, InEncoding, OutEncoding}},
+	     NewState};
+	{incomplete,_,_} ->
 	    {stop,no_translation,
 	     {error,{no_translation, InEncoding, OutEncoding}},
 	     NewState}
@@ -665,7 +681,7 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
     end.
 	    
 %% A hack that tries to inform the caller about the position where the
-%% error occured.
+%% error occurred.
 invalid_unicode_error(Mod, Func, XtraArg, S) ->
     try
         {erl_scan,tokens,_Args} = XtraArg,

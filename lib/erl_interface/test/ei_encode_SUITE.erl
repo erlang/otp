@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ init_per_testcase(Case, Config) ->
 
 %% ---------------------------------------------------------------------------
 
-% NOTE: for historical reasons we don't pach as tight as we can,
+% NOTE: for historical reasons we don't patch as tight as we can,
 %       we only fill 27 bits in 32 bit INTEGER_EXT 
 
 
@@ -101,59 +101,49 @@ test_ei_encode_ulong(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_encode_longlong(Config) when is_list(Config) ->
-    case os:type() of
-        vxworks ->
-            {skip,"Skipped on VxWorks"};
-        _ ->
-            P = runner:start(Config, ?test_ei_encode_longlong),
-
-            {<<97,0>>                        ,0}   = get_buf_and_term(P),
-            {<<97,255>>                      ,255} = get_buf_and_term(P),
-            {<<98,256:32/big-signed-integer>>,256} = get_buf_and_term(P),
-            {<<98,-1:32/big-signed-integer>> ,-1}  = get_buf_and_term(P),
-
-            {<<98, 16#07ffffff:32/big-signed-integer>>, 16#07ffffff} = get_buf_and_term(P),
-            {<<98,-16#08000000:32/big-signed-integer>>,-16#08000000} = get_buf_and_term(P),
-            {<<110,4,0, 0,0,0,8>>                     , 16#08000000} = get_buf_and_term(P),
-            {<<110,4,1, 1,0,0,8>>                     ,-16#08000001} = get_buf_and_term(P),
-
-            {<<110,4,0, 255,255,255,127>>             , 16#7fffffff} = get_buf_and_term(P),
-            {<<110,4,1, 0,0,0,128>>                   ,-16#80000000} = get_buf_and_term(P),
-            {<<110,6,0, 255,255,255,255,255,127>>     , 16#7fffffffffff} = get_buf_and_term(P),
-            {<<110,6,1, 0,0,0,0,0,128>>               ,-16#800000000000} = get_buf_and_term(P),
-            {<<110,8,0, 255,255,255,255,255,255,255,127>>,16#7fffffffffffffff} = get_buf_and_term(P),
-            {<<110,8,1, 0,0,0,0,0,0,0,128>>           ,-16#8000000000000000} = get_buf_and_term(P),
-
-            runner:recv_eot(P),
-            ok
-    end.
+    P = runner:start(Config, ?test_ei_encode_longlong),
+    
+    {<<97,0>>                        ,0}   = get_buf_and_term(P),
+    {<<97,255>>                      ,255} = get_buf_and_term(P),
+    {<<98,256:32/big-signed-integer>>,256} = get_buf_and_term(P),
+    {<<98,-1:32/big-signed-integer>> ,-1}  = get_buf_and_term(P),
+    
+    {<<98, 16#07ffffff:32/big-signed-integer>>, 16#07ffffff} = get_buf_and_term(P),
+    {<<98,-16#08000000:32/big-signed-integer>>,-16#08000000} = get_buf_and_term(P),
+    {<<110,4,0, 0,0,0,8>>                     , 16#08000000} = get_buf_and_term(P),
+    {<<110,4,1, 1,0,0,8>>                     ,-16#08000001} = get_buf_and_term(P),
+    
+    {<<110,4,0, 255,255,255,127>>             , 16#7fffffff} = get_buf_and_term(P),
+    {<<110,4,1, 0,0,0,128>>                   ,-16#80000000} = get_buf_and_term(P),
+    {<<110,6,0, 255,255,255,255,255,127>>     , 16#7fffffffffff} = get_buf_and_term(P),
+    {<<110,6,1, 0,0,0,0,0,128>>               ,-16#800000000000} = get_buf_and_term(P),
+    {<<110,8,0, 255,255,255,255,255,255,255,127>>,16#7fffffffffffffff} = get_buf_and_term(P),
+    {<<110,8,1, 0,0,0,0,0,0,0,128>>           ,-16#8000000000000000} = get_buf_and_term(P),
+    
+    runner:recv_eot(P),
+    ok.
 
 
 %% ######################################################################## %%
 
 test_ei_encode_ulonglong(Config) when is_list(Config) ->
-    case os:type() of
-        vxworks ->
-            {skip,"Skipped on VxWorks"};
-        _ ->
-            P = runner:start(Config, ?test_ei_encode_ulonglong),
+    P = runner:start(Config, ?test_ei_encode_ulonglong),
 
-            {<<97,0>>                          ,0} = get_buf_and_term(P),
-            {<<97,255>>                        ,255} = get_buf_and_term(P),
-            {<<98,256:32/big-unsigned-integer>>,256} = get_buf_and_term(P),
+    {<<97,0>>                          ,0} = get_buf_and_term(P),
+    {<<97,255>>                        ,255} = get_buf_and_term(P),
+    {<<98,256:32/big-unsigned-integer>>,256} = get_buf_and_term(P),
+    
+    {<<98, 16#07ffffff:32/big-signed-integer>>,16#07ffffff} = get_buf_and_term(P),
+    {<<110,4,0, 0,0,0,8>>              ,16#08000000} = get_buf_and_term(P),
 
-            {<<98, 16#07ffffff:32/big-signed-integer>>,16#07ffffff} = get_buf_and_term(P),
-            {<<110,4,0, 0,0,0,8>>              ,16#08000000} = get_buf_and_term(P),
-
-            {<<110,4,0, 255,255,255,127>>      ,16#7fffffff} = get_buf_and_term(P),
-            {<<110,4,0, 0,0,0,128>>            ,16#80000000} = get_buf_and_term(P),
-            {<<110,4,0, 255,255,255,255>>      ,16#ffffffff} = get_buf_and_term(P),
-            {<<110,6,0, 255,255,255,255,255,255>>,16#ffffffffffff} = get_buf_and_term(P),
-            {<<110,8,0, 255,255,255,255,255,255,255,255>>,16#ffffffffffffffff} = get_buf_and_term(P),
-
-            runner:recv_eot(P),
-            ok
-    end.
+    {<<110,4,0, 255,255,255,127>>      ,16#7fffffff} = get_buf_and_term(P),
+    {<<110,4,0, 0,0,0,128>>            ,16#80000000} = get_buf_and_term(P),
+    {<<110,4,0, 255,255,255,255>>      ,16#ffffffff} = get_buf_and_term(P),
+    {<<110,6,0, 255,255,255,255,255,255>>,16#ffffffffffff} = get_buf_and_term(P),
+    {<<110,8,0, 255,255,255,255,255,255,255,255>>,16#ffffffffffffffff} = get_buf_and_term(P),
+    
+    runner:recv_eot(P),
+    ok.
 
 
 %% ######################################################################## %%

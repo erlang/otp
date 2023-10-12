@@ -1,0 +1,13 @@
+
+  [;1m-spec floor(Number) -> integer() when Number :: number().[0m
+
+[;;4mSince[0m:
+  OTP 20.0
+
+  Returns the largest integer not greater than [;;4mNumber[0m. For
+  example:
+
+    > floor(-10.5).
+    -11
+
+  Allowed in guard tests.

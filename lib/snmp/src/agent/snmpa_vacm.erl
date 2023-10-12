@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,12 +142,16 @@ split_prefix(_, _) -> false.
 
 %% ViewName is including length from now on
 loop_mib_view(ViewName, Subtree, Indexes, MibView) ->
-    [{value, Mask}, {value, Type}, {value, Status}] = 
-	snmp_view_based_acm_mib:vacmViewTreeFamilyTable(
-	  get, Indexes,
-	  [?vacmViewTreeFamilyMask, 
-	   ?vacmViewTreeFamilyType,
-	   ?vacmViewTreeFamilyStatus]),
+    {Mask, Type, Status} =
+        case loop_mib_view_get(Indexes) of
+            [{value, M}, {value, T}, {value, S}] ->
+                {M, T, S};
+            Else ->
+                ?vinfo("Failed vacmViewTreeFamilyTable lookup:"
+                       "~n      Indexes: ~p"
+                       "~n      Result:  ~p", [Indexes, Else]),
+                exit(noSuchView)
+        end,
     NextMibView = 
 	case Status of
 	    ?'RowStatus_active' ->
@@ -168,6 +172,13 @@ loop_mib_view(ViewName, Subtree, Indexes, MibView) ->
 		    NextMibView
 	    end
     end.
+
+loop_mib_view_get(Indexes) ->
+    Cols = [?vacmViewTreeFamilyMask, 
+            ?vacmViewTreeFamilyType,
+            ?vacmViewTreeFamilyStatus],
+    snmp_view_based_acm_mib:vacmViewTreeFamilyTable(get, Indexes, Cols).
+
 
 %%%-----------------------------------------------------------------
 %%%  1b.  The ordered ets table that implements vacmAccessTable
@@ -306,7 +317,7 @@ dump_table() ->
 %% time dumping the table.
 unique_table_name(Pre) ->
     %% We want something that is guaranteed to be unique, 
-    %% therefor we use erlang:timestamp() instead of os:timestamp()
+    %% therefore we use erlang:timestamp() instead of os:timestamp()
     unique_table_name(Pre, erlang:timestamp()).
 
 unique_table_name(Pre, {_A, _B, C} = Now) ->
@@ -378,7 +389,7 @@ get_access_row(Key, GroupKey, ContextName, SecModel, SecLevel, Score, Found) ->
 		{ok, NScore} when NScore > Score ->
 		    get_access_row(NextKey, GroupKey, ContextName,
 				   SecModel, SecLevel, NScore, Row);
-		{ok, _} -> % e.g. a throwed {ok, 0}
+		{ok, _} -> % e.g. a thrown {ok, 0}
 		    get_access_row(NextKey, GroupKey, ContextName,
 				   SecModel, SecLevel, Score, Found);
 		false ->
@@ -418,7 +429,7 @@ chop_off_group(_, _) -> throw(false).
 
 chop_off_context([H|T], [H|T2], Cnt, Len, Match) when Cnt < Len ->
     chop_off_context(T, T2, Cnt+1, Len, Match);
-chop_off_context([], Rest, _Len, _Len, _Match) ->
+chop_off_context([], Rest, Len, Len, _Match) ->
     %% We have exact match; don't care about Match
     {99, Rest};
 chop_off_context(_, Rest, Len, Len, ?vacmAccessContextMatch_prefix) ->

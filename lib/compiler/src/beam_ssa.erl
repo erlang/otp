@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,34 +21,37 @@
 
 -module(beam_ssa).
 -export([add_anno/3,get_anno/2,get_anno/3,
-         clobbers_xregs/1,def/2,def_used/2,
-         definitions/1,
-         dominators/1,
-         flatmapfold_instrs_rpo/4,
-         fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
-         fold_instrs_rpo/4,
+         between/4,
+         clobbers_xregs/1,def/2,def_unused/3,
+         definitions/2,
+         dominators/2,dominators_from_predecessors/2,common_dominators/3,
+         flatmapfold_instrs/4,
+         fold_blocks/4,
+         fold_instrs/4,
+         insert_on_edges/3,
+         is_loop_header/1,
          linearize/1,
-         mapfold_blocks_rpo/4,
-         mapfold_instrs_rpo/4,
+         mapfold_blocks/4,
+         mapfold_instrs/4,
+         merge_blocks/2,
          normalize/1,
          no_side_effect/1,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
-         split_blocks/3,
+         split_blocks/4,
          successors/1,successors/2,
          trim_unreachable/1,
-         update_phi_labels/4,used/1,
-         uses/1,uses/2]).
+         used/1,uses/2]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
               b_ret/0,b_br/0,b_switch/0,terminator/0,
               b_var/0,b_literal/0,b_remote/0,b_local/0,
               value/0,argument/0,label/0,
-              var_name/0,var_base/0,literal_value/0,
+              var_name/0,literal_value/0,
               op/0,anno/0,block_map/0,dominator_map/0,
               rename_map/0,rename_proplist/0,usage_map/0,
-              definition_map/0]).
+              definition_map/0,predecessor_map/0]).
 
 -include("beam_ssa.hrl").
 
@@ -75,29 +78,36 @@
 -type argument()   :: value() | b_remote() | b_local() | phi_value().
 -type label()      :: non_neg_integer().
 
--type var_name()   :: var_base() | {var_base(),non_neg_integer()}.
--type var_base()   :: atom() | non_neg_integer().
+-type var_name()   :: atom() | non_neg_integer().
 
 -type literal_value() :: atom() | integer() | float() | list() |
-                         nil() | tuple() | map() | binary().
+                         nil() | tuple() | map() | binary() | fun().
 
--type op()   :: {'bif',atom()} | {'float',float_op()} | prim_op() | cg_prim_op().
+-type op()   :: {'bif',atom()} |
+                {'float',float_op()} |
+                {'succeeded', 'guard' | 'body'} |
+                prim_op() |
+                cg_prim_op().
+
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
--type dominator_map() :: #{label():=ordsets:ordset(label())}.
+-type dominator_map() :: #{label():=[label()]}.
+-type numbering_map() :: #{label():=non_neg_integer()}.
 -type usage_map() :: #{b_var():=[{label(),b_set() | terminator()}]}.
 -type definition_map() :: #{b_var():=b_set()}.
+-type predecessor_map() :: #{label():=[label()]}.
 -type rename_map() :: #{b_var():=value()}.
 -type rename_proplist() :: [{b_var(),value()}].
 
 %% Note: By default, dialyzer will collapse this type to atom().
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
-%% file erl_types.erl in the hipe application.
+%% file erl_types.erl in the dialyzer application.
 
--type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_init' | 'bs_init_writable' |
-                   'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
-                   'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
+-type prim_op() :: 'bs_create_bin' |
+                   'bs_extract' | 'bs_ensure' | 'bs_get_tail' | 'bs_init_writable' |
+                   'bs_match' | 'bs_start_match' | 'bs_test_tail' |
+                   'build_stacktrace' |
                    'call' | 'catch_end' |
                    'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
@@ -105,25 +115,34 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'new_try_tag' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' |
+                   'nif_start' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
-                   'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
-                   'set_tuple_element' | 'succeeded' |
-                   'timeout' |
-                   'wait' | 'wait_timeout'.
+                   'raw_raise' |
+                   'recv_marker_bind' |
+                   'recv_marker_clear' |
+                   'recv_marker_reserve' |
+                   'recv_next' | 'remove_message' | 'resume' |
+                   'update_tuple' | 'update_record' |
+                   'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
-                      'copy' | 'put_tuple_arity' | 'put_tuple_element'.
+-type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+                      'bs_get' | 'bs_get_position' | 'bs_match_string' |
+                      'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
+                      'copy' | 'match_fail' | 'put_tuple_arity' |
+                      'set_tuple_element' | 'succeeded' |
+                      'update_record'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
+-import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
--spec add_anno(Key, Value, Construct) -> Construct when
+-spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
       Value :: any(),
+      Construct0 :: construct(),
       Construct :: construct().
 
 add_anno(Key, Val, #b_function{anno=Anno}=Bl) ->
@@ -142,9 +161,9 @@ add_anno(Key, Val, #b_switch{anno=Anno}=Bl) ->
 -spec get_anno(atom(), construct()) -> any().
 
 get_anno(Key, Construct) ->
-    maps:get(Key, get_anno(Construct)).
+    map_get(Key, get_anno(Construct)).
 
--spec get_anno(atom(), construct(),any()) -> any().
+-spec get_anno(atom(), construct(), any()) -> any().
 
 get_anno(Key, Construct, Default) ->
     maps:get(Key, get_anno(Construct), Default).
@@ -167,9 +186,9 @@ clobbers_xregs(#b_set{op=Op}) ->
         build_stacktrace -> true;
         call -> true;
         landingpad -> true;
-        make_fun -> true;
         peek_message -> true;
         raw_raise -> true;
+        wait_timeout -> true;
         _ -> false
     end.
 
@@ -184,35 +203,141 @@ no_side_effect(#b_set{op=Op}) ->
     case Op of
         {bif,_} -> true;
         {float,get} -> true;
-        bs_init -> true;
+        bs_create_bin -> true;
+        bs_init_writable -> true;
         bs_extract -> true;
         bs_match -> true;
         bs_start_match -> true;
         bs_test_tail -> true;
         bs_get_tail -> true;
-        bs_put -> true;
+        build_stacktrace -> true;
         extract -> true;
         get_hd -> true;
         get_tl -> true;
+        get_map_element -> true;
         get_tuple_element -> true;
         has_map_field -> true;
         is_nonempty_list -> true;
         is_tagged_tuple -> true;
         make_fun -> true;
+        match_fail -> true;
+        phi -> true;
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
-        succeeded -> true;
+        raw_raise -> true;
+        {succeeded,guard} -> true;
+        update_record -> true;
+        update_tuple -> true;
         _ -> false
     end.
 
--spec predecessors(Blocks) -> #{BlockNumber:=[Predecessor]} when
+%% insert_on_edges(Insertions, BlockMap, Count) -> {BlockMap, Count}.
+%%  Inserts instructions on the specified normal edges. It will not work on
+%%  exception edges.
+%%
+%%  That is, `[{12, 34, [CallInstr]}]` will insert `CallInstr` on all jumps
+%%  from block 12 to block 34.
+-spec insert_on_edges(Insertions, Blocks, Count) -> Result when
+    Insertions :: [{From, To, Is}],
+    From :: label(),
+    To :: label(),
+    Is :: [b_set()],
+    Blocks :: block_map(),
+    Count :: label(),
+    Result :: {block_map(), label()}.
+
+insert_on_edges(Insertions, Blocks, Count) when is_map(Blocks) ->
+    %% Sort insertions to simplify the handling of duplicates.
+    insert_on_edges_1(sort(Insertions), Blocks, Count).
+
+insert_on_edges_1([{_, ?EXCEPTION_BLOCK, _} | _], _, _) ->
+    %% Internal error; we can't run code on specific exception edges without
+    %% adding try/catch everywhere. Passes must avoid this.
+    error(unsafe_edge);
+insert_on_edges_1([{From, To, IsA}, {From, To, IsB} | Insertions],
+                  Blocks, Count) ->
+    %% Join duplicate insertions into the same block so we won't have to track
+    %% which edges we've already inserted code on.
+    insert_on_edges_1([{From, To, IsA ++ IsB} | Insertions], Blocks, Count);
+insert_on_edges_1([{From, To, Is} | Insertions], Blocks0, Count0) ->
+    #b_blk{last=FromLast0} = FromBlk0 = map_get(From, Blocks0),
+    #b_blk{is=ToIs0} = ToBlk0 = map_get(To, Blocks0),
+
+    EdgeLbl = Count0,
+    Count = Count0 + 1,
+
+    FromLast = insert_on_edges_reroute(FromLast0, To, EdgeLbl),
+    FromBlk = FromBlk0#b_blk{last=FromLast},
+
+    {EdgeIs0, ToIs} = insert_on_edges_is(ToIs0, From, EdgeLbl, []),
+    EdgeIs = EdgeIs0 ++ Is,
+
+    Br = #b_br{bool=#b_literal{val=true},
+               succ=To,
+               fail=To},
+
+    EdgeBlk = #b_blk{is=EdgeIs,last=Br},
+    ToBlk = ToBlk0#b_blk{is=ToIs},
+
+    Blocks1 = Blocks0#{ EdgeLbl => EdgeBlk,
+                        From := FromBlk,
+                        To := ToBlk },
+    Blocks = update_phi_labels([To], From, EdgeLbl, Blocks1),
+
+    insert_on_edges_1(Insertions, Blocks, Count);
+insert_on_edges_1([], Blocks, Count) ->
+    {Blocks, Count}.
+
+insert_on_edges_reroute(#b_switch{fail=Fail0,list=List0}=Sw, Old, New) ->
+    Fail = rename_label(Fail0, Old, New),
+    List = [{Value, rename_label(Dst, Old, New)} || {Value, Dst} <- List0],
+    Sw#b_switch{fail=Fail,list=List};
+insert_on_edges_reroute(#b_br{succ=Succ0,fail=Fail0}=Br, Old, New) ->
+    Succ = rename_label(Succ0, Old, New),
+    Fail = rename_label(Fail0, Old, New),
+    Br#b_br{succ=Succ,fail=Fail}.
+
+insert_on_edges_is([#b_set{op=bs_extract}=I | Is], FromLbl, EdgeLbl, EdgeIs) ->
+    %% Bit-syntax instructions span across edges, so we must hoist them into
+    %% the edge block to avoid breaking them.
+    %%
+    %% This is safe because we *KNOW* that there are no other edges leading to
+    %% this block.
+    insert_on_edges_is(Is, FromLbl, EdgeLbl, [I | EdgeIs]);
+insert_on_edges_is(ToIs0, FromLbl, EdgeLbl, EdgeIs) ->
+    case ToIs0 of
+        [#b_set{op=landingpad} | _] ->
+            %% We can't run code on specific exception edges without adding
+            %% try/catch everywhere. Passes must avoid this.
+            error(unsafe_edge);
+        _ ->
+            ToIs = update_phi_labels_is(ToIs0, FromLbl, EdgeLbl),
+            {reverse(EdgeIs), ToIs}
+    end.
+
+%% is_loop_header(#b_set{}) -> true|false.
+%%  Test whether this instruction is a loop header.
+
+-spec is_loop_header(b_set()) -> boolean().
+
+is_loop_header(#b_set{op=wait_timeout,args=[Args]}) ->
+    case Args of
+        #b_literal{val=0} ->
+            %% Never jumps back to peek_message
+            false;
+        _ ->
+            true
+    end;
+is_loop_header(#b_set{op=Op}) ->
+    Op =:= peek_message.
+
+-spec predecessors(Blocks) -> Result when
       Blocks :: block_map(),
-      BlockNumber :: label(),
-      Predecessor :: label().
+      Result :: predecessor_map().
 
 predecessors(Blocks) ->
-    P0 = [{S,L} || {L,Blk} <- maps:to_list(Blocks),
+    P0 = [{S,L} || L := Blk <- Blocks,
                    S <- successors(Blk)],
     P1 = sofs:relation(P0),
     P2 = sofs:rel2fam(P1),
@@ -253,15 +378,24 @@ successors(#b_blk{last=Terminator}) ->
 %%  switch list to a #b_br{}.
 
 -spec normalize(b_set() | terminator()) ->
-                       b_set() | terminator().
+          b_set() | terminator().
 
-normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
+normalize(#b_set{anno=Anno0,op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
-        {false,_} ->
-            Set;
-        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
-            Set#b_set{args=[Var,Lit]};
-        {true,_} ->
+        {true, [#b_literal{}=Lit,#b_var{}=Var]} ->
+            Anno = case Anno0 of
+                       #{arg_types := ArgTypes0} ->
+                           case ArgTypes0 of
+                               #{1 := Type} ->
+                                   Anno0#{arg_types => #{0 => Type}};
+                               #{} ->
+                                   Anno0#{arg_types => #{}}
+                           end;
+                       #{} ->
+                           Anno0
+                   end,
+            Set#b_set{anno=Anno,args=[Var,Lit]};
+        {_, _} ->
             Set
     end;
 normalize(#b_set{}=Set) ->
@@ -285,169 +419,157 @@ normalize(#b_br{}=Br) ->
 normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     case Arg of
         #b_literal{} ->
-            case keyfind(Arg, 1, List) of
-                false ->
-                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
-                {Arg,L} ->
-                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
-            end;
+            normalize_switch(Arg, List, Fail);
         #b_var{} when List =:= [] ->
             #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
         #b_var{} ->
-            Sw
+            Sw#b_switch{list=sort(List)}
     end;
 normalize(#b_ret{}=Ret) ->
     Ret.
 
+normalize_switch(Val, [{Val,L}|_], _Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
+normalize_switch(Val, [_|T], Fail) ->
+    normalize_switch(Val, T, Fail);
+normalize_switch(_Val, [], Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
+
 -spec successors(label(), block_map()) -> [label()].
 
 successors(L, Blocks) ->
-    successors(maps:get(L, Blocks)).
+    successors(map_get(L, Blocks)).
 
 -spec def(Ls, Blocks) -> Def when
       Ls :: [label()],
       Blocks :: block_map(),
-      Def :: ordsets:ordset(var_name()).
+      Def :: ordsets:ordset(b_var()).
 
-def(Ls, Blocks) ->
-    Top = rpo(Ls, Blocks),
-    Blks = [maps:get(L, Blocks) || L <- Top],
+def(Ls, Blocks) when is_map(Blocks) ->
+    Blks = [map_get(L, Blocks) || L <- Ls],
     def_1(Blks, []).
 
--spec def_used(Ls, Blocks) -> {Def,Used} when
+-spec def_unused(Ls, Used, Blocks) -> {Def,Unused} when
       Ls :: [label()],
+      Used :: ordsets:ordset(b_var()),
       Blocks :: block_map(),
-      Def :: ordsets:ordset(var_name()),
-      Used :: ordsets:ordset(var_name()).
+      Def :: ordsets:ordset(b_var()),
+      Unused :: ordsets:ordset(b_var()).
 
-def_used(Ls, Blocks) ->
-    Top = rpo(Ls, Blocks),
-    Blks = [maps:get(L, Blocks) || L <- Top],
-    Preds = gb_sets:from_list(Top),
-    def_used_1(Blks, Preds, [], gb_sets:empty()).
+def_unused(Ls, Unused, Blocks) when is_map(Blocks) ->
+    Blks = [map_get(L, Blocks) || L <- Ls],
+    Preds = sets:from_list(Ls, [{version, 2}]),
+    def_unused_1(Blks, Preds, [], Unused).
 
--spec dominators(Blocks) -> Result when
+%% dominators(Labels, BlockMap) -> {Dominators,Numbering}.
+%%  Calculate the dominator tree, returning a map where each entry
+%%  in the map is a list that gives the path from that block to
+%%  the top of the dominator tree. (Note that the suffixes of the
+%%  paths are shared with each other, which make the representation
+%%  of the dominator tree highly memory-efficient.)
+%%
+%%  The implementation is based on:
+%%
+%%     http://www.hipersoft.rice.edu/grads/publications/dom14.pdf
+%%     Cooper, Keith D.; Harvey, Timothy J; Kennedy, Ken (2001).
+%%        A Simple, Fast Dominance Algorithm.
+
+-spec dominators(Labels, Blocks) -> Result when
+      Labels :: [label()],
       Blocks :: block_map(),
-      Result :: dominator_map().
-
-dominators(Blocks) ->
+      Result :: {dominator_map(), numbering_map()}.
+dominators(Labels, Blocks) when is_map(Blocks) ->
     Preds = predecessors(Blocks),
-    Top0 = rpo(Blocks),
-    Top = [{L,maps:get(L, Preds)} || L <- Top0],
+    dominators_from_predecessors(Labels, Preds).
+
+-spec dominators_from_predecessors(Labels, Preds) -> Result when
+      Labels :: [label()],
+      Preds :: predecessor_map(),
+      Result :: {dominator_map(), numbering_map()}.
+dominators_from_predecessors(Top0, Preds) when is_map(Preds) ->
+    Df = maps:from_list(number(Top0, 0)),
+    [{0,[]}|Top] = [{L,map_get(L, Preds)} || L <- Top0],
 
     %% The flow graph for an Erlang function is reducible, and
     %% therefore one traversal in reverse postorder is sufficient.
-    iter_dominators(Top, #{}).
+    Acc = #{0=>[0]},
+    {dominators_1(Top, Df, Acc),Df}.
 
--spec fold_instrs_rpo(Fun, From, Acc0, Blocks) -> any() when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
-      From :: [label()],
+%% common_dominators([Label], Dominators, Numbering) -> [Label].
+%%  Calculate the common dominators for the given list of blocks
+%%  and Dominators and Numbering as returned from dominators/1.
+
+-spec common_dominators([label()], dominator_map(), numbering_map()) -> [label()].
+common_dominators(Ls, Dom, Numbering) when is_map(Dom) ->
+    Doms = [map_get(L, Dom) || L <- Ls],
+    dom_intersection(Doms, Numbering).
+
+-spec fold_instrs(Fun, Labels, Acc0, Blocks) -> any() when
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
+      Labels :: [label()],
       Acc0 :: any(),
       Blocks :: block_map().
 
-fold_instrs_rpo(Fun, From, Acc0, Blocks) ->
-    Top = rpo(From, Blocks),
-    fold_instrs_rpo_1(Top, Fun, Blocks, Acc0).
+fold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
+    fold_instrs_1(Labels, Fun, Blocks, Acc0).
 
-%% Like mapfold_instrs_rpo but at the block level to support lookahead and
-%% scope-dependent transformations.
--spec mapfold_blocks_rpo(Fun, From, Acc, Blocks) -> Result when
+%% mapfold_blocks(Fun, [Label], Acc, BlockMap) -> {BlockMap,Acc}.
+%%  Like mapfold_instrs but at the block level to support lookahead
+%%  and scope-dependent transformations.
+
+-spec mapfold_blocks(Fun, Labels, Acc, Blocks) -> Result when
       Fun :: fun((label(), b_blk(), any()) -> {b_blk(), any()}),
-      From :: [label()],
+      Labels :: [label()],
       Acc :: any(),
       Blocks :: block_map(),
       Result :: {block_map(), any()}.
-mapfold_blocks_rpo(Fun, From, Acc, Blocks) ->
-    Successors = rpo(From, Blocks),
+mapfold_blocks(Fun, Labels, Acc, Blocks) when is_map(Blocks) ->
     foldl(fun(Lbl, A) ->
-                  mapfold_blocks_rpo_1(Fun, Lbl, A)
-          end, {Blocks, Acc}, Successors).
+                  mapfold_blocks_1(Fun, Lbl, A)
+          end, {Blocks, Acc}, Labels).
 
-mapfold_blocks_rpo_1(Fun, Lbl, {Blocks0, Acc0}) ->
-    Block0 = maps:get(Lbl, Blocks0),
+mapfold_blocks_1(Fun, Lbl, {Blocks0, Acc0}) ->
+    Block0 = map_get(Lbl, Blocks0),
     {Block, Acc} = Fun(Lbl, Block0, Acc0),
-    Blocks = maps:put(Lbl, Block, Blocks0),
+    Blocks = Blocks0#{Lbl:=Block},
     {Blocks, Acc}.
 
--spec mapfold_instrs_rpo(Fun, From, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
-      From :: [label()],
+-spec mapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
+      Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
       Blocks0 :: block_map(),
       Blocks :: block_map().
 
-mapfold_instrs_rpo(Fun, From, Acc0, Blocks) ->
-    Top = rpo(From, Blocks),
-    mapfold_instrs_rpo_1(Top, Fun, Blocks, Acc0).
+mapfold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
+    mapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
--spec flatmapfold_instrs_rpo(Fun, From, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
-      From :: [label()],
+-spec flatmapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
+      Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
       Blocks0 :: block_map(),
       Blocks :: block_map().
 
-flatmapfold_instrs_rpo(Fun, From, Acc0, Blocks) ->
-    Top = rpo(From, Blocks),
-    flatmapfold_instrs_rpo_1(Top, Fun, Blocks, Acc0).
+flatmapfold_instrs(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
+    flatmapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 -type fold_fun() :: fun((label(), b_blk(), any()) -> any()).
 
-%% fold_rpo(Fun, [Label], Acc0, Blocks) -> Acc.
-%%  Fold over all blocks a reverse postorder traversal of the block
-%%  graph; that is, first visit a block, then visit its successors.
+%% fold_blocks(Fun, [Label], Acc0, Blocks) -> Acc.  Fold over all blocks
+%%  from a given set of labels in a reverse postorder traversal of the
+%%  block graph; that is, first visit a block, then visit its successors.
 
--spec fold_rpo(Fun, Acc0, Blocks) -> any() when
-      Fun :: fold_fun(),
-      Acc0 :: any(),
-      Blocks :: #{label():=b_blk()}.
-
-fold_rpo(Fun, Acc0, Blocks) ->
-    fold_rpo(Fun, [0], Acc0, Blocks).
-
-%% fold_rpo(Fun, [Label], Acc0, Blocks) -> Acc.  Fold over all blocks
-%%  reachable from a given set of labels in a reverse postorder
-%%  traversal of the block graph; that is, first visit a block, then
-%%  visit its successors.
-
--spec fold_rpo(Fun, Labels, Acc0, Blocks) -> any() when
+-spec fold_blocks(Fun, Labels, Acc0, Blocks) -> any() when
       Fun :: fold_fun(),
       Labels :: [label()],
       Acc0 :: any(),
       Blocks :: #{label():=b_blk()}.
 
-fold_rpo(Fun, From, Acc0, Blocks) ->
-    Top = rpo(From, Blocks),
-    fold_rpo_1(Top, Fun, Blocks, Acc0).
-
-%% fold_po(Fun, Acc0, Blocks) -> Acc.
-%%  Fold over all blocks in a postorder traversal of the block graph;
-%%  that is, first visit all successors of block, then the block
-%%  itself.
-
--spec fold_po(Fun, Acc0, Blocks) -> any() when
-      Fun :: fold_fun(),
-      Acc0 :: any(),
-      Blocks :: #{label():=b_blk()}.
-
-%% fold_po(Fun, From, Acc0, Blocks) -> Acc.
-%%  Fold over the blocks reachable from the block numbers given
-%%  by From in a postorder traversal of the block graph.
-
-fold_po(Fun, Acc0, Blocks) ->
-    fold_po(Fun, [0], Acc0, Blocks).
-
--spec fold_po(Fun, Labels, Acc0, Blocks) -> any() when
-      Fun :: fold_fun(),
-      Labels :: [label()],
-      Acc0 :: any(),
-      Blocks :: block_map().
-
-fold_po(Fun, From, Acc0, Blocks) ->
-    Top = reverse(rpo(From, Blocks)),
-    fold_rpo_1(Top, Fun, Blocks, Acc0).
+fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
+    fold_blocks_1(Labels, Fun, Blocks, Acc0).
 
 %% linearize(Blocks) -> [{BlockLabel,#b_blk{}}].
 %%  Linearize the intermediate representation of the code.
@@ -460,8 +582,8 @@ fold_po(Fun, From, Acc0, Blocks) ->
       Blocks :: block_map(),
       Linear :: [{label(),b_blk()}].
 
-linearize(Blocks) ->
-    Seen = cerl_sets:new(),
+linearize(Blocks) when is_map(Blocks) ->
+    Seen = sets:new([{version, 2}]),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, #{}),
     Linear.
@@ -478,90 +600,91 @@ rpo(Blocks) ->
       Blocks :: block_map(),
       Labels :: [label()].
 
-rpo(From, Blocks) ->
-    Seen = cerl_sets:new(),
+rpo(From, Blocks) when is_map(Blocks) ->
+    Seen = sets:new([{version, 2}]),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
+
+%% between(From, To, Preds, Blocks) -> RPO
+%%  Returns all the blocks between `From` and `To` in reverse post-order. This
+%%  is most efficient when `From` dominates `To`, as it won't visit any
+%%  unnecessary blocks in that case.
+
+-spec between(From, To, Preds, Blocks) -> Labels when
+      From :: label(),
+      To :: label(),
+      Preds :: predecessor_map(),
+      Blocks :: block_map(),
+      Labels :: [label()].
+
+between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
+    %% Gather the predecessors of `To` and then walk forward from `From`,
+    %% skipping the blocks that don't precede `To`.
+    %%
+    %% As an optimization we initialize the predecessor set with `From` to stop
+    %% gathering once seen since we're only interested in the blocks in between.
+    %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
+    %% but that has no effect on the final result.
+    Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),
+    {Paths, _} = between_rpo([From], Blocks, Filter, []),
+
+    Paths.
 
 -spec rename_vars(Rename, [label()], block_map()) -> block_map() when
       Rename :: rename_map() | rename_proplist().
 
-rename_vars(Rename, From, Blocks) when is_list(Rename) ->
-    rename_vars(maps:from_list(Rename), From, Blocks);
-rename_vars(Rename, From, Blocks) when is_map(Rename)->
-    Top = rpo(From, Blocks),
-    Preds = cerl_sets:from_list(Top),
+rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
+    rename_vars(maps:from_list(Rename), Labels, Blocks);
+rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
+    Preds = sets:from_list(Labels, [{version, 2}]),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_set{args=Args0}=Set) ->
                 Args = [rename_var(A, Rename) || A <- Args0],
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_switch{arg=Bool}=Sw) ->
-                Sw#b_switch{arg=rename_var(Bool, Rename)};
+                normalize(Sw#b_switch{arg=rename_var(Bool, Rename)});
            (#b_br{bool=Bool}=Br) ->
-                Br#b_br{bool=rename_var(Bool, Rename)};
+                normalize(Br#b_br{bool=rename_var(Bool, Rename)});
            (#b_ret{arg=Arg}=Ret) ->
-                Ret#b_ret{arg=rename_var(Arg, Rename)}
+                normalize(Ret#b_ret{arg=rename_var(Arg, Rename)})
         end,
-    map_instrs_1(Top, F, Blocks).
+    map_instrs_1(Labels, F, Blocks).
 
-%% split_blocks(Predicate, Blocks0, Count0) -> {Blocks,Count}.
-%%  Call Predicate(Instruction) for each instruction in all
+%% split_blocks(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
+%%  Call Predicate(Instruction) for each instruction in the given
 %%  blocks. If Predicate/1 returns true, split the block
 %%  before this instruction.
 
--spec split_blocks(Pred, Blocks0, Count0) -> {Blocks,Count} when
+-spec split_blocks(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+      Labels :: [label()],
       Pred :: fun((b_set()) -> boolean()),
       Blocks :: block_map(),
-      Count0 :: beam_ssa:label(),
+      Count0 :: label(),
       Blocks0 :: block_map(),
       Blocks :: block_map(),
-      Count :: beam_ssa:label().
+      Count :: label().
 
-split_blocks(P, Blocks, Count) ->
-    Ls = beam_ssa:rpo(Blocks),
+split_blocks(Ls, P, Blocks, Count) when is_map(Blocks) ->
     split_blocks_1(Ls, P, Blocks, Count).
 
--spec trim_unreachable(Blocks0) -> Blocks when
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
+-spec trim_unreachable(SSA0) -> SSA when
+      SSA0 :: block_map() | [{label(),b_blk()}],
+      SSA :: block_map() | [{label(),b_blk()}].
 
 %% trim_unreachable(Blocks0) -> Blocks.
 %%  Remove all unreachable blocks. Adjust all phi nodes so
 %%  they don't refer to blocks that has been removed or no
 %%  no longer branch to the phi node in question.
 
-trim_unreachable(Blocks) ->
+trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
-    maps:from_list(linearize(Blocks)).
+    maps:from_list(linearize(Blocks));
+trim_unreachable([_|_]=Blocks) ->
+    trim_unreachable_1(Blocks, sets:from_list([0], [{version, 2}])).
 
-%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
-%%  In the given blocks, replace label Old in with New in all
-%%  phi nodes. This is useful after merging or splitting
-%%  blocks.
-
--spec update_phi_labels(From, Old, New, Blocks0) -> Blocks when
-      From :: [label()],
-      Old :: label(),
-      New :: label(),
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
-
-update_phi_labels([L|Ls], Old, New, Blocks0) ->
-    case Blocks0 of
-        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
-            Is = update_phi_labels_is(Is0, Old, New),
-            Blk = Blk0#b_blk{is=Is},
-            Blocks = Blocks0#{L:=Blk},
-            update_phi_labels(Ls, Old, New, Blocks);
-        #{L:=#b_blk{}} ->
-            %% No phi nodes in this block.
-            update_phi_labels(Ls, Old, New, Blocks0)
-    end;
-update_phi_labels([], _, _, Blocks) -> Blocks.
-
--spec used(b_blk() | b_set() | terminator()) -> [var_name()].
+-spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
 used(#b_blk{is=Is,last=Last}) ->
     used_1([Last|Is], ordsets:new());
@@ -577,23 +700,23 @@ used(#b_switch{arg=#b_var{}=V}) ->
     [V];
 used(_) -> [].
 
--spec definitions(Blocks :: block_map()) -> definition_map().
-definitions(Blocks) ->
-    fold_instrs_rpo(fun(#b_set{ dst = Var }=I, Acc) ->
-                            maps:put(Var, I, Acc);
+-spec definitions(Labels :: [label()], Blocks :: block_map()) -> definition_map().
+definitions(Labels, Blocks) ->
+    fold_instrs(fun(#b_set{ dst = Var }=I, Acc) ->
+                            Acc#{Var => I};
                        (_Terminator, Acc) ->
                             Acc
-                    end, [0], #{}, Blocks).
+                    end, Labels, #{}, Blocks).
 
--spec uses(Blocks :: block_map()) -> usage_map().
-uses(Blocks) ->
-    uses([0], Blocks).
-
--spec uses(From, Blocks) -> usage_map() when
-      From :: [label()],
+%% uses(Labels, BlockMap) -> UsageMap
+%%  Traverse the blocks given by labels and builds a usage map
+%%  with variables as keys and a list of labels-instructions
+%%  tuples as values.
+-spec uses(Labels, Blocks) -> usage_map() when
+      Labels :: [label()],
       Blocks :: block_map().
-uses(From, Blocks) ->
-    fold_rpo(fun fold_uses_block/3, From, #{}, Blocks).
+uses(Labels, Blocks) when is_map(Blocks) ->
+    fold_blocks(fun fold_uses_block/3, Labels, #{}, Blocks).
 
 fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
     F = fun(I, UseMap) ->
@@ -604,6 +727,16 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
                       end, UseMap, used(I))
         end,
     F(Last, foldl(F, UseMap0, Is)).
+
+-spec merge_blocks([label()], block_map()) -> block_map().
+
+merge_blocks(Labels, Blocks) ->
+    Preds = predecessors(Blocks),
+
+    %% We must traverse the blocks in reverse postorder to avoid
+    %% embedding succeeded:guard instructions into the middle of
+    %% blocks when this function is called from beam_ssa_bool.
+    merge_blocks_1(Labels, Preds, Blocks).
 
 %%%
 %%% Internal functions.
@@ -623,28 +756,28 @@ is_commutative('=/=') -> true;
 is_commutative('/=') -> true;
 is_commutative(_) -> false.
 
-def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
-    {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
-    Used = gb_sets:union(gb_sets:from_list(used(Last)), Used1),
-    def_used_1(Bs, Preds, Def, Used);
-def_used_1([], _Preds, Def, Used) ->
-    {ordsets:from_list(Def),gb_sets:to_list(Used)}.
+def_unused_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Unused0) ->
+    Unused1 = ordsets:subtract(Unused0, used(Last)),
+    {Def,Unused} = def_unused_is(Is, Preds, Def0, Unused1),
+    def_unused_1(Bs, Preds, Def, Unused);
+def_unused_1([], _Preds, Def, Unused) ->
+    {ordsets:from_list(Def), Unused}.
 
-def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
-            Preds, Def0, Used0) ->
+def_unused_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
+            Preds, Def0, Unused0) ->
     Def = [Dst|Def0],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Used1 = [V || {#b_var{}=V,L} <- Args, gb_sets:is_member(L, Preds)],
-    Used = gb_sets:union(gb_sets:from_list(Used1), Used0),
-    def_used_is(Is, Preds, Def, Used);
-def_used_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Used0) ->
+    Unused1 = [V || {#b_var{}=V,L} <- Args, sets:is_element(L, Preds)],
+    Unused = ordsets:subtract(Unused0, ordsets:from_list(Unused1)),
+    def_unused_is(Is, Preds, Def, Unused);
+def_unused_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Unused0) ->
     Def = [Dst|Def0],
-    Used = gb_sets:union(gb_sets:from_list(used(I)), Used0),
-    def_used_is(Is, Preds, Def, Used);
-def_used_is([], _Preds, Def, Used) ->
-    {Def,Used}.
+    Unused = ordsets:subtract(Unused0, used(I)),
+    def_unused_is(Is, Preds, Def, Unused);
+def_unused_is([], _Preds, Def, Unused) ->
+    {Def,Unused}.
 
 def_1([#b_blk{is=Is}|Bs], Def0) ->
     Def = def_is(Is, Def0),
@@ -656,55 +789,96 @@ def_is([#b_set{dst=Dst}|Is], Def) ->
     def_is(Is, [Dst|Def]);
 def_is([], Def) -> Def.
 
-iter_dominators([{0,[]}|Ls], _Doms) ->
-    Dom = [0],
-    iter_dominators(Ls, #{0=>Dom});
-iter_dominators([{L,Preds}|Ls], Doms) ->
-    DomPreds = [maps:get(P, Doms) || P <- Preds, maps:is_key(P, Doms)],
-    Dom = ordsets:add_element(L, ordsets:intersection(DomPreds)),
-    iter_dominators(Ls, Doms#{L=>Dom});
-iter_dominators([], Doms) -> Doms.
+dominators_1([{L,Preds}|Ls], Df, Doms) ->
+    DomPreds = [map_get(P, Doms) || P <- Preds, is_map_key(P, Doms)],
+    Dom = [L|dom_intersection(DomPreds, Df)],
+    dominators_1(Ls, Df, Doms#{L=>Dom});
+dominators_1([], _Df, Doms) -> Doms.
 
-fold_rpo_1([L|Ls], Fun, Blocks, Acc0) ->
-    Block = maps:get(L, Blocks),
+dom_intersection([S], _Df) ->
+    S;
+dom_intersection([S|Ss], Df) ->
+    dom_intersection(S, Ss, Df).
+
+dom_intersection([0]=S, [_|_], _Df) ->
+    %% No need to continue. (We KNOW that all sets end in [0].)
+    S;
+dom_intersection(S1, [S2|Ss], Df) ->
+    dom_intersection(dom_intersection_1(S1, S2, Df), Ss, Df);
+dom_intersection(S, [], _Df) -> S.
+
+dom_intersection_1([E1|Es1]=Set1, [E2|Es2]=Set2, Df) ->
+    %% Blocks are numbered in the order they are found in
+    %% reverse postorder.
+    #{E1:=Df1,E2:=Df2} = Df,
+    if
+        Df1 > Df2 ->
+            dom_intersection_2(Es1, Set2, Df, Df2);
+        Df2 > Df1 ->
+            dom_intersection_2(Es2, Set1, Df, Df1);
+        true ->                                  %Set1 == Set2
+            %% The common suffix of the sets is the intersection.
+            Set1
+    end.
+
+dom_intersection_2([E1|Es1]=Set1, [_|Es2]=Set2, Df, Df2) ->
+    %% Blocks are numbered in the order they are found in
+    %% reverse postorder.
+    #{E1:=Df1} = Df,
+    if
+        Df1 > Df2 ->
+            dom_intersection_2(Es1, Set2, Df, Df2);
+        Df2 > Df1 ->
+            dom_intersection_2(Es2, Set1, Df, Df1);  %switch arguments
+        true ->                                  %Set1 == Set2
+            %% The common suffix of the sets is the intersection.
+            Set1
+    end.
+
+number([L|Ls], N) ->
+    [{L,N}|number(Ls, N+1)];
+number([], _) -> [].
+
+fold_blocks_1([L|Ls], Fun, Blocks, Acc0) ->
+    Block = map_get(L, Blocks),
     Acc = Fun(L, Block, Acc0),
-    fold_rpo_1(Ls, Fun, Blocks, Acc);
-fold_rpo_1([], _, _, Acc) -> Acc.
+    fold_blocks_1(Ls, Fun, Blocks, Acc);
+fold_blocks_1([], _, _, Acc) -> Acc.
 
-fold_instrs_rpo_1([L|Ls], Fun, Blocks, Acc0) ->
-    #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
+fold_instrs_1([L|Ls], Fun, Blocks, Acc0) ->
+    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
     Acc1 = foldl(Fun, Acc0, Is),
     Acc = Fun(Last, Acc1),
-    fold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
-fold_instrs_rpo_1([], _, _, Acc) -> Acc.
+    fold_instrs_1(Ls, Fun, Blocks, Acc);
+fold_instrs_1([], _, _, Acc) -> Acc.
 
-mapfold_instrs_rpo_1([L|Ls], Fun, Blocks0, Acc0) ->
-    #b_blk{is=Is0,last=Last0} = Block0 = maps:get(L, Blocks0),
+mapfold_instrs_1([L|Ls], Fun, Blocks0, Acc0) ->
+    #b_blk{is=Is0,last=Last0} = Block0 = map_get(L, Blocks0),
     {Is,Acc1} = mapfoldl(Fun, Acc0, Is0),
     {Last,Acc} = Fun(Last0, Acc1),
     Block = Block0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Block, Blocks0),
-    mapfold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
-mapfold_instrs_rpo_1([], _, Blocks, Acc) ->
+    Blocks = Blocks0#{L:=Block},
+    mapfold_instrs_1(Ls, Fun, Blocks, Acc);
+mapfold_instrs_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
-flatmapfold_instrs_rpo_1([L|Ls], Fun, Blocks0, Acc0) ->
-    #b_blk{is=Is0,last=Last0} = Block0 = maps:get(L, Blocks0),
+flatmapfold_instrs_1([L|Ls], Fun, Blocks0, Acc0) ->
+    #b_blk{is=Is0,last=Last0} = Block0 = map_get(L, Blocks0),
     {Is,Acc1} = flatmapfoldl(Fun, Acc0, Is0),
     {[Last],Acc} = Fun(Last0, Acc1),
     Block = Block0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Block, Blocks0),
-    flatmapfold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
-flatmapfold_instrs_rpo_1([], _, Blocks, Acc) ->
+    Blocks = Blocks0#{L:=Block},
+    flatmapfold_instrs_1(Ls, Fun, Blocks, Acc);
+flatmapfold_instrs_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
 linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case cerl_sets:is_element(L, Seen0) of
+    case sets:is_element(L, Seen0) of
         true ->
             linearize_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Seen1 = cerl_sets:add_element(L, Seen0),
-            Block = maps:get(L, Blocks),
+            Seen1 = sets:add_element(L, Seen0),
+            Block = map_get(L, Blocks),
             Successors = successors(Block),
             {Acc,Seen} = linearize_1(Successors, Blocks, Seen1, Acc0),
             linearize_1(Ls, Blocks, Seen, [{L,Block}|Acc])
@@ -739,13 +913,71 @@ is_successor(L, Pred, S) ->
             false
     end.
 
+trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
+    Blk = trim_phis(Blk0, Seen0),
+    case sets:is_element(L, Seen0) of
+        false ->
+            trim_unreachable_1(Bs, Seen0);
+        true ->
+            case successors(Blk) of
+                [] ->
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen0)];
+                [Next] ->
+                    Seen = sets:add_element(Next, Seen0),
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen)];
+                [_|_]=Successors ->
+                    Seen = sets:union(Seen0, sets:from_list(Successors, [{version, 2}])),
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen)]
+            end
+    end;
+trim_unreachable_1([], _) -> [].
+
+trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
+    Is = trim_phis_1(Is0, Seen),
+    Blk#b_blk{is=Is};
+trim_phis(Blk, _Seen) -> Blk.
+
+trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
+    Args = [P || {_,L}=P <- Args0, sets:is_element(L, Seen)],
+    [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
+trim_phis_1(Is, _Seen) -> Is.
+
+between_make_filter([L | Ls], Preds, Acc0) ->
+    case sets:is_element(L, Acc0) of
+        true ->
+            between_make_filter(Ls, Preds, Acc0);
+        false ->
+            Next = map_get(L, Preds),
+            Acc1 = sets:add_element(L, Acc0),
+
+            Acc = between_make_filter(Next, Preds, Acc1),
+            between_make_filter(Ls, Preds, Acc)
+    end;
+between_make_filter([], _Preds, Acc) ->
+    Acc.
+
+between_rpo([L | Ls], Blocks, Filter0, Acc0) ->
+    case sets:is_element(L, Filter0) of
+        true ->
+            Block = map_get(L, Blocks),
+            Filter1 = sets:del_element(L, Filter0),
+
+            Successors = successors(Block),
+            {Acc, Filter} = between_rpo(Successors, Blocks, Filter1, Acc0),
+            between_rpo(Ls, Blocks, Filter, [L | Acc]);
+        false ->
+            between_rpo(Ls, Blocks, Filter0, Acc0)
+    end;
+between_rpo([], _, Filter, Acc) ->
+    {Acc, Filter}.
+
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
-    case cerl_sets:is_element(L, Seen0) of
+    case sets:is_element(L, Seen0) of
         true ->
             rpo_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Block = maps:get(L, Blocks),
-            Seen1 = cerl_sets:add_element(L, Seen0),
+            Block = map_get(L, Blocks),
+            Seen1 = sets:add_element(L, Seen0),
             Successors = successors(Block),
             {Acc,Seen} = rpo_1(Successors, Blocks, Seen1, Acc0),
             rpo_1(Ls, Blocks, Seen, [L|Acc])
@@ -765,7 +997,7 @@ rename_var(#b_remote{mod=Mod0,name=Name0}=Remote, Rename) ->
 rename_var(Old, _) -> Old.
 
 rename_phi_vars([{Var,L}|As], Preds, Ren) ->
-    case cerl_sets:is_element(L, Preds) of
+    case sets:is_element(L, Preds) of
         true ->
             [{rename_var(Var, Ren),L}|rename_phi_vars(As, Preds, Ren)];
         false ->
@@ -774,11 +1006,11 @@ rename_phi_vars([{Var,L}|As], Preds, Ren) ->
 rename_phi_vars([], _, _) -> [].
 
 map_instrs_1([L|Ls], Fun, Blocks0) ->
-    #b_blk{is=Is0,last=Last0} = Blk0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last0} = Blk0 = map_get(L, Blocks0),
     Is = [Fun(I) || I <- Is0],
     Last = Fun(Last0),
     Blk = Blk0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Blk, Blocks0),
+    Blocks = Blocks0#{L:=Blk},
     map_instrs_1(Ls, Fun, Blocks);
 map_instrs_1([], _, Blocks) -> Blocks.
 
@@ -789,7 +1021,7 @@ flatmapfoldl(F, Accu0, [Hd|Tail]) ->
 flatmapfoldl(_, Accu, []) -> {[],Accu}.
 
 split_blocks_1([L|Ls], P, Blocks0, Count0) ->
-    #b_blk{is=Is0} = Blk = maps:get(L, Blocks0),
+    #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
     case split_blocks_is(Is0, P, []) of
         {yes,Bef,Aft} ->
             NewLbl = Count0,
@@ -839,3 +1071,129 @@ used_1([H|T], Used0) ->
     Used = ordsets:union(used(H), Used0),
     used_1(T, Used);
 used_1([], Used) -> Used.
+
+
+%%% Merge blocks.
+
+merge_blocks_1([L|Ls], Preds0, Blocks0) ->
+    case Preds0 of
+        #{L:=[P]} ->
+            #{P:=Blk0,L:=Blk1} = Blocks0,
+            case is_merge_allowed(L, Blk0, Blk1) of
+                true ->
+                    #b_blk{is=Is0} = Blk0,
+                    #b_blk{is=Is1} = Blk1,
+                    verify_merge_is(Is1),
+                    Is = merge_fix_succeeded(Is0 ++ Is1, Blk1),
+                    Blk = Blk1#b_blk{is=Is},
+                    Blocks1 = maps:remove(L, Blocks0),
+                    Blocks2 = Blocks1#{P:=Blk},
+                    Successors = successors(Blk),
+                    Blocks = update_phi_labels(Successors, L, P, Blocks2),
+                    Preds = merge_update_preds(Successors, L, P, Preds0),
+                    merge_blocks_1(Ls, Preds, Blocks);
+                false ->
+                    merge_blocks_1(Ls, Preds0, Blocks0)
+            end;
+        #{} ->
+            merge_blocks_1(Ls, Preds0, Blocks0)
+    end;
+merge_blocks_1([], _Preds, Blocks) -> Blocks.
+
+%% Since we process the candidates in reverse postorder it is necessary
+%% to update the predecessors. Reverse postorder is necessary to ensure
+%% that merge_fix_succeeded/2 will find and remove all succeeded:guard
+%% not followed by a two-way branch.
+merge_update_preds([L|Ls], From, To, Preds0) ->
+    case Preds0 of
+        #{L := [P]} ->
+            Preds = Preds0#{L := [rename_label(P, From, To)]},
+            merge_update_preds(Ls, From, To, Preds);
+        #{} ->
+            %% More than one predecessor, so this block will not be
+            %% merged. Updating the predecessors is not needed and
+            %% updating would waste a lot of time if there are many
+            %% predecessors.
+            merge_update_preds(Ls, From, To, Preds0)
+    end;
+merge_update_preds([], _, _, Preds) -> Preds.
+
+merge_fix_succeeded(Is, #b_blk{last=#b_br{succ=Succ,fail=Fail}}) when Succ =/= Fail ->
+    %% This is a two-way branch. There is no need look at the instructions.
+    Is;
+merge_fix_succeeded([_|_]=Is0, #b_blk{}) ->
+    %% Not a two-way branch.
+    case reverse(Is0) of
+        [#b_set{op={succeeded,guard},args=[Dst]},#b_set{dst=Dst}|Is] ->
+            %% This succeeded:guard instruction MUST be followed by a
+            %% two-way branch. It is not, which means that its result
+            %% will never be used. Therefore, the instruction and
+            %% succeeded:guard must be removed.
+            %%
+            %% We remove those instructions for the benefit of the
+            %% beam_ssa_bool pass. When called from beam_ssa_opt there
+            %% should be no such instructions left.
+            reverse(Is);
+        _ ->
+            Is0
+    end;
+merge_fix_succeeded(Is, _Blk) -> Is.
+
+verify_merge_is([#b_set{op=Op}|_]) ->
+    %% The merged block has only one predecessor, so it should not have any phi
+    %% nodes.
+    true = Op =/= phi;                          %Assertion.
+verify_merge_is(_) ->
+    ok.
+
+is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
+    false;
+is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
+    not is_loop_header(I) andalso
+        is_merge_allowed_1(L, Blk1, Blk2);
+is_merge_allowed(L, Blk1, Blk2) ->
+    is_merge_allowed_1(L, Blk1, Blk2).
+
+is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
+    %% The predecessor block must have exactly one successor (L) for
+    %% the merge to be safe.
+    case successors(Blk) of
+        [L] ->
+            case Is of
+                [#b_set{op=phi,args=[_]}|_] ->
+                    %% The type optimizer pass must have been
+                    %% turned off, since it would have removed this
+                    %% redundant phi node. Refuse to merge the blocks
+                    %% to ensure that this phi node remains at the
+                    %% beginning of a block.
+                    false;
+                _ ->
+                    true
+            end;
+        [_|_] ->
+            false
+    end;
+is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
+    false.
+
+%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
+%%  In the given blocks, replace label Old in with New in all
+%%  phi nodes. This is useful after merging or splitting
+%%  blocks.
+
+update_phi_labels([L|Ls], Old, New, Blocks0) ->
+    case Blocks0 of
+        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
+            Is = update_phi_labels_is(Is0, Old, New),
+            Blk = Blk0#b_blk{is=Is},
+            Blocks = Blocks0#{L:=Blk},
+            update_phi_labels(Ls, Old, New, Blocks);
+        #{L:=#b_blk{}} ->
+            %% No phi nodes in this block.
+            update_phi_labels(Ls, Old, New, Blocks0)
+    end;
+update_phi_labels([], _, _, Blocks) -> Blocks.

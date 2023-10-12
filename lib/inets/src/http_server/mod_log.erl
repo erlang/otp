@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ do(Info) ->
 		    {proceed, Info#mod.data};
 		{StatusCode, Response} ->
 		    transfer_log(Info, "-", AuthUser, Date, StatusCode,
-				 httpd_util:flatlength(Response)),
+				 erlang:iolist_size(Response)),
 		    {proceed,Info#mod.data};
 		undefined ->
 		    transfer_log(Info,"-",AuthUser,Date,200,0),
@@ -224,7 +224,7 @@ create_log(LogFile, ConfigList) ->
 		undefined ->
 		    {error,
 		     ?NICE(Filename++
-			   " is an invalid logfile name beacuse "
+			   " is an invalid logfile name because "
 			   "ServerRoot is not defined")};
 		ServerRoot ->
 		    AbsoluteFilename=filename:join(ServerRoot,Filename),

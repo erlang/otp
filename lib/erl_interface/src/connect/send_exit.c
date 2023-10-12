@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # include <winsock2.h>
 # include <windows.h>
 # include <winbase.h>
-#else /* Unix/VxWorks */
+#else /* Unix */
 #include <unistd.h>
 #endif
 
@@ -55,10 +55,24 @@ int ei_send_exit_tmo(int fd, const erlang_pid *from, const erlang_pid *to,
   char *s;
   int index = 0;
   int len = strlen(reason) + 1080; /* see below */
+  ei_socket_callbacks *cbs;
+  void *ctx;
+  int err;
+  ssize_t wlen;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+  
+  err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
+  if (err) {
+      EI_CONN_SAVE_ERRNO__(err);
+      return ERL_ERROR;
+  }
 
-  if (len > EISMALLBUF)
-    if (!(dbuf = malloc(len)))
-      return -1;
+  if (len > EISMALLBUF) {
+      if (!(dbuf = malloc(len))) {
+          EI_CONN_SAVE_ERRNO__(ENOMEM);
+          return ERL_ERROR;
+      }
+  }
   msgbuf = (dbuf ? dbuf : sbuf);
 
 
@@ -66,36 +80,59 @@ int ei_send_exit_tmo(int fd, const erlang_pid *from, const erlang_pid *to,
   /* check that he can receive trace tokens first */
   if (ei_distversion(fd) > 0) token = ei_trace(0,NULL);
 
+  EI_CONN_SAVE_ERRNO__(EINVAL);
+  
   index = 5;                                     /* max sizes: */
-  ei_encode_version(msgbuf,&index);                     /*   1 */
+  if (ei_encode_version(msgbuf,&index) < 0)             /*   1 */
+      return ERL_ERROR;
   if (token) {
-    ei_encode_tuple_header(msgbuf,&index,5);            /*   2 */
-    ei_encode_long(msgbuf,&index,ERL_EXIT_TT);          /*   2 */
+      if (ei_encode_tuple_header(msgbuf,&index,5) < 0)  /*   2 */
+          return ERL_ERROR;
+      if (ei_encode_long(msgbuf,&index,ERL_EXIT_TT) < 0)/*   2 */
+          return ERL_ERROR;
   }
   else {
-    ei_encode_tuple_header(msgbuf,&index,4);
-    ei_encode_long(msgbuf,&index,ERL_EXIT);
+      if (ei_encode_tuple_header(msgbuf,&index,4) < 0)
+          return ERL_ERROR;
+      if (ei_encode_long(msgbuf,&index,ERL_EXIT) < 0)
+          return ERL_ERROR;
   }
-  ei_encode_pid(msgbuf,&index,from);                    /* 268 */
-  ei_encode_pid(msgbuf,&index,to);                      /* 268 */
+  if (ei_encode_pid(msgbuf,&index,from) < 0)            /* 268 */
+      return ERL_ERROR;
+  if (ei_encode_pid(msgbuf,&index,to) < 0)              /* 268 */
+      return ERL_ERROR;
 
-  if (token) ei_encode_trace(msgbuf,&index,token);      /* 534 */
+  if (token) {
+      if (ei_encode_trace(msgbuf,&index,token) < 0)     /* 534 */
+          return ERL_ERROR;
+  }
 
   /* Reason */
-  ei_encode_string(msgbuf,&index,reason);               /* len */
+  if (ei_encode_string(msgbuf,&index,reason) < 0)       /* len */
+      return ERL_ERROR;
 
   /* 5 byte header missing */
   s = msgbuf;
   put32be(s, index - 4);                                /*   4 */
-  put8(s, ERL_PASS_THROUGH);                                /*   1 */
+  put8(s, ERL_PASS_THROUGH);                            /*   1 */
                                           /*** sum: len + 1080 */
-  if (ei_tracelevel >= 4)
-      ei_show_sendmsg(stderr,msgbuf,NULL);
+  if (ei_tracelevel >= 4) {
+      if (ei_show_sendmsg(stderr,msgbuf,NULL) < 0)
+          return ERL_ERROR;
+  }
 
-  ei_write_fill_t(fd,msgbuf,index,ms); 
-  /* FIXME ignore timeout etc? erl_errno?! */
+  wlen = (ssize_t) index;
+  err = ei_write_fill_ctx_t__(cbs, ctx, msgbuf, &wlen, tmo);
+  if (!err && wlen != (ssize_t) index)
+      err = EIO;
+  if (dbuf)
+      free(dbuf);
+  if (err) {
+      EI_CONN_SAVE_ERRNO__(err);
+      return ERL_ERROR;
+  }
 
-  if (dbuf) free(dbuf);
+  erl_errno = 0;
   return 0;
 }
 

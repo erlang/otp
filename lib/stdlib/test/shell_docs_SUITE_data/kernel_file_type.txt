@@ -1,0 +1,53 @@
+[;1m	file[0m
+
+These types are documented in this module:
+
+  [;1m-type deep_list() :: [char() | atom() | deep_list()].[0m
+
+[;1m  fd()[0m
+
+  [;1m-type filename() :: string().[0m
+
+  [;1m-type filename_all() :: string() | binary().[0m
+
+  [;1m-type io_device() :: pid() | fd().[0m
+
+  [;1m-type name() :: string() | atom() | deep_list().[0m
+
+  [;1m-type name_all() ::[0m
+  [;1m          string() | atom() | deep_list() | (RawFilename :: binary()).[0m
+
+  [;1m-type posix() ::[0m
+  [;1m          eacces | eagain | ebadf | ebadmsg | ebusy | edeadlk |[0m
+  [;1m          edeadlock | edquot | eexist | efault | efbig | eftype |[0m
+  [;1m          eintr | einval | eio | eisdir | eloop | emfile | emlink |[0m
+  [;1m          emultihop | enametoolong | enfile | enobufs | enodev |[0m
+  [;1m          enolck | enolink | enoent | enomem | enospc | enosr | enostr |[0m
+  [;1m          enosys | enotblk | enotdir | enotsup | enxio | eopnotsupp |[0m
+  [;1m          eoverflow | eperm | epipe | erange | erofs | espipe | esrch |[0m
+  [;1m          estale | etxtbsy | exdev.[0m
+
+  [;1m-type date_time() :: calendar:datetime().[0m
+
+  [;1m-type file_info() :: #file_info{}.[0m
+
+  [;1m-type location() ::[0m
+  [;1m          integer() |[0m
+  [;1m          {bof, Offset :: integer()} |[0m
+  [;1m          {cur, Offset :: integer()} |[0m
+  [;1m          {eof, Offset :: integer()} |[0m
+  [;1m          bof | cur | eof.[0m
+
+  [;1m-type mode() ::[0m
+  [;1m          read | write | append | exclusive | raw | binary |[0m
+  [;1m          {delayed_write,[0m
+  [;1m           Size :: non_neg_integer(),[0m
+  [;1m           Delay :: non_neg_integer()} |[0m
+  [;1m          delayed_write |[0m
+  [;1m          {read_ahead, Size :: pos_integer()} |[0m
+  [;1m          read_ahead | compressed | compressed_one |[0m
+  [;1m          {encoding, unicode:encoding()} |[0m
+  [;1m          sync.[0m
+
+  [;1m-type file_info_option() ::[0m
+  [;1m          {time, local} | {time, universal} | {time, posix} | raw.[0m

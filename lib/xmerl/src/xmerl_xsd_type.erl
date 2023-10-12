@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1261,9 +1261,9 @@ compare_dateTime(_P,_Q) ->
     indefinite.
     
 fQuotient(A,B) when is_float(A) ->
-    fQuotient(floor(A),B);
+    fQuotient(erlang:floor(A),B);
 fQuotient(A,B) when is_float(B) ->
-    fQuotient(A,floor(B));
+    fQuotient(A,erlang:floor(B));
 fQuotient(A,B) when A >= 0, B >= 0 ->
     A div B;
 fQuotient(A,B) when A < 0, B < 0 ->
@@ -1278,13 +1278,6 @@ fQuotient(A,B) ->
 
 fQuotient(A, Low, High) ->
     fQuotient(A - Low, High - Low).
-
-floor(A) ->
-    case round(A) of
-	I when I > A ->
-	    I - 1;
-	I -> I
-    end.
 
 modulo(A,B) ->
     A - (fQuotient(A,B) * B).
@@ -1506,7 +1499,7 @@ get_digit([],_,[],_Str) ->
 get_digit([],_,_,Str) ->
     {"0",Str};
 get_digit(_,_,_,Str) ->
-    %% this matches both the case when reaching another delimeter and
+    %% this matches both the case when reaching another delimiter and
     %% when the string already are emptied.
     {"0",Str}.
 

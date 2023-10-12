@@ -242,11 +242,11 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT_CLNUP(tcs, tres[1] == &res_tf1, erl_drv_mutex_unlock(mtx));
     ASSERT_CLNUP(tcs, res_tf1 == 1, erl_drv_mutex_unlock(mtx));
 
-    /* Test signaling when noone waits */
+    /* Test signaling when no one waits */
 
     erl_drv_cond_signal(cnd);
 
-    /* Test broadcasting when noone waits */
+    /* Test broadcasting when no one waits */
 
     erl_drv_cond_broadcast(cnd);
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@
 -include("inet_sctp.hrl").
 -include("inet_int.hrl").
 
--define(PROTO, sctp).
--define(FAMILY, inet).
--export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
--export([open/1,close/1,listen/2,peeloff/2,connect/5]).
--export([sendmsg/3,send/4,recv/2]).
+-export([getserv/1, getaddr/1, getaddr/2, translate_ip/1]).
+-export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5, connectx/3, connectx/4]).
+-export([sendmsg/3, send/4, recv/2]).
 
+-define(PROTO,  sctp).
+-define(FAMILY, inet).
 
 
 getserv(Port) when is_integer(Port) -> {ok, Port};
@@ -50,8 +50,13 @@ translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
     
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
-	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
+	{ok,#sctp_opts{fd     = Fd,
+                       ifaddr = Addr,
+                       port   = Port,
+                       type   = Type,
+                       opts   = SOs}} ->
+	    inet:open_bind(
+              Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
 	Error -> Error
     end.
 
@@ -69,18 +74,41 @@ peeloff(S, AssocId) ->
 	Error -> Error
     end.
 
+
 %% A non-blocking connect is implemented when the initial call is to
 %% gen_sctp:connect_init which passes the value nowait as the Timer
+connect(S, SockAddr, Opts, Timer) ->
+    case prim_inet:chgopts(S, Opts) of
+	ok ->
+	    case prim_inet:getopt(S, active) of
+		{ok,Active} ->
+		    Timeout =
+                        if Timer =:= nowait ->
+                                infinity; %% don't start driver timer in inet_drv
+                           true ->
+                                inet:timeout(Timer)
+                        end,
+		    case prim_inet:connect(S, SockAddr, Timeout) of
+			ok when Timer =/= nowait ->
+			    connect_get_assoc(S, SockAddr, Active, Timer);
+			OkOrErr1 -> OkOrErr1
+		    end;
+		Err2 -> Err2
+	    end;
+	Err3 -> Err3
+    end.
+
 connect(S, Addr, Port, Opts, Timer) ->
     case prim_inet:chgopts(S, Opts) of
 	ok ->
 	    case prim_inet:getopt(S, active) of
 		{ok,Active} ->
-		    Timeout = if Timer =:= nowait ->
-				      infinity;		%% don't start driver timer in inet_drv
-				 true ->
-				      inet:timeout(Timer)
-			      end,
+		    Timeout =
+                        if Timer =:= nowait ->
+                                infinity; %% don't start driver timer in inet_drv
+                           true ->
+                                inet:timeout(Timer)
+                        end,
 		    case prim_inet:connect(S, Addr, Port, Timeout) of
 			ok when Timer =/= nowait ->
 			    connect_get_assoc(S, Addr, Port, Active, Timer);
@@ -89,6 +117,21 @@ connect(S, Addr, Port, Opts, Timer) ->
 		Err2 -> Err2
 	    end;
 	Err3 -> Err3
+    end.
+
+%% connectx is always non-blocking so there is no timer
+connectx(S, SockAddrs, Opts) ->
+    case prim_inet:chgopts(S, Opts) of
+	ok ->
+	    prim_inet:connectx(S, SockAddrs);
+	Err2 -> Err2
+    end.
+
+connectx(S, Addrs, Port, Opts) ->
+    case prim_inet:chgopts(S, Opts) of
+	ok ->
+	    prim_inet:connectx(S, Addrs, Port);
+	Err2 -> Err2
     end.
 
 %% XXX race condition problem
@@ -104,6 +147,9 @@ connect(S, Addr, Port, Opts, Timer) ->
 %% but it is possible and also it is a blocking connect that is
 %% implemented even for {active,true}, and that may be a
 %% shortcoming.
+
+connect_get_assoc(S, #{addr := Addr, port := Port} = _SockAddr, Active, Timer) ->
+    connect_get_assoc(S, Addr, Port, Active, Timer).
 
 connect_get_assoc(S, Addr, Port, false, Timer) ->
     case recv(S, inet:timeout(Timer)) of

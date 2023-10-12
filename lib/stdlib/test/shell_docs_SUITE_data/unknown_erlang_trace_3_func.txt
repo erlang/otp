@@ -1,0 +1,455 @@
+
+  [;1m-spec erlang:trace(PidPortSpec, How, FlagList) -> integer()[0m
+  [;1m                      when[0m
+  [;1m                          PidPortSpec ::[0m
+  [;1m                              pid() |[0m
+  [;1m                              port() |[0m
+  [;1m                              all | processes | ports | existing |[0m
+  [;1m                              existing_processes | existing_ports |[0m
+  [;1m                              new | new_processes | new_ports,[0m
+  [;1m                          How :: boolean(),[0m
+  [;1m                          FlagList :: [trace_flag()].[0m
+
+  Types:
+    -type trace_flag() ::
+          all | send | 'receive' | procs | ports | call | arity |
+          return_to | silent | running | exiting | running_procs |
+          running_ports | garbage_collection | timestamp |
+          cpu_timestamp | monotonic_timestamp |
+          strict_monotonic_timestamp | set_on_spawn |
+          set_on_first_spawn | set_on_link | set_on_first_link |
+          {tracer, pid() | port()} |
+          {tracer, module(), term()}.
+
+  Turns on (if [;;4mHow == true[0m) or off (if [;;4mHow == false[0m) the trace
+  flags in [;;4mFlagList[0m for the process or processes represented by [;;4m[0m
+  [;;4mPidPortSpec[0m.
+
+  [;;4mPidPortSpec[0m is either a process identifier (pid) for a local
+  process, a port identifier, or one of the following atoms:
+
+  [;;4m[;;4mall[0m[0m:
+    All currently existing processes and ports and all that will
+    be created in the future.
+
+  [;;4m[;;4mprocesses[0m[0m:
+    All currently existing processes and all that will be created
+    in the future.
+
+  [;;4m[;;4mports[0m[0m:
+    All currently existing ports and all that will be created in
+    the future.
+
+  [;;4m[;;4mexisting[0m[0m:
+    All currently existing processes and ports.
+
+  [;;4m[;;4mexisting_processes[0m[0m:
+    All currently existing processes.
+
+  [;;4m[;;4mexisting_ports[0m[0m:
+    All currently existing ports.
+
+  [;;4m[;;4mnew[0m[0m:
+    All processes and ports that will be created in the future.
+
+  [;;4m[;;4mnew_processes[0m[0m:
+    All processes that will be created in the future.
+
+  [;;4m[;;4mnew_ports[0m[0m:
+    All ports that will be created in the future.
+
+  [;;4mFlagList[0m can contain any number of the following flags (the
+  "message tags" refers to the list of [;;4mtrace messages[0m):
+
+  [;;4m[;;4mall[0m[0m:
+    Sets all trace flags except [;;4mtracer[0m and [;;4mcpu_timestamp[0m,
+    which are in their nature different than the others.
+
+  [;;4m[;;4msend[0m[0m:
+    Traces sending of messages.
+
+    Message tags: [;;4msend[0m and [;;4msend_to_non_existing_process[0m.
+
+  [;;4m[;;4m'receive'[0m[0m:
+    Traces receiving of messages.
+
+    Message tags: [;;4m'receive'[0m.
+
+  [;;4m[;;4mcall[0m[0m:
+    Traces certain function calls. Specify which function calls to
+    trace by calling [;;4merlang:trace_pattern/3[0m.
+
+    Message tags: [;;4mcall[0m and [;;4mreturn_from[0m.
+
+  [;;4m[;;4msilent[0m[0m:
+    Used with the [;;4mcall[0m trace flag. The [;;4mcall[0m, [;;4mreturn_from[0m,
+    and [;;4mreturn_to[0m trace messages are inhibited if this flag is
+    set, but they are executed as normal if there are match
+    specifications.
+
+    Silent mode is inhibited by executing [;;4merlang:trace(_, false,[0m
+    [;;4m[silent|_])[0m, or by a match specification executing the
+    function [;;4m{silent, false}[0m.
+
+    The [;;4msilent[0m trace flag facilitates setting up a trace on many
+    or even all processes in the system. The trace can then be
+    activated and deactivated using the match specification
+    function [;;4m{silent,Bool}[0m, giving a high degree of control of
+    which functions with which arguments that trigger the trace.
+
+    Message tags: [;;4mcall[0m, [;;4mreturn_from[0m, and [;;4mreturn_to[0m. Or
+    rather, the absence of.
+
+  [;;4m[;;4mreturn_to[0m[0m:
+    Used with the [;;4mcall[0m trace flag. Traces the return from a
+    traced function back to its caller. Only works for functions
+    traced with option [;;4mlocal[0m to [;;4merlang:trace_pattern/3[0m.
+
+    The semantics is that a trace message is sent when a call
+    traced function returns, that is, when a chain of tail
+    recursive calls ends. Only one trace message is sent per chain
+    of tail recursive calls, so the properties of tail
+    recursiveness for function calls are kept while tracing with
+    this flag. Using [;;4mcall[0m and [;;4mreturn_to[0m trace together makes
+    it possible to know exactly in which function a process
+    executes at any time.
+
+    To get trace messages containing return values from functions,
+    use the [;;4m{return_trace}[0m match specification action instead.
+
+    Message tags: [;;4mreturn_to[0m.
+
+  [;;4m[;;4mprocs[0m[0m:
+    Traces process-related events.
+
+    Message tags: [;;4mspawn[0m, [;;4mspawned[0m, [;;4mexit[0m, [;;4mregister[0m, [;;4m[0m
+    [;;4munregister[0m, [;;4mlink[0m, [;;4munlink[0m, [;;4mgetting_linked[0m, and [;;4m[0m
+    [;;4mgetting_unlinked[0m.
+
+  [;;4m[;;4mports[0m[0m:
+    Traces port-related events.
+
+    Message tags: [;;4mopen[0m, [;;4mclosed[0m, [;;4mregister[0m, [;;4munregister[0m, [;;4m[0m
+    [;;4mgetting_linked[0m, and [;;4mgetting_unlinked[0m.
+
+  [;;4m[;;4mrunning[0m[0m:
+    Traces scheduling of processes.
+
+    Message tags: [;;4min[0m and [;;4mout[0m.
+
+  [;;4m[;;4mexiting[0m[0m:
+    Traces scheduling of exiting processes.
+
+    Message tags: [;;4min_exiting[0m, [;;4mout_exiting[0m, and [;;4mout_exited[0m.
+
+  [;;4m[;;4mrunning_procs[0m[0m:
+    Traces scheduling of processes just like [;;4mrunning[0m. However,
+    this option also includes schedule events when the process
+    executes within the context of a port without being scheduled
+    out itself.
+
+    Message tags: [;;4min[0m and [;;4mout[0m.
+
+  [;;4m[;;4mrunning_ports[0m[0m:
+    Traces scheduling of ports.
+
+    Message tags: [;;4min[0m and [;;4mout[0m.
+
+  [;;4m[;;4mgarbage_collection[0m[0m:
+    Traces garbage collections of processes.
+
+    Message tags: [;;4mgc_minor_start[0m, [;;4mgc_max_heap_size[0m, and [;;4m[0m
+    [;;4mgc_minor_end[0m.
+
+  [;;4m[;;4mtimestamp[0m[0m:
+    Includes a time stamp in all trace messages. The time stamp
+    (Ts) has the same form as returned by [;;4merlang:now()[0m.
+
+  [;;4m[;;4mcpu_timestamp[0m[0m:
+    A global trace flag for the Erlang node that makes all trace
+    time stamps using flag [;;4mtimestamp[0m to be in CPU time, not wall
+    clock time. That is, [;;4mcpu_timestamp[0m is not be used if [;;4m[0m
+    [;;4mmonotonic_timestamp[0m or [;;4mstrict_monotonic_timestamp[0m is
+    enabled. Only allowed with [;;4mPidPortSpec==all[0m. If the host
+    machine OS does not support high-resolution CPU time
+    measurements, [;;4mtrace/3[0m exits with [;;4mbadarg[0m. Notice that most
+    OS do not synchronize this value across cores, so be prepared
+    that time can seem to go backwards when using this option.
+
+  [;;4m[;;4mmonotonic_timestamp[0m[0m:
+    Includes an Erlang monotonic time time stamp in all trace
+    messages. The time stamp (Ts) has the same format and value as
+    produced by [;;4merlang:monotonic_time(nanosecond)[0m. This flag
+    overrides flag [;;4mcpu_timestamp[0m.
+
+  [;;4m[;;4mstrict_monotonic_timestamp[0m[0m:
+    Includes an time stamp consisting of Erlang monotonic time
+    and a monotonically increasing integer in all trace messages.
+    The time stamp (Ts) has the same format and value as produced
+    by [;;4m{[0m [;;4merlang:monotonic_time(nanosecond)[0m[;;4m,[0m [;;4m[0m
+    [;;4merlang:unique_integer([monotonic])[0m[;;4m}[0m. This flag overrides
+    flag [;;4mcpu_timestamp[0m.
+
+  [;;4m[;;4marity[0m[0m:
+    Used with the [;;4mcall[0m trace flag. [;;4m{M, F, Arity}[0m is specified
+    instead of [;;4m{M, F, Args}[0m in call trace messages.
+
+  [;;4m[;;4mset_on_spawn[0m[0m:
+    Makes any process created by a traced process inherit its
+    trace flags, including flag [;;4mset_on_spawn[0m.
+
+  [;;4m[;;4mset_on_first_spawn[0m[0m:
+    Makes the first process created by a traced process inherit
+    its trace flags, excluding flag [;;4mset_on_first_spawn[0m.
+
+  [;;4m[;;4mset_on_link[0m[0m:
+    Makes any process linked by a traced process inherit its trace
+    flags, including flag [;;4mset_on_link[0m.
+
+  [;;4m[;;4mset_on_first_link[0m[0m:
+    Makes the first process linked to by a traced process inherit
+    its trace flags, excluding flag [;;4mset_on_first_link[0m.
+
+  [;;4m[;;4m{tracer, Tracer}[0m[0m:
+    Specifies where to send the trace messages. [;;4mTracer[0m must be
+    the process identifier of a local process or the port
+    identifier of a local port.
+
+  [;;4m[;;4m{tracer, TracerModule, TracerState}[0m[0m:
+    Specifies that a tracer module is to be called instead of
+    sending a trace message. The tracer module can then ignore or
+    change the trace message. For more details on how to write a
+    tracer module, see [;;4merl_tracer(3)[0m.
+
+  If no [;;4mtracer[0m is specified, the calling process receives all the
+  trace messages.
+
+  The effect of combining [;;4mset_on_first_link[0m with [;;4mset_on_link[0m is
+  the same as [;;4mset_on_first_link[0m alone. Likewise for [;;4mset_on_spawn[0m
+  and [;;4mset_on_first_spawn[0m.
+
+  The tracing process receives the trace messages described in the
+  following list. [;;4mPid[0m is the process identifier of the traced
+  process in which the traced event has occurred. The third tuple
+  element is the message tag.
+
+  If flag [;;4mtimestamp[0m, [;;4mstrict_monotonic_timestamp[0m, or [;;4m[0m
+  [;;4mmonotonic_timestamp[0m is specified, the first tuple element is [;;4m[0m
+  [;;4mtrace_ts[0m instead, and the time stamp is added as an extra element
+  last in the message tuple. If multiple time stamp flags are
+  passed, [;;4mtimestamp[0m has precedence over [;;4m[0m
+  [;;4mstrict_monotonic_timestamp[0m, which in turn has precedence over [;;4m[0m
+  [;;4mmonotonic_timestamp[0m. All time stamp flags are remembered, so if
+  two are passed and the one with highest precedence later is
+  disabled, the other one becomes active.
+
+  If a match specification (applicable only for [;;4mcall[0m, [;;4msend[0m and [;;4m[0m
+  [;;4m'receive'[0m tracing) contains a [;;4m{message}[0m action function with a
+  non-boolean value, that value is added as an extra element to the
+  message tuple either in the last position or before the timestamp
+  (if it is present).
+
+  Trace messages:
+
+  [;;4m[;;4m{trace, PidPort, send, Msg, To}[0m[0m:
+    When [;;4mPidPort[0m sends message [;;4mMsg[0m to process [;;4mTo[0m.
+
+  [;;4m[;;4m{trace, PidPort, send_to_non_existing_process, Msg, To}[0m[0m:
+    When [;;4mPidPort[0m sends message [;;4mMsg[0m to the non-existing process [;;4m[0m
+    [;;4mTo[0m.
+
+  [;;4m[;;4m{trace, PidPort, 'receive', Msg}[0m[0m:
+    When [;;4mPidPort[0m receives message [;;4mMsg[0m. If [;;4mMsg[0m is set to
+    time-out, a receive statement can have timed out, or the
+    process received a message with the payload [;;4mtimeout[0m.
+
+  [;;4m[;;4m{trace, Pid, call, {M, F, Args}}[0m[0m:
+    When [;;4mPid[0m calls a traced function. The return values of calls
+    are never supplied, only the call and its arguments.
+
+    Trace flag [;;4marity[0m can be used to change the contents of this
+    message, so that [;;4mArity[0m is specified instead of [;;4mArgs[0m.
+
+  [;;4m[;;4m{trace, Pid, return_to, {M, F, Arity}}[0m[0m:
+    When [;;4mPid[0m returns to the specified function. This trace
+    message is sent if both the flags [;;4mcall[0m and [;;4mreturn_to[0m are
+    set, and the function is set to be traced on local function
+    calls. The message is only sent when returning from a chain of
+    tail recursive function calls, where at least one call
+    generated a [;;4mcall[0m trace message (that is, the functions match
+    specification matched, and [;;4m{message, false}[0m was not an
+    action).
+
+  [;;4m[;;4m{trace, Pid, return_from, {M, F, Arity}, ReturnValue}[0m[0m:
+    When [;;4mPid[0m returns from the specified function. This trace
+    message is sent if flag [;;4mcall[0m is set, and the function has a
+    match specification with a [;;4mreturn_trace[0m or [;;4mexception_trace[0m
+    action.
+
+  [;;4m[;;4m{trace, Pid, exception_from, {M, F, Arity}, {Class, Value}}[0m[0m:
+    When [;;4mPid[0m exits from the specified function because of an
+    exception. This trace message is sent if flag [;;4mcall[0m is set,
+    and the function has a match specification with an [;;4m[0m
+    [;;4mexception_trace[0m action.
+
+  [;;4m[;;4m{trace, Pid, spawn, Pid2, {M, F, Args}}[0m[0m:
+    When [;;4mPid[0m spawns a new process [;;4mPid2[0m with the specified
+    function call as entry point.
+
+    [;;4mArgs[0m is supposed to be the argument list, but can be any term
+    if the spawn is erroneous.
+
+  [;;4m[;;4m{trace, Pid, spawned, Pid2, {M, F, Args}}[0m[0m:
+    When [;;4mPid[0m is spawned by process [;;4mPid2[0m with the specified
+    function call as entry point.
+
+    [;;4mArgs[0m is supposed to be the argument list, but can be any term
+    if the spawn is erroneous.
+
+  [;;4m[;;4m{trace, Pid, exit, Reason}[0m[0m:
+    When [;;4mPid[0m exits with reason [;;4mReason[0m.
+
+  [;;4m[;;4m{trace, PidPort, register, RegName}[0m[0m:
+    When [;;4mPidPort[0m gets the name [;;4mRegName[0m registered.
+
+  [;;4m[;;4m{trace, PidPort, unregister, RegName}[0m[0m:
+    When [;;4mPidPort[0m gets the name [;;4mRegName[0m unregistered. This is
+    done automatically when a registered process or port exits.
+
+  [;;4m[;;4m{trace, Pid, link, Pid2}[0m[0m:
+    When [;;4mPid[0m links to a process [;;4mPid2[0m.
+
+  [;;4m[;;4m{trace, Pid, unlink, Pid2}[0m[0m:
+    When [;;4mPid[0m removes the link from a process [;;4mPid2[0m.
+
+  [;;4m[;;4m{trace, PidPort, getting_linked, Pid2}[0m[0m:
+    When [;;4mPidPort[0m gets linked to a process [;;4mPid2[0m.
+
+  [;;4m[;;4m{trace, PidPort, getting_unlinked, Pid2}[0m[0m:
+    When [;;4mPidPort[0m gets unlinked from a process [;;4mPid2[0m.
+
+  [;;4m[;;4m{trace, Port, open, Pid, Driver}[0m[0m:
+    When [;;4mPid[0m opens a new port [;;4mPort[0m with the running [;;4mDriver[0m.
+
+    [;;4mDriver[0m is the name of the driver as an atom.
+
+  [;;4m[;;4m{trace, Port, closed, Reason}[0m[0m:
+    When [;;4mPort[0m closes with [;;4mReason[0m.
+
+  [;;4m[;;4m{trace, Pid, in | in_exiting, {M, F, Arity} | 0}[0m[0m:
+    When [;;4mPid[0m is scheduled to run. The process runs in function [;;4m[0m
+    [;;4m{M, F, Arity}[0m. On some rare occasions, the current function
+    cannot be determined, then the last element is [;;4m0[0m.
+
+  [;;4m[;;4m{trace, Pid, out | out_exiting | out_exited, {M, F, Arity} | 0}[0m[0m:
+    When [;;4mPid[0m is scheduled out. The process was running in
+    function {M, F, Arity}. On some rare occasions, the current
+    function cannot be determined, then the last element is [;;4m0[0m.
+
+  [;;4m[;;4m{trace, Port, in, Command | 0}[0m[0m:
+    When [;;4mPort[0m is scheduled to run. [;;4mCommand[0m is the first thing
+    the port will execute, it can however run several commands
+    before being scheduled out. On some rare occasions, the
+    current function cannot be determined, then the last element
+    is [;;4m0[0m.
+
+    The possible commands are [;;4mcall[0m, [;;4mclose[0m, [;;4mcommand[0m, [;;4mconnect[0m, [;;4m[0m
+    [;;4mcontrol[0m, [;;4mflush[0m, [;;4minfo[0m, [;;4mlink[0m, [;;4mopen[0m, and [;;4munlink[0m.
+
+  [;;4m[;;4m{trace, Port, out, Command | 0}[0m[0m:
+    When [;;4mPort[0m is scheduled out. The last command run was [;;4m[0m
+    [;;4mCommand[0m. On some rare occasions, the current function cannot
+    be determined, then the last element is [;;4m0[0m. [;;4mCommand[0m can
+    contain the same commands as [;;4min[0m
+
+  [;;4m[;;4m{trace, Pid, gc_minor_start, Info}[0m[0m:
+    Sent when a young garbage collection is about to be started. [;;4m[0m
+    [;;4mInfo[0m is a list of two-element tuples, where the first element
+    is a key, and the second is the value. Do not depend on any
+    order of the tuples. The following keys are defined:
+
+    [;;4m[;;4mheap_size[0m[0m:
+      The size of the used part of the heap.
+
+    [;;4m[;;4mheap_block_size[0m[0m:
+      The size of the memory block used for storing the heap and
+      the stack.
+
+    [;;4m[;;4mold_heap_size[0m[0m:
+      The size of the used part of the old heap.
+
+    [;;4m[;;4mold_heap_block_size[0m[0m:
+      The size of the memory block used for storing the old
+      heap.
+
+    [;;4m[;;4mstack_size[0m[0m:
+      The size of the stack.
+
+    [;;4m[;;4mrecent_size[0m[0m:
+      The size of the data that survived the previous garbage
+      collection.
+
+    [;;4m[;;4mmbuf_size[0m[0m:
+      The combined size of message buffers associated with the
+      process.
+
+    [;;4m[;;4mbin_vheap_size[0m[0m:
+      The total size of unique off-heap binaries referenced from
+      the process heap.
+
+    [;;4m[;;4mbin_vheap_block_size[0m[0m:
+      The total size of binaries allowed in the virtual heap in
+      the process before doing a garbage collection.
+
+    [;;4m[;;4mbin_old_vheap_size[0m[0m:
+      The total size of unique off-heap binaries referenced from
+      the process old heap.
+
+    [;;4m[;;4mbin_old_vheap_block_size[0m[0m:
+      The total size of binaries allowed in the virtual old heap
+      in the process before doing a garbage collection.
+
+    [;;4m[;;4mwordsize[0m[0m:
+      For the [;;4mgc_minor_start[0m event it is the size of the need
+      that triggered the GC. For the corresponding [;;4mgc_minor_end[0m
+      event it is the size of reclaimed memory = start [;;4m[0m
+      [;;4mheap_size[0m - end [;;4mheap_size[0m.
+
+    All sizes are in words.
+
+  [;;4m[;;4m{trace, Pid, gc_max_heap_size, Info}[0m[0m:
+    Sent when the [;;4mmax_heap_size[0m is reached during garbage
+    collection. [;;4mInfo[0m contains the same kind of list as in
+    message [;;4mgc_start[0m, but the sizes reflect the sizes that
+    triggered [;;4mmax_heap_size[0m to be reached.
+
+  [;;4m[;;4m{trace, Pid, gc_minor_end, Info}[0m[0m:
+    Sent when young garbage collection is finished. [;;4mInfo[0m
+    contains the same kind of list as in message [;;4mgc_minor_start[0m,
+    but the sizes reflect the new sizes after garbage collection.
+
+  [;;4m[;;4m{trace, Pid, gc_major_start, Info}[0m[0m:
+    Sent when fullsweep garbage collection is about to be started. [;;4m[0m
+    [;;4mInfo[0m contains the same kind of list as in message [;;4m[0m
+    [;;4mgc_minor_start[0m.
+
+  [;;4m[;;4m{trace, Pid, gc_major_end, Info}[0m[0m:
+    Sent when fullsweep garbage collection is finished. [;;4mInfo[0m
+    contains the same kind of list as in message [;;4mgc_minor_start[0m,
+    but the sizes reflect the new sizes after a fullsweep garbage
+    collection.
+
+  If the tracing process/port dies or the tracer module returns [;;4m[0m
+  [;;4mremove[0m, the flags are silently removed.
+
+  Each process can only be traced by one tracer. Therefore, attempts
+  to trace an already traced process fail.
+
+  Returns a number indicating the number of processes that matched [;;4m[0m
+  [;;4mPidPortSpec[0m. If [;;4mPidPortSpec[0m is a process identifier, the return
+  value is [;;4m1[0m. If [;;4mPidPortSpec[0m is [;;4mall[0m or [;;4mexisting[0m, the return
+  value is the number of processes running. If [;;4mPidPortSpec[0m is [;;4mnew[0m,
+  the return value is [;;4m0[0m.
+
+  Failure: [;;4mbadarg[0m if the specified arguments are not supported.
+  For example, [;;4mcpu_timestamp[0m is not supported on all platforms.

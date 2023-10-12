@@ -1,0 +1,360 @@
+
+  [;1m-spec process_info(Pid, Item) -> InfoTuple | [] | undefined[0m
+  [;1m                      when[0m
+  [;1m                          Pid :: pid(),[0m
+  [;1m                          Item :: process_info_item(),[0m
+  [;1m                          InfoTuple :: process_info_result_item();[0m
+  [;1m                  (Pid, ItemList) -> InfoTupleList | [] | undefined[0m
+  [;1m                      when[0m
+  [;1m                          Pid :: pid(),[0m
+  [;1m                          ItemList :: [Item],[0m
+  [;1m                          Item :: process_info_item(),[0m
+  [;1m                          InfoTupleList :: [InfoTuple],[0m
+  [;1m                          InfoTuple :: process_info_result_item().[0m
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+    -type priority_level() :: low | normal | high | max.
+    -type process_info_item() ::
+          async_dist | backtrace | binary | catchlevel |
+          current_function | current_location | current_stacktrace |
+          dictionary | error_handler | garbage_collection |
+          garbage_collection_info | group_leader | heap_size |
+          initial_call | links | last_calls | memory |
+          message_queue_len | messages | min_heap_size |
+          min_bin_vheap_size | monitored_by | monitors |
+          message_queue_data | parent | priority | reductions |
+          registered_name | sequential_trace_token | stack_size |
+          status | suspending | total_heap_size | trace | trap_exit.
+    -type process_info_result_item() ::
+          {async_dist, Enabled :: boolean()} |
+          {backtrace, Bin :: binary()} |
+          {binary,
+           BinInfo ::
+               [{non_neg_integer(),
+                 non_neg_integer(),
+                 non_neg_integer()}]} |
+          {catchlevel, CatchLevel :: non_neg_integer()} |
+          {current_function,
+           {Module :: module(), Function :: atom(), Arity :: arity()} |
+           undefined} |
+          {current_location,
+           {Module :: module(),
+            Function :: atom(),
+            Arity :: arity(),
+            Location ::
+                [{file, Filename :: string()} |
+                 {line, Line :: pos_integer()}]}} |
+          {current_stacktrace, Stack :: [stack_item()]} |
+          {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
+          {error_handler, Module :: module()} |
+          {garbage_collection, GCInfo :: [{atom(), non_neg_integer()}]} |
+          {garbage_collection_info,
+           GCInfo :: [{atom(), non_neg_integer()}]} |
+          {group_leader, GroupLeader :: pid()} |
+          {heap_size, Size :: non_neg_integer()} |
+          {initial_call, mfa()} |
+          {links, PidsAndPorts :: [pid() | port()]} |
+          {last_calls, false | (Calls :: [mfa()])} |
+          {memory, Size :: non_neg_integer()} |
+          {message_queue_len, MessageQueueLen :: non_neg_integer()} |
+          {messages, MessageQueue :: [term()]} |
+          {min_heap_size, MinHeapSize :: non_neg_integer()} |
+          {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
+          {max_heap_size, MaxHeapSize :: max_heap_size()} |
+          {monitored_by,
+           MonitoredBy :: [pid() | port() | nif_resource()]} |
+          {monitors,
+           Monitors ::
+               [{process | port,
+                 Pid ::
+                     pid() |
+                     port() |
+                     {RegName :: atom(), Node :: node()}}]} |
+          {message_queue_data, MQD :: message_queue_data()} |
+          {parent, pid() | undefined} |
+          {priority, Level :: priority_level()} |
+          {reductions, Number :: non_neg_integer()} |
+          {registered_name, [] | (Atom :: atom())} |
+          {sequential_trace_token,
+           [] | (SequentialTraceToken :: term())} |
+          {stack_size, Size :: non_neg_integer()} |
+          {status,
+           Status ::
+               exiting | garbage_collecting | waiting | running |
+               runnable | suspended} |
+          {suspending,
+           SuspendeeList ::
+               [{Suspendee :: pid(),
+                 ActiveSuspendCount :: non_neg_integer(),
+                 OutstandingSuspendCount :: non_neg_integer()}]} |
+          {total_heap_size, Size :: non_neg_integer()} |
+          {trace, InternalTraceFlags :: non_neg_integer()} |
+          {trap_exit, Boolean :: boolean()}.
+    -type stack_item() ::
+          {Module :: module(),
+           Function :: atom(),
+           Arity :: arity() | (Args :: [term()]),
+           Location ::
+               [{file, Filename :: string()} |
+                {line, Line :: pos_integer()}]}.
+
+  Returns information about the process identified by [;;4mPid[0m, as
+  specified by [;;4mItem[0m or [;;4mItemList[0m. Returns [;;4mundefined[0m if the
+  process is not alive.
+
+  If the process is alive and a single [;;4mItem[0m is specified, the
+  returned value is the corresponding [;;4mInfoTuple[0m, unless [;;4mItem =:=[0m
+  [;;4mregistered_name[0m and the process has no registered name. In this
+  case, [;;4m[][0m is returned. This strange behavior is because of
+  historical reasons, and is kept for backward compatibility.
+
+  If [;;4mItemList[0m is specified, the result is [;;4mInfoTupleList[0m. The [;;4m[0m
+  [;;4mInfoTuple[0ms in [;;4mInfoTupleList[0m are included with the corresponding [;;4m[0m
+  [;;4mItem[0ms in the same order as the [;;4mItem[0ms were included in [;;4mItemList[0m.
+  Valid [;;4mItem[0ms can be included multiple times in [;;4mItemList[0m.
+
+  Getting process information follows the signal ordering guarantees
+  described in the Processes Chapter in the Erlang Reference
+  Manual.
+
+  Note:
+    If [;;4mregistered_name[0m is part of [;;4mItemList[0m and the process has
+    no name registered, a [;;4m{registered_name, []}[0m, [;;4mInfoTuple[0m 
+    will be included in the resulting [;;4mInfoTupleList[0m. This
+    behavior is different when a single [;;4mItem =:= registered_name[0m
+    is specified, and when [;;4mprocess_info/1[0m is used.
+
+  Valid [;;4mInfoTuple[0ms with corresponding [;;4mItem[0ms:
+
+  [;;4m[;;4m{async_dist, Enabled}[0m[0m:
+    Since: OTP 25.3
+
+    Current value of the [;;4masync_dist[0m process flag.
+
+  [;;4m[;;4m{backtrace, Bin}[0m[0m:
+    Binary [;;4mBin[0m contains the same information as the output from [;;4m[0m
+    [;;4merlang:process_display(Pid, backtrace)[0m. Use [;;4mbinary_to_list/1[0m
+    to obtain the string of characters from the binary.
+
+  [;;4m[;;4m{binary, BinInfo}[0m[0m:
+    [;;4mBinInfo[0m is a list containing miscellaneous information about
+    binaries on the heap of this process. This [;;4mInfoTuple[0m can be
+    changed or removed without prior notice. In the current
+    implementation [;;4mBinInfo[0m is a list of tuples. The tuples
+    contain; [;;4mBinaryId[0m, [;;4mBinarySize[0m, [;;4mBinaryRefcCount[0m.
+
+    Depending on the value of the [;;4mmessage_queue_data[0m process
+    flag the message queue may be stored on the heap.
+
+  [;;4m[;;4m{catchlevel, CatchLevel}[0m[0m:
+    [;;4mCatchLevel[0m is the number of currently active catches in this
+    process. This [;;4mInfoTuple[0m can be changed or removed without
+    prior notice.
+
+  [;;4m[;;4m{current_function, {Module, Function, Arity} | undefined}[0m[0m:
+    [;;4mModule[0m, [;;4mFunction[0m, [;;4mArity[0m is the current function call of
+    the process. The value [;;4mundefined[0m can be returned if the
+    process is currently executing native compiled code.
+
+  [;;4m[;;4m{current_location, {Module, Function, Arity, Location}}[0m[0m:
+    [;;4mModule[0m, [;;4mFunction[0m, [;;4mArity[0m is the current function call of
+    the process. [;;4mLocation[0m is a list of two-tuples describing the
+    location in the source code.
+
+  [;;4m[;;4m{current_stacktrace, Stack}[0m[0m:
+    Returns the current call stack back-trace (stacktrace) of
+    the process. The stack has the same format as in the [;;4mcatch[0m
+    part of a [;;4mtry[0m. See The call-stack back trace (stacktrace).
+    The depth of the stacktrace is truncated according to the [;;4m[0m
+    [;;4mbacktrace_depth[0m system flag setting.
+
+  [;;4m[;;4m{dictionary, Dictionary}[0m[0m:
+    [;;4mDictionary[0m is the process dictionary.
+
+  [;;4m[;;4m{error_handler, Module}[0m[0m:
+    [;;4mModule[0m is the error handler module used by the process (for
+    undefined function calls, for example).
+
+  [;;4m[;;4m{garbage_collection, GCInfo}[0m[0m:
+    [;;4mGCInfo[0m is a list containing miscellaneous information about
+    garbage collection for this process. The content of [;;4mGCInfo[0m
+    can be changed without prior notice.
+
+  [;;4m[;;4m{garbage_collection_info, GCInfo}[0m[0m:
+    [;;4mGCInfo[0m is a list containing miscellaneous detailed
+    information about garbage collection for this process. The
+    content of [;;4mGCInfo[0m can be changed without prior notice. For
+    details about the meaning of each item, see [;;4mgc_minor_start[0m
+    in [;;4merlang:trace/3[0m.
+
+  [;;4m[;;4m{group_leader, GroupLeader}[0m[0m:
+    [;;4mGroupLeader[0m is the group leader for the I/O of the process.
+
+  [;;4m[;;4m{heap_size, Size}[0m[0m:
+    [;;4mSize[0m is the size in words of the youngest heap generation of
+    the process. This generation includes the process stack. This
+    information is highly implementation-dependent, and can change
+    if the implementation changes.
+
+  [;;4m[;;4m{initial_call, {Module, Function, Arity}}[0m[0m:
+    [;;4mModule[0m, [;;4mFunction[0m, [;;4mArity[0m is the initial function call with
+    which the process was spawned.
+
+  [;;4m[;;4m{links, PidsAndPorts}[0m[0m:
+    [;;4mPidsAndPorts[0m is a list of process identifiers and port
+    identifiers, with processes or ports to which the process has
+    a link.
+
+  [;;4m[;;4m{last_calls, false|Calls}[0m[0m:
+    The value is [;;4mfalse[0m if call saving is not active for the
+    process (see [;;4mprocess_flag/3[0m). If call saving is active, a
+    list is returned, in which the last element is the most recent
+    called.
+
+  [;;4m[;;4m{memory, Size}[0m[0m:
+    [;;4mSize[0m is the size in bytes of the process. This includes call
+    stack, heap, and internal structures.
+
+  [;;4m[;;4m{message_queue_len, MessageQueueLen}[0m[0m:
+    [;;4mMessageQueueLen[0m is the number of messages currently in the
+    message queue of the process. This is the length of the list [;;4m[0m
+    [;;4mMessageQueue[0m returned as the information item [;;4mmessages[0m (see
+    below).
+
+  [;;4m[;;4m{messages, MessageQueue}[0m[0m:
+    [;;4mMessageQueue[0m is a list of the messages to the process, which
+    have not yet been processed.
+
+  [;;4m[;;4m{min_heap_size, MinHeapSize}[0m[0m:
+    [;;4mMinHeapSize[0m is the minimum heap size for the process.
+
+  [;;4m[;;4m{min_bin_vheap_size, MinBinVHeapSize}[0m[0m:
+    [;;4mMinBinVHeapSize[0m is the minimum binary virtual heap size for
+    the process.
+
+  [;;4m[;;4m{monitored_by, MonitoredBy}[0m[0m:
+    A list of identifiers for all the processes, ports and NIF
+    resources, that are monitoring the process.
+
+  [;;4m[;;4m{monitors, Monitors}[0m[0m:
+    A list of monitors (started by [;;4mmonitor/2[0m) that are active
+    for the process. For a local process monitor or a remote
+    process monitor by a process identifier, the list consists of:
+
+    [;;4m[;;4m{process, Pid}[0m[0m:
+      Process is monitored by pid.
+
+    [;;4m[;;4m{process, {RegName, Node}}[0m[0m:
+      Local or remote process is monitored by name.
+
+    [;;4m[;;4m{port, PortId}[0m[0m:
+      Local port is monitored by port id.
+
+    [;;4m[;;4m{port, {RegName, Node}}[0m[0m:
+      Local port is monitored by name. Please note, that remote
+      port monitors are not supported, so [;;4mNode[0m will always be
+      the local node name.
+
+  [;;4m[;;4m{message_queue_data, MQD}[0m[0m:
+    [;;4mMQD[0m is the current value of the [;;4mmessage_queue_data[0m process
+    flag, which can be either [;;4moff_heap[0m or [;;4mon_heap[0m. For more
+    information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.
+
+  [;;4m[;;4m{parent, Pid}[0m[0m:
+    [;;4mPid[0m is the identifier of the parent process, the one that
+    spawned current process. When the process does not have a
+    parent [;;4mundefined[0m is returned. Only the initial process ([;;4m[0m
+    [;;4minit[0m) on a node lacks a parent, though.
+
+  [;;4m[;;4m{priority, Level}[0m[0m:
+    [;;4mLevel[0m is the current priority level for the process. For more
+    information on priorities, see [;;4mprocess_flag(priority, Level)[0m.
+
+  [;;4m[;;4m{reductions, Number}[0m[0m:
+    [;;4mNumber[0m is the number of reductions executed by the process.
+
+  [;;4m[;;4m{registered_name, Atom}[0m[0m:
+    [;;4mAtom[0m is the registered process name. If the process has no
+    registered name, this tuple is not present in the list.
+
+  [;;4m[;;4m{sequential_trace_token, [] | SequentialTraceToken}[0m[0m:
+    [;;4mSequentialTraceToken[0m is the sequential trace token for the
+    process. This [;;4mInfoTuple[0m can be changed or removed without
+    prior notice.
+
+  [;;4m[;;4m{stack_size, Size}[0m[0m:
+    [;;4mSize[0m is the stack size, in words, of the process.
+
+  [;;4m[;;4m{status, Status}[0m[0m:
+    [;;4mStatus[0m is the status of the process and is one of the
+    following:
+
+     • [;;4mexiting[0m
+
+     • [;;4mgarbage_collecting[0m
+
+     • [;;4mwaiting[0m (for a message)
+
+     • [;;4mrunning[0m
+
+     • [;;4mrunnable[0m (ready to run, but another process is running)
+
+     • [;;4msuspended[0m (suspended on a "busy" port or by the BIF [;;4m[0m
+       [;;4merlang:suspend_process/1,2[0m)
+
+  [;;4m[;;4m{suspending, SuspendeeList}[0m[0m:
+    [;;4mSuspendeeList[0m is a list of [;;4m{Suspendee, ActiveSuspendCount,[0m
+    [;;4mOutstandingSuspendCount}[0m tuples. [;;4mSuspendee[0m is the process
+    identifier of a process that has been, or is to be, suspended
+    by the process identified by [;;4mPid[0m through the BIF [;;4m[0m
+    [;;4merlang:suspend_process/2[0m or [;;4merlang:suspend_process/1[0m.
+
+    [;;4mActiveSuspendCount[0m is the number of times [;;4mSuspendee[0m has
+    been suspended by [;;4mPid[0m. [;;4mOutstandingSuspendCount[0m is the
+    number of not yet completed suspend requests sent by [;;4mPid[0m,
+    that is:
+
+     • If [;;4mActiveSuspendCount =/= 0[0m, [;;4mSuspendee[0m is currently
+       in the suspended state.
+
+     • If [;;4mOutstandingSuspendCount =/= 0[0m, option [;;4masynchronous[0m
+       of [;;4merlang:suspend_process/2[0m has been used and the
+       suspendee has not yet been suspended by [;;4mPid[0m.
+
+    Notice that [;;4mActiveSuspendCount[0m and [;;4mOutstandingSuspendCount[0m
+    are not the total suspend count on [;;4mSuspendee[0m, only the parts
+    contributed by [;;4mPid[0m.
+
+  [;;4m[;;4m{total_heap_size, Size}[0m[0m:
+    [;;4mSize[0m is the total size, in words, of all heap fragments of
+    the process. This includes the process stack and any
+    unreceived messages that are considered to be part of the
+    heap.
+
+  [;;4m[;;4m{trace, InternalTraceFlags}[0m[0m:
+    [;;4mInternalTraceFlags[0m is an integer representing the internal
+    trace flag for this process. This [;;4mInfoTuple[0m can be changed
+    or removed without prior notice.
+
+  [;;4m[;;4m{trap_exit, Boolean}[0m[0m:
+    [;;4mBoolean[0m is [;;4mtrue[0m if the process is trapping exits, otherwise [;;4m[0m
+    [;;4mfalse[0m.
+
+  Notice that not all implementations support all these [;;4mItem[0ms.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPid[0m is not a local process.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mItem[0m is an invalid item.
