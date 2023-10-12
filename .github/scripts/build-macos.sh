@@ -1,12 +1,19 @@
 #!/bin/sh
 
-export MAKEFLAGS=-j$(getconf _NPROCESSORS_ONLN)
-export ERL_TOP=`pwd`
-export RELEASE_ROOT=$ERL_TOP/release
+export MAKEFLAGS="-j$(getconf _NPROCESSORS_ONLN)"
+export ERL_TOP="$(pwd)"
 export ERLC_USE_SERVER=true
+export RELEASE_ROOT="$ERL_TOP/release"
+BUILD_DOCS=false
 
-./otp_build configure \
-  --disable-dynamic-ssl-lib
+if [ "$1" = "build_docs" ]; then
+    BUILD_DOCS=true
+    shift
+fi
+
+./otp_build configure $*
 ./otp_build boot -a
-./otp_build release -a $RELEASE_ROOT
-make release_docs DOC_TARGETS=chunks
+./otp_build release -a "$RELEASE_ROOT"
+if $BUILD_DOCS; then
+    make release_docs DOC_TARGETS=chunks
+fi
