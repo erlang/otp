@@ -11,7 +11,7 @@ sudo /usr/sbin/sshd
 sudo service postgresql start
 
 sudo -E bash -c "apt-get update && apt-get install -y linux-tools-common linux-tools-generic"
-sudo -E bash -c "apt-get install -y linux-tools-$(uname-r)" || true
+sudo -E bash -c "apt-get install -y linux-tools-$(uname -r)" || true
 
 sudo bash -c "Xvfb :99 -ac -screen 0 1920x1080x24 -nolisten tcp" &
 export DISPLAY=:99
