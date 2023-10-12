@@ -1,10 +1,10 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-ARG BASE=debian:bullseye
+ARG BASE=debian:buster
 FROM $BASE
 ## Need to have a second arg here as the first does not expose the $BASE in the script below
-ARG BASE=debian:bullseye
+ARG BASE=debian:buster
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
