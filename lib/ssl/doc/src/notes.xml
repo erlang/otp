@@ -841,6 +841,23 @@
 
 </section>
 
+<section><title>SSL 10.7.3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When a client initiated renegotiation was rejected and
+	    the client socket was in active mode the expected error
+	    message to the controlling process was not sent.</p>
+          <p>
+	    Own Id: OTP-18712 Aux Id: GH-7431 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
