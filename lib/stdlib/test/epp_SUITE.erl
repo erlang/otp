@@ -1254,8 +1254,15 @@ test_if(Config) ->
 	  {if_8c,
 	   <<"-if(?foo).\n"                     %Undefined symbol.
 	     "-endif.\n">>,
-	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}}
+	   {errors,[{{1,25},epp,{undefined,foo,none}}],[]}},
 
+	  {if_9c,
+	   <<"-if(not_builtin()).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+	   {errors,[{{1,21},epp,{bad,'if'}}],[]}}
 	 ],
     [] = compile(Config, Cs),
 
@@ -1321,14 +1328,6 @@ test_if(Config) ->
            ok},
 
 	  {if_7,
-	   <<"-if(not_builtin()).\n"
-	     "a bug.\n"
-	     "-else.\n"
-	     "t() -> ok.\n"
-	     "-endif.\n">>,
-           ok},
-
-	  {if_8,
 	   <<"-if(42).\n"			%Not boolean.
 	     "a bug.\n"
 	     "-else.\n"
