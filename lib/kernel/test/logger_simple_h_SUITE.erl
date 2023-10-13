@@ -22,6 +22,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
 
@@ -80,6 +81,7 @@ groups() ->
 
 all() -> 
     [start_stop,
+     start_debug,
      start_crash,
      replace_default,
      replace_file,
@@ -101,6 +103,32 @@ start_stop(_Config) ->
     ok.
 start_stop(cleanup,_Config) ->
     logger:remove_handler(simple).
+
+%% Test that the simple logger works when debug level is used
+start_debug(_Config) ->
+
+    Output = os:cmd(ct:get_progname() ++ " -s init stop"),
+    LogOutput = re:replace(unicode:characters_to_binary(Output),"\r\n","\n",[global]),
+    ct:log("~ts",[LogOutput]),
+    nomatch = re:run(LogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    InfoOutput = os:cmd(ct:get_progname() ++ " -kernel logger_level info -s init stop"),
+    InfoLogOutput = re:replace(unicode:characters_to_binary(InfoOutput),"\r\n","\n",[global]),
+    ct:log("~ts",[InfoLogOutput]),
+    {match,InfoNumReports} = re:run(InfoLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    %% Test that more progress reports are logged for info than default
+    ?assert(0 < length(InfoNumReports)),
+
+    DebugOutput = os:cmd(ct:get_progname() ++ " -kernel logger_level debug -s init stop"),
+    DebugLogOutput = re:replace(unicode:characters_to_binary(DebugOutput),"\r\n","\n",[global]),
+    ct:log("~ts",[DebugLogOutput]),
+    {match,DebugNumReports} = re:run(DebugLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
+
+    %% Test that more progress reports are logged for debug than info
+    ?assert(length(InfoNumReports) < length(DebugNumReports)),
+
+    ok.
 
 %% Test that the simple logger works during startup crash
 start_crash(_Config) ->
