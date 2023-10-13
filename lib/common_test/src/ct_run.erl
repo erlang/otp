@@ -25,7 +25,7 @@
 
 %% User interface
 -export([install/1,install/2,run/1,run/2,run/3,run_test/1,
-	 run_testspec/1,step/3,step/4,refresh_logs/1]).
+	 run_testspec/1,step/3,step/4,refresh_logs/2]).
 
 %% Misc internal API functions
 -export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
@@ -375,7 +375,7 @@ script_start1(Parent, Args) ->
     %% send final results to starting process waiting in script_start/0
     Parent ! {self(), Result}.
 
-run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
+run_or_refresh(Opts = #opts{logdir = LogDir, stylesheet = CustomStylesheet}, Args) ->
     case proplists:get_value(refresh_logs, Args) of
 	undefined ->
 	    script_start2(Opts, Args);
@@ -389,12 +389,12 @@ run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
 	    %% give the shell time to print version etc
 	    timer:sleep(500),
 	    io:nl(),
-	    case catch ct_logs:make_all_runs_index(refresh) of
+	    case catch ct_logs:make_all_runs_index(refresh, CustomStylesheet) of
 		{'EXIT',ARReason} ->
 		    ok = file:set_cwd(Cwd),
 		    {error,{all_runs_index,ARReason}};
 		_ ->
-		    case catch ct_logs:make_all_suites_index(refresh) of
+		    case catch ct_logs:make_all_suites_index(refresh, CustomStylesheet) of
 			{'EXIT',ASReason} ->
 			    ok = file:set_cwd(Cwd),
 			    {error,{all_suites_index,ASReason}};
@@ -718,6 +718,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    logopts = LogOpts,
 		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
+		    stylesheet = CustomStylesheet,
 		    logdir = LogDir, testspec_files = Specs}, _Args) ->
 
     %% label - used by ct_logs
@@ -736,7 +737,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
 	    _ = ct_util:start(interactive, LogDir,
-			      add_verbosity_defaults(Verbosity)),
+			      add_verbosity_defaults(Verbosity), CustomStylesheet),
 	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
@@ -907,7 +908,8 @@ run_test1(StartOpts) when is_list(StartOpts) ->
                                      all,
                                      StartOpts),
             application:set_env(common_test, keep_logs, KeepLogs),
-	    ok = refresh_logs(?abs(RefreshDir)),
+            CustomStylesheet = proplists:get_value(stylesheet, StartOpts),
+	    ok = refresh_logs(?abs(RefreshDir), CustomStylesheet),
 	    exit(done)
     end.
 
@@ -1503,18 +1505,18 @@ get_data_for_node(#testspec{label = Labels,
 	  scale_timetraps = ST,
 	  create_priv_dir = CreatePrivDir}.
 
-refresh_logs(LogDir) ->
+refresh_logs(LogDir, CustomStylesheet) ->
     {ok,Cwd} = file:get_cwd(),
     case file:set_cwd(LogDir) of
 	E = {error,_Reason} ->
 	    E;
 	_ ->
-	    case catch ct_logs:make_all_suites_index(refresh) of
+	    case catch ct_logs:make_all_suites_index(refresh, CustomStylesheet) of
 		{'EXIT',ASReason} ->
 		    ok = file:set_cwd(Cwd),
 		    {error,{all_suites_index,ASReason}};
 		_ ->
-		    case catch ct_logs:make_all_runs_index(refresh) of
+		    case catch ct_logs:make_all_runs_index(refresh, CustomStylesheet) of
 			{'EXIT',ARReason} ->
 			    ok = file:set_cwd(Cwd),
 			    {error,{all_runs_index,ARReason}};
@@ -1676,7 +1678,7 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
     #opts{label = Label, profile = Profile,
-	  verbosity = VLvls} = Opts,
+	  verbosity = VLvls, stylesheet = CustomStylesheet} = Opts,
     %% label - used by ct_logs
     TestLabel =
 	if Label == undefined -> undefined;
@@ -1713,7 +1715,7 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 			"Note: TEST_SERVER_FRAMEWORK = " ++ Other))
 	    end,
 	    Verbosity = add_verbosity_defaults(VLvls),
-	    case ct_util:start(Opts#opts.logdir, Verbosity) of
+	    case ct_util:start(Opts#opts.logdir, Verbosity, CustomStylesheet) of
 		{error,interactive_mode} ->
 		    io:format("CT is started in interactive mode. "
 			      "To exit this mode, "
