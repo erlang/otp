@@ -104,7 +104,7 @@ endif
 ifdef PRIMARY_BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
-  ERL_COMPILE_FLAGS += +debug_info +no_docs
+  ERL_COMPILE_FLAGS += +debug_info
 endif
 ifeq ($(ERL_DETERMINISTIC),yes)
   ERL_COMPILE_FLAGS += +deterministic
