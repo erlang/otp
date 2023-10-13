@@ -1580,9 +1580,13 @@ void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
     a.cmp(x.reg, y.reg);
     a.b_eq(next);
 
-    /* We can skip deep comparisons when both args are immediates. */
-    emit_are_both_immediate(x.reg, y.reg);
-    a.b_eq(resolve_beam_label(Fail, disp1MB));
+    if (X.isLiteral() || Y.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else {
+        /* We can skip deep comparisons when both args are immediates. */
+        emit_are_both_immediate(x.reg, y.reg);
+        a.b_eq(resolve_beam_label(Fail, disp1MB));
+    }
 
     mov_var(ARG1, x);
     mov_var(ARG2, y);
@@ -1603,9 +1607,13 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
     a.cmp(x.reg, y.reg);
     a.b_eq(resolve_beam_label(Fail, disp1MB));
 
-    /* We can skip deep comparisons when both args are immediates. */
-    emit_are_both_immediate(x.reg, y.reg);
-    a.b_eq(next);
+    if (X.isLiteral() || Y.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else {
+        /* We can skip deep comparisons when both args are immediates. */
+        emit_are_both_immediate(x.reg, y.reg);
+        a.b_eq(next);
+    }
 
     mov_var(ARG1, x);
     mov_var(ARG2, y);
@@ -1726,6 +1734,18 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
+    } else if (LHS.isLiteral() || RHS.isLiteral()) {
+        Label next = a.newLabel();
+        comment("skipped test for small because one operand is never small");
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_eq(next);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_arith_compare_shared());
+
+        a.bind(next);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
@@ -1880,6 +1900,12 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
             a.tbz(TMP1, imm(bitNumber), resolve_beam_label(Fail, disp32K));
         }
         a.bind(next);
+    } else if (LHS.isLiteral() || RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_arith_compare_shared());
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
