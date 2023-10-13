@@ -24,7 +24,7 @@ TARGET="$2"
 ARCHIVE="$3"
 EVENT="$4"
 DELETED="$5"
-CHANGES="$9"
+CHANGES="$6"
 
 if [ ! -f "${CACHE_SOURCE_DIR}/otp_src.tar.gz" ] || [ "${NO_CACHE}" = "true" ]; then
     cp "${ARCHIVE}" "${TARGET}"
