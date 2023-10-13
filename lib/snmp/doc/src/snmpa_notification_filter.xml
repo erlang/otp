@@ -51,7 +51,7 @@
   </description>
   <funcs>
     <func>
-      <name since="">handle_notification(Notif, Data) -> Reply</name>
+      <name since="">Module:handle_notification(Notif, Data) -> Reply</name>
       <fsummary>Handle a notification</fsummary>
       <type>
         <v>Reply = send | {send, NewNotif} | dont_send</v>
