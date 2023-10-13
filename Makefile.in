@@ -661,6 +661,7 @@ DOC_BOOTSTRAP_BUILD=xmerl edoc erl_docgen
 DOC_BOOTSTRAP=$(DOC_BOOTSTRAP_BUILD)
 
 $(BOOTSTRAP_ROOT)/bootstrap/lib/%/update:
+	$(V_generate)
 	$(V_at)for x in "$(dir $@)" "$(dir $@)/ebin" "$(dir $@)/include"; do \
 	        if [ ! -d "$$x" ]; then mkdir "$$x"; fi \
         done

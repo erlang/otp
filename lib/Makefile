@@ -32,7 +32,7 @@ ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 endif
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp erl_interface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc snmp erl_interface \
 		  asn1 jinterface \
 	          wx debugger reltool \
 	          mnesia crypto os_mon syntax_tools \
