@@ -400,7 +400,7 @@ void db_free_tmp_uncompressed(DbTerm* obj);
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b);
-Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
+Eterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -478,7 +478,7 @@ void db_do_update_element(DbUpdateHandle* handle,
 			  Sint position,
 			  Eterm newval);
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset);
-Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
+Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags, Uint *freasonp);
 int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body);

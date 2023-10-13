@@ -426,7 +426,7 @@ new_locked_lock(lc_thread_t* thr,
 }
 
 static void
-raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
+raw_print_lock(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags,
 	       const char* file, unsigned int line, char *suffix)
 {
     char *lname = (1 <= id && id < ERTS_LOCK_ORDER_SIZE
@@ -447,7 +447,7 @@ raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags, char *suffix)
+print_lock2(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags, char *suffix)
 {
   raw_print_lock(prefix, id, extra, flags, NULL, 0, suffix);
 }

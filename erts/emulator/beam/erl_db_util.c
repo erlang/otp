@@ -3147,13 +3147,13 @@ void db_free_dmc_err_info(DMCErrInfo *ei){
 ** Store bignum in *hpp and increase *hpp accordingly.
 ** *hpp is assumed to be large enough to hold the result.
 */
-Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
+Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr)
 {
     DeclareTmpHeapNoproc(big_tmp,2);
     Eterm res;
     Sint ires;
-    Wterm arg1;
-    Wterm arg2;
+    Eterm arg1;
+    Eterm arg2;
 
     if (is_both_small(counter,incr)) {
 	ires = signed_val(counter) + signed_val(incr);
@@ -3197,7 +3197,7 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
 /* Must be called to read elements after db_lookup_dbterm.
 ** Will decompress if needed.
 */
-Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
+Eterm db_do_read_element(DbUpdateHandle* handle, Sint position)
 {
     Eterm elem = handle->dbterm->tpl[position];
     if (!is_header(elem)) {
