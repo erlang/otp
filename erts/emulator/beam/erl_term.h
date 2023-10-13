@@ -472,9 +472,7 @@ typedef union float_def
     byte   fb[sizeof(ieee754_8)];
     Uint16 fs[sizeof(ieee754_8) / sizeof(Uint16)];
     Uint32 fw[sizeof(ieee754_8) / sizeof(Uint32)];
-#if defined(ARCH_64)
-    Uint   fdw;
-#endif
+    Uint64 fdw;
 } FloatDef;
 
 #if defined(ARCH_64)

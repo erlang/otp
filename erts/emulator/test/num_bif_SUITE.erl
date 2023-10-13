@@ -354,7 +354,7 @@ max_diff_decimals(F, D) ->
 
 t_string_to_float_safe(Config) when is_list(Config) ->
     test_stf(0.0,"0.0"),
-    test_stf(0.0,"-0.0"),
+    test_stf(-0.0,"-0.0"),
     test_stf(0.5,"0.5"),
     test_stf(-0.5,"-0.5"),
     test_stf(100.0,"1.0e2"),

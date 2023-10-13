@@ -1403,7 +1403,9 @@ tailrecur_ne:
 		    if (is_float(b)) {
 			GET_DOUBLE(a, af);
 			GET_DOUBLE(b, bf);
-			if (af.fd == bf.fd) goto pop_next;
+                        if (af.fdw == bf.fdw) {
+                            goto pop_next;
+                        }
 		    }
 		    break; /* not equal */
 		}
@@ -2016,11 +2018,21 @@ tailrecur_ne:
 		    goto mixed_types;
 		} else {
 		    FloatDef af;
-		    FloatDef bf; 
+		    FloatDef bf;
 
-		    GET_DOUBLE(a, af);
-		    GET_DOUBLE(b, bf);
-		    ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
+                    GET_DOUBLE(a, af);
+                    GET_DOUBLE(b, bf);
+
+                    if (exact) {
+                        Uint64 sortable_a, sortable_b;
+
+                        sortable_a = erts_float_exact_sortable(&af);
+                        sortable_b = erts_float_exact_sortable(&bf);
+
+                        ON_CMP_GOTO(erts_float_comp(sortable_a, sortable_b));
+                    } else {
+                        ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
+                    }
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
