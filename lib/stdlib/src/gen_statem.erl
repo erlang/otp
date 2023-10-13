@@ -324,7 +324,7 @@
 %% Note that the only callbacks that have arity 3 are these
 %% StateName/3 callbacks and terminate/3, so the state name
 %% 'terminate' is unusable in this mode.
--callback state_name(
+-callback 'StateName'(
 	    'enter',
 	    OldStateName :: state_name(),
 	    data()) ->
@@ -418,7 +418,7 @@
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
-    state_name/3, % Just an example callback;
+    'StateName'/3, % Just an example callback;
     %% for callback_mode() =:= state_functions
     %% there has to be a StateName/3 callback function
     %% for every StateName in your state machine,
