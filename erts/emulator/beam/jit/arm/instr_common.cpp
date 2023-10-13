@@ -418,10 +418,9 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
                                           const Span<ArgVal> &args) {
     unsigned count = Size.get();
     ASSERT(count == args.size());
-
     unsigned i = 0;
-
-    mov_imm(TMP1, NIL);
+    bool x_initialized = false;
+    bool q_initialized = false;
 
     while (i < count) {
         unsigned first_y = args[i].as<ArgYRegister>().get();
@@ -440,7 +439,42 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
 
         /* Now first_y is the number of the first y register to be initialized
          * and slots is the number of y registers to be initialized. */
+
+        while (slots >= 4 && first_y % 2 == 0 &&
+               first_y <= 2 * MAX_LDP_STP_DISPLACEMENT) {
+            /* `stp` (with vector registers) can only address the
+             *  first 128 Y registers. */
+            if (!q_initialized) {
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == 0x0f);
+                a.movi(a64::v0.d2(), imm(-1));
+                q_initialized = true;
+            }
+            a.stp(a64::q0, a64::q0, getYRef(first_y));
+            first_y += 4;
+            slots -= 4;
+        }
+
+        while (slots >= 2 && q_initialized &&
+               (first_y % 2 == 0 ||
+                first_y * sizeof(Eterm) <= MAX_LDUR_STUR_DISPLACEMENT)) {
+            /* Note that the STR instruction for a vector register
+             * requires the offset to be 16-byte aligned. If it is
+             * not, the STUR instruction must be used. AsmJit
+             * automatically turns STR into STUR when necessary. */
+            a.str(a64::v0, getYRef(first_y));
+            first_y += 2;
+            slots -= 2;
+        }
+
         while (slots >= 2) {
+            /* Either the vector register is not initialized, or first_y
+             * is either not 16-byte aligned or it is out of reach for the
+             * STUR instruction. */
+            if (!x_initialized) {
+                mov_imm(TMP1, NIL);
+                x_initialized = true;
+            }
+
             /* `stp` can only address the first 64 Y registers. */
             if (first_y <= MAX_LDP_STP_DISPLACEMENT) {
                 a.stp(TMP1, TMP1, getYRef(first_y));
@@ -454,7 +488,15 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
         }
 
         if (slots == 1) {
-            a.str(TMP1, getYRef(first_y));
+            if (q_initialized) {
+                a.str(a64::d0, getYRef(first_y));
+            } else {
+                if (!x_initialized) {
+                    mov_imm(TMP1, NIL);
+                    x_initialized = true;
+                }
+                a.str(TMP1, getYRef(first_y));
+            }
         }
     }
 }
@@ -516,10 +558,10 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
     }
 }
 
-void BeamModuleAssembler::emit_store_two_xregs(const ArgXRegister &Src1,
-                                               const ArgYRegister &Dst1,
-                                               const ArgXRegister &Src2,
-                                               const ArgYRegister &Dst2) {
+void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
+                                                const ArgYRegister &Dst1,
+                                                const ArgSource &Src2,
+                                                const ArgYRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst1 = init_destination(Dst1, src1.reg);
     auto dst2 = init_destination(Dst2, src2.reg);
@@ -538,28 +580,6 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
 
     safe_ldp(dst1.reg, dst2.reg, Src1, Src2);
     flush_vars(dst1, dst2);
-}
-
-void BeamModuleAssembler::emit_move_two_yregs(const ArgYRegister &Src1,
-                                              const ArgYRegister &Dst1,
-                                              const ArgYRegister &Src2,
-                                              const ArgYRegister &Dst2) {
-    /* Optimize fetching of source Y registers. */
-    switch (ArgVal::memory_relation(Src1, Src2)) {
-    case ArgVal::Relation::consecutive:
-        safe_ldp(TMP1, TMP2, Src1, Src2);
-        break;
-    case ArgVal::Relation::reverse_consecutive:
-        safe_ldp(TMP2, TMP1, Src2, Src1);
-        break;
-    case ArgVal::Relation::none:
-        a.ldr(TMP1, getArgRef(Src1));
-        a.ldr(TMP2, getArgRef(Src2));
-        break;
-    }
-
-    /* Destination registers are always in consecutive order. */
-    safe_stp(TMP1, TMP2, Dst1, Dst2);
 }
 
 void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
@@ -591,8 +611,7 @@ void BeamModuleAssembler::emit_swap2(const ArgRegister &R1,
     mov_var(arg2, arg3);
     mov_var(arg3, TMP4);
 
-    flush_vars(arg1, arg2);
-    flush_var(arg3);
+    flush_vars(arg1, arg2, arg3);
 }
 
 void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
@@ -608,8 +627,8 @@ void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
     mov_var(arg3, arg4);
     mov_var(arg4, TMP5);
 
-    flush_vars(arg1, arg2);
-    flush_vars(arg3, arg4);
+    flush_vars(arg1, arg2, arg3);
+    flush_var(arg4);
 }
 
 void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
@@ -628,9 +647,8 @@ void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
     mov_var(arg4, arg5);
     mov_var(arg5, TMP6);
 
-    flush_vars(arg1, arg2);
-    flush_vars(arg3, arg4);
-    flush_var(arg5);
+    flush_vars(arg1, arg2, arg3);
+    flush_vars(arg4, arg5);
 }
 
 void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
@@ -678,41 +696,46 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
     std::vector<ArgVal> data;
     data.reserve(args.size() + 1);
     data.push_back(Arity);
-
-    bool dst_is_src = false;
-    for (auto arg : args) {
-        data.push_back(arg);
-        dst_is_src |= (arg == Dst);
-    }
-
-    if (dst_is_src) {
-        a.add(TMP1, HTOP, TAG_PRIMARY_BOXED);
-    } else {
-        auto ptr = init_destination(Dst, TMP1);
-        a.add(ptr.reg, HTOP, TAG_PRIMARY_BOXED);
-        flush_var(ptr);
-    }
+    data.insert(data.end(), std::begin(args), std::end(args));
 
     size_t size = data.size();
     unsigned i;
+    ArgVal value = ArgWord(0);
     for (i = 0; i < size - 1; i += 2) {
         if ((i % 128) == 0) {
             check_pending_stubs();
         }
 
-        auto [first, second] = load_sources(data[i], TMP2, data[i + 1], TMP3);
-        a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        if (!data[i].isRegister() && data[i] == data[i + 1]) {
+            if (data[i] != value) {
+                value = data[i];
+                mov_arg(TMP1, value);
+            }
+            a.stp(TMP1, TMP1, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else if (data[i] == value) {
+            auto second = load_source(data[i + 1], TMP3);
+            a.stp(TMP1, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else if (data[i + 1] == value) {
+            auto first = load_source(data[i], TMP2);
+            a.stp(first.reg, TMP1, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            auto [first, second] =
+                    load_sources(data[i], TMP2, data[i + 1], TMP3);
+            a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        }
     }
 
     if (i < size) {
-        mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+        if (data[i] == value) {
+            a.str(TMP1, arm::Mem(HTOP).post(sizeof(Eterm)));
+        } else {
+            mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+        }
     }
 
-    if (dst_is_src) {
-        auto ptr = init_destination(Dst, TMP1);
-        mov_var(ptr, TMP1);
-        flush_var(ptr);
-    }
+    auto ptr = init_destination(Dst, TMP1);
+    sub(ptr.reg, HTOP, size * sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    flush_var(ptr);
 }
 
 void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
@@ -892,6 +915,7 @@ void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
     a.b(resolve_beam_label(Fail, disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
@@ -1043,6 +1067,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
     if (arity > MAX_ARG) {
         /* Arity is negative or too large. */
         a.b(resolve_beam_label(Fail, disp128MB));
+        mark_unreachable();
 
         return;
     }
@@ -1296,17 +1321,9 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgLabel &Fail,
      * allocated. */
     a.ldp(TMP1, TMP2, arm::Mem(ARG1));
 
-    if (Arity.get() < 32) {
-        cmp_arg(TMP2, Tag);
-        a.ccmp(TMP1,
-               imm(Arity.get()),
-               imm(NZCV::kNone),
-               imm(arm::CondCode::kEQ));
-    } else {
-        cmp_arg(TMP1, Arity);
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
-        cmp_arg(TMP2, Tag);
-    }
+    cmp_arg(TMP2, Tag);
+    mov_imm(TMP3, Arity.get());
+    a.ccmp(TMP1, TMP3, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
@@ -1382,6 +1399,34 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
     a.ldr(TMP1, arm::Mem(ARG1));
     cmp_arg(TMP1, Arity);
     a.b_ne(resolve_beam_label(Fail, disp1MB));
+}
+
+/* Note: This instruction leaves the untagged pointer to the tuple in
+ * ARG1. */
+void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
+                                                      const ArgLabel &BadArity,
+                                                      const ArgSource &Src,
+                                                      const ArgWord &Arity) {
+    auto src = load_source(Src, ARG1);
+
+    emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), Src, src.reg);
+
+    emit_untag_ptr(ARG1, src.reg);
+
+    a.ldr(TMP1, arm::Mem(ARG1));
+
+    /* As an optimization for the `error | {ok, Value}` case, skip checking the
+     * header word when we know that the only possible boxed type is a tuple. */
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        comment("skipped header test since we know it's a tuple when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(TMP1, imm(_TAG_HEADER_MASK));
+        a.b_ne(resolve_beam_label(NotTuple, disp1MB));
+    }
+
+    cmp_arg(TMP1, Arity);
+    a.b_ne(resolve_beam_label(BadArity, disp1MB));
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -1463,7 +1508,12 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     a.cmp(x.reg, y.reg);
     a.b_eq(next);
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Fail immediately if one of the operands is a small. */
+        a.orr(TMP1, x.reg, y.reg);
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP1);
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Fail immediately unless X is the same type of pointer as
@@ -1538,7 +1588,12 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
     a.cmp(x.reg, y.reg);
     a.b_eq(resolve_beam_label(Fail, disp1MB));
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Succeed immediately if one of the operands is a small. */
+        a.orr(TMP1, x.reg, y.reg);
+        emit_is_boxed(next, TMP1);
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Succeed immediately if X is not the same type of pointer as
@@ -1843,6 +1898,44 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         emit_is_not_boxed(next, lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
+        a.bind(next);
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && always_small(RHS)) {
+        Label big = a.newLabel(), next = a.newLabel();
+        comment("simplified small test for known integer");
+        emit_is_not_boxed(big, lhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(big);
+        {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, lhs.reg);
+            const int bitNumber = 2;
+            const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            ERTS_CT_ASSERT((1 << bitNumber) == bitValue);
+            /* Fail if the bignum is negative. */
+            a.tbnz(TMP1, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+        }
+        a.bind(next);
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS)) {
+        Label big = a.newLabel(), next = a.newLabel();
+        comment("simplified small test for known integer");
+        emit_is_not_boxed(big, rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(big);
+        {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, rhs.reg);
+            const int bitNumber = 2;
+            const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            ERTS_CT_ASSERT((1 << bitNumber) == bitValue);
+            /* Fail if the bignum is positive. */
+            a.tbz(TMP1, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+        }
         a.bind(next);
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
@@ -2383,6 +2476,28 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     a.str(TMP1, getArgRef(CatchTag));
 }
 
+void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP1, TMP1, imm(1));
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
+}
+
+void BeamModuleAssembler::emit_try_end_move_deallocate(
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Deallocate) {
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    a.sub(TMP1, TMP1, imm(1));
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    mov_arg(Dst, Src);
+    if (Deallocate.get() > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
+}
+
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     /* XREG0 = THE_NON_VALUE
      * XREG1 = error reason/thrown value
@@ -2418,13 +2533,8 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
     emit_error(EXC_TRY_CLAUSE, Src);
 }
 
-void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
-                                     const ArgSource &Value) {
-    auto value = load_source(Value, TMP1);
-    mov_arg(ARG2, Trace);
-
-    /* This is an error, attach a stacktrace to the reason. */
-    a.str(value.reg, arm::Mem(c_p, offsetof(Process, fvalue)));
+void BeamGlobalAssembler::emit_raise_shared() {
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, ftrace)));
 
     emit_enter_runtime(0);
@@ -2434,7 +2544,23 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 
     emit_leave_runtime(0);
 
-    emit_raise_exception();
+    a.mov(ARG4, ZERO);
+    a.mov(ARG2, a64::x30);
+    a.b(labels[raise_exception_shared]);
+}
+
+void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
+                                     const ArgSource &Value) {
+    auto [value, trace] = load_sources(Value, ARG1, Trace, ARG2);
+    mov_var(ARG1, value);
+    mov_var(ARG2, trace);
+    fragment_call(ga->get_raise_shared());
+
+    mark_unreachable();
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
@@ -2549,4 +2675,8 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     }
 
     a.bind(next);
+}
+
+void BeamModuleAssembler::emit_mark_unreachable() {
+    mark_unreachable();
 }

@@ -194,6 +194,10 @@ try_end y
 
 try_case_end s
 
+try_end Y | deallocate N => try_end_deallocate N
+
+try_end_deallocate t
+
 # Destructive set tuple element
 
 set_tuple_element s S P
@@ -211,6 +215,10 @@ is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
   equal(Fail, Fail2) | equal(Src, Src2) =>
     i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
+is_tuple Fail1=f Src | test_arity Fail2 Src2 Arity |
+  equal(Src, Src) =>
+    i_is_tuple_of_arity_ff Fail1 Fail2 Src Arity | current_tuple Src
+
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
 is_tuple NotTupleFail Src |
@@ -225,6 +233,7 @@ is_tagged_tuple Fail Tuple Arity Atom =>
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
 
 i_is_tuple_of_arity f s A
+i_is_tuple_of_arity_ff f f s A
 i_test_arity f s A
 
 i_is_tagged_tuple f s A a
@@ -612,6 +621,15 @@ call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) =>
     i_call_ext Bif | deallocate D | return
 call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
     allocate u Ar | i_call_ext Bif | deallocate u | return
+
+#
+# BIFs that always raise an exception need no trailing deallocate and
+# return instructions.
+#
+call_ext_last u Bif u | is_exit_bif(Bif) =>
+    call_light_bif Bif
+call_ext_only Ar=u Bif | is_exit_bif(Bif) =>
+    allocate u Ar | call_light_bif Bif
 
 #
 # The general case for BIFs that have no special requirements.

@@ -234,7 +234,11 @@ void BeamGlobalAssembler::emit_export_trampoline() {
  * the return address as the error address.
  */
 void BeamModuleAssembler::emit_raise_exception() {
-    emit_raise_exception(nullptr);
+    safe_fragment_call(ga->get_raise_exception_null_exp());
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
@@ -292,6 +296,11 @@ void BeamGlobalAssembler::emit_process_exit() {
     a.je(labels[do_schedule]);
     comment("End of process");
     a.ud2();
+}
+
+void BeamGlobalAssembler::emit_raise_exception_null_exp() {
+    mov_imm(ARG4, 0);
+    a.jmp(labels[raise_exception]);
 }
 
 /* Helper function for throwing exceptions from global fragments.

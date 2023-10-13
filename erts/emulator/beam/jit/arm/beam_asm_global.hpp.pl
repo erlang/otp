@@ -103,17 +103,21 @@ my @beam_global_funcs = qw(
     mul_body_shared
     mul_guard_shared
     new_map_shared
-    update_map_assoc_shared
-    unloaded_fun
     plus_body_shared
     process_exit
     process_main
     raise_exception
+    raise_exception_null_exp
     raise_exception_shared
+    raise_shared
     store_unaligned
+    unloaded_fun
     unary_minus_body_shared
+    update_map_assoc_shared
+    update_map_single_assoc_shared
     update_map_exact_guard_shared
     update_map_exact_body_shared
+    update_map_single_exact_body_shared
     );
 
 

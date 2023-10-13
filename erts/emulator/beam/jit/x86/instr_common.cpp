@@ -746,6 +746,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                                           const ArgWord &Arity,
                                           const Span<ArgVal> &args) {
     size_t size = args.size();
+    ArgVal value = ArgWord(0);
 
     ASSERT(arityval(Arity.get()) == size);
 
@@ -784,9 +785,29 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                 }
                 break;
             }
-            case ArgVal::none:
-                mov_arg(dst_ptr, args[i]);
+            case ArgVal::none: {
+                unsigned j;
+                if (value == args[i]) {
+                    a.mov(dst_ptr, RET);
+                    break;
+                }
+                for (j = i + 1; j < size && args[i] == args[j]; j++) {
+                    ;
+                }
+                if (j - i < 2) {
+                    mov_arg(dst_ptr, args[i]);
+                } else {
+                    value = args[i];
+                    mov_arg(RET, value);
+                    while (i < j) {
+                        dst_ptr = x86::qword_ptr(HTOP, (i + 1) * sizeof(Eterm));
+                        a.mov(dst_ptr, RET);
+                        i++;
+                    }
+                    i--;
+                }
                 break;
+            }
             }
         }
     }
@@ -1337,6 +1358,37 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
 }
 
 /* Note: This instruction leaves the pointer to the tuple in ARG2. */
+void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
+                                                      const ArgLabel &BadArity,
+                                                      const ArgSource &Src,
+                                                      const ArgWord &Arity) {
+    mov_arg(ARG2, Src);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
+        /* Fast path for the `error | {ok, Value}` case. */
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+        /* We must be careful to still leave the pointer to the tuple
+         * in ARG2. */
+        (void)emit_ptr_val(ARG2, ARG2);
+        emit_test_boxed(ARG2);
+        a.jne(resolve_beam_label(NotTuple));
+        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
+        a.jne(resolve_beam_label(BadArity));
+    } else {
+        emit_is_boxed(resolve_beam_label(NotTuple), Src, ARG2);
+        (void)emit_ptr_val(ARG2, ARG2);
+        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
+        a.test(RETb, imm(_TAG_HEADER_MASK));
+        a.jne(resolve_beam_label(NotTuple));
+        a.cmp(RETd, imm(Arity.get()));
+        a.jne(resolve_beam_label(BadArity));
+    }
+}
+
+/* Note: This instruction leaves the pointer to the tuple in ARG2. */
 void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgWord &Arity) {
@@ -1396,7 +1448,14 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     a.short_().je(next);
 #endif
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Fail immediately if one of the operands is a small. */
+        a.mov(RETd, ARG1d);
+        a.or_(RETd, ARG2d);
+        emit_test_boxed(RET);
+        a.jne(resolve_beam_label(Fail));
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Fail immediately unless X is the same type of pointer as
@@ -1471,7 +1530,14 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
     a.cmp(ARG1, ARG2);
     a.je(resolve_beam_label(Fail));
 
-    if (always_same_types(X, Y)) {
+    if (exact_type<BeamTypeId::Integer>(X) &&
+        exact_type<BeamTypeId::Integer>(Y)) {
+        /* Succeed immediately if one of the operands is a small. */
+        a.mov(RETd, ARG1d);
+        a.or_(RETd, ARG2d);
+        emit_test_boxed(RET);
+        a.short_().jne(next);
+    } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
     } else if (Y.isLiteral()) {
         /* Succeed immediately if X is not the same type of pointer as
@@ -1803,7 +1869,8 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         return;
     }
 
-    Label generic = a.newLabel(), do_jl = a.newLabel(), next = a.newLabel();
+    Label generic = a.newLabel(), small = a.newLabel(), do_jl = a.newLabel(),
+          next = a.newLabel();
     bool need_generic = !both_small;
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
@@ -1833,6 +1900,35 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                 "bignum");
         need_generic = false;
         emit_is_not_boxed(next, ARG1, dShort);
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && always_small(RHS)) {
+        x86::Gp boxed_ptr;
+        int sign_bit = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
+        ERTS_CT_ASSERT(NEG_BIG_SUBTAG > POS_BIG_SUBTAG);
+
+        comment("simplified small test for known integer");
+        need_generic = false;
+        emit_is_boxed(small, ARG1, dShort);
+
+        boxed_ptr = emit_ptr_val(ARG1, ARG1);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.test(RETb, imm(sign_bit));
+        /* Fail if bignum is negative. */
+        a.jne(resolve_beam_label(Fail));
+        a.short_().jmp(next);
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS)) {
+        x86::Gp boxed_ptr;
+
+        comment("simplified small test for known integer");
+        need_generic = false;
+        emit_is_boxed(small, ARG2, dShort);
+
+        boxed_ptr = emit_ptr_val(ARG2, ARG2);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(RETb, imm(_TAG_HEADER_MASK));
+        ERTS_CT_ASSERT(_TAG_HEADER_NEG_BIG > _TAG_HEADER_POS_BIG);
+        a.cmp(RETb, imm(_TAG_HEADER_NEG_BIG));
+        /* Fail if bignum is positive. */
+        a.short_().jmp(do_jl);
     } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
                        LHS) &&
                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
@@ -1872,6 +1968,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     }
 
     /* Both arguments are smalls. */
+    a.bind(small);
     a.cmp(ARG1, ARG2);
     if (need_generic) {
         a.short_().jmp(do_jl);
@@ -2395,6 +2492,11 @@ void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     mov_arg(CatchTag, NIL);
 }
 
+void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
+    a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
+    emit_deallocate(Deallocate);
+}
+
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     /* The try_tag in the Y slot in the stack frame has already been
      * cleared. */
@@ -2423,11 +2525,7 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
     emit_error(EXC_TRY_CLAUSE);
 }
 
-void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
-                                     const ArgSource &Value) {
-    mov_arg(ARG3, Value);
-    mov_arg(ARG2, Trace);
-
+void BeamGlobalAssembler::emit_raise_shared() {
     /* This is an error, attach a stacktrace to the reason. */
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG3);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, ftrace)), ARG2);
@@ -2439,7 +2537,20 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 
     emit_leave_runtime();
 
-    emit_raise_exception();
+    mov_imm(ARG4, 0);
+    a.jmp(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
+                                     const ArgSource &Value) {
+    mov_arg(ARG3, Value);
+    mov_arg(ARG2, Trace);
+
+    fragment_call(resolve_fragment(ga->get_raise_shared()));
+
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {

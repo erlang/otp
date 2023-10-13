@@ -242,11 +242,12 @@ void BeamModuleAssembler::emit_raise_exception() {
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
     if (exp) {
         a.ldr(ARG4, embed_constant(exp, disp32K));
+        fragment_call(ga->get_raise_exception());
     } else {
-        a.mov(ARG4, ZERO);
+        fragment_call(ga->get_raise_exception_null_exp());
     }
 
-    fragment_call(ga->get_raise_exception());
+    mark_unreachable();
 
     /* `line` instructions need to know the latest offset that may throw an
      * exception. See the `line` instruction for details. */
@@ -259,11 +260,10 @@ void BeamModuleAssembler::emit_raise_exception(Label I,
 
     if (exp) {
         a.ldr(ARG4, embed_constant(exp, disp32K));
+        a.b(resolve_fragment(ga->get_raise_exception_shared(), disp128MB));
     } else {
-        a.mov(ARG4, ZERO);
+        a.b(resolve_fragment(ga->get_raise_exception_null_exp(), disp128MB));
     }
-
-    a.b(resolve_fragment(ga->get_raise_exception_shared(), disp128MB));
 }
 
 void BeamGlobalAssembler::emit_process_exit() {
@@ -279,6 +279,13 @@ void BeamGlobalAssembler::emit_process_exit() {
 
     a.cbz(ARG1, labels[do_schedule]);
     a.udf(0xdead);
+}
+
+/* You must have already done emit_leave_runtime_frame()! */
+void BeamGlobalAssembler::emit_raise_exception_null_exp() {
+    a.mov(ARG4, ZERO);
+    a.mov(ARG2, a64::x30);
+    a.b(labels[raise_exception_shared]);
 }
 
 /* You must have already done emit_leave_runtime_frame()! */

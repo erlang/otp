@@ -95,6 +95,11 @@ trim t t
 
 test_heap I t
 
+# Use a move instruction for initializating a single Y register, since
+# that can open up more optimizations (for example, combining a move +
+# trim to move_trim).
+init_yregs Size=u==1 Regs=* => init_yregs_move(Size, Regs)
+
 init_yregs I *
 
 # Selecting values.
@@ -179,6 +184,17 @@ try_end y
 
 try_case_end s
 
+try_end Y | deallocate N => try_end_deallocate N
+try_end Y | move Src Dst | deallocate N => try_end_move_deallocate Src Dst N
+
+try_end_deallocate t
+try_end_move_deallocate s d t
+
+move y==0 x==0 | deallocate u==1 | return =>
+    move_deallocate_return
+
+move_deallocate_return
+
 # Destructive set tuple element
 
 set_tuple_element s S P
@@ -196,6 +212,10 @@ is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
   equal(Fail, Fail2) | equal(Src, Src) =>
     i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
+is_tuple Fail1=f Src | test_arity Fail2 Src2 Arity |
+  equal(Src, Src) =>
+    i_is_tuple_of_arity_ff Fail1 Fail2 Src Arity | current_tuple Src
+
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
 is_tuple NotTupleFail Src |
@@ -210,6 +230,7 @@ is_tagged_tuple Fail Tuple Arity Atom =>
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
 
 i_is_tuple_of_arity f s A
+i_is_tuple_of_arity_ff f f s A
 i_test_arity f s A
 
 i_is_tagged_tuple f s A a
@@ -305,18 +326,9 @@ system_limit_body
 #
 # Optimize moves of consecutive memory addresses.
 #
-move Src=c Dst => i_move Src Dst
 move Src SrcDst | move SrcDst2 Dst |
   equal(SrcDst, SrcDst2) =>
     i_move Src SrcDst | move SrcDst Dst
-
-# Optimize two moves from X registers to Y registers when destination
-# Y registers are consecutive.
-
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D1, D2) =>
-    store_two_xregs S1 D1 S2 D2
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D2, D1) =>
-    store_two_xregs S2 D2 S1 D1
 
 # Optimize two moves from Y registers to X registers when source Y
 # registers are consecutive.
@@ -331,14 +343,13 @@ move S1=y D1=x | move S2=y D2=x |
   distinct(D1, D2) =>
     load_two_xregs S2 D2 S1 D1
 
-# Optimize two moves of Y registers when destinations are consecutive.
-move S1=y D1=y | move S2=y D2=y |
-  consecutive_words(D1, D2) =>
-    move_two_yregs S1 D1 S2 D2
+# Optimize storing two values in Y registers when destination Y
+# registers are consecutive.
 
-move S1=y D1=y | move S2=y D2=y |
-  consecutive_words(D2, D1) =>
-    move_two_yregs S2 D2 S1 D1
+move S1 D1=y | move S2 D2=y | consecutive_words(D1, D2) =>
+    store_two_values S1 D1 S2 D2
+move S1 D1=y | move S2 D2=y | consecutive_words(D2, D1) =>
+    store_two_values S2 D2 S1 D1
 
 move Src Dst | trim N u => move_trim Src Dst N
 
@@ -347,9 +358,8 @@ move_trim s d t
 move Src Dst => i_move Src Dst
 
 i_move s d
-store_two_xregs x y x y
+store_two_values s y s y
 load_two_xregs y x y x
-move_two_yregs y y y y
 
 #
 # Swap instructions.
@@ -636,6 +646,17 @@ call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) =>
     i_call_ext Bif | deallocate D | return
 call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
     allocate u Ar | i_call_ext Bif | deallocate u | return
+
+#
+# BIFs that always raise an exception need no trailing deallocate and
+# return instructions.
+#
+call_ext_last u Bif u | is_exit_bif(Bif) =>
+    call_light_bif Bif | mark_unreachable
+call_ext_only Ar=u Bif | is_exit_bif(Bif) =>
+    allocate u Ar | call_light_bif Bif | mark_unreachable
+
+mark_unreachable
 
 #
 # The general case for BIFs that have no special requirements.
