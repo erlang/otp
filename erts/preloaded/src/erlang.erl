@@ -2895,6 +2895,7 @@ statistics(_Item) ->
 subtract(_,_) ->
     erlang:nif_error(undefined).
 
+-doc "The requested scheduler bind type.".
 -type scheduler_bind_type() ::
       'no_node_processor_spread' |
       'no_node_thread_spread' |
@@ -3061,18 +3062,41 @@ trace_pattern(MFA, MatchSpec, FlagList) ->
 tuple_to_list(_Tuple) ->
     erlang:nif_error(undefined).
 
+-doc "The current cpu topology.
+
+`node` refers to Non-Uniform Memory Access (NUMA) nodes. `thread` refers
+to hardware threads (for example, Intel hyper-threads).
+
+A level in term `CpuTopology` can be omitted if only one entry exists and
+`InfoList` is empty.
+
+`thread` can only be a sublevel to `core`. `core` can be a sublevel to
+`processor` or `node`. `processor` can be on the top level or a sublevel to
+`node`. `node` can be on the top level or a sublevel to `processor`. That
+is, NUMA nodes can be processor internal or processor external. A CPU
+topology can consist of a mix of processor internal and external NUMA nodes,
+as long as each logical CPU belongs to _one_ NUMA node. Cache hierarchy is
+not part of the `CpuTopology` type, but will be in a future release. Other
+things can also make it into the CPU topology in a future release. So, expect
+the `CpuTopology` type to change.
+".
 -type cpu_topology() ::
         [LevelEntry :: level_entry()] | undefined.
+-doc "".
 -type level_entry() ::
         {LevelTag :: level_tag(), SubLevel :: sub_level()}
       | {LevelTag :: level_tag(),
          InfoList :: info_list(),
          SubLevel :: sub_level()}.
+-doc "".
 -type level_tag() :: core | node | processor | thread.
+-doc "".
 -type sub_level() :: [LevelEntry :: level_entry()]
                    | (LogicalCpuId :: {logical, non_neg_integer()}).
+-doc "".
 -type info_list() :: [].
 
+-doc "A list with the system wide garbage collection defaults.".
 -type garbage_collection_defaults() :: [{max_heap_size, non_neg_integer()} |
                                         {min_bin_heap_size, non_neg_integer()} |
                                         {min_heap_size, non_neg_integer()} |
@@ -3181,6 +3205,7 @@ tuple_to_list(_Tuple) ->
          (overview) -> boolean();
          %% Deliberately left undocumented
          (sequential_tracer) -> {sequential_tracer, pid() | port() | {module(),term()} | false}.
+-doc {file,"../../doc/src/erlang_system_info.md"}.
 system_info(_Item) ->
     erlang:nif_error(undefined).
 
@@ -3914,49 +3939,50 @@ port_info(Port) ->
 	Result -> Result
     end.
 
--spec erlang:port_info(Port, connected) -> {connected, Pid} | 'undefined' when
+-spec erlang:port_info(Port, Item :: connected) -> {connected, Pid} | 'undefined' when
       Port :: port() | atom(),
       Pid :: pid();
-		      (Port, id) -> {id, Index} | 'undefined' when
+		      (Port, Item :: id) -> {id, Index} | 'undefined' when
       Port :: port() | atom(),
       Index :: non_neg_integer();
-		      (Port, input) -> {input, Bytes} | 'undefined' when
+		      (Port, Item :: input) -> {input, Bytes} | 'undefined' when
       Port :: port() | atom(),
       Bytes :: non_neg_integer();
-		      (Port, links) -> {links, Pids} | 'undefined' when
+		      (Port, Item :: links) -> {links, Pids} | 'undefined' when
       Port :: port() | atom(),
       Pids :: [pid()];
-		      (Port, locking) -> {locking, Locking} | 'undefined' when
+		      (Port, Item :: locking) -> {locking, Locking} | 'undefined' when
       Port :: port() | atom(),
       Locking :: 'false' | 'port_level' | 'driver_level';
-		      (Port, memory) -> {memory, Bytes} | 'undefined' when
+		      (Port, Item :: memory) -> {memory, Bytes} | 'undefined' when
       Port :: port() | atom(),
       Bytes :: non_neg_integer();
-		      (Port, monitors) -> {monitors, Monitors} | 'undefined' when
+		      (Port, Item :: monitors) -> {monitors, Monitors} | 'undefined' when
       Port :: port() | atom(),
       Monitors :: [{process, pid()}];
-		      (Port, monitored_by) -> {monitored_by, MonitoredBy} | 'undefined' when
+		      (Port, Item :: monitored_by) -> {monitored_by, MonitoredBy} | 'undefined' when
       Port :: port() | atom(),
       MonitoredBy :: [pid()];
-		      (Port, name) -> {name, Name} | 'undefined' when
+		      (Port, Item :: name) -> {name, Name} | 'undefined' when
       Port :: port() | atom(),
       Name :: string();
-		      (Port, os_pid) -> {os_pid, OsPid} | 'undefined' when
+		      (Port, Item :: os_pid) -> {os_pid, OsPid} | 'undefined' when
       Port :: port() | atom(),
       OsPid :: non_neg_integer() | 'undefined';
-		      (Port, output) -> {output, Bytes} | 'undefined' when
+		      (Port, Item :: output) -> {output, Bytes} | 'undefined' when
       Port :: port() | atom(),
       Bytes :: non_neg_integer();
-		      (Port, parallelism) -> {parallelism, Boolean} | 'undefined' when
+		      (Port, Item :: parallelism) -> {parallelism, Boolean} | 'undefined' when
       Port :: port() | atom(),
       Boolean :: boolean();
-		      (Port, queue_size) -> {queue_size, Bytes} | 'undefined' when
+		      (Port, Item :: queue_size) -> {queue_size, Bytes} | 'undefined' when
       Port :: port() | atom(),
       Bytes :: non_neg_integer();
-		      (Port, registered_name) -> {registered_name, RegisteredName} | [] | 'undefined' when
+		      (Port, Item :: registered_name) -> {registered_name, RegisteredName} | [] | 'undefined' when
       Port :: port() | atom(),
       RegisteredName :: atom().
 
+-doc {file, "../../doc/src/erlang_port_info.md"}.
 port_info(Port, Item) ->
     case case erts_internal:port_info(Port, Item) of
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;

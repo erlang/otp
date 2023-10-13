@@ -48,7 +48,6 @@
 %%        -code_path_choice : strict | relaxed
 
 -module(init).
-
 -feature(maybe_expr, enable).
 
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
