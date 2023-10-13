@@ -1,0 +1,3 @@
+-module(export_type).
+-export_type([my_binary/0]).
+-type my_binary() :: binary().

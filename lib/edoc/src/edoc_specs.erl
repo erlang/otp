@@ -21,7 +21,7 @@
 
 -module(edoc_specs).
 
--export([type/2, spec/1, dummy_spec/1, docs/2]).
+-export([type/3, spec/2, dummy_spec/1, docs/2]).
 
 -export([add_type_data/4, tag/1, is_tag/1]).
 
@@ -29,6 +29,7 @@
 -include("edoc_types.hrl").
 
 -type syntaxTree() :: erl_syntax:syntaxTree().
+-type imported_types() :: #{{atom(), arity()} => module()}.
 
 -define(TOP_TYPE, term).
 
@@ -36,12 +37,14 @@
 %%  Exported functions
 %%
 
--spec type(Form::syntaxTree(), TypeDocs::dict:dict()) -> #tag{}.
+-spec type(Form::syntaxTree(),
+           TypeDocs::dict:dict(),
+           Imp::imported_types()) -> #tag{}.
 
 %% @doc Convert an Erlang type to EDoc representation.
 %% TypeDocs is a dict of {Name, Doc}.
 %% Note: #t_typedef.name is set to {record, R} for record types.
-type(Form, TypeDocs) ->
+type(Form, TypeDocs, Imp) ->
     {Name, Data0} = analyze_type_attribute(Form),
     {TypeName, Type, Args, Doc} =
         case Data0 of
@@ -64,19 +67,19 @@ type(Form, TypeDocs) ->
     #tag{name = type, line = get_line(element(2, Type)),
          origin = code,
          data = {#t_typedef{name = TypeName,
-                            args = d2e(Args),
-                            type = d2e(opaque2abstr(Name, Type))},
+                            args = d2e(Args, Imp),
+                            type = d2e(opaque2abstr(Name, Type), Imp)},
                  Doc},
          form = Form}.
 
--spec spec(Form::syntaxTree()) -> #tag{}.
+-spec spec(Form::syntaxTree(), Imp::imported_types()) -> #tag{}.
 
 %% @doc Convert an Erlang spec to EDoc representation.
-spec(Form) ->
+spec(Form, Imp) ->
     {Name, _Arity, TypeSpecs} = get_spec(Form),
     #tag{name = spec, line = get_line(element(2, lists:nth(1, TypeSpecs))),
          origin = code,
-         data = [aspec(d2e(TypeSpec), Name) || TypeSpec <- TypeSpecs],
+         data = [aspec(d2e(TypeSpec, Imp), Name) || TypeSpec <- TypeSpecs],
          form = Form}.
 
 -spec dummy_spec(Form::syntaxTree()) -> #tag{}.
@@ -329,119 +332,121 @@ arg_name([A | As], Default) ->
 is_name(A) ->
     is_atom(A).
 
-d2e(T) ->
-    d2e(T, 0).
+d2e(T, Imp) ->
+    d2e(T, 0, Imp).
 
-d2e({ann_type,_,[V, T0]}, Prec) ->
+d2e({ann_type,_,[V, T0]}, Prec, Imp) ->
     %% Note: the -spec/-type syntax allows annotations everywhere, but
     %% EDoc does not. The fact that the annotation is added to the
     %% type here does not necessarily mean that it will be used by the
     %% layout module.
     {_L,P,R} = erl_parse:type_inop_prec('::'),
-    T1 = d2e(T0, R),
+    T1 = d2e(T0, R, Imp),
     T = ?add_t_ann(T1, element(3, V)),
     maybe_paren(P, Prec, T); % the only necessary call to maybe_paren()
-d2e({remote_type,_,[{atom,_,M},{atom,_,F},Ts0]}, _Prec) ->
-    Ts = d2e(Ts0),
+d2e({remote_type,_,[{atom,_,M},{atom,_,F},Ts0]}, _Prec, Imp) ->
+    Ts = d2e(Ts0, Imp),
     typevar_anno(#t_type{name = #t_name{module = M, name = F}, args = Ts}, Ts);
-d2e({type,_,'fun',[{type,_,product,As0},Ran0]}, _Prec) ->
-    Ts = [Ran|As] = d2e([Ran0|As0]),
+d2e({type,_,'fun',[{type,_,product,As0},Ran0]}, _Prec, Imp) ->
+    Ts = [Ran|As] = d2e([Ran0|As0], Imp),
     %% Assume that the linter has checked type variables.
     typevar_anno(#t_fun{args = As, range = Ran}, Ts);
-d2e({type,_,'fun',[A0={type,_,any},Ran0]}, _Prec) ->
-    Ts = [A, Ran] = d2e([A0, Ran0]),
+d2e({type,_,'fun',[A0={type,_,any},Ran0]}, _Prec, Imp) ->
+    Ts = [A, Ran] = d2e([A0, Ran0], Imp),
     typevar_anno(#t_fun{args = [A], range = Ran}, Ts);
-d2e({type,_,'fun',[]}, _Prec) ->
+d2e({type,_,'fun',[]}, _Prec, _Imp) ->
     #t_type{name = #t_name{name = function}, args = []};
-d2e({type,_,any}, _Prec) ->
+d2e({type,_,any}, _Prec, _Imp) ->
     #t_var{name = '...'}; % Kludge... not a type variable!
-d2e({type,_,nil,[]}, _Prec) ->
+d2e({type,_,nil,[]}, _Prec, _Imp) ->
     #t_nil{};
-d2e({paren_type,_,[T]}, Prec) ->
-    d2e(T, Prec);
-d2e({type,_,list,[T0]}, _Prec) ->
-    T = d2e(T0),
+d2e({paren_type,_,[T]}, Prec, Imp) ->
+    d2e(T, Prec, Imp);
+d2e({type,_,list,[T0]}, _Prec, Imp) ->
+    T = d2e(T0, Imp),
     typevar_anno(#t_list{type = T}, [T]);
-d2e({type,_,nonempty_list,[T0]}, _Prec) ->
-    T = d2e(T0),
+d2e({type,_,nonempty_list,[T0]}, _Prec, Imp) ->
+    T = d2e(T0, Imp),
     typevar_anno(#t_nonempty_list{type = T}, [T]);
-d2e({type,_,bounded_fun,[T,Gs]}, _Prec) ->
-    [F0|Defs] = d2e([T|Gs]),
+d2e({type,_,bounded_fun,[T,Gs]}, _Prec, Imp) ->
+    [F0|Defs] = d2e([T|Gs], Imp),
     F = ?set_t_ann(F0, lists:keydelete(type_variables, 1, ?t_ann(F0))),
     %% Assume that the linter has checked type variables.
     #t_spec{type = typevar_anno(F, [F0]), defs = Defs};
-d2e({type,_,range,[V1,V2]}, Prec) ->
+d2e({type,_,range,[V1,V2]}, Prec, _Imp) ->
     {_L,P,_R} = erl_parse:type_inop_prec('..'),
     {integer,_,I1} = erl_eval:partial_eval(V1),
     {integer,_,I2} = erl_eval:partial_eval(V2),
     T0 = #t_integer_range{from = I1, to = I2},
     maybe_paren(P, Prec, T0);
-d2e({type,_,constraint,[Sub,Ts0]}, _Prec) ->
+d2e({type,_,constraint,[Sub,Ts0]}, _Prec, Imp) ->
     case {Sub,Ts0} of
         {{atom,_,is_subtype},[{var,_,N},T0]} ->
-            Ts = [T] = d2e([T0]),
+            Ts = [T] = d2e([T0], Imp),
             #t_def{name = #t_var{name = N}, type = typevar_anno(T, Ts)};
         {{atom,_,is_subtype},[ST0,T0]} ->
             %% Should not happen.
-            Ts = [ST,T] = d2e([ST0,T0]),
+            Ts = [ST,T] = d2e([ST0,T0], Imp),
             #t_def{name = ST, type = typevar_anno(T, Ts)};
         _ ->
             throw_error(get_line(element(2, Sub)), "cannot handle guard", [])
     end;
-d2e({type,_,union,Ts0}, Prec) ->
+d2e({type,_,union,Ts0}, Prec, Imp) ->
     {_L,P,R} = erl_parse:type_inop_prec('|'),
-    Ts = d2e(Ts0, R),
+    Ts = d2e(Ts0, R, Imp),
     T = maybe_paren(P, Prec, #t_union{types = Ts}),
     typevar_anno(T, Ts);
-d2e({type,_,tuple,any}, _Prec) ->
+d2e({type,_,tuple,any}, _Prec, _Imp) ->
     #t_type{name = #t_name{name = tuple}, args = []};
-d2e({type,_,binary,[Base,Unit]}, _Prec) ->
+d2e({type,_,binary,[Base,Unit]}, _Prec, _Imp) ->
     {integer,_,B} = erl_eval:partial_eval(Base),
     {integer,_,U} = erl_eval:partial_eval(Unit),
     #t_binary{base_size = B, unit_size = U};
-d2e({type,_,map,any}, _Prec) ->
+d2e({type,_,map,any}, _Prec, _Imp) ->
     #t_type{name = #t_name{name = map}, args = []};
-d2e({type,_,map,Es}, _Prec) ->
-    #t_map{types = d2e(Es) };
-d2e({type,_,map_field_assoc,[K,V]}, Prec) ->
-    T = #t_map_field{assoc_type = assoc, k_type = d2e(K), v_type=d2e(V) },
+d2e({type,_,map,Es}, _Prec, Imp) ->
+    #t_map{types = d2e(Es, Imp) };
+d2e({type,_,map_field_assoc,[K,V]}, Prec, Imp) ->
+    T = #t_map_field{assoc_type = assoc, k_type = d2e(K, Imp), v_type=d2e(V, Imp) },
     {P,_R} = erl_parse:type_preop_prec('#'),
     maybe_paren(P, Prec, T);
-d2e({type,_,map_field_exact,[K,V]}, Prec) ->
-    T = #t_map_field{assoc_type = exact, k_type = d2e(K), v_type=d2e(V) },
+d2e({type,_,map_field_exact,[K,V]}, Prec, Imp) ->
+    T = #t_map_field{assoc_type = exact, k_type = d2e(K, Imp), v_type=d2e(V, Imp) },
     {P,_R} = erl_parse:type_preop_prec('#'),
     maybe_paren(P, Prec, T);
-d2e({type,_,tuple,Ts0}, _Prec) ->
-    Ts = d2e(Ts0),
+d2e({type,_,tuple,Ts0}, _Prec, Imp) ->
+    Ts = d2e(Ts0, Imp),
     typevar_anno(#t_tuple{types = Ts}, Ts);
-d2e({type,_,record,[Name|Fs0]}, Prec) ->
+d2e({type,_,record,[Name|Fs0]}, Prec, Imp) ->
     Atom = #t_atom{val = element(3, Name)},
-    Fs = d2e(Fs0),
+    Fs = d2e(Fs0, Imp),
     {P,_R} = erl_parse:type_preop_prec('#'),
     T = maybe_paren(P, Prec, #t_record{name = Atom, fields = Fs}),
     typevar_anno(T, Fs);
-d2e({type,_,field_type,[Name,Type0]}, Prec) ->
+d2e({type,_,field_type,[Name,Type0]}, Prec, Imp) ->
     {_L,P,R} = erl_parse:type_inop_prec('::'),
-    Type = maybe_paren(P, Prec, d2e(Type0, R)),
+    Type = maybe_paren(P, Prec, d2e(Type0, R, Imp)),
     T = #t_field{name = #t_atom{val = element(3, Name)}, type = Type},
     typevar_anno(T, [Type]);
-d2e({typed_record_field,{record_field,L,Name},Type}, Prec) ->
-    d2e({type,L,field_type,[Name,Type]}, Prec);
-d2e({typed_record_field,{record_field,L,Name,_E},Type}, Prec) ->
-    d2e({type,L,field_type,[Name,Type]}, Prec);
-d2e({record_field,L,_Name,_E}=F, Prec) ->
-    d2e({typed_record_field,F,{type,L,any,[]}}, Prec); % Maybe skip...
-d2e({record_field,L,_Name}=F, Prec) ->
-    d2e({typed_record_field,F,{type,L,any,[]}}, Prec); % Maybe skip...
-d2e({type,_,Name,Types0}, _Prec) ->
-    Types = d2e(Types0),
+d2e({typed_record_field,{record_field,L,Name},Type}, Prec, Imp) ->
+    d2e({type,L,field_type,[Name,Type]}, Prec, Imp);
+d2e({typed_record_field,{record_field,L,Name,_E},Type}, Prec, Imp) ->
+    d2e({type,L,field_type,[Name,Type]}, Prec, Imp);
+d2e({record_field,L,_Name,_E}=F, Prec, Imp) ->
+    d2e({typed_record_field,F,{type,L,any,[]}}, Prec, Imp); % Maybe skip...
+d2e({record_field,L,_Name}=F, Prec, Imp) ->
+    d2e({typed_record_field,F,{type,L,any,[]}}, Prec, Imp); % Maybe skip...
+d2e({type,_,Name,Types0}, _Prec, Imp) ->
+    Types = d2e(Types0, Imp),
     typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
-d2e({user_type,_,Name,Types0}, _Prec) ->
-    Types = d2e(Types0),
-    typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
-d2e({var,_,'_'}, _Prec) ->
+d2e({user_type,_,Name,Types0}, _Prec, Imp) ->
+    Arity = length(Types0),
+    Mod = maps:get({Name, Arity}, Imp, []),
+    Types = d2e(Types0, Imp),
+    typevar_anno(#t_type{name = #t_name{module = Mod, name = Name}, args = Types}, Types);
+d2e({var,_,'_'}, _Prec, _Imp) ->
     #t_type{name = #t_name{name = ?TOP_TYPE}};
-d2e({var,_,TypeName}, _Prec) ->
+d2e({var,_,TypeName}, _Prec, _Imp) ->
     TypeVar = ordsets:from_list([TypeName]),
     T = #t_var{name = TypeName},
     %% Annotate type variables with the name of the variable.
@@ -449,13 +454,13 @@ d2e({var,_,TypeName}, _Prec) ->
     %% from using the argument name from the source or to invent a new name.
     T1 = ?add_t_ann(T, {type_variables, TypeVar}),
     ?add_t_ann(T1, TypeName);
-d2e(L, Prec) when is_list(L) ->
-    [d2e(T, Prec) || T <- L];
-d2e({atom,_,A}, _Prec) ->
+d2e(L, Prec, Imp) when is_list(L) ->
+    [d2e(T, Prec, Imp) || T <- L];
+d2e({atom,_,A}, _Prec, _Imp) ->
     #t_atom{val = A};
-d2e(undefined = U, _Prec) -> % opaque
+d2e(undefined = U, _Prec, _Imp) -> % opaque
     U;
-d2e(Expr, _Prec) ->
+d2e(Expr, _Prec, _Imp) ->
     {integer,_,I} = erl_eval:partial_eval(Expr),
     #t_integer{val = I}.
 

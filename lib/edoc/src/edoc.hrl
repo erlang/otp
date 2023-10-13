@@ -51,7 +51,8 @@
 		 attributes = [],
 		 records = [],
 		 encoding = latin1,
-		 file}).
+		 file,
+		 imported_types = #{}}).
 
 -record(env, {module = [],
 	      root = "",

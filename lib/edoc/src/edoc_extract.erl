@@ -132,7 +132,8 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Env1 = Env#env{module = Name,
 		   root = ""},
     Env2 = add_macro_defs(module_macros(Env1), Opts, Env1),
-    Entries1 = get_tags([Header, Footer | Entries], Env2, File, TypeDocs),
+    Imp = Module#module.imported_types,
+    Entries1 = get_tags([Header, Footer | Entries], Env2, File, TypeDocs, Imp),
     Entries2 = edoc_specs:add_type_data(Entries1, Opts, File, Module),
     edoc_tags:check_types(Entries2, Opts, File),
     Data = edoc_data:module(Module, Entries2, Env2, Opts),
@@ -211,7 +212,8 @@ header(Tree, File0, Env, _Opts) ->
 	   warning(File, "documentation before function definitions is ignored by @headerfile", []);
        true -> ok
     end,
-    [Entry] = get_tags([Footer#entry{name = header}], Env, File),
+    Imp = #{},
+    [Entry] = get_tags([Footer#entry{name = header}], Env, File, Imp),
     Entry#entry.data.
 
 %% NEW-OPTIONS: def
@@ -323,6 +325,7 @@ get_module_info(Forms, File) ->
     Attributes = ordsets:from_list(get_list_keyval(attributes, L)),
     Records = get_list_keyval(records, L),
     Encoding = edoc_lib:read_encoding(File, []),
+    ImportedTypes = #{T => M || {import_type, {M, Ts}} <- Attributes, T <- Ts},
     #module{name = Name,
 	    parameters = Vars,
 	    functions = Functions,
@@ -330,7 +333,8 @@ get_module_info(Forms, File) ->
 	    attributes = Attributes,
 	    records = Records,
 	    encoding = Encoding,
-	    file = File}.
+	    file = File,
+	    imported_types = ImportedTypes}.
 
 get_list_keyval(Key, L) ->
     case lists:keyfind(Key, 1, L) of
@@ -622,10 +626,10 @@ capitalize(Cs) -> Cs.
 %                      footer :: sets:set(atom()),
 %                      function :: sets:set(atom())}.
 
-get_tags(Es, Env, File) ->
-    get_tags(Es, Env, File, dict:new()).
+get_tags(Es, Env, File, Imp) ->
+    get_tags(Es, Env, File, dict:new(), Imp).
 
-get_tags(Es, Env, File, TypeDocs) ->
+get_tags(Es, Env, File, TypeDocs, Imp) ->
     %% Cache this stuff for quick lookups.
     Tags = #tags{names = sets:from_list(edoc_tags:tag_names()),
 		 single = sets:from_list(edoc_tags:tags(single)),
@@ -633,21 +637,21 @@ get_tags(Es, Env, File, TypeDocs) ->
 		 footer = sets:from_list(edoc_tags:tags(footer)),
 		 function = sets:from_list(edoc_tags:tags(function))},
     How = dict:from_list(edoc_tags:tag_parsers()),
-    get_tags(Es, Tags, Env, How, File, TypeDocs).
+    get_tags(Es, Tags, Env, How, File, TypeDocs, Imp).
 
 get_tags([#entry{name = Name, data = {Cs,Cbs,Specs,Types,Records}} = E | Es],
-         Tags, Env, How, File, TypeDocs) ->
+         Tags, Env, How, File, TypeDocs, Imp) ->
     Where = {File, Name},
     Ts0 = scan_tags(Cs),
     {Ts1,Specs1} = select_spec(Ts0, Where, Specs),
     Ts2 = check_tags(Ts1, Tags, Where),
     Ts3 = edoc_macros:expand_tags(Ts2, Env, Where),
     Ts4 = edoc_tags:parse_tags(Ts3, How, Env, Where),
-    Ts = selected_specs(Specs1, Ts4),
-    ETypes = [edoc_specs:type(Type, TypeDocs) || Type <- Types ++ Records],
+    Ts = selected_specs(Specs1, Ts4, Imp),
+    ETypes = [edoc_specs:type(Type, TypeDocs, Imp) || Type <- Types ++ Records],
     Callbacks = get_callbacks(Name, Cbs, TypeDocs),
-    [E#entry{data = Ts ++ ETypes ++ Callbacks} | get_tags(Es, Tags, Env, How, File, TypeDocs)];
-get_tags([], _, _, _, _, _) ->
+    [E#entry{data = Ts ++ ETypes ++ Callbacks} | get_tags(Es, Tags, Env, How, File, TypeDocs, Imp)];
+get_tags([], _, _, _, _, _, _) ->
     [].
 
 get_callbacks(_EntryName, CbForms, TypeDocs) ->
@@ -713,10 +717,10 @@ skip_specs(Ts) ->
     [ T || T = #tag{name = N} <- Ts, N /= spec ].
 
 %% If a `-spec' attribute is present, it takes precedence over `@spec' tags.
-selected_specs([], Ts) ->
+selected_specs([], Ts, _) ->
     Ts;
-selected_specs([F], Ts) ->
-    [edoc_specs:spec(F) | skip_specs(Ts)].
+selected_specs([F], Ts, Imp) ->
+    [edoc_specs:spec(F, Imp) | skip_specs(Ts)].
 
 %% Macros for modules
 
