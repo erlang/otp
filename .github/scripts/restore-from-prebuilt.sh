@@ -1,4 +1,21 @@
 #!/bin/bash
+## restore-from-prebuilt.sh CACHE_SRC_DIR TARGET [ARCHIVE] [EVENT] [DELETED] [CHANGES]
+##
+## This script attempts to restore as much as possible from a previous
+## CI run so that we don't have to build everything all the time.
+## It works by merging the contents of:
+##   * ${ARCHIVE} - The original source code, created by git archive
+##   * ${CACHE_SOURCE_DIR}/otp_src.tar.gz - The pre-built tar archive
+##   * ${CACHE_SOURCE_DIR}/otp_cache.tar.gz - A cache of many binary files
+##
+## otp_src and otp_cache can be either from a different step in the same CI run
+## or from a different CI run altogether.
+##
+## The archives above are then processed and placed into a new ${TARGET} archive.
+##
+## When running this script using the contents of a previous CI run you also have
+## to pass the EVENT, DELETED and CHANGES arguments so that the correct parts of
+## otp_src and otp_cache can be deleted.
 
 set -xe
 
@@ -27,9 +44,12 @@ mkdir "${ARCHIVE_DIR}"
 echo "::group::{Restore cached files}"
 tar -C "${CACHE_DIR}/" -xzf "${CACHE_SOURCE_DIR}/otp_src.tar.gz"
 
-## If configure scripts have NOT changed, we can restore configure and other C/java programs
-if [ -z "${CONFIGURE}" ] || [ "${CONFIGURE}" = "false" ]; then
-    tar -C "${CACHE_DIR}/" -xzf "${CACHE_SOURCE_DIR}/otp_cache.tar.gz"
+## If we have a binary cache
+if [ -f "${CACHE_SOURCE_DIR}/otp_cache.tar.gz" ]; then
+    ## If configure scripts have NOT changed, we can restore configure and other C/java programs
+    if [ -z "${CONFIGURE}" ] || [ "${CONFIGURE}" = "false" ]; then
+        tar -C "${CACHE_DIR}/" -xzf "${CACHE_SOURCE_DIR}/otp_cache.tar.gz"
+    fi
 fi
 
 ## If bootstrap has been changed, we do not use the cached .beam files
