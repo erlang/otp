@@ -286,11 +286,10 @@ docs(Application, OTPXml, FromBEAM)->
                     put(application, Application),
                     put(module, filename:basename(filename:rootname(FromBEAM))),
                     NewDom = transform(Dom, []),
-                    Chunk = add_hidden_types(
-                              add_hidden_functions(
-                                proplists:get_value(exports, Chunks),
-                                to_chunk(NewDom, OTPXml, Module,
-                                         proplists:get_value(abstract_code, Chunks)))),
+                    Chunk = add_hidden_functions(
+                              proplists:get_value(exports, Chunks),
+                              to_chunk(NewDom, OTPXml, Module,
+                                       proplists:get_value(abstract_code, Chunks))),
                     verify_chunk(Module, proplists:get_value(exports, Chunks), Chunk),
                     Chunk;
                 _Else ->
@@ -310,14 +309,14 @@ add_hidden_functions(Exports, #docs_v1{ anno = Anno, docs = Docs } = Chunk) ->
                           lists:keysearch({function, F, A}, 1, Docs) == false ],
     Chunk#docs_v1{ docs = HiddenFuncs ++ Docs }.
 
-add_hidden_types(#docs_v1{ anno = Anno, docs = Docs, metadata = Meta } = Chunk) ->
-    Types = maps:get(types, Meta, []),
-    HiddenTypes =
-        [{{type, F, A}, Anno,
-          [iolist_to_binary(io_lib:format("-type ~p/~p", [F, A]))],
-          hidden, #{}} || {F, A} := _ <- Types,
-                          lists:keysearch({type, F, A}, 1, Docs) == false ],
-    Chunk#docs_v1{ docs = HiddenTypes ++ Docs }.
+%% add_hidden_types(#docs_v1{ anno = Anno, docs = Docs, metadata = Meta } = Chunk) ->
+%%     Types = maps:get(types, Meta, []),
+%%     HiddenTypes =
+%%         [{{type, F, A}, Anno,
+%%           [iolist_to_binary(io_lib:format("-type ~p/~p", [F, A]))],
+%%           hidden, #{}} || {F, A} := _ <- Types,
+%%                           lists:keysearch({type, F, A}, 1, Docs) == false ],
+%%     Chunk#docs_v1{ docs = HiddenTypes ++ Docs }.
 
 verify_chunk(M, Exports, #docs_v1{ docs = Docs } = Doc) ->
 
@@ -379,7 +378,7 @@ transform([{code,Attr,Content}|T],Acc) ->
     transform(T, [{pre,[],[{code,a2b(Attr),transform(Content,[])}]}|Acc]);
 %% transform <pre> to <pre><code>
 transform([{pre,Attr,Content}|T],Acc) ->
-    transform(T, [{pre,[],[{code,Attr,transform(Content,[])}]}|Acc]);
+    transform(T, [{pre,[],[{code,a2b(Attr),transform(Content,[])}]}|Acc]);
 
 %% transform <funcs> with <func> as children
 transform([{funcs,_Attr,Content}|T],Acc) ->
@@ -841,9 +840,18 @@ to_chunk(Dom, Source, Module, AST) ->
     docs_v1(ModuleDocs, Anno, TypeMeta, FuncEntrys ++ TypeEntries).
 
 docs_v1(DocContents, Anno, Metadata, Docs) ->
+    Titles = case lists:uniq([{Kind, Title} || {{Kind,_,_}, _, _, _, #{ title := Title}} <- Docs]) of
+                 [] -> #{};
+                 Ts ->
+                     #{ titles => Ts }
+             end,
     #docs_v1{ anno = Anno,
               module_doc = #{<<"en">> => shell_docs:normalize(DocContents)},
-              metadata = maps:merge(Metadata, (#docs_v1{})#docs_v1.metadata),
+              metadata = maps:merge(
+                           Titles,
+                           maps:merge(
+                             Metadata,
+                             (#docs_v1{})#docs_v1.metadata)),
               docs = Docs }.
 
 docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->

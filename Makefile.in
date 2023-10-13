@@ -464,6 +464,29 @@ endif
 	$(DOCGEN)/priv/bin/validate_links.escript $(ERL_TOP) make/$(TARGET)/mod2app.xml \
 		lib/*/doc/xml/*.xml erts/doc/xml/*.xml system/doc/xml/*/*.xml
 
+generate-docs:
+	./otp_build update_preloaded --no-commit
+	$(MAKE)
+	$(MAKE) docs DOC_TARGETS="chunks html"
+	(cd system/doc && $(MAKE) docs)
+	./generate-docs.sh
+
+generate-erl-docs:
+	FORMAT_MD=true $(MAKE) generate-docs
+	find . -name "*.md" -type f \! -path "*megaco/doc/*" -exec git add {} \;
+	git add -f lib/*/doc/docs.exs erts/doc/docs.exs
+	find lib/megaco -name "*.md" -exec git add -f {} \;
+	./otp_build update_preloaded --no-commit
+	git add -u
+	git clean -fd
+	git commit -m "otp: Generate markdown documentation"
+
+ex-docs: generate-docs
+	./otp_build update_preloaded --no-commit
+	make
+	(cd lib/jinterface && $(MAKE) docs)
+	./docs.sh
+
 mod2app: doc_bootstrap_copy $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 $(ERL_TOP)/make/$(TARGET)/mod2app.xml: erts/doc/src/Makefile lib/*/doc/src/Makefile 
