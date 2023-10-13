@@ -71,16 +71,20 @@ jobs:
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
-      - name: Cache pre-built tar archives
-        id: pre-built-cache
+      - name: Cache pre-built src
         uses: actions/cache@v3.3.2
         with:
-            path: |
-                otp_src.tar.gz
-                otp_cache.tar.gz
-            key: prebuilt-${{ github.ref_name }}-${{ github.sha }}
+            path: otp_src.tar.gz
+            key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
-                prebuilt-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+                prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+      - name: Cache pre-built binaries
+        uses: actions/cache@v3.3.2
+        with:
+            path: otp_cache.tar.gz
+            key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-cache-64-bit-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
       - uses: dorny/paths-filter@v2.11.1
         id: cache
         with:
@@ -134,7 +138,7 @@ jobs:
           docker run -v $PWD:/github --entrypoint "" otp \
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
-      - name: Upload pre-built tar archive
+      - name: Upload pre-built tar archives
         uses: actions/upload-artifact@v3.1.3
         with:
           name: otp_prebuilt
