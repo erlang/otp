@@ -63,5 +63,5 @@ runs:
           rm -f otp_{src,cache}.tar.gz
           docker build --tag otp \
             --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
-            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            --file ".github/dockerfiles/Dockerfile.${{ inputs.TYPE }}" \
             .github/
