@@ -69,7 +69,7 @@ floor_ceil(_Config) ->
     MinusZero = 0.0/(-1.0),
     -43.0 = do_floor_ceil(-42.1),
     -43.0 = do_floor_ceil(-42.7),
-    0.0 = do_floor_ceil(MinusZero),
+    true = (0.0 == do_floor_ceil(MinusZero)),
     10.0 = do_floor_ceil(10.1),
     10.0 = do_floor_ceil(10.9),
 

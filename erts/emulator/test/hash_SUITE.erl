@@ -835,9 +835,10 @@ hash_zero_test() ->
 hash_zero_test([Z|Zs],F) ->
     hash_zero_test(Zs,Z,F(Z),F).
 hash_zero_test([Z|Zs],Z0,V,F) ->
-    true = Z0 =:= Z, %% assert exact equal
-    Z0   = Z,        %% assert matching
-    V    = F(Z),     %% assert hash
+    true = (0.0 == Z0) andalso (0.0 == Z),
+    %% assert that phash and phash2 yield the same hash for both -0.0 and +0.0,
+    %% even though they are different terms since OTP 27.
+    V    = F(Z),
     hash_zero_test(Zs,Z0,V,F);
 hash_zero_test([],_,_,_) ->
     ok.

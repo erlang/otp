@@ -2108,11 +2108,6 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
 
                 GET_DOUBLE(term, ff);
 
-                if (ff.fd == 0.0f) {
-                    /* ensure positive 0.0 */
-                    ff.fd = erts_get_positive_zero_float();
-                }
-
                 IHASH_MIX_ALPHA(IHASH_TYPE_FLOAT);
                 IHASH_MIX_BETA_2F32(ff.fw[0], ff.fw[1]);
 
