@@ -1227,12 +1227,15 @@ protected:
                         const arm::Gp bin_base,
                         const arm::Gp bitdata);
 
-    void emit_extract_integer(const arm::Gp bitdata,
+    void emit_extract_integer(const arm::Gp &bitdata,
+                              const arm::Gp &small_tag,
                               Uint flags,
+                              Uint position,
                               Uint bits,
                               const ArgRegister &Dst);
 
     void emit_extract_bitstring(const arm::Gp bitdata,
+                                Uint position,
                                 Uint bits,
                                 const ArgRegister &Dst);
 

@@ -3512,49 +3512,81 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
     a.bind(read_done);
 }
 
-void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
+void BeamModuleAssembler::emit_extract_integer(const arm::Gp &bitdata,
+                                               const arm::Gp &small_tag,
                                                Uint flags,
+                                               Uint position,
                                                Uint bits,
                                                const ArgRegister &Dst) {
-    Label big = a.newLabel();
-    Label done = a.newLabel();
-    arm::Gp data_reg;
+    arm::Gp data_reg = bitdata;
     auto dst = init_destination(Dst, TMP1);
-    Uint num_partial = bits % 8;
-    Uint num_complete = 8 * (bits / 8);
 
     if (bits <= 8) {
         /* Endian does not matter for values that fit in a byte. */
         flags &= ~BSF_LITTLE;
     }
 
+    /* Optimize extraction of the first segment after a read. Saves
+     * one instruction. */
+    if (bits > 0 && bits < SMALL_BITS && position + bits == 64 &&
+        (flags & (BSF_LITTLE | BSF_SIGNED)) == 0) {
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.orr(dst.reg,
+              small_tag,
+              data_reg,
+              arm::lsr(position - _TAG_IMMED1_SIZE));
+        flush_var(dst);
+        return;
+    }
+
+    Label big = a.newLabel();
+    Label done = a.newLabel();
+    Uint num_partial = bits % 8;
+    Uint num_complete = 8 * (bits / 8);
+
+    switch (bits) {
+    case 0:
+        data_reg = ZERO;
+        break;
+    case 64:
+        data_reg = bitdata;
+        break;
+    default:
+        data_reg = TMP2;
+        switch (flags & (BSF_SIGNED | BSF_LITTLE)) {
+        case BSF_SIGNED: /* Signed and big-endian */
+            a.sbfx(TMP2, bitdata, position, bits);
+            break;
+        default:
+            a.ubfx(TMP2, bitdata, position, bits);
+            break;
+        }
+    }
+
     /* If this segment is little-endian, reverse endianness. */
     if ((flags & BSF_LITTLE) != 0) {
         comment("reverse endian for a little-endian segment");
-    }
-    data_reg = TMP2;
-    if ((flags & BSF_LITTLE) == 0) {
-        data_reg = bitdata;
-    } else if (bits == 16) {
-        a.rev16(TMP2, bitdata);
-    } else if (bits == 32) {
-        a.rev32(TMP2, bitdata);
-    } else if (num_partial == 0) {
-        a.rev64(TMP2, bitdata);
-        a.lsr(TMP2, TMP2, arm::lsr(64 - bits));
-    } else {
-        a.ubfiz(TMP3, bitdata, imm(num_complete), imm(num_partial));
-        a.ubfx(TMP2, bitdata, imm(num_partial), imm(num_complete));
-        a.rev64(TMP2, TMP2);
-        a.orr(TMP2, TMP3, TMP2, arm::lsr(64 - num_complete));
+        if (bits == 16) {
+            a.rev16(TMP2, data_reg);
+        } else if (bits == 32) {
+            a.rev32(TMP2, data_reg);
+        } else if (num_partial == 0) {
+            a.rev64(TMP2, data_reg);
+            a.lsr(TMP2, TMP2, arm::lsr(64 - bits));
+        } else {
+            a.ubfiz(TMP3, data_reg, imm(num_complete), imm(num_partial));
+            a.ubfx(TMP2, data_reg, imm(num_partial), imm(num_complete));
+            a.rev64(TMP2, TMP2);
+            a.orr(TMP2, TMP3, TMP2, arm::lsr(64 - num_complete));
+        }
+        data_reg = TMP2;
     }
 
-    /* Sign-extend the number if the segment is signed. */
-    if ((flags & BSF_SIGNED) != 0) {
+    /* Sign-extend the number if the segment is signed and little-endian. */
+    if ((flags & (BSF_SIGNED | BSF_LITTLE)) == (BSF_SIGNED | BSF_LITTLE)) {
         if (0 < bits && bits < 64) {
             comment("sign extend extracted value");
-            a.lsl(TMP2, data_reg, imm(64 - bits));
-            a.asr(TMP2, TMP2, imm(64 - bits));
+            a.sbfx(TMP2, data_reg, 0, bits);
             data_reg = TMP2;
         }
     }
@@ -3562,10 +3594,6 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
     /* Handle segments whose values might not fit in a small integer. */
     if (bits >= SMALL_BITS) {
         comment("test whether it fits in a small");
-        if (bits < 64 && (flags & BSF_SIGNED) == 0) {
-            a.and_(TMP2, data_reg, imm((1ull << bits) - 1));
-            data_reg = TMP2;
-        }
         if ((flags & BSF_SIGNED) != 0) {
             /* Signed segment. */
             a.adds(TMP3, ZERO, data_reg, arm::lsr(SMALL_BITS - 1));
@@ -3582,20 +3610,7 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
     }
 
     /* Tag and store the extracted small integer. */
-    comment("store extracted integer as a small");
-    mov_imm(dst.reg, _TAG_IMMED1_SMALL);
-    if ((flags & BSF_SIGNED) != 0) {
-        a.orr(dst.reg, dst.reg, data_reg, arm::lsl(_TAG_IMMED1_SIZE));
-    } else {
-        if (bits >= SMALL_BITS) {
-            a.bfi(dst.reg,
-                  data_reg,
-                  arm::lsl(_TAG_IMMED1_SIZE),
-                  imm(SMALL_BITS));
-        } else if (bits != 0) {
-            a.bfi(dst.reg, data_reg, arm::lsl(_TAG_IMMED1_SIZE), imm(bits));
-        }
-    }
+    a.orr(dst.reg, small_tag, data_reg, arm::lsl(_TAG_IMMED1_SIZE));
 
     if (bits >= SMALL_BITS) {
         a.b(done);
@@ -3629,16 +3644,28 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
 }
 
 void BeamModuleAssembler::emit_extract_bitstring(const arm::Gp bitdata,
+                                                 Uint position,
                                                  Uint bits,
                                                  const ArgRegister &Dst) {
     auto dst = init_destination(Dst, TMP1);
 
+    switch (position) {
+    case 0:
+        mov_imm(TMP4, 0);
+        break;
+    case 64:
+        a.mov(TMP4, bitdata);
+        break;
+    default:
+        a.ror(TMP4, bitdata, imm(position));
+        break;
+    }
     a.add(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
     mov_imm(TMP2, header_heap_bits(bits));
     mov_imm(TMP3, bits);
     a.stp(TMP2, TMP3, arm::Mem(HTOP).post(sizeof(Eterm[2])));
     if (bits > 0) {
-        a.rev64(TMP4, bitdata);
+        a.rev64(TMP4, TMP4);
         a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
     }
 
@@ -3912,8 +3939,11 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
     const arm::Gp bin_base = ARG2;
     const arm::Gp bin_position = ARG3;
     const arm::Gp bin_size = ARG4;
+    const arm::Gp small_tag = ARG5;
     const arm::Gp bitdata = ARG8;
     bool position_is_valid = false;
+    bool small_tag_valid = false;
+    Uint offset_in_bitdata = 0;
 
     for (auto seg : segments) {
         switch (seg.action) {
@@ -3970,19 +4000,23 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             break;
         }
         case BsmSegment::action::EQ: {
+            arm::Gp cmp_reg = TMP1;
             comment("=:= %ld %ld", seg.size, seg.unit);
-            if (seg.size != 0 && seg.size != 64) {
-                a.ror(bitdata, bitdata, imm(64 - seg.size));
-            }
-            if (seg.size == 64) {
-                cmp(bitdata, seg.unit);
-            } else if (seg.size == 32) {
-                cmp(bitdata.w(), seg.unit);
-            } else if (seg.unit == 0) {
-                a.tst(bitdata, imm((1ull << seg.size) - 1));
+
+            offset_in_bitdata -= seg.size;
+
+            if (seg.size == 0) {
+                cmp_reg = ZERO;
+            } else if (seg.size == 64) {
+                cmp_reg = bitdata;
             } else {
-                a.and_(TMP1, bitdata, imm((1ull << seg.size) - 1));
-                cmp(TMP1, seg.unit);
+                a.ubfx(cmp_reg, bitdata, offset_in_bitdata, seg.size);
+            }
+
+            if (seg.size == 32) {
+                cmp(cmp_reg.w(), seg.unit);
+            } else {
+                cmp(cmp_reg, seg.unit);
             }
             a.b_ne(resolve_beam_label(Fail, disp1MB));
             break;
@@ -3991,10 +4025,12 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             comment("test_heap %ld", seg.size);
             emit_gc_test(ArgWord(0), ArgWord(seg.size), seg.live);
             position_is_valid = false;
+            small_tag_valid = false;
             break;
         }
         case BsmSegment::action::READ: {
             comment("read %ld", seg.size);
+            offset_in_bitdata = 64;
             if (seg.size == 0) {
                 comment("(nothing to do)");
             } else {
@@ -4020,10 +4056,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             auto Dst = seg.dst;
 
             comment("extract binary %ld", bits);
-            emit_extract_bitstring(bitdata, bits, Dst);
-            if (bits != 0 && bits != 64) {
-                a.ror(bitdata, bitdata, imm(64 - bits));
-            }
+            emit_extract_bitstring(bitdata, offset_in_bitdata, bits, Dst);
+            offset_in_bitdata -= bits;
             break;
         }
         case BsmSegment::action::EXTRACT_INTEGER: {
@@ -4032,10 +4066,17 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             auto Dst = seg.dst;
 
             comment("extract integer %ld", bits);
-            if (bits != 0 && bits != 64) {
-                a.ror(bitdata, bitdata, imm(64 - bits));
+            if (!small_tag_valid) {
+                small_tag_valid = true;
+                mov_imm(small_tag, _TAG_IMMED1_SMALL);
             }
-            emit_extract_integer(bitdata, flags, bits, Dst);
+            offset_in_bitdata -= bits;
+            emit_extract_integer(bitdata,
+                                 small_tag,
+                                 flags,
+                                 offset_in_bitdata,
+                                 bits,
+                                 Dst);
             break;
         }
         case BsmSegment::action::GET_INTEGER: {
@@ -4069,6 +4110,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             mov_arg(Dst, ARG1);
 
             position_is_valid = false;
+            small_tag_valid = false;
             break;
         }
         case BsmSegment::action::GET_BITSTRING: {
@@ -4097,6 +4139,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             mov_arg(seg.dst, ARG1);
             position_is_valid = false;
+            small_tag_valid = false;
             break;
         }
         case BsmSegment::action::GET_TAIL: {
@@ -4106,6 +4149,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             fragment_call(ga->get_bs_get_tail_shared());
             mov_arg(seg.dst, ARG1);
             position_is_valid = false;
+            small_tag_valid = false;
             break;
         }
         case BsmSegment::action::SKIP: {
@@ -4122,9 +4166,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
         case BsmSegment::action::DROP:
             auto bits = seg.size;
             comment("drop %ld", bits);
-            if (bits != 0 && bits != 64) {
-                a.ror(bitdata, bitdata, imm(64 - bits));
-            }
+            offset_in_bitdata -= bits;
             break;
         }
     }
