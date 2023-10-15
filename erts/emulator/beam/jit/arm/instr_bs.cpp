@@ -1739,7 +1739,8 @@ void BeamGlobalAssembler::emit_get_sint64_shared() {
 struct BscSegment {
     BscSegment()
             : type(am_false), unit(1), flags(0), src(ArgNil()), size(ArgNil()),
-              error_info(0), effectiveSize(-1), action(action::DIRECT) {
+              error_info(0), offsetInAccumulator(0), effectiveSize(-1),
+              action(action::DIRECT) {
     }
 
     Eterm type;
@@ -1749,13 +1750,14 @@ struct BscSegment {
     ArgVal size;
 
     Uint error_info;
+    Uint offsetInAccumulator;
     Sint effectiveSize;
 
     /* Here are sub actions for storing integer segments.
      *
-     * We use the ACCUMULATE_FIRST and ACCUMULATE actions to shift the
-     * values of segments with known, small sizes (no more than 64 bits)
-     * into an accumulator register.
+     * We use the ACCUMULATE action to accumulator values of segments
+     * with known, small sizes (no more than 64 bits) into an
+     * accumulator register.
      *
      * When no more segments can be accumulated, the STORE action is
      * used to store the value of the accumulator into the binary.
@@ -1763,7 +1765,7 @@ struct BscSegment {
      * The DIRECT action is used when it is not possible to use the
      * accumulator (for unknown or too large sizes).
      */
-    enum class action { DIRECT, ACCUMULATE_FIRST, ACCUMULATE, STORE } action;
+    enum class action { DIRECT, ACCUMULATE, STORE } action;
 };
 
 static std::vector<BscSegment> bs_combine_segments(
@@ -1784,7 +1786,7 @@ static std::vector<BscSegment> bs_combine_segments(
                 segs.back().action == BscSegment::action::DIRECT) {
                 /* There are no previous compatible ACCUMULATE / STORE
                  * actions. Create the first ones. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
+                seg.action = BscSegment::action::ACCUMULATE;
                 segs.push_back(seg);
                 seg.action = BscSegment::action::STORE;
                 segs.push_back(seg);
@@ -1794,8 +1796,8 @@ static std::vector<BscSegment> bs_combine_segments(
             auto prev = segs.back();
             if (prev.flags & BSF_LITTLE) {
                 /* Little-endian segments cannot be combined with other
-                 * segments. Create new ACCUMULATE_FIRST / STORE actions. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
+                 * segments. Create new ACCUMULATE / STORE actions. */
+                seg.action = BscSegment::action::ACCUMULATE;
                 segs.push_back(seg);
                 seg.action = BscSegment::action::STORE;
                 segs.push_back(seg);
@@ -1816,7 +1818,7 @@ static std::vector<BscSegment> bs_combine_segments(
                 segs.push_back(prev);
             } else {
                 /* The size exceeds 64 bits. Can't combine. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
+                seg.action = BscSegment::action::ACCUMULATE;
                 segs.push_back(seg);
                 seg.action = BscSegment::action::STORE;
                 segs.push_back(seg);
@@ -1828,6 +1830,24 @@ static std::vector<BscSegment> bs_combine_segments(
             break;
         }
     }
+
+    /* Calculate bit offsets for each ACCUMULATE segment. */
+
+    Uint offset = 0;
+    for (int i = segs.size() - 1; i >= 0; i--) {
+        switch (segs[i].action) {
+        case BscSegment::action::STORE:
+            offset = 64 - segs[i].effectiveSize;
+            break;
+        case BscSegment::action::ACCUMULATE:
+            segs[i].offsetInAccumulator = offset;
+            offset += segs[i].effectiveSize;
+            break;
+        default:
+            break;
+        }
+    }
+
     return segs;
 }
 
@@ -2864,19 +2884,17 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             break;
         case am_integer:
             switch (seg.action) {
-            case BscSegment::action::ACCUMULATE_FIRST:
             case BscSegment::action::ACCUMULATE: {
                 /* Shift an integer of known size (no more than 64 bits)
                  * into a word-size accumulator. */
                 Label value_is_small = a.newLabel();
                 Label done = a.newLabel();
+                auto offset = seg.offsetInAccumulator;
 
-                comment("accumulate value for integer segment");
+                comment("accumulate value for integer segment at offset %ld",
+                        offset);
+
                 auto src = load_source(seg.src, ARG1);
-                if (seg.effectiveSize < 64 &&
-                    seg.action == BscSegment::action::ACCUMULATE) {
-                    a.lsl(ARG8, ARG8, imm(seg.effectiveSize));
-                }
 
                 if (!always_small(seg.src)) {
                     if (always_one_of<BeamTypeId::Integer,
@@ -2897,10 +2915,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     if (seg.effectiveSize == 64) {
                         a.mov(ARG8, ARG1);
                     } else {
-                        a.bfxil(ARG8,
-                                ARG1,
-                                arm::lsr(0),
-                                imm(seg.effectiveSize));
+                        a.bfi(ARG8,
+                              ARG1,
+                              arm::lsr(offset),
+                              imm(seg.effectiveSize));
                     }
 
                     if (exact_type<BeamTypeId::Integer>(seg.src)) {
@@ -2924,14 +2942,19 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 a.bind(value_is_small);
                 if (seg.effectiveSize == 64) {
                     a.asr(ARG8, src.reg, imm(_TAG_IMMED1_SIZE));
-                } else if (seg.effectiveSize + _TAG_IMMED1_SIZE > 64) {
-                    a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
-                    a.bfxil(ARG8, TMP1, arm::lsr(0), imm(seg.effectiveSize));
-                } else {
+                } else if (offset >= _TAG_IMMED1_SIZE) {
+                    a.bfi(ARG8,
+                          src.reg,
+                          arm::lsr(offset - _TAG_IMMED1_SIZE),
+                          imm(seg.effectiveSize + _TAG_IMMED1_SIZE));
+                } else if (offset == 0 && seg.effectiveSize <= SMALL_BITS) {
                     a.bfxil(ARG8,
                             src.reg,
-                            arm::lsr(_TAG_IMMED1_SIZE),
+                            imm(_TAG_IMMED1_SIZE),
                             imm(seg.effectiveSize));
+                } else {
+                    a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
+                    a.bfi(ARG8, TMP1, imm(offset), imm(seg.effectiveSize));
                 }
 
                 a.bind(done);
@@ -2950,41 +2973,25 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 /* First we'll need to ensure that the value in the
                  * accumulator is in little endian format. */
                 ASSERT(seg.effectiveSize >= 0);
-                if (seg.effectiveSize % 8) {
+                if ((seg.flags & BSF_LITTLE) == 0) {
+                    a.rev64(ARG8, ARG8);
+                } else {
                     Uint complete_bytes = 8 * (seg.effectiveSize / 8);
                     Uint num_partial = seg.effectiveSize % 8;
-                    if (seg.flags & BSF_LITTLE) {
+
+                    if (seg.effectiveSize < 64) {
+                        a.lsr(ARG8, ARG8, imm(64 - seg.effectiveSize));
+                    }
+
+                    if ((seg.effectiveSize % 8) != 0) {
                         a.ubfx(TMP1,
                                ARG8,
                                imm(complete_bytes),
                                imm(num_partial));
-                        a.bfc(ARG8,
-                              arm::lsr(complete_bytes),
-                              imm(64 - complete_bytes));
                         a.bfi(ARG8,
                               TMP1,
                               imm(complete_bytes + 8 - num_partial),
                               imm(num_partial));
-                    } else {
-                        a.lsl(ARG8, ARG8, imm(64 - seg.effectiveSize));
-                        a.rev64(ARG8, ARG8);
-                    }
-                } else if ((seg.flags & BSF_LITTLE) == 0) {
-                    switch (seg.effectiveSize) {
-                    case 8:
-                        break;
-                    case 16:
-                        a.rev16(ARG8, ARG8);
-                        break;
-                    case 32:
-                        a.rev32(ARG8, ARG8);
-                        break;
-                    case 64:
-                        a.rev64(ARG8, ARG8);
-                        break;
-                    default:
-                        a.rev64(ARG8, ARG8);
-                        a.lsr(ARG8, ARG8, imm(64 - seg.effectiveSize));
                     }
                 }
 
