@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,21 @@
 %% %CopyrightEnd%
 %%
 
+%% ---------------------------------------------------------------------
+%% et
+%% The 'et' app is used to report "events".
+%% But its possible to build otp *without* 'et' (--without-et').
+%% If that is the case, we cannot report event. We therefor have
+%% a wrapper function, report_event, which first tests if the 'et'
+%% module actually exists (by attempting to load the module).
+%% ---------------------------------------------------------------------
+
 -module(tftp_test_lib).
 
 -compile(export_all).
 
 -include("tftp_test_lib.hrl").
+
 
 %%
 %% -----
@@ -37,6 +47,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     ?IGNORE(application:stop(tftp)),   
     Config.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Infrastructure for test suite
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -45,8 +56,8 @@ error(Actual, Mod, Line) ->
     (catch global:send(tftp_global_logger, {failed, Mod, Line})),
     log("<ERROR> Bad result: ~p\n", [Actual], Mod, Line),
     Label = lists:concat([Mod, "(", Line, ") unexpected result"]),
-    et:report_event(60, Mod, Mod, Label,
-			[{line, Mod, Line}, {error, Actual}]),
+    report_event(60, Mod, Mod, Label,
+                 [{line, Mod, Line}, {error, Actual}]),
     case global:whereis_name(tftp_test_case_sup) of
 	undefined -> 
 	    ignore;
@@ -137,8 +148,8 @@ do_test(Bad, _Config) ->
 eval(Mod, Fun, Config) ->
     TestCase = {?MODULE, Mod, Fun},
     Label = lists:concat(["TEST CASE: ", Fun]),
-    et:report_event(40, ?MODULE, Mod, Label ++ " started",
-			[TestCase, Config]),
+    report_event(40, ?MODULE, Mod, Label ++ " started",
+                 [TestCase, Config]),
     global:register_name(tftp_test_case_sup, self()),
     Flag = process_flag(trap_exit, true),
     Config2 = Mod:init_per_testcase(Fun, Config),
@@ -154,24 +165,24 @@ wait_for_evaluator(Pid, Mod, Fun, Config, Errors) ->
     Label = lists:concat(["TEST CASE: ", Fun]),
     receive
 	{done, Pid, ok} when Errors == [] ->
-	    et:report_event(40, Mod, ?MODULE, Label ++ " ok",
-				[TestCase, Config]),
+	    report_event(40, Mod, ?MODULE, Label ++ " ok",
+                         [TestCase, Config]),
 	    {ok, {Mod, Fun}, Errors};
 	{done, Pid, {ok, _}} when Errors == [] ->
-	    et:report_event(40, Mod, ?MODULE, Label ++ " ok",
-				[TestCase, Config]),
+	    report_event(40, Mod, ?MODULE, Label ++ " ok",
+                         [TestCase, Config]),
 	    {ok, {Mod, Fun}, Errors};
 	{done, Pid, Fail} ->
-	    et:report_event(20, Mod, ?MODULE, Label ++ " failed",
-				[TestCase, Config, {return, Fail}, Errors]),
+	    report_event(20, Mod, ?MODULE, Label ++ " failed",
+                         [TestCase, Config, {return, Fail}, Errors]),
 	    {failed, {Mod,Fun}, Fail};
 	{'EXIT', Pid, {skipped, Reason}} -> 
-	    et:report_event(20, Mod, ?MODULE, Label ++ " skipped",
-				[TestCase, Config, {skipped, Reason}]),
+	    report_event(20, Mod, ?MODULE, Label ++ " skipped",
+                         [TestCase, Config, {skipped, Reason}]),
 	    {skipped, {Mod, Fun}, Errors};
 	{'EXIT', Pid, Reason} -> 
-	    et:report_event(20, Mod, ?MODULE, Label ++ " crashed",
-				[TestCase, Config, {'EXIT', Reason}]),
+	    report_event(20, Mod, ?MODULE, Label ++ " crashed",
+                         [TestCase, Config, {'EXIT', Reason}]),
 	    {crashed, {Mod, Fun}, [{'EXIT', Reason} | Errors]};
 	{fail, Pid, Reason} ->
 	    wait_for_evaluator(Pid, Mod, Fun, Config, Errors ++ [Reason])
@@ -236,6 +247,24 @@ display_crashed(Crashed) ->
     F = fun({MF, Reason}) -> io:format("  ~p => ~p\n", [MF, Reason]) end,
     lists:foreach(F, Crashed),
     io:format("\n", []).
+
+
+report_event(DetailLevel, From, To, Label, Contents) ->
+    case code:ensure_loaded(et) of
+        {module, _} ->
+            et:report_event(DetailLevel, From, To, Label, Contents);
+        {error, _} ->
+            io:format(user,
+                      "EVENT: "
+                      "~n   Level:   ~p"
+                      "~n   From:    ~p"
+                      "~n   To:      ~p"
+                      "~n   Label:   ~p"
+                      "~n   Content: ~p",
+                      [DetailLevel, From, To, Label, Contents]),
+            ok
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% generic callback
