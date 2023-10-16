@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -326,9 +326,6 @@
 -define(GMCB(CB, VF),            {megaco_callback, CB, VF}).
 -define(GMCB_CONNECT(VF),        ?GMCB(handle_connect, VF)).
 -define(GMCB_TRANS_REP(VF),      ?GMCB(handle_trans_reply, VF)).
--define(GMT(T),                  {megaco_trace, T}).
--define(GMT_ENABLE(),            ?GMT(enable)).
--define(GMT_DISABLE(),           ?GMT(disable)).
 -define(GD(D),                   {debug, D}).
 -define(GD_ENABLE(),             ?GD(true)).
 -define(GD_DISABLE(),            ?GD(false)).
@@ -894,7 +891,9 @@ request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_request_and_reply_pending_ack_no_pending/1,
+    Case = fun(Nodes) ->
+                   do_request_and_reply_pending_ack_no_pending(Config, Nodes)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes)),
@@ -902,12 +901,14 @@ request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
            end,
     try_tc(rar_panp, Pre, Case, Post).
 
-do_request_and_reply_pending_ack_no_pending([MgcNode, MgNode]) ->
+do_request_and_reply_pending_ack_no_pending(Config,
+                                            [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = rarpanp_mgc_event_sequence(text, tcp),
+    MgcEvSeq = rarpanp_mgc_event_sequence(Config,
+                                          text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -972,7 +973,8 @@ do_request_and_reply_pending_ack_no_pending([MgcNode, MgNode]) ->
 	fun rarpanp_mgc_verify_handle_disconnect/1).
 -endif.
 
-rarpanp_mgc_event_sequence(text, tcp) ->
+rarpanp_mgc_event_sequence(Config,
+                           text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -988,7 +990,7 @@ rarpanp_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -1496,20 +1498,24 @@ request_and_reply_pending_ack_one_pending(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_request_and_reply_pending_ack_one_pending/1,
+    Case = fun(Nodes) ->
+                   do_request_and_reply_pending_ack_one_pending(Config, Nodes)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(rar_paop, Pre, Case, Post).
 
-do_request_and_reply_pending_ack_one_pending([MgcNode, MgNode]) ->
+do_request_and_reply_pending_ack_one_pending(Config,
+                                             [MgcNode, MgNode]) ->
     d("[MGC] start the simulator"),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
     %% MgcEvSeq = rarpaop_mgc_event_sequence(text, tcp),
-    MgcEvSeq = rarpaop_mgc_event_sequence(binary, tcp),
+    MgcEvSeq = rarpaop_mgc_event_sequence(Config,
+                                          binary, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -1532,7 +1538,8 @@ do_request_and_reply_pending_ack_one_pending([MgcNode, MgNode]) ->
 
     d("[MG] create the event sequence"),
     %% MgEvSeq = rarpaop_mg_event_sequence(text, tcp),
-    MgEvSeq = rarpaop_mg_event_sequence(binary, tcp),
+    MgEvSeq = rarpaop_mg_event_sequence(Config,
+                                        binary, tcp),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
@@ -1582,20 +1589,25 @@ do_request_and_reply_pending_ack_one_pending([MgcNode, MgNode]) ->
 	fun rarpaop_mgc_verify_handle_disconnect/1).
 -endif.
 
-rarpaop_mgc_event_sequence(text, tcp) ->
+rarpaop_mgc_event_sequence(Config,
+                           text, tcp) ->
     Port      = 2944, 
     TranspMod = megaco_tcp, 
     EncMod    = megaco_pretty_text_encoder,
     EncConf   = [], 
-    rarpaop_mgc_event_sequence(Port, TranspMod, EncMod, EncConf);
-rarpaop_mgc_event_sequence(binary, tcp) ->
+    rarpaop_mgc_event_sequence(Config,
+                               Port, TranspMod, EncMod, EncConf);
+rarpaop_mgc_event_sequence(Config,
+                           binary, tcp) ->
     Port      = 2945, 
     TranspMod = megaco_tcp, 
     EncMod    = megaco_ber_encoder,
     EncConf   = [], 
-    rarpaop_mgc_event_sequence(Port, TranspMod, EncMod, EncConf).
+    rarpaop_mgc_event_sequence(Config,
+                               Port, TranspMod, EncMod, EncConf).
 
-rarpaop_mgc_event_sequence(Port, TranspMod, EncMod, EncConf) ->
+rarpaop_mgc_event_sequence(Config,
+                           Port, TranspMod, EncMod, EncConf) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -1612,7 +1624,7 @@ rarpaop_mgc_event_sequence(Port, TranspMod, EncMod, EncConf) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -1871,18 +1883,23 @@ rarpaop_mgc_notify_reply_ar(Cid, TermId) ->
 	rarpaop_mg_verify_notify_rep_msg_fun(TransId, TermId)).
 -endif.
 
-rarpaop_mg_event_sequence(text, tcp) ->
+rarpaop_mg_event_sequence(Config,
+                          text, tcp) ->
     Port      = 2944, 
     EncMod    = megaco_pretty_text_encoder,
     EncConf   = [], 
-    rarpaop_mg_event_sequence(Port, EncMod, EncConf);
-rarpaop_mg_event_sequence(binary, tcp) ->
+    rarpaop_mg_event_sequence(Config,
+                              Port, EncMod, EncConf);
+rarpaop_mg_event_sequence(Config,
+                          binary, tcp) ->
     Port      = 2945, 
     EncMod    = megaco_ber_encoder,
     EncConf   = [], 
-    rarpaop_mg_event_sequence(Port, EncMod, EncConf).
+    rarpaop_mg_event_sequence(Config,
+                              Port, EncMod, EncConf).
 
-rarpaop_mg_event_sequence(Port, EncMod, EncConf) ->
+rarpaop_mg_event_sequence(_Config,
+                          Port, EncMod, EncConf) ->
     DecodeFun = ?rarpaop_mg_decode_msg_fun(EncMod, EncConf),
     EncodeFun = ?rarpaop_mg_encode_msg_fun(EncMod, EncConf),
     Mid       = {deviceName, "mg"},
@@ -3276,19 +3293,23 @@ request_and_reply_and_ack(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_request_and_reply_and_ack/1,
+    Case = fun(Nodes) ->
+                   do_request_and_reply_and_ack(Config, Nodes)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(raraa, Pre, Case, Post).     
 
-do_request_and_reply_and_ack([MgcNode, MgNode]) ->
+do_request_and_reply_and_ack(Config,
+                             [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = raraa_mgc_event_sequence(text, tcp),
+    MgcEvSeq = raraa_mgc_event_sequence(Config,
+                                        text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -3361,7 +3382,8 @@ do_request_and_reply_and_ack([MgcNode, MgNode]) ->
 	fun raraa_mgc_verify_handle_disconnect/1).
 -endif.
 
-raraa_mgc_event_sequence(text, tcp) ->
+raraa_mgc_event_sequence(Config,
+                         text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -3378,7 +3400,7 @@ raraa_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -3903,7 +3925,9 @@ request_and_reply_and_no_ack(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_request_and_reply_and_no_ack/1,
+    Case = fun(Nodes) ->
+                   do_request_and_reply_and_no_ack(Config, Nodes)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
@@ -3911,12 +3935,14 @@ request_and_reply_and_no_ack(Config) when is_list(Config) ->
     try_tc(rarana, Pre, Case, Post).
 
 
-do_request_and_reply_and_no_ack([MgcNode, MgNode]) ->
+do_request_and_reply_and_no_ack(Config,
+                                [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = rarana_mgc_event_sequence(text, tcp),
+    MgcEvSeq = rarana_mgc_event_sequence(Config,
+                                         text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -3989,7 +4015,8 @@ do_request_and_reply_and_no_ack([MgcNode, MgNode]) ->
 	fun rarana_mgc_verify_handle_disconnect/1).
 -endif.
 
-rarana_mgc_event_sequence(text, tcp) ->
+rarana_mgc_event_sequence(Config,
+                          text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -4006,7 +4033,7 @@ rarana_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -4517,19 +4544,23 @@ request_and_reply_and_late_ack(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_request_and_reply_and_late_ack/1,
+    Case = fun(Nodes) ->
+                   do_request_and_reply_and_late_ack(Config, Nodes)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(rarala, Pre, Case, Post).
 
-do_request_and_reply_and_late_ack([MgcNode, MgNode]) ->
+do_request_and_reply_and_late_ack(Config,
+                                  [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = rarala_mgc_event_sequence(text, tcp),
+    MgcEvSeq = rarala_mgc_event_sequence(Config,
+                                         text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -4602,7 +4633,8 @@ do_request_and_reply_and_late_ack([MgcNode, MgNode]) ->
 	fun rarala_mgc_verify_handle_disconnect/1).
 -endif.
 
-rarala_mgc_event_sequence(text, tcp) ->
+rarala_mgc_event_sequence(Config,
+                          text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -4624,7 +4656,7 @@ rarala_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -5822,19 +5854,21 @@ pending_ack_plain(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_pending_ack_plain/1,
+    Case = fun(Nodes) -> do_pending_ack_plain(Config, Nodes) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(pap, Pre, Case, Post).
 
-do_pending_ack_plain([MgcNode, MgNode]) ->
+do_pending_ack_plain(Config,
+                     [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = pap_mgc_event_sequence(text, tcp),
+    MgcEvSeq = pap_mgc_event_sequence(Config,
+                                      text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -5911,7 +5945,8 @@ do_pending_ack_plain([MgcNode, MgNode]) ->
 	fun pap_mgc_verify_handle_disconnect/1).
 -endif.
 
-pap_mgc_event_sequence(text, tcp) ->
+pap_mgc_event_sequence(Config,
+                       text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -5929,7 +5964,7 @@ pap_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
              {megaco_trace, disable},
-             {megaco_trace, max},
+             ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              {megaco_update_user_info, sent_pending_limit, 100},
@@ -7632,19 +7667,21 @@ otp_5805(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_otp_5805/1,
+    Case = fun(Nodes) -> do_otp_5805(Config, Nodes) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(otp_5805, Pre, Case, Post).
 
-do_otp_5805([MgcNode, MgNode]) ->
+do_otp_5805(Config,
+            [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = otp_5805_mgc_event_sequence(text, tcp),
+    MgcEvSeq = otp_5805_mgc_event_sequence(Config,
+                                           text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -7923,7 +7960,8 @@ Transaction = 2 {
 	fun otp_5805_mgc_verify_handle_disconnect/1).
 -endif.
 
-otp_5805_mgc_event_sequence(text, tcp) ->
+otp_5805_mgc_event_sequence(Config,
+                            text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -7940,7 +7978,7 @@ otp_5805_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
 	     {megaco_trace, disable},
-	     {megaco_trace, max},
+	     ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
              start_transport,
@@ -12362,19 +12400,21 @@ otp_7189(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes, true),
                   Nodes
           end,
-    Case = fun do_otp_7189/1,
+    Case = fun(Nodes) -> do_otp_7189(Config, Nodes) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(otp_7189, Pre, Case, Post).
 
-do_otp_7189([MgcNode, MgNode]) ->
+do_otp_7189(Config,
+            [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = otp_7189_mgc_event_sequence(text, tcp),
+    MgcEvSeq = otp_7189_mgc_event_sequence(Config,
+                                           text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -12442,7 +12482,8 @@ do_otp_7189([MgcNode, MgNode]) ->
 	fun otp_7189_mgc_verify_handle_disconnect/1).
 -endif.
 
-otp_7189_mgc_event_sequence(text, tcp) ->
+otp_7189_mgc_event_sequence(Config,
+                            text, tcp) ->
     CTRL = self(),
     Mid = {deviceName,"ctrl"},
     RI = [
@@ -12488,7 +12529,7 @@ otp_7189_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
 	     {megaco_trace, disable},
-	     {megaco_trace, max},
+	     ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
 	     {megaco_update_user_info, recv_pending_limit, 10},
@@ -13725,8 +13766,8 @@ otp_8212(Config) when is_list(Config) ->
     RemoteMid2    = {deviceName, RemoteMidStr2}, 
     UserMod       = megaco_mess_otp8212_test,
 
-    d("set megaco trace level to max",[]),
-    megaco:enable_trace(max, io),
+    d("(maybe) enable megaco trace at level to max with dest io", []),
+    ?ENABLE_TRACE(Config, max, io),
 
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
