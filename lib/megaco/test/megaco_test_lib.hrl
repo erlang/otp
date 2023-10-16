@@ -146,3 +146,6 @@
 -define(UNIQUE(PreName),
         list_to_atom(
           ?F("~w_~w", [(PreName), erlang:system_time(millisecond)]))).
+
+-define(MEGACO_TRACE(C, D),    ?LIB:megaco_trace((C), (D))).
+-define(ENABLE_TRACE(C, L, D), ?LIB:enable_trace((C), (L), (D))).

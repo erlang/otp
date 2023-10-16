@@ -69,7 +69,10 @@
          inet_backend_opts/1,
          explicit_inet_backend/0, test_inet_backends/0,
          open/3,
-         listen/3, connect/3
+         listen/3, connect/3,
+
+         megaco_trace/2,
+         enable_trace/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -499,7 +502,7 @@ init_per_suite(Config) ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
                     maybe_start_global_sys_monitor(Config),
-                    [{megaco_factor, Factor} | Config]
+                    maybe_disable_trace([{megaco_factor, Factor} | Config])
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -507,6 +510,18 @@ init_per_suite(Config) ->
     catch
         throw:{skip, _} = SKIP ->
             SKIP
+    end.
+
+
+%% For tace to work, we need the 'et' app.
+%% Specifically, we need the et_selector module,
+%% so check if that module can be found!
+maybe_disable_trace(Config) ->
+    case code:ensure_loaded(et_selector) of
+        {error, _} ->
+            [{megaco_trace, disable} | Config];
+        _ ->
+            Config
     end.
 
 maybe_skip(_HostInfo) ->
@@ -3099,6 +3114,40 @@ stop_node(Node) ->
             end
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ----------------------------------------------------------------
+%% Generates a 'megaco_trace' tuple based on Config and a default
+%% value.
+%%
+
+megaco_trace(Config, Default) ->
+    Key = megaco_trace,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} ->
+            p("default megaco-trace ~w", [Value]),
+            {Key, Value};
+        _ ->
+            {Key, Default}
+    end.
+
+
+%% ----------------------------------------------------------------
+%% Conditionally enable megaco trace at Level and for Destination.
+%%
+
+enable_trace(Config, Level, Destination) ->
+    Key = megaco_trace,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, disable}} ->
+            p("megaco-trace disabled => skip enabling trace at: ~w; ~w",
+              [Level, Destination]),
+            ok;
+        _ ->
+            megaco:enable_trace(Level, Destination)
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -272,7 +272,7 @@ sent_timer_late_reply(Config) when is_list(Config) ->
                      [MgcNode, MgNode]),
                    Nodes = [MgcNode, MgNode],
                    ok = ?START_NODES(Nodes, true),
-                   #{nodes => Nodes}
+                   #{conf => Config, nodes => Nodes}
            end,
     Case = fun(State) ->
                    do_sent_timer_late_reply(State)
@@ -284,7 +284,7 @@ sent_timer_late_reply(Config) when is_list(Config) ->
            end,
     try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-do_sent_timer_late_reply(#{nodes := [MgcNode, MgNode]}) ->
+do_sent_timer_late_reply(#{conf := Config, nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -292,7 +292,7 @@ do_sent_timer_late_reply(#{nodes := [MgcNode, MgNode]}) ->
     {ok, Mgc} = ?MGC_START(MgcNode, ET, MgcConf),
 
     i("[MG] start"),    
-    MgConf   = [{megaco_trace, io}],
+    MgConf   = [?MEGACO_TRACE(Config, io)], % [{megaco_trace, io}],
     {ok, Mg} = ?MG_START(MgNode, text, tcp, MgConf),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
@@ -1187,7 +1187,7 @@ otp_4956(Config) when is_list(Config) ->
                      [MgcNode, MgNode]),
                    Nodes = [MgcNode, MgNode],
                    ok = ?START_NODES(Nodes, true),
-                   #{nodes => Nodes}
+                   #{conf => Config, nodes => Nodes}
            end,
     Case = fun(State) ->
                    do_otp_4956(State)
@@ -1199,12 +1199,13 @@ otp_4956(Config) when is_list(Config) ->
            end,
     try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-do_otp_4956(#{nodes := [MgcNode, MgNode]}) ->
+do_otp_4956(#{conf := Config, nodes := [MgcNode, MgNode]}) ->
     i("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     i("[MGC] create the event sequence"),
-    MgcEvSeq = otp_4956_mgc_event_sequence(text, tcp),
+    MgcEvSeq = otp_4956_mgc_event_sequence(Config,
+                                           text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -1258,7 +1259,8 @@ do_otp_4956(#{nodes := [MgcNode, MgNode]}) ->
 -define(otp_4956_mgc_verify_handle_disconnect_fun(),
 	fun otp_4956_mgc_verify_handle_disconnect/1).
 
-otp_4956_mgc_event_sequence(text, tcp) ->
+otp_4956_mgc_event_sequence(Config,
+                            text, tcp) ->
     Mid = {deviceName,"ctrl"},
     RI = [
           {port,             2944},
@@ -1281,7 +1283,7 @@ otp_4956_mgc_event_sequence(text, tcp) ->
     EvSeq = [
              {debug, true},
 	     {megaco_trace, disable},
-	     {megaco_trace, max},
+	     ?MEGACO_TRACE(Config, max), % {megaco_trace, max},
              megaco_start,
              {megaco_start_user, Mid, RI, []},
 	     {megaco_update_user_info, sent_pending_limit, 4},
