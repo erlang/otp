@@ -23,19 +23,22 @@
 
 -export([module/2]).
 
+-import(lists, [reverse/1]).
+
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
-    Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
-    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs0},
-    WorkList = rootset(Fs0, Exp, Attr),
+    Fs1 = move_out_funs(Fs0),
+    Order = [Lbl || {function,_,_,Lbl,_} <- Fs1],
+    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs1},
+    WorkList = rootset(Fs1, Exp, Attr),
     Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
-    Fs1 = remove_unused(Order, Used, All),
-    {Fs2,Lc} = clean_labels(Fs1),
-    Fs3 = fix_bs_create_bin(Fs2, Opts),
-    Fs4 = fix_badrecord(Fs3, Opts),
-    Fs = maybe_remove_lines(Fs4, Opts),
+    Fs2 = remove_unused(Order, Used, All),
+    {Fs3,Lc} = clean_labels(Fs2),
+    Fs4 = fix_bs_create_bin(Fs3, Opts),
+    Fs5 = fix_badrecord(Fs4, Opts),
+    Fs = maybe_remove_lines(Fs5, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -78,6 +81,31 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
+%% Move out make_fun3 instructions from blocks. That is necessary because
+%% they contain labels that must be seen and renumbered.
+
+move_out_funs([{function,Name,Arity,Entry,Is0}|Fs]) ->
+    Is = move_out_funs_is(Is0),
+    [{function,Name,Arity,Entry,Is}|move_out_funs(Fs)];
+move_out_funs([]) -> [].
+
+move_out_funs_is([{block,Bl}|Is]) ->
+    move_out_funs_block(Bl, Is, []);
+move_out_funs_is([I|Is]) ->
+    [I|move_out_funs_is(Is)];
+move_out_funs_is([]) -> [].
+
+move_out_funs_block([{set,[D],Ss,{make_fun3,F,I,U}}|Bl], Is, Acc) ->
+    make_block(Acc) ++
+        [{make_fun3,F,I,U,D,{list,Ss}} |
+         move_out_funs_block(Bl, Is, [])];
+move_out_funs_block([B|Bl], Is, Acc) ->
+    move_out_funs_block(Bl, Is, [B|Acc]);
+move_out_funs_block([], Is, Acc) ->
+    make_block(Acc) ++ move_out_funs_is(Is).
+
+make_block([_|_]=Is) -> [{block,reverse(Is)}];
+make_block([]) -> [].
 
 %%%
 %%% Coalesce adjacent labels. Renumber all labels to eliminate gaps.
