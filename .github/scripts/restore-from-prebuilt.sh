@@ -114,6 +114,19 @@ if [ -n "${ARCHIVE}" ]; then
             break;
         fi
 
+        ### If any of the applications in the secondary or tertiary bootstrap have changed
+        ### we delete prebuilt.files which will trigger a rebuilt of the bootstrap
+        echo "::group::{Run ${i}: bootstrap applications}"
+        SECONDARY_BOOTSTRAP=parsetools sasl asn1
+        TERTIARY_BOOTSTRAP=parsetools wx public_key erl_interface syntax_tools \
+                          snmp runtime_tools xmerl common_test
+        for app in ${SECONDARY_BOOTSTRAP} ${TERTIARY_BOOTSTRAP}; do
+            if grep "lib/\(${app}\)" "${CHANGES}"; then
+                echo "Deleting prebuilt.files" >&2
+                rm -rf "${CACHE_DIR}/prebuilt.files"
+            fi
+        done
+
         ### If any parse transform is changed we recompile everything as we have
         ### no idea what it may change. If the parse transform calls any other
         ### modules we really should delete the cache for those as well, but
