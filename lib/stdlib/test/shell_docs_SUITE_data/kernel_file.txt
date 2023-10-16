@@ -1,6 +1,8 @@
 
 [;1m	file[0m
 
+  File interface module.
+
   This module provides an interface to the file system.
 
   Warning:

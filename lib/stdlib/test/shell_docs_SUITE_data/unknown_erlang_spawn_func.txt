@@ -1,0 +1,47 @@
+
+  [;1m-spec spawn(Fun) -> pid() when Fun :: function().[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works like [;;4m[0m
+  [;;4mspawn/3[0m.
+
+  [;1m-spec spawn(Node, Fun) -> pid() when Node :: node(), Fun :: function().[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4mNode[0m
+  does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
+  [;;4mspawn/3[0m.
+
+  [;1m-spec spawn(Module, Function, Args) -> pid()[0m
+  [;1m               when[0m
+  [;1m                   Module :: module(),[0m
+  [;1m                   Function :: atom(),[0m
+  [;1m                   Args :: [term()].[0m
+
+  Returns the process identifier of a new process started by the
+  application of [;;4mModule:Function[0m to [;;4mArgs[0m.
+
+  [;;4merror_handler:undefined_function(Module, Function, Args)[0m is
+  evaluated by the new process if [;;4mModule:Function/Arity[0m does not
+  exist (where [;;4mArity[0m is the length of [;;4mArgs[0m). The error handler
+  can be redefined (see [;;4mprocess_flag/2[0m). If [;;4merror_handler[0m is
+  undefined, or the user has redefined the default [;;4merror_handler[0m
+  and its replacement is undefined, a failure with reason [;;4mundef[0m
+  occurs.
+
+  Example:
+
+    > spawn(speed, regulator, [high_speed, thin_cut]).
+    <0.13.1>
+
+  [;1m-spec spawn(Node, Module, Function, Args) -> pid()[0m
+  [;1m               when[0m
+  [;1m                   Node :: node(),[0m
+  [;1m                   Module :: module(),[0m
+  [;1m                   Function :: atom(),[0m
+  [;1m                   Args :: [term()].[0m
+
+  Returns the process identifier (pid) of a new process started by
+  the application of [;;4mModule:Function[0m to [;;4mArgs[0m on [;;4mNode[0m. If [;;4mNode[0m
+  does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
+  [;;4mspawn/3[0m.

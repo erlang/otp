@@ -1,0 +1,27 @@
+
+  [;1m-spec erlang:set_cookie(Cookie) -> true when Cookie :: atom().[0m
+
+[;;4mSince[0m:
+  OTP 24.1
+
+  Sets the magic cookie of the local node to the atom [;;4mCookie[0m,
+  which is also the cookie for all nodes that have no explicit
+  cookie set with [;;4mset_cookie/2[0m [;;4mCookie[0m (see section Distributed
+  Erlang in the Erlang Reference Manual in System Documentation).
+
+  You can get this value using [;;4mget_cookie/0[0m.
+
+  Failure: [;;4mfunction_clause[0m if the local node is not alive.
+
+  [;1m-spec erlang:set_cookie(Node, Cookie) -> true[0m
+  [;1m                           when Node :: node(), Cookie :: atom().[0m
+
+  Sets the magic cookie for [;;4mNode[0m to the atom [;;4mCookie[0m. If [;;4mNode[0m
+  is the local node, the function sets the cookie of all other nodes
+  (that have no explicit cookie set with this function) to [;;4mCookie[0m
+  (see section Distributed Erlang in the Erlang Reference Manual
+  in System Documentation).
+
+  You can get this value using [;;4mget_cookie/1[0m.
+
+  Failure: [;;4mfunction_clause[0m if the local node is not alive.

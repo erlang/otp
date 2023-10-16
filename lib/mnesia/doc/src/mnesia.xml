@@ -1341,6 +1341,7 @@ mnesia:create_table(person,
     </func>
     <func>
       <name name="foldl" arity="3" since=""/>
+      <name name="foldl" arity="4" since=""/>
       <fsummary>Calls <c>Function</c> for each record in <c>Table</c>.</fsummary>
       <desc>
       <marker id="foldl"></marker>
@@ -1354,6 +1355,7 @@ mnesia:create_table(person,
     </func>
     <func>
       <name name="foldr" arity="3" since=""/>
+      <name name="foldr" arity="4" since=""/>
       <fsummary>Calls <c>Function</c> for each record in <c>Table</c>.</fsummary>
       <desc>
       <marker id="foldr"></marker>

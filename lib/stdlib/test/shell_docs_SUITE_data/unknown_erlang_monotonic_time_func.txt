@@ -1,0 +1,39 @@
+
+  [;1m-spec erlang:monotonic_time() -> integer().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Returns the current Erlang monotonic time in [;;4mnative[0m time unit.
+  This is a monotonically increasing time since some unspecified
+  point in time.
+
+  Note:
+    This is a monotonically increasing time, but not a 
+    strictly monotonically increasing time. That is, consecutive
+    calls to [;;4merlang:monotonic_time/0[0m can produce the same
+    result.
+
+    Different runtime system instances will use different
+    unspecified points in time as base for their Erlang monotonic
+    clocks. That is, it is pointless comparing monotonic times
+    from different runtime system instances. Different runtime
+    system instances can also place this unspecified point in time
+    different relative runtime system start. It can be placed in
+    the future (time at start is a negative value), the past (time
+    at start is a positive value), or the runtime system start
+    (time at start is zero). The monotonic time at runtime system
+    start can be retrieved by calling [;;4m[0m
+    [;;4merlang:system_info(start_time)[0m.
+
+  [;1m-spec erlang:monotonic_time(Unit) -> integer() when Unit :: time_unit().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Returns the current Erlang monotonic time converted into the [;;4m[0m
+  [;;4mUnit[0m passed as argument.
+
+  Same as calling [;;4merlang:convert_time_unit[0m[;;4m([0m [;;4m[0m
+  [;;4merlang:monotonic_time()[0m[;;4m, native, Unit)[0m, however optimized for
+  commonly used [;;4mUnit[0ms.

@@ -31,4 +31,3 @@
     ** exception error: my_error
          in function  test:example_fun/2
              called as test:example_fun(arg1,"this is the second argument")
-     

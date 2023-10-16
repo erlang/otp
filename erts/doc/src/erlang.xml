@@ -354,7 +354,9 @@
         <p>An Erlang <seeguide marker="system/reference_manual:data_types#tuple">tuple</seeguide>.</p>
       </desc>
     </datatype>
+  </datatypes>
 
+  <datatypes>
     <datatype_title>Other Datatypes</datatype_title>
     <datatype>
       <name name="ext_binary" prefix="true"/>
@@ -6922,6 +6924,11 @@ receive_replies(ReqId, N, Acc) ->
           <tag><c>{dictionary, <anno>Dictionary</anno>}</c></tag>
           <item>
             <p><c><anno>Dictionary</anno></c> is the process dictionary.</p>
+          </item>
+          <tag><c>{{dictionary, <anno>Key</anno>}, <anno>Value</anno>}</c></tag>
+          <item>
+            <p><c><anno>Value</anno></c> associated with <c><anno>Key</anno></c> 
+               in the process dictionary.</p>
           </item>
           <tag><c>{error_handler, <anno>Module</anno>}</c></tag>
           <item>

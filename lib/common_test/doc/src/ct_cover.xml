@@ -61,7 +61,7 @@
 
         <p>To have effect, this function is to be called from
           <c>init_per_suite/1</c> (see
-          <seeerl marker="common_test"><c>common_test</c></seeerl>)
+          <seeerl marker="ct_suite"><c>ct_suite</c></seeerl>)
           before any tests are performed.</p>
       </desc>
     </func>

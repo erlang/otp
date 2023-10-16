@@ -557,7 +557,7 @@ refresh_logs([D|Dirs],Refreshed) ->
 		    refresh_logs(Dirs,Refreshed);
 		false ->
 		    {ok,Cwd} = file:get_cwd(),
-		    case catch ct_run:refresh_logs(D) of
+		    case catch ct_run:refresh_logs(D, unknown) of
 			{'EXIT',Reason} ->
 			    ok = file:set_cwd(Cwd),
 			    refresh_logs(Dirs,[{D,{error,Reason}}|Refreshed]);

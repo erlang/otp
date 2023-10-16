@@ -73,7 +73,7 @@
     </p>
 
     <p>The callback functions to be implemented by the test suite are
-      all listed in module <seeerl marker="common_test">common_test
+      all listed in module <seeerl marker="ct_suite">ct_suite
       </seeerl>. They are also described in more detail later in this User's Guide.
     </p>
 
@@ -957,7 +957,7 @@
     When the timetrap function returns, the time-out is triggered, <em>unless</em>
     the return value is a valid timetrap time, such as an integer,
     or a <c>{SecMinOrHourTag,Time}</c> tuple (for details, see module
-    <seeerl marker="common_test">common_test</seeerl>). If a time value
+    <seeerl marker="ct_suite">ct_suite</seeerl>). If a time value
     is returned, a new timetrap is started to generate a time-out after
     the specified time.</p>
 

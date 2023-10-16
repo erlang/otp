@@ -140,6 +140,11 @@ test(Tests) ->
 %% not automatically execute tests found in related module suffixed with "_tests".
 %% This behaviour might be unwanted if execution of modules found in a folder
 %% is ordered while it contains both source and test modules.</dd>
+%% <dt>`scale_timeouts'</dt>
+%% <dd>If this numeric value is set, timeouts will get scaled accordingly.
+%% It may be useful when running a set of tests on a slower host.
+%% Examples: `{scale_timeouts,10}' make the timeouts 10 times longer, while
+%% `{scale_timeouts,0.1}' would shorten them by a factor of 10.</dd>
 %% </dl>
 %%
 %% Options in the environment variable EUNIT are also included last in

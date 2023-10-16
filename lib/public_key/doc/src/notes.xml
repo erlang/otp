@@ -243,6 +243,21 @@
 
 </section>
 
+<section><title>Public_Key 1.12.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Country name comparison shall be case insensitive</p>
+          <p>
+	    Own Id: OTP-18718 Aux Id: GH-7546 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.12.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

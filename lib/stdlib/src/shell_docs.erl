@@ -208,6 +208,17 @@ normalize_trim(Bin,true) when is_binary(Bin) ->
     re:replace(NoNewLine,"\\s+"," ",[unicode,global,{return,binary}]);
 normalize_trim(Bin,false) when is_binary(Bin) ->
     Bin;
+normalize_trim([{code,Attr,Content}|T],false) ->
+    TrimmedContent =
+        case lists:reverse(normalize_trim(Content,false)) of
+            %% When in a <pre><code>, we strip the trailing
+            %% whitespace from the last binary.
+            [Bin|Rest] when is_binary(Bin) ->
+                lists:reverse([string:trim(Bin,trailing) | Rest]);
+            Else ->
+                lists:reverse(Else)
+        end,
+    [{code,Attr,TrimmedContent} | normalize_trim(T,false)];
 normalize_trim([{pre,Attr,Content}|T],Trim) ->
     [{pre,Attr,normalize_trim(Content,false)} | normalize_trim(T,Trim)];
 normalize_trim([{Tag,Attr,Content}|T],Trim) ->

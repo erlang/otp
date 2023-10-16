@@ -1,0 +1,73 @@
+
+  [;1m-spec erlang:send_nosuspend(Dest, Msg) -> boolean()[0m
+  [;1m                               when[0m
+  [;1m                                   Dest :: send_destination(),[0m
+  [;1m                                   Msg :: term().[0m
+
+  The same as [;;4merlang:send(Dest, Msg, [nosuspend])[0m, but returns [;;4m[0m
+  [;;4mtrue[0m if the message was sent and [;;4mfalse[0m if the message was not
+  sent because the sender would have had to be suspended.
+
+  This function is intended for send operations to an unreliable
+  remote node without ever blocking the sending (Erlang) process. If
+  the connection to the remote node (usually not a real Erlang node,
+  but a node written in C or Java) is overloaded, this function 
+  does not send the message and returns [;;4mfalse[0m.
+
+  The same occurs if [;;4mDest[0m refers to a local port that is busy. For
+  all other destinations (allowed for the ordinary send operator [;;4m[0m
+  [;;4m'!'[0m), this function sends the message and returns [;;4mtrue[0m.
+
+  This function is only to be used in rare circumstances where a
+  process communicates with Erlang nodes that can disappear without
+  any trace, causing the TCP buffers and the drivers queue to be
+  over-full before the node is shut down (because of tick time-outs)
+  by [;;4mnet_kernel[0m. The normal reaction to take when this occurs is
+  some kind of premature shutdown of the other node.
+
+  Notice that ignoring the return value from this function would
+  result in an unreliable message passing, which is contradictory
+  to the Erlang programming model. The message is not sent if this
+  function returns [;;4mfalse[0m.
+
+  In many systems, transient states of overloaded queues are normal.
+  Although this function returns [;;4mfalse[0m does not mean that the
+  other node is guaranteed to be non-responsive, it could be a
+  temporary overload. Also, a return value of [;;4mtrue[0m does only mean
+  that the message can be sent on the (TCP) channel without
+  blocking; the message is not guaranteed to arrive at the remote
+  node. For a disconnected non-responsive node, the return value is [;;4m[0m
+  [;;4mtrue[0m (mimics the behavior of operator [;;4m![0m). The expected behavior
+  and the actions to take when the function returns [;;4mfalse[0m are
+  application- and hardware-specific.
+
+  Warning:
+    Use with extreme care.
+
+  [;1m-spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean()[0m
+  [;1m                               when[0m
+  [;1m                                   Dest :: send_destination(),[0m
+  [;1m                                   Msg :: term(),[0m
+  [;1m                                   Options :: [noconnect].[0m
+
+  The same as [;;4merlang:send(Dest, Msg, [nosuspend | Options])[0m, but
+  with a Boolean return value.
+
+  This function behaves like [;;4merlang:send_nosuspend/2[0m, but takes a
+  third parameter, a list of options. The only option is [;;4mnoconnect[0m,
+  which makes the function return [;;4mfalse[0m if the remote node is not
+  currently reachable by the local node. The normal behavior is to
+  try to connect to the node, which can stall the process during a
+  short period. The use of option [;;4mnoconnect[0m makes it possible to
+  be sure not to get the slightest delay when sending to a remote
+  process. This is especially useful when communicating with nodes
+  that expect to always be the connecting part (that is, nodes
+  written in C or Java).
+
+  Whenever the function returns [;;4mfalse[0m (either when a suspend would
+  occur or when [;;4mnoconnect[0m was specified and the node was not
+  already connected), the message is guaranteed not to have been
+  sent.
+
+  Warning:
+    Use with extreme care.

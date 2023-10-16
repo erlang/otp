@@ -2690,6 +2690,7 @@ process_flag(_Flag, _Value) ->
       current_location |
       current_stacktrace |
       dictionary |
+      {dictionary, Key :: term()} |
       error_handler |
       garbage_collection |
       garbage_collection_info |
@@ -2733,6 +2734,7 @@ process_flag(_Flag, _Value) ->
                      {line, Line :: pos_integer()}]}} |
       {current_stacktrace, Stack :: [stack_item()]} |
       {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
+      {{dictionary, Key :: term()}, Value :: term()} |
       {error_handler, Module :: module()} |
       {garbage_collection, GCInfo :: [{atom(),non_neg_integer()}]} |
       {garbage_collection_info, GCInfo :: [{atom(),non_neg_integer()}]} |

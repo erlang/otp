@@ -1,0 +1,15 @@
+
+  [;1m-spec erlang:get_cookie() -> Cookie | nocookie when Cookie :: atom().[0m
+
+  Returns the magic cookie of the local node if the node is alive,
+  otherwise the atom [;;4mnocookie[0m. This value is set by [;;4mset_cookie/1[0m.
+
+  [;1m-spec erlang:get_cookie(Node) -> Cookie | nocookie[0m
+  [;1m                           when Node :: node(), Cookie :: atom().[0m
+
+[;;4mSince[0m:
+  OTP 24.1
+
+  Returns the magic cookie for node [;;4mNode[0m if the local node is
+  alive, otherwise the atom [;;4mnocookie[0m. This value is set by [;;4m[0m
+  [;;4mset_cookie/2[0m.
