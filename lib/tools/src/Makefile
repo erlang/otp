@@ -38,7 +38,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/tools-$(VSN)
 MODULES= \
 	cover                \
 	eprof                \
-	hprof                \
+	tprof                \
 	fprof                \
 	cprof                \
 	lcnt                 \
