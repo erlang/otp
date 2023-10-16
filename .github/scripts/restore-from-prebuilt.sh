@@ -91,28 +91,44 @@ if [ -n "${ARCHIVE}" ]; then
     ## Directory permissions in the archive and cache are for some reason different...
     chmod -R g-w "${ARCHIVE_DIR}/"
 
-    ## rlpgoD is the same as --archive, but without --times
-    RSYNC_ARGS=(-rlpgoD --itemize-changes --verbose --checksum --update "${EXCLUDE_BOOTSTRAP[@]}" "${ARCHIVE_DIR}/otp/" "${CACHE_DIR}/")
-
     CHANGES="${TMP_DIR}/changes"
     PREV_CHANGES="${TMP_DIR}/prev-changes"
 
     touch "${PREV_CHANGES}"
 
     ## Below follows some rules about when we do not want to use the cache
-    ## The rules are run multiple times so that if any rule triggeres a delte
+    ## The rules are run multiple times so that if any rule triggeres a delete
     ## we will re-run the rules again with the new changes.
     for i in $(seq 1 10); do
 
         echo "::group::{Run ${i} at pruning cache}"
 
-        ## First do a dry run to see if we need to delete anything from cache
+        ## rlpgoD is the same as --archive, but without --times
+        RSYNC_ARGS=(-rlpgoD --itemize-changes --verbose --checksum --update "${EXCLUDE_BOOTSTRAP[@]}" "${ARCHIVE_DIR}/otp/" "${CACHE_DIR}/")
+
+        ## We do a dry run to see if we need to purge anything from cache
         rsync --dry-run "${RSYNC_ARGS[@]}" | grep '^\(>\|c\)' > "${TMP_DIR}/changes"
         cat "${TMP_DIR}/changes"
 
+        ## If no new changes were done, we are done and can quit the loop
         if cmp -s "${CHANGES}" "${PREV_CHANGES}"; then
             break;
         fi
+
+        ### If any of the applications in the secondary or tertiary bootstrap have changed
+        ### we delete prebuilt.files which will trigger a rebuilt of the bootstrap
+        echo "::group::{Run ${i}: bootstrap applications}"
+        SECONDARY_BOOTSTRAP=(parsetools sasl asn1)
+        TERTIARY_BOOTSTRAP=(parsetools wx public_key erl_interface syntax_tools \
+                          snmp runtime_tools xmerl common_test)
+        for app in ${SECONDARY_BOOTSTRAP[@]} ${TERTIARY_BOOTSTRAP[@]}; do
+            if grep "lib/\(${app}\)" "${CHANGES}"; then
+                echo "Delete prebuilt.files and include bootstrap in sync" >&2
+                rm -f "${CACHE_DIR}/prebuilt.files"
+                EXCLUDE_BOOTSTRAP=()
+                break
+            fi
+        done
 
         ### If any parse transform is changed we recompile everything as we have
         ### no idea what it may change. If the parse transform calls any other
