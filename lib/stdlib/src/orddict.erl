@@ -128,7 +128,7 @@ Returns the value associated with `Key` in dictionary `Orddict`. This function
 assumes that the `Key` is present in the dictionary. An exception is generated
 if `Key` is not in the dictionary.
 
-See also section [Notes](`m:orddict#notes`).
+See also section [Notes](`m:orddict#module-notes`).
 
 _Example:_
 
@@ -152,7 +152,7 @@ Searches for a key in a dictionary. Returns `{ok, Value}`, where `Value` is the
 value associated with `Key`, or `error` if the key is not present in the
 dictionary.
 
-See also section [Notes](`m:orddict#notes`).
+See also section [Notes](`m:orddict#module-notes`).
 
 _Example:_
 
@@ -280,7 +280,7 @@ Appends a new `Value` to the current list of values associated with `Key`. An
 exception is generated if the initial value associated with `Key` is not a list
 of values.
 
-See also section [Notes](`m:orddict#notes`).
+See also section [Notes](`m:orddict#module-notes`).
 
 _Example 1:_
 
@@ -323,7 +323,7 @@ Appends a list of values `ValList` to the current list of values associated with
 `Key`. An exception is generated if the initial value associated with `Key` is
 not a list of values.
 
-See also section [Notes](`m:orddict#notes`).
+See also section [Notes](`m:orddict#module-notes`).
 
 _Example:_
 

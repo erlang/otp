@@ -72,7 +72,7 @@ code:load_abs("$PATH/user_default").
 -export(['$handle_undefined_function'/2]).
 -import(io, [format/1]).
 
--doc false.
+-doc "Print the help for all shell internal commands.".
 help() ->
     format("** shell internal commands **~n"),
     format("b()        -- display all variable bindings\n"),

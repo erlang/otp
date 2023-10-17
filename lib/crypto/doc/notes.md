@@ -604,15 +604,15 @@ This document describes the changes made to the Crypto application.
     installed in different base directories. In order to detect such
     installations after this change, the user must explicitly specify the
     locations using the
-    [`--with-ssl=<path>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl=<path>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     and the
-    [`--with-ssl-incl=<path>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl-incl=<path>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     `configure` command line arguments.
   - When building with old `gcc` compilers or other compilers on Debian
     derivatives with multiarch directories under the `lib` directory. In order
     to detect such installations after this change, the user must explicitly
     specify the multiarch directory name using the
-    [`--with-ssl-lib-subdir=lib/<multiarch-dir>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl-lib-subdir=lib/<multiarch-dir>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     `configure` command line argument.
 
   Own Id: OTP-17254 Aux Id: ERIERL-618, GH-4230

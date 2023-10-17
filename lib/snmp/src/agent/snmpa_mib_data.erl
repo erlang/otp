@@ -24,22 +24,22 @@ Behaviour module for the SNMP agent mib-server data module.
 This module defines the behaviour of the SNMP agent mib-server data module. A
 `snmpa_mib_data` compliant module must export the following functions:
 
-- [new/1](`m:snmpa_mib_data#new`)
-- [close/1](`m:snmpa_mib_data#close`)
-- [sync/1](`m:snmpa_mib_data#sync`)
-- [load_mib/4](`m:snmpa_mib_data#load_mib`)
-- [unload_mib/4](`m:snmpa_mib_data#unload_mib`)
-- [lookup/2](`m:snmpa_mib_data#lookup`)
-- [next/3](`m:snmpa_mib_data#next`)
-- [register_subagent/3](`m:snmpa_mib_data#register_subagent`)
-- [unregister_subagent/2](`m:snmpa_mib_data#unregister_subagent`)
-- [which_mib/2](`m:snmpa_mib_data#which_mib`)
-- [which_mibs/1](`m:snmpa_mib_data#which_mibs`)
-- [whereis_mib/2](`m:snmpa_mib_data#whereis_mib`)
-- [dump/2](`m:snmpa_mib_data#dump`)
-- [info/1](`m:snmpa_mib_data#info`)
-- [backup/2](`m:snmpa_mib_data#backup`)
-- [code_change/4](`m:snmpa_mib_data#code_change`)
+- [new/1](`c:snmpa_mib_data:new/1`)
+- [close/1](`c:snmpa_mib_data:close/1`)
+- [sync/1](`c:snmpa_mib_data:sync/1`)
+- [load_mib/4](`c:snmpa_mib_data:load_mib/4`)
+- [unload_mib/4](`c:snmpa_mib_data:unload_mib/4`)
+- [lookup/2](`c:snmpa_mib_data:lookup/2`)
+- [next/3](`c:snmpa_mib_data:next/3`)
+- [register_subagent/3](`c:snmpa_mib_data:register_subagent/3`)
+- [unregister_subagent/2](`c:snmpa_mib_data:unregister_subagent/2`)
+- [which_mib/2](`c:snmpa_mib_data:which_mib/2`)
+- [which_mibs/1](`c:snmpa_mib_data:which_mibs/1`)
+- [whereis_mib/2](`c:snmpa_mib_data:whereis_mib/2`)
+- [dump/2](`c:snmpa_mib_data:dump/2`)
+- [info/1](`c:snmpa_mib_data:info/1`)
+- [backup/2](`c:snmpa_mib_data:backup/2`)
+- [code_change/4](`c:snmpa_mib_data:code_change/4`)
 
 The semantics of them and their exact signatures are explained below.
 
@@ -77,16 +77,12 @@ mib-server data module, `snmpa_mib_data_tttn` for details.
 
 -doc """
 Create a new mib-server data instance.
-
-[](){: #close }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback new(MibStorage :: snmpa:mib_storage()) -> State :: term().
 
 -doc """
 Close the mib-storage.
-
-[](){: #sync }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback close(State :: term()) -> ok.
@@ -95,8 +91,6 @@ Close the mib-storage.
 Synchronize (write to disc, if possible) the mib-server data. This depends on
 the `mib_storage` option, and will only have an effect if the mib-storage option
 has an actual disc component (such as dets, or ets with a file).
-
-[](){: #load_mib }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback sync(State :: term()) -> ok.
@@ -105,8 +99,6 @@ has an actual disc component (such as dets, or ets with a file).
 Load the mib specified by the `Filename` argument into the mib-server. The
 `MeOverride` and `TeOverride` arguments specifies how the mib-server shall
 handle duplicate mib- and trap- entries.
-
-[](){: #unload_mib }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback load_mib(State :: term(), FileName :: filename(),
@@ -118,8 +110,6 @@ handle duplicate mib- and trap- entries.
 Unload the mib specified by the `Filename` argument from the mib-server. The
 `MeOverride` and `TeOverride` arguments specifies how the mib-server shall
 handle duplicate mib- and trap- entries.
-
-[](){: #lookup }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback unload_mib(State :: term(), FileName :: filename(),
@@ -130,9 +120,7 @@ handle duplicate mib- and trap- entries.
 -doc """
 Find the mib-entry corresponding to the `Oid`. If it is a variable, the `Oid`
 must be <Oid for var>.0 and if it is a table, `Oid` must be
-<table>.<entry>.<col>.<any>.
-
-[](){: #next }
+`<table>.<entry>.<col>.<any>`.
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback lookup(State :: term(), Oid :: snmp:oid()) -> 
@@ -143,8 +131,6 @@ must be <Oid for var>.0 and if it is a table, `Oid` must be
 
 -doc """
 Finds the lexicographically next oid.
-
-[](){: #register_subagent }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback next(State :: term(), Oid :: snmp:oid(), MibView :: mib_view()) -> 
@@ -155,8 +141,6 @@ Finds the lexicographically next oid.
 
 -doc """
 Register the subagent, process, handling part of the mib-tree.
-
-[](){: #unregister_subagent }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback register_subagent(State :: term(), 
@@ -170,8 +154,6 @@ Unregister the subagent, handling part of the mib-tree, as specified by the
 
 When unregister the subagent using an `oid()`, the `t:pid/0` of the process
 handling the sub-tree is also returned.
-
-[](){: #dump }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback unregister_subagent(State :: term(), 
@@ -182,8 +164,6 @@ handling the sub-tree is also returned.
 
 -doc """
 Dump the mib-server data to `stdio` (Destination = `io`) or the specified file.
-
-[](){: #which_mib }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback dump(State :: term(), Destination :: io | filename()) -> 
@@ -191,8 +171,6 @@ Dump the mib-server data to `stdio` (Destination = `io`) or the specified file.
 
 -doc """
 Retrieve the mib-file to which an given `oid()` belongs.
-
-[](){: #which_mibs }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback which_mib(State :: term(), Oid :: snmp:oid()) -> 
@@ -200,8 +178,6 @@ Retrieve the mib-file to which an given `oid()` belongs.
 
 -doc """
 Retrieve all loaded mib-files.
-
-[](){: #whereis_mib }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback which_mibs(State :: term()) -> 
@@ -209,8 +185,6 @@ Retrieve all loaded mib-files.
 
 -doc """
 Retrieve the mib file for the mib.
-
-[](){: #info }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback whereis_mib(State :: term(), MibName :: atom()) -> 
@@ -221,8 +195,6 @@ Retrieve misc info for the mib data.
 
 This is a utility function used to inspect, for instance, memory usage, in a
 simple way.
-
-[](){: #backup }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback info(State :: term()) -> list().
@@ -232,8 +204,6 @@ Perform a backup of the mib-server data.
 
 Note that its implementation dependent (and also dependent on mib-storage is
 used) if a backup is possible.
-
-[](){: #code_change }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback backup(State :: term(), BackupDir :: string()) -> 

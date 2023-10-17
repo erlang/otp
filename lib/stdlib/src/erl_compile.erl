@@ -25,8 +25,6 @@
 
 -export([compile_cmdline/0, compile/2]).
 
--export_type([cmd_line_arg/0]).
-
 %% Mapping from extension to {M,F} to run the correct compiler.
 
 compiler(".erl") ->    {compile,         compile};
@@ -44,8 +42,6 @@ compiler(".asn1") ->   {asn1ct,          compile_asn1};
 compiler(".asn") ->    {asn1ct,          compile_asn};
 compiler(".py") ->     {asn1ct,          compile_py};
 compiler(_) ->         no.
-
--type cmd_line_arg() :: atom() | string().
 
 %% Run a compilation based on the command line arguments and then halt.
 %% Intended for one-off compilation by erlc.

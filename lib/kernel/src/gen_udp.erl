@@ -560,7 +560,7 @@ address, as specified by `SockAddr`, so that the system knows where to send
 data.
 
 This means that it is not necessary to specify the destination address when
-sending a datagram. That is, we can use [`send/2`](`m:gen_udp#send-2`).
+sending a datagram. That is, we can use `send/2`.
 
 It also means that the socket will only received data from this address.
 """.
@@ -586,7 +586,7 @@ address, as specified by `Address` and `Port`, so that the system knows where to
 send data.
 
 This means that it is not necessary to specify the destination address when
-sending a datagram. That is, we can use [`send/2`](`m:gen_udp#send-2`).
+sending a datagram. That is, we can use `send/2`.
 
 It also means that the socket will only received data from this address.
 """.

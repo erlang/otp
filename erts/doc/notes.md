@@ -529,14 +529,14 @@ This document describes the changes made to the ERTS application.
   Own Id: OTP-18131
 
 - As announced when OTP 25 was released,
-  [multi time warp mode](time_correction.md#Multi_Time_Warp_Mode) is now enabled
+  [multi time warp mode](time_correction.md#multi-time-warp-mode) is now enabled
   by default. This assumes that all code executing on the system is
-  [time warp safe](time_correction.md#Time_Warp_Safe_Code).
+  [time warp safe](time_correction.md#time-warp-safe-code).
 
   If you have old code in the system that is not time warp safe, you now
   explicitly need to start the system in
-  [no time warp mode](time_correction.md#No_Time_Warp_Mode) (or
-  [singe time warp mode](time_correction.md#Single_Time_Warp_Mode) if it is
+  [no time warp mode](time_correction.md#no-time-warp-mode) (or
+  [singe time warp mode](time_correction.md#single-time-warp-mode) if it is
   partially time warp safe) in order to avoid problems. When starting the system
   in no time warp mode, the system behaves as it did prior to the introduction
   of the extended time functionality introduced in OTP 18.
@@ -1787,7 +1787,7 @@ This document describes the changes made to the ERTS application.
 
 - The configuration files [`.erlang`](erl_cmd.md),
   [`.erlang.cookie`](`e:system:distributed.md`) and
-  [`.erlang.crypt`](`m:beam_lib#erlang-crypt`) can now be located in the XDG
+  [`.erlang.crypt`](`m:beam_lib#module-erlang-crypt`) can now be located in the XDG
   Config Home directory.
 
   See the documentation for each file and `filename:basedir/2` for more details.
@@ -3132,15 +3132,15 @@ This document describes the changes made to the ERTS application.
     installed in different base directories. In order to detect such
     installations after this change, the user must explicitly specify the
     locations using the
-    [`--with-ssl=<path>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl=<path>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     and the
-    [`--with-ssl-incl=<path>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl-incl=<path>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     `configure` command line arguments.
   - When building with old `gcc` compilers or other compilers on Debian
     derivatives with multiarch directories under the `lib` directory. In order
     to detect such installations after this change, the user must explicitly
     specify the multiarch directory name using the
-    [`--with-ssl-lib-subdir=lib/<multiarch-dir>`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+    [`--with-ssl-lib-subdir=lib/<multiarch-dir>`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
     `configure` command line argument.
 
   Own Id: OTP-17254 Aux Id: ERIERL-618, GH-4230
@@ -3307,7 +3307,7 @@ This document describes the changes made to the ERTS application.
   use [`erlang:system_info(emu_flavor)`](`m:erlang#system_info_emu_flavor`).
 
   For more information see the
-  [internal documentation of BeamAsm in erts](beamasm.md).
+  [internal documentation of BeamAsm in erts](BeamAsm.md).
 
   Own Id: OTP-16885 Aux Id: PR-2745
 
@@ -7997,7 +7997,7 @@ This document describes the changes made to the ERTS application.
   distribution has been introduced. This mainly consists of support for usage of
   distribution controller processes (previously only ports could be used as
   distribution controllers). For more information see
-  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 
   Own Id: OTP-14459
 
@@ -11002,7 +11002,7 @@ This document describes the changes made to the ERTS application.
   Own Id: OTP-13251 Aux Id: ERL-49
 
 - `gen_tcp:accept/2` was not
-  [time warp safe](time_correction.md#Time_Warp_Safe_Code). This since it used
+  [time warp safe](time_correction.md#time-warp-safe-code). This since it used
   the same time as returned by `erlang:now/0` when calculating timeout. This has
   now been fixed.
 
@@ -11243,13 +11243,13 @@ This document describes the changes made to the ERTS application.
   `gettimeofday()` in order to improve performance. The system can be configured
   during build to use the previously used higher resolution clock source by
   passing the switch
-  [`--with-clock-resolution=high`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+  [`--with-clock-resolution=high`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
   when configuring the build.
 
   Own Id: OTP-12945 Aux Id: OTP-12892
 
 - Added the `configure` option
-  [`--disable-saved-compile-time`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`)
+  [`--disable-saved-compile-time`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`)
   which disables saving of compile date and time in the emulator binary.
 
   Own Id: OTP-12971
@@ -11482,8 +11482,8 @@ This document describes the changes made to the ERTS application.
   Own Id: OTP-11941
 
 - The time functionality of Erlang has been extended. This both includes a
-  [new API](time_correction.md#The_New_Time_API) for time, as well as
-  [time warp modes](time_correction.md#Time_Warp_Modes) which alters the
+  [new API](time_correction.md#new-time-api) for time, as well as
+  [time warp modes](time_correction.md#time-warp-modes) which alters the
   behavior of the system when system time changes. _You are strongly encouraged
   to use the new API_ instead of the old API based on `erlang:now/0`.
   `erlang:now/0` has been deprecated since it is and forever will be a
@@ -11587,7 +11587,7 @@ This document describes the changes made to the ERTS application.
   at least version 4.1) an improvement can be seen.
 
   For more information see the
-  "[Atomic Memory Operations and the VM](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM`)"
+  "[Atomic Memory Operations and the VM](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring_atomic-memory-operations-and-the-vm`)"
   section of `$ERL_TOP/HOWTO/INSTALL.md`.
 
   Own Id: OTP-12383
@@ -12174,7 +12174,7 @@ This document describes the changes made to the ERTS application.
   `libatomic_ops` (for example, implemented for ARM).
 
   The
-  [`$ERL_TOP/HOWTO/INSTALL.md`](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM`)
+  [`$ERL_TOP/HOWTO/INSTALL.md`](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring_atomic-memory-operations-and-the-vm`)
   document now also more clearly describes when you want to build together with
   a `libatomic_ops` installation.
 
@@ -12847,7 +12847,7 @@ This document describes the changes made to the ERTS application.
   - \_\_\_\_ - `#{ "hi" := V1, a := V2, b := V3} = M2. % match keys with values`
 
   For information on how to use Maps please see Map Expressions in the
-  [Reference Manual](`e:system:expressions.md#map_expressions`).
+  [Reference Manual](`e:system:expressions.md#map-expressions`).
 
   The current implementation is without the following features:
 
@@ -15070,7 +15070,7 @@ This document describes the changes made to the ERTS application.
   importantly the return types for ErlDrvEntry callbacks 'call' and 'control'
   has ben enlarged which require drivers to be changed or they will cause
   emulator crashes. See
-  [Rewrites for 64-bit driver interface ](erl_driver.md#rewrites_for_64_bits)in
+  [Rewrites for 64-bit driver interface ](erl_driver.md#rewrites-for-64-bit-driver-interface)in
   the driver manual.
 
   Due to this driver [version management](erl_driver.md#version_management) is
@@ -15756,7 +15756,7 @@ This document describes the changes made to the ERTS application.
   Own Id: OTP-8600
 
 - The `configure` command line argument
-  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP`)
+  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp`)
   had no effect. This option is now also automatically enabled if required on
   the build machine.
 
@@ -16146,7 +16146,7 @@ This document describes the changes made to the ERTS application.
   utilize optimized native atomic operations on more platforms than before. If
   `configure` warns about no atomic implementation available, try using the
   `libatomic_ops` library. Use the
-  [\--with-libatomic_ops=PATH](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP`)
+  [\--with-libatomic_ops=PATH](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp`)
   `configure` command line argument when specifying where the `libatomic_ops`
   installation is located. The `libatomic_ops` library can be downloaded from:
   [http://www.hpl.hp.com/research/linux/atomic_ops/](http://www.hpl.hp.com/research/linux/atomic_ops/)
@@ -16158,7 +16158,7 @@ This document describes the changes made to the ERTS application.
   _Note_: When building for x86, the `ethread` library will now use instructions
   that first appeared on the pentium 4 processor. If you want the runtime system
   to be compatible with older processors (back to 486) you need to pass the
-  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP`)
+  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp`)
   `configure` command line argument when configuring the system.
 
   Own Id: OTP-8544

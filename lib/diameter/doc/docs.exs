@@ -8,5 +8,6 @@
     "guides/diameter_soc.md",
     "references/diameterc_cmd.md",
     "references/diameter_dict.md"
-  ]
+  ],
+  skip_code_autolink_to: ["diameter_traffic:request/1"]
 ]

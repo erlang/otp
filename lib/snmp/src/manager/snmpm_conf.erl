@@ -24,8 +24,6 @@ Utility functions for handling the manager config files.
 
 The module `snmpm_conf` contains various utility functions to used for
 manipulating (write/append/read) the config files of the SNMP manager.
-
-[](){: #manager_entry }
 """.
 
 -include_lib("kernel/include/file.hrl").
@@ -85,7 +83,7 @@ manager_entry(Tag, Val) -> manager_entry()
 Create an entry for the manager config file, `manager.conf`.
 
 The type of `Val` depends on the value of `Tag`, see
-[Manager Information](snmp_manager_config_files.md#manager_information) for more
+[Manager Information](snmp_manager_config_files.md#manager-information) for more
 info.
 
 [](){: #write_manager_config }
@@ -119,7 +117,7 @@ Write the manager config to the manager config file.
 `Hdr` is an optional file header (note that this text is written to the file as
 is).
 
-See [Manager Information](snmp_manager_config_files.md#manager_information) for
+See [Manager Information](snmp_manager_config_files.md#manager-information) for
 more info.
 
 [](){: #append_manager_config }
@@ -138,7 +136,7 @@ Append the config to the current manager config file.
 
 `Dir` is the path to the directory where to store the config file.
 
-See [Manager Information](snmp_manager_config_files.md#manager_information) for
+See [Manager Information](snmp_manager_config_files.md#manager-information) for
 more info.
 
 [](){: #read_manager_config }
@@ -157,7 +155,7 @@ Read the current manager config file.
 
 `Dir` is the path to the directory where to store the config file.
 
-See [Manager Information](snmp_manager_config_files.md#manager_information) for
+See [Manager Information](snmp_manager_config_files.md#manager-information) for
 more info.
 
 [](){: #users_entry }

@@ -33,16 +33,12 @@ This is currently a very brief introduction to _wx_. The application is still
 under development, which means the interface may change, and the test suite
 currently have a poor coverage ratio.
 
-[](){: #Contents }
-
 ## Contents
 
-- [Introduction](chapter.md#Introduction)
+- [Introduction](chapter.md#introduction)
 - [Multiple processes and memory handling](chapter.md#Multiple_processes_and_memory_handling)
 - [Event Handling](chapter.md#Event_Handling)
-- [Acknowledgments](chapter.md#Acknowledgments)
-
-[](){: #Introduction }
+- [Acknowledgments](chapter.md#acknowledgments)
 
 ## Introduction
 
@@ -99,7 +95,7 @@ mapped to corresponding erlang terms:
 - **_wxColour_ is represented by \{Red,Green,Blue\[,Alpha]\}**
 
 - **_wxString_ is represented by
-  [unicode:charlist()](`m:unicode#type-charlist`)**
+  [unicode:charlist()](`t:unicode:charlist/0`)**
 
 - **_wxGBPosition_ is represented by \{Row,Column\}**
 
@@ -195,7 +191,7 @@ event will be handled by the other handler(s) afterwards. Most of the events
 have default event handler(s) installed.
 
 Message events looks like
-[\#wx\{id=integer(), obj=wx:wxObject(), userData=term(), event=Rec](`m:wxEvtHandler#type-wx`)
+[\#wx\{id=integer(), obj=wx:wxObject(), userData=term(), event=Rec](`t:wxEvtHandler:wx/0`)
 \}. The _id_ is the identifier of the object that received the event. The _obj_
 field contains the object that you used _connect_ on. The _userData_ field
 contains a user supplied term, this is an option to _connect_. And the _event_
@@ -226,8 +222,6 @@ the GUI when invoked. This means that a callback _fun_ cannot use the process
 dictionary and should not make calls to other processes. Calls to another
 process inside a callback _fun_ may cause a deadlock if the other process is
 waiting on completion of his call to the GUI.
-
-[](){: #Acknowledgments }
 
 ## Acknowledgments
 

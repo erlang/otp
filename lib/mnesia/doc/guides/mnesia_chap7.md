@@ -65,8 +65,6 @@ The table content is placed in a `.DCD` file on the disc. When the `Mnesia`
 system is started, the RAM table is initially loaded with data from its `.DCD`
 file.
 
-[](){: #checkpoints }
-
 ## Checkpoints
 
 A checkpoint is a transaction consistent state that spans over one or more

@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# snmpc(command)
+# snmpc
 
 SNMP MIB compiler frontend
 

@@ -26,7 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Common Macros
 # ----------------------------------------------------
 
-SUB_DIRECTORIES = src priv doc/src
+SUB_DIRECTORIES = src priv doc
 
 SPECIAL_TARGETS = 
 

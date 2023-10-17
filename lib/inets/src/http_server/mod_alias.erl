@@ -24,8 +24,6 @@ URL aliasing.
 
 Erlang web server internal API for handling of, for example, interaction data
 exported by module `mod_alias`.
-
-[](){: #default_index }
 """.
 
 -export([do/1, 
@@ -95,18 +93,14 @@ do_alias(#mod{config_db   = ConfigDB,
 -doc """
 real_name(ConfigDB, RequestURI, Aliases) -> Ret
 
-[](){: #real_name }
-
 [`real_name/3`](`real_name/3`) traverses `Aliases`, typically extracted from
 `ConfigDB`, and matches each `FakeName` with `RequestURI`. If a match is found,
 `FakeName` is replaced with `RealName` in the match. The resulting path is split
 into two parts, `ShortPath` and `AfterPath`, as defined in
 `httpd_util:split_path/1`. `Path` is generated from `ShortPath`, that is, the
-result from [default_index/2](`m:mod_alias#default_index`) with `ShortPath` as
+result from `default_index/2` with `ShortPath` as
 an argument. `config_db()` is the server config file in ETS table format as
 described in [Inets User's Guide](http_server.md).
-
-[](){: #real_script_name }
 """.
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
@@ -165,8 +159,6 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 -doc """
 real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret
 
-[](){: #real_script_name }
-
 [`real_script_name/3`](`real_script_name/3`) traverses `ScriptAliases`,
 typically extracted from `ConfigDB`, and matches each `FakeName` with
 `RequestURI`. If a match is found, `FakeName` is replaced with `RealName` in the
@@ -201,8 +193,6 @@ abs_script_path(_, RelPath) ->
 -doc """
 default_index(ConfigDB, Path) -> NewPath
 
-[](){: #default_index }
-
 If `Path` is a directory, [`default_index/2`](`default_index/2`), it starts
 searching for resources or files that are specified in the config directive
 `DirectoryIndex`. If an appropriate resource or file is found, it is appended to
@@ -211,7 +201,6 @@ appropriate file is found or if `Path` is not a directory. `config_db()` is the
 server config file in ETS table format as described in
 [Inets User's Guide](http_server.md).
 
-[](){: #path }
 """.
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
@@ -237,16 +226,12 @@ append_index(RealName, [Index | Rest]) ->
 -doc """
 path(PathData, ConfigDB, RequestURI) -> Path
 
-[](){: #path }
-
 [`path/3`](`path/3`) returns the file `Path` in the `RequestURI` (see
 [RFC 1945](https://www.ietf.org/rfc/rfc1945.txt)). If the interaction data
 `{real_name,{Path,AfterPath}}` has been exported by `mod_alias`, `Path` is
 returned. If no interaction data has been exported, `ServerRoot` is used to
 generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
 [Inets User's Guide](http_server.md).
-
-[](){: #real_name }
 """.
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of

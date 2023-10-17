@@ -23,7 +23,7 @@ limitations under the License.
 
 The purpose of this user guide is to introduce you to the Erlang mode for Emacs
 and gives some relevant background information of the functions and features.
-See also [Erlang mode reference manual](`m:erlang.el`) The purpose of the Erlang
+See also [Erlang mode reference manual](../references/erlang.el.md) The purpose of the Erlang
 mode itself is to facilitate the developing process for the Erlang programmer.
 
 ## Pre-requisites
@@ -140,8 +140,6 @@ clearer. For example, the highlighting will make it easier to spot simple bugs.
 Have not you ever written a variable in lower-case only? With syntax
 highlighting a variable will colored while atoms will be shown with the normal
 text color.
-
-[](){: #tags }
 
 ## Tags
 

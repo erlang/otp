@@ -58,7 +58,7 @@ Return value of a successful (flex) scanner start.
 
 [](){: #start }
 """.
--opaque megaco_ports() :: port() | tuple().
+-type megaco_ports() :: port() | tuple().
 
 
 %%----------------------------------------------------------------------

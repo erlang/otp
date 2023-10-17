@@ -384,7 +384,7 @@ backwards compatibility with legacy error logger event handlers.
 The event is handled by the default Logger handler.
 
 These functions are kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_ERROR`](`m:logger#macros`) macro or
+code. Use the [`?LOG_ERROR`](`m:logger#module-macros`) macro or
 [`logger:error/1,2,3`](`logger:error/1`) instead.
 
 _Example:_
@@ -426,7 +426,7 @@ handlers.
 The event is handled by the default Logger handler.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_ERROR`](`m:logger#macros`) macro or
+code. Use the [`?LOG_ERROR`](`m:logger#module-macros`) macro or
 [`logger:error/1,2,3`](`logger:error/1`) instead.
 
 _Example:_
@@ -464,7 +464,7 @@ It is recommended that `Report` follows the same structure as for
 `error_report/1`.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_ERROR`](`m:logger#macros`) macro or
+code. Use the [`?LOG_ERROR`](`m:logger#module-macros`) macro or
 [`logger:error/1,2,3`](`logger:error/1`) instead.
 """.
 -spec error_report(Type, Report) -> 'ok' when
@@ -495,7 +495,7 @@ The event is handled by the default Logger handler. The log level can be changed
 to error or info, see `warning_map/0`.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_WARNING`](`m:logger#macros`) macro or
+code. Use the [`?LOG_WARNING`](`m:logger#module-macros`) macro or
 [`logger:warning/1,2,3`](`logger:warning/1`) instead.
 """.
 -spec warning_report(Report) -> 'ok' when
@@ -520,7 +520,7 @@ It is recommended that `Report` follows the same structure as for
 `warning_report/1`.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_WARNING`](`m:logger#macros`) macro or
+code. Use the [`?LOG_WARNING`](`m:logger#module-macros`) macro or
 [`logger:warning/1,2,3`](`logger:warning/1`) instead.
 """.
 -spec warning_report(Type, Report) -> 'ok' when
@@ -557,7 +557,7 @@ The event is handled by the default Logger handler. The log level can be changed
 to error or info, see `warning_map/0`.
 
 These functions are kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_WARNING`](`m:logger#macros`) macro or
+code. Use the [`?LOG_WARNING`](`m:logger#module-macros`) macro or
 [`logger:warning/1,2,3`](`logger:warning/1`) instead.
 
 > #### Warning {: .warning }
@@ -591,7 +591,7 @@ event handlers.
 The event is handled by the default Logger handler.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_INFO`](`m:logger#macros`) macro or
+code. Use the [`?LOG_INFO`](`m:logger#module-macros`) macro or
 [`logger:info/1,2,3`](`logger:info/1`) instead.
 
 _Example:_
@@ -629,7 +629,7 @@ It is recommended that `Report` follows the same structure as for
 `info_report/1`.
 
 This functions is kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_INFO`](`m:logger#macros`) macro or
+code. Use the [`?LOG_INFO`](`m:logger#module-macros`) macro or
 [`logger:info/1,2,3`](`logger:info/1`) instead.
 """.
 -spec info_report(Type, Report) -> 'ok' when
@@ -664,7 +664,7 @@ backwards compatibility with legacy error logger event handlers.
 The event is handled by the default Logger handler.
 
 These functions are kept for backwards compatibility and must not be used by new
-code. Use the [`?LOG_INFO`](`m:logger#macros`) macro or
+code. Use the [`?LOG_INFO`](`m:logger#module-macros`) macro or
 [`logger:info/1,2,3`](`logger:info/1`) instead.
 
 _Example:_
@@ -780,7 +780,7 @@ term (defaults to []) passed to the initialization callback function
 `Handler:init/1`. The function returns `ok` if successful.
 
 The event handler must be able to handle the events in this module, see section
-[Events](`m:error_logger#events`).
+[Events](`m:error_logger#module-events`).
 
 The first time this function is called, `error_logger` is added as a Logger
 handler, and the `error_logger` process is started.

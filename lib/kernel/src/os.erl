@@ -134,7 +134,7 @@ getpid() ->
 
 -doc """
 Returns the current performance counter value in `perf_counter`
-[time unit](`m:erlang#type_time_unit`). This is a highly optimized call that
+[time unit](`t:erlang:time_unit/0`). This is a highly optimized call that
 might not be traceable.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
@@ -189,8 +189,8 @@ putenv(_VarName, _Value) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the current [OS system time](`e:erts:time_correction.md#OS_System_Time`)
-in `native` [time unit](`m:erlang#type_time_unit`).
+Returns the current [OS system time](`e:erts:time_correction.md#os-system-time`)
+in `native` [time unit](`t:erlang:time_unit/0`).
 
 > #### Note {: .info }
 >
@@ -203,7 +203,7 @@ system_time() ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the current [OS system time](`e:erts:time_correction.md#OS_System_Time`)
+Returns the current [OS system time](`e:erts:time_correction.md#os-system-time`)
 converted into the `Unit` passed as argument.
 
 Calling `os:system_time(Unit)` is equivalent to
@@ -221,7 +221,7 @@ system_time(_Unit) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the current [OS system time](`e:erts:time_correction.md#OS_System_Time`)
+Returns the current [OS system time](`e:erts:time_correction.md#os-system-time`)
 in the same format as `erlang:timestamp/0`. The tuple can be used together with
 function `calendar:now_to_universal_time/1` or `calendar:now_to_local_time/1` to
 get calendar time. Using the calendar time, together with the `MicroSecs` part

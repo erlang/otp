@@ -194,7 +194,7 @@ calling NIF API functions. Functions exist for the following functionality:
   Binaries are sequences of whole bytes. Bitstrings with an arbitrary bit length
   have no support yet.
 
-- **[](){: #resource_objects } Resource objects**  
+- **Resource objects**{: #resource_objects }  
   The use of resource objects is a safe way to return pointers to native data
   structures from a NIF. A resource object is only a block of memory allocated
   with [`enif_alloc_resource`](erl_nif.md#enif_alloc_resource). A handle ("safe
@@ -287,7 +287,7 @@ calling NIF API functions. Functions exist for the following functionality:
   The library initialization callbacks `load` and `upgrade` are thread-safe even
   for shared state data.
 
-- **[](){: #version_management } Version Management**  
+- **Version Management**{: #version_management } -
   When a NIF library is built, information about the NIF API version is compiled
   into the library. When a NIF library is loaded, the runtime system verifies
   that the library is of a compatible version. `erl_nif.h` defines the
@@ -309,7 +309,7 @@ calling NIF API functions. Functions exist for the following functionality:
   major version during a transition period of two major releases. Such old NIF
   libraries can however fail if deprecated features are used.
 
-- **[](){: #time_measurement } Time Measurement**  
+- **Time Measurement**{: #time_measurement } -
   Support for time measurement in NIF libraries:
 
   - [`ErlNifTime`](erl_nif.md#ErlNifTime)
@@ -318,7 +318,7 @@ calling NIF API functions. Functions exist for the following functionality:
   - [`enif_time_offset()`](erl_nif.md#enif_time_offset)
   - [`enif_convert_time_unit()`](erl_nif.md#enif_convert_time_unit)
 
-- **[](){: #enif_ioq } I/O Queues**  
+- **I/O Queues**{: #enif_ioq }  
   The Erlang nif library contains function for easily working with I/O vectors
   as used by the unix system call `writev`. The I/O Queue is not thread safe, so
   some other synchronization mechanism has to be used.
@@ -384,7 +384,7 @@ calling NIF API functions. Functions exist for the following functionality:
   }
   ```
 
-- **[](){: #lengthy_work } Long-running NIFs**  
+- **Long-running NIFs**{: #lengthy_work }  
   As mentioned in the [warning](erl_nif.md#WARNING) text at the beginning of
   this manual page, it is of _vital importance_ that a native function returns
   relatively fast. It is difficult to give an exact maximum amount of time that
@@ -426,7 +426,7 @@ calling NIF API functions. Functions exist for the following functionality:
     [`enif_send`](erl_nif.md#enif_send). Information about thread primitives is
     provided below.
 
-  - **[](){: #dirty_nifs } Dirty NIF**  
+  - **Dirty NIF**{: #dirty_nifs }  
     A NIF that cannot be split and cannot execute in a millisecond or less is
     called a "dirty NIF", as it performs work that the ordinary schedulers of
     the Erlang runtime system cannot handle cleanly. Applications that make use
@@ -488,8 +488,8 @@ calling NIF API functions. Functions exist for the following functionality:
 
 ## Initialization
 
-- **`ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, NULL, upgrade, unload)`{:
-  #ERL_NIF_INIT }** - This is the magic macro to initialize a NIF library. It is
+- **`ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, NULL, upgrade, unload)`**{: #ERL_NIF_INIT } -
+  This is the magic macro to initialize a NIF library. It is
   to be evaluated in global file scope.
 
   `MODULE` is the name of the Erlang module as an identifier without string
@@ -513,8 +513,8 @@ calling NIF API functions. Functions exist for the following functionality:
   instead used, then the name of the archive file must match the name of the
   module.
 
-- **`int (*load)(ErlNifEnv* caller_env, void** priv_data, ERL_NIF_TERM load_info)`{:
-  #load }** - `load` is called when the NIF library is loaded and no previously
+- __`int (*load)(ErlNifEnv* caller_env, void** priv_data, ERL_NIF_TERM load_info)`__ - 
+  `load`{: #load } is called when the NIF library is loaded and no previously
   loaded library exists for this module.
 
   `*priv_data` can be set to point to some private data if the library needs to
@@ -526,8 +526,7 @@ calling NIF API functions. Functions exist for the following functionality:
   The library fails to load if `load` returns anything other than `0`. `load`
   can be `NULL` if initialization is not needed.
 
-- **`int (*upgrade)(ErlNifEnv* caller_env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)`{:
-  #upgrade }** - `upgrade` is called when the NIF library is loaded and there is
+- __`int (*upgrade)(ErlNifEnv* caller_env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)`__ - `upgrade`{: #upgrade } is called when the NIF library is loaded and there is
   old code of this module with a loaded NIF library.
 
   Works as `load`, except that `*old_priv_data` already contains the value set
@@ -538,25 +537,25 @@ calling NIF API functions. Functions exist for the following functionality:
   The library fails to load if `upgrade` returns anything other than `0` or if
   `upgrade` is `NULL`.
 
-- **`void (*unload)(ErlNifEnv* caller_env, void* priv_data)`{: #unload }** -
+- **`void (*unload)(ErlNifEnv* caller_env, void* priv_data)`**{: #unload } -
   `unload` is called when the module code that the NIF library belongs to is
   purged as old. New code of the same module may or may not exist.
 
 ## Data Types
 
-- **`ERL_NIF_TERM`{: #ERL_NIF_TERM }** - Variables of type `ERL_NIF_TERM` can
+- **`ERL_NIF_TERM`**{: #ERL_NIF_TERM } - Variables of type `ERL_NIF_TERM` can
   refer to any Erlang term. This is an opaque type and values of it can only by
   used either as arguments to API functions or as return values from NIFs. All
   `ERL_NIF_TERM`s belong to an environment
   ([`ErlNifEnv`](erl_nif.md#ErlNifEnv)). A term cannot be destructed
   individually, it is valid until its environment is destructed.
 
-- **`ErlNifEnv`{: #ErlNifEnv }** - `ErlNifEnv` represents an environment that
+- **`ErlNifEnv`**{: #ErlNifEnv } - `ErlNifEnv` represents an environment that
   can host Erlang terms. All terms in an environment are valid as long as the
   environment is valid. `ErlNifEnv` is an opaque type; pointers to it can only
   be passed on to API functions. Three types of environments exist:
 
-  - **[](){: #proc_bound_env } Process bound environment**  
+  - **Process bound environment**{: #proc_bound_env }  
     Passed as the first argument to all NIFs. All function arguments passed to a
     NIF belong to that environment. The return value from a NIF must also be a
     term belonging to the same environment.
@@ -566,7 +565,7 @@ calling NIF API functions. Functions exist for the following functionality:
     supplied as argument until the NIF returns. It is thus useless and dangerous
     to store pointers to process bound environments between NIF calls.
 
-  - **[](){: #callback_env } Callback environment**  
+  - **Callback environment**{: #callback_env }  
     Passed as the first argument to all the non-NIF callback functions
     ([`load`](erl_nif.md#load), [`upgrade`](erl_nif.md#upgrade),
     [`unload`](erl_nif.md#unload), [`dtor`](erl_nif.md#ErlNifResourceDtor),
@@ -577,7 +576,7 @@ calling NIF API functions. Functions exist for the following functionality:
     callback has returned. Terms may be created in this environment but they
     will only be accessible during the callback.
 
-  - **[](){: #proc_indep_env } Process independent environment**  
+  - **Process independent environment**{: #proc_indep_env }  
     Created by calling [`enif_alloc_env`](erl_nif.md#enif_alloc_env). This
     environment can be used to store terms between NIF calls and to send terms
     with [`enif_send`](erl_nif.md#enif_send). A process independent environment
@@ -588,7 +587,7 @@ calling NIF API functions. Functions exist for the following functionality:
   the list/tuple/map itself. Terms can be copied between environments with
   [`enif_make_copy`](erl_nif.md#enif_make_copy).
 
-- **`ErlNifFunc`{: #ErlNifFunc }**
+- **`ErlNifFunc`**{: #ErlNifFunc }
 
   ```c
   typedef struct {
@@ -626,7 +625,7 @@ calling NIF API functions. Functions exist for the following functionality:
     > system has no support for dirty schedulers, the runtime system refuses to
     > load the NIF library.
 
-- **`ErlNifBinary`{: #ErlNifBinary }**
+- **`ErlNifBinary`**{: #ErlNifBinary }
 
   ```text
   typedef struct {
@@ -642,7 +641,7 @@ calling NIF API functions. Functions exist for the following functionality:
   Notice that `ErlNifBinary` is a semi-opaque type and you are only allowed to
   read fields `size` and `data`.
 
-- **`ErlNifBinaryToTerm`{: #ErlNifBinaryToTerm }** - An enumeration of the
+- **`ErlNifBinaryToTerm`**{: #ErlNifBinaryToTerm } - An enumeration of the
   options that can be specified to
   [`enif_binary_to_term`](erl_nif.md#enif_binary_to_term). For default behavior,
   use value `0`.
@@ -650,7 +649,7 @@ calling NIF API functions. Functions exist for the following functionality:
   When receiving data from untrusted sources, use option
   `ERL_NIF_BIN2TERM_SAFE`.
 
-- **`ErlNifMonitor`{: #ErlNifMonitor }** - This is an opaque data type that
+- **`ErlNifMonitor`**{: #ErlNifMonitor } - This is an opaque data type that
   identifies a monitor.
 
   The nif writer is to provide the memory for storing the monitor when calling
@@ -660,7 +659,7 @@ calling NIF API functions. Functions exist for the following functionality:
   compare two monitors,
   [`enif_compare_monitors`](erl_nif.md#enif_compare_monitors) must be used.
 
-- **`ErlNifOnHaltCallback`{: #ErlNifOnHaltCallback }**
+- **`ErlNifOnHaltCallback`**{: #ErlNifOnHaltCallback }
 
   ```text
   typedef void ErlNifOnHaltCallback(void *priv_data);
@@ -672,7 +671,7 @@ calling NIF API functions. Functions exist for the following functionality:
   [`enif_set_option()`](erl_nif.md#on_halt). Such an installed callback will be
   called when the runtime system is halting.
 
-- **`ErlNifOption`{: #ErlNifOption }** - An enumeration of the options that can
+- **`ErlNifOption`**{: #ErlNifOption } - An enumeration of the options that can
   be set using [`enif_set_option()`](erl_nif.md#enif_set_option).
 
   Currently valid options:
@@ -684,22 +683,22 @@ calling NIF API functions. Functions exist for the following functionality:
   - **[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#on_halt)** - Install a callback that
     will be called when the runtime system halts with flushing enabled.
 
-- **`ErlNifPid`{: #ErlNifPid }** - A process identifier (pid). In contrast to
+- **`ErlNifPid`**{: #ErlNifPid } - A process identifier (pid). In contrast to
   pid terms (instances of `ERL_NIF_TERM`), `ErlNifPid`s are self-contained and
   not bound to any [environment](erl_nif.md#ErlNifEnv). `ErlNifPid` is an opaque
   type. It can be copied, moved in memory, forgotten, and so on.
 
-- **`ErlNifPort`{: #ErlNifPort }** - A port identifier. In contrast to port ID
+- **`ErlNifPort`**{: #ErlNifPort } - A port identifier. In contrast to port ID
   terms (instances of `ERL_NIF_TERM`), `ErlNifPort`s are self-contained and not
   bound to any [environment](erl_nif.md#ErlNifEnv). `ErlNifPort` is an opaque
   type. It can be copied, moved in memory, forgotten, and so on.
 
-- **`ErlNifResourceType`{: #ErlNifResourceType }** - Each instance of
+- **`ErlNifResourceType`**{: #ErlNifResourceType } - Each instance of
   `ErlNifResourceType` represents a class of memory-managed resource objects
   that can be garbage collected. Each resource type has a unique name and a
   destructor function that is called when objects of its type are released.
 
-- **`ErlNifResourceTypeInit`{: #ErlNifResourceTypeInit }**
+- **`ErlNifResourceTypeInit`**{: #ErlNifResourceTypeInit }
 
   ```c
   typedef struct {
@@ -728,7 +727,7 @@ calling NIF API functions. Functions exist for the following functionality:
   destructor is guaranteed to be the last callback before the resource is
   deallocated.
 
-- **`ErlNifResourceDown`{: #ErlNifResourceDown }**
+- **`ErlNifResourceDown`**{: #ErlNifResourceDown }
 
   ```c
   typedef void ErlNifResourceDown(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);
@@ -739,7 +738,7 @@ calling NIF API functions. Functions exist for the following functionality:
   resource, `pid` is the identity of the monitored process that is exiting, and
   `mon` is the identity of the monitor.
 
-- **`ErlNifResourceStop`{: #ErlNifResourceStop }**
+- **`ErlNifResourceStop`**{: #ErlNifResourceStop }
 
   ```text
   typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event, int is_direct_call);
@@ -751,7 +750,7 @@ calling NIF API functions. Functions exist for the following functionality:
   `enif_select` or false if it is a scheduled call (potentially from another
   thread).
 
-- **`ErlNifResourceDynCall`{: #ErlNifResourceDynCall }**
+- **`ErlNifResourceDynCall`**{: #ErlNifResourceDynCall }
 
   ```c
   typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_data);
@@ -762,7 +761,7 @@ calling NIF API functions. Functions exist for the following functionality:
   `obj` is the resource object and `call_data` is the last argument to
   `enif_dynamic_resource_call` passed through.
 
-- **`ErlNifCharEncoding`{: #ErlNifCharEncoding }**
+- **`ErlNifCharEncoding`**{: #ErlNifCharEncoding }
 
   ```text
   typedef enum {
@@ -775,19 +774,19 @@ calling NIF API functions. Functions exist for the following functionality:
   are `ERL_NIF_LATIN1` for ISO Latin-1 (8-bit ASCII) and `ERL_NIF_UTF8` for
   UTF-8.
 
-- **`ErlNifSysInfo`{: #ErlNifSysInfo }** - Used by
+- **`ErlNifSysInfo`**{: #ErlNifSysInfo } - Used by
   [`enif_system_info`](erl_nif.md#enif_system_info) to return information about
   the runtime system. Contains the same content as
   [`ErlDrvSysInfo`](erl_driver.md#ErlDrvSysInfo).
 
-- **`ErlNifSInt64`{: #ErlNifSInt64 }** - A native signed 64-bit integer type.
+- **`ErlNifSInt64`**{: #ErlNifSInt64 } - A native signed 64-bit integer type.
 
-- **`ErlNifUInt64`{: #ErlNifUInt64 }** - A native unsigned 64-bit integer type.
+- **`ErlNifUInt64`**{: #ErlNifUInt64 } - A native unsigned 64-bit integer type.
 
-- **`ErlNifTime`{: #ErlNifTime }** - A signed 64-bit integer type for
+- **`ErlNifTime`**{: #ErlNifTime } - A signed 64-bit integer type for
   representation of time.
 
-- **`ErlNifTimeUnit`{: #ErlNifTimeUnit }** - An enumeration of time units
+- **`ErlNifTimeUnit`**{: #ErlNifTimeUnit } - An enumeration of time units
   supported by the NIF API:
 
   - **`ERL_NIF_SEC`** - Seconds
@@ -798,7 +797,7 @@ calling NIF API functions. Functions exist for the following functionality:
 
   - **`ERL_NIF_NSEC`** - Nanoseconds
 
-- **`ErlNifUniqueInteger`{: #ErlNifUniqueInteger }** - An enumeration of the
+- **`ErlNifUniqueInteger`**{: #ErlNifUniqueInteger } - An enumeration of the
   properties that can be requested from
   [`enif_make_unique_integer`](erl_nif.md#enif_make_unique_integer). For default
   properties, use value `0`.
@@ -806,10 +805,10 @@ calling NIF API functions. Functions exist for the following functionality:
   - **`ERL_NIF_UNIQUE_POSITIVE`** - Return only positive integers.
 
   - **`ERL_NIF_UNIQUE_MONOTONIC`** - Return only
-    [strictly monotonically increasing](time_correction.md#Strictly_Monotonically_Increasing)
+    [strictly monotonically increasing](time_correction.md#strictly-monotonically-increasing)
     integer corresponding to creation time.
 
-- **`ErlNifHash`{: #ErlNifHash }** - An enumeration of the supported hash types
+- **`ErlNifHash`**{: #ErlNifHash } - An enumeration of the supported hash types
   that can be generated using [`enif_hash`](erl_nif.md#enif_hash).
 
   - **`ERL_NIF_INTERNAL_HASH`** - Non-portable hash function that only
@@ -824,11 +823,11 @@ calling NIF API functions. Functions exist for the following functionality:
 
     Slower than `ERL_NIF_INTERNAL_HASH.` It corresponds to `erlang:phash2/1`.
 
-- **`SysIOVec`{: #SysIOVec }** - A system I/O vector, as used by `writev` on
+- **`SysIOVec`**{: #SysIOVec } - A system I/O vector, as used by `writev` on
   Unix and `WSASend` on Win32. It is used in `ErlNifIOVec` and by
   [`enif_ioq_peek`](erl_nif.md#enif_ioq_peek).
 
-- **`ErlNifIOVec`{: #ErlNifIOVec }**
+- **`ErlNifIOVec`**{: #ErlNifIOVec }
 
   ```c
   typedef struct {
@@ -842,7 +841,7 @@ calling NIF API functions. Functions exist for the following functionality:
   by [`enif_inspect_iovec`](erl_nif.md#enif_inspect_iovec) and
   [`enif_ioq_enqv`](erl_nif.md#enif_ioq_enqv).
 
-- **`ErlNifIOQueueOpts`{: #ErlNifIOQueueOpts }** - Options to configure a
+- **`ErlNifIOQueueOpts`**{: #ErlNifIOQueueOpts } - Options to configure a
   `ErlNifIOQueue`.
   - **ERL_NIF_IOQ_NORMAL** - Create a normal I/O Queue
 
@@ -947,8 +946,6 @@ and `>` (but _not_ `=:=` or `=/=`).
 int enif_compare_monitors(const ErlNifMonitor
         *monitor1, const ErlNifMonitor *monitor2);
 ```
-
-[](){: #enif_compare_monitors }
 
 Compares two [`ErlNifMonitor`](erl_nif.md#ErlNifMonitor)s. Can also be used to
 imply some artificial order on monitors, for whatever reason.
@@ -1056,8 +1053,6 @@ ErlNifTime enif_convert_time_unit(ErlNifTime
         val, ErlNifTimeUnit from, ErlNifTimeUnit to);
 ```
 
-[](){: #enif_convert_time_unit }
-
 Converts the `val` value of time unit `from` to the corresponding value of time
 unit `to`. The result is rounded using the floor function.
 
@@ -1090,8 +1085,6 @@ If the OS does not support fetching this value, `enif_cpu_time` invokes
 int enif_demonitor_process(ErlNifEnv* caller_env,
       void* obj, const ErlNifMonitor* mon);
 ```
-
-[](){: #enif_demonitor_process }
 
 Cancels a monitor created earlier with
 [`enif_monitor_process`](erl_nif.md#enif_monitor_process). Argument `obj` is a
@@ -1677,8 +1670,6 @@ Returns `true` if `term` is an empty list.
 int enif_is_exception(ErlNifEnv* env,
         ERL_NIF_TERM term);
 ```
-
-[](){: #enif_is_exception }
 
 Return true if `term` is an exception.
 
@@ -2526,8 +2517,6 @@ int enif_monitor_process(ErlNifEnv* caller_env,
       void* obj, const ErlNifPid* target_pid, ErlNifMonitor* mon);
 ```
 
-[](){: #enif_monitor_process }
-
 Starts monitoring a process from a resource. When a process is monitored, a
 process exit results in a call to the provided
 [`down`](erl_nif.md#ErlNifResourceDown) callback associated with the resource
@@ -2560,10 +2549,8 @@ This function is thread-safe.
 ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit);
 ```
 
-[](){: #enif_monotonic_time }
-
 Returns the current
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time). Notice that
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time). Notice that
 it is not uncommon with negative values.
 
 `time_unit` is the time unit of the returned value.
@@ -3174,13 +3161,11 @@ This function is thread-safe.
 int enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...);
 ```
 
-[](){: #enif_set_option }
-
 Set an option. On success, zero will be returned. On failure, a non zero value
 will be returned. Currently the following options can be set:
 
-- **`int enif_set_option(ErlNifEnv *env, `{: #delay_halt
-  }[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)`)`** - Enable delay of
+- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)`)`**{: #delay_halt } -
+  Enable delay of
   runtime system halt with flushing enabled until all calls to NIFs in the NIF
   library have returned. If the _delay halt_ feature has not been enabled, a
   halt with flushing enabled may complete even though processes are still
@@ -3218,8 +3203,8 @@ will be returned. Currently the following options can be set:
   Such NIFs should be dirty NIFs, since ordinary NIFs should never block for a
   long time.
 
-- **`int enif_set_option(ErlNifEnv *env, `{: #on_halt
-  }[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)`, `[`ErlNifOnHaltCallback`](erl_nif.md#ErlNifOnHaltCallback)` *on_halt)`** -
+- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)`, `[`ErlNifOnHaltCallback`](erl_nif.md#ErlNifOnHaltCallback)` *on_halt)`**{: #on_halt } -
+
   Install a callback that will be called when the runtime system halts with
   flushing enabled.
 
@@ -3437,11 +3422,9 @@ the future):
 ErlNifTime enif_time_offset(ErlNifTimeUnit time_unit);
 ```
 
-[](){: #enif_time_offset }
-
 Returns the current time offset between
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and
-[Erlang system time](time_correction.md#Erlang_System_Time) converted into the
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
+[Erlang system time](time_correction.md#erlang-system-time) converted into the
 `time_unit` passed as argument.
 
 `time_unit` is the time unit of the returned value.

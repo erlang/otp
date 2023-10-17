@@ -52,8 +52,6 @@ The Erlang crash dump is a readable text file, but it can be difficult to read.
 Using the Crashdump Viewer tool in the `Observer` application simplifies the
 task. This is a wx-widget-based tool for browsing Erlang crash dumps.
 
-[](){: #general_info }
-
 ## General Information
 
 The first part of the crash dump shows the following:
@@ -145,12 +143,10 @@ useful to find the problem.
 
 ### Number of Atoms
 
-The number of atoms in the system at the time of the crash is shown as _Atoms:
-<number>_. Some ten thousands atoms is perfectly normal, but more can indicate
+The number of atoms in the system at the time of the crash is shown as `Atoms: <number>`.
+Some ten thousands atoms is perfectly normal, but more can indicate
 that the BIF `erlang:list_to_atom/1` is used to generate many _different_ atoms
 dynamically, which is never a good idea.
-
-[](){: #scheduler }
 
 ## Scheduler Information
 
@@ -177,7 +173,7 @@ The following fields can exist for a process:
   currently executed by the scheduler. If there is such a process, this entry is
   followed by the _State_, _Internal State_, _Program Counter_, and _CP_ of that
   same process. The entries are described in section
-  [Process Information](crash_dump.md#processes).
+  [Process Information](crash_dump.md#process-data).
 
   Notice that this is a snapshot of what the entries are exactly when the crash
   dump is starting to be generated. Therefore they are most likely different
@@ -187,7 +183,7 @@ The following fields can exist for a process:
 
 - **_Current Process Limited Stack Trace_** - This entry is shown only if there
   is a current process. It is similar to
-  [_=proc_stack_](crash_dump.md#proc_data), except that only the function frames
+  [_=proc_stack_](crash_dump.md#process-data), except that only the function frames
   are shown (that is, the stack variables are omitted). Also, only the top and
   bottom part of the stack are shown. If the stack is small (< 512 slots), the
   entire stack is shown. Otherwise the entry _skipping ## slots_ is shown, where
@@ -200,14 +196,10 @@ The following fields can exist for a process:
   that getting the rest of the information about this scheduler failed for some
   reason.
 
-[](){: #memory }
-
 ## Memory Information
 
 Under the tag _=memory_ is shown information similar to what can be obtained on
 a living node with [`erlang:memory()`](`erlang:memory/0`).
-
-[](){: #internal_tables }
 
 ## Internal Table Information
 
@@ -215,15 +207,11 @@ Under the tags _=hash_table:<table_name>_ and _=index_table:<table_name>_ is
 shown internal tables. These are mostly of interest for runtime system
 developers.
 
-[](){: #allocated_areas }
-
 ## Allocated Areas
 
 Under the tag _=allocated_areas_ is shown information similar to what can be
 obtained on a living node with
 [`erlang:system_info(allocated_areas)`](`m:erlang#system_info_allocated_areas`).
-
-[](){: #allocator }
 
 ## Allocator
 
@@ -231,8 +219,6 @@ Under the tag _=allocator:<A>_ is shown various information about allocator <A>.
 The information is similar to what can be obtained on a living node with
 [`erlang:system_info({allocator, <A>})`](`m:erlang#system_info_allocator_tuple`).
 For more information, see also [`erts_alloc(3)`](erts_alloc.md).
-
-[](){: #processes }
 
 ## Process Information
 
@@ -326,16 +312,12 @@ system. The following fields can exist for a process:
 - **_Internal State_** - A more detailed internal representation of the state of
   this process.
 
-See also section [Process Data](crash_dump.md#proc_data).
-
-[](){: #ports }
+See also section [Process Data](crash_dump.md#process-data).
 
 ## Port Information
 
 This section lists the open ports, their owners, any linked processes, and the
 name of their driver or external process.
-
-[](){: #ets_tables }
 
 ## ETS Tables
 
@@ -379,8 +361,6 @@ following fields are of interest for each table:
 
 - **_Read Concurrency_** - If `read_concurrency` was enabled for the table.
 
-[](){: #timers }
-
 ## Timers
 
 This section contains information about all the timers started with the BIFs
@@ -394,8 +374,6 @@ each timer:
 
 - **_Time left_** - Number of milliseconds left until the message would have
   been sent.
-
-[](){: #distribution_info }
 
 ## Distribution Information
 
@@ -436,8 +414,6 @@ can exist:
 - **_Remote link: <local_proc> <remote_proc>_** - A link existed between the
   local process and the remote process at the time of the crash.
 
-[](){: #loaded_modules }
-
 ## Loaded Module Information
 
 This section contains information about all loaded modules.
@@ -471,8 +447,6 @@ Then, all loaded modules are listed. The following fields exist:
   code, if any. This field is decoded when looked at by the Crashdump Viewer
   tool.
 
-[](){: #funs }
-
 ## Fun Information
 
 This section lists all funs. The following fields exist for each fun:
@@ -486,8 +460,6 @@ This section lists all funs. The following fields exist for each fun:
 - **_Address_** - The address of the fun's code.
 
 - **_Refc_** - The number of references to the fun.
-
-[](){: #proc_data }
 
 ## Process Data
 
@@ -525,8 +497,6 @@ function objects (funs) are given the following:
 - A name constructed from the name of the function in which they are created
 - A number (starting with 0) indicating the number of that fun within that
   function
-
-[](){: #atoms }
 
 ## Atoms
 

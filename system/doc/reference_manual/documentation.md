@@ -20,9 +20,9 @@ limitations under the License.
 # Documentation
 
 Documentation in Erlang is done through the `-moduledoc` and `-doc`
-[attributes](`e:system:modules.md#module-attributes`). For example:
+[attributes](modules.md#module-attributes). For example:
 
-```text
+```erlang
 -module(math).
 -moduledoc """
 A module for basic arithmetic.
@@ -37,36 +37,34 @@ add(One, Two) -> One + Two.
 The `-moduledoc` attribute has to be located before the first `-doc` attribute
 or function declaration. It documents the overall purpose of the module.
 
-The `-doc` attribute always precedes the [function](`e:system:functions.md`) or
-[attribute](`e:system:modules.md#module-attributes`) it documents. The
+The `-doc` attribute always precedes the [function](ref_man_functions.md) or
+[attribute](modules.md#module-attributes) it documents. The
 attributes that can be documented are
-[user-defined types](`e:system:typespec.md#type-declarations-of-user-defined-types`)
+[user-defined types](typespec.md#type-declarations-of-user-defined-types)
 (`-type` and `-opaque`) and
-[behaviour module attributes](`e:system:modules.md#behaviour-module-attribute`)
+[behaviour module attributes](modules.md#behaviour-module-attribute)
 (`-callback`).
 
 By default the format used for documentation attributes is
 [Markdown](https://en.wikipedia.org/wiki/Markdown) but that can be changed by
 setting
-[module documentation metadata](documentation.md#Documenting-a-module_Moduledoc-metadata).
+[module documentation metadata](#moduledoc-metadata).
 
 A good starting point to writing Markdown is
 [Basic writing and formatting syntax](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
 
 For details on what is allowed to be part of the `-moduledoc` and `-doc`
 attributes, see
-[Documentation Attributes](`e:system:modules.md#documentation-attributes`).
+[Documentation Attributes](modules.md#documentation-attributes).
 
 `-doc` attributes have been available since Erlang/OTP 27.
-
-[](){: #Documentation-metadata }
 
 ## Documentation metadata
 
 It is possible to add metadata to the documentation entry. You do this by adding
 a `-moduledoc` or `-doc` attribute with a map as argument. For example:
 
-```text
+```erlang
 -module(math).
 -moduledoc """
 A module for basic arithmetic.
@@ -85,7 +83,7 @@ user. There can be multiple metadata documentation entries, in which case the
 maps will be merged with the latest taking precedence if there are duplicate
 keys. Example:
 
-```text
+```erlang
 -doc "Adds two number together."
 -doc #{ since => "1.0", author => "Joe" }.
 -doc #{ since => "2.0" }.
@@ -97,8 +95,6 @@ This will result in a metadata entry of `#{ since => "2.0", author => "Joe" }`.
 The keys and values in the metadata map can be any type, but it is recommended
 that only [atoms](data_types.md#atom) are used for keys and
 [strings](data_types.md#string) for the values.
-
-[](){: #External-documentation-files }
 
 ## External documentation files
 
@@ -113,13 +109,11 @@ Adds two numbers together
 
 and
 
-```text
+```erlang
 %% src/math.erl
 -doc({file, "../doc/add.md"}).
 add(One, Two) -> One + Two.
 ```
-
-[](){: #Documenting-a-module }
 
 ## Documenting a module
 
@@ -132,44 +126,39 @@ an external page.
 The `moduledoc` attribute should start with a short paragraph describing the
 module and then go into greater details. For example:
 
-```text
+````erlang
 -module(math).
 -moduledoc """
    A module for basic arithmetic.
 
    This module can be used to add and subtract values. For example:
 
-```
-
-1> math:subtract(math:add(2, 3), 1). 4
-
-```
-""".
-```
-
-[](){: #Documenting-a-module_Moduledoc-metadata }
+   ```erlang
+   1> math:substract(math:add(2, 3), 1).
+   4
+   ```
+   """.
+````
 
 ### Moduledoc metadata
 
 There are three reserved metadata keys for `-moduledoc`:
 
-- `since` \- Shows in which version of the application the module was added.
-- `deprecated` \- Shows a text in the documentation explaining that it is
+- `since` - Shows in which version of the application the module was added.
+- `deprecated` - Shows a text in the documentation explaining that it is
   deprecated and what to use instead.
-- `format` \- The format to use for all documentation in this module. The
+- `format` - The format to use for all documentation in this module. The
   default is `text/markdown`. It should be written using the
   [mime type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
   of the format.
 
 Example:
 
-```text
+```erlang
 -moduledoc {file, "../doc/math.asciidoc"}.
 -moduledoc #{ since => "0.1", format => "text/asciidoc" }.
 -moduledoc #{ deprecated => "Use the stdlib math module instead." }.
 ```
-
-[](){: #Documenting-functions-userdefined-types-and-callbacks }
 
 ## Documenting functions, user-defined types, and callbacks
 
@@ -178,11 +167,11 @@ Each entry should start with a short paragraph describing the purpose of entity,
 and then go into greater detail in needed.
 
 It is not recommended to include images or diagrams in this documentation as it
-is used by IDEs and `c:h/1` to show the documentation to the user.
+is used by IDEs and `\c:h/1` to show the documentation to the user.
 
 For example:
 
-```text
+````erlang
 -doc """
 A number that can be used by the math module.
 
@@ -197,32 +186,28 @@ Adds two number together.
 ### Example:
 
 ```
-
 1> math:add(math:number(1), math:number(2)). {number, 3}
-
 ```
 """.
 -spec add(number(), number()) -> number().
 add({number, One}, {number, Two}) -> {number, One + Two}.
-```
-
-[](){: #Documenting-functions-userdefined-types-and-callbacks_Doc-metadata }
+````
 
 ### Doc metadata
 
 There are four reserved metadata keys for `-doc`:
 
-- `since => unicode:chardata()` \- Shows which version of the application the
+- `since => unicode:chardata()` - Shows which version of the application the
   module was added.
-- `deprecated => unicode:chardata()` \- Shows a text in the documentation
+- `deprecated => unicode:chardata()` - Shows a text in the documentation
   explaining that it is deprecated and what to use instead. The compiler will
   automatically insert this key if there is a `-deprecated` attribute marking a
   function as deprecated.
-- `equiv => unicode:chardata()` \- Notes that this function is equivalent to
+- `equiv => unicode:chardata()` - Notes that this function is equivalent to
   another function in this module. The equivalence can be described using either
   `Func/Arity` or `Func(Args)`. For example:
 
-  ```text
+  ```erlang
   -doc #{ equiv => add/3 }.
   add(One, Two) -> add(One, Two, []).
   add(One, Two, Options) -> ...
@@ -230,7 +215,7 @@ There are four reserved metadata keys for `-doc`:
 
   or
 
-  ```text
+  ```erlang
   -doc #{ equiv => add(One, Two, []) }.
   -spec add(One :: number(), Two :: number()) -> number().
   add(One, Two) -> add(One, Two, []).
@@ -240,11 +225,9 @@ There are four reserved metadata keys for `-doc`:
   The entry into the [EEP-48](`e:kernel:eep48_chapter.md`) doc chunk metadata is
   the value converted to a string.
 
-- `exported => boolean()` \- A [boolean/0](`t:erlang:boolean/0`) signifying if
-  the entry is `exported` or not. This value is automatically set by the
-  compiler and should not be set by the user.
-
-[](){: #Documenting-functions-userdefined-types-and-callbacks_Doc-slogans }
+- `exported => boolean()` - A `t:boolean/0` signifying if the entry is `exported`
+  or not. This value is automatically set by the compiler and should not be set
+  by the user.
 
 ### Doc slogans
 
@@ -252,7 +235,7 @@ The doc slogan is a short text shown to describe the function and its arguments.
 By default it is determined by looking at the names of the arguments in the
 `-spec` or function. For example:
 
-```text
+```erlang
 add(One, Two) -> One + Two.
 
 -spec sub(One :: integer(), Two :: integer()) -> integer().
@@ -264,7 +247,7 @@ will have a slogan of `add(One, Two)` and `sub(One, Two)`.
 For types or callbacks, the slogan is derived from the type or callback
 specification. For example:
 
-```text
+```erlang
 -type number(Value) :: {number, Value}.
 %% slogan will be `number(Value)`
 
@@ -286,7 +269,7 @@ It is possible to supply a custom slogan by placing it as the first line of the
 `-doc` attribute. The provided slogan must be in the form of a function
 declaration up until the `->`. For example:
 
-```text
+```erlang
 -doc """
 add(One, Two)
 
@@ -300,21 +283,19 @@ documentation string, so in the example above only the text `"Adds two numbers"`
 will be part of the documentation. This works for functions, types, and
 callbacks.
 
-[](){: #Links-in-Markdown }
-
 ## Links in Markdown
 
 When writing documentation in Markdown, links are automatically found in any
 inline code segment that looks like an MFA. For example:
 
-```text
+```erlang
 -doc "See `sub/2` for more details".
 ```
 
 will create a link to the `sub/2` function in the current module if it exists.
 One can also use `` `sub/2`  ``as the link target. For example:
 
-```text
+```erlang
 -doc "See [subtract](`sub/2`) for more details".
 -doc "See [`sub/2`] for more details".
 -doc """
@@ -333,57 +314,55 @@ The above examples result in the same link being created.
 
 The link can also other entities:
 
-- `remote functions` \- Use `module:function/arity` syntax.
+- `remote functions` - Use `module:function/arity` syntax.
 
 Example:
 
-```text
+```erlang
   -doc "See `math:sub/2` for more details".
 ```
 
-- `modules` \- Write the module with a `m` prefix. Use anchors to jump to a
+- `modules` - Write the module with a `m` prefix. Use anchors to jump to a
   specific place in the module.
 
 Example:
 
-```text
+```erlang
   -doc "See `m:math` for more details".
   -doc "See `m:math#anchor` for more details".
 ```
 
-- `types` \- Use the same syntax as for local/remote function but add a `t`
+- `types` - Use the same syntax as for local/remote function but add a `t`
   prefix.
 
 Example:
 
-```text
+```erlang
   -doc "See `t:number/0` for more details".
   -doc "See `t:math:number/0` for more details".
 ```
 
-- `callbacks` \- Use the same syntax as for local/remote function but add a `c`
+- `callbacks` - Use the same syntax as for local/remote function but add a `c`
   prefix.
 
 Example:
 
-```text
+```erlang
   -doc "See `c:increment/0` for more details".
   -doc "See `c:math:increment/0` for more details".
 ```
 
-- `extra pages` \- For extra pages in the current application use a normal link,
+- `extra pages` - For extra pages in the current application use a normal link,
   for example "`[release notes](notes.md)`". For extra pages in another
   application use the `e` prefix and state which application the page belongs
   to. One can also use anchors to jump to a specific place in the page.
 
 Example:
 
-```text
+```erlang
   -doc "See `e:stdlib:unicode_usage` for more details".
   -doc "See `e:stdlib:unicode_usage#notes-about-raw-filenames` for more details".
 ```
-
-[](){: #What-is-visible-versus-hidden }
 
 ## What is visible versus hidden?
 
@@ -399,7 +378,7 @@ considered visible and part of the modules public API. In addition, any
 non-exported type that is referred to by any other visible type attribute is
 also visible, but not considered to be part of the public API. For example:
 
-```text
+```erlang
 -export([example/0]).
 
 -type private() :: one.
@@ -415,7 +394,7 @@ set to `false` to show that it is not part of the public API.
 If you want to make a visible entity hidden you need to set the `-doc` attribute
 to `false`. Let's revisit out previous example:
 
-```text
+```erlang
 -export([example/0]).
 
 -type private() :: one.
@@ -431,19 +410,17 @@ Any documentation added to an automatically hidden entity (non-exported function
 or type) is ignored and will generate a warning. Such functions can be
 documented using comments.
 
-[](){: #Compiling-and-getting-documentation }
-
 ## Compiling and getting documentation
 
-The Erlang compiler has support for compiling the documentation into
-[EEP-48](`e:kernel:eep48_chapter.md`) documentation chunks by passing the
-[beam_docs](`m:compile#beam_docs`) flag to `compile:file/1`, or `+beam_docs` to
-[erlc](`e:erts:erlc_cmd.md`).
+The Erlang compiler will by default insert documentation into
+[EEP-48](`e:kernel:eep48_chapter.md`) documentation chunks when compiling a module.
+By passing the [no_docs](`m:compile#no_docs`) flag to `compile:file/1`,
+or `+no_docs` to [erlc](`e:erts:erlc_cmd.md`) it is possible to disable this.
 
 The documentation can then be retrieved using `code:get_doc/1`, or viewed using
-the shell built-in command [h()](`c:h/1`). For example:
+the shell built-in command [h()](`\\c:h/1`). For example:
 
-```text
+```erlang
 1> h(math).
 
       math
@@ -457,8 +434,6 @@ the shell built-in command [h()](`c:h/1`). For example:
   Adds two numbers together.
 ```
 
-[](){: #Using-ExDoc-to-generate-HTMLePub-documentation }
-
 ## Using ExDoc to generate HTML/ePub documentation
 
 [ExDoc](https://hexdocs.pm/ex_doc/) has built-in support to generate
@@ -467,12 +442,9 @@ documentation from Markdown. The simplest way to use it is by using the
 project to use [ExDoc](https://hexdocs.pm/ex_doc/) to generate documentation add
 the following to your `rebar3.config`.
 
-```text
+```erlang
 %% Enable the plugin
 {plugins, [rebar3_ex_doc]}.
-
-%% Configure the compiler to emit documentation
-{profiles, [{docs, [{erl_opts, [beam_docs]}]}]}.
 
 {ex_doc, [
  {extras, ["README.md"]},

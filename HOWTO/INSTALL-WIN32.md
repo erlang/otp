@@ -50,43 +50,43 @@ environment variables etc seemed to be in place.
 
 This is the short story though, for the experienced and impatient:
 
-    *   Get and install complete WSL environment
+*   Get and install complete WSL environment
 
-    *   Install Visual Studio 2019
+*   Install Visual Studio 2019
 
-    *   Get and install windows JDK-8
+*   Get and install windows JDK-8
 
-    *   Get and install windows NSIS 3.05 or later (3.05 tried and working)
+*   Get and install windows NSIS 3.05 or later (3.05 tried and working)
 
-    *   Get, build and install OpenSSL v1.1.1d or later (up to 1.1.1d
-        tried & working) with static libs.
+*   Get, build and install OpenSSL v1.1.1d or later (up to 1.1.1d
+    tried & working) with static libs.
 
-    *   Get, build and install wxWidgets-3.2.2.1 or later (up to that
-        version tried & working) with static libs.
+*   Get, build and install wxWidgets-3.2.2.1 or later (up to that
+    version tried & working) with static libs.
 
-    *   Get the Erlang source distribution (from
-        <http://www.erlang.org/download.html>) and unpack with `tar`
-        to the windows disk for example to: /mnt/c/src/
+*   Get the Erlang source distribution (from
+    <http://www.erlang.org/download.html>) and unpack with `tar`
+    to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc, and make: `sudo apt update && sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
+*   Install mingw-gcc, and make: `sudo apt update && sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
 
-    *   `$ cd UNPACK_DIR`
+*   `$ cd UNPACK_DIR`
 
-    *   Modify PATH and other environment variables so that all these tools
-        are runnable from a bash shell. Still standing in `$ERL_TOP`, issue
-        the following commands (for 32-bit Windows, remove the x64 from the
-        first row and change `otp_win64_%OTP-REL%` to `otp_win32_%OTP-REL%` on
-        the last row):
+*   Modify PATH and other environment variables so that all these tools
+    are runnable from a bash shell. Still standing in `$ERL_TOP`, issue
+    the following commands (for 32-bit Windows, remove the x64 from the
+    first row and change `otp_win64_%OTP-REL%` to `otp_win32_%OTP-REL%` on
+    the last row):
 
-            $ eval `./otp_build env_win32 x64`
-            $ ./otp_build configure
-            $ ./otp_build boot -a
-            $ ./otp_build release -a
-            $ ./otp_build installer_win32
-            $ release/win32/otp_win64_%OTP-REL% /S
+        $ eval `./otp_build env_win32 x64`
+        $ ./otp_build configure
+        $ ./otp_build boot -a
+        $ ./otp_build release -a
+        $ ./otp_build installer_win32
+        $ release/win32/otp_win64_%OTP-REL% /S
 
-    Voila! `Start->Programs->Erlang OTP %OTP-REL%->Erlang` starts the Erlang
-    Windows shell.
+Voila! `Start->Programs->Erlang OTP %OTP-REL%->Erlang` starts the Erlang
+Windows shell.
 
 
 Tools you Need and Their Environment
@@ -121,7 +121,7 @@ the different tools:
 
     Add javac to your path environment, in my case this means:
 
-        `PATH="/mnt/c/Program\ Files/Java/jdk1.8.0_241/bin:$PATH`
+    `PATH="/mnt/c/Program\ Files/Java/jdk1.8.0_241/bin:$PATH`
 
     No `CLASSPATH` or anything is needed. Type `javac.exe` in the bash prompt
     and you should get a list of available Java options.
@@ -134,7 +134,7 @@ the different tools:
 
     Add 'makensis.exe' to your path environment:
 
-         `PATH="/mnt/c/Program\ Files/NSIS/Bin:$PATH`
+    `PATH="/mnt/c/Program\ Files/NSIS/Bin:$PATH`
 
     Type `which makensis.exe` in the bash prompt and you should get the
     path to the program.

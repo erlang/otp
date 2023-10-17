@@ -337,7 +337,7 @@ Returns information about the current system (emulator) limits as specified by `
 
 - `atom_limit`{: #system_info_atom_limit } - Returns the maximum number of
   atoms allowed. This limit can be increased at startup by passing
-  command-line flag [`+t`](erl_cmd.md#+t) to `erl(1)`.
+  command-line flag [`+t`](erl_cmd.md#+t_size) to `erl(1)`.
   
   Since: OTP 20.0
 
@@ -382,7 +382,7 @@ Returns information about the current system (emulator) time as specified by `It
 
 - `end_time`{: #system_info_end_time } - The last
   [Erlang monotonic time](`erlang:monotonic_time/0`) in `native`
-  [time unit](`m:erlang#type_time_unit`) that can be represented internally in
+  [time unit](`t:time_unit/0`) that can be represented internally in
   the current Erlang runtime system instance. The time between the
   [start time](`m:erlang#system_info_start_time`) and the end time is at least a
   quarter of a millennium.
@@ -391,7 +391,7 @@ Returns information about the current system (emulator) time as specified by `It
 
 - `os_monotonic_time_source`{: #system_info_os_monotonic_time_source } -
   Returns a list containing information about the source of
-  [OS monotonic time](time_correction.md#OS_Monotonic_Time) that is used by the
+  [OS monotonic time](time_correction.md#os-monotonic-time) that is used by the
   runtime system.
 
   If `[]` is returned, no OS monotonic time is available. The list contains
@@ -408,14 +408,14 @@ Returns information about the current system (emulator) time as specified by `It
     when calling `Function`.
 
   - `{resolution, OsMonotonicTimeResolution}` - Highest possible
-    [resolution](time_correction.md#Time_Resolution) of current OS monotonic
+    [resolution](time_correction.md#time-resolution) of current OS monotonic
     time source as parts per second. If no resolution information can be
     retrieved from the OS, `OsMonotonicTimeResolution` is set to the resolution
     of the time unit of `Function`s return value. That is, the actual
     resolution can be lower than `OsMonotonicTimeResolution`. Notice that the
     resolution does not say anything about the
-    [accuracy](time_correction.md#Time_Accuracy) or whether the
-    [precision](time_correction.md#Time_Precision) aligns with the resolution.
+    [accuracy](time_correction.md#time-accuracy) or whether the
+    [precision](time_correction.md#time-precision) aligns with the resolution.
     You do, however, know that the precision is not better than
     `OsMonotonicTimeResolution`.
 
@@ -429,13 +429,13 @@ Returns information about the current system (emulator) time as specified by `It
     calls must be serialized, `Parallel` equals `no`.
 
   - `{time, OsMonotonicTime}` - `OsMonotonicTime` equals current OS
-    monotonic time in `native` [time unit](`m:erlang#type_time_unit`).
+    monotonic time in `native` [time unit](`t:time_unit/0`).
   
   Since: OTP 18.0
 
 - `os_system_time_source`{: #system_info_os_system_time_source } - Returns a
   list containing information about the source of
-  [OS system time](time_correction.md#OS_System_Time) that is used by the
+  [OS system time](time_correction.md#os-system-time) that is used by the
   runtime system.
 
   The list contains two-tuples with `Key`s as first element, and `Value`s as
@@ -449,13 +449,13 @@ Returns information about the current system (emulator) time as specified by `It
     calling `Function`.
 
   - `{resolution, OsSystemTimeResolution}` - Highest possible
-    [resolution](time_correction.md#Time_Resolution) of current OS system time
+    [resolution](time_correction.md#time-resolution) of current OS system time
     source as parts per second. If no resolution information can be retrieved
     from the OS, `OsSystemTimeResolution` is set to the resolution of the time
     unit of `Function`s return value. That is, the actual resolution can be
     lower than `OsSystemTimeResolution`. Notice that the resolution does not
-    say anything about the [accuracy](time_correction.md#Time_Accuracy) or
-    whether the [precision](time_correction.md#Time_Precision) do align with the
+    say anything about the [accuracy](time_correction.md#time-accuracy) or
+    whether the [precision](time_correction.md#time-precision) do align with the
     resolution. You do, however, know that the precision is not better than
     `OsSystemTimeResolution`.
 
@@ -464,13 +464,13 @@ Returns information about the current system (emulator) time as specified by `It
     calls needs to be serialized, `Parallel` equals `no`.
 
   - `{time, OsSystemTime}` - `OsSystemTime` equals current OS system time in
-    `native` [time unit](`m:erlang#type_time_unit`).
+    `native` [time unit](`t:time_unit/0`).
   
   Since: OTP 18.0
 
 - `start_time`{: #system_info_start_time } - The
   [Erlang monotonic time](`erlang:monotonic_time/0`) in `native`
-  [time unit](`m:erlang#type_time_unit`) at the time when current Erlang runtime
+  [time unit](`t:time_unit/0`) at the time when current Erlang runtime
   system instance started.
 
   See also [`erlang:system_info(end_time)`](`m:erlang#system_info_end_time`).
@@ -478,7 +478,7 @@ Returns information about the current system (emulator) time as specified by `It
   Since: OTP 18.0
 
 - `time_correction`{: #system_info_time_correction } - Returns a `t:boolean()`
-  value indicating whether [time correction](time_correction.md#Time_Correction)
+  value indicating whether [time correction](time_correction.md#time-correction)
   is enabled or not.
   
   Since: OTP 18.0
@@ -489,31 +489,31 @@ Returns information about the current system (emulator) time as specified by `It
   - `preliminary` - The time offset is preliminary, and will be changed and
     finalized later. The preliminary time offset is used during the preliminary
     phase of the
-    [single time warp mode](time_correction.md#Single_Time_Warp_Mode).
+    [single time warp mode](time_correction.md#single-time-warp-mode).
 
   - `final` - The time offset is final. This either because
-    [no time warp mode](time_correction.md#No_Time_Warp_Mode) is used, or
+    [no time warp mode](time_correction.md#no-time-warp-mode) is used, or
     because the time offset have been finalized when
-    [single time warp mode](time_correction.md#Single_Time_Warp_Mode) is used.
+    [single time warp mode](time_correction.md#single-time-warp-mode) is used.
 
   - `volatile` - The time offset is volatile. That is, it can change at any
     time. This is because
-    [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode) is used.
+    [multi-time warp mode](time_correction.md#multi-time-warp-mode) is used.
   
   Since: OTP 18.0
 
 - `time_warp_mode`{: #system_info_time_warp_mode } - Returns a value
-  identifying the [time warp mode](time_correction.md#Time_Warp_Modes) that is
+  identifying the [time warp mode](time_correction.md#time-warp-modes) that is
   used:
 
   - `no_time_warp` - The
-    [no time warp mode](time_correction.md#No_Time_Warp_Mode) is used.
+    [no time warp mode](time_correction.md#no-time-warp-mode) is used.
 
   - `single_time_warp` - The
-    [single time warp mode](time_correction.md#Single_Time_Warp_Mode) is used.
+    [single time warp mode](time_correction.md#single-time-warp-mode) is used.
 
   - `multi_time_warp` - The
-    [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode) is used.
+    [multi-time warp mode](time_correction.md#multi-time-warp-mode) is used.
   
   Since: OTP 18.0
 
@@ -841,7 +841,7 @@ Returns various information about the current system (emulator) as specified by 
 - `modified_timing_level`{: #system_info_modified_timing_level } - Returns
   the modified timing-level (an `t:integer()`) if modified timing is enabled,
   otherwise `undefined`. For more information about modified timing, see
-  command-line flag [`+T`](erl_cmd.md#+T) in `erl(1)`
+  command-line flag [`+T`](erl_cmd.md#+T_level) in `erl(1)`
 
 - `nif_version`{: #system_info_nif_version } - Returns a string containing
   the version of the Erlang NIF interface used by the runtime system. It is on
@@ -857,7 +857,7 @@ Returns various information about the current system (emulator) as specified by 
   version number. No `erlang:system_info()` argument gives the exact OTP
   version. This is because the exact OTP version in the general case is
   difficult to determine. For more information, see the description of versions
-  in [System principles](`p:system:versions.md`) in System Documentation.
+  in [System principles](`e:system:versions.md`) in System Documentation.
 
 - `outstanding_system_requests_limit`{:
   #system_info_outstanding_system_requests_limit } - Returns the limit on the

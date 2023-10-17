@@ -45,7 +45,7 @@ _Where to read more:_ Distributed Erlang and some distributed programming
 techniques are described in the Erlang book.
 
 For more information, see
-[Distributed Programming.](`e:system:conc_prog.md#Distributed-Programming`)
+[Distributed Programming](`e:system:conc_prog.md#distributed-programming`).
 
 Relevant manual pages are the following:
 
@@ -171,8 +171,6 @@ _sockets_: as follows:
 Using one of the latter three requires good knowledge about the protocol and is
 not covered by this tutorial. See the SNMP, Inets, and Orber applications,
 respectively.
-
-[](){: #sockets }
 
 ### Sockets
 

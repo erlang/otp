@@ -13,8 +13,8 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 ## Install build tools
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get install -y build-essential m4 autoconf fop xsltproc \
-    default-jdk libxml2-utils flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
+    apt-get install -y build-essential m4 autoconf \
+    default-jdk flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
     update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
 
@@ -56,6 +56,8 @@ RUN apt-get install -y git curl && \
       VSN=$(kerl list releases | grep "^$release" | tail -1); \
       if [ $release = $LATEST ]; then \
         echo "/usr/local/lib/erlang-${VSN}/bin" > /home/${USER}/LATEST; \
+        echo "${VSN}" > /home/${USER}/LATEST_VSN; \
+        echo "${release}" > /home/${USER}/LATEST_RELEASE; \
       fi && \
       kerl build ${VSN} ${VSN} && \
       kerl install ${VSN} /usr/local/lib/erlang-${VSN}; \
@@ -103,6 +105,29 @@ RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
 COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
 
 WORKDIR /buildroot/
+
+## Build and install elixir, hex and ex_doc
+ENV ELIXIR_VSN=latest \
+    HEX_VSN=latest \
+    EX_DOC_VSN=latest
+RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
+    set -x && \
+    mkdir /buildroot/elixir && cd /buildroot/elixir && \
+    curl -s https://api.github.com/repos/elixir-lang/elixir/releases/${ELIXIR_VSN} | \
+    jq '.tarball_url' | xargs curl -L > elixir.tar.gz && \
+    tar xzf elixir.tar.gz --strip-components=1 && \
+    make && sudo make install && \
+    mkdir /buildroot/hex && cd /buildroot/hex && \
+    curl -s https://api.github.com/repos/hexpm/hex/releases/${HEX_VSN} | \
+    jq '.tarball_url' | xargs curl -L > hex.tar.gz && \
+    tar xzf hex.tar.gz --strip-components=1 && \
+    mix install && \
+    mkdir /buildroot/ex_doc && cd /buildroot/ex_doc && \
+    curl -s https://api.github.com/repos/elixir-lang/ex_doc/releases/${EX_DOC_VSN} | \
+    jq '.tarball_url' | xargs curl -L > ex_doc.tar.gz && \
+    tar xzf ex_doc.tar.gz --strip-components=1 && \
+    mix deps.get && MIX_ENV=prod mix escript.build && \
+    sudo cp ex_doc /usr/local/bin/
 
 ## Install test tools rebar3, proper and jsx
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \

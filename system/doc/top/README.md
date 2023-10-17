@@ -2,7 +2,7 @@
 
 Welcome to Erlang/OTP, a complete development environment for concurrent programming.
 
-The Erlang language is described in the [Erlang Reference Manual](`p:system:reference_manual.md`). An Erlang tutorial can be found in [Getting Started With Erlang](`p:system:getting_started.md`).
+The Erlang language is described in the [Erlang Reference Manual](`e:system:reference_manual.md`). An Erlang tutorial can be found in [Getting Started With Erlang](`e:system:getting_started.md`).
 
 In addition to the documentation here Erlang is described in several books like:
 
@@ -17,9 +17,9 @@ These books are highly recommended as a start for learning Erlang.
 
 More information about learning resources, editors and other tools can be found on our [official Erlang web site](https://erlang.org/community).
 
-* Erlang/OTP is divided into a number of [OTP applications](`m:application`). An application normally contains Erlang modules. Some OTP applications, such as the C interface [erl\_interface](`p:erl_interface:index.html`), are written in other languages and have no Erlang modules.
+* Erlang/OTP is divided into a number of [OTP applications](`m:application`). An application normally contains Erlang modules. Some OTP applications, such as the C interface [erl\_interface](`e:erl_interface:index.html`), are written in other languages and have no Erlang modules.
 
-* When developing with Erlang/OTP you usually test your programs from the interactive shell (see [Getting Started With Erlang](`p:system:getting_started.md`)) where you can call individual functions. There is also a number of tools available, such as the graphical [Debugger](`p:debugger/index.html`) and the [Observer tool](`p:observer:index.html`) for inspection of system information, ets and mnesia tables etc.
+* When developing with Erlang/OTP you usually test your programs from the interactive shell (see [Getting Started With Erlang](`e:system:getting_started.md`)) where you can call individual functions. There is also a number of tools available, such as the graphical [Debugger](`e:debugger:index.html`) and the [Observer tool](`e:observer:index.html`) for inspection of system information, ets and mnesia tables etc.
 * For questions and discussions about Erlang we recommend [ErlangForums](https://erlangforums.com).
 * There is also the [Frequently Asked Questions](https://www.erlang.org/faq/faq.html) which can be of interest.
 * Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site https://www.erlang.org.

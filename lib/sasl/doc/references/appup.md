@@ -58,7 +58,7 @@ following syntax:
   match multiple version numbers.
 
 - **`Instructions`** - A list of _release upgrade instructions_, see
-  [Release Upgrade Instructions](appup.md#Release%20Upgrade%20Instructions). It
+  [Release Upgrade Instructions](appup.md#release-upgrade-instructions). It
   is recommended to use high-level instructions only. These are automatically
   translated to low-level instructions by `systools` when creating the `relup`
   file.
@@ -74,8 +74,6 @@ the following match all versions `2.1.x`, where `x` is any number:
 
 Notice that the regular expression must match the complete version string, so
 this example works for, for example, `2.1.1`, but not for `2.1.1.1`.
-
-[](){: #Release-Upgrade-Instructions }
 
 ## Release Upgrade Instructions
 

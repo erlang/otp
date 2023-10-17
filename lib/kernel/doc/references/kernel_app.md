@@ -90,8 +90,6 @@ Any event handler added to `erl_signal_server` must handle the following events.
 
 Setting OS signals are described in `os:set_signal/2`.
 
-[](){: #configuration }
-
 ## Configuration
 
 The following configuration parameters are defined for the Kernel application.
@@ -211,8 +209,7 @@ For more information about configuration parameters, see file
   - `PublishType = normal | hidden`
   - `Node = node()`
 
-- **`inet_default_connect_options = [{Opt, Val}]`{:
-  #inet_default_connect_options }** - Specifies default options for `connect`
+- **`inet_default_connect_options = [{Opt, Val}]`{: #inet_default_connect_options }** - Specifies default options for `connect`
   sockets, see `m:inet`.
 
 - **`inet_default_listen_options = [{Opt, Val}]`{: #inet_default_listen_options
@@ -245,7 +242,7 @@ For more information about configuration parameters, see file
   configuration file. For details, see section
   [`Inet Configuration`](`e:erts:inet_cfg.md`) in the ERTS User's Guide.
 
-- **`net_setuptime = SetupTime`{: #net_setuptime }** - [](){: #net_setuptime }
+- **`net_setuptime = SetupTime`{: #net_setuptime }** -
   `SetupTime` must be a positive integer or floating point number, and is
   interpreted as the maximum allowed time for each network operation during
   connection setup to another Erlang node. The maximum allowed value is `120`.
@@ -272,7 +269,7 @@ For more information about configuration parameters, see file
 
   Note that the behavior described above is only true if the distribution
   carrier protocol used is implemented as described in
-  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](`e:erts:alt_dist.md#distribution_module`)
+  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](`e:erts:alt_dist.md#distribution-module`)
   without further alterations. The implementer of the distribution carrier
   protocol used, may have chosen to ignore the `net_ticker_spawn_options`
   parameter or altered its behavior. Currently all distribution modules shipped
@@ -410,7 +407,7 @@ For more information about configuration parameters, see file
 
   Defaults to `false`.
 
-- **`start_pg = true | false`{: #start_pg }** - [](){: #start_pg } Starts the
+- **`start_pg = true | false`{: #start_pg }** - Starts the
   default `pg` scope server (see `m:pg`) if the parameter is `true`. This
   parameter is to be set to `true` in an embedded system that uses this service.
 
@@ -452,8 +449,7 @@ For more information about configuration parameters, see file
   terminate reason for `application_controller`, and it must return as soon as
   possible for `application_controller` to terminate properly.
 
-- **`source_search_rules = [DirRule] | [SuffixRule]`{: #source_search_rules
-  }** - [](){: #source_search_rules } Where:
+- **`source_search_rules = [DirRule] | [SuffixRule]`{: #source_search_rules }** -  Where:
 
   - `DirRule = {ObjDirSuffix,SrcDirSuffix}`
   - `SuffixRule = {ObjSuffix,SrcSuffix,[DirRule]}`

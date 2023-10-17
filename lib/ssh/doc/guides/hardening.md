@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Hardening
 
-[](){: #introduction }
-
 ## Introduction
 
 The Erlang/OTP SSH application is intended to be used in other applications as a

@@ -90,7 +90,7 @@ Eshell V13.0.2  (abort with ^G)
 ```
 
 If the `debug` emulator is not part of the installation, you need to
-[build it from the Erlang/OTP source code](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Building_How-to-Build-a-Debug-Enabled-Erlang-RunTime-System`).
+[build it from the Erlang/OTP source code](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_building_how-to-build-a-debug-enabled-erlang-runtime-system`).
 After building from source either make an Erlang/OTP installation or you can run
 the debug emulator directly in the source tree with the `cerl` script:
 
@@ -178,8 +178,6 @@ of `debug`.
 Memory corruption errors are reported by AddressSanitizer when they happen, but
 memory leaks are only checked and reported by default then the emulator
 terminates.
-
-[](){: #valgrind }
 
 ## Valgrind
 

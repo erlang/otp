@@ -22,21 +22,21 @@ limitations under the License.
 ## Extended Time Functionality
 
 As of Erlang/OTP 18 (ERTS 7.0) the time functionality was extended. This
-includes a [new API](time_correction.md#The_New_Time_API) for time and
-[time warp modes](time_correction.md#Time_Warp_Modes) that change the system
+includes a [new API](time_correction.md#new-time-api) for time and
+[time warp modes](time_correction.md#time-warp-modes) that change the system
 behavior when system time changes.
 
 > #### Note {: .info }
 >
 > As of Erlang/OTP 26 (ERTS 14.0) the
-> [multi time warp mode](time_correction.md#Multi_Time_Warp_Mode) is enabled by
+> [multi time warp mode](time_correction.md#multi-time-warp-mode) is enabled by
 > default. This assumes that all code executing on the system is
-> [time warp safe](time_correction.md#Time_Warp_Safe_Code).
+> [time warp safe](time_correction.md#time-warp-safe-code).
 >
 > If you have old code in the system that is not time warp safe, you now
 > explicitly need to start the system in
-> [no time warp mode](time_correction.md#No_Time_Warp_Mode) (or
-> [singe time warp mode](time_correction.md#Single_Time_Warp_Mode) if it is
+> [no time warp mode](time_correction.md#no-time-warp-mode) (or
+> [singe time warp mode](time_correction.md#single-time-warp-mode) if it is
 > partially time warp safe) in order to avoid problems. When starting the system
 > in no time warp mode, the system behaves as it did prior to the introduction
 > of the extended time functionality introduced in OTP 18.
@@ -52,45 +52,35 @@ To make it easier to understand this section, some terms are defined. This is a
 mix of our own terminology (Erlang/OS system time, Erlang/OS monotonic time,
 time warp) and globally accepted terminology.
 
-[](){: #Monotonically_Increasing }
-
 ### Monotonically Increasing
 
 In a monotonically increasing sequence of values, all values that have a
 predecessor are either larger than or equal to its predecessor.
-
-[](){: #Strictly_Monotonically_Increasing }
 
 ### Strictly Monotonically Increasing
 
 In a strictly monotonically increasing sequence of values, all values that have
 a predecessor are larger than its predecessor.
 
-[](){: #UT1 }
-
 ### UT1
 
 Universal Time. UT1 is based on the rotation of the earth and conceptually means
 solar time at 0° longitude.
 
-[](){: #UTC }
-
 ### UTC
 
 Coordinated Universal Time. UTC almost aligns with
-[UT1](time_correction.md#UT1). However, UTC uses the SI definition of a second,
+[UT1](time_correction.md#ut1). However, UTC uses the SI definition of a second,
 which has not exactly the same length as the second used by UT1. This means that
 UTC slowly drifts from UT1. To keep UTC relatively in sync with UT1, leap
 seconds are inserted, and potentially also deleted. That is, an UTC day can be
 86400, 86401, or 86399 seconds long.
 
-[](){: #POSIX_Time }
-
 ### POSIX Time
 
 Time since
 [Epoch](http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap03.html#tag_21_03_00_17).
-Epoch is defined to be 00:00:00 [UTC](time_correction.md#UTC), 1970-01-01.
+Epoch is defined to be 00:00:00 [UTC](time_correction.md#utc), 1970-01-01.
 [A day in POSIX time](http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap04.html#tag_04_14)
 is defined to be exactly 86400 seconds long. Strangely enough, Epoch is defined
 to be a time in UTC, and UTC has another definition of how long a day is.
@@ -101,28 +91,20 @@ either stops for a second, or repeats the last second. If an UTC leap second
 would be deleted (which has not happened yet), POSIX time would make a one
 second leap forward.
 
-[](){: #Time_Resolution }
-
 ### Time Resolution
 
 The shortest time interval that can be distinguished when reading time values.
-
-[](){: #Time_Precision }
 
 ### Time Precision
 
 The shortest time interval that can be distinguished repeatedly and reliably
 when reading time values. Precision is limited by the
-[resolution](time_correction.md#Time_Resolution), but resolution and precision
+[resolution](time_correction.md#time-resolution), but resolution and precision
 can differ significantly.
-
-[](){: #Time_Accuracy }
 
 ### Time Accuracy
 
 The correctness of time values.
-
-[](){: #Time_Warp }
 
 ### Time Warp
 
@@ -130,21 +112,17 @@ A time warp is a leap forwards or backwards in time. That is, the difference of
 time values taken before and after the time warp does not correspond to the
 actual elapsed time.
 
-[](){: #OS_System_Time }
-
 ### OS System Time
 
-The operating systems view of [POSIX time](time_correction.md#POSIX_Time). To
+The operating systems view of [POSIX time](time_correction.md#posix-time). To
 retrieve it, call [`os:system_time()`](`os:system_time/0`). This may or may not
 be an accurate view of POSIX time. This time may typically be adjusted both
 backwards and forwards without limitation. That is,
-[time warps](time_correction.md#Time_Warp) may be observed.
+[time warps](time_correction.md#time-warp) may be observed.
 
 To get information about the Erlang runtime system's source of OS system time,
 call
 [`erlang:system_info(os_system_time_source)`](`m:erlang#system_info_os_system_time_source`).
-
-[](){: #OS_Monotonic_Time }
 
 ### OS Monotonic Time
 
@@ -152,28 +130,24 @@ A monotonically increasing time provided by the OS. This time does not leap and
 has a relatively steady frequency although not completely correct. However, it
 is not uncommon that OS monotonic time stops if the system is suspended. This
 time typically increases since some unspecified point in time that is not
-connected to [OS system time](time_correction.md#OS_System_Time). This type of
+connected to [OS system time](time_correction.md#os-system-time). This type of
 time is not necessarily provided by all OSs.
 
 To get information about the Erlang runtime system's source of OS monotonic
 time, call
 [`erlang:system_info(os_monotonic_time_source)`](`m:erlang#system_info_os_monotonic_time_source`).
 
-[](){: #Erlang_System_Time }
-
 ### Erlang System Time
 
-The Erlang runtime systems view of [POSIX time](time_correction.md#POSIX_Time).
+The Erlang runtime systems view of [POSIX time](time_correction.md#posix-time).
 To retrieve it, call [`erlang:system_time()`](`erlang:system_time/0`).
 
 This time may or may not be an accurate view of POSIX time, and may or may not
-align with [OS system time](time_correction.md#OS_System_Time). The runtime
+align with [OS system time](time_correction.md#os-system-time). The runtime
 system works towards aligning the two system times. Depending on the
-[time warp mode](time_correction.md#Time_Warp_Modes) used, this can be achieved
+[time warp mode](time_correction.md#time-warp-modes) used, this can be achieved
 by letting Erlang system time perform a
-[time warp](time_correction.md#Time_Warp).
-
-[](){: #Erlang_Monotonic_Time }
+[time warp](time_correction.md#time-warp).
 
 ### Erlang Monotonic Time
 
@@ -181,14 +155,14 @@ A monotonically increasing time provided by the Erlang runtime system. Erlang
 monotonic time increases since some unspecified point in time. To retrieve it,
 call [`erlang:monotonic_time()`](`erlang:monotonic_time/0`).
 
-The [accuracy](time_correction.md#Time_Accuracy) and
-[precision](time_correction.md#Time_Precision) of Erlang monotonic time heavily
+The [accuracy](time_correction.md#time-accuracy) and
+[precision](time_correction.md#time-precision) of Erlang monotonic time heavily
 depends on the following:
 
 - Accuracy and precision of
-  [OS monotonic time](time_correction.md#OS_Monotonic_Time)
-- Accuracy and precision of [OS system time](time_correction.md#OS_System_Time)
-- [time warp mode](time_correction.md#Time_Warp_Modes) used
+  [OS monotonic time](time_correction.md#os-monotonic-time)
+- Accuracy and precision of [OS system time](time_correction.md#os-system-time)
+- [time warp mode](time_correction.md#time-warp-modes) used
 
 On a system without OS monotonic time, Erlang monotonic time guarantees
 monotonicity, but cannot give other guarantees. The frequency adjustments made
@@ -198,7 +172,7 @@ Internally in the runtime system, Erlang monotonic time is the "time engine"
 that is used for more or less everything that has anything to do with time. All
 timers, regardless of it is a `receive ... after` timer, BIF timer, or a timer
 in the `m:timer` module, are triggered relative Erlang monotonic time. Even
-[Erlang system time](time_correction.md#Erlang_System_Time) is based on Erlang
+[Erlang system time](time_correction.md#erlang-system-time) is based on Erlang
 monotonic time. By adding current Erlang monotonic time with current time
 offset, you get current Erlang system time.
 
@@ -248,18 +222,16 @@ monotonic clock, either a real-time extension or some built-in "tick counter"
 that is independent of the wall clock settings. This counter can have
 microsecond resolution or much less, but it has a drift that cannot be ignored.
 
-[](){: #Time_Correction }
-
 ## Time Correction
 
 If time correction is enabled, the Erlang runtime system makes use of both
-[OS system time](time_correction.md#OS_System_Time) and
-[OS monotonic time](time_correction.md#OS_Monotonic_Time), to adjust the
+[OS system time](time_correction.md#os-system-time) and
+[OS monotonic time](time_correction.md#os-monotonic-time), to adjust the
 frequency of the Erlang monotonic clock. Time correction ensures that
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) does not warp
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) does not warp
 and that the frequency is relatively accurate. The type of frequency adjustments
 depends on the time warp mode used. Section
-[Time Warp Modes](time_correction.md#Time_Warp_Modes) provides more details.
+[Time Warp Modes](time_correction.md#time-warp-modes) provides more details.
 
 By default time correction is enabled if support for it exists on the specific
 platform. Support for it includes both OS monotonic time, provided by the OS,
@@ -270,7 +242,7 @@ To check if time correction is enabled on your system, call
 [`erlang:system_info(time_correction)`](`m:erlang#system_info_time_correction`).
 
 To enable or disable time correction, pass command-line argument
-[`+c [true|false]`](erl_cmd.md#%2Bc) to [`erl(1)`](erl_cmd.md).
+[`+c [true|false]`](erl_cmd.md#+c) to [`erl(1)`](erl_cmd.md).
 
 If time correction is disabled, Erlang monotonic time can warp forwards or stop,
 or even freeze for extended periods of time. There are then no guarantees that
@@ -281,12 +253,10 @@ penalty was associated with time correction, but nowadays it is usually the
 other way around. If time correction is disabled, you probably get bad
 scalability, bad performance, and bad time measurements.
 
-[](){: #Time_Warp_Safe_Code }
-
 ## Time Warp Safe Code
 
-Time warp safe code can handle a [time warp](time_correction.md#Time_Warp) of
-[Erlang system time](time_correction.md#Erlang_System_Time).
+Time warp safe code can handle a [time warp](time_correction.md#time-warp) of
+[Erlang system time](time_correction.md#erlang-system-time).
 
 `erlang:now/0` behaves bad when Erlang system time warps. When Erlang system
 time does a time warp backwards, the values returned from `erlang:now/0` freeze
@@ -304,19 +274,15 @@ replace the use of `erlang:now/0`, see section
 
 ## Time Warp Modes
 
-[](){: #Time_Warp_Modes }
-
-Current [Erlang system time](time_correction.md#Erlang_System_Time) is
+Current [Erlang system time](time_correction.md#erlang-system-time) is
 determined by adding the current
 [Erlang monotonic time](`erlang:monotonic_time/0`) with current
 [time offset](`erlang:time_offset/0`). The time offset is managed differently
 depending on which time warp mode you use.
 
 To set the time warp mode, pass command-line argument
-[`+C [no_time_warp|single_time_warp|multi_time_warp]`](erl_cmd.md#%2BC_) to
+[`+C [no_time_warp|single_time_warp|multi_time_warp]`](erl_cmd.md#+C_) to
 [`erl(1)`](erl_cmd.md).
-
-[](){: #No_Time_Warp_Mode }
 
 ### No Time Warp Mode
 
@@ -336,8 +302,6 @@ time leaps backwards. The freeze of monotonic time continues until OS system
 time catches up. The freeze can continue for a long time. When OS system time
 leaps forwards, Erlang monotonic time also leaps forward.
 
-[](){: #Single_Time_Warp_Mode }
-
 ### Single Time Warp Mode
 
 This mode is more or less a backward compatibility mode as from its
@@ -346,12 +310,12 @@ introduction.
 On an embedded system it is not uncommon that the system has no power supply,
 not even a battery, when it is shut off. The system clock on such a system is
 typically way off when the system boots. If
-[no time warp mode](time_correction.md#No_Time_Warp_Mode) is used, and the
+[no time warp mode](time_correction.md#no-time-warp-mode) is used, and the
 Erlang runtime system is started before OS system time has been corrected,
 Erlang system time can be wrong for a long time, centuries or even longer.
 
 If you need to use Erlang code that is not
-[time warp safe](time_correction.md#Time_Warp_Safe_Code), and you need to start
+[time warp safe](time_correction.md#time-warp-safe-code), and you need to start
 the Erlang runtime system before OS system time has been corrected, you may want
 to use the single time warp mode.
 
@@ -359,7 +323,7 @@ to use the single time warp mode.
 >
 > There are limitations to when you can execute time warp unsafe code using this
 > mode. If it is possible to use time warp safe code only, it is _much_ better
-> to use the [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode)
+> to use the [multi-time warp mode](time_correction.md#multi-time-warp-mode)
 > instead.
 
 Using the single time warp mode, the time offset is handled in two phases:
@@ -376,7 +340,7 @@ Using the single time warp mode, the time offset is handled in two phases:
 
   If time correction is disabled, changes in OS system time affects the
   monotonic clock the same way as when the
-  [no time warp mode](time_correction.md#No_Time_Warp_Mode) is used.
+  [no time warp mode](time_correction.md#no-time-warp-mode) is used.
 
 - **Final Phase** - This phase begins when the user finalizes the time offset by
   calling
@@ -390,7 +354,7 @@ Using the single time warp mode, the time offset is handled in two phases:
   terminates. If time correction has been enabled, the time correction from now
   on also makes adjustments to align Erlang system time with OS system time.
   When the system is in the final phase, it behaves exactly as in
-  [no time warp mode](time_correction.md#No_Time_Warp_Mode).
+  [no time warp mode](time_correction.md#no-time-warp-mode).
 
 In order for this to work properly, the user must ensure that the following two
 requirements are satisfied:
@@ -418,12 +382,10 @@ adjustments needed are for inserted (or deleted) leap seconds.
 > #### Warning {: .warning }
 >
 > To use this mode, ensure that all Erlang code that will execute in both phases
-> is [time warp safe](time_correction.md#Time_Warp_Safe_Code).
+> is [time warp safe](time_correction.md#time-warp-safe-code).
 >
 > Code executing only in the final phase does not have to be able to cope with
 > the time warp.
-
-[](){: #Multi_Time_Warp_Mode }
 
 ### Multi-Time Warp Mode
 
@@ -449,11 +411,9 @@ time offset is changed to align Erlang system time with OS system time.
 > #### Warning {: .warning }
 >
 > To use this mode, ensure that all Erlang code that will execute on the runtime
-> system is [time warp safe](time_correction.md#Time_Warp_Safe_Code).
+> system is [time warp safe](time_correction.md#time-warp-safe-code).
 
 ## New Time API
-
-[](){: #The_New_Time_API }
 
 The old time API is based on `erlang:now/0`. `erlang:now/0` was intended to be
 used for many unrelated things. This tied these unrelated operations together
@@ -463,7 +423,7 @@ spreads different functionality over multiple functions.
 
 To be backward compatible, `erlang:now/0` remains "as is", but _you are strongly
 discouraged from using it_. Many use cases of `erlang:now/0` prevents you from
-using the new [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode),
+using the new [multi-time warp mode](time_correction.md#multi-time-warp-mode),
 which is an important part of this new time functionality improvement.
 
 Some of the new BIFs on some systems, perhaps surprisingly, return negative
@@ -497,8 +457,6 @@ The new API also consists of extensions of the following existing BIFs:
 - [`erlang:system_info(start_time)`](`m:erlang#system_info_start_time`)
 - [`erlang:system_info(end_time)`](`m:erlang#system_info_end_time`)
 
-[](){: #The_New_Erlang_Monotonic_Time }
-
 ### New Erlang Monotonic Time
 
 Erlang monotonic time as such is new as from ERTS 7.0. It is introduced to
@@ -515,7 +473,7 @@ times (Erlang monotonic time and Erlang system time) separately. By doing this,
 the accuracy of elapsed time does not have to suffer just because the system
 time happened to be wrong at some point in time. Separate adjustments of the two
 times are only performed in the time warp modes, and only fully separated in the
-[multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode). All other modes
+[multi-time warp mode](time_correction.md#multi-time-warp-mode). All other modes
 than the multi-time warp mode are for backward compatibility reasons. When using
 these modes, the accuracy of Erlang monotonic time suffer, as the adjustments of
 Erlang monotonic time in these modes are more or less tied to Erlang system
@@ -544,8 +502,6 @@ time offset is changed:
 {'CHANGE', MonitorReference, time_offset, clock_service, NewTimeOffset}
 ```
 
-[](){: #Unique_Values }
-
 ### Unique Values
 
 Besides reporting time, `erlang:now/0` also produces unique and strictly
@@ -561,8 +517,6 @@ Previously `erlang:now/0` was the only option for doing many things. This
 section deals with some things that `erlang:now/0` can be used for, and how you
 use the new API.
 
-[](){: #Dos_and_Donts_Retrieve_Erlang_System_Time }
-
 #### Retrieve Erlang System Time
 
 > #### Dont {: .error }
@@ -572,12 +526,10 @@ use the new API.
 > #### Do {: .tip }
 >
 > Use `erlang:system_time/1` to retrieve the current Erlang system time on the
-> [time unit](`m:erlang#type_time_unit`) of your choice.
+> [time unit](`t:erlang:time_unit/0`) of your choice.
 >
 > If you want the same format as returned by `erlang:now/0`, use
 > `erlang:timestamp/0`.
-
-[](){: #Dos_and_Donts_Measure_Elapsed_Time }
 
 #### Measure Elapsed Time
 
@@ -590,13 +542,11 @@ use the new API.
 >
 > Take time stamps with `erlang:monotonic_time/0` and calculate the time
 > difference using ordinary subtraction. The result is in `native`
-> [time unit](`m:erlang#type_time_unit`). If you want to convert the result to
+> [time unit](`t:erlang:time_unit/0`). If you want to convert the result to
 > another time unit, you can use `erlang:convert_time_unit/3`.
 >
 > An easier way to do this is to use `erlang:monotonic_time/1` with the desired
 > time unit. However, you can then lose accuracy and precision.
-
-[](){: #Dos_and_Donts_Determine_Order_of_Events }
 
 #### Determine Order of Events
 
@@ -611,8 +561,6 @@ use the new API.
 > [`erlang:unique_integer([monotonic])`](`erlang:unique_integer/1`) when the
 > event occurs. These integers are strictly monotonically ordered on current
 > runtime system instance corresponding to creation time.
-
-[](){: #Dos_and_Donts_Determine_Order_of_Events_With_Time_of_the_Event }
 
 #### Determine Order of Events with Time of the Event
 
@@ -650,8 +598,6 @@ use the new API.
 > time offset as a third element in the tuple (the least significant element
 > when comparing three-tuples).
 
-[](){: #Dos_and_Donts_Create_a_Unique_Name }
-
 #### Create a Unique Name
 
 > #### Dont {: .error }
@@ -664,8 +610,6 @@ use the new API.
 > Use the value returned from `erlang:unique_integer/0` to create a name unique
 > on the current runtime system instance. If you only want positive integers,
 > you can use [`erlang:unique_integer([positive])`](`erlang:unique_integer/1`).
-
-[](){: #Dos_and_Donts_Seed_Random_Number_Generation_With_a_Unique_Value }
 
 #### Seed Random Number Generation with a Unique Value
 
@@ -682,8 +626,6 @@ use the new API.
 > functionality.
 
 To sum up this section: _Do not use `erlang:now/0`._
-
-[](){: #Supporting_Both_New_and_Old_OTP_Releases }
 
 ## Support of Both New and Old OTP Releases
 
@@ -705,4 +647,4 @@ primitives, except for:
 By wrapping the API with functions that fall back on `erlang:now/0` when the new
 API is unavailable, and using these wrappers instead of using the API directly,
 the problem is solved. These wrappers can, for example, be implemented as in
-[$ERL_TOP/erts/example/time_compat.erl](time_compat.erl).
+[$ERL_TOP/erts/example/time_compat.erl](assets/time_compat.erl).

@@ -31,5 +31,5 @@ ifndef TERTIARY_BOOTSTRAP
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 endif
 
-clean depend docs release release_docs tests release_tests check xmllint:
+clean depend docs release release_docs tests release_tests check:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

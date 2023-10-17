@@ -139,8 +139,9 @@ following system (`sys`) level options are supported:
   in the beam file should be kept or stripped. `keep` keeps all debug info,
   `strip` strips all debug info, and a list of chunkids keeps only those chunks.
 
-- **`excl_lib`** - > #### Warning {: .warning }
+- **`excl_lib`**
 
+  > #### Warning {: .warning }
   > This option is experimental.
 
   If the `excl_lib` option is set to `otp_root` then reltool will not copy

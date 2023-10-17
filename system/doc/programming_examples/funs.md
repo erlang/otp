@@ -133,7 +133,7 @@ which its elements are processed.
 ## Syntax of Funs
 
 Funs are written with the following syntax (see
-[Fun Expressions ](`e:system:expressions.md#funs`)for full description):
+[Fun Expressions ](`e:system:expressions.md#fun-expressions`)for full description):
 
 ```erlang
 F = fun (Arg1, Arg2, ... ArgN) ->

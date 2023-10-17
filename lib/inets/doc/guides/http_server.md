@@ -223,8 +223,6 @@ implementation details of the ESI callback function, see `m:mod_esi`.
 
 ## Logging
 
-[](){: #logging }
-
 Three types of logs are supported: transfer logs, security logs, and error logs.
 The de-facto standard Common Logfile Format is used for the transfer and
 security logging. There are numerous statistics programs available to analyze

@@ -122,8 +122,6 @@ to the Erlang External Format before being sent through a TCP/IP socket. The
 receiving Erlang node decodes the message and distributes it to the correct
 process.
 
-[](){: #receiving-messages }
-
 ## Receiving messages
 
 The cost of receiving messages depends on how complicated the `receive`
@@ -257,8 +255,6 @@ cross_function_receive(Ref) ->
     end.
 ```
 
-[](){: #literal-pool }
-
 ## Literal Pool
 
 Constant Erlang terms (hereafter called _literals_) are kept in _literal pools_;
@@ -296,8 +292,6 @@ raised to 2 GB (2048 MB):
 ```text
     erl +MIscs 2048
 ```
-
-[](){: #loss-of-sharing }
 
 ## Loss of Sharing
 

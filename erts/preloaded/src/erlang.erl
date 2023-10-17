@@ -26,7 +26,7 @@ included in this module. Some of the BIFs and all of the predefined types are
 viewed more or less as part of the Erlang programming language and are
 _auto-imported_. Thus, it is not necessary to specify the module name. For
 example, the calls [`atom_to_list(erlang)`](`atom_to_list/1`) and
-`erlang:atom_to_list(erlang)` are identical.
+[`erlang:atom_to_list(erlang)`](`atom_to_list/1`) are identical.
 
 Auto-imported BIFs are listed without module prefix. BIFs listed with module
 prefix are not auto-imported.
@@ -44,7 +44,6 @@ in the description of each individual BIF.
 Some BIFs can be used in guard tests and are marked with "Allowed in guard
 tests".
 """.
--moduledoc(#{titles => [{type,<<"Predefined datatypes">>}]}).
 
 -export([apply/2,apply/3,spawn/4,spawn_link/4,
 	 spawn_monitor/1,spawn_monitor/2,
@@ -105,191 +104,151 @@ tests".
 
 %% Built-in datatypes
 -doc "All possible Erlang terms. Synonym for `t:term/0`.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type any() :: any().
 -doc "The arity of a function or type.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type arity() :: arity().
 -doc "An Erlang [atom](`e:system:data_types.md#atom`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type atom() :: atom().
 -doc """
 An Erlang [binary](`e:system:data_types.md#bit-strings-and-binaries`), that is,
 a bitstring with a size divisible by 8.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type binary() :: <<_:_*8>>.
 -doc "An Erlang [bitstring](`e:system:data_types.md#bit-strings-and-binaries`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type bitstring() :: <<_:_*1>>.
 -doc false.
 -type bool() :: boolean().
 -doc "A [boolean](`e:system:data_types.md#boolean`) value.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type boolean() :: true | false.
 -doc "A byte of data represented by an integer.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type byte() :: 0..255.
 -doc "An ASCII character or a `m:unicode` codepoint presented by an integer.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type char() :: 0..16#10FFFF.
 -doc "The [dynamic](`e:system:typespec.md#dynamic`) type.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type dynamic() :: dynamic().
 -doc "An Erlang [float](`e:system:data_types.md#number`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type float() :: float().
 -doc "An Erlang [fun](`e:system:data_types.md#fun`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type function() :: fun().
 -doc """
 An unique identifier for some entity, for example a
 [process](`e:system:ref_man_processes.md`), [port](`e:system:ports.md#ports`) or
 [monitor](`monitor/2`).
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type identifier() :: pid() | port() | reference().
 -doc "An Erlang [integer](`e:system:data_types.md#number`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type integer() :: integer().
 -doc """
-A binary or list containing bytes and/or iodata. This datatype is used to
-represent data that is meant to be output using any I/O module. For example:
-`file:write/2` or `gen_tcp:send/2`.
+A binary or list containing bytes and/or iodata.
+
+This datatype is used to represent data that is meant to be output using
+any I/O module. For example: `file:write/2` or `gen_tcp:send/2`.
 
 To convert an iodata() term to binary() you can use
 [iolist_to_binary/2](`iolist_to_binary/1`). To transcode a `t:string/0` or
 `t:unicode:chardata/0` to iodata() you can use `unicode:characters_to_binary/1`.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type iodata() :: iolist() | binary().
 -doc """
-A list containing bytes and/or iodata. This datatype is used to represent data
-that is meant to be output using any I/O module. For example: `file:write/2` or
-`gen_tcp:send/2`.
+A list containing bytes and/or iodata.
+
+This datatype is used to represent data that is meant to be output using any
+I/O module. For example: `file:write/2` or `gen_tcp:send/2`.
 
 In most use cases you want to use `t:iodata/0` instead of this type.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type iolist() :: maybe_improper_list(byte() | binary() | iolist(), binary() | []).
 -doc "An Erlang [list](`e:system:data_types.md#list`) containing terms of any type.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type list() :: [any()].
 -doc """
 An Erlang [list](`e:system:data_types.md#list`) containing terms of the type
 `ContentType`.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type list(ContentType) :: [ContentType].
 -doc """
 An Erlang [map](`e:system:data_types.md#map`) containing any number of key and
 value associations.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type map() :: #{ any() => any() }.
 -doc """
 An Erlang [list](`e:system:data_types.md#list`) that is not guaranteed to end
 with a [`[]`](`t:nil/0`), and where the list elements can be of any type.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type maybe_improper_list() :: maybe_improper_list(any(), any()).
 -doc """
 An Erlang [list](`e:system:data_types.md#list`), that is not guaranteed to end
 with a [`[]`](`t:nil/0`), and where the list elements are of the type
 `ContentType`.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
--type maybe_improper_list(ContentType, TerminationType) :: maybe_improper_list(ContentType, TerminationType).
+-type maybe_improper_list(ContentType, TerminationType) ::
+        maybe_improper_list(ContentType, TerminationType).
 -doc "A three-tuple representing a `Module:Function/Arity` function signature.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type mfa() :: {module(),atom(),arity()}.
 -doc "An Erlang module represented by an atom.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type module() :: atom().
 -doc "A negative integer.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type neg_integer() :: neg_integer().
 -doc "The empty `t:list/0`.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nil() :: [].
 -doc """
 The type used to show that a function will _never_ return a value, that is it
 will _always_ throw an exception.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type no_return() :: none().
 -doc "An Erlang [node](`e:system:distributed.md#nodes`) represented by an atom.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type node() :: atom().
 -doc "A non-negative integer, that is any positive integer or 0.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type non_neg_integer() :: non_neg_integer().
 -doc """
 This type is used to show that a function will _never_ return a value; that is
-it will _always_ throw an exception. In a spec, use `t:no_return/0` for the sake
-of clarity.
+it will _always_ throw an exception.
+
+In a spec, use `t:no_return/0` for the sake of clarity.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type none() :: none().
 -doc "A `t:binary/0` that contains some data.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_binary() :: <<_:8, _:_*8>>.
 -doc "A `t:bitstring/0` that contains some data.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_bitstring() :: <<_:1, _:_*1>>.
 -doc "A [maybe_improper_list/2](`t:maybe_improper_list/0`) that contains some items.".
--doc(#{title => <<"Predefined datatypes">>}).
--type nonempty_improper_list(ContentType, TerminationType) :: nonempty_improper_list(ContentType, TerminationType).
+-type nonempty_improper_list(ContentType, TerminationType) ::
+        nonempty_improper_list(ContentType, TerminationType).
 -doc "A `t:list/0` that contains some items.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_list() :: nonempty_list(any()).
 -doc "A [list(ContentType)](`t:list/0`) that contains some items.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_list(ContentType) :: [ContentType, ...].
 -doc "A `t:maybe_improper_list/0` that contains some items.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any()).
 -doc """
 A [maybe_improper_list(ContentType, TerminationType)](`t:maybe_improper_list/0`)
 that contains some items.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_maybe_improper_list(ContentType, TerminationType) :: nonempty_maybe_improper_list(ContentType, TerminationType).
 -doc "A `t:string/0` that contains some characters.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type nonempty_string() :: nonempty_list(char()).
 -doc "An Erlang [number](`e:system:data_types.md#number`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type number() :: integer() | float().
 -doc "An Erlang [process identifier](`e:system:data_types.md#pid`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type pid() :: pid().
 -doc "An Erlang [port identifier](`e:system:data_types.md#port-identifier`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type port() :: port().
 -doc "An integer greater than zero.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type pos_integer() :: pos_integer().
 -doc "An Erlang [reference](`e:system:data_types.md#reference`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type reference() :: reference().
 -doc """
 A character string represented by a list of ASCII characters or unicode
 codepoints.
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type string() :: [char()].
 -doc "All possible Erlang terms. Synonym for `t:any/0`.".
--doc(#{title => <<"Predefined datatypes">>}).
 -type term() :: any().
 -doc """
 A timeout value that can be passed to a
 [receive expression](`e:system:expressions.md#receive`).
 """.
--doc(#{title => <<"Predefined datatypes">>}).
 -type timeout() :: 'infinity' | non_neg_integer().
 -doc "An Erlang [tuple](`e:system:data_types.md#tuple`).".
--doc(#{title => <<"Predefined datatypes">>}).
 -type tuple() :: tuple().
 -export_type([any/0, arity/0, atom/0, binary/0, bitstring/0, bool/0, boolean/0, byte/0,
               char/0, dynamic/0, float/0, function/0, identifier/0, integer/0, iodata/0, iolist/0,
@@ -312,17 +271,16 @@ A timeout value that can be passed to a
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
 
--doc """
-An Erlang stacktrace as described by
-[Errors and Error Handling](`e:system:errors.md#stacktrace`) section in the
-Erlang Reference Manual.
-""".
 -type stacktrace_extrainfo() ::
         {line, pos_integer()} |
         {file, unicode:chardata()} |
         {error_info, #{ module => module(), function => atom(), cause => term() }} |
         {atom(), term()}.
--doc(#{equiv => {type,stacktrace_extrainfo,0}}).
+-doc """
+An Erlang stacktrace as described by
+[Errors and Error Handling](`e:system:errors.md#stacktrace`) section in the
+Erlang Reference Manual.
+""".
 -type stacktrace() :: [{module(), atom(), arity() | [term()],
                         [stacktrace_extrainfo()]} |
                        {function(), arity() | [term()], [stacktrace_extrainfo()]}].
@@ -340,7 +298,7 @@ format.
                       MicroSecs :: non_neg_integer()}.
 
 -doc """
-[](){: #type_time_unit }
+The time unit used by erlang time APIs.
 
 Supported time unit representations:
 
@@ -378,9 +336,9 @@ Supported time unit representations:
   >
   > The value of the `native` time unit gives you more or less no information
   > about the quality of time values. It sets a limit for the
-  > [resolution](time_correction.md#Time_Resolution) and for the
-  > [precision](time_correction.md#Time_Precision) of time values, but it gives
-  > no information about the [accuracy](time_correction.md#Time_Accuracy) of
+  > [resolution](time_correction.md#time-resolution) and for the
+  > [precision](time_correction.md#time-precision) of time values, but it gives
+  > no information about the [accuracy](time_correction.md#time-accuracy) of
   > time values. The resolution of the `native` time unit and the resolution of
   > time values can differ significantly.
 
@@ -391,7 +349,7 @@ Supported time unit representations:
   unit. That is, it can differ between runtime restarts. To get values of this
   type, call `os:perf_counter/0`.
 
-- **[`deprecated_time_unit()`](`m:erlang#type_deprecated_time_unit`)** -
+- **`t:deprecated_time_unit/0`** -
   Deprecated symbolic representations kept for backwards-compatibility.
 
 The `t:time_unit/0` type can be extended. To convert time values between time
@@ -409,18 +367,16 @@ units, use [`erlang:convert_time_unit/3`](`convert_time_unit/3`).
 
 %% Deprecated symbolic units...
 -doc """
-[](){: #type_deprecated_time_unit }
+The `t:time_unit/0` type also consist of the following _deprecated_ symbolic
+time units:
 
-The [`time_unit()`](`m:erlang#type_time_unit`) type also consist of the
-following _deprecated_ symbolic time units:
+- **`seconds`** - Same as [`second`](`t:time_unit/0`).
 
-- **`seconds`** - Same as [`second`](`m:erlang#type_time_unit`).
+- **`milli_seconds`** - Same as [`millisecond`](`t:time_unit/0`).
 
-- **`milli_seconds`** - Same as [`millisecond`](`m:erlang#type_time_unit`).
+- **`micro_seconds`** - Same as [`microsecond`](`t:time_unit/0`).
 
-- **`micro_seconds`** - Same as [`microsecond`](`m:erlang#type_time_unit`).
-
-- **`nano_seconds`** - Same as [`nanosecond`](`m:erlang#type_time_unit`).
+- **`nano_seconds`** - Same as [`nanosecond`](`t:time_unit/0`).
 """.
 -type deprecated_time_unit() ::
       'seconds'
@@ -787,7 +743,7 @@ using UTF-8 where characters may require multiple bytes.
 
 Example:
 
-```text
+```erlang
 > atom_to_binary('Erlang', latin1).
 <<"Erlang">>
 ```
@@ -803,12 +759,12 @@ atom_to_binary(_Atom, _Encoding) ->
 Returns a list of unicode code points corresponding to the text representation
 of `Atom`, for example:
 
-```text
+```erlang
 > atom_to_list('Erlang').
 "Erlang"
 ```
 
-```text
+```erlang
 > atom_to_list('你好').
 [20320,22909]
 ```
@@ -914,7 +870,7 @@ Examples:
 'Erlang'
 ```
 
-```text
+```erlang
 > binary_to_atom(<<1024/utf8>>, utf8).
 'Ѐ'
 ```
@@ -985,7 +941,7 @@ binary_to_existing_atom(_Binary, _Encoding) ->
 -doc """
 Returns the float whose text representation is `Binary`, for example:
 
-```text
+```erlang
 > binary_to_float(<<"2.2017764e+0">>).
 2.2017764
 ```
@@ -1006,7 +962,7 @@ binary_to_float(_Binary) ->
 -doc """
 Returns an integer whose text representation is `Binary`, for example:
 
-```text
+```erlang
 > binary_to_integer(<<"123">>).
 123
 ```
@@ -1039,7 +995,7 @@ binary_to_integer(Binary) ->
 Returns an integer whose text representation in base `Base` is `Binary`, for
 example:
 
-```text
+```erlang
 > binary_to_integer(<<"3FF">>, 16).
 1023
 ```
@@ -1352,7 +1308,7 @@ is a bitstring containing the remaining 1-7 bits. Examples:
 [1,177]
 ```
 
-```text
+```erlang
 > bitstring_to_list(<<433:16,3:3>>).
 [1,177,<<3:3>>]
 ```
@@ -1490,7 +1446,7 @@ cancel_timer(_TimerRef, _Options) ->
 -doc """
 Returns the smallest integer not less than `Number`. For example:
 
-```text
+```erlang
 > ceil(5.5).
 6
 ```
@@ -1581,7 +1537,7 @@ can be returned.
 > will be raised upon usage (same as the case when the `fun` is received by the
 > process after the purge). Literals will be taken care of (copied) at a later
 > stage. This behavior can as of ERTS version 8.1 be enabled when
-> [building OTP](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring`),
+> [building OTP](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp_configuring`),
 > and will automatically be enabled if dirty scheduler support is enabled.
 
 See also `m:code`.
@@ -2011,7 +1967,7 @@ Failures:
 demonitor(_MonitorRef, _OptionList) ->
     erlang:nif_error(undefined).
 
--doc(#{equiv => alias/1}).
+-doc(#{equiv => alias([])}).
 -doc(#{since => <<"OTP 24.0">>}).
 -spec alias() -> Alias when
       Alias :: reference().
@@ -2305,7 +2261,7 @@ provide more context around an error.
 
 The default `module` of the `ErrorInfoMap` is the module that the call to
 `error/3` is made. The default `function` is `format_error`. See
-[`format_error/2`](`m:erl_error#format_error`) for more details on how this
+[`format_error/2`](`c:erl_error:format_error/2`) for more details on how this
 Module:Function/2 is to be used
 
 The intent of the exception class `error` is to signal that an unexpected error
@@ -2456,7 +2412,7 @@ true
 
 This is equivalent to a call to:
 
-```text
+```erlang
 erlang:external_size(Term, [])
 ```
 """.
@@ -2515,7 +2471,7 @@ finish_after_on_load(_P1, _P2) ->
 -doc """
 Returns a float by converting `Number` to a float, for example:
 
-```text
+```erlang
 > float(55).
 55.0
 ```
@@ -2642,7 +2598,7 @@ float_to_list(_Float, _Options) ->
 -doc """
 Returns the largest integer not greater than `Number`. For example:
 
-```text
+```erlang
 > floor(-10.5).
 -11
 ```
@@ -2739,7 +2695,7 @@ fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
 
 Explanation: `fun test:add/1` is upgradable but `test:add2()` is not upgradable.
 
-```text
+```erlang
 > {test:add(1), test:add(42)}.
 {#Fun<test.0.107738983>,#Fun<test.0.107738983>}
 ```
@@ -2747,7 +2703,7 @@ Explanation: `fun test:add/1` is upgradable but `test:add2()` is not upgradable.
 Explanation: `test:add(1)` and `test:add(42)` has the same string representation
 as the environment is not taken into account.
 
-```text
+```erlang
 >test:fun_tuple().
 {#Fun<test.2.107738983>,#Fun<test.3.107738983>}
 ```
@@ -3067,7 +3023,7 @@ group_leader(GroupLeader, Pid) ->
 -doc """
 The same as calling [`halt(0, [])`](`halt/2`). Example:
 
-```text
+```erlang
 > halt().
 os_prompt%
 ```
@@ -3079,24 +3035,14 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -doc """
-[](){: #halt_status_code_1 }
-
 The same as calling [`halt(Status, [])`](`halt/2`). Example:
 
-```text
+```erlang
 > halt(17).
 os_prompt% echo $?
 17
 os_prompt%
 ```
-
-[](){: #halt_abort_1 }
-
-The same as calling [`halt(abort, [])`](`m:erlang#halt_abort_2`).
-
-[](){: #halt_crash_dump_1 }
-
-The same as calling [`halt(CrashDumpSlogan, [])`](`m:erlang#halt_crash_dump_2`).
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec halt(Status :: non_neg_integer()) ->
@@ -3120,8 +3066,6 @@ halt(Status) ->
         [{flush, boolean()}].
 
 -doc """
-[](){: #halt_status_code_2 }
-
 Halt the runtime system with status code `Status`.
 
 > #### Note {: .info }
@@ -3266,7 +3210,7 @@ insert_element(_Index, _Tuple1, _Term) ->
 Returns a binary corresponding to the text representation of `Integer`, for
 example:
 
-```text
+```erlang
 > integer_to_binary(77).
 <<"77">>
 ```
@@ -3282,7 +3226,7 @@ integer_to_binary(_Integer) ->
 Returns a string corresponding to the text representation of `Integer`, for
 example:
 
-```text
+```erlang
 > integer_to_list(77).
 "77"
 ```
@@ -3435,7 +3379,7 @@ aliveness of `P2` is checked. This guarantee means that one can use
 process `P2`, which has got an exit signal with reason `kill` from P1, is
 killed. Example:
 
-```text
+```erlang
 exit(P2Pid, kill),
 % P2 might not be killed
 is_process_alive(P2Pid),
@@ -3630,7 +3574,7 @@ list_to_existing_atom(_String) ->
 -doc """
 Returns the float whose text representation is `String`, for example:
 
-```text
+```erlang
 > list_to_float("2.2017764e+0").
 2.2017764
 ```
@@ -3650,7 +3594,7 @@ list_to_float(_String) ->
 -doc """
 Returns an integer whose text representation is `String`, for example:
 
-```text
+```erlang
 > list_to_integer("123").
 123
 ```
@@ -3660,7 +3604,7 @@ Returns an integer whose text representation is `String`, for example:
 -123
 ```
 
-```text
+```erlang
 > list_to_integer("+123234982304982309482093833234234").
 123234982304982309482093833234234
 ```
@@ -3700,27 +3644,27 @@ list_to_integer(String) ->
 Returns an integer whose text representation in base `Base` is `String`, for
 example:
 
-```text
+```erlang
 > list_to_integer("3FF", 16).
 1023
 ```
 
-```text
+```erlang
 > list_to_integer("+3FF", 16).
 1023
 ```
 
-```text
+```erlang
 > list_to_integer("3ff", 16).
 1023
 ```
 
-```text
+```erlang
 > list_to_integer("3fF", 16).
 1023
 ```
 
-```text
+```erlang
 > list_to_integer("-3FF", 16).
 -1023
 ```
@@ -3759,7 +3703,7 @@ list_to_integer(String, Base) ->
 Returns a process identifier whose text representation is a `String`, for
 example:
 
-```text
+```erlang
 > list_to_pid("<0.4.1>").
 <0.4.1>
 ```
@@ -3781,7 +3725,7 @@ list_to_pid(_String) ->
 -doc """
 Returns a port identifier whose text representation is a `String`, for example:
 
-```text
+```erlang
 > list_to_port("#Port<0.4>").
 #Port<0.4>
 ```
@@ -3804,7 +3748,7 @@ list_to_port(_String) ->
 -doc """
 Returns a reference whose text representation is a `String`, for example:
 
-```text
+```erlang
 > list_to_ref("#Ref<0.4192537678.4073193475.71181>").
 #Ref<0.4192537678.4073193475.71181>
 ```
@@ -4111,8 +4055,8 @@ earlier, and:
 
 - **Monitoring a `time_offset`{: #monitor_time_offset }** - Monitors changes in
   [`time offset`](`time_offset/0`) between
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and
-  [Erlang system time](time_correction.md#Erlang_System_Time). One valid `Item`
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
+  [Erlang system time](time_correction.md#erlang-system-time). One valid `Item`
   exists in combination with the `time_offset Type`, namely the atom
   `clock_service`. Notice that the atom `clock_service` is _not_ the registered
   name of a process. In this case it serves as an identifier of the runtime
@@ -4122,14 +4066,14 @@ earlier, and:
   time offset value is changed, or if the offset is changed from preliminary to
   final during
   [finalization of the time offset](`m:erlang#system_flag_time_offset`) when the
-  [single time warp mode](time_correction.md#Single_Time_Warp_Mode) is used.
+  [single time warp mode](time_correction.md#single-time-warp-mode) is used.
   When a change from preliminary to final time offset is made, the monitor is
   triggered once regardless of whether the time offset value was changed or not.
 
   If the runtime system is in
-  [multi time warp mode](time_correction.md#Multi_Time_Warp_Mode), the time
+  [multi time warp mode](time_correction.md#multi-time-warp-mode), the time
   offset is changed when the runtime system detects that the
-  [OS system time](time_correction.md#OS_System_Time) has changed. The runtime
+  [OS system time](time_correction.md#os-system-time) has changed. The runtime
   system does, however, not detect this immediately when it occurs. A task
   checking the time offset is scheduled to execute at least once a minute, so
   under normal operation this is to be detected within a minute, but during
@@ -4141,7 +4085,7 @@ earlier, and:
   When the monitor is triggered a `'CHANGE'` message is sent to the monitoring
   process. A `'CHANGE'` message has the following pattern:
 
-  ```text
+  ```erlang
   {'CHANGE', MonitorRef, Type, Item, NewTimeOffset}
   ```
 
@@ -4569,7 +4513,7 @@ or larger than previously returned integers.
   integers (bignums) quicker.
 
 - **monotonic** - Returns
-  [strictly monotonically increasing](time_correction.md#Strictly_Monotonically_Increasing)
+  [strictly monotonically increasing](time_correction.md#strictly-monotonically-increasing)
   integers corresponding to creation time. That is, the integer returned is
   always larger than previously returned integers on the current runtime system
   instance.
@@ -4625,16 +4569,16 @@ unique_integer() ->
 
 -doc """
 Returns the current
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) in `native`
-[time unit](`m:erlang#type_time_unit`). This is a monotonically increasing time
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) in `native`
+[time unit](`t:time_unit/0`). This is a monotonically increasing time
 since some unspecified point in time.
 
 > #### Note {: .info }
 >
 > This is a
-> [monotonically increasing](time_correction.md#Monotonically_Increasing) time,
+> [monotonically increasing](time_correction.md#monotonically-increasing) time,
 > but _not_ a
-> [strictly monotonically increasing](time_correction.md#Strictly_Monotonically_Increasing)
+> [strictly monotonically increasing](time_correction.md#strictly-monotonically-increasing)
 > time. That is, consecutive calls to `erlang:monotonic_time/0` can produce the
 > same result.
 >
@@ -4656,7 +4600,7 @@ monotonic_time() ->
 
 -doc """
 Returns the current
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) converted into
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) converted into
 the `Unit` passed as argument.
 
 Same as calling
@@ -4671,8 +4615,8 @@ monotonic_time(_Unit) ->
     erlang:nif_error(undefined).
 
 -doc """
-Returns current [Erlang system time](time_correction.md#Erlang_System_Time) in
-`native` [time unit](`m:erlang#type_time_unit`).
+Returns current [Erlang system time](time_correction.md#erlang-system-time) in
+`native` [time unit](`t:time_unit/0`).
 
 Calling `erlang:system_time()` is equivalent to
 [`erlang:monotonic_time()`](`monotonic_time/0`)`+`[`erlang:time_offset()`](`time_offset/0`).
@@ -4681,7 +4625,7 @@ Calling `erlang:system_time()` is equivalent to
 >
 > This time is _not_ a monotonically increasing time in the general case. For
 > more information, see the documentation of
-> [time warp modes](time_correction.md#Time_Warp_Modes) in the User's Guide.
+> [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec erlang:system_time() -> integer().
@@ -4690,7 +4634,7 @@ system_time() ->
     erlang:nif_error(undefined).
 
 -doc """
-Returns current [Erlang system time](time_correction.md#Erlang_System_Time)
+Returns current [Erlang system time](time_correction.md#erlang-system-time)
 converted into the `Unit` passed as argument.
 
 Calling `erlang:system_time(Unit)` is equivalent to
@@ -4700,7 +4644,7 @@ Calling `erlang:system_time(Unit)` is equivalent to
 >
 > This time is _not_ a monotonically increasing time in the general case. For
 > more information, see the documentation of
-> [time warp modes](time_correction.md#Time_Warp_Modes) in the User's Guide.
+> [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec erlang:system_time(Unit) -> integer() when
@@ -4772,13 +4716,13 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 
 -doc """
 Returns the current time offset between
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and
-[Erlang system time](time_correction.md#Erlang_System_Time) in `native`
-[time unit](`m:erlang#type_time_unit`). Current time offset added to an Erlang
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
+[Erlang system time](time_correction.md#erlang-system-time) in `native`
+[time unit](`t:time_unit/0`). Current time offset added to an Erlang
 monotonic time gives corresponding Erlang system time.
 
 The time offset may or may not change during operation depending on the
-[time warp mode](time_correction.md#Time_Warp_Modes) used.
+[time warp mode](time_correction.md#time-warp-modes) used.
 
 > #### Note {: .info }
 >
@@ -4786,9 +4730,9 @@ The time offset may or may not change during operation depending on the
 > by different processes.
 >
 > If the runtime system is in
-> [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode), the time
+> [multi-time warp mode](time_correction.md#multi-time-warp-mode), the time
 > offset is changed when the runtime system detects that the
-> [OS system time](time_correction.md#OS_System_Time) has changed. The runtime
+> [OS system time](time_correction.md#os-system-time) has changed. The runtime
 > system will, however, not detect this immediately when it occurs. A task
 > checking the time offset is scheduled to execute at least once a minute; so,
 > under normal operation this is to be detected within a minute, but during
@@ -4802,8 +4746,8 @@ time_offset() ->
 
 -doc """
 Returns the current time offset between
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and
-[Erlang system time](time_correction.md#Erlang_System_Time) converted into the
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
+[Erlang system time](time_correction.md#erlang-system-time) converted into the
 `Unit` passed as argument.
 
 Same as calling
@@ -4818,7 +4762,7 @@ time_offset(_Unit) ->
     erlang:nif_error(undefined).
 
 -doc """
-Returns current [Erlang system time](time_correction.md#Erlang_System_Time) on
+Returns current [Erlang system time](time_correction.md#erlang-system-time) on
 the format `{MegaSecs, Secs, MicroSecs}`. This format is the same as
 `os:timestamp/0` and the deprecated [`erlang:now/0`](`now/0`) use. The reason
 for the existence of `erlang:timestamp()` is purely to simplify use for existing
@@ -4844,7 +4788,7 @@ heap and with slightly better performance.
 >
 > This time is _not_ a monotonically increasing time in the general case. For
 > more information, see the documentation of
-> [time warp modes](time_correction.md#Time_Warp_Modes) in the User's Guide.
+> [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec erlang:timestamp() -> Timestamp when
@@ -5010,7 +4954,7 @@ process, but its process identifier is part of the result returned from
 
 Example:
 
-```text
+```erlang
 > processes().
 [<0.0.0>,<0.2.0>,<0.4.0>,<0.5.0>,<0.7.0>,<0.8.0>]
 ```
@@ -5091,7 +5035,7 @@ Raises an exception of the specified class, reason, and call stack backtrace
 
 `Stacktrace` is a list as provided in a try-catch clause.
 
-```text
+```erlang
 try
     ...
 catch Class:Reason:Stacktrace ->
@@ -5216,7 +5160,7 @@ which must be an atom, can be used instead of the pid or port identifier in send
 operator (`RegName ! Message`) and most other BIFs that take a pid or port
 identifies as an argument. Example:
 
-```text
+```erlang
 > register(db, Pid).
 true
 ```
@@ -5291,17 +5235,17 @@ resume_process(_Suspendee) ->
 -doc """
 Returns an integer by rounding `Number`, for example:
 
-```text
+```erlang
 round(42.1).
 42
 ```
 
-```text
+```erlang
 round(5.5).
 6
 ```
 
-```text
+```erlang
 round(-5.5).
 -6
 ```
@@ -5331,7 +5275,7 @@ round(_Number) ->
 -doc """
 Returns the process identifier of the calling process, for example:
 
-```text
+```erlang
 > self().
 <0.26.0>
 ```
@@ -5467,7 +5411,7 @@ occurs.
 
 Example:
 
-```text
+```erlang
 > spawn(speed, regulator, [high_speed, thin_cut]).
 <0.13.1>
 ```
@@ -5540,7 +5484,7 @@ is sent to the process identified by `Dest`.
 
 - **`{abs, false}`** - This is the default. It means the `Time` value is
   interpreted as a time in milliseconds _relative_ current
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time).
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time).
 
 - **`{abs, true}`** - Absolute `Time` value. The `Time` value is interpreted as
   an absolute Erlang monotonic time in milliseconds.
@@ -5900,7 +5844,7 @@ profiling. The second argument is a list of profiling options:
   the port callback returns.
 
 - **`monotonic_timestamp`** - Time stamps in profile messages use
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time). The time
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time). The time
   stamp (Ts) has the same format and value as produced by
   `erlang:monotonic_time(nanosecond)`.
 
@@ -5916,7 +5860,7 @@ profiling. The second argument is a list of profiling options:
   `{profile, scheduler, Id, State, NoScheds, Ts}`, is sent to `ProfilerPid`.
 
 - **`strict_monotonic_timestamp`** - Time stamps in profile messages consist of
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and a
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) and a
   monotonically increasing integer. The time stamp (Ts) has the same format and
   value as produced by
   `{erlang:monotonic_time(nanosecond), erlang:unique_integer([monotonic])}`.
@@ -5944,7 +5888,7 @@ system_profile(_ProfilerPid, _Options) ->
 Raises an exception of class `throw`. Intended to be used to do non-local
 returns from functions.
 
-If evaluated within a [catch expression](`e:system:expressions.md#catch`), the
+If evaluated within a [catch expression](`e:system:expressions.md#catch-and-throw`), the
 catch expression returns value `Any`. Example:
 
 ```erlang
@@ -6141,13 +6085,13 @@ refers to the list of [`trace messages`](`m:erlang#trace_3_trace_messages`)):
   backwards when using this option.
 
 - **`monotonic_timestamp`** - Includes an
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) time stamp
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) time stamp
   in all trace messages. The time stamp (Ts) has the same format and value as
   produced by [`erlang:monotonic_time(nanosecond)`](`monotonic_time/1`). This
   flag overrides flag `cpu_timestamp`.
 
 - **`strict_monotonic_timestamp`** - Includes an time stamp consisting of
-  [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and a
+  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) and a
   monotonically increasing integer in all trace messages. The time stamp (Ts)
   has the same format and value as produced by `{`
   [`erlang:monotonic_time(nanosecond)`](`monotonic_time/1`)`,`
@@ -6562,17 +6506,17 @@ trace_info(_PidPortFuncEvent, _Item) ->
 -doc """
 Truncates the decimals of `Number`, for example:
 
-```text
+```erlang
 > trunc(5.7).
 5
 ```
 
-```text
+```erlang
 > trunc(-5.7).
 -5
 ```
 
-```text
+```erlang
 > trunc(5).
 5
 ```
@@ -6699,7 +6643,7 @@ Removes the [`registered name`](`register/2`) `RegName` associated with a
 process identifier or a port identifier from the
 [`name registry`](`e:system:ref_man_processes.md#runtime-service`). For example:
 
-```text
+```erlang
 > unregister(db).
 true
 ```
@@ -6724,7 +6668,7 @@ Returns the process identifier or port identifier with the
 [`name registry`](`e:system:ref_man_processes.md#runtime-service`). Returns
 `undefined` if the name is not registered. Example:
 
-```text
+```erlang
 > whereis(db).
 <0.43.0>
 ```
@@ -6747,7 +6691,7 @@ whereis(_RegName) ->
 Returns an integer or float that is the arithmetical absolute value of `Float`
 or `Int`, for example:
 
-```text
+```erlang
 > abs(-3.33).
 3.33
 > abs(-3).
@@ -6808,7 +6752,7 @@ It works with improper lists.
 
 Examples:
 
-```text
+```erlang
 > hd([1,2,3,4,5]).
 1
 ```
@@ -7636,7 +7580,7 @@ This flag sets the maximum heap size for the calling process. If `MaxHeapSize`
 is an integer, the system default values for `kill` and `error_logger` are used.
 
 For details on how the heap grows, see
-[Sizing the heap](garbagecollection.md#sizing-the-heap) in the ERTS internal
+[Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
 documentation.
 
 - **`size`** - The maximum size in words of the process. If set to zero, the
@@ -8334,7 +8278,7 @@ Returns the number of exact reductions.
 
 Returns information about garbage collection, for example:
 
-```text
+```erlang
 > statistics(garbage_collection).
 {85,23961,0}
 ```
@@ -8483,7 +8427,7 @@ between calls.
 
 Returns information about reductions, for example:
 
-```text
+```erlang
 > statistics(reductions).
 {2046,11}
 ```
@@ -8554,7 +8498,7 @@ can therefore be greater than the wall clock time.
 
 Example:
 
-```text
+```erlang
 > statistics(runtime).
 {1690,1620}
 ```
@@ -8931,7 +8875,7 @@ change has been made. `max_heap_size` can be set for individual processes using
 Returns the old value of the flag.
 
 For details on how the heap grows, see
-[Sizing the heap](garbagecollection.md#sizing-the-heap) in the ERTS internal
+[Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
 documentation.
 
 [](){: #system_flag_multi_scheduling }
@@ -9178,7 +9122,7 @@ Returns the old value of the flag.
 [](){: #system_flag_time_offset }
 
 Finalizes the [time offset](`time_offset/0`) when
-[single time warp mode](time_correction.md#Single_Time_Warp_Mode) is used. If
+[single time warp mode](time_correction.md#single-time-warp-mode) is used. If
 another time warp mode is used, the time offset state is left unchanged.
 
 Returns the old state identifier, that is:
@@ -9187,9 +9131,9 @@ Returns the old state identifier, that is:
   is now final.
 - If `final` is returned, the time offset was already in the final state. This
   either because another `erlang:system_flag(time_offset, finalize)` call or
-  because [no time warp mode](time_correction.md#No_Time_Warp_Mode) is used.
+  because [no time warp mode](time_correction.md#no-time-warp-mode) is used.
 - If `volatile` is returned, the time offset cannot be finalized because
-  [multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode) is used.
+  [multi-time warp mode](time_correction.md#multi-time-warp-mode) is used.
 """.
 -doc(#{since =>
            <<"OTP 17.0, OTP 18.0, OTP 19.0, OTP 20.2.3, OTP 21.3, OTP 24.2, OTP R13B04, OTP R15B01">>}).
@@ -9407,7 +9351,7 @@ Currently supported options:
 
   This option cannot be combined with the `deterministic` option.
 
-  For more information see the [`LOCAL_EXT`](erl_ext_dist.md#LOCAL_EXT) tag in
+  For more information see the [`LOCAL_EXT`](erl_ext_dist.md#local_ext) tag in
   the documentation of the external term format.
 
 See also `binary_to_term/1`.
@@ -9481,22 +9425,22 @@ It works with improper lists.
 
 Examples:
 
-```text
+```erlang
 > tl([geesties, guilies, beasties]).
 [guilies, beasties]
 ```
 
-```text
+```erlang
 > tl([geesties]).
 []
 ```
 
-```text
+```erlang
 > tl([geesties, guilies, beasties | improper_end]).
 [guilies, beasties | improper_end]
 ```
 
-```text
+```erlang
 > tl([geesties | improper_end]).
 improper_end
 ```
@@ -11210,10 +11154,11 @@ fun_info_1([K|Ks], Fun, A) ->
 fun_info_1([], _, A) -> A.
 
 -doc """
-The destination for a send operation, can be a remote or local process
-identifier, a (local) port, a reference denoting a process alias, a locally
-registered name, or a tuple `{RegName, Node}` for a registered name at another
-node.
+The destination for a send operation.
+
+This can be a remote or local process identifier, a (local) port, a reference
+denoting a process alias, a locally registered name, or a tuple `{RegName, Node}`
+for a registered name at another node.
 """.
 -type send_destination() :: pid()
                           | reference()
@@ -11222,6 +11167,8 @@ node.
                           | {RegName :: atom(), Node :: node()}.
 
 -doc """
+Send a message without suspending the caller.
+
 The same as [`erlang:send(Dest, Msg, [nosuspend])`](`send/3`), but returns
 `true` if the message was sent and `false` if the message was not sent because
 the sender would have had to be suspended.
@@ -11795,7 +11742,7 @@ This function is used when implementing an alternative distribution carrier.
 `DHandle` is retrieved via the callback
 [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete). More
 information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec erlang:dist_ctrl_input_handler(DHandle, InputHandler) -> 'ok' when
@@ -11821,7 +11768,7 @@ This function is used when implementing an alternative distribution carrier.
 `DHandle` is retrieved via the callback
 [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete). More
 information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec erlang:dist_ctrl_put_data(DHandle, Data) -> 'ok' when
@@ -11852,7 +11799,7 @@ This function is used when implementing an alternative distribution carrier
 using processes as distribution controllers. `DHandle` is retrieved via the
 callback [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete).
 More information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec erlang:dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
@@ -11881,7 +11828,7 @@ This function is used when implementing an alternative distribution carrier
 using processes as distribution controllers. `DHandle` is retrieved via the
 callback [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete).
 More information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec erlang:dist_ctrl_get_data_notification(DHandle) -> 'ok' when
@@ -11916,7 +11863,7 @@ This function is used when implementing an alternative distribution carrier
 using processes as distribution controllers. `DHandle` is retrieved via the
 callback [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete).
 More information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
 -spec erlang:dist_ctrl_set_opt(DHandle, 'get_size', Value) -> OldValue when
@@ -11942,7 +11889,7 @@ This function is used when implementing an alternative distribution carrier
 using processes as distribution controllers. `DHandle` is retrieved via the
 callback [`f_handshake_complete`](alt_dist.md#hs_data_f_handshake_complete).
 More information can be found in the documentation of
-[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution_module).
+[ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
 -spec erlang:dist_ctrl_get_opt(DHandle, 'get_size') -> Value when
@@ -12056,7 +12003,7 @@ get_cookie(Node) ->
 Returns a string corresponding to the text representation of `Integer` in base
 `Base`, for example:
 
-```text
+```erlang
 > integer_to_list(1023, 16).
 "3FF"
 ```
@@ -12071,7 +12018,7 @@ integer_to_list(_I, _Base) ->
 Returns a binary corresponding to the text representation of `Integer` in base
 `Base`, for example:
 
-```text
+```erlang
 > integer_to_binary(1023, 16).
 <<"3FF">>
 ```
@@ -12239,17 +12186,17 @@ descriptions of the `==` operator and how terms are ordered.
 
 Examples:
 
-```text
+```erlang
 > min(1, 2).
 1
 ```
 
-```text
+```erlang
 > min(1.0, 1).
 1.0
 ```
 
-```text
+```erlang
 > min(1, 1.0).
 1
 ```
@@ -12284,22 +12231,22 @@ descriptions of the `==` operator and how terms are ordered.
 
 Examples:
 
-```text
+```erlang
 > max(1, 2).
 2
 ```
 
-```text
+```erlang
 > max(1.0, 1).
 1.0
 ```
 
-```text
+```erlang
 > max(1, 1.0).
 1
 ```
 
-```text
+```erlang
 > max("abc", "b").
 "b"
 ```

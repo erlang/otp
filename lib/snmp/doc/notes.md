@@ -1474,7 +1474,7 @@ Version 4.20 supports code replacement in runtime from/to version 4.19 and 4.18.
 
   See the [target address config file](snmp_agent_config_files.md#target_addr),
   the [target_addr_entry/11](`m:snmpa_conf#target_addr_entry`) function or
-  [add_addr/11](`m:snmp_target_mib#add_addr`) for more info.
+  [add_addr/11](`snmp_target_mib:add_addr/11`) for more info.
 
   Own Id: OTP-9088
 

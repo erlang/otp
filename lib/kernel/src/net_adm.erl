@@ -63,7 +63,7 @@ _Example:_
 %% 1. cwd , 2. $HOME 3. init:root_dir() 
 
 -doc """
-Reads file `.hosts.erlang`, see section [Files](`m:net_adm#files`). Returns the
+Reads file `.hosts.erlang`, see section [Files](`m:net_adm#module-files`). Returns the
 hosts in this file as a list. Returns `{error, Reason}` if the file cannot be
 read or the Erlang terms on the file cannot be interpreted.
 """.

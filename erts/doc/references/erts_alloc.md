@@ -29,8 +29,6 @@ allocators.
 
 ## Allocators
 
-[](){: #allocators }
-
 The following allocators are present:
 
 - **`temp_alloc`** - Allocator used for temporary allocations.

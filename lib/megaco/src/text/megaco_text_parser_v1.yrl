@@ -1345,6 +1345,7 @@ safeToken2           -> 'ServiceChangeIncompleteToken'  : '$1' . % v3
 %% </OTP-7534>
 
 Erlang code.
+-moduledoc false.
 
 -include("megaco_text_parser_v1.hrl").
 

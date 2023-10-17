@@ -23,9 +23,7 @@ The driver-entry structure used by Erlang drivers.
 
 ## Description
 
-[](){: #WARNING }
-
-> #### Warning {: .warning }
+> #### Warning {: .warning #WARNING }
 >
 > _Use this functionality with extreme care._
 >
@@ -196,20 +194,18 @@ typedef struct erl_drv_entry {
   pointer to memory allocated in `start`, then `stop` is the place to deallocate
   that memory.
 
-- **`void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)`{: #output
-  }** - Called when an Erlang process has sent data to the port. The data is
+- **`void (*output)(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)`{: #output }** -
+  Called when an Erlang process has sent data to the port. The data is
   pointed to by `buf`, and is `len` bytes. Data is sent to the port with
   `Port ! {self(), {command, Data}}` or with `erlang:port_command/2`. Depending
   on how the port was opened, it is to be either a list of integers `0...255` or
   a binary. See `erlang:open_port/2` and `erlang:port_command/2`.
 
-- **`void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event)`{: #ready_input
-  }**
+- **`void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event)`{: #ready_input }**
 
-- **`void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event)`{:
-  #ready_output }** - Called when a driver event (specified in parameter
-  `event`) is signaled. This is used to help asynchronous drivers "wake up" when
-  something occurs.
+- **`void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event)`{: #ready_output }** -
+  Called when a driver event (specified in parameter `event`) is signaled. This is used
+  to help asynchronous drivers "wake up" when something occurs.
 
   On Unix the `event` is a pipe or socket handle (or something that the `select`
   system call understands).
@@ -242,8 +238,8 @@ typedef struct erl_drv_entry {
   The emulator will modify this field, so it is important that the
   `driver_entry` is not declared `const`.
 
-- **`ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)`{:
-  #control }** - A special routine invoked with `erlang:port_control/3`. It
+- __`ErlDrvSSizeT (*control)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)`__{: #control } -
+  A special routine invoked with `erlang:port_control/3`. It
   works a little like an "ioctl" for Erlang drivers. The data specified to
   [`port_control/3`](`port_control/3`) arrives in `buf` and `len`. The driver
   can send data back, using `*rbuf` and `rlen`.
@@ -298,9 +294,8 @@ typedef struct erl_drv_entry {
   [`erl_driver:driver_enq_bin`](erl_driver.md#driver_enq_bin)) or, if they are
   kept in a static or global variable, the reference counter can be incremented.
 
-- **`void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data)`{:
-  #ready_async }** - Called after an asynchronous call has completed. The
-  asynchronous call is started with
+- **`void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data)`{: #ready_async }** -
+  Called after an asynchronous call has completed. The asynchronous call is started with
   [`erl_driver:driver_async`](erl_driver.md#driver_async). This function is
   called from the Erlang emulator thread, as opposed to the asynchronous
   function, which is called in some thread (if multi-threading is enabled).
@@ -309,8 +304,8 @@ typedef struct erl_drv_entry {
   closed, and there is data in the driver queue that must be flushed before
   'stop' can be called.
 
-- **`ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen, unsigned int *flags)`{:
-  #call }** - Called from `erlang:port_call/3`. It works a lot like the
+- __`ErlDrvSSizeT (*call)(ErlDrvData drv_data, unsigned int command, char *buf, ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen, unsigned int *flags)`__{: #call } -
+  Called from `erlang:port_call/3`. It works a lot like the
   `control` callback, but uses the external term format for input and output.
 
   `command` is an integer, obtained from the call from Erlang (the second
@@ -379,8 +374,8 @@ typedef struct erl_drv_entry {
   The emulator modifies this field, so it is important that the `driver_entry`
   is not declared `const`.
 
-- **`void (*process_exit)(ErlDrvData drv_data, ErlDrvMonitor *monitor)`{:
-  #process_exit }** - Called when a monitored process exits. The `drv_data` is
+- **`void (*process_exit)(ErlDrvData drv_data, ErlDrvMonitor *monitor)`{: #process_exit }** -
+  Called when a monitored process exits. The `drv_data` is
   the data associated with the port for which the process is monitored (using
   [`erl_driver:driver_monitor_process`](erl_driver.md#driver_monitor_process))
   and the `monitor` corresponds to the `ErlDrvMonitor` structure filled in when
@@ -389,8 +384,8 @@ typedef struct erl_drv_entry {
   can be used to retrieve the process ID of the exiting process as an
   `ErlDrvTermData`.
 
-- **`void (*stop_select)(ErlDrvEvent event, void* reserved)`{: #stop_select
-  }** - Called on behalf of
+- **`void (*stop_select)(ErlDrvEvent event, void* reserved)`{: #stop_select }** -
+  Called on behalf of
   [`erl_driver:driver_select`](erl_driver.md#driver_select) when it is safe to
   close an event object.
 

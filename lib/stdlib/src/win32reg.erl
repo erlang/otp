@@ -390,7 +390,7 @@ expand([C|Rest], Env, Result) ->
 expand([], [], Result) ->
     lists:reverse(Result).
 
--doc "Converts a POSIX error code to a string (by calling `erl_posix_msg:message/1`).".
+-doc "Converts a POSIX error code to a string (by calling `file:format_error/1`).".
 -spec format_error(ErrorId) -> ErrorString when
       ErrorId :: atom(),
       ErrorString :: string().

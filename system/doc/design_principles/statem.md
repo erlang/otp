@@ -19,12 +19,8 @@ limitations under the License.
 -->
 # gen_statem Behaviour
 
-[](){: #gen_statem-Behaviour }
-
 This section is to be read with the `m:gen_statem` manual page in STDLIB, where
 all interface functions and callback functions are described in detail.
-
-[](){: #Event-Driven-State-Machines }
 
 ## Event-Driven State Machines
 
@@ -60,25 +56,23 @@ state. Because of this, and as there is no restriction on the number of states
 distinct input events, a state machine implemented with this behaviour is in
 fact Turing complete. But it feels mostly like an Event-Driven Mealy machine.
 
-[](){: #When-to-use-gen_statem }
-
 ## When to use gen_statem
 
 If your process logic is convenient to describe as a state machine, and you want
 any of these `gen_statem` key features:
 
 - Co-located callback code for each state, for all
-  [_Event Types_ ](statem.md#Event-Types-and-Event-Content)(such as _call_,
+  [_Event Types_ ](statem.md#event-types-and-event-content)(such as _call_,
   _cast_ and _info_)
-- [Postponing Events ](statem.md#Postponing-Events)(a substitute for selective
+- [Postponing Events ](statem.md#postponing-events)(a substitute for selective
   receive)
-- [Inserted Events ](statem.md#Inserted-Events)(that is, events from the state
+- [Inserted Events ](statem.md#inserted-events)(that is, events from the state
   machine to itself; for purely internal events in particular)
-- [_State Enter Calls_ ](statem.md#State-Enter-Calls)(callback on state entry
+- [_State Enter Calls_ ](statem.md#state-enter-calls)(callback on state entry
   co-located with the rest of each state's callback code)
-- Easy-to-use time-outs ([State Time-Outs](statem.md#State-Time-Outs),
-  [Event Time-Outs](statem.md#Event-Time-Outs) and
-  [Generic Time-Outs](statem.md#Generic-Time-Outs) (named time-outs))
+- Easy-to-use time-outs ([State Time-Outs](statem.md#state-time-outs),
+  [Event Time-Outs](statem.md#event-time-outs) and
+  [Generic Time-Outs](statem.md#generic-time-outs) (named time-outs))
 
 If so, or if possibly needed in future versions, then you should consider using
 `gen_statem` over `m:gen_server`.
@@ -88,8 +82,6 @@ fine. It also has got smaller call overhead, but we are talking about something
 like 2 vs 3.3 microseconds call roundtrip time here, so if the server callback
 does just a little bit more than just replying, or if the call is not extremely
 frequent, that difference will be hard to notice.
-
-[](){: #Callback-Module }
 
 ## Callback Module
 
@@ -105,7 +97,7 @@ process messages, handles the system messages, and calls the _callback module_
 with machine specific events.
 
 The _callback module_ can be changed for a running server using any of the
-[transition actions](statem.md#Transition-Actions)
+[transition actions](statem.md#transition-actions)
 [`{change_callback_module, NewModule}`](`t:gen_statem:action/0`),
 [`{push_callback_module, NewModule}`](`t:gen_statem:action/0`) or
 [`pop_callback_module`](`t:gen_statem:action/0`). Note that this is a pretty
@@ -115,8 +107,6 @@ on the protocol version. There _might_ be other use cases. _Beware_ that the new
 callback module completely replaces the previous callback module, so all
 relevant callback functions have to handle the state and data from the previous
 callback module.
-
-[](){: #Callback-Modes }
 
 ## Callback Modes
 
@@ -132,7 +122,7 @@ The _callback mode_ is a property of the _callback module_ and is set at server
 start. It may be changed due to a code upgrade/downgrade, or when changing the
 _callback module_.
 
-See the section [_State Callback_](statem.md#State-Callback) that describes the
+See the section [_State Callback_](statem.md#state-callback) that describes the
 event handling callback function(s).
 
 The _callback mode_ is selected by implementing a mandatory callback function
@@ -141,7 +131,7 @@ the _callback modes_.
 
 The [`Module:callback_mode()` ](`c:gen_statem:callback_mode/0`)function may also
 return a list containing the _callback mode_ and the atom `state_enter` in which
-case [_state enter calls_ ](statem.md#State-Enter-Calls)are activated for the
+case [_state enter calls_ ](statem.md#state-enter-calls)are activated for the
 _callback mode_.
 
 ### Choosing the Callback Mode
@@ -151,7 +141,7 @@ The short version: choose `state_functions` \- it is the one most like
 atom, or if you do not want to write one _state callback_ function per state;
 please read on...
 
-The two [_callback modes_](statem.md#Callback-Modes) give different
+The two [_callback modes_](statem.md#callback-modes) give different
 possibilities and restrictions, with one common goal: to handle all possible
 combinations of events and states.
 
@@ -179,14 +169,12 @@ on one state at the time, but function
 to handle without branching to helper functions.
 
 The mode enables the use of non-atom states, for example, complex states or even
-hierarchical states. See section [Complex State](statem.md#Complex-State). If,
+hierarchical states. See section [Complex State](statem.md#complex-state). If,
 for example, a state diagram is largely alike for the client side and the server
 side of a protocol, you can have a state `{StateName,server}` or
 `{StateName,client}`, and make `StateName` determine where in the code to handle
 most events in the state. The second element of the tuple is then used to select
 whether to handle special client-side or server-side events.
-
-[](){: #State-Callback }
 
 ## State Callback
 
@@ -194,28 +182,28 @@ The _state callback_ is the callback function that handles an event in the
 current state, and which function that is depends on the _callback mode_:
 
 - **`state_functions`** - The event is handled by:  
-  [`Module:StateName(EventType, EventContent, Data)`](`c:gen_statem:StateName/3`)
+  [`Module:StateName(EventType, EventContent, Data)`](`c:gen_statem:'StateName'/3`)
 
-  This form is the one mostly used in the [Example](statem.md#Example) section.
+  This form is the one mostly used in the [Example](statem.md#example) section.
 
 - **`handle_event_function`** - The event is handled by:  
   [`Module:handle_event(EventType, EventContent, State, Data)`](`c:gen_statem:handle_event/4`)
 
-  See section [_One State Callback_ ](statem.md#One-State-Callback)for an
+  See section [_One State Callback_ ](statem.md#one-state-callback)for an
   example.
 
 The state is either the name of the function itself or an argument to it. The
 other arguments are the `EventType` and the event dependent `EventContent`, both
 described in section
-[Event Types and Event Content](statem.md#Event-Types-and-Event-Content), and
+[Event Types and Event Content](statem.md#event-types-and-event-content), and
 the current server `Data`.
 
 _State enter calls_ are also handled by the event handler and have slightly
 different arguments. See section
-[State Enter Calls](statem.md#State-Enter-Calls).
+[State Enter Calls](statem.md#state-enter-calls).
 
 The _state callback_ return values are defined in the description of
-[`Module:StateName/3` ](`c:gen_statem:StateName/3`)in the `gen_statem` manual
+[`Module:StateName/3` ](`c:gen_statem:'StateName'/3`)in the `gen_statem` manual
 page, but here is a more readable list:
 
 - **`{next_state, NextState, NewData, Actions}`  
@@ -224,14 +212,14 @@ page, but here is a more readable list:
   execute _transition actions_. An empty `Actions` list is equivalent to not
   returning the field.
 
-  See section [_Transition Actions_ ](statem.md#Transition-Actions)for a list of
+  See section [_Transition Actions_ ](statem.md#transition-actions)for a list of
   possible _transition actions_.
 
   If `NextState =/= State` this is a _state change_ so the extra things
   `gen_statem` does are: the event queue is restarted from the oldest
-  [postponed event](statem.md#Postponing-Events), any current
-  [state time-out](statem.md#State-Time-Outs) is cancelled, and a
-  [state enter call](statem.md#State-Enter-Calls) is performed, if enabled.
+  [postponed event](statem.md#postponing-events), any current
+  [state time-out](statem.md#state-time-outs) is cancelled, and a
+  [state enter call](statem.md#state-enter-calls) is performed, if enabled.
 
 - **`{keep_state, NewData, Actions}`  
   `{keep_state, NewData}`**  
@@ -248,7 +236,7 @@ page, but here is a more readable list:
   `{repeat_state_and_data, Actions}`  
   `repeat_state_and_data`**  
   Same as the `keep_state` or `keep_state_and_data` values, and if
-  [State Enter Calls ](statem.md#State-Enter-Calls)are enabled, repeat the
+  [State Enter Calls ](statem.md#state-enter-calls)are enabled, repeat the
   _state enter call_ as if this state was entered again.
 
   If these return values are used from a _state enter call_ the `OldState` does
@@ -263,27 +251,25 @@ page, but here is a more readable list:
 - **`{stop_and_reply, Reason, NewData, ReplyActions}`  
   `{stop_and_reply, Reason, ReplyActions}`**  
   Same as the `stop` values, but first execute the given
-  [_transition actions_ ](statem.md#Transition-Actions)that may only be reply
+  [_transition actions_ ](statem.md#transition-actions)that may only be reply
   actions.
 
 ### The First State
 
 To decide the first state the
 [`Module:init(Args)` ](`c:gen_statem:init/1`)callback function is called before
-any [_state callback_](statem.md#State-Callback) is called. This function
+any [_state callback_](statem.md#state-callback) is called. This function
 behaves like a _state callback_ function, but gets its only argument `Args` from
 the `gen_statem` [`start/3,4` ](`gen_statem:start/3`)or
 [`start_link/3,4` ](`gen_statem:start_link/3`)function, and returns
 `{ok, State, Data}` or `{ok, State, Data, Actions}`. If you use the
-[`postpone`](statem.md#Postponing-Events) action from this function, that action
+[`postpone`](statem.md#postponing-events) action from this function, that action
 is ignored, since there is no event to postpone.
-
-[](){: #Transition-Actions }
 
 ## Transition Actions
 
 In the first section
-([Event-Driven State Machines](statem.md#Event-Driven-State-Machines)), actions
+([Event-Driven State Machines](statem.md#event-driven-state-machines)), actions
 were mentioned as a part of the general state machine model. These general
 actions are implemented with the code that _callback module_ `gen_statem`
 executes in an event-handling callback function before returning to the
@@ -293,63 +279,63 @@ There are more specific _transition actions_ that a callback function can
 command the `gen_statem` engine to do after the callback function return. These
 are commanded by returning a list of [actions](`t:gen_statem:action/0`) in the
 [return value ](`t:gen_statem:state_callback_result/1`)from the
-[callback function](`c:gen_statem:StateName/3`). These are the possible
+[callback function](`c:gen_statem:'StateName'/3`). These are the possible
 _transition actions_:
 
 - **[`postpone`](`t:gen_statem:postpone/0`)  
   `{postpone, Boolean}`**  
   If set postpone the current event, see section
-  [Postponing Events](statem.md#Postponing-Events).
+  [Postponing Events](statem.md#postponing-events).
 
 - **[`hibernate`](`t:gen_statem:hibernate/0`)  
   `{hibernate, Boolean}`**  
   If set hibernate the `gen_statem`, treated in section
-  [Hibernation](statem.md#Hibernation).
+  [Hibernation](statem.md#hibernation).
 
 - **[`{state_timeout, Time, EventContent}`](`t:gen_statem:state_timeout/0`)  
   `{state_timeout, Time, EventContent, Opts}`  
   [`{state_timeout, update, EventContent}`](`t:gen_statem:timeout_update_action/0`)  
   [`{state_timeout, cancel}`](`t:gen_statem:timeout_cancel_action/0`)**  
   Start, update or cancel a state time-out, read more in sections
-  [Time-Outs](statem.md#Time-Outs) and
-  [State Time-Outs](statem.md#State-Time-Outs).
+  [Time-Outs](statem.md#time-outs) and
+  [State Time-Outs](statem.md#state-time-outs).
 
 - **[`{{timeout, Name}, Time, EventContent}`](`t:gen_statem:generic_timeout/0`)  
   `{{timeout, Name}, Time, EventContent, Opts}`  
   [`{{timeout, Name}, update, EventContent}`](`t:gen_statem:timeout_update_action/0`)  
   [`{{timeout, Name}, cancel}`](`t:gen_statem:timeout_cancel_action/0`)**  
   Start, update or cancel a generic time-out, read more in sections
-  [Time-Outs](statem.md#Time-Outs) and
-  [Generic Time-Outs](statem.md#Generic-Time-Outs).
+  [Time-Outs](statem.md#time-outs) and
+  [Generic Time-Outs](statem.md#generic-time-outs).
 
 - **[`{timeout, Time, EventContent}`](`t:gen_statem:event_timeout/0`)  
   `{timeout, Time, EventContent, Opts}`  
   `Time`**  
-  Start an event time-out, see more in sections [Time-Outs](statem.md#Time-Outs)
-  and [Event Time-Outs](statem.md#Event-Time-Outs).
+  Start an event time-out, see more in sections [Time-Outs](statem.md#time-outs)
+  and [Event Time-Outs](statem.md#event-time-outs).
 
 - **[`{reply, From, Reply}`](`t:gen_statem:reply_action/0`)** - Reply to a
   caller, mentioned at the end of section
-  [All State Events](statem.md#All-State-Events).
+  [All State Events](statem.md#all-state-events).
 
 - **[`{next_event, EventType, EventContent}`](`t:gen_statem:action/0`)** -
   Generate the next event to handle, see section
-  [Inserted Events](statem.md#Inserted-Events).
+  [Inserted Events](statem.md#inserted-events).
 
 - **[`{change_callback_module, NewModule}`](`t:gen_statem:action/0`)** - Change
-  the [_callback module_ ](statem.md#Callback-Module)for the running server.
+  the [_callback module_ ](statem.md#callback-module)for the running server.
   This can be done during any _state transition_, whether it is a _state change_
   or not, but it can _not_ be done from a
-  [_state enter call_](statem.md#State-Enter-Calls).
+  [_state enter call_](statem.md#state-enter-calls).
 
 - **[`{push_callback_module, NewModule}`](`t:gen_statem:action/0`)** - Push the
   current _callback module_ to the top of an internal stack of callback modules
-  and set the new [_callback module_ ](statem.md#Callback-Module)for the running
+  and set the new [_callback module_ ](statem.md#callback-module)for the running
   server. Otherwise like `{change_callback_module, NewModule}` above.
 
 - **[`pop_callback_module`](`t:gen_statem:action/0`)** - Pop the top module from
   the internal stack of callback modules and set it to be the new
-  [_callback module_ ](statem.md#Callback-Module)for the running server. If the
+  [_callback module_ ](statem.md#callback-module)for the running server. If the
   stack is empty the server fails. Otherwise like
   `{change_callback_module, NewModule}` above.
 
@@ -360,18 +346,16 @@ instead of relative time (using the `Opts` field).
 
 Among these _transition actions_ only to reply to a caller is an immediate
 action. The others are collected and handled later during the _state
-transition_. [Inserted Events](statem.md#Inserted-Events) are stored and
+transition_. [Inserted Events](statem.md#inserted-events) are stored and
 inserted all together, and the rest set transition options where the last of a
 specific type override the previous. See the description of a _state transition_
 in the `m:gen_statem` manual page for type
 [`transition_option()`](`t:gen_statem:transition_option/0`).
 
-The different [Time-Outs](statem.md#Time-Outs) and
-[`next_event`](statem.md#Inserted-Events) actions generate new events with
+The different [Time-Outs](statem.md#time-outs) and
+[`next_event`](statem.md#inserted-events) actions generate new events with
 corresponding
-[Event Types and Event Content ](statem.md#Event-Types-and-Event-Content).
-
-[](){: #Event-Types-and-Event-Content }
+[Event Types and Event Content ](statem.md#event-types-and-event-content).
 
 ## Event Types and Event Content
 
@@ -401,28 +385,26 @@ The following is a complete list of _event types_ and where they come from:
 - **[`state_timeout`](`t:gen_statem:timeout_event_type/0`)** - Generated by
   _transition action_
   [`{state_timeout,Time,EventContent}` ](`t:gen_statem:timeout_action/0`)state
-  timer timing out. Read more in sections [Time-Outs](statem.md#Time-Outs) and
-  [State Time-Outs](statem.md#State-Time-Outs).
+  timer timing out. Read more in sections [Time-Outs](statem.md#time-outs) and
+  [State Time-Outs](statem.md#state-time-outs).
 
 - **[`{timeout,Name}`](`t:gen_statem:timeout_event_type/0`)** - Generated by
   _transition action_
   [`{{timeout,Name},Time,EventContent}` ](`t:gen_statem:timeout_action/0`)generic
-  timer timing out. Read more in sections [Time-Outs](statem.md#Time-Outs) and
-  [Generic Time-Outs](statem.md#Generic-Time-Outs).
+  timer timing out. Read more in sections [Time-Outs](statem.md#time-outs) and
+  [Generic Time-Outs](statem.md#generic-time-outs).
 
 - **[`timeout`](`t:gen_statem:timeout_event_type/0`)** - Generated by
   _transition action_
   [`{timeout,Time,EventContent}` ](`t:gen_statem:timeout_action/0`)(or its short
   form `Time`) event timer timing out. Read more in sections
-  [Time-Outs](statem.md#Time-Outs) and
-  [Event Time-Outs](statem.md#Event-Time-Outs).
+  [Time-Outs](statem.md#time-outs) and
+  [Event Time-Outs](statem.md#event-time-outs).
 
 - **[`internal`](`t:gen_statem:event_type/0`)** - Generated by _transition
   action_ [`{next_event,internal,EventContent}`](`t:gen_statem:action/0`). All
   _event types_ above can also be generated using the `next_event` action:
   `{next_event,EventType,EventContent}`.
-
-[](){: #State-Enter-Calls }
 
 ## State Enter Calls
 
@@ -443,44 +425,42 @@ StateName(EventType, EventContent, Data) ->
 
 Since the _state enter call_ is not an event there are restrictions on the
 allowed return value and
-[State Transition Actions](statem.md#Transition-Actions). You may not change the
-state, [postpone](statem.md#Postponing-Events) this non-event,
-[insert any events](statem.md#Inserted-Events), or change the
-[_callback module_](statem.md#Callback-Module).
+[State Transition Actions](statem.md#transition-actions). You may not change the
+state, [postpone](statem.md#postponing-events) this non-event,
+[insert any events](statem.md#inserted-events), or change the
+[_callback module_](statem.md#callback-module).
 
 The first state that is entered will get a _state enter call_ with `OldState`
 equal to the current state.
 
 You may repeat the _state enter call_ using the `{repeat_state,...}` return
-value from the [state callback](statem.md#State-Callback). In this case
+value from the [state callback](statem.md#state-callback). In this case
 `OldState` will also be equal to the current state.
 
 Depending on how your state machine is specified, this can be a very useful
 feature, but it forces you to handle the _state enter calls_ in all states. See
-also the [State Enter Actions ](statem.md#State-Enter-Actions)section.
-
-[](){: #Time-Outs }
+also the [State Enter Actions ](statem.md#state-enter-actions)section.
 
 ## Time-Outs
 
 Time-outs in `gen_statem` are started from a
-[_transition action_ ](statem.md#Transition-Actions)during a state transition
-that is when exiting from the [_state callback_](statem.md#State-Callback).
+[_transition action_ ](statem.md#transition-actions)during a state transition
+that is when exiting from the [_state callback_](statem.md#state-callback).
 
 There are 3 types of time-outs in `gen_statem`:
 
 - **[`state_timeout`](`t:gen_statem:state_timeout/0`)** - There is one
-  [State Time-Out](statem.md#State-Time-Outs) that is automatically cancelled by
+  [State Time-Out](statem.md#state-time-outs) that is automatically cancelled by
   a _state change_.
 
 - **[`{timeout, Name}`](`t:gen_statem:generic_timeout/0`)** - There are any
-  number of [Generic Time-Outs](statem.md#Generic-Time-Outs) differing by their
+  number of [Generic Time-Outs](statem.md#generic-time-outs) differing by their
   `Name`. They have no automatic cancelling.
 
 - **[`timeout`](`t:gen_statem:event_timeout/0`)** - There is one
-  [Event Time-Out](statem.md#Event-Time-Outs) that is automatically cancelled by
-  any event. Note that [postponed ](statem.md#Postponing-Events)and
-  [inserted](statem.md#Inserted-Events) events cancel this time-out just as
+  [Event Time-Out](statem.md#event-time-outs) that is automatically cancelled by
+  any event. Note that [postponed ](statem.md#postponing-events)and
+  [inserted](statem.md#inserted-events) events cancel this time-out just as
   external events.
 
 When a time-out is started any running time-out of the same type;
@@ -488,9 +468,9 @@ When a time-out is started any running time-out of the same type;
 time-out is restarted with the new time.
 
 All time-outs has got an `EventContent` that is part of the
-[_transition action_ ](statem.md#Transition-Actions)that starts the time-out.
+[_transition action_ ](statem.md#transition-actions)that starts the time-out.
 Different `EventContent`s does not create different time-outs. The
-`EventContent` is delivered to the [_state callback_](statem.md#State-Callback)
+`EventContent` is delivered to the [_state callback_](statem.md#state-callback)
 when the time-out expires.
 
 ### Cancelling a Time-Out
@@ -501,20 +481,20 @@ will be cancelled. The `EventContent` will in this case be ignored, so why not
 set it to `undefined`.
 
 A more explicit way to cancel a timer is to use a
-[_transition action_ ](statem.md#Transition-Actions)on the form
+[_transition action_ ](statem.md#transition-actions)on the form
 [`{TimeoutType, cancel}` ](`t:gen_statem:timeout_cancel_action/0`)which is a
 feature introduced in OTP 22.1.
 
 ### Updating a Time-Out
 
 While a time-out is running, its `EventContent` can be updated using a
-[_transition action_ ](statem.md#Transition-Actions)on the form
+[_transition action_ ](statem.md#transition-actions)on the form
 [`{TimeoutType, update, NewEventContent}` ](`t:gen_statem:timeout_update_action/0`)which
 is a feature introduced in OTP 22.1.
 
 If this feature is used while no such `TimeoutType` is running then a time-out
 event is immediately delivered as when starting a
-[Time-Out Zero](statem.md#Time-Out-Zero).
+[Time-Out Zero](statem.md#time-out-zero).
 
 ### Time-Out Zero
 
@@ -522,12 +502,10 @@ If a time-out is started with the time `0` it will actually not be started.
 Instead the time-out event will immediately be inserted to be processed after
 any events already enqueued, and before any not yet received external events.
 Note that some time-outs are automatically cancelled so if you for example
-combine [postponing](statem.md#Postponing-Events) an event in a _state change_
-with starting an [event time-out](statem.md#Event-Time-Outs) with time `0` there
+combine [postponing](statem.md#postponing-events) an event in a _state change_
+with starting an [event time-out](statem.md#event-time-outs) with time `0` there
 will be no time-out event inserted since the event time-out is cancelled by the
 postponed event that is delivered due to the state change.
-
-[](){: #Example }
 
 ## Example
 
@@ -610,8 +588,6 @@ terminate(_Reason, State, _Data) ->
 
 The code is explained in the next sections.
 
-[](){: #Starting-gen_statem }
-
 ## Starting gen_statem
 
 In the example in the previous section, `gen_statem` is started by calling
@@ -672,7 +648,7 @@ used to start a standalone `gen_statem`, that is, a `gen_statem` that is not
 part of a supervision tree.
 
 Function [`Module:callback_mode/0`](`c:gen_statem:callback_mode/0`) selects the
-[`CallbackMode`](statem.md#Callback-Modes) for the _callback module_, in this
+[`CallbackMode`](statem.md#callback-modes) for the _callback module_, in this
 case [`state_functions`](`t:gen_statem:callback_mode/0`). That is, each state
 has got its own handler function:
 
@@ -680,8 +656,6 @@ has got its own handler function:
 callback_mode() ->
     state_functions.
 ```
-
-[](){: #Handling-Events }
 
 ## Handling Events
 
@@ -743,8 +717,6 @@ In state `open`, a button event is ignored by staying in the same state. This
 can also be done by returning `{keep_state, Data}` or in this case since `Data`
 unchanged even by returning `keep_state_and_data`.
 
-[](){: #State-Time-Outs }
-
 ## State Time-Outs
 
 When a correct code has been given, the door is unlocked and the following tuple
@@ -770,9 +742,7 @@ The timer for a state time-out is automatically cancelled when the state machine
 does a _state change_.
 
 You can restart, cancel or update a state time-out. See section
-[Time-Outs](statem.md#Time-Outs) for details.
-
-[](){: #All-State-Events }
+[Time-Outs](statem.md#time-outs) for details.
 
 ## All State Events
 
@@ -847,11 +817,9 @@ If the common _state callback_ needs to know the current state a function
     ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, ?FUNCTION_NAME, D)).
 ```
 
-[](){: #One-State-Callback }
-
 ## One State Callback
 
-If [_callback mode_ ](statem.md#Callback-Modes)`handle_event_function` is used,
+If [_callback mode_ ](statem.md#callback-modes)`handle_event_function` is used,
 all events are handled in
 [`Module:handle_event/4`](`c:gen_statem:handle_event/4`) and we can (but do not
 have to) use an event-centered approach where we first branch depending on event
@@ -897,8 +865,6 @@ handle_event(
 
 ...
 ```
-
-[](){: #Stopping }
 
 ## Stopping
 
@@ -950,8 +916,6 @@ stop() ->
 This makes the `gen_statem` call callback function `terminate/3` just like for a
 supervised server and waits for the process to terminate.
 
-[](){: #Event-Time-Outs }
-
 ## Event Time-Outs
 
 A time-out feature inherited from `gen_statem`'s predecessor `m:gen_fsm`, is an
@@ -959,7 +923,7 @@ event time-out, that is, if an event arrives the timer is cancelled. You get
 either an event or a time-out, but not both.
 
 It is ordered by the
-[_transition action_ ](statem.md#Transition-Actions)`{timeout,Time,EventContent}`,
+[_transition action_ ](statem.md#transition-actions)`{timeout,Time,EventContent}`,
 or just an integer `Time`, even without the enclosing actions list (the latter
 is a form inherited from `gen_fsm`.
 
@@ -991,10 +955,8 @@ cancelled the event time-out, so there is never a running event time-out while
 the _state callback_ executes.
 
 Note that an event time-out does not work well when you have for example a
-status call as in section [All State Events](statem.md#All-State-Events), or
+status call as in section [All State Events](statem.md#all-state-events), or
 handle unknown events, since all kinds of events will cancel the event time-out.
-
-[](){: #Generic-Time-Outs }
 
 ## Generic Time-Outs
 
@@ -1035,7 +997,7 @@ open(cast, {button,_}, Data) ->
 ```
 
 Specific generic time-outs can just as
-[state time-outs](statem.md#State-Time-Outs) be restarted or cancelled by
+[state time-outs](statem.md#state-time-outs) be restarted or cancelled by
 setting it to a new time or `infinity`.
 
 In this particular case we do not need to cancel the time-out since the time-out
@@ -1046,9 +1008,7 @@ Instead of bothering with when to cancel a time-out, a late time-out event can
 be handled by ignoring it if it arrives in a state where it is known to be late.
 
 You can restart, cancel or update a generic time-out. See section
-[Time-Outs](statem.md#Time-Outs) for details.
-
-[](){: #Erlang-Timers }
+[Time-Outs](statem.md#time-outs) for details.
 
 ## Erlang Timers
 
@@ -1102,8 +1062,6 @@ the return value from [`erlang:cancel_timer(Tref)`](`erlang:cancel_timer/2`).
 Another way to handle a late time-out can be to not cancel it, but to ignore it
 if it arrives in a state where it is known to be late.
 
-[](){: #Postponing-Events }
-
 ## Postponing Events
 
 If you want to ignore a particular event in the current state and handle it in a
@@ -1111,7 +1069,7 @@ future state, you can postpone the event. A postponed event is retried after a
 _state change_, that is, `OldState =/= NewState`.
 
 Postponing is ordered by the
-[_transition action_ ](statem.md#Transition-Actions)`postpone`.
+[_transition action_ ](statem.md#transition-actions)`postpone`.
 
 In this example, instead of ignoring button events while in the `open` state, we
 can postpone them and they are queued and later handled in the `locked` state:
@@ -1127,8 +1085,8 @@ Since a postponed event is only retried after a _state change_, you have to
 think about where to keep a state data item. You can keep it in the server
 `Data` or in the `State` itself, for example by having two more or less
 identical states to keep a boolean value, or by using a complex state (see
-section [Complex State](statem.md#Complex-State)) with
-[_callback mode_](statem.md#Callback-Modes)
+section [Complex State](statem.md#complex-state)) with
+[_callback mode_](statem.md#callback-modes)
 [`handle_event_function`](`t:gen_statem:callback_mode/0`). If a change in the
 value changes the set of events that is handled, then the value should be kept
 in the State. Otherwise no postponed events will be retried since only the
@@ -1219,7 +1177,7 @@ messages pertinent to the operation are received. Likewise, a callback must
 return in due time to let the engine receive loop handle system messages, or
 they might time out also leading to unexpected behaviour.
 
-The [_transition action_ ](statem.md#Transition-Actions)`postpone` is designed
+The [_transition action_ ](statem.md#transition-actions)`postpone` is designed
 to model selective receives. A selective receive implicitly postpones any not
 received events, but the `postpone` _transition action_ explicitly postpones one
 received event.
@@ -1227,15 +1185,13 @@ received event.
 Both mechanisms have the same theoretical time and memory complexity, while the
 selective receive language construct has smaller constant factors.
 
-[](){: #State-Enter-Actions }
-
 ## State Enter Actions
 
 Say you have a state machine specification that uses state enter actions.
 Although you can code this using inserted events (described in the next
 section), especially if just one or a few states has got state enter actions,
 this is a perfect use case for the built in
-[_state enter calls_](statem.md#State-Enter-Calls).
+[_state enter calls_](statem.md#state-enter-calls).
 
 You return a list containing `state_enter` from your
 [`callback_mode/0` ](`c:gen_statem:callback_mode/0`)function and the
@@ -1280,13 +1236,11 @@ exactly like their `keep_state` siblings. See the type
 [`state_callback_result()` ](`t:gen_statem:state_callback_result/1`)in the
 reference manual.
 
-[](){: #Inserted-Events }
-
 ## Inserted Events
 
 It can sometimes be beneficial to be able to generate events to your own state
 machine. This can be done with the
-[_transition action_ ](statem.md#Transition-Actions)[`{next_event,EventType,EventContent}`](`t:gen_statem:action/0`).
+[_transition action_ ](statem.md#transition-actions)[`{next_event,EventType,EventContent}`](`t:gen_statem:action/0`).
 
 You can generate events of any existing [type](`t:gen_statem:action/0`), but the
 `internal` type can only be generated through action `next_event`. Hence, it
@@ -1304,8 +1258,8 @@ that then sends the pre-processed events as internal events to the main state
 machine. Using internal events also can make it easier to synchronize the state
 machines.
 
-A variant of this is to use a [complex state](statem.md#Complex-State) with
-[_one state callback_](statem.md#One-State-Callback). The state is then modeled
+A variant of this is to use a [complex state](statem.md#complex-state) with
+[_one state callback_](statem.md#one-state-callback). The state is then modeled
 with for example a tuple `{MainFSMState,SubFSMState}`.
 
 To illustrate this we make up an example where the buttons instead generate down
@@ -1353,8 +1307,6 @@ open(internal, {button,_}, Data) ->
 
 If you start this program with `code_lock:start([17])` you can unlock with
 `code_lock:down(17), code_lock:up(17).`
-
-[](){: #Example-Revisited }
 
 ## Example Revisited
 
@@ -1549,8 +1501,6 @@ Notice that postponing buttons from the `open` state to the `locked` state feels
 like a strange thing to do for a code lock, but it at least illustrates event
 postponing.
 
-[](){: #Filter-the-State }
-
 ## Filter the State
 
 The example servers so far in this chapter print the full internal state in the
@@ -1596,17 +1546,15 @@ not, a default implementation is used that does the same as this example
 function without filtering the `Data` term, that is, `StateData = {State,Data}`,
 in this example containing sensitive information.
 
-[](){: #Complex-State }
-
 ## Complex State
 
 The _callback mode_ [`handle_event_function`](`t:gen_statem:callback_mode/0`)
 enables using a non-atom state as described in section
-[Callback Modes](statem.md#Callback-Modes), for example, a complex state term
+[Callback Modes](statem.md#callback-modes), for example, a complex state term
 like a tuple.
 
 One reason to use this is when you have a state item that when changed should
-cancel the [state time-out](statem.md#State-Time-Outs), or one that affects the
+cancel the [state time-out](statem.md#state-time-outs), or one that affects the
 event handling in combination with postponing events. We will go for the latter
 and complicate the previous example by introducing a configurable lock button
 (this is the state item in question), which in the `open` state immediately
@@ -1733,8 +1681,6 @@ terminate(_Reason, State, _Data) ->
     ok.
 ```
 
-[](){: #Hibernation }
-
 ## Hibernation
 
 If you have many servers in one node and they have some state(s) in their
@@ -1774,7 +1720,7 @@ example, the state-independent `set_lock_button` operation would have to use
 `hibernate` but only in the `{open,_}` state, which would clutter the code.
 
 Another not uncommon scenario is to use the
-[event time-out](statem.md#Event-Time-Outs) to trigger hibernation after a
+[event time-out](statem.md#event-time-outs) to trigger hibernation after a
 certain time of inactivity. There is also a server start option
 [`{hibernate_after, Timeout}` ](`t:gen_statem:enter_loop_opt/0`)for
 [`start/3,4`](`gen_statem:start/3`),

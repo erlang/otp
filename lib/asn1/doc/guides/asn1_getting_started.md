@@ -314,16 +314,16 @@ ASN.1 has both primitive and constructed types:
 
 | _Primitive Types_                                              | _Constructed Types_                                          |
 | -------------------------------------------------------------- | ------------------------------------------------------------ |
-| [BOOLEAN](asn1_getting_started.md#BOOLEAN)                     | [SEQUENCE](asn1_getting_started.md#SEQUENCE)                 |
-| [INTEGER](asn1_getting_started.md#INTEGER)                     | [SET](asn1_getting_started.md#SET)                           |
-| [REAL](asn1_getting_started.md#REAL)                           | [CHOICE](asn1_getting_started.md#CHOICE)                     |
-| [NULL](asn1_getting_started.md#NULL)                           | [SET OF and SEQUENCE OF](asn1_getting_started.md#SOF)        |
-| [ENUMERATED](asn1_getting_started.md#ENUMERATED)               | [ANY](asn1_getting_started.md#ANY)                           |
-| [BIT STRING](asn1_getting_started.md#BIT-STRING)               | [ANY DEFINED BY](asn1_getting_started.md#ANY)                |
-| [OCTET STRING](asn1_getting_started.md#OCTET-STRING)           | [EXTERNAL](asn1_getting_started.md#NegotiationTypes)         |
-| [Character Strings](asn1_getting_started.md#Character-Strings) | [EMBEDDED PDV](asn1_getting_started.md#NegotiationTypes)     |
-| [OBJECT IDENTIFIER](asn1_getting_started.md#OBJECT-IDENTIFIER) | [CHARACTER STRING](asn1_getting_started.md#NegotiationTypes) |
-| [Object Descriptor](asn1_getting_started.md#Object-Descriptor) |                                                              |
+| [BOOLEAN](asn1_getting_started.md#boolean)                     | [SEQUENCE](asn1_getting_started.md#sequence)                 |
+| [INTEGER](asn1_getting_started.md#integer)                     | [SET](asn1_getting_started.md#set)                           |
+| [REAL](asn1_getting_started.md#real)                           | [CHOICE](asn1_getting_started.md#choice)                     |
+| [NULL](asn1_getting_started.md#null)                           | [SET OF and SEQUENCE OF](asn1_getting_started.md#SOF)        |
+| [ENUMERATED](asn1_getting_started.md#enumerated)               | [ANY](asn1_getting_started.md#ANY)                           |
+| [BIT STRING](asn1_getting_started.md#bit-string)               | [ANY DEFINED BY](asn1_getting_started.md#ANY)                |
+| [OCTET STRING](asn1_getting_started.md#octet-string)           | [EXTERNAL](asn1_getting_started.md#NegotiationTypes)         |
+| [Character Strings](asn1_getting_started.md#character-strings) | [EMBEDDED PDV](asn1_getting_started.md#NegotiationTypes)     |
+| [OBJECT IDENTIFIER](asn1_getting_started.md#object-identifier) | [CHARACTER STRING](asn1_getting_started.md#NegotiationTypes) |
+| [Object Descriptor](asn1_getting_started.md#object-descriptor) |                                                              |
 | [TIME Types](asn1_getting_started.md#The-TIME-types)           |                                                              |
 
 _Table: Supported ASN.1 Types_

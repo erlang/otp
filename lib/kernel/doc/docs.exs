@@ -1,4 +1,5 @@
 [
+  skip_code_autolink_to: ["t:file_descriptor/0"],
   ## The order of these items determine
   ## how they are listed in the docs
   extras: [

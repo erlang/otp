@@ -172,7 +172,7 @@ Returns the value associated with `Key` in dictionary `Dict`. This function
 assumes that `Key` is present in dictionary `Dict`, and an exception is
 generated if `Key` is not in the dictionary.
 
-See also section [Notes](`m:dict#notes`).
+See also section [Notes](`m:dict#module-notes`).
 """.
 -spec fetch(Key, Dict) -> Value when
       Dict :: dict(Key, Value).
@@ -194,7 +194,7 @@ Searches for a key in dictionary `Dict`. Returns `{ok, Value}`, where `Value` is
 the value associated with `Key`, or `error` if the key is not present in the
 dictionary.
 
-See also section [Notes](`m:dict#notes`).
+See also section [Notes](`m:dict#module-notes`).
 """.
 -spec find(Key, Dict) -> {'ok', Value} | 'error' when
       Dict :: dict(Key, Value).
@@ -286,7 +286,7 @@ store_bkt_val(Key, New, []) -> {[?kv(Key,New)],1}.
 -doc """
 Appends a new `Value` to the current list of values associated with `Key`.
 
-See also section [Notes](`m:dict#notes`).
+See also section [Notes](`m:dict#module-notes`).
 """.
 -spec append(Key, Value, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),
@@ -311,7 +311,7 @@ Appends a list of values `ValList` to the current list of values associated with
 `Key`. An exception is generated if the initial value associated with `Key` is
 not a list of values.
 
-See also section [Notes](`m:dict#notes`).
+See also section [Notes](`m:dict#module-notes`).
 """.
 -spec append_list(Key, ValList, Dict1) -> Dict2 when
       Dict1 :: dict(Key, Value),

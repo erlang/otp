@@ -6910,8 +6910,6 @@ fi
 
 ac_config_files="$ac_config_files ../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in"
 
-ac_config_files="$ac_config_files emd2exml"
-
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7617,7 +7615,6 @@ do
     "../Makefile") CONFIG_FILES="$CONFIG_FILES ../Makefile" ;;
     "output.mk") CONFIG_FILES="$CONFIG_FILES output.mk" ;;
     "../make/$host/otp_ded.mk") CONFIG_FILES="$CONFIG_FILES ../make/$host/otp_ded.mk:../make/otp_ded.mk.in" ;;
-    "emd2exml") CONFIG_FILES="$CONFIG_FILES emd2exml" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -8036,11 +8033,6 @@ which seems to be undefined.  Please make sure it is defined" >&2;}
 
   esac
 
-
-  case $ac_file$ac_mode in
-    "emd2exml":F) chmod +x emd2exml ;;
-
-  esac
 done # for ac_tag
 
 

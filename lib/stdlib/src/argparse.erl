@@ -504,7 +504,7 @@ parser return.
 
 - **`fun((arg_map()) -> term())`** - Function accepting
   [`argument map`](`t:arg_map/0`). See the basic example in the
-  [Quick Start](`m:argparse#quick-start`) section.
+  [Quick Start](`m:argparse#module-quick-start`) section.
 
 - **`{Module :: module(), Function :: atom()}`** - Function named `Function`,
   exported from `Module`, accepting [`argument map`](`t:arg_map/0`).

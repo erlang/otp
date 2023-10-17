@@ -72,7 +72,6 @@ default:
  * Format checking of JIT code.
  * Run dialyzer on all applications.
  * Build all documentation.
- * Run xmllint on all documentation.
  * Run html link check on all documentation.
  * Build all test suites.
 
@@ -239,10 +238,8 @@ export PATH="$ERL_TOP/release/$target/bin:$PATH"
     $MAKE docs || fail "Building documentation failed"
     progress "Releasing OTP documentation"
     $MAKE release_docs || fail "Releasing documentation failed"
-    progress "Running xmllint on OTP documentation"
-    $MAKE xmllint || fail "xmllint of documentation failed"
     progress "Running HTML check on OTP documentation"
-    ./scripts/otp_html_check "$ERL_TOP/release/$target/" doc/index.html || {
+    ./scripts/otp_check_html_links.exs || {
         fail "HTML check of documentation failed"
     }
 }

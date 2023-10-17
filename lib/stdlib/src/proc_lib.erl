@@ -800,7 +800,7 @@ make_dummy_args(N, Acc) ->
 %% -----------------------------------------------------
 
 -doc """
-This function is used by functions `c:i/0` and `c:regs/0` to present process
+This function is used by functions `\c:i/0` and `\c:regs/0` to present process
 information.
 
 This function extracts the initial call of a process that was started using one

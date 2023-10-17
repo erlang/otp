@@ -34,8 +34,6 @@ If syntax errors are discovered in these files they are reported with the
 function `config_err/2` of the [error report module](`m:snmpa_error_report`) at
 start-up.
 
-[](){: #manager } [](){: #manager_information }
-
 ## Manager Information
 
 The manager information should be stored in a file called `manager.conf`.
@@ -88,8 +86,6 @@ The following example shows a `manager.conf` file:
 The value of `engine_id` is a string, which should have a very specific
 structure. See RFC 2271/2571 for details.
 
-[](){: #users }
-
 ## Users
 
 For each _manager user_, the manager needs some information. This information is
@@ -107,8 +103,6 @@ Each entry is a tuple of size four:
 - `UserData` is any term (passed on to the user when calling the `UserMod`.
 - `DefaultAgentConfig` is a list of default agent config's. These values are
   used as default values when this user registers agents.
-
-[](){: #agents }
 
 ## Agents
 

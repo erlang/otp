@@ -321,7 +321,7 @@ line number 49 which has not been executed at all.
 ### Analysis to File
 
 A line level calls analysis of `channel` can be written to a file using
-`cover:analysis_to_file/1`:
+`cover:analyse_to_file/1`:
 
 ```erlang
 12> cover:analyse_to_file(channel).

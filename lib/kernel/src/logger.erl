@@ -22,8 +22,8 @@
 API module for Logger, the standard logging facility in Erlang/OTP.
 
 This module implements the main API for logging in Erlang/OTP. To create a log
-event, use the [API functions](`m:logger#logging_API`) or the log
-[macros](`m:logger#macros`), for example:
+event, use the [API functions](#logging-api-functions) or the log
+[macros](#module-macros), for example:
 
 ```erlang
 ?LOG_ERROR("error happened because: ~p", [Reason]).   % With macro
@@ -32,7 +32,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 
 To configure the Logger backend, use
 [Kernel configuration parameters](kernel_app.md#logger) or
-[configuration functions](`m:logger#configuration_API`) in the Logger API.
+[configuration functions](#configuration-api-functions) in the Logger API.
 
 By default, the Kernel application installs one log handler at system start.
 This handler is named `default`. It receives and processes standard log events

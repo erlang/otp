@@ -582,6 +582,8 @@ purge_and_load(Mod, File, Opts) ->
 %% with constant c2 defined, c1=v1 (v1 must be a term!), include dir
 %% IDir, outdir ODir.
 
+-type cmd_line_arg() :: atom() | string().
+
 -doc """
 lc(Files) -> ok
 
@@ -592,7 +594,7 @@ Compiles a list of files by calling
 For information about `File`, see `t:file:filename/0`.
 """.
 -spec lc(Files) -> 'ok' | 'error' when
-      Files :: [File :: erl_compile:cmd_line_arg()].
+      Files :: [File :: cmd_line_arg()].
 
 lc(Args) ->
     case catch split(Args, [], []) of
@@ -613,7 +615,7 @@ lc_batch() ->
     halt(1).
 
 -doc false.
--spec lc_batch([erl_compile:cmd_line_arg()]) -> no_return().
+-spec lc_batch([cmd_line_arg()]) -> no_return().
 
 lc_batch(Args) ->
     try split(Args, [], []) of

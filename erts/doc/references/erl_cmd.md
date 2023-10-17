@@ -538,7 +538,7 @@ the following flags:
   Windows.
 
 - **`+c true | false`{: #+c }** - Enables or disables
-  [time correction](time_correction.md#Time_Correction):
+  [time correction](time_correction.md#time-correction):
 
   - **`true`** - Enables time correction. This is the default if time correction
     is supported on the specific platform.
@@ -548,17 +548,17 @@ the following flags:
   For backward compatibility, the boolean value can be omitted. This is
   interpreted as `+c false`.
 
-- **`+C no_time_warp | single_time_warp | multi_time_warp`{: #+C\_ }** - Sets
-  [time warp mode](time_correction.md#Time_Warp_Modes):
+- **`+C no_time_warp | single_time_warp | multi_time_warp`{: #+C_ }** - Sets
+  [time warp mode](time_correction.md#time-warp-modes):
 
   - **`no_time_warp`** -
-    [No time warp mode](time_correction.md#No_Time_Warp_Mode) (the default)
+    [No time warp mode](time_correction.md#no-time-warp-mode) (the default)
 
   - **`single_time_warp`** -
-    [Single time warp mode](time_correction.md#Single_Time_Warp_Mode)
+    [Single time warp mode](time_correction.md#single-time-warp-mode)
 
   - **`multi_time_warp`** -
-    [Multi-time warp mode](time_correction.md#Multi_Time_Warp_Mode)
+    [Multi-time warp mode](time_correction.md#multi-time-warp-mode)
 
 - **`+d`** - If the emulator detects an internal error (or runs out of memory),
   it, by default, generates both a crash dump and a core dump. The core dump is,
@@ -776,7 +776,7 @@ the following flags:
   - **`false`** - Disables all other options.
 
   For more details about how to run perf see the
-  [perf support](beamasm.md#linux-perf-support) section in the BeamAsm internal
+  [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
 - **`+JMsingle true|false`{: #+JMsingle }** - Since: OTP-26.0
@@ -1342,10 +1342,10 @@ the following flags:
     >
     > This flag can be removed or changed at any time without prior notice.
 
-- **`+t size`{: #+t }** - Sets the maximum number of atoms the virtual machine
+- **`+t size`{: #+t_size }** - Sets the maximum number of atoms the virtual machine
   can handle. Defaults to 1,048,576.
 
-- **`+T Level`{: #+T }** - Enables modified timing and sets the modified timing
+- **`+T Level`{: #+T_level }** - Enables modified timing and sets the modified timing
   level. Valid range is 0-9. The timing of the runtime system is changed. A high
   level usually means a greater change than a low level. Changing the timing can
   be very useful for finding timing-related bugs.
@@ -1488,8 +1488,6 @@ the following flags:
   co-exist on the same host. All nodes in a cluster must use the same `epmd`
   port number.
 
-[](){: #signals }
-
 ## Signals
 
 On Unix systems, the Erlang runtime will interpret two types of signals.
@@ -1503,8 +1501,6 @@ On Unix systems, the Erlang runtime will interpret two types of signals.
 
 The signal `SIGUSR2` is reserved for internal usage. No other signals are
 handled.
-
-[](){: #configuration }
 
 ## Configuration
 

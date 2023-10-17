@@ -36,8 +36,6 @@ topics are included:
 - Prototyping
 - Object-based programming with `Mnesia`
 
-[](){: #indexing }
-
 ## Indexing
 
 Data retrieval and matching can be performed efficiently if the key for the

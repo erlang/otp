@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Common Test's Property Testing Support: ct_property_test
 
-[](){: #general }
-
 ## General
 
 The _Common Test Property Testing Support (ct_property_test)_ is an aid to run

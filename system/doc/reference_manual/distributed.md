@@ -154,7 +154,7 @@ A _C node_ is a C program written to act as a hidden node in a distributed
 Erlang system. The library _Erl_Interface_ contains functions for this purpose.
 For more information about C nodes, see the
 [Erl_Interface](`e:erl_interface:ei_users_guide.md`) application and
-[Interoperability Tutorial.](`e:system:tutorial.md#interoperability-tutorial`).
+[Interoperability Tutorial.](`e:system:tutorial.md`).
 
 ## Security
 

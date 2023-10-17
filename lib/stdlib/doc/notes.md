@@ -918,7 +918,7 @@ This document describes the changes made to the STDLIB application.
 
 - The configuration files [`.erlang`](`e:erts:erl_cmd.md`),
   [`.erlang.cookie`](`e:system:distributed.md`) and
-  [`.erlang.crypt`](`m:beam_lib#erlang-crypt`) can now be located in the XDG
+  [`.erlang.crypt`](`m:beam_lib#module-erlang-crypt`) can now be located in the XDG
   Config Home directory.
 
   See the documentation for each file and `filename:basedir/2` for more details.
@@ -2859,7 +2859,7 @@ This document describes the changes made to the STDLIB application.
 ### Fixed Bugs and Malfunctions
 
 - Make `ets:i/1` exit cleaner when ^D is input while browsing a table. Only the
-  old Erlang shell is affected ([erl](erl_cmd.md) flag `-oldshell`).
+  old Erlang shell is affected ([erl](`e:erts:erl_cmd.md`) flag `-oldshell`).
 
   Own Id: OTP-14663
 
@@ -4437,7 +4437,7 @@ This document describes the changes made to the STDLIB application.
   - \_\_\_\_ - `#{ "hi" := V1, a := V2, b := V3} = M2. % match keys with values`
 
   For information on how to use Maps please see Map Expressions in the
-  [Reference Manual](`e:system:expressions.md#map_expressions`).
+  [Reference Manual](`e:system:expressions.md#map-expressions`).
 
   The current implementation is without the following features:
 
@@ -5694,7 +5694,7 @@ This document describes the changes made to the STDLIB application.
   utilize optimized native atomic operations on more platforms than before. If
   `configure` warns about no atomic implementation available, try using the
   `libatomic_ops` library. Use the
-  [\--with-libatomic_ops=PATH](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP`)
+  [\--with-libatomic_ops=PATH](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp`)
   `configure` command line argument when specifying where the `libatomic_ops`
   installation is located. The `libatomic_ops` library can be downloaded from:
   [http://www.hpl.hp.com/research/linux/atomic_ops/](http://www.hpl.hp.com/research/linux/atomic_ops/)
@@ -5706,7 +5706,7 @@ This document describes the changes made to the STDLIB application.
   _Note_: When building for x86, the `ethread` library will now use instructions
   that first appeared on the pentium 4 processor. If you want the runtime system
   to be compatible with older processors (back to 486) you need to pass the
-  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#Advanced-configuration-and-build-of-ErlangOTP`)
+  [\--enable-ethread-pre-pentium4-compatibility](`e:system:install.md#advanced-configuration-and-build-of-erlang-otp`)
   `configure` command line argument when configuring the system.
 
   Own Id: OTP-8544
@@ -7047,7 +7047,7 @@ This document describes the changes made to the STDLIB application.
 
   These changes affect the Erlang shell when running in restricted mode: the
   callback function `non_local_allowed/3` is now called for operators such as
-  [`'!'/2`](`erlang:'!'/2`). This means that `non_local_allowed/3` may need to
+  `'!'/2`. This means that `non_local_allowed/3` may need to
   be changed as to let operators through. Note that `erlang:'!'/2` as well as
   `erlang:send/2,3` have to be restricted in order to stop message passing in
   the shell.

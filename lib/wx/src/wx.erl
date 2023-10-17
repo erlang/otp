@@ -89,7 +89,7 @@ handling which is different from the original library. See `m:wxEvtHandler`.
 
 The following classes are implemented directly as erlang types:  
 wxPoint=\{x,y\},wxSize=\{w,h\},wxRect=\{x,y,w,h\},wxColour=\{r,g,b \[,a]\},
-wxString=[unicode:chardata()](`m:unicode#type-chardata`),
+wxString=[unicode:chardata()](`t:unicode:chardata/0`),
 wxGBPosition=\{r,c\},wxGBSpan=\{rs,cs\},wxGridCellCoords=\{r,c\}.
 
 wxWidgets uses a process specific environment, which is created by
@@ -100,8 +100,6 @@ environment in the other process.
 Global (classless) functions are located in the wx_misc module.
 
 ## DATA TYPES
-
-[](){: #types }
 
 - **[](){: #type-wx_colour } wx_colour() = \{R::byte(), G::byte(), B::byte()\} |
   [wx_colour4()](`m:wx#type-wx_colour4`)**
@@ -132,8 +130,8 @@ Global (classless) functions are located in the wx_misc module.
   Opaque object reference
 
 - **[](){: #type-wx_wxHtmlLinkInfo } wx_wxHtmlLinkInfo() =
-  #wxHtmlLinkInfo\{href=[unicode:chardata()](`m:unicode#type-chardata`),
-  target=[unicode:chardata()](`m:unicode#type-chardata`)\}**
+  #wxHtmlLinkInfo\{href=[unicode:chardata()](`t:unicode:chardata/0`),
+  target=[unicode:chardata()](`t:unicode:chardata/0`)\}**
 
 - **[](){: #type-wx_wxMouseState } wx_wxMouseState() =
   #wxMouseState\{x=integer(), y=integer(), leftDown=boolean(),

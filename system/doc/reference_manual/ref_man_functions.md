@@ -48,7 +48,7 @@ functions with the same name and in the same module, but with different arities
 are two different functions.
 
 A function named `f` in the module `m` and with arity `N` is often denoted as
-`m:f/N`.
+`\m:f/N`.
 
 A clause _body_ consists of a sequence of expressions separated by comma (,):
 
@@ -75,7 +75,7 @@ fact(0) ->           % second clause head
 
 ## Function Evaluation
 
-When a function `m:f/N` is called, first the code for the function is located.
+When a function `\m:f/N` is called, first the code for the function is located.
 If the function cannot be found, an `undef` runtime error occurs. Notice that
 the function must be exported to be visible outside the module it is defined in.
 
@@ -130,9 +130,9 @@ matching succeeds and the body is evaluated:
 1
 ```
 
-Evaluation has succeed and `m:fact(1)` returns 1.
+Evaluation has succeed and `\m:fact(1)` returns 1.
 
-If `m:fact/1` is called with a negative number as argument, no clause head
+If `\m:fact/1` is called with a negative number as argument, no clause head
 matches. A `function_clause` runtime error occurs.
 
 ## Tail recursion

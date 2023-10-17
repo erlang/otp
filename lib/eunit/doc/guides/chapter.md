@@ -23,7 +23,7 @@ EUnit is a unit testing framework for Erlang. It is very powerful and flexible,
 is easy to use, and has small syntactical overhead.
 
 - [Unit testing](chapter.md#Unit_testing)
-- [Terminology](chapter.md#Terminology)
+- [Terminology](chapter.md#terminology)
 - [Getting started](chapter.md#Getting_started)
 - [EUnit macros](chapter.md#EUnit_macros)
 - [EUnit test representation](chapter.md#EUnit_test_representation)
@@ -68,14 +68,14 @@ and easy to see which tests failed (so you can fix the bugs).
   had previously been fixed. Having a set of unit tests that you can run with
   very little effort makes it easy to know that the code still works as it
   should (this use is called _regression testing_; see
-  [Terminology](chapter.md#Terminology)). This goes a long way to reduce the
+  [Terminology](chapter.md#terminology)). This goes a long way to reduce the
   resistance to changing and refactoring code.
 
 - **Helps guide and speed up the development process** - By focusing on getting
   the code to pass the tests, the programmer can become more productive, not
   overspecify or get lost in premature optimizations, and create code that is
   correct from the very beginning (so-called _test-driven development_; see
-  [Terminology](chapter.md#Terminology)).
+  [Terminology](chapter.md#terminology)).
 
 - **Helps separate interface from implementation** - When writing tests, the
   programmer may discover dependencies (in order to get the tests to run) that
@@ -88,13 +88,11 @@ and easy to see which tests failed (so you can fix the bugs).
   they work as they should, it becomes easier to test that a higher-level
   component, consisting of several such units, also behaves according to
   specification (known as _integration testing_; see
-  [Terminology](chapter.md#Terminology)).
+  [Terminology](chapter.md#terminology)).
 
 - **Is self-documenting** - The tests can be read as documentation, typically
   showing both examples of correct and incorrect usage, along with the expected
   consequences.
-
-[](){: #Terminology }
 
 ## Terminology
 
@@ -264,7 +262,7 @@ return 3.
 If you have added the declaration `-include_lib("eunit/include/eunit.hrl")` to
 your module, as described above, you only need to compile the module, and run
 the automatically exported function `test()`. For example, if your module was
-named `m`, then calling `m:test()` will run EUnit on all the tests defined in
+named `m`, then calling `\m:test()` will run EUnit on all the tests defined in
 the module. You do not need to write `-export` declarations for the test
 functions. This is all done by magic.
 
@@ -272,7 +270,7 @@ You can also use the function `eunit:test/1` to run arbitrary tests, for example
 to try out some more advanced test descriptors (see
 [EUnit test representation](chapter.md#EUnit_test_representation)). For example,
 running `eunit:test(m)` does the same thing as the auto-generated function
-`m:test()`, while `eunit:test({inparallel, m})` runs the same test cases but
+`\m:test()`, while `eunit:test({inparallel, m})` runs the same test cases but
 executes them all in parallel.
 
 _Putting tests in separate modules_{: #Putting_tests_in_separate_modules }
@@ -282,7 +280,7 @@ testing the exported functions), you can simply write the test functions in a
 module named `m_tests` (note: not `m_test`), if your module is named `m`. Then,
 whenever you ask EUnit to test the module `m`, it will also look for the module
 `m_tests` and run those tests as well. See `ModuleName` in the section
-[Primitives](chapter.md#Primitives) for details.
+[Primitives](chapter.md#primitives) for details.
 
 _EUnit captures standard output_{: #EUnit_captures_standard_output }
 
@@ -794,10 +792,10 @@ concise. This section describes the representation in detail.
 
 - [Simple test objects](chapter.md#Simple_test_objects)
 - [Test sets and deep lists](chapter.md#Test_sets_and_deep_lists)
-- [Titles](chapter.md#Titles)
-- [Primitives](chapter.md#Primitives)
-- [Control](chapter.md#Control)
-- [Fixtures](chapter.md#Fixtures)
+- [Titles](chapter.md#titles)
+- [Primitives](chapter.md#primitives)
+- [Control](chapter.md#control)
+- [Fixtures](chapter.md#fixtures)
 - [Lazy generators](chapter.md#Lazy_generators)
 
 [](){: #Simple_test_objects }
@@ -853,7 +851,7 @@ object can be viewed as a test set containing only a single test; there is no
 difference between `T` and `[T]`.
 
 A module can also be used to represent a test set; see `ModuleName` under
-[Primitives](chapter.md#Primitives) below.
+[Primitives](chapter.md#primitives) below.
 
 ### Titles
 
@@ -932,7 +930,7 @@ The following are primitives, which do not contain other test sets as arguments:
   `{with, FD, [fun filetest_a/1, fun filetest_b/1, fun filetest_c/1]}` is
   equivalent to
   `[fun () -> filetest_a(FD) end, fun () -> filetest_b(FD) end, fun () -> filetest_c(FD) end]`,
-  but much more compact. See also [Fixtures](chapter.md#Fixtures), below.
+  but much more compact. See also [Fixtures](chapter.md#fixtures), below.
 
 ### Control
 
@@ -1035,11 +1033,11 @@ additional argument: some value `X`, which depends on the context.) When no
 
 An `Instantiator` function receives the same value as the `Cleanup` function,
 i.e., the value returned by the `Setup` function. It should then behave much
-like a generator (see [Primitives](chapter.md#Primitives)), and return a test
+like a generator (see [Primitives](chapter.md#primitives)), and return a test
 set whose tests have been _instantiated_ with the given value. A special case is
 the syntax `{with, [AbstractTestFun]}` which represents an instantiator function
 that distributes the value over a list of unary functions; see
-[Primitives](chapter.md#Primitives): `{with, X, [...]}` for more details.
+[Primitives](chapter.md#primitives): `{with, X, [...]}` for more details.
 
 A `Where` term controls how the specified tests are executed. The default is
 `spawn`, which means that the current process handles the setup and teardown,

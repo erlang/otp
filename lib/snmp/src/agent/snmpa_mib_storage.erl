@@ -29,18 +29,18 @@ The mib storage module is used by several entities, not just the mib-server.
 
 A `snmpa_mib_storage` compliant module must export the following functions:
 
-- [open/5](`m:snmpa_mib_storage#open`)
-- [close/1](`m:snmpa_mib_storage#close`)
-- [read/2](`m:snmpa_mib_storage#read`)
-- [write/2](`m:snmpa_mib_storage#write`)
-- [delete/1](`m:snmpa_mib_storage#delete1`)
-- [delete/2](`m:snmpa_mib_storage#delete2`)
-- [match_object/2](`m:snmpa_mib_storage#match_object`)
-- [match_delete/2](`m:snmpa_mib_storage#match_delete`)
-- [tab2list/1](`m:snmpa_mib_storage#tab2list`)
-- [info/1](`m:snmpa_mib_storage#info`)
-- [sync/1](`m:snmpa_mib_storage#sync`)
-- [backup/2](`m:snmpa_mib_storage#backup`)
+- [open/5](`c:snmpa_mib_storage:open/5`)
+- [close/1](`c:snmpa_mib_storage:close/1`)
+- [read/2](`c:snmpa_mib_storage:read/2`)
+- [write/2](`c:snmpa_mib_storage:write/2`)
+- [delete/1](`c:snmpa_mib_storage:delete/1`)
+- [delete/2](`c:snmpa_mib_storage:delete/2`)
+- [match_object/2](`c:snmpa_mib_storage:match_object/2`)
+- [match_delete/2](`c:snmpa_mib_storage:match_delete/2`)
+- [tab2list/1](`c:snmpa_mib_storage:tab2list/1`)
+- [info/1](`c:snmpa_mib_storage:info/1`)
+- [sync/1](`c:snmpa_mib_storage:sync/1`)
+- [backup/2](`c:snmpa_mib_storage:backup/2`)
 
 The semantics of them and their exact signatures are explained below.
 """.
@@ -84,8 +84,6 @@ implementations).
 
 Note also that the `Options` argument comes from the `options` config option of
 the mib-storage config option, and is passed on as is.
-
-[](){: #close }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback open(Name    :: atom(), 
@@ -106,8 +104,6 @@ the mib-storage config option, and is passed on as is.
 
 -doc """
 Close the mib-storage table.
-
-[](){: #read }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback close(TabId :: mib_storage_table_id()) ->
@@ -122,8 +118,6 @@ Close the mib-storage table.
 
 -doc """
 Read a record from the mib-storage table.
-
-[](){: #write }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback read(TabId :: mib_storage_table_id(), 
@@ -139,8 +133,6 @@ Read a record from the mib-storage table.
 
 -doc """
 Write a record to the mib-storage table.
-
-[](){: #delete1 }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback write(TabId  :: mib_storage_table_id(), 
@@ -156,8 +148,6 @@ Write a record to the mib-storage table.
 
 -doc """
 Delete an entire mib-storage table.
-
-[](){: #delete2 }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback delete(TabId :: mib_storage_table_id()) ->
@@ -172,8 +162,6 @@ Delete an entire mib-storage table.
 
 -doc """
 Delete a record from the mib-storage table.
-
-[](){: #match_object }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback delete(TabId :: mib_storage_table_id(), 
@@ -190,8 +178,6 @@ Delete a record from the mib-storage table.
 
 -doc """
 Search the mib-storage table for record that match the specified pattern.
-
-[](){: #match_delete }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback match_object(TabId   :: mib_storage_table_id(), 
@@ -210,8 +196,6 @@ Search the mib-storage table for record that match the specified pattern.
 -doc """
 Search the mib-storage table for record that match the specified pattern and
 then delete them. The records deleted are also returned.
-
-[](){: #tab2list }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback match_delete(TabId   :: mib_storage_table_id(), 
@@ -227,8 +211,6 @@ then delete them. The records deleted are also returned.
 
 -doc """
 Return all records in the mib-storage table in the form of a list.
-
-[](){: #info }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback tab2list(TabId :: mib_storage_table_id()) ->
@@ -244,8 +226,6 @@ Return all records in the mib-storage table in the form of a list.
 
 -doc """
 Retrieve implementation dependent mib-storage table information.
-
-[](){: #sync }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback info(TabId :: mib_storage_table_id()) ->
@@ -265,8 +245,6 @@ Retrieve implementation dependent mib-storage table information.
 Synchronize the mib-storage table.
 
 What this means, if anything, is implementation dependent.
-
-[](){: #backup }
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback sync(TabId :: mib_storage_table_id()) ->

@@ -889,8 +889,6 @@ table.
 
 ## Iteration
 
-[](){: #iteration }
-
 `Mnesia` provides the following functions that iterate over all the records in a
 table:
 

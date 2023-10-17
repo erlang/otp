@@ -350,7 +350,7 @@ _Example:_ Contents of an application configuration file:
 
 #### Related Documents
 
-See the `m:os_mon` application, the `m:application` manual page in Kernel, and
+See the [os_mon](`e:os_mon:index.html`) application, the `m:application` manual page in Kernel, and
 the [`erl(1)`](`e:erts:erl_cmd.md`) manual page in ERTS.
 
 ### Installation Problems

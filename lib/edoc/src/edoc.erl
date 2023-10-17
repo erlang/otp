@@ -43,8 +43,8 @@
 %%
 %% This module provides the main user interface to EDoc.
 %% <ul>
-%%   <li><a href="overview-summary.html">EDoc User Manual</a></li>
-%%   <li><a href="overview-summary.html#Running_EDoc">Running EDoc</a></li>
+%%   <li><a href="chapter.html">EDoc User Manual</a></li>
+%%   <li><a href="chapter.html#Running_EDoc">Running EDoc</a></li>
 %% </ul>
 
 -module(edoc).
@@ -110,7 +110,7 @@
 -type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
 %% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
+%% the file <a href="assets/edoc.dtd">`edoc.dtd'</a> for details.
 
 -type ordset(T) :: ordsets:ordset(T).
 -type function_name() :: {atom(), integer()}.
@@ -798,9 +798,9 @@ get_doc(File) ->
 %%  <dd><ul>
 %%       <li>`Macros' = {@type Macro | [Macro]}</li>
 %%       <li>`Macro' = {@type {Name::atom(), Text::string() | MacroFun@}}</li>
-%%       <li>`MacroFun' = {@type fun((MacroArgument::string(),
+%%       <li>`MacroFun' = `fun((MacroArgument::string(),
 %%                                    Line :: integer(),
-%%                                    edoc_lib:edoc_env()) -> (Text::string()))}</li>
+%%                                    edoc_lib:edoc_env()) -> (Text::string()))'</li>
 %%      </ul>
 %%    Specifies a set of user-defined EDoc macros. The text
 %%    substituted for macro calls is specified as either a {@type
@@ -808,7 +808,7 @@ get_doc(File) ->
 %%    macro argument text, the current line number, and the current
 %%    environment. The fun is to return a {@type string()}.
 %%    See
-%%    <a href="overview-summary.html#Macro_expansion">Macro expansion</a>
+%%    <a href="chapter.html#Macro_expansion">Macro expansion</a>
 %%    for details.
 %%  </dd>
 %%  <dt>{@type {hidden, boolean()@}}

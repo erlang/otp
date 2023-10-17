@@ -196,9 +196,9 @@ deletion have logarithmic complexity.
 
 ## Compatibility
 
-See the [Compatibility Section in the `sets` module](`m:sets#compatibility`) for
-information about the compatibility of the different implementations of sets in
-the Standard Library.
+See the [Compatibility Section in the `sets` module](`m:sets#module-compatibility`)
+for information about the compatibility of the different implementations of sets
+in the Standard Library.
 
 ## See Also
 

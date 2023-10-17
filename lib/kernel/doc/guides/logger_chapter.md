@@ -83,7 +83,7 @@ The handlers are called in sequence, and the order is not defined.
 
 ## Logger API
 
-The API for logging consists of a set of [macros](`m:logger#macros`), and a set
+The API for logging consists of a set of [macros](`m:logger#module-macros`), and a set
 of functions on the form `logger:Level/1,2,3`, which are all shortcuts for
 [`logger:log(Level,Arg1[,Arg2[,Arg3]])`](`logger:log/2`).
 
@@ -296,8 +296,6 @@ For convenience, the following built-in filters exist:
 - **`logger_filters:remote_gl/2`** - Stops or allows log events originating from
   a process that has its group leader on a remote node.
 
-[](){: #handlers }
-
 ## Handlers
 
 A handler is defined as a module exporting at least the following callback
@@ -339,8 +337,6 @@ The following built-in handlers exist:
 
   The old `error_logger` event handlers in STDLIB and SASL still exist, but they
   are not added by Erlang/OTP 21.0 or later.
-
-[](){: #formatters }
 
 ## Formatters
 
@@ -384,7 +380,7 @@ Examples are found in section
 [Configuration Examples](logger_chapter.md#config_examples).
 
 During runtime, Logger configuration is changed via API functions. See section
-[Configuration API Functions](`m:logger#configuration_API`) in the `m:logger`
+[Configuration API Functions](`m:logger#configuration-api-functions`) in the `m:logger`
 manual page.
 
 ### Primary Logger Configuration

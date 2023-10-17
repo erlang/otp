@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Common Test Hooks
 
-[](){: #general }
-
 ## General
 
 The _Common Test Hook (CTH)_ framework allows extensions of the default behavior

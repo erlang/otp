@@ -84,7 +84,7 @@ This document describes the changes made to the Observer application.
 
 - The configuration files [`.erlang`](`e:erts:erl_cmd.md`),
   [`.erlang.cookie`](`e:system:distributed.md`) and
-  [`.erlang.crypt`](`m:beam_lib#erlang-crypt`) can now be located in the XDG
+  [`.erlang.crypt`](`m:beam_lib#module-erlang-crypt`) can now be located in the XDG
   Config Home directory.
 
   See the documentation for each file and `filename:basedir/2` for more details.

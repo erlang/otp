@@ -31,7 +31,7 @@ interpreter in your operating system and typing `erl`. You will see something
 like this.
 
 ```text
-% erl
+$ erl
 Erlang R15B (erts-5.9.1) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
 
 Eshell V5.9.1  (abort with ^G)
@@ -42,10 +42,10 @@ Type "2 + 5." in the shell and then press Enter (carriage return). Notice that
 you tell the shell you are done entering code by finishing with a full stop "."
 and a carriage return.
 
-```text
+```erlang
 1> 2 + 5.
 7
-2>
+2> 
 ```
 
 As shown, the Erlang shell numbers the lines that can be entered, (as 1> 2>) and
@@ -60,7 +60,7 @@ separate sessions).
 
 Here is a bit more complex calculation:
 
-```text
+```erlang
 2> (42 + 77) * 66 / 3.
 2618.0
 ```
@@ -77,7 +77,7 @@ The following output is shown:
 BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
        (v)ersion (k)ill (D)b-tables (d)istribution
 a
-%
+$
 ```
 
 Type "a" to leave the Erlang system.
@@ -86,7 +86,7 @@ Another way to shut down the Erlang system is by entering `halt/0`:
 
 ```erlang
 3> halt().
-%
+$
 ```
 
 ## Modules and Functions
@@ -124,7 +124,7 @@ to compile the program again.
 
 Now run the program:
 
-```text
+```erlang
 4> tut:double(10).
 20
 ```
@@ -146,7 +146,7 @@ the module but with the extension ".erl". In this case the file name is
 `module_name:function_name(arguments)` is used. So the following means call
 function `double` in module `tut` with argument "10".
 
-```text
+```erlang
 4> tut:double(10).
 ```
 
@@ -181,7 +181,7 @@ takes one argument, `N`.
 
 The first part says that the factorial of 1 is 1.:
 
-```text
+```erlang
 fac(1) ->
     1;
 ```
@@ -202,14 +202,14 @@ this function.
 
 Compile the file:
 
-```text
+```erlang
 5> c(tut1).
 {ok,tut1}
 ```
 
 And now calculate the factorial of 4.
 
-```text
+```erlang
 6> tut1:fac(4).
 24
 ```
@@ -237,14 +237,14 @@ information that there is another function `mult` with two arguments.
 
 Compile:
 
-```text
+```erlang
 7> c(tut1).
 {ok,tut1}
 ```
 
 Try out the new function `mult`:
 
-```text
+```erlang
 8> tut1:mult(3,4).
 12
 ```
@@ -277,14 +277,14 @@ convert(N, centimeter) ->
 
 Compile:
 
-```text
+```erlang
 9> c(tut2).
 {ok,tut2}
 ```
 
 Test:
 
-```text
+```erlang
 10> tut2:convert(3, inch).
 1.1811023622047243
 11> tut2:convert(7, centimeter).
@@ -297,7 +297,7 @@ explanation. Hopefully you can cope with that.
 Let us see what happens if something other than `centimeter` or `inch` is
 entered in the `convert` function:
 
-```text
+```erlang
 12> tut2:convert(3, miles).
 ** exception error: no function clause matching tut2:convert(3,miles) (tut2.erl, line 4)
 ```
@@ -325,7 +325,7 @@ shell's history list and can be output by the shell command `v/1`:
 
 Now the `tut2` program is hardly good programming style. Consider:
 
-```text
+```erlang
 tut2:convert(3, inch).
 ```
 
@@ -400,7 +400,7 @@ in the middle of atoms, integers, and others.
 A useful way of looking at parts of lists, is by using "|". This is best
 explained by an example using the shell:
 
-```text
+```erlang
 17> [First |TheRest] = [1,2,3,4,5].
 [1,2,3,4,5]
 18> First.
@@ -414,7 +414,7 @@ used. `First` has got value 1 and `TheRest` has got the value \[2,3,4,5].
 
 Another example:
 
-```text
+```erlang
 20> [E1, E2 | R] = [1,2,3,4,5,6,7].
 [1,2,3,4,5,6,7]
 21> E1.
@@ -430,7 +430,7 @@ try to get more elements from the list than there are elements in the list, an
 error is returned. Notice also the special case of the list with no elements,
 []:
 
-```text
+```erlang
 24> [A, B | C] = [1, 2].
 [1,2]
 25> A.
@@ -498,7 +498,7 @@ lists of Unicode characters. This implies for example that the list `[97,98,99]`
 is equivalent to "abc". The Erlang shell is "clever" and guesses what list you
 mean and outputs it in what it thinks is the most appropriate form, for example:
 
-```text
+```erlang
 30> [97,98,99].
 "abc"
 ```
@@ -508,7 +508,7 @@ mean and outputs it in what it thinks is the most appropriate form, for example:
 Maps are a set of key to value associations. These associations are encapsulated
 with "#\{" and "\}". To create an association from "key" to value 42:
 
-```text
+```erlang
 > #{ "key" => 42 }.
 #{"key" => 42}
 ```
@@ -561,7 +561,7 @@ blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
 
 Compile and test:
 
-```text
+```erlang
 > c(color).
 {ok,color}
 > C1 = color:new(0.3,0.4,0.5,1.0).
@@ -644,7 +644,7 @@ operating shell or command prompt (the same place as you started `erl`). Try the
 operating system shell command:
 
 ```text
-% erl -man io
+$ erl -man io
 ERLANG MODULE DEFINITION                                    io(3)
 
 MODULE
@@ -830,12 +830,12 @@ function is not needed.
 
 Some useful operators in guards are:
 
-- < less than
-- > greater than
-- == equal
-- > = greater or equal
-- =< less or equal
-- /= not equal
+- `<` less than
+- `>` greater than
+- `==` equal
+- `>=` greater or equal
+- `=<` less or equal
+- `/=` not equal
 
 (see [Guard Sequences](`e:system:expressions.md`)).
 
@@ -876,7 +876,7 @@ paris
 {f,28}
 ```
 
-Here `X` gets the value `paris` and `Y``{f,28}`.
+Here `X` gets the value `paris` and `Y` the value `{f,28}`.
 
 If you try to do the same again with another city, an error is returned:
 
@@ -911,7 +911,7 @@ paris
 
 The | operator can also be used to add a head to a list:
 
-```text
+```erlang
 50> L1 = [madrid | T1].
 [madrid,london,rome]
 51> L1.
@@ -1010,13 +1010,13 @@ Here `format_temps/1` calls `convert_list_to_c/1`. `convert_list_to_c/1` takes
 off the head of the `List_of_cities`, converts it to Celsius if needed. The |
 operator is used to add the (maybe) converted to the converted rest of the list:
 
-```text
+```erlang
 [Converted_City | convert_list_to_c(Rest)];
 ```
 
 or:
 
-```text
+```erlang
 [City | convert_list_to_c(Rest)];
 ```
 
@@ -1320,7 +1320,7 @@ it is a leap year. To determine this, first divide the year by 400 and use the
 BIF `trunc` (more about this later) to cut off any decimals. Then multiply by
 400 again and see if the same value is returned again. For example, year 2004:
 
-```text
+```erlang
 2004 / 400 = 5.01
 trunc(5.01) = 5
 5 * 400 = 2000
@@ -1328,7 +1328,7 @@ trunc(5.01) = 5
 
 2000 is not the same as 2004, so 2004 is not divisible by 400. Year 2000:
 
-```text
+```erlang
 2000 / 400 = 5.0
 trunc(5.0) = 5
 5 * 400 = 2000
@@ -1342,21 +1342,21 @@ guard for `feb` in the following `case` that tells us how long the month is.
 This example showed the use of `trunc`. It is easier to use the Erlang operator
 `rem` that gives the remainder after division, for example:
 
-```text
+```erlang
 74> 2004 rem 400.
 4
 ```
 
 So instead of writing:
 
-```text
+```erlang
 trunc(Year / 400) * 400 == Year ->
     leap;
 ```
 
 it can be written:
 
-```text
+```erlang
 Year rem 400 == 0 ->
     leap;
 ```
@@ -1487,7 +1487,7 @@ convert_list_to_c(List) ->
 
 The `convert_to_c` function is the same as before, but here it is used as a fun:
 
-```text
+```erlang
 lists:map(fun convert_to_c/1, List)
 ```
 

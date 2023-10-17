@@ -126,7 +126,7 @@ The following fields are not described in the ERTS User's Guide:
 
 - **`Funs`** - The number of funs visible in the dump.
 
-For details, see [General Information](`e:erts:crash_dump.md#general_info`) in
+For details, see [General Information](`e:erts:crash_dump.md#general-information`) in
 section "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #processes }
@@ -145,7 +145,7 @@ value is always in bytes.
 To view detailed information about a specific process, double- click the row in
 the list, or right-click the row and select _Properties for <pid>_.
 
-For details, see [Process Information](`e:erts:crash_dump.md#processes`) in
+For details, see [Process Information](`e:erts:crash_dump.md#process-data`) in
 section "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #ports }
@@ -160,7 +160,7 @@ it and select _Properties for <port>_. From the right-click menu, you can also
 select _Properties for <pid>_, where `<pid>` is the process connected to the
 port.
 
-For details, see [Port Information](`e:erts:crash_dump.md#ports`) in section
+For details, see [Port Information](`e:erts:crash_dump.md#port-information`) in section
 "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #ets_tables } [](){: #internal_ets_tables }
@@ -178,7 +178,7 @@ right-click the row and select _Properties for 'Identifier'_.
 To open the detailed information page about the owner process of an ETS table,
 right-click the row and select _Properties for <pid>_.
 
-For details, see [ETS Tables](`e:erts:crash_dump.md#ets_tables`) in section "How
+For details, see [ETS Tables](`e:erts:crash_dump.md#ets-tables`) in section "How
 to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #timers }
@@ -204,7 +204,7 @@ Tab _Schedulers_ shows all scheduler information found in the dump.
 To open the detailed information page about the scheduler, double-click, or
 right-click the row and select _Properties for 'Identifier'_.
 
-For details, see [Scheduler Information](`e:erts:crash_dump.md#scheduler`) in
+For details, see [Scheduler Information](`e:erts:crash_dump.md#scheduler-information`) in
 section "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #funs }
@@ -218,7 +218,7 @@ right-click the row and select _Properties for <mod>_.
 
 Double-clicking a row in the _Funs_ tab has no effect.
 
-For details, see [Fun Information](`e:erts:crash_dump.md#funs`) in section "How
+For details, see [Fun Information](`e:erts:crash_dump.md#fun-information`) in section "How
 to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #atoms }
@@ -265,7 +265,7 @@ _Extra Info_ can contain debug information (that is, special information written
 if the emulator is debug-compiled) or error information.
 
 For details, see
-[Distribution Information](`e:erts:crash_dump.md#distribution_info`) in section
+[Distribution Information](`e:erts:crash_dump.md#distribution-information`) in section
 "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #loaded_modules }
@@ -279,7 +279,7 @@ To view detailed information about a specific module, double- click the row, or
 right-click it and select _Properties for <mod>_.
 
 For details, see
-[Loaded Module Information](`e:erts:crash_dump.md#loaded_modules`) in section
+[Loaded Module Information](`e:erts:crash_dump.md#loaded-module-information`) in section
 "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #memory }
@@ -289,7 +289,7 @@ For details, see
 Tab _Memory_ shows memory and allocator information. From the left-hand menu you
 can select the following:
 
-- **_Memory_** - See [Memory Information](`e:erts:crash_dump.md#memory`) in
+- **_Memory_** - See [Memory Information](`e:erts:crash_dump.md#memory-information`) in
   section "How to Interpret the Erlang Crash Dumps" in ERTS.
 
 - **_Allocator Summary_** - This page presents a summary of values from all
@@ -300,7 +300,7 @@ can select the following:
   Erlang Crash Dumps" in ERTS.
 
 - **_Allocated Areas_** - See
-  [Allocated Areas](`e:erts:crash_dump.md#allocated_areas`) in section "How to
+  [Allocated Areas](`e:erts:crash_dump.md#allocated-areas`) in section "How to
   Interpret the Erlang Crash Dumps" in ERTS.
 
 [](){: #internal_tables }
@@ -311,5 +311,5 @@ On tab _Internal Tables_ you can from the left-hand menu select _Hash Tables_,
 _Index Tables_, or _Internal ETS Tables_.
 
 For details, see
-[Internal Table Information](`e:erts:crash_dump.md#internal_tables`) in section
+[Internal Table Information](`e:erts:crash_dump.md#internal-table-information`) in section
 "How to Interpret the Erlang Crash Dumps" in ERTS.

@@ -31,8 +31,8 @@ defined representation. One difference is that while `sets` considers two
 elements as different if they do not match (`=:=`), this module considers two
 elements as different if and only if they do not compare equal (`==`).
 
-See the [Compatibility Section in the `sets` module](`m:sets#compatibility`) for
-more information about the compatibility of the different implementations of
+See the [Compatibility Section in the `sets` module](`m:sets#module-compatibility`)
+for more information about the compatibility of the different implementations of
 sets in the Standard Library.
 
 ## See Also

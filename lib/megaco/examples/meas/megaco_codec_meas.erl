@@ -42,8 +42,6 @@
 -moduledoc """
 This module implements a simple megaco codec measurement tool.
 
-This module implements a simple megaco codec measurement tool.
-
 Results are written to file (excel compatible text files) and on stdout.
 
 _Note_ that this module is _not_ included in the runtime part of the

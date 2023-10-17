@@ -33,7 +33,7 @@ Both `sys` and `proc_lib` belong to the STDLIB application.
 
 The `sys` module has functions for simple debugging of processes implemented
 using behaviours. The `code_lock` example from
-[gen_statem Behaviour](statem.md#Example) is used to illustrate this:
+[gen_statem Behaviour](statem.md#example) is used to illustrate this:
 
 ```erlang
 Erlang/OTP 20 [DEVELOPMENT] [erts-9.0] [source-5ace45e] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false]

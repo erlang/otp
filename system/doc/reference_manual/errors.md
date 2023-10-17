@@ -51,8 +51,8 @@ failure.
 A process that terminates emits an _exit signal_ with an _exit reason_ that
 describes why the process terminated. Normally, some information about any
 erroneous termination is printed to the terminal. See
-[Process Termination](ref_man_processes.md#term) in the Processes chapter for
-more details on termination.
+[Process Termination](ref_man_processes.md#process-termination) in the Processes
+chapter for more details on termination.
 
 ## Exceptions
 
@@ -60,7 +60,7 @@ Exceptions are [run-time errors](errors.md#run-time-errors) or
 [generated errors](errors.md#generated-errors) and are of three different
 classes, with different origins. The [try](expressions.md#try) expression can
 distinguish between the different classes, whereas the
-[catch](expressions.md#catch) expression cannot. `try` and `catch` are described
+[catch](expressions.md#catch-and-throw) expression cannot. `try` and `catch` are described
 in [Expressions](expressions.md).
 
 | _Class_ | _Origin_                                                              |
@@ -138,7 +138,7 @@ items can occur:
 
 It is possible to prevent run-time errors and other exceptions from causing the
 process to terminate by using `catch` or `try`, see
-[Expressions](expressions.md) about [catch](expressions.md#catch) and
+[Expressions](expressions.md) about [catch](expressions.md#catch-and-throw) and
 [try](expressions.md#try).
 
 ### Error Handling Between Processes

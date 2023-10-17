@@ -28,8 +28,8 @@ Windows). Although there are programs with the same name on other platforms,
 their functionality is different.
 
 This program is distributed both in compiled form (under
-<Erlang root>\\\\erts-<version>\\\\bin) and in source form (under
-<Erlang root>\\\\erts-<version>\\\\src). The purpose of the source code is to
+`<Erlang root>\\erts-<version>\\bin`) and in source form (under
+`<Erlang root>\\erts-<version>\\src`). The purpose of the source code is to
 ease customization of the program for local needs, such as cyclic restart
 detection. There is also a "make"-file, written for the `nmake` program
 distributed with Microsoft Visual C++. This program can, however, be compiled
@@ -53,10 +53,10 @@ The `start_erl` program in its original form recognizes the following options:
 - **`-reldir <release root>`** - Mandatory if environment variable `RELDIR` is
   not specified and no `-rootdir` option is specified. Tells `start_erl` where
   the root of the release tree is located in the file system (typically
-  <Erlang root>\\\\releases). The `start_erl.data` file is expected to be
+  `<Erlang root>\\releases`). The `start_erl.data` file is expected to be
   located in this directory (unless otherwise specified). If only option
   `-rootdir` is specified, the directory is assumed to be
-  <Erlang root>\\\\releases.
+  `<Erlang root>\\releases`.
 
 - **`-rootdir <Erlang root directory>`** - Mandatory if `-reldir` is not
   specified and no `RELDIR` exists in the environment. This specifies the Erlang
@@ -66,13 +66,13 @@ The `start_erl` program in its original form recognizes the following options:
   directory exactly one level above the release directory.
 
 - **`-data <data file name>`** - Optional. Specifies another data file than
-  `start_erl.data` in the <release root>. It is specified relative to the
-  <release root> or absolute (including drive letter, and so on). This option is
+  `start_erl.data` in the `<release root>`. It is specified relative to the
+  `<release root>` or absolute (including drive letter, and so on). This option is
   used by the release handler during upgrade and is not to be used during normal
   operation. Normally the release data file is not to be named differently.
 
 - **`-bootflags <boot flags file name>`** - Optional. Specifies a file name
-  relative to the release directory (that is, the subdirectory of <release root>
+  relative to the release directory (that is, the subdirectory of `<release root>`
   where the `.boot` file and others are located). The contents of this file is
   appended to the command line when Erlang is started. This makes it easy to
   start the emulator with different options for different releases.

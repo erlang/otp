@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # DTrace and Erlang/OTP
 
-[](){: #History }
-
 ## History
 
 The first implementation of DTrace probes for the Erlang virtual machine was
@@ -32,8 +30,6 @@ Several users have created Erlang port drivers, linked-in drivers, or NIFs that
 allow Erlang code to try to activate a probe, e.g.
 `foo_module:dtrace_probe("message goes here!")`.
 
-[](){: #Goals }
-
 ## Goals
 
 - Annotate as much of the Erlang VM as is practical.
@@ -43,8 +39,6 @@ allow Erlang code to try to activate a probe, e.g.
 - To the extent that it's practical, support SystemTap on Linux via DTrace
   provider compatibility.
 - Allow Erlang code to supply annotations.
-
-[](){: #Supported-platforms }
 
 ## Supported platforms
 
@@ -59,16 +53,12 @@ Just add the `--with-dynamic-trace=dtrace` option to your command when you run
 the `configure` script. If you are using systemtap, the configure option is
 `--with-dynamic-trace=systemtap`
 
-[](){: #Status }
-
 ## Status
 
 As of R15B01, the dynamic trace code is included in the OTP source distribution,
 although it's considered experimental. The main development of the dtrace code
 still happens outside of Ericsson, but there is no need to fetch a patched
 version of the OTP source to get the basic functionality.
-
-[](){: #DTrace-probe-specifications }
 
 ## DTrace probe specifications
 

@@ -560,7 +560,7 @@ the `{Item, Value}` pairs defined for `info/1`, the following items are allowed:
 
   `FixedAtTime` corresponds to the result returned by `erlang:monotonic_time/0`
   at the time of fixation. The use of `safe_fixed_monotonic_time` is
-  [time warp safe](`e:erts:time_correction.md#Time_Warp_Safe_Code`).
+  [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`).
 
 - `{safe_fixed, SafeFixed}` \- The same as
   `{safe_fixed_monotonic_time, SafeFixed}` except the format and value of
@@ -568,9 +568,9 @@ the `{Item, Value}` pairs defined for `info/1`, the following items are allowed:
 
   `FixedAtTime` corresponds to the result returned by `erlang:timestamp/0` at
   the time of fixation. Notice that when the system uses single or multi
-  [time warp modes](`e:erts:time_correction.md#Time_Warp_Modes`), this can
+  [time warp modes](`e:erts:time_correction.md#time-warp-modes`), this can
   produce strange results. This is because the use of `safe_fixed` is not
-  [time warp safe](`e:erts:time_correction.md#Time_Warp_Safe_Code`). Time warp
+  [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`). Time warp
   safe code must use `safe_fixed_monotonic_time` instead.
 """.
 -spec info(Name, Item) -> Value | 'undefined' when

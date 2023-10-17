@@ -44,8 +44,8 @@ is up to the user to be sure that all items are read.
 [](){: #bugs }
 
 This version of `wrap_log_reader` does not detect if `disk_log` wraps to a new
-index file between a call to `wrap_log_reader:open()` and the first call to
-`wrap_log_reader:chunk()`. If this occurs, the call to `chunk()` reads the last
+index file between a call to `wrap_log_reader:open/1` and the first call to
+`wrap_log_reader:chunk/1`. If this occurs, the call to `chunk/1` reads the last
 logged items in the log file, as the opened index file was truncated by
 `disk_log`.
 

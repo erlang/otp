@@ -78,7 +78,7 @@ Two [_callback modes_](`t:callback_mode/0`) are supported:
 
 The callback model(s) for `gen_statem` differs from the one for `m:gen_fsm`, but
 it is still fairly easy to
-[rewrite from ](`m:gen_fsm#Migration-to-gen_statem`)`gen_fsm` to `gen_statem`.
+[rewrite from ](`m:gen_fsm#module-migration-to-gen_statem`)`gen_fsm` to `gen_statem`.
 
 A generic state machine server process (`gen_statem`) implemented using this
 module has a standard set of interface functions and includes functionality for
@@ -131,7 +131,7 @@ callback module defines with the callback function
 
 When the [_callback mode_](`t:callback_mode/0`) is `state_functions`, the state
 must be an atom and is used as the _state callback_ name; see
-[`Module:StateName/3`](`c:StateName/3`). This co-locates all code for a specific
+[`Module:StateName/3`](`c:'StateName'/3`). This co-locates all code for a specific
 state in one function as the `gen_statem` engine branches depending on state
 name. Note the fact that the callback function
 [`Module:terminate/3`](`c:terminate/3`) makes the state name `terminate`
@@ -524,7 +524,7 @@ The _callback mode_ is selected with the return value from
 [`Module:callback_mode/0`](`c:callback_mode/0`):
 
 - **`state_functions`** - The state must be of type `t:state_name/0` and one
-  callback function per state, that is, [`Module:StateName/3`](`c:StateName/3`),
+  callback function per state, that is, [`Module:StateName/3`](`c:'StateName'/3`),
   is used.
 
 - **`handle_event_function`** - The state can be any term and the callback
@@ -551,7 +551,7 @@ If [`Module:callback_mode/0`](`c:callback_mode/0`) returns a list containing
 really a call performed after the previous
 [_state callback_](`m:gen_statem#state-callback`) returned and before any event
 is delivered to the new [_state callback_](`m:gen_statem#state-callback`). See
-[`Module:StateName/3`](`c:StateName/3`) and
+[`Module:StateName/3`](`c:'StateName'/3`) and
 [`Module:handle_event/4`](`c:handle_event/4`). Such a call can be repeated by
 returning a [`repeat_state` ](`t:state_callback_result/1`)or
 [`repeat_state_and_data` ](`t:state_callback_result/1`)tuple from the _state

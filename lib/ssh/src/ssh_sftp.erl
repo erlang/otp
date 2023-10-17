@@ -417,7 +417,7 @@ For code examples see Section
 in the ssh Users Guide.
 
 The `crypto` mode option is explained in the data types section above, see
-[Crypto operations for open_tar](`m:ssh_sftp#crypto-operations-for-open_tar`).
+[Crypto operations for open_tar](`m:ssh_sftp#types-crypto-operations-for-open_tar`).
 Encryption is assumed if the `Mode` contains `write`, and decryption if the
 `Mode` contains `read`.
 """.

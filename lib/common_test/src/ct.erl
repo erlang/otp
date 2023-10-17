@@ -120,7 +120,7 @@ statement, or a call to [`ct:require/2`](`require/2`), for example,
 -doc """
 Options that can be given to the `cth_conn_log` hook, which is used for logging
 of NETCONF and Telnet connections. See [ct_netconfc](`m:ct_netconfc#Logging`) or
-[ct_telnet](`m:ct_telnet#Logging`) for description and examples of how to use
+[ct_telnet](`m:ct_telnet#module-logging`) for description and examples of how to use
 this hook.
 """.
 -type conn_log_options() :: [conn_log_option()].

@@ -93,7 +93,7 @@ start(Name) ->
 
 -doc """
 Starts a new pool. The file `.hosts.erlang` is read to find host names where the
-pool nodes can be started; see section [Files](`m:pool#files`). The startup
+pool nodes can be started; see section [Files](`m:pool#module-files`). The startup
 procedure fails if the file is not found.
 
 The slave nodes are started with [`slave:start/2,3`](`slave:start/2`), passing

@@ -28,7 +28,7 @@ else # Normal build
  ifeq ($(CAN_BUILD_DRIVER), true)
  SUBDIRS += c_src
  endif
- SUBDIRS += examples doc/src
+ SUBDIRS += examples doc
 endif #BOOTSTRAP
 
 CLEANDIRS = $(SUBDIRS) api_gen

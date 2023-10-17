@@ -36,9 +36,9 @@ main(["update",Top]) ->
     St = check_deprecations(Top, St0),
     emit(Top, St),
     halt(0);
-main(["make_xml",Type,Top,Outfile]) ->
+main(["make_markdown",Type,Top,Outfile]) ->
     St = summarize(Top),
-    make_xml(Top, Type, Outfile, St#st.functions),
+    make_markdown(Top, Type, Outfile, St#st.functions),
     halt(0).
 
 ebin_directories(Top) ->
@@ -216,7 +216,7 @@ insert_removals([], _Depr) ->
 %%% Create XML files.
 %%%
 
-make_xml(Top, Type, OutFile, InfoText0) ->
+make_markdown(Top, Type, OutFile, InfoText0) ->
     DeprecationFile = deprecation_file(Top),
     OutDir = filename:dirname(DeprecationFile),
     Depr0 = read_deprecations(DeprecationFile),
@@ -234,8 +234,8 @@ make_xml(Top, Type, OutFile, InfoText0) ->
                 {remove, removed}
         end,
 
-    InfoTextMap = maps:from_list(make_xml_info(InfoText0, AttrTag)),
-    Collected = make_xml_collect(Depr, RelKey, InfoTextMap, []),
+    InfoTextMap = maps:from_list(make_markdown_info(InfoText0, AttrTag)),
+    Collected = make_markdown_collect(Depr, RelKey, InfoTextMap, []),
 
     case Type of
         "removed" ->
@@ -258,20 +258,20 @@ make_xml(Top, Type, OutFile, InfoText0) ->
             ok
     end,
 
-    All = make_xml_gen(lists:reverse(Collected), Type, OutDir),
+    All = make_markdown_gen(lists:reverse(Collected), Type, OutDir),
     ok = file:write_file(OutFile, All).
 
-make_xml_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
-    [{{M,F,A}, info_string(Text)} | make_xml_info(Attributes, Tag)];
-make_xml_info([_ | Attributes], Tag) ->
-    make_xml_info(Attributes, Tag);
-make_xml_info([], _Tag) ->
+make_markdown_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
+    [{{M,F,A}, info_string(Text)} | make_markdown_info(Attributes, Tag)];
+make_markdown_info([_ | Attributes], Tag) ->
+    make_markdown_info(Attributes, Tag);
+make_markdown_info([], _Tag) ->
     [].
 
 %% Joins `DEPRECATIONS` with module attributes, grabbing the text from said
 %% attributes and grouping them by the release version pointed out by `RelKey`
 %% ('since' or 'remove').
-make_xml_collect([{MFA, Ps} | T], RelKey, InfoTextMap, Acc0) ->
+make_markdown_collect([{MFA, Ps} | T], RelKey, InfoTextMap, Acc0) ->
     Acc = case lists:keyfind(RelKey, 1, Ps) of
               {RelKey, Rel} ->
                   case InfoTextMap of
@@ -283,23 +283,18 @@ make_xml_collect([{MFA, Ps} | T], RelKey, InfoTextMap, Acc0) ->
               false ->
                   Acc0
           end,
-    make_xml_collect(T, RelKey, InfoTextMap, Acc);
-make_xml_collect([], _RelKey, _InfoTextMap, Acc) ->
+    make_markdown_collect(T, RelKey, InfoTextMap, Acc);
+make_markdown_collect([], _RelKey, _InfoTextMap, Acc) ->
     rel2fam(Acc).
 
-make_xml_gen(Collected, Type, Dir) ->
-    Head = get_xml_template(Dir, Type, head),
-    Contents = make_xml_gen_list(Collected, Type, Dir),
-    Footer = "</chapter>\n",
-    [Head,Contents,Footer].
+make_markdown_gen(Collected, Type, Dir) ->
+    Head = get_template(Dir, Type, head),
+    Contents = make_gen_list(Collected, Type, Dir),
+    [string:trim(Head),"\n\n",Contents].
 
-make_xml_gen_list([{Rel,MFAs}|T], Type, Dir) ->
+make_gen_list([{Rel,MFAs}|T], Type, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
-    RelMarker = lists:concat(["otp-",Rel]),
-    Head = ["<section>\n",
-            "<marker id=\"",RelMarker,"\"/>\n",
-            "<title>",RelStr,"</title>\n"],
-    Footer = "</section>\n",
+    Head = ["## ",RelStr,"\n\n"],
     SubTitle = case Type of
                    "deprecations" ->
                        ["Functions Deprecated in ",RelStr];
@@ -308,26 +303,21 @@ make_xml_gen_list([{Rel,MFAs}|T], Type, Dir) ->
                    "removed" ->
                        ["Functions Removed in ",RelStr]
                end,
-    SubHead = ["<section>\n",
-               "<title>",SubTitle,"</title>\n"],
-    SubFooter = "</section>\n",
-    [Head, get_xml_template(Dir, Type, Rel),
-     SubHead, make_xml_gen_mfas(MFAs), SubFooter,
-     Footer | make_xml_gen_list(T, Type, Dir)];
-make_xml_gen_list([], _, _) ->
+    SubHead = ["### ",SubTitle,"\n\n"],
+    [string:trim([Head, get_template(Dir, Type, Rel)]), "\n\n",
+     string:trim([SubHead, make_gen_mfas(MFAs)]), "\n\n" |
+     make_gen_list(T, Type, Dir)];
+make_gen_list([], _, _) ->
     [].
 
-make_xml_gen_mfas(MFAs) ->
-    ["<list type=\"bulleted\">\n",
-     [make_xml_item(MFA) || MFA <- MFAs],
-     "</list>\n"].
+make_gen_mfas(MFAs) ->
+     [make_item(MFA) || MFA <- MFAs].
 
-make_xml_item({{M,F,A},Text}) ->
-    ["<item><c>",lists:concat([M,":",F,"/",A]),"</c>",
-     " (",Text,")</item>\n"].
+make_item({{M,F,A},Text}) ->
+    ["-   `",lists:concat([M,":",F,"/",A]),"` ", " (",Text,")\n"].
 
-get_xml_template(Dir, Prefix, Key) ->
-    Name = lists:concat([Prefix,"_",Key,".inc"]),
+get_template(Dir, Prefix, Key) ->
+    Name = lists:concat([Prefix,"_",Key,".md"]),
     File = filename:join(Dir, Name),
     case file:read_file(File) of
         {ok,Contents} ->

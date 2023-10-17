@@ -43,8 +43,6 @@ Due to the above, pull requests are only accepted on the `maint` and the
 release and the `master` branch contain changes planned for the upcoming OTP
 release.
 
-[](){: #compatibility }
-
 ## Compatibility
 
 We always strive to remain as compatible as possible even in the cases where we
@@ -93,8 +91,6 @@ Peripheral, trace, and debug functionality is at greater risk of being changed
 in an incompatible way than functionality in the language itself and core
 libraries used during operation.
 
-[](){: #deprecation }
-
 ## Deprecation
 
 Functionality is deprecated when new functionality is introduced that is
@@ -107,8 +103,6 @@ will be issued, when appropriate, as early as possible. That is, the new
 preferred functionality will appear at the same time as the deprecation is
 issued. A new deprecation will at least be announced in a release note and the
 documentation.
-
-[](){: #removal }
 
 ## Removal
 

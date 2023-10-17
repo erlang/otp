@@ -9,5 +9,6 @@
     "references/rel.md",
     "references/relup.md",
     "references/script.md"
-  ]
+  ],
+  skip_code_autolink_to: ["release_handler:mbj_func/1"]
 ]

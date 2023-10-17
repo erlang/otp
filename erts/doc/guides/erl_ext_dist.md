@@ -49,7 +49,7 @@ _Table: Term Format_
 >
 > When messages are
 > [passed between connected nodes](erl_dist_protocol.md#connected_nodes) and a
-> [distribution header](erl_ext_dist.md#distribution_header) is used, the first
+> [distribution header](erl_ext_dist.md#distribution-header) is used, the first
 > byte containing the version number (131) is omitted from the terms that follow
 > the distribution header. This is because the version number is implied by the
 > version number in the distribution header.
@@ -79,22 +79,20 @@ _Table: Compressed Data Format when Expanded_
 As from ERTS 9.0 (OTP 20), atoms may contain any Unicode characters.
 
 Atoms sent over node distribution are always encoded in UTF-8 using either
-[`ATOM_UTF8_EXT`](erl_ext_dist.md#ATOM_UTF8_EXT),
-[`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#SMALL_ATOM_UTF8_EXT) or
-[`ATOM_CACHE_REF`](erl_ext_dist.md#ATOM_CACHE_REF).
+[`ATOM_UTF8_EXT`](erl_ext_dist.md#atom_utf8_ext),
+[`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#small_atom_utf8_ext) or
+[`ATOM_CACHE_REF`](erl_ext_dist.md#atom_cache_ref).
 
 Atoms encoded with [`erlang:term_to_binary/1,2`](`erlang:term_to_binary/1`) or
 [`erlang:term_to_iovec/1,2`](`erlang:term_to_iovec/1`) are by default still
-using the old deprecated Latin-1 format [`ATOM_EXT`](erl_ext_dist.md#ATOM_EXT)
+using the old deprecated Latin-1 format [`ATOM_EXT`](erl_ext_dist.md#atom_ext)
 for atoms that only contain Latin-1 characters (Unicode code points 0-255).
 Atoms with higher code points will be encoded in UTF-8 using either
-[`ATOM_UTF8_EXT`](erl_ext_dist.md#ATOM_UTF8_EXT) or
-[`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#SMALL_ATOM_UTF8_EXT).
+[`ATOM_UTF8_EXT`](erl_ext_dist.md#atom_utf8_ext) or
+[`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#small_atom_utf8_ext).
 
 The maximum number of allowed characters in an atom is 255. In the UTF-8 case,
 each character can need 4 bytes to be encoded.
-
-[](){: #distribution_header }
 
 ## Distribution Header
 
@@ -107,7 +105,7 @@ distribution uses the distribution header, see the documentation of the
 [protocol between connected nodes](erl_dist_protocol.md#connected_nodes) in the
 [distribution protocol](erl_dist_protocol.md) documentation.
 
-Any [ATOM_CACHE_REF](erl_ext_dist.md#ATOM_CACHE_REF) entries with corresponding
+Any [ATOM_CACHE_REF](erl_ext_dist.md#atom_cache_ref) entries with corresponding
 `AtomCacheReferenceIndex` in terms encoded on the external format following a
 distribution header refer to the atom cache references made in the distribution
 header. The range is 0 <= `AtomCacheReferenceIndex` < 255, that is, at most 255
@@ -353,8 +351,6 @@ simpler:
 > The fragment size of 128 is only used as an example. Any fragments size may be
 > used when sending fragmented messages.
 
-[](){: #ATOM_CACHE_REF }
-
 ## ATOM_CACHE_REF
 
 | 1    | 1                         |
@@ -364,9 +360,7 @@ simpler:
 _Table: ATOM_CACHE_REF_
 
 Refers to the atom with `AtomCacheReferenceIndex` in the
-[distribution header](erl_ext_dist.md#distribution_header).
-
-[](){: #SMALL_INTEGER_EXT }
+[distribution header](erl_ext_dist.md#distribution-header).
 
 ## SMALL_INTEGER_EXT
 
@@ -378,8 +372,6 @@ _Table: SMALL_INTEGER_EXT_
 
 Unsigned 8-bit integer.
 
-[](){: #INTEGER_EXT }
-
 ## INTEGER_EXT
 
 | 1    | 4     |
@@ -389,8 +381,6 @@ Unsigned 8-bit integer.
 _Table: INTEGER_EXT_
 
 Signed 32-bit integer in big-endian format.
-
-[](){: #FLOAT_EXT }
 
 ## FLOAT_EXT
 
@@ -405,9 +395,7 @@ format used in sprintf to format the float is "%.20e" (there are more bytes
 allocated than necessary). To unpack the float, use sscanf with format "%lf".
 
 This term is used in minor version 0 of the external format; it has been
-superseded by [`NEW_FLOAT_EXT`](erl_ext_dist.md#NEW_FLOAT_EXT).
-
-[](){: #PORT_EXT }
+superseded by [`NEW_FLOAT_EXT`](erl_ext_dist.md#new_float_ext).
 
 ## PORT_EXT
 
@@ -417,10 +405,8 @@ superseded by [`NEW_FLOAT_EXT`](erl_ext_dist.md#NEW_FLOAT_EXT).
 
 _Table: PORT_EXT_
 
-Same as [`NEW_PORT_EXT`](erl_ext_dist.md#NEW_PORT_EXT) except the `Creation`
+Same as [`NEW_PORT_EXT`](erl_ext_dist.md#new_port_ext) except the `Creation`
 field is only one byte and only two bits are significant, the rest are to be 0.
-
-[](){: #NEW_PORT_EXT }
 
 ## NEW_PORT_EXT
 
@@ -430,7 +416,7 @@ field is only one byte and only two bits are significant, the rest are to be 0.
 
 _Table: NEW_PORT_EXT_
 
-Same as [`V4_PORT_EXT`](erl_ext_dist.md#V4_PORT_EXT) except the `ID` field is
+Same as [`V4_PORT_EXT`](erl_ext_dist.md#v4_port_ext) except the `ID` field is
 only four bytes. Only 28 bits are significant; the rest are to be 0.
 
 `NEW_PORT_EXT` was introduced in OTP 19, but only to be decoded and echoed back.
@@ -439,9 +425,7 @@ Not encoded for local ports.
 In OTP 23 distribution flag
 [`DFLAG_BIG_CREATION`](erl_dist_protocol.md#DFLAG_BIG_CREATION) became
 mandatory. All ports are now encoded using `NEW_PORT_EXT`, even external ports
-received as [`PORT_EXT`](erl_ext_dist.md#PORT_EXT) from older nodes.
-
-[](){: #V4_PORT_EXT }
+received as [`PORT_EXT`](erl_ext_dist.md#port_ext) from older nodes.
 
 ## V4_PORT_EXT
 
@@ -454,14 +438,12 @@ _Table: V4_PORT_EXT_
 Encodes a port identifier (obtained from `erlang:open_port/2`). `Node` is the
 originating node, [encoded as an atom](erl_ext_dist.md#utf8_atoms). `ID` is a
 64-bit big endian unsigned integer. The `Creation` works just like in
-[`NEW_PID_EXT`](erl_ext_dist.md#NEW_PID_EXT). Port operations are not allowed
+[`NEW_PID_EXT`](erl_ext_dist.md#new_pid_ext). Port operations are not allowed
 across node boundaries.
 
 In OTP 26 distribution flag [`DFLAG_V4_NC`](erl_dist_protocol.md#DFLAG_V4_NC) as
 well as `V4_PORT_EXT` became mandatory accepting full 64-bit ports to be decoded
 and echoed back.
-
-[](){: #PID_EXT }
 
 ## PID_EXT
 
@@ -471,10 +453,8 @@ and echoed back.
 
 _Table: PID_EXT_
 
-Same as [`NEW_PID_EXT`](erl_ext_dist.md#NEW_PID_EXT) except the `Creation` field
+Same as [`NEW_PID_EXT`](erl_ext_dist.md#new_pid_ext) except the `Creation` field
 is only one byte and only two bits are significant, the rest are to be 0.
-
-[](){: #NEW_PID_EXT }
 
 ## NEW_PID_EXT
 
@@ -505,12 +485,10 @@ Not encoded for local processes.
 In OTP 23 distribution flag
 [`DFLAG_BIG_CREATION`](erl_dist_protocol.md#DFLAG_BIG_CREATION) became
 mandatory. All pids are now encoded using `NEW_PID_EXT`, even external pids
-received as [`PID_EXT`](erl_ext_dist.md#PID_EXT) from older nodes.
+received as [`PID_EXT`](erl_ext_dist.md#pid_ext) from older nodes.
 
 In OTP 26 distribution flag [`DFLAG_V4_NC`](erl_dist_protocol.md#DFLAG_V4_NC)
 became mandatory accepting full 64-bit pids to be decoded and echoed back.
-
-[](){: #SMALL_TUPLE_EXT }
 
 ## SMALL_TUPLE_EXT
 
@@ -523,8 +501,6 @@ _Table: SMALL_TUPLE_EXT_
 Encodes a tuple. The `Arity` field is an unsigned byte that determines how many
 elements that follows in section `Elements`.
 
-[](){: #LARGE_TUPLE_EXT }
-
 ## LARGE_TUPLE_EXT
 
 | 1     | 4       | N          |
@@ -533,10 +509,8 @@ elements that follows in section `Elements`.
 
 _Table: LARGE_TUPLE_EXT_
 
-Same as [`SMALL_TUPLE_EXT`](erl_ext_dist.md#SMALL_TUPLE_EXT) except that `Arity`
+Same as [`SMALL_TUPLE_EXT`](erl_ext_dist.md#small_tuple_ext) except that `Arity`
 is an unsigned 4 byte integer in big-endian format.
-
-[](){: #MAP_EXT }
 
 ## MAP_EXT
 
@@ -554,8 +528,6 @@ map.
 
 *As from *Erlang/OTP 17.0
 
-[](){: #NIL_EXT }
-
 ## NIL_EXT
 
 | 1     |
@@ -565,8 +537,6 @@ map.
 _Table: NIL_EXT_
 
 The representation for an empty list, that is, the Erlang syntax `[]`.
-
-[](){: #STRING_EXT }
 
 ## STRING_EXT
 
@@ -580,9 +550,7 @@ String does _not_ have a corresponding Erlang representation, but is an
 optimization for sending lists of bytes (integer in the range 0-255) more
 efficiently over the distribution. As field `Length` is an unsigned 2 byte
 integer (big-endian), implementations must ensure that lists longer than 65535
-elements are encoded as [`LIST_EXT`](erl_ext_dist.md#LIST_EXT).
-
-[](){: #LIST_EXT }
+elements are encoded as [`LIST_EXT`](erl_ext_dist.md#list_ext).
 
 ## LIST_EXT
 
@@ -593,10 +561,8 @@ elements are encoded as [`LIST_EXT`](erl_ext_dist.md#LIST_EXT).
 _Table: LIST_EXT_
 
 `Length` is the number of elements that follows in section `Elements`. `Tail` is
-the final tail of the list; it is [`NIL_EXT`](erl_ext_dist.md#NIL_EXT) for a
+the final tail of the list; it is [`NIL_EXT`](erl_ext_dist.md#nil_ext) for a
 proper list, but can be any type if the list is improper (for example, `[a|b]`).
-
-[](){: #BINARY_EXT }
 
 ## BINARY_EXT
 
@@ -609,8 +575,6 @@ _Table: BINARY_EXT_
 Binaries are generated with bit syntax expression or with
 `erlang:list_to_binary/1`, `erlang:term_to_binary/1`, or as input from binary
 ports. The `Len` length field is an unsigned 4 byte integer (big-endian).
-
-[](){: #SMALL_BIG_EXT }
 
 ## SMALL_BIG_EXT
 
@@ -628,8 +592,6 @@ can be used:
 `B` = 256  
 `(d0*B^0 + d1*B^1 + d2*B^2 + ... d(N-1)*B^(n-1))`
 
-[](){: #LARGE_BIG_EXT }
-
 ## LARGE_BIG_EXT
 
 | 1     | 4   | 1      | n                   |
@@ -638,10 +600,8 @@ can be used:
 
 _Table: LARGE_BIG_EXT_
 
-Same as [`SMALL_BIG_EXT`](erl_ext_dist.md#SMALL_BIG_EXT) except that the length
+Same as [`SMALL_BIG_EXT`](erl_ext_dist.md#small_big_ext) except that the length
 field is an unsigned 4 byte integer.
-
-[](){: #REFERENCE_EXT }
 
 ## REFERENCE_EXT (deprecated)
 
@@ -651,10 +611,8 @@ field is an unsigned 4 byte integer.
 
 _Table: REFERENCE_EXT_
 
-The same as [`NEW_REFERENCE_EXT`](erl_ext_dist.md#NEW_REFERENCE_EXT) except `ID`
+The same as [`NEW_REFERENCE_EXT`](erl_ext_dist.md#new_reference_ext) except `ID`
 is only one word (`Len` = 1).
-
-[](){: #NEW_REFERENCE_EXT }
 
 ## NEW_REFERENCE_EXT
 
@@ -664,7 +622,7 @@ is only one word (`Len` = 1).
 
 _Table: NEW_REFERENCE_EXT_
 
-The same as [`NEWER_REFERENCE_EXT`](erl_ext_dist.md#NEWER_REFERENCE_EXT)
+The same as [`NEWER_REFERENCE_EXT`](erl_ext_dist.md#newer_reference_ext)
 _except_:
 
 - **`ID`** - In the first word (4 bytes) of `ID`, only 18 bits are significant,
@@ -672,8 +630,6 @@ _except_:
 
 - **`Creation`** - Only one byte long and only two bits are significant, the
   rest must be 0.
-
-[](){: #NEWER_REFERENCE_EXT }
 
 ## NEWER_REFERENCE_EXT
 
@@ -694,7 +650,7 @@ Encodes a reference term generated with `erlang:make_ref/0`.
   `N'` = 4 \* `Len`), but is to be regarded as uninterpreted data.
 
 - **`Creation`** - Works just like in
-  [`NEW_PID_EXT`](erl_ext_dist.md#NEW_PID_EXT).
+  [`NEW_PID_EXT`](erl_ext_dist.md#new_pid_ext).
 
 `NEWER_REFERENCE_EXT` was introduced in OTP 19, but only to be decoded and
 echoed back. Not encoded for local references.
@@ -703,12 +659,10 @@ In OTP 23 distribution flag
 [`DFLAG_BIG_CREATION`](erl_dist_protocol.md#DFLAG_BIG_CREATION) became
 mandatory. All references are now encoded using `NEWER_REFERENCE_EXT`, even
 external references received as
-[`NEW_REFERENCE_EXT`](erl_ext_dist.md#NEW_REFERENCE_EXT) from older nodes.
+[`NEW_REFERENCE_EXT`](erl_ext_dist.md#new_reference_ext) from older nodes.
 
 In OTP 26 distribution flag [`DFLAG_V4_NC`](erl_dist_protocol.md#DFLAG_V4_NC)
 became mandatory. References now can contain up to 5 `ID` words.
-
-[](){: #FUN_EXT }
 
 ## FUN_EXT (removed)
 
@@ -719,8 +673,6 @@ became mandatory. References now can contain up to 5 `ID` words.
 _Table: FUN_EXT_
 
 Not emitted since OTP R8, and not decoded since OTP 23.
-
-[](){: #NEW_FUN_EXT }
 
 ## NEW_FUN_EXT
 
@@ -747,22 +699,20 @@ This is the encoding of internal funs: `fun F/A` and `fun(Arg1,..) -> ... end`.
   [encoded as an atom](erl_ext_dist.md#utf8_atoms).
 
 - **`OldIndex`** - An integer encoded using
-  [`SMALL_INTEGER_EXT`](erl_ext_dist.md#SMALL_INTEGER_EXT) or
-  [`INTEGER_EXT`](erl_ext_dist.md#INTEGER_EXT). Is typically a small index into
+  [`SMALL_INTEGER_EXT`](erl_ext_dist.md#small_integer_ext) or
+  [`INTEGER_EXT`](erl_ext_dist.md#integer_ext). Is typically a small index into
   the module's fun table.
 
 - **`OldUniq`** - An integer encoded using
-  [`SMALL_INTEGER_EXT`](erl_ext_dist.md#SMALL_INTEGER_EXT) or
-  [`INTEGER_EXT`](erl_ext_dist.md#INTEGER_EXT). `Uniq` is the hash value of the
+  [`SMALL_INTEGER_EXT`](erl_ext_dist.md#small_integer_ext) or
+  [`INTEGER_EXT`](erl_ext_dist.md#integer_ext). `Uniq` is the hash value of the
   parse tree for the fun.
 
-- **`Pid`** - A process identifier as in [`PID_EXT`](erl_ext_dist.md#PID_EXT).
+- **`Pid`** - A process identifier as in [`PID_EXT`](erl_ext_dist.md#pid_ext).
   Represents the process in which the fun was created.
 
 - **`Free vars`** - `NumFree` number of terms, each one encoded according to its
   type.
-
-[](){: #EXPORT_EXT }
 
 ## EXPORT_EXT
 
@@ -777,9 +727,7 @@ This term is the encoding for external funs: `fun M:F/A`.
 `Module` and `Function` are [encoded as atoms](erl_ext_dist.md#utf8_atoms).
 
 `Arity` is an integer encoded using
-[`SMALL_INTEGER_EXT`](erl_ext_dist.md#SMALL_INTEGER_EXT).
-
-[](){: #BIT_BINARY_EXT }
+[`SMALL_INTEGER_EXT`](erl_ext_dist.md#small_integer_ext).
 
 ## BIT_BINARY_EXT
 
@@ -794,8 +742,6 @@ multiple of 8. The `Len` field is an unsigned 4 byte integer (big-endian). The
 `Bits` field is the number of bits (1-8) that are used in the last byte in the
 data field, counting from the most significant bit to the least significant.
 
-[](){: #NEW_FLOAT_EXT }
-
 ## NEW_FLOAT_EXT
 
 | 1    | 8            |
@@ -808,8 +754,6 @@ A finite float (i.e. not inf, -inf or NaN) is stored as 8 bytes in big-endian
 IEEE format.
 
 This term is used in minor version 1 of the external format.
-
-[](){: #ATOM_UTF8_EXT }
 
 ## ATOM_UTF8_EXT
 
@@ -826,8 +770,6 @@ For more information, see the
 [section on encoding atoms](erl_ext_dist.md#utf8_atoms) in the beginning of this
 page.
 
-[](){: #SMALL_ATOM_UTF8_EXT }
-
 ## SMALL_ATOM_UTF8_EXT
 
 | 1     | 1     | Len        |
@@ -838,13 +780,13 @@ _Table: SMALL_ATOM_UTF8_EXT_
 
 An atom is stored with a 1 byte unsigned length, followed by `Len` bytes
 containing the `AtomName` encoded in UTF-8. Longer atoms encoded in UTF-8 can be
-represented using [`ATOM_UTF8_EXT`](erl_ext_dist.md#ATOM_UTF8_EXT).
+represented using [`ATOM_UTF8_EXT`](erl_ext_dist.md#atom_utf8_ext).
 
 For more information, see the
 [section on encoding atoms](erl_ext_dist.md#utf8_atoms) in the beginning of this
 page.
 
-[](){: #ATOM_EXT }
+[](){: #atom_ext }
 
 ## ATOM_EXT (deprecated)
 
@@ -858,7 +800,7 @@ An atom is stored with a 2 byte unsigned length in big-endian order, followed by
 `Len` numbers of 8-bit Latin-1 characters that forms the `AtomName`. The maximum
 allowed value for `Len` is 255.
 
-[](){: #SMALL_ATOM_EXT }
+[](){: #small_atom_ext }
 
 ## SMALL_ATOM_EXT (deprecated)
 
@@ -877,8 +819,6 @@ An atom is stored with a 1 byte unsigned length, followed by `Len` numbers of
 > distribution flag
 > [`DFLAG_SMALL_ATOM_TAGS`](erl_dist_protocol.md#DFLAG_SMALL_ATOM_TAGS) in the
 > [distribution handshake](erl_dist_protocol.md#distribution_handshake).
-
-[](){: #LOCAL_EXT }
 
 ## LOCAL_EXT
 

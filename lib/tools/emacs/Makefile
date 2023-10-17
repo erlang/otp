@@ -34,9 +34,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/tools-$(VSN)
 # Common Macros
 # ----------------------------------------------------
 
-MAN_FILES= \
-	tags.3
-
 EMACS_FILES= \
 	erldoc \
 	erlang-skels \
@@ -65,9 +62,7 @@ clean:
 	rm -f $(TARGET_FILES) $(ELC_FILES)
 	rm -f errs core *~
 
-DOC_TARGETS?=man
-
-docs: $(DOC_TARGETS)
+docs:
 
 # ----------------------------------------------------
 # Release Target
@@ -79,8 +74,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(EL_FILES) $(README_FILES) \
 		"$(RELSYSDIR)/emacs"
 
-release_man_spec:
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN_FILES) "$(RELEASE_PATH)/man/man3"
+release_html_spec:
+release_chunks_spec:
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)

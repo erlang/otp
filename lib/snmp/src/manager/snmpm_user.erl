@@ -43,8 +43,6 @@ If the manager is not configured to use any particular transport domain, the
 behaviour `handle_agent/4` will for backwards copmpatibility reasons be called
 with the old `IpAddr` and `PortNumber` arguments
 
-[](){: #types }
-
 ## DATA TYPES
 
 ```erlang

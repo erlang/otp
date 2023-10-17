@@ -59,7 +59,7 @@ do_recv(Sock, Bs) ->
     end.
 ```
 
-For more examples, see section [Examples](`m:gen_tcp#examples`).
+For more examples, see section [Examples](`m:gen_tcp#module-examples`).
 
 > #### Note {: .info }
 >
@@ -866,7 +866,7 @@ close(S) ->
 Sends a packet on a socket.
 
 There is no `send` call with a time-out option, use socket option `send_timeout`
-if time-outs are desired. See section [Examples](`m:gen_tcp#examples`).
+if time-outs are desired. See section [Examples](`m:gen_tcp#module-examples`).
 
 The return value `{error, {timeout, RestData}}` can only be returned when
 `inet_backend = socket`.

@@ -25,8 +25,6 @@ Utility functions for handling the agent config files.
 The module `snmpa_conf` contains various utility functions to used for
 manipulating (write/append/read) the config files of the SNMP agent.
 
-[](){: #types }
-
 ## DATA TYPES
 
 ```erlang

@@ -396,7 +396,7 @@ last(E, []) -> E.
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
--doc(#{equiv => seq/3}).
+-doc(#{equiv => seq(From, To, 1)}).
 -spec seq(From, To) -> Seq when
       From :: integer(),
       To :: integer(),
@@ -496,7 +496,7 @@ Returns a list containing `N` copies of term `Elem`.
 
 _Example:_
 
-```text
+```erlang
 > lists:duplicate(5, xx).
 [xx,xx,xx,xx,xx]
 ```
@@ -1117,7 +1117,7 @@ of `Things` can be atoms, integers, floats, or strings.
 
 _Example:_
 
-```text
+```erlang
 > lists:concat([doc, '/', file, '.', 3]).
 "doc/file.3"
 ```

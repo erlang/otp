@@ -234,7 +234,7 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
   internal state is the set of available channels `Chs`.
 - The second argument is the name of the module (`ch4`).
 - The third argument is `Vsn` or `{down,Vsn}`, as described for
-  `gen_server:code_change/3` in
+  `c:gen_server:code_change/3` in
   [Changing Internal State](appup_cookbook.md#code_change).
 
 In this case, all arguments but the first are ignored and the function simply

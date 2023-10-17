@@ -22,7 +22,7 @@ limitations under the License.
 ## Introduction
 
 The complete specification for the bit syntax appears in the
-[Reference Manual](`e:system:expressions.md#bit_syntax`).
+[Reference Manual](`e:system:expressions.md#bit-syntax-expressions`).
 
 In Erlang, a Bin is used for constructing binaries and matching binary patterns.
 A Bin is written with the following syntax:
@@ -156,13 +156,13 @@ variants are allowed:
 - `Value/TypeSpecifierList`
 
 Default values are used when specifications are missing. The default values are
-described in [Defaults](bit_syntax.md#Defaults).
+described in [Defaults](#defaults).
 
 The `Value` part is any expression, when used in binary construction. Used in
 binary matching, the `Value` part must be a literal or a variable. For more
 information about the `Value` part, see
-[Constructing Binaries and Bitstrings](bit_syntax.md#Constructing-Binaries-and-Bitstrings)
-and [Matching Binaries](bit_syntax.md#Matching-Binaries).
+[Constructing Binaries and Bitstrings](#constructing-binaries-and-bitstrings)
+and [Matching Binaries](#matching-binaries).
 
 The `Size` part of the segment multiplied by the unit in `TypeSpecifierList`
 (described later) gives the number of bits for the segment. In construction,
@@ -173,7 +173,7 @@ The `TypeSpecifierList` is a list of type specifiers separated by hyphens.
 
 - **Type** - The most commonly used types are `integer`, `float`, and `binary`.
   See
-  [Bit Syntax Expressions in the Reference Manual](`e:system:expressions.md#bit_syntax`)
+  [Bit Syntax Expressions in the Reference Manual](`e:system:expressions.md#bit-syntax-expressions`)
   for a complete description.
 
 - **Signedness** - The signedness specification can be either `signed` or
@@ -200,7 +200,7 @@ integer in little-endian order.
 
 ## Defaults
 
-[](){: #Defaults } The default type for a segment is integer. The default type
+The default type for a segment is integer. The default type
 does not depend on the value, even if the value is a literal. For example, the
 default type in `<<3.14>>` is integer, not float.
 
@@ -217,8 +217,6 @@ The default signedness is `unsigned`.
 The default endianness is `big`.
 
 ## Constructing Binaries and Bitstrings
-
-[](){: #Constructing-Binaries-and-Bitstrings }
 
 This section describes the rules for constructing binaries using the bit syntax.
 Unlike when constructing lists or tuples, the construction of a binary can fail
@@ -294,8 +292,6 @@ This is syntactic sugar for the following:
 
 ## Matching Binaries
 
-[](){: #Matching-Binaries }
-
 This section describes the rules for matching binaries, using the bit syntax.
 
 There can be zero or more segments in a binary pattern. A binary pattern can
@@ -315,7 +311,7 @@ When matching `Value`, value must be either a variable or an integer, or a
 floating point literal. Expressions are not allowed.
 
 `Size` must be a
-[guard expression](`e:system:expressions.md#guard_expressions`), which can use
+[guard expression](`e:system:expressions.md#guard-expressions`), which can use
 literals and previously bound variables. The following is not allowed:
 
 ```text

@@ -496,12 +496,12 @@ following:
   user. `reason_for_user_cancel()` is the reason given in the call to the
   [cancel](`m:megaco#cancel`) function.
 - A `send_reason()`, indicates that the transport module
-  [send_message](`m:megaco_transport#send_message`) function did not send the
+  [send_message](`c:megaco_transport:send_message/3`) function did not send the
   message. The reason for this can be:
 
   - `send_cancelled_reason()` \- the message sending was deliberately cancelled.
     `reason_for_send_cancel()` is the reason given in the `cancel` return from
-    the [send_message](`m:megaco_transport#send_message`) function.
+    the [send_message](`c:megaco_transport:send_message/3`) function.
   - `send_failed_reason()` \- an error occurred while attempting to send the
     message.
 

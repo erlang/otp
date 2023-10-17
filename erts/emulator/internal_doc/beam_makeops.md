@@ -39,7 +39,7 @@ specific instructions.  The OTP 20 release has 389 specific
 instructions.
 
 * The implementation of specific instructions for the traditional
-BEAM interpreter. For the [BeamAsm JIT](BeamAsm) introduced
+BEAM interpreter. For the [BeamAsm JIT](BeamAsm.md) introduced
 in OTP 24, the implementation of instructions are defined in emitter
 functions written in C++.
 
@@ -457,7 +457,7 @@ probably never happen in practice.
 #### GC\_REGEXP ####
 
 In `macros.tab`, there is a definition of `GC_REGEXP`.
-It will be described in [a later section](#the-gc_regexp-definition).
+It will be described in [a later section](#the-GC_REGEXP-definition).
 
 #### FORBIDDEN\_TYPES ####
 
@@ -1503,6 +1503,8 @@ the wheel.
 
 We will describe a few of the most useful macros here.
 
+[](){: #the-GC_REGEXP-definition }
+
 ##### The GC_REGEXP definition #####
 
 The following line defines a regular expression that will recognize
@@ -2054,6 +2056,8 @@ only a single `emit_fload()` function is allowed:
         .
         .
     }
+
+[](){: #handling-a-variable-number-of-operands }
 
 #### Handling a variable number of operands ####
 

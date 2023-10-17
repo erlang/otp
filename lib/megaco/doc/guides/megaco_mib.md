@@ -33,8 +33,8 @@ counters of the _MedGwyGatewayStatsEntry_.
 
 The implementation of the statistic counters is lightweight. I.e. the statistic
 counters are handled separately by different entities of the application. For
-instance our two transport module(s) (see [megaco_tcp](`m:megaco_tcp#stats`) and
-[megaco_udp](`m:megaco_udp#stats`)) maintain their own counters and the
+instance our two transport module(s) (see [megaco_tcp](`megaco_tcp:get_stats/0`) and
+[megaco_udp](`megaco_udp:get_stats/0`)) maintain their own counters and the
 application engine (see [megaco](`m:megaco#stats`)) maintain its own counters.
 
 This also means that if a user implement their own transport service then it has

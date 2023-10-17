@@ -65,7 +65,7 @@ to write XSLT like transforms.
 This approach is probably easier for an Erlanger but if you need to use real
 XSLT stylesheets in order to "comply to the standard" there is an adapter
 available to the Sablotron XSLT package which is written i C++. See also the
-[Tutorial](xmerl_xs_examples.html).
+[Tutorial](assets/xmerl_xs_examples.html).
 """.
 
 -export([xslapply/2, value_of/1, select/2, built_in_rules/2 ]).

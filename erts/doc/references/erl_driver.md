@@ -703,8 +703,6 @@ void add_driver_entry(ErlDrvEntry
         *de);
 ```
 
-[](){: #add_driver_entry }
-
 Adds a driver entry to the list of drivers known by Erlang. The
 [`init`](driver_entry.md#init) function of parameter `de` is called.
 
@@ -725,8 +723,6 @@ Adds a driver entry to the list of drivers known by Erlang. The
 void * driver_alloc(ErlDrvSizeT size);
 ```
 
-[](){: #driver_alloc }
-
 Allocates a memory block of the size specified in `size`, and returns it. This
 fails only on out of memory, in which case `NULL` is returned. (This is most
 often a wrapper for `malloc`).
@@ -741,8 +737,6 @@ This function is thread-safe.
 ```c
 ErlDrvBinary * driver_alloc_binary(ErlDrvSizeT size);
 ```
-
-[](){: #driver_alloc_binary }
 
 Allocates a driver binary with a memory block of at least `size` bytes, and
 returns a pointer to it, or `NULL` on failure (out of memory). When a driver
@@ -767,8 +761,6 @@ long driver_async(ErlDrvPort port, unsigned
         int* key, void (*async_invoke)(void*), void* async_data, void
         (*async_free)(void*));
 ```
-
-[](){: #driver_async }
 
 Performs an asynchronous call. The function `async_invoke` is invoked in a
 thread separate from the emulator thread. This enables the driver to perform
@@ -829,8 +821,6 @@ unsigned int driver_async_port_key(ErlDrvPort
         port);
 ```
 
-[](){: #driver_async_port_key }
-
 Calculates a key for later use in [`driver_async`](erl_driver.md#driver_async).
 The keys are evenly distributed so that a fair mapping between port IDs and
 async thread IDs is achieved.
@@ -847,8 +837,6 @@ async thread IDs is achieved.
 ```c
 long driver_binary_dec_refc(ErlDrvBinary *bin);
 ```
-
-[](){: #driver_binary_dec_refc }
 
 Decrements the reference count on `bin` and returns the reference count reached
 after the decrement.
@@ -870,8 +858,6 @@ This function is thread-safe.
 long driver_binary_get_refc(ErlDrvBinary *bin);
 ```
 
-[](){: #driver_binary_get_refc }
-
 Returns the current reference count on `bin`.
 
 This function is thread-safe.
@@ -881,8 +867,6 @@ This function is thread-safe.
 ```c
 long driver_binary_inc_refc(ErlDrvBinary *bin);
 ```
-
-[](){: #driver_binary_inc_refc }
 
 Increments the reference count on `bin` and returns the reference count reached
 after the increment.
@@ -895,8 +879,6 @@ This function is thread-safe.
 ErlDrvTermData driver_caller(ErlDrvPort
         port);
 ```
-
-[](){: #driver_caller }
 
 Returns the process ID of the process that made the current call to the driver.
 The process ID can be used with
@@ -925,8 +907,6 @@ Notice that this function is _not_ thread-safe.
 int driver_cancel_timer(ErlDrvPort port);
 ```
 
-[](){: #driver_cancel_timer }
-
 Cancels a timer set with [`driver_set_timer`](erl_driver.md#driver_set_timer).
 
 The return value is `0`.
@@ -937,8 +917,6 @@ The return value is `0`.
 int driver_compare_monitors(const ErlDrvMonitor
         *monitor1, const ErlDrvMonitor *monitor2);
 ```
-
-[](){: #driver_compare_monitors }
 
 Compares two `ErlDrvMonitor`s. Can also be used to imply some artificial order
 on monitors, for whatever reason.
@@ -952,8 +930,6 @@ Returns `0` if `monitor1` and `monitor2` are equal, < `0` if `monitor1` <
 ErlDrvTermData driver_connected(ErlDrvPort
         port);
 ```
-
-[](){: #driver_connected }
 
 Returns the port owner process.
 
@@ -1001,8 +977,6 @@ int driver_demonitor_process(ErlDrvPort port,
         const ErlDrvMonitor *monitor);
 ```
 
-[](){: #driver_demonitor_process }
-
 Cancels a monitor created earlier.
 
 Returns `0` if a monitor was removed and > 0 if the monitor no longer exists.
@@ -1013,8 +987,6 @@ Returns `0` if a monitor was removed and > 0 if the monitor no longer exists.
 ErlDrvSizeT driver_deq(ErlDrvPort port,
         ErlDrvSizeT size);
 ```
-
-[](){: #driver_deq }
 
 Dequeues data by moving the head pointer forward in the driver queue by `size`
 bytes. The data in the queue is deallocated.
@@ -1031,8 +1003,6 @@ by the calling thread during the call.
 int driver_enq(ErlDrvPort port, char* buf,
         ErlDrvSizeT len);
 ```
-
-[](){: #driver_enq }
 
 Enqueues data in the driver queue. The data in `buf` is copied (`len` bytes) and
 placed at the end of the driver queue. The driver queue is normally used in a
@@ -1060,8 +1030,6 @@ int driver_enq_bin(ErlDrvPort port,
         ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len);
 ```
 
-[](){: #driver_enq_bin }
-
 Enqueues a driver binary in the driver queue. The data in `bin` at `offset` with
 length `len` is placed at the end of the queue. This function is most often
 faster than [`driver_enq`](erl_driver.md#driver_enq), because no data must be
@@ -1079,8 +1047,6 @@ The return value is `0`.
 int driver_enqv(ErlDrvPort port, ErlIOVec *ev,
         ErlDrvSizeT skip);
 ```
-
-[](){: #driver_enqv }
 
 Enqueues the data in `ev`, skipping the first `skip` bytes of it, at the end of
 the driver queue. It is faster than [`driver_enq`](erl_driver.md#driver_enq),
@@ -1113,9 +1079,6 @@ int driver_failure_posix(ErlDrvPort port, int
         error);
 ```
 
-[](){: #driver_failure_atom } [](){: #driver_failure_posix } [](){:
-#driver_failure }
-
 Signals to Erlang that the driver has encountered an error and is to be closed.
 The port is closed and the tuple `{'EXIT', error, Err}` is sent to the port
 owner process, where error is an error atom (`driver_failure_atom` and
@@ -1135,8 +1098,6 @@ int driver_failure_eof(ErlDrvPort
         port);
 ```
 
-[](){: #driver_failure_eof }
-
 Signals to Erlang that the driver has encountered an EOF and is to be closed,
 unless the port was opened with option `eof`, in which case `eof` is sent to the
 port. Otherwise the port is closed and an `'EXIT'` message is sent to the port
@@ -1150,8 +1111,6 @@ The return value is `0`.
 void driver_free(void *ptr);
 ```
 
-[](){: #driver_free }
-
 Frees the memory pointed to by `ptr`. The memory is to have been allocated with
 `driver_alloc`. All allocated memory is to be deallocated, only once. There is
 no garbage collection in drivers.
@@ -1163,8 +1122,6 @@ This function is thread-safe.
 ```c
 void driver_free_binary(ErlDrvBinary *bin);
 ```
-
-[](){: #driver_free_binary }
 
 Frees a driver binary `bin`, allocated previously with
 [`driver_alloc_binary`](erl_driver.md#driver_alloc_binary). As binaries in
@@ -1179,8 +1136,6 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort port, const
         ErlDrvMonitor *monitor);
 ```
 
-[](){: #driver_get_monitored_process }
-
 Returns the process ID associated with a living monitor. It can be used in the
 [`process_exit`](driver_entry.md#process_exit) callback to get the process
 identification for the exiting process.
@@ -1192,8 +1147,6 @@ Returns `driver_term_nil` if the monitor no longer exists.
 ```c
 int driver_get_now(ErlDrvNowData *now);
 ```
-
-[](){: #driver_get_now }
 
 > #### Warning {: .warning }
 >
@@ -1216,8 +1169,6 @@ int driver_lock_driver(ErlDrvPort
         port);
 ```
 
-[](){: #driver_lock_driver }
-
 Locks the driver used by the port `port` in memory for the rest of the emulator
 process' lifetime. After this call, the driver behaves as one of Erlang's
 statically linked-in drivers.
@@ -1228,8 +1179,6 @@ statically linked-in drivers.
 ErlDrvTermData driver_mk_atom(char*
         string);
 ```
-
-[](){: #driver_mk_atom }
 
 Returns an atom given a name `string`. The atom is created and does not change,
 so the return value can be saved and reused, which is faster than looking up the
@@ -1244,8 +1193,6 @@ ErlDrvTermData driver_mk_port(ErlDrvPort
         port);
 ```
 
-[](){: #driver_mk_port }
-
 Converts a port handle to the Erlang term format, usable in
 [`erl_drv_output_term`](erl_driver.md#erl_drv_output_term) and
 [`erl_drv_send_term`](erl_driver.md#erl_drv_send_term).
@@ -1258,8 +1205,6 @@ Notice that this function is _not_ thread-safe.
 int driver_monitor_process(ErlDrvPort port,
         ErlDrvTermData process, ErlDrvMonitor *monitor);
 ```
-
-[](){: #driver_monitor_process }
 
 Starts monitoring a process from a driver. When a process is monitored, a
 process exit results in a call to the provided
@@ -1281,8 +1226,6 @@ int driver_output(ErlDrvPort port, char *buf,
         ErlDrvSizeT len);
 ```
 
-[](){: #driver_output }
-
 Sends data from the driver up to the emulator. The data is received as terms or
 binary data, depending on how the driver port was opened.
 
@@ -1302,8 +1245,6 @@ int driver_output_binary(ErlDrvPort port, char
         *hbuf, ErlDrvSizeT hlen, ErlDrvBinary* bin, ErlDrvSizeT offset,
         ErlDrvSizeT len);
 ```
-
-[](){: #driver_output_binary }
 
 Sends data to a port owner process from a driver binary. It has a header buffer
 (`hbuf` and `hlen`) just like [`driver_output2`](erl_driver.md#driver_output2).
@@ -1334,8 +1275,6 @@ int driver_output_term(ErlDrvPort port,
         ErlDrvTermData* term, int n);
 ```
 
-[](){: #driver_output_term }
-
 > #### Warning {: .warning }
 >
 > _This function is deprecated._ Use
@@ -1353,8 +1292,6 @@ int driver_output2(ErlDrvPort port, char *hbuf,
         ErlDrvSizeT hlen, char *buf, ErlDrvSizeT len);
 ```
 
-[](){: #driver_output2 }
-
 First sends `hbuf` (length in `hlen`) data as a list, regardless of port
 settings. Then sends `buf` as a binary or list. For example, if `hlen` is `3`,
 the port owner process receives `[H1, H2, H3 | T]`.
@@ -1370,8 +1307,6 @@ The return value is `0` for normal use.
 int driver_outputv(ErlDrvPort port, char* hbuf,
         ErlDrvSizeT hlen, ErlIOVec *ev, ErlDrvSizeT skip);
 ```
-
-[](){: #driver_outputv }
 
 Sends data from an I/O vector, `ev`, to the port owner process. It has a header
 buffer (`hbuf` and `hlen`), just like
@@ -1397,8 +1332,6 @@ The comment for `driver_output_binary` also applies for `driver_outputv`.
 ErlDrvPDL driver_pdl_create(ErlDrvPort port);
 ```
 
-[](){: #driver_pdl_create }
-
 Creates a port data lock associated with the `port`.
 
 > #### Note {: .info }
@@ -1417,8 +1350,6 @@ long driver_pdl_dec_refc(ErlDrvPDL
         pdl);
 ```
 
-[](){: #driver_pdl_dec_refc }
-
 Decrements the reference count of the port data lock passed as argument (`pdl`).
 
 The current reference count after the decrement has been performed is returned.
@@ -1431,8 +1362,6 @@ This function is thread-safe.
 long driver_pdl_get_refc(ErlDrvPDL pdl);
 ```
 
-[](){: #driver_pdl_get_refc }
-
 Returns the current reference count of the port data lock passed as argument
 (`pdl`).
 
@@ -1443,8 +1372,6 @@ This function is thread-safe.
 ```c
 long driver_pdl_inc_refc(ErlDrvPDL pdl);
 ```
-
-[](){: #driver_pdl_inc_refc }
 
 Increments the reference count of the port data lock passed as argument (`pdl`).
 
@@ -1458,8 +1385,6 @@ This function is thread-safe.
 void driver_pdl_lock(ErlDrvPDL pdl);
 ```
 
-[](){: #driver_pdl_lock }
-
 Locks the port data lock passed as argument (`pdl`).
 
 This function is thread-safe.
@@ -1469,8 +1394,6 @@ This function is thread-safe.
 ```c
 void driver_pdl_unlock(ErlDrvPDL pdl);
 ```
-
-[](){: #driver_pdl_unlock }
 
 Unlocks the port data lock passed as argument (`pdl`).
 
@@ -1482,8 +1405,6 @@ This function is thread-safe.
 SysIOVec * driver_peekq(ErlDrvPort port, int
         *vlen);
 ```
-
-[](){: #driver_peekq }
 
 Retrieves the driver queue as a pointer to an array of `SysIOVec`s. It also
 returns the number of elements in `vlen`. This is one of two ways to get data
@@ -1505,8 +1426,6 @@ ErlDrvSizeT driver_peekqv(ErlDrvPort port,
         ErlIOVec *ev);
 ```
 
-[](){: #driver_peekqv }
-
 Retrieves the driver queue into a supplied `ErlIOVec` `ev`. It also returns the
 queue size. This is one of two ways to get data out of the queue.
 
@@ -1527,8 +1446,6 @@ int driver_pushq(ErlDrvPort port, char* buf,
         ErlDrvSizeT len);
 ```
 
-[](){: #driver_pushq }
-
 Puts data at the head of the driver queue. The data in `buf` is copied (`len`
 bytes) and placed at the beginning of the queue.
 
@@ -1544,8 +1461,6 @@ by the calling thread during the call.
 int driver_pushq_bin(ErlDrvPort port,
         ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len);
 ```
-
-[](){: #driver_pushq_bin }
 
 Puts data in the binary `bin`, at `offset` with length `len` at the head of the
 driver queue. It is most often faster than
@@ -1564,8 +1479,6 @@ int driver_pushqv(ErlDrvPort port, ErlIOVec
         *ev, ErlDrvSizeT skip);
 ```
 
-[](){: #driver_pushqv }
-
 Puts the data in `ev`, skipping the first `skip` bytes of it, at the head of the
 driver queue. It is faster than [`driver_pushq`](erl_driver.md#driver_pushq),
 because no data must be copied.
@@ -1583,8 +1496,6 @@ int driver_read_timer(ErlDrvPort port, unsigned
         long *time_left);
 ```
 
-[](){: #driver_read_timer }
-
 Reads the current time of a timer, and places the result in `time_left`. This is
 the time in milliseconds, before the time-out occurs.
 
@@ -1595,8 +1506,6 @@ The return value is `0`.
 ```c
 void * driver_realloc(void *ptr, ErlDrvSizeT size);
 ```
-
-[](){: #driver_realloc }
 
 Resizes a memory block, either in place, or by allocating a new block, copying
 the data, and freeing the old block. A pointer is returned to the reallocated
@@ -1611,8 +1520,6 @@ This function is thread-safe.
 ErlDrvBinary * driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 ```
 
-[](){: #driver_realloc_binary }
-
 Resizes a driver binary, while keeping the data.
 
 Returns the resized driver binary on success. Returns `NULL` on failure (out of
@@ -1626,8 +1533,6 @@ This function is thread-safe.
 int driver_select(ErlDrvPort port, ErlDrvEvent
         event, int mode, int on);
 ```
-
-[](){: #driver_select }
 
 This function is used by drivers to provide the emulator with events to check
 for. This enables the emulator to call the driver when something has occurred
@@ -1680,8 +1585,6 @@ int driver_send_term(ErlDrvPort port,
         ErlDrvTermData receiver, ErlDrvTermData* term, int n);
 ```
 
-[](){: #driver_send_term }
-
 > #### Warning {: .warning }
 >
 > _This function is deprecated._ Use
@@ -1705,8 +1608,6 @@ int driver_set_timer(ErlDrvPort port, unsigned
         long time);
 ```
 
-[](){: #driver_set_timer }
-
 Sets a timer on the driver, which will count down and call the driver when it is
 timed out. Parameter `time` is the time in milliseconds before the timer
 expires.
@@ -1726,8 +1627,6 @@ case it is `-1`.
 ErlDrvSizeT driver_sizeq(ErlDrvPort port);
 ```
 
-[](){: #driver_sizeq }
-
 Returns the number of bytes currently in the driver queue.
 
 This function can be called from any thread if a
@@ -1740,8 +1639,6 @@ by the calling thread during the call.
 void driver_system_info(ErlDrvSysInfo
         *sys_info_ptr, size_t size);
 ```
-
-[](){: #driver_system_info }
 
 Writes information about the Erlang runtime system into the
 [`ErlDrvSysInfo`](erl_driver.md#ErlDrvSysInfo) structure referred to by the
@@ -1758,8 +1655,6 @@ For information about specific fields, see
 ErlDrvSizeT driver_vec_to_buf(ErlIOVec *ev,
         char *buf, ErlDrvSizeT len);
 ```
-
-[](){: #driver_vec_to_buf }
 
 Collects several segments of data, referenced by `ev`, by copying them in order
 to the buffer `buf`, of the size `len`.
@@ -1778,8 +1673,6 @@ syntax can construct integers directly from the binary.
 void erl_drv_busy_msgq_limits(ErlDrvPort port,
         ErlDrvSizeT *low, ErlDrvSizeT *high);
 ```
-
-[](){: #erl_drv_busy_msgq_limits }
 
 Sets and gets limits that will be used for controlling the busy state of the
 port message queue.
@@ -1828,8 +1721,6 @@ void erl_drv_cond_broadcast(ErlDrvCond
         *cnd);
 ```
 
-[](){: #erl_drv_cond_broadcast }
-
 Broadcasts on a condition variable. That is, if other threads are waiting on the
 condition variable being broadcast on, _all_ of them are woken.
 
@@ -1843,8 +1734,6 @@ This function is thread-safe.
 ErlDrvCond * erl_drv_cond_create(char
         *name);
 ```
-
-[](){: #erl_drv_cond_create }
 
 Creates a condition variable and returns a pointer to it.
 
@@ -1863,8 +1752,6 @@ void erl_drv_cond_destroy(ErlDrvCond
         *cnd);
 ```
 
-[](){: #erl_drv_cond_destroy }
-
 Destroys a condition variable previously created by
 [`erl_drv_cond_create`](erl_driver.md#erl_drv_cond_create).
 
@@ -1878,8 +1765,6 @@ This function is thread-safe.
 char * erl_drv_cond_name(ErlDrvCond
         *cnd);
 ```
-
-[](){: #erl_drv_cnd_name }
 
 Returns a pointer to the name of the condition.
 
@@ -1896,8 +1781,6 @@ void erl_drv_cond_signal(ErlDrvCond
         *cnd);
 ```
 
-[](){: #erl_drv_cond_signal }
-
 Signals on a condition variable. That is, if other threads are waiting on the
 condition variable being signaled, _one_ of them is woken.
 
@@ -1911,8 +1794,6 @@ This function is thread-safe.
 void erl_drv_cond_wait(ErlDrvCond *cnd,
         ErlDrvMutex *mtx);
 ```
-
-[](){: #erl_drv_cond_wait }
 
 Waits on a condition variable. The calling thread is blocked until another
 thread wakes it by signaling or broadcasting on the condition variable. Before
@@ -1940,8 +1821,6 @@ This function is thread-safe.
 int erl_drv_consume_timeslice(ErlDrvPort port,
         int percent);
 ```
-
-[](){: #erl_drv_consume_timeslice }
 
 Gives the runtime system a hint about how much CPU time the current driver
 callback call has consumed since the last hint, or since the the start of the
@@ -1983,8 +1862,6 @@ ErlDrvTime erl_drv_convert_time_unit(ErlDrvTime
         val, ErlDrvTimeUnit from, ErlDrvTimeUnit to);
 ```
 
-[](){: #erl_drv_convert_time_unit }
-
 Converts the `val` value of time unit `from` to the corresponding value of time
 unit `to`. The result is rounded using the floor function.
 
@@ -2006,8 +1883,6 @@ int erl_drv_equal_tids(ErlDrvTid tid1,
         ErlDrvTid tid2);
 ```
 
-[](){: #erl_drv_equal_tids }
-
 Compares two thread identifiers, `tid1` and `tid2`, for equality.
 
 Returns `0` it they are not equal, and a value not equal to `0` if they are
@@ -2028,8 +1903,6 @@ This function is thread-safe.
 int erl_drv_getenv(const char *key, char
         *value, size_t *value_size);
 ```
-
-[](){: #erl_drv_getenv }
 
 Retrieves the value of an environment variable.
 
@@ -2070,8 +1943,6 @@ void erl_drv_init_ack(ErlDrvPort port,
         ErlDrvData res);
 ```
 
-[](){: #erl_drv_init_ack }
-
 Acknowledges the start of the port.
 
 - **`port`** - The port handle of the port (driver instance) doing the
@@ -2093,9 +1964,7 @@ linked-in driver.
 ErlDrvTime erl_drv_monotonic_time(ErlDrvTimeUnit time_unit);
 ```
 
-[](){: #erl_drv_monotonic_time }
-
-Returns [Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time).
+Returns [Erlang monotonic time](time_correction.md#erlang-monotonic-time).
 Notice that negative values are not uncommon.
 
 `time_unit` is time unit of returned value.
@@ -2113,8 +1982,6 @@ ErlDrvMutex * erl_drv_mutex_create(char
         *name);
 ```
 
-[](){: #erl_drv_mutex_create }
-
 Creates a mutex and returns a pointer to it.
 
 `name` is a string identifying the created mutex. It is used to identify the
@@ -2125,9 +1992,7 @@ destroying it before the driver is unloaded.
 
 This function is thread-safe.
 
-[](){: #lock_checker }
-
-> #### Note {: .info }
+> #### Note {: .info #lock_checker }
 >
 > One such debug functionality is the _lock checker_, which can detect locking
 > order violations and thereby potential deadlock bugs. For the lock checker to
@@ -2149,8 +2014,6 @@ void erl_drv_mutex_destroy(ErlDrvMutex
         *mtx);
 ```
 
-[](){: #erl_drv_mutex_destroy }
-
 Destroys a mutex previously created by
 [`erl_drv_mutex_create`](erl_driver.md#erl_drv_mutex_create). The mutex must be
 in an unlocked state before it is destroyed.
@@ -2165,8 +2028,6 @@ This function is thread-safe.
 void erl_drv_mutex_lock(ErlDrvMutex
         *mtx);
 ```
-
-[](){: #erl_drv_mutex_lock }
 
 Locks a mutex. The calling thread is blocked until the mutex has been locked. A
 thread that has currently locked the mutex _cannot_ lock the same mutex again.
@@ -2187,8 +2048,6 @@ char * erl_drv_mutex_name(ErlDrvMutex
         *mtx);
 ```
 
-[](){: #erl_drv_mutex_name }
-
 Returns a pointer to the mutex name.
 
 `mtx` is a pointer to an initialized mutex.
@@ -2203,8 +2062,6 @@ Returns a pointer to the mutex name.
 int erl_drv_mutex_trylock(ErlDrvMutex
         *mtx);
 ```
-
-[](){: #erl_drv_mutex_trylock }
 
 Tries to lock a mutex. A thread that has currently locked the mutex _cannot_ try
 to lock the same mutex again.
@@ -2227,8 +2084,6 @@ void erl_drv_mutex_unlock(ErlDrvMutex
         *mtx);
 ```
 
-[](){: #erl_drv_mutex_unlock }
-
 Unlocks a mutex. The mutex currently must be locked by the calling thread.
 
 `mtx` is a pointer to a mutex to unlock.
@@ -2241,8 +2096,6 @@ This function is thread-safe.
 int erl_drv_output_term(ErlDrvTermData port,
         ErlDrvTermData* term, int n);
 ```
-
-[](){: #erl_drv_output_term }
 
 Sends data in the special driver term format to the port owner process. This is
 a fast way to deliver term data from a driver. It needs no binary conversion, so
@@ -2359,7 +2212,9 @@ ErlDrvTermData spec[] = {
 erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
 ```
 
-[](){: #ERL_DRV_EXT2TERM } The `ERL_DRV_EXT2TERM` term type is used for passing
+[](){: #ERL_DRV_EXT2TERM }
+
+The `ERL_DRV_EXT2TERM` term type is used for passing
 a term encoded with the [external format](erl_ext_dist.md), that is, a term that
 has been encoded by [`erlang:term_to_binary()`](`erlang:term_to_binary/2`),
 [`erl_interface:ei(3)`](`e:erl_interface:ei.md`), and so on. For example, if
@@ -2415,8 +2270,6 @@ int erl_drv_putenv(const char *key, char
         *value);
 ```
 
-[](){: #erl_drv_putenv }
-
 Sets the value of an environment variable.
 
 `key` is a `NULL`\-terminated string containing the name of the environment
@@ -2450,8 +2303,6 @@ ErlDrvRWLock * erl_drv_rwlock_create(char
         *name);
 ```
 
-[](){: #erl_drv_rwlock_create }
-
 Creates an rwlock and returns a pointer to it.
 
 `name` is a string identifying the created rwlock. It is used to identify the
@@ -2470,8 +2321,6 @@ void erl_drv_rwlock_destroy(ErlDrvRWLock
         *rwlck);
 ```
 
-[](){: #erl_drv_rwlock_destroy }
-
 Destroys an rwlock previously created by
 [`erl_drv_rwlock_create`](erl_driver.md#erl_drv_rwlock_create). The rwlock must
 be in an unlocked state before it is destroyed.
@@ -2487,8 +2336,6 @@ char * erl_drv_rwlock_name(ErlDrvRWLock
         *rwlck);
 ```
 
-[](){: #erl_drv_rwlock_name }
-
 Returns a pointer to the name of the rwlock.
 
 `rwlck` is a pointer to an initialized rwlock.
@@ -2503,8 +2350,6 @@ Returns a pointer to the name of the rwlock.
 void erl_drv_rwlock_rlock(ErlDrvRWLock
         *rwlck);
 ```
-
-[](){: #erl_drv_rwlock_rlock }
 
 Read locks an rwlock. The calling thread is blocked until the rwlock has been
 read locked. A thread that currently has read or read/write locked the rwlock
@@ -2526,8 +2371,6 @@ void erl_drv_rwlock_runlock(ErlDrvRWLock
         *rwlck);
 ```
 
-[](){: #erl_drv_rwlock_runlock }
-
 Read unlocks an rwlock. The rwlock currently must be read locked by the calling
 thread.
 
@@ -2541,8 +2384,6 @@ This function is thread-safe.
 void erl_drv_rwlock_rwlock(ErlDrvRWLock
         *rwlck);
 ```
-
-[](){: #erl_drv_rwlock_rwlock }
 
 Read/write locks an rwlock. The calling thread is blocked until the rwlock has
 been read/write locked. A thread that currently has read or read/write locked
@@ -2564,8 +2405,6 @@ void erl_drv_rwlock_rwunlock(ErlDrvRWLock
         *rwlck);
 ```
 
-[](){: #erl_drv_rwlock_rwunlock }
-
 Read/write unlocks an rwlock. The rwlock currently must be read/write locked by
 the calling thread.
 
@@ -2579,8 +2418,6 @@ This function is thread-safe.
 int erl_drv_rwlock_tryrlock(ErlDrvRWLock
         *rwlck);
 ```
-
-[](){: #erl_drv_rwlock_tryrlock }
 
 Tries to read lock an rwlock.
 
@@ -2603,8 +2440,6 @@ int erl_drv_rwlock_tryrwlock(ErlDrvRWLock
         *rwlck);
 ```
 
-[](){: #erl_drv_rwlock_tryrwlock }
-
 Tries to read/write lock an rwlock. A thread that currently has read or
 read/write locked the rwlock _cannot_ try to lock the same rwlock again.
 
@@ -2625,8 +2460,6 @@ This function is thread-safe.
 int erl_drv_send_term(ErlDrvTermData port,
         ErlDrvTermData receiver, ErlDrvTermData* term, int n);
 ```
-
-[](){: #erl_drv_send_term }
 
 This function is the only way for a driver to send data to _other_ processes
 than the port owner process. Parameter `receiver` specifies the process to
@@ -2649,8 +2482,6 @@ void erl_drv_set_os_pid(ErlDrvPort port,
         ErlDrvSInt pid);
 ```
 
-[](){: #erl_drv_set_os_pid }
-
 Sets the `os_pid` seen when doing `erlang:port_info/2` on this port.
 
 `port` is the port handle of the port (driver instance) to set the pid on.
@@ -2663,8 +2494,6 @@ int erl_drv_thread_create(char *name, ErlDrvTid
         *tid, void * (*func)(void *), void *arg, ErlDrvThreadOpts
         *opts);
 ```
-
-[](){: #erl_drv_thread_create }
 
 Creates a new thread.
 
@@ -2718,8 +2547,6 @@ void erl_drv_thread_exit(void
         *exit_value);
 ```
 
-[](){: #erl_drv_thread_exit }
-
 Terminates the calling thread with the exit value passed as argument.
 `exit_value` is a pointer to an exit value or `NULL`.
 
@@ -2737,8 +2564,6 @@ This function is thread-safe.
 int erl_drv_thread_join(ErlDrvTid tid, void
         **exit_value);
 ```
-
-[](){: #erl_drv_thread_join }
 
 Joins the calling thread with another thread, that is, the calling thread is
 blocked until the thread identified by `tid` has terminated.
@@ -2763,8 +2588,6 @@ char * erl_drv_thread_name(ErlDrvTid
         tid);
 ```
 
-[](){: #erl_drv_rwlock_name }
-
 Returns a pointer to the name of the thread.
 
 `tid` is a thread identifier.
@@ -2778,8 +2601,6 @@ Returns a pointer to the name of the thread.
 ```c
 ErlDrvThreadOpts * erl_drv_thread_opts_create(char *name);
 ```
-
-[](){: #erl_drv_thread_opts_create }
 
 Allocates and initializes a thread option structure.
 
@@ -2806,8 +2627,6 @@ This function is thread-safe.
 void erl_drv_thread_opts_destroy(ErlDrvThreadOpts *opts);
 ```
 
-[](){: #erl_drv_thread_opts_destroy }
-
 Destroys thread options previously created by
 [`erl_drv_thread_opts_create`](erl_driver.md#erl_drv_thread_opts_create).
 
@@ -2821,8 +2640,6 @@ This function is thread-safe.
 ErlDrvTid erl_drv_thread_self(void);
 ```
 
-[](){: #erl_drv_thread_self }
-
 Returns the thread identifier of the calling thread.
 
 This function is thread-safe.
@@ -2834,11 +2651,9 @@ ErlDrvTime erl_drv_time_offset(ErlDrvTimeUnit
         time_unit);
 ```
 
-[](){: #erl_drv_time_offset }
-
 Returns the current time offset between
-[Erlang monotonic time](time_correction.md#Erlang_Monotonic_Time) and
-[Erlang system time](time_correction.md#Erlang_System_Time) converted into the
+[Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
+[Erlang system time](time_correction.md#erlang-system-time) converted into the
 `time_unit` passed as argument.
 
 `time_unit` is time unit of returned value.
@@ -2856,8 +2671,6 @@ void * erl_drv_tsd_get(ErlDrvTSDKey
         key);
 ```
 
-[](){: #erl_drv_tsd_get }
-
 Returns the thread-specific data associated with `key` for the calling thread.
 
 `key` is a thread-specific data key.
@@ -2872,8 +2685,6 @@ This function is thread-safe.
 int erl_drv_tsd_key_create(char *name,
         ErlDrvTSDKey *key);
 ```
-
-[](){: #erl_drv_tsd_key_create }
 
 Creates a thread-specific data key.
 
@@ -2894,8 +2705,6 @@ This function is thread-safe.
 void erl_drv_tsd_key_destroy(ErlDrvTSDKey
         key);
 ```
-
-[](){: #erl_drv_tsd_key_destroy }
 
 Destroys a thread-specific data key previously created by
 [`erl_drv_tsd_key_create`](erl_driver.md#erl_drv_tsd_key_create). All
@@ -2921,8 +2730,6 @@ void erl_drv_tsd_set(ErlDrvTSDKey key, void
         *data);
 ```
 
-[](){: #erl_drv_tsd_set }
-
 Sets thread-specific data associated with `key` for the calling thread. You are
 only allowed to set thread-specific data for threads while they are fully under
 your control. For example, if you set thread-specific data in a thread calling a
@@ -2947,8 +2754,6 @@ This function is thread-safe.
 char * erl_errno_id(int error);
 ```
 
-[](){: #erl_errno_id }
-
 Returns the atom name of the Erlang error, given the error number in `error`.
 The error atoms are `einval`, `enoent`, and so on. It can be used to make error
 terms from the driver.
@@ -2959,8 +2764,6 @@ terms from the driver.
 int remove_driver_entry(ErlDrvEntry
         *de);
 ```
-
-[](){: #remove_driver_entry }
 
 Removes a driver entry `de` previously added with
 [`add_driver_entry`](erl_driver.md#add_driver_entry).
@@ -2974,8 +2777,6 @@ using this interface.
 void set_busy_port(ErlDrvPort port, int
         on);
 ```
-
-[](){: #set_busy_port }
 
 Sets and unsets the busy state of the port. If `on` is non-zero, the port is set
 to busy. If it is zero, the port is set to not busy. You typically want to
@@ -3002,8 +2803,6 @@ For information about busy port message queue functionality, see
 void set_port_control_flags(ErlDrvPort port,
         int flags);
 ```
-
-[](){: #set_port_control_flags }
 
 Sets flags for how the [`control`](driver_entry.md#control) driver entry
 function will return data to the port owner process. (The `control` function is

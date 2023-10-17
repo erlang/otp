@@ -40,14 +40,10 @@ protocol i.e the transport domains `transportDomainUdpIpv4` and/or
 
 This section describes how to write a Net if process.
 
-[](){: #mandatory_functions }
-
 ## Mandatory Functions
 
 A Net if process must implement the SNMP agent
 [network interface behaviour](`m:snmpa_network_interface`).
-
-[](){: #messages }
 
 ## Messages
 

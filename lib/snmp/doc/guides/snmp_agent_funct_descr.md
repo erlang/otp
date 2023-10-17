@@ -32,7 +32,7 @@ management applications to be developed at the same time.
 
 ## Features
 
-[](){: #features }
+
 
 To implement an agent, the programmer writes instrumentation functions for the
 variables and the tables in the MIBs that the agent is going to support. A
@@ -135,8 +135,6 @@ SNMPv1 error codes by the agent, if necessary.
 > SNMPv2 manager would get a correct value.
 
 ## Operation
-
-[](){: #operations }
 
 The following steps are needed to get a running agent:
 
@@ -597,8 +595,6 @@ objects in this MIB are now obsolete.
 
 ## Notifications
 
-[](){: #notifications }
-
 Notifications are defined in SMIv1 with the TRAP-TYPE macro in the definition of
 an MIB (see RFC1215). The corresponding macro in SMIv2 is NOTIFICATION-TYPE.
 When an application decides to send a notification, it calls one of the
@@ -723,8 +719,6 @@ values for the unknown variables. The application must also provide values for
 all elements in tables.
 
 ## Discovery
-
-[](){: #discovery }
 
 The _sender_ is _authoritative_ for messages containing payload which does _not_
 expect a response (for example SNMPv2-Trap, Response or Report PDU).

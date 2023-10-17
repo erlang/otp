@@ -1221,7 +1221,7 @@ This document describes the changes made to the Dialyzer application.
   - \_\_\_\_ - `#{ "hi" := V1, a := V2, b := V3} = M2. % match keys with values`
 
   For information on how to use Maps please see Map Expressions in the
-  [Reference Manual](`e:system:expressions.md#map_expressions`).
+  [Reference Manual](`e:system:expressions.md#map-expressions`).
 
   The current implementation is without the following features:
 

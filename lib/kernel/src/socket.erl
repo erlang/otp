@@ -6462,9 +6462,6 @@ peername(Socket) ->
 %%
 
 -doc """
-[](){: #ioctl-gifconf } [](){: #ioctl-fion } [](){: #ioctl-atmark } [](){:
-#ioctl-atmark }
-
 Retrieve socket (device) parameters.
 
 This function retrieves a specific parameter, according to `GetRequest`

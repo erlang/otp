@@ -23,7 +23,7 @@ Functions used to render EEP-48 style documentation for a shell.
 
 This module can be used to render function and type documentation to be printed
 in a shell. This is the module that is used to render the docs accessed through
-the shell through [`c:h/1,2,3`](`c:h/1`). Example:
+the shell through [`c:h/1,2,3`](`\\c:h/1`). Example:
 
 ```erlang
 1> h(maps,new,0).
@@ -43,7 +43,7 @@ Since:
 
 This module formats and renders EEP-48 documentation of the format
 `application/erlang+html`. For more information about this format see
-[Documentation Storage](`e:erl_docgen:doc_storage.md`) in Erl_Docgen's User's
+[Documentation Storage](`e:edoc:doc_storage.md`) in EDoc's User's
 Guide. It can also render any other format of "text" type, although those will
 be rendered as is.
 """.

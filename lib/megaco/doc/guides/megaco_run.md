@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Running the stack
 
-[](){: #starting }
-
 ## Starting
 
 A user may have a number of "virtual" connections to other users. An MG is

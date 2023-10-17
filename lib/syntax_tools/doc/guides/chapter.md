@@ -38,5 +38,5 @@ The pretty printer `m:erl_prettypr` is implemented on top of the library module
 which is also distributed separately.
 
 For a short demonstration of parsing and pretty-printing, simply compile the
-included module [demo.erl](demo.erl), and execute `demo:run()` from the Erlang
+included module [assets/demo.erl](assets/demo.erl), and execute `demo:run()` from the Erlang
 shell. It will compile the remaining modules and give you further instructions.

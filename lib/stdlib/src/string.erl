@@ -163,7 +163,6 @@ functions of both packages have been retained.
 
 -doc "A user-perceived character, consisting of one or more codepoints.".
 -type grapheme_cluster() :: char() | [char()].
--doc(#{equiv => {type,grapheme_cluster,0}}).
 -type direction() :: 'leading' | 'trailing'.
 
 -dialyzer({no_improper_lists, [stack/2, length_b/3, str_to_map/2]}).

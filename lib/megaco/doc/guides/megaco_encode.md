@@ -284,8 +284,8 @@ For incoming messages:
   Start with version 1. When the initial service change has been performed and
   version 2 has been negotiated, upgrade the megaco_receive_handle of the
   transport process (control_pid) to version 2. See
-  [megaco_tcp](`m:megaco_tcp#upgrade_receive_handle`) and
-  [megaco_udp](`m:megaco_udp#upgrade_receive_handle`).  
+  [megaco_tcp](`megaco_tcp:upgrade_receive_handle/2`) and
+  [megaco_udp](`megaco_udp:upgrade_receive_handle/2`).  
   Note that if `udp` is used, the same transport process could be used for
   several connections. This could make upgrading impossible.  
   For codecs that does not support partial decode of the version, currently

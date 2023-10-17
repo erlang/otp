@@ -467,7 +467,7 @@ previous value of the component.
   token flag (`true | false`) which enables/disables a strict monotonic
   timestamp to be generated for each traced event. Default is `false`.
   Timestamps will consist of
-  [Erlang monotonic time](`e:erts:time_correction.md#Erlang_Monotonic_Time`) and
+  [Erlang monotonic time](`e:erts:time_correction.md#erlang-monotonic-time`) and
   a monotonically increasing integer. The time-stamp has the same format and
   value as produced by
   `{erlang:monotonic_time(nanosecond), erlang:unique_integer([monotonic])}`.
@@ -475,7 +475,7 @@ previous value of the component.
 - **[`set_token(monotonic_timestamp, Bool)`](`set_token/2`)** - A trace token
   flag (`true | false`) which enables/disables a strict monotonic timestamp to
   be generated for each traced event. Default is `false`. Timestamps will use
-  [Erlang monotonic time](`e:erts:time_correction.md#Erlang_Monotonic_Time`).
+  [Erlang monotonic time](`e:erts:time_correction.md#erlang-monotonic-time`).
   The time-stamp has the same format and value as produced by
   `erlang:monotonic_time(nanosecond)`.
 

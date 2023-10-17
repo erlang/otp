@@ -22,7 +22,7 @@ aarch64 assembler.
 
 The code is loaded very similarly to how it is loaded for the interpreter. Each beam
 file is parsed and then optimized through the transformations described in
-[beam_makeops](beam_makeops#defining-transformation-rules). The transformations
+[beam_makeops](beam_makeops.md#defining-transformation-rules). The transformations
 used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
@@ -289,7 +289,7 @@ The files are:
     * The C -> C++ interface functions.
 * `$ARCH/generators.tab`, `$ARCH/predicates.tab`, `$ARCH/ops.tab`
     * BeamAsm specific transformations for instructions. See
-      [beam_makeops](beam_makeops) for more details.
+      [beam_makeops](beam_makeops.md) for more details.
 * `$ARCH/beam_asm_module.cpp`
     * The code for the BeamAsm module code generator logic
 * `$ARCH/beam_asm_global.cpp`
@@ -338,7 +338,7 @@ The above code is run using `+S 1` to make the perf output easier to understand.
 If you then run `perf report -f --no-children` you may get something similar to
 this:
 
-![Linux Perf report: dialyzer PLT build](figures/perf-beamasm.png)
+![Linux Perf report: dialyzer PLT build](assets/perf-beamasm.png)
 
 Any Erlang function in the report is prefixed with a `$` and all C functions have
 their normal names. Any Erlang function that has the prefix `$global::` refers
@@ -380,9 +380,9 @@ web page as follows:
 
 We get a graph that would look something like this:
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/perf-beamasm.svg)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/perf-beamasm.svg)
 
-You can view a larger version [here](seefile/figures/perf-beamasm.svg). It contains
+You can view a larger version [here](assets/perf-beamasm.svg). It contains
 the same information, but it is easier to share with others as it does
 not need the symbols in the executable.
 
@@ -395,9 +395,9 @@ has been merged by using `sed`:
     ## Create the svg
     flamegraph.pl out.folded_sched > out_sched.svg
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/perf-beamasm-merged.svg)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/perf-beamasm-merged.svg)
 
-You can view a larger version [here](seefile/figures/perf-beamasm-merged.svg).
+You can view a larger version [here](assets/perf-beamasm-merged.svg).
 There are many different transformations that you can do to make the graph show
 you what you want.
 
@@ -424,7 +424,7 @@ and then you can view an annotated function like this:
 
 or by pressing `a` in the `perf report` ui. Then you get something like this:
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/beamasm-perf-annotate.png)
 
 `perf annotate` will interleave the listing with the original source code
 whenever possible. You can use the `+{source,Filename}` or `+absolute_paths`

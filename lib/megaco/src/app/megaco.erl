@@ -527,15 +527,15 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   should be told if a message send is a resend or not.
 
   If _false_, megaco messages are sent using the
-  [send_message/2](`m:megaco_transport#send_message`) function.
+  [send_message/2](`c:megaco_transport:send_message/2`) function.
 
   If _true_, megaco message _re-sends_ are made using the
-  [resend_message](`m:megaco_transport#resend_message`) function. The initial
+  [resend_message](`c:megaco_transport:resend_message/2`) function. The initial
   message send is still done using the
-  [send_message](`m:megaco_transport#send_message`) function.
+  [send_message](`c:megaco_transport:send_message/2`) function.
 
   The special value _flag_ instead indicates that the function
-  [send_message/3](`m:megaco_transport#send_message`) shall be used.
+  [send_message/3](`c:megaco_transport:send_message/3`) shall be used.
 
   Value type: `flag` | [boolean()](`t:erlang:boolean/0`)
 
@@ -668,7 +668,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 
   Defaults to `infinity`.
 
-  [](){: #ui_trans_id }
+  [](){: #ui_request_timer }
 
 - **`request_timer`** - Wait for reply.
 
@@ -1011,15 +1011,15 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   should be told if a message send is a resend or not.
 
   If _false_, megaco messages are sent using the
-  [send_message](`m:megaco_transport#send_message`) function.
+  [send_message](`c:megaco_transport:send_message/2`) function.
 
   If _true_, megaco message _re-sends_ are made using the
-  [resend_message](`m:megaco_transport#resend_message`) function. The initial
+  [resend_message](`c:megaco_transport:resend_message/2`) function. The initial
   message send is still done using the
-  [send_message](`m:megaco_transport#send_message`) function.
+  [send_message](`c:megaco_transport:send_message/2`) function.
 
   The special value _flag_ instead indicates that the function
-  [send_message/3](`m:megaco_transport#send_message`) shall be used.
+  [send_message/3](`c:megaco_transport:send_message/3`) shall be used.
 
   Value type: [boolean()](`t:erlang:boolean/0`)
 
@@ -1786,7 +1786,7 @@ transport callback module failed to send the request. There are two separate
 cases: `SendCancelledReason` and `SendFailedReason`. The first is the result of
 the send function returning `{cancel, Reason}` and the second is some other kind
 of erroneous return value. See the
-[send_message](`m:megaco_transport#send_message`) function for more info.
+[send_message](`c:megaco_transport:send_message/3`) function for more info.
 
 An `OtherReason`, indicates some other error such as timeout.
 

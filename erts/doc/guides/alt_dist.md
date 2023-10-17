@@ -46,7 +46,7 @@ follows.
 > retransmissions, etc in this example). That is, depending on what you want to
 > do you perhaps do not need to implement a driver at all and can then skip the
 > driver related sections below. The `gen_tcp_dist` and `erl_uds_dist` examples
-> described in the [Distribution Module](alt_dist.md#distribution_module)
+> described in the [Distribution Module](alt_dist.md#distribution-module)
 > section utilize distribution controller processes and can be worth having a
 > look at if you want to use distribution controller processes.
 
@@ -114,8 +114,6 @@ particular, there can be no calls to the `application` module or to any modules
 not loaded at boot time. That is, only `Kernel`, `STDLIB`, and the application
 itself can be used.
 
-[](){: #distribution_module }
-
 ## Distribution Module
 
 The distribution module exposes an API that `net_kernel` calls in order to
@@ -139,19 +137,17 @@ ignore exit signals. It is allowed to trap exits, but it should then voluntarily
 terminate when an exit signal is received.
 
 An example implementation of a distribution module can be found in
-[$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl](gen_tcp_dist.erl).
+[$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl](assets/gen_tcp_dist.erl).
 It implements the distribution over TCP/IP using the `gen_tcp` API with
 distribution controllers implemented by processes. This instead of using port
 distribution controllers as the ordinary TCP/IP distribution uses.
 
 Another example implementation of a distribution module can be found in
-[$ERL_TOP/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl](erl_uds_dist.erl).
+[$ERL_TOP/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl](assets/erl_uds_dist.erl).
 It implements the distribution over Unix domain sockets using the `gen_tcp` API
 with distribution controllers implemented by processes. Compared to the original
 `uds_dist` example using a port driver written in C, `erl_uds_dist` is written
 entirely in Erlang.
-
-[](){: #distribution_module_exported_callback_functions }
 
 ### Exported Callback Functions
 
@@ -229,8 +225,7 @@ The following functions are mandatory:
   When an accept sequence has been completed the acceptor process is expected to
   continue accepting further requests.
 
-- **`accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) ->`{:
-  #accept_connection }  
+- **`accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) ->`{: #accept_connection }  
     `ConnectionSupervisorPid`**  
   `accept_connection/5` should spawn a process that will perform the Erlang
   distribution handshake for the connection. If the handshake successfully
@@ -332,13 +327,13 @@ The following functions are mandatory:
 
 There are also two optional functions that may be exported:
 
-- **`setopts(Listen, Opts) ->`{: #select }  
+- **`setopts(Listen, Opts) ->`{: #setopts }  
     `ok | {error, Error}`**  
   The argument `Listen` is the handle originally passed from the
   [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
   options to set on future connections.
 
-- **`getopts(Listen, Opts) ->`{: #select }  
+- **`getopts(Listen, Opts) ->`{: #getopts }  
     `{ok, OptionValues} | {error, Error}`**  
   The argument `Listen` is the handle originally passed from the
   [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
@@ -557,15 +552,13 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 
   This flag field is optional.
 
-  See also [Distribution Data Delivery](alt_dist.md#distribution_data_delivery)
+  See also [Distribution Data Delivery](alt_dist.md#distribution-data-delivery)
 
 - **`require_flags`{: #hs_data_require_flags }** - Require these
   [distribution flags](erl_dist_protocol.md#dflags) to be used. The connection
   will be aborted during the handshake if the other end does not use them.
 
   This flag field is optional.
-
-[](){: #distribution_data_delivery }
 
 ### Distribution Data Delivery
 
@@ -583,8 +576,6 @@ connection. When relaxed ordering is used, only the order of signals with the
 same sender/receiver pair has to be preserved. However, note that disabling the
 features that require strict ordering may have a negative impact on performance,
 throughput, and/or latency.
-
-[](){: #enable_your_distribution_module }
 
 ### Enable Your Distribution Module
 

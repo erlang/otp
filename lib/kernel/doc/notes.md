@@ -1025,7 +1025,7 @@ This document describes the changes made to the Kernel application.
 
 - The configuration files [`.erlang`](`e:erts:erl_cmd.md`),
   [`.erlang.cookie`](`e:system:distributed.md`) and
-  [`.erlang.crypt`](`m:beam_lib#erlang-crypt`) can now be located in the XDG
+  [`.erlang.crypt`](`m:beam_lib#module-erlang-crypt`) can now be located in the XDG
   Config Home directory.
 
   See the documentation for each file and `filename:basedir/2` for more details.
@@ -3171,7 +3171,7 @@ This document describes the changes made to the Kernel application.
   distribution has been introduced. This mainly consists of support for usage of
   distribution controller processes (previously only ports could be used as
   distribution controllers). For more information see
-  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](`e:erts:alt_dist.md#distribution_module`).
+  [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](`e:erts:alt_dist.md#distribution-module`).
 
   Own Id: OTP-14459
 
@@ -3660,7 +3660,7 @@ This document describes the changes made to the Kernel application.
   Own Id: OTP-9375
 
 - `gen_tcp:accept/2` was not
-  [time warp safe](`e:erts:time_correction.md#Time_Warp_Safe_Code`). This since
+  [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`). This since
   it used the same time as returned by `erlang:now/0` when calculating timeout.
   This has now been fixed.
 

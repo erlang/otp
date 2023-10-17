@@ -783,15 +783,15 @@ Options:
   machine over SFTP, see `ssh_sftp:open_tar/3`.
 
 - **`{atime,non_neg_integer()}`** - Sets the last time, as
-  [POSIX time](`e:erts:time_correction.md#POSIX_Time`), when the file was read.
+  [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was read.
   See also `file:read_file_info/1`.
 
 - **`{mtime,non_neg_integer()}`** - Sets the last time, as
-  [POSIX time](`e:erts:time_correction.md#POSIX_Time`), when the file was
+  [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was
   written. See also `file:read_file_info/1`.
 
 - **`{ctime,non_neg_integer()}`** - Sets the time, as
-  [POSIX time](`e:erts:time_correction.md#POSIX_Time`), when the file was
+  [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was
   created. See also `file:read_file_info/1`.
 
 - **`{uid,non_neg_integer()}`** - Sets the file owner. `file:read_file_info/1`.

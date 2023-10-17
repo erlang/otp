@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Concurrent Programming
 
-[](){: #Distributed-Programming }
-
 ## Processes
 
 One of the main reasons for using Erlang instead of other functional languages
@@ -60,7 +58,7 @@ start() ->
     spawn(tut14, say_something, [goodbye, 3]).
 ```
 
-```text
+```erlang
 5> c(tut14).
 {ok,tut14}
 6> tut14:say_something(hello, 3).
@@ -77,7 +75,7 @@ three times. Both processes use the function `say_something`. Notice that a
 function used in this way by `spawn`, to start a process, must be exported from
 the module (that is, in the `-export` at the start of the module).
 
-```text
+```erlang
 9> tut14:start().
 hello
 goodbye
@@ -94,7 +92,7 @@ another "hello" and so forth. But where did the <0.63.0> come from? The return
 value of a function is the return value of the last "thing" in the function. The
 last thing in the function `start` is
 
-```text
+```erlang
 spawn(tut14, say_something, [goodbye, 3]).
 ```
 
@@ -145,7 +143,7 @@ start() ->
     spawn(tut15, ping, [3, Pong_PID]).
 ```
 
-```text
+```erlang
 1> c(tut15).
 {ok,tut15}
 2> tut15: start().
@@ -162,20 +160,20 @@ Pong finished
 
 The function `start` first creates a process, let us call it "pong":
 
-```text
+```erlang
 Pong_PID = spawn(tut15, pong, [])
 ```
 
 This process executes `tut15:pong()`. `Pong_PID` is the process identity of the
 "pong" process. The function `start` now creates another process "ping":
 
-```text
+```erlang
 spawn(tut15, ping, [3, Pong_PID]),
 ```
 
 This process executes:
 
-```text
+```erlang
 tut15:ping(3, Pong_PID)
 ```
 
@@ -242,20 +240,20 @@ Now back to the ping pong example.
 writes "Pong finished" to the output and, as it has nothing more to do,
 terminates. If it receives a message with the format:
 
-```text
+```erlang
 {ping, Ping_PID}
 ```
 
 it writes "Pong received ping" to the output and sends the atom `pong` to the
 process "ping":
 
-```text
+```erlang
 Ping_PID ! pong
 ```
 
 Notice how the operator "\!" is used to send messages. The syntax of "\!" is:
 
-```text
+```erlang
 Pid ! Message
 ```
 
@@ -267,7 +265,7 @@ another message.
 
 Now let us look at the process "ping". Recall that it was started by executing:
 
-```text
+```erlang
 tut15:ping(3, Pong_PID)
 ```
 
@@ -277,7 +275,7 @@ since the value of the first argument is 3 (not 0) (first clause head is
 
 The second clause sends a message to "pong":
 
-```text
+```erlang
 Pong_PID ! {ping, self()},
 ```
 
@@ -297,7 +295,7 @@ end,
 It writes "Ping received pong" when this reply arrives, after which "ping" calls
 the `ping` function again.
 
-```text
+```erlang
 ping(N - 1, Pong_PID)
 ```
 
@@ -324,7 +322,7 @@ of each other. Erlang thus provides a mechanism for processes to be given names
 so that these names can be used as identities instead of pids. This is done by
 using the `register` BIF:
 
-```text
+```erlang
 register(some_atom, Pid)
 ```
 
@@ -363,7 +361,7 @@ start() ->
     spawn(tut16, ping, [3]).
 ```
 
-```text
+```erlang
 2> c(tut16).
 {ok, tut16}
 3> tut16:start().
@@ -387,7 +385,7 @@ register(pong, spawn(tut16, pong, [])),
 both spawns the "pong" process and gives it the name `pong`. In the "ping"
 process, messages can be sent to `pong` by:
 
-```text
+```erlang
 pong ! {ping, self()},
 ```
 
@@ -510,7 +508,7 @@ And the "ping" process on kosken is started (from the code above you can see
 that a parameter of the `start_ping` function is the node name of the Erlang
 system where "pong" is running):
 
-```text
+```erlang
 (ping@kosken)1> tut17:start_ping(pong@gollum).
 <0.37.0>
 Ping received pong
@@ -521,13 +519,13 @@ ping finished
 
 As shown, the ping pong program has run. On the "pong" side:
 
-```text
-(pong@gollum)2>
+```erlang
+(pong@gollum)2> 
 Pong received ping
 Pong received ping
 Pong received ping
 Pong finished
-(pong@gollum)2>
+(pong@gollum)2> 
 ```
 
 Looking at the `tut17` code, you see that the `pong` function itself is
@@ -595,7 +593,7 @@ start(Ping_Node) ->
 Assuming an Erlang system called ping (but not the "ping" process) has already
 been started on kosken, then on gollum this is done:
 
-```text
+```erlang
 (pong@gollum)1> tut18:start(ping@kosken).
 <3934.39.0>
 Pong received ping
@@ -624,7 +622,7 @@ Before starting, notice the following:
   Erlang.
 - This sort of problem can be solved easier by use of the facilities in OTP,
   which also provide methods for updating code on the fly and so on (see
-  [OTP Design Principles](`e:system:design_principles.md#otp-design-principles`)).
+  [OTP Design Principles](`e:system:design_principles.md`)).
 - The first program contains some inadequacies regarding handling of nodes which
   disappear. These are corrected in a later version of the program.
 
@@ -827,7 +825,7 @@ true
 
 Now Peter logs on at c1@bilbo:
 
-```text
+```erlang
 (c1@bilbo)1> messenger:logon(peter).
 true
 logged_on
@@ -835,7 +833,7 @@ logged_on
 
 James logs on at c2@kosken:
 
-```text
+```erlang
 (c2@kosken)1> messenger:logon(james).
 true
 logged_on
@@ -843,7 +841,7 @@ logged_on
 
 And Fred logs on at c3@gollum:
 
-```text
+```erlang
 (c3@gollum)1> messenger:logon(fred).
 true
 logged_on
@@ -859,7 +857,7 @@ sent
 
 Fred receives the message and sends a message to Peter and logs off:
 
-```text
+```erlang
 Message from peter: "hello"
 (c3@gollum)2> messenger:message(peter, "go away, I'm busy").
 ok
@@ -940,19 +938,19 @@ user to another.
 
 The first user "sends" the message in the example above by:
 
-```text
+```erlang
 messenger:message(fred, "hello")
 ```
 
 After testing that the client process exists:
 
-```text
+```erlang
 whereis(mess_client)
 ```
 
 And a message is sent to `mess_client`:
 
-```text
+```erlang
 mess_client ! {message_to, fred, "hello"}
 ```
 
@@ -966,20 +964,20 @@ And waits for a reply from the server.
 
 The server receives this message and calls:
 
-```text
+```erlang
 server_transfer(From, fred, "hello", User_List),
 ```
 
 This checks that the pid `From` is in the `User_List`:
 
-```text
+```erlang
 lists:keysearch(From, 1, User_List)
 ```
 
 If `keysearch` returns the atom `false`, some error has occurred and the server
 sends back the message:
 
-```text
+```erlang
 From ! {messenger, stop, you_are_not_logged_on}
 ```
 
@@ -989,7 +987,7 @@ the user is logged on and that his name (peter) is in variable `Name`.
 
 Let us now call:
 
-```text
+```erlang
 server_transfer(From, peter, fred, "hello", User_List)
 ```
 
@@ -997,7 +995,7 @@ Notice that as this is `server_transfer/5`, it is not the same as the previous
 function `server_transfer/4`. Another `keysearch` is done on `User_List` to find
 the pid of the client corresponding to fred:
 
-```text
+```erlang
 lists:keysearch(fred, 2, User_List)
 ```
 
@@ -1005,7 +1003,7 @@ This time argument 2 is used, which is the second element in the tuple. If this
 returns the atom `false`, fred is not logged on and the following message is
 sent:
 
-```text
+```erlang
 From ! {messenger, receiver_not_found};
 ```
 
@@ -1013,19 +1011,19 @@ This is received by the client.
 
 If `keysearch` returns:
 
-```text
+```erlang
 {value, {ToPid, fred}}
 ```
 
 The following message is sent to fred's client:
 
-```text
+```erlang
 ToPid ! {message_from, peter, "hello"},
 ```
 
 The following message is sent to peter's client:
 
-```text
+```erlang
 From ! {messenger, sent}
 ```
 

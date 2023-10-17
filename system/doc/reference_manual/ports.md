@@ -20,7 +20,7 @@ limitations under the License.
 # Ports and Port Drivers
 
 Examples of how to use ports and port drivers are provided in
-[Interoperability Tutorial](`e:system:tutorial.md#interoperability-tutorial`).
+[Interoperability Tutorial](`e:system:tutorial.md`).
 For information about the BIFs mentioned, see the `m:erlang` manual page in
 ERTS.
 

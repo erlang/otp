@@ -1062,8 +1062,6 @@ function that decodes a term into a human-readable format.
 void ei_set_compat_rel(unsigned release_number);
 ```
 
-[](){: #ei_set_compat_rel }
-
 In general, the `ei` library is guaranteed to be compatible with other
 Erlang/OTP components that are 2 major releases older or newer than the `ei`
 library itself.

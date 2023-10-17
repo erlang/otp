@@ -74,8 +74,8 @@ Erlang code.
 ```
 
 The "Definitions.", "Rules." and "Erlang code." headings are mandatory and must
-occur at the beginning of a source line. The <Header>, <Macro Definitions> and
-<Erlang code> sections may be empty but there must be at least one rule.
+occur at the beginning of a source line. The `<Header>`, `<Macro Definitions>` and
+`<Erlang code>` sections may be empty but there must be at least one rule.
 
 Macro definitions have the following format:
 
@@ -97,9 +97,9 @@ Rules have the following format:
 <Regexp> : <Erlang code>.
 ```
 
-The <Regexp> must occur at the start of a line and not include any blanks; use
+The `<Regexp>` must occur at the start of a line and not include any blanks; use
 `\t` and `\s` to include TAB and SPACE characters in the regular expression. If
-<Regexp> matches then the corresponding <Erlang code> is evaluated to generate a
+`<Regexp>` matches then the corresponding `<Erlang code>` is evaluated to generate a
 token. With the Erlang code the following predefined variables are available:
 
 - **`TokenChars`** - A list of the characters in the matched token.

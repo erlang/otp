@@ -26,16 +26,16 @@ applications and releases.
 Xref is a cross reference tool that can be used for finding dependencies between
 functions, modules, applications and releases.
 
-Calls between functions are either _local calls_{: #local_call } like `f()`, or
-_external calls_{: #external_call } like `m:f()`. _Module data_{: #module_data
-}, which are extracted from BEAM files, include local functions, exported
-functions, local calls and external calls. By default, calls to built-in
-functions (BIF) are ignored, but if the option `builtins`, accepted by some of
-this module's functions, is set to `true`, calls to BIFs are included as well.
-It is the analyzing OTP version that decides what functions are BIFs. Functional
-objects are assumed to be called where they are created (and nowhere else).
-_Unresolved calls_{: #unresolved_call } are calls to `apply` or `spawn` with
-variable module, variable function, or variable arguments. Examples are
+Calls between functions are either _local calls_{: #local_call } like `f()`,
+or _external calls_{: #external_call } like `\m:f()`. _Module data_{:
+#module_data }, which are extracted from BEAM files, include local functions,
+exported functions, local calls and external calls. By default, calls to
+built-in functions (BIF) are ignored, but if the option `builtins`, accepted by
+some of this module's functions, is set to `true`, calls to BIFs are included as
+well. It is the analyzing OTP version that decides what functions are BIFs.
+Functional objects are assumed to be called where they are created (and nowhere
+else). _Unresolved calls_{: #unresolved_call } are calls to `apply` or `spawn`
+with variable module, variable function, or variable arguments. Examples are
 `M:F(a)`, [`apply(M, f, [a])`](`apply/3`), and
 [`spawn(m, f(), Args)`](`spawn/3`). Unresolved calls are represented by calls
 where variable modules have been replaced with the atom `'$M_EXPR'`, variable

@@ -19,15 +19,11 @@ limitations under the License.
 -->
 # SystemTap and Erlang/OTP
 
-[](){: #Introduction }
-
 ## Introduction
 
 SystemTap is DTrace for Linux. In fact Erlang's SystemTap support is built using
 SystemTap's DTrace compatibility's layer. For an introduction to Erlang DTrace
 support read [$ERL_TOP/HOWTO/DTRACE.md](dtrace.md).
-
-[](){: #Requisites }
 
 ## Requisites
 
@@ -51,8 +47,6 @@ support read [$ERL_TOP/HOWTO/DTRACE.md](dtrace.md).
   after that release. So either get a newer release or build SystemTap from git
   yourself (see: http://sourceware.org/systemtap/getinvolved.html)
 
-[](){: #Building-Erlang }
-
 ## Building Erlang
 
 Configure and build Erlang with SystemTap support:
@@ -61,8 +55,6 @@ Configure and build Erlang with SystemTap support:
 # ./configure --with-dynamic-trace=systemtap + whatever args you need
 # make
 ```
-
-[](){: #Testing }
 
 ## Testing
 
@@ -91,8 +83,6 @@ Probes in the dtrace.so NIF library like this:
 ```text
 # PATH=/path/to/dtrace/priv/lib:$PATH stap -L 'process("dtrace.so").mark("*")'
 ```
-
-[](){: #Running-SystemTap-scripts }
 
 ## Running SystemTap scripts
 

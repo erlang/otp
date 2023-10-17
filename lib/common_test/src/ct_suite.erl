@@ -64,7 +64,7 @@ that `Common Test` calls during test execution. For more details, see section
             {repeat_until_fail, ct_test_repeat()}].
 -doc """
 The test suite information, as returned by [`Module:suite/0`](`c:suite/0`),
-[`Module:group/1`](`c:group/1`) and [`Module:Testcase/0`](`c:Testcase/0`).
+[`Module:group/1`](`c:group/1`) and [`Module:Testcase/0`](`c:'Testcase'/0`).
 """.
 -type ct_info() :: {timetrap, ct_info_timetrap()} |
             {require, ct_info_required()} |
@@ -390,7 +390,7 @@ OPTIONAL
 
 The test case information function. It is supposed to return a list of tagged
 tuples that specify various properties related to the execution of this
-particular test case. Properties set by [`Module:Testcase/0`](`c:Testcase/0`)
+particular test case. Properties set by [`Module:Testcase/0`](`c:'Testcase'/0`)
 override properties set previously for the test case by
 [`Module:group/1`](`c:group/1`) or [`Module:suite/0`](`c:suite/0`).
 

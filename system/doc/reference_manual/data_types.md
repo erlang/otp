@@ -167,7 +167,7 @@ phone_number
 
 A bit string is used to store an area of untyped memory.
 
-Bit strings are expressed using the [bit syntax](expressions.md#bit_syntax).
+Bit strings are expressed using the [bit syntax](expressions.md#bit-syntax-expressions).
 
 Bit strings that consist of a number of bits that are evenly divisible by eight,
 are called _binaries_
@@ -208,7 +208,7 @@ _Example:_
 3
 ```
 
-Read more about funs in [Fun Expressions](expressions.md#funs). For more
+Read more about funs in [Fun Expressions](expressions.md#fun-expressions). For more
 examples, see [Programming Examples](`e:system:funs.md`).
 
 ## Port Identifier
@@ -322,7 +322,7 @@ adam
 A collection of maps processing functions can be found in `m:maps` manual page
 in STDLIB.
 
-Read more about maps in [Map Expressions](expressions.md#map_expressions).
+Read more about maps in [Map Expressions](expressions.md#map-expressions).
 
 > #### Change {: .info }
 >

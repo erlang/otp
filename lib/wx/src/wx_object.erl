@@ -192,8 +192,6 @@ Example:
 
 ## DATA TYPES
 
-[](){: #types }
-
 - **[](){: #type-request_id } request_id() = term()**
 
 - **[](){: #type-server_ref } server_ref() =

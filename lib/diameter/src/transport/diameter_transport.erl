@@ -30,7 +30,7 @@ its parent).
 
 ## DATA TYPES
 
-- **`message() = binary() | `[`diameter_codec:packet()`](`m:diameter_codec#packet`)** -
+- **`message() = binary() | `[`diameter_codec:packet()`](`m:diameter_codec#packet`)**{: #message } -
   A Diameter message as passed over the transport interface.
 
   For an inbound message from a transport process, a

@@ -115,8 +115,7 @@ Agent specific config options and types:
 
   For defaults see the options in `agent_discovery_opt()`.
 
-- **`agent_terminating_discovery_opts() = [agent_terminating_discovery_opt()] <optional>`{:
-  #agent_term_disco_opts }** -
+- **`agent_terminating_discovery_opts() = [agent_terminating_discovery_opt()] <optional>`{: #agent_term_disco_opts }** -
   `agent_terminating_discovery_opt() = {enable, boolean()} | {stage2, discovery | plain} | {trigger_username, string()}`
 
   These are options effecting discovery `terminating` in this agent (i.e.
@@ -128,8 +127,7 @@ Agent specific config options and types:
   - stage2: `discovery`
   - trigger_username: `""`
 
-- **`agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>`{:
-  #agent_orig_disco_opts }** -
+- **`agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>`{: #agent_orig_disco_opts }** -
   `agent_originating_discovery_opt() = {enable, boolean()}`
 
   These are options effecting discovery `originating` in this agent.
@@ -210,8 +208,7 @@ Agent specific config options and types:
 
   Default is `snmpa_net_if`.
 
-- **`agent_net_if_options() = [agent_net_if_option()] <optional>`{:
-  #agent_ni_opts }** -
+- **`agent_net_if_options() = [agent_net_if_option()] <optional>`{: #agent_ni_opts }** -
   `agent_net_if_option() = {bind_to, bind_to()} | {sndbuf, sndbuf()} | {recbuf, recbuf()} | {no_reuse, no_reuse()} | {req_limit, req_limit()} | {filter, agent_net_if_filter_options()} | {open_err_filters, agent_net_if_open_err_filters()} | {extra_sock_opts, extra_socket_options()} | {inet_backend, inet_backend()}`
 
   These options are actually specific to the used module. The ones shown here
@@ -231,8 +228,7 @@ Agent specific config options and types:
 
   Default is `infinity`.
 
-- **`agent_net_if_filter_options() = [agent_net_if_filter_option()] <optional>`{:
-  #agent_ni_filter_opts }** -
+- **`agent_net_if_filter_options() = [agent_net_if_filter_option()] <optional>`{: #agent_ni_filter_opts }** -
   `agent_net_if_filter_option() = {module, agent_net_if_filter_module()}`
 
   These options are actually specific to the used module. The ones shown here
@@ -247,8 +243,7 @@ Agent specific config options and types:
 
   Default is `snmpa_net_if_filter`.
 
-- **`agent_net_if_open_err_filters() = [agent_net_if_open_err_filter()] <optional>`{:
-  #agent_ni_open_err_filters }** - `agent_net_if_open_err_filter() = atom()`
+- **`agent_net_if_open_err_filters() = [agent_net_if_open_err_filter()] <optional>`{: #agent_ni_open_err_filters }** - `agent_net_if_open_err_filter() = atom()`
 
   During agent initiation, the transports UDP sockets are opened. If this
   operation fails, the net-if (and the agent) fails to start (crash). This
@@ -280,8 +275,7 @@ Agent specific config options and types:
 
   Default is `[{module, snmpa_mib_storage_ets}]`.
 
-- **`mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()`{:
-  #agent_mst_module }** - Defines the mib storage module of the SNMP agent as
+- **`mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()`{: #agent_mst_module }** - Defines the mib storage module of the SNMP agent as
   defined by the `m:snmpa_mib_storage` behaviour.
 
   Several entities (`mib-server` via the its data module and the
@@ -378,8 +372,7 @@ Agent specific config options and types:
 
   Default is `false`.
 
-- **`mib_server_data_module() = snmpa_mib_data_tttn | module() <optional>`{:
-  #agent_ms_data_module }** - Defines the backend data module of the SNMP agent
+- **`mib_server_data_module() = snmpa_mib_data_tttn | module() <optional>`{: #agent_ms_data_module }** - Defines the backend data module of the SNMP agent
   mib-server as defined by the `m:snmpa_mib_data` behaviour.
 
   At present only the default module is provided with the agent,
@@ -416,8 +409,7 @@ Agent specific config options and types:
 
   Default is `10 timutes`.
 
-- **`mibs_cache_gclimit() = infinity | integer() > 0 <optional>`{:
-  #agent_ms_cache_gclimit }** - When performing a GC, this is the max number of
+- **`mibs_cache_gclimit() = infinity | integer() > 0 <optional>`{: #agent_ms_cache_gclimit }** - When performing a GC, this is the max number of
   cache entries that will be deleted from the cache.
 
   The reason why its possible to set a limit, is that if the cache is large, the
@@ -494,21 +486,19 @@ Manager specific config options and types:
 
   Default is `30000`.
 
-- **`server_cbproxy() = temporary (default) | permanent <optional>`{:
-  #manager_server_cbproxy }** - This option specifies how the server will handle
+- **`server_cbproxy() = temporary (default) | permanent <optional>`{: #manager_server_cbproxy }** - This option specifies how the server will handle
   callback calls.
 
   - **`temporary (default)`{: #manager_server_cbproxy_temporary }** - A
     temporary process will be created for each callback call.
 
-  - **`permanent`{: #manager_server_cbproxy_temporary }** - With this the server
+  - **`permanent`{: #manager_server_cbproxy_permanent }** - With this the server
     will create a permanent (named) process that in effect serializes all
     callback calls.
 
   Default is `temporary`.
 
-- **`server_nis() = none (default) | {PingTO, PongTO} <optional>`{:
-  #manager_server_nis }** - This option specifies if the server should actively
+- **`server_nis() = none (default) | {PingTO, PongTO} <optional>`{: #manager_server_nis }** - This option specifies if the server should actively
   supervise the net-if process. Note that this will only work if the used net-if
   process actually supports the protocol. See `m:snmpm_network_interface`
   behaviour for more info.
@@ -516,8 +506,7 @@ Manager specific config options and types:
   - **`none (default)`{: #manager_server_nis_none }** - No active supervision of
     the net-if process.
 
-  - **`{PingTO :: pos_integer(), PongTO :: pos_integer()}`{:
-    #manager_server_nis_active }** - The `PingTO` time specifies the between a
+  - **`{PingTO :: pos_integer(), PongTO :: pos_integer()}`{: #manager_server_nis_active }** - The `PingTO` time specifies the between a
     successful ping (or start) and the time when a
     [ping](snmp_manager_netif.md#im_ping) message is to be sent to the net-if
     process (basically the time between ping:s).
@@ -544,14 +533,12 @@ Manager specific config options and types:
 - **`manager_db_dir = dir() <mandatory>`{: #manager_config_db_dir }** - Defines
   where the SNMP manager store persistent data.
 
-- **`manager_repair() = false | true | force <optional>`{:
-  #manager_config_repair }** - Defines the repair option for the persistent
+- **`manager_repair() = false | true | force <optional>`{: #manager_config_repair }** - Defines the repair option for the persistent
   database (if and how the table is repaired when opened).
 
   Default is `true`.
 
-- **`manager_auto_save() = integer() | infinity <optional>`{:
-  #manager_config_auto_save }** - The auto save interval. The table is flushed
+- **`manager_auto_save() = integer() | infinity <optional>`{: #manager_config_auto_save }** - The auto save interval. The table is flushed
   to disk whenever not accessed for this amount of time.
 
   Default is `5000`.
@@ -589,8 +576,7 @@ Manager specific config options and types:
 
   For defaults see the options in `manager_net_if_opt()`.
 
-- **`manager_net_if_options() = [manager_net_if_option()] <optional>`{:
-  #manager_ni_opts }** -
+- **`manager_net_if_options() = [manager_net_if_option()] <optional>`{: #manager_ni_opts }** -
   `manager_net_if_option() = {bind_to, bind_to()} | {sndbuf, sndbuf()} | {recbuf, recbuf()} | {no_reuse, no_reuse()} | {filter, manager_net_if_filter_options()} | {extra_sock_opts, extra_socket_options()} | {inet_backend, inet_backend()}`
 
   These options are actually specific to the used module. The ones shown here
@@ -604,8 +590,7 @@ Manager specific config options and types:
 
   Default is `snmpm_net_if`.
 
-- **`manager_net_if_filter_options() = [manager_net_if_filter_option()] <optional>`{:
-  #manager_ni_filter_opts }** -
+- **`manager_net_if_filter_options() = [manager_net_if_filter_option()] <optional>`{: #manager_ni_filter_opts }** -
   `manager_net_if_filter_option() = {module, manager_net_if_filter_module()}`
 
   These options are actually specific to the used module. The ones shown here
@@ -613,8 +598,7 @@ Manager specific config options and types:
 
   For defaults see the options in `manager_net_if_filter_option()`.
 
-- **`manager_net_if_filter_module() = atom() <optional>`{:
-  #manager_ni_filter_module }** - Module which handles the network interface
+- **`manager_net_if_filter_module() = atom() <optional>`{: #manager_ni_filter_module }** - Module which handles the network interface
   filter part for the SNMP manager. Must implement the
   `m:snmpm_network_interface_filter` behaviour.
 
@@ -758,8 +742,7 @@ Common config types:
   If `audit_trail_log` specifies that logging should take place, this parameter
   _must_ be defined.
 
-- **`atl_repair() = true | false | truncate | snmp_repair <optional>`{:
-  #atl_repair }** - Specifies if and how the audit trail log shall be repaired
+- **`atl_repair() = true | false | truncate | snmp_repair <optional>`{: #atl_repair }** - Specifies if and how the audit trail log shall be repaired
   when opened. Unless this parameter has the value `snmp_repair` it is sent to
   `disk_log`. If, on the other hand, the value is `snmp_repair`, snmp attempts
   to handle certain faults on its own. And even if it cannot repair the file, it
@@ -969,8 +952,6 @@ ok
 2> application:start(snmp).
 ok
 ```
-
-[](){: #verbosity }
 
 ## Debugging the application
 

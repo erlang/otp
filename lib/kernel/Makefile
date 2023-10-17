@@ -26,7 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include vsn.mk
 VSN = $(KERNEL_VSN)
 
-SUB_DIRECTORIES = src doc/src examples
+SUB_DIRECTORIES = src doc examples
 
 SPECIAL_TARGETS = 
 

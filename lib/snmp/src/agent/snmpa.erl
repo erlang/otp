@@ -913,7 +913,7 @@ mib_of(Oid) ->
 mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}
 
 Finds the mib corresponding to the `Oid`. If it is a variable, the Oid must be
-<Oid for var>.0 and if it is a table, Oid must be <table>.<entry>.<col>.<any>
+`<Oid for var>.0` and if it is a table, Oid must be `<table>.<entry>.<col>.<any>`
 
 [](){: #me_of }
 """.
@@ -929,7 +929,7 @@ me_of(Agent, Oid) -> {ok, Me} | {error, Reason}
 
 Finds the mib entry corresponding to the `Oid`. If it is a variable, the Oid
 must be <Oid for var>.0 and if it is a table, Oid must be
-<table>.<entry>.<col>.<any>
+`<table>.<entry>.<col>.<any>`
 
 [](){: #invalidate_mibs_cache }
 """.

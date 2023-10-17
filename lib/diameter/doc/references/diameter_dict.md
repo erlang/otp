@@ -251,7 +251,7 @@ order in which sections are specified is unimportant.
         * [ AVP ]
   ```
 
-- **`@grouped`{: #grouped }** - Defines the contents of the AVPs of the
+- **`@grouped`** - Defines the contents of the AVPs of the
   application having type Grouped. The section content consists of definitions
   of the form specified in section 4.4 of RFC 6733, "Grouped AVP Values".
 
@@ -346,9 +346,6 @@ of [diameter:service_opt()](`m:diameter#service_opt`)
 [string_decode](`m:diameter#string_decode`).
 
 _Basic AVP Data Formats_
-
-[](){: #OctetString } [](){: #Integer32 } [](){: #Integer64 } [](){: #Unsigned32
-} [](){: #Unsigned64 } [](){: #Float32 } [](){: #Float64 } [](){: #Grouped }
 
 ```erlang
 OctetString() = string() | binary()

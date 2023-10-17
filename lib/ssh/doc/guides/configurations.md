@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Configuration in SSH
 
-[](){: #introduction }
-
 ## Introduction
 
 The OTP SSH app can be configurated by a large amount of _Options_. This chapter

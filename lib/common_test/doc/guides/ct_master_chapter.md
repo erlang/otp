@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Using Common Test for Large-Scale Testing
 
-[](){: #general }
-
 ## General
 
 Large-scale automated testing requires running multiple independent test

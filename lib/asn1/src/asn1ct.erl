@@ -37,8 +37,8 @@ ASN.1 data (encoded as `BER` or `PER`).
 > `OCTET STRING` types as Erlang terms were changed. `BIT STRING` values are now
 > Erlang bit strings and `OCTET STRING` values are binaries. Also, an undecoded
 > open type is now wrapped in an `asn1_OPENTYPE` tuple. For details, see
-> [BIT STRING](asn1_getting_started.md#BIT-STRING),
-> [OCTET STRING](asn1_getting_started.md#OCTET-STRING), and
+> [BIT STRING](asn1_getting_started.md#bit-string),
+> [OCTET STRING](asn1_getting_started.md#octet-string), and
 > [ASN.1 Information Objects](asn1_getting_started.md#Information-Object) in the
 > User's Guide.
 >
@@ -205,7 +205,7 @@ that are applied to the Erlang compiler. The latter are not recognized as
   notation". _This option is not recommended for new code._ This option cannot
   be combined with the option `maps`.
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) in
+  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) in
   the User's Guide.
 
   This option implies option `legacy_erlang_types`.
@@ -214,7 +214,7 @@ that are applied to the Erlang compiler. The latter are not recognized as
   format, that is, a list of zeroes and ones. _This option is not recommended
   for new code._ This option cannot be combined with the option `maps`.
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) in
+  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) in
   the User's Guide
 
   This option implies option `legacy_erlang_types`.
@@ -222,8 +222,8 @@ that are applied to the Erlang compiler. The latter are not recognized as
 - **`legacy_erlang_types`** - Use the same Erlang types to represent
   `BIT STRING` and `OCTET STRING` as in OTP R16.
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) and
-  Section [OCTET STRING](asn1_getting_started.md#OCTET-STRING) in the User's
+  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) and
+  Section [OCTET STRING](asn1_getting_started.md#octet-string) in the User's
   Guide.
 
   _This option is not recommended for new code._ This option cannot be combined

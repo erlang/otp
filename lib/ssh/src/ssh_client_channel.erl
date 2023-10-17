@@ -53,6 +53,12 @@ tree.
 >
 > Functions in this module are not supposed to be called outside a module
 > implementing this behaviour\!
+
+## Callback timeouts
+
+The timeout values that can be returned by the callback functions have the same
+semantics as in a `m:gen_server`. If the time-out occurs, `c:handle_msg/2` is called as
+handle_msg(timeout, State).
 """.
 -moduledoc(#{since => "OTP 21.0",
              titles => [{callback,<<"Callback Functions">>}]}).
@@ -65,7 +71,7 @@ Makes necessary initializations and returns the initial channel state if the
 initializations succeed.
 
 For more detailed information on time-outs, see Section
-[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+[Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
 -doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback init(Args :: term()) ->
@@ -75,7 +81,7 @@ For more detailed information on time-outs, see Section
 Handles messages sent by calling [call/\[2,3]](`call/2`)
 
 For more detailed information on time-outs,, see Section
-[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+[Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
 -doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
@@ -90,7 +96,7 @@ For more detailed information on time-outs,, see Section
 Handles messages sent by calling [`cast/2`](`cast/2`).
 
 For more detailed information on time-outs, see Section
-[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+[Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
 -doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_cast(Request :: term(), State :: term()) ->

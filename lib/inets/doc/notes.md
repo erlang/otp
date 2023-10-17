@@ -2417,7 +2417,7 @@ limitations under the License.
 - \[ftpc] - Start of the FTP client has been changed in the following way:
 
   - It is now also possible to start a standalone FTP client process using the
-    re-introduced [ftp:open](`m:ftp#open`) function.
+    re-introduced `ftp:open/2` function.
 
     This is an alternative to starting the client using the
     [inets service framework](`m:ftp#service_start`).
@@ -2434,7 +2434,7 @@ limitations under the License.
     A new option, [ipfamily](`m:ftp#ipfamily`), has been introduced, with the
     default value `inet` (IPv4).
 
-    See [ftp:open](`m:ftp#open`) for more info.
+    See `ftp:open/2` for more info.
 
     \*** POTENTIAL INCOMPATIBILITY \***
 
@@ -2454,8 +2454,8 @@ limitations under the License.
 
   Own Id: OTP-8204
 
-- \[ftpc] - The [ls/2](`m:ftp#ls2`) function (LIST command) and the
-  [nlist/2](`m:ftp#nlist2`) function (NLST command) with wildcards did not work
+- \[ftpc] - The `ftp:ls/2` function (LIST command) and the
+  `ftp:nlist/2` function (NLST command) with wildcards did not work
   properly.
 
   These functions is documented as working on directories, but this is actually

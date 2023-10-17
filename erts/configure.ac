@@ -459,23 +459,17 @@ if test -f doc/CONF_INFO; then
    rm -f doc/CONF_INFO
 fi
 
-AC_CHECK_PROGS(XSLTPROC, xsltproc)
-if test -z "$XSLTPROC"; then
-  echo "xsltproc" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'xsltproc' command found: the documentation cannot be built])
+AC_CHECK_PROGS(EX_DOC, ex_doc)
+if test -z "$EX_DOC"; then
+  EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
+  echo "ex_doc" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'ex_doc' command found: the documentation cannot be built])
 fi
 
-AC_CHECK_PROGS(FOP, fop)
-if test -z "$FOP"; then
-  FOP="$ERL_TOP/make/fakefop"
-  echo "fop" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'fop' command found: going to generate placeholder PDF files])
-fi
-
-AC_CHECK_PROGS(XMLLINT, xmllint)
-if test -z "$XMLLINT"; then
-  echo "xmllint" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'xmllint' command found: can't run the xmllint target for the documentation])
+AC_CHECK_PROGS(ELIXIR, elixir)
+if test -z "$ELIXIR"; then
+  echo "elixir" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'elixir' command found: can't run link checker for the documentation])
 fi
 
 dnl

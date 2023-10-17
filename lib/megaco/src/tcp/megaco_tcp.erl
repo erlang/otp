@@ -489,7 +489,6 @@ unblock(Handle) -> ok
 
 Starting to receive incoming messages from the socket again.
 
-[](){: #upgrade_receive_handle }
 """.
 unblock(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp unblock", []),
@@ -529,7 +528,6 @@ upgrade_receive_handle(ControlPid, NewHandle) -> ok
 Update the receive handle of the control process (e.g. after having changed
 protocol version).
 
-[](){: #stats }
 """.
 upgrade_receive_handle(Pid, NewHandle) 
   when is_pid(Pid) andalso is_record(NewHandle, megaco_receive_handle) ->

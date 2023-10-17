@@ -177,14 +177,14 @@ open(Host) ->
 -doc """
 Starts a FTP client process and opens a session with the FTP server at `Host`.
 
-A session opened in this way is closed using function [close](`m:ftp#close`).
+A session opened in this way is closed using function `close/1`.
 
 The available configuration options are as follows:
 
 - **\{host, Host\}** - [](){: #host } Host = `string() | ip_address()`
 
 - **\{port, Port\}** - [](){: #port } Default is `0` which aliases to `21` or
-  `990` when used with [`{tls_sec_method,ftps}`](`m:ftp#open`)).
+  `990` when used with [`{tls_sec_method,ftps}`](`open/2`)).
 
 - **\{mode, Mode\}** - [](){: #mode } Default is `passive`.
 
@@ -355,8 +355,6 @@ user(Pid, User, Pass) ->
 
 -doc """
 Performs login of `User` with `Pass` to the account specified by `Account`.
-
-[](){: #quote }
 """.
 -spec user(Pid  :: pid(),
            User :: string(),
@@ -373,8 +371,6 @@ user(Pid, User, Pass, Account) ->
 
 -doc """
 Sets the account for an operation, if needed.
-
-[](){: #append } [](){: #append2 } [](){: #append3 }
 """.
 -spec account(Pid :: pid(), Acc :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -388,8 +384,6 @@ account(Pid, Acc) ->
 
 -doc """
 Returns the current working directory at the remote server.
-
-[](){: #recv } [](){: #recv2 } [](){: #recv3 }
 """.
 -spec pwd(Pid :: pid()) ->
     {'ok', Dir :: string()} |
@@ -404,8 +398,6 @@ pwd(Pid) ->
 
 -doc """
 Returns the current working directory at the local client.
-
-[](){: #ls } [](){: #ls1 } [](){: #ls2 }
 """.
 -spec lpwd(Pid :: pid()) ->
     {'ok', Dir :: string()}.
@@ -420,8 +412,6 @@ lpwd(Pid) ->
 
 -doc """
 Changes the working directory at the remote server to `Dir`.
-
-[](){: #close }
 """.
 -spec cd(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -435,8 +425,6 @@ cd(Pid, Dir) ->
 
 -doc """
 Changes the working directory to `Dir` for the local client.
-
-[](){: #lpwd }
 """.
 -spec lcd(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -465,8 +453,6 @@ Returns a list of files in long format.
 
 The format of `Listing` depends on the operating system. On UNIX, it is
 typically produced from the output of the `ls -l` shell command.
-
-[](){: #mkdir }
 """.
 -spec ls(Pid :: pid(), Dir :: string()) ->
     {'ok', Listing :: string()} |
@@ -499,8 +485,6 @@ wildcards.
 The format of `Listing` is a stream of filenames where each filename is
 separated by <CRLF> or <NL>. Contrary to function `ls`, the purpose of `nlist`
 is to enable a program to process filename information automatically.
-
-[](){: #open }
 """.
 -spec nlist(Pid :: pid(), Pathname :: string()) ->
     {'ok', Listing :: string()} |
@@ -515,8 +499,6 @@ nlist(Pid, Dir) ->
 
 -doc """
 Renames `Old` to `New` at the remote server.
-
-[](){: #rmdir }
 """.
 -spec rename(Pid :: pid(), Old :: string(), New :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -530,8 +512,6 @@ rename(Pid, Old, New) ->
 
 -doc """
 Deletes the file `File` at the remote server.
-
-[](){: #append }
 """.
 -spec delete(Pid :: pid(), File :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -545,8 +525,6 @@ delete(Pid, File) ->
 
 -doc """
 Creates the directory `Dir` at the remote server.
-
-[](){: #nlist } [](){: #nlist1 } [](){: #nlist2 }
 """.
 -spec mkdir(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -560,8 +538,6 @@ mkdir(Pid, Dir) ->
 
 -doc """
 Removes directory `Dir` at the remote server.
-
-[](){: #send } [](){: #send2 } [](){: #send3 }
 """.
 -spec rmdir(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -577,8 +553,6 @@ rmdir(Pid, Dir) ->
 Sets the file transfer type to `ascii` or `binary`. When an FTP session is
 opened, the default transfer type of the server is used, most often `ascii`,
 which is default according to [RFC 959](http://www.ietf.org/rfc/rfc959.txt).
-
-[](){: #user3 }
 """.
 -spec type(Pid :: pid(), Type :: ascii | binary) ->
     'ok' | {'error', Reason :: term()}.
@@ -605,8 +579,6 @@ the local client. If `LocalFileName` is specified, the local file will be
 
 If the file write fails, the command is aborted and `{error, term()}` is
 returned. However, the file is _not_ removed.
-
-[](){: #recv_bin }
 """.
 -spec recv(Pid            :: pid(),
            RemoteFileName :: string(),
@@ -624,8 +596,6 @@ recv(Pid, RemoteFileName, LocalFileName) ->
 -doc """
 Transfers the file `RemoteFile` from the remote server and receives it as a
 binary.
-
-[](){: #recv_chunk_start }
 """.
 -spec recv_bin(Pid        :: pid(),
                RemoteFile :: string()) ->
@@ -641,8 +611,6 @@ recv_bin(Pid, RemoteFile) ->
 
 -doc """
 Starts transfer of the file `RemoteFile` from the remote server.
-
-[](){: #recv_chunk }
 """.
 -spec recv_chunk_start(Pid        :: pid(),
                        RemoteFile :: string()) ->
@@ -663,8 +631,6 @@ return values have the following meaning:
 - `ok` = the transfer is complete.
 - `{ok, Bin}` = just another chunk of the file.
 - `{error, Reason}` = transfer failed.
-
-[](){: #rename }
 """.
 -spec recv_chunk(Pid :: pid()) ->
     'ok' |
@@ -690,8 +656,6 @@ send(Pid, LocalFileName) ->
 Transfers the file `LocalFileName` to the remote server. If `RemoteFileName` is
 specified, the name of the remote file is set to `RemoteFileName`, otherwise to
 `LocalFileName`.
-
-[](){: #send_bin }
 """.
 -spec send(Pid            :: pid(),
            LocalFileName  :: string(),
@@ -708,8 +672,6 @@ send(Pid, LocalFileName, RemotFileName) ->
 
 -doc """
 Transfers the binary `Bin` into the file `RemoteFile` at the remote server.
-
-[](){: #send_chunk }
 """.
 -spec send_bin(Pid :: pid(), Bin :: binary(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -724,8 +686,6 @@ send_bin(Pid, Bin, RemoteFile) ->
 
 -doc """
 Starts transfer of chunks into the file `RemoteFile` at the remote server.
-
-[](){: #send_chunk_end }
 """.
 -spec send_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -740,8 +700,6 @@ send_chunk_start(Pid, RemoteFile) ->
 -doc """
 Starts the transfer of chunks for appending to the file `RemoteFile` at the
 remote server. If the file does not exist, it is created.
-
-[](){: #append_chunk_end }
 """.
 -spec append_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -760,8 +718,6 @@ specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`).
 
 For some errors, for example, file system full, it is necessary to to call
 `send_chunk_end` to get the proper reason.
-
-[](){: #send_chunk_start }
 """.
 -spec send_chunk(Pid :: pid(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
@@ -779,8 +735,6 @@ specified in the call to [`append_chunk_start/2`](`append_chunk_start/2`).
 
 For some errors, for example, file system full, it is necessary to call
 `append_chunk_end` to get the proper reason.
-
-[](){: #append_chunk_start }
 """.
 -spec append_chunk(Pid :: pid(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
@@ -797,8 +751,6 @@ append_chunk(Pid, Bin) ->
 Stops transfer of chunks to the remote server. The file at the remote server,
 specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`) is closed
 by the server.
-
-[](){: #type }
 """.
 -spec send_chunk_end(Pid :: pid()) ->
     'ok' | {'error', Reason :: term()}.
@@ -815,8 +767,6 @@ send_chunk_end(Pid) ->
 Stops transfer of chunks for appending to the remote server. The file at the
 remote server, specified in the call to
 [`append_chunk_start/2`](`append_chunk_start/2`), is closed by the server.
-
-[](){: #cd }
 """.
 -spec append_chunk_end(Pid :: pid()) ->
     'ok' | {'error', Reason :: term()}.
@@ -841,8 +791,6 @@ Transfers the file `LocalFile` to the remote server. If `RemoteFile` is
 specified, the name of the remote file that the file is appended to is set to
 `RemoteFile`, otherwise to `LocalFile`. If the file does not exists, it is
 created.
-
-[](){: #append_bin }
 """.
 -spec append(Pid            :: pid(),
              LocalFileName  :: string(),
@@ -860,8 +808,6 @@ append(Pid, LocalFileName, RemotFileName) ->
 -doc """
 Transfers the binary `Bin` to the remote server and appends it to the file
 `RemoteFile`. If the file does not exist, it is created.
-
-[](){: #append_chunk }
 """.
 -spec append_bin(Pid        :: pid(),
                  Bin        :: binary(),
@@ -903,9 +849,7 @@ quote(Pid, Cmd) when is_list(Cmd) ->
 %%--------------------------------------------------------------------------
 
 -doc """
-Ends an FTP session, created using function [open](`m:ftp#open`).
-
-[](){: #delete }
+Ends an FTP session, created using function [open](`open/2`).
 """.
 -spec close(Pid :: pid()) -> 'ok'.
 close(Pid) ->
@@ -919,8 +863,6 @@ close(Pid) ->
 -doc """
 Given an error return value `{error, AtomReason}`, this function returns a
 readable string describing the error.
-
-[](){: #lcd }
 """.
 -spec formaterror(Tag :: atom() | {error, atom()}) -> string().
 

@@ -18,7 +18,12 @@
 %% %CopyrightEnd%
 %%
 -module(crashdump_viewer).
--moduledoc false.
+-moduledoc """
+A WxWidgets based tool for browsing Erlang crashdumps.
+
+For details about how to get started with the Crashdump Viewer, see the
+[User's Guide](crashdump_ug.md).
+""".
 
 %%
 %% This module is the main module in the crashdump viewer. It implements
@@ -186,11 +191,21 @@ stop_debug() ->
 
 %%%-----------------------------------------------------------------
 %%% User API
+-doc """
+Starts the Crashdump Viewer GUI and opens a file dialog where the
+crashdump can be selected.
+""".
+-spec start() -> ok | {error, term()}.
 start() ->
-    start(undefined).
+    cdv_wx:start(undefined).
+-doc "Starts the Crashdump Viewer GUI and loads the specified crashdump.".
+-doc #{ since => "OTP 17.0" }.
+-spec start(File :: string()) -> ok | {error, term()}.
 start(File) ->
     cdv_wx:start(File).
 
+-doc "Terminates the Crashdump Viewer and closes all GUI windows.".
+-spec stop() -> ok.
 stop() ->
     case whereis(?SERVER) of
 	undefined ->

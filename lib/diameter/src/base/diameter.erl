@@ -173,7 +173,7 @@ module.
     question. Multiple options are equivalent a single `all` filter on the
     corresponding list of filters. Defaults to `none`.
 
-  - **`{peer, `[`diameter_app:peer_ref()`](`m:diameter_app#peer_ref`)`}`** -
+  - **`{peer, `[`diameter_app:peer_ref()`](`t:diameter_app:peer_ref/0`)`}`** -
     Peer to which the request in question can be sent, preempting the selection
     of peers having advertised support for the Diameter application in question.
     Multiple options can be specified, and their order is respected in the
@@ -786,7 +786,7 @@ module.
     connection having watchdog state `OKAY`. Applied to
     `application|service|transport` and the
     [`transport_ref()`](`m:diameter#transport_ref`) and
-    [`diameter_app:peer()`](`m:diameter_app#peer`) in question: `application`
+    [`diameter_app:peer()`](`t:diameter_app:peer/0`) in question: `application`
     indicates that the diameter application is being stopped, `service` that the
     service in question is being stopped by `stop_service/1`, and `transport`
     that the transport in question is being removed by `remove_transport/2`.
@@ -1290,7 +1290,7 @@ tagged list to be returned.
   the corresponding [`transport_opt()`](`m:diameter#transport_opt`) list passed
   to `add_transport/2`. The `watchdog` entry shows the state of a connection's
   RFC 3539 watchdog state machine. The `peer` entry identifies the
-  [`diameter_app:peer_ref()`](`m:diameter_app#peer_ref`) for which there will
+  [`diameter_app:peer_ref()`](`t:diameter_app:peer_ref/0`) for which there will
   have been [peer_up/3](`c:diameter_app:peer_up/3`) callbacks for the Diameter
   applications identified by the `apps` entry, `common` being the
   [`application_alias()`](`m:diameter#application_alias`). The `caps` entry
@@ -1437,13 +1437,13 @@ tagged list to be returned.
 - **`statistics`** - Return a `{{Counter, Ref}, non_neg_integer()}` list of
   counter values. `Ref` can be either a
   [`transport_ref()`](`m:diameter#transport_ref`) or a
-  [`diameter_app:peer_ref()`](`m:diameter_app#peer_ref`). Entries for the latter
+  [`diameter_app:peer_ref()`](`t:diameter_app:peer_ref/0`). Entries for the latter
   are folded into corresponding entries for the former as peer connections go
   down. Entries for both are removed at `remove_transport/2`. The Diameter-level
   statistics returned by `transport` and `connections` info are based upon these
   entries.
 
-- **[`diameter_app:peer_ref()`](`m:diameter_app#peer_ref`)** - Return transport
+- **[`diameter_app:peer_ref()`](`t:diameter_app:peer_ref/0`)** - Return transport
   configuration associated with a single peer, as passed to `add_transport/2`.
   The returned list is empty if the peer is unknown. Otherwise it contains the
   `ref`, `type` and `options` tuples as in `transport` and `connections` info

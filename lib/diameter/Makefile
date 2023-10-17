@@ -22,7 +22,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include vsn.mk
 include subdirs.mk
 
-SUB_DIRECTORIES = $(SUB_DIRS) doc/src
+SUB_DIRECTORIES = $(SUB_DIRS)
 SPECIAL_TARGETS =
 
 include $(ERL_TOP)/make/otp_subdir.mk

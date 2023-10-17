@@ -259,16 +259,15 @@ Available options:
   by the optimization passes are generated (such as clauses that will not match,
   or expressions that are guaranteed to fail with an exception at runtime).
 
-- **`no_docs`[](){: #beam_docs } **  
-   The compiler by default extracts [documentation](`e:system:documentation.md`)
-  from [`-doc` attributes](`e:system:modules.md#documentation-attributes`) and places
-  them in the [`Docs` chunk](`t:beam_lib:chunkid/0`) according to [EEP-48](`e:kernel:eep48_chapter.md`).
+- **`no_docs`**{: #no_docs } - The compiler by default extracts
+  [documentation](`e:system:documentation.md`) from
+  [`-doc` attributes](`e:system:modules.md#documentation-attributes`) and places
+  them in the [`Docs` chunk](`t:beam_lib:chunkid/0`) according to
+  [EEP-48](`e:kernel:eep48_chapter.md`).
 
   This option switches off the placement of
   [`-doc` attributes](`e:system:modules.md#documentation-attributes`) in the
-  [`Docs` chunk](`t:beam_lib:chunkid/0`)
-
-  .
+  [`Docs` chunk](`t:beam_lib:chunkid/0`).
 
 - **`binary`** - The compiler returns the object code in a binary instead of
   creating an object file. If successful, the compiler returns
@@ -658,7 +657,7 @@ value are listed.
   attribute `-deprecated()`, but uses an assembled list of deprecated functions
   in Erlang/OTP. To do a more general check, the Xref tool can be used. See also
   [xref(3)](`m:xref#deprecated_function`) and the function `xref:m/1`, also
-  accessible through the function `c:xm/1`.
+  accessible through the function `\c:xm/1`.
 
 - **`{nowarn_deprecated_function, MFAs}`** - Turns off warnings for calls to
   deprecated functions like `nowarn_deprecated_function` does, but only for the
@@ -710,12 +709,12 @@ value are listed.
   fallbacks by accident. Use this option to turn off this kind of warnings.
 
 - **`warn_missing_doc`[](){: #warn_missing_doc } **  
-   By default, warnings are not emitted when `-doc` attribute for an exported function
+  By default, warnings are not emitted when `-doc` attribute for an exported function
   is not given. Use this option to turn on this kind of warning.
 
-- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`[](){: #nowarn_hidden_doc }
-  **  
-   By default, warnings are emitted when `-doc false` attribute is set on a [callback or referenced type](`e:system:documentation.md#What-is-visible-versus-hidden`).
+- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`[](){: #nowarn_hidden_doc } **  
+  By default, warnings are emitted when `-doc false` attribute is set on a
+  [callback or referenced type](`e:system:documentation.md#what-is-visible-versus-hidden`).
   You can set `nowarn_hidden_doc` to suppress all those warnings, or `{nowarn_hidden_doc, NAs}`
   to suppress specific callbacks or types. `NAs` is a tuple `{Name, Arity}` or a
   list of such tuples.
@@ -2790,7 +2789,6 @@ diffable_label_map([], _New, Map, Acc) ->
 
 -doc false.
 -spec options() -> 'ok'.
-
 options() ->
     help(standard_passes()).
 

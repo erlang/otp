@@ -227,8 +227,6 @@ described earlier. `skip_and_save` can also be returned from `init_per_suite`.
 In this case, the saved data can be read by `init_per_suite` in the suite that
 follows.
 
-[](){: #sequences }
-
 ## Sequences
 
 Sometimes test cases depend on each other so that if one case fails, the

@@ -256,8 +256,11 @@ operating system kernel.
 -doc "See also the documentation of the `t:name_all/0` type.".
 -type filename_all() :: string() | binary().
 -type file_info() :: #file_info{}.
+-compile({nowarn_hidden_doc, [file_descriptor/0]}).
+-doc hidden.
+-type file_descriptor() :: #file_descriptor{}.
 -doc "A file descriptor representing a file opened in [`raw`](`m:file#raw`) mode.".
--type fd()        :: #file_descriptor{}.
+-type fd()        :: file_descriptor().
 -doc "As returned by `open/2`; `t:pid/0` is a process handling I/O-protocols.".
 -type io_device() :: pid() | fd().
 -type location()  :: integer() | {'bof', Offset :: integer()}

@@ -33,7 +33,7 @@
 This module is the interface to the XML parser, it handles XML 1.0. The XML
 parser is activated through `xmerl_scan:string/[1,2]` or
 `xmerl_scan:file/[1,2]`. It returns records of the type defined in xmerl.hrl.
-See also [tutorial](xmerl_examples.html) on customization functions.
+See also [tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 -vsn('0.20').
 -date('03-09-16').
@@ -244,7 +244,7 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
 -doc """
 For controlling the UserState, to be used in a user function. See
-[tutorial](xmerl_examples.html) on customization functions.
+[tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 -spec user_state(UserState :: term(), S :: global_state()) -> global_state().
 user_state(X, S) ->
@@ -259,7 +259,7 @@ event_state(X,S)
 
 For controlling the EventState, to be used in an event function, and called at
 the beginning and at the end of a parsed entity. See
-[tutorial](xmerl_examples.html) on customization functions.
+[tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{event = X},
@@ -273,7 +273,7 @@ event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 hook_state(X,S)
 
 For controlling the HookState, to be used in a hook function, and called when
-the parser has parsed a complete entity. See [tutorial](xmerl_examples.html) on
+the parser has parsed a complete entity. See [tutorial](assets/xmerl_examples.html) on
 customization functions.
 """.
 hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
@@ -290,7 +290,7 @@ rules_state(X,S)
 
 For controlling the RulesState, to be used in a rules function, and called when
 the parser store scanner information in a rules database. See
-[tutorial](xmerl_examples.html) on customization functions.
+[tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{rules = X},
@@ -305,7 +305,7 @@ fetch_state(X,S)
 
 For controlling the FetchState, to be used in a fetch function, and called when
 the parser fetch an external resource (eg. a DTD). See
-[tutorial](xmerl_examples.html) on customization functions.
+[tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{fetch = X},
@@ -320,7 +320,7 @@ cont_state(X,S)
 
 For controlling the ContinuationState, to be used in a continuation function,
 and called when the parser encounters the end of the byte stream. See
-[tutorial](xmerl_examples.html) on customization functions.
+[tutorial](assets/xmerl_examples.html) on customization functions.
 """.
 cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{cont = X},

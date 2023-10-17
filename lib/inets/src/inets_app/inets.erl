@@ -39,8 +39,6 @@ Type definitions that are used more than once in this module:
 
 `property() = atom()`
 
-[](){: #functions } [](){: #services }
-
 ## SEE ALSO
 
 `m:httpc`, `m:httpd`

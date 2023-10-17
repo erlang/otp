@@ -144,7 +144,7 @@ The following parameters can be specified for each Erlang service:
   (or `start_erl.exe`). Arguments that cannot be specified here are `-noinput`
   (`StopActions` would not work), `-name`, and `-sname` (they are specified in
   any way). The most common use is for specifying cookies and flags to be passed
-  to `init:boot()` (`-s`).
+  to `m:init` (`-s`).
 
 - **`InternalServiceName`** - Specifies the Windows-internal service name (not
   the display name, which is the one `erlsrv` uses to identify the service).

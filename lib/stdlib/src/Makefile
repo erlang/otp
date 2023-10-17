@@ -147,6 +147,8 @@ ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
+ERL_ID_TRANS=../examples/erl_id_trans.erl
+
 APP_FILE= stdlib.app
 
 APP_SRC= $(APP_FILE).src
@@ -203,6 +205,7 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_internal.beam
 
+opt: $(EBIN)/erl_id_trans.beam
 
 $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl
 	$(gen_verbose)
@@ -214,6 +217,9 @@ $(BOOTSTRAP_TOP)/lib/stdlib/egen/erl_parse.erl: erl_parse.yrl
 
 $(BOOTSTRAP_COMPILER)/ebin/%.beam: %.erl
 	$(V_ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG) $<
+
+$(EBIN)/erl_id_trans.beam: ../examples/erl_id_trans.erl
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o $(EBIN) $<
 
 # ----------------------------------------------------
 # Special Build Targets

@@ -21,8 +21,6 @@ limitations under the License.
 
 ## Features
 
-[](){: #features }
-
 The manager provided with the tool is a lightweight manager that basically
 provides a means to communicate with agents.
 
@@ -61,8 +59,6 @@ through a call to one of the `handle_pdu` callback function defined by the
 
 ## Operation
 
-[](){: #operation }
-
 The following steps are needed to get the manager running:
 
 1. \[optional] Implement the default user.
@@ -73,8 +69,6 @@ The following steps are needed to get the manager running:
 1. The user(s) register their agents.
 
 ## MIB loading
-
-[](){: #mib_loading }
 
 It is possible to load mibs into the manager, but this is not necessary for
 normal operation, and not recommended.

@@ -222,7 +222,7 @@ tuple to the head of the list) and lookup. To look up a value in the config,
 `PrivDir = proplists:get_value(priv_dir, Config)`.
 
 The test case result can be customized in several ways. See the manual for
-[`Module:Testcase/1`](`c:ct_suite:Testcase/1`) in the `m:ct_suite` module for
+[`Module:Testcase/1`](`c:ct_suite:'Testcase'/1`) in the `m:ct_suite` module for
 details.
 
 [](){: #info_function }

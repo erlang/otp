@@ -30,13 +30,9 @@ Legacy API functions [`add_addr/10`](`add_addr/10`) that does not specify
 transport domain, and `add_addr/11` that has got separate `IpAddr` and
 `PortNumber` arguments still work as before for backwards compatibility reasons.
 
-[](){: #types }
-
 ## DATA TYPES
 
 See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
-
-[](){: #configure }
 """.
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -129,8 +125,6 @@ the reason `configuration_error`.
 files are found.
 
 The configuration files read are: `target_addr.conf` and `target_params.conf`.
-
-[](){: #reconfigure }
 """.
 configure(Dir) ->
     set_sname(),
@@ -184,7 +178,6 @@ files are found.
 
 The configuration files read are: `target_addr.conf` and `target_params.conf`.
 
-[](){: #set_target_engine_id }
 """.
 reconfigure(Dir) ->
     set_sname(),
@@ -467,8 +460,6 @@ MMS) -> Ret
 
 Adds a target address definition to the agent config. Equivalent to one line in
 the `target_addr.conf` file.
-
-[](){: #delete_addr }
 """.
 add_addr(
   Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
@@ -505,8 +496,6 @@ add_addr(Addr) ->
 delete_addr(Key) -> Ret
 
 Delete a target address definition from the agent config.
-
-[](){: #add_params }
 """.
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
@@ -523,7 +512,6 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret
 Adds a target parameter definition to the agent config. Equivalent to one line
 in the `target_params.conf` file.
 
-[](){: #delete_params }
 """.
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
@@ -782,7 +770,6 @@ Changes the engine id for a target in the `snmpTargetAddrTable`. If
 notifications are sent as Inform requests to a target, its engine id must be
 set.
 
-[](){: #add_addr }
 """.
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),

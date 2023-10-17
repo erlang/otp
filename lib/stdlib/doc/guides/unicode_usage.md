@@ -753,8 +753,6 @@ encoding or conversely.
 > release. However, Erlang modules can, but it is definitely not a good idea and
 > is still considered experimental.
 
-[](){: #notes-about-raw-filenames }
-
 ### Notes About Raw Filenames
 
 > #### Note {: .info }

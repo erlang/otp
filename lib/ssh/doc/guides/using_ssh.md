@@ -49,8 +49,6 @@ logout
 3>
 ```
 
-[](){: #Running-an-Erlang-ssh-Daemon }
-
 ## Running an Erlang ssh Daemon
 
 The [`system_dir`](`t:ssh_file:system_dir_daemon_option/0`) option must be a
@@ -605,7 +603,7 @@ terminate(_Reason, _State) ->
 
 The subsystem can be run on the host _tarlop_ with the generated keys, as
 described in Section
-[Running an Erlang ssh Daemon](using_ssh.md#Running-an-Erlang-ssh-Daemon):
+[Running an Erlang ssh Daemon](using_ssh.md#running-an-erlang-ssh-daemon):
 
 ```erlang
 1> ssh:start().

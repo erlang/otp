@@ -174,7 +174,7 @@ A table traversal is _safe_ if either
 > #### Note {: .info }
 >
 > Even though the access of a single object is always guaranteed to be
-> [atomic and isolated](`m:ets#concurrency`), each traversal through a table to
+> [atomic and isolated](`m:ets#module-concurrency`), each traversal through a table to
 > find the next key is not done with such guarantees. This is often not a
 > problem, but may cause rare subtle "unexpected" effects if a concurrent
 > process inserts objects during a traversal. For example, consider one process
@@ -350,7 +350,7 @@ delete(_, _) ->
 
 -doc """
 Delete all objects in the ETS table `Table`. The operation is guaranteed to be
-[atomic and isolated](`m:ets#concurrency`).
+[atomic and isolated](`m:ets#module-concurrency`).
 """.
 -spec delete_all_objects(Table) -> true when
       Table :: table().
@@ -532,15 +532,15 @@ items are allowed:
   - **`safe_fixed`** - `FixationTime` corresponds to the result returned by
     `erlang:timestamp/0` at the time of fixation. Notice that when the system
     uses single or multi
-    [time warp modes](`e:erts:time_correction.md#Time_Warp_Modes`) this can
+    [time warp modes](`e:erts:time_correction.md#time-warp-modes`) this can
     produce strange results, as the use of `safe_fixed` is not
-    [time warp safe](`e:erts:time_correction.md#Time_Warp_Safe_Code`). Time warp
+    [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`). Time warp
     safe code must use `safe_fixed_monotonic_time` instead.
 
   - **`safe_fixed_monotonic_time`** - `FixationTime` corresponds to the result
     returned by `erlang:monotonic_time/0` at the time of fixation. The use of
     `safe_fixed_monotonic_time` is
-    [time warp safe](`e:erts:time_correction.md#Time_Warp_Safe_Code`).
+    [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`).
 
   `Info` is a possibly empty lists of tuples `{Pid,RefCount}`, one tuple for
   every process the table is fixed by now. `RefCount` is the value of the
@@ -595,7 +595,7 @@ Inserts the object or all of the objects in list `ObjectOrObjects` into table
   table type `ordered_set` if the keys _compare equal_.
 
 The entire operation is guaranteed to be
-[atomic and isolated](`m:ets#concurrency`), even when a list of objects is
+[atomic and isolated](`m:ets#module-concurrency`), even when a list of objects is
 inserted.
 
 [](){: #insert_list_order }
@@ -631,7 +631,7 @@ in the table (for `bag` and `duplicate_bag`), `false` is returned.
 If `ObjectOrObjects` is a list, the function checks _every_ key before inserting
 anything. Nothing is inserted unless _all_ keys present in the list are absent
 from the table. Like [`insert/2`](`insert/2`), the entire operation is
-guaranteed to be [atomic and isolated](`m:ets#concurrency`).
+guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
 """.
 -spec insert_new(Table, ObjectOrObjects) -> boolean() when
       Table :: table(),
@@ -1050,7 +1050,7 @@ same as specifying
   [`decentralized_counters`](`m:ets#new_2_decentralized_counters`) option.
 
   Notice that this option does not change any guarantees about
-  [atomicity and isolation](`m:ets#concurrency`). Functions that makes such
+  [atomicity and isolation](`m:ets#module-concurrency`). Functions that makes such
   promises over many objects (like `insert/2`) gain less (or nothing) from this
   option.
 
@@ -1504,7 +1504,7 @@ Matches the objects in the table `Table` using a
 object is replaced with the match specification result.
 
 The match-and-replace operation for each individual object is guaranteed to be
-[atomic and isolated](`m:ets#concurrency`). The `select_replace` table traversal
+[atomic and isolated](`m:ets#module-concurrency`). The `select_replace` table traversal
 as a whole, like all other select functions, does not give such guarantees.
 
 The match specification must be guaranteed to _retain the key_ of any matched
@@ -1707,7 +1707,7 @@ update_counter(_, _, _) ->
 This function provides an efficient way to update one or more counters, without
 the trouble of having to look up an object, update the object by incrementing an
 element, and insert the resulting object into the table again. The operation is
-guaranteed to be [atomic and isolated](`m:ets#concurrency`).
+guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
 
 This function destructively updates the object with key `Key` in table `Table`
 by adding `Incr` to the element at position `Pos`. The new counter value is

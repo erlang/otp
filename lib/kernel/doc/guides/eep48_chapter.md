@@ -82,7 +82,7 @@ where in the root tuple we have:
 
 - **Format** - the mime type of the documentation, such as <<"text/markdown">>
   or <<"application/erlang+html">>. For details of the format used by Erlang see
-  the [`EEP-48 Chapter`](`e:erl_docgen:doc_storage.md`) in Erl_Docgen's User's
+  the [`EEP-48 Chapter`](`e:edoc:doc_storage.md`) in EDoc's User's
   Guide.
 
 - **ModuleDoc** - a map with the documentation language as key, such as
@@ -153,5 +153,5 @@ the community can be standardized in future versions.
 ## See Also
 
 `m:erl_anno`, `m:shell_docs`,
-[`EEP-48 Chapter in Erl_Docgen's User's Guide`](`e:erl_docgen:doc_storage.md`),
+[`EEP-48 Chapter in EDoc's User's Guide`](`e:edoc:doc_storage.md`),
 `code:get_doc/1`

@@ -23,7 +23,7 @@ ifeq ($(TYPE),debug)
 ERL_COMPILE_FLAGS += -Ddebug -W
 endif
 
-EBIN = .
+EBIN = ../../ebin
 MEGACO_INCLUDEDIR = ../../include
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk

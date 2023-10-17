@@ -23,8 +23,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/edoc-$(VSN)
 
 EBIN = ../ebin
 XMERL = ../../xmerl
-ERL_COMPILE_FLAGS := $(filter-out +beam_docs, $(ERL_COMPILE_FLAGS))
-ERL_COMPILE_FLAGS += -pa $(XMERL) -I../include -I$(XMERL)/include +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_deprecated_guard
+ERL_COMPILE_FLAGS += -pa $(XMERL) -I../include -I$(XMERL)/include +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_deprecated_guard +no_docs
 
 include files.mk
 

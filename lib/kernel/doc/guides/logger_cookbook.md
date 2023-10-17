@@ -192,7 +192,7 @@ in `kernel/include/logger.hrl`.
 
 - [logger_formatter's Configuration](`t:logger_formatter:config/0`)
 - [logger_formatter's Template](`t:logger_formatter:template/0`)
-- [Logger Macros](`m:logger#macros`)
+- [Logger Macros](`m:logger#module-macros`)
 - [Metadata](logger_chapter.md#metadata) in the Logging User's Guide
 
 ## Configuring handlers

@@ -111,8 +111,6 @@ It is _not_ possible to:
 These are all intentional design decisions relating to performance, scalability,
 and distribution transparency.
 
-[](){: #term }
-
 ## Process Termination
 
 When a process terminates, it always terminates with an _exit reason_. The
@@ -503,15 +501,15 @@ program structures where some processes are supervising other processes, for
 example, restarting them if they terminate abnormally.
 
 See
-[OTP Design Principles](`e:system:design_principles.md#otp-design-principles`)
+[OTP Design Principles](`e:system:design_principles.md`)
 for more information about OTP supervision trees, which use this feature.
 
 [](){: #sending_exit_signals }
 
 ### Sending Exit Signals
 
-When a process or port [terminates](ref_man_processes.md#term) it will send exit
-signals to all processes and ports that it is
+When a process or port [terminates](ref_man_processes.md#process-termination) it
+will send exit signals to all processes and ports that it is
 [linked](ref_man_processes.md#links) to. The exit signal will contain the
 following information:
 

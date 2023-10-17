@@ -25,29 +25,25 @@ of the Erlang world, and has several features not found in Javadoc.
 
 EDoc can generate static HTML documentation accessible with any web browser or
 [EEP-48](https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html) doc
-chunks with [erlang+html(3)](`e:erl_docgen:doc_storage.md`) to provide
+chunks with [erlang+html(3)](`e:edoc:doc_storage.md`) to provide
 documentation for other tools like `m:shell_docs`.
-
-[](){: #Contents }
 
 ## Contents
 
-- [Introduction](chapter.md#Introduction)
+- [Introduction](chapter.md#introduction)
 - [Running EDoc](chapter.md#Running_EDoc)
 - [The overview page](chapter.md#The_overview_page)
 - [Generic tags](chapter.md#Generic_tags)
 - [Overview tags](chapter.md#Overview_tags)
 - [Module tags](chapter.md#Module_tags)
 - [Function tags](chapter.md#Function_tags)
-- [References](chapter.md#References)
+- [References](chapter.md#references)
 - [Notes on XHTML](chapter.md#Notes_on_XHTML)
 - [Wiki notation](chapter.md#Wiki_notation)
 - [Macro expansion](chapter.md#Macro_expansion)
 - [Type specifications](chapter.md#Type_specifications)
 - [Doc chunks](chapter.md#Doc_chunks)
-- [Acknowledgements](chapter.md#Acknowledgements)
-
-[](){: #Introduction }
+- [Acknowledgements](chapter.md#acknowledgements)
 
 ## Introduction
 
@@ -122,7 +118,7 @@ modules. By default, the overview page is generated from the file
 subdirectory of the application directory); see `m:edoc_doclet` for details.
 
 The format of the overview file is the same as for EDoc documentation comments
-(see [Introduction](chapter.md#Introduction)), except that the lines do not have
+(see [Introduction](chapter.md#introduction)), except that the lines do not have
 leading '`%`' characters. Furthermore, all lines before the first tag line are
 ignored, and can be used as a comment. All tags in the overview file, such as
 `@doc`, `@version`, etc., refer to the application as a whole; see
@@ -411,7 +407,7 @@ The following tags can be used before a function definition:
   the value returned by the function. Content consists of XHTML text.
 
 - **`@see`** - [](){: #ftag-see } Make a reference to a module, function,
-  datatype, or application. (See [References](chapter.md#References).) The
+  datatype, or application. (See [References](chapter.md#references).) The
   content consists of a reference, optionally followed by a period ('`.`'), one
   or more whitespace characters, and XHTML text to be used for the label; for
   example "`@see edoc`" or "`@see edoc. <b>EDoc</b>`". If no label text is
@@ -450,8 +446,6 @@ The following tags can be used before a function definition:
   by a function definition may be convenient, but does not affect where the
   description is placed in the generated documentation.
 
-[](){: #References }
-
 ## References
 
 In several contexts (`@see` tags, `@link` macros, etc.), EDoc lets you refer to
@@ -464,11 +458,11 @@ using a simple and compact syntax. The possible formats for references are:
 | `Function/Arity`                      | `file/2`                                        | Within module |
 | `Module:Function/Arity`               | `edoc:application/2`                            | Global        |
 | `Type()`                              | `filename()`                                    | Within module |
-| `Module:Type()`                       | [edoc:edoc_module()](`m:edoc#type-edoc_module`) | Global        |
+| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
 | `//Application`                       | [edoc](index.html)                              | Global        |
 | `//Application/Module`                | `m:edoc_doclet`                                 | Global        |
 | `//Application/Module:Function/Arity` | `edoc_run:file/1`                               | Global        |
-| `//Application/Module:Type()`         | [edoc:edoc_module()](`m:edoc#type-edoc_module`) | Global        |
+| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
 
 _Table: reference syntax_
 
@@ -521,7 +515,7 @@ to make the doc-comments easier to read). See
 The HTML heading tags `h1` and `h2` are reserved for use by EDoc. Headings in
 documentation source code should start at `h3`. There is however a special
 syntax for writing headings which avoids using specific level numbers
-altogether; see [Headings](chapter.md#Headings) for details.
+altogether; see [Headings](chapter.md#headings) for details.
 
 EDoc uses [XMerL](`e:xmerl:index.html`) to parse and export XML markup.
 
@@ -745,7 +739,7 @@ override predefined macros.
 
 - **`{@section heading}`** - [](){: #predefmacro-section } Expands to a
   hypertext link to the specified section heading; see
-  [Headings](chapter.md#Headings) for more information.
+  [Headings](chapter.md#headings) for more information.
 
 - **`{@time}`** - [](){: #predefmacro-time } Expands to the current time, as
   "`Hr:Min:Sec`", e.g. "14:53:19".
@@ -1145,7 +1139,7 @@ EDoc comes with two sets of doclet/layout pairs:
 - `m:edoc_doclet_chunks` and `m:edoc_layout_chunks` \- the
   [EEP-48](https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html)
   compliant pair which generates doc chunks with
-  [erlang+html(3)](`e:erl_docgen:doc_storage.md`)
+  [erlang+html(3)](`e:edoc:doc_storage.md`)
 
 In order to generate doc chunks using `edoc:application/2` or `edoc:files/2` we
 have to specify which doclet and layout we want to use:
@@ -1168,8 +1162,6 @@ edoc:files(Files, Opts).
 ```
 
 See `src/edoc_cli.erl` source code for an example of using this interface.
-
-[](){: #Acknowledgements }
 
 ## Acknowledgements
 

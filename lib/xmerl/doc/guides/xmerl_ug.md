@@ -312,7 +312,7 @@ The simple-form structure is any of `{Tag, Attributes, Content}`,
 - Name = atom()
 - Value = IOString | atom() | integer()
 
-See also reference manual for [xmerl](`m:xmerl#export_simple-3`)
+See also reference manual for [xmerl](`xmerl:export_simple/3`)
 
 If you want to add the information about a black Harley Davidsson 1200 cc
 Sportster motorcycle from 2003 that is in shape as new in the motorcycles.xml
@@ -516,7 +516,7 @@ then you can use the `xmerl:export/2` function. The following:
 ...
 ```
 
-Will give the result [result_export.html](result_export.html)
+Will give the result [result_export.html](assets/result_export.html)
 
 Perhaps you want to do something more arranged for human reading. Suppose that
 you want to list all different brands in the beginning with links to each group
@@ -562,7 +562,7 @@ template(E = #xmlElement{name='motorcycles'}) ->
 
 In the xmerl_xs functions you can provide a select(String) call, which is an
 [XPath](http://www.w3.org/TR/xpath) functionality. For more details see the
-xmerl_xs [tutorial](xmerl_xs_examples.html).
+xmerl_xs [tutorial](assets/xmerl_xs_examples.html).
 
 Now, back to the example where we wanted to make the output more arranged. With
 the template:
@@ -735,6 +735,6 @@ make_ref([H|T]) when is_list(H) ->
 
 If we run it like this:
 `motorcycles2html:process_to_file('result_xs.html', 'motorcycles2.xml').` The
-result will be [result_xs.html](result_xs.html). When the input file is of the
+result will be [result_xs.html](assets/result_xs.html). When the input file is of the
 same structure as the previous "motorcycles" XML files but it has a little more
 'bike' elements and the 'manufacturer' elements are not in order.

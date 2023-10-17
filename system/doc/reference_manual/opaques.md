@@ -64,7 +64,7 @@ recommendations:**
 - Don't examine the underlying type using pattern-matching, guards, or functions
   that reveal the type, such as [`tuple_size/1`](`tuple_size/1`) .
 - Instead, use functions provided by the module for working with the type. For
-  example, `sets` module provides `sets:new/0`, `sets:add/2`,
+  example, `sets` module provides `sets:new/0`, `sets:add_element/2`,
   `sets:is_element/2`, and so on.
 - [`sets:set(a)`](`t:sets:set/1`) is a subtype of `sets:set(a | b)` and not the
   other way around. Generally, you can rely on the property that `the_opaque(T)`
@@ -75,7 +75,7 @@ recommendations:**
 - Since consumers are expected to not rely on the definition of the opaque type,
   you must provide functions for constructing, querying, and deconstructing
   instances of your opaque type. For example, sets can be constructed with
-  `sets:new/0`, `sets:from_list/1`, `sets:add/2`, queried with
+  `sets:new/0`, `sets:from_list/1`, `sets:add_element/2`, queried with
   `sets:is_element/2`, and deconstructed with`sets:to_list/1`.
 - Don't define an opaque with a type variable in parameter position. This breaks
   the normal and expected behavior that (for example) `my_type(a)` is a subtype

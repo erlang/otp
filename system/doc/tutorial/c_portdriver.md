@@ -44,7 +44,7 @@ communication goes through one Erlang process that is the _connected process_ of
 the port driver. Terminating this process closes the port driver.
 
 Before the port is created, the driver must be loaded. This is done with the
-function `erl_ddll:load_driver/1`, with the name of the shared library as
+function `erl_ddll:load_driver/2`, with the name of the shared library as
 argument.
 
 The port is then created using the BIF [`open_port/2`](`open_port/2`), with the

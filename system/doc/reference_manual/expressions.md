@@ -33,7 +33,7 @@ sections:
 All subexpressions are evaluated before an expression itself is evaluated,
 unless explicitly stated otherwise. For example, consider the expression:
 
-```text
+```
 Expr1 + Expr2
 ```
 
@@ -43,8 +43,6 @@ order - before the addition is performed.
 Many of the operators can only be applied to arguments of a certain type. For
 example, arithmetic operators can only be applied to numbers. An argument of the
 wrong type causes a `badarg` runtime error.
-
-[](){: #term }
 
 ## Terms
 
@@ -61,7 +59,7 @@ contain alphanumeric characters, underscore and `@`.
 
 _Examples:_
 
-```text
+```
 X
 Name1
 PhoneNumber
@@ -78,7 +76,7 @@ variable is required but its value can be ignored.
 
 _Example:_
 
-```text
+```
 [H|_] = [1,2,3]
 ```
 
@@ -90,14 +88,14 @@ _Example:_
 
 The following code:
 
-```erlang
+```
 member(_, []) ->
     [].
 ```
 
 can be rewritten to be more readable:
 
-```erlang
+```
 member(Elem, []) ->
     [].
 ```
@@ -105,7 +103,7 @@ member(Elem, []) ->
 This causes a warning for an unused variable, `Elem`, if the code is compiled
 with the flag `warn_unused_vars` set. Instead, the code can be rewritten to:
 
-```erlang
+```
 member(_Elem, []) ->
     [].
 ```
@@ -113,13 +111,13 @@ member(_Elem, []) ->
 Notice that since variables starting with an underscore are not anonymous, this
 matches:
 
-```text
+```
 {_,_} = {1,2}
 ```
 
 But this fails:
 
-```text
+```
 {_N,_N} = {1,2}
 ```
 
@@ -131,15 +129,13 @@ the expression.
 For the `try` expression variable scoping is limited so that variables bound in
 the expression are always 'unsafe' outside the expression.
 
-[](){: #pattern }
-
 ## Patterns
 
 A pattern has the same structure as a term but can contain unbound variables.
 
 _Example:_
 
-```text
+```
 Name1
 [H|T]
 {error,Reason}
@@ -147,16 +143,14 @@ Name1
 
 Patterns are allowed in clause heads, [case expressions](expressions.md#case),
 [receive expressions](expressions.md#receive), and
-[match expressions](expressions.md#match_operator).
-
-[](){: #compound_pattern_operator }
+[match expressions](expressions.md#the-match-operator).
 
 ### The Compound Pattern Operator
 
 If `Pattern1` and `Pattern2` are valid patterns, the following is also a valid
 pattern:
 
-```text
+```
 Pattern1 = Pattern2
 ```
 
@@ -165,7 +159,7 @@ the term. The idea behind this feature is to avoid reconstruction of terms.
 
 _Example:_
 
-```erlang
+```
 f({connect,From,To,Number,Options}, To) ->
     Signal = {connect,From,To,Number,Options},
     ...;
@@ -175,7 +169,7 @@ f(Signal, To) ->
 
 can instead be written as
 
-```erlang
+```
 f({connect,_,To,_,_} = Signal, To) ->
     ...;
 f(Signal, To) ->
@@ -190,13 +184,13 @@ any particular order. That means that it is not legal to bind a variable in
 
 When matching strings, the following is a valid pattern:
 
-```text
+```
 f("prefix" ++ Str) -> ...
 ```
 
 This is syntactic sugar for the equivalent, but harder to read:
 
-```text
+```
 f([$p,$r,$e,$f,$i,$x | Str]) -> ...
 ```
 
@@ -210,18 +204,16 @@ following two conditions:
 
 _Example:_
 
-```text
+```
 case {Value, Result} of
     {?THRESHOLD+1, ok} -> ...
 ```
-
-[](){: #match_operator }
 
 ## The Match Operator
 
 The following matches `Pattern` against `Expr`:
 
-```text
+```
 Pattern = Expr
 ```
 
@@ -235,7 +227,7 @@ If the matching fails, a `badmatch` run-time error occurs.
 
 _Examples:_
 
-```erlang
+```
 1> {A, B} = T = {answer, 42}.
 {answer,42}
 2> A.
@@ -251,13 +243,13 @@ answer
 Because multiple match operators are evaluated from right to left, it means
 that:
 
-```text
+```
 Pattern1 = Pattern2 = . . . = PatternN = Expression
 ```
 
 is equivalent to:
 
-```c
+```
 Temporary = Expression,
 PatternN = Temporary,
    .
@@ -287,7 +279,7 @@ same compound pattern.
 
 _Examples:_
 
-```erlang
+```
 1> fun(#{Key := Value} = #{key := Key}) -> Value end.
 * 1:7: variable 'Key' is unbound
 2> F = fun({A, B} = E) -> {E, A + B} end, F({1,2}).
@@ -302,7 +294,7 @@ are applied in sequence, they will be evaluated from right to left.
 
 _Examples:_
 
-```erlang
+```
 1> M = #{key => key2, key2 => value}.
 #{key => key2,key2 => value}
 2> f(Key), #{Key := Value} = #{key := Key} = M, Value.
@@ -334,15 +326,13 @@ same time, and the variable `Key` is therefore not bound when matching against
 pattern `#{Key := Value}`.
 
 In the expression at prompt _5>_ the expressions inside the
-[block expression](expressions.md#block_expressions) are evaluated first,
+[block expression](expressions.md#block-expressions) are evaluated first,
 binding variable `Y` and creating a binary. The binary is then matched against
 pattern `<<X:Y>>` using the value of `Y` as the size of the segment.
 
-[](){: #calls }
-
 ## Function Calls
 
-```text
+```
 ExprF(Expr1,...,ExprN)
 ExprM:ExprF(Expr1,...,ExprN)
 ```
@@ -354,7 +344,7 @@ This is often referred to as a _remote_ or _external function call_.
 
 _Example:_
 
-```text
+```
 lists:keysearch(Name, 1, List)
 ```
 
@@ -370,14 +360,14 @@ imported BIF.
 
 _Examples:_
 
-```erlang
+```
 handle(Msg, State)
 spawn(m, init, [])
 ```
 
 _Examples_ where `ExprF` is a fun:
 
-```erlang
+```
 1> Fun1 = fun(X) -> X+1 end,
 Fun1(3).
 4
@@ -416,7 +406,7 @@ your code, you either need to explicitly remove the auto-import using a compiler
 directive, or replace the call with a fully qualified function call. Otherwise
 you get a compilation error. See the following example:
 
-```erlang
+```
 -export([length/1,f/1]).
 
 -compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
@@ -435,7 +425,7 @@ The same logic applies to explicitly imported functions from other modules, as
 to locally defined functions. It is not allowed to both import a function from
 another module and have the function declared in the module at the same time:
 
-```erlang
+```
 -export([f/1]).
 
 -compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
@@ -459,7 +449,7 @@ qualified function name.
 
 ## If
 
-```erlang
+```
 if
     GuardSeq1 ->
         Body1;
@@ -481,7 +471,7 @@ that guard sequence is always true.
 
 _Example:_
 
-```erlang
+```
 is_greater_than(X, Y) ->
     if
         X>Y ->
@@ -491,11 +481,9 @@ is_greater_than(X, Y) ->
     end
 ```
 
-[](){: #case }
-
 ## Case
 
-```erlang
+```
 case Expr of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -516,7 +504,7 @@ run-time error occurs.
 
 _Example:_
 
-```erlang
+```
 is_valid_signal(Signal) ->
     case Signal of
         {signal, _What, _From, _To} ->
@@ -528,8 +516,6 @@ is_valid_signal(Signal) ->
     end.
 ```
 
-[](){: #maybe }
-
 ## Maybe
 
 > #### Change {: .info }
@@ -539,7 +525,7 @@ is_valid_signal(Signal) ->
 > either use the `-feature(maybe_expr,enable)` directive (from within source
 > code), or the compiler option `{feature,maybe_expr,enable}`.
 
-```erlang
+```
 maybe
     Expr1,
     ...,
@@ -552,7 +538,7 @@ expressions are evaluated successfully, the return value of the `maybe` block is
 `ExprN`. However, execution can be short-circuited by a conditional match
 expression:
 
-```erlang
+```
 Expr1 ?= Expr2
 ```
 
@@ -569,7 +555,7 @@ follows the block.
 
 Here is an example:
 
-```erlang
+```
 maybe
     {ok, A} ?= a(),
     true = A >= 0,
@@ -593,7 +579,7 @@ expression fails to match the pattern.
 
 The example can be written in a less succient way using nested case expressions:
 
-```erlang
+```
 case a() of
     {ok, A} ->
         true = A >= 0,
@@ -610,7 +596,7 @@ end
 
 The `maybe` block can be augmented with `else` clauses:
 
-```erlang
+```
 maybe
     Expr1,
     ...,
@@ -639,7 +625,7 @@ code that follows the `maybe` block.
 
 Here is the previous example augmented with a `else` clauses:
 
-```erlang
+```
 maybe
     {ok, A} ?= a(),
     true = A >= 0,
@@ -655,11 +641,9 @@ The `else` clauses translate the failing value from the conditional match
 operators to the value `error`. If the failing value is not one of the
 recognized values, a `else_clause` run-time error occurs.
 
-[](){: #send }
-
 ## Send
 
-```text
+```
 Expr1 ! Expr2
 ```
 
@@ -679,11 +663,9 @@ also an atom.
 - Distributed message sending, that is, if `Expr1` evaluates to a tuple
   `{Name,Node}` (or a pid located at another node), also never fails.
 
-[](){: #receive }
-
 ## Receive
 
-```erlang
+```
 receive
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -711,7 +693,7 @@ sequence.
 
 _Example:_
 
-```erlang
+```
 wait_for_onhook() ->
     receive
         onhook ->
@@ -725,7 +707,7 @@ wait_for_onhook() ->
 
 The `receive` expression can be augmented with a timeout:
 
-```erlang
+```
 receive
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -752,7 +734,7 @@ values that are calculated at runtime.
 
 _Example:_
 
-```erlang
+```
 wait_for_onhook() ->
     receive
         onhook ->
@@ -770,7 +752,7 @@ wait_for_onhook() ->
 
 It is legal to use a `receive..after` expression with no branches:
 
-```text
+```
 receive
 after
     ExprT ->
@@ -783,7 +765,7 @@ process for `ExprT` milliseconds. This can be used to implement simple timers.
 
 _Example:_
 
-```erlang
+```
 timer() ->
     spawn(m, timer, [self()]).
 
@@ -797,7 +779,7 @@ timer(Pid) ->
 
 ## Term Comparisons
 
-```text
+```
 Expr1 op Expr2
 ```
 
@@ -868,7 +850,7 @@ Term comparison operators return the Boolean value of the expression, `true` or
 
 _Examples:_
 
-```text
+```
 1> 1==1.0.
 true
 2> 1=:=1.0.
@@ -907,7 +889,7 @@ false
 
 ## Arithmetic Expressions
 
-```text
+```
 op Expr
 Expr1 op Expr2
 ```
@@ -933,7 +915,7 @@ _Table: Arithmetic Operators._
 
 _Examples:_
 
-```text
+```
 1> +1.
 1
 2> -1.
@@ -962,7 +944,7 @@ _Examples:_
 
 ## Boolean Expressions
 
-```text
+```
 op Expr
 Expr1 op Expr2
 ```
@@ -978,7 +960,7 @@ _Table: Logical Operators._
 
 _Examples:_
 
-```text
+```
 1> not true.
 false
 2> true and false.
@@ -993,7 +975,7 @@ true
 
 ## Short-Circuit Expressions
 
-```text
+```
 Expr1 orelse Expr2
 Expr1 andalso Expr2
 ```
@@ -1011,7 +993,7 @@ Returns either the value of `Expr1` (that is, `true` or `false`) or the value of
 
 _Example 1:_
 
-```text
+```
 case A >= -1.0 andalso math:sqrt(A+1) > B of
 ```
 
@@ -1020,7 +1002,7 @@ never evaluated.
 
 _Example 2:_
 
-```erlang
+```
 OnlyOne = is_atom(L) orelse
          (is_list(L) andalso length(L) == 1),
 ```
@@ -1030,7 +1012,7 @@ OnlyOne = is_atom(L) orelse
 
 _Example 3 (tail-recursive function):_
 
-```erlang
+```
 all(Pred, [Hd|Tail]) ->
     Pred(Hd) andalso all(Pred, Tail);
 all(_, []) ->
@@ -1044,7 +1026,7 @@ all(_, []) ->
 
 ## List Operations
 
-```text
+```
 Expr1 ++ Expr2
 Expr1 -- Expr2
 ```
@@ -1058,14 +1040,12 @@ the first occurrence of this element (if any) is removed.
 
 _Example:_
 
-```erlang
+```
 1> [1,2,3]++[4,5].
 [1,2,3,4,5]
 2> [1,2,3,2,1,2]--[2,1,2].
 [3,1,2]
 ```
-
-[](){: #map_expressions }
 
 ## Map Expressions
 
@@ -1074,20 +1054,20 @@ _Example:_
 Constructing a new map is done by letting an expression `K` be associated with
 another expression `V`:
 
-```text
+```
 #{ K => V }
 ```
 
 New maps can include multiple associations at construction by listing every
 association:
 
-```text
+```
 #{ K1 => V1, .., Kn => Vn }
 ```
 
 An empty map is constructed by not associating any terms with each other:
 
-```text
+```
 #{}
 ```
 
@@ -1099,7 +1079,7 @@ by a comma `,`.
 
 _Examples:_
 
-```erlang
+```
 M0 = #{},                 % empty map
 M1 = #{a => <<"hello">>}, % single association with literals
 M2 = #{1 => 2, b => b},   % multiple associations with literals
@@ -1114,7 +1094,7 @@ If two matching keys are declared, the latter key takes precedence.
 
 _Example:_
 
-```text
+```
 1> #{1 => a, 1 => b}.
 #{1 => b }
 2> #{1.0 => a, 1 => b}.
@@ -1133,7 +1113,7 @@ Updating a map has a similar syntax as constructing it.
 An expression defining the map to be updated, is put in front of the expression
 defining the keys to be updated and their respective values:
 
-```text
+```
 M#{ K => V }
 ```
 
@@ -1150,7 +1130,7 @@ If `M` is not of type map, an exception of type `badmap` is thrown.
 
 To only update an existing value, the following syntax is used:
 
-```text
+```
 M#{ K := V }
 ```
 
@@ -1166,7 +1146,7 @@ If `M` is not of type map, an exception of type `badmap` is thrown.
 
 _Examples:_
 
-```erlang
+```
 M0 = #{},
 M1 = M0#{a => 0},
 M2 = M1#{a => 1, b => 2},
@@ -1178,7 +1158,7 @@ Here `M0` is any map. It follows that `M1 .. M4` are maps as well.
 
 _More examples:_
 
-```erlang
+```
 1> M = #{1 => a}.
 #{1 => a }
 2> M#{1.0 => b}.
@@ -1198,12 +1178,12 @@ case, the latter value is used.
 
 Matching of key-value associations from maps is done as follows:
 
-```erlang
+```
 #{ K := V } = M
 ```
 
 Here `M` is any map. The key `K` must be a
-[guard expression](expressions.md#guard_expressions), with all variables already
+[guard expression](expressions.md#guard-expressions), with all variables already
 bound. `V` can be any pattern with either bound or unbound variables.
 
 If the variable `V` is unbound, it becomes bound to the value associated with
@@ -1217,7 +1197,7 @@ must match the value associated with `K` in `M`.
 
 _Example:_
 
-```erlang
+```
 1> M = #{"tuple" => {1,2}}.
 #{"tuple" => {1,2}}
 2> #{"tuple" := {1,B}} = M.
@@ -1230,7 +1210,7 @@ This binds variable `B` to integer `2`.
 
 Similarly, multiple values from the map can be matched:
 
-```erlang
+```
 #{ K1 := V1, .., Kn := Vn } = M
 ```
 
@@ -1255,14 +1235,14 @@ The order in which keys are declared in matching has no relevance.
 Duplicate keys are allowed in matching and match each pattern associated to the
 keys:
 
-```erlang
+```
 #{ K := V1, K := V2 } = M
 ```
 
 Matching an expression against an empty map literal, matches its type but no
 variables are bound:
 
-```text
+```
 #{} = Expr
 ```
 
@@ -1271,7 +1251,7 @@ fails with an exception `badmatch`.
 
 Here the key to be retrieved is constructed from an expression:
 
-```erlang
+```
 #{{tag,length(List)} := V} = Map
 ```
 
@@ -1281,7 +1261,7 @@ Here the key to be retrieved is constructed from an expression:
 
 Matching of literals as keys are allowed in function heads:
 
-```erlang
+```
 %% only start if not_started
 handle_call(start, From, #{ state := not_started } = S) ->
 ...
@@ -1305,14 +1285,12 @@ The following guard BIFs handle maps:
 - [map_get/2](`erlang:map_get/2`) in the `erlang` module
 - [map_size/1](`erlang:map_size/1`) in the `erlang` module
 
-[](){: #bit_syntax }
-
 ## Bit Syntax Expressions
 
 The bit syntax operates on _bit strings_. A bit string is a sequence of bits
 ordered from the most significant bit to the least significant bit.
 
-```text
+```
 <<>>  % The empty bit string, zero length
 <<E1>>
 <<E1,...,En>>
@@ -1325,7 +1303,7 @@ of the bit string.
 Each segment specification `Ei` is a value, followed by an optional _size
 expression_ and an optional _type specifier list_.
 
-```text
+```
 Ei = Value |
      Value:Size |
      Value/TypeSpecifierList |
@@ -1346,7 +1324,7 @@ When used in a bit string construction, `Size` is an expression that is to
 evaluate to an integer.
 
 When used in a bit string matching, `Size` must be a
-[guard expression](expressions.md#guard_expressions) that evaluates to an
+[guard expression](expressions.md#guard-expressions) that evaluates to an
 integer. All variables in the guard expression must be already bound.
 
 > #### Change {: .info }
@@ -1375,7 +1353,7 @@ which is the most common and useful type of bit string.
 A binary has a canonical representation in memory. Here follows a sequence of
 bytes where each byte's value is its sequence number:
 
-```text
+```
 <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>
 ```
 
@@ -1384,7 +1362,7 @@ information about binaries apply just as well for bit strings.
 
 **Example:**
 
-```text
+```
 1> <<A/binary, B/binary>> = <<"abcde">>.
 * 1:3: a binary field without size is only allowed at the end of a binary pattern
 2> <<A:3/binary, B/binary>> = <<"abcde">>.
@@ -1416,7 +1394,7 @@ hyphens (-). Default values are used for any omitted type specifiers.
   matters when the Type is either `integer`, `utf16`, `utf32`, or `float`. The
   default is `big`.
 
-  ```text
+  ```
   <<16#1234:16/little>> = <<16#3412:16>> = <<16#34:8, 16#12:8>>
   ```
 
@@ -1461,7 +1439,7 @@ the unit value for the segment; otherwise an exception is raised.
 
 For example, the following examples all succeed:
 
-```erlang
+```
 1> <<(<<"abc">>)/bitstring>>.
 <<"abc">>
 2> <<(<<"abc">>)/binary-unit:1>>.
@@ -1476,14 +1454,14 @@ segment has a unit value of 8.
 Attempting to interpolate a bit string of size 1 into a binary segment with unit
 8 (the default unit for `binary`) fails as shown in this example:
 
-```text
+```
 1> <<(<<1:1>>)/binary>>.
 ** exception error: bad argument
 ```
 
 For the construction to succeed, the unit value of the segment must be 1:
 
-```text
+```
 2> <<(<<1:1>>)/bitstring>>.
 <<1:1>>
 3> <<(<<1:1>>)/binary-unit:1>>.
@@ -1494,7 +1472,7 @@ Similarly, when matching a binary segment with no size specified, the match
 succeeds if and only if the size in bits of the rest of the binary is evenly
 divisible by the unit value:
 
-```erlang
+```
 1> <<_/binary-unit:16>> = <<"">>.
 <<>>
 2> <<_/binary-unit:16>> = <<"a">>.
@@ -1515,7 +1493,7 @@ constructed binary must be at least as large as the size of the binary segment.
 
 **Examples:**
 
-```text
+```
 1> <<(<<"abc">>):2/binary>>.
 <<"ab">>
 2> <<(<<"a">>):2/binary>>.
@@ -1559,7 +1537,7 @@ is outside the legal ranges previously mentioned.
 
 _Examples:_
 
-```erlang
+```
 1> Bin1 = <<1,17,42>>.
 <<1,17,42>>
 2> Bin2 = <<"abc">>.
@@ -1602,11 +1580,9 @@ error. The correct way is to write a space after '=': "`B = <<1>>`.
 
 More examples are provided in [Programming Examples](`e:system:bit_syntax.md`).
 
-[](){: #funs }
-
 ## Fun Expressions
 
-```erlang
+```
 fun
     [Name](Pattern11,...,Pattern1N) [when GuardSeq1] ->
               Body1;
@@ -1618,8 +1594,8 @@ end
 
 A fun expression begins with the keyword `fun` and ends with the keyword `end`.
 Between them is to be a function declaration, similar to a
-[regular function declaration](ref_man_functions.md#syntax), except that the
-function name is optional and is to be a variable, if any.
+[regular function declaration](ref_man_functions.md#function-declaration-syntax),
+except that the function name is optional and is to be a variable, if any.
 
 Variables in a fun head shadow the function name and both shadow variables in
 the function clause surrounding the fun expression. Variables bound in a fun
@@ -1629,7 +1605,7 @@ The return value of the expression is the resulting fun.
 
 _Examples:_
 
-```erlang
+```
 1> Fun1 = fun (X) -> X+1 end.
 #Fun<erl_eval.6.39074546>
 2> Fun1(2).
@@ -1646,7 +1622,7 @@ gt
 
 The following fun expressions are also allowed:
 
-```text
+```
 fun Name/Arity
 fun Module:Name/Arity
 ```
@@ -1654,7 +1630,7 @@ fun Module:Name/Arity
 In `Name/Arity`, `Name` is an atom and `Arity` is an integer. `Name/Arity` must
 specify an existing local function. The expression is syntactic sugar for:
 
-```text
+```
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end
 ```
 
@@ -1671,11 +1647,9 @@ code for the module in which it is defined.
 
 More examples are provided in [Programming Examples](`e:system:funs.md`).
 
-[](){: #catch }
-
 ## Catch and Throw
 
-```text
+```
 catch Expr
 ```
 
@@ -1696,7 +1670,7 @@ recent function calls, see [Exit Reasons](errors.md#exit_reasons).
 
 _Examples:_
 
-```text
+```
 1> catch 1+2.
 3
 2> catch 1+a.
@@ -1708,7 +1682,7 @@ function. It must be evaluated within a `catch`, which returns the value `Any`.
 
 _Example:_
 
-```text
+```
 3> catch throw(hello).
 hello
 ```
@@ -1721,7 +1695,7 @@ error occurs.
 > Before Erlang/OTP 24, the `catch` operator had the lowest precedence, making
 > it necessary to add parentheses when combining it with the `match` operator:
 >
-> ```text
+> ```
 > 1> A = (catch 42).
 > 42
 > 2> A.
@@ -1730,18 +1704,16 @@ error occurs.
 >
 > Starting from Erlang/OTP 24, the parentheses can be omitted:
 >
-> ```text
+> ```
 > 1> A = catch 42.
 > 42
 > 2> A.
 > 42
 > ```
 
-[](){: #try }
-
 ## Try
 
-```text
+```
 try Exprs
 catch
     Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
@@ -1751,7 +1723,7 @@ catch
 end
 ```
 
-This is an enhancement of [catch](expressions.md#catch). It gives the
+This is an enhancement of [catch](expressions.md#catch-and-throw). It gives the
 possibility to:
 
 - Distinguish between different exception classes.
@@ -1783,7 +1755,7 @@ If an exception occurs during evaluation of `ExceptionBody`, it is not caught.
 It is allowed to omit `Class` and `Stacktrace`. An omitted `Class` is shorthand
 for `throw`:
 
-```text
+```
 try Exprs
 catch
     ExceptionPattern1 [when ExceptionGuardSeq1] ->
@@ -1795,7 +1767,7 @@ end
 
 The `try` expression can have an `of` section:
 
-```erlang
+```
 try Exprs of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -1823,7 +1795,7 @@ not caught.
 The `try` expression can also be augmented with an `after` section, intended to
 be used for cleanup with side effects:
 
-```erlang
+```
 try Exprs of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -1859,7 +1831,7 @@ The `of`, `catch`, and `after` sections are all optional, as long as there is at
 least a `catch` or an `after` section. So the following are valid `try`
 expressions:
 
-```text
+```
 try Exprs of
     Pattern when GuardSeq ->
         Body
@@ -1882,7 +1854,7 @@ Next is an example of using `after`. This closes the file, even in the event of
 exceptions in `file:read/2` or in [`binary_to_term/1`](`binary_to_term/1`). The
 exceptions are the same as without the `try`...`after`...`end` expression:
 
-```erlang
+```
 termize_file(Name) ->
     {ok,F} = file:open(Name, [read,binary]),
     try
@@ -1895,7 +1867,7 @@ termize_file(Name) ->
 
 Next is an example of using `try` to emulate `catch Expr`:
 
-```text
+```
 try Expr
 catch
     throw:Term -> Term;
@@ -1923,7 +1895,7 @@ Variables bound in the `after` section are unsafe after the whole construct.
 
 ## Parenthesized Expressions
 
-```text
+```
 (Expr)
 ```
 
@@ -1931,18 +1903,16 @@ Parenthesized expressions are useful to override
 [operator precedences](expressions.md#prec), for example, in arithmetic
 expressions:
 
-```text
+```
 1> 1 + 2 * 3.
 7
 2> (1 + 2) * 3.
 9
 ```
 
-[](){: #block_expressions }
-
 ## Block Expressions
 
-```text
+```
 begin
    Expr1,
    ...,
@@ -1963,7 +1933,7 @@ depending on the type of term they build.
 
 List comprehensions construct lists. They have the following syntax:
 
-```text
+```
 [Expr || Qualifier1, . . ., QualifierN]
 ```
 
@@ -1973,7 +1943,7 @@ Here, `Expr` is an arbitrary expression, and each `Qualifier` is either a
 Bit string comprehensions construct bit strings or binaries. They have the
 following syntax:
 
-```text
+```
 << BitStringExpr || Qualifier1, . . ., QualifierN >>
 ```
 
@@ -1983,7 +1953,7 @@ following syntax:
 
 Map comprehensions construct maps. They have the following syntax:
 
-```text
+```
 #{KeyExpr => ValueExpr || Qualifier1, . . ., QualifierN}
 ```
 
@@ -1998,7 +1968,7 @@ There are three kinds of generators.
 
 A _list generator_ has the following syntax:
 
-```text
+```
 Pattern <- ListExpr
 ```
 
@@ -2006,7 +1976,7 @@ where `ListExpr` is an expression that evaluates to a list of terms.
 
 A _bit string generator_ has the following syntax:
 
-```text
+```
 BitstringPattern <= BitStringExpr
 ```
 
@@ -2014,7 +1984,7 @@ where `BitStringExpr` is an expression that evaluates to a bit string.
 
 A _map generator_ has the following syntax:
 
-```text
+```
 KeyPattern := ValuePattern <- MapExpression
 ```
 
@@ -2029,7 +1999,7 @@ including variables bound in a previous generator pattern.
 Variables bound in a generator expression are not visible outside the
 expression:
 
-```erlang
+```
 1> [{E,L} || E <- L=[1,2,3]].
 * 1:5: variable 'L' is unbound
 ```
@@ -2051,63 +2021,63 @@ occurrence is stored in the map.
 
 Multiplying each element in a list by two:
 
-```text
+```
 1> [X*2 || X <- [1,2,3]].
 [2,4,6]
 ```
 
 Multiplying each byte in a binary by two, returning a list:
 
-```text
+```
 1> [X*2 || <<X>> <= <<1,2,3>>].
 [2,4,6]
 ```
 
 Multiplying each byte in a binary by two:
 
-```text
+```
 1> << <<(X*2)>> || <<X>> <= <<1,2,3>> >>.
 <<2,4,6>>
 ```
 
 Multiplying each element in a list by two, returning a binary:
 
-```text
+```
 1> << <<(X*2)>> || X <- [1,2,3] >>.
 <<2,4,6>>
 ```
 
 Creating a mapping from an integer to its square:
 
-```erlang
+```
 1> #{X => X*X || X <- [1,2,3]}.
 #{1 => 1,2 => 4,3 => 9}
 ```
 
 Multiplying the value of each element in a map by two:
 
-```erlang
+```
 1> #{K => 2*V || K := V <- #{a => 1,b => 2,c => 3}}.
 #{a => 2,b => 4,c => 6}
 ```
 
 Filtering a list, keeping odd numbers:
 
-```erlang
+```
 1> [X || X <- [1,2,3,4,5], X rem 2 =:= 1].
 [1,3,5]
 ```
 
 Filtering a list, keeping only elements that match:
 
-```erlang
+```
 1> [X || {_,_}=X <- [{a,b}, [a], {x,y,z}, {1,2}]].
 [{a,b},{1,2}]
 ```
 
 Combining elements from two list generators:
 
-```erlang
+```
 1> [{P,Q} || P <- [a,b,c], Q <- [1,2]].
 [{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
 ```
@@ -2122,7 +2092,7 @@ or a term constructed from no elements (that is, `[]` for list comprehension,
 
 _Example:_
 
-```text
+```
 1> [2 || is_integer(2)].
 [2]
 2> [x || is_integer(x)].
@@ -2132,7 +2102,7 @@ _Example:_
 What happens when the filter expression does not evaluate to a boolean value
 depends on the expression:
 
-- If the expression is a [guard expression](expressions.md#guard_expressions),
+- If the expression is a [guard expression](expressions.md#guard-expressions),
   failure to evaluate or evaluating to a non-boolean value is equivalent to
   evaluating to `false`.
 - If the expression is not a guard expression and evaluates to a non-Boolean
@@ -2142,7 +2112,7 @@ depends on the expression:
 
 **Examples** (using a guard expression as filter):
 
-```erlang
+```
 1> List = [1,2,a,b,c,3,4].
 [1,2,a,b,c,3,4]
 2> [E || E <- List, E rem 2].
@@ -2153,7 +2123,7 @@ depends on the expression:
 
 **Examples** (using a non-guard expression as filter):
 
-```erlang
+```
 1> List = [1,2,a,b,c,3,4].
 [1,2,a,b,c,3,4]
 2> FaultyIsEven = fun(E) -> E rem 2 end.
@@ -2184,8 +2154,6 @@ A _guard_ is a sequence of guard expressions, separated by comma (,). The guard
 is true if all guard expressions evaluate to `true`.
 
 `GuardExpr1,...,GuardExprN`
-
-[](){: #guard_expressions }
 
 ## Guard Expressions
 
@@ -2296,9 +2264,9 @@ _Table: Operator Precedence_
 > #### Note {: .info }
 >
 > The `=` operator in the table is the
-> [match operator](expressions.md#match_operator). The character `=` can also
+> [match operator](expressions.md#the-match-operator). The character `=` can also
 > denote the
-> [compound pattern operator](expressions.md#compound_pattern_operator), which
+> [compound pattern operator](expressions.md#the-compound-pattern-operator), which
 > can only be used in patterns.
 >
 > `?=` is restricted in that it can only be used at the top-level inside a
@@ -2313,7 +2281,7 @@ _Examples:_
 
 The left-associative arithmetic operators are evaluated left to right:
 
-```text
+```
 6 + 5 * 4 - 3 / 2 evaluates to
 6 + 20 - 1.5 evaluates to
 26 - 1.5 evaluates to
@@ -2322,7 +2290,7 @@ The left-associative arithmetic operators are evaluated left to right:
 
 The non-associative operators cannot be combined:
 
-```text
+```
 1> 1 < X < 10.
 * 1:7: syntax error before: '<'
 ```

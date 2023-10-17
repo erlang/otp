@@ -46,41 +46,6 @@ The arities for the the callback functions here assume no extra arguments. All
 functions will also be passed any extra arguments configured with the callback
 module itself when calling `diameter:start_service/2` and, for the call-specific
 callbacks, any extra arguments passed to `diameter:call/4`.
-
-## DATA TYPES
-
-- **`capabilities() = #diameter_caps{}`{: #capabilities }** - A record
-  containing the identities of the local Diameter node and the remote Diameter
-  peer having an established transport connection, as well as the capabilities
-  as determined by capabilities exchange. Each field of the record is a 2-tuple
-  consisting of values for the (local) host and (remote) peer. Optional or
-  possibly multiple values are encoded as lists of values, mandatory values as
-  the bare value.
-
-- **`message() = `[`diameter_codec:message()`](`m:diameter_codec#message`)** -
-  The representation of a Diameter message as passed to `diameter:call/4` or
-  returned from a `c:handle_request/3` callback.
-
-- **`packet() = `[`diameter_codec:packet()`](`m:diameter_codec#packet`)** - A
-  container for incoming and outgoing Diameter messages that's passed through
-  encode/decode and transport. Fields should not be set in return values except
-  as documented.
-
-- **`peer_ref() = term()`{: #peer_ref }** - A term identifying a transport
-  connection with a Diameter peer.
-
-- **`peer() = {`[`peer_ref()`](`m:diameter_app#peer_ref`)`, `[`capabilities()`](`m:diameter_app#capabilities`)`}`{:
-  #peer }** - A tuple representing a Diameter peer connection.
-
-- **`state() = term()`{: #state }** - The state maintained by the application
-  callback functions `c:peer_up/3`, `c:peer_down/3` and (optionally)
-  `c:pick_peer/4`. The initial state is configured in the call to
-  `diameter:start_service/2` that configures the application on a service.
-  Callback functions returning a state are evaluated in a common
-  service-specific process while those not returning state are evaluated in a
-  request-specific process.
-
-[](){: #peer_up }
 """.
 -moduledoc(#{since => "OTP R14B03"}).
 
@@ -91,11 +56,39 @@ callbacks, any extra arguments passed to `diameter:call/4`.
 
 -include_lib("diameter/include/diameter.hrl").
 
--type peer_ref() :: term().
+-doc """
+  A record containing the identities of the local Diameter node and the remote Diameter
+  peer having an established transport connection, as well as the capabilities
+  as determined by capabilities exchange. Each field of the record is a 2-tuple
+  consisting of values for the (local) host and (remote) peer. Optional or
+  possibly multiple values are encoded as lists of values, mandatory values as
+  the bare value.
+  """.
 -type capabilities() :: #diameter_caps{}.
+-doc "A term identifying a transport connection with a Diameter peer.".
+-type peer_ref() :: term().
+-doc "A tuple representing a Diameter peer connection.".
 -type peer() :: {peer_ref(), capabilities()}.
+-doc """
+  A container for incoming and outgoing Diameter messages that's passed through
+  encode/decode and transport. Fields should not be set in return values except
+  as documented.
+  """.
 -type packet() :: diameter_codec:packet().
+-doc """
+  The state maintained by the application
+  callback functions `c:peer_up/3`, `c:peer_down/3` and (optionally)
+  `c:pick_peer/4`. The initial state is configured in the call to
+  `diameter:start_service/2` that configures the application on a service.
+  Callback functions returning a state are evaluated in a common
+  service-specific process while those not returning state are evaluated in a
+  request-specific process.
+  """.
 -type state() :: term().
+-doc """
+  The representation of a Diameter message as passed to `diameter:call/4` or
+  returned from a `c:handle_request/3` callback.
+  """.
 -type message() :: diameter_codec:message().
 
 -doc """
@@ -106,7 +99,7 @@ header of the incoming request message, the selected module being the one whose
 corresponding dictionary declares itself as defining either the application in
 question or the Relay application.
 
-The argument [packet()](`m:diameter_app#packet`) has the following signature.
+The argument [packet()](`t:packet/0`) has the following signature.
 
 ```erlang
 #diameter_packet{header = #diameter_header{},
@@ -133,14 +126,14 @@ list is empty if the request has been received in the relay application.
 The `transport_data` field contains an arbitrary term passed into diameter from
 the transport module in question, or the atom `undefined` if the transport
 specified no data. The term is preserved if a
-[message()](`m:diameter_app#message`) is returned but must be set explicitly in
-a returned [packet()](`m:diameter_app#packet`).
+[message()](`t:message/0`) is returned but must be set explicitly in
+a returned [packet()](`t:packet/0`).
 
 The semantics of each of the possible return values are as follows.
 
-- **`{reply, `[`packet()`](`m:diameter_app#packet`)`|`[`message()`](`m:diameter_app#message`)`}`** -
+- **`{reply, `[`packet()`](`t:packet/0`)`|`[`message()`](`t:message/0`)`}`** -
   Send the specified answer message to the peer. In the case of a
-  [packet()](`m:diameter_app#packet`), the message to be sent must be set in the
+  [packet()](`t:packet/0`), the message to be sent must be set in the
   `msg` field and the `header` field can be set to a `#diameter_header{}` to
   specify values that should be preserved in the outgoing answer, appropriate
   values otherwise being set by diameter.
@@ -164,7 +157,7 @@ The semantics of each of the possible return values are as follows.
 
   When returning 5xxx, Failed-AVP will be populated with the AVP of the first
   matching Result-Code/AVP pair in the `errors` field of the argument
-  [packet()](`m:diameter_app#packet`), if found. If this is not appropriate then
+  [packet()](`t:packet/0`), if found. If this is not appropriate then
   an answer-message should be constructed explicitly and returned in a `reply`
   tuple instead.
 
@@ -178,7 +171,7 @@ The semantics of each of the possible return values are as follows.
 
   The returned `Opts` should not specify `detach`. A subsequent
   `c:handle_answer/4` callback for the relayed request must return its first
-  argument, the [packet()](`m:diameter_app#packet`) containing the answer
+  argument, the [packet()](`t:packet/0`) containing the answer
   message. Note that the `extra` option can be specified to supply arguments
   that can distinguish the relay case from others if so desired. Any other
   return value (for example, from a `c:handle_error/4` callback) causes the
@@ -243,7 +236,7 @@ Invoked when an answer message is received from a peer. The return value is
 returned from `diameter:call/4` unless the `detach` option was specified.
 
 The decoded answer record and undecoded binary are in the `msg` and `bin` fields
-of the argument [packet()](`m:diameter_app#packet`) respectively. `Request` is
+of the argument [packet()](`t:packet/0`) respectively. `Request` is
 the outgoing request message as was returned from `c:prepare_request/3` or
 `c:prepare_retransmit/3`.
 
@@ -270,7 +263,7 @@ be set to change this behaviour.
 -doc """
 Invoked to return a request for encoding and retransmission. Has the same role
 as `c:prepare_request/3` in the case that a peer connection is lost an an
-alternate peer selected but the argument [packet()](`m:diameter_app#packet`) is
+alternate peer selected but the argument [packet()](`t:packet/0`) is
 as returned by the initial `c:prepare_request/3`.
 
 Returning `{discard, Reason}` causes the request to be aborted and a
@@ -293,13 +286,13 @@ Invoked to return a request for encoding and transport. Allows the sender to use
 the selected peer's capabilities to modify the outgoing request. Many
 implementations may simply want to return `{send, Packet}`
 
-A returned [packet()](`m:diameter_app#packet`) should set the request to be
+A returned [packet()](`t:packet/0`) should set the request to be
 encoded in its `msg` field and can set the `transport_data` field in order to
 pass information to the transport process. Extra arguments passed to
 `diameter:call/4` can be used to communicate transport (or any other) data to
 the callback.
 
-A returned [packet()](`m:diameter_app#packet`) can set the `header` field to a
+A returned [packet()](`t:packet/0`) can set the `header` field to a
 `#diameter_header{}` to specify values that should be preserved in the outgoing
 request, values otherwise being those in the header record contained in
 `Packet`. A returned `length`, `cmd_code` or `application_id` is ignored.

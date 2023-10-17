@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Configuring algorithms in SSH
 
-[](){: #introduction }
-
 ## Introduction
 
 To fully understand how to configure the algorithms, it is essential to have a
