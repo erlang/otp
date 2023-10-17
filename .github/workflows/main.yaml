@@ -101,7 +101,7 @@ jobs:
           list-files: shell
       - name: Restore from cache
         env:
-            NO_CACHE: ${{ steps.cache.outputs.no-cache }}
+            NO_CACHE: ${{ steps.cache.outputs.no-cache || steps.cache.outputs.deleted_count > 20 }}
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
             EVENT: ${{ github.event_name }}
