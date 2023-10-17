@@ -8,6 +8,13 @@ B ::= CHOICE {
   c  S
 }
 
+Bext ::= CHOICE {
+  a  INTEGER,
+  b  SEQUENCE {aa  INTEGER, ba  INTEGER},
+  ...,
+  c  S
+}
+
 S ::= SEQUENCE {
   a  BOOLEAN,
   b  BOOLEAN
@@ -25,5 +32,15 @@ D ::= SEQUENCE {
   a  INTEGER,
   b  BOOLEAN
 }
+
+SeqChoice ::= SEQUENCE {
+  c  CHOICE {
+        b BOOLEAN,
+        i INTEGER,
+        s VisibleString
+     },
+  d  OCTET STRING
+}
+
 
 END

@@ -1,2 +1,7 @@
-{exclusive_decode,{'PartialDecSeq3',
-	[{decode_S1_incomplete,['S1',[{b,[{c,parts}]},{c,[{a,parts}]},{d,parts}]]}]}}.
+%% -*- erlang -*-
+{exclusive_decode,
+ {'PartialDecSeq3',
+  [{decode_S1_incomplete,['S1',[{b,[{c,parts}]},{c,[{a,parts}]},{d,parts}]]},
+   {decode_S1_b_incomplete,['S1',[{b,undecoded}]]},
+   {decode_S3_second,['S3',[{second,undecoded}]]}
+  ]}}.

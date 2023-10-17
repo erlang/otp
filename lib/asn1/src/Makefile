@@ -66,6 +66,7 @@ CT_MODULES= \
 	asn1ct_tok \
 	asn1ct_parser2 \
 	asn1ct_table \
+	asn1ct_partial_decode \
 	$(EVAL_CT_MODULES)
 
 RT_MODULES= \

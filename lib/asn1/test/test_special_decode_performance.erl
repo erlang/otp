@@ -120,7 +120,7 @@ loop2(Mod,FS,Bin,N) ->
 
 get_selective_funcs('PartialDecSeq') ->
 %    [selected_decode_F1,selected_decode_F2,selected_decode_F3,selected_decode_F4];
-    [selected_decode_F1,selected_decode_F3,selected_decode_F4];
+    [selected_decode_F1_1,selected_decode_F3,selected_decode_F4];
 get_selective_funcs('MEDIA-GATEWAY-CONTROL') ->
     [decode_MegacoMessage_selective].
 

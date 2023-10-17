@@ -965,11 +965,15 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecSeq2.asn",
                                "PartialDecSeq3.asn",
                                "PartialDecMyHTTP.asn",
-                               "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record",
-                               "PartialDecChoExtension.asn"],
+                               "PartialDecChoExtension.asn",
+                               "OCSP-2013-88.asn1",
+                               "PKIX1Explicit88.asn1"],
                               Config,
-			      [Rule,legacy_erlang_types,asn1config|Opts]),
+			      [Rule,asn1config|Opts]),
+    asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn",
+                          Config,
+                          [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 

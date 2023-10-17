@@ -1,4 +1,15 @@
-%{partial_decode,{{module,'Seq2'},['F',fb,b,[1],a]}}.
-{exclusive_decode,{'PartialDecSeq2',
-	[{decode_A_c_b_incomplete,['A',[{c,[{a,undecoded},{b,undecoded}]}]]},
-	 {decode_D_incomplete,['D',[{a,undecoded}]]}]}}.
+%% -*- erlang -*-
+{exclusive_decode,
+ {'PartialDecSeq2',
+  [{decode_A_a_incomplete,['A',[{a,undecoded}]]},
+   {decode_A_c_b_incomplete,['A',[{c,[{a,undecoded},{b,undecoded}]}]]},
+   {decode_D_incomplete,['D',[{a,undecoded}]]},
+   {decode_Bext_c_incomplete,['Bext',[{c,undecoded}]]},
+   {decode_Bext_c_b_incomplete,['Bext',[{c,[{b,undecoded}]}]]},
+   {decode_SeqChoice_c_b_d_incomplete,
+    ['SeqChoice',[{c,[{b,undecoded}]},
+                  {d,undecoded}]]},
+   {decode_SeqChoice_c_bis_incomplete,
+    ['SeqChoice',
+     [{c,[{b,undecoded},{i,undecoded},{s,undecoded}]}]]}
+  ]}}.
