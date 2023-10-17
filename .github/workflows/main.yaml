@@ -104,13 +104,12 @@ jobs:
             NO_CACHE: ${{ steps.cache.outputs.no-cache }}
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
+            EVENT: ${{ github.event_name }}
+            DELETED: ${{ steps.cache.outputs.deleted_files }}
         run: |
             .github/scripts/restore-from-prebuilt.sh "`pwd`" \
               "`pwd`/.github/otp.tar.gz" \
-              "`pwd`/otp_archive.tar.gz" \
-              '${{ github.event_name }}' \
-              '${{ steps.cache.outputs.deleted_files }}' \
-              '${{ steps.changes.outputs.changes }}'
+              "`pwd`/otp_archive.tar.gz"
       - name: Upload restored cache
         uses: actions/upload-artifact@v3.1.3
         if: runner.debug == 1

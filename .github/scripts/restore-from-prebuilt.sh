@@ -1,5 +1,5 @@
 #!/bin/bash
-## restore-from-prebuilt.sh CACHE_SRC_DIR TARGET [ARCHIVE] [EVENT] [DELETED] [CHANGES]
+## restore-from-prebuilt.sh CACHE_SRC_DIR TARGET [ARCHIVE]
 ##
 ## This script attempts to restore as much as possible from a previous
 ## CI run so that we don't have to build everything all the time.
@@ -14,17 +14,20 @@
 ## The archives above are then processed and placed into a new ${TARGET} archive.
 ##
 ## When running this script using the contents of a previous CI run you also have
-## to pass the EVENT, DELETED and CHANGES arguments so that the correct parts of
-## otp_src and otp_cache can be deleted.
+## to set the NO_CACHE, BOOTSTRAP, CONFIGURE, EVENT and DELETED environment
+## variables so that the correct parts of otp_src and otp_cache can be deleted.
+##
+##  * NO_CACHE - Don't use cache at all. Set if .github has changed or too many files have changed.
+##  * BOOTSTRAP - Don't cache any beam files. Set if bootstrap has changed.
+##  * CONFIGURE - Don't use any native cached. Set if configure has changed.
+##  * DELETED - Which files have been deleted and should therefore be deleted in the cache.
+##  * EVENT - The github event that triggered the change, currently unused.
 
 set -xe
 
 CACHE_SOURCE_DIR="$1"
 TARGET="$2"
 ARCHIVE="$3"
-EVENT="$4"
-DELETED="$5"
-CHANGES="$6"
 
 if [ ! -f "${CACHE_SOURCE_DIR}/otp_src.tar.gz" ] || [ "${NO_CACHE}" = "true" ]; then
     cp "${ARCHIVE}" "${TARGET}"
