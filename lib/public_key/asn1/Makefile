@@ -90,7 +90,7 @@ $(ESRC)/%.erl $(ESRC)/%.hrl: %.set.asn
 	$(asn_verbose)erlc $(ASN_FLAGS) -o $(ESRC) $<
 
 $(INCLUDE)/%.hrl: $(ESRC)/%.hrl
-	$(gen_verbose)cp -p $<  $@
+	$(gen_verbose)cp -p $< $@
 
 # ----------------------------------------------------
 # Release Target
@@ -114,20 +114,20 @@ release_docs_spec:
 # Dependencies
 
 $(EBIN)/OTP-PUB-KEY.beam: 	$(ESRC)/OTP-PUB-KEY.erl $(INCLUDE)/OTP-PUB-KEY.hrl
-OTP-PUB-KEY.erl OTP-PUB-KEY.hrl:	OTP-PUB-KEY.asn1db
-OTP-PUB-KEY.asn1db:		PKIX1Algorithms88.asn1 \
-				PKIX1Explicit88.asn1 \
-				PKIX1Implicit88.asn1 \
-				PKIXAttributeCertificate.asn1 \
-				PKCS-1.asn1\
-				PKCS-3.asn1\
-		                PKCS-7.asn1\
-				PKCS-10.asn1\
-				InformationFramework.asn1\
-				OTP-PKIX.asn1 \
-				RFC5639.asn1
+$(ESRC)/OTP-PUB-KEY.asn1db $(ESRC)/OTP-PUB-KEY.erl $(INCLUDE)/OTP-PUB-KEY.hrl: \
+	PKIX1Algorithms88.asn1 \
+	PKIX1Explicit88.asn1 \
+	PKIX1Implicit88.asn1 \
+	PKIXAttributeCertificate.asn1 \
+	PKCS-1.asn1 \
+	PKCS-3.asn1 \
+	PKCS-7.asn1 \
+	PKCS-10.asn1 \
+	InformationFramework.asn1 \
+	OTP-PKIX.asn1 \
+	RFC5639.asn1
 
-$(EBIN)/PKCS-FRAME.beam: 	        $(ESRC)/PKCS-FRAME.erl $(INCLUDE)/PKCS-FRAME.hrl
-PKCS-FRAME.erl PKCS-FRAME.hrl:		PKCS-FRAME.asn1db
-PKCS-FRAME.asn1db:			PKCS5v2-0.asn1\
-					PKCS-8.asn1\
+$(EBIN)/PKCS-FRAME.beam: 	$(ESRC)/PKCS-FRAME.erl $(INCLUDE)/PKCS-FRAME.hrl
+$(ESRC)/PKCS-FRAME.erl $(INCLUDE)/PKCS-FRAME.hrl $(ESRC)/PKCS-FRAME.asn1db: \
+	PKCS5v2-0.asn1 \
+	PKCS-8.asn1
