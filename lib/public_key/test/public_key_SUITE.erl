@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -export([
          suite/0,
@@ -97,6 +98,8 @@
          pkix_path_validation_root_expired/1,
          pkix_ext_key_usage/0,
          pkix_ext_key_usage/1,
+         pkix_path_validation_bad_date/0,
+         pkix_path_validation_bad_date/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -159,6 +162,7 @@ all() ->
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_ext_key_usage,
+     pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
@@ -193,9 +197,9 @@ groups() ->
 init_per_suite(Config) ->
     application:stop(crypto),
     try crypto:start() of
-	ok ->
-	    application:start(asn1),
-	    Config
+        ok ->
+            application:start(asn1),
+            Config
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -965,6 +969,37 @@ pkix_ext_key_usage(Config) when is_list(Config) ->
     {error, {bad_cert, invalid_ext_key_usage}} = public_key:pkix_path_validation(SRoot, [SICA, SPeer], []),
 
     {ok, _} = public_key:pkix_path_validation(CRoot, [CICA, CPeer], []).
+
+pkix_path_validation_bad_date() ->
+    [{doc, "Ensure bad date formats in `validity` are handled gracefully by verify fun"}].
+pkix_path_validation_bad_date(Config) when is_list(Config) ->
+    % Load PEM certchain from file
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok, Bin} = file:read_file(filename:join(DataDir,"bad_date_certchain.pem")),
+
+    % Decode and extract raw der encoded certificates
+    CertificateList = public_key:pem_decode(Bin),
+    [Root | CertificateChain] = lists:map(fun({'Certificate', Der, _}) -> Der end, CertificateList),
+
+    % First test error `invalid_validity_dates` being returned correctly without `verify_fun` override
+    {error, {bad_cert, invalid_validity_dates}} = public_key:pkix_path_validation(Root, CertificateChain, []),
+
+    % Then test no exception thrown if verify_fun function traps the date error
+    {ok, _} = public_key:pkix_path_validation(Root, CertificateChain, [
+       {verify_fun, % This is the same as ?DEFAULT_VERIFYFUN, but it handles `invalid_validity_dates` gracefully.
+            {fun
+                % Test if we can successfully override `invalid_validity_dates`
+                (_, {bad_cert, invalid_validity_dates}, UserState) ->
+                    {valid, UserState};
+                (_,{extension, _}, UserState) ->
+		            {unknown, UserState};
+                (_, valid_peer, UserState) ->
+				    {valid, UserState};
+                (_, valid, UserState) ->
+                    {valid, UserState}
+            end, []}
+        }
+    ]).
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:

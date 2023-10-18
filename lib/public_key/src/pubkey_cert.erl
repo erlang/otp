@@ -148,19 +148,47 @@ validate_policy_tree(OtpCert,
 %% current time.
 %%--------------------------------------------------------------------
 validate_time(OtpCert, UserState, VerifyFun) ->
+    % Parse and check validity of the certificate dates, and if it fails, invoke `verify_fun` to
+    % hand over control to the caller in order to decide what to do.
+    case parse_and_check_validity_dates(OtpCert) of
+        expired ->
+            % Certificate has correctly formatted dates but it's expired
+            verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun);
+        error ->
+            % Certificate has incorrectly formatted dates, attempt to delegate decision to app function
+            verify_fun(OtpCert, {bad_cert, invalid_validity_dates}, UserState, VerifyFun);
+        % Validation succeded and certificate is not expired, no new state needed
+        ok ->
+            UserState
+    end.
+
+-spec parse_and_check_validity_dates(#'OTPCertificate'{}) -> ok | expired | error.
+%%
+%% Description: Determines if the passed certificate consains correctly
+%% formatted dates in the validity field. If so, it checks if the certificate
+%% is not expired. Otherwise, it returns error.
+%%--------------------------------------------------------------------
+parse_and_check_validity_dates(OtpCert) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     {'Validity', NotBeforeStr, NotAfterStr}
 	= TBSCert#'OTPTBSCertificate'.validity,
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
-    NotBefore = time_str_2_gregorian_sec(notBefore, NotBeforeStr),
-    NotAfter = time_str_2_gregorian_sec(notAfter, NotAfterStr),
+    try
+        NotBefore = time_str_2_gregorian_sec(notBefore, NotBeforeStr),
+        NotAfter = time_str_2_gregorian_sec(notAfter, NotAfterStr),
+        
+        % Expiration check
+        if
+            ((NotBefore =< Now) and (Now =< NotAfter)) -> ok;
+            true -> expired
+        end
 
-    case ((NotBefore =< Now) and (Now =< NotAfter)) of
-	true ->
-	    UserState;
-	false ->
-	    verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun)
+        % "error:function_clause" is thrown by time_str_2_gregorian_sec if the date format is not valid
+        % verify_fun only throws exceptions        
+    catch error:function_clause -> 
+        error
     end.
+
 %%--------------------------------------------------------------------
 -spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term() | no_return().
 %%
