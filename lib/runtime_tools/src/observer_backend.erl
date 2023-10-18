@@ -169,11 +169,21 @@ get_mnesia_loop(Parent, {Match, Cont}) ->
 
 get_port_list() ->
     ExtraItems = [monitors,monitored_by,parallelism,locking,queue_size,memory],
-    [begin
-	 [{port_id,P}|erlang:port_info(P)] ++
-             port_info(P,ExtraItems) ++
-             inet_port_extra(erlang:port_info(P, name), P)
-     end || P <- erlang:ports()].
+    PortInfo =
+        fun(P, Acc) ->
+                case erlang:port_info(P) of
+                    undefined ->
+                        Acc;
+                    Info ->
+                        [
+                         [{port_id,P}|Info] ++
+                             port_info(P,ExtraItems) ++
+                             inet_port_extra(erlang:port_info(P, name), P)
+                        | Acc ]
+                end
+        end,
+    PIs = lists:foldl(PortInfo, [], erlang:ports()),
+    lists:reverse(PIs).
 
 port_info(P,[Item|Items]) ->
     case erlang:port_info(P,Item) of
