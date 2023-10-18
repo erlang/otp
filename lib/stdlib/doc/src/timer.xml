@@ -70,6 +70,31 @@
 
   <funcs>
     <func>
+      <name name="apply_after" arity="2" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, [])</c>
+        after a specified <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+          []])</c> after <c><anno>Time</anno></c> milliseconds.</p>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_after" arity="3" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, Arguments)</c>
+        after a specified <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+          <anno>Arguments</anno>])</c> after <c><anno>Time</anno></c>
+          milliseconds.</p>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="apply_after" arity="4" since=""/>
       <fsummary>Spawn a process evaluating <c>Module:Function(Arguments)</c>
         after a specified <c>Time</c>.</fsummary>
@@ -77,6 +102,34 @@
         <p>Evaluates <c>spawn(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Arguments</anno>)</c> after <c><anno>Time</anno></c>
           milliseconds.</p>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_interval" arity="2" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, [])</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+          []])</c> repeatedly at intervals of
+          <c><anno>Time</anno></c>, irrespective of whether a previously
+          spawned process has finished or not.</p>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_interval" arity="3" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, Arguments)</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+	  <anno>Arguments</anno>])</c> repeatedly at intervals of
+          <c><anno>Time</anno></c>, irrespective of whether a previously
+          spawned process has finished or not.</p>
         <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
           <c>{error, <anno>Reason</anno>}</c>.</p>
       </desc>
@@ -106,6 +159,34 @@
             <seeguide marker="system/efficiency_guide:advanced#system-limits">System
             Limits section in the Effiency Guide</seeguide>).</p>
         </warning>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_repeatedly" arity="2" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, [])</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+          []])</c> repeatedly at intervals of
+          <c><anno>Time</anno></c>, waiting for the spawned process to
+          finish before starting the next.</p>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_repeatedly" arity="3" since="OTP @OTP-18808@"/>
+      <fsummary>Spawn a process evaluating <c>erlang:apply(Function, Arguments)</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(erlang, apply, [<anno>Function</anno>,
+          <anno>Arguments</anno>])</c> repeatedly at intervals of
+          <c><anno>Time</anno></c>, waiting for the spawned process to
+          finish before starting the next.</p>
         <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
           <c>{error, <anno>Reason</anno>}</c>.</p>
       </desc>
@@ -405,22 +486,76 @@ timer:cancel(R),
 
     <p>An interval timer, that is, a timer created by evaluating any of the
       functions
+      <seemfa marker="#apply_interval/2"><c>apply_interval/2</c></seemfa>,
+      <seemfa marker="#apply_interval/3"><c>apply_interval/3</c></seemfa>,
       <seemfa marker="#apply_interval/4"><c>apply_interval/4</c></seemfa>,
-      <seemfa marker="#send_interval/3"><c>send_interval/3</c></seemfa>, and
-      <seemfa marker="#send_interval/2"><c>send_interval/2</c></seemfa>
+      <seemfa marker="#apply_repeatedly/2"><c>apply_repeatedly/2</c></seemfa>,
+      <seemfa marker="#apply_repeatedly/3"><c>apply_repeatedly/3</c></seemfa>,
+      <seemfa marker="#apply_repeatedly/4"><c>apply_repeatedly/4</c></seemfa>,
+      <seemfa marker="#send_interval/2"><c>send_interval/2</c></seemfa>, and
+      <seemfa marker="#send_interval/3"><c>send_interval/3</c></seemfa>
       is linked to the process to which the timer performs its task.</p>
 
     <p>A one-shot timer, that is, a timer created by evaluating any of the
       functions
+      <seemfa marker="#apply_after/2"><c>apply_after/2</c></seemfa>,
+      <seemfa marker="#apply_after/3"><c>apply_after/3</c></seemfa>,
       <seemfa marker="#apply_after/4"><c>apply_after/4</c></seemfa>,
-      <seemfa marker="#send_after/3"><c>send_after/3</c></seemfa>,
       <seemfa marker="#send_after/2"><c>send_after/2</c></seemfa>,
-      <seemfa marker="#exit_after/3"><c>exit_after/3</c></seemfa>,
+      <seemfa marker="#send_after/3"><c>send_after/3</c></seemfa>,
       <seemfa marker="#exit_after/2"><c>exit_after/2</c></seemfa>,
-      <seemfa marker="#kill_after/2"><c>kill_after/2</c></seemfa>, and
-      <seemfa marker="#kill_after/1"><c>kill_after/1</c></seemfa>
+      <seemfa marker="#exit_after/3"><c>exit_after/3</c></seemfa>,
+      <seemfa marker="#kill_after/1"><c>kill_after/1</c></seemfa>, and
+      <seemfa marker="#kill_after/2"><c>kill_after/2</c></seemfa>
       is not linked to any process. Hence, such a timer is removed only
       when it reaches its time-out, or if it is explicitly removed by a call to
       <seemfa marker="#cancel/1"><c>cancel/1</c></seemfa>.</p>
+
+    <p>The functions given to 
+      <seemfa marker="#apply_after/2"><c>apply_after/2</c></seemfa>,
+      <seemfa marker="#apply_after/3"><c>apply_after/3</c></seemfa>,
+      <seemfa marker="#apply_interval/2"><c>apply_interval/2</c></seemfa>,
+      <seemfa marker="#apply_interval/3"><c>apply_interval/3</c></seemfa>,
+      <seemfa marker="#apply_repeatedly/2"><c>apply_repeatedly/2</c></seemfa>, and
+      <seemfa marker="#apply_repeatedly/3"><c>apply_repeatedly/3</c></seemfa>,
+      or denoted by <c>Module</c>, <c>Function</c> and <c>Arguments</c> given to
+      <seemfa marker="#apply_after/4"><c>apply_after/4</c></seemfa>,
+      <seemfa marker="#apply_interval/4"><c>apply_interval/4</c></seemfa>, and
+      <seemfa marker="#apply_repeatedly/4"><c>apply_repeatedly/4</c></seemfa>
+      are executed in a freshly-spawned process, and therefore calls to <c>self()</c>
+      in those functions will return the Pid of this process, which is different
+      from the process that called <c>timer:apply_*</c>.</p>
+    <p><em>Example</em></p>
+    <p>In the following example, the intention is to set a timer to execute a
+      function after 1 second, which performs a fictional task, and then wants
+      to inform the process which set the timer about its completion, by sending
+      it a <c>done</c> message.</p>
+    <p>Using <c>self()</c> <em>inside</em> the timed function, the code below does
+      not work as intended. The task gets done, but the <c>done</c> message gets
+      sent to the wrong process and is lost.</p>
+    <pre>
+1> <input>timer:apply_after(1000, fun() -> do_something(), self() ! done end).</input>
+{ok,TRef}
+2> <input>receive done -> done after 5000 -> timeout end.</input>
+%% ... 5s pass...
+timeout</pre>
+    <p>The code below calls <c>self()</c> in the process which sets the timer and
+      assigns it to a variable, which is then used in the function to send the
+      <c>done</c> message to, and so works as intended.</p>
+    <pre>
+1> <input>Target = self()</input>
+&lt;0.82.0&gt;
+2> <input>timer:apply_after(1000, fun() -> do_something(), Target ! done end).</input>
+{ok,TRef}
+3> <input>receive done -> done after 5000 -> timeout end.</input>
+%% ... 1s passes...
+done</pre>
+    <p>Another option is to pass the message target as a parameter to the function.</p>
+    <pre>
+1> <input>timer:apply_after(1000, fun(Target) -> do_something(), Target ! done end, [self()]).</input>
+{ok,TRef}
+2> <input>receive done -> done after 5000 -> timeout end.</input>
+%% ... 1s passes...
+done</pre>
   </section>
 </erlref>
