@@ -96,18 +96,18 @@
     %%
     %% One per unique request to the PORT program.
     %% Clients are registered in req_clients, multiple per RID.
-    %% ETS set of {RID,{Op,Proto,Data}=OPD}
+    %% ETS set of {RID,{Op,Proto,Data}=Req}
     requests,
     %%
     %% One per request as the above,
     %% but for reverse lookup to find duplicate requests.
-    %% ETS set of {{Op,Proto,Data}=OPD,RID}
+    %% ETS set of {{Op,Proto,Data}=Req,RID}
     req_index,
     %%
     %% One per requesting client for RID.
     %% When the request succeeds we can take all clients with key RID.
     %% When a request times out we can remove just that object from the bag.
-    %% ETS bag of {RID,ClientPid,ClientRef,TimerRef}
+    %% ETS bag of {RID,ClientHandle,TimerRef}
     req_clients,
     %%
     parent,    % The supervisor bridge
@@ -152,23 +152,26 @@ terminate(_Reason, Pid) ->
 run_once() ->
     Port = do_open_port(get_poolsize(), get_extra_args()),
     Timeout = ?REQUEST_TIMEOUT,
-    {Pid, R, Request} = 
+    RID = 1,
+    {ClientHandle, Request} =
 	receive
-	    {{Pid0,R0}, {?OP_GETHOSTBYNAME, Proto0, Name0}} ->
-		{Pid0, R0, 
-		 [<<1:32, ?OP_GETHOSTBYNAME:8, Proto0:8>>,Name0,0]};
-	    {{Pid1,R1}, {?OP_GETHOSTBYADDR, Proto1, Data1}}  ->
-		{Pid1, R1, 
-		 <<1:32, ?OP_GETHOSTBYADDR:8, Proto1:8, Data1/binary>>}
+	    {ReqH, {?OP_GETHOSTBYNAME, Proto0, Name0}}
+              when is_reference(ReqH) ->
+		{ReqH,
+                 [<<RID:32, ?OP_GETHOSTBYNAME:8, Proto0:8>>,Name0,0]};
+	    {ReqH, {?OP_GETHOSTBYADDR, Proto1, Data1}}
+              when is_reference(ReqH) ->
+		{ReqH,
+                 <<RID:32, ?OP_GETHOSTBYADDR:8, Proto1:8, Data1/binary>>}
 	after Timeout ->
 		exit(normal)
 	end,
-    (catch port_command(Port, Request)),
+    _ = catch port_command(Port, Request),
     receive
-	{Port, {data, <<1:32, BinReply/binary>>}} ->
-	    Pid ! {R, {ok, BinReply}}
+	{Port, {data, <<RID:32, BinReply/binary>>}} ->
+	    ClientHandle ! {ClientHandle, {ok, BinReply}}
     after Timeout ->
-	    Pid ! {R, {error, timeout}}
+	    ClientHandle ! {ClientHandle, {error, timeout}}
     end.
 
 %%-----------------------------------------------------------------------
@@ -211,30 +214,30 @@ main_loop(State) ->
 	    handle_message(Any,State)
     end.
 
-handle_message({{Pid,Ref}, {?OP_GETHOSTBYNAME, Proto, Name} = R}, State)
-  when is_pid(Pid) ->
+handle_message({ClientHandle, {?OP_GETHOSTBYNAME, Proto, Name} = Req}, State)
+  when is_reference(ClientHandle) ->
     do_handle_call(
-      R, Pid, Ref, [<<?OP_GETHOSTBYNAME:8, Proto:8>>, Name,0], State),
+      ClientHandle, Req, [<<?OP_GETHOSTBYNAME:8, Proto:8>>, Name,0], State),
     main_loop(State);
 
-handle_message({{Pid,Ref}, {?OP_GETHOSTBYADDR, Proto, Data} = R}, State)
-  when is_pid(Pid) ->
+handle_message({ClientHandle, {?OP_GETHOSTBYADDR, Proto, Data} = Req}, State)
+  when is_reference(ClientHandle) ->
     do_handle_call(
-      R, Pid, Ref, <<?OP_GETHOSTBYADDR:8, Proto:8, Data/binary>>, State),
+      ClientHandle, Req, <<?OP_GETHOSTBYADDR:8, Proto:8, Data/binary>>, State),
     main_loop(State);
 
-handle_message({{Pid,Ref}, {?OP_CONTROL, Ctl, Data}}, State)
-  when is_pid(Pid) ->
+handle_message({ClientHandle, {?OP_CONTROL, Ctl, Data}}, State)
+  when is_reference(ClientHandle) ->
     _ = catch port_command(
                 State#state.port,
                 <<?INVALID_SERIAL:32, ?OP_CONTROL:8, Ctl:8, Data/binary>>),
-    Pid ! {Ref, ok},
+    ClientHandle ! {ClientHandle, ok},
     main_loop(State);
 
-handle_message({{Pid,Ref}, restart_port}, State)
-  when is_pid(Pid) ->
+handle_message({ClientHandle, restart_port}, State)
+  when is_reference(ClientHandle) ->
     NewPort=restart_port(State),
-    Pid ! {Ref, ok},
+    ClientHandle ! {ClientHandle, ok},
     main_loop(State#state{port=NewPort});
 
 handle_message({Port, {data, Data}}, State = #state{port = Port}) ->
@@ -250,15 +253,15 @@ handle_message({Port, {data, Data}}, State = #state{port = Port}) ->
                             [] ->
                                 %% We must have cancelled this request
                                 State;
-                            [{_,OPD}] ->
+                            [{_,Req}] ->
                                 %% Clean up the request and reply to clients
                                 ets:delete(State#state.requests, RID),
-                                ets:delete(State#state.req_index, OPD),
+                                ets:delete(State#state.req_index, Req),
                                 lists:foreach(
-                                  fun ({_,ClientPid,ClientRef,TimerRef}) ->
+                                  fun ({_,ClientHandle,TimerRef}) ->
                                           _ = ?CANCEL_TIMER(TimerRef),
-                                          ClientPid !
-                                              {ClientRef,{ok,BinReply}}
+                                          ClientHandle !
+                                              {ClientHandle, {ok,BinReply}}
                                   end,
                                   ets:take(State#state.req_clients, RID)),
                                 put(num_requests,get(num_requests) - 1),
@@ -286,12 +289,12 @@ handle_message({Port,eof}, State = #state{port = Port}) ->
     NewPort=restart_port(State),
     main_loop(State#state{port=NewPort});
 
-handle_message({timeout,RID,ClientPid,ClientRef}, State) ->
-    ClientReqMS = {RID,ClientPid,ClientRef,'_'},
+handle_message({timeout,RID,ClientHandle}, State) ->
+    ClientReqMS = {RID,ClientHandle,'_'},
     case ets:match_object(State#state.req_clients, ClientReqMS) of
         [ClientReq] ->
             ets:delete_object(State#state.req_clients, ClientReq),
-            ClientPid ! {ClientRef,{error,timeout}},
+            ClientHandle ! {ClientHandle, {error,timeout}},
             case ets:member(State#state.req_clients, RID) of
                 true ->
                     %% There are still waiting clients
@@ -299,9 +302,9 @@ handle_message({timeout,RID,ClientPid,ClientRef}, State) ->
                 false ->
                     %% The last client timed out - cancel the request
                     case ets:lookup(State#state.requests, RID) of
-                        [{_,OPD}] ->
+                        [{_,Req}] ->
                             ets:delete(State#state.requests,RID),
-                            ets:delete(State#state.req_index,OPD),
+                            ets:delete(State#state.req_index,Req),
                             put(num_requests,get(num_requests) - 1),
                             %% Also cancel the request to the port program...
                             _ = catch port_command(
@@ -325,19 +328,19 @@ handle_message(_, State) -> % Stray messages from dying ports etc.
     main_loop(State).
 
 
-do_handle_call(OPD, ClientPid, ClientRef, RData, State) ->
-    case ets:lookup(State#state.req_index, OPD) of
+do_handle_call(ClientHandle, Req, RData, State) ->
+    case ets:lookup(State#state.req_index, Req) of
         [{_,RID}] ->
             ok;
         [] ->
             RID = get_rid(),
             _ = catch port_command(State#state.port, [<<RID:32>>|RData]),
-            ets:insert(State#state.requests, {RID,OPD}),
-            ets:insert(State#state.req_index, {OPD,RID})
+            ets:insert(State#state.requests, {RID,Req}),
+            ets:insert(State#state.req_index, {Req,RID})
     end,
-    TimerMsg = {timeout,RID,ClientPid,ClientRef},
+    TimerMsg = {timeout,RID,ClientHandle},
     TimerRef = ?SEND_AFTER(State#state.timeout, self(), TimerMsg),
-    ClientReq = {RID,ClientPid,ClientRef,TimerRef},
+    ClientReq = {RID,ClientHandle,TimerRef},
     ets:insert(State#state.req_clients, ClientReq),
     ok.
 
@@ -485,26 +488,15 @@ getit(Op, Proto, Data, DefaultName) ->
 
 getit(Req, DefaultName) ->
     Pid = ensure_started(),
-    Ref = make_ref(),
-    Pid ! {{self(),Ref}, Req},
+    ReqHandle = monitor(process, Pid, [{alias,reply_demonitor}]),
+    Pid ! {ReqHandle, Req},
     receive
-	{Ref, {ok,BinHostent}} ->
-	    parse_address(BinHostent, DefaultName);
-	{Ref, Result} ->
-	    Result
-    after 5000 ->
-	    Ref2 = erlang:monitor(process,Pid),
-	    Res2 = receive
-		       {Ref, {ok,BinHostent}} ->
-			   parse_address(BinHostent, DefaultName);
-		       {Ref, Result} ->
-			   Result;
-		       {'DOWN', Ref2, process, 
-			Pid, Reason} ->
-			   {error, Reason}
-		   end,
-	    catch erlang:demonitor(Ref2, [flush]),
-	    Res2
+        {ReqHandle, {ok,BinHostent}} ->
+            parse_address(BinHostent, DefaultName);
+        {ReqHandle, Result} ->
+            Result;
+        {'DOWN', ReqHandle, process, _, Reason} ->
+            {error, Reason}
     end.
 
 ensure_started() ->
