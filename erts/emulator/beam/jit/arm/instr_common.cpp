@@ -515,6 +515,56 @@ void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
     mov_arg(Dst, Src);
 }
 
+void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
+                                             const ArgRegister &Dst1,
+                                             const ArgYRegister &Src2,
+                                             const ArgRegister &Dst2,
+                                             const ArgWord &Words) {
+    auto dst1 = init_destination(Dst1, TMP1);
+    auto dst2 = init_destination(Dst2, TMP2);
+    arm::Mem mem = getArgRef(Src1);
+    Sint trim = Words.get() * sizeof(Eterm);
+    auto src_index = Src1.as<ArgYRegister>().get();
+
+    ASSERT(ArgVal::memory_relation(Src1, Src2) ==
+           ArgVal::Relation::consecutive);
+
+    if (src_index == 0 && Support::isInt9(trim)) {
+        /* Combine fetching of y0 and y1 with trimming. */
+        mem = arm::Mem(E).post(trim);
+        a.ldp(dst1.reg, dst2.reg, mem);
+        dst1 = init_destination(Dst1.trimmed(Words.get()), TMP1);
+        dst2 = init_destination(Dst2.trimmed(Words.get()), TMP2);
+        flush_vars(dst1, dst2);
+    } else {
+        safe_ldp(dst1.reg, dst2.reg, Src1, Src2);
+
+        /* Try to combine trimming with storing to one of destination
+         * registers. */
+
+        if (Dst1.isYRegister() &&
+            Dst1.as<ArgYRegister>().get() == Words.get() &&
+            Support::isInt9(trim)) {
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            flush_var(dst2);
+            a.str(dst1.reg, dst_ref);
+        } else if (Dst2.isYRegister() &&
+                   Dst2.as<ArgYRegister>().get() == Words.get() &&
+                   Support::isInt9(trim)) {
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            flush_var(dst1);
+            a.str(dst2.reg, dst_ref);
+        } else {
+            flush_vars(dst1, dst2);
+
+            ASSERT(Words.get() <= 1023);
+            if (Words.get() > 0) {
+                add(E, E, Words.get() * sizeof(Eterm));
+            }
+        }
+    }
+}
+
 void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
                                          const ArgRegister &Dst,
                                          const ArgWord &Words) {
@@ -525,16 +575,9 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
         auto src_index = Src.as<ArgYRegister>().get();
         if (src_index == 0 && Support::isInt9(trim)) {
             const arm::Mem src_ref = arm::Mem(E).post(trim);
-            if (Dst.isXRegister()) {
-                auto dst = init_destination(Dst, TMP1);
-                a.ldr(dst.reg, src_ref);
-                flush_var(dst);
-            } else {
-                auto dst_index = Dst.as<ArgYRegister>().get() - Words.get();
-                auto dst = init_destination(ArgYRegister(dst_index), TMP1);
-                a.ldr(dst.reg, src_ref);
-                flush_var(dst);
-            }
+            auto dst = init_destination(Dst.trimmed(Words.get()), TMP1);
+            a.ldr(dst.reg, src_ref);
+            flush_var(dst);
 
             return;
         }
