@@ -62,7 +62,7 @@ load() ->
         {unix, netbsd} ->
             load_from_file(bsd_paths());
         {unix, sunos} ->
-            load_from_files(sunos_path());
+            load_from_files(sunos_paths());
         {win32, _} ->
             load_win32();
 	{unix, darwin} ->
@@ -169,8 +169,10 @@ bsd_paths() ->
      "/etc/openssl/certs/ca-certificates.crt"
     ].
 
-sunos_path() ->
-    "/etc/certs/CA/".
+sunos_paths() ->
+    ["/etc/certs/CA/", %% Oracle Solaris, some older illumos distros
+     "/etc/ssl/cacert.pem" %% OmniOS
+    ].
 
 run_cmd(Cmd, Args) ->
     Opts = [binary, exit_status, stderr_to_stdout],
