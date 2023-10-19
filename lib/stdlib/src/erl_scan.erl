@@ -917,22 +917,27 @@ scan_string(Cs, St, Line, Col, Toks, SigilType) ->
 %% For triple-quoted strings it is hardcoded in scan_string/6
 %% and scan_tqstring_lines/8 to look for $".
 %%
+-compile({inline,[string_right_delimiter/1]}).
 string_right_delimiter(C) ->
     case C of
-        $( -> $);
-        $[ -> $];
-        ${ -> $};
-        $< -> $>;
-        _ when
-              C =:= $/;
-              C =:= $|;
-              C =:= $'; %'
-              C =:= $"  %"
-              ->
-            C;
-        _ ->
-            undefined
+        $" -> $";
+        _  -> undefined
     end.
+%%%     case C of
+%%%         $( -> $);
+%%%         $[ -> $];
+%%%         ${ -> $};
+%%%         $< -> $>;
+%%%         _ when
+%%%               C =:= $/;
+%%%               C =:= $|;
+%%%               C =:= $'; %'
+%%%               C =:= $"  %"
+%%%               ->
+%%%             C;
+%%%         _ ->
+%%%             undefined
+%%%     end.
 
 -record(tqs, % Triple-quoted String state
         {line,                  % Line number of first quote character
