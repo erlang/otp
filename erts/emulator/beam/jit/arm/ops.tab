@@ -809,8 +809,8 @@ bif_is_lt s s d
 # Internal calls.
 #
 
-i_move S=y==0 Dst | call_last Ar P D => move_call_last S Dst P D
-i_move S=y==0 Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
+i_move S=y Dst | call_last Ar P D => move_call_last S Dst P D
+i_move S=y Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
 
 move_call_last y d f t
 move_call_ext_last y d e t
