@@ -19,13 +19,7 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: 0 1 * * *
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+      - cron: 0 1 * * *
 
 ## We cancel any multiple runs from PRs, while runs from tags/branches are allowed
 concurrency:
@@ -425,22 +419,6 @@ jobs:
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-      - name: Release ex-docs to publish
-        run: |
-          mkdir ex-docs
-          docker run -v $PWD/ex-docs:/github otp \
-            'PATH=$(pwd)/bin:$PATH make ex-docs && cp -r docs/* /github/'
-            sudo chown -R `whoami` ex-docs
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          # Upload entire repository
-          path: 'ex-docs'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
       ## Documentation checks
       - name: Run xmllint
         run: docker run otp "make xmllint"
