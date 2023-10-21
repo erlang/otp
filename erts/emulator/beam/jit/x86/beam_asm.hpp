@@ -855,30 +855,6 @@ protected:
         }
     }
 
-    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based on their
-     * tags alone. (They may still be equal if both are immediates and all other
-     * bits are equal too.) */
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1, x86::Gp Reg2) {
-        ASSERT(Reg1 != RET && Reg2 != RET);
-        emit_is_unequal_based_on_tags(Reg1, Reg2, RET);
-    }
-
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1,
-                                       x86::Gp Reg2,
-                                       const x86::Gp &spill) {
-        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
-        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
-                       TAG_PRIMARY_IMMED1);
-        a.mov(RETd, Reg1.r32());
-        a.or_(RETd, Reg2.r32());
-        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-
-        /* RET will be now be TAG_PRIMARY_IMMED1 if either one or both
-         * registers are immediates, or if one register is a list and the other
-         * a boxed. */
-        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
-    }
-
     /*
      * Generate the shortest instruction for setting a register to an immediate
      * value. May clear flags.
@@ -1615,6 +1591,56 @@ protected:
             mov_arg(to, spill);
         } else {
             mov_arg(getArgRef(to), from);
+        }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
+     * on their tags alone. (They may still be equal if both are
+     * immediates and all other bits are equal too.)
+     *
+     * Clobbers RET.
+     */
+    void emit_is_unequal_based_on_tags(Label Unequal,
+                                       const ArgVal &Src1,
+                                       x86::Gp Reg1,
+                                       const ArgVal &Src2,
+                                       x86::Gp Reg2,
+                                       Distance dist = dLong) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2, dist);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1, dist);
+        } else {
+            a.mov(RETd, Reg1.r32());
+            a.or_(RETd, Reg2.r32());
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, RET, dist);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, RET, dist);
+            } else {
+                a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+
+                /* RET will now be TAG_PRIMARY_IMMED1 if either one or
+                 * both registers are immediates, or if one register
+                 * is a list and the other a boxed. */
+                a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+                if (dist == dShort) {
+                    a.short_().je(Unequal);
+                } else {
+                    a.je(Unequal);
+                }
+            }
         }
     }
 };

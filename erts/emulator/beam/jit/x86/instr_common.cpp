@@ -1433,18 +1433,13 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         a.jne(resolve_beam_label(Fail));
     } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
-    } else if (Y.isLiteral()) {
-        /* Fail immediately unless X is the same type of pointer as
-         * the literal Y.
-         */
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
-        a.test(ARG1.r8(), imm(tag_test));
-        a.jne(resolve_beam_label(Fail));
     } else {
         /* Fail immediately if the pointer tags are not equal. */
-        emit_is_unequal_based_on_tags(ARG1, ARG2);
-        a.je(resolve_beam_label(Fail));
+        emit_is_unequal_based_on_tags(resolve_beam_label(Fail),
+                                      X,
+                                      ARG1,
+                                      Y,
+                                      ARG2);
     }
 
     /* Both operands are pointers having the same tag. Must do a
@@ -1493,27 +1488,13 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         a.short_().jne(next);
     } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
-    } else if (Y.isLiteral()) {
-        /* Succeed immediately if X is not the same type of pointer as
-         * the literal Y.
-         */
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
-        a.test(ARG1.r8(), imm(tag_test));
-#ifdef JIT_HARD_DEBUG
-        a.jne(next);
-#else
-        a.short_().jne(next);
-#endif
     } else {
         /* Test whether the terms are definitely unequal based on the tags
          * alone. */
-        emit_is_unequal_based_on_tags(ARG1, ARG2);
-
 #ifdef JIT_HARD_DEBUG
-        a.je(next);
+        emit_is_unequal_based_on_tags(next, X, ARG1, Y, ARG2);
 #else
-        a.short_().je(next);
+        emit_is_unequal_based_on_tags(next, X, ARG1, Y, ARG2, dShort);
 #endif
     }
 

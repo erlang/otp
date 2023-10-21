@@ -1775,6 +1775,49 @@ protected:
             a.ldp(gp1, gp2, arm::Mem(SUPER_TMP));
         }
     }
+
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
+     * on their tags alone. (They may still be equal if both are
+     * immediates and all other bits are equal too.) */
+    void emit_is_unequal_based_on_tags(Label Unequal,
+                                       const ArgVal &Src1,
+                                       arm::Gp Reg1,
+                                       const ArgVal &Src2,
+                                       arm::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1);
+        } else {
+            a.orr(SUPER_TMP, Reg1, Reg2);
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, SUPER_TMP);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, SUPER_TMP);
+            } else {
+                a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
+                a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
+
+                /*
+                 * SUPER_TMP will now be TAG_PRIMARY_IMMED1 if either
+                 * one or both registers are immediates, or if one
+                 * register is a list and the other a boxed.
+                 */
+                a.b_eq(Unequal);
+            }
+        }
+    }
 };
 
 void beamasm_metadata_update(std::string module_name,

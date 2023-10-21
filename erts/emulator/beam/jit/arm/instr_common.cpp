@@ -1514,18 +1514,13 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP1);
     } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
-    } else if (Y.isLiteral()) {
-        /* Fail immediately unless X is the same type of pointer as
-         * the literal Y.
-         */
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
-        int bitNumber = Support::ctz<Eterm>(tag_test);
-        a.tbnz(x.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
     } else {
         /* Fail immediately if the pointer tags are not equal. */
-        emit_is_unequal_based_on_tags(x.reg, y.reg);
-        a.b_eq(resolve_beam_label(Fail, disp1MB));
+        emit_is_unequal_based_on_tags(resolve_beam_label(Fail, dispUnknown),
+                                      X,
+                                      x.reg,
+                                      Y,
+                                      y.reg);
     }
 
     /* Both operands are pointers having the same tag. Must do a
@@ -1574,19 +1569,10 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         emit_is_boxed(next, TMP1);
     } else if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
-    } else if (Y.isLiteral()) {
-        /* Succeed immediately if X is not the same type of pointer as
-         * the literal Y.
-         */
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
-        int bitNumber = Support::ctz<Eterm>(tag_test);
-        a.tbnz(x.reg, imm(bitNumber), next);
     } else {
         /* Test whether the terms are definitely unequal based on the tags
          * alone. */
-        emit_is_unequal_based_on_tags(x.reg, y.reg);
-        a.b_eq(next);
+        emit_is_unequal_based_on_tags(next, X, x.reg, Y, y.reg);
     }
 
     /* Both operands are pointers having the same tag. Must do a
