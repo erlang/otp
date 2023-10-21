@@ -368,8 +368,7 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_list(
         const ArgRegister &Hd,
         const ArgRegister &Tl) {
     mov_arg(RET, Src);
-    a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-    a.jne(resolve_beam_label(Fail));
+    emit_is_cons(resolve_beam_label(Fail), RET);
     emit_get_list(RET, Hd, Tl);
 }
 
@@ -377,12 +376,11 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_hd(const ArgLabel &Fail,
                                                        const ArgRegister &Src,
                                                        const ArgRegister &Hd) {
     mov_arg(RET, Src);
-    a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-    a.jne(resolve_beam_label(Fail));
+    emit_is_cons(resolve_beam_label(Fail), RET);
 
-    x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+    x86::Gp ptr = emit_ptr_val(RET, RET);
 
-    a.mov(ARG2, getCARRef(boxed_ptr));
+    a.mov(ARG2, getCARRef(ptr));
 
     mov_arg(Hd, ARG2);
 }
@@ -391,12 +389,11 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_tl(const ArgLabel &Fail,
                                                        const ArgRegister &Src,
                                                        const ArgRegister &Tl) {
     mov_arg(RET, Src);
-    a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-    a.jne(resolve_beam_label(Fail));
+    emit_is_cons(resolve_beam_label(Fail), RET);
 
-    x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+    x86::Gp ptr = emit_ptr_val(RET, RET);
 
-    a.mov(ARG2, getCDRRef(boxed_ptr));
+    a.mov(ARG2, getCDRRef(ptr));
 
     mov_arg(Tl, ARG2);
 }

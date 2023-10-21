@@ -596,6 +596,20 @@ protected:
         }
     }
 
+    void emit_is_cons(Label Fail, arm::Gp Src) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tbnz(Src, imm(bitNumber), Fail);
+    }
+
+    void emit_is_not_cons(Label Fail, arm::Gp Src) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tbz(Src, imm(bitNumber), Fail);
+    }
+
     void emit_is_boxed(Label Fail, arm::Gp Src) {
         const int bitNumber = 0;
         ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED ==

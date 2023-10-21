@@ -950,10 +950,7 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
                                                 const ArgRegister &Src) {
     auto list_ptr = load_source(Src, TMP1);
-    const int bitNumber = 1;
-
-    ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << bitNumber));
-    a.tbnz(list_ptr.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+    emit_is_cons(resolve_beam_label(Fail, dispUnknown), list_ptr.reg);
 }
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
@@ -1215,11 +1212,7 @@ void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
     auto src = load_source(Src, TMP1);
 
     if (always_one_of<BeamTypeId::List>(Src)) {
-        const int bitNumber = 1;
-        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
-                       (1 << bitNumber));
-        comment("simplified is_nil test because its argument is always a list");
-        a.tbz(src.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+        emit_is_not_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
     } else {
         a.cmp(src.reg, imm(NIL));
         a.b_ne(resolve_beam_label(Fail, disp1MB));

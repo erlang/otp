@@ -766,15 +766,41 @@ protected:
 #endif
     }
 
-    void emit_test_boxed(x86::Gp Src) {
+    void emit_test(x86::Gp Src, byte mask) {
         /* Use the shortest possible instruction depending on the source
          * register. */
         if (Src == x86::rax || Src == x86::rdi || Src == x86::rsi ||
             Src == x86::rcx || Src == x86::rdx) {
-            a.test(Src.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r8(), imm(mask));
         } else {
-            a.test(Src.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r32(), imm(mask));
         }
+    }
+
+    void emit_test_cons(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_LIST);
+    }
+
+    void emit_is_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().jne(Fail);
+        } else {
+            a.jne(Fail);
+        }
+    }
+
+    void emit_is_not_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().je(Fail);
+        } else {
+            a.je(Fail);
+        }
+    }
+
+    void emit_test_boxed(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED);
     }
 
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
