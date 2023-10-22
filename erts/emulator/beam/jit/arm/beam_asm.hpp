@@ -674,14 +674,6 @@ protected:
         }
     }
 
-    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
-    void emit_are_both_immediate(arm::Gp Reg1, arm::Gp Reg2) {
-        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
-        a.and_(SUPER_TMP, Reg1, Reg2);
-        a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
-        a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
-    }
-
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
      * on their tags alone. (They may still be equal if both are
      * immediates and all other bits are equal too.) */
@@ -1817,6 +1809,23 @@ protected:
                 a.b_eq(Unequal);
             }
         }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
+    void emit_are_both_immediate(const ArgVal &Src1,
+                                 arm::Gp Reg1,
+                                 const ArgVal &Src2,
+                                 arm::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        if (always_immediate(Src1)) {
+            a.and_(SUPER_TMP, Reg2, imm(_TAG_PRIMARY_MASK));
+        } else if (always_immediate(Src2)) {
+            a.and_(SUPER_TMP, Reg1, imm(_TAG_PRIMARY_MASK));
+        } else {
+            a.and_(SUPER_TMP, Reg1, Reg2);
+            a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
+        }
+        a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
     }
 };
 

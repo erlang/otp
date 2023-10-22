@@ -1595,18 +1595,17 @@ void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
     Label next = a.newLabel();
-
-    auto x = load_source(X, ARG1);
-    auto y = load_source(Y, ARG2);
+    auto [x, y] = load_sources(X, ARG1, Y, ARG2);
 
     a.cmp(x.reg, y.reg);
     a.b_eq(next);
 
-    if (X.isLiteral() || Y.isLiteral()) {
-        comment("skipped test for small because one operand is never small");
+    if (always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(X) ||
+        always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(X)) {
+        comment("skipped test for immediate because one operand never is");
     } else {
         /* We can skip deep comparisons when both args are immediates. */
-        emit_are_both_immediate(x.reg, y.reg);
+        emit_are_both_immediate(X, x.reg, Y, y.reg);
         a.b_eq(resolve_beam_label(Fail, disp1MB));
     }
 
@@ -1622,18 +1621,17 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
     Label next = a.newLabel();
-
-    auto x = load_source(X, ARG1);
-    auto y = load_source(Y, ARG2);
+    auto [x, y] = load_sources(X, ARG1, Y, ARG2);
 
     a.cmp(x.reg, y.reg);
     a.b_eq(resolve_beam_label(Fail, disp1MB));
 
-    if (X.isLiteral() || Y.isLiteral()) {
-        comment("skipped test for small because one operand is never small");
+    if (always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(X) ||
+        always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(X)) {
+        comment("skipped test for immediate because one operand never is");
     } else {
         /* We can skip deep comparisons when both args are immediates. */
-        emit_are_both_immediate(x.reg, y.reg);
+        emit_are_both_immediate(X, x.reg, Y, y.reg);
         a.b_eq(next);
     }
 

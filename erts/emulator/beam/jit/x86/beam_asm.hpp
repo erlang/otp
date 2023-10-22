@@ -1643,6 +1643,24 @@ protected:
             }
         }
     }
+
+    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
+    void emit_are_both_immediate(const ArgVal &Src1,
+                                 x86::Gp Reg1,
+                                 const ArgVal &Src2,
+                                 x86::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        if (always_immediate(Src1)) {
+            a.mov(RETd, Reg2.r32());
+        } else if (always_immediate(Src2)) {
+            a.mov(RETd, Reg1.r32());
+        } else {
+            a.mov(RETd, Reg1.r32());
+            a.and_(RETd, Reg2.r32());
+        }
+        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+    }
 };
 
 void beamasm_metadata_update(std::string module_name,

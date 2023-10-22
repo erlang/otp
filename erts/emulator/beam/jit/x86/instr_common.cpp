@@ -1570,14 +1570,12 @@ void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
     a.cmp(ARG1, ARG2);
     a.short_().je(next);
 
-    if (A.isLiteral() || B.isLiteral()) {
-        comment("skipped test for small because one operand is never small");
+    if (always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(A) ||
+        always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(B)) {
+        comment("skipped test for immediate because one operand never is");
     } else {
         /* We can skip deep comparisons when both args are immediates. */
-        a.mov(RETd, ARG1d);
-        a.and_(RETd, ARG2d);
-        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+        emit_are_both_immediate(A, ARG1, B, ARG2);
         a.je(fail);
     }
 
@@ -1597,14 +1595,12 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
     a.cmp(ARG1, ARG2);
     a.je(fail);
 
-    if (A.isLiteral() || B.isLiteral()) {
-        comment("skipped test for small because one operand is never small");
+    if (always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(A) ||
+        always_one_of<BeamTypeId::Cons, BeamTypeId::AlwaysBoxed>(B)) {
+        comment("skipped test for immediate because one operand never is");
     } else {
         /* We can skip deep comparisons when both args are immediates. */
-        a.mov(RETd, ARG1d);
-        a.and_(RETd, ARG2d);
-        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+        emit_are_both_immediate(A, ARG1, B, ARG2);
         a.short_().je(next);
     }
 
