@@ -444,7 +444,7 @@ scan1([$"|_]=Cs, St, Line, Col, Toks) -> %" Emacs
     SigilType = {},
     scan_string(Cs, St, Line, Col, Toks, SigilType);
 scan1([$~=C|Cs], St, Line, Col, Toks) ->
-    scan_sigil_type(Cs, St, Line, Col, Toks, [C]);
+    scan_sigil_prefix(Cs, St, Line, Col, Toks, [C]);
 scan1([$$|Cs], St, Line, Col, Toks) ->
     scan_char(Cs, St, Line, Col, Toks);
 scan1([$\r|Cs], St, Line, Col, Toks) when St#erl_scan.ws ->
@@ -857,7 +857,7 @@ scan_char([], St, Line, Col, Toks) ->
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
-%% Sigil Types are scanned here and handled in scan_tqstring/6
+%% Sigil Prefix is scanned here and handled in scan_tqstring/6
 %% and scan_qstring/8 where non-verbatim sigils (that handle
 %% character escape sequences) are enumerated.
 %% Search for SigilType or sigil_type.
@@ -869,12 +869,12 @@ scan_char(eof, _St, Line, Col, _Toks) ->
 %% enumerates all sigils, cause an error for unknown ones,
 %% and transforms known ones.
 %%
-scan_sigil_type(Cs, St, Line, Col, Toks, Wcs) ->
+scan_sigil_prefix(Cs, St, Line, Col, Toks, Wcs) ->
     case scan_name(Cs, Wcs) of
         {more, Nwcs} ->
-            {more, {[],St,Col,Toks,Line,Nwcs,fun scan_sigil_type/6}};
+            {more, {[],St,Col,Toks,Line,Nwcs,fun scan_sigil_prefix/6}};
         {Nwcs,Ncs} ->
-            Type = sigil_type,
+            Type = sigil_prefix,
             Ncol = incr_column(Col, length(Nwcs)),
             SigilCs = lists:reverse(Nwcs),
             try list_to_atom(tl(SigilCs)) of
@@ -894,9 +894,6 @@ scan_string(Cs, St, Line, Col, Toks, SigilType) ->
             scan_tqstring(Ncs, St, Line, Col, Toks, SigilType, 3);
         [$",$"] ->
             {more,{Cs,St,Col,Toks,Line,SigilType,fun scan_string/6}};
-        [$",$"|eof] ->
-            Ncol = incr_column(Col, 2),
-            scan_error(tqstring, Line, Col, Line, Ncol, eof);
         [Q1|Ncs] ->
             case string_right_delimiter(Q1) of
                 undefined ->
@@ -1232,8 +1229,9 @@ scan_qstring(Cs, St, Line, Col, Toks, SigilType, Q1, Q2) ->
         SigilType =:= '';       % The vanilla (default) sigil
         SigilType =:= 'b';      % binary() with escape sequences
         SigilType =:= 's' ->    % string() with escape sequences
+            Ncol = incr_column(Col, 1), % Quote character
             scan_qstring(
-              Cs, St, Line, incr_column(Col, 1), Toks,
+              Cs, St, Line, Ncol, Toks,
               #qstring{
                  line = Line, col = Col,
                  sigil_type = SigilType, q1 = Q1, q2 = Q2 });
@@ -1300,7 +1298,7 @@ scan_vstring(Cs, St, Line, Col, Toks, SigilType, Q1, Q2) ->
         #vstring{
            line = Line, col = Col,
            sigil_type = SigilType, q1 = Q1, q2 = Q2 },
-    scan_vstring(Cs, St, Line, Col, Toks, Vstring).
+    scan_vstring(Cs, St, Line, incr_column(Col, 1), Toks, Vstring).
 
 scan_vstring(
   Cs, #erl_scan{}=St, Line, Col, Toks,
@@ -1338,7 +1336,7 @@ scan_vstring(Cs, Q, Line, Col, Wcs) ->
         [Q|Ncs] ->
             {ok, {Ncs,Line,Col+1,Wcs}};
         [$\n=C|Ncs] ->
-            scan_vstring(Ncs, Q, Line+1, Col+1, [C|Wcs]);
+            scan_vstring(Ncs, Q, Line+1, 1, [C|Wcs]);
         [C|Ncs] when ?UNICODE(C) ->
             scan_vstring(Ncs, Q, Line, Col+1, [C|Wcs]);
         [C|Ncs] when ?CHAR(C) ->
@@ -1424,25 +1422,25 @@ scan_string0(Cs, #erl_scan{has_fun=true}, Line, Col, Q, Str, Wcs)
 scan_string0(Cs, #erl_scan{}, Line, Col, Q, _Str, Wcs) ->
     if
         Col =:= no_col ->
-            scan_string_no_col(Cs, Line, Col, Q, Wcs);
+            scan_string_no_col(Cs, Line, Q, Wcs);
         true ->
             scan_string_col(Cs, Line, Col, Q, Wcs)
     end.
 
 %% Optimization. Col =:= no_col, non-escaped characters
-scan_string_no_col([Q|Cs], Line, Col, Q, Wcs) ->
-    {ok, {Cs,Line,Col,Wcs,Wcs}};
-scan_string_no_col([$\n=C|Cs], Line, Col, Q, Wcs) ->
-    scan_string_no_col(Cs, Line+1, Col, Q, [C|Wcs]);
-scan_string_no_col([C|Cs], Line, Col, Q, Wcs) when C =/= $\\, ?UNICODE(C) ->
-    scan_string_no_col(Cs, Line, Col, Q, [C|Wcs]);
-scan_string_no_col(Cs, Line, Col, Q, Wcs) ->
-    scan_string1(Cs, Line, Col, Q, Wcs, Wcs).
+scan_string_no_col([Q|Cs], Line, Q, Wcs) ->
+    {ok, {Cs,Line,no_col,Wcs,Wcs}};
+scan_string_no_col([$\n=C|Cs], Line, Q, Wcs) ->
+    scan_string_no_col(Cs, Line+1, Q, [C|Wcs]);
+scan_string_no_col([C|Cs], Line, Q, Wcs) when C =/= $\\, ?UNICODE(C) ->
+    scan_string_no_col(Cs, Line, Q, [C|Wcs]);
+scan_string_no_col(Cs, Line, Q, Wcs) ->
+    scan_string1(Cs, Line, no_col, Q, Wcs, Wcs).
 
 %% Optimization. Col =/= no_col, non-escaped characters
 scan_string_col([Q|Cs], Line, Col, Q, Wcs) ->
     {ok, {Cs,Line,Col+1,Wcs,Wcs}};
-scan_string_col([$\n=C|Cs], Line, _xCol, Q, Wcs) ->
+scan_string_col([$\n=C|Cs], Line, _Col, Q, Wcs) ->
     scan_string_col(Cs, Line+1, 1, Q, [C|Wcs]);
 scan_string_col([C|Cs], Line, Col, Q, Wcs) when C =/= $\\, ?UNICODE(C) ->
     scan_string_col(Cs, Line, Col+1, Q, [C|Wcs]);

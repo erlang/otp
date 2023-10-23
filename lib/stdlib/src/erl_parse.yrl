@@ -77,7 +77,7 @@ ssa_check_when_clause
 ssa_check_when_clauses.
 
 Terminals
-char integer float atom sigil_type string sigil_suffix var
+char integer float atom sigil_prefix string sigil_suffix var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
@@ -304,6 +304,7 @@ pat_expr_max -> var : '$1'.
 pat_expr_max -> atomic : '$1'.
 pat_expr_max -> list : '$1'.
 pat_expr_max -> binary : '$1'.
+pat_expr_max -> sigil : '$1'.
 pat_expr_max -> tuple : '$1'.
 pat_expr_max -> '(' pat_expr ')' : '$2'.
 
@@ -350,7 +351,7 @@ bit_type -> atom ':' integer : { element(3,'$1'), element(3,'$3') }.
 bit_size_expr -> expr_max : '$1'.
 
 
-sigil -> sigil_type string sigil_suffix : build_sigil('$1', '$2', '$3').
+sigil -> sigil_prefix string sigil_suffix : build_sigil('$1', '$2', '$3').
 
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
@@ -1112,10 +1113,12 @@ Erlang code.
 
 -type af_string() :: {'string', anno(), string()}.
 
-%%% -type af_sigil() :: {'sigil', anno(), char()|'void'}.
-%%%
-%%% -type af_sigil_suffix() :: {'sigil_suffix', anno(), string()}.
-%%%
+%% Not emitted by the parser
+%%
+%% -type af_sigil_prefix() :: {'sigil_prefix', anno(), atom()}.
+%%
+%% -type af_sigil_suffix() :: {'sigil_suffix', anno(), string()}.
+%%
 
 -type af_match(T) :: {'match', anno(), af_pattern(), T}.
 
@@ -1528,8 +1531,8 @@ check_clauses(Cs, Name, Arity) ->
 build_try(A,Es,Scs,{Ccs,As}) ->
     {'try',A,Es,Scs,Ccs,As}.
 
-build_sigil(SigilType, String, SigilSuffix) ->
-    Type = element(3, SigilType),
+build_sigil(SigilPrefix, String, SigilSuffix) ->
+    Type = element(3, SigilPrefix),
     Suffix = element(3, SigilSuffix),
     if
         Type =:= 'S';
@@ -1549,7 +1552,7 @@ build_sigil(SigilType, String, SigilSuffix) ->
             case Suffix of
                 "" ->
                     %% Convert to UTF-8 binary()
-                    {bin,?anno(SigilType),
+                    {bin,?anno(SigilPrefix),
                      [{bin_element,
                        ?anno(String),String,default,[utf8]}]};
                 _ ->
@@ -1559,14 +1562,14 @@ build_sigil(SigilType, String, SigilSuffix) ->
             end;
 %%%         Type =:= 'r' -> % Regular expression
 %%%             %% Convert to {re,RE,Flags}
-%%%             {tuple, ?anno(SigilType),
-%%%              [{atom,?anno(SigilType),'re'},
+%%%             {tuple, ?anno(SigilPrefix),
+%%%              [{atom,?anno(SigilPrefix),'re'},
 %%%               String,
 %%%               {string,?anno(SigilSuffix),Suffix}]};
         true ->
             ret_err(
-              element(2, SigilType),
-              "illegal sigil type.")
+              element(2, SigilPrefix),
+              "illegal sigil prefix.")
     end.
 
 -spec ret_err(_, _) -> no_return().
