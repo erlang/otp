@@ -859,8 +859,7 @@ which(Module, Path) when is_atom(Module) ->
     File = atom_to_list(Module) ++ objfile_extension(),
     where_is_file(Path, File).
 
-%% Search the code path for a specific file. Try to locate
-%% it in the code path cache if possible.
+%% Search the code path for a specific file.
 
 -spec where_is_file(Filename) -> non_existing | Absname when
       Filename :: file:filename(),
@@ -880,9 +879,10 @@ where_is_file([], _) ->
 where_is_file([{Path, Files}|Tail], File) ->
     where_is_file(Tail, File, Path, Files);
 where_is_file([Path|Tail], File) ->
-    case erl_prim_loader:list_dir(Path) of
-	{ok,Files} ->
-            where_is_file(Tail, File, Path, Files);
+    Full = filename:append(Path, File),
+    case erl_prim_loader:read_file_info(Full) of
+	{ok,_} ->
+            Full;
 	_Error ->
 	    where_is_file(Tail, File)
     end.
