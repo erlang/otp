@@ -73,7 +73,10 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     struct digest_type_t *digp = NULL;
     const EVP_MD         *md;
-    ERL_NIF_TERM         ret;
+    ERL_NIF_TERM keys[3] = { atom_type, atom_size, atom_block_size };
+    ERL_NIF_TERM values[3];
+    ERL_NIF_TERM ret;
+    int ok;
 
     ASSERT(argc == 1);
 
@@ -85,15 +88,11 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((md = digp->md.p) == NULL)
         return atom_notsup;
 
-    ret = enif_make_new_map(env);
-
-    enif_make_map_put(env, ret, atom_type,
-        enif_make_int(env, EVP_MD_type(md)), &ret);
-    enif_make_map_put(env, ret, atom_size,
-        enif_make_int(env, EVP_MD_size(md)), &ret);
-    enif_make_map_put(env, ret, atom_block_size,
-        enif_make_int(env, EVP_MD_block_size(md)), &ret);
-
+    values[0] = enif_make_int(env, EVP_MD_type(md));
+    values[1] = enif_make_int(env, EVP_MD_size(md));
+    values[2] = enif_make_int(env, EVP_MD_block_size(md));
+    ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
+    ASSERT(ok); (void)ok;
     return ret;
 }
 
