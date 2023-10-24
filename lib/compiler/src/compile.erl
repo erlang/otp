@@ -283,6 +283,8 @@ expand_opt(no_module_opt=O, Os) ->
     [O,no_recv_opt | Os];
 expand_opt({check_ssa,Tag}, Os) ->
     [check_ssa, Tag | Os];
+expand_opt(time, Os) ->
+    [{time,fun print_pass_times/2}|Os];
 expand_opt(O, Os) -> [O|Os].
 
 -spec format_error(ErrorDescription :: error_description()) -> string().
@@ -381,8 +383,8 @@ internal_comp(Passes, Code0, File, Suffix, St0) ->
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
     Run = runner(St1),
-    Folder = case member(time, St1#compile.options) of
-                 true ->
+    Folder = case keyfind(time, 1, St1#compile.options) of
+                 {time,_} ->
                      fun fold_comp_times/4;
                  false ->
                      fun fold_comp/4
@@ -397,7 +399,8 @@ fold_comp_times(Passes, Run, Code, St) ->
     R = fold_comp(Passes, Run, Code, St),
     Times = reverse(get(?PASS_TIMES)),
     erase(?PASS_TIMES),
-    print_pass_times(St#compile.filename, Times),
+    {time,Handler} = keyfind(time, 1, St#compile.options),
+    Handler(St#compile.filename, Times),
     R.
 
 fold_comp([{delay,Ps0}|Passes], Run, Code, #compile{options=Opts}=St) ->
@@ -439,8 +442,8 @@ runner(#compile{options=Opts}) ->
     Run0 = fun({_Name,Fun}, Code, St) ->
                    Fun(Code, St)
            end,
-    Run1 = case member(time, Opts) of
-               true  ->
+    Run1 = case keyfind(time, 1, Opts) of
+               {time,_}  ->
                    fun run_tc/3;
                false ->
                    Run0
