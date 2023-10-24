@@ -86,7 +86,8 @@ run_server_assertions(Response) ->
     run_server_assertions(Response, ?DEFAULT_ASSERTIONS).
 
 %% Assert that the server responds properly.
-run_server_assertions({ok, {Ip, Port, Path}}, Assertions) when is_integer(Port) ->
+run_server_assertions({ok, {Ip0, Port, Path}}, Assertions) when is_integer(Port) ->
+    Ip = maybe_convert_to_localhost(Ip0),
     % From the `filelib:wildcard/1` docs:
     % "Directory separators must always be written as /, even on Windows."
     IpToRequest = case Ip of
@@ -103,6 +104,14 @@ run_server_assertions({ok, {Ip, Port, Path}}, Assertions) when is_integer(Port) 
     },
     ok = verify_assertions(Assertions, ServerInfo),
     ct:comment("Ran ~w assertion(s).", [length(Assertions)]).
+
+maybe_convert_to_localhost(Ip = {0, 0, 0, 0}) ->
+    case os:type() of
+         {win32, _} -> {127, 0, 0, 1};
+         _ -> Ip
+    end;
+maybe_convert_to_localhost(Ip) ->
+    Ip.
 
 %%
 %% Assertion helper functions
