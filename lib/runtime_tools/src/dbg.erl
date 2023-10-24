@@ -41,9 +41,26 @@
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
 
+-type match_pattern() :: atom() | list().
+-type match_spec()    :: [{match_pattern(), [_], [_]}].
+-type built_in_alias() :: x | c | cx.
+
+-type trace_wrap_files_spec() ::
+        {file:name_all(), wrap, Suffix :: string()} |
+        {file:name_all(), wrap, Suffix :: string(),
+         WrapSize :: trace_wrap_file_size()} |
+        {file:name_all(), wrap, Suffix :: string(),
+         WrapSize :: trace_wrap_file_size(), WrapCnt :: pos_integer()}.
+-type trace_wrap_file_size() :: non_neg_integer() | {time, WrapTime :: pos_integer()}.
+
+-export_type([match_spec/0]).
+
 -deprecated([{stop_clear,0, "use dbg:stop/0 instead"}]).
 
 %%% Shell callable utility
+-spec fun2ms(LiteralFun) -> MatchSpec when
+      LiteralFun :: fun((term()) -> term()),
+      MatchSpec :: match_spec().
 fun2ms(ShellFun) when is_function(ShellFun) ->
     % Check that this is really a shell fun...
     case erl_eval:fun_data(ShellFun) of
@@ -74,6 +91,9 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
 %% n(Node) -> {ok, Node} | {error, Reason}
 %% Adds Node to the list of traced nodes.
 %%
+-spec n(Nodename) -> {ok, Nodename} | {error, Reason} when
+      Nodename :: node(),
+      Reason :: term().
 n(Node) when Node =:= node() ->
     {error, cant_add_local_node};
 n(Node) ->
@@ -92,6 +112,7 @@ n(Node) ->
 %% cn(Node) -> ok
 %% Remove Node from the list of traced nodes.
 %%    
+-spec cn(Nodename) -> ok when Nodename :: node().
 cn(Node) ->
     req({remove_node, Node}).
 
@@ -99,6 +120,7 @@ cn(Node) ->
 %% ln() -> ok
 %% List traced nodes
 %%
+-spec ln() -> ok.
 ln() ->
     lists:foreach(fun(X) ->
                           io:format("~p~n",[X])
@@ -115,23 +137,59 @@ ln() ->
 %%    {error, Reason}
 %% Set trace pattern for function or group of functions.
 %%
+-type match_desc() :: [match_info()].
+-type match_info() :: {saved, tp_id()} | match_num().
+-type match_num() :: {matched, node(), integer()} | {matched, node(), 0, RPCError :: term()}.
+-type tp_id() :: pos_integer().
+-type tp_module() :: module() | '_'.
+-type tp_function() :: atom() | '_'.
+-type tp_arity() :: arity() | '_'.
+-type tp_match_spec() :: tp_id() | built_in_alias() | [] | match_spec().
+
+-spec tp(Module :: tp_module(), Function :: tp_function(),
+         MatchSpec :: tp_match_spec()) ->
+          {ok, match_desc()} | {error, term()}.
 tp(Module, Function, Pattern) ->
     do_tp({Module, Function, '_'}, Pattern, []).
+-spec tp(Module :: tp_module(),
+         Function :: tp_function(),
+         Arity :: tp_arity(),
+         MatchSpec :: tp_match_spec()) ->
+          {ok, match_desc()} | {error, term()}.
 tp(Module, Function, Arity, Pattern) ->
     do_tp({Module, Function, Arity}, Pattern, []).
+-spec tp(Module | {Module, Function, Arity}, MatchSpec) -> {ok, match_desc()} | {error, term()} when
+      Module :: tp_module(),
+      Function :: tp_function(),
+      Arity :: tp_arity(),
+      MatchSpec :: tp_match_spec().
 tp(Module, Pattern) when is_atom(Module) ->
     do_tp({Module, '_', '_'}, Pattern, []);
 tp({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[]).
+-spec tpl(Module :: tp_module(), Function :: tp_function(), MatchSpec :: tp_match_spec()) ->
+          {ok, match_desc()} | {error, term()}.
 tpl(Module, Function, Pattern) ->
     do_tp({Module, Function, '_'}, Pattern, [local]).
+-spec tpl(Module :: tp_module(),
+          Function :: tp_function(),
+          Arity :: tp_arity(),
+          MatchSpec :: tp_match_spec()) ->
+          {ok, match_desc()} | {error, term()}.
 tpl(Module, Function, Arity, Pattern) ->
     do_tp({Module, Function, Arity}, Pattern, [local]).
+-spec tpl(Module | {Module, Function :: tp_function(), Arity :: tp_arity()},
+          MatchSpec :: tp_match_spec()) ->
+          {ok, MatchDesc :: term()} | {error, term()} when
+      Module :: tp_module().
 tpl(Module, Pattern) when is_atom(Module) ->
     do_tp({Module, '_', '_'}, Pattern, [local]);
 tpl({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[local]).
 
+-spec tpe(Event, MatchSpec) -> {ok, MatchDesc :: match_desc()} | {error, term()} when
+      Event :: send | 'receive',
+      MatchSpec :: tp_match_spec().
 tpe(Event, Pattern) when Event =:= send;
 			 Event =:= 'receive' ->
     do_tp(Event, Pattern, []).
@@ -187,32 +245,58 @@ do_tp_on_nodes(Nodes, X, P, Flags) ->
 %% {ok, [{matched, N}]} | {error, Reason}
 %% Clears trace pattern for function or group of functions.
 %%
+-spec ctp() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp() ->
     do_ctp({'_','_','_'},[]).
+-spec ctp(Module :: tp_module(), Function :: tp_function()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(Module, Function) ->
     do_ctp({Module, Function, '_'}, []).
+-spec ctp(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, []).
+-spec ctp(Module | {Module, Function, Arity}) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()} when
+      Module :: tp_module(),
+      Function :: tp_function(),
+      Arity :: tp_arity().
 ctp(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, []);
 ctp({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[]).
+-spec ctpl() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl() ->
     do_ctp({'_', '_', '_'}, [local]).    
+-spec ctpl(Module :: tp_module(), Function :: tp_function()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(Module, Function) ->
     do_ctp({Module, Function, '_'}, [local]).
+-spec ctpl(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [local]).
+-spec ctpl(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
+              {ok, MatchDesc :: term()} | {error, term()} when
+      Module :: tp_module().
 ctpl(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, [local]);
 ctpl({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[local]).
+-spec ctpg() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg() ->
     do_ctp({'_', '_', '_'}, [global]).
+-spec ctpg(Module :: tp_module(), Function :: tp_function()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(Module, Function) ->
     do_ctp({Module, Function, '_'}, [global]).
+-spec ctpg(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
+          {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [global]).
+-spec ctpg(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
+          {ok, MatchDesc :: term()} | {error, term()} when
+      Module :: tp_module().
 ctpg(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, [global]);
 ctpg({_Module, _Function, _Arity} = X) ->
@@ -225,6 +309,12 @@ do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     Nodes = req(get_nodes),
     {ok,do_tp_on_nodes(Nodes,MFA,false,Flags)}.
 
+-spec ctpe(Event) -> {ok, MatchDesc} | {error, term()} when
+      Event :: send | 'receive',
+      MatchDesc :: [MatchNum],
+      MatchNum ::
+        {matched, node(), 1} |
+        {matched, node(), 0, RPCError :: term()}.
 ctpe(Event) when Event =:= send;
 		 Event =:= 'receive' ->
     Nodes = req(get_nodes),
@@ -234,6 +324,7 @@ ctpe(Event) when Event =:= send;
 %% ltp() -> ok
 %% List saved and built-in trace patterns.
 %%
+-spec ltp() -> ok.
 ltp() ->
     Modifier = modifier(),
     Format = "~p: ~"++Modifier++"p~n",
@@ -246,6 +337,7 @@ ltp() ->
 %% Delete saved pattern with number N or all saved patterns
 %%
 %% Do not delete built-in trace patterns.
+-spec dtp() -> ok.
 dtp() ->
     pt_doforall(fun ({Key, _}, _) when is_integer(Key) ->
 			dtp(Key);
@@ -253,6 +345,7 @@ dtp() ->
 			ok
 		end,
 		[]).
+-spec dtp(N) -> ok when N :: tp_id().
 dtp(N) when is_integer(N) ->
     ets:delete(get_pattern_table(), N),
     ok;
@@ -264,6 +357,8 @@ dtp(_) ->
 %% Writes all current saved trace patterns to a file.
 %%
 %% Actually write the built-in trace patterns too.
+-spec wtp(Name) -> ok | {error, IOError} when Name :: string(),
+   IOError :: term().
 wtp(FileName) ->
     case file:open(FileName,[write,{encoding,utf8}]) of
 	{error, Reason} ->
@@ -286,6 +381,8 @@ wtp(FileName) ->
 %%
 %% So the saved built-in trace patterns will merge with
 %% the already existing, which should be the same.
+-spec rtp(Name) -> ok | {error, Error} when Name :: string(),
+   Error :: term().
 rtp(FileName) ->
     T = get_pattern_table(),
     case file:consult(FileName) of
@@ -303,9 +400,21 @@ rtp(FileName) ->
 	    end
     end.
 
+-spec tracer() -> {ok, pid()} | {error, already_started}.
 tracer() ->
     tracer(process, {fun dhandler/2,user}).
 
+-spec tracer(port, PortGenerator) -> {ok, pid()} | {error, Error :: term()} when
+      PortGenerator :: fun(() -> port());
+            (process, HandlerSpec) -> {ok, pid()} | {error, Error :: term()} when
+      HandlerSpec :: {HandlerFun, InitialData :: term()},
+      HandlerFun :: fun((Event :: term(), Data :: term()) -> NewData :: term());
+            (module, ModuleSpec) -> {ok, pid()} | {error, Error :: term()} when
+      ModuleSpec :: fun(() -> {TracerModule, TracerState}) | {TracerModule, TracerState},
+      TracerModule :: atom(),
+      TracerState :: term();
+            (file, Filename) -> {ok, pid()} | {error, Error :: term()} when
+      Filename :: file:name_all().
 tracer(port, Fun) when is_function(Fun) ->
     start(Fun);
 
@@ -358,6 +467,8 @@ remote_start(StartTracer) ->
 %% Add Node to the list of traced nodes and a trace port defined by
 %% Type and Data is started on Node.
 %%
+-spec tracer(Nodename :: node(), Type :: term(), Data :: term()) ->
+          {ok, Nodename :: node()} | {error, Reason :: term()}.
 tracer(Node,Type,Data) when Node =:= node() ->
     case tracer(Type,Data) of
 	{ok,_Dbg} -> {ok,Node};
@@ -375,14 +486,20 @@ tracer(Node,Type,Data) ->
 	    {error, Other}
     end.
 
+-spec flush_trace_port() -> term().
 flush_trace_port() ->
     trace_port_control(flush).
+-spec flush_trace_port(Nodename :: node()) ->
+          ok | {error, Reason :: term()}.
 flush_trace_port(Node) ->
     trace_port_control(Node, flush).
 
+-spec trace_port_control(Operation :: term()) -> term().
 trace_port_control(Operation) ->
     trace_port_control(node(), Operation).
 
+-spec trace_port_control(Nodename :: node(), Operation :: term()) ->
+          ok | {ok, Result :: term()} | {error, Reason :: term()}.
 trace_port_control(Node, flush) ->
     case get_tracer(Node) of
 	{ok, Port} when is_port(Port) ->
@@ -421,8 +538,15 @@ deliver_and_flush(Port) ->
 	{trace_delivered,all,Ref} -> ok
     end,
     erlang:port_control(Port, $f, "").
-					   
 
+-spec trace_port(ip, IpPortSpec) -> fun(() -> port()) when
+      IpPortSpec :: PortNumber | {PortNumber, QueSize},
+      PortNumber :: integer(),
+      QueSize :: integer();
+                (file, Parameters) -> fun(() -> port()) when
+      Parameters :: Filename | WrapFilesSpec,
+      Filename :: file:name_all(),
+      WrapFilesSpec :: trace_wrap_files_spec().
 trace_port(file, {Filename, wrap, Tail}) ->
     trace_port(file, {Filename, wrap, Tail, 128*1024});
 trace_port(file, {Filename, wrap, Tail, WrapSize}) ->
@@ -506,6 +630,15 @@ trace_port1(file, Filename, Options) ->
     end.
 
 
+-spec trace_client(ip, IPClientPortSpec) -> pid() when
+      IPClientPortSpec :: PortNumber | {Hostname, PortNumber},
+      PortNumber :: integer(),
+      Hostname :: string();
+                  (Type, Parameters) -> pid() when
+      Type :: file | follow_file,
+      Parameters :: Filename | WrapFilesSpec,
+      Filename :: file:name_all(),
+      WrapFilesSpec :: trace_wrap_files_spec().
 trace_client(file, Filename) ->
     trace_client(file, Filename, {fun dhandler/2,user});
 trace_client(follow_file, Filename) ->
@@ -515,6 +648,20 @@ trace_client(ip, Portno) when is_integer(Portno) ->
 trace_client(ip, {Host, Portno}) when is_integer(Portno) ->
     trace_client1(ip, {Host, Portno}, {fun dhandler/2,user}).
 
+-type handler_spec() :: {HandlerFun :: fun((Event :: term(), Data :: term()) -> NewData :: term()),
+                         InitialData :: term()}.
+
+-spec trace_client(ip, IPClientPortSpec, HandlerSpec) -> pid() when
+      IPClientPortSpec :: PortNumber | {Hostname, PortNumber},
+      PortNumber :: integer(),
+      Hostname :: string(),
+      HandlerSpec :: handler_spec();
+                     (Type, Parameters, HandlerSpec) -> pid() when
+      Type :: file | follow_file,
+      Parameters :: Filename | WrapFilesSpec,
+      Filename :: string() | [string()] | atom(),
+      WrapFilesSpec :: trace_wrap_files_spec(),
+      HandlerSpec :: handler_spec().
 trace_client(file, {Filename, wrap, Tail}, FD) ->
     trace_client(file, {Filename, wrap, Tail, 128*1024}, FD);
 trace_client(file, {Filename, wrap, Tail, WrapSize}, FD) ->
@@ -546,6 +693,7 @@ trace_client1(Type, OpenData, {Handler,HData}) ->
 	    Other
     end.
 
+-spec stop_trace_client(Pid) -> ok when Pid :: pid().
 stop_trace_client(Pid) when is_pid(Pid) ->
     process_flag(trap_exit,true),
     link(Pid),
@@ -559,25 +707,38 @@ stop_trace_client(Pid) when is_pid(Pid) ->
     process_flag(trap_exit,false),
     Res.
 
+-spec p(Item :: term()) -> {ok, MatchDesc :: term()} | {error, term()}.
 p(Pid) ->
     p(Pid, [m]).
 
+-spec p(Item :: term(), Flags :: term()) ->
+           {ok, MatchDesc} | {error, term()}
+           when
+               MatchDesc :: [MatchNum],
+               MatchNum ::
+                   {matched, node(), integer()} |
+                   {matched, node(), 0, RPCError},
+               RPCError :: term().
 p(Pid, Flags) when is_atom(Flags) ->
     p(Pid, [Flags]);
 p(Pid, Flags) ->
     req({p,Pid,Flags}).
 
+-spec i() -> ok.
 i() -> req(i).
 	
+-spec c(Mod :: module(), Fun :: atom(), Args :: list(term())) -> term().
 c(M, F, A) ->
     c(M, F, A, all).
+-spec c(Mod :: module(), Fun :: atom(), Args :: list(term()), Flags :: term()) ->
+          term().
 c(M, F, A, Flags) when is_atom(Flags) ->
     c(M, F, A, [Flags]);
 c(M, F, A, Flags) ->
     case transform_flags(Flags) of
 	{error,Reason} -> {error,Reason};
 	Flags1 ->
-	    tracer(),
+	    _ = tracer(),
 	    S = self(),
 	    Pid = spawn(fun() -> c(S, M, F, A, [get_tracer_flag() | Flags1]) end),
 	    Mref = erlang:monitor(process, Pid),
@@ -604,6 +765,7 @@ c(Parent, M, F, A, Flags) ->
     erlang:trace(self(), false, [all]),
     Parent ! {self(), Res}.
 
+-spec stop() -> ok.
 stop() ->
     {ok, _} = ctp(),
     {ok, _} = ctpe('receive'),
@@ -1402,10 +1564,10 @@ tc_loop(Other, _Handler, _HData) ->
 %% Returns a reader (lazy list of trace terms) for tc_loop/2.
 gen_reader(ip, {Host, Portno}) ->
     case gen_tcp:connect(Host, Portno, [{active, false}, binary]) of
-        {ok, Sock} ->    
+        {ok, Sock} ->
 	    %% Just in case this is on the traced node,
 	    %% make sure the port is not traced.
-	    p(Sock,clear),
+	    _ = p(Sock,clear),
 	    mk_reader(fun ip_read/2, Sock);
 	Error ->
 	    exit(Error)
@@ -1557,8 +1719,11 @@ ip_read(Socket, N) ->
 	    exit({'socket read error', Error})
     end.
 
+-spec get_tracer() -> term().
 get_tracer() ->
     req({get_tracer,node()}).
+-spec get_tracer(Nodename) -> {ok, Tracer} when Nodename :: atom(),
+   Tracer :: port() | pid() | {module(), term()}.
 get_tracer(Node) ->
     req({get_tracer,Node}).
 get_tracer_flag() ->
@@ -1809,6 +1974,7 @@ help_display([H|T]) ->
     io:format("~s~n",[H]),
     help_display(T).
 
+-spec h() -> ok .
 h() ->
     help_display(
       [
@@ -1826,6 +1992,7 @@ h() ->
        "",
        "call dbg:h(Item) for brief help a brief description",
        "of one of the items above."]).
+-spec h(Item) -> ok  when Item :: atom().
 h(p) ->
     help_display(["p(Item) -> {ok, MatchDesc} | {error, term()}",
 		  " - Traces messages to and from Item.",

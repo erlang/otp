@@ -109,6 +109,7 @@
 -type integer_maybe() :: integer() | atom().
 -type iolist_maybe() :: iolist() | atom().
 
+-spec on_load() -> term().
 on_load() ->
     PrivDir = code:priv_dir(runtime_tools),
     LibName = "dyntrace",
