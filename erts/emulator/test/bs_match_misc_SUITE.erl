@@ -91,7 +91,7 @@ float_middle_endian(Config) when is_list(Config) ->
     ok.
 
 
-fcmp(0.0, 0.0) -> ok;
+fcmp(F1, F2) when F1 == 0.0, F2 == 0.0 -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
     
 match_float(Bin0, Fsz, I) ->

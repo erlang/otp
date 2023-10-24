@@ -256,6 +256,7 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
 
     a.sub(FCALLS, FCALLS, imm(1));
     a.b(resolve_beam_label(Dest, disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
@@ -268,6 +269,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
     emit_leave_runtime(0);
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
@@ -280,6 +282,10 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
     emit_leave_runtime(0);
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
+
+    /* Must check stubs here because this branch is followed by
+     * a label when part of `wait_timeout_locked`. */
+    mark_unreachable_check_pending_stubs();
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,

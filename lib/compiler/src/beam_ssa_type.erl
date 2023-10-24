@@ -1180,10 +1180,9 @@ simplify(#b_set{op={bif,Op0},args=[A,B]}=I, Ts, Ds) when Op0 =:= '==';
                {#t_integer{},#t_integer{}} ->
                    %% Both side contain integers but no floats.
                    true;
-               {#t_float{},#t_float{}} ->
-                   %% Both side contain floats but no integers.
-                   true;
                {_,_} ->
+                   %% Either side can contain a number, substitution is unsafe
+                   %% even if both sides are floats as `-0.0 == +0.0`
                    false
            end,
     case EqEq of

@@ -196,20 +196,29 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
 void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
                                               const ArgWord &Live,
                                               const ArgSource &Src) {
-    mov_arg(TMP1, Src);
-    mov_imm(TMP2, make_small(0));
-
     /* Store trap state after the currently live registers. There are
      * 3 extra registers beyond the ordinary ones that we're free to
      * use for whatever purpose. */
     ERTS_CT_ASSERT(ERTS_X_REGS_ALLOCATED - MAX_REG >= 3);
-    mov_arg(ArgXRegister(Live.get() + 0), TMP1);
-    mov_arg(ArgXRegister(Live.get() + 1), TMP2);
+    auto trap_reg1 = ArgXRegister(Live.get() + 0);
+    auto trap_reg2 = ArgXRegister(Live.get() + 1);
+    auto trap_reg3 = ArgXRegister(Live.get() + 2);
 
-    /* Store original argument. This is only needed for exceptions and can be
-     * safely skipped in guards. */
-    if (Fail.get() == 0) {
-        mov_arg(ArgXRegister(Live.get() + 2), TMP1);
+    auto src = load_source(Src, TMP1);
+    auto dst1 = init_destination(trap_reg1, src.reg);
+    auto dst2 = init_destination(trap_reg2, TMP2);
+
+    mov_imm(dst2.reg, make_small(0));
+    mov_var(dst1, src);
+
+    /* Store original argument. This is only needed for exceptions and
+     * can be safely skipped in guards. */
+    if (Fail.get() != 0) {
+        flush_vars(dst1, dst2);
+    } else {
+        auto dst3 = init_destination(trap_reg3, src.reg);
+        mov_var(dst3, src);
+        flush_vars(dst1, dst2, dst3);
     }
 }
 
@@ -387,7 +396,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
         emit_enter_runtime_frame();
         emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap | Update::eXRegs>();
+                           Update::eHeap | Update::eXRegs>(MAX_BIF_ARITY);
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
         {
@@ -460,7 +469,8 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
          * after seeing a later timestamp from its own call to
          * erlang:monotonic_time/0. */
         emit_leave_runtime<Update::eReductions | Update::eCodeIndex |
-                           Update::eHeap | Update::eStack | Update::eXRegs>();
+                           Update::eHeap | Update::eStack | Update::eXRegs>(
+                MAX_BIF_ARITY);
         emit_leave_runtime_frame();
 
         /* ERTS_IS_GC_DESIRED_INTERNAL */
@@ -528,7 +538,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         {
             emit_enter_runtime_frame();
             emit_enter_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap | Update::eXRegs>();
+                               Update::eHeap | Update::eXRegs>(MAX_BIF_ARITY);
 
             a.mov(ARG3, ARG1);
 
@@ -540,7 +550,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             runtime_call<5>(erts_gc_after_bif_call_lhf);
 
             emit_leave_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap | Update::eXRegs>();
+                               Update::eHeap | Update::eXRegs>(MAX_BIF_ARITY);
             emit_leave_runtime_frame();
 
             a.b(check_bif_return);
@@ -568,6 +578,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
                                               const ArgExport &Exp) {
     Label entry = a.newLabel();
+    BeamFile_ImportEntry *e = &beam->imports.entries[Exp.get()];
 
     a.bind(entry);
 
@@ -576,7 +587,6 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
     a.adr(ARG3, entry);
 
     if (logger.file()) {
-        BeamFile_ImportEntry *e = &beam->imports.entries[Exp.get()];
         comment("BIF: %T:%T/%d", e->module, e->function, e->arity);
     }
     fragment_call(ga->get_call_light_bif_shared());

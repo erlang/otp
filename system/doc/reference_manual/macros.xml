@@ -206,11 +206,16 @@ f() ->
   </section>
 
   <section>
-    <title>Flow Control in Macros</title>
-    <p>The following macro directives are supplied:</p>
+    <title>Removing a macro definition</title>
+    <p>A definition of macro can be removed as follows:</p>
+    <code type="none">
+-undef(Macro).</code>
+  </section>
+
+  <section>
+    <title>Conditional Compilation</title>
+    <p>The following macro directives support conditional compilation:</p>
     <taglist>
-      <tag><c>-undef(Macro).</c></tag>
-      <item>Causes the macro to behave as if it had never been defined.</item>
       <tag><c>-ifdef(Macro).</c></tag>
       <item>Evaluate the following lines only if <c>Macro</c> is
        defined.</item>
@@ -218,24 +223,38 @@ f() ->
       <item>Evaluate the following lines only if <c>Macro</c> is not
        defined.</item>
       <tag><c>-else.</c></tag>
-      <item>Only allowed after an <c>ifdef</c> or <c>ifndef</c>
-       directive. If that condition is false, the lines following
-      <c>else</c> are evaluated instead.</item>
-      <tag><c>-endif.</c></tag>
-      <item>Specifies the end of an <c>ifdef</c>, an <c>ifndef</c>
-       directive, or the end of an <c>if</c> or <c>elif</c> directive.</item>
+      <item>Only allowed after the <c>ifdef</c>, <c>ifndef</c>, <c>if</c>,
+      and <c>elif</c> directives. The lines following <c>else</c> are
+      evaluated if the preceding directive evaluated to false.</item>
       <tag><c>-if(Condition).</c></tag>
       <item>Evaluates the following lines only if <c>Condition</c>
        evaluates to true.</item>
       <tag><c>-elif(Condition).</c></tag>
       <item>Only allowed after an <c>if</c> or another <c>elif</c> directive.
-       If the preceding <c>if</c> or <c>elif</c> directives do not
+       If the preceding <c>if</c> or <c>elif</c> directive does not
        evaluate to true, and the <c>Condition</c> evaluates to true,
        the lines following the <c>elif</c> are evaluated instead.</item>
+      <tag><c>-endif.</c></tag>
+      <item>Specifies the end of a series of control flow directives.</item>
     </taglist>
     <note>
-      <p>The macro directives cannot be used inside functions.</p>
+      <p>Macro directives cannot be used inside functions.</p>
     </note>
+
+    <p>Syntactically, the <c>Condition</c> in <c>if</c> and
+    <c>elif</c> must be a <seeguide
+    marker="expressions#guard-expressions">guard
+    expression</seeguide>. Other constructs (such as a <c>case</c>
+    expression) result in a compilation error.</p>
+
+    <p>As opposed to the standard guard expressions, an expression in
+    an <c>if</c> and <c>elif</c> also supports calling the
+    psuedo-function <c>defined(Name)</c>, which tests whether the
+    <c>Name</c> argument is the name of a previously defined macro.
+    <c>defined(Name)</c> evaluates to <c>true</c> if the macro is
+    defined and <c>false</c> otherwise. An attempt to call other
+    functions results in a compilation error.</p>
+
     <p><em>Example:</em></p>
     <code type="none">
 -module(m).
@@ -264,19 +283,29 @@ or
     <code type="none">
 -module(m)
 ...
--ifdef(OTP_RELEASE).
-  %% OTP 21 or higher
-  -if(?OTP_RELEASE >= 22).
-    %% Code that will work in OTP 22 or higher
-  -elif(?OTP_RELEASE >= 21).
-    %% Code that will work in OTP 21 or higher
-  -endif.
+-if(?OTP_RELEASE >= 25).
+%% Code that will work in OTP 25 or higher
+-elif(?OTP_RELEASE >= 26).
+%% Code that will work in OTP 26 or higher
 -else.
-  %% OTP 20 or lower.
+%% Code that will work in OTP 24 or lower.
 -endif.
 ...</code>
-    <p>The code uses the <c>OTP_RELEASE</c> macro to conditionally
+    <p>This code uses the <c>OTP_RELEASE</c> macro to conditionally
     select code depending on release.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(m)
+...
+-if(?OTP_RELEASE >= 26 andalso defined(debug)).
+%% Debugging code that requires OTP 26 or later.
+-else.
+%% Non-debug code that works in any release.
+-endif.
+...</code>
+    <p>This code uses the <c>OTP_RELEASE</c> macro and <c>defined(debug)</c>
+    to compile debug code only for OTP 26 or later.</p>
   </section>
 
   <section>

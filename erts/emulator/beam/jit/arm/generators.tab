@@ -450,6 +450,21 @@ gen.func_end(Func_Label, Entry_Label) {
     return op;
 }
 
+gen.init_yregs_move(Size, Rest) {
+    BeamOp* op;
+
+    ASSERT(Size.val == 1);
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, move, 2);
+    op->next = NULL;
+    op->a[0].type = TAG_n;
+    op->a[0].val = 0;
+    op->a[1] = Rest[0];
+
+    return op;
+}
+
 gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
     BeamOp* op;
     int fixed_args;

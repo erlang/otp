@@ -2423,7 +2423,7 @@ Eterm* hashmap_iterator_prev(ErtsWStack* s) {
 		}
 		ASSERT(is_boxed(ptr[idx]));
 		node = ptr[idx];
-		idx = 17;
+		idx = UINT_MAX;
 	    }
 	    else
 		break; /* and pop parent node */

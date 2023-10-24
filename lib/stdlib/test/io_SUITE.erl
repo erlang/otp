@@ -1562,7 +1562,7 @@ f2r({S,BE,M}) when 0 =< S, S =< 1,
     <<F:64/float>> = <<S:1, BE:11, M:52>>,
     case catch T/N of
         {'EXIT', _} -> ok;
-        TN -> true = F =:= TN
+        TN -> true = F == TN
     end,
     Vr.
 

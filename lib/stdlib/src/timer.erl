@@ -19,10 +19,11 @@
 %%
 -module(timer).
 
--export([apply_after/4,
+-export([apply_after/2, apply_after/3, apply_after/4,
          send_after/3, send_after/2,
          exit_after/3, exit_after/2, kill_after/2, kill_after/1,
-         apply_interval/4, apply_repeatedly/4,
+         apply_interval/2, apply_interval/3, apply_interval/4,
+	 apply_repeatedly/2, apply_repeatedly/3, apply_repeatedly/4,
          send_interval/3, send_interval/2,
          cancel/1, sleep/1, tc/1, tc/2, tc/3, tc/4, now_diff/2,
          seconds/1, minutes/1, hours/1, hms/3]).
@@ -40,7 +41,9 @@
 
 %% Validations
 -define(valid_time(T), is_integer(T), T >= 0).
--define(valid_mfa(M, F, A), is_atom(M), is_atom(F), is_list(A)).
+-define(valid_apply(F), is_function(F, 0)).
+-define(valid_apply(F, A), is_list(A), is_function(F, length(A))).
+-define(valid_apply(M, F, A), is_atom(M), is_atom(F), is_list(A)).
 
 %%
 %% Time is in milliseconds.
@@ -52,6 +55,31 @@
 %%
 %% Interface functions
 %%
+-spec apply_after(Time, Function) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun(() -> _),
+                   TRef :: tref(),
+                   Reason :: term().
+apply_after(Time, F)
+  when ?valid_apply(F) ->
+    apply_after(Time, erlang, apply, [F, []]);
+apply_after(_Time, _F) ->
+    {error, badarg}.
+
+-spec apply_after(Time, Function, Arguments) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun((...) -> _),
+                   Arguments :: [term()],
+                   TRef :: tref(),
+                   Reason :: term().
+apply_after(Time, F, A)
+  when ?valid_apply(F, A) ->
+    apply_after(Time, erlang, apply, [F, A]);
+apply_after(_Time, _F, _A) ->
+    {error, badarg}.
+
 -spec apply_after(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -61,12 +89,12 @@
                    TRef :: tref(),
                    Reason :: term().
 apply_after(0, M, F, A)
-  when ?valid_mfa(M, F, A) ->
+  when ?valid_apply(M, F, A) ->
     _ = do_apply({M, F, A}, false),
     {ok, {instant, make_ref()}};
 apply_after(Time, M, F, A)
   when ?valid_time(Time),
-       ?valid_mfa(M, F, A) ->
+       ?valid_apply(M, F, A) ->
     req(apply_once, {system_time(), Time, {M, F, A}});
 apply_after(_Time, _M, _F, _A) ->
     {error, badarg}.
@@ -146,6 +174,31 @@ kill_after(Time, Pid) ->
 kill_after(Time) ->
     exit_after(Time, self(), kill).
 
+-spec apply_interval(Time, Function) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun(() -> _),
+                   TRef :: tref(),
+                   Reason :: term().
+apply_interval(Time, F)
+  when ?valid_apply(F) ->
+    apply_interval(Time, erlang, apply, [F, []]);
+apply_interval(_Time, _F) ->
+    {error, badarg}.
+
+-spec apply_interval(Time, Function, Arguments) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun((...) -> _),
+                   Arguments :: [term()],
+                   TRef :: tref(),
+                   Reason :: term().
+apply_interval(Time, F, A)
+  when ?valid_apply(F, A) ->
+    apply_interval(Time, erlang, apply, [F, A]);
+apply_interval(_Time, _F, _A) ->
+    {error, badarg}.
+
 -spec apply_interval(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -156,9 +209,34 @@ kill_after(Time) ->
                    Reason :: term().
 apply_interval(Time, M, F, A)
   when ?valid_time(Time),
-       ?valid_mfa(M, F, A) ->
+       ?valid_apply(M, F, A) ->
     req(apply_interval, {system_time(), Time, self(), {M, F, A}});
 apply_interval(_Time, _M, _F, _A) ->
+    {error, badarg}.
+
+-spec apply_repeatedly(Time, Function) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun(() -> _),
+                   TRef :: tref(),
+                   Reason :: term().
+apply_repeatedly(Time, F)
+  when ?valid_apply(F) ->
+    apply_repeatedly(Time, erlang, apply, [F, []]);
+apply_repeatedly(_Time, _F) ->
+    {error, badarg}.
+
+-spec apply_repeatedly(Time, Function, Arguments) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Function :: fun((...) -> _),
+                   Arguments :: [term()],
+                   TRef :: tref(),
+                   Reason :: term().
+apply_repeatedly(Time, F, A)
+  when ?valid_apply(F, A) ->
+    apply_repeatedly(Time, erlang, apply, [F, A]);
+apply_repeatedly(_Time, _F, _A) ->
     {error, badarg}.
 
 -spec apply_repeatedly(Time, Module, Function, Arguments) ->
@@ -171,7 +249,7 @@ apply_interval(_Time, _M, _F, _A) ->
                    Reason :: term().
 apply_repeatedly(Time, M, F, A)
   when ?valid_time(Time),
-       ?valid_mfa(M, F, A) ->
+       ?valid_apply(M, F, A) ->
     req(apply_repeatedly, {system_time(), Time, self(), {M, F, A}});
 apply_repeatedly(_Time, _M, _F, _A) ->
     {error, badarg}.

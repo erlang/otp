@@ -32,8 +32,7 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
                                              const ArgSource &RHS,
                                              const a64::Gp rhs_reg,
                                              const Label next) {
-    if (exact_type<BeamTypeId::Integer>(LHS) &&
-        exact_type<BeamTypeId::Integer>(RHS) && is_small_result) {
+    if (is_small_result) {
         comment("skipped overflow test because the result is always small");
         emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
     } else {

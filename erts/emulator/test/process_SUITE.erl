@@ -94,6 +94,7 @@
          spawn_against_old_node/1,
          spawn_against_new_node/1,
          spawn_request_reply_option/1,
+         dist_spawn_arg_list_mixup/1,
          alias_bif/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
@@ -154,7 +155,8 @@ groups() ->
        spawn_against_ei_node,
        spawn_against_old_node,
        spawn_against_new_node,
-       spawn_request_reply_option]},
+       spawn_request_reply_option,
+       dist_spawn_arg_list_mixup]},
      {processes_bif, [],
       [processes_large_tab, processes_default_tab,
        processes_small_tab, processes_this_tab,
@@ -4188,6 +4190,75 @@ spawn_request_reply_option_test(Peer, Node) ->
             end,
             ok
     end.
+
+dist_spawn_arg_list_mixup(Config) when is_list(Config) ->
+    %% A process newly spawned via the distribution is passed the
+    %% argument list to use as the first message followed by an intialization
+    %% message. Those two messages *must* be the first messages in its queue
+    %% when it begins execution. The parallel receive/send signal optimization
+    %% could potentially cause reordering of messages if certain future
+    %% changes are made. This test case tries to cause a situation where a
+    %% message reordering potentially could happen, and hopefully will detect
+    %% such problematic changes.
+    Tester = self(),
+    NoScheds = 8,
+    NoSchedsStr = integer_to_list(NoScheds),
+    NoSchedsList = lists:seq(1, NoScheds),
+    {ok, Peer, Node} = ?CT_PEER(["+S"++NoSchedsStr++":"++NoSchedsStr]),
+    AttackMsg = make_ref(),
+    AttackArgList = [Tester, AttackMsg],
+    OkMsg = make_ref(),
+    As = lists:map(
+           fun (_) ->
+                   spawn_opt(
+                     Node,
+                     fun () ->
+                             dist_spawn_arg_list_mixup_sender(AttackArgList,
+                                                              1000)
+                     end, [{priority, high}, link])
+           end, NoSchedsList),
+    Relay = spawn_opt(
+              Node,
+              fun () ->
+                      receive
+                          {attack, Victim} ->
+                              lists:foreach(fun (A) ->
+                                                    A ! {attack, Victim}
+                                            end, As)
+                      end
+              end, [{priority, max}, link]),
+    receive after 100 -> ok end,
+    Victim = spawn_opt(Node, erlang, send, [Tester, OkMsg],
+                       [{message_queue_data, off_heap},
+                        {priority, normal},
+                        link]),
+    Relay ! {attack, Victim},
+    receive
+        OkMsg ->
+            ok;
+        AttackMsg ->
+            ct:fail(child_process_used_message_as_argument_list)
+    end,
+    lists:foreach(fun (P) ->
+                          unlink(P)
+                  end, [Victim] ++ [Relay] ++ As),
+    peer:stop(Peer),
+    ok.
+
+dist_spawn_arg_list_mixup_sender(Msg, N) ->
+    receive
+        {attack, Victim} ->
+            dist_spawn_arg_list_mixup_sender(Victim, Msg, N)
+    after
+        0 ->
+            dist_spawn_arg_list_mixup_sender(Msg, N)
+    end.
+
+dist_spawn_arg_list_mixup_sender(_Pid, _Msg, 0) ->
+    ok;
+dist_spawn_arg_list_mixup_sender(Pid, Msg, N) ->
+    Pid ! Msg,
+    dist_spawn_arg_list_mixup_sender(Pid, Msg, N-1).
 
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),

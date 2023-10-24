@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name since="">stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
+      <name since="">Module:stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
       <fsummary>Discovery stage 1 finish</fsummary>
       <type>
         <v>TargetName = string()</v>

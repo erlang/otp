@@ -24,7 +24,8 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-         revert_map_type/1,wrapped_subtrees/1,
+         revert_map_type/1,revert_preserve_pos_changes/1,
+         wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
          t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
@@ -33,6 +34,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
+     revert_preserve_pos_changes,
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
@@ -145,6 +147,20 @@ revert_map_type(Config) when is_list(Config) ->
                  [{type,5,map_field_assoc,[{atom,5,y},{atom,5,z}]}]}}]}},
     Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
     Form2 = erl_syntax:revert(Mapped2),
+    test_server:timetrap_cancel(Dog).
+
+revert_preserve_pos_changes(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:minutes(1)),
+    Pos0 = 1,
+    Var0 = {var, Pos0, 'Var'},
+    %% Adding any user annotation makes erl_syntax change to it's internal
+    %% representation
+    Var1 = erl_syntax:add_ann({env, []}, Var0),
+    %% Change the `pos' of the node
+    Pos1 = erl_anno:set_generated(true, Pos0),
+    Var2 = erl_syntax:set_pos(Var1, Pos1),
+    %% The must be equal when reverted
+    {var, Pos1, 'Var'} = erl_syntax:revert(Var2),
     test_server:timetrap_cancel(Dog).
 
 %% Read with erl_parse, wrap each tree node with erl_syntax and check that

@@ -631,6 +631,8 @@ static void install_bifs(void) {
 
         entry = &bif_table[i];
 
+        ERTS_ASSERT(entry->arity <= MAX_BIF_ARITY);
+
         ep = erts_export_put(entry->module, entry->name, entry->arity);
 
         ep->info.u.op = BeamOpCodeAddr(op_i_func_info_IaaI);

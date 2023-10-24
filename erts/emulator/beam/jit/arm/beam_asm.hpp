@@ -835,7 +835,28 @@ class BeamModuleAssembler : public BeamAssembler,
     size_t last_error_offset = 0;
 
     static constexpr ptrdiff_t STUB_CHECK_INTERVAL = 4 << 10;
+    static constexpr ptrdiff_t STUB_CHECK_INTERVAL_UNREACHABLE =
+            (4 << 10) - 128;
     size_t last_stub_check_offset = 0;
+
+    /* Save the last known unreachable position. */
+    size_t last_unreachable_offset = 0;
+
+    /* Mark this point unreachable. Use at the end of a BEAM
+     * instruction. */
+    void mark_unreachable() {
+        last_unreachable_offset = a.offset();
+    }
+
+    /* Use within BEAM instructions. */
+    void mark_unreachable_check_pending_stubs() {
+        mark_unreachable();
+        check_pending_stubs();
+    }
+
+    bool is_unreachable() {
+        return a.offset() == last_unreachable_offset;
+    }
 
     enum Displacement : size_t {
         /* Pessimistic estimate for helper functions, where we don't know the
@@ -884,6 +905,17 @@ class BeamModuleAssembler : public BeamAssembler,
         }
     };
 
+    struct EmbeddedLabel {
+        ssize_t latestOffset;
+        Label anchor;
+
+        Label label;
+
+        constexpr bool operator>(const EmbeddedLabel &other) const {
+            return latestOffset > other.latestOffset;
+        }
+    };
+
     /* ArgVal -> Constant
      *
      * `_pending_constants` points directly into this container, which is
@@ -901,6 +933,11 @@ class BeamModuleAssembler : public BeamAssembler,
                                 std::deque<std::reference_wrapper<const T>>,
                                 std::greater<const T &>>;
 
+    /* Index of Label -> EmbeddedLabel
+     *
+     * `_pending_labels` points directly into this container. */
+    std::unordered_map<uint32_t, EmbeddedLabel> _embedded_labels;
+
     /* All pending stubs, segregated by type and sorted by `latestOffset` in
      * ascending order.
      *
@@ -908,6 +945,7 @@ class BeamModuleAssembler : public BeamAssembler,
      * different sizes and alignment requirements. */
     PendingStubs<Constant> _pending_constants;
     PendingStubs<Veneer> _pending_veneers;
+    PendingStubs<EmbeddedLabel> _pending_labels;
 
     /* Maps code pointers to thunks that jump to them, letting us treat global
      * fragments as if they were local. */
@@ -923,6 +961,10 @@ class BeamModuleAssembler : public BeamAssembler,
     void preserve__cache(arm::Gp dst) {
         last_destination_offset = a.offset();
         invalidate_cache(dst);
+    }
+
+    bool is_cache_valid() {
+        return a.offset() == last_destination_offset;
     }
 
     /* Works as the STR instruction, but also updates the cache. */
@@ -997,6 +1039,10 @@ class BeamModuleAssembler : public BeamAssembler,
         } else {
             /* The cache is invalid. */
             a.ldr(dst, mem);
+            last_destination_offset = a.offset();
+            last_destination_to1 = mem;
+            last_destination_from1 = dst;
+            last_destination_to2 = arm::Mem();
         }
     }
 
@@ -1021,6 +1067,8 @@ class BeamModuleAssembler : public BeamAssembler,
             mov_imm(dst, value);
         }
     }
+
+    arm::Mem embed_label(const Label &label, enum Displacement disp);
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1241,13 +1289,16 @@ protected:
                               Label fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(arm::Gp reg,
-                                         Label fail,
-                                         const Span<ArgVal> &args);
+    void emit_optimized_two_way_select(arm::Gp reg,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, arm::Gp tuple_reg);
 #endif
+
+    void emit_dispatch_return();
 
 #include "beamasm_protos.h"
 
@@ -1297,6 +1348,10 @@ protected:
     /* Emits pending veneers when appropriate. Must be called at least once
      * every `STUB_CHECK_INTERVAL` bytes for veneers and constants to work. */
     void check_pending_stubs();
+
+    /* Unconditionally emits all pending labels. Must only be called when
+     * the current code position is unreachable. */
+    void flush_pending_labels();
 
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
@@ -1440,6 +1495,36 @@ protected:
         return Variable<arm::VecD>(tmp);
     }
 
+    void emit_load_args(const ArgSource &Src1,
+                        arm::Gp src1_default,
+                        const ArgSource &Src2,
+                        arm::Gp src2_default,
+                        const ArgSource &Src3,
+                        arm::Gp src3_default) {
+        if (isRegisterBacked(Src1) || !Src1.isRegister()) {
+            auto src1 = load_source(Src1, src1_default);
+            auto [src2, src3] =
+                    load_sources(Src2, src2_default, Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else if (isRegisterBacked(Src2) || !Src2.isRegister()) {
+            auto [src1, src3] =
+                    load_sources(Src1, src1_default, Src3, src3_default);
+            auto src2 = load_source(Src2, src2_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else {
+            auto [src1, src2] =
+                    load_sources(Src1, src1_default, Src2, src2_default);
+            auto src3 = load_source(Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        }
+    }
+
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
         mov_var(to.reg, from);
@@ -1471,25 +1556,54 @@ protected:
         }
     }
 
+    enum Relation { none, consecutive, reverse_consecutive };
+
+    static Relation memory_relation(const arm::Mem &mem1,
+                                    const arm::Mem &mem2) {
+        if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
+            mem1.baseId() == mem2.baseId()) {
+            if (mem1.offset() + 8 == mem2.offset()) {
+                return consecutive;
+            } else if (mem1.offset() == mem2.offset() + 8) {
+                return reverse_consecutive;
+            }
+        }
+        return none;
+    }
+
     void flush_vars(const Variable<arm::Gp> &to1,
                     const Variable<arm::Gp> &to2) {
         const arm::Mem &mem1 = to1.mem;
         const arm::Mem &mem2 = to2.mem;
 
-        if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
-            mem1.baseId() == mem2.baseId()) {
-            if (mem1.offset() + 8 == mem2.offset()) {
-                stp_cache(to1.reg, to2.reg, mem1);
-                return;
-            } else if (mem1.offset() == mem2.offset() + 8) {
-                stp_cache(to2.reg, to1.reg, mem2);
-                return;
-            }
+        switch (memory_relation(to1.mem, to2.mem)) {
+        case Relation::consecutive:
+            stp_cache(to1.reg, to2.reg, mem1);
+            break;
+        case Relation::reverse_consecutive:
+            stp_cache(to2.reg, to1.reg, mem2);
+            break;
+        case Relation::none:
+            /* Not possible to optimize with stp. */
+            flush_var(to1);
+            flush_var(to2);
+            break;
         }
+    }
 
-        /* Not possible to optimize with stp. */
-        flush_var(to1);
-        flush_var(to2);
+    void flush_vars(const Variable<arm::Gp> &to1,
+                    const Variable<arm::Gp> &to2,
+                    const Variable<arm::Gp> &to3) {
+        if (memory_relation(to2.mem, to3.mem) != Relation::none) {
+            flush_vars(to2, to3);
+            flush_var(to1);
+        } else if (memory_relation(to1.mem, to3.mem) != Relation::none) {
+            flush_vars(to1, to3);
+            flush_var(to2);
+        } else {
+            flush_vars(to1, to2);
+            flush_var(to3);
+        }
     }
 
     void mov_arg(const ArgVal &To, const ArgVal &From) {
@@ -1521,14 +1635,14 @@ protected:
     void mov_arg(arm::Gp to, const ArgVal &from) {
         auto r = load_source(from, to);
         if (r.reg != to) {
-            a.mov(to, r.reg);
+            mov_preserve_cache(to, r.reg);
         }
     }
 
     void mov_arg(const ArgVal &to, arm::Gp from) {
         auto r = init_destination(to, from);
         if (r.reg != from) {
-            a.mov(r.reg, from);
+            mov_preserve_cache(r.reg, from);
         }
         flush_var(r);
     }
@@ -1581,7 +1695,11 @@ protected:
         ASSERT(gp.isGpX());
 
         if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            bool valid_cache = is_cache_valid();
             a.ldr(gp, mem);
+            if (valid_cache) {
+                preserve__cache(gp);
+            }
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
@@ -1621,7 +1739,12 @@ protected:
         ASSERT(gp1 != gp2);
 
         if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+            bool valid_cache = is_cache_valid();
             a.ldp(gp1, gp2, mem);
+            if (valid_cache) {
+                preserve__cache(gp1);
+                preserve__cache(gp2);
+            }
         } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */

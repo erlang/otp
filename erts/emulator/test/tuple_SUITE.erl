@@ -141,6 +141,7 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1, id({}))),
     {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
     {'EXIT', {badarg, _}} = (catch element(1, id(42))),
+    {'EXIT', {badarg, _}} = (catch element(false, id({a,b}))),
     {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
 
     %% Make sure that the loader does not reject the module when
@@ -150,7 +151,29 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1 bsl 32, id({a,b,c}))),
     {'EXIT', {badarg, _}} = (catch element(1 bsl 64, id({a,b,c}))),
 
+    %% Test known tuple and unknown position.
+    true = is_tuple(Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(false), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(-1), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(0), Tuple),
+    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), Tuple),
+
+    %% Test a known tuple and position that is a known integer.
+    {'EXIT', {badarg, _}} = catch element(known_integer(-1), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(0), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(1 bsl 64), Tuple),
+    {'EXIT', {badarg, _}} = catch element(known_integer(tuple_size(Tuple)+1), Tuple),
+
+    %% Test unknown tuple and unknown position.
+    {'EXIT', {badarg, _}} = catch element(id(false), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(-1), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(0), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), id(Tuple)),
+
     ok.
+
+known_integer(I) when is_integer(I) ->
+    I.
 
 get_elements([Element|Rest], Tuple, Pos) ->
     Element = element(Pos, Tuple),

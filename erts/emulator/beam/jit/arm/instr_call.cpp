@@ -33,9 +33,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.b(labels[context_switch_simplified]);
 }
 
-void BeamModuleAssembler::emit_return() {
-    emit_leave_erlang_frame();
-
+void BeamModuleAssembler::emit_dispatch_return() {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::Word, 1));
@@ -52,6 +50,18 @@ void BeamModuleAssembler::emit_return() {
     a.b_mi(resolve_fragment(ga->get_dispatch_return(), disp1MB));
 
     a.ret(a64::x30);
+
+    mark_unreachable();
+}
+
+void BeamModuleAssembler::emit_return() {
+    emit_leave_erlang_frame();
+    emit_dispatch_return();
+}
+
+void BeamModuleAssembler::emit_move_deallocate_return() {
+    a.ldp(XREG0, a64::x30, arm::Mem(E).post(16));
+    emit_dispatch_return();
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
@@ -71,21 +81,30 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        a.b(resolve_beam_label(CallTarget, disp128MB));
+        mark_unreachable();
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_only(CallTarget);
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_only(CallTarget);
     }
-    emit_i_call_only(CallTarget);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
+    mark_unreachable();
 }
 
 /* Handles save_calls for remote calls. When the active code index is
@@ -128,6 +147,7 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
     arm::Mem target = emit_setup_dispatchable_call(ARG1);
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
@@ -143,16 +163,26 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
 
-    if (src_index == 0 && Support::isInt9(deallocate)) {
+    if (src_index == 0 && deallocate == 8) {
+        auto dst = init_destination(Dst, TMP1);
+        const arm::Mem src_ref = arm::Mem(E).post(2 * deallocate);
+        mov_arg(ARG1, Exp);
+        arm::Mem target = emit_setup_dispatchable_call(ARG1);
+        a.ldp(dst.reg, a64::x30, src_ref);
+        flush_var(dst);
+        branch(target);
+        mark_unreachable();
+    } else if (src_index == 0 && Support::isInt9(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const arm::Mem src_ref = arm::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
+        emit_i_call_ext_only(Exp);
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
+        emit_i_call_ext_only(Exp);
     }
-    emit_i_call_ext_only(Exp);
 }
 
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
@@ -205,6 +235,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
@@ -257,4 +288,5 @@ void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
 
     emit_leave_erlang_frame();
     branch(target);
+    mark_unreachable();
 }

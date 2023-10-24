@@ -100,7 +100,9 @@ my @beam_global_funcs = qw(
     process_exit
     process_main
     raise_exception
+    raise_exception_null_exp
     raise_exception_shared
+    raise_shared
     store_unaligned
     unary_minus_body_shared
     unary_minus_guard_shared
@@ -108,6 +110,8 @@ my @beam_global_funcs = qw(
     update_map_assoc_shared
     update_map_exact_guard_shared
     update_map_exact_body_shared
+    update_map_single_assoc_shared
+    update_map_single_exact_body_shared
     );
 
 # Labels exported from within process_main

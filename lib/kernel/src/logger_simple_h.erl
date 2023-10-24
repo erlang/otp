@@ -58,31 +58,40 @@ removing_handler(#{id:=simple}) ->
             end
     end.
 
-log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}},_Config)
-  when Type=/=std_info ->
-    %% Skip info reports that are not 'std_info' (ref simple logger in
-    %% error_logger)
-    ok;
-log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
-    _ = case whereis(?MODULE) of
-            undefined ->
-                %% Is the node on the way down? Real emergency?
-                %% Log directly from client just to get it out
-                case maps:get(internal_log_event, M, false) of
-                    false ->
-                        do_log(simple,
-                          #{level=>error,
-                            msg=>{report,{error,simple_handler_process_dead}},
-                            meta=>#{time=>logger:timestamp()}});
-                    true ->
-                        ok
-                end,
-                do_log(simple,Log);
-            _ ->
-                ?MODULE ! {log,Log}
-        end,
-    ok;
-log(_,_) ->
+log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}} = Log,_Meta)
+  when Type =/= std_info ->
+    case logger:allow(debug, ?MODULE) of
+        false ->
+            %% Skip info reports that are not 'std_info' (ref simple logger in
+            %% error_logger)
+            ok;
+        true ->
+            %% If log level is debug or all we emit even these reports
+            do_log(Log)
+    end;
+log(Log,_Config) ->
+    _ = do_log(Log),
+    ok.
+
+do_log(#{msg:=_,meta:=#{time:=_}=M}=Log) ->
+    case whereis(?MODULE) of
+        undefined ->
+            %% Is the node on the way down? Real emergency?
+            %% Log directly from client just to get it out
+            case maps:get(internal_log_event, M, false) of
+                false ->
+                    do_log(simple,
+                           #{level=>error,
+                             msg=>{report,{error,simple_handler_process_dead}},
+                             meta=>#{time=>logger:timestamp()}});
+                true ->
+                    ok
+            end,
+            do_log(simple,Log);
+        _ ->
+            ?MODULE ! {log,Log}
+    end;
+do_log(_) ->
     %% Unexpected log.
     %% We don't want to crash the simple logger, so ignore this.
     ok.
@@ -92,7 +101,7 @@ log(_,_) ->
 init(Starter) ->
     register(?MODULE,self()),
     Starter ! {self(),started},
-    loop(rich, #{buffer_size=>10,dropped=>0,buffer=>[]}).
+    loop(rich, #{buffer_size=>20,dropped=>0,buffer=>[]}).
 
 loop(Mode, Buffer) ->
     receive

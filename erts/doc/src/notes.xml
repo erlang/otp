@@ -31,6 +31,44 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the external term format encoding of an argument list
+	    part of a distributed spawn operation was faulty, the
+	    newly spawned remote process could misbehave. The
+	    misbehavior included hanging or interpret an incoming
+	    message as an argument list to use. This was very
+	    unlikely to happen unless using an alternate
+	    implementation of the distribution protocol which made a
+	    faulty encoding of the argument list. The child process
+	    will now detect this error and terminate before executing
+	    the user specified code.</p>
+          <p>
+	    Own Id: OTP-18790 Aux Id: PR-7742 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs where if the body of a matchspec would return a
+	    map with a variable ('$1', '$_' etc) as one of the keys
+	    or values and the variable was not an immidiate, the term
+	    would not be copied to the receiving processes heap. This
+	    would later corrupt the term in the table as the GC could
+	    place move markers in it, which in turn would cause the
+	    VM to crash.</p>
+          <p>
+	    Bug has been present for since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-18797 Aux Id: PR-7712 GH-7683 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -941,6 +979,55 @@
 	    Potential Incompatibilities</seeguide>.</p>
           <p>
 	    Own Id: OTP-18574</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 13.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the external term format encoding of an argument list
+	    part of a distributed spawn operation was faulty, the
+	    newly spawned remote process could misbehave. The
+	    misbehavior included hanging or interpret an incoming
+	    message as an argument list to use. This was very
+	    unlikely to happen unless using an alternate
+	    implementation of the distribution protocol which made a
+	    faulty encoding of the argument list. The child process
+	    will now detect this error and terminate before executing
+	    the user specified code.</p>
+          <p>
+	    Own Id: OTP-18790 Aux Id: PR-7742 </p>
+        </item>
+        <item>
+	    <p>On Apple Silicon Macs running macOS Sonoma, the
+	    runtime system with the JIT enabled would crash.
+	    Therefore, the <c>configure</c> script will by default
+	    now disable the JIT on Macs with Apple Silicon. When
+	    building for earlier versions of macOS, the JIT can be
+	    explicitly enabled by passing <c>--enable-jit</c> to the
+	    <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-18792 Aux Id: GH-7687 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs where if the body of a matchspec would return a
+	    map with a variable ('$1', '$_' etc) as one of the keys
+	    or values and the variable was not an immidiate, the term
+	    would not be copied to the receiving processes heap. This
+	    would later corrupt the term in the table as the GC could
+	    place move markers in it, which in turn would cause the
+	    VM to crash.</p>
+          <p>
+	    Bug has been present for since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-18797 Aux Id: PR-7712 GH-7683 </p>
         </item>
       </list>
     </section>
@@ -2530,6 +2617,62 @@
 	    <c>F_BARRIERFSYNC</c> flag when available on Mac OS.</p>
           <p>
 	    Own Id: OTP-18038</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 12.3.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug causing "magic" references in a <c>compressed</c>
+	    ETS table to not keep the referred object alive. The
+	    symptom would be the referred object being garbage
+	    collected prematurely and the reference appearing stale,
+	    not referring to anything. Examples of such magically
+	    referred objects are <c>atomics</c> and NIF resources.</p>
+          <p>
+	    Own Id: OTP-18732 Aux Id: GH-7444, PR-7458 </p>
+        </item>
+        <item>
+          <p>
+	    The cleanup operation of not yet delivered signals to a
+	    terminated process yielded excessively.</p>
+          <p>
+	    Own Id: OTP-18752 Aux Id: PR-7633 </p>
+        </item>
+        <item>
+          <p>
+	    If the external term format encoding of an argument list
+	    part of a distributed spawn operation was faulty, the
+	    newly spawned remote process could misbehave. The
+	    misbehavior included hanging or interpret an incoming
+	    message as an argument list to use. This was very
+	    unlikely to happen unless using an alternate
+	    implementation of the distribution protocol which made a
+	    faulty encoding of the argument list. The child process
+	    will now detect this error and terminate before executing
+	    the user specified code.</p>
+          <p>
+	    Own Id: OTP-18790 Aux Id: PR-7742 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs where if the body of a matchspec would return a
+	    map with a variable ('$1', '$_' etc) as one of the keys
+	    or values and the variable was not an immidiate, the term
+	    would not be copied to the receiving processes heap. This
+	    would later corrupt the term in the table as the GC could
+	    place move markers in it, which in turn would cause the
+	    VM to crash.</p>
+          <p>
+	    Bug has been present for since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-18797 Aux Id: PR-7712 GH-7683 </p>
         </item>
       </list>
     </section>

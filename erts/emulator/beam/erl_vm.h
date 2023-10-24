@@ -53,6 +53,8 @@
 #define MAX_REG      1024            /* Max number of x(N) registers used */
 #define REG_MASK     (MAX_REG - 1)
 
+#define MAX_BIF_ARITY 4 /* Maximum allowed arguments for C-based BIFs. */
+
 /*
  * Guard BIFs and the new trapping length/1 implementation need 3 extra
  * registers in the register array.

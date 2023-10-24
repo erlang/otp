@@ -545,23 +545,44 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     a.ret(a64::x30);
 }
 
+/* ARG2 = key
+ * ARG3 = value
+ * ARG4 = map
+ */
+void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    runtime_call<4>(erts_maps_put);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
+}
+
 void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
                                                 const ArgRegister &Dst,
                                                 const ArgWord &Live,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
-    auto src_reg = load_source(Src, TMP1);
-
     ASSERT(Size.get() == args.size());
 
-    embed_vararg_rodata(args, ARG5);
+    if (args.size() == 2) {
+        emit_load_args(args[0], ARG2, args[1], ARG3, Src, ARG4);
+        fragment_call(ga->get_update_map_single_assoc_shared());
+    } else {
+        auto src = load_source(Src, TMP1);
 
-    mov_arg(ArgXRegister(Live.get()), src_reg.reg);
-    mov_arg(ARG3, Live);
-    mov_imm(ARG4, args.size());
+        embed_vararg_rodata(args, ARG5);
 
-    fragment_call(ga->get_update_map_assoc_shared());
+        mov_arg(ArgXRegister(Live.get()), src.reg);
+        mov_arg(ARG3, Live);
+        mov_imm(ARG4, args.size());
 
+        fragment_call(ga->get_update_map_assoc_shared());
+    }
     mov_arg(Dst, ARG1);
 }
 
@@ -612,29 +633,67 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     }
 }
 
+/* ARG2 = key
+ * ARG3 = value
+ * ARG4 = map
+ *
+ * Does not return on error. */
+void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
+    Label error = a.newLabel();
+
+    a.str(ARG2, TMP_MEM2q);
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eHeapAlloc>();
+
+    a.mov(ARG1, c_p);
+    lea(ARG5, TMP_MEM1q);
+    runtime_call<5>(erts_maps_update);
+
+    emit_leave_runtime<Update::eHeapAlloc>();
+    emit_leave_runtime_frame();
+
+    a.cbz(ARG1.w(), error);
+
+    a.ldr(ARG1, TMP_MEM1q);
+    a.ret(a64::x30);
+
+    a.bind(error);
+    {
+        a.ldr(TMP2, TMP_MEM2q);
+        mov_imm(TMP1, BADKEY);
+        ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+        a.stp(TMP1, TMP2, arm::Mem(c_p, offsetof(Process, freason)));
+        mov_imm(ARG4, 0);
+        a.b(labels[raise_exception]);
+    }
+}
+
 void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
                                                 const ArgLabel &Fail,
                                                 const ArgRegister &Dst,
                                                 const ArgWord &Live,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
-    auto src_reg = load_source(Src, TMP1);
-
     ASSERT(Size.get() == args.size());
 
-    embed_vararg_rodata(args, ARG5);
-
-    /* We _KNOW_ Src is a map */
-
-    mov_arg(ArgXRegister(Live.get()), src_reg.reg);
-    mov_arg(ARG3, Live);
-    mov_imm(ARG4, args.size());
-
-    if (Fail.get() != 0) {
-        fragment_call(ga->get_update_map_exact_guard_shared());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    if (args.size() == 2 && Fail.get() == 0) {
+        emit_load_args(args[0], ARG2, args[1], ARG3, Src, ARG4);
+        fragment_call(ga->get_update_map_single_exact_body_shared());
     } else {
-        fragment_call(ga->get_update_map_exact_body_shared());
+        auto src = load_source(Src, ARG4);
+        embed_vararg_rodata(args, ARG5);
+        mov_arg(ArgXRegister(Live.get()), src.reg);
+        mov_arg(ARG3, Live);
+        mov_imm(ARG4, args.size());
+
+        if (Fail.get() != 0) {
+            fragment_call(ga->get_update_map_exact_guard_shared());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            fragment_call(ga->get_update_map_exact_body_shared());
+        }
     }
 
     mov_arg(Dst, ARG1);

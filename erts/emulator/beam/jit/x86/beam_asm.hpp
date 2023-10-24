@@ -1042,6 +1042,11 @@ class BeamModuleAssembler : public BeamAssembler,
         invalidate_cache(dst);
     }
 
+    void preserve__cache(x86::Mem mem) {
+        last_movarg_offset = a.offset();
+        invalidate_cache(mem);
+    }
+
     bool is_cache_valid() {
         return a.offset() == last_movarg_offset;
     }
@@ -1049,6 +1054,12 @@ class BeamModuleAssembler : public BeamAssembler,
     void preserve_cache(x86::Gp dst, bool cache_valid) {
         if (cache_valid) {
             preserve__cache(dst);
+        }
+    }
+
+    void preserve_cache(x86::Mem mem, bool cache_valid) {
+        if (cache_valid) {
+            preserve__cache(mem);
         }
     }
 
@@ -1082,6 +1093,17 @@ class BeamModuleAssembler : public BeamAssembler,
             last_movarg_from1 = x86::Gp();
         }
         if (dst == last_movarg_from2) {
+            last_movarg_to2 = x86::Mem();
+            last_movarg_from2 = x86::Gp();
+        }
+    }
+
+    void invalidate_cache(x86::Mem mem) {
+        if (mem == last_movarg_to1) {
+            last_movarg_to1 = x86::Mem();
+            last_movarg_from1 = x86::Gp();
+        }
+        if (mem == last_movarg_to2) {
             last_movarg_to2 = x86::Mem();
             last_movarg_from2 = x86::Gp();
         }
@@ -1121,6 +1143,12 @@ class BeamModuleAssembler : public BeamAssembler,
         } else {
             /* The cache is invalid. */
             a.mov(dst, mem);
+
+            last_movarg_offset = a.offset();
+            last_movarg_to1 = mem;
+            last_movarg_from1 = dst;
+
+            last_movarg_to2 = x86::Mem();
         }
     }
 
@@ -1336,8 +1364,10 @@ protected:
                               const ArgVal &Fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(const ArgVal &Fail,
-                                         const Span<ArgVal> &args);
+    bool emit_optimized_two_way_select(bool destructive,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
     void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);
@@ -1500,25 +1530,33 @@ protected:
     void mov_arg(x86::Mem to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isImmed()) {
             auto val = from.as<ArgImmed>().get();
+            bool cache_valid = is_cache_valid();
 
             if (Support::isInt32((Sint)val)) {
                 a.mov(to, imm(val));
             } else {
                 a.mov(spill, imm(val));
                 a.mov(to, spill);
+                preserve_cache(spill, cache_valid);
             }
+            preserve_cache(to, cache_valid);
         } else if (from.isWord()) {
             auto val = from.as<ArgWord>().get();
+            bool cache_valid = is_cache_valid();
 
             if (Support::isInt32((Sint)val)) {
                 a.mov(to, imm(val));
             } else {
                 a.mov(spill, imm(val));
                 a.mov(to, spill);
+                preserve_cache(spill, cache_valid);
             }
+            preserve_cache(to, cache_valid);
         } else {
             mov_arg(spill, from);
+            bool cache_valid = is_cache_valid();
             a.mov(to, spill);
+            preserve_cache(to, cache_valid);
         }
     }
 

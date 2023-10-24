@@ -928,14 +928,18 @@ get_pos(Node) ->
 
 set_pos(Node, Pos) ->
     case Node of
-	#tree{attr = Attr} ->
-	    Node#tree{attr = Attr#attr{pos = Pos}};
-	#wrapper{attr = Attr} ->
-	    Node#wrapper{attr = Attr#attr{pos = Pos}};
-	_ ->
-	    %% We then assume we have an `erl_parse' node, and create a
-	    %% wrapper around it to make things more uniform.
-	    set_pos(wrap(Node), Pos)
+        #tree{attr = Attr} ->
+            Node#tree{attr = Attr#attr{pos = Pos}};
+        #wrapper{attr = Attr, tree = {error, {_, Module, Reason}}} ->
+            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {error, {Pos, Module, Reason}}};
+        #wrapper{attr = Attr, tree = {warning, {_, Module, Reason}}} ->
+            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {warning, {Pos, Module, Reason}}};
+        #wrapper{attr = Attr, tree = Tree} ->
+            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = setelement(2, Tree, Pos)};
+        _ ->
+            %% We then assume we have an `erl_parse' node, and create a
+            %% wrapper around it to make things more uniform.
+            set_pos(wrap(Node), Pos)
     end.
 
 
@@ -2452,17 +2456,23 @@ list(Elements, Tail) when Elements =/= [] ->
 
 revert_list(Node) ->
     Pos = get_pos(Node),
-    P = list_prefix(Node),
-    S = case list_suffix(Node) of
+    Prefix = list_prefix(Node),
+    Suffix = case list_suffix(Node) of
 	    none ->
-		revert_nil(set_pos(nil(), Pos));
-	    S1 ->
-		S1
+            LastPos = get_pos(lists:last(Prefix)),
+            LastLocation = case erl_anno:end_location(LastPos) of
+                undefined -> erl_anno:location(LastPos);
+                Location -> Location
+            end,
+            revert_nil(set_pos(nil(), erl_anno:set_location(LastLocation, Pos)));
+	    Suffix1 ->
+            Suffix1
 	end,
-    lists:foldr(fun (X, A) ->
-			{cons, Pos, X, A}
-		end,
-		S, P).
+    lists:foldr(fun (Head, Tail) ->
+        HeadPos = get_pos(Head),
+        HeadLocation = erl_anno:location(HeadPos),
+        {cons, erl_anno:set_location(HeadLocation, Pos), Head, Tail}
+    end, Suffix, Prefix).
 
 %% =====================================================================
 %% @doc Creates an abstract empty list. The result represents
@@ -7769,13 +7779,7 @@ is_literal_map_field(F) ->
 -spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
-    case is_tree(Node) of
-	false ->
-	    %% Just remove any wrapper. `erl_parse' nodes never contain
-	    %% abstract syntax tree nodes as subtrees.
-	    unwrap(Node);
-	true ->
-	    case is_leaf(Node) of
+    case is_leaf(Node) of
 		true ->
 		    revert_root(Node);
 		false ->
@@ -7789,7 +7793,6 @@ revert(Node) ->
 		    %% parts, and revert the node itself.
 		    Node1 = update_tree(Node, Gs),
 		    revert_root(Node1)
-	    end
     end.
 
 %% Note: The concept of "compatible root node" is not strictly defined.

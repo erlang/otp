@@ -124,6 +124,8 @@ static void install_bifs(void) {
 
         entry = &bif_table[i];
 
+        ERTS_ASSERT(entry->arity <= MAX_BIF_ARITY);
+
         ep = erts_export_put(entry->module, entry->name, entry->arity);
 
         sys_memset(&ep->info.u, 0, sizeof(ep->info.u));

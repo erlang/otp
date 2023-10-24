@@ -378,7 +378,7 @@ op_add(A, B) ->
     R = unify(catch A + B, Info),
     R = unify(my_apply(erlang,'+',[A,B]), Info),
     case R of
-        _ when A + B =:= element(1,R) -> ok;
+        _ when A + B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
     end.
 
@@ -387,7 +387,7 @@ op_sub(A, B) ->
     R = unify(catch A - B, Info),
     R = unify(my_apply(erlang,'-',[A,B]), Info),
     case R of
-        _ when A - B =:= element(1,R) -> ok;
+        _ when A - B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
     end.
 
@@ -396,7 +396,7 @@ op_mul(A, B) ->
     R = unify(catch A * B, Info),
     R = unify(my_apply(erlang,'*',[A,B]), Info),
     case R of
-        _ when A * B =:= element(1,R) -> ok;
+        _ when A * B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
     end.
 
@@ -405,7 +405,7 @@ op_div(A, B) ->
     R = unify(catch A / B, Info),
     R = unify(my_apply(erlang,'/',[A,B]), Info),
     case R of
-        _ when A / B =:= element(1,R) -> ok;
+        _ when A / B == element(1,R) -> ok;
         {{'EXIT',badarith}, Info} -> ok
     end.
 

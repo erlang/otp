@@ -46,10 +46,10 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seemfa marker="#delivery_targets/3">delivery_targets/3</seemfa></p>
+        <p><seemfa marker="#Module:delivery_targets/3">delivery_targets/3</seemfa></p>
       </item>
       <item>
-        <p><seemfa marker="#delivery_info/4">delivery_info/4</seemfa></p>
+        <p><seemfa marker="#Module:delivery_info/4">delivery_info/4</seemfa></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -76,12 +76,12 @@
 
   <funcs>
     <func>
-      <name since="">delivery_targets(Tag, Targets, Extra) -> void()</name>
+      <name since="">Module:delivery_targets(Tag, Targets, Extra) -> void()</name>
       <fsummary>Inform about target addresses</fsummary>
       <type>
         <v>Tag = term()</v>
         <v>Targets = [Target]</v>
-        <v>Target = {transportDomain(), transportAddressWithPort()</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()}</v>
         <v>Extra = term()</v>
       </type>
       <desc>
@@ -97,14 +97,13 @@
     </func>
 
     <func>
-      <name since="">delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
+      <name since="">Module:delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
       <fsummary>Inform about delivery result</fsummary>
       <type>
         <v>Tag = term()</v>
         <v>Targets = [Target]</v>
-        <v>Target = {transportDomain(), transportAddressWithPort()</v>
-        <v>DeliveryResult = delivery_result()</v>
-        <v>delivery_result() = no_response | got_response</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()}</v>
+        <v>DeliveryResult = no_response | got_response</v>
         <v>Extra = term()</v>
       </type>
       <desc>
