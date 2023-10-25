@@ -117,26 +117,27 @@ merge(KeyMap) ->
 merge(_, [], KeyMap) ->
     KeyMap;
 merge(InputKeyMap, [Mode|ShellModes], KeyMap) ->
-    InputKeyMapModeValidated = #{},
-    maps:foreach(fun(Key, Value) when is_list(Key), is_atom(Value) ->
-        try
-            {key, Key, []} = get_valid_escape_key(Key, none),
-            case lists:member(Value,valid_functions()) of
-                true -> InputKeyMapModeValidated#{Key => Value};
-                false -> io:format(standard_error, "Invalid function ~p in entry {~p,~p}~n", [Value, Key, Value])
-            end
-        catch
-            _:_ ->
-                io:format(standard_error, "Invalid key ~p in entry {~p,~p}~n", [Key,Key,Value])
-        end;
-        (default, Value) ->
-            case lists:member(Value,valid_functions()) of
-                true -> InputKeyMapModeValidated#{default => Value};
-                false -> io:format(standard_error, "Invalid function ~p in entry {default,~p}~n", [Value, Value])
+    InputKeyMapModeValidated = maps:filtermap(
+        fun(Key, Value) when is_list(Key), is_atom(Value) ->
+            try
+                {key, Key, []} = get_valid_escape_key(Key, none),
+                case lists:member(Value,valid_functions()) of
+                    true -> {true, Value};
+                    false -> io:format(standard_error, "Invalid function ~p in entry {~p,~p}~n", [Value, Key, Value]), false
+                end
+            catch
+                _:_ ->
+                    io:format(standard_error, "Invalid key ~p in entry {~p,~p}~n", [Key,Key,Value]),
+                    false
             end;
-        (Key,Value) ->
-            io:format(standard_error, "Invalid entry {~p,~p}~n", [Key, Value])
-    end, maps:get(Mode, InputKeyMap, #{})),
+            (default, Value) ->
+                case lists:member(Value,valid_functions()) of
+                    true -> {true, Value};
+                    false -> io:format(standard_error, "Invalid function ~p in entry {default,~p}~n", [Value, Value]), false
+                end;
+            (Key,Value) ->
+                io:format(standard_error, "Invalid entry {~p,~p}~n", [Key, Value]), false
+        end, maps:get(Mode, InputKeyMap, #{})),
     KeyMap1 = KeyMap#{Mode => maps:merge(maps:get(Mode, KeyMap), InputKeyMapModeValidated)},
 
     merge(InputKeyMap, ShellModes, KeyMap1).
@@ -188,7 +189,7 @@ normal_map() ->
         "\^E" => end_of_line,
         "\^F" => forward_char,
         %%"\^G" => jcl_menu, currently handled by user_drv.erl
-        "\^H" => backward_delete_word,
+        "\^H" => backward_delete_char,
         %%"\^I" => tab_expand, same as \t
         %%"\^J" => new_line_finish, same as \n
         "\^K" => kill_line,
@@ -225,7 +226,7 @@ normal_map() ->
         %% # Deletion keys
         %% ## Backspace
         "\^?" => backward_delete_char,
-        %% ## Ctrl+Backspace
+        %% ## Alt+Backspace
         "\^[\^?" => backward_kill_word,
         %% ## Del
         "\^[[3~" => forward_delete_char,

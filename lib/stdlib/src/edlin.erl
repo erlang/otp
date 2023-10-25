@@ -26,7 +26,6 @@
 -export([erase_line/0,erase_inp/1,redraw_line/1]).
 -export([length_before/1,length_after/1,prompt/1]).
 -export([current_line/1, current_chars/1]).
-
 -export([edit_line1/2]).
 -export([inverted_space_prompt/1]).
 -export([keymap/0]).
