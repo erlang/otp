@@ -526,8 +526,9 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
         {stop,Result,Rest} ->
             %% Prompt was valid expression, clear the prompt in user_drv
             %% First redraw without the multi line prompt
-            case LineCont of
-                {[CL|LB], _, _} ->
+            FormattedLine = format_expression(LineCont),
+            case lists:reverse(string:split(FormattedLine, "\n", all)) of
+                [CL|LB] when is_list(CL) ->
                     LineCont1 = {LB,{lists:reverse(CL++"\n"), []},[]},
                     MultiLinePrompt = lists:duplicate(shell:prompt_width(Pbs), $\s),
                     send_drv_reqs(Drv, [{redraw_prompt, Pbs, MultiLinePrompt, LineCont1},new_prompt]);
@@ -535,7 +536,7 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
             end,
             _ = case {M,F} of
                     {io_lib, get_until} ->
-                        save_line_buffer(string:trim(Line, both)++"\n", get_lines(new_stack(get(line_buffer))));
+                        save_line_buffer(string:trim(FormattedLine, both)++"\n", get_lines(new_stack(get(line_buffer))));
                     _ ->
                         skip
                 end,
@@ -603,6 +604,13 @@ get_line1({open_editor, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
             send_drv_reqs(Drv, NewRs),
             get_line1(edlin:edit_line(Cs1, NewCont), Drv, Shell, Ls0, Encoding)
     end;
+get_line1({format_expression, _Cs, {line, _, _, _} = Cont, Rs}, Drv, Shell, Ls, Encoding) ->
+    send_drv_reqs(Drv, Rs),
+    Cs1 = format_expression(Cont),
+    send_drv_reqs(Drv, edlin:erase_line()),
+    {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
+    send_drv_reqs(Drv, NewRs),
+    get_line1(edlin:edit_line(Cs1, NewCont), Drv, Shell, Ls, Encoding);
 %% Move Up, Down in History: Ctrl+P, Ctrl+N
 get_line1({history_up,Cs,{_,_,_,Mode0}=Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
@@ -921,6 +929,41 @@ get_chars_echo_off1(Drv, Shell) ->
         {'EXIT',Shell,R} ->
             exit(R)
     end.
+
+format_expression(Cont) ->
+    FormatingCommand = application:get_env(stdlib, format_shell_func),
+    Buffer = edlin:current_line(Cont),
+    try
+        case FormatingCommand of
+            {ok, {M,F}} when is_atom(M), is_atom(F) ->
+                    M:F(Buffer);
+            {ok, FormatingCommand1} when is_list(FormatingCommand1) ->
+                format_expression1(Buffer, FormatingCommand1)
+        end
+    catch
+        _:_ -> Buffer
+    end.
+format_expression1(Buffer, FormatingCommand) ->
+    %% Write the current expression to a file, format it with a formatting tool
+    %% provided by the user and read the file back
+    MkTemp = case os:type() of
+        {win32, _} ->
+            os:cmd("powershell \"write-host (& New-TemporaryFile | Select-Object -ExpandProperty FullName)\"");
+        {unix,_} ->
+            os:cmd("mktemp")
+    end,
+    TmpFile = string:chomp(MkTemp) ++ ".erl",
+    _ = file:write_file(TmpFile, unicode:characters_to_binary(Buffer, unicode)),
+    FormattingCommand1 = string:replace(FormatingCommand, "${file}", TmpFile),
+    _ = os:cmd(FormattingCommand1),
+    {ok, Content} = file:read_file(TmpFile),
+    _ = file:del_dir_r(TmpFile),
+    Unicode = case unicode:characters_to_list(Content,unicode) of
+                  {error, _, _} -> unicode:characters_to_list(
+                                     unicode:characters_to_list(Content,latin1), unicode);
+                  U -> U
+              end,
+    string:chomp(Unicode).
 
 %% We support line editing for the ICANON mode except the following
 %% line editing characters, which already has another meaning in

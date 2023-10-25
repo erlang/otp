@@ -683,6 +683,8 @@ current_chars({line,_,MultiLine,_}) ->
 current_line({line,_,MultiLine,_}) ->
     current_line(MultiLine) ++ "\n";
 %% Convert a multiline tuple into a string with new lines
+current_line(SingleLine) when is_list(SingleLine) ->
+    SingleLine;
 current_line({LinesBefore, {Before, After}, LinesAfter}) ->
     CurrentLine = lists:reverse(Before, After),
     unicode:characters_to_list(lists:flatten(

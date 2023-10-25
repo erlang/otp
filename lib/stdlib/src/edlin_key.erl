@@ -236,6 +236,7 @@ normal_map() ->
         "\^[d" => kill_word,
         "\^[F" => forward_word,
         "\^[f" => forward_word,
+        "\^[r" => format_expression,
         "\^[h" => help,
         "\^[L" => redraw_line,
         "\^[l" => redraw_line,
@@ -310,6 +311,7 @@ valid_functions() ->
      clear_line,           %% Clear the current expression
      end_of_expression,    %% Move to the end of the expression
      end_of_line,          %% Move to the end of the line
+     format_expression,    %% Format the current expression
      forward_char,         %% Move forward one character
      forward_delete_char,  %% Delete the character under the cursor
      forward_delete_word,  %% Delete the characters until the closest non-word character
