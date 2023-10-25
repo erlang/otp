@@ -528,6 +528,9 @@ write_to_dev(Bin, State) ->
     maybe_notify_error(write,Result,State2),
     State2#{synced=>false,write_res=>Result}.
 
+%% We cannot filesync writes to special devices such as /dev/null
+sync_dev(#{synced:=false,file_name:="/dev/null"}=State) ->
+    State#{synced=>true,sync_res=>ok};
 sync_dev(#{synced:=false}=State) ->
     State1 = #{fd:=Fd} = maybe_ensure_file(State),
     Result = ?file_datasync(Fd),
