@@ -52,6 +52,7 @@
 #define DFLAG_HANDSHAKE_23        ((Uint64)0x1000000)
 #define DFLAG_UNLINK_ID           ((Uint64)0x2000000)
 #define DFLAG_MANDATORY_25_DIGEST ((Uint64)0x4000000)
+#define DFLAG_MULTISEND           ((Uint64)0x8000000)
 #define DFLAG_RESERVED           ((Uint64)0xf8000000)
 
 /*
@@ -114,7 +115,8 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_SPAWN                     \
                             | DFLAG_ALIAS		      \
-                            | DFLAG_MANDATORY_25_DIGEST)
+                            | DFLAG_MANDATORY_25_DIGEST       \
+                            | DFLAG_MULTISEND)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT

@@ -8053,7 +8053,7 @@ unreachable destination `Dest` (of correct type).
 """.
 -doc #{ group => processes }.
 -spec erlang:send(Dest, Msg) -> Msg when
-      Dest :: send_destination(),
+      Dest :: send_destination() | [pid()],
       Msg :: term().
 send(_Dest,_Msg) ->
     erlang:nif_error(undefined).

@@ -467,6 +467,7 @@ atom monotonic_timestamp
 atom more
 atom multi_scheduling
 atom multiline
+atom multisend
 atom nano_seconds
 atom nanosecond
 atom name
@@ -498,6 +499,7 @@ atom nodedown
 atom nodedown_reason
 atom nodeup
 atom noeol
+atom nomultisend
 atom noproc
 atom normal
 atom normal_exit
