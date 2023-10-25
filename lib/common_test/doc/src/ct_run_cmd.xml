@@ -105,6 +105,7 @@
   [-label Label]
   [-logdir LogDir]
   [-logopts LogOpts]
+  [-out LoggerOutputDestination]
   [-verbosity GenVLevel | [Category1 VLevel1 and
    Category2 VLevel2 and .. CategoryN VLevelN]]
   [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
@@ -145,6 +146,7 @@
   [-label Label]
   [-logdir LogDir]
   [-logopts LogOpts]
+  [-out LoggerOutputDestination]
   [-verbosity GenVLevel | [Category1 VLevel1 and
    Category2 VLevel2 and .. CategoryN VLevelN]]
   [-allow_user_terms]

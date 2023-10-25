@@ -511,6 +511,20 @@ results(State) ->
         use another level either change the <c>default</c> handler level before
         starting common_test, or use the <seemfa marker="kernel:logger#set_handler_config/3">
         <c>logger:set_handler_config/3</c></seemfa> API.</p>
+        <p>This hook supports the following options:</p>
+        <taglist>
+         <tag><c>{default_log_destination, file:filename() | undefined}</c></tag>
+         <item>
+           <p>Update the default logging handler to log into the specified file
+             instead of logging to standard output. If <c>undefined</c> is
+             passed - the default behaviour - then logging output will continue
+             to be directed to standard output.</p>
+           <p>The easiest way to configure this option is via the <c>-out</c>
+             option of <c>ct_run</c>, which passes along the argument value
+             into this option. For instance, <c>-out /dev/null</c> will skip
+             logging any output to standard output.</p>
+         </item>
+       </taglist>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>
