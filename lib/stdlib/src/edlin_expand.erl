@@ -381,17 +381,6 @@ add_to_last_nesting(Term, Nesting) ->
         {map, F, Fs, Args, U} ->
             List ++ [{map, F, Fs, Args ++ [Term], U}]
     end.
-
-close_nesting(Nesting) ->
-    Last = lists:last(Nesting),
-    case Last of
-        {tuple, _Args, _} ->
-            "}";
-        {list, _Args, _} ->
-            "]";
-        {map, _F, _Fs, _Args, _} ->
-            "}"
-    end.
 expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT) ->
     TypeTree = edlin_type_suggestion:type_tree(Mod, FunType, Nestings, FT),
 
@@ -465,17 +454,7 @@ expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT
                                                                      false ->")"
                                                                  end,
                                                             Atoms1 = edlin_type_suggestion:get_atoms(Constraints1, T, Nestings),
-                                                            {Res1, Expansion1, Matches1} = match(Word, Atoms1, CC),
-                                                            case Matches1 of
-                                                                [] ->
-                                                                    case match_arguments(TypeTree, Args ++ [Unfinished]) of
-                                                                        false -> {Res1, Expansion1, Matches1};
-                                                                        true ->
-                                                                            {yes, CC, [{CC, []}]}
-                                                                    end;
-                                                                _ ->
-                                                                    {Res1, Expansion1, Matches1}
-                                                            end
+                                                            match(Word, Atoms1, CC)
                                                         end,
                             Match1 = case Matches of
                                          [] -> [];
@@ -489,7 +468,7 @@ expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT
             end
     end.
 expand_nesting_content(T, Constraints, Nestings, Section) ->
-    {NestingType, UnfinishedNestingArg, NestingArgs} = case lists:last(Nestings) of
+    {NestingType, UnfinishedNestingArg, _NestingArgs} = case lists:last(Nestings) of
                                               {tuple, NestingArgs1, Unfinished1} -> {tuple, Unfinished1, NestingArgs1};
                                               {list, NestingArgs1, Unfinished1} -> {list, Unfinished1, NestingArgs1};
                                               {map, _, _, NestingArgs1, Unfinished1} -> {map, Unfinished1, NestingArgs1}
@@ -529,16 +508,6 @@ expand_nesting_content(T, Constraints, Nestings, Section) ->
                                                 fold_results([begin
                                                                   case NestingArity of
                                                                       none -> {no, [], []};
-                                                                      _ when NestingType =:= tuple ->
-                                                                          CC = case length(NestingArgs)+1 < NestingArity of
-                                                                                   true -> ", ";
-                                                                                   false -> close_nesting(Nestings)
-                                                                               end,
-                                                                          {yes, CC, [{CC, []}]};
-                                                                      _ when NestingType =:= list ->
-                                                                        {no, [], [{", ", []}, {"]", []}]};
-                                                                      _ when NestingType =:= map ->
-                                                                        {no, [], [{", ",[]},{"}", []}]};
                                                                       _ -> 
                                                                         {no, [], []}
                                                                   end
@@ -549,12 +518,6 @@ expand_nesting_content(T, Constraints, Nestings, Section) ->
                                                 fold_results([begin
                                                                   case NestingArity of
                                                                       none -> {no, [], []};
-                                                                      _ when NestingType =:= tuple ->
-                                                                          CC = case length(NestingArgs)+1 < NestingArity of
-                                                                                   true -> ", ";
-                                                                                   false -> close_nesting(Nestings)
-                                                                               end,
-                                                                          {yes, Expansion1++CC, [{Word2, [{ending, CC}]}]};
                                                                       _ -> 
                                                                         {Res1, Expansion1, Matches1}
                                                                   end
@@ -1092,7 +1055,8 @@ format_section_matches(Elems, LineWidth, Acc) ->
 
 format_section_matches1([], _, _) -> [];
 format_section_matches1(LS, LineWidth, Len) ->
-    L = lists:usort(fun special_sort/2, ordsets:to_list(LS)),
+    L0 = lists:sort(fun special_sort/2, ordsets:to_list(LS)),
+    L = lists:uniq(L0),
     Opt = case Len == 0 of
         true -> [];
         false -> [{title, Len}]
