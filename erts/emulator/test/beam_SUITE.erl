@@ -36,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
-     heap_sizes, big_lists,
+     heap_sizes, big_lists, fconv,
      select_val, select_tuple_arity,
      swap_temp_apply, beam_init_yregs].
 
@@ -284,7 +284,10 @@ do_fconv(atom, Float) when is_float(Float) ->
 do_fconv(nil, Float) when is_float(Float) ->
     Float + [];
 do_fconv(tuple_literal, Float) when is_float(Float) ->
-    Float + {a,b}.
+    Float + {a,b};
+do_fconv(A, B) when is_float(A), is_float(B) ->
+    A + B.
+
 
 select_val(Config) when is_list(Config) ->
     Mod = ?FUNCTION_NAME,
