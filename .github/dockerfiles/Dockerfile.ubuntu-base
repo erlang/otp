@@ -66,7 +66,7 @@ RUN apt-get install -y git curl && \
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
 ARG EXTRA_LIBS="erlang erlang-doc"
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
     tinyproxy knot ldnsutils expect vsftpd python emacs nano vim \
     linux-tools-common linux-tools-generic jq \
