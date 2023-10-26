@@ -320,20 +320,19 @@ tmp_thr_prgr_data(ErtsSchedulerData *esdp)
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(esdp);
 
     if (!tpd) {
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        /* We may land here as a result of unmanaged_delay being called from
+         * the lock counting module, which in turn might be called from within
+         * the allocator, so we use plain malloc to avoid deadlocks. */
+        tpd = malloc(sizeof(ErtsThrPrgrData));
+#else
         /*
          * We only allocate the part up to the wakeup_request field which is
          * the first field only used by registered threads
          */
         size_t alloc_size = offsetof(ErtsThrPrgrData, wakeup_request);
-
-        /* We may land here as a result of unmanaged_delay being called from
-         * the lock counting module, which in turn might be called from within
-         * the allocator, so we use plain malloc to avoid deadlocks. */
-        tpd =
-#ifdef ERTS_ENABLE_LOCK_COUNT
-            malloc(alloc_size);
-#else
-            erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA, alloc_size);
+        tpd = erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA, alloc_size);
 #endif
 
         init_tmp_thr_prgr_data(tpd);
