@@ -251,7 +251,12 @@ format_error({warning,Term}) ->
 format_error(ftr_after_prefix) ->
     "feature directive not allowed after exports or record definitions";
 format_error(tqstring) ->
-    "Triple-quoted (or more) strings will change meaning in OTP-27.0";
+    "triple-quoted (or more) strings will change meaning in OTP-27.0";
+format_error(string_concat) ->
+    "adjacent string literals without intervening white space\n"
+        "In OTP-27.0 this will be a triple-quoted string or an error.\n"
+        "Rewrite them as one string, or insert white space\n"
+        "between the strings.";
 format_error(E) -> file:format_error(E).
 
 -spec scan_file(FileName, Options) ->
@@ -352,9 +357,10 @@ parse_file(Epp) ->
     case epp_request(Epp, scan_erl_form) of
 	{ok,Toks} ->
             Warnings =
-                [{warning, {erl_anno:location(Anno),?MODULE,tqstring}}
-                 %% Warn about using 3 or more double qoutes
-                 || {tqstring,Anno,_} <- Toks],
+                [{warning, {erl_anno:location(Anno),?MODULE,Tag}}
+                 || {Tag,Anno,_} <- Toks,
+                    %% Warn for string concatenation without white space
+                    Tag =:= string_concat],
             case erl_parse:parse_form(Toks) of
                 {ok, Form} ->
                     [Form|Warnings] ++ parse_file(Epp);

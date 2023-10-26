@@ -425,12 +425,6 @@ scan1("."=Cs, St, Line, Col, Toks) ->
     {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$.=C|Cs], St, Line, Col, Toks) ->
     scan_dot(Cs, St, Line, Col, Toks, [C]);
-scan1([$",$",$"|Cs], St, Line, Col, Toks) -> %" Emacs
-    scan_tqstring(Cs, St, Line, Col, Toks, 3); % Number of quote chars
-scan1([$",$"]=Cs, St, Line, Col, Toks) ->
-    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
-scan1([$"]=Cs, St, Line, Col, Toks) -> %" Emacs
-    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$"|Cs], St, Line, Col, Toks) -> %" Emacs
     State0 = {[],[],Line,Col},
     scan_string(Cs, St, Line, incr_column(Col, 1), Toks, State0);
@@ -834,31 +828,6 @@ scan_char([], St, Line, Col, Toks) ->
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
-%% Scan leading $" characters until we have them all
-%%
-scan_tqstring(Cs, St, Line, Col, Toks, Qs) ->
-    case Cs of
-        [$"|Ncs] ->
-            scan_tqstring(Ncs, St, Line, Col, Toks, Qs+1);
-        [] ->
-            {more, {[], St, Col, Toks, Line, Qs, fun scan_tqstring/6}};
-        _ ->
-            scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, tqstring)
-    end.
-
-scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, TokTag) when 1 < Qs ->
-    Anno = anno(Line, Col, St, ?STR(string, St, [$",$"])),
-    Tok = {TokTag, Anno, ""},
-    scan_tqstring_finish(
-      Cs, St, Line, incr_column(Col, 2), [Tok|Toks], Qs-2, string);
-scan_tqstring_finish(Cs, St, Line, Col, Toks, Qs, _TokTag) ->
-    Ncs =
-        case Qs of
-            1 -> [$"|Cs];%"
-            0 -> Cs
-        end,
-    scan1(Ncs, St, Line, Col, Toks).
-
 scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
@@ -871,7 +840,19 @@ scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
             scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs); %"
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
             Anno = anno(Line0, Col0, St, ?STR(string, St, Nstr)),
-            scan1(Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks])
+            scan_string_concat(
+              Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks], [])
+        end.
+
+scan_string_concat(Cs, St, Line, Col, Toks, _) ->
+    case Cs of
+        [$"|_] ->
+            Anno = anno(Line, Col, St, ?STR(string, St, "")),
+            scan1(Cs, St, Line, Col, [{string_concat,Anno,""}|Toks]);
+        [] ->
+            {more,{Cs,St,Col,Toks,Line,[],fun scan_string_concat/6}};
+        _ ->
+            scan1(Cs, St, Line, Col, Toks)
     end.
 
 scan_qatom(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
