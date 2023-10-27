@@ -332,6 +332,7 @@ types(Config) when is_list(Config) ->
     [ok] = scan(<<"-spec foo(Bar) -> Baz when
         Bar :: string(),
         Baz :: integer().">>),
+    "exception error"++_ = comm_err(<<"-hej.">>),
     shell_attribute_test(Config),
     ok.
 shell_attribute_test(Config) ->
