@@ -130,7 +130,9 @@ format_error({base,Base}) ->
 format_error(indentation) ->
     "bad indentation in triple-quoted string";
 format_error(white_space) ->
-    "non-whitespace after start of triple-quoted string";
+    "not white space after start of triple-quoted string";
+format_error(string_concat) ->
+    "adjacent string literals without intervening white space";
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
@@ -980,7 +982,8 @@ scan_tqstring_finish(Cs, St, Line, Col, Toks, Tqs, IndentR) ->
                        Qs, $",%"
                        lists_foldl_reverse(
                          ContentR, lists_duplicate(Qs, $", []))))),%"
-            scan1(Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
+            scan_string_concat(
+              Cs, St, Line, Col, [{string,Anno,Content}|Toks]);
         {Tag=indentation, ErrorLine, ErrorCol} ->
             scan_error(
               Tag, ErrorLine, new_column(Col, ErrorCol),
@@ -1084,7 +1087,21 @@ scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
             scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs); %"
         {Ncs,Nline,Ncol,Nstr,Nwcs} ->
             Anno = anno(Line0, Col0, St, ?STR(string, St, Nstr)),
-            scan1(Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks])
+            scan_string_concat(
+              Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks])
+    end.
+
+scan_string_concat(Cs, St, Line, Col, Toks) ->
+    scan_string_concat(Cs, St, Line, Col, Toks, []).
+%%
+scan_string_concat(Cs, St, Line, Col, Toks, _) ->
+    case Cs of
+        [$"|_] ->
+            scan_error(string_concat, Line, Col, Line, Col, Cs);
+        [] ->
+            {more,{Cs,St,Col,Toks,Line,[],fun scan_string_concat/6}};
+        _ ->
+            scan1(Cs, St, Line, Col, Toks)
     end.
 
 scan_qatom(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->

@@ -370,6 +370,13 @@ a
     <p>is equivalent to</p>
     <pre>
 "string42"</pre>
+    <change>
+      <p>
+        Starting with Erlang/OTP 27 two adjacent string literals
+        have to be separated by white space, or else it is a syntax error.
+        This avoids possible confusion with <em>triple-quoted strings</em>.
+      </p>
+    </change>
     <p>
       Strings can also be written as <em>triple-quoted strings</em>,
       which can be <em>indented</em> over multiple lines to follow
@@ -490,10 +497,16 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
     <p>
       The compiler preprocessor was patched in Erlang/OTP 26.1
       to warn about 3 or more sequential double quote characters.
+      In Erlang/OTP 26.2 this was improved to warn about
+      adjacent string literals without intervening white space,
+      which also covers the same problem at a string end.
+    </p>
+    <p>
       If the compiler should emit such a warning, please change
-      all such double quote character sequences to have a whitespace
-      after every second character, making the code more readable,
-      and mean the same thing in all releases.
+      such double quote character sequences to have a whitespace
+      after every second quote character, remove redundant empty strings,
+      or write them as one string.  This makes the code more readable,
+      and means the same thing in all releases.
     </p>
   </warning>
 
