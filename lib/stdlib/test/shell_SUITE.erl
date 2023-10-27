@@ -185,11 +185,38 @@ comm_err(<<"ugly().">>),
 "exception exit: "
 "restricted shell module returned bad value non_conforming_reply" =
 comm_err(<<"1 - 2.">>),
+%% Make sure we test all local shell functions in a restricted shell.
+LocalFuncs = shell:local_func(),
+[] = lists:subtract(LocalFuncs, [v,h,b,f,fl,rd,rf,rl,rp,rr,history,results,catch_exception]),
+
+LocalFuncs2 = [
+    <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
+    <<"fl()">>, <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
+    <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>,
+    <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
+lists:foreach(fun(LocalFunc) ->
+        try
+            ("exception exit: restricted shell does not allow"++_Rest) = Error = local_func_error_t(LocalFunc),
+            error(Error)
+        catch
+            error:{badmatch, _} -> ok
+        end
+    end,
+    LocalFuncs2),
 "exception exit: restricted shell stopped"=
 comm_err(<<"begin shell:stop_restricted() end.">>),
 undefined =
 application:get_env(stdlib, restricted_shell),
 ok.
+
+local_func_error_t(B) ->
+    Reply = t(B),
+    S0 = lists:flatten(string:replace(Reply, "1\n", "")), %% v(1) requires special treatment
+    S1 = string:left(S0, string:chr(S0, $\n)-1),
+    S2 = string:strip(S1, left, $*),
+    S3 = string:strip(S2, both, $ ),
+    S = string:strip(S3, both, $"),
+    string:strip(S, right, $.).
 
 %% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
