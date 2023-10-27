@@ -203,12 +203,12 @@ record_completion(_Config) ->
                {"c_field",[{ending,"="}]},
                {"d_field",[{ending,"="}]}],
               options:=[highlight_all]}]} = do_expand("#a_record{a_field={atom3,b},"),
-    %% test match argument and closing parenthesis completion
-    {yes,", ",[]} = do_expand("#a_record{a_field={atom3"),
+    %% test match argument
+    {yes,_,[]} = do_expand("#a_record{a_field={atom3"),
     {no,[],[#{title:="types",elems:=[{"{atom4, ...}",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,"),
     {no,[],[#{title:="types",elems:=[{"integer() >= 0",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,{atom4, "),
-    {yes,"}",_} = do_expand("#a_record{a_field={atom3,{atom4, 1"),
-    {yes,"}",_} = do_expand("#a_record{a_field={atom3,{atom4, 1}"),
+    {no,_,_} = do_expand("#a_record{a_field={atom3,{atom4, 1"),
+    {no,_,_} = do_expand("#a_record{a_field={atom3,{atom4, 1}"),
     ok.
 
 fun_completion(_Config) ->
@@ -252,7 +252,7 @@ function_parameter_completion(Config) ->
     {no, [], [#{elems:=[#{elems:=[#{title:="types",elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name(1,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]}  = do_expand("complete_function_parameter : a_fun_name ( 1 , "),
-    {yes, ")", []} = do_expand("complete_function_parameter:a_fun_name(1,2"),
+    {no, [], []} = do_expand("complete_function_parameter:a_fun_name(1,2"),
     {no, [], []} = do_expand("complete_function_parameter:a_fun_name(1,2,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"any()",[]},{"[any() | [Deeplist]]",[]}]}]}]}]} = do_expand("complete_function_parameter:a_deeplist_fun("),
     {no,[],[#{title:="typespecs",
