@@ -142,12 +142,12 @@ control(ErlDrvData drv_data,
     if (memcmp(((char *) sip) + ERL_DRV_SYS_INFO_SIZE,
 	       (char *) &deadbeef[0],
 	       sizeof(deadbeef)) != 0) {
-	res = sprintf(str, beyond_end_format);
+	res = sprintf(str, "%s", beyond_end_format);
     }
     else {
 	res = sys_info_drv_sprintf_sys_info(sip, str);
 	if (res > slen)
-	    res = sprintf(str, buf_overflow_format);
+	    res = sprintf(str, "%s", buf_overflow_format);
     }
     driver_free(sip);
     return res;
