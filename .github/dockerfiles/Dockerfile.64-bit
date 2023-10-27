@@ -4,7 +4,7 @@ FROM $BASE
 ARG MAKEFLAGS=$MAKEFLAGS
 ENV MAKEFLAGS=$MAKEFLAGS \
     ERL_TOP=/buildroot/otp \
-    PATH="/Erlang ∅⊤℞/bin":/buildroot/otp/bin:$PATH
+    PATH="/Erlang/bin":/buildroot/otp/bin:$PATH
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
@@ -17,7 +17,7 @@ ENV CFLAGS="-O2 -g -Werror"
 ## Configure (if not cached), check that no application are disabled and then make
 RUN if [ ! -f Makefile ]; then \
       touch README.md && \
-      ./configure --prefix="/Erlang ∅⊤℞" && \
+      ./configure --prefix="/Erlang" && \
       if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
       find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
     fi && \
