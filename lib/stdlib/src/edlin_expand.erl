@@ -1055,7 +1055,8 @@ format_section_matches(Elems, LineWidth, Acc) ->
 
 format_section_matches1([], _, _) -> [];
 format_section_matches1(LS, LineWidth, Len) ->
-    L = lists:usort(fun special_sort/2, ordsets:to_list(LS)),
+    L0 = lists:sort(fun special_sort/2, ordsets:to_list(LS)),
+    L = lists:uniq(L0),
     Opt = case Len == 0 of
         true -> [];
         false -> [{title, Len}]

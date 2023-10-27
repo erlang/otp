@@ -515,6 +515,9 @@ get_coverage(Config) ->
     {_, _, M10} = edlin_expand:expand("ssh:connect({},["),
     do_format(M10),
     lists:flatten(edlin_expand:format_matches(M10, 20)),
+    %% Test that we are not filtering duplicates bit with different case or different string lengths
+    {yes,"e", M11} = do_expand("complete_function_parameter:cas"),
+    "\e[;1;4mfunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
     ok.
 
 %% Normal module name, some function names using quoted atoms.
