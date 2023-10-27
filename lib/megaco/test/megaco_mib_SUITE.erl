@@ -48,6 +48,7 @@
          handle_trans_ack/5
         ]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include("megaco_test_lib.hrl").
@@ -190,6 +191,7 @@ plain(suite) ->
 plain(doc) ->
     ["Test case for the basic statistics counter handling. "];
 plain(Config) when is_list(Config) ->
+    ct:timetrap(?SECS(10)),
     io:format("create test table 1~n", []),
     Tab1 = megaco_test_cnt1,
     megaco_stats:init(Tab1),
@@ -292,6 +294,8 @@ connect(suite) ->
 connect(doc) ->
     [];
 connect(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(?SECS(10) + Factor * ?SECS(1)),
     Pre = fun() ->
                   progress("start nodes"),
                   MgcNode = make_node_name(mgc),
@@ -408,6 +412,8 @@ traffic(suite) ->
 traffic(doc) ->
     [];
 traffic(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(?MINS(1) + Factor * ?SECS(10)),
     Pre = fun() ->
                   progress("start nodes"),
                   MgcNode = make_node_name(mgc),
@@ -1112,7 +1118,9 @@ mgc_handle_request({handle_disconnect, CH, _PV, R}) ->
     megaco:cancel(CH, R), % Cancel the outstanding messages
     ok;
 mgc_handle_request({handle_syntax_error, _RH, _PV, _ED}) ->
-    reply;
+    %% There is no point in this test where this is expected.
+    %% There if it *does* happen; stop 
+    no_reply;
 mgc_handle_request({handle_message_error, _CH, _PV, _ED}) ->
     no_reply;
 mgc_handle_request({handle_trans_request, CH, PV, ARs}) ->
@@ -1509,8 +1517,17 @@ mg_handle_request({handle_connect, CH, _PV},
 mg_handle_request({handle_disconnect, CH, _PV, _R}, S) ->
     {ok, S#mg{conn_handle = CH}};
 
-mg_handle_request({handle_syntax_error, _RH, _PV, _ED}, S) ->
-    {reply, S};
+mg_handle_request({handle_syntax_error, RH, PV, ED}, S) ->
+    %% There is no point in this test where this is expected.
+    %% But if it *does* happen; stop
+    %% But can we do that from here? Spawn?
+    p("Received unexpected syntax error: cancel connection"
+      "~n   RH: ~p"
+      "~n   PV: ~p"
+      "~n   ED: ~p", [RH, PV, ED]),
+    megaco:cancel(S#mg.conn_handle, ED),
+    megaco:disconnect(S#mg.conn_handle, {syntax_error, ED}),
+    {no_reply, S};
 
 mg_handle_request({handle_message_error, CH, _PV, _ED}, S) ->
     {no_reply, S#mg{conn_handle = CH}};
