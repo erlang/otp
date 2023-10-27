@@ -12,6 +12,10 @@ esac
 
 if [ -z "${BASE_TAG}" ]; then
     BASE_TAG=$(grep "ARG BASE=" ".github/dockerfiles/Dockerfile.${2}" | head -1 | tr '=' ' ' | awk '{print $3}')
+    ## If this script is used on pre 25 releases
+    if [ -z "${BASE_TAG}" ]; then
+        BASE_TAG=$(grep "FROM " ".github/dockerfiles/Dockerfile.${2}" | head -1 | awk '{print $2}')
+    fi
 fi
 
 case "${BASE_TAG}" in

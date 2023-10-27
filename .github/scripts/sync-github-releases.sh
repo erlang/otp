@@ -211,37 +211,40 @@ if [ ${UPLOADED} = true ]; then
 fi
 
 ## If no assets were uploaded, we try to build one instead
-if [ ${UPLOADED} = false ] && [ ${#MISSING_PREBUILD[0]} != 0 ]; then
-    name="${MISSING_PREBUILD[0]}"
-    stripped_name=$(_strip_name "${name}")
-    git clone https://github.com/erlang/otp -b "${name}" otp_src
-    if [ -f otp_src/.github/scripts/init-pre-release.sh ]; then
-        (cd otp_src && ERL_TOP=$(pwd) .github/scripts/init-pre-release.sh)
-    else
-        (cd otp_src && ERL_TOP=$(pwd) ../.github/scripts/init-pre-release.sh)
-    fi
-    case ${stripped_name} in
-        23.**)
-            ## The 32-bit dockerfile build the doc chunks which we want
-            ## to include in VSN >= 23.
-            docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
-                   -f otp_src/.github/dockerfiles/Dockerfile.32-bit .
-            ;;
-        *)
-            docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
-                   -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
-            ;;
-    esac
-    docker run -v "$PWD":/github otp \
-           "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-    .github/scripts/release-docs.sh
-    .github/scripts/create-artifacts.sh downloads "${name}"
-
-    ## Delete any artifacts that we should not upload
-    for artifact in dowloads/*; do
-        if ! echo "${RI[@]}" | grep "${artifact}" 2> /dev/null > /dev/null; then
-            rm -f "downloads/${artifact}"
+if [ ${UPLOADED} = false ]; then
+    for name in "${MISSING_PREBUILD[@]}"; do
+        stripped_name=$(_strip_name "${name}")
+        release=$(echo "${stripped_name}" | awk -F. '{print $1}')
+        if [[ $release < 24 ]]; then
+            ## Releases before 24 are no longer supported and are a bit different
+            ## from 24+ so I've removed support for them
+            echo "Skipping old release ${name}"
+            continue;
         fi
+        echo "Building pre-build and docs for ${name}"
+        git clone https://github.com/erlang/otp -b "${name}" otp_src
+        if [ -f otp_src/.github/scripts/init-pre-release.sh ]; then
+            (cd otp_src && ERL_TOP=$(pwd) .github/scripts/init-pre-release.sh)
+        else
+            (cd otp_src && ERL_TOP=$(pwd) ../.github/scripts/init-pre-release.sh)
+        fi
+        (cd otp_src && BASE_USE_CACHE=false GITHUB_OUTPUT=.tmp ../.github/scripts/build-base-image.sh maint-${release} 64-bit)
+        docker build -t otp --build-arg ARCHIVE=otp_src/otp_src.tar.gz \
+               -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
+        docker run -v "$PWD":/github otp \
+               "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
+        .github/scripts/release-docs.sh
+        .github/scripts/create-artifacts.sh downloads "${name}"
+
+        ## Delete any artifacts that we should not upload
+        for artifact in dowloads/*; do
+            if ! echo "${RI[@]}" | grep "${artifact}" 2> /dev/null > /dev/null; then
+                rm -f "downloads/${artifact}"
+            fi
+        done
+        _upload_artifacts "${name}"
+
+        ## We only update one release per call to sync-github-releases
+        break
     done
-    _upload_artifacts "${name}"
 fi
