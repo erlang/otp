@@ -188,7 +188,7 @@ normal_map() ->
         "\^E" => end_of_line,
         "\^F" => forward_char,
         %%"\^G" => jcl_menu, currently handled by user_drv.erl
-        "\^H" => backward_delete_word,
+        "\^H" => backward_delete_char,
         %%"\^I" => tab_expand, same as \t
         %%"\^J" => new_line_finish, same as \n
         "\^K" => kill_line,
@@ -225,7 +225,7 @@ normal_map() ->
         %% # Deletion keys
         %% ## Backspace
         "\^?" => backward_delete_char,
-        %% ## Ctrl+Backspace
+        %% ## Alt+Backspace
         "\^[\^?" => backward_kill_word,
         %% ## Del
         "\^[[3~" => forward_delete_char,

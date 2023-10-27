@@ -402,6 +402,8 @@ shell_navigation(Config) ->
              check_location(Term, {0, 0}),
              send_tty(Term,"C-E"),
              check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             send_tty(Term,"C-H"),
+             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
              send_tty(Term,"C-A"),
              check_location(Term, {0, 0}),
              send_tty(Term,"Enter")
