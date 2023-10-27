@@ -23,7 +23,7 @@
          init_per_group/2,end_per_group/2]).
 -export([normal/1, type_completion/1, quoted_fun/1, quoted_module/1, quoted_both/1, erl_1152/1, get_coverage/1,
          check_trailing/1, unicode/1, filename_completion/1, binding_completion/1, record_completion/1,
-         map_completion/1, function_parameter_completion/1, fun_completion/1]).
+         no_completion/1, map_completion/1, function_parameter_completion/1, fun_completion/1]).
 -record(a_record,
         {a_field   :: atom1 | atom2 | btom | 'my atom' | {atom3, {atom4, non_neg_integer()}} | 'undefined',
          b_field   :: boolean() | 'undefined',
@@ -50,7 +50,7 @@ suite() ->
 all() ->
     [normal, filename_completion, binding_completion, get_coverage, type_completion, 
      record_completion, fun_completion, map_completion, function_parameter_completion,
-     quoted_fun, quoted_module, quoted_both, erl_1152, check_trailing,
+     no_completion, quoted_fun, quoted_module, quoted_both, erl_1152, check_trailing,
      unicode].
 
 groups() ->
@@ -173,6 +173,12 @@ filename_completion(Config) ->
     file:set_cwd(CWD),
     R.
 
+no_completion(_Config) ->
+    %% No autocompletion, and no crashes
+    {no, _, _} = do_expand("[{"),
+    {no, _, _} = do_expand("a [{"),
+    {no, _, _} = do_expand("a [{{"),
+    ok.
 record_completion(_Config) ->
     %% test record completion for loaded records
     %% test record field name completion
