@@ -1221,6 +1221,9 @@ test_valid_keymap(Config) when is_list(Config) ->
         send_tty(Term, "asdf"),
         send_tty(Term, "C-u"),
         check_content(Term, ">$"),
+        send_tty(Term, "1.\n"),
+        send_tty(Term, "C-b"),
+        check_content(Term, "2>\\s1\\s?.$"),
         ok
     after
         stop_tty(Term),
