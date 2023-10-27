@@ -556,17 +556,11 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) ->
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member({Hash, rsa_pss_rsae}, HashSigns);
 is_supported_sign(SignAlgo, HashSigns) ->
-    lists:any(fun (SignAlgo0) -> lists:member(SignAlgo0, HashSigns) end,
-              [SignAlgo, supported_signalgo(SignAlgo)]).
-
-supported_signalgo({Hash, rsa}) -> {Hash,rsa_pss_rsae}; %% PRE TLS-1.3 %% PRE TLS-1.3
-supported_signalgo(rsa_pkcs1_sha256) -> rsa_pss_rsae_sha256; %% TLS-1.3 legacy
-supported_signalgo(rsa_pkcs1_sha384) -> rsa_pss_rsae_sha384; %% TLS-1.3 legacy
-supported_signalgo(rsa_pkcs1_sha512) -> rsa_pss_rsae_sha512; %% TLS-1.3 legacy
-supported_signalgo(_) -> skip_test. %% made up atom, PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
-
-
+    lists:member(SignAlgo, HashSigns).
 
 signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
 signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
@@ -638,6 +632,8 @@ signature_schemes_1_2(SigAlgs) ->
                                 [{Hash, Sign} | Acc];
                             {Hash, Sign = rsa_pss_rsae,_} ->
                                 [{Hash, Sign} | Acc];
+                            {Hash, Sign, undefined} ->
+                                [{Hash, format_sign(Sign)} | Acc];
                             {_, _, _} ->
                                 Acc
                         end;
@@ -665,6 +661,11 @@ scheme_to_components(rsa_pkcs1_sha1) -> {sha, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
+
+format_sign(rsa_pkcs1) ->
+    rsa;
+format_sign(Value) ->
+    Value.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

@@ -336,7 +336,7 @@ handle_client_hello(Version,
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-            SupportedHashSigns = maps:get(signature_algs, SslOpts, undefined),
+            SupportedHashSigns = supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = get_signature_ext(signature_algs, HelloExt, Version),
             ClientSignatureSchemes = get_signature_ext(signature_algs_cert, HelloExt, Version),
@@ -371,6 +371,11 @@ handle_client_hello(Version,
 	false ->
 	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
+
+supported_hashsigns(undefined) ->
+    undefined;
+supported_hashsigns(SigAlgs) ->
+    ssl_cipher:signature_schemes_1_2(SigAlgs).
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
                                HelloExt, SslOpts, Session0, ConnectionStates0, 
