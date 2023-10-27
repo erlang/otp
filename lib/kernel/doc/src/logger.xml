@@ -420,20 +420,15 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name name="log" arity="2" since="OTP 21.0"/>
+      <name name="log" arity="2" clause_i="1" since="OTP 21.0"/>
+      <name name="log" arity="2" clause_i="2" since="OTP 21.0"/>
       <name name="log" arity="3" clause_i="1" since="OTP 21.0"/>
       <name name="log" arity="3" clause_i="2" since="OTP 21.0"/>
       <name name="log" arity="3" clause_i="3" since="OTP 21.0"/>
+      <name name="log" arity="3" clause_i="4" since="OTP 21.0"/>
       <name name="log" arity="4" clause_i="1" since="OTP 21.0"/>
       <name name="log" arity="4" clause_i="2" since="OTP 21.0"/>
       <fsummary>Logs the given message.</fsummary>
-      <type variable="Level"/>
-      <type variable="StringOrReport" name_i="1"/>
-      <type variable="Format" name_i="3"/>
-      <type variable="Args" name_i="3"/>
-      <type variable="Fun" name_i="4"/>
-      <type variable="FunArgs" name_i="4"/>
-      <type variable="Metadata"/>
       <desc>
         <p>Create a log event at the given
           <seeguide marker="logger_chapter#log_level">log level</seeguide>,
