@@ -3534,9 +3534,12 @@ portable_open_port("openssl" = Exe, Args0) ->
 			end,
 	    Args1 = [Translate(Arg) || Arg <- Args0],
 	    Args = ["/C","wsl","openssl"| Args1] ++ ["2>&1"],
-	    Cmd =  os:find_executable("cmd"),
+            Cmd = case erlang:system_info(wordsize) of
+                      8 -> os:find_executable("cmd");
+                      4 -> filename:join(os:getenv("WINDIR"),"sysnative/cmd")
+                  end,
             ?CT_LOG("open_port({spawn_executable, ~p}, [stderr_to_stdout,~n {args, \"~s\"}]).",
-		 [Cmd, lists:join($\s, Args0)]),
+                    [Cmd, lists:join($\s, Args)]),
 	    open_port({spawn_executable, Cmd},
 		      [{args, Args}, stderr_to_stdout, hide])
     end;
