@@ -793,8 +793,21 @@
 %% Interface term formats
 %%
 
--opaque select_tag()     :: atom() | {atom(), ContData :: term()}.
--opaque completion_tag() :: atom(). % | {atom(), ContData :: term()}.
+-define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg |
+                          send | sendto | sendmsg)).
+-define(ASYNCH_TAG,      ((accept | connect) | ?ASYNCH_DATA_TAG)).
+
+%% -type asynch_data_tag() :: send | sendto | sendmsg |
+%%                            recv | recvfrom | recvmsg |
+%%                            sendfile.
+%% -type asynch_tag()      :: connect | accept |
+%%                            asynch_data_tag().
+%% -type select_tag()      :: asynch_tag() |
+%%                            {asynch_data_tag(), ContData :: term()}.
+%% -type completion_tag()  :: asynch_tag().
+-type select_tag()      :: ?ASYNCH_TAG | sendfile | 
+                           {?ASYNCH_DATA_TAG | sendfile, ContData :: term()}.
+-type completion_tag()  :: ?ASYNCH_TAG.
 
 -type select_handle() :: reference().
 -type completion_handle() :: reference().

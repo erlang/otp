@@ -239,7 +239,7 @@
       <name name="select_tag"/>
       <desc>
 	<p>
-          A tag that describes the (select) operation,
+          A tag that describes the (select) operation (= function name),
           contained in the returned
           <seetype marker="#select_info"><c>select_info()</c></seetype>.
         </p>
@@ -272,7 +272,8 @@
       <name name="completion_tag"/>
       <desc>
 	<p>
-          A tag that describes the ongoing (completion) operation,
+	  A tag that describes the ongoing (completion) operation
+	  (= function name),
           contained in the returned
           <seetype marker="#completion_info"><c>completion_info()</c></seetype>.
         </p>
