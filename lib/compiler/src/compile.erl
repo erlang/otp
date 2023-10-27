@@ -43,6 +43,7 @@
 -import(lists, [member/2,reverse/1,reverse/2,keyfind/3,last/1,
 		map/2,flatmap/2,flatten/1,foreach/2,foldr/3,any/2]).
 
+-define(PASS_TIMES, compile__pass_times).
 -define(SUB_PASS_TIMES, compile__sub_pass_times).
 
 %%----------------------------------------------------------------------
@@ -282,6 +283,8 @@ expand_opt(no_module_opt=O, Os) ->
     [O,no_recv_opt | Os];
 expand_opt({check_ssa,Tag}, Os) ->
     [check_ssa, Tag | Os];
+expand_opt(time, Os) ->
+    [{time,fun print_pass_times/2}|Os];
 expand_opt(O, Os) -> [O|Os].
 
 -spec format_error(ErrorDescription :: error_description()) -> string().
@@ -379,11 +382,26 @@ internal_comp(Passes, Code0, File, Suffix, St0) ->
     St1 = St0#compile{filename=File, dir=Dir, base=Base,
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
-    Run = runner(File, St1),
-    case fold_comp(Passes, Run, Code0, St1) of
+    Run = runner(St1),
+    Folder = case keyfind(time, 1, St1#compile.options) of
+                 {time,_} ->
+                     fun fold_comp_times/4;
+                 false ->
+                     fun fold_comp/4
+             end,
+    case Folder(Passes, Run, Code0, St1) of
         {ok,Code,St2} -> comp_ret_ok(Code, St2);
         {error,St2} -> comp_ret_err(St2)
     end.
+
+fold_comp_times(Passes, Run, Code, St) ->
+    put(?PASS_TIMES, []),
+    R = fold_comp(Passes, Run, Code, St),
+    Times = reverse(get(?PASS_TIMES)),
+    erase(?PASS_TIMES),
+    {time,Handler} = keyfind(time, 1, St#compile.options),
+    Handler(St#compile.filename, Times),
+    R.
 
 fold_comp([{delay,Ps0}|Passes], Run, Code, #compile{options=Opts}=St) ->
     Ps = select_passes(Ps0, Opts) ++ Passes,
@@ -420,16 +438,12 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
     end;
 run_sub_passes_1([], _, St) -> St.
 
-runner(File, #compile{options=Opts}) ->
+runner(#compile{options=Opts}) ->
     Run0 = fun({_Name,Fun}, Code, St) ->
                    Fun(Code, St)
            end,
-    Run1 = case member(time, Opts) of
-               true  ->
-                   case File of
-                       none -> ok;
-                       _ -> io:format("Compiling ~ts\n", [File])
-                   end,
+    Run1 = case keyfind(time, 1, Opts) of
+               {time,_}  ->
                    fun run_tc/3;
                false ->
                    Run0
@@ -448,20 +462,28 @@ run_tc({Name,Fun}, Code, St) ->
     T1 = erlang:monotonic_time(),
     Val = Fun(Code, St),
     T2 = erlang:monotonic_time(),
-    Times = get(?SUB_PASS_TIMES),
+    SubTimes = get(?SUB_PASS_TIMES),
     case OldTimes of
         undefined -> erase(?SUB_PASS_TIMES);
         _ -> put(?SUB_PASS_TIMES, OldTimes)
     end,
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, microsecond),
-    Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
-    Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
-    io:format(" ~-30s: ~10.3f s ~12s\n",
-	      [Name,Elapsed/1000000,Mem]),
-    print_times(Times, Name),
+    Elapsed = T2 - T1,
+    Mem = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
+    put(?PASS_TIMES, [{Name,Elapsed,Mem,SubTimes}|get(?PASS_TIMES)]),
     Val.
 
-print_times(Times0, Name) ->
+print_pass_times(File, Times) ->
+    io:format("Compiling ~ts\n", [File]),
+    foreach(fun({Name,ElapsedNative,Mem0,SubTimes}) ->
+                    Elapsed = erlang:convert_time_unit(ElapsedNative,
+                                                       native, microsecond),
+                    Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
+                    io:format(" ~-30s: ~10.3f s ~12s\n",
+                              [Name,Elapsed/1000000,Mem]),
+                    print_subpass_times(SubTimes, Name)
+            end, Times).
+
+print_subpass_times(Times0, Name) ->
     Fam0 = rel2fam(Times0),
     Fam1 = [{W,lists:sum(Times)} || {W,Times} <- Fam0],
     Fam = reverse(lists:keysort(2, Fam1)),
@@ -1176,7 +1198,7 @@ foldl_transform([T|Ts], Code0, St) ->
             Fun = fun(Code, S) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
-            Run = runner(none, St),
+            Run = runner(St),
             StrippedCode = maybe_strip_columns(Code0, T, St),
             try Run({Name, Fun}, StrippedCode, St) of
                 {error,Es,Ws} ->
@@ -1246,7 +1268,7 @@ core_transforms(Code, St) ->
 foldl_core_transforms([T|Ts], Code0, St) ->
     Name = "core transform " ++ atom_to_list(T),
     Fun = fun(Code, S) -> T:core_transform(Code, S#compile.options) end,
-    Run = runner(none, St),
+    Run = runner(St),
     try Run({Name, Fun}, Code0, St) of
 	Forms ->
 	    foldl_core_transforms(Ts, Forms, St)
