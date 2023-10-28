@@ -69,6 +69,8 @@
 -define(T_MINFO,	14).		%% mailbox information
 -define(T_MX,		15).		%% mail routing information
 -define(T_TXT,		16).		%% text strings
+-define(T_SIG,          24).            %% signature
+-define(T_KEY,          25).            %% key
 -define(T_AAAA,         28).            %% ipv6 address
 %% LOC (RFC 1876)
 -define(T_LOC,          29).            %% location information
@@ -114,6 +116,8 @@
 -define(S_MINFO,	minfo).		%% mailbox information
 -define(S_MX,		mx).		%% mail routing information
 -define(S_TXT,		txt).		%% text strings
+-define(S_SIG,          sig).           %% signature
+-define(S_KEY,          key).           %% key
 -define(S_AAAA,         aaaa).          %% ipv6 address
 %% LOC (RFC 1876)
 -define(S_LOC,          loc).           %% location information
@@ -148,6 +152,24 @@
 -define(C_HS,		4).		%% for Hesiod name server at MIT
 -define(C_NONE,		254).		%% for DDNS (RFC2136, section 2.4)
 -define(C_ANY,		255).		%% wildcard match
+
+%%
+%% DNS KEY Resource Record Protocol Octet Values
+%% https://www.iana.org/assignments/dns-key-rr/dns-key-rr.xhtml
+%%
+-define(T_DNSKEY_PROTOCOL_DNSSEC,	3).
+%
+-define(S_DNSKEY_PROTOCOL_DNSSEC,	dnssec).
+
+%%
+%% Domain Name System Security (DNSSEC) Algorithm Numbers
+%% https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+%%
+-define(T_DNSSEC_ALGNUM_RSAMD5,			1).
+-define(T_DNSSEC_ALGNUM_ECDSAP256SHA256,	13).
+%
+-define(S_DNSSEC_ALGNUM_RSAMD5,			rsamd5).
+-define(S_DNSSEC_ALGNUM_ECDSAP256SHA256,	ecdsap256sha256).
 
 %%
 %% TSIG Algorithms and Identifiers (RFC8945, section 6)
@@ -237,6 +259,23 @@
 	  z = 0,              %% RFC6891(6.1.3 Z)
 	  data = [],          %% RFC6891(6.1.2 RDATA)
           do = false          %% RFC6891(6.1.3 DO)
+	 }).
+
+-record(dns_rr_sig,           %% SIG RR OPT (RFC2535), dns_rr{type=sig}
+	{
+	  domain = "",        %% should be the root domain
+	  type = sig,
+	  offset,             %% position of RR in packet ( SIG(0) )
+	  %% RFC2535(4.1 SIG RDATA Format)
+	  type_covered,
+	  algorithm,
+	  labels,
+	  original_ttl,
+	  signature_expiration,
+	  signature_inception,
+	  key_tag,
+	  signers_name,
+	  signature
 	 }).
 
 -record(dns_rr_tsig,          %% TSIG RR OPT (RFC8945), dns_rr{type=tsig}
