@@ -79,7 +79,9 @@ handle_ssh_msg({ssh_cm, _ConnectionHandler,
 	       #state{group = Group} = State0) ->
     {Enc, State} = guess_encoding(Data, State0),
     List = unicode:characters_to_list(Data, Enc),
-    to_group(List, Group),
+    Pty = State#state.pty,
+    Dumb = Pty#ssh_pty.term =:= "dumb",
+    to_group(List, Group, Dumb),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
@@ -393,21 +395,28 @@ out_enc(#state{encoding = PeerEnc,
 
 %%--------------------------------------------------------------------
 
-to_group([], _Group) ->
+to_group([], _Group, _Dumb) ->
     ok;
-to_group([$\^C | Tail], Group) ->
+to_group([$\^C | Tail], Group, Dumb) ->
     exit(Group, interrupt),
-    to_group(Tail, Group);
-to_group(Data, Group) ->
+    to_group(Tail, Group, Dumb);
+to_group(Data, Group, Dumb) ->
     Func = fun(C) -> C /= $\^C end,
     Tail = case lists:splitwith(Func, Data) of
         {[], Right} ->
             Right;
         {Left, Right} ->
-            Group ! {self(), {data, Left}},
+            %% Filter out escape sequences, only support Ctrl sequences
+            Left1 = if Dumb -> replace_escapes(Left); true -> Left end,
+            Group ! {self(), {data, Left1}},
             Right
     end,
-    to_group(Tail, Group).
+    to_group(Tail, Group, Dumb).
+replace_escapes(Data) ->
+    lists:flatten([ if C =:= 27 ->
+        [$^,C+64];
+         true -> C
+    end || C <- Data]).
 
 %%--------------------------------------------------------------------
 %%% io_request, handle io requests from the user process,
@@ -511,10 +520,10 @@ get_tty_command(left, N, _TerminalType) ->
 -define(TABWIDTH, 8).
 
 %% convert input characters to buffer and to writeout
-%% Note that the buf is reversed but the buftail is not
+%% Note that Bef is reversed but Aft is not
 %% (this is handy; the head is always next to the cursor)
 conv_buf([], {LB, {Bef, Aft}, LA, Col}, AccWrite, _Tty) ->
-    {{LB, {Bef, Aft}, LA}, lists:reverse(AccWrite), Col};
+    {{LB, {Bef, Aft}, LA, Col}, lists:reverse(AccWrite)};
 conv_buf([13, 10 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
     conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl2(Aft)}, LA, Col+(W-(Col rem W))}, [10, 13 | AccWrite], Tty);
 conv_buf([13 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
@@ -533,20 +542,24 @@ conv_buf([C | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty) ->
 %%% put characters before the prompt
 put_chars(Chars, Buf, Tty) ->
     case Buf of
-        {[],{[],[]},[],_} -> {_, WriteBuf, _} = conv_buf(Chars, Buf, [], Tty),
+        {[],{[],[]},[],_} -> {_, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
             {WriteBuf, Buf};
-        _ ->
+        _ when Tty#ssh_pty.term  =/= "dumb" ->
             {Delete, DeletedState} = io_request(delete_line, Buf, Tty, []),
-            {_, PutBuffer, _} = conv_buf(Chars, DeletedState, [], Tty),
+            {_, PutBuffer} = conv_buf(Chars, DeletedState, [], Tty),
             {Redraw, _} = io_request(redraw_prompt_pre_deleted, Buf, Tty, []),
-            {[Delete, PutBuffer, Redraw], Buf}
+            {[Delete, PutBuffer, Redraw], Buf};
+        _ -> %% When we have a dumb terminal, we don't support redrawing the prompt
+             %% Instead just put the characters on the screen
+            {NewBuf, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
+            {WriteBuf, NewBuf}
     end.
 
 %%% insert character at current position
 insert_chars([], Buf, _Tty) ->
     {[], Buf};
 insert_chars(Chars, {_LB,{_Bef, Aft},LA, _Col}=Buf, Tty) ->
-    {{NewLB, {NewBef, _NewAft}, _NewLA}, WriteBuf, NewCol} = conv_buf(Chars, Buf, [], Tty),
+    {{NewLB, {NewBef, _NewAft}, _NewLA, NewCol}, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
     M = move_cursor(special_at_width(NewCol+length(Aft), Tty), NewCol, Tty),
     {[WriteBuf, Aft | M], {NewLB,{NewBef, Aft},LA, NewCol}}.
 
@@ -724,8 +737,12 @@ start_shell(ConnectionHandler, State) ->
             {_,_,_} = Shell ->
                 Shell
         end,
+    Dumb = case State#state.pty of
+               #ssh_pty{term = "dumb"} -> true;
+               _ -> false
+           end,
     State#state{group = group:start(self(), ShellSpawner,
-                                    [{expand_below, false},
+                                    [{dumb, Dumb},{expand_below, false},
                                      {echo, get_echo(State#state.pty)}]),
                 buf = empty_buf()}.
 
