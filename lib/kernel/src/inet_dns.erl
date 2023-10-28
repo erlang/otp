@@ -877,10 +877,11 @@ encode_data(Comp, _, ?S_CAA, Data)->
 encode_data(Comp, _, ?S_TSIG, Data)->
     {AlgName,Now,Fudge,MAC,OriginalId,Error,OtherData} = Data,
     %% Bypass name compression (RFC 8945, section 4.2)
-    {AlgNameEncoded,_} = encode_name(gb_trees:empty(), 0, AlgName),
+    AlgNameEncoded = encode_algname(AlgName),
+    {AlgNameEncoded1,_} = encode_name(gb_trees:empty(), 0, AlgNameEncoded),
     MACSize = byte_size(MAC),
     OtherLen = byte_size(OtherData),
-    DataB = <<AlgNameEncoded/binary,
+    DataB = <<AlgNameEncoded1/binary,
 	     Now:48, Fudge:16, MACSize:16, MAC:MACSize/binary,
 	     OriginalId:16, Error:16,
 	     OtherLen:16, OtherData:OtherLen/binary>>,
