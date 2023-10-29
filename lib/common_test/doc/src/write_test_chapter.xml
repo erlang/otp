@@ -281,6 +281,8 @@
     and lookup. <c>Common Test</c> provides a simple macro named <c>?config</c>,
     which returns a value of an item in <c>Config</c> given the key (exactly like
     <c>proplists:get_value</c>). Example: <c>PrivDir = ?config(priv_dir, Config)</c>.
+    An optional third argument may be provided to customize the return value
+    if the given key was not found, by default, <c>undefined</c> is returned.
     </p>
 
     <p>If the test case function crashes or exits purposely, it is considered

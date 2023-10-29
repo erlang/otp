@@ -70,7 +70,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [require, install_config, userconfig_static,
      userconfig_dynamic, testspec_legacy, testspec_static,
-     testspec_dynamic].
+     testspec_dynamic, config_default_value].
 
 groups() -> 
     [].
@@ -165,6 +165,12 @@ testspec_dynamic(Config) when is_list(Config) ->
 		     []),
 	    file:delete(filename:join(ConfigDir, "spec_dynamic.spec"))
     end.
+
+config_default_value(Config) when is_list(Config) ->
+    undefined = ?config(hopefully_undefined_value, Config),
+    undefined = ?config(hopefully_undefined_value, Config, undefined),
+    [] = ?config(hopefully_undefined_value, Config, []),
+    default = ?config(hopefully_undefined_value, Config, default).
 
 
 

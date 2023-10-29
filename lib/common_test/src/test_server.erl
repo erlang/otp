@@ -28,7 +28,7 @@
 -export([get_loc/1,set_tc_state/1]).
 
 %%% TEST SUITE INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([lookup_config/2]).
+-export([lookup_config/2, lookup_config/3]).
 -export([fail/0,fail/1,format/1,format/2,format/3]).
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
@@ -1755,7 +1755,7 @@ print(Detail,Format,Args,Printer) ->
     test_server_ctrl:print(Detail, Format, Args, Printer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% print_timsteamp(Detail,Leader) -> ok
+%% print_timestamp(Detail,Leader) -> ok
 %%
 %% Prints Leader followed by a time stamp (date and time). Depending on
 %% the Detail value, the output is directed to console, major and/or minor
@@ -1766,7 +1766,7 @@ print_timestamp(Detail,Leader) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% lookup_config(Key,Config) -> {value,{Key,Value}} | undefined
+%% lookup_config(Key,Config) -> Value | undefined
 %% Key = term()
 %% Value = term()
 %% Config = [{Key,Value},...]
@@ -1782,6 +1782,18 @@ lookup_config(Key,Config) ->
 	    io:format("Could not find element ~tp in Config.~n",[Key]),
 	    undefined
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lookup_config(Key, Config, Default) -> Value | Default
+%% Key = term()
+%% Value = term()
+%% Default = term()
+%% Config = [{Key,Value},...]
+%%
+%% Looks up a specific key in the config list, and returns the value
+%% of the associated key, or `Default' if the key doesn't exist.
+lookup_config(Key, Config, Default) ->
+    proplists:get_value(Key, Config, Default).
 
 %%
 %% IMPORTANT: get_loc/1 uses the name of this function when analysing
