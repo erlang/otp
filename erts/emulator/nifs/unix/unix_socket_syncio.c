@@ -3269,7 +3269,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
                 "do_stop {%d} -> handle waiting reader(s)\r\n",
                 descP->sock) );
 
-        esock_inform_waiting_procs(env, "writer",
+        esock_inform_waiting_procs(env, "reader",
                                    descP, sockRef, &descP->readersQ,
                                    esock_atom_closed);
 
