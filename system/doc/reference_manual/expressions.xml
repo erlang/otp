@@ -2122,7 +2122,7 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 
     <p>Multiplying each byte in a binary by two, returning a list:</p>
     <pre>
-1> <input>[X*2 || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+1> <input>[X*2 || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt;].</input>
 [2,4,6]</pre>
 
     <p>Multiplying each byte in a binary by two:</p>
@@ -2134,7 +2134,7 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
     <p>Multiplying each element in a list by two, returning a binary:</p>
 
     <pre>
-1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || X &lt;- [1,2,3]].</input>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || X &lt;- [1,2,3] &gt;&gt;.</input>
 &lt;&lt;2,4,6&gt;&gt;</pre>
 
     <p>Creating a mapping from an integer to its square:</p>
