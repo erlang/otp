@@ -72,19 +72,9 @@ add_vertex(Dg, V) ->
 
 -spec add_vertex(graph(), vertex(), label()) -> graph().
 add_vertex(Dg, V, Label) ->
-    #dg{in_es=InEsMap0,out_es=OutEsMap0,vs=Vs0} = Dg,
-    InEsMap = init_edge_map(V, InEsMap0),
-    OutEsMap = init_edge_map(V, OutEsMap0),
+    #dg{vs=Vs0} = Dg,
     Vs = Vs0#{V=>Label},
-    Dg#dg{vs=Vs,in_es=InEsMap,out_es=OutEsMap}.
-
-init_edge_map(V, EsMap) ->
-    case is_map_key(V, EsMap) of
-        true ->
-            EsMap;
-        false ->
-            EsMap#{V=>ordsets:new()}
-    end.
+    Dg#dg{vs=Vs}.
 
 -spec add_edge(graph(), vertex(), vertex()) -> graph().
 add_edge(Dg, From, To) ->
@@ -99,9 +89,9 @@ add_edge(Dg, From, To, Label) ->
     Dg#dg{in_es=InEsMap,out_es=OutEsMap}.
 
 edge_map_add(V, E, EsMap) ->
-    Es0 = map_get(V, EsMap),
+    Es0 = maps:get(V, EsMap, []),
     Es = ordsets:add_element(E, Es0),
-    EsMap#{V:=Es}.
+    EsMap#{V=>Es}.
 
 -spec del_edge(graph(), edge()) -> graph().
 del_edge(Dg, {From,To,_}=E) ->
@@ -111,7 +101,7 @@ del_edge(Dg, {From,To,_}=E) ->
     Dg#dg{in_es=InEsMap,out_es=OutEsMap}.
 
 edge_map_del(V, E, EsMap) ->
-    Es0 = map_get(V, EsMap),
+    Es0 = maps:get(V, EsMap, []),
     Es = Es0 -- [E],
     EsMap#{V:=Es}.
 
@@ -130,15 +120,15 @@ has_vertex(#dg{vs=Vs}, V) ->
 
 -spec in_degree(graph(), vertex()) -> non_neg_integer().
 in_degree(#dg{in_es=InEsMap}, V) ->
-    length(map_get(V, InEsMap)).
+    length(maps:get(V, InEsMap, [])).
 
 -spec in_edges(graph(), vertex()) -> [edge()].
 in_edges(#dg{in_es=InEsMap}, V) ->
-    map_get(V, InEsMap).
+    maps:get(V, InEsMap, []).
 
 -spec in_neighbours(graph(), vertex()) -> [vertex()].
 in_neighbours(#dg{in_es=InEsMap}, V) ->
-    [From || {From,_,_} <- map_get(V, InEsMap)].
+    [From || {From,_,_} <- maps:get(V, InEsMap, [])].
 
 -spec is_path(graph(), vertex(), vertex()) -> boolean().
 is_path(G, From, To) ->
@@ -168,15 +158,15 @@ is_path_1([], _To, _G, Seen) ->
 
 -spec out_degree(graph(), vertex()) -> non_neg_integer().
 out_degree(#dg{out_es=OutEsMap}, V) ->
-    length(map_get(V, OutEsMap)).
+    length(maps:get(V, OutEsMap, [])).
 
 -spec out_edges(graph(), vertex()) -> [edge()].
 out_edges(#dg{out_es=OutEsMap}, V) ->
-    map_get(V, OutEsMap).
+    maps:get(V, OutEsMap, []).
 
 -spec out_neighbours(graph(), vertex()) -> [vertex()].
 out_neighbours(#dg{out_es=OutEsMap}, V) ->
-    [To || {_,To,_} <- map_get(V, OutEsMap)].
+    [To || {_,To,_} <- maps:get(V, OutEsMap, [])].
 
 -spec no_vertices(graph()) -> non_neg_integer().
 no_vertices(#dg{vs=Vs}) ->
