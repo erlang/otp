@@ -306,13 +306,13 @@ handle_call({leave_local, Group, PidOrPids}, _From, #state{scope = Scope, local 
 handle_call(monitor, {Pid, _Tag}, #state{scope = Scope, scope_monitors = ScopeMon} = State) ->
     %% next line could also be done with iterating over process state, but it appears to be slower
     Local = #{G => P || [G,P] <- ets:match(Scope, {'$1', '$2', '_'})},
-    MRef = erlang:monitor(process, Pid), %% monitor the monitor, to discard it upon termination, and generate MRef
+    MRef = erlang:monitor(process, Pid, [{tag, {'DOWN', scope_monitors}}]), %% to discard it upon termination
     {reply, {MRef, Local}, State#state{scope_monitors = ScopeMon#{MRef => Pid}}};
 
 handle_call({monitor, Group}, {Pid, _Tag}, #state{scope = Scope, group_monitors = GM, monitored_groups = MG} = State) ->
     %% ETS cache is writable only from this process - so get_members is safe to use
     Members = get_members(Scope, Group),
-    MRef = erlang:monitor(process, Pid),
+    MRef = erlang:monitor(process, Pid, [{tag, {'DOWN', group_monitors}}]),
     NewMG = maps:update_with(Group, fun (Ex) -> [{Pid, MRef} | Ex] end, [{Pid, MRef}], MG),
     {reply, {MRef, Members}, State#state{group_monitors = GM#{MRef => {Pid, Group}}, monitored_groups = NewMG}};
 
@@ -401,12 +401,13 @@ handle_info({discover, Peer}, State) ->
 handle_info({discover, Peer, _ProtocolVersion}, State) ->
     handle_discover(Peer, State);
 
-%% handle local process exit, or a local monitor exit
+%% handle local process exit
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = Local,
     remote = Remote, scope_monitors = ScopeMon, monitored_groups = MG} = State) when node(Pid) =:= node() ->
     case maps:take(Pid, Local) of
         error ->
-            {noreply, maybe_drop_monitor(MRef, State)};
+            %% ignore late monitor: this can only happen when leave request and 'DOWN' are in pg queue
+            {noreply, State};
         {{MRef, Groups}, NewLocal} ->
             [leave_local_update_ets(Scope, ScopeMon, MG, Group, Pid) || Group <- Groups],
             %% send update to all remote peers
@@ -414,7 +415,7 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = L
             {noreply, State#state{local = NewLocal}}
     end;
 
-%% handle remote node down or scope leaving overlay network, or a monitor from the remote node went down
+%% handle remote node down or scope leaving overlay network
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = Remote,
     scope_monitors = ScopeMon, monitored_groups = MG} = State)  ->
     case maps:take(Pid, Remote) of
@@ -423,7 +424,22 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = 
                 leave_remote_update_ets(Scope, ScopeMon, MG, Pids, [Group]) end, RemoteMap),
             {noreply, State#state{remote = NewRemote}};
         error ->
-            {noreply, maybe_drop_monitor(MRef, State)}
+            {noreply, MRef, State}
+    end;
+
+%% handle scope monitor exiting
+handle_info({{'DOWN', scope_monitors}, MRef, process, _Pid, _Info}, #state{scope_monitors = ScopeMon} = State) ->
+    {noreply, State#state{scope_monitors = maps:remove(MRef, ScopeMon)}};
+
+%% handle group monitor exiting
+handle_info({{'DOWN', group_monitors}, MRef, process, Pid, _Info}, #state{
+    group_monitors = GMs, monitored_groups = MG} = State) ->
+    case maps:take(MRef, GMs) of
+        error ->
+            {noreply, State};
+        {{Pid, Group}, NewGM} ->
+            %% clean up the inverse map
+            {noreply, State#state{group_monitors = NewGM, monitored_groups = demonitor_group({Pid, MRef}, Group, MG)}}
     end;
 
 %% nodedown: ignore, and wait for 'DOWN' signal for monitored process
@@ -669,23 +685,6 @@ broadcast([Dest | Tail], Msg) ->
     %%   join/leave messages when dist buffer is full
     erlang:send(Dest, Msg, [noconnect]),
     broadcast(Tail, Msg).
-
-%% drops a monitor if DOWN was received
-maybe_drop_monitor(MRef, #state{scope_monitors = ScopeMon, group_monitors = GMs, monitored_groups = MG} = State) ->
-    %% could be a local monitor going DOWN. Since it's a rare event, check should
-    %%  not stay in front of any other, more frequent events
-    case maps:take(MRef, ScopeMon) of
-        error ->
-            case maps:take(MRef, GMs) of
-                error ->
-                    State;
-                {{Pid, Group}, NewGM} ->
-                    %% clean up the inverse map
-                    State#state{group_monitors = NewGM, monitored_groups = demonitor_group({Pid, MRef}, Group, MG)}
-            end;
-        {_Pid, NewScopeMon} ->
-            State#state{scope_monitors = NewScopeMon}
-    end.
 
 demonitor_group(Tag, Group, MG) ->
     case maps:find(Group, MG) of
