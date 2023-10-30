@@ -209,6 +209,17 @@ endif
 # 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
 # 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
 
+# ---- Hard-coded removal of deprecated warning for ENGINE function calls
+$(OBJDIR)/engine$(TYPEMARKER).o: engine.c
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
+
+$(OBJDIR)/pkey$(TYPEMARKER).o: pkey.c
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
+
+# ---- End of Hard-coded removal of deprecated warning for ENGINE function calls
+
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
 	$(V_CC) -MMD -c -o $@ $(ALL_CFLAGS) $<
