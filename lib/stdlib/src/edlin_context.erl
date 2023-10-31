@@ -88,18 +88,19 @@ get_context([$?|_], _) ->
 get_context(Bef0, Word) when is_list(Word) ->
     get_context(lists:reverse(Word) ++ Bef0, #context{});
 get_context([], #context{arguments = Args, parameter_count = Count, nestings = Nestings} = _CR) ->
-    case Count+1 == length(Args) of
+    case (Count+1 == length(Args)) andalso (Nestings =:= []) of
         true -> {term, lists:droplast(Args), lists:last(Args)};
         _ ->
             %% Nestings will not end up as an argument
-            case Nestings of
+            Nestings1 = lists:reverse(Nestings),
+            case Nestings1 of
                 [] -> case Count of
                     0 when length(Args) > 0 -> {term, lists:droplast(Args), lists:last(Args)};
                     _ -> {term, Args, []}
                 end;
-                [{list, Args1, Arg}] -> {term, Args1, Arg};
-                [{tuple, Args1, Arg}] -> {term, Args1, Arg};
-                [{map, _, _, Args1, Arg}] -> {term, Args1, Arg}
+                [{list, Args1, Arg}|_] -> {term, Args1, Arg};
+                [{tuple, Args1, Arg}|_] -> {term, Args1, Arg};
+                [{map, _Fields, _FieldToComplete, Args1, Arg}|_] -> {term, Args1, Arg}
             end
     end;
 get_context([$(|Bef], CR) ->
@@ -152,7 +153,15 @@ get_context([${|Bef], #context{ fields=Fields,
                                 %% We finished a nesting lets reset and read the next nesting
                                 nestings = [{'tuple', Args, Unfinished}|Nestings]});
         {[$#|_Bef3], Record} -> %% Record
-            {record, Record, Fields, FieldToComplete, Args, Unfinished, Nestings}
+            {record, Record, Fields, FieldToComplete, Args, Unfinished, Nestings};
+        {[], _} ->
+            get_context(Bef, #context{
+                %% We finished a nesting lets reset and read the next nesting
+                nestings = [{'tuple', Args, Unfinished}|Nestings]});
+        {_, _} ->
+            get_context(Bef, #context{
+                %% We finished a nesting lets reset and read the next nesting
+                nestings = [{'tuple', Args, Unfinished}|Nestings]})
     end;
 get_context([$[|Bef1], #context{arguments = Arguments, parameter_count = Count, nestings=Nestings}) ->
     {Args, Unfinished} = case Count+1 == length(Arguments) of

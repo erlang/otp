@@ -23,7 +23,7 @@
          init_per_group/2,end_per_group/2]).
 -export([normal/1, type_completion/1, quoted_fun/1, quoted_module/1, quoted_both/1, erl_1152/1, get_coverage/1,
          check_trailing/1, unicode/1, filename_completion/1, binding_completion/1, record_completion/1,
-         map_completion/1, function_parameter_completion/1, fun_completion/1]).
+         no_completion/1, map_completion/1, function_parameter_completion/1, fun_completion/1]).
 -record(a_record,
         {a_field   :: atom1 | atom2 | btom | 'my atom' | {atom3, {atom4, non_neg_integer()}} | 'undefined',
          b_field   :: boolean() | 'undefined',
@@ -50,7 +50,7 @@ suite() ->
 all() ->
     [normal, filename_completion, binding_completion, get_coverage, type_completion, 
      record_completion, fun_completion, map_completion, function_parameter_completion,
-     quoted_fun, quoted_module, quoted_both, erl_1152, check_trailing,
+     no_completion, quoted_fun, quoted_module, quoted_both, erl_1152, check_trailing,
      unicode].
 
 groups() ->
@@ -173,6 +173,12 @@ filename_completion(Config) ->
     file:set_cwd(CWD),
     R.
 
+no_completion(_Config) ->
+    %% No autocompletion, and no crashes
+    {no, _, _} = do_expand("[{"),
+    {no, _, _} = do_expand("a [{"),
+    {no, _, _} = do_expand("a [{{"),
+    ok.
 record_completion(_Config) ->
     %% test record completion for loaded records
     %% test record field name completion
@@ -197,12 +203,12 @@ record_completion(_Config) ->
                {"c_field",[{ending,"="}]},
                {"d_field",[{ending,"="}]}],
               options:=[highlight_all]}]} = do_expand("#a_record{a_field={atom3,b},"),
-    %% test match argument and closing parenthesis completion
-    {yes,", ",[]} = do_expand("#a_record{a_field={atom3"),
+    %% test match argument
+    {yes,_,[]} = do_expand("#a_record{a_field={atom3"),
     {no,[],[#{title:="types",elems:=[{"{atom4, ...}",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,"),
     {no,[],[#{title:="types",elems:=[{"integer() >= 0",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,{atom4, "),
-    {yes,"}",_} = do_expand("#a_record{a_field={atom3,{atom4, 1"),
-    {yes,"}",_} = do_expand("#a_record{a_field={atom3,{atom4, 1}"),
+    {no,_,_} = do_expand("#a_record{a_field={atom3,{atom4, 1"),
+    {no,_,_} = do_expand("#a_record{a_field={atom3,{atom4, 1}"),
     ok.
 
 fun_completion(_Config) ->
@@ -246,7 +252,7 @@ function_parameter_completion(Config) ->
     {no, [], [#{elems:=[#{elems:=[#{title:="types",elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name(1,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]}  = do_expand("complete_function_parameter : a_fun_name ( 1 , "),
-    {yes, ")", []} = do_expand("complete_function_parameter:a_fun_name(1,2"),
+    {no, [], []} = do_expand("complete_function_parameter:a_fun_name(1,2"),
     {no, [], []} = do_expand("complete_function_parameter:a_fun_name(1,2,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"any()",[]},{"[any() | [Deeplist]]",[]}]}]}]}]} = do_expand("complete_function_parameter:a_deeplist_fun("),
     {no,[],[#{title:="typespecs",
@@ -509,6 +515,9 @@ get_coverage(Config) ->
     {_, _, M10} = edlin_expand:expand("ssh:connect({},["),
     do_format(M10),
     lists:flatten(edlin_expand:format_matches(M10, 20)),
+    %% Test that we are not filtering duplicates bit with different case or different string lengths
+    {yes,"e", M11} = do_expand("complete_function_parameter:cas"),
+    "\e[;1;4mfunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
     ok.
 
 %% Normal module name, some function names using quoted atoms.
