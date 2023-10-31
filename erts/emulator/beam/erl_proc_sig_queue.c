@@ -811,7 +811,7 @@ notify_dirty_signal_handler(Eterm pid,
     ErtsMessage *mp;
     Process *sig_handler;
 
-    ASSERT(state & ERTS_PSFLG_DIRTY_RUNNING);
+    ASSERT(state & (ERTS_PSFLGS_DIRTY_WORK|ERTS_PSFLG_DIRTY_RUNNING));
 
     if (prio < 0)
         prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
@@ -851,13 +851,10 @@ delayed_notify_dirty_signal_handler(void *vdshnp)
     if (proc) {
         erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
         /*
-         * Notify the dirty signal handler if it is still running
-         * dirty and still have signals to handle...
+         * Notify the dirty signal handler if it is still scheduled
+         * or running dirty and still have signals to handle...
          */
-        if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
-            & !!(state & (ERTS_PSFLG_SIG_Q
-                          | ERTS_PSFLG_NMSG_SIG_IN_Q
-                          | ERTS_PSFLG_MSG_SIG_IN_Q))) {
+        if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state)) {
             notify_dirty_signal_handler(dshnp->pid, state, dshnp->prio);
         }
     }
@@ -1141,12 +1138,7 @@ maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
-                /*
-                 * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
-                 * more info see erts_execute_dirty_system_task()
-                 * in erl_process.c.
-                 */
-                if (state & ERTS_PSFLG_DIRTY_RUNNING)
+                if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state))
                     erts_ensure_dirty_proc_signals_handled(rp, state,
                                                            min_prio, 0);
             }
@@ -8192,12 +8184,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
         BIF_RET(am_noproc);
 
     state = erts_atomic32_read_acqb(&rp->state);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
-    /*
-     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
-     * comment in erts_execute_dirty_system_task()
-     * in erl_process.c).
-     */
+    dirty = ERTS_PROC_IN_DIRTY_STATE(state);
     if (!dirty)
         BIF_RET(am_normal);
 
@@ -8211,7 +8198,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
 
     state = erts_atomic32_read_mb(&rp->state);
     noproc = (state & ERTS_PSFLG_FREE);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    dirty = ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state);
 
     if (busy) {
         if (noproc)

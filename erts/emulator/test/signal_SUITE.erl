@@ -39,6 +39,7 @@
          kill2killed/1,
          contended_signal_handling/1,
          dirty_signal_handling_race/1,
+         dirty_signal_handling/1,
          busy_dist_exit_signal/1,
          busy_dist_demonitor_signal/1,
          busy_dist_down_signal/1,
@@ -91,6 +92,7 @@ all() ->
      kill2killed,
      contended_signal_handling,
      dirty_signal_handling_race,
+     dirty_signal_handling,
      busy_dist_exit_signal,
      busy_dist_demonitor_signal,
      busy_dist_down_signal,
@@ -386,6 +388,33 @@ move_dirty_signal_handlers_to_first_scheduler() ->
     after
         erlang:system_flag(schedulers_online, SOnln)
     end,
+    ok.
+
+dirty_signal_handling(Config) when is_list(Config) ->
+    %%
+    %% PR-7822 (third commit)
+    %%
+    %% Make sure signals are handled regardless of whether a process is
+    %% executing dirty or is scheduled for dirty execution...
+
+    %% Make sure all dirty I/O schedulers are occupied with work...
+    Ps = lists:map(fun (_) ->
+                           spawn(fun () ->
+                                         erts_debug:dirty_io(wait, 1000)
+                                 end)
+                   end, lists:seq(1, erlang:system_info(dirty_io_schedulers))),
+    %% P ends up in the run queue waiting for a free dirty I/O scheduler...
+    P = spawn(fun () ->
+                      erts_debug:dirty_io(wait, 1000)
+              end),
+    receive after 300 -> ok end,
+    %% current_function is added to prevent read of status from being optimized
+    %% to read status directly...
+    [{status,runnable},{current_function, _}] = process_info(P, [status,current_function]),
+    receive after 1000 -> ok end,
+    [{status,running},{current_function, _}] = process_info(P, [status,current_function]),
+    lists:foreach(fun (X) -> exit(X, kill) end, [P|Ps]),
+    lists:foreach(fun (X) -> false = is_process_alive(X) end, [P|Ps]),
     ok.
 
 busy_dist_exit_signal(Config) when is_list(Config) ->

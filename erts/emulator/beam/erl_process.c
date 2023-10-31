@@ -6588,18 +6588,18 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
  * reference count on the process when done with it...
  */
 static ERTS_INLINE int
-schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
+schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 		     Process *proxy, int is_normal_sched)
 {
     erts_aint32_t a, e, n, enq_prio = -1, running_flgs;
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
-    ASSERT(!(state & (ERTS_PSFLG_DIRTY_IO_PROC|ERTS_PSFLG_DIRTY_CPU_PROC))
+    a = *statep;
+
+    ASSERT(!(a & (ERTS_PSFLG_DIRTY_IO_PROC|ERTS_PSFLG_DIRTY_CPU_PROC))
            || (BeamIsOpCode(*(const BeamInstr*)p->i, op_call_nif_WWW)
                || BeamIsOpCode(*(const BeamInstr*)p->i, op_call_bif_W)));
-
-    a = state;
 
     /* Clear activ-sys if needed... */
     while (1) {
@@ -6666,6 +6666,8 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
 	if (a == e)
 	    break;
     }
+
+    *statep = n;
 
     runq = select_enqueue_run_queue(enqueue, enq_prio, p, n);
 
@@ -7117,10 +7119,13 @@ suspend_process(Process *c_p, Process *p)
 	if (c_p == p) {
 	    state = erts_atomic32_read_bor_relb(&p->state,
 						    ERTS_PSFLG_SUSPENDED);
-	    ASSERT(state & (ERTS_PSFLG_RUNNING
-			    | ERTS_PSFLG_RUNNING_SYS
-			    | ERTS_PSFLG_DIRTY_RUNNING
-			    | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+	    ASSERT((state & (ERTS_PSFLG_RUNNING
+                             | ERTS_PSFLG_RUNNING_SYS
+                             | ERTS_PSFLG_DIRTY_RUNNING
+                             | ERTS_PSFLG_DIRTY_RUNNING_SYS))
+                   || ((ERTS_PROC_LOCK_MAIN
+                        & erts_proc_lc_my_proc_locks(p))
+                       && (c_p->sig_qs.flags | FS_HANDLING_SIGS)));
 	    suspended = (state & ERTS_PSFLG_SUSPENDED) ? -1: 1;
 	}
 	else {
@@ -9218,8 +9223,13 @@ void
 erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
 {
     int suspend;
-
-    ASSERT(c_p == erts_get_current_process());
+#ifdef DEBUG
+    Process *curr_proc = erts_get_current_process();
+    ASSERT(curr_proc == c_p
+           || curr_proc == erts_dirty_process_signal_handler
+           || curr_proc == erts_dirty_process_signal_handler_high
+           || curr_proc == erts_dirty_process_signal_handler_max);
+#endif
     ERTS_LC_ASSERT(c_p_locks == erts_proc_lc_my_proc_locks(c_p));
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
@@ -9585,7 +9595,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             int dec_refc;
 
             /* schedule_out_process() returns with rq locked! */
-            dec_refc = schedule_out_process(rq, state, p,
+            dec_refc = schedule_out_process(rq, &state, p,
                                             proxy_p, is_normal_sched);
             proxy_p = NULL;
 
@@ -9601,6 +9611,17 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             erts_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
                                  | ERTS_PROC_LOCK_STATUS
                                  | ERTS_PROC_LOCK_TRACE));
+
+            if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state)) {
+                /*
+                 * Ensure signals are handled while scheduled
+                 * or running dirty...
+                 */
+                int prio = ERTS_PSFLGS_GET_ACT_PRIO(state);
+		erts_runq_unlock(rq);
+                erts_ensure_dirty_proc_signals_handled(p, state, prio, 0);
+		erts_runq_lock(rq);
+            }
 
             ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
@@ -10122,17 +10143,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
         if (!is_normal_sched) {
             /* On dirty scheduler */
-            if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
-                & !!(state & (ERTS_PSFLG_SIG_Q
-                              | ERTS_PSFLG_NMSG_SIG_IN_Q
-                              | ERTS_PSFLG_MSG_SIG_IN_Q))) {
-                /* Ensure signals are handled while executing dirty... */
-                int prio = ERTS_PSFLGS_GET_ACT_PRIO(state);
-                erts_ensure_dirty_proc_signals_handled(p,
-                                                       state,
-                                                       prio,
-                                                       ERTS_PROC_LOCK_MAIN);
-            }
         }
         else {
             /* On normal scheduler */
