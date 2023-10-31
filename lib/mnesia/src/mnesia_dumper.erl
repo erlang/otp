@@ -711,7 +711,6 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 		end,
     %% Delete all possibly existing files and tables
     disc_delete_table(Tab, Storage),
-    disc_delete_indecies(Tab, Cs, Storage),
     case InitBy of
 	startup ->
 	    ignore;
