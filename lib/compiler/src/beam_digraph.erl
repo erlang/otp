@@ -30,6 +30,7 @@
 -export([new/0,
          add_vertex/2, add_vertex/3, add_edge/3, add_edge/4,
          del_edge/2, del_edges/2,
+         foldv/3,
          has_vertex/2,
          is_path/3,
          in_degree/2, in_edges/2, in_neighbours/2,
@@ -117,6 +118,11 @@ edge_map_del(V, E, EsMap) ->
 -spec del_edges(graph(), [edge()]) -> graph().
 del_edges(G, Es) when is_list(Es) ->
     foldl(fun(E, A) -> del_edge(A, E) end, G, Es).
+
+%% Fold over the vertices of the graph, the order is unspecified.
+-spec foldv(graph(), fun((vertex(), label(), any()) -> any()), any()) -> any().
+foldv(#dg{vs=Vs}, Fun, Acc) ->
+    maps:fold(Fun, Acc, Vs).
 
 -spec has_vertex(graph(), vertex()) -> boolean().
 has_vertex(#dg{vs=Vs}, V) ->
