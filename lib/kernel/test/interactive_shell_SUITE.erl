@@ -402,6 +402,8 @@ shell_navigation(Config) ->
              check_location(Term, {0, 0}),
              send_tty(Term,"C-E"),
              check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             send_tty(Term,"C-H"),
+             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
              send_tty(Term,"C-A"),
              check_location(Term, {0, 0}),
              send_tty(Term,"Enter")
@@ -1213,12 +1215,19 @@ shell_ignore_pager_commands(Config) ->
 test_valid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+    erpc:call(Term#tmux.node, application, set_env,
+              [stdlib, shell_prompt_func_test,
+               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
     try
         check_not_in_content(Term, "Invalid key"),
         check_not_in_content(Term, "Invalid function"),
         send_tty(Term, "asdf"),
         send_tty(Term, "C-u"),
         check_content(Term, ">$"),
+        send_tty(Term, "1.\n"),
+        send_tty(Term, "C-b"),
+        check_content(Term, "2>\\s1.$"),
         ok
     after
         stop_tty(Term),
