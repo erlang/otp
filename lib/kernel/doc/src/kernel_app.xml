@@ -427,6 +427,18 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
         <p>Normally, a terminating node is detected immediately by the transport
 	protocol (like TCP/IP).</p>
       </item>
+      <tag><marker id="pg_shards_and_metadata"/><c>pg_shards_and_metadata = true | false</c></tag>
+      <item>
+        <marker id="pg_shards_and_metadata"></marker>
+        <p>Enable shards_and_metadata feature for <c>pg</c> server (see
+          <seeerl marker="pg"><c>pg(3)</c></seeerl>) if the parameter is
+          <c>true</c>.</p>
+          <warning><p>Do not enable this feature if any node in the cluster
+          is from an OTP release prior to OTP 26. <c>pg</c> servers on
+          such old nodes will crash upon reception of messages in the
+          extended protocol needed for this feature.</p></warning>
+        <p>Defaults to <c>false</c>.</p>
+      </item>
       <tag><marker id="prevent_overlapping_partitions"/>
       <c>prevent_overlapping_partitions = true | false</c></tag>
       <item>

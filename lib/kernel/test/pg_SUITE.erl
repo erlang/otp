@@ -62,7 +62,8 @@
     monitor/1,
     monitor_self/1,
     multi_monitor/1,
-    protocol_upgrade/1
+    protocol_upgrade/1,
+    e2e/1
 ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -99,7 +100,7 @@ groups() ->
         {monitor, [parallel], [monitor_nonempty_scope, monitor_scope, monitor]},
         {old_release, [parallel], [process_owner_check, two, overlay_missing,
                                    empty_group_by_remote_leave, initial, netsplit,
-                                   nolocal]}
+                                   nolocal, e2e]}
     ].
 
 init_per_group(old_release, Config) ->
@@ -215,7 +216,7 @@ process_owner_check(Config) when is_list(Config) ->
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid])),
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [LocalPid, RemotePid])),
     %% check that non-pid also triggers error
-    ?assertException(error, function_clause, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
+    ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [undefined])),
     %% stop the peer
     peer:stop(Peer),
@@ -298,15 +299,15 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
-    {_, RemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
-    ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
+    {_, _, RemoteTree} = maps:get(RemoteNode, element(7, sys:get_state(?FUNCTION_NAME))),
+    ?assertEqual([RemotePid], gb_trees:get({?FUNCTION_NAME, singleton}, RemoteTree)),
     % remote leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, _, NewRemoteTree} = maps:get(RemoteNode, element(7, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
-    ?assertEqual(#{}, NewRemoteMap),
+    ?assertEqual(gb_trees:empty(), NewRemoteTree),
 
     %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
     RemotePid2 = spawn_sleeper_at(Node),
@@ -317,7 +318,7 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, _, NewRemoteTree} = maps:get(RemoteNode, element(7, sys:get_state(?FUNCTION_NAME))),
     peer:stop(Peer),
     ok.
 
@@ -660,8 +661,8 @@ monitor_scope(Config) when is_list(Config) ->
     SecondMonitor = fun (Scope, Group, Control) -> {Ref, #{Group := [Control]}} = pg:monitor_scope(Scope), Ref end,
     %% WHITE BOX: knowing pg state internals - only the original monitor should stay
     DownMonitor = fun (Scope, Ref, Self) ->
-        {state, _, _, _, ScopeMonitors, _, _} = sys:get_state(Scope),
-        ?assertEqual(#{Ref => Self}, ScopeMonitors, "pg did not remove DOWNed scope monitor")
+        {state, _, _, _, _, _, _, ScopeMonitors, _, _} = sys:get_state(Scope),
+        ?assertEqual(#{Ref => {Self, #{}}}, ScopeMonitors, "pg did not remove DOWNed scope monitor")
                   end,
     monitor_test_impl(Config, ?FUNCTION_NAME, ?FUNCTION_ARITY, InitialMonitor,
                       SecondMonitor, DownMonitor).
@@ -672,9 +673,9 @@ monitor(Config) when is_list(Config) ->
     SecondMonitor = fun (Scope, Group, Control) ->
         {Ref, [Control]} = pg:monitor(Scope, Group), Ref end,
     DownMonitor = fun (Scope, Ref, Self) ->
-        {state, _, _, _, _, GM, MG} = sys:get_state(Scope),
-        ?assertEqual(#{Ref => {Self, ExpectedGroup}}, GM, "pg did not remove DOWNed group monitor"),
-        ?assertEqual(#{ExpectedGroup => [{Self, Ref}]}, MG, "pg did not remove DOWNed group")
+        {state, _, _, _, _, _, _, _, GM, MG} = sys:get_state(Scope),
+        ?assertEqual(#{Ref => ExpectedGroup}, GM, "pg did not remove DOWNed group monitor"),
+        ?assertEqual(#{ExpectedGroup => #{Ref => {Self, #{}}}}, MG, "pg did not remove DOWNed group")
                   end,
     monitor_test_impl(Config, ?FUNCTION_NAME, ExpectedGroup, InitialMonitor,
                       SecondMonitor, DownMonitor).
@@ -798,7 +799,7 @@ multi_monitor(Config) when is_list(Config) ->
     %% if pg crashes, next expression fails the test
     sync(?FUNCTION_NAME),
     %% white box: pg should not have any group or scope monitors
-    {state, _, _, _, SM, GM, _} = sys:get_state(?FUNCTION_NAME),
+    {state, _, _, _, _, _, _, SM, GM, _} = sys:get_state(?FUNCTION_NAME),
     ?assertEqual(#{}, SM),
     ?assertEqual(#{}, GM).
 
@@ -980,6 +981,12 @@ spawn_disconnected_node(Scope, TestCase, Config) ->
                 ok = ensure_dir(TcPrivDir),
                 ?CT_PEER_REL(Opts, Release, TcPrivDir)
         end,
+    case proplists:get_value(shard_and_metadata, Config) of
+        true ->
+            ok = peer:call(Peer, application, set_env, [kernel, pg_shards_and_metadata, true]);
+        _ ->
+            ok
+    end,
     {ok, _Pid} = peer:call(Peer, pg, start, [Scope]),
     {Peer, Node}.
 
@@ -1030,3 +1037,197 @@ tracer_flush() ->
     after 0 ->
             io:format("Flush done.\n")
     end.
+
+e2e(Config) ->
+    {Peer1, Node1} = spawn_node(?FUNCTION_NAME, Config),
+    {Peer2, Node2} = spawn_node(?FUNCTION_NAME, Config),
+    {Peer3, Node3} = spawn_node(?FUNCTION_NAME, proplists:delete(otp_release, Config)),
+    {Peer4, Node4} = spawn_node(?FUNCTION_NAME, proplists:delete(otp_release, Config)),
+    {Peer5, Node5} = spawn_node(?FUNCTION_NAME, [{shard_and_metadata, true} | proplists:delete(otp_release, Config)]),
+    {Peer6, Node6} = spawn_node(?FUNCTION_NAME, [{shard_and_metadata, true} | proplists:delete(otp_release, Config)]),
+    Peers = [{Peer1, Node1, 1}, {Peer2, Node2, 1}, {Peer3, Node3, 2}, {Peer4, Node4, 2}, {Peer5, Node5, 3}, {Peer6, Node6, 3}],
+    [true = net_kernel:connect_node(Node) || {_, Node, _} <- Peers],
+    Self = self(),
+    Workers = [
+        {
+            Peer,
+            peer:call(P, erlang, spawn, [fun() ->
+                link(whereis(?FUNCTION_NAME)),
+                e2e_worker(Self, Version, ?FUNCTION_NAME, [], [])
+            end])
+        }
+     || {P, _, Version} = Peer <- Peers],
+    [erlang:monitor(process, Worker) || {_, Worker} <- Workers],
+    [
+        begin
+            Graph = e2e_connect_graph(Peers),
+            [erlang:send(Worker, {peers, [{Y, B} || {X, Y, B} <- Graph, X =:= Peer]}) || {Peer, Worker} <- Workers],
+            Global =
+                [
+                    receive
+                        {Pid, Local} when Pid =:= Worker ->
+                            {Peer, Local};
+                        {'DOWN', _, _, _, _} = Down ->
+                            error(Down)
+                        after 5000 ->
+                            error(timeout)
+                    end
+                 || {Peer, Worker} <- Workers],
+            [erlang:send(Worker, {global, maps:from_list(Global)}) || {_Peer, Worker} <- Workers],
+            [
+                receive
+                    {Pid, done} when Pid =:= Worker ->
+                        ok;
+                    {'DOWN', _, _, _, _} = Down ->
+                        error(Down)
+                    after 5000 ->
+                        error(timeout)
+                end
+             || {_Peer, Worker} <- Workers]
+        end
+         || _ <- lists:seq(1, 20)],
+    peer:stop(Peer1),
+    peer:stop(Peer2),
+    peer:stop(Peer3),
+    peer:stop(Peer4),
+    peer:stop(Peer5),
+    peer:stop(Peer6),
+    ok.
+
+e2e_connect_graph(List) ->
+    e2e_connect_graph(List, []).
+
+e2e_connect_graph([], Acc) ->
+    Acc;
+e2e_connect_graph([X | Rest], Acc) ->
+    e2e_connect_graph(Rest, e2e_connect_graph(X, Rest, Acc)).
+
+e2e_connect_graph(_X, [], Acc) ->
+    Acc;
+e2e_connect_graph(X, [Y | Rest], Acc) ->
+    Bool = rand:uniform() < 0.5,
+    e2e_connect_graph(X, Rest, [{X, Y, Bool}, {Y, X, Bool} | Acc]).
+
+e2e_worker(From, Version, Scope, Pids, Local) ->
+    receive
+        {peers, Peers} ->
+            [
+                if
+                    Connect ->
+                        true = net_kernel:connect_node(Node);
+                    true ->
+                        disconnect_node(Node)
+                end
+                || {{_, Node, _}, Connect} <- Peers],
+            PidsAfterKill = [Pid || Pid <- Pids, rand:uniform() < 0.7 orelse not exit(Pid, kill)],
+            NewPids = PidsAfterKill ++ [erlang:spawn(forever()) || _ <- lists:seq(1, 10 - length(PidsAfterKill))],
+            NewLocal =
+                lists:sort(lists:foldl(
+                    fun(_, Acc) ->
+                        e2e_do_random(Version, NewPids, Scope, Acc)
+                    end,
+                    [{K, V} || {K, V} <- Local, e2e_pid_member(V, NewPids)],
+                    lists:seq(1, 20)
+                )),
+            e2e_wait(NewLocal, Scope, 3, 100),
+            From ! {self(), NewLocal},
+            receive
+                {global, Global} ->
+                    Expect = lists:sort(lists:flatten(NewLocal ++ [
+                        e2e_should_see(maps:get(Peer, Global), Version, PeerVersion)
+                        || {{_, _, PeerVersion} = Peer, true} <- Peers])),
+                    e2e_wait(Expect, Scope, 2, 100),
+                    From ! {self(), done},
+                    e2e_worker(From, Version, Scope, NewPids, NewLocal)
+            end
+    end.
+
+e2e_pid_member({Pid, _}, List) ->
+    e2e_pid_member(Pid, List);
+e2e_pid_member(Pid, List) ->
+    lists:member(Pid, List).
+
+e2e_validate([]) ->
+    true;
+e2e_validate([_]) ->
+    true;
+e2e_validate([{{_, singleton}, _, _} | Rest]) ->
+    e2e_validate(Rest);
+e2e_validate([{{_, _, _}, _, _}, {{_, singleton}, _, _} | Rest]) ->
+    e2e_validate(Rest);
+e2e_validate([{Key1, _, _}, {Key2, _, _} = T | Rest]) when element(1, Key1) < element(1, Key2) ->
+    e2e_validate([T | Rest]);
+e2e_validate([{{G, _, R1}, _, _}, {{G, L2, _}, _, _} = T | Rest]) when R1 < L2 - 1 ->
+    e2e_validate([T | Rest]);
+e2e_validate([{{G, _, R1}, M1, _}, {{G, L2, _}, M2, _} = T | Rest]) when R1 =:= L2 - 1 ->
+    lists:sort(M1) =:= lists:sort(M2) andalso e2e_validate([T | Rest]);
+e2e_validate(List) ->
+    error(List).
+
+e2e_do_random(1, Pids, Scope, Local) ->
+    case rand:uniform() < 0.4 of
+        true ->
+            {Leave, NewLocal} = lists:splitwith(fun(_) -> rand:uniform() < 0.3 end, Local),
+            LeavePids = [Pid || {_, Pid} <- Leave],
+            (LeavePids =:= []) orelse (ok = pg:leave(Scope, group, LeavePids)),
+            NewLocal;
+        false ->
+            JoinPids = [Pid || Pid <- Pids, rand:uniform() < 0.3],
+            (JoinPids =:= []) orelse (ok = pg:join(Scope, group, JoinPids)),
+            [{{group, singleton}, Pid} || Pid <- JoinPids] ++ Local
+    end;
+e2e_do_random(_, Pids, Scope, Local) ->
+    {Leave, NewLocal} = lists:splitwith(fun(_) -> rand:uniform() < 0.3 end, Local),
+    LeaveUpdates = [{G, case Pos of singleton -> singleton; N -> [{N, N}] end, [Member], []} || {{G, Pos}, Member} <- Leave],
+    JoinMembers = [
+        case rand:uniform() < 0.5 of true -> Pid; false -> {Pid, rand:uniform(10)} end
+        || Pid <- Pids, rand:uniform() < 0.3],
+    {Joins, JoinUpdate} =
+        case rand:uniform() < 0.5 of
+            true ->
+                {[{{group, singleton}, Member} || Member <- JoinMembers], {group, singleton, [], JoinMembers}};
+            false ->
+                L = rand:uniform(5),
+                R = L + rand:uniform(5) - 1,
+                {
+                    [{{group, N}, Member} || Member <- JoinMembers, N <- lists:seq(L, R)],
+                    {group, [{L, R}], [], JoinMembers}
+                }
+        end,
+    pg:update(Scope, LeaveUpdates ++ [JoinUpdate]),
+    Joins ++ NewLocal.
+
+e2e_wait(Expect, Scope, ElementPos, Retry) ->
+    sys:get_state(Scope),
+    e2e_validate(ets:tab2list(Scope)),
+    Actual = lists:sort(lists:foldl(
+        fun
+            ({{G, singleton}, _, _} = Entry, Acc) ->
+                [{{G, singleton}, Member} || Member <- element(ElementPos, Entry)] ++ Acc;
+            ({{G, L, R}, _, _} = Entry, Acc) ->
+                [{{G, N}, Member} || Member <- element(ElementPos, Entry), N <- lists:seq(L, R)] ++ Acc;
+            ({G, _, _} = Entry, Acc) ->
+                [{{G, singleton}, Member} || Member <- element(ElementPos, Entry)] ++ Acc
+        end,
+        [],
+        ets:tab2list(Scope)
+    )),
+    case Expect =:= Actual of
+        true ->
+            ok;
+        _ ->
+            case Retry > 0 of
+                true ->
+                    timer:sleep(10),
+                    e2e_wait(Expect, Scope, ElementPos, Retry - 1);
+                _ ->
+                    error({node(), Expect -- Actual, Actual -- Expect, Actual})
+            end
+    end.
+
+e2e_should_see(List, 3, 1) ->
+    [Entry || Entry = {{_, singleton}, _} <- List];
+e2e_should_see(List, 3, _) ->
+    List;
+e2e_should_see(List, _, _) ->
+    [Entry || Entry = {{_, singleton}, Pid} <- List, is_pid(Pid)].
