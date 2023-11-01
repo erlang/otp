@@ -526,7 +526,7 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
             case LineCont of
                 {[CL|LB], _, _} ->
                     LineCont1 = {LB,{lists:reverse(CL++"\n"), []},[]},
-                    MultiLinePrompt = lists:duplicate(prim_tty:npwcwidthstring(Pbs), $\s),
+                    MultiLinePrompt = lists:duplicate(shell:prompt_width(Pbs), $\s),
                     send_drv_reqs(Drv, [{redraw_prompt, Pbs, MultiLinePrompt, LineCont1},new_prompt]);
                 _ -> skip %% oldshell mode
             end,

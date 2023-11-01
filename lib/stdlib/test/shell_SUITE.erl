@@ -25,6 +25,7 @@
 	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
 	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
 	 bs_construct_SUITE/1,
+     prompt_width/1,
 	 refman_bit_syntax/1,
 	 progex_bit_syntax/1, progex_records/1,
 	 progex_lc/1, progex_funs/1,
@@ -77,6 +78,7 @@ suite() ->
 all() ->
     [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916,
+     prompt_width,
      start_interactive, whereis, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
@@ -406,6 +408,11 @@ shell_attribute_test(Config) ->
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
+    ok.
+
+prompt_width(Config) when is_list(Config) ->
+    5 = shell:prompt_width("\e[31molá> "),
+    5 = shell:prompt_width(<<"\e[31molá> "/utf8>>),
     ok.
 
 %% Test of the record support. OTP-5063.

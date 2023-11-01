@@ -932,6 +932,16 @@ q                 - quit erlang
     </func>
 
     <func>
+      <name name="default_multiline_prompt" arity="1" since="OTP 27.0"/>
+      <fsummary>The default multiline prompt implementation.</fsummary>
+      <desc>
+        <p>Configures the multiline prompt as two trailing dots.
+          This is the default function but it may also be set explicitly as
+          <c>-stdlib shell_multiline_prompt {shell, default_multiline_prompt}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="history" arity="1" since=""/>
       <fsummary>Set the number of previous commands to keep.</fsummary>
       <desc>
@@ -942,11 +952,31 @@ q                 - quit erlang
     </func>
 
     <func>
+      <name name="inverted_space_prompt" arity="1" since="OTP 27.0"/>
+      <fsummary>An anternative multiline prompt implementation.</fsummary>
+      <desc>
+        <p>Configures the multiline prompt as inverted space.
+          It may be set explicitly as
+          <c>-stdlib shell_multiline_prompt {shell, inverted_space_prompt}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="prompt_func" arity="1" since="OTP R13B04"/>
       <fsummary>Set the shell prompt.</fsummary>
       <desc>
         <p>Sets the shell prompt function to <c><anno>PromptFunc</anno></c>.
           The previous prompt function is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prompt_width" arity="1" since="OTP 27.0"/>
+      <fsummary>Computes the width of a prompt.</fsummary>
+      <desc>
+        <p>It receives a prompt and computes its width,
+          considering its Unicode characters and ANSI escapes.</p>
+        <p>Useful for creating custom multiline prompts.</p>
       </desc>
     </func>
 
