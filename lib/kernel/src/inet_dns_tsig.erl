@@ -147,7 +147,7 @@ sign(Pkt, TS, Error, Hdr, <<ARCount:16, Content/binary>>) ->
 %% name compression algorithm
 -spec verify(binary(), #dns_rec{}, tsig_state()) ->
                  {ok,tsig_state()} |
-                 {error,formerr | {notauth,badkey | badsig | badtime}}.
+                 {error,formerr | {notauth,tsig_error()}}.
 verify(Pkt, Response, TS) ->
     try do_verify(Pkt, Response, TS) of
         R ->
