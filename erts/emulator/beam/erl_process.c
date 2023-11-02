@@ -6388,11 +6388,9 @@ static int
 check_dirty_enqueue_in_prio_queue(Process *c_p,
 				  erts_aint32_t *newp,
 				  erts_aint32_t actual,
-				  erts_aint32_t aprio,
-				  erts_aint32_t qbit)
+				  erts_aint32_t aprio)
 {
     int queue;
-    erts_aint32_t dact, max_qbit;
 
     /* Termination should be done on an ordinary scheduler */
     if ((*newp) & ERTS_PSFLG_EXITING) {
@@ -6400,32 +6398,15 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
     }
 
-    /*
-     * If we have system tasks, we enqueue on ordinary run-queue
-     * and take care of those system tasks first.
-     */
-    if ((*newp) & ERTS_PSFLG_SYS_TASKS)
-	return ERTS_ENQUEUE_NORMAL_QUEUE;
-
-    dact = erts_atomic32_read_mb(&c_p->xstate);
     if (actual & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
 		  | ERTS_PSFLG_DIRTY_CPU_PROC)) {
-	max_qbit = ((dact >> ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET)
-		    & ERTS_PXSFLGS_QMASK);
 	queue = ERTS_ENQUEUE_DIRTY_CPU_QUEUE;
     }
     else {
 	ASSERT(actual & ERTS_PSFLG_DIRTY_IO_PROC);
-	max_qbit = ((dact >> ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET)
-		    & ERTS_PXSFLGS_QMASK);
 	queue = ERTS_ENQUEUE_DIRTY_IO_QUEUE;
     }
 
-    max_qbit |= 1 << ERTS_PSFLGS_QMASK_BITS;
-    max_qbit &= -max_qbit;
-
-    if (qbit >= max_qbit)
-	return ERTS_ENQUEUE_NOT; /* Already queued in higher or equal prio */
     if ((actual & (ERTS_PSFLG_IN_RUNQ|ERTS_PSFLGS_USR_PRIO_MASK))
 	!= (aprio << ERTS_PSFLGS_USR_PRIO_OFFSET)) {
 	/*
@@ -6487,19 +6468,26 @@ check_enqueue_in_prio_queue(Process *c_p,
 			    erts_aint32_t *newp,
 			    erts_aint32_t actual)
 {
-    erts_aint32_t aprio, qbit, max_qbit;
+    erts_aint32_t aprio, qbit, max_qbit, new = *newp;
 
-    aprio = ((*newp) >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK;
+    aprio = (new >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK;
     qbit = 1 << aprio;
 
     *prq_prio_p = aprio;
 
-    if (((actual & (ERTS_PSFLG_SUSPENDED
-                    | ERTS_PSFLG_ACTIVE_SYS)) != (ERTS_PSFLG_SUSPENDED
-                                                  | ERTS_PSFLG_ACTIVE_SYS))
-        & (!!(actual & ERTS_PSFLGS_DIRTY_WORK))) {
-	int res = check_dirty_enqueue_in_prio_queue(c_p, newp, actual,
-						    aprio, qbit);
+    if ((new & (ERTS_PSFLG_SUSPENDED
+                | ERTS_PSFLG_ACTIVE_SYS
+                | ERTS_PSFLG_DIRTY_ACTIVE_SYS)) == ERTS_PSFLG_SUSPENDED) {
+        /*
+         * Do not schedule this process since we are suspended and we have
+         * no system work to for the process...
+         */
+        return ERTS_ENQUEUE_NOT;
+    }
+
+    if ((!(new & ERTS_PSFLG_SYS_TASKS))
+        & (!!(new & ERTS_PSFLGS_DIRTY_WORK))) {
+	int res = check_dirty_enqueue_in_prio_queue(c_p, newp, actual, aprio);
 	if (res != ERTS_ENQUEUE_NORMAL_QUEUE)
 	    return res;
     }
@@ -6669,8 +6657,9 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
                    == ERTS_PSFLG_ACTIVE));
 
 	n &= ~running_flgs;
-	if ((!!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-	    | ((a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE))) {
+	if (a & (ERTS_PSFLG_ACTIVE_SYS
+                 | ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                 | ERTS_PSFLG_ACTIVE)) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
 	}
 	a = erts_atomic32_cmpxchg_mb(&p->state, n, e);

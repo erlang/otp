@@ -62,7 +62,8 @@
          simultaneous_signals_exit/1,
          simultaneous_signals_recv_exit/1,
          parallel_signal_enqueue_race_1/1,
-         parallel_signal_enqueue_race_2/1]).
+         parallel_signal_enqueue_race_2/1,
+         dirty_schedule/1]).
 
 -export([spawn_spammers/3]).
 
@@ -102,6 +103,7 @@ all() ->
      monitor_nodes_order,
      parallel_signal_enqueue_race_1,
      parallel_signal_enqueue_race_2,
+     dirty_schedule,
      {group, adjust_message_queue}].
 
 groups() ->
@@ -1306,6 +1308,82 @@ parallel_signal_enqueue_race_2_test() ->
     unlink(R),
     exit(R, kill),
     false = is_process_alive(R),
+    ok.
+
+dirty_schedule(Config) when is_list(Config) ->
+    lists:foreach(fun (_) ->
+                          dirty_schedule_test()
+                  end,
+                  lists:seq(1, 5)),
+    ok.
+
+dirty_schedule_test() ->
+    %%
+    %% PR-7822 (second commit)
+    %%
+    %% This bug could occur when a process was to be scheduled due to an
+    %% incomming signal just as the receiving process was selected for
+    %% execution on a dirty scheduler. The process could then be inserted
+    %% into a run-queue simultaneously as it began executing dirty. If
+    %% the scheduled instance was selected for execution on one dirty
+    %% scheduler simultaneously as it was scheduled out on another scheduler
+    %% a race could cause the thread scheduling out the process to think it
+    %% already was in the run-queue, so there is no need to insert it in the
+    %% run-queue, while the other thread selecting it for execution dropped
+    %% the process, since it was already running on another scheduler. By
+    %% this the process ended up stuck in a runnable state, but not in the
+    %% run-queue.
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    %%
+    Proc = spawn_link(fun DirtyLoop () ->
+                              erts_debug:dirty_io(scheduler,type),
+                              DirtyLoop()
+                      end),
+    NoPs = lists:seq(1, erlang:system_info(schedulers_online)),
+    SpawnSender =
+        fun (Prio) ->
+                spawn_opt(
+                  fun () ->
+                          Loop = fun Loop (0) ->
+                                         ok;
+                                     Loop (N) ->
+                                         _ = process_info(Proc,
+                                                          current_function),
+                                         Loop(N-1)
+                                 end,
+                          receive go -> ok end,
+                          Loop(100000)
+                  end, [monitor,{priority,Prio}])
+        end,
+    Go = fun ({P, _M}) -> P ! go end,
+    WaitProcs = fun ({P, M}) ->
+                        receive {'DOWN', M, process, P, R} ->
+                                normal = R
+                        end
+                end,
+    PM1s = lists:map(fun (_) -> SpawnSender(normal) end, NoPs),
+    lists:foreach(Go, PM1s),
+    lists:foreach(WaitProcs, PM1s),
+    PM2s = lists:map(fun (_) -> SpawnSender(high) end, NoPs),
+    lists:foreach(Go, PM2s),
+    lists:foreach(WaitProcs, PM2s),
+    PM3s = lists:map(fun (N) ->
+                             Prio = case N rem 2 of
+                                        0 -> normal;
+                                        1 -> high
+                                    end,
+                             SpawnSender(Prio) end, NoPs),
+    lists:foreach(Go, PM3s),
+    lists:foreach(WaitProcs, PM3s),
+    unlink(Proc),
+    exit(Proc, kill),
+    false = is_process_alive(Proc),
     ok.
 
 %%
