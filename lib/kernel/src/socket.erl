@@ -3901,7 +3901,7 @@ network layer.
 Sends data on a socket, but returns completion _or_ a select continuation if the
 data could not be sent immediately.
 
-The same as [infinity time-out `sendto/3,4` ](`m:socket#sendto-infinity`)but if
+The same as [infinity time-out `sendto/3,4` ](`m:socket#sendto-infinity`) but if
 the data is not immediately accepted by the platform network layer, the function
 returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
 _Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
@@ -4488,6 +4488,13 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
 %%
 %%
 
+-doc """
+[](){: #sendv }
+
+Translates to the following call: [`sendv(Socket, IOV, infinity)`](`sendv/3`).
+""".
+-doc(#{equiv => sendv/3}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec sendv(Socket, IOV) ->
           'ok' |
           {'ok', RestIOV} |
@@ -4503,6 +4510,43 @@ sendv(Socket, IOV) ->
     sendv(Socket, IOV, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT).
 
 
+-doc """
+[](){: #sendv-timeout }
+
+Send data on a connected socket, with:
+
+- **`Cont`** - (clause 1; `Cont` :: [`select_info()`](`t:select_info/0`)) This call translates to the following call: [`sendv(Socket, IOV, Cont, infinity)`](`sendv/4`).
+
+- **`Handle`** - (clause 3; `Handle` :: [`select_handle()`](`t:select_handle/0`) `|` [`completion_handle()`](`t:completion_handle/0`)) that term will be contained in the returned `SelectInfo` or `CompletionInfo` and the corresponding `select` or `completion` message. The handle is presumed to be unique to this call.
+
+- **`Timeout = infinity`** - waiting for the data to be sent.
+This call will not return until the `IOV` has been accepted by
+the platform's network layer, or it reports an error.
+
+- **`Timeout >= 0`** - waiting at most `Timeout` milliseconds for the data to be sent.
+
+- **`Timeout = nowait`** - returns (on Unix) `select` _or_ (on Windows) a `completion` continuation if the data could not be sent immediately.
+
+The return value indicates the result from the platform's network layer:
+
+- **`ok`** - All data has been accepted.
+
+- **`{select, `[`SelectInfo`](`t:select_info/0`)` | {`[`SelectInfo`](`t:select_info/0`)`, RestIOV}}`** - All data was not immediately accepted by the platform network layer. The caller will then receive this messages: `{'$socket', socket(), select, SelectHandle}`, after which a subsequent call to `sendv/4` will send the data. Only when `Timeout = nowait`.
+
+- **`{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`** - All data was not immediately accepted by the platform network layer. The caller will then receive this messages: `{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}`. The result of the send will be in the `CompletionStatus`. Only when `Timeout = nowait`.
+
+- **`{ok, RestIOV}`** - Not all data has been accepted, but no error has been reported. `RestIOV` is the tail of `IOV` that has not been accepted. It is nevertheless possible for the platform's network layer to return this.
+
+- **`{error, timeout | {timeout, RestIOV}}`** - Was unable to send (all or part of) the data within the specified `Timeout` (only if `Timeout >= 0`).
+
+- **`{error, {Reason, RestIOV}}`** - An error has been reported, but before that, some data was accepted. `RestIOV` is the tail of `IOV` that has not been accepted. For `Reason`, see above.
+
+- **`{error, Reason}`** - An error has been reported and no data has been accepted. The [posix()](`t:posix/0`) `Reason` are from the platform's network layer.
+`closed` means that this socket library knows that the socket is closed, and
+[invalid()](`t:invalid/0`) means that something about an argument is invalid.
+
+""".
+-doc(#{since => <<"OTP 27.0">>}).
 -spec sendv(Socket, IOV, Cont) ->
           'ok' |
           {'ok', RestIOV} |
@@ -4595,6 +4639,24 @@ sendv(?socket(SockRef), IOV, Timeout)
 sendv(Socket, IOV, Timeout) ->
     erlang:error(badarg, [Socket, IOV, Timeout]).
 
+-doc """
+[](){: #sendv-cont }
+
+Send data on a connected socket, continuation.
+
+Continues sending data on a connected socket, where the
+send operation was initiated by `sendv/3` with
+`Timeout = nowait` that returned a `SelectInfo` continuation.
+Otherwise like infinite time-out `sendv/2,3,4` or
+limited time-out `sendv/3` respectively.
+`Cont` is the `SelectInfo` that was returned from the previous
+`sendv()` call.
+
+The return value indicates the result from the platform's network layer.
+See `sendv/3` (with `Timeout = infinity | nowait`)
+
+""".
+
 -spec sendv(Socket, IOV, Cont, Timeout :: 'nowait') ->
           'ok' |
           {'ok', RestIOV} |
@@ -4635,6 +4697,7 @@ sendv(Socket, IOV, Timeout) ->
       RestIOV    :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid().
 
+-doc(#{since => <<"OTP 27.0">>}).
 sendv(?socket(SockRef) = _Socket, IOV,
       ?SELECT_INFO(SelectTag, _) = Cont, Timeout) 
   when is_reference(SockRef) andalso is_list(IOV) ->
