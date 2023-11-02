@@ -41,7 +41,11 @@
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
   },
-  {runtime_dependencies, ["stdlib-4.0","runtime_tools-1.8.14",
-			  "kernel-6.0","erts-9.1","compiler-5.0", "erts-13.0"]}
+  {runtime_dependencies, ["stdlib-@OTP-18856@",
+                          "runtime_tools-@OTP-18856@",
+			  "kernel-@OTP-18856@",
+                          "erts-@OTP-18856@",
+                          "compiler-@OTP-18856@",
+                          "erts-@OTP-18856@"]}
  ]
 }. 

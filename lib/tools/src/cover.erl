@@ -1254,7 +1254,7 @@ do_start_nodes(Nodes, State) ->
     {_LoadedModules,Compiled} =
 	get_compiled_still_loaded(State#main_state.nodes,
 				  State#main_state.compiled),
-    remote_load_compiled(StartedNodes,Compiled),
+    remote_load_compiled(StartedNodes, Compiled, State),
 
     State1 =
 	State#main_state{nodes = State#main_state.nodes ++ StartedNodes,
@@ -1303,7 +1303,7 @@ sync_compiled(Node,State) ->
 		remote_unload([Node],Unload),
 		Load = [L || L <- Compiled,
 			     false == lists:member(L,RemoteCompiled)],
-		remote_load_compiled([Node],Load),
+		remote_load_compiled([Node], Load, State),
 		State#main_state{compiled=Compiled, nodes=[Node|Nodes]}
 	end,
     State1#main_state{lost_nodes=Lost--[Node]}.
@@ -1312,8 +1312,14 @@ sync_compiled(Node,State) ->
 %% We do it ?MAX_MODS modules at a time so that we don't
 %% run out of memory on the cover_server node. 
 -define(MAX_MODS, 10).
-remote_load_compiled(Nodes,Compiled) ->
-    remote_load_compiled(Nodes, Compiled, [], 0).
+remote_load_compiled(Nodes, Compiled, #main_state{local_only=LocalOnly}) ->
+    case LocalOnly of
+        true ->
+            ok;
+        false ->
+            remote_load_compiled(Nodes, Compiled, [], 0)
+    end.
+
 remote_load_compiled(_Nodes, [], [], _ModNum) ->
     ok;
 remote_load_compiled(Nodes, Compiled, Acc, ModNum) 
@@ -1624,7 +1630,7 @@ do_compile_beams(ModsAndFiles, State) ->
 		  end,
 		  ModsAndFiles),
     Compiled = [{M,F} || {ok,M,F} <- Result0],
-    remote_load_compiled(State#main_state.nodes,Compiled),
+    remote_load_compiled(State#main_state.nodes, Compiled, State),
     fix_state_and_result(Result0,State,[]).
 
 do_compile_beam(Module,BeamFile0,State) ->
@@ -1665,7 +1671,7 @@ do_compile(Files, Options, State) ->
 		   end,
 		   Files),
     Compiled = [{M,F} || {ok,M,F} <- Result0],
-    remote_load_compiled(State#main_state.nodes,Compiled),
+    remote_load_compiled(State#main_state.nodes, Compiled, State),
     fix_state_and_result(Result0,State,[]).
 
 do_compile1(File, Options, LocalOnly) ->
@@ -1741,7 +1747,9 @@ do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->
     %% Compile and load the result.
     %% It's necessary to check the result of loading since it may
     %% fail, for example if Module resides in a sticky directory.
-    Options = SourceInfo ++ UserOptions,
+    Options0 = SourceInfo ++ UserOptions,
+    Options = [report_errors,force_line_counters|Options0],
+
     {ok, Module, Binary} = compile:forms(Forms, Options),
 
     case code:load_binary(Module, ?TAG, Binary) of
@@ -1810,10 +1818,15 @@ counter_index(Mod, F, A, C, Line) ->
 
 %% Create the counter array and store as a persistent term.
 maybe_create_counters(Mod, true) ->
-    Cref = create_counters(Mod),
-    Key = {?MODULE,Mod},
-    persistent_term:put(Key, Cref),
-    ok;
+    case has_native_coverage() of
+        false ->
+            Cref = create_counters(Mod),
+            Key = {?MODULE,Mod},
+            persistent_term:put(Key, Cref),
+            ok;
+        true ->
+            ok
+    end;
 maybe_create_counters(_Mod, false) ->
     ok.
 
@@ -1824,14 +1837,20 @@ create_counters(Mod) ->
     ets:insert(?COVER_MAPPING_TABLE, {{counters,Mod},Cref}),
     Cref.
 
-patch_code(Mod, Forms, false) ->
-    A = erl_anno:new(0),
-    AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
-    patch_code1(Forms, {distributed,AbstrKey});
-patch_code(Mod, Forms, true) ->
-    Cref = create_counters(Mod),
-    AbstrCref = cid_to_abstract(Cref),
-    patch_code1(Forms, {local_only,AbstrCref}).
+patch_code(Mod, Forms, Local) ->
+    case has_native_coverage() of
+        true ->
+            _ = catch code:reset_coverage(Mod),
+            Forms;
+        false when Local =:= false ->
+            A = erl_anno:new(0),
+            AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
+            patch_code1(Forms, {distributed,AbstrKey});
+        false when Local =:= true ->
+            Cref = create_counters(Mod),
+            AbstrCref = cid_to_abstract(Cref),
+            patch_code1(Forms, {local_only,AbstrCref})
+    end.
 
 %% Go through the abstract code and replace 'executable_line' forms
 %% with the actual code to increment the counters.
@@ -1885,30 +1904,37 @@ send_counters(Mod, CollectorPid) ->
 %% Called on the main node. Collect the counters and consolidate
 %% them into the collection table. Also zero the counters.
 move_counters(Mod) ->
-    move_counters(Mod, fun insert_in_collection_table/1).
+    Process = fun insert_in_collection_table/1,
+    move_counters(Mod, Process).
 
 move_counters(Mod, Process) ->
+    Move = case has_native_coverage() of
+               true ->
+                   native_move(Mod);
+               false ->
+                   standard_move(Mod)
+           end,
     Pattern = {#bump{module=Mod,_='_'},'_'},
     Matches = ets:match_object(?COVER_MAPPING_TABLE, Pattern, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    move_counters1(Matches, Cref, Process).
+    move_counters1(Matches, Move, Process).
 
-move_counters1({Mappings,Continuation}, Cref, Process) ->
-    Move = fun({Key,Index}) ->
-                   Count = counters:get(Cref, Index),
-                   ok = counters:sub(Cref, Index, Count),
-                   {Key,Count}
-           end,
-    Process(lists:map(Move, Mappings)),
-    move_counters1(ets:match_object(Continuation), Cref, Process);
-move_counters1('$end_of_table', _Cref, _Process) ->
+move_counters1({Mappings,Continuation}, Move, Process) ->
+    Moved = [Move(Item) || Item <- Mappings],
+    Process(Moved),
+    move_counters1(ets:match_object(Continuation), Move, Process);
+move_counters1('$end_of_table', _Move, _Process) ->
     ok.
 
 counters_mapping_table(Mod) ->
     Mapping = counters_mapping(Mod),
-    Cref = get_counters_ref(Mod),
-    #{size:=Size} = counters:info(Cref),
-    [{Mod,Size}|Mapping].
+    case has_native_coverage() of
+        false ->
+            Cref = get_counters_ref(Mod),
+            #{size:=Size} = counters:info(Cref),
+            [{Mod,Size}|Mapping];
+        true ->
+            Mapping
+    end.
 
 get_counters_ref(Mod) ->
     ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 2).
@@ -1924,14 +1950,44 @@ clear_counters(Mod) ->
     _ = ets:match_delete(?COVER_MAPPING_TABLE, Pattern),
     ok.
 
+standard_move(Mod) ->
+    Cref = get_counters_ref(Mod),
+    fun({Key,Index}) ->
+            Count = counters:get(Cref, Index),
+            ok = counters:sub(Cref, Index, Count),
+            {Key,Count}
+    end.
+
+native_move(Mod) ->
+    Coverage = maps:from_list(code:get_coverage(line, Mod)),
+    _ = code:reset_coverage(Mod),
+    fun({#bump{line=Line}=Key,_Index}) ->
+                   case Coverage of
+                       #{Line := false} ->
+                           {Key,0};
+                       #{Line := true} ->
+                           {Key,1};
+                       #{Line := N} when is_integer(N), N >= 0 ->
+                           {Key,N};
+                       #{} ->
+                           {Key,0}
+                   end
+           end.
+
 %% Reset counters (set counters to 0).
 reset_counters(Mod) ->
-    Pattern = {#bump{module=Mod,_='_'},'$1'},
-    MatchSpec = [{Pattern,[],['$1']}],
-    Matches = ets:select(?COVER_MAPPING_TABLE,
-                         MatchSpec, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    reset_counters1(Matches, Cref).
+    case has_native_coverage() of
+        true ->
+            _ = catch code:reset_coverage(Mod),
+            ok;
+        false ->
+            Pattern = {#bump{module=Mod,_='_'},'$1'},
+            MatchSpec = [{Pattern,[],['$1']}],
+            Matches = ets:select(?COVER_MAPPING_TABLE,
+                                 MatchSpec, ?CHUNK_SIZE),
+            Cref = get_counters_ref(Mod),
+            reset_counters1(Matches, Cref)
+    end.
 
 reset_counters1({Indices,Continuation}, Cref) ->
     _ = [counters:put(Cref, N, 0) || N <- Indices],
@@ -2610,3 +2666,6 @@ html_encoding(latin1) ->
     "iso-8859-1";
 html_encoding(utf8) ->
     "utf-8".
+
+has_native_coverage() ->
+    code:coverage_support().
