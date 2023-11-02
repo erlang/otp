@@ -3517,7 +3517,9 @@ is_supported_sign({Hash, Sign}, SignatureSchemes) ->
                            rsa_pkcs1 ->
                                rsa;
                            rsa_pss_rsae ->
-                               rsa; 
+                               rsa;
+                           ecdsa_sha1 ->
+                               ecdsa;
                            S ->
                                S
                        end,

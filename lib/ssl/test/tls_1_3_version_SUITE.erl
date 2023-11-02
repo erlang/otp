@@ -52,6 +52,8 @@
          tls11_client_tls_server/1,
          tls12_client_tls_server/0,
          tls12_client_tls_server/1,
+         legacy_tls12_client_tls_server/0,
+         legacy_tls12_client_tls_server/1,
          middle_box_tls13_client/0,
          middle_box_tls13_client/1,
          middle_box_tls12_enabled_client/0,
@@ -90,6 +92,7 @@ tls_1_3_1_2_tests() ->
      tls12_client_tls13_server,
      tls_client_tls12_server,
      tls12_client_tls_server,
+     legacy_tls12_client_tls_server,
      middle_box_tls13_client,
      middle_box_tls12_enabled_client,
      middle_box_client_tls_v2_session_reused,
@@ -161,6 +164,8 @@ tls13_client_tls12_server(Config) when is_list(Config) ->
                    {verify, verify_peer}, {fail_if_no_peer_cert, true}
                   | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+
     
 tls13_client_with_ext_tls12_server() ->
      [{doc,"Test basic connection between TLS 1.2 server and TLS 1.3 client when " 
@@ -287,6 +292,18 @@ tls12_client_tls_server(Config) when is_list(Config) ->
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
+legacy_tls12_client_tls_server() ->
+    [{doc,"Test that a TLS 1.2 client can connect to a TLS 1.3 server."}].
+
+legacy_tls12_client_tls_server(Config) when is_list(Config) ->
+    SHA = ssl_test_lib:appropriate_sha(crypto:supports()),
+    ClientOpts = [{versions, ['tlsv1.1', 'tlsv1.2']}, {signature_algs, [{SHA, rsa}, {SHA, ecdsa}]} |
+                  ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1.3', 'tlsv1.2']},
+                   {signature_algs, ssl:signature_algs(default, 'tlsv1.3')},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 middle_box_tls13_client() ->
     [{doc,"Test that a TLS 1.3 client can connect to a 1.3 server with and without middle box compatible mode."}].
