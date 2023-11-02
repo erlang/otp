@@ -1216,7 +1216,7 @@ sub compiler_output {
     my($i);
 
     open(STDOUT, ">$outdir/$name") || die "Failed to open $name for writing: $!\n";
-    print "-module($module).\n";
+    print "-module($module).\n-moduledoc false.";
     comment('erlang');
 
     print "-export([format_number/0]).\n";
