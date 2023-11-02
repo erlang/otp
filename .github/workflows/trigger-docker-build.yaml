@@ -1,0 +1,42 @@
+---
+"on":
+  workflow_dispatch:
+    inputs:
+      otp_version:
+        type: string
+        required: true
+      otp_download_sha256:
+        type: string
+        required: true
+
+jobs:
+  trigger-docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # As per https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow
+      #- name: Generate Authorization token
+      #  id: generate_token
+      #  uses: actions/create-github-app-token@v1
+      #  with:
+      #    app-id: ${{ secrets.APP_ID }}
+      #    private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      #    owner: erlang
+      #    repositories: docker-erlang-otp
+
+      - name: Trigger Docker container builds
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          TARGET_OWNER: erlang
+          TARGET_REPO: docker-erlang-otp
+          TARGET_WORKFLOW: dockerfiles.yaml
+          OTP_VERSION: ${{ github.event.inputs.otp_version }}
+          OTP_DOWNLOAD_SHA256: ${{ github.event.inputs.otp_download_sha256 }}
+        run: |
+          curl --location --silent \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: token ${GITHUB_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --url "https://api.github.com/repos/${TARGET_OWNER}/${TARGET_REPO}/actions/workflows/${TARGET_WORKFLOW}/dispatches" \
+            --data "{ \"ref\": \"master\", \"inputs\": { \"otp_version\": \"${OTP_VERSION}\", \"otp_download_sha256\": \"${OTP_DOWNLOAD_SHA256}\" } }" \
+            --fail
