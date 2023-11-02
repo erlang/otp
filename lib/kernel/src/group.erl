@@ -851,11 +851,11 @@ get_line_echo_off1({Chars,[],Rs}, Drv, Shell) ->
 	    get_line_echo_off1(edit_line(eof, Chars), Drv, Shell);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []),
-	    get_line_echo_off1({Chars,[]}, Drv, Shell);
+	    get_line_echo_off1({Chars,[],[]}, Drv, Shell);
         {reply,{From,ReplyAs},Reply} when From =/= undefined ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
-            get_line_echo_off1({Chars,[]},Drv, Shell);
+            get_line_echo_off1({Chars,[],[]},Drv, Shell);
 	{'EXIT',Drv,interrupt} ->
 	    interrupted;
 	{'EXIT',Drv,_} ->
@@ -871,7 +871,6 @@ get_line_echo_off1({Chars,Rest,Rs}, Drv, _Shell) ->
         false -> skip
     end,
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
-
 get_chars_echo_off(Pbs, Drv, Shell) ->
     send_drv_reqs(Drv, [{insert_chars, unicode,Pbs}]),
     get_chars_echo_off1(Drv, Shell).
