@@ -95,6 +95,8 @@
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
          pkix_path_validation_root_expired/1,
+         pkix_ext_key_usage/0,
+         pkix_ext_key_usage/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -156,6 +158,7 @@ all() ->
      pkix_decode_cert,
      pkix_path_validation,
      pkix_path_validation_root_expired,
+     pkix_ext_key_usage,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
@@ -934,6 +937,35 @@ pkix_path_validation_root_expired(Config) when is_list(Config) ->
     Peer = proplists:get_value(cert, Conf),
     {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
     
+pkix_ext_key_usage() ->
+    [{doc, "Extended key usage is usually in end entity certs, may be in CA but should not be critical in such case"}].
+pkix_ext_key_usage(Config) when is_list(Config) ->
+    SRootSpec = public_key:pkix_test_root_cert("OTP test server ROOT", []),
+    CRootSpec = public_key:pkix_test_root_cert("OTP test client ROOT", []),
+
+    FailCAExt = [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                              extnValue = [?'anyExtendedKeyUsage'],
+                              critical = true}],
+    CAExt = [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                          extnValue = [?'anyExtendedKeyUsage'],
+                          critical = false}],
+
+    #{server_config := SConf,
+      client_config := CConf} = public_key:pkix_test_data(#{server_chain => #{root => SRootSpec,
+                                                                             intermediates => [[{extensions, FailCAExt}]],
+                                                                             peer => []},
+                                                           client_chain => #{root => CRootSpec,
+                                                                             intermediates => [[{extensions, CAExt}]],
+                                                                             peer => []}}),
+    [_STRoot, SICA, SRoot] = proplists:get_value(cacerts, SConf),
+    [_CTRoot, CICA, CRoot] = proplists:get_value(cacerts, CConf),
+    SPeer = proplists:get_value(cert, SConf),
+    CPeer = proplists:get_value(cert, CConf),
+
+    {error, {bad_cert, invalid_ext_key_usage}} = public_key:pkix_path_validation(SRoot, [SICA, SPeer], []),
+
+    {ok, _} = public_key:pkix_path_validation(CRoot, [CICA, CPeer], []).
+
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
 %%

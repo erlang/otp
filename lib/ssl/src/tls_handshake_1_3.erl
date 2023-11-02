@@ -1881,7 +1881,8 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                  issuer => TrustedCert,
                                                  cert_ext => CertExt,
                                                  ocsp_responder_certs => OcspResponderCerts,
-                                                 ocsp_state => OcspState
+                                                 ocsp_state => OcspState,
+                                                 path_len => length(Path)
                                                 },
                                                Path, LogLevel),
     Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
