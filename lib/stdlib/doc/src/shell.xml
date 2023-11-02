@@ -898,7 +898,10 @@ q                 - quit erlang
       function by calling <seemfa marker="#prompt_func/1">
       <c>prompt_func/1</c></seemfa> or by setting application
       configuration parameter <c>shell_prompt_func</c> for the
-      STDLIB application.</p>
+      STDLIB application. Similarly the multiline prompt can
+      be configured as well, by calling <seemfa marker="#multiline_prompt_func/1">
+      <c>multiline_prompt_func/1</c></seemfa> or by setting the application
+      parameter <c>shell_multiline_prompt</c> for the STDLIB application.</p>
 
     <p>A customized prompt function is stated as a tuple
       <c>{Mod,&nbsp;Func}</c>. The function is called as
@@ -932,7 +935,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="default_multiline_prompt" arity="1" since="OTP 27.0"/>
+      <name name="default_multiline_prompt" arity="1" since="OTP @OTP-18834@"/>
       <fsummary>The default multiline prompt implementation.</fsummary>
       <desc>
         <p>Configures the multiline prompt as two trailing dots.
@@ -952,12 +955,13 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="inverted_space_prompt" arity="1" since="OTP 27.0"/>
+      <name name="inverted_space_prompt" arity="1" since="OTP @OTP-18834@"/>
       <fsummary>An anternative multiline prompt implementation.</fsummary>
       <desc>
         <p>Configures the multiline prompt as inverted space.
           It may be set explicitly as
-          <c>-stdlib shell_multiline_prompt {shell, inverted_space_prompt}</c>.</p>
+          <c>-stdlib shell_multiline_prompt {shell, inverted_space_prompt}</c>
+          or calling <c>multiline_prompt_func({shell, inverted_space_prompt}).</c></p>
       </desc>
     </func>
 
@@ -971,7 +975,16 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="prompt_width" arity="1" since="OTP 27.0"/>
+      <name name="multiline_prompt_func" arity="1" since="OTP @OTP-18834@"/>
+      <fsummary>Set the shell multiline prompt.</fsummary>
+      <desc>
+        <p>Sets the shell multiline prompt function to <c><anno>PromptFunc</anno></c>.
+          The previous prompt function is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prompt_width" arity="1" since="OTP @OTP-18834@"/>
       <fsummary>Computes the width of a prompt.</fsummary>
       <desc>
         <p>It receives a prompt and computes its width,

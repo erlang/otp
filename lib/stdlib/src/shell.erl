@@ -23,7 +23,7 @@
 -export([get_state/0, get_function/2]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
--export([catch_exception/1, prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, multiline_prompt_func/1, strings/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
@@ -1696,6 +1696,13 @@ catch_exception(Bool) ->
 
 prompt_func(PromptFunc) ->
     set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
+
+-spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
+      PromptFunc :: 'default' | {module(),function()} | string(),
+      PromptFunc2 :: 'default' | {module(),function()} | string().
+
+multiline_prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),
