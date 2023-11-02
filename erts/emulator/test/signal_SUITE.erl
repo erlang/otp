@@ -60,7 +60,9 @@
          simultaneous_signals_basic/1,
          simultaneous_signals_recv/1,
          simultaneous_signals_exit/1,
-         simultaneous_signals_recv_exit/1]).
+         simultaneous_signals_recv_exit/1,
+         parallel_signal_enqueue_race_1/1,
+         parallel_signal_enqueue_race_2/1]).
 
 -export([spawn_spammers/3]).
 
@@ -74,6 +76,9 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch  _:_ -> ok
+    end,
     ok.
 
 suite() ->
@@ -95,6 +100,8 @@ all() ->
      monitor_named_order_local,
      monitor_named_order_remote,
      monitor_nodes_order,
+     parallel_signal_enqueue_race_1,
+     parallel_signal_enqueue_race_2,
      {group, adjust_message_queue}].
 
 groups() ->
@@ -1131,6 +1138,175 @@ receive_integer_pairs(Tmo) ->
         Tmo ->
             ok
     end.
+
+parallel_signal_enqueue_race_1(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+        lists:foreach(fun (_) -> parallel_signal_enqueue_race_1_test() end,
+                      lists:seq(1, 5))
+    after
+        erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+parallel_signal_enqueue_race_1_test() ->
+    %%
+    %% PR-7822 (first commit)
+    %%
+    %% This bug could be triggered when
+    %% * receiver had parallel signal enqueue optimization enabled
+    %% * receiver fetched signals while it wasn't in a running state (only
+    %%   happens when receive traced)
+    %% * signals were enqueued simultaneously as the fetch of signals
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    R = spawn_opt(fun () ->
+                          true = erts_debug:set_internal_state(proc_sig_buffers,
+                                                               true),
+                          receive after infinity -> ok end
+                  end,
+                  [{message_queue_data, off_heap}, {priority, high}, link]),
+    T = spawn_link(fun FlushTrace () ->
+                           receive {trace,R,'receive',_} -> ok end,
+                           FlushTrace()
+                   end),
+    1 = erlang:trace(R, true, ['receive', {tracer, T}]),
+    CountLoop = fun CountLoop (0) ->
+                        ok;
+                    CountLoop (N) ->
+                        CountLoop(N-1)
+                end,
+    SigLoop = fun SigLoop (0)  ->
+                      ok;
+                  SigLoop (N) ->
+                      CountLoop(rand:uniform(4000)),
+                      erlang:demonitor(erlang:monitor(process, R), [flush]),
+                      receive after 1 -> ok end,
+                      SigLoop(N-1)
+              end,
+    SMs = lists:map(fun (X) ->
+                            spawn_opt(fun () -> SigLoop(1000) end,
+                                      [{scheduler, X}, link, monitor])
+                    end, lists:seq(1,erlang:system_info(schedulers_online))),
+    R ! hello,
+    lists:foreach(fun ({P, M}) ->
+                          receive {'DOWN', M, process, P, _} -> ok end
+                  end, SMs),
+
+    %% These signals would typically not be delivered if the bug was
+    %% triggered and the test case would time out.
+    true = is_process_alive(R),
+    unlink(R),
+    exit(R, kill),
+    false = is_process_alive(R),
+
+    true = is_process_alive(T),
+    unlink(T),
+    exit(T, kill),
+    false = is_process_alive(T),
+
+    ok.
+
+parallel_signal_enqueue_race_2(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+        parallel_signal_enqueue_race_2_test()
+    after
+        erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+parallel_signal_enqueue_race_2_test() ->
+    %%
+    %% PR-7822 (first commit)
+    %%
+    %% This bug could be triggered when
+    %% * A signal receiver process had the parallel signal enqueue optimization
+    %%   enabled
+    %% * Another process called process_info(Receiver, message_queue_len)
+    %%   while the receiver was not executing and the process_info() call
+    %%   internaly called erts_proc_sig_fetch() on receiver trying to
+    %%   optimize the process_info() call
+    %% * Yet another process simultaneously sent the receiver another
+    %%   signal.
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    process_flag(scheduler, 1),
+    {RSched, PISched, LUSched} = case erlang:system_info(schedulers_online) of
+                                     1 ->
+                                         {1, 1, 1};
+                                     2 ->
+                                         {2, 1, 2};
+                                     3 ->
+                                         {1, 2, 3};
+                                     _ ->
+                                         {2, 3, 4}
+                                 end,
+    Tester = self(),
+    R = spawn_opt(fun () ->
+                          true = erts_debug:set_internal_state(proc_sig_buffers,
+                                                               true),
+                          Tester ! recv_ready,
+                          receive after infinity -> ok end
+                  end,
+                  [{message_queue_data, off_heap}, link, {scheduler, RSched}]),
+
+    PI = spawn_opt(fun PILoop () ->
+                           true = is_process_alive(R),
+                           Tester ! pi_ready,
+                           receive go -> ok end,
+                           _ = process_info(R, message_queue_len),
+                           PILoop()
+                   end,
+                   [link, {scheduler, PISched}]),
+    LU = spawn_opt(fun LULoop () ->
+                           true = is_process_alive(R),
+                           Tester ! lu_ready,
+                           receive go -> ok end,
+                           link(R),
+                           unlink(R),
+                           LULoop()
+                   end,
+                   [link, {scheduler, LUSched}]),
+
+    receive recv_ready -> ok end,
+    TriggerLoop = fun TriggerLoop(0) ->
+                          ok;
+                      TriggerLoop (N) ->
+                          receive lu_ready -> ok end,
+                          receive pi_ready -> ok end,
+                          %% Give them some time to schedule out...
+                          erlang:yield(),
+                          case N rem 2 of
+                              0 ->
+                                  PI ! go,
+                                  LU ! go;
+                              1 ->
+                                  LU ! go,
+                                  PI ! go
+                          end,
+                          TriggerLoop(N-1)
+                  end,
+    TriggerLoop(400000),
+
+    unlink(PI),
+    exit(PI, kill),
+    false = is_process_alive(PI),
+    unlink(LU),
+    exit(LU, kill),
+    false = is_process_alive(LU),
+    unlink(R),
+    exit(R, kill),
+    false = is_process_alive(R),
+    ok.
 
 %%
 %% -- Internal utils --------------------------------------------------------
