@@ -31,7 +31,7 @@
                     {'ok',#b_module{}} | {'error',list()}.
 module(#b_module{body=Fs,name=Name}=Mod0, _Options) ->
     Es0 = append([validate_function(F) || F <- Fs]),
-    case [{?MODULE,E} || E <- Es0] of
+    case [{none,?MODULE,E} || E <- Es0] of
         [] ->
             {ok, Mod0};
         [_|_]=Es ->
