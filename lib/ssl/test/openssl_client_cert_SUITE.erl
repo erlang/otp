@@ -202,9 +202,9 @@ init_per_group(Alg, Config) when
         true ->
             #{client_config := COpts,
               server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, rsa_alg(Alg)} |
+            [{cert_key_alg, rsa_alg(Alg)},
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, openssl_sig_algs(Alg) ++ COpts},
+                          [{client_cert_opts, openssl_sig_algs(rsa_alg(Alg)) ++ COpts},
                            {server_cert_opts, sig_algs(rsa_alg(Alg)) ++ SOpts} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
