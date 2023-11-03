@@ -512,6 +512,8 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 {SS1, AAS0};
             bs_test_tail ->
                 {SS1, AAS0};
+            executable_line ->
+                {SS1, AAS0};
             has_map_field ->
                 {SS1, AAS0};
             is_nonempty_list ->

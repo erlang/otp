@@ -284,8 +284,9 @@ canonical_block({L,VarMap0}, Blocks) ->
 %%    * Variables defined in the instruction sequence are replaced with
 %%    {var,0}, {var,1}, and so on. Free variables are not changed.
 %%
-%%    * `location` annotations that would produce a `line` instruction are
-%%    kept. All other annotations are cleared.
+%%    * `location` annotations that would produce `line` or
+%%    `executable_line` instructions are kept. All other annotations
+%%    are cleared.
 %%
 %%    * Instructions are repackaged into tuples instead of into the
 %%    usual records. The main reason is to avoid violating the types for
@@ -300,17 +301,21 @@ canonical_is([#b_set{op=Op,dst=Dst,args=Args0}=I|Is], VarMap0, Acc) ->
     Args = [canonical_arg(Arg, VarMap0) || Arg <- Args0],
     Var = {var,map_size(VarMap0)},
     VarMap = VarMap0#{Dst=>Var},
-    LineAnno = case Op of
-                   bs_match ->
-                       %% The location annotation for a bs_match instruction
-                       %% is only used in warnings, never to emit a `line`
-                       %% instruction. Therefore, it should not be included.
-                       [];
-                   _ ->
-                       %% The location annotation will be used in a `line`
-                       %% instruction. It must be included.
-                       beam_ssa:get_anno(location, I, none)
-               end,
+    LineAnno =
+        case {Op,Is} of
+            {executable_line, _} ->
+                %% The location annotation will be used in a
+                %% `executable_line` instruction.
+                beam_ssa:get_anno(location, I, none);
+            {_, [#b_set{op={succeeded,body},args=[Dst]}|_]} ->
+                %% The location annotation will be used in a `line`
+                %% instruction.
+                beam_ssa:get_anno(location, I, none);
+            {_, _} ->
+                %% The location annotation will not be included in
+                %% any BEAM instruction.
+                []
+        end,
     canonical_is(Is, VarMap, {Op,LineAnno,Var,Args,Acc});
 canonical_is([#b_ret{arg=Arg}], VarMap, Acc) ->
     {{ret,canonical_arg(Arg, VarMap),Acc},VarMap};

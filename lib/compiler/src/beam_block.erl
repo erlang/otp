@@ -169,6 +169,7 @@ collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,0}}}};
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect({fconv,S,D})         -> {set,[D],[S],fconv};
+collect({executable_line,Line}) -> {set,[],[],{executable_line,Line}};
 collect(_)                   -> error.
 
 %% embed_lines([Instruction]) -> [Instruction]

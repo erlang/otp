@@ -755,6 +755,8 @@ lexpr({remote,_,M,F}, Prec, Opts) ->
 %% BIT SYNTAX:
 lexpr({bin,_,Fs}, _, Opts) ->
     bit_grp(Fs, Opts);
+lexpr({executable_line,Line,Index}, _Prec, _Opts) ->
+    leaf(format("beam_instruction:executable_line(~p, ~p)", [Line,Index]));
 %% Special case for straight values.
 lexpr({value,_,Val}, _,_) ->
     {value,Val};

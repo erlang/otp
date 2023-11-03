@@ -452,7 +452,9 @@ expr({op,Anno,Op,L0,R0}, St0) ->
     {L,St1} = expr(L0, St0),
     {R,St2} = expr(R0, St1),
     {{op,Anno,Op,L,R},St2};
-expr(E={ssa_check_when,_,_,_,_,_}, St) ->
+expr({executable_line,_,_}=E, St) ->
+    {E, St};
+expr({ssa_check_when,_,_,_,_,_}=E, St) ->
     {E, St}.
 
 expr_list([E0 | Es0], St0) ->

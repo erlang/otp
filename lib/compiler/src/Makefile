@@ -100,6 +100,7 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_core_prepare \
+	sys_coverage \
 	sys_messages \
 	sys_pre_attributes \
 	v3_core

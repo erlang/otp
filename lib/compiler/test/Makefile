@@ -122,6 +122,8 @@ R25= \
 	bs_utf \
 	bs_bincomp
 
+COVER=$(NO_OPT)
+
 DIALYZER = bs_match
 
 CORE_MODULES = \
@@ -156,6 +158,8 @@ NO_TYPE_OPT_MODULES= $(NO_TYPE_OPT:%=%_no_type_opt_SUITE)
 NO_TYPE_OPT_ERL_FILES= $(NO_TYPE_OPT_MODULES:%=%.erl)
 DIALYZER_MODULES= $(DIALYZER:%=%_dialyzer_SUITE)
 DIALYZER_ERL_FILES= $(DIALYZER_MODULES:%=%.erl)
+COVER_MODULES= $(COVER:%=%_cover_SUITE)
+COVER_ERL_FILES= $(COVER_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 CORE_FILES= $(CORE_MODULES:%=%.core)
@@ -190,7 +194,7 @@ DISABLE_SSA_OPT = +no_bool_opt +no_share_opt +no_bsm_opt +no_fun_opt +no_ssa_opt
 make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES) \
   $(NO_CORE_OPT_ERL_FILES) $(NO_CORE_SSA_OPT_ERL_FILES) \
   $(INLINE_ERL_FILES) $(NO_MOD_OPT_ERL_FILES) $(NO_TYPE_OPT_ERL_FILES) \
-  $(DIALYZER_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES)
+  $(DIALYZER_ERL_FILES) $(COVER_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	  > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(DISABLE_SSA_OPT) +no_postopt \
@@ -215,6 +219,8 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES
 	  -o$(EBIN) $(CORE_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_type_opt $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(NO_TYPE_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +line_coverage $(ERL_COMPILE_FLAGS) \
+	  -o$(EBIN) $(COVER_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +dialyzer $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(DIALYZER_MODULES) >> $(EMAKEFILE)
 
@@ -265,6 +271,9 @@ docs:
 %_no_type_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_cover_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 %_dialyzer_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
@@ -288,6 +297,7 @@ release_tests_spec: make_emakefile
 		$(NO_MOD_OPT_ERL_FILES) \
 		$(NO_SSA_OPT_ERL_FILES) \
 	        $(NO_TYPE_OPT_ERL_FILES) \
+	        $(COVER_ERL_FILES) \
 	        $(DIALYZER_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(CORE_FILES) "$(RELSYSDIR)"
 	for file in $(ERL_DUMMY_FILES); do \

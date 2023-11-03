@@ -688,6 +688,8 @@ cs_end() ->
 %% Verify that the allocated size is exact (rounded up to the nearest byte).
 cs(Bin) ->
     case ?MODULE of
+        bs_bincomp_cover_SUITE ->
+            ok;
         bs_bincomp_no_opt_SUITE ->
             ok;
         bs_bincomp_no_ssa_opt_SUITE ->

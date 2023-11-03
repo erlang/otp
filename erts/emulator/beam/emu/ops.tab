@@ -95,6 +95,8 @@ move S X0=x==0 | line Loc => line Loc | move S X0
 line n => _
 line I
 
+executable_line Line => _
+
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
 # For the BEAM interpreter, though, it will probably be more efficient to
 # translate all uses of init_yregs/1 back to the instructions that the compiler
