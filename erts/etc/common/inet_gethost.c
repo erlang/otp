@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -770,6 +770,11 @@ static void main_loop(void)
 #endif
     }
 #endif
+
+    /* Satisfy CodeChecker.  Already done in init_workers() */
+    *wsizes[0] = 0;
+    *wsizes[1] = 0;
+    *wsizes[2] = 0;
 
     for(;;) {
 #ifdef WIN32
