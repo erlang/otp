@@ -47,7 +47,7 @@
 -type tsig_alg()  :: {tsig_algs(),?MAC_SIZE_MIN..65535}.
 
 -type tsig_key()   :: {string(),iodata()}.
--type tsig_error() :: ?BADSIG | ?BADKEY | ?BADTIME | ?BADTRUNC.
+-type tsig_error() :: badsig | badkey | badtime | badtrunc.
 
 -record(
    tsig_state,
@@ -94,9 +94,9 @@ init(Config) ->
 
 -spec sign(binary(), tsig_state()) -> {ok,binary(),tsig_state()}.
 sign(Pkt, TS) ->
-    sign(Pkt, TS, ?NOERROR).
+    sign(Pkt, TS, ok).
 
--spec sign(binary(), tsig_state(), tsig_error() | ?NOERROR) ->
+-spec sign(binary(), tsig_state(), tsig_error() | ok) ->
           {ok,binary(),tsig_state()}.
 sign(
   Pkt = <<Hdr:10/binary, Rest/binary>>,
@@ -182,7 +182,7 @@ do_verify(Pkt,
     end,
     %% RFC8945, section 5.2.2.1: MAC Truncation
     MACSize = if
-        Error == ?BADSIG; Error == ?BADKEY ->
+        Error == badsig; Error == badkey ->
             AlgSize;
         true ->
             byte_size(MAC)
@@ -264,7 +264,7 @@ encode_name(Name) ->
         <<0:8>>
     ]).
 
-otherdata(?BADTIME, Now) -> <<Now:48>>;
+otherdata(badtime, Now) -> <<Now:48>>;
 otherdata(_Error, _Now) -> <<>>.
 
 mac0(TS = #tsig_state{ mac = {?MODULE,MAC} }) ->
@@ -290,7 +290,7 @@ macN(Pkt, TS = #tsig_state{ mac = {crypto,MACState} }) ->
 
 %% RFC8945, section 5.3.2: Generation of TSIG on Error Returns
 mac(_TS, Error, _Now, _OtherData)
-  when Error == ?BADSIG; Error == ?BADKEY ->
+  when Error == badsig; Error == badkey ->
     <<>>;
 mac(TS = #tsig_state{ mac = {crypto,MACState0} }, Error, Now, OtherData) ->
     {Name,_Secret} = TS#tsig_state.key,
