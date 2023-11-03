@@ -165,12 +165,15 @@ print_frequency_ranges(Options0) ->
 mk_ct_return(true, _Tool) ->
     true;
 mk_ct_return(Other, Tool) ->
-    try lists:last(hd(Tool:counterexample()))
-    of
-	{set,{var,_},{call,M,F,Args}} ->
-	    {fail, io_lib:format("~p:~tp/~p returned bad result",[M,F,length(Args)])}
-    catch
-	_:_ ->
+    case Tool:counterexample() of
+	[[_|_]=CE|_] ->
+	    case lists:last(CE) of
+		{set, {var, _}, {call, M, F, Args}} ->
+		    {fail, io_lib:format("~p:~tp/~p returned bad result", [M, F, length(Args)])};
+		_ ->
+		    {fail, Other}
+	    end;
+	_ ->
 	    {fail, Other}
     end.
 
