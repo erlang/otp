@@ -332,7 +332,7 @@
 
  ftptest(Config) ->
      Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
-     Local = filename:join(?config(priv_dir,Config), "loadmodule"),
+     Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
      ok = ct_ftp:recv(ftp, Remote, Local),
      ...</pre>
     
@@ -347,7 +347,7 @@
 
  end_per_testcase(ftptest, Config) ->
      lists:foreach(fun(Handle) -> ct_ftp:close(Handle) end, 
-                   ?config(ftp_handles,Config)).
+                   proplists:get_value(ftp_handles,Config)).
 
  ftptest() ->
      [{require,ftp_host},
@@ -355,8 +355,8 @@
 
  ftptest(Config) ->
      Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
-     Local = filename:join(?config(priv_dir,Config), "loadmodule"),
-     [Handle | MoreHandles] = ?config(ftp_handles,Config),
+     Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
+     [Handle | MoreHandles] = proplists:get_value(ftp_handles,Config),
      ok = ct_ftp:recv(Handle, Remote, Local),
      ...</pre>
       
