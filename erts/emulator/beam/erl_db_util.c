@@ -3384,8 +3384,14 @@ static void* copy_to_comp(int keypos, Eterm obj, DbTerm* dest,
 		tpl[i] = src[i];
 	    }
 	    else {
-		tpl[i] = ext2elem(tpl, top.cp);
-		top.cp = erts_encode_ext_ets(src[i], top.cp, &dest->first_oh);
+#ifdef DEBUG
+                Uint encoded_size = erts_encode_ext_size_ets(src[i]);
+                byte *orig_cp = top.cp;
+#endif
+                tpl[i] = ext2elem(tpl, top.cp);
+
+                top.cp = erts_encode_ext_ets(src[i], top.cp, &dest->first_oh);
+                ASSERT(top.cp == &orig_cp[encoded_size]);
 	    }
 	}
     }

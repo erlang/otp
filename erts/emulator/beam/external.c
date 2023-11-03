@@ -5361,9 +5361,9 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     }
 
 #define LIST_TAIL_OP ((0 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP(N) (((N) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _TAG_PRIMARY_SIZE))
-
+#define HASHMAP_NODE_OP ((1 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP(N) (((N) << _HEADER_ARITY_OFFS) | TAG_PRIMARY_HEADER)
+#define TERM_ARRAY_OP_DEC(OP) ((OP) - (1 << _HEADER_ARITY_OFFS))
 
     for (;;) {
 	ASSERT(!is_header(obj));
@@ -5513,18 +5513,20 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 		}
 
-		ptr++;
-		WSTACK_RESERVE(s, node_sz*2);
-		while(node_sz--) {
-                    if (is_list(*ptr)) {
-			WSTACK_FAST_PUSH(s, CAR(list_val(*ptr)));
-			WSTACK_FAST_PUSH(s, CDR(list_val(*ptr)));
+                ptr++;
+                WSTACK_RESERVE(s, node_sz * 2);
+                while(node_sz--) {
+                    Eterm node = *ptr++;
+
+                    if (is_list(node) || is_tuple(node)) {
+                        WSTACK_FAST_PUSH(s, (UWord)node);
+                        WSTACK_FAST_PUSH(s, (UWord)HASHMAP_NODE_OP);
                     } else {
-			WSTACK_FAST_PUSH(s, *ptr);
-		    }
-		    ptr++;
-		}
-	    }
+                        ASSERT(is_map(node));
+                        WSTACK_FAST_PUSH(s, node);
+                    }
+                }
+            }
 	    break;
 	case FLOAT_DEF:
 	    if (dflags & DFLAG_NEW_FLOATS) {
@@ -5625,15 +5627,24 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
 
                 if (is_local_fun(funp)) {
-                    result += 20+1+1+4;	/* New ID + Tag */
-                    result += 4; /* Length field (number of free variables */
+                    ErlFunEntry *fe = funp->entry.fun;
+
+                    result += 1 /* tag */
+                            + 4 /* length field (size of free variables) */
+                            + 1 /* arity */
+                            + 16 /* uniq */
+                            + 4 /* index */
+                            + 4; /* free variables */
+                    result += encode_atom_size(acmp, fe->module, dflags);
+                    result += encode_small_size(acmp, make_small(fe->old_index), dflags);
+                    result += encode_small_size(acmp, make_small(fe->old_uniq), dflags);
                     result += encode_pid_size(acmp, erts_init_process_id, dflags);
-                    result += encode_atom_size(acmp, funp->entry.fun->module, dflags);
-                    result += 2 * (1+4);	/* Index, Uniq */
+
                     if (fun_num_free(funp) > 1) {
                         WSTACK_PUSH2(s, (UWord) (funp->env + 1),
                                     (UWord) TERM_ARRAY_OP(fun_num_free(funp)-1));
                     }
+
                     if (fun_num_free(funp) != 0) {
                         obj = funp->env[0];
                         continue; /* big loop */
@@ -5672,6 +5683,43 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    obj = CAR(cons);
 		}
 		break;
+	    case HASHMAP_NODE_OP: {
+                Eterm *cons;
+
+                obj = (Eterm)WSTACK_POP(s);
+
+                if (is_tuple(obj)) {
+                    /* Collision node */
+                    Eterm *node_terms;
+                    Uint node_size;
+
+                    node_terms = tuple_val(obj);
+                    node_size = arityval(*node_terms);
+                    ASSERT(node_size >= 2);
+
+                    WSTACK_RESERVE(s, node_size * 2);
+                    for (Uint i = 1; i < node_size; i++) {
+                         ASSERT(is_list(node_terms[i]));
+                         WSTACK_FAST_PUSH(s, (UWord)node_terms[i]);
+                         WSTACK_FAST_PUSH(s, (UWord)HASHMAP_NODE_OP);
+                    }
+
+                    /* The last collision leaf must be handled below, or it
+                     * will be wrongly treated as a normal cons cell by the
+                     * main loop. */
+                    obj = node_terms[node_size];
+                    ASSERT(is_list(obj));
+                }
+
+                if (is_list(obj)) {
+                    /* Leaf node */
+                    cons = list_val(obj);
+
+                    WSTACK_PUSH(s, CDR(cons));
+                    obj = CAR(cons);
+                }
+                break;
+            }
 	    case TERM_ARRAY_OP(1):
 		obj = *(Eterm*)WSTACK_POP(s);
 		break;
