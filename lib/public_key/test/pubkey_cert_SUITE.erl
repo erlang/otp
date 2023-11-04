@@ -21,10 +21,27 @@
 -module(pubkey_cert_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
-%% -include_lib("public_key/include/public_key.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+%% CT callbacks
+-export([all/0,
+         groups/0]).
+
+%% Test cases
+-export([time_str_2_gregorian_utc_post2000/0,
+         time_str_2_gregorian_utc_post2000/1,
+         time_str_2_gregorian_utc_limit_50_years_before_current_time/0,
+         time_str_2_gregorian_utc_limit_50_years_before_current_time/1,
+         time_str_2_gregorian_utc_limit_51_years_before_current_time/0,
+         time_str_2_gregorian_utc_limit_51_years_before_current_time/1,
+         time_str_2_gregorian_utc_limit_50_years_from_current_time/0,
+         time_str_2_gregorian_utc_limit_50_years_from_current_time/1,
+         time_str_2_gregorian_utc_limit_49_years_from_current_time/0,
+         time_str_2_gregorian_utc_limit_49_years_from_current_time/1,
+         time_str_2_gregorian_generaltime_50_years_before_current_time/0,
+         time_str_2_gregorian_generaltime_50_years_before_current_time/1,
+         time_str_2_gregorian_generaltime_50_years_from_current_time/0,
+         time_str_2_gregorian_generaltime_50_years_from_current_time/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -37,15 +54,14 @@ groups() ->
     [{time_str_2_gregorian_sec, [], time_str_two_gregorian()}].
 
 time_str_two_gregorian() ->
-    [ time_str_2_gregorian_utc_post2000
-    , time_str_2_gregorian_utc_limit_50_years_before_current_time
-    , time_str_2_gregorian_utc_limit_51_years_before_current_time
-    , time_str_2_gregorian_utc_limit_50_years_from_current_time
-    , time_str_2_gregorian_utc_limit_49_years_from_current_time
-    , time_str_2_gregorian_generaltime_50_years_before_current_time
-    , time_str_2_gregorian_generaltime_50_years_from_current_time
+    [time_str_2_gregorian_utc_post2000,
+     time_str_2_gregorian_utc_limit_50_years_before_current_time,
+     time_str_2_gregorian_utc_limit_51_years_before_current_time,
+     time_str_2_gregorian_utc_limit_50_years_from_current_time,
+     time_str_2_gregorian_utc_limit_49_years_from_current_time,
+     time_str_2_gregorian_generaltime_50_years_before_current_time,
+     time_str_2_gregorian_generaltime_50_years_from_current_time
     ].
-
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -132,8 +148,8 @@ convert_to_datetime_format({Format, Date}, ExpectedYear) ->
     [Y, M, D] = lists:map(fun (Str) -> erlang:list_to_integer(Str) end, YYMMDD),
     %% assertions to test that the result is the expected one
     case Format of
-        utcTime -> (ExpectedYear rem 100) =:= Y;
-        generalTime -> ExpectedYear =:= Y
+        utcTime -> true = (ExpectedYear rem 100) == Y;
+        generalTime -> true = ExpectedYear == Y
     end,
     {{ExpectedYear, M, D}, {0, 0, 0}}.
 
