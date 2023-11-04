@@ -44,7 +44,6 @@
     <title>Common Records and ASN.1 Types</title> 
     
     <note><p>All records used in this Reference Manual 
-    <!--     except #policy_tree_node{}  -->
     are generated from ASN.1 specifications
     and are documented in the User's Guide. See <seeguide 
     marker="public_key_records">Public-key Records</seeguide>.
@@ -211,6 +210,12 @@
 
     <datatype>
       <name name="combined_cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+     <datatype>
+      <name name="policy_node"/>
       <desc>
       </desc>
     </datatype>
@@ -534,12 +539,20 @@
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
      <desc>
        <p>
-	 Performs a basic path validation according to
-	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
+	 Performs a basic path validation according to <url
+	 href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
 	 However, CRL validation is done separately by <seemfa
-	 marker="#pkix_crls_validate/3">pkix_crls_validate/3 </seemfa> and is to be called
-	 from the supplied <c>verify_fun</c>. The optional policy tree check is currently not implemented
-	 but an empty place holder list is returned instead.
+	 marker="#pkix_crls_validate/3">pkix_crls_validate/3 </seemfa>
+	 and is to be called from the supplied <c>verify_fun</c>. The
+	 policy tree check was added in OTP-26.2 and if the
+	 certificates include policies the constrained policy set with
+	 potential qualifiers will be returned, these values are
+	 derived from the policy tree created as part of the path
+	 validation algorithm. The constrained set can be constrained
+	 only by the Certificate Authorities or also by the user when
+	 the option <c>policy_set</c> is provided to this
+	 function. The qualifiers convey information about the valid
+	 policy and is intended as information to end users.
        </p>
 
        <p>Available options:</p>
@@ -583,6 +596,25 @@ fun(OtpCert :: #'OTPCertificate'{},
 	  be PEER, CA, ROOT-CA, if it is 2, the path can
 	  be PEER, CA, CA, ROOT-CA, and so on.
 	</item>
+
+	<tag since="OTP 26.2" >{policy_set, [oid()]}</tag>
+	<item> The set of policies that will be accepted, defaults to the special
+	value <c>[?anyPolicy]</c> that will accept all policies.
+	</item>
+
+	<tag since="OTP 26.2">{explicit_policy, boolean()}</tag>
+	<item>Explicitly require that each certificate in the path must include
+        at least one of the certificate policies in the
+        <c>policy_set</c>.
+	</item>
+	<tag since="OTP 26.2">{inhibit_policy_mapping, boolean()}</tag>
+	<item>Prevent policies to be mapped to other policies.
+	</item>
+	<tag since="OTP 26.2">{inhibit_any_policy, boolean()}</tag>
+	<item>Prevent the special policy <c>?anyPolicy</c> from being
+	accepted.
+	</item>
+
       </taglist>
 
       <p>Explanations of reasons for a bad certificate: </p>

@@ -18,34 +18,38 @@
 %% %CopyrightEnd%
 %%
 
-%%
-
 -module(pubkey_cert).
 
 -include("public_key.hrl").
 
--export([init_validation_state/3, 
-         prepare_for_next_cert/2,
- 	 validate_time/3, 
-         validate_signature/6,
- 	 validate_issuer/4, 
+%% path validation
+-export([init_validation_state/3,
+         validate_extensions/4,
+         validate_time/3,
+         validate_issuer/4,
          validate_names/6,
-	 validate_extensions/4,
-	 normalize_general_name/1, 
+         validate_signature/6,
+         verify_data/1,
+         verify_fun/4,
+         prepare_for_next_cert/2]).
+
+%% Utility functions
+-export([normalize_general_name/1,
          is_self_signed/1,
-	 is_issuer/2, 
+	 is_issuer/2,
          issuer_id/2,
          subject_id/1,
-         distribution_points/1, 
-	 is_fixed_dh_cert/1, 
-         verify_data/1, 
-         verify_fun/4, 
-	 select_extension/2, 
+         distribution_points/1,
+	 is_fixed_dh_cert/1,
+         select_extension/2,
          match_name/3,
-	 extensions_list/1, 
-         cert_auth_key_id/1, 
-         time_str_2_gregorian_sec/1,
-         gen_test_certs/1, 
+	 extensions_list/1,
+         cert_auth_key_id/1,
+         time_str_2_gregorian_sec/1
+        ]).
+
+%% Generate test data
+-export([gen_test_certs/1,
          x509_pkix_sign_types/1,
          root_cert/2]).
 
@@ -55,18 +59,9 @@
 %% Internal application APIs
 %%====================================================================
 
-%%--------------------------------------------------------------------
--spec verify_data(DER::binary()) ->
-           {DigestType, PlainText, Signature}
-               when DigestType :: md5 | crypto:sha1() | crypto:sha2() | none,
-                    PlainText  :: binary(),
-                    Signature  :: binary().
-%%
-%% Description: Extracts data from DerCert needed to call public_key:verify/4.
-%%--------------------------------------------------------------------	 
-verify_data(DerCert) ->
-    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert),
-    extract_verify_data(OtpCert, DerCert).
+%%====================================================================
+%% Path validation
+%%====================================================================
 
 %%--------------------------------------------------------------------
 -spec init_validation_state(#'OTPCertificate'{}, integer(), list()) ->
@@ -74,74 +69,87 @@ verify_data(DerCert) ->
 %%
 %% Description: Creates initial version of path_validation_state for
 %% basic path validation of x509 certificates.
-%%--------------------------------------------------------------------	 
-init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen, 
+%%--------------------------------------------------------------------
+init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen,
 		      Options) ->
-    PolicyTree = #policy_tree_node{valid_policy = ?anyPolicy,
-				   qualifier_set = [],
-				   criticality_indicator = false,
-				   expected_policy_set = [?anyPolicy]},
+    PolicyTree = pubkey_policy_tree:root(),
     MaxLen =  proplists:get_value(max_path_length, Options, DefaultPathLen),
-    ExplicitPolicy = policy_indicator(MaxLen,
-		       proplists:get_value(explicit_policy, Options, false)),
-    InhibitAnyPolicy = policy_indicator(MaxLen,
-			 proplists:get_value(inhibit_any_policy, 
-					     Options, false)),
-    PolicyMapping = policy_indicator(MaxLen,
-		      proplists:get_value(policy_mapping, Options, false)),
-    {VerifyFun, UserState} =  proplists:get_value(verify_fun, Options, ?DEFAULT_VERIFYFUN),
-    State = #path_validation_state{max_path_length    =  MaxLen,
-				   valid_policy_tree  =  PolicyTree,
-				   explicit_policy    =  ExplicitPolicy,
-				   inhibit_any_policy =  InhibitAnyPolicy,
-				   policy_mapping     =  PolicyMapping,
-				   verify_fun         =  VerifyFun,
-				   user_state	      =  UserState,
-				   cert_num =           0},
+    UserPolicySet = policy_set(Options, [?anyPolicy]),
+    ExplicitPolicyConstraint =
+        policy_indicator(MaxLen,
+                         proplists:get_value(explicit_policy, Options, false)),
+    AnyPolicyConstraint =
+        policy_indicator(MaxLen,
+                         proplists:get_value(inhibit_any_policy, Options, false)),
+    PolicyMappingConstraint =
+        policy_indicator(MaxLen,
+                         proplists:get_value(inhibit_policy_mapping, Options, false)),
+    {VerifyFun, UserState} = proplists:get_value(verify_fun, Options,
+                                                 ?DEFAULT_VERIFYFUN),
+    State = #path_validation_state{max_path_length         = MaxLen,
+                                   user_initial_policy_set = UserPolicySet,
+				   valid_policy_tree       = PolicyTree,
+				   explicit_policy         = ExplicitPolicyConstraint,
+				   inhibit_any_policy      = AnyPolicyConstraint,
+				   inhibit_policy_mapping  = PolicyMappingConstraint,
+				   verify_fun              = VerifyFun,
+				   user_state	           = UserState,
+				   cert_num                = 0},
     prepare_for_next_cert(OtpCert, State).
 
 %%--------------------------------------------------------------------
--spec prepare_for_next_cert(#'OTPCertificate'{}, #path_validation_state{}) ->
-				   #path_validation_state{}.
+-spec validate_extensions(#'OTPCertificate'{}, #path_validation_state{},
+			  term(), fun())->
+				 {#path_validation_state{}, UserState :: term()}.
 %%
-%% Description: Update path_validation_state for next iteration.
-%%--------------------------------------------------------------------	
-prepare_for_next_cert(OtpCert, ValidationState = #path_validation_state{
-				 working_public_key_algorithm = PrevAlgo,
-				 working_public_key_parameters = 
-				 PrevParams}) ->
-    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
-    Issuer =  TBSCert#'OTPTBSCertificate'.subject,
-   
-    {Algorithm, PublicKey, PublicKeyParams0} =
-	public_key_info(TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-			ValidationState),
-    PublicKeyParams = 
-	case PublicKeyParams0 of
-	    'NULL' when Algorithm =:= PrevAlgo ->
-		PrevParams;
-	    asn1_NOVALUE when Algorithm =:= PrevAlgo ->
-		PrevParams;
-	    _ -> PublicKeyParams0
-	end,
-    
-    ValidationState#path_validation_state{
-      working_public_key_algorithm = Algorithm,
-      working_public_key = PublicKey,
-      working_public_key_parameters = PublicKeyParams,
-      working_issuer_name = Issuer,
-      cert_num = ValidationState#path_validation_state.cert_num + 1
-     }.
+%% Description: Check extensions included in basic path validation.
+%%--------------------------------------------------------------------
+validate_extensions(OtpCert, ValidationState0, UserState0, VerifyFun) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    case TBSCert#'OTPTBSCertificate'.version of
+	N when N >= 3 ->
+	    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
+            validate_extensions(OtpCert, Extensions,
+                                ValidationState0, no_basic_constraint,
+                                is_self_signed(OtpCert), UserState0, VerifyFun);
+        _ -> %% Extensions not present in versions 1 & 2
+	    {ValidationState0, UserState0}
+    end.
+%%--------------------------------------------------------------------
+-spec validate_policy_tree(#'OTPCertificate'{}, #path_validation_state{})->
+          #path_validation_state{} | no_return().
+%%
+%% Description: Check policy tree requirements after handling of certificate extensions
+%%--------------------------------------------------------------------
+validate_policy_tree(OtpCert,
+                     #path_validation_state{explicit_policy = ExplicitPolicyConstraint,
+                                            valid_policy_tree = Tree,
+                                            user_state = UserState0,
+                                            verify_fun = VerifyFun} =
+                         ValidationState) ->
+    case (ExplicitPolicyConstraint > 0) orelse not pubkey_policy_tree:is_empty(Tree) of
+        true ->
+            ValidationState;
+        false ->
+            UserState =
+                verify_fun(OtpCert, {bad_cert,
+                                     {policy_requirement_not_met,
+                                      {{explicit_policy, ExplicitPolicyConstraint},
+                                       {policy_set,
+                                        pubkey_policy_tree:constrained_policy_node_set(Tree)}}}},
+                           UserState0, VerifyFun),
+            ValidationState#path_validation_state{user_state = UserState}
+    end.
 
- %%--------------------------------------------------------------------
--spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term() | no_return().
+%%--------------------------------------------------------------------
+-spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term().
 %%
-%% Description: Check that the certificate validity period includes the 
+%% Description: Check that the certificate validity period includes the
 %% current time.
-%%--------------------------------------------------------------------	  
+%%--------------------------------------------------------------------
 validate_time(OtpCert, UserState, VerifyFun) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
-    {'Validity', NotBeforeStr, NotAfterStr} 
+    {'Validity', NotBeforeStr, NotAfterStr}
 	= TBSCert#'OTPTBSCertificate'.validity,
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
     NotBefore = time_str_2_gregorian_sec(notBefore, NotBeforeStr),
@@ -158,7 +166,7 @@ validate_time(OtpCert, UserState, VerifyFun) ->
 %%
 %% Description: Check that the certificate issuer name is the working_issuer_name
 %% in path_validation_state.
-%%--------------------------------------------------------------------	
+%%--------------------------------------------------------------------
 validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     case is_issuer(Issuer, TBSCert#'OTPTBSCertificate'.issuer) of
@@ -166,54 +174,36 @@ validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
 	    UserState;
 	_ ->
 	    verify_fun(OtpCert, {bad_cert, invalid_issuer}, UserState, VerifyFun)
-    end. 
-%%--------------------------------------------------------------------
--spec validate_signature(#'OTPCertificate'{}, DER::binary(),
-			 term(),term(), term(), fun()) -> term() | no_return().
-				
-%%
-%% Description: Check that the signature on the certificate can be verified using
-%% working_public_key_algorithm, the working_public_key, and
-%% the working_public_key_parameters in path_validation_state.
-%%--------------------------------------------------------------------	
-validate_signature(OtpCert, DerCert, Key, KeyParams,
-		   UserState, VerifyFun) ->
-    
-    case verify_signature(OtpCert, DerCert, Key, KeyParams) of
-	true ->
-	    UserState;
-	false ->
-	    verify_fun(OtpCert, {bad_cert, invalid_signature}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
 -spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
 		     term(), term(), fun())-> term() | no_return().
 %%
 %% Description: Validate Subject Alternative Name.
-%%--------------------------------------------------------------------	
+%%--------------------------------------------------------------------
 validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
     case is_self_signed(OtpCert) andalso (not Last) of
-	true -> 
+	true ->
 	    UserState;
 	false ->
-	    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
+	    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
 	    Subject = TBSCert#'OTPTBSCertificate'.subject,
-	    Extensions = 
+	    Extensions =
 		extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-	    AltSubject = 
+	    AltSubject =
 		select_extension(?'id-ce-subjectAltName', Extensions),
-	    
+
 	    EmailAddress = extract_email(Subject),
 	    Name = [{directoryName, Subject}|EmailAddress],
-	    
+
 	    AltNames = case AltSubject of
-			   undefined -> 
+			   undefined ->
 			       [];
-			   _ ->	
+			   _ ->
 			       AltSubject#'Extension'.extnValue
 		       end,
-	    
-	    case (is_permitted(Name, Permit) andalso 
+
+	    case (is_permitted(Name, Permit) andalso
 		  is_permitted(AltNames, Permit) andalso
 		  (not is_excluded(Name, Exclude)) andalso
 		  (not is_excluded(AltNames, Exclude))) of
@@ -226,113 +216,40 @@ validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
     end.
 
 %%--------------------------------------------------------------------
--spec validate_extensions(#'OTPCertificate'{}, #path_validation_state{},
-			  term(), fun())->
-				 {#path_validation_state{}, UserState :: term()}.
-%%
-%% Description: Check extensions included in basic path validation.
-%%--------------------------------------------------------------------	
-validate_extensions(OtpCert, ValidationState, UserState, VerifyFun) ->
-    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
-    case TBSCert#'OTPTBSCertificate'.version of
-	N when N >= 3 ->
-	    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
-	    validate_extensions(OtpCert, Extensions,
-				ValidationState, no_basic_constraint,
-				is_self_signed(OtpCert), UserState, VerifyFun);
-	_ -> %% Extensions not present in versions 1 & 2
-	    {ValidationState, UserState}
-    end.
-%%--------------------------------------------------------------------
--spec normalize_general_name({rdnSequence, term()}| binary()) -> {rdnSequence, term()}. 
-%%
-%% Description: Normalizes a general name so that it can be easily
-%%              compared to another general name. 
-%%--------------------------------------------------------------------	
-normalize_general_name({rdnSequence, Issuer}) ->    
-    NormIssuer = do_normalize_general_name(Issuer),
-    {rdnSequence, NormIssuer}.
+-spec validate_signature(#'OTPCertificate'{}, DER::binary(),
+			 term(),term(), term(), fun()) -> term() | no_return().
 
-%%--------------------------------------------------------------------
--spec is_self_signed(#'OTPCertificate'{}) -> boolean().
 %%
-%% Description: Checks if the certificate is self signed.
-%%--------------------------------------------------------------------	
-is_self_signed(#'OTPCertificate'{tbsCertificate=
-				 #'OTPTBSCertificate'{issuer = Issuer, 
-						      subject = Subject}}) ->
-    is_issuer(Issuer, Subject).
+%% Description: Check that the signature on the certificate can be verified using
+%% working_public_key_algorithm, the working_public_key, and
+%% the working_public_key_parameters in path_validation_state.
 %%--------------------------------------------------------------------
--spec is_issuer({rdnSequence, term()}, {rdnSequence, term()}) -> boolean().		       
-%%
-%% Description:  Checks if <Issuer> issued <Candidate>.
-%%--------------------------------------------------------------------	
-is_issuer({rdnSequence, _} = Issuer, {rdnSequence, _} = Candidate) ->
-    {rdnSequence, IssuerDirName} = normalize_general_name(Issuer),
-    {rdnSequence, CandidateDirName} = normalize_general_name(Candidate),
-    is_dir_name(IssuerDirName, CandidateDirName, true).
-%%--------------------------------------------------------------------
--spec issuer_id(#'OTPCertificate'{}, self | other) -> 
-		       {ok, {integer(), term()}}  | {error, issuer_not_found}.
-%%
-%% Description: Extracts the issuer id from a certificate if possible.
-%%--------------------------------------------------------------------	
-issuer_id(Otpcert, other) ->
-    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
-    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-    case select_extension(?'id-ce-authorityKeyIdentifier', Extensions) of
-	undefined ->
-	    {error, issuer_not_found};
-	AuthKeyExt ->
-	    cert_auth_key_id(AuthKeyExt#'Extension'.extnValue)
-    end;
-	
-issuer_id(Otpcert, self) ->
-    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate, 
-    Issuer = TBSCert#'OTPTBSCertificate'.issuer,
-    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
-    {ok, {SerialNr, normalize_general_name(Issuer)}}.  
+validate_signature(OtpCert, DerCert, Key, KeyParams,
+		   UserState, VerifyFun) ->
 
-
-%%--------------------------------------------------------------------
--spec subject_id(#'OTPCertificate'{}) -> 
-		       {integer(), term()}.
-%%
-%% Description: Extracts the subject and serial number from a certificate.
-%%--------------------------------------------------------------------
-subject_id(Otpcert) ->
-    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate, 
-    Subject = TBSCert#'OTPTBSCertificate'.subject,
-    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
-    {SerialNr, normalize_general_name(Subject)}.  
-
-
-distribution_points(Otpcert) ->
-    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
-    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-    case select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
-	undefined ->
-	    [];
-	#'Extension'{extnValue = Value} ->
-	    Value
+    case verify_signature(OtpCert, DerCert, Key, KeyParams) of
+	true ->
+	    UserState;
+	false ->
+	    verify_fun(OtpCert, {bad_cert, invalid_signature}, UserState, VerifyFun)
     end.
 
 %%--------------------------------------------------------------------
--spec is_fixed_dh_cert(#'OTPCertificate'{}) -> boolean().  
+-spec verify_data(DER::binary()) ->
+           {DigestType, PlainText, Signature}
+               when DigestType :: md5 | crypto:sha1() | crypto:sha2() | none,
+                    PlainText  :: binary(),
+                    Signature  :: binary().
 %%
-%% Description: Checks if the certificate can be be used
-%% for DH key agreement.
-%%--------------------------------------------------------------------	
-is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
-				   #'OTPTBSCertificate'{subjectPublicKeyInfo = 
-							SubjectPublicKeyInfo,
-							extensions = 
-							Extensions}}) ->
-    is_fixed_dh_cert(SubjectPublicKeyInfo, extensions_list(Extensions)). 
-
+%% Description: Extracts data from DerCert needed to call public_key:verify/4.
+%%--------------------------------------------------------------------
+verify_data(DerCert) ->
+    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert),
+    extract_verify_data(OtpCert, DerCert).
 
 %%--------------------------------------------------------------------
--spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
+-spec verify_fun(#'OTPCertificate'{}, {bad_cert, public_key:bad_cert_reason()} |
+                 {extension, #'Extension'{}}|
 		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
 %% Description: Gives the user application the opportunity handle path
@@ -360,6 +277,165 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 		    UserState
 	    end
     end.
+
+%%--------------------------------------------------------------------
+-spec prepare_for_next_cert(#'OTPCertificate'{}, #path_validation_state{}) ->
+				   #path_validation_state{} | no_return().
+%%
+%% Description: Update path_validation_state for next iteration.
+%%--------------------------------------------------------------------
+prepare_for_next_cert(OtpCert, #path_validation_state{policy_mapping_ext = Ext} =
+                          ValidationState0) when Ext =/= undefined ->
+    ValidationState1 = handle_policy_mappings(OtpCert, ValidationState0),
+    ValidationState =
+        ValidationState1#path_validation_state{policy_mapping_ext =
+                                                   undefined,
+                                               current_any_policy_qualifiers =
+                                                   undefined},
+    prepare_for_next_cert(OtpCert, ValidationState);
+prepare_for_next_cert(OtpCert, #path_validation_state{
+                                  working_public_key_algorithm = PrevAlgo,
+                                  working_public_key_parameters =
+                                      PrevParams,
+                                  cert_num = CertNum,
+                                  explicit_policy = ExplicitPolicyConstraint,
+                                  inhibit_policy_mapping = PolicyMappingConstraint,
+                                  inhibit_any_policy = AnyPolicyConstraint
+                                 } = ValidationState0) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Issuer =  TBSCert#'OTPTBSCertificate'.subject,
+
+    {Algorithm, PublicKey, PublicKeyParams0} =
+	public_key_info(TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+			ValidationState0),
+    PublicKeyParams =
+	case PublicKeyParams0 of
+	    'NULL' when Algorithm =:= PrevAlgo ->
+		PrevParams;
+	    asn1_NOVALUE when Algorithm =:= PrevAlgo ->
+		PrevParams;
+	    _ -> PublicKeyParams0
+	end,
+
+    IsSelfSigned = is_self_signed(OtpCert),
+    ValidationState1 =
+        ValidationState0#path_validation_state{
+          working_public_key_algorithm = Algorithm,
+          working_public_key = PublicKey,
+          working_public_key_parameters = PublicKeyParams,
+          working_issuer_name = Issuer,
+          cert_num = CertNum + 1,
+          policy_ext_present = false,
+          valid_policy_tree =
+              assert_valid_policy_tree(ValidationState0#path_validation_state.explicit_policy,
+                                       ValidationState0#path_validation_state.policy_ext_present,
+                                       ValidationState0#path_validation_state.valid_policy_tree),
+          current_any_policy_qualifiers = undefined,
+          policy_ext_any = undefined,
+
+          %% 6.1.4 h from RFC
+          %% Step 1 or 6.1.5 a (if last cert) from RFC
+          explicit_policy = maybe_decrement(ExplicitPolicyConstraint, IsSelfSigned),
+          % Step 2 from RFC
+          inhibit_policy_mapping = maybe_decrement(PolicyMappingConstraint, IsSelfSigned),
+          % Step 3 from RFC
+          inhibit_any_policy = maybe_decrement(AnyPolicyConstraint, IsSelfSigned)
+         },
+    ValidationState2 = handle_policy_constraints(ValidationState1),
+    ValidationState = handle_inhibit_anypolicy(ValidationState2),
+    handle_last_cert(OtpCert, ValidationState).
+
+%%====================================================================
+%% Utility functions
+%%====================================================================
+
+%%--------------------------------------------------------------------
+-spec normalize_general_name({rdnSequence, term()}| binary()) -> {rdnSequence, term()}.
+%%
+%% Description: Normalizes a general name so that it can be easily
+%%              compared to another general name.
+%%--------------------------------------------------------------------
+normalize_general_name({rdnSequence, Issuer}) ->
+    NormIssuer = do_normalize_general_name(Issuer),
+    {rdnSequence, NormIssuer}.
+
+%%--------------------------------------------------------------------
+-spec is_self_signed(#'OTPCertificate'{}) -> boolean().
+%%
+%% Description: Checks if the certificate is self signed.
+%%--------------------------------------------------------------------
+is_self_signed(#'OTPCertificate'{tbsCertificate=
+				 #'OTPTBSCertificate'{issuer = Issuer,
+						      subject = Subject}}) ->
+    is_issuer(Issuer, Subject).
+%%--------------------------------------------------------------------
+-spec is_issuer({rdnSequence, term()}, {rdnSequence, term()}) -> boolean().
+%%
+%% Description:  Checks if <Issuer> issued <Candidate>.
+%%--------------------------------------------------------------------
+is_issuer({rdnSequence, _} = Issuer, {rdnSequence, _} = Candidate) ->
+    {rdnSequence, IssuerDirName} = normalize_general_name(Issuer),
+    {rdnSequence, CandidateDirName} = normalize_general_name(Candidate),
+    is_dir_name(IssuerDirName, CandidateDirName, true).
+%%--------------------------------------------------------------------
+-spec issuer_id(#'OTPCertificate'{}, self | other) ->
+		       {ok, {integer(), term()}}  | {error, issuer_not_found}.
+%%
+%% Description: Extracts the issuer id from a certificate if possible.
+%%--------------------------------------------------------------------
+issuer_id(Otpcert, other) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    case select_extension(?'id-ce-authorityKeyIdentifier', Extensions) of
+	undefined ->
+	    {error, issuer_not_found};
+	AuthKeyExt ->
+	    cert_auth_key_id(AuthKeyExt#'Extension'.extnValue)
+    end;
+
+issuer_id(Otpcert, self) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Issuer = TBSCert#'OTPTBSCertificate'.issuer,
+    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
+    {ok, {SerialNr, normalize_general_name(Issuer)}}.
+
+
+%%--------------------------------------------------------------------
+-spec subject_id(#'OTPCertificate'{}) ->
+		       {integer(), term()}.
+%%
+%% Description: Extracts the subject and serial number from a certificate.
+%%--------------------------------------------------------------------
+subject_id(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Subject = TBSCert#'OTPTBSCertificate'.subject,
+    SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
+    {SerialNr, normalize_general_name(Subject)}.
+
+
+distribution_points(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    case select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
+	undefined ->
+	    [];
+	#'Extension'{extnValue = Value} ->
+	    Value
+    end.
+
+%%--------------------------------------------------------------------
+-spec is_fixed_dh_cert(#'OTPCertificate'{}) -> boolean().
+%%
+%% Description: Checks if the certificate can be be used
+%% for DH key agreement.
+%%--------------------------------------------------------------------
+is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
+				   #'OTPTBSCertificate'{subjectPublicKeyInfo =
+							SubjectPublicKeyInfo,
+							extensions =
+							Extensions}}) ->
+    is_fixed_dh_cert(SubjectPublicKeyInfo, extensions_list(Extensions)).
+
 %%--------------------------------------------------------------------
 -spec select_extension(Oid ::tuple(),[#'Extension'{}]) ->
 			      #'Extension'{} | undefined.
@@ -379,9 +455,12 @@ select_extension(Id, [_ | Extensions]) ->
     select_extension(Id, Extensions).
 
 %%--------------------------------------------------------------------
-%% TODO:
+-spec match_name(Type:: rfc822Name | directoryName | uniformResourceIdentifier |
+                 emailAddress | dNSName | x400Address | ipAdress,
+                 Name::term(), Names::[term()]) -> boolean().
 %%
-%% Description:
+%% Description: Does <Name> match any of name in Names according to
+%% the match rules for the Type.
 %%--------------------------------------------------------------------
 match_name(rfc822Name, Name, [PermittedName | Rest]) ->
     match_name(fun is_valid_host_or_domain/2, Name, PermittedName, Rest);
@@ -443,25 +522,19 @@ match_name(ipAdress, IP, [PermittedIP | Rest]) ->
 	  end,
     match_name(Fun, IP, PermittedIP, Rest).
 
-match_name(Fun, Name, PermittedName, []) ->
-    Fun(Name, PermittedName);
-match_name(Fun, Name, PermittedName, [Head | Tail]) ->
-    case Fun(Name, PermittedName) of
-	true ->
-	    true;
-	false ->
-	    match_name(Fun, Name, Head, Tail)
-    end.
+%%====================================================================
+%% Generate test data
+%%====================================================================
 
-%%%
+%%--------------------------------------------------------------------
 -spec gen_test_certs(#{server_chain:= public_key:chain_opts(),
                        client_chain:= public_key:chain_opts()} |
                      public_key:chain_opts()) ->
                             public_key:test_config() |
                             [public_key:conf_opt()].
-%%
-%% Generates server and and client configuration for testing
+%% Description: Generates server and and client configuration for testing
 %% purposes. All certificate options have default values
+%%--------------------------------------------------------------------
 gen_test_certs(
   #{client_chain :=
         #{root := ClientRoot,
@@ -521,9 +594,17 @@ gen_test_certs(
     DERCAs = ca_config(RootCert, CAsKeys),
     [{cert, DERCert}, {key, DERKey}, {cacerts, DERCAs}].
 
-
-x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                           parameters = #'RSASSA-PSS-params'{saltLength = SaltLen, hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
+%%%%--------------------------------------------------------------------
+-spec x509_pkix_sign_types(#'SignatureAlgorithm'{}) -> {Hash::atom(), Sign::atom(),
+                                                        Options::list()}.
+%%
+%% Description: Extract signature algorithm options.
+%%%%--------------------------------------------------------------------
+x509_pkix_sign_types(
+  #'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                        parameters = #'RSASSA-PSS-params'{
+                                        saltLength = SaltLen,
+                                        hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
     Hash = public_key:pkix_hash_type(Alg),
     {Hash, rsa_pss_pss, [{rsa_padding, rsa_pkcs1_pss_padding},
                          {rsa_pss_saltlen, SaltLen},
@@ -532,17 +613,18 @@ x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
     {Hash, Sign} = public_key:pkix_sign_types(Alg),
     {Hash, Sign, []}.
 
-%%%
+%%%%--------------------------------------------------------------------
 -spec root_cert(string(), [public_key:cert_opt()]) -> public_key:test_root_cert().
 %%
-%% Generate a self-signed root cert
+%% Description: Generate a self-signed root cert
+%%%%--------------------------------------------------------------------
 root_cert(Name, Opts) ->
     PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
     TBS = cert_template(),
     Issuer = subject("root", Name),
     SignatureId =  sign_algorithm(PrivKey, Opts),
     SPI = public_key(PrivKey, SignatureId),
-    
+
     OTPTBS =
         TBS#'OTPTBSCertificate'{
           signature = SignatureId,
@@ -558,82 +640,621 @@ root_cert(Name, Opts) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-do_normalize_general_name(Issuer) ->
-    Normalize = fun([{Description, Type, {printableString, Value}}]) ->
-            NewValue = string:casefold(strip_spaces(Value, false)),
-            [{Description, Type, {printableString, NewValue}}];
-           (Atter)  ->
-            Atter
+
+%% No extensions present
+validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
+		    UserState, _) ->
+    {ValidationState, UserState};
+validate_extensions(OtpCert, [], ValidationState =
+			#path_validation_state{max_path_length = Len,
+					       last_cert = Last},
+		    no_basic_constraint, SelfSigned, UserState0, VerifyFun) ->
+    case Last of
+	true when SelfSigned ->
+	    {ValidationState, UserState0};
+	true  ->
+	    {ValidationState#path_validation_state{max_path_length = Len - 1},
+	     UserState0};
+	false ->
+	    %% basic_constraint must appear in certs used for digital sign
+	    %% see 4.2.1.10 in rfc 3280
+	    case is_digitally_sign_cert(OtpCert) of
+		true ->
+		    missing_basic_constraints(OtpCert, SelfSigned,
+					      ValidationState, VerifyFun,
+					      UserState0, Len);
+		false -> %% Example CRL signer only
+		    {ValidationState, UserState0}
+	    end
+    end;
+
+validate_extensions(OtpCert,
+		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
+				  extnValue =
+				      #'BasicConstraints'{cA = true,
+							  pathLenConstraint = N}} |
+		     Rest],
+		    ValidationState =
+			#path_validation_state{max_path_length = Len}, _,
+		    SelfSigned, UserState, VerifyFun) ->
+    Length = if SelfSigned -> erlang:min(N, Len);
+		true -> erlang:min(N, Len-1)
+	     end,
+    validate_extensions(OtpCert, Rest,
+			ValidationState#path_validation_state{max_path_length =
+								  Length},
+			basic_constraint, SelfSigned,
+			UserState, VerifyFun);
+%% The pathLenConstraint field is meaningful only if cA is set to
+%% TRUE.
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
+					   extnValue =
+					       #'BasicConstraints'{cA = false}} |
+			      Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
+					   extnValue = KeyUse
+					  } | Rest],
+		    #path_validation_state{last_cert=Last} = ValidationState,
+		    ExistBasicCon, SelfSigned,
+		    UserState0, VerifyFun) ->
+    case Last orelse is_valid_key_usage(KeyUse, keyCertSign) of
+	true ->
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState0, VerifyFun);
+	false ->
+	    UserState = verify_fun(OtpCert, {bad_cert, invalid_key_usage},
+				   UserState0, VerifyFun),
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState, VerifyFun)
+    end;
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
+					   extnValue = Names,
+					   critical = true} = Ext | Rest],
+		    ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun)  ->
+    case validate_subject_alt_names(Names) of
+	true  ->
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState0, VerifyFun);
+	false ->
+	    UserState = verify_fun(OtpCert, {extension, Ext},
+				   UserState0, VerifyFun),
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState, VerifyFun)
+    end;
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
+				  extnValue = NameConst} | Rest],
+		    ValidationState,
+		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
+    Permitted = NameConst#'NameConstraints'.permittedSubtrees,
+    Excluded = NameConst#'NameConstraints'.excludedSubtrees,
+
+    NewValidationState = add_name_constraints(Permitted, Excluded,
+					      ValidationState),
+
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
+					   extnValue = Info}
+			      | Rest],
+                    ValidationState,
+		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
+    Tree = process_policy_tree(Info, SelfSigned, ValidationState),
+    validate_extensions(OtpCert, Rest,
+			ValidationState#path_validation_state{
+                          policy_ext_present = true,
+                          current_any_policy_qualifiers =
+                              current_any_policy_qualifiers(Info),
+			  valid_policy_tree = Tree},
+			ExistBasicCon, SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints'} = Ext
+			      | Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    NewValidationState = ValidationState#path_validation_state{policy_constraint_ext = Ext},
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyMappings'} = Ext
+                             | Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    NewValidationState = ValidationState#path_validation_state{policy_mapping_ext = Ext},
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-inhibitAnyPolicy'} = Ext
+			      | Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    NewValidationState = ValidationState#path_validation_state{policy_inhibitany_ext = Ext},
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                           critical = true,
+                                           extnValue = KeyUse} = Extension | Rest],
+		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun) ->
+    UserState =
+        case ext_keyusage_includes_any(KeyUse) of
+            true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
+                verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
+            false ->
+                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
         end,
-    lists:map(Normalize, Issuer).
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+			UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
+		    ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun) ->
+    UserState = verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun),
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+			UserState, VerifyFun).
 
-%% See rfc3280 4.1.2.6 Subject: regarding emails.
-extract_email({rdnSequence, List}) ->
-    extract_email2(List).
-extract_email2([[#'AttributeTypeAndValue'{type=?'id-emailAddress', 
-					  value=Mail}]|_]) ->
-    [{rfc822Name, Mail}];
-extract_email2([_|Rest]) ->
-    extract_email2(Rest);
-extract_email2([]) -> [].
+handle_last_cert(OtpCert, #path_validation_state{last_cert = true,
+                                                 user_initial_policy_set = PolicySet,
+                                                 valid_policy_tree = Tree} = ValidationState0) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions =
+        extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    %% 6.1.5 b
+    ValidationState  =
+        case select_extension(?'id-ce-policyConstraints', Extensions) of
+            undefined ->
+                ValidationState0;
+            #'Extension'{extnValue = #'PolicyConstraints'{requireExplicitPolicy = 0}} ->
+                ValidationState0#path_validation_state{explicit_policy = 0};
+            _  ->
+                ValidationState0
+    end,
+    ValidTree = policy_tree_intersection(PolicySet, Tree),
+    validate_policy_tree(OtpCert,
+                         ValidationState#path_validation_state{valid_policy_tree = ValidTree});
+handle_last_cert(_, ValidationState) ->
+    ValidationState.
 
-extensions_list(asn1_NOVALUE) ->
-    [];
-extensions_list(Extensions) ->
-    Extensions.
 
-extract_verify_data(OtpCert, DerCert) ->
-    Signature = OtpCert#'OTPCertificate'.signature,
-    SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
-    PlainText = encoded_tbs_cert(DerCert),
-    {DigestType,_,_} = x509_pkix_sign_types(SigAlg),
-    {DigestType, PlainText, Signature}.
+%%====================================================================
+%% Policy handling
+%%====================================================================
+%% Start initialization  RFC 5280 Section 6.1.2 ----------------------
 
-verify_signature(OtpCert, DerCert, Key, KeyParams) ->
-    {DigestType, PlainText, Signature} = extract_verify_data(OtpCert, DerCert),
-    case Key of
-	#'RSAPublicKey'{} ->
-            case KeyParams of
-                #'RSASSA-PSS-params'{} ->
-                    public_key:verify(PlainText, DigestType, Signature, Key, verify_options(KeyParams));
-                'NULL' ->
-                    public_key:verify(PlainText, DigestType, Signature, Key)
-            end;
-	_ ->
-	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
+%%  6.1.2 d, e, f: If <indicator> is set, then the initial value
+%%  is 0, otherwise the initial value is n+1. (N = max path length)
+policy_indicator(_, true) ->
+    0;
+policy_indicator(N, false) ->
+   N + 1.
+
+policy_set(Opts, Default) ->
+    case proplists:get_value(policy_set, Opts, undefined) of
+        undefined ->
+            Default;
+        Set ->
+            [oidify(OidStr) || OidStr <- Set]
     end.
 
-encoded_tbs_cert(Cert) ->
-    {ok, PKIXCert} = 
-	'OTP-PUB-KEY':decode_TBSCert_exclusive(Cert),
-    {'Certificate',
-     {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
-    EncodedTBSCert.
+oidify(Oid) when is_tuple(Oid) ->
+    Oid;
+oidify(Oid) when  is_list(Oid) ->
+    Tokens = string:tokens(Oid, "$."),
+    OidList = [list_to_integer(StrInt) || StrInt <- Tokens],
+    list_to_tuple(OidList).
 
-public_key_info(PublicKeyInfo, 
-		#path_validation_state{working_public_key_algorithm =
-				       WorkingAlgorithm,
-				       working_public_key_parameters =
-				       WorkingParams}) ->
-    PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
-    AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
+%% End initialization ----------------------------------------------------------
+
+%% Start Basic Policy Processing RFC 5280 Section 6.1.3 -----------------------
+
+%% 6.1.3 f
+assert_valid_policy_tree(0, PresentPolicyExtension, Tree) ->
+    assert_valid_policy_tree(PresentPolicyExtension, Tree);
+assert_valid_policy_tree(_, _, Tree) ->
+    Tree.
+
+assert_valid_policy_tree(undefined, Tree) ->
+    Tree; %% Initial tree, happens when called in init_validation_state/3
+assert_valid_policy_tree(true, Tree) ->
+    Tree; %% Policy extension present in step n
+assert_valid_policy_tree(false, _Tree) -> % 6.1.3 e
+    %% Policy extension missing in step n, tree becomes empty
+    pubkey_policy_tree:empty().
+
+%% 6.1.3 d: If the certificate policies extension is present in the
+%% certificate and the valid_policy_tree is not NULL, process the
+%% policy information by performing the following steps in order:
+process_policy_tree(PolicyInformation, SelfSigned,
+                    #path_validation_state{valid_policy_tree = Tree0} =
+                        ValidationState) ->  
+    case pubkey_policy_tree:is_empty(Tree0) of
+        true ->
+            Tree0;
+        false ->
+            %% Step 1 & 2
+            Tree = add_policy_children(PolicyInformation,
+                                       SelfSigned, ValidationState),
+            %% Step 3: If there is a node in the valid_policy_tree of depth i-1 or
+            %% less without any child nodes, delete that node.  Repeat this step
+            %% until there are no nodes of depth i-1 or less without children.
+            pubkey_policy_tree:prune_tree(Tree) 
+    end.
+
+%% 6.1.3 d
+add_policy_children(PolicyInfoList0, SelfSigned,
+                    #path_validation_state{valid_policy_tree = Tree0,
+                                           inhibit_any_policy = AnyPolicyConstraint,
+                                           cert_num = CertNum,
+                                           max_path_length = PathLen
+                                          }) ->
+    {AnyExt, PolicyInfoList} =
+        case lists:keytake(?anyPolicy,
+                           #'PolicyInformation'.policyIdentifier, PolicyInfoList0) of
+            {value, AnyExt0, PolicyInfoList1} ->
+                {AnyExt0, PolicyInfoList1};
+            false ->
+                {undefined, PolicyInfoList0}
+        end,
+    %% Step 1
+    %% i
+    LeafFun =
+        fun(#{expected_policy_set := ExpPolicySet}) ->
+                policy_children(ExpPolicySet, PolicyInfoList)
+        end,
+    Tree1 = pubkey_policy_tree:add_leaves(Tree0, LeafFun),
     
-    PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
-    Algorithm = AlgInfo#'PublicKeyAlgorithm'.algorithm, 
-    
-    NewPublicKeyParams =
-	case PublicKeyParams of
-	    {null, 'NULL'} when WorkingAlgorithm == Algorithm ->
-		WorkingParams;
-            asn1_NOVALUE when Algorithm == ?'id-Ed25519';
-                              Algorithm == ?'id-Ed448' ->
-                {namedCurve, Algorithm};
-            {params, Params} ->
-		Params;
-            Params ->
-		Params
-	end,
-    {Algorithm, PublicKey, NewPublicKeyParams}.
+    %% posibly ii
+    AllLeaves = pubkey_policy_tree:all_leaves(Tree1),
+    Siblings = fun(#{valid_policy := ?anyPolicy}) ->
+                       any_policy_children(AllLeaves, PolicyInfoList);
+                  (_) -> []
+               end,
+    Tree = pubkey_policy_tree:add_leaf_siblings(Tree1, Siblings),
+    %% Step 2
+    handle_any_ext(Tree, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
+
+%% 6.1.3 - d 1 i
+%% Step 1: For each policy P not equal to anyPolicy in the certificate
+%%  policies extension, let P-OID denote the OID for policy P and P-Q
+%%  denote the qualifier set for policy P.  Perform the following
+%%  steps in order:
+
+%%   (i) For each node of depth i-1 in the valid_policy_tree where
+%%   P-OID is in the expected_policy_set, create a child node as
+%%   follows: set the valid_policy to P-OID, set the qualifier_set to
+%%   P-Q, and set the expected_policy_set to {P-OID}.
+policy_children(ExpPolicySet, PolicyInfoList) ->
+    lists:foldl(fun(#'PolicyInformation'{
+                       policyIdentifier = Policy,
+                        policyQualifiers = Qualifiers
+                      }, Acc0
+                   ) ->
+                        case lists:member(Policy, ExpPolicySet) of
+                            true ->
+                                [pubkey_policy_tree:policy_node(Policy, Qualifiers, [Policy]) | Acc0];
+                            false  ->
+                                Acc0
+                        end
+                end, [], PolicyInfoList).
+
+%% 6.1.3 - d 1 ii
+%% If there was no match in step (i) and the valid_policy_tree
+%% includes a node of depth i-1 with the valid_policy anyPolicy,
+%% generate a child node with the following values: set the
+%% valid_policy to P-OID, set the qualifier_set to P-Q, and set the
+%% expected_policy_set to {P-OID}.
+any_policy_children([], PolicyInfoList) ->
+    lists:foldl(fun(#'PolicyInformation'{
+                       policyIdentifier = Policy,
+                       policyQualifiers = Qualifiers
+                      }, Acc0
+                   ) ->
+                        Node = pubkey_policy_tree:policy_node(Policy, Qualifiers, [Policy]),
+                        [Node | Acc0]
+                end, [], PolicyInfoList);
+any_policy_children(_, _) ->
+    no_sibling.
+
+%% 6.1.3 - 2 d 
+%%   For each node in the valid_policy_tree of depth i-1, for each
+%%   value in the expected_policy_set (including anyPolicy) that does
+%%   not appear in a child node, create a child node with the
+%%   following values: set the valid_policy to the value from the
+%%   expected_policy_set in the parent node, set the qualifier_set to
+%%   AP-Q, and set the expected_policy_set to the value in the
+%%   valid_policy from this node.
+handle_any_ext(Tree, undefined, _, _, _,_) ->
+    Tree;
+handle_any_ext(Tree, #'PolicyInformation'{
+                           policyIdentifier = ?anyPolicy,
+                           policyQualifiers = Qualifiers}, AnyPolicyConstraint,
+               SelfSigned, CertNum, PathLen) ->
+    case AnyPolicyConstraint > 0 orelse
+        ((CertNum < PathLen) andalso SelfSigned) of
+        true ->
+            AllLeaves = pubkey_policy_tree:all_leaves(Tree),
+            Siblings = fun(Node) ->
+                               any_ext_policy_children(Node, Qualifiers, AllLeaves)
+                       end,
+            pubkey_policy_tree:add_leaf_siblings(Tree, Siblings);
+        false ->
+            Tree
+    end.
+
+any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllLeaves) ->
+    [pubkey_policy_tree:policy_node(Policy, Qualifiers, [Policy])
+     || Policy <- ExpPolicySet, not pubkey_policy_tree:in_set(Policy, AllLeaves)
+    ].
+
+%% End Basic Policy Processing -------------------------------------------------
+
+%% Start Prepare Next Cert Policy Handling  RFC 5280 Section 6.1.4 -------------
+
+%% 6.1.4. b start:
+handle_policy_mappings(OtpCert,
+                       #path_validation_state{valid_policy_tree = Tree0,
+                                              policy_mapping_ext =
+                                                  #'Extension'{extnID = ?'id-ce-policyMappings',
+                                                               extnValue = PolicyMappings}}
+                       = ValidationState) ->
+    case handle_policy_mappings(PolicyMappings, OtpCert, Tree0, ValidationState) of
+        {tree, Tree} ->
+            ValidationState#path_validation_state{valid_policy_tree = Tree};
+        {user_state, UState} ->
+            ValidationState#path_validation_state{user_state = UState}
+    end.
+
+handle_policy_mappings([], _, Tree, _) ->
+    {tree, Tree};
+handle_policy_mappings([Mappings | Rest], OtpCert, Tree0, ValidationState) ->
+    case handle_policy_mapping(Mappings, OtpCert, Tree0, ValidationState) of
+        {tree, Tree} ->
+            handle_policy_mappings(Rest, OtpCert, Tree, ValidationState);
+        Other ->
+            Other
+    end.
+
+%% 6.1.4. a: If a policy mappings extension is present, verify that the
+%% special value anyPolicy does not appear as an issuerDomainPolicy or
+%% a subjectDomainPolicy.
+handle_policy_mapping(#'PolicyMappings_SEQOF'{
+                         issuerDomainPolicy =
+                             IssuerPolicy,
+                         subjectDomainPolicy =
+                             SubjectPolicy} = Ext,
+                      OtpCert, Tree0,
+                      #path_validation_state{inhibit_policy_mapping =
+                                                 PolicyMappingConstraint,
+                                             current_any_policy_qualifiers =
+                                                 AnyQualifiers,
+                                             verify_fun = VerifyFun,
+                                             user_state = UserState}
+                     ) ->
+    case not (?anyPolicy == IssuerPolicy) andalso
+        not (?anyPolicy == SubjectPolicy) of
+        true ->
+            Tree = handle_policy_mapping_ext(Ext, Tree0,
+                                             PolicyMappingConstraint, AnyQualifiers),
+            {tree, Tree};
+        false ->
+            UserState = verify_fun(OtpCert, {bad_cert, {invalid_policy_mapping, Ext}},
+                                   UserState, VerifyFun),
+            {user_state, UserState}
+    end.
+
+%% 6.1.4. b continue:
+handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
+                         issuerDomainPolicy =
+                             IssuerPolicy},
+                         Tree0, 0, _) -> %% 6.1.4. b 2:
+    %% (2) If the policy_mapping variable is equal to 0:
+
+    %% (i) delete each node of depth i in the valid_policy_tree where
+    %% ID-P is the valid_policy.
+    %%
+    %% (ii) If there is a node in the valid_policy_tree of depth i-1
+    %% or less without any child nodes, delete that node.  Repeat this
+    %% step until there are no nodes of depth i-1 or less without
+    %% children.
+
+    Tree = pubkey_policy_tree:prune_leaves(Tree0, IssuerPolicy),
+    pubkey_policy_tree:prune_tree(Tree);
+handle_policy_mapping_ext(#'PolicyMappings_SEQOF'{
+                             issuerDomainPolicy = IssuerPolicy,
+                             subjectDomainPolicy = SubjectPolicy},
+                          Tree, N, AnyQualifiers) when N > 0 -> %% 6.1.4. b 1:
+   
+    %% (1) If the policy_mapping variable is greater than 0, for each
+    %% node in the valid_policy_tree of depth i where ID-P is the
+    %% valid_policy, set expected_policy_set to the set of
+    %% subjectDomainPolicy values that are specified as equivalent to
+    %% ID-P by the policy mappings extension.
+    MapPolicy =
+        fun(#{valid_policy := ValidPolicy, expected_policy_set := Set} = Node)
+              when ValidPolicy == IssuerPolicy ->
+                case Set of %% Initial policy should be mapped over, but can be mapped to itself
+                    [ValidPolicy] when ValidPolicy =/= SubjectPolicy ->
+                        Node#{expected_policy_set => [SubjectPolicy]};
+                    _ ->
+                        %% Avoid duplicating self mapping
+                        case lists:member(SubjectPolicy, Set) of
+                            true ->
+                                Node;
+                            false ->
+                                Node#{expected_policy_set => Set ++ [SubjectPolicy]}
+                        end
+                end;
+           (Node) ->
+                Node
+        end,
+
+    %% If no node of depth i in the valid_policy_tree has a
+    %% valid_policy of ID-P but there is a node of depth i with a
+    %% valid_policy of anyPolicy, then generate a child node of the
+    %% node of depth i-1 that has a valid_policy of anyPolicy as
+    %% follows:
+
+    %% (i) set the valid_policy to ID-P;
+
+    %% (ii) set the qualifier_set to the qualifier set of the policy
+    %% anyPolicy in the certificate policies extension of certificate
+    %% i; and
+
+    %% (iii) set the expected_policy_set to the set of
+    %% subjectDomainPolicy values that are specified as equivalent to
+    %% ID-P by the policy mappings extension.    
+    AnySiblings = fun(#{valid_policy := ?anyPolicy}) ->
+                          [pubkey_policy_tree:policy_node(IssuerPolicy,
+                                                          AnyQualifiers,
+                                                          [SubjectPolicy])];
+                     (_) ->
+                         no_sibling
+                  end,
+
+    case pubkey_policy_tree:map_leaves(Tree, MapPolicy) of
+        Tree -> %% If no policy was mapped!
+            pubkey_policy_tree:add_leaf_siblings(Tree, AnySiblings);
+        NewTree ->
+            NewTree
+    end.
+
+%% 6.1.4 i
+handle_policy_constraints(#path_validation_state{
+                             policy_constraint_ext =
+                                 #'Extension'{extnID = ?'id-ce-policyConstraints',
+                                              extnValue =
+                                                  #'PolicyConstraints'{requireExplicitPolicy =
+                                                                           ExplicitPolicy,
+                                                                       inhibitPolicyMapping =
+                                                                           InhibitMapPolicy}},
+                             explicit_policy = CurrentExplicitPolicyConstraint,
+                             inhibit_policy_mapping = CurrentPolicyMappingConstraint} =
+                              ValidationState) ->
+    ExplicitPolicyConstraint =
+        policy_constraint(CurrentExplicitPolicyConstraint, ExplicitPolicy), % Step 1
+    PolicyMappingConstraint =
+        policy_constraint(CurrentPolicyMappingConstraint, InhibitMapPolicy), % Step 2
+    ValidationState#path_validation_state{explicit_policy = ExplicitPolicyConstraint,
+                                          inhibit_policy_mapping = PolicyMappingConstraint,
+                                          policy_constraint_ext = undefined};
+handle_policy_constraints(ValidationState) ->
+    ValidationState.
+
+%% 6.4.1 j
+handle_inhibit_anypolicy(#path_validation_state{policy_inhibitany_ext =
+                                                    #'Extension'{extnID = ?'id-ce-inhibitAnyPolicy',
+                                                                 extnValue = InhibitAnyPolicy
+                                                                },
+                                                inhibit_any_policy = CurrentAnyPolicy} =
+                             ValidationState) ->
+    AnyPolicyConstraint = policy_constraint(CurrentAnyPolicy, InhibitAnyPolicy),
+    ValidationState#path_validation_state{inhibit_any_policy = AnyPolicyConstraint,
+                                          policy_inhibitany_ext = undefined};
+handle_inhibit_anypolicy(ValidationState) ->
+    ValidationState.
+
+policy_constraint(Current, asn1_NOVALUE) ->
+    Current;
+policy_constraint(Current, New) ->
+    erlang:min(Current, New).
+
+current_any_policy_qualifiers(Info) ->
+    case lists:keyfind(?anyPolicy, #'PolicyInformation'.policyIdentifier, Info) of
+        #'PolicyInformation'{policyQualifiers = AnyQualifiers} ->
+            AnyQualifiers;
+        _ ->
+            []
+    end.
+
+maybe_decrement(0, _) ->
+    0;
+maybe_decrement(N, false) ->
+    N-1;
+maybe_decrement(N, true) ->
+    N.
+
+%% End Prepare Next Cert Policy Handling ---------------------------------------
+
+%% Start Wrap Up Policy Handling RFC 5280 Section 6.1.5 %% ---------------------
+
+%% Step G from RFC
+
+policy_tree_intersection([?anyPolicy], Tree) -> % (ii) from RFC
+    Tree;
+policy_tree_intersection(UserPolicySet, Tree0) ->
+    case pubkey_policy_tree:is_empty(Tree0) of
+        true ->  % (i) from RFC
+            Tree0;
+        false -> % (iii) from RFC
+            %% Step 1 from RFC
+            ValidPolicyNodeSet = pubkey_policy_tree:valid_policy_node_set(Tree0),
+ 
+            %% Step 2 from RFC
+            InvalidNodes = apply_user_constraints(ValidPolicyNodeSet, UserPolicySet),
+            Tree1 = pubkey_policy_tree:prune_invalid_nodes(Tree0, InvalidNodes),
+
+            %% Step 3 from RFC
+            Tree = handle_any_policy_leaves(Tree1, ValidPolicyNodeSet, UserPolicySet),
+
+            %% Step 4 from RFC
+            pubkey_policy_tree:prune_tree(Tree)
+    end.
+
+apply_user_constraints(_, [?anyPolicy]) ->
+    [];
+apply_user_constraints(ValidPolicyNodeSet, UserPolicySet) ->
+    apply_user_constraints(ValidPolicyNodeSet, UserPolicySet, []).
+
+apply_user_constraints([], _, Acc) ->
+    Acc;
+apply_user_constraints([#{valid_policy := ?anyPolicy} | Rest],
+               UserPolicySet, Acc) ->
+    apply_user_constraints(Rest, UserPolicySet, Acc);
+apply_user_constraints([#{valid_policy := Policy} = Node | Rest],
+                UserPolicySet, Acc) ->
+    case lists:member(Policy, UserPolicySet) of
+        true ->
+            apply_user_constraints(Rest, UserPolicySet, Acc);
+        false ->
+            apply_user_constraints(Rest, UserPolicySet, [Node | Acc])
+    end.
+
+handle_any_policy_leaves(Tree, _, [?anyPolicy]) ->
+    Tree;
+handle_any_policy_leaves(Tree0, ValidPolicyNodeSet, UserPolicySet) ->
+    case pubkey_policy_tree:any_leaves(Tree0) of
+        [] ->
+            Tree0;
+        AnyLeaves ->
+            Tree = add_policy_nodes(AnyLeaves, Tree0, ValidPolicyNodeSet, UserPolicySet),
+            pubkey_policy_tree:prune_leaves(Tree, ?anyPolicy)
+    end.
+
+add_policy_nodes([], Tree, _, _) ->
+    Tree;
+add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0,
+                 ValidPolicyNodeSet, UserPolicySet) ->
+    PolicySet = [UPolicy ||  UPolicy <- UserPolicySet,
+                             not pubkey_policy_tree:in_set(UPolicy, ValidPolicyNodeSet)],
+    Children =
+        [pubkey_policy_tree:policy_node(Policy, Qualifiers, [Policy]) || Policy <- PolicySet],
+    Siblings = fun(#{valid_policy := ?anyPolicy, qualifier_set := QSet}) when QSet == Qualifiers->
+                       Children;
+                  (_) -> []
+               end,
+    add_policy_nodes(Rest, pubkey_policy_tree:add_leaf_siblings(Tree0, Siblings),
+                     ValidPolicyNodeSet, UserPolicySet).
+
+%% End Wrap Up Policy Handling -------------------------------------------------
+
+%%====================================================================
+%% Date handling
+%%====================================================================
+
 
 %% time_str_2_gregorian_sec/2 is a wrapper (decorator pattern) over
 %% time_str_2_gregorian_sec/1. the decorator deals with notBefore and notAfter
@@ -703,6 +1324,37 @@ mod(A, B) when A > 0 -> A rem B;
 mod(A, B) when A < 0 -> mod(A+B, B);
 mod(0, _) -> 0.
 
+%%====================================================================
+%% Name handling
+%%====================================================================
+match_name(Fun, Name, PermittedName, []) ->
+    Fun(Name, PermittedName);
+match_name(Fun, Name, PermittedName, [Head | Tail]) ->
+    case Fun(Name, PermittedName) of
+	true ->
+	    true;
+	false ->
+	    match_name(Fun, Name, Head, Tail)
+    end.
+
+do_normalize_general_name(Issuer) ->
+    Normalize = fun([{Description, Type, {printableString, Value}}]) ->
+			NewValue = string:casefold(strip_spaces(Value, false)),
+			[{Description, Type, {printableString, NewValue}}];
+		   (Atter)  ->
+			Atter
+		end,
+    lists:map(Normalize, Issuer).
+
+%% See rfc3280 4.1.2.6 Subject: regarding emails.
+extract_email({rdnSequence, List}) ->
+    extract_email2(List).
+extract_email2([[#'AttributeTypeAndValue'{type=?'id-emailAddress',
+					  value=Mail}]|_]) ->
+    [{rfc822Name, Mail}];
+extract_email2([_|Rest]) ->
+    extract_email2(Rest);
+extract_email2([]) -> [].
 
 is_dir_name([], [], _Exact) ->    true;
 is_dir_name([H|R1],[H|R2], Exact) -> is_dir_name(R1,R2, Exact);
@@ -742,20 +1394,6 @@ is_dir_name2(Str1, Str2)
 is_dir_name2(_, _) ->
     false.
 
-cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer 
-					   = asn1_NOVALUE}) ->
-    {error, issuer_not_found};
-cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer = 
-					   AuthCertIssuer,
-					   authorityCertSerialNumber = 
-					   SerialNr}) ->
-    {ok, {SerialNr, decode_general_name(AuthCertIssuer)}}.
-
-decode_general_name([{directoryName, Issuer}]) ->
-    normalize_general_name(Issuer);
-decode_general_name([{_, Issuer}]) ->
-    Issuer.
-
 strip_spaces(String0, KeepDeep) ->
     Trimmed = string:trim(String0),
     strip_many_spaces(string:split(Trimmed, "  ", all), KeepDeep).
@@ -770,184 +1408,20 @@ strip_many_spaces(Strings, KeepDeep) ->
         false -> unicode:characters_to_list(DeepList)
     end.
 
-%% No extensions present
-validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
+decode_general_name([{directoryName, Issuer}]) ->
+    normalize_general_name(Issuer);
+decode_general_name([{_, Issuer}]) ->
+    Issuer.
 
-validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
-		    UserState, _) ->
-    {ValidationState, UserState};
-validate_extensions(OtpCert, [], ValidationState =
-			#path_validation_state{max_path_length = Len,
-					       last_cert = Last},
-		    no_basic_constraint, SelfSigned, UserState0, VerifyFun) ->
-    case Last of
-	true when SelfSigned ->
-	    {ValidationState, UserState0};
-	true  ->
-	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState0};
-	false ->
-	    %% basic_constraint must appear in certs used for digital sign
-	    %% see 4.2.1.10 in rfc 3280
-	    case is_digitally_sign_cert(OtpCert) of
-		true ->
-		    missing_basic_constraints(OtpCert, SelfSigned,
-					      ValidationState, VerifyFun,
-					      UserState0, Len);
-		false -> %% Example CRL signer only
-		    {ValidationState, UserState0}
-	    end
-    end;
+cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer
+					   = asn1_NOVALUE}) ->
+    {error, issuer_not_found};
+cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer =
+					   AuthCertIssuer,
+					   authorityCertSerialNumber =
+					   SerialNr}) ->
+    {ok, {SerialNr, decode_general_name(AuthCertIssuer)}}.
 
-validate_extensions(OtpCert,
-		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
-				  extnValue = 
-				      #'BasicConstraints'{cA = true,
-							  pathLenConstraint = N}} |
-		     Rest],
-		    ValidationState =
-			#path_validation_state{max_path_length = Len}, _,
-		    SelfSigned, UserState, VerifyFun) ->
-    Length = if SelfSigned -> erlang:min(N, Len);
-		true -> erlang:min(N, Len-1)
-	     end,
-    validate_extensions(OtpCert, Rest,
-			ValidationState#path_validation_state{max_path_length =
-								  Length},
-			basic_constraint, SelfSigned,
-			UserState, VerifyFun);
-%% The pathLenConstraint field is meaningful only if cA is set to
-%% TRUE.
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
-					   extnValue =
-					       #'BasicConstraints'{cA = false}} |
-			      Rest], ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
-					   extnValue = KeyUse
-					  } | Rest],
-		    #path_validation_state{last_cert=Last} = ValidationState,
-		    ExistBasicCon, SelfSigned,
-		    UserState0, VerifyFun) ->
-    case Last orelse is_valid_key_usage(KeyUse, keyCertSign) of
-	true ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState0, VerifyFun);
-	false ->
-	    UserState = verify_fun(OtpCert, {bad_cert, invalid_key_usage},
-				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState, VerifyFun)
-    end;
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
-					   extnValue = Names,
-					   critical = true} = Ext | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun)  ->
-    case validate_subject_alt_names(Names) of
-	true  ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState0, VerifyFun);
-	false ->
-	    UserState = verify_fun(OtpCert, {extension, Ext},
-				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState, VerifyFun)
-    end;
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
-				  extnValue = NameConst} | Rest], 
-		    ValidationState, 
-		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-    Permitted = NameConst#'NameConstraints'.permittedSubtrees, 
-    Excluded = NameConst#'NameConstraints'.excludedSubtrees,
-    
-    NewValidationState = add_name_constraints(Permitted, Excluded, 
-					      ValidationState),
-    
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
-					   critical = true} = Ext| Rest], ValidationState,
-		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
-    %% TODO: Remove this clause when policy handling is
-    %% fully implemented
-    UserState = verify_fun(OtpCert, {extension, Ext},
-			   UserState0, VerifyFun),
-    validate_extensions(OtpCert,Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
-					   extnValue = #'PolicyInformation'{
-					     policyIdentifier = Id,
-					     policyQualifiers = Qualifier}}
-			      | Rest], #path_validation_state{valid_policy_tree = Tree}
-		    = ValidationState,
-		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-
-    %% TODO: Policy imp incomplete
-    NewTree = process_policy_tree(Id, Qualifier, Tree),
-    
-    validate_extensions(OtpCert, Rest,
-			ValidationState#path_validation_state{
-			  valid_policy_tree = NewTree}, 
-			ExistBasicCon, SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
-					   critical = true} = Ext | Rest], ValidationState,
-		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
-    %% TODO: Remove this clause when policy handling is
-    %% fully implemented
-    UserState = verify_fun(OtpCert, {extension, Ext},
-			   UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
-					   extnValue = #'PolicyConstraints'{
-					     requireExplicitPolicy = ExpPolicy,
-					     inhibitPolicyMapping = MapPolicy}}
-			      | Rest], ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    
-    %% TODO: Policy imp incomplete
-    NewValidationState = add_policy_constraints(ExpPolicy, MapPolicy,
-						ValidationState),
-
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
-                                           critical = true,
-                                           extnValue = KeyUse} = Extension | Rest],
-		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun) ->
-    UserState =
-        case ext_keyusage_includes_any(KeyUse) of
-            true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
-                verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
-            false ->
-                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
-        end,
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
-			UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun) ->
-    UserState = verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
-			UserState, VerifyFun).
-
-is_valid_key_usage(KeyUse, Use) ->
-    lists:member(Use, KeyUse).
- 
 validate_subject_alt_names([]) ->
     false;
 validate_subject_alt_names([AltName | Rest]) ->
@@ -959,12 +1433,12 @@ validate_subject_alt_names([AltName | Rest]) ->
     end.
 
 is_valid_subject_alt_name({Name, Value}) when Name == rfc822Name;
-					      Name == dNSName ->    
+					      Name == dNSName ->
     case Value of
 	"" ->
 	    false;
 	_  ->
-	    true	   
+	    true
     end;
 
 is_valid_subject_alt_name({iPAdress, Addr}) ->
@@ -988,7 +1462,7 @@ is_valid_subject_alt_name({otherName, #'AnotherName'{}}) ->
 is_valid_subject_alt_name({_, _}) ->
     false.
 
-is_valid_uri(AbsURI) -> 
+is_valid_uri(AbsURI) ->
     case uri_string:normalize(AbsURI, [return_map]) of
         #{scheme := _} ->
             true;
@@ -996,7 +1470,7 @@ is_valid_uri(AbsURI) ->
             false
     end.
 
-is_rdnSeq({rdnSequence,[]}, {rdnSequence,[none]}) -> 
+is_rdnSeq({rdnSequence,[]}, {rdnSequence,[none]}) ->
     true;
 is_rdnSeq({rdnSequence,DirName}, {rdnSequence,Permitted}) ->
     is_dir_name(DirName, Permitted, false).
@@ -1026,13 +1500,13 @@ is_valid_name([{Type, Name} | Rest], Constraints, Default) ->
 	    is_valid_name(Rest, Constraints,Default)
     end.
 
-add_name_constraints(NewPermittedTrees, NewExcludedTrees, 
+add_name_constraints(NewPermittedTrees, NewExcludedTrees,
 		     #path_validation_state{
 					  permitted_subtrees = PermittedTrees,
 					  excluded_subtrees = ExcludedTrees} =
 		     ValidationState) ->
     NewPermitted = subtree_intersection(NewPermittedTrees, PermittedTrees),
-    NewExcluded = subtree_union(NewExcludedTrees, ExcludedTrees),   
+    NewExcluded = subtree_union(NewExcludedTrees, ExcludedTrees),
     ValidationState#path_validation_state{permitted_subtrees = NewPermitted,
 					  excluded_subtrees = NewExcluded}.
 subtree_union(asn1_NOVALUE, Trees) ->
@@ -1050,27 +1524,27 @@ subtree_intersection([Tree | Trees1], Trees2) ->
 subtree_intersection([], TreesInt) ->
     TreesInt.
 
-is_in_intersection(#'GeneralSubtree'{base  = 
-				     {directoryName, {rdnSequence, Name1}}} 
-		   = Name, 
-		   [#'GeneralSubtree'{base = 
-				      {directoryName, {rdnSequence, Name2}}} 
+is_in_intersection(#'GeneralSubtree'{base  =
+				     {directoryName, {rdnSequence, Name1}}}
+		   = Name,
+		   [#'GeneralSubtree'{base =
+				      {directoryName, {rdnSequence, Name2}}}
 		    | Trees]) ->
     case is_dir_name(Name1, Name2, false) of
 	true ->
 	    [Name|Trees];
 	false ->
-	    [Name#'GeneralSubtree'{base = 
-				   {directoryName, {rdnSequence,[none]}}} 
+	    [Name#'GeneralSubtree'{base =
+				   {directoryName, {rdnSequence,[none]}}}
 	     | Trees]
     end;
-is_in_intersection(#'GeneralSubtree'{base = {ipAdress, Ip}}, 
+is_in_intersection(#'GeneralSubtree'{base = {ipAdress, Ip}},
 		   Trees = [#'GeneralSubtree'{base = {ipAdress, Ip}} | _]) ->
     %% BUGBUG
     Trees;
-is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr, 
-		   [#'GeneralSubtree'{base = {x400Address, OrAddr2}} 
-		    | Trees]) ->	
+is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr,
+		   [#'GeneralSubtree'{base = {x400Address, OrAddr2}}
+		    | Trees]) ->
     case is_or_address(OrAddr1, OrAddr2) of
 	true ->
 	    [Addr|Trees];
@@ -1078,8 +1552,8 @@ is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr,
 	    [#'GeneralSubtree'{base = {x400Address, ""}} | Trees]
     end;
 
-is_in_intersection(#'GeneralSubtree'{base = {Type, Name1}} = Name, 
-		   [#'GeneralSubtree'{base = {Type, Name2}} 
+is_in_intersection(#'GeneralSubtree'{base = {Type, Name1}} = Name,
+		   [#'GeneralSubtree'{base = {Type, Name2}}
 		    | Trees]) ->
     case case_insensitive_match(Name1, Name2) of
 	true ->
@@ -1098,8 +1572,8 @@ type_subtree_names(Type, SubTrees) ->
 
 is_permitted_ip([], [], []) ->
     true;
-is_permitted_ip([CandidatIp | CandidatIpRest], 
-		[PermittedIp | PermittedIpRest], [Mask | MaskRest] ) -> 
+is_permitted_ip([CandidatIp | CandidatIpRest],
+		[PermittedIp | PermittedIpRest], [Mask | MaskRest] ) ->
     case mask_cmp(CandidatIp, PermittedIp, Mask) of
 	true ->
 	    is_permitted_ip(CandidatIpRest, PermittedIpRest, MaskRest);
@@ -1121,28 +1595,28 @@ is_valid_host_or_domain(Canditate, Permitted) ->
 	[_, CanditateHost] ->
 	    case_insensitive_match(CanditateHost, Permitted)
     end.
+
 is_valid_email_address(Canditate, [$.|Permitted], [_]) ->
     is_suffix(Permitted, Canditate);
-
 is_valid_email_address(Canditate, PermittedHost, [_]) ->
     [_ , CanditateHost] = string:tokens(Canditate,"@"),
     case_insensitive_match(CanditateHost, PermittedHost);
-
 is_valid_email_address(Canditate, Permitted, [_, _]) ->
     case_insensitive_match(Canditate, Permitted).
 
 is_suffix(Suffix, Str) ->
     lists:suffix(string:casefold(Suffix), string:casefold(Str)).
+
 case_insensitive_match(Str1, Str2) ->
     string:equal(Str1, Str2, true).
 
 is_or_address(Address, Canditate) ->
     %% TODO: Is case_insensitive_match sufficient?
     %% study rfc2156 probably need more a complex check.
-    is_double_quoted(Address) andalso 
-	is_double_quoted(Canditate) andalso 
+    is_double_quoted(Address) andalso
+	is_double_quoted(Canditate) andalso
 	case_insensitive_match(Address, Canditate).
-    
+
 is_double_quoted(["\"" | Tail]) ->
     is_double_quote(lists:last(Tail));
 is_double_quoted("%22" ++ Tail) ->
@@ -1163,33 +1637,69 @@ is_double_quote("\"") ->
 is_double_quote(_) ->
     false.
 
-add_policy_constraints(ExpPolicy, MapPolicy, 
-		       #path_validation_state{cert_num = CertNum,
-					      explicit_policy = CurExpPolicy,
-					      policy_mapping = CurMapPolicy} = 
-		       ValidationState) ->
-    
-    NewExpPolicy = policy_constraint(CurExpPolicy, ExpPolicy, CertNum),
-    NewMapPolicy = policy_constraint(CurMapPolicy, MapPolicy, CertNum),
+%%====================================================================
+%% Signature handling
+%%====================================================================
 
-    ValidationState#path_validation_state{explicit_policy = NewExpPolicy,
-					  policy_mapping = NewMapPolicy}.
+extract_verify_data(OtpCert, DerCert) ->
+    Signature = OtpCert#'OTPCertificate'.signature,
+    SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
+    PlainText = encoded_tbs_cert(DerCert),
+    {DigestType,_,_} = x509_pkix_sign_types(SigAlg),
+    {DigestType, PlainText, Signature}.
 
-policy_constraint(Current, asn1_NOVALUE, _) ->
-    Current;
-policy_constraint(Current, New, CertNum) ->
-    erlang:min(Current, New + CertNum).
+verify_signature(OtpCert, DerCert, Key, KeyParams) ->
+    {DigestType, PlainText, Signature} = extract_verify_data(OtpCert, DerCert),
+    case Key of
+	#'RSAPublicKey'{} ->
+            case KeyParams of
+                #'RSASSA-PSS-params'{} ->
+                    public_key:verify(PlainText, DigestType, Signature, Key,
+                                      verify_options(KeyParams));
+                'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key)
+            end;
+	_ ->
+	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
+    end.
 
-process_policy_tree(_,_, ?NULL) ->
-    ?NULL;
-process_policy_tree(_Id, _Qualifier, Tree) ->
-    %% TODO real imp.
-    Tree.
+encoded_tbs_cert(Cert) ->
+    {ok, PKIXCert} =
+	'OTP-PUB-KEY':decode_TBSCert_exclusive(Cert),
+    {'Certificate',
+     {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
+    EncodedTBSCert.
 
-policy_indicator(_, true) ->
-    0;
-policy_indicator(N, false) ->
-   N + 1.
+public_key_info(PublicKeyInfo,
+		#path_validation_state{working_public_key_algorithm =
+				       WorkingAlgorithm,
+				       working_public_key_parameters =
+				       WorkingParams}) ->
+    PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
+    AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
+
+    PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
+    Algorithm = AlgInfo#'PublicKeyAlgorithm'.algorithm,
+
+    NewPublicKeyParams =
+	case PublicKeyParams of
+	    {null, 'NULL'} when WorkingAlgorithm == Algorithm ->
+		WorkingParams;
+            asn1_NOVALUE when Algorithm == ?'id-Ed25519';
+                              Algorithm == ?'id-Ed448' ->
+                {namedCurve, Algorithm};
+            {params, Params} ->
+		Params;
+            Params ->
+		Params
+	end,
+    {Algorithm, PublicKey, NewPublicKeyParams}.
+
+
+extensions_list(asn1_NOVALUE) ->
+    [];
+extensions_list(Extensions) ->
+    Extensions.
 
 is_fixed_dh_cert(PublicKeyInfo, Extensions) ->
     AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
@@ -1229,6 +1739,13 @@ missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserS
 	     UserState}
     end.
 
+is_valid_key_usage(KeyUse, Use) ->
+    lists:member(Use, KeyUse).
+
+%%====================================================================
+%% Generate test data
+%%====================================================================
+
 gen_key(KeyGen) ->
      case is_key(KeyGen) of
          true ->
@@ -1251,9 +1768,9 @@ is_key(_) ->
 
 cert_template() ->
     #'OTPTBSCertificate'{
-       version = v3,              
+       version = v3,
        serialNumber = erlang:unique_integer([positive, monotonic]),
-       issuerUniqueID = asn1_NOVALUE,       
+       issuerUniqueID = asn1_NOVALUE,
        subjectUniqueID = asn1_NOVALUE
       }.
 
@@ -1273,37 +1790,36 @@ subject(SubjectOpts) when is_list(SubjectOpts) ->
 	     end,
     {rdnSequence, [Encode(Opt) || Opt <- SubjectOpts]}.
 
-subject_enc({name,  Name}) ->       
+subject_enc({name,  Name}) ->
     {?'id-at-commonName', {printableString, Name}};
-subject_enc({email, Email}) ->      
+subject_enc({email, Email}) ->
     {?'id-emailAddress', Email};
-subject_enc({city,  City}) ->       
+subject_enc({city,  City}) ->
     {?'id-at-localityName', {printableString, City}};
-subject_enc({org, Org}) ->          
+subject_enc({org, Org}) ->
     {?'id-at-organizationName', {printableString, Org}};
-subject_enc({org_unit, OrgUnit}) -> 
+subject_enc({org_unit, OrgUnit}) ->
     {?'id-at-organizationalUnitName', {printableString, OrgUnit}};
-subject_enc({country, Country}) ->  
+subject_enc({country, Country}) ->
     {?'id-at-countryName', Country}.
 
 validity(Opts) ->
     DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
-    
+
     GenFormat =
         fun({Y,M,D}) ->
                 lists:flatten(
                   io_lib:format("~4..0w~2..0w~2..0w130000Z",[Y,M,D]))
         end,
-    
+
     UTCFormat =
         fun({Y,M,D}) ->
                 [_, _, Y3, Y4] = integer_to_list(Y),
                 lists:flatten(
                   io_lib:format("~s~2..0w~2..0w130000Z",[[Y3, Y4],M,D]))
         end,
-    
     #'Validity'{notBefore = validity_format(DefFrom, GenFormat, UTCFormat),
                 notAfter = validity_format(DefTo, GenFormat, UTCFormat)}.
 
@@ -1324,12 +1840,13 @@ sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
       end;
 sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
     rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
-        
+
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     #'SignatureAlgorithm'{algorithm  = ?'id-dsa-with-sha1',
                           parameters = {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
-sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts) when EDCurve == ?'id-Ed25519';
-                                                                                EDCurve == ?'id-Ed448' ->
+sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts)
+  when EDCurve == ?'id-Ed25519';
+       EDCurve == ?'id-Ed448' ->
     #'SignatureAlgorithm'{algorithm  = EDCurve,
                           parameters = asn1_NOVALUE};
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
@@ -1339,12 +1856,12 @@ sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
 
 rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
     #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = Params};   
+                          parameters = Params};
 rsa_sign_algo(#'RSAPrivateKey'{}, Type, Parms) ->
     #'SignatureAlgorithm'{algorithm  = Type,
                           parameters = Parms}.
 
-rsa_digest_oid(Oid) when is_tuple(Oid) ->     
+rsa_digest_oid(Oid) when is_tuple(Oid) ->
     Oid;
 rsa_digest_oid(sha1) ->
     ?'sha1WithRSAEncryption';
@@ -1359,7 +1876,7 @@ rsa_digest_oid(sha256) ->
 rsa_digest_oid(md5) ->
     ?'md5WithRSAEncryption'.
 
-ecdsa_digest_oid(Oid) when is_tuple(Oid) ->     
+ecdsa_digest_oid(Oid) when is_tuple(Oid) ->
     Oid;
 ecdsa_digest_oid(sha1) ->
     ?'ecdsa-with-SHA1';
@@ -1380,23 +1897,23 @@ cert_chain(Role, Root, RootKey, Opts) ->
 
 cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
     Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
-    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), 
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp),
                 IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
     [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
     Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
-    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin",
                 " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
     cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
-cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
+cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}},
      PrivKey, Key, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
     SignAlgoId = sign_algorithm(PrivKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
                signature = SignAlgoId,
                issuer =  Issuer,
-               validity = validity(Opts),  
+               validity = validity(Opts),
                subject = subject(Contact, atom_to_list(Role) ++ Name),
                subjectPublicKeyInfo = public_key(Key, SignAlgoId),
                extensions = extensions(Role, Type, Opts)
@@ -1422,7 +1939,7 @@ public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
     Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters = Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
-public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{} = Params}, 
+public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{} = Params},
            #'SignatureAlgorithm'{algorithm  = ?'id-RSASSA-PSS',
                                  parameters = #'RSASSA-PSS-params'{} = Params}) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
@@ -1435,7 +1952,7 @@ public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
 public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
-    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa',
 				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
 public_key(#'ECPrivateKey'{version = _Version,
@@ -1483,18 +2000,18 @@ add_default_extensions(server, peer, Exts) ->
                             critical = false}
               ],
     add_default_extensions(Default, Exts);
-    
+
 add_default_extensions(client, peer, Exts) ->
     Exts.
 
 add_default_extensions(Defaults0, Exts) ->
     Defaults = lists:filtermap(fun(#'Extension'{extnID = ID} = Ext) ->
-                                       case lists:keymember(ID, 2, Exts) of 
-                                           true -> 
-                                               false; 
-                                           false -> 
-                                               {true, Ext} 
-                                       end 
+                                       case lists:keymember(ID, 2, Exts) of
+                                           true ->
+                                               false;
+                                           false ->
+                                               {true, Ext}
+                                       end
                                end, Defaults0),
     Exts ++ Defaults.
 
@@ -1508,17 +2025,19 @@ encode_key(#'ECPrivateKey'{} = Key) ->
 encode_key(#'DSAPrivateKey'{} = Key) ->
     {'DSAPrivateKey', public_key:der_encode('DSAPrivateKey', Key)}.
 
-verify_options(#'RSASSA-PSS-params'{saltLength = SaltLen,
-                                    maskGenAlgorithm = 
-                                        #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
-                                                            parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+verify_options(
+  #'RSASSA-PSS-params'{saltLength = SaltLen,
+                       maskGenAlgorithm =
+                           #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                               parameters =
+                                                   #'HashAlgorithm'{algorithm = HashOid}}}) ->
     HashAlgo = public_key:pkix_hash_type(HashOid),
     [{rsa_padding, rsa_pkcs1_pss_padding},
      {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
 
-
 ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
     lists:member(?anyExtendedKeyUsage, KeyUse);
 ext_keyusage_includes_any(_) ->
     false.
+

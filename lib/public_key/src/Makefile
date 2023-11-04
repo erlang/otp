@@ -45,6 +45,7 @@ MODULES = \
 	pubkey_ssh \
 	pubkey_pbe \
 	pubkey_cert \
+	pubkey_policy_tree \
         pubkey_cert_records \
 	pubkey_crl\
 	pubkey_ocsp \
