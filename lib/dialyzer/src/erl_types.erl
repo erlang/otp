@@ -559,17 +559,23 @@ t_find_opaque_mismatch(T1, T2, _TopType, Opaques) ->
     true  -> throw(error)
   end.
 
-t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
+t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques)
+  when is_list(L1), is_list(L2) ->
   List = lists:zipwith(fun(T1, T2) ->
 			   t_find_opaque_mismatch(T1, T2, TopType, Opaques)
 		       end, L1, L2),
-  t_find_opaque_mismatch_list(List).
+  t_find_opaque_mismatch_list(List);
+t_find_opaque_mismatch_ordlists(_, _, _TopType, _Opaques) ->
+  error.
 
-t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
+t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques)
+  when is_list(L1), is_list(L2) ->
   List = [try t_find_opaque_mismatch(T1, T2, T2, Opaques)
           catch throw:error -> error
           end || T1 <- L1, T2 <- L2],
-  t_find_opaque_mismatch_list(List).
+  t_find_opaque_mismatch_list(List);
+t_find_opaque_mismatch_lists(_, _, _TopType, _Opaques) ->
+  error.
 
 t_find_opaque_mismatch_list([]) -> throw(error);
 t_find_opaque_mismatch_list([H|T]) ->
