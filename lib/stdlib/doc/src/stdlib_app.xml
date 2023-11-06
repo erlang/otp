@@ -80,6 +80,16 @@
         </list>
         <p>Can be used to set a customized Erlang shell prompt function.</p>
       </item>
+      <tag><marker id="shell_multiline_prompt"/><c>shell_multiline_prompt = {Mod, Func} | string() | default</c></tag>
+      <item>
+        <p>where</p>
+        <list type="bulleted">
+          <item><c>Mod = atom()</c></item>
+          <item><c>Func = atom()</c></item>
+        </list>
+        <p>Can be used to set a customized multiline shell prompt function. The multiline prompt function
+        takes the main prompt as its only parameter.</p>
+      </item>
       <tag><marker id="shell_saved_results"/><c>shell_saved_results = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many results are saved by the Erlang

@@ -481,7 +481,7 @@ shell_multiline_prompt(Config) ->
     Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{shell,inverted_space_prompt}"]}|Config]),
     Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
     Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
-
+    Term4 = start_tty(Config),
     try
         check_location(Term1, {0, 0}),
         send_tty(Term1,"\na"),
@@ -507,6 +507,15 @@ shell_multiline_prompt(Config) ->
         ok
     after
         stop_tty(Term3)
+    end,
+    try
+        send_tty(Term4, "shell:multiline_prompt_func(\"-> \").\n"),
+        check_content(Term4, "default"),
+        send_tty(Term4, "a\nb"),
+        check_content(Term4, "-> b"),
+        ok
+    after
+        stop_tty(Term4)
     end.
 
 shell_clear(Config) ->
