@@ -424,7 +424,7 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = 
                 leave_remote_update_ets(Scope, ScopeMon, MG, Pids, [Group]) end, RemoteMap),
             {noreply, State#state{remote = NewRemote}};
         error ->
-            {noreply, MRef, State}
+            {noreply, State}
     end;
 
 %% handle scope monitor exiting
