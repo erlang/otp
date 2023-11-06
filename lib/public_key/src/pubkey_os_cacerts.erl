@@ -23,6 +23,7 @@
 -module(pubkey_os_cacerts).
 
 -include("public_key.hrl").
+-include_lib("kernel/include/file.hrl").
 -export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
@@ -54,15 +55,15 @@ get() ->
 load() ->
     case os:type() of
         {unix, linux} ->
-            load_from_file(linux_paths());
+            load(linux_paths(), undefined);
         {unix, openbsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, freebsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, netbsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, sunos} ->
-            load_from_files(sunos_paths());
+            load(sunos_paths(), undefined);
         {win32, _} ->
             load_win32();
 	{unix, darwin} ->
@@ -76,24 +77,53 @@ load() ->
 %% Can be used when load/0 doesn't work for an unsupported os type.
 -spec load([file:filename_all()]) -> ok | {error, Reason::term()}.
 load(Paths) ->
-    load_from_file(Paths).
-
+    load(Paths, {error, enoent}).
 
 %% cleanup persistent_key
 -spec clear() -> boolean().
 clear() ->
     persistent_term:erase(?MODULE).
 
+load([Path|Paths], Error) ->
+    case dir_or_file(Path) of
+        enoent ->
+            load(Paths, Error);
+        directory ->
+            case load_from_files(Path) of
+                ok -> ok;
+                Err -> load(Paths, Err)
+            end;
+        file ->
+            case load_from_file(Path) of
+                ok -> ok;
+                Err -> load(Paths, Err)
+            end
+    end;
+load([], Error) ->
+    Error.
+
+dir_or_file(Path) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type = directory}} ->
+            directory;
+        {ok, #file_info{type = regular}} ->
+            file;
+        {ok, #file_info{}} ->  %% Link
+            case filelib:is_dir(Path) of
+                true -> directory;
+                false -> file
+            end;
+        {error, _} -> enoent
+    end.
+
 %% Implementation
-load_from_file([Path|Paths]) when is_list(Path); is_binary(Path) ->
+load_from_file(Path) when is_list(Path); is_binary(Path) ->
     try
         {ok, Binary} = file:read_file(Path),
         ok = decode_result(Binary)
     catch _:_Reason ->
-            load_from_file(Paths)
-    end;
-load_from_file([]) ->
-    {error, enoent}.
+            {error, enoent}
+    end.
 
 decode_result(Binary) ->
     try
@@ -111,7 +141,6 @@ decode_result(Binary) ->
             {error, Reason}
     end.
 
-
 load_from_files(Path) ->
     MakeCert = fun(FileName, Acc) ->
                        try
@@ -125,7 +154,6 @@ load_from_files(Path) ->
                end,
     Certs = filelib:fold_files(Path, ".*\.pem", false, MakeCert, []),
     store(Certs).
-
 
 load_win32() ->
     Dec = fun({_Enc, Der}, Acc) ->
@@ -163,10 +191,10 @@ linux_paths() ->
     ].
 
 bsd_paths() ->
-    ["/usr/local/share/certs/ca-root-nss.crt",
-     "/etc/ssl/cert.pem",
+    ["/etc/ssl/cert.pem",
      "/etc/openssl/certs/cacert.pem",   %% netbsd (if installed)
-     "/etc/openssl/certs/ca-certificates.crt"
+     "/etc/openssl/certs/ca-certificates.crt",
+     "/usr/local/share/certs/ca-root-nss.crt"
     ].
 
 sunos_paths() ->

@@ -1401,6 +1401,37 @@ cacerts_load() ->
 cacerts_load(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {error, enoent} = public_key:cacerts_load("/dummy.file"),
+
+    %% White box testing of paths loading
+    %% TestDirs
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_dir"),
+                                 Datadir,
+                                 filename:join(Datadir, "cacerts.pem")
+                                ]),
+    true = 10 < length(public_key:cacerts_get()),
+    %% We currently pick the first found in input order
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_file"),
+                                 filename:join(Datadir, "ldap_uri_cert.pem"),
+                                 filename:join(Datadir, "cacerts.pem")]),
+    1 = length(public_key:cacerts_get()),
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_file"),
+                                 filename:join(Datadir, "cacerts.pem"),
+                                 filename:join(Datadir, "ldap_uri_cert.pem")]),
+    2 = length(public_key:cacerts_get()),
+
+    true = public_key:cacerts_clear(),
+
+    LinkedCaCerts = filename:join(Datadir, "link_to_cacerts.pem"),
+    case file:make_symlink(filename:join(Datadir, "cacerts.pem"), LinkedCaCerts) of
+        ok ->
+            ok = pubkey_os_cacerts:load([LinkedCaCerts]),
+            2 = length(public_key:cacerts_get()),
+            true = public_key:cacerts_clear(),
+            ok = file:delete(LinkedCaCerts);
+        _ ->
+            ok
+    end,
+
     %% Load default OS certs
     %%    there is no default installed OS certs on netbsd
     %%    can be installed with 'pkgin install mozilla-rootcerts'
