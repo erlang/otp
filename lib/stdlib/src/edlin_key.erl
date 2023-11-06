@@ -153,6 +153,12 @@ merge(InputKeyMap, [Mode|ShellModes], KeyMap) ->
 key_map() -> #{
         normal => normal_map(),
         search => #{
+            "\^[OA" => move_expand_up,
+            "\^[[A" => move_expand_up,
+            "\^[OB" => move_expand_down,
+            "\^[[B" => move_expand_down,
+            "\^[[6~" => scroll_expand_down,
+            "\^[[5~" => scroll_expand_up,
             "\^R" => skip_up,
             "\^S" => skip_down,
             "\^[C" => search_cancel,
@@ -165,6 +171,12 @@ key_map() -> #{
             %% # everything else should exit search mode and edit the search result (search_quit),
         },
         tab_expand => #{
+            "\^[OA" => move_expand_up,
+            "\^[[A" => move_expand_up,
+            "\^[OB" => move_expand_down,
+            "\^[[B" => move_expand_down,
+            "\^[[6~" => scroll_expand_down,
+            "\^[[5~" => scroll_expand_up,
             "\t" => tab_expand_full,
             default => tab_expand_quit %% go to normal mode and evaluate key input again
         }
@@ -298,11 +310,15 @@ valid_functions() ->
      %%jcl_menu,
      kill_line,            %% Delete all characters from the cursor to the end of the line and save them in the kill buffer
      kill_word,            %% Delete the word behind the cursor and save it in the kill buffer
+     move_expand_up,       %% Move up one line in the expand area e.g. help or tab completion pager
+     move_expand_down,     %% Move down one line in the expand area e.g. help or tab completion pager
      new_line_finish,      %% Add a newline at the end of the line and try to evaluate the current expression
      new_line,             %% Add a newline at the cursor position
      none,                 %% Do nothing
      open_editor,          %% Open the current line in an editor i.e. EDITOR=code -w
      redraw_line,          %% Redraw the current line
+     scroll_expand_up,     %% Scroll up five lines in the expand area e.g. help or tab completion pager
+     scroll_expand_down,   %% Scroll down five lines in the expand area e.g. help or tab completion pager
      search_cancel,        %% Cancel the current search
      search_found,         %% Accept the current search result and submit it
      search_quit,          %% Accept the current search result, but edit it before submitting
