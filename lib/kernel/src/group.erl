@@ -914,9 +914,9 @@ edit_line(eof, Chars, Rs) ->
 edit_line([],Chars, Rs) ->
     {Chars,[],lists:reverse(Rs)};
 edit_line([$\r,$\n|Cs],Chars, Rs) ->
-    {[$\n | Chars], remainder_after_nl(Cs), lists:reverse([{insert_chars, unicode, "\n"}|Rs])};
+    {[$\n | Chars], remainder_after_nl(Cs), lists:reverse([{put_chars, unicode, "\n"}|Rs])};
 edit_line([NL|Cs],Chars, Rs) when NL =:= $\r; NL =:= $\n ->
-    {[$\n | Chars], remainder_after_nl(Cs), lists:reverse([{insert_chars, unicode, "\n"}|Rs])};
+    {[$\n | Chars], remainder_after_nl(Cs), lists:reverse([{put_chars, unicode, "\n"}|Rs])};
 edit_line([Erase|Cs],[], Rs) when Erase =:= $\177; Erase =:= $\^H ->
     edit_line(Cs,[], Rs);
 edit_line([Erase|Cs],[_|Chars], Rs) when Erase =:= $\177; Erase =:= $\^H ->
@@ -924,7 +924,7 @@ edit_line([Erase|Cs],[_|Chars], Rs) when Erase =:= $\177; Erase =:= $\^H ->
 edit_line([CtrlChar|Cs],Chars, Rs) when CtrlChar =< 32 ->
     edit_line(Cs,Chars,Rs);
 edit_line([Char|Cs],Chars, Rs) ->
-    edit_line(Cs,[Char|Chars], [{insert_chars, unicode, [Char]}|Rs]).
+    edit_line(Cs,[Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
 
 remainder_after_nl("") -> done;
 remainder_after_nl(Cs) -> Cs.
