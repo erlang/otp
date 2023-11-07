@@ -2,6 +2,7 @@
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("stdlib/include/assert.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -define(PRE_SCRIPT, "<pre class=\"mermaid\">~n").
 -define(POST_SCRIPT, "~n</pre><script type=\"module\">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';</script>").
@@ -23,14 +24,12 @@
            ct:log(MMD),
            ?FWR("~n", [])
        end).
--define(ANY_POLICY_OID, {2,5,29,32,0}).
 -define(ROOT_TN, pubkey_policy_tree:root()).
 -define(EMPTY_VPT, {}).
 -define(ROOT_PN,
         begin
             {AnyPolicyNode, _} = ?ROOT_TN,
             AnyPolicyNode
-            %% ?PN(?ANY_POLICY_OID)
         end).
 -define(PN(VP), pubkey_policy_tree:policy_node(VP, [], [])).
 -define(PN(VP, EPS), pubkey_policy_tree:policy_node(VP, [], EPS)).
@@ -56,41 +55,21 @@ any_leaves(_Config) ->
                 pubkey_policy_tree:any_leaves(Tree)
         end,
     ?assertEqual([], AL(?EMPTY_VPT)),
-    TreeWithAnyPolicyLeaf = {?ROOT_PN,
-                             [{?PN("GOLD"),
-                               [?PN(?ANY_POLICY_OID)]}]},
-    log_tree_diagram("TreeWithAnyPolicyLeaf", TreeWithAnyPolicyLeaf),
-    ?assertEqual([?PN(?ANY_POLICY_OID)], AL(TreeWithAnyPolicyLeaf)),
-    TreeWithAnyPolicyNode1 = {?ROOT_PN,
-                             [{?PN(?ANY_POLICY_OID),
-                               [?PN("GOLD")]},
-                              {?PN("SILVER", ["A"]),
-                               [?PN("SILVER", ["B"])]}]},
-    log_tree_diagram("TreeWithAnyPolicyNode1", TreeWithAnyPolicyNode1),
-    ?assertEqual([], AL(TreeWithAnyPolicyNode1)),
+    log_tree_diagram("tree_with_any_policy_leaf()", tree_with_any_policy_leaf()),
+    ?assertEqual([?PN(?anyPolicy)], AL(tree_with_any_policy_leaf())),
+    log_tree_diagram("tree_with_any_policy_node1()", tree_with_any_policy_node1()),
+    ?assertEqual([], AL(tree_with_any_policy_node1())),
     ok.
 
 constrained_policy_node_set(_Config) ->
-    TreeWithAnyPolicyLeaf = {?ROOT_PN,
-                             [{?PN("GOLD"),
-                               [?PN(?ANY_POLICY_OID)]}]},
-    TreeWithAnyPolicyNode1 = {?ROOT_PN,
-                             [{?PN(?ANY_POLICY_OID),
-                               [?PN("GOLD")]},
-                              {?PN("SILVER", ["A"]),
-                               [?PN("SILVER", ["B"])]}]},
-    TreeWithAnyPolicyNode2 = {?ROOT_PN,
-                             [{?PN(?ANY_POLICY_OID),
-                               [{?PN("GOLD", ["GOLD", "SILVER"]),
-                                 [?PN("SILVER")]}]}]},
     CS =
         fun(Tree) ->
                 pubkey_policy_tree:constrained_policy_node_set(Tree)
         end,
     ?assertEqual([], CS(?EMPTY_VPT)),
-    ?assertEqual([?PN(?ANY_POLICY_OID)], CS(TreeWithAnyPolicyLeaf)),
-    ?assertEqual([?PN("SILVER", ["A"]), ?PN("GOLD")], CS(TreeWithAnyPolicyNode1)),
-    ?assertEqual([?PN("GOLD", ["GOLD", "SILVER"])], CS(TreeWithAnyPolicyNode2)),
+    ?assertEqual([?PN(?anyPolicy)], CS(tree_with_any_policy_leaf())),
+    ?assertEqual([?PN("SILVER", ["A"]), ?PN("GOLD")], CS(tree_with_any_policy_node1())),
+    ?assertEqual([?PN("GOLD", ["GOLD", "SILVER"])], CS(tree_with_any_policy_node2())),
     ok.
 
 valid_policy_node_set(_Config) ->
@@ -99,26 +78,14 @@ valid_policy_node_set(_Config) ->
                 pubkey_policy_tree:valid_policy_node_set(Tree)
         end,
     ?assertEqual([], VS(?EMPTY_VPT)),
-    TreeWithAnyPolicyLeaf = {?ROOT_PN,
-                             [{?PN("GOLD"),
-                               [?PN(?ANY_POLICY_OID)]}]},
-    log_tree_diagram("TreeWithAnyPolicyLeaf", TreeWithAnyPolicyLeaf),
-    ?assertEqual([?PN("GOLD")], VS(TreeWithAnyPolicyLeaf)),
-    TreeWithAnyPolicyNode1 = {?ROOT_PN,
-                             [{?PN(?ANY_POLICY_OID),
-                               [?PN("GOLD")]},
-                              {?PN("SILVER", ["A"]),
-                               [?PN("SILVER", ["B"])]}]},
-    log_tree_diagram("TreeWithAnyPolicyNode1", TreeWithAnyPolicyNode1),
-    ?assertEqual([?PN(?ANY_POLICY_OID), ?PN("SILVER", ["A"]), ?PN("GOLD")],
-                 VS(TreeWithAnyPolicyNode1)),
-    TreeWithAnyPolicyNode2 = {?ROOT_PN,
-                             [{?PN(?ANY_POLICY_OID),
-                               [{?PN("GOLD", ["GOLD", "SILVER"]),
-                                 [?PN("SILVER")]}]}]},
-    log_tree_diagram("TreeWithAnyPolicyNode2", TreeWithAnyPolicyNode2),
-    ?assertEqual([?PN(?ANY_POLICY_OID), ?PN("GOLD", ["GOLD", "SILVER"])],
-                 VS(TreeWithAnyPolicyNode2)),
+    log_tree_diagram("tree_with_any_policy_leaf()", tree_with_any_policy_leaf()),
+    ?assertEqual([?PN("GOLD")], VS(tree_with_any_policy_leaf())),
+    log_tree_diagram("tree_with_any_policy_node1()", tree_with_any_policy_node1()),
+    ?assertEqual([?PN(?anyPolicy), ?PN("SILVER", ["A"]), ?PN("GOLD")],
+                 VS(tree_with_any_policy_node1())),
+    log_tree_diagram("tree_with_any_policy_node2()", tree_with_any_policy_node2()),
+    ?assertEqual([?PN(?anyPolicy), ?PN("GOLD", ["GOLD", "SILVER"])],
+                 VS(tree_with_any_policy_node2())),
     ok.
 
 prune_invalid_nodes(_Config) ->
@@ -128,23 +95,21 @@ prune_invalid_nodes(_Config) ->
     Tree0 = {?ROOT_PN, Children0 ++
                  [{?PN("GOLD"), [?ROOT_PN]}]},
     Tree0 = pubkey_policy_tree:prune_invalid_nodes(Tree0, []),
-
     {ok, Tree1} = explain(Tree0,
                           [{prune_invalid_nodes, [[?PN("SILVER")]]},
                            {prune_invalid_nodes, [[?PN("BLUE")]]},
                            {prune_invalid_nodes, [[?PN("GOLD")]]}]),
     ?EMPTY_VPT = Tree1,
-
     %% prune node
     Tree2 = {?ROOT_PN, Children0 ++
-                 [{?PN(?ANY_POLICY_OID), [?ROOT_PN]}]},
+                 [{?PN(?anyPolicy), [?ROOT_PN]}]},
     {ok, Tree3} = explain(Tree2,
                           [{prune_invalid_nodes, [[?PN("SILVER")]]},
                            {prune_invalid_nodes, [[?PN("BLUE")]]},
                            {prune_invalid_nodes, [[?PN("GOLD")]]},
-                           {prune_invalid_nodes, [[?PN(?ANY_POLICY_OID)]]},
+                           {prune_invalid_nodes, [[?PN(?anyPolicy)]]},
                            {prune_invalid_nodes, [[?ROOT_PN]]}]),
-    Expected = {?ROOT_PN, [{?PN(?ANY_POLICY_OID),
+    Expected = {?ROOT_PN, [{?PN(?anyPolicy),
                             [?ROOT_PN]}]},
     ?assertEqual(Expected, Tree3),
     ok.
@@ -154,9 +119,9 @@ prune_leaves(_Config) ->
     ?assertEqual(NullVPT, pubkey_policy_tree:prune_leaves(NullVPT, null)),
     Tree0 = {?ROOT_PN,
              [{?PN("GOLD"), [?PN("GOLD"), ?PN("GOLD2")]},
-              {?PN("GOLD"), [?PN(?ANY_POLICY_OID), ?PN(?ANY_POLICY_OID)]}]},
+              {?PN("GOLD"), [?PN(?anyPolicy), ?PN(?anyPolicy)]}]},
     {ok, Tree} = explain(Tree0, [{prune_leaves, ["GOLD"]},
-                                  {prune_leaves, [?ANY_POLICY_OID]}]),
+                                  {prune_leaves, [?anyPolicy]}]),
     ?assertEqual({?ROOT_PN,
              [{?PN("GOLD"), [?PN("GOLD2")]},
               {?PN("GOLD"), []}]}, Tree),
@@ -187,12 +152,12 @@ prune_tree_shorter_branch(_Config) ->
 
 all_leaves(_Config) ->
     Tree1 = {?ROOT_PN,
-     [{?PN("GOLD"),
-       [{?PN("GOLD"), []},
-        {?PN("SILVER"), [?PN("GOLD"), ?PN("SILVER")]}]},
-      {?PN("SILVER"),
-       [{?PN("GOLD"), []},
-        {?PN("SILVER"), [?PN("GOLD"), ?PN("SILVER")]}]}]},
+             [{?PN("GOLD"),
+               [{?PN("GOLD"), []},
+                {?PN("SILVER"), [?PN("GOLD"), ?PN("SILVER")]}]},
+              {?PN("SILVER"),
+               [{?PN("GOLD"), []},
+                {?PN("SILVER"), [?PN("GOLD"), ?PN("SILVER")]}]}]},
     log_tree_diagram("Tree1", Tree1),
     ?assertEqual([?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"), ?PN("SILVER")],
                  pubkey_policy_tree:all_leaves(Tree1)),
@@ -223,12 +188,13 @@ add_leaves(_Config) ->
     ok.
 
 add_leaf_siblings(_Config) ->
-    RootTree = pubkey_policy_tree:root(),
     AddLeavesFun1 =
         fun(_) -> [?PN("GOLD"), ?PN("SILVER")] end,
     AddLeavesFun2 =
-        fun(#{valid_policy := ?ANY_POLICY_OID}) ->
-                [?PN("GOLD"), ?PN("SILVER")];
+        fun(#{valid_policy := ?anyPolicy}) ->
+                [?PN("PINK")];
+           (#{valid_policy := "SILVER"}) ->
+                [?PN("PURPLE")];
            (_) ->
                 []
         end,
@@ -236,11 +202,12 @@ add_leaf_siblings(_Config) ->
                     {add_leaf_siblings, [AddLeavesFun1]},
                     {add_leaf_siblings, [AddLeavesFun2]}
                    ],
-    {ok, Tree} = explain(RootTree, Instructions),
+    {ok, Tree} = explain(tree_with_any_policy_node1(), Instructions),
     ?assertEqual({?ROOT_PN,
-                  [?PN("GOLD"), ?PN("SILVER"),
-                   ?PN("GOLD"), ?PN("SILVER"),
-                   ?PN("GOLD"), ?PN("SILVER")]},
+                  [{?PN(?anyPolicy),
+                    [?PN("GOLD"), ?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"), ?PN("SILVER"), ?PN("PINK")]},
+                   {?PN("SILVER", ["A"]),
+                    [?PN("SILVER", ["B"]), ?PN("GOLD"), ?PN("SILVER"), ?PN("GOLD"), ?PN("SILVER"), ?PN("PURPLE")]}]},
                  Tree),
     ok.
 
@@ -344,7 +311,25 @@ nid([Node | Rest], Acc) ->
 ps(ExpectedPolicySet) ->
     [io_lib:format("~s ", [p(P)]) || P <- ExpectedPolicySet].
 
-p(?ANY_POLICY_OID) ->
+p(?anyPolicy) ->
     "anyPolicy";
 p(P) ->
     P.
+
+tree_with_any_policy_leaf() ->
+    {?ROOT_PN,
+     [{?PN("GOLD"),
+       [?PN(?anyPolicy)]}]}.
+
+tree_with_any_policy_node1() ->
+    {?ROOT_PN,
+     [{?PN(?anyPolicy),
+       [?PN("GOLD")]},
+      {?PN("SILVER", ["A"]),
+       [?PN("SILVER", ["B"])]}]}.
+
+tree_with_any_policy_node2() ->
+    {?ROOT_PN,
+     [{?PN(?anyPolicy),
+       [{?PN("GOLD", ["GOLD", "SILVER"]),
+         [?PN("SILVER")]}]}]}.
