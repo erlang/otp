@@ -125,7 +125,7 @@ jobs:
       - name: Build pre-built tar archives
         run: |
           docker run -v $PWD:/github --entrypoint "" otp \
-            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_src.tar.gz
+            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_archive.tar.gz
       - name: Build cache
         run: |
           if [ -f otp_cache.tar.gz ]; then
