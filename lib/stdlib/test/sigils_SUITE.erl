@@ -143,7 +143,7 @@ pos(C) when is_integer(C) -> {1,C}.
 %% #########################################################################
 
 parse_sigils(Config) when is_list(Config) ->
-    {{ok,<<"ab\"c\d"/utf8>>},{1,12}} =
+    {ok, <<"ab\"c\d"/utf8>>, {1,12}} =
         parse_term(
           """
           ~"ab\"c\d".
@@ -152,7 +152,7 @@ parse_sigils(Config) when is_list(Config) ->
     IllegalPrefix = "illegal sigil prefix.",
     IllegalSuffix = "illegal sigil suffix.",
     AllSigils = [" ~","~s","~S","~b","~B"],
-    [{_, {{error,{{1,1},erl_parse,IllegalPrefix}},{2,5}}} =
+    [{_, {error,{1,1},erl_parse,IllegalPrefix,{2,5}}} =
          {String, parse_term("~_"++String)}
      || String <-
             [""""
@@ -164,11 +164,11 @@ parse_sigils(Config) when is_list(Config) ->
               """
              """"]],
     %%
-    [{_, {{error,{{1,8},erl_parse,IllegalSuffix}},{1,9}}} =
+    [{_, {error,{1,8},erl_parse,IllegalSuffix,{1,9}}} =
          {Prefix, parse_term(Prefix++"\"abc\"x")}
      || Prefix <- AllSigils],
     %%
-    [{_, {{error,{{3,6},erl_parse,IllegalSuffix}},{3,7}}} =
+    [{_, {error,{3,6},erl_parse,IllegalSuffix,{3,7}}} =
          {Prefix,
           parse_term(
             Prefix++""""
@@ -177,8 +177,41 @@ parse_sigils(Config) when is_list(Config) ->
                   """x
                 """")}
      || Prefix <- AllSigils],
+    %%
+    [{_, {error,{3,7},erl_parse,"syntax error before: \"\"",{3,9}}} =
+         {Prefix,
+          parse_term(
+            Prefix++""""
+                """
+                  abc
+                  """ ""
+                """")}
+     || Prefix <- AllSigils],
+    %%
+    [{_, {error,{{3,6},erl_scan,string_concat},{3,6}}} =
+         {Prefix,
+          erl_scan:string(
+            Prefix++"""""
+                """
+                  abc
+                  """"
+                """"", {1,1}, [])}
+     || Prefix <- AllSigils],
+    [{_, {error,{{1,8},erl_scan,string_concat},{1,8}}} =
+         {Prefix,
+          erl_scan:string(
+            Prefix++"""
+                "abc""
+                """,
+            {1,1}, [])}
+     || Prefix <- AllSigils],
     ok.
 
 parse_term(String) ->
     {ok,Tokens,EndPos} = erl_scan:string(String, {1,1}, []),
-    {erl_parse:parse_term(Tokens),EndPos}.
+    case erl_parse:parse_term(Tokens) of
+        {ok, Parsed} ->
+            {ok, Parsed, EndPos};
+        {error, {Pos,Mod,Str}} ->
+            {error, Pos, Mod, lists:flatten(Str), EndPos}
+    end.
