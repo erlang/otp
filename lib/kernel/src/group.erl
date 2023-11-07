@@ -660,6 +660,24 @@ get_line1({search,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     {more_chars,Ncont,_Nrs} = edlin:start(Pbs, {search,none}),
     put(search, new_search),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
+get_line1({help, Before, Cs0, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
+    send_drv_reqs(Drv, Rs),
+    {_,Word,_} = edlin:over_word(Before, [], 0),
+    Docs = case edlin_context:get_context(Before) of
+        {function, Mod} when Word =/= [] -> try
+                    c:h1(list_to_atom(Mod), list_to_atom(Word))
+                catch _:_ ->
+                    c:h1(list_to_atom(Mod))
+                end;
+        {function, Mod} -> c:h1(list_to_atom(Mod));
+        {function, Mod, Fun, _Args, _Unfinished, _Nesting} -> c:h1(list_to_atom(Mod), list_to_atom(Fun));
+        _ -> ""
+    end,
+    case Docs of
+        {error, _} -> send_drv(Drv, beep);
+            _ -> send_drv(Drv, {put_expand, unicode, ["\n",unicode:characters_to_binary(string:trim(Docs, both))]})
+    end,
+    get_line1(edlin:edit_line(Cs0, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when Expand =:= expand; Expand =:= expand_full ->
     send_drv_reqs(Drv, Rs),

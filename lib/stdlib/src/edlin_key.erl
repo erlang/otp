@@ -113,7 +113,7 @@ get_valid_escape_key(Rest, Acc) ->
     {invalid, Acc, Rest}.
 
 merge(KeyMap) ->
-    merge(KeyMap, [normal, search, tab_expand], key_map()).
+    merge(KeyMap, [normal, search, tab_expand, help], key_map()).
 merge(_, [], KeyMap) ->
     KeyMap;
 merge(InputKeyMap, [Mode|ShellModes], KeyMap) ->
@@ -179,6 +179,15 @@ key_map() -> #{
             "\^[[5~" => scroll_expand_up,
             "\t" => tab_expand_full,
             default => tab_expand_quit %% go to normal mode and evaluate key input again
+        },
+        help => #{
+            "\^[OA" => move_expand_up,
+            "\^[[A" => move_expand_up,
+            "\^[OB" => move_expand_down,
+            "\^[[B" => move_expand_down,
+            "\^[[6~" => scroll_expand_down,
+            "\^[[5~" => scroll_expand_up,
+            default => tab_expand_quit %% go to normal mode and evaluate key input again
         }
     }.
 
@@ -227,6 +236,7 @@ normal_map() ->
         "\^[d" => kill_word,
         "\^[F" => forward_word,
         "\^[f" => forward_word,
+        "\^[h" => help,
         "\^[L" => redraw_line,
         "\^[l" => redraw_line,
         "\^[o" => open_editor,
@@ -305,6 +315,7 @@ valid_functions() ->
      forward_delete_word,  %% Delete the characters until the closest non-word character
      forward_line,         %% Move forward one line
      forward_word,         %% Move forward one word
+     help,                 %% Open up a pager with help for function or module closest to the cursor
      history_down,         %% Move to the next item in the history
      history_up,           %% Move to the previous item in the history
      %%jcl_menu,

@@ -141,7 +141,8 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
                 normal -> {insert, C1};
                 search when $\s =< C1 ->{insert_search, C1};
                 search -> search_quit;
-                tab_expand -> tab_expand_quit
+                tab_expand -> tab_expand_quit;
+                help -> tab_expand_quit
             end,
             case Op of
                 tab_expand_quit ->
@@ -196,6 +197,9 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
                 clear ->
                     Rs = redraw(P, MultiLine, [clear|Rs0]),
                     edit(Cs, P, MultiLine, {NextMode, none}, Rs);
+                help ->
+                    {help, chars_before(MultiLine), Cs,{line, P, MultiLine, {help, none}},
+                    reverse(Rs0)};
                 tab_expand ->
                     {expand, chars_before(MultiLine), Cs,
                      {line, P, MultiLine, {tab_expand, none}},
