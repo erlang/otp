@@ -4015,8 +4015,12 @@ store_in_vec_aux(TTBEncodeContext *ctx,
     Uint iov_len;
     ErlIOVec *feiovp;
 
-    ASSERT(((byte *) &bin->orig_bytes[0]) <= ptr);
-    ASSERT(ptr + len <= ((byte *) &bin->orig_bytes[0]) + bin->orig_size);
+#ifdef DEBUG
+    if (!(bin->intern.flags & BIN_FLAG_MAGIC)) {
+        ASSERT(((byte *) &bin->orig_bytes[0]) <= ptr);
+        ASSERT(ptr + len <= ((byte *) &bin->orig_bytes[0]) + bin->orig_size);
+    }
+#endif
 
     if (ctx->frag_ix >= 0) {
         feiovp = &ctx->fragment_eiovs[ctx->frag_ix];
