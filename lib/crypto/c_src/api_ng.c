@@ -551,7 +551,6 @@ static int get_final_args(ErlNifEnv* env,
 
                     else if (ctx_res->padding == atom_none)
                         {
-                            ASSERT(pad_size == 0);
                             ctx_res->padded_size = pad_size;
                             pad_offset = 0;
                         }
