@@ -130,7 +130,9 @@ format_error({base,Base}) ->
 format_error(indentation) ->
     "bad indentation in triple-quoted string";
 format_error(white_space) ->
-    "non-whitespace after start of triple-quoted string";
+    "not white space after start of triple-quoted string";
+format_error(string_concat) ->
+    "adjacent string literals without intervening white space";
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
@@ -1265,7 +1267,7 @@ scan_qstring(
     end.
 
 scan_sigil_suffix(Cs, St, Line, Col, Toks, {}) -> % Non-sigil string
-    scan1(Cs, St, Line, Col, Toks);
+    scan_string_concat(Cs, St, Line, Col, Toks, "");
 scan_sigil_suffix(Cs, St, Line, Col, Toks, SigilType)
   when is_atom(SigilType) -> % Sigil string - scan suffix
     scan_sigil_suffix(Cs, St, Line, Col, Toks, "");
@@ -1282,11 +1284,27 @@ scan_sigil_suffix(Cs, St, Line, Col, Toks, Wcs) when is_list(Wcs) ->
                 A when is_atom(A) ->
                     Anno = anno(Line, Col, St, ?STR(Type, St, Suffix)),
                     Tok = {Type,Anno,Suffix},
-                    scan1(Ncs, St, Line, Ncol, [Tok|Toks])
+                    scan_string_concat(
+                      Ncs, St, Line, Ncol, [Tok|Toks], Suffix)
             catch _ : _ ->
                     scan_error({illegal,Type}, Line, Col, Line, Ncol, Ncs)
             end
     end.
+
+scan_string_concat(Cs, St, Line, Col, Toks, "" = SigilSuffix) ->
+    case Cs of
+        [$"|_] ->
+            scan_error(string_concat, Line, Col, Line, Col, Cs);
+        [] ->
+            {more,
+             {Cs,St,Col,Toks,Line,SigilSuffix,fun scan_string_concat/6}};
+        _ ->
+            scan1(Cs, St, Line, Col, Toks)
+    end;
+scan_string_concat(Cs, St, Line, Col, Toks, SigilSuffix)
+  when is_list(SigilSuffix) ->
+    scan1(Cs, St, Line, Col, Toks).
+
 
 -record(vstring,
         { line, col, sigil_type, q1, q2, wcs = "" }).
