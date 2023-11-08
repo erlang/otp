@@ -772,7 +772,6 @@ connection_states(Random) ->
                    cipher_type = 0,
                    iv_size = 0,
                    key_material_length = 0,
-                   expanded_key_material_length = 0,
                    mac_algorithm = 0,
                    prf_algorithm = 0,
                    hash_size = 0,

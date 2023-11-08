@@ -107,7 +107,6 @@ security_parameters(Version, CipherSuite, SecParams) ->
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
       cipher_type = type(Cipher),
-      expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
       mac_algorithm = mac_algorithm(Hash),
@@ -743,25 +742,6 @@ key_material(aes_256_ccm) ->
     32;
 key_material(chacha20_poly1305) ->
     32.
-
-expanded_key_material(null) ->
-    0;
-expanded_key_material(rc4_128) ->
-    16;
-expanded_key_material(Cipher) when Cipher == des_cbc ->
-    8;
-expanded_key_material('3des_ede_cbc') ->
-    24;
-expanded_key_material(Cipher) when Cipher == aes_128_cbc;
-				   Cipher == aes_256_cbc;
-				   Cipher == aes_128_gcm;
-				   Cipher == aes_256_gcm;
-                                   Cipher == aes_128_ccm;
-				   Cipher == aes_256_ccm;
-                                   Cipher == aes_128_ccm_8;
-				   Cipher == aes_256_ccm_8;
-				   Cipher == chacha20_poly1305 ->
-    unknown.  
 
 iv_size(Cipher) when Cipher == null;
 		     Cipher == rc4_128 ->

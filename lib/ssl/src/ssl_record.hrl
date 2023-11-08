@@ -59,7 +59,6 @@
           cipher_type,
           iv_size,
           key_material_length,			% unit 8 
-          expanded_key_material_length,		% unit 8 
           mac_algorithm,			% unit 8  
           prf_algorithm,			% unit 8
           hash_size,				% unit 8
