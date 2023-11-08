@@ -582,11 +582,11 @@ spawn(Module, Name, Args) -> pid()
 	  still executing dirty native code. <i>Directly visible Erlang
 	  resources</i> will be released, but the runtime system cannot
 	  force the native code to stop executing. The runtime system tries
-	  to prevent the execution of the dirty native code from effecting
+	  to prevent the execution of the dirty native code from affecting
 	  other processes by, for example, disabling functionality such as
 	  <seecref marker="erts:erl_nif#enif_send"><c>enif_send()</c></seecref>
 	  when used from a terminated process, but if the NIF is not well
-	  behaved it can still effect other processes. A well behaved dirty
+	  behaved it can still affect other processes. A well behaved dirty
 	  NIF should test if
 	  <seecref marker="erts:erl_nif#enif_is_current_process_alive">the
 	  process it is executing in has exited</seecref>, and if so stop
