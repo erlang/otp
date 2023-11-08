@@ -58,7 +58,6 @@
           bulk_cipher_algorithm,
           cipher_type,
           iv_size,
-          key_size,				% unit 8
           key_material_length,			% unit 8 
           expanded_key_material_length,		% unit 8 
           mac_algorithm,			% unit 8  

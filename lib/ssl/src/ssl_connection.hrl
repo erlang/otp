@@ -184,7 +184,6 @@
 %%
 %%   cipher_type                  - TLS 1.3 uses only AEAD ciphers
 %%   iv_size                      - not used
-%%   key_size                     - not used
 %%   key_material_length          - not used
 %%   expanded_key_material_length - used in SSL 3.0
 %%   mac_algorithm                - not used

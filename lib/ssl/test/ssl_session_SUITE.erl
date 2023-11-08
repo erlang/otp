@@ -771,7 +771,6 @@ connection_states(Random) ->
                    bulk_cipher_algorithm = 0,
                    cipher_type = 0,
                    iv_size = 0,
-                   key_size = 0,
                    key_material_length = 0,
                    expanded_key_material_length = 0,
                    mac_algorithm = 0,
