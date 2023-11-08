@@ -79,9 +79,7 @@ handle_ssh_msg({ssh_cm, _ConnectionHandler,
 	       #state{group = Group} = State0) ->
     {Enc, State} = guess_encoding(Data, State0),
     List = unicode:characters_to_list(Data, Enc),
-    Pty = State#state.pty,
-    Dumb = Pty#ssh_pty.term =:= "dumb",
-    to_group(List, Group, Dumb),
+    to_group(List, Group, get_dumb(State#state.pty)),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
@@ -541,18 +539,21 @@ conv_buf([C | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty) ->
 
 %%% put characters before the prompt
 put_chars(Chars, Buf, Tty) ->
+    Dumb = get_dumb(Tty),
     case Buf of
         {[],{[],[]},[],_} -> {_, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
             {WriteBuf, Buf};
-        _ when Tty#ssh_pty.term  =/= "dumb" ->
+        _ when Dumb =:= false ->
             {Delete, DeletedState} = io_request(delete_line, Buf, Tty, []),
             {_, PutBuffer} = conv_buf(Chars, DeletedState, [], Tty),
             {Redraw, _} = io_request(redraw_prompt_pre_deleted, Buf, Tty, []),
             {[Delete, PutBuffer, Redraw], Buf};
-        _ -> %% When we have a dumb terminal, we don't support redrawing the prompt
-             %% Instead just put the characters on the screen
-            {NewBuf, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
-            {WriteBuf, NewBuf}
+        _ ->
+            %% When we have a dumb terminal, we get messages via put_chars requests
+            %% so state should be empty {[],{[],[]},[],_},
+            %% but if we end up here its not, so keep the state
+            {_, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
+            {WriteBuf, Buf}
     end.
 
 %%% insert character at current position
@@ -737,12 +738,8 @@ start_shell(ConnectionHandler, State) ->
             {_,_,_} = Shell ->
                 Shell
         end,
-    Dumb = case State#state.pty of
-               #ssh_pty{term = "dumb"} -> true;
-               _ -> false
-           end,
     State#state{group = group:start(self(), ShellSpawner,
-                                    [{dumb, Dumb},{expand_below, false},
+                                    [{dumb, get_dumb(State#state.pty)},{expand_below, false},
                                      {echo, get_echo(State#state.pty)}]),
                 buf = empty_buf()}.
 
@@ -859,6 +856,13 @@ t2str(T) -> try io_lib:format("~s",[T])
             end.
 
 %%--------------------------------------------------------------------
+get_dumb(Tty) ->
+    try
+        Tty#ssh_pty.term =:= "dumb"
+    catch
+        _:_ -> false
+    end.
+
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.
 get_echo(Tty) ->

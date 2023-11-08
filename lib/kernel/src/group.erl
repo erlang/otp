@@ -921,7 +921,7 @@ edit_line([Erase|Cs],[], Rs) when Erase =:= $\177; Erase =:= $\^H ->
     edit_line(Cs,[], Rs);
 edit_line([Erase|Cs],[_|Chars], Rs) when Erase =:= $\177; Erase =:= $\^H ->
     edit_line(Cs,Chars, [{delete_chars, -1}|Rs]);
-edit_line([CtrlChar|Cs],Chars, Rs) when CtrlChar =< 32 ->
+edit_line([CtrlChar|Cs],Chars, Rs) when CtrlChar < 32 ->
     edit_line(Cs,Chars,Rs);
 edit_line([Char|Cs],Chars, Rs) ->
     edit_line(Cs,[Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
