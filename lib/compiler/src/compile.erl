@@ -696,6 +696,8 @@ select_passes([{pass,Mod}|Ps], Opts) ->
 			{ok,Code,St};
 		    {ok,Code,Ws} ->
 			{ok,Code,St#compile{warnings=St#compile.warnings++Ws}};
+                    {error,Es} ->
+                        {error,St#compile{errors=St#compile.errors ++ Es}};
                     Other ->
                         Es = [{St#compile.ifile,[{none,?MODULE,{bad_return,Mod,Other}}]}],
                         {error,St#compile{errors=St#compile.errors ++ Es}}

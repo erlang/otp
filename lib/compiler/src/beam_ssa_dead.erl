@@ -826,13 +826,13 @@ will_succeed_1('/=', A, '==', B) when A == B -> no;
 
 will_succeed_1(_, _, _, _) -> 'maybe'.
 
-will_succeed_vars('=/=', Val, '=:=', Val) -> no;
-will_succeed_vars('=:=', Val, '=/=', Val) -> no;
-will_succeed_vars('=:=', Val, '>=',  Val) -> yes;
-will_succeed_vars('=:=', Val, '=<',  Val) -> yes;
+will_succeed_vars('=/=', Var, '=:=', Var) -> no;
+will_succeed_vars('=:=', Var, '=/=', Var) -> no;
+will_succeed_vars('=:=', Var, '>=',  Var) -> yes;
+will_succeed_vars('=:=', Var, '=<',  Var) -> yes;
 
-will_succeed_vars('/=', Val1, '==', Val2) when Val1 == Val2 -> no;
-will_succeed_vars('==', Val1, '/=', Val2) when Val1 == Val2 -> no;
+will_succeed_vars('/=', Var, '==', Var) -> no;
+will_succeed_vars('==', Var, '/=', Var) -> no;
 
 will_succeed_vars(_, _, _, _) -> 'maybe'.
 
