@@ -194,7 +194,6 @@
 %%   master_secret                - used for multiple secret types in TLS 1.3
 %%   client_random                - not used
 %%   server_random                - not used
-%%   exportable                   - not used
 %%
 %% cipher_state :: record()
 %%   nonce - used for sequence_number

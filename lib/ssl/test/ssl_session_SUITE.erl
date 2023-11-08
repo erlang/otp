@@ -781,8 +781,7 @@ connection_states(Random) ->
                    master_secret = undefined,
                    resumption_master_secret = undefined,
                    client_random = Random,
-                   server_random = undefined,
-                   exportable = undefined},
+                   server_random = undefined},
             sequence_number => 0,server_verify_data => undefined,max_fragment_length => undefined}}.
 
 

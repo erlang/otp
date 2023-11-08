@@ -70,8 +70,7 @@
           application_traffic_secret,
           client_early_data_secret,
           client_random,			% opaque 32
-          server_random,			% opaque 32
-          exportable				% boolean
+          server_random			        % opaque 32
        }). 
 
 -define(INITIAL_BYTES, 5).
