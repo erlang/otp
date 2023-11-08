@@ -62,7 +62,7 @@
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_iter_bag/1,
          fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
-	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
+	 update_element/1, update_element_default/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
 -export([update_counter_with_default_bad_pos/1]).
 -export([update_counter_table_growth/1]).
@@ -147,7 +147,7 @@ all() ->
      {group, lookup_element}, {group, misc}, {group, files},
      {group, heavy}, {group, insert_list}, ordered, ordered_match,
      interface_equality, fixtable_next, fixtable_iter_bag, fixtable_insert,
-     rename, rename_unnamed, evil_rename, update_element,
+     rename, rename_unnamed, evil_rename, update_element, update_element_default,
      update_counter, evil_update_counter,
      update_counter_with_default,
      update_counter_with_default_bad_pos,
@@ -2552,22 +2552,26 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
     Length = tuple_size(Values),
     29 = Length,
 
-    PosValArgF = fun(ToIx, ResList, [Pos | PosTail], Rand, MeF) ->
+    PosValArgF = fun MeF(ToIx, ResList, [Pos | PosTail], Rand) ->
 			 NextIx = (ToIx+Rand) rem Length,
-			 MeF(NextIx, [{Pos,element(ToIx+1,Values)} | ResList], PosTail, Rand, MeF);
+			 MeF(NextIx, [{Pos,element(ToIx+1,Values)} | ResList], PosTail, Rand);
 
-		    (_ToIx, ResList, [], _Rand, _MeF) ->
+		     MeF(_ToIx, ResList, [], _Rand) ->
 			 ResList;
 
-		    (ToIx, [], Pos, _Rand, _MeF) ->
+		     MeF(ToIx, [], Pos, _Rand) ->
 			 {Pos, element(ToIx+1,Values)}   % single {pos,value} arg
 		 end,
 
     UpdateF = fun(ToIx,Rand) ->
-                      PosValArg = PosValArgF(ToIx,[],UpdPos,Rand,PosValArgF),
+                      PosValArg = PosValArgF(ToIx,[],UpdPos,Rand),
                       %%io:format("update_element(~p)~n",[PosValArg]),
                       ArgHash = erlang:phash2({Tab,Key,PosValArg}),
                       true = ets:update_element(Tab, Key, PosValArg),
+                      [DefaultObj] = ets:lookup(Tab, Key),
+                      NewKey = make_ref(),
+                      true = ets:update_element(Tab, NewKey, PosValArg, DefaultObj),
+                      true = [update_tuple({ets:info(Tab, keypos), NewKey}, DefaultObj)] =:= ets:lookup(Tab, NewKey),
                       ArgHash = erlang:phash2({Tab,Key,PosValArg}),
                       NewTuple = update_tuple(PosValArg,Tuple),
                       [NewTuple] = ets:lookup(Tab,Key),
@@ -2578,27 +2582,27 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
                        || I <- lists:seq(1, tuple_size(NewTuple))]
 	      end,
 
-    LoopF = fun(_FromIx, Incr, _Times, Checksum, _MeF) when Incr >= Length ->
+    LoopF = fun MeF(_FromIx, Incr, _Times, Checksum) when Incr >= Length ->
 		    Checksum; % done
 
-	       (FromIx, Incr, 0, Checksum, MeF) ->
-		    MeF(FromIx, Incr+1, Length, Checksum, MeF);
+		MeF(FromIx, Incr, 0, Checksum) ->
+		    MeF(FromIx, Incr+1, Length, Checksum);
 
-	       (FromIx, Incr, Times, Checksum, MeF) ->
+		MeF(FromIx, Incr, Times, Checksum) ->
 		    ToIx = (FromIx + Incr) rem Length,
 		    UpdateF(ToIx,Checksum),
 		    if
 			Incr =:= 0 -> UpdateF(ToIx,Checksum);  % extra update to same value
 			true -> true
 		    end,
-		    MeF(ToIx, Incr, Times-1, Checksum+ToIx+1, MeF)
+		    MeF(ToIx, Incr, Times-1, Checksum+ToIx+1)
 	    end,
 
     FirstTuple = Tuple,
     true = ets:insert(Tab,FirstTuple),
     [FirstTuple] = ets:lookup(Tab,Key),
 
-    Checksum = LoopF(0, 1, Length, 0, LoopF),
+    Checksum = LoopF(0, 1, Length, 0),
     Checksum = (Length-1)*Length*(Length+1) div 2,  % if Length is a prime
     ok.
 
@@ -2616,6 +2620,7 @@ update_element_neg(Opts) ->
     update_element_neg_do(Set),
     ets:delete(Set),
     {'EXIT',{badarg,_}} = (catch ets:update_element(Set,key,{2,1})),
+    {'EXIT',{badarg,_}} = (catch ets:update_element(Set,key,{2,1},{a,b})),
 
     run_if_valid_opts(
       [ordered_set | Opts],
@@ -2623,13 +2628,16 @@ update_element_neg(Opts) ->
               OrdSet = ets_new(ordered_set, OptsOrdSet),
               update_element_neg_do(OrdSet),
               ets:delete(OrdSet),
-              {'EXIT',{badarg,_}} = (catch ets:update_element(OrdSet,key,{2,1}))
+              {'EXIT',{badarg,_}} = (catch ets:update_element(OrdSet,key,{2,1})),
+              {'EXIT',{badarg,_}} = (catch ets:update_element(OrdSet,key2,{2,1},{a,b}))
       end),
 
     Bag = ets_new(bag,[bag | Opts]),
     DBag = ets_new(duplicate_bag,[duplicate_bag | Opts]),
     {'EXIT',{badarg,_}} = (catch ets:update_element(Bag,key,{2,1})),
+    {'EXIT',{badarg,_}} = (catch ets:update_element(Bag,key,{2,1},{key,0})),
     {'EXIT',{badarg,_}} = (catch ets:update_element(DBag,key,{2,1})),
+    {'EXIT',{badarg,_}} = (catch ets:update_element(DBag,key,{2,1},{key,0})),
     true = ets:delete(Bag),
     true = ets:delete(DBag),
     ok.
@@ -2642,6 +2650,8 @@ update_element_neg_do(T) ->
     UpdateF = fun(Arg3) ->
 		      ArgHash = erlang:phash2({T,key,Arg3}),
 		      {'EXIT',{badarg,_}} = (catch ets:update_element(T,key,Arg3)),
+		      ArgHash = erlang:phash2({T,key,Arg3}),
+		      {'EXIT',{badarg,_}} = (catch ets:update_element(T,key2,Arg3,Object)),
 		      ArgHash = erlang:phash2({T,key,Arg3}),
 		      [Object] = ets:lookup(T,key)
 	      end,
@@ -2664,6 +2674,32 @@ update_element_neg_do(T) ->
     false = ets:update_element(T,false,{2,1}),
     ets:delete(T,key),
     false = ets:update_element(T,key,{2,1}),
+    ok.
+
+
+update_element_default(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(fun update_element_default_opts/1),
+    verify_etsmem(EtsMem).
+
+
+update_element_default_opts(Opts) ->
+    lists:foreach(
+        fun({Type, {Key, Pos}}) ->
+            run_if_valid_opts(
+                [Type, {keypos, Pos} | Opts],
+		fun(TabOpts) ->
+                    Tab = ets_new(Type, TabOpts),
+		    true = ets:update_element(Tab, Key, {3, b}, {key1, key2, a, x}),
+		    [{key1, key2, b, x}] = ets:lookup(Tab, Key),
+		    true = ets:update_element(Tab, Key, {3, c}, {key1, key2, a, y}),
+		    [{key1, key2, c, x}] = ets:lookup(Tab, Key),
+		    ets:delete(Tab)
+                end
+	    )
+	end,
+	[{Type, KeyPos} || Type <- [set, ordered_set], KeyPos <- [{key1, 1}, {key2, 2}]]
+    ),
     ok.
 
 
@@ -9515,9 +9551,20 @@ error_info(_Config) ->
          {update_element, ['$Tab', no_key, {2, new}], [no_fail]},
          {update_element, [BagTab, no_key, {2, bagged}]},
          {update_element, [OneKeyTab, one, not_tuple]},
-         {update_element, [OneKeyTab, one, {0, new}]},
+         {update_element, [OneKeyTab, one, {0, new}], [{error_term, position}]},
          {update_element, [OneKeyTab, one, {1, new}], [{error_term,keypos}]},
-         {update_element, [OneKeyTab, one, {4, new}]},
+         {update_element, [OneKeyTab, one, {4, new}], [{error_term, position}]},
+
+	 {update_element, ['$Tab', no_key, {2, new}, {no_key, old}], [no_fail]},
+	 {update_element, ['$Tab', no_key, {0, new}, {no_key, old}], [{error_term, position}]},
+	 {update_element, ['$Tab', no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
+	 {update_element, ['$Tab', no_key, {4, new}, {no_key, old}], [{error_term, position}]},
+	 {update_element, ['$Tab', no_key, {4, new}, not_tuple]},
+	 {update_element, [BagTab, no_key, {1, bagged}, {no_key, old}], []},
+	 {update_element, [OneKeyTab, no_key, {0, new}, {no_key, old}], [{error_term, position}]},
+	 {update_element, [OneKeyTab, no_key, {1, new}, {no_key, old}], [{error_term, keypos}]},
+	 {update_element, [OneKeyTab, no_key, {4, new}, {no_key, old}], [{error_term, position}]},
+	 {update_element, [OneKeyTab, no_key, {4, new}, not_tuple]},
 
          {whereis, [{bad,name}], [no_table]}
         ],

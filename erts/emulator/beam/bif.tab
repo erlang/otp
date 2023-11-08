@@ -793,3 +793,4 @@ bif code:get_coverage_mode/1
 bif code:get_coverage/2
 bif code:reset_coverage/1
 bif code:set_coverage_mode/1
+bif ets:update_element/4

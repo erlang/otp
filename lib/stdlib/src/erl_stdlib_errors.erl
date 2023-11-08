@@ -772,6 +772,8 @@ format_ets_error(update_element, [_,_,ElementSpec]=Args, Cause) ->
      case Cause of
          keypos ->
              [same_as_keypos];
+	 position ->
+	     [update_op_range];
          _ ->
              case is_element_spec_top(ElementSpec) of
                  true ->
@@ -785,6 +787,26 @@ format_ets_error(update_element, [_,_,ElementSpec]=Args, Cause) ->
                      [<<"is not a valid element specification">>]
              end
      end];
+format_ets_error(update_element, [_, _, ElementSpec, Default]=Args, Cause) ->
+    TabCause = format_cause(Args, Cause),
+    ArgsCause = case Cause of
+		    keypos ->
+			 [same_as_keypos];
+		    position ->
+			[update_op_range];
+		    _ ->
+			case {is_element_spec_top(ElementSpec), format_tuple(Default)} of
+			    {true, [""]} ->
+				[range];
+			    {true, TupleCause} ->
+				["" | TupleCause];
+			    {false, [""]} ->
+				[<<"is not a valid element specification">>];
+			    {false, TupleCause} ->
+				["" | TupleCause]
+			end
+		end,
+    [TabCause, "" | ArgsCause];
 format_ets_error(whereis, _Args, _Cause) ->
     [bad_table_name];
 format_ets_error(_, Args, Cause) ->

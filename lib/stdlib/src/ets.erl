@@ -77,7 +77,7 @@
          select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
          take/2,
-         update_counter/3, update_counter/4, update_element/3,
+         update_counter/3, update_counter/4, update_element/3, update_element/4,
          whereis/1]).
 
 %% internal exports
@@ -549,6 +549,22 @@ update_counter(_, _, _, _) ->
       Value :: term().
 
 update_element(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec update_element(Table, Key, ElementSpec :: {Pos, Value}, Default) -> true when
+      Table :: table(),
+      Key :: term(),
+      Pos :: pos_integer(),
+      Value :: term(),
+      Default :: tuple();
+                       (Table, Key, ElementSpec :: [{Pos, Value}], Default) -> true when
+      Table :: table(),
+      Key :: term(),
+      Pos :: pos_integer(),
+      Value :: term(),
+      Default :: tuple().
+
+update_element(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -spec whereis(TableName) -> tid() | undefined when
