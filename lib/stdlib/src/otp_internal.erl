@@ -236,7 +236,7 @@ obsolete(filename, find_src, _) ->
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(ct_slave, _, _) ->
-    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
+    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 29"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
