@@ -23,11 +23,10 @@
 
 %% Test server callbacks
 -export([
-    suite/0,
-    all/0,
-    init_per_testcase/2,
-    end_per_testcase/2
-]).
+    suite/0, all/0, groups/0,
+    init_per_suite/1, end_per_suite/1,
+    init_per_group/2, end_per_group/2,
+    init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases exports
 -export([
@@ -43,46 +42,85 @@
     big_words/0, big_words/1
 ]).
 
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(basic, _Config) ->
-    erlang:trace_pattern({?MODULE, alloc_2tup, 0}, false, [call_memory]),
-    erlang:trace(self(), false, [call]);
-end_per_testcase(late_trace, _Config) ->
-    erlang:trace_pattern({?MODULE, '_', '_'}, false, [call_memory]);
-end_per_testcase(skip, _Config) ->
-    erlang:trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
-    erlang:trace(self(), false, [call]);
-end_per_testcase(message, _Config) ->
-    erlang:trace_pattern({?MODULE, receive_message, 0}, false, [call_memory]),
-    erlang:trace(all, false, [call]);
-end_per_testcase(parallel_map, _Config) ->
-    erlang:trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
-    erlang:trace(all, false, [call]);
-end_per_testcase(trace_all, _Config) ->
-    erlang:trace_pattern({'_', '_', '_'}, false, [call_memory]),
-    erlang:trace(all, false, [call]);
-end_per_testcase(spawn_memory, _Config) ->
-    erlang:trace_pattern({?MODULE, spawn_memory_internal, '_'}, false, [call_memory]),
-    erlang:trace(self(), false, [call]);
-end_per_testcase(spawn_memory_lambda, _Config) ->
-    erlang:trace_pattern({erlang, apply, 2}, false, [call_memory]),
-    erlang:trace(self(), false, [call]);
-end_per_testcase(conflict_traces, _Config) ->
-    erlang:trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
-    erlang:trace(self(), false, [call]);
-end_per_testcase(big_words, _Config) ->
-    erlang:trace_pattern({?MODULE,alloc_tuples,2}, false, [call_memory]),
-    erlang:trace(self(), false, [call]).
-
-
 suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [basic, late_trace, skip, message, parallel_map, trace_all, spawn_memory,
     spawn_memory_lambda, conflict_traces, big_words].
+
+init_per_suite(Config) ->
+    trace_sessions:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
+
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
+
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
+
+init_per_testcase(_Case, Config) ->
+    trace_sessions:init_per_testcase(Config).
+
+end_per_testcase(basic, Config) ->
+    erlang_trace_pattern({?MODULE, alloc_2tup, 0}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(late_trace, Config) ->
+    erlang_trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(skip, Config) ->
+    erlang_trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(message, Config) ->
+    erlang_trace_pattern({?MODULE, receive_message, 0}, false, [call_memory]),
+    erlang_trace(all, false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(parallel_map, Config) ->
+    erlang_trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
+    erlang_trace(all, false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(trace_all, Config) ->
+    erlang_trace_pattern({'_', '_', '_'}, false, [call_memory]),
+    erlang_trace(all, false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(spawn_memory, Config) ->
+    erlang_trace_pattern({?MODULE, spawn_memory_internal, '_'}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(spawn_memory_lambda, Config) ->
+    erlang_trace_pattern({erlang, apply, 2}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(conflict_traces, Config) ->
+    erlang_trace_pattern({?MODULE, '_', '_'}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(big_words, Config) ->
+    erlang_trace_pattern({?MODULE,alloc_tuples,2}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config).
+
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+erlang_trace_info(A,B) ->
+    trace_sessions:erlang_trace_info(A,B).
+
 
 %% allocation functions
 alloc_2tup() ->
@@ -99,18 +137,18 @@ basic() ->
 basic(Config) when is_list(Config) ->
     Self = self(),
     Traced = {?MODULE, alloc_2tup, 0},
-    1 = erlang:trace_pattern(Traced, true, [call_memory]),
-    1 = erlang:trace(Self, true, [call]),
+    1 = erlang_trace_pattern(Traced, true, [call_memory]),
+    1 = erlang_trace(Self, true, [call]),
     alloc_2tup(),
-    {call_memory, [{Self, 1, 3}]} = erlang:trace_info(Traced, call_memory),
+    {call_memory, [{Self, 1, 3}]} = erlang_trace_info(Traced, call_memory),
     alloc_2tup(),
-    {call_memory, [{Self, 2, 6}]} = erlang:trace_info(Traced, call_memory),
+    {call_memory, [{Self, 2, 6}]} = erlang_trace_info(Traced, call_memory),
     %% test that GC works correctly
     erlang:garbage_collect(),
     alloc_2tup(),
-    {call_memory, [{Self, 3, 9}]} = erlang:trace_info(Traced, call_memory),
-    1 = erlang:trace(Self, false, [call]),
-    1 = erlang:trace_pattern(Traced, false, [call_memory]).
+    {call_memory, [{Self, 3, 9}]} = erlang_trace_info(Traced, call_memory),
+    1 = erlang_trace(Self, false, [call]),
+    1 = erlang_trace_pattern(Traced, false, [call_memory]).
 
 late_trace() ->
     [{doc, "Tests that garbage_collect call done before tracing is enabled works as expected"}].
@@ -120,13 +158,13 @@ late_trace(Config) when is_list(Config) ->
     Pid = spawn_link(
         fun () ->
             _ = late_trace_inner(),
-            1 = erlang:trace_pattern({?MODULE, late_trace_inner, 0}, true, [call_memory]),
-            1 = erlang:trace(self(), true, [call]),
+            1 = erlang_trace_pattern({?MODULE, late_trace_inner, 0}, true, [call_memory]),
+            1 = erlang_trace(self(), true, [call]),
             _ = late_trace_inner(),
             Control ! continue,
             receive
                 stop ->
-                    1 = erlang:trace_pattern({?MODULE, late_trace_inner, 0}, false, [call_memory])
+                    1 = erlang_trace_pattern({?MODULE, late_trace_inner, 0}, false, [call_memory])
             end
         end),
     NonLiteral = non_literal_9(),
@@ -134,7 +172,7 @@ late_trace(Config) when is_list(Config) ->
     Pid ! NonLiteral,
     Pid ! NonLiteral,
     receive continue -> ok end,
-    {call_memory, [{Pid, 1, 12}]} = erlang:trace_info({?MODULE, late_trace_inner, 0}, call_memory),
+    {call_memory, [{Pid, 1, 12}]} = erlang_trace_info({?MODULE, late_trace_inner, 0}, call_memory),
     Pid ! stop,
     receive {'DOWN', MRef, process, Pid, _} -> ok end.
 
@@ -151,12 +189,12 @@ skip() ->
 
 skip(Config) when is_list(Config) ->
     Self = self(),
-    1 = erlang:trace_pattern({?MODULE, upper, 0}, true, [call_memory]),
-    1 = erlang:trace_pattern({?MODULE, lower, 1}, true, [call_memory]),
-    1 = erlang:trace(Self, true, [call]),
+    1 = erlang_trace_pattern({?MODULE, upper, 0}, true, [call_memory]),
+    1 = erlang_trace_pattern({?MODULE, lower, 1}, true, [call_memory]),
+    1 = erlang_trace(Self, true, [call]),
     upper(),
-    {call_memory, [{Self, 1, 8 * 2}]} = erlang:trace_info({?MODULE, lower, 1}, call_memory),
-    {call_memory, [{Self, 1, 3 + 3 + 6}]} = erlang:trace_info({?MODULE, upper, 0}, call_memory).
+    {call_memory, [{Self, 1, 8 * 2}]} = erlang_trace_info({?MODULE, lower, 1}, call_memory),
+    {call_memory, [{Self, 1, 3 + 3 + 6}]} = erlang_trace_info({?MODULE, upper, 0}, call_memory).
 
 upper() ->
     Ref = alloc_2tup(),          %% 3
@@ -178,8 +216,8 @@ message(Config) when is_list(Config) ->
     Control = self(),
     Traced = {?MODULE, receive_message, 0},
     NonLiteral = non_literal_9(),
-    1 = erlang:trace_pattern(Traced, true, [call_memory]),
-    1 = erlang:trace(self(), true, [call, set_on_first_spawn]),
+    1 = erlang_trace_pattern(Traced, true, [call_memory]),
+    1 = erlang_trace(self(), true, [call, set_on_first_spawn]),
     Pid = spawn_link(
         fun Wrap() ->
             receive
@@ -191,29 +229,29 @@ message(Config) when is_list(Config) ->
                     ok
             end
         end),
-    1 = erlang:trace(self(), false, [call, set_on_first_spawn]),
+    1 = erlang_trace(self(), false, [call, set_on_first_spawn]),
     %% first, check that sending a (non-matched) message does not result in a negative allocation
     Pid ! NonLiteral,
     timer:sleep(500),
-    {call_memory, []} = erlang:trace_info(Traced, call_memory),
+    {call_memory, []} = erlang_trace_info(Traced, call_memory),
     %% enter the receive_message/0
     Pid ! pre,
     %% wait for 'done' response
     receive done -> ok end,
-    {call_memory, [{Pid, 1, 9}]} = erlang:trace_info(Traced, call_memory),
+    {call_memory, [{Pid, 1, 9}]} = erlang_trace_info(Traced, call_memory),
     %% once again, just in case, to verify that decrementing "allocated" worked
     Pid ! pre,
     Pid ! NonLiteral,
     receive done -> ok end,
-    {call_memory, [{Pid, 2, 18}]} = erlang:trace_info(Traced, call_memory),
-    1 = erlang:trace_pattern(Traced, false, [call_memory]).
+    {call_memory, [{Pid, 2, 18}]} = erlang_trace_info(Traced, call_memory),
+    1 = erlang_trace_pattern(Traced, false, [call_memory]).
 
 parallel_map() ->
     [{doc, "Test memory profiling with spawned processes"}].
 
 parallel_map(Config) when is_list(Config) ->
-    _ = erlang:trace_pattern({?MODULE, '_', '_'}, true, [call_memory]),
-    1 = erlang:trace(self(), true, [call, set_on_spawn]),
+    _ = erlang_trace_pattern({?MODULE, '_', '_'}, true, [call_memory]),
+    1 = erlang_trace(self(), true, [call, set_on_spawn]),
     Pid = spawn_link(fun do_parallel/0),
     MRef = monitor(process, Pid),
     Pid ! pre_stop,
@@ -222,10 +260,10 @@ parallel_map(Config) when is_list(Config) ->
         {'DOWN', MRef, process, Pid, _} ->
             %% alloc_2tup called 3 times (once per process)
             {call_memory, [{_, 1, 3}, {_, 1, 3}, {_, 1, 3}]} =
-                erlang:trace_info({?MODULE, alloc_2tup, 0}, call_memory),
+                erlang_trace_info({?MODULE, alloc_2tup, 0}, call_memory),
             %% receive_message called 8 times (3 from "Allocs", 3 from "Grand", and 2 from the runner)
             %%  from 7 processes, but only 3*6 Grand processes and 3 words for the runner are on the heap
-            {call_memory, RecvMsg} = erlang:trace_info({?MODULE, receive_message, 0}, call_memory),
+            {call_memory, RecvMsg} = erlang_trace_info({?MODULE, receive_message, 0}, call_memory),
             {7, 8, 21} = collapse_procs(RecvMsg)
     end.
 
@@ -241,10 +279,10 @@ trace_all() ->
     [{doc, "Enables memory tracing for all processes, mainly ensuring there are no core dumps"}].
 
 trace_all(Config) when is_list(Config) ->
-    _ = erlang:trace_pattern({'_', '_', '_'}, true, [call_memory]),
-    _ = erlang:trace(all, true, [call]),
+    _ = erlang_trace_pattern({'_', '_', '_'}, true, [call_memory]),
+    _ = erlang_trace(all, true, [call]),
     do_heavy_lifting(),
-    _ = erlang:trace(all, false, [call]),
+    _ = erlang_trace(all, false, [call]),
     Profile = profile_memory(),
     %% it'd be better to introduce more checks, but for now see that
     %%  at least some action happened
@@ -272,7 +310,7 @@ profile_modules([{Module, _} | Tail], Acc) ->
 profile_functions(_Module, [], Acc) ->
     Acc;
 profile_functions(Module, [{Fun, Arity} | Tail], Acc) ->
-    case erlang:trace_info({Module, Fun, Arity}, call_memory) of
+    case erlang_trace_info({Module, Fun, Arity}, call_memory) of
         {call_memory, Skip} when Skip =:= []; Skip =:= false ->
             profile_functions(Module, Tail, Acc);
         {call_memory, Mem} ->
@@ -290,26 +328,26 @@ spawn_memory() ->
 
 spawn_memory(Config) when is_list(Config) ->
     LostSharing = lists:seq(1, 16),
-    _ = erlang:trace_pattern({?MODULE, spawn_memory_internal, 1}, true, [call_memory]),
-    1 = erlang:trace(self(), true, [call, set_on_first_spawn]),
+    _ = erlang_trace_pattern({?MODULE, spawn_memory_internal, 1}, true, [call_memory]),
+    1 = erlang_trace(self(), true, [call, set_on_first_spawn]),
     Pid = erlang:spawn_link(?MODULE, spawn_memory_internal, [LostSharing]),
     MRef = monitor(process, Pid),
     receive {'DOWN', MRef, process, Pid, _} -> ok end,
-    1 = erlang:trace(self(), false, [all]),
+    1 = erlang_trace(self(), false, [all]),
     %% 16-elements list translates into 34-words for spawn
-    {call_memory, [{Pid, 1, 34}]} = erlang:trace_info({?MODULE, spawn_memory_internal, 1}, call_memory).
+    {call_memory, [{Pid, 1, 34}]} = erlang_trace_info({?MODULE, spawn_memory_internal, 1}, call_memory).
 
 spawn_memory_lambda(Config) when is_list(Config) ->
     %% check that tracing with context captured through lambda also works - but reports erlang:apply
     LostSharing = lists:seq(1, 16),
-    _ = erlang:trace_pattern({erlang, apply, 2}, true, [call_memory]),
-    1 = erlang:trace(self(), true, [call, set_on_first_spawn]),
+    _ = erlang_trace_pattern({erlang, apply, 2}, true, [call_memory]),
+    1 = erlang_trace(self(), true, [call, set_on_first_spawn]),
     Pid = erlang:spawn_link(fun () -> spawn_memory_internal(LostSharing) end),
     MRef = monitor(process, Pid),
     receive {'DOWN', MRef, process, Pid, _} -> ok end,
-    1 = erlang:trace(self(), false, [all]),
+    1 = erlang_trace(self(), false, [all]),
     %% 16-elements list translates into 34-words for spawn, and 4 more words for apply itself
-    {call_memory, [{Pid, 1, 38}]} = erlang:trace_info({erlang, apply, 2}, call_memory).
+    {call_memory, [{Pid, 1, 38}]} = erlang_trace_info({erlang, apply, 2}, call_memory).
 
 spawn_memory_internal(Array) ->
     Array.
@@ -321,21 +359,21 @@ conflict_traces(Config) when is_list(Config) ->
     Self = self(),
     Traced = {?MODULE, alloc_2tup, 0},
     %% start call_memory trace
-    1 = erlang:trace_pattern(Traced, true, [call_memory]),
-    1 = erlang:trace(Self, true, [call]),
+    1 = erlang_trace_pattern(Traced, true, [call_memory]),
+    1 = erlang_trace(Self, true, [call]),
     alloc_2tup(),
-    {call_memory, [{Self, 1, 3}]} = erlang:trace_info(Traced, call_memory),
+    {call_memory, [{Self, 1, 3}]} = erlang_trace_info(Traced, call_memory),
     %% start/stop call_time trace
-    1 = erlang:trace_pattern(Traced, true, [call_time]),
+    1 = erlang_trace_pattern(Traced, true, [call_time]),
     alloc_2tup(), %% this goes to both time and memory
-    {call_time, [{Self, 1, _, _}]} = erlang:trace_info(Traced, call_time),
-    1 = erlang:trace_pattern(Traced, false, [call_time]),
+    {call_time, [{Self, 1, _, _}]} = erlang_trace_info(Traced, call_time),
+    1 = erlang_trace_pattern(Traced, false, [call_time]),
     %% memory is unaffected
     alloc_2tup(),
-    {call_memory, [{Self, 3, 9}]} = erlang:trace_info(Traced, call_memory),
+    {call_memory, [{Self, 3, 9}]} = erlang_trace_info(Traced, call_memory),
     %%
-    1 = erlang:trace(Self, false, [call]),
-    1 = erlang:trace_pattern(Traced, false, [call_memory]).
+    1 = erlang_trace(Self, false, [call]),
+    1 = erlang_trace_pattern(Traced, false, [call_memory]).
 
 big_words() ->
     [{doc, "Test that Words counter can be a bignum on 32-bit"}].
@@ -343,8 +381,8 @@ big_words() ->
 big_words(Config) when is_list(Config) ->
     Self = self(),
     Traced = {?MODULE, alloc_tuples, 2},
-    1 = erlang:trace_pattern(Traced, true, [call_memory]),
-    1 = erlang:trace(Self, true, [call]),
+    1 = erlang_trace_pattern(Traced, true, [call_memory]),
+    1 = erlang_trace(Self, true, [call]),
     Words = (1 bsl 27),
     case {erts_debug:size(Words), 8*erlang:system_info(wordsize)} of
         {2, 32} -> ok;
@@ -354,9 +392,9 @@ big_words(Config) when is_list(Config) ->
     TupleCnt = Words div (TupleSz + 1),
     alloc_tuples(TupleCnt, TupleSz),
     CallCnt = TupleCnt + 1,
-    {call_memory, [{Self, CallCnt, Words}]} = erlang:trace_info(Traced, call_memory),
-    1 = erlang:trace(Self, false, [call]),
-    1 = erlang:trace_pattern(Traced, false, [call_memory]).
+    {call_memory, [{Self, CallCnt, Words}]} = erlang_trace_info(Traced, call_memory),
+    1 = erlang_trace(Self, false, [call]),
+    1 = erlang_trace_pattern(Traced, false, [call_memory]).
 
 
 alloc_tuples(0, _) ->

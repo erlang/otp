@@ -51,7 +51,10 @@ typedef struct bp_data_time {     /* Call time, Memory trace */
     erts_refc_t refc;
 } BpDataCallTrace;
 
-typedef struct {
+typedef struct process_breakpoint_trace_t {
+    struct process_breakpoint_trace_t *next;
+    ErtsTraceSession *session;
+
     const ErtsCodeInfo *ci;
     BpDataAccumulator accumulator;
     BpDataAccumulator allocated;        /* adjustment for GC and messages on the heap */
@@ -67,7 +70,7 @@ typedef struct {
     erts_refc_t refc;
 } BpMetaTracer;
 
-typedef struct generic_bp_data {
+typedef struct GenericBpData {
     Uint flags;
     Binary* local_ms;		/* Match spec for local call trace */
     Binary* meta_ms;		/* Match spec for meta trace */
@@ -79,10 +82,18 @@ typedef struct generic_bp_data {
 
 #define ERTS_NUM_BP_IX 2
 
-typedef struct generic_bp {
+typedef struct GenericBp {
     BeamInstr orig_instr;
     GenericBpData data[ERTS_NUM_BP_IX];
+    
+    ErtsTraceSession *session;
+    struct GenericBp *next;
+    // ToDo make union
+    struct GenericBp *next_to_free;
+    struct GenericBp *to_insert;
 } GenericBp;
+
+extern ErtsTraceSession* erts_staging_trace_session;
 
 #define ERTS_BP_CALL_TIME_SCHEDULE_IN      (0)
 #define ERTS_BP_CALL_TIME_SCHEDULE_OUT     (1)
@@ -126,43 +137,50 @@ void erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified);
 void erts_bp_free_matched_functions(BpFunctions* f);
 
 void erts_install_breakpoints(BpFunctions* f);
+void erts_install_additional_session_bp(ErtsCodeInfo* ci_rw);
+Uint erts_sum_all_session_flags(ErtsCodeInfo *ci_rw);
 void erts_uninstall_breakpoints(BpFunctions* f);
 
 void erts_consolidate_local_bp_data(BpFunctions* f);
 void erts_consolidate_export_bp_data(BpFunctions* f);
+void erts_free_breakpoints(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec, int local);
-void erts_clear_export_trace(ErtsCodeInfo *ci, int local);
+void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec);
+void erts_clear_export_trace(ErtsCodeInfo *ci);
 
-void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
-			  ErtsTracer tracer);
+void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec, ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
 
 void erts_set_debug_break(BpFunctions *f);
 void erts_clear_debug_break(BpFunctions *f);
-void erts_set_count_break(BpFunctions *f, enum erts_break_op);
+void erts_set_count_break(BpFunctions *f,
+                          enum erts_break_op);
 void erts_clear_count_break(BpFunctions *f);
 
 
 void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
-void erts_clear_export_break(Module *modp, Export *ep);
+void erts_clear_all_export_break(Module *modp, Export *ep);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *ci, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 
-int erts_is_trace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
-int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
-			 ErtsTracer *tracer_ret);
+int erts_is_trace_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
+                        Binary **match_spec_ret, int local);
+int erts_is_mtrace_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
+                         Binary **match_spec_ret, ErtsTracer *tracer_ret);
 
-int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
-int erts_is_call_break(Process *p, int is_time, const ErtsCodeInfo *ci, Eterm *call_time);
+int erts_is_count_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
+                        Uint *count_ret);
+int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
+                       const ErtsCodeInfo *ci, Eterm *call_time);
 
-void erts_call_trace_return(Process* c_p, const ErtsCodeInfo *ci, Eterm bp_flags_term);
+void erts_call_trace_return(Process* c_p, const ErtsCodeInfo *ci,
+                            Eterm bp_flags_term, Eterm session_weak_id);
 void erts_schedule_time_break(Process *p, Uint out);
 ERTS_GLB_INLINE void erts_adjust_memory_break(Process *p, Sint adjustment);
 ERTS_GLB_INLINE void erts_adjust_message_break(Process *p, Eterm message);
@@ -191,16 +209,16 @@ ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 ERTS_GLB_INLINE
 void erts_adjust_memory_break(Process *p, Sint adjustment)
 {
-    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
-    if (pbt)
+    process_breakpoint_trace_t * pbt;
+    for (pbt = ERTS_PROC_GET_CALL_MEMORY(p); pbt; pbt = pbt->next)
         pbt->allocated += adjustment;
 }
 
 ERTS_GLB_INLINE
 void erts_adjust_message_break(Process *p, Eterm message)
 {
-    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
-    if (pbt)
+    process_breakpoint_trace_t * pbt;
+    for (pbt = ERTS_PROC_GET_CALL_MEMORY(p); pbt; pbt = pbt->next)
         pbt->allocated += size_object(message);
 }
 

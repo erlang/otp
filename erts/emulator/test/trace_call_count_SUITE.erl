@@ -63,42 +63,58 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_and_off/1, info/1, 
 	 pause_and_restart/1, combo/1]).
-	 
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_count]),
-    erlang:trace_pattern(on_load, false, [local,meta,call_count]),
-    erlang:trace(all, false, [all]),
-    ok.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 4}}].
 
 all() ->
+    trace_sessions:all().
+
+groups() ->
+    trace_sessions:groups(testcases()).
+
+testcases() ->
     [basic, on_and_off, info, pause_and_restart, combo].
 
-groups() -> 
-    [].
-
 init_per_suite(Config) ->
-    Config.
+    trace_sessions:init_per_suite(Config).
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    trace_sessions:end_per_suite(Config).
 
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(Group, Config) ->
+    trace_sessions:init_per_group(Group, Config).
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(Group, Config) ->
+    trace_sessions:end_per_group(Group, Config).
+
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    trace_sessions:init_per_testcase(Config).
+
+end_per_testcase(_Func, Config) ->
+    erlang_trace_pattern({'_','_','_'}, false, [local,meta,call_count]),
+    erlang_trace_pattern(on_load, false, [local,meta,call_count]),
+    erlang_trace(all, false, [all]),
+
+    trace_sessions:end_per_testcase(Config).
+
+
+erlang_trace(A,B,C) ->
+    trace_sessions:erlang_trace(A,B,C).
+
+erlang_trace_pattern(A,B,C) ->
+    trace_sessions:erlang_trace_pattern(A,B,C).
+
+%erlang_trace_info(A,B) ->
+%    trace_sessions:erlang_trace_info(A,B).
+
 
 
 %% Tests basic call count trace

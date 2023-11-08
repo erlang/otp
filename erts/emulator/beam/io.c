@@ -209,7 +209,7 @@ static ERTS_INLINE void
 kill_port(Port *pp)
 {
     ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
-    ERTS_TRACER_CLEAR(&ERTS_TRACER(pp));
+    delete_all_trace_refs(&pp->common);
     erts_ptab_delete_element(&erts_port, &pp->common); /* Time of death */
     erts_port_task_free_port(pp);
     /* In non-smp case the port structure may have been deallocated now */
@@ -386,7 +386,23 @@ static Port *create_port(char *name,
     prt->os_pid = -1;
 
     /* Set default tracing */
-    erts_get_default_port_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER(prt));
+    ERTS_P_ALL_TRACE_FLAGS(prt) = 0;
+    prt->common.tracee.first_ref = NULL;
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        Uint32 trace_flags;
+        ErtsTracer tracer;
+        // ToDo: Optimize
+        erts_get_default_port_tracing(s, &trace_flags, &tracer);
+        if (trace_flags) {
+            ErtsTracerRef *ref = new_tracer_ref(&prt->common, s);
+            ref->flags = trace_flags;
+            ref->tracer = tracer;
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    ERTS_P_ALL_TRACE_FLAGS(prt) = erts_sum_all_trace_flags(&prt->common);
+
 
     ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
@@ -653,7 +669,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	    ERTS_OPEN_DRIVER_RET(NULL, -3, SYSTEM_LIMIT);
     }
     
-    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
+    if (ERTS_IS_P_TRACED_FL(port, F_TRACE_PORTS)) {
 	trace_port_open(port,
 			pid,
 			erts_atom_put((byte *) port->name,
@@ -670,7 +686,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     error_number = error_type = 0;
     if (driver->start) {
         ERTS_MSACC_PUSH_STATE_M();
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_in, am_open);
 	}
 	port->caller = pid;
@@ -712,7 +728,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
 	ERTS_MSACC_POP_STATE_M();
 	port->caller = NIL;
-	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_open);
 	}
 	if (port->xports)
@@ -959,8 +975,8 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
     if (!c_p)
 	reds_left_in = CONTEXT_REDS/10;
     else {
-	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_out);
+	if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_out, F_TRACE_SCHED_PROCS);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -985,10 +1001,10 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 
     ERTS_CHK_NO_PROC_LOCKS;
 
-    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+    if (prof_runnable_ports | ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
 	if (prof_runnable_ports && !(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
 	    profile_runnable_port(prt, am_active);
-	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+	if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
 	    trace_sched_ports_where(prt, am_in, sp->port_op);
 	if (prof_runnable_ports)
 	    erts_port_task_sched_unlock(&prt->sched);
@@ -1021,8 +1037,8 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 					 ~ERTS_PTS_FLG_EXEC_IMM);
     ERTS_LC_ASSERT(act & ERTS_PTS_FLG_EXEC_IMM);
 
-    if (prof_runnable_ports | IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
-	if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
+    if (prof_runnable_ports | ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS)) {
+	if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
 	    trace_sched_ports_where(prt, am_out, sp->port_op);
 	if (prof_runnable_ports) {
 	    if (!(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
@@ -1045,8 +1061,8 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	    BUMP_REDS(c_p, bump_reds);
 	}
 
-	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_in);
+	if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_in, F_TRACE_SCHED_PROCS);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -1359,7 +1375,7 @@ call_driver_outputv(int bang_op,
 			   || ERTS_IS_CRASH_DUMPING);
 
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, caller, am_commandv, evp);
 
 #ifdef USE_VM_PROBES
@@ -1487,7 +1503,7 @@ call_driver_output(int bang_op,
         }
 #endif
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, caller, am_command, bufp, size);
 
 	prt->caller = caller;
@@ -2173,7 +2189,7 @@ call_deliver_port_exit(int bang_op,
         erts_link_release(lnk);
     }
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, from, am_close);
 
     if (!erts_deliver_port_exit(prt, from, reason, bang_op, broken_link))
@@ -2325,7 +2341,7 @@ set_port_connected(int bang_op,
 	    return ERTS_PORT_OP_DROPPED;
 	}
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, from, am_connect, connect);
 
 	ERTS_PORT_SET_CONNECTED(prt, connect);
@@ -2359,8 +2375,8 @@ set_port_connected(int bang_op,
                 erts_link_internal_release(olnk);
                 return ERTS_PORT_OP_DROPPED;
             }
-            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-                trace_port(prt, am_getting_linked, connect);
+            if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_linked, connect, F_TRACE_PORTS);
         }
 
 #ifdef USE_VM_PROBES
@@ -2380,9 +2396,9 @@ set_port_connected(int bang_op,
 
 	ERTS_PORT_SET_CONNECTED(prt, connect);
 
-        if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
             trace_port_receive(prt, from, am_connect, connect);
-        if (IS_TRACED_FL(prt, F_TRACE_SEND)) {
+        if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND)) {
             Eterm hp[3];
             trace_port_send(prt, from, TUPLE2(hp, prt->common.id, am_connected), 1);
         }
@@ -2491,8 +2507,8 @@ port_unlink(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
                                                    sulnk->from);
 
         if (ilnk && !ilnk->unlinking) {
-            if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-                trace_port(prt, am_getting_unlinked, sulnk->from);
+            if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+                trace_port(prt, am_getting_unlinked, sulnk->from, F_TRACE_PORTS);
             erts_link_tree_delete(&ERTS_P_LINKS(prt), &ilnk->link);
             erts_link_internal_release(&ilnk->link);
         }
@@ -2654,8 +2670,8 @@ port_link(Port *prt, erts_aint32_t state, ErtsLink *nlnk)
         lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(prt), nlnk);
         if (lnk)
             erts_link_release(nlnk);
-        else if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_linked, nlnk->other.item);
+        else if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+            trace_port(prt, am_getting_linked, nlnk->other.item, F_TRACE_PORTS);
     }
 }
 
@@ -3298,7 +3314,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
 	  ? erts_proc_lookup(pid)
 	  : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_INC_REFC));
 
-    if (prt && IS_TRACED_FL(prt, F_TRACE_SEND)) {
+    if (prt && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND)) {
         Eterm hp[3];
         trace_port_send(prt, pid, TUPLE2(hp, sender, res), !!rp);
     }
@@ -3347,7 +3363,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
-    int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+    int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     ERTS_CHK_NO_PROC_LOCKS;
@@ -3493,7 +3509,7 @@ deliver_vec_message(Port* prt,			/* Port */
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
     erts_aint32_t state;
-    int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+    int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     ERTS_CHK_NO_PROC_LOCKS;
@@ -3595,7 +3611,7 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, to, tuple, 1);
 
     erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
@@ -3654,13 +3670,13 @@ static void flush_port(Port *p)
 #endif
 
 
-        if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_in, am_flush);
 	}
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 	(*p->drv_ptr->flush)((ErlDrvData)p->drv_data);
 	ERTS_MSACC_POP_STATE_M();
-        if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_out, am_flush);
 	}
 	if (p->xports)
@@ -3731,7 +3747,7 @@ terminate_port(Port *prt)
     }
 
     if (is_internal_port(send_closed_port_id)
-        && IS_TRACED_FL(prt, F_TRACE_SEND))
+        && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, connected_id, am_closed, 1);
 
     if(drv->handle != NULL) {
@@ -3867,8 +3883,8 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
    state = erts_atomic32_read_bor_mb(&prt->state, set_state_flags);
    state |= set_state_flags;
 
-   if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-        trace_port(prt, am_closed, reason);
+   if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_PORTS))
+        trace_port(prt, am_closed, reason, F_TRACE_PORTS);
 
    erts_trace_check_exiting(prt->common.id);
 
@@ -4017,7 +4033,7 @@ call_driver_control(Eterm caller,
     }
 #endif
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, caller, am_control, command, bufp, size);
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
@@ -4046,7 +4062,7 @@ call_driver_control(Eterm caller,
     if (cres < 0)
 	return ERTS_PORT_OP_BADARG;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send_binary(prt, caller, am_control, *resp_bufp, cres);
 
     *from_size = (ErlDrvSizeT) cres;
@@ -4469,7 +4485,7 @@ call_driver_call(Eterm caller,
     }
 #endif
 
-    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
         trace_port_receive(prt, caller, am_call, command, bufp, size);
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
@@ -4490,7 +4506,7 @@ call_driver_call(Eterm caller,
 	|| ((byte) (*resp_bufp)[0]) != VERSION_MAGIC)
 	return ERTS_PORT_OP_BADARG;
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send_binary(prt, caller, am_call, *resp_bufp, cres);
 
     *from_size = (ErlDrvSizeT) cres;
@@ -5510,7 +5526,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    ErtsProcLocks rp_locks = 0;
    int scheduler = erts_get_scheduler_id() != 0;
    Port* prt = erts_drvport2port(ix);
-   int trace_send = IS_TRACED_FL(prt, F_TRACE_SEND);
+   int trace_send = ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND);
 
    if (prt == ERTS_INVALID_ERL_DRV_PORT)
        return;
@@ -5533,7 +5549,7 @@ void driver_report_exit(ErlDrvPort ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-    if (IS_TRACED_FL(prt, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
         trace_port_send(prt, pid, tuple, 1);
 
    erts_queue_message(rp, rp_locks, mp, tuple, prt->common.id);
@@ -5855,10 +5871,19 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	  ? erts_proc_lookup(to)
 	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_INC_REFC));
     if (!rp) {
-        if (!prt || !IS_TRACED_FL(prt, F_TRACE_SEND))
+        ErtsTracerRef *ref;
+        ErtsTracerRef *next_ref;
+        if (!prt || !ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND))
             goto done;
-        if (!erts_is_tracer_proc_enabled_send(NULL, 0, &prt->common))
+        for (ref = prt->common.tracee.first_ref; ref; ref = next_ref) {
+            next_ref = ref->next;
+            if (erts_is_tracer_ref_proc_enabled_send(NULL, 0, &prt->common, ref))
+                break;
+        }
+        if (!ref) {
+            /* no tracers left */
             goto done;
+        }
 
 	res = -2;
 
@@ -5871,7 +5896,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
         /* We force the creation of a heap fragment (rp == NULL) when send
            tracing so that we don't have the main lock of the process while
            tracing */
-        Process *trace_rp = prt && IS_TRACED_FL(prt, F_TRACE_SEND) ? NULL : rp;
+        Process *trace_rp = prt && ERTS_IS_P_TRACED_FL(prt, F_TRACE_SEND) ? NULL : rp;
         (void) erts_factory_message_create(&factory, trace_rp, &rp_locks, need);
         res = 1;
     }
@@ -6127,8 +6152,8 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	erts_factory_trim_and_close(&factory, &mess, 1);
 
 	if (prt) {
-	    if (IS_TRACED_FL(prt, F_TRACE_SEND)) {
-		trace_port_send(prt, to, mess, 1);
+            if (prt->common.tracee.all_trace_flags & F_TRACE_SEND) {
+                trace_port_send(prt, to, mess, 1);
 	    }
 	    from = prt->common.id;
 	}

@@ -179,25 +179,59 @@ get_proc(Process *cp, Uint32 cp_locks, Eterm id, Uint32 id_locks)
 
 static Eterm
 set_tracee_flags(Process *tracee_p, ErtsTracer tracer,
+                 ErtsTraceSession *session,
                  Uint d_flags, Uint e_flags) {
     Eterm ret;
     Uint flags;
+    ErtsTracerRef *ref;
+
+    ref = get_tracer_ref(&tracee_p->common, session);
+    if (!ref) {
+        if (ERTS_TRACER_IS_NIL(tracer) || !e_flags) {
+            return am_false;
+        }
+        ref = new_tracer_ref(&tracee_p->common, session);
+    }
 
     if (ERTS_TRACER_IS_NIL(tracer)) {
-	flags = ERTS_TRACE_FLAGS(tracee_p) & ~TRACEE_FLAGS;
+	flags = ref->flags & ~TRACEE_FLAGS;
     }  else {
-	flags = ((ERTS_TRACE_FLAGS(tracee_p) & ~d_flags) | e_flags);
-	if (! flags) tracer = erts_tracer_nil;
+	flags = ((ref->flags & ~d_flags) | e_flags);
     }
-    ret = ((!ERTS_TRACER_COMPARE(ERTS_TRACER(tracee_p),tracer)
-	    || ERTS_TRACE_FLAGS(tracee_p) != flags)
-	   ? am_true
-	   : am_false);
-    erts_tracer_replace(&tracee_p->common, tracer);
-    ERTS_TRACE_FLAGS(tracee_p) = flags;
+
+    if (!flags) {
+        ASSERT(ref->flags || !ERTS_TRACER_IS_NIL(ref->tracer));
+        clear_tracer_ref(&tracee_p->common, ref);
+        delete_tracer_ref(&tracee_p->common, ref);
+        ret = am_true;
+    } else {
+        ret = ((!ERTS_TRACER_COMPARE(ref->tracer,tracer)
+                || ref->flags != flags)
+               ? am_true
+               : am_false);
+        erts_tracer_replace(&tracee_p->common, ref, tracer);
+        ref->flags = flags;
+    }
+    tracee_p->common.tracee.all_trace_flags =
+        erts_sum_all_trace_flags(&tracee_p->common);
 
     return ret;
 }
+
+static ErtsTracer get_proc_tracer(Process* p, ErtsTraceSession* session) {
+    ErtsTracerRef *ref = get_tracer_ref(&p->common, session);
+    return ref ? ref->tracer : erts_tracer_nil;
+}
+
+static void
+update_tracee_flags(Process *tracee_p,
+                    ErtsTraceSession *session,
+                    Uint d_flags, Uint e_flags) {
+    ErtsTracer tracer = get_proc_tracer(tracee_p, session);
+    (void)set_tracee_flags(tracee_p, tracer, session, d_flags, e_flags);
+}
+
+
 /*
 ** Assuming all locks on tracee_p on entry
 **
@@ -209,6 +243,7 @@ set_tracee_flags(Process *tracee_p, ErtsTracer tracer,
 */
 static Eterm 
 set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
+                ErtsTraceSession *session,
 		Uint d_flags, Uint e_flags) {
 
     ERTS_LC_ASSERT(
@@ -217,7 +252,7 @@ set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
 
     if (ERTS_TRACER_IS_NIL(tracer)
         || erts_is_tracer_enabled(tracer, &tracee_p->common))
-        return set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
+        return set_tracee_flags(tracee_p, tracer, session, d_flags, e_flags);
     return fail_term;
 }
 
@@ -1126,7 +1161,10 @@ Eterm erts_match_set_get_source(Binary *mpsp)
 }
 
 /* This one is for the tracing */
-Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA, Uint *freasonp) {
+Binary *erts_match_set_compile_trace(Process *p, Eterm matchexpr,
+                                     ErtsTraceSession* session,
+                                     Eterm MFA, Uint *freasonp)
+{
     Binary *bin;
     Uint sz;
     Eterm *hp;
@@ -1148,6 +1186,8 @@ Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA, Uint *fre
 	prog->saved_program = 
 	    copy_struct(matchexpr, sz, &hp, 
 			&(prog->saved_program_buf->off_heap));
+        prog->trace_session = session;
+        erts_ref_trace_session(session);
     }
     return bin;
 }
@@ -1606,7 +1646,6 @@ void db_initialize_util(void){
 	  sizeof(DMCGuardBif), 
 	  (int (*)(const void *, const void *)) &cmp_guard_bif);
     match_pseudo_process_init();
-    erts_atomic32_init_nob(&trace_control_word, 0);
     if (erts_check_if_stack_grows_downwards(&c))
         stack_guard = stack_guard_downwards;
     else
@@ -1995,6 +2034,7 @@ restart:
 	       DMC_STACK_NUM(text) * sizeof(UWord));
     ret->stack_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
     ret->heap_size = ret->stack_offset + context.stack_need * sizeof(Eterm*) + FENCE_PATTERN_SIZE;
+    ret->trace_session = NULL;
 
 #ifdef DMC_DEBUG
     ret->prog_end = ret->text + DMC_STACK_NUM(text);
@@ -2033,6 +2073,8 @@ int erts_db_match_prog_destructor(Binary *bprog)
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
+    if (prog->trace_session)
+        erts_deref_trace_session(prog->trace_session);
     return 1;
 }
 
@@ -2727,7 +2769,7 @@ restart:
             ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
                 erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		set_tracee_flags(c_p, ERTS_TRACER(c_p), 0, n);
+		update_tracee_flags(c_p, prog->trace_session, 0, n);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
@@ -2741,7 +2783,8 @@ restart:
 	    if (n) {
 		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), 0, n);
+                    ErtsTracer tracer = get_proc_tracer(c_p, prog->trace_session);
+                    set_tracee_flags(tmpp, tracer, prog->trace_session, 0, n);
                     if (tmpp == c_p)
                         erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
                     else
@@ -2754,7 +2797,7 @@ restart:
             ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
                 erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		set_tracee_flags(c_p, ERTS_TRACER(c_p), n, 0);
+                update_tracee_flags(c_p, prog->trace_session, n, 0);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
@@ -2768,7 +2811,8 @@ restart:
 	    if (n) {
 		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), n, 0);
+                    ErtsTracer tracer = get_proc_tracer(c_p, prog->trace_session);
+		    set_tracee_flags(tmpp, tracer, prog->trace_session, n, 0);
                     if (tmpp == c_p)
                         erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
                     else
@@ -2906,14 +2950,17 @@ restart:
 	    --esp;
 	    if (in_flags & ERTS_PAM_IGNORE_TRACE_SILENT)
 	      break;
+            ASSERT(prog->trace_session);
 	    if (*esp == am_true) {
 		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		ERTS_TRACE_FLAGS(c_p) |= F_TRACE_SILENT;
-		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_change_proc_trace_session_flags(c_p, prog->trace_session,
+                                                     0, F_TRACE_SILENT);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
-	    else if (*esp == am_false) {
-		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-		ERTS_TRACE_FLAGS(c_p) &= ~F_TRACE_SILENT;
+            else if (*esp == am_false) {
+                erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_change_proc_trace_session_flags(c_p, prog->trace_session,
+                                                     F_TRACE_SILENT, 0);
 		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    break;
@@ -2934,10 +2981,11 @@ restart:
 		 * {trace,[],[{{tracer,Tracer}}]} is much, much older.
 		 */
 		int   cputs = 0;
-                erts_tracer_update(&tracer, ERTS_TRACER(c_p));
+                erts_tracer_update(&tracer,
+                                   get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs) ||
+		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
+		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
 		    cputs ) {
 		    (--esp)[-1] = FAIL_TERM;
                     ERTS_TRACER_CLEAR(&tracer);
@@ -2945,6 +2993,7 @@ restart:
 		}
 		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		(--esp)[-1] = set_match_trace(c_p, FAIL_TERM, tracer,
+                                              prog->trace_session,
 					      d_flags, e_flags);
 		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
                 ERTS_TRACER_CLEAR(&tracer);
@@ -2962,10 +3011,11 @@ restart:
 		int   cputs = 0;
 		Eterm tracee = (--esp)[0];
 
-                erts_tracer_update(&tracer, ERTS_TRACER(c_p));
+                erts_tracer_update(&tracer,
+                                   get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs) ||
+		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
+		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
 		    cputs ||
 		    ! (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, 
 				       tracee, ERTS_PROC_LOCKS_ALL))) {
@@ -2975,11 +3025,13 @@ restart:
 		}
 		if (tmpp == c_p) {
 		    (--esp)[-1] = set_match_trace(c_p, FAIL_TERM, tracer,
+                                                  prog->trace_session,
 						  d_flags, e_flags);
 		    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		} else {
 		    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 		    (--esp)[-1] = set_match_trace(tmpp, FAIL_TERM, tracer,
+                                                  prog->trace_session,
 						  d_flags, e_flags);
 		    erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
 		    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);

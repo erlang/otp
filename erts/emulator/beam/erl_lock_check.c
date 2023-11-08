@@ -103,6 +103,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"purge_state",		      		NULL			},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
+    {   "trace_session_list",                   NULL                    },
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},

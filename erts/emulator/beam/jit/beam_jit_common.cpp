@@ -1245,8 +1245,8 @@ enum beam_jit_tmo_ret beam_jit_wait_timeout(Process *c_p,
 }
 
 void beam_jit_timeout(Process *c_p) {
-    if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-        trace_receive(c_p, am_clock_service, am_timeout, NULL);
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
+        trace_receive(c_p, am_clock_service, am_timeout);
     }
     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
         save_calls(c_p, &exp_timeout);
@@ -1260,12 +1260,14 @@ void beam_jit_timeout_locked(Process *c_p) {
     beam_jit_timeout(c_p);
 }
 
-void beam_jit_return_to_trace(Process *c_p) {
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+void beam_jit_return_to_trace(Process *c_p,
+                              Eterm session_weak_id,
+                              Eterm *frame) {
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
         ErtsCodePtr return_to_address;
         Uint *cpp;
 
-        cpp = (Uint *)c_p->stop;
+        cpp = (Uint *)frame;
         ASSERT(is_CP(cpp[0]));
 
         for (;;) {
@@ -1283,7 +1285,7 @@ void beam_jit_return_to_trace(Process *c_p) {
         }
 
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, return_to_address);
+        erts_trace_return_to(c_p, return_to_address, session_weak_id);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
     }
 }

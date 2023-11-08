@@ -362,6 +362,7 @@ static Eterm debug_call_light_bif(Process *c_p,
                                   ErtsBifFunc vbf) {
     Eterm result;
 
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     {
         ERTS_CHK_MBUF_SZ(c_p);
@@ -375,6 +376,7 @@ static Eterm debug_call_light_bif(Process *c_p,
     }
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
 
     return result;
 }

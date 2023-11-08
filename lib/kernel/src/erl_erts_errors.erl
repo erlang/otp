@@ -1079,6 +1079,13 @@ format_erlang_error(tuple_size, [_], _) ->
     [not_tuple];
 format_erlang_error(tl, [_], _) ->
     [not_cons];
+format_erlang_error(trace_info, [_Session,Tracee,Item], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        _ ->
+            [[] | format_erlang_error(trace_info, [Tracee,Item], Cause)]
+    end;
 format_erlang_error(trace_info, [Tracee,_], Cause) ->
     case Cause of
         badopt ->
@@ -1093,6 +1100,10 @@ format_erlang_error(trace_info, [Tracee,_], Cause) ->
         none ->
             [[],<<"invalid trace item">>]
     end;
+format_erlang_error(trace_session_create, [Options], _) ->
+    [must_be_option_list(Options)];
+format_erlang_error(trace_session_destroy, [_Session], _) ->
+    [bad_session];
 format_erlang_error(trunc, [_], _) ->
     [not_number];
 format_erlang_error(tuple_to_list, [_], _) ->
@@ -1490,6 +1501,8 @@ expand_error(bad_option) ->
     <<"invalid option in list">>;
 expand_error(bad_path) ->
     <<"not a valid path name">>;
+expand_error(bad_session) ->
+    <<"invalid trace session">>;
 expand_error(bad_status) ->
     <<"invalid status">>;
 expand_error(bad_time_unit) ->

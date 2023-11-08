@@ -317,16 +317,22 @@ static int has_code_permission(struct code_permission *perm)
     if (esdp && esdp->type == ERTS_SCHED_NORMAL) {
         int res;
 
-        erts_mtx_lock(&perm->lock);
+        /*
+         * We don't take perm->lock for lock order reasons.
+         * This is technically not thread safe if we don't have the permission
+         * seized. But in practice this should not be a problem as we only use
+         * this for asserts.
+         */
 
-        res = perm->seized;
-
-        if (esdp->current_process != NULL) {
+        if (!perm->seized) {
+            res = 0;
+        }
+        else if (esdp->current_process != NULL) {
             /* If we're running a process, it has to match the owner of the
              * permission. We don't care about which scheduler we are running 
              * on in order to support holding permissions when yielding (such
              * as in code purging). */
-            res &= perm->owner == esdp->current_process;
+            res = (perm->owner == esdp->current_process);
         } else {
             /* If we're running an aux job, we crudely assume that this current
              * job was started by the owner if there is one, and therefore has
@@ -338,10 +344,8 @@ static int has_code_permission(struct code_permission *perm)
              * This is very blunt and only catches _some_ cases where we lack
              * lack permission, but at least it's better than the old method of
              * using thread-specific-data. */
-            res &= perm->owner || perm->scheduler == esdp;
+            res = (perm->owner || perm->scheduler == esdp);
         }
-
-        erts_mtx_unlock(&perm->lock);
 
         return res;
     }

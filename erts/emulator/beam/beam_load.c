@@ -270,7 +270,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
                     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
                     ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 
-                    erts_clear_export_break(mod_tab_p, ep);
+                    erts_clear_all_export_break(mod_tab_p, ep);
 
                     ep->dispatch.addresses[code_ix] =
                         (ErtsCodePtr)ep->trampoline.breakpoint.address;

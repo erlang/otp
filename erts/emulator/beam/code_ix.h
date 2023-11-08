@@ -114,7 +114,7 @@ typedef struct ErtsCodeInfo_ {
     } u;
 
     /* Trace breakpoint */
-    struct generic_bp *gen_bp;
+    struct GenericBp *gen_bp;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 

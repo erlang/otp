@@ -1667,7 +1667,7 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MESSAGES: {
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ);
-	if (rp->sig_qs.mq_len == 0 || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
+	if (rp->sig_qs.mq_len == 0 || (ERTS_IS_PROC_SENSITIVE(rp))) {
             *msgq_len_p = 0;
             res = NIL;
         }
@@ -1939,7 +1939,7 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_DICTIONARY:
-	if (!rp->dictionary || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
+	if (!rp->dictionary || (ERTS_IS_PROC_SENSITIVE(rp))) {
 	    res = NIL;
 	} else {
             Uint num = rp->dictionary->numElements;
@@ -2107,7 +2107,7 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_TRACE:
-	res = make_small(ERTS_TRACE_FLAGS(rp) & TRACEE_FLAGS);
+	res = make_small(ERTS_IS_P_TRACED_FL(rp, TRACEE_FLAGS));
 	break;
 
     case ERTS_PI_IX_BINARY: {
@@ -2263,7 +2263,7 @@ process_info_aux(Process *c_p,
         Uint sz;
 
         ASSERT(is_value(extra));
-        res = ((ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)
+        res = ((ERTS_IS_PROC_SENSITIVE(rp))
                ? am_undefined
                : erts_pd_hash_get(rp, extra));
         sz = (!(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER) || is_immed(res)

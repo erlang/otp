@@ -158,8 +158,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  * ARG1 = export entry
  */
 void BeamGlobalAssembler::emit_export_trampoline() {
-    Label call_bif = a.newLabel(), error_handler = a.newLabel(),
-          jump_trace = a.newLabel();
+    Label call_bif = a.newLabel(), error_handler = a.newLabel();
 
     /* What are we supposed to do? */
     a.ldr(TMP1, arm::Mem(ARG1, offsetof(Export, trampoline.common.op)));
@@ -174,9 +173,6 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.cmp(TMP1, imm(op_call_error_handler));
     a.b_eq(error_handler);
-
-    a.cmp(TMP1, imm(op_trace_jump_W));
-    a.b_eq(jump_trace);
 
     /* Must never happen. */
     a.udf(0xffff);
@@ -199,12 +195,6 @@ void BeamGlobalAssembler::emit_export_trampoline() {
          * now. */
         emit_enter_erlang_frame();
         a.b(labels[call_bif_shared]);
-    }
-
-    a.bind(jump_trace);
-    {
-        a.ldr(TMP1, arm::Mem(ARG1, offsetof(Export, trampoline.trace.address)));
-        a.br(TMP1);
     }
 
     a.bind(error_handler);

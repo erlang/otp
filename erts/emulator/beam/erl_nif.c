@@ -982,7 +982,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
            that is not a erl_tracer nif. */
         if (c_p) {
             ASSERT(env);
-            if (IS_TRACED_FL(c_p, F_TRACE_SEND)) {
+            if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SEND)) {
                 full_flush_env(env);
                 trace_send(c_p, receiver, msg);
                 full_cache_env(env);

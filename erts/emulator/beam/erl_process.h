@@ -895,6 +895,9 @@ typedef struct {
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
+#define ERTS_PSD_CALL_MEMORY_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_CALL_MEMORY_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
@@ -1669,7 +1672,7 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
 #define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
 #define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
-
+#define F_TRACE_DBG_CANARY   F_TRACE_FLAG(15)
 /* port trace flags, currently the same as process trace flags */
 #define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
 #define F_TRACE_SCHED_PROCS  F_TRACE_FLAG(18) /* With virtual scheduling */
@@ -1677,9 +1680,11 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
 #define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
 
+
 #define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
 #ifdef DEBUG
-#  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
+// Was there a point with this high 5?
+#  define F_INITIAL_TRACE_FLAGS 0 //(5 << F_NUM_FLAGS)
 #else
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif

@@ -319,9 +319,9 @@ extern void** beam_ops;
 #endif /* BEAMASM */
 
 /* Stack frame sizes (not including CP_SIZE) */
-#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 2
-#define BEAM_RETURN_TO_TRACE_FRAME_SZ   0
-#define BEAM_RETURN_TRACE_FRAME_SZ      2
+#define BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ 3
+#define BEAM_RETURN_TO_TRACE_FRAME_SZ   1
+#define BEAM_RETURN_TRACE_FRAME_SZ      3
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE

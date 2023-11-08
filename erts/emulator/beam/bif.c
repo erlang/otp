@@ -108,7 +108,7 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
 /* create a link to the process */
 BIF_RETTYPE link_1(BIF_ALIST_1)
 {
-    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
+    if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
 	trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P, am_link, BIF_ARG_1);
     }
     /* check that the pid or port which is our argument is OK */
@@ -1066,7 +1066,7 @@ BIF_RETTYPE spawn_request_abandon_1(BIF_ALIST_1)
 /* remove a link from a process */
 BIF_RETTYPE unlink_1(BIF_ALIST_1)
 {
-    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
+    if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
         trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN,
                    BIF_P, am_unlink, BIF_ARG_1);
     }
@@ -1921,6 +1921,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_sensitive) {
+       ErtsTracerRef* ref;
        Uint is_sensitive;
        if (BIF_ARG_2 == am_true) {
 	   is_sensitive = 1;
@@ -1930,13 +1931,18 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   goto error;
        }
        erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
-       old_value = (ERTS_TRACE_FLAGS(BIF_P) & F_SENSITIVE
+       old_value = (ERTS_P_ALL_TRACE_FLAGS(BIF_P) & F_SENSITIVE
 		    ? am_true
 		    : am_false);
        if (is_sensitive) {
-	   ERTS_TRACE_FLAGS(BIF_P) |= F_SENSITIVE;
+           for (ref = BIF_P->common.tracee.first_ref; ref; ref = ref->next)
+               ref->flags |= F_SENSITIVE;
+	   ERTS_P_ALL_TRACE_FLAGS(BIF_P) = F_SENSITIVE;
        } else {
-	   ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
+           for (ref = BIF_P->common.tracee.first_ref; ref; ref = ref->next)
+               ref->flags &= ~F_SENSITIVE;
+	   ERTS_P_ALL_TRACE_FLAGS(BIF_P) = 0;
+           ERTS_P_ALL_TRACE_FLAGS(BIF_P) = erts_sum_all_trace_flags(&BIF_P->common);
        }
        erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
        /* make sure to bump all reds so that we get
@@ -2194,7 +2200,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     }
 
     if (res >= 0) {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, full_to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2214,7 +2220,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
     Eterm* tp;
 
     if (is_internal_pid(to)) {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2249,7 +2255,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 
 	rp = erts_proc_lookup_raw(id);
 	if (rp) {
-	    if (IS_TRACED_FL(p, F_TRACE_SEND))
+	    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -2265,7 +2271,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    goto port_common;
 	}
 
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+	if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2301,7 +2307,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    *refp = NIL;
 
-            if (IS_TRACED_FL(p, F_TRACE_SEND)) 	/* trace once only !! */
+            if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
                 trace_send(p, portid, msg);
 
             if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
@@ -2364,7 +2370,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
-	    if (IS_TRACED_FL(p, F_TRACE_SEND))
+	    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -2397,7 +2403,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
             erts_deref_dist_entry(dep);
 	return ret;
     } else {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);

@@ -250,7 +250,11 @@ call_light_bif(Bif, Exp) {
     live_hf_end = c_p->mbuf;
     ERTS_CHK_MBUF_SZ(c_p);
 
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
+
     result = (*bf)(c_p, reg, I);
+
+    ERTS_ASSERT_TRACER_REFS(&c_p->common);
 
     /* Only heavy BIFs may GC. */
     ASSERT(E == c_p->stop);

@@ -645,7 +645,9 @@ enum beam_jit_tmo_ret beam_jit_wait_timeout(Process *c_p,
 void beam_jit_timeout(Process *c_p);
 void beam_jit_timeout_locked(Process *c_p);
 
-void beam_jit_return_to_trace(Process *c_p);
+void beam_jit_return_to_trace(Process *c_p,
+                              Eterm session_weak_id,
+                              Eterm *frame);
 
 Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity);
 

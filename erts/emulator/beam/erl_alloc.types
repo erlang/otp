@@ -280,6 +280,7 @@ type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
+type	TRACE_INFO_REQ	SHORT_LIVED	PROCESSES	trace_info_proc_request
 type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state

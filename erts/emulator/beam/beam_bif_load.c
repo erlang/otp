@@ -439,7 +439,7 @@ finish_loading_1(BIF_ALIST_1)
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
-	    erts_is_default_trace_enabled()) {
+	    erts_is_on_load_trace_enabled()) {
 	    /* tracing needs thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
@@ -847,7 +847,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
 	       && ((modp->on_load)->code_hdr)->on_load);
 
-        if (erts_is_default_trace_enabled()) {
+        if (erts_is_on_load_trace_enabled()) {
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
@@ -938,26 +938,33 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 static void
 set_default_trace_pattern(Eterm module)
 {
-    int trace_pattern_is_on;
-    Binary *match_spec;
-    Binary *meta_match_spec;
-    struct trace_pattern_flags trace_pattern_flags;
-    ErtsTracer meta_tracer;
-
-    erts_get_default_trace_pattern(&trace_pattern_is_on,
-				   &match_spec,
-				   &meta_match_spec,
-				   &trace_pattern_flags,
-				   &meta_tracer);
-    if (trace_pattern_is_on) {
-        ErtsCodeMFA mfa;
-        mfa.module = module;
-	(void) erts_set_trace_pattern(0, &mfa, 1,
-				      match_spec,
-				      meta_match_spec,
-				      1, trace_pattern_flags,
-				      meta_tracer, 1);
+    // int trace_pattern_is_on;
+    // Binary *match_spec;
+    // Binary *meta_match_spec;
+    // struct trace_pattern_flags trace_pattern_flags;
+    // ErtsTracer meta_tracer;
+    /* iterate through all trace sessions,
+     * the trace session is referenced in the match spec
+     * so this should be easy?
+    */
+    ErtsTraceSession *s_p;
+    ERTS_LC_ASSERT(erts_has_code_mod_permission() ||
+                   erts_thr_progress_is_blocking());
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for(s_p = &erts_trace_session_0; s_p; s_p = s_p->next){
+        if (s_p->on_load_trace_pattern_is_on){
+            ErtsCodeMFA mfa;
+            mfa.module = module;
+            erts_staging_trace_session = s_p;
+            (void) erts_set_trace_pattern(&mfa, 1,
+                                          s_p->on_load_match_spec,
+                                          s_p->on_load_meta_match_spec,
+                                          1, s_p->on_load_trace_pattern_flags,
+                                          s_p->on_load_meta_tracer, 1);
+        }
     }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    erts_staging_trace_session = NULL;
 }
 
 int
@@ -2204,7 +2211,7 @@ delete_code(Module* modp)
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);
-		    erts_clear_export_break(modp, ep);
+		    erts_clear_all_export_break(modp, ep);
 		}
 		else {
                     ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler) ||

@@ -37,21 +37,42 @@
 #include "erl_alloc.h"
 #include "erl_monitor_link.h"
 
-#define ERTS_TRACER(P)          ((P)->common.tracer)
+typedef struct ErtsTracerRef {
+    struct ErtsTracerRef *next;
+    struct ErtsTraceSession *session;
+    ErtsTracer tracer;
+    Uint32 flags;
+} ErtsTracerRef;
+
+typedef struct ErtsTracee_ {
+    Uint32 all_trace_flags;
+    ErtsTracerRef *first_ref;
+} ErtsTracee;
+
 #define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
 #define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
-#define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
 #define ERTS_P_LT_MONITORS(P)	((P)->common.u.alive.lt_monitors)
 
-#define IS_TRACED(p) \
-    (ERTS_TRACER(p) != NIL)
-#define ARE_TRACE_FLAGS_ON(p,tf) \
-    ((ERTS_TRACE_FLAGS((p)) & (tf|F_SENSITIVE)) == (tf))
-#define IS_TRACED_FL(p,tf) \
-    ( IS_TRACED(p) && ARE_TRACE_FLAGS_ON(p,tf) )
+#define IS_SESSION_TRACED_FL(ref,tf) \
+    ((ref)->tracer != NIL && (ref->flags & (tf)) == (tf))
+
+#define IS_SESSION_TRACED_ANY_FL(ref,tf) \
+    ((ref)->tracer != NIL && (ref->flags & (tf)))
+
+#define ERTS_IS_P_TRACED(p) \
+    ((p)->common.tracee.all_trace_flags & ~F_SENSITIVE)
+
+#define ERTS_IS_P_TRACED_FL(p, tf) \
+    ((p)->common.tracee.all_trace_flags & (tf))
+
+#define ERTS_P_ALL_TRACE_FLAGS(p) ((p)->common.tracee.all_trace_flags)
+
+#define ERTS_IS_PROC_SENSITIVE(p) \
+    ((p)->common.tracee.all_trace_flags & F_SENSITIVE)
+
 
 typedef struct {
     Eterm id;
@@ -76,8 +97,7 @@ typedef struct {
 	/* --- While being released --- */
 	ErtsThrPrgrLaterOp release;
     } u;
-    ErtsTracer tracer;
-    Uint32 trace_flags;
+    ErtsTracee tracee;
 } ErtsPTabElementCommon;
 
 typedef struct ErtsPTabDeletedElement_ ErtsPTabDeletedElement;

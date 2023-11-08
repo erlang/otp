@@ -116,7 +116,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         res = port->common.id;
     }
 
-    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS))
+    if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS))
         trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P,
                    am_link, port->common.id);
 
@@ -1119,8 +1119,8 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	goto badarg;
     }
     
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out, F_TRACE_SCHED_PROCS);
     }
     
 
@@ -1138,13 +1138,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
 #endif
 
-    if (port && IS_TRACED_FL(port, F_TRACE_PORTS))
-        trace_port(port, am_getting_linked, p->common.id);
+    if (port && ERTS_IS_P_TRACED_FL(port, F_TRACE_PORTS))
+        trace_port(port, am_getting_linked, p->common.id, F_TRACE_PORTS);
 
     erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in, F_TRACE_SCHED_PROCS);
     }
 
     if (!port) {
