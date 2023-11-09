@@ -439,7 +439,7 @@ else
 
     progress "Unpacking OTP source code into build-directory"
 
-    $gtar -z -x -C $build_root -f $src_tgz
+    $gtar -i -z -x -C $build_root -f $src_tgz
     if [ $? -ne 0 ]; then
 	error "Failed to unpack source"
     fi
@@ -530,7 +530,7 @@ if [ $? -ne 0 ]; then
 fi
 
 progress "Unpacking OTP source code into source-directory"
-$gtar -z -x -C $src_root -f $src_tgz
+$gtar -i -z -x -C $src_root -f $src_tgz
 if [ $? -ne 0 ]; then
     error "Failed to unpack source"
 fi
