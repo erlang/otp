@@ -96,6 +96,21 @@
     <datatype>
       <name name="dict_or_pid"/>
     </datatype>
+    <datatype>
+      <name name="process_name"/>
+    </datatype>
+    <datatype>
+      <name name="process_ref"/>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+    </datatype>
+    <datatype>
+      <name name="enter_loop_opt"/>
+    </datatype>
+    <datatype>
+      <name name="debug"/>
+    </datatype>
   </datatypes>
 
   <funcs>

@@ -2794,7 +2794,7 @@ peer_name(Module, TestCase) ->
 %% Command line arguments passed
 -spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
                  atom() | string(), TestCase :: atom() | string()) ->
-    {ok, gen_statem:server_ref(), node()} | {error, term()}.
+    {ok, gen_statem:process_ref(), node()} | {error, term()}.
 start_peer(Args, Module, TestCase) when is_list(Args) ->
     start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
 
@@ -2808,7 +2808,7 @@ start_peer(Opts, Module, TestCase) ->
 -spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
                  atom() | string(), TestCase :: atom() | string(),
                  Release :: string(), OutDir :: file:filename()) ->
-          {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+          {ok, gen_statem:process_ref(), node()} | {error, term()} | not_available.
 start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
     start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
 start_peer(Opts, Module, TestCase, Release, OutDir) ->

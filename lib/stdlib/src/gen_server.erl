@@ -130,11 +130,12 @@
     reply_tag/0,
     request_id/0,
     request_id_collection/0,
+    response_timeout/0,
     format_status/0]).
 
 -export_type(
-   [server_name/0,
-    server_ref/0,
+   [process_name/0,
+    process_ref/0,
     start_opt/0,
     enter_loop_opt/0,
     start_ret/0,
@@ -247,26 +248,17 @@
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
 
--type server_name() :: % Duplicate of gen:emgr_name()
-        {'local', LocalName :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
+-type process_name() :: % Duplicate of gen:emgr_name()
+        proc_lib:process_name().
 
--type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
-        pid()
-      | (LocalName :: atom())
-      | {Name :: atom(), Node :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
+% What gen:call/3,4 and gen:stop/1,3 accepts
+-type process_ref() :: proc_lib:process_ref().
 
--type start_opt() :: % Duplicate of gen:option()
-        {'timeout', Timeout :: timeout()}
-      | {'spawn_opt', SpawnOptions :: [proc_lib:spawn_option()]}
-      | enter_loop_opt().
+% Duplicate of gen:option()
+-type start_opt() :: proc_lib:option().
 %%
--type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
-	{'hibernate_after', HibernateAfterTimeout :: timeout()}
-      | {'debug', Dbgs :: [sys:debug_option()]}.
+% Some gen:option()s works for enter_loop/*
+-type enter_loop_opt() :: proc_lib:enter_loop_opt().
 
 -type start_ret() :: % gen:start_ret() without monitor return
         {'ok', Pid :: pid()}
@@ -291,7 +283,7 @@ start(Module, Args, Options) ->
     gen:start(?MODULE, nolink, Module, Args, Options).
 
 -spec start(
-	ServerName :: server_name(),
+	ServerName :: process_name(),
 	Module     :: module(),
         Args       :: term(),
         Options    :: [start_opt()]
@@ -312,7 +304,7 @@ start_link(Module, Args, Options) ->
     gen:start(?MODULE, link, Module, Args, Options).
 
 -spec start_link(
-	ServerName :: server_name(),
+	ServerName :: process_name(),
 	Module     :: module(),
         Args       :: term(),
         Options    :: [start_opt()]
@@ -333,7 +325,7 @@ start_monitor(Module, Args, Options) ->
     gen:start(?MODULE, monitor, Module, Args, Options).
 
 -spec start_monitor(
-	ServerName :: server_name(),
+	ServerName :: process_name(),
 	Module     :: module(),
         Args       :: term(),
         Options    :: [start_opt()]
@@ -351,14 +343,14 @@ start_monitor(ServerName, Module, Args, Options) ->
 %% -----------------------------------------------------------------
 
 -spec stop(
-        ServerRef :: server_ref()
+        ServerRef :: process_ref()
        ) -> ok.
 %%
 stop(ServerRef) ->
     gen:stop(ServerRef).
 
 -spec stop(
-	ServerRef :: server_ref(),
+	ServerRef :: process_ref(),
 	Reason    :: term(),
 	Timeout   :: timeout()
        ) -> ok.
@@ -375,7 +367,7 @@ stop(ServerRef, Reason, Timeout) ->
 %% ----------------------------------------------------------------- 
 
 -spec call(
-        ServerRef :: server_ref(),
+        ServerRef :: process_ref(),
         Request   :: term()
        ) ->
                   Reply :: term().
@@ -389,7 +381,7 @@ call(ServerRef, Request) ->
     end.
 
 -spec call(
-        ServerRef :: server_ref(),
+        ServerRef :: process_ref(),
         Request   :: term(),
         Timeout   :: timeout()
        ) ->
@@ -408,7 +400,7 @@ call(ServerRef, Request, Timeout) ->
 %% used with wait_response/2 or check_response/2 to fetch the
 %% result of the request.
 
--spec send_request(ServerRef::server_ref(), Request::term()) ->
+-spec send_request(ServerRef::process_ref(), Request::term()) ->
           ReqId::request_id().
 
 send_request(ServerRef, Request) ->
@@ -419,7 +411,7 @@ send_request(ServerRef, Request) ->
             error(badarg, [ServerRef, Request])
     end.
 
--spec send_request(ServerRef::server_ref(),
+-spec send_request(ServerRef::process_ref(),
                    Request::term(),
                    Label::term(),
                    ReqIdCollection::request_id_collection()) ->
@@ -437,7 +429,7 @@ send_request(ServerRef, Request, Label, ReqIdCol) ->
       ReqId :: request_id(),
       WaitTime :: response_timeout(),
       Response :: {reply, Reply::term()}
-                | {error, {Reason::term(), server_ref()}},
+                | {error, {Reason::term(), process_ref()}},
       Result :: Response | 'timeout'.
 
 wait_response(ReqId, WaitTime) ->
@@ -453,7 +445,7 @@ wait_response(ReqId, WaitTime) ->
       WaitTime :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), server_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -472,7 +464,7 @@ wait_response(ReqIdCol, WaitTime, Delete) ->
       ReqId :: request_id(),
       Timeout :: response_timeout(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), server_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: Response | 'timeout'.
 
 receive_response(ReqId, Timeout) ->
@@ -488,7 +480,7 @@ receive_response(ReqId, Timeout) ->
       Timeout :: response_timeout(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), server_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -507,7 +499,7 @@ receive_response(ReqIdCol, Timeout, Delete) ->
       Msg :: term(),
       ReqId :: request_id(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), server_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: Response | 'no_reply'.
 
 check_response(Msg, ReqId) ->
@@ -523,7 +515,7 @@ check_response(Msg, ReqId) ->
       ReqIdCollection :: request_id_collection(),
       Delete :: boolean(),
       Response :: {reply, Reply::term()} |
-                  {error, {Reason::term(), server_ref()}},
+                  {error, {Reason::term(), process_ref()}},
       Result :: {Response,
                  Label::term(),
                  NewReqIdCollection::request_id_collection()} |
@@ -580,7 +572,7 @@ reqids_to_list(ReqIdCollection) ->
 %% -----------------------------------------------------------------
 
 -spec cast(
-        ServerRef :: server_ref(),
+        ServerRef :: process_ref(),
         Request   :: term()
        ) ->
                   ok.
@@ -811,7 +803,7 @@ enter_loop(Mod, Options, State)
         Module     :: module(),
         Options    :: [enter_loop_opt()],
         State      :: term(),
-        ServerName :: server_name() | pid()
+        ServerName :: process_name() | pid()
        ) ->
                         no_return();
        (
@@ -858,7 +850,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue)
         Module     :: module(),
         Options    :: [enter_loop_opt()],
         State      :: term(),
-        ServerName :: server_name() | pid(),
+        ServerName :: process_name() | pid(),
         Timeout    :: timeout()
        ) ->
                         no_return();
@@ -866,7 +858,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue)
            Module     :: module(),
            Options    :: [enter_loop_opt()],
            State      :: term(),
-           ServerName :: server_name() | pid(),
+           ServerName :: process_name() | pid(),
            Hibernate  :: 'hibernate'
        ) ->
                         no_return();
@@ -874,7 +866,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue)
            Module     :: module(),
            Options    :: [enter_loop_opt()],
            State      :: term(),
-           ServerName :: server_name() | pid(),
+           ServerName :: process_name() | pid(),
            Cont       :: {'continue', term()}
        ) ->
                         no_return().
