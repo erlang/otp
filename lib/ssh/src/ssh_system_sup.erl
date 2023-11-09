@@ -37,7 +37,6 @@
          start_system/3,
          start_subsystem/4,
 	 get_daemon_listen_address/1,
-         addresses/1,
          addresses/2,
          get_options/2,
          get_acceptor_options/1,
@@ -116,7 +115,6 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
                             {new_connection_ref, Id, ConnPid} ->
                                 ssh_connection_handler:takeover(ConnPid, Role, Socket, Options)
                         after 10000 ->
-
                                 error(timeout)
                         end
                     catch
@@ -136,18 +134,13 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
             Others
     end.
 
-
 %%%----------------------------------------------------------------
 start_link(Role, Address, Options) ->
     supervisor:start_link(?MODULE, [Role, Address, Options]).
 
-
 %%%----------------------------------------------------------------
-addresses(Role) ->
-    addresses(Role,  #address{address=any, port=any, profile=any}).
-
 addresses(Role,  #address{address=Address, port=Port, profile=Profile}) ->
-    [{SysSup,A} || {{ssh_system_sup,A},SysSup,supervisor,_} <- 
+    [{SysSup,A} || {{ssh_system_sup,A},SysSup,supervisor,_} <-
                      supervisor:which_children(sup(Role)),
                  Address == any orelse A#address.address == Address,
                  Port == any    orelse A#address.port == Port,
@@ -155,7 +148,6 @@ addresses(Role,  #address{address=Address, port=Port, profile=Profile}) ->
 
 %%%----------------------------------------------------------------
 %% SysPid is the DaemonRef
-
 get_acceptor_options(SysPid) ->
     case get_daemon_listen_address(SysPid) of
         {ok,Address} ->
@@ -230,8 +222,7 @@ acceptor_sup_child_spec(SysSup, Address, Options) ->
      }.
 
 lookup(SupModule, SystemSup) ->
-    lists:keyfind([SupModule], 4,
-                  supervisor:which_children(SystemSup)).
+    lists:keyfind([SupModule], 4, supervisor:which_children(SystemSup)).
 
 get_system_sup(Role, Address0, Options) ->
     case find_system_sup(Role, Address0) of
