@@ -67,18 +67,18 @@ start_system(Role, Address0, Options) ->
 %%%----------------------------------------------------------------
 stop_system(Role, SysSup) when is_pid(SysSup) ->
     case lists:keyfind(SysSup, 2, supervisor:which_children(sup(Role))) of
-        {{?MODULE,Name}, SysSup, _, _} -> stop_system(Role, Name);
-        false -> undefind
+        {{?MODULE, Id}, SysSup, _, _} -> stop_system(Role, Id);
+        false -> undefined % FIXME ssh:stop_daemon doc missing that ?
     end;
-stop_system(Role, Name) ->
-    supervisor:terminate_child(sup(Role), {?MODULE,Name}).
+stop_system(Role, Id) ->
+    supervisor:terminate_child(sup(Role), {?MODULE, Id}).
 
 
 %%%----------------------------------------------------------------
 stop_listener(SystemSup) when is_pid(SystemSup) ->
-    {Name, _, _, _} = lookup(ssh_acceptor_sup, SystemSup),
-    supervisor:terminate_child(SystemSup, Name),
-    supervisor:delete_child(SystemSup, Name).
+    {Id, _, _, _} = lookup(ssh_acceptor_sup, SystemSup),
+    supervisor:terminate_child(SystemSup, Id),
+    supervisor:delete_child(SystemSup, Id).
 
 %%%----------------------------------------------------------------
 get_daemon_listen_address(SystemSup) ->
