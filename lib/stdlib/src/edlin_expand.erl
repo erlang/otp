@@ -89,6 +89,7 @@ expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
                  {error, _Column} ->
                     {no, [], []};
                  {function} -> expand_module_function(Bef0, FT);
+                 {function, _Mod} -> expand_module_function(Bef0, FT);
                  {fun_} -> expand_module_function(Bef0, FT);
 
                  {fun_, Mod} -> expand_function_name(Mod, Word, "/", FT);

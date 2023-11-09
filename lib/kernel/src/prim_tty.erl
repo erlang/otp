@@ -640,8 +640,7 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                             _ -> cols(State#state.buffer_before, U) + cols(State#state.buffer_after,U)
                           end,
                           ERow = State#state.buffer_expand_row,
-
-                            BufferExpandLines = string:split(unicode:characters_to_list(BufferExpand), "\n", all),
+                            BufferExpandLines = string:split(BufferExpand, "\n", all),
                             InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
                             ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
                             ExpandRowsLimit = case State#state.buffer_expand_limit of
@@ -678,7 +677,7 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
     %% Get number of Lines in terminal window
     BufferExpandLines = case Expand of
         undefined -> [];
-        _ -> string:split(unicode:characters_to_list(Expand), "\n", all)
+        _ -> string:split(Expand, "\n", all)
     end,
     ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
     InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
@@ -707,7 +706,8 @@ handle_request(State, new_prompt) ->
                      lines_after = []}};
 %% Print characters in the expandbuffer after the cursor
 handle_request(State, {expand, Expand, N}) ->
-    handle_request(State#state{buffer_expand = Expand, buffer_expand_limit = N}, redraw_prompt);
+    {_, NewState} = insert_buf(State#state{buffer_expand = []}, Expand),
+    handle_request(NewState#state{buffer_expand_limit = N}, redraw_prompt);
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
@@ -1084,9 +1084,6 @@ update_geometry(State) ->
     case tty_window_size(State#state.tty) of
         {ok, {Cols, Rows}} when Cols > 0 ->
             ?dbg({?FUNCTION_NAME, Cols}),
-            %% We also set buffer_expand_row to 0, in case we are in paging mode
-            %% this ensures that the expand area gets redrawn when we handle move_expand
-            %% event.
             State#state{ cols = Cols, rows = Rows};
         _Error ->
             ?dbg({?FUNCTION_NAME, _Error}),

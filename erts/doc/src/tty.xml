@@ -229,6 +229,18 @@ erl</pre>
         <cell align="left" valign="middle">M-c</cell>
         <cell align="left" valign="middle">Clear current expression</cell>
       </row>
+      <row>
+        <cell align="left" valign="middle">M-h</cell>
+        <cell align="left" valign="middle">Display help for the module or function closest on the left of the cursor.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PageUp</cell>
+        <cell align="left" valign="middle">Scroll the expand, search or help buffer 5 lines upwards.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PageDown</cell>
+        <cell align="left" valign="middle">Scroll the expand, search or help buffer 5 lines downwards.</cell>
+      </row>
       <tcaption>tty Text Editing</tcaption>
     </table>
   </section>
