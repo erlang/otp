@@ -1842,7 +1842,7 @@ ec_curve_spec({namedCurve, ed25519 = Name}) ->
 ec_curve_spec({namedCurve, ed448 = Name}) ->
     Name;
 ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
-    crypto:ec_curve(Name).
+   (Name).
 
 ec_curve_type(ed25519) ->
     eddsa;
