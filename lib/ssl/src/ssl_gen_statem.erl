@@ -455,12 +455,8 @@ dist_handshake_complete(ConnectionPid, DHandle) ->
 handle_sni_extension(undefined, State) ->
     {ok, State};
 handle_sni_extension(#sni{hostname = Hostname}, State0) ->
-    case check_hostname(State0, Hostname) of
-        valid ->
-            State1 = handle_sni_hostname(Hostname, State0),
-            State = set_sni_guided_cert_selection(State1, true),
-            {ok, State};
-        unrecognized_name ->
+    case check_hostname(Hostname) of
+        ok ->
             {ok, handle_sni_hostname(Hostname, State0)};
         #alert{} = Alert ->
             {error, Alert}
@@ -1332,52 +1328,29 @@ call(FsmPid, Event) ->
 	    {error, closed}
     end.
 
-check_hostname(_, "") ->
+check_hostname("") ->
     ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, empty_sni);
-
-check_hostname(#state{ssl_options = SslOptions}, Hostname) ->
-    case is_sni_value(Hostname) of
-        true ->
-            case is_hostname_recognized(SslOptions, Hostname) of
-                true ->
-                    valid;
-                false ->
-                    %% We should send an alert but for interoperability reasons we
-                    %% allow the connection to be established.
-                    %% ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME)
-                    unrecognized_name
-            end;
-        false ->
-            ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME,
-                       {sni_included_trailing_dot, Hostname})
-    end.
-
-is_sni_value(Hostname) ->
-    case hd(lists:reverse(Hostname)) of
-        $. ->
-            false;
+check_hostname(Hostname) ->
+    case lists:reverse(Hostname) of
+        [$.|_] ->
+            ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, {sni_included_trailing_dot, Hostname});
         _ ->
-            true
+            ok
     end.
-
-is_hostname_recognized(#{sni_fun := Fun}, Hostname) ->
-    Fun(Hostname) =:= undefined.
 
 handle_sni_hostname(Hostname,
-                    #state{static_env = #static_env{role = Role} = InitStatEnv0,
+                    #state{static_env = InitStatEnv0,
                            handshake_env = HsEnv,
                            connection_env = CEnv,
                            ssl_options = Opts} = State0) ->
-    NewOptions = update_ssl_options_from_sni(Opts, Hostname),
-    case NewOptions of
-	undefined ->
-            case maps:get(server_name_indication, Opts, undefined) of
-                disable when Role == client->
-                    State0;
-                _ ->
-                    State0#state{handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}}
-            end;
-        _ ->
+    case update_ssl_options_from_sni(Opts, Hostname) of
+        undefined ->
+            %% RFC6060:  "If the server understood the ClientHello extension but
+            %%  does not recognize the server name, the server SHOULD take one of two
+            %%  actions: either abort the handshake by sending a fatal-level
+            %%  unrecognized_name(112) alert or continue the handshake."
+            State0#state{handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}};
+        NewOptions ->
 	    {ok, #{cert_db_ref := Ref,
                    cert_db_handle := CertDbHandle,
                    fileref_db_handle := FileRefHandle,
@@ -1385,20 +1358,21 @@ handle_sni_hostname(Hostname,
                    crl_db_info := CRLDbHandle,
                    cert_key_alts := CertKeyAlts,
                    dh_params := DHParams}} =
-                 ssl_config:init(NewOptions, Role),
-             State0#state{
-               static_env = InitStatEnv0#static_env{
-                              file_ref_db = FileRefHandle,
-                              cert_db_ref = Ref,
-                              cert_db = CertDbHandle,
-                              crl_db = CRLDbHandle,
-                              session_cache = CacheHandle
-                             },
-               connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
-               ssl_options = NewOptions,
-               handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
-                                                   diffie_hellman_params = DHParams}
-              }
+                ssl_config:init(NewOptions, server),
+            State0#state{
+              static_env = InitStatEnv0#static_env{
+                             file_ref_db = FileRefHandle,
+                             cert_db_ref = Ref,
+                             cert_db = CertDbHandle,
+                             crl_db = CRLDbHandle,
+                             session_cache = CacheHandle
+                            },
+              connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
+              ssl_options = NewOptions,
+              handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
+                                                  sni_guided_cert_selection = true,
+                                                  diffie_hellman_params = DHParams}
+             }
     end.
 
 update_ssl_options_from_sni(#{sni_fun := SNIFun} = OrigSSLOptions, SNIHostname) ->
@@ -1441,10 +1415,6 @@ maybe_exclude_tlsv1(Versions, Options) ->
         true ->
             Options
     end.
-
-set_sni_guided_cert_selection(#state{handshake_env = HsEnv0} = State, Bool) ->
-    HsEnv = HsEnv0#handshake_env{sni_guided_cert_selection = Bool},
-    State#state{handshake_env = HsEnv}.
 
 ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, Initiater}} = HsEnv} = State) when Initiater == peer;
                                                                                                                Initiater == internal ->
