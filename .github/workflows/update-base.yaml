@@ -15,6 +15,10 @@ jobs:
     if: github.repository == 'erlang/otp'
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write
+
     strategy:
       matrix:
         type: [debian-base,ubuntu-base,i386-debian-base]
