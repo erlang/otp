@@ -2338,13 +2338,12 @@ master_secret(Version, MasterSecret,
 		 hash_size = HashSize,
 		 prf_algorithm = PrfAlgo,
 		 key_material_length = KML,
-		 expanded_key_material_length = EKML,
 		 iv_size = IVS},
 	      ConnectionStates, Role) ->
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV} =
 	setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom,
-		   ClientRandom, HashSize, KML, EKML, IVS),
+		   ClientRandom, HashSize, KML, IVS),
 
     ConnStates1 = ssl_record:set_master_secret(MasterSecret, ConnectionStates),
     ConnStates2 =
@@ -2357,9 +2356,9 @@ master_secret(Version, MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
 setup_keys(Version, PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) when ?TLS_1_X(Version)->
+	   ServerRandom, ClientRandom, HashSize, KML, IVS) when ?TLS_1_X(Version)->
     tls_v1:setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
-			KML, IVS).
+                      KML, IVS).
 calc_master_secret(Version, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
   when ?TLS_LT(Version, ?TLS_1_3) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).

@@ -770,17 +770,14 @@ connection_states(Random) ->
                    bulk_cipher_algorithm = 0,
                    cipher_type = 0,
                    iv_size = 0,
-                   key_size = 0,
                    key_material_length = 0,
-                   expanded_key_material_length = 0,
                    mac_algorithm = 0,
                    prf_algorithm = 0,
                    hash_size = 0,
                    master_secret = undefined,
                    resumption_master_secret = undefined,
                    client_random = Random,
-                   server_random = undefined,
-                   exportable = undefined},
+                   server_random = undefined},
             sequence_number => 0,server_verify_data => undefined,max_fragment_length => undefined}}.
 
 

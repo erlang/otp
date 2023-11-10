@@ -63,7 +63,6 @@
          signature_schemes_1_2/1,
          scheme_to_components/1, 
          hash_size/1, 
-         effective_key_bits/1,
          key_material/1, 
          signature_algorithm_to_scheme/1,
          bulk_cipher_algorithm/1]).
@@ -108,8 +107,6 @@ security_parameters(Version, CipherSuite, SecParams) ->
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
       cipher_type = type(Cipher),
-      key_size = effective_key_bits(Cipher),
-      expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
       mac_algorithm = mac_algorithm(Hash),
@@ -745,44 +742,6 @@ key_material(aes_256_ccm) ->
     32;
 key_material(chacha20_poly1305) ->
     32.
-
-expanded_key_material(null) ->
-    0;
-expanded_key_material(rc4_128) ->
-    16;
-expanded_key_material(Cipher) when Cipher == des_cbc ->
-    8;
-expanded_key_material('3des_ede_cbc') ->
-    24;
-expanded_key_material(Cipher) when Cipher == aes_128_cbc;
-				   Cipher == aes_256_cbc;
-				   Cipher == aes_128_gcm;
-				   Cipher == aes_256_gcm;
-                                   Cipher == aes_128_ccm;
-				   Cipher == aes_256_ccm;
-                                   Cipher == aes_128_ccm_8;
-				   Cipher == aes_256_ccm_8;
-				   Cipher == chacha20_poly1305 ->
-    unknown.  
-
-effective_key_bits(null) ->
-    0;
-effective_key_bits(des_cbc) ->
-    56;
-effective_key_bits(Cipher) when Cipher == rc4_128;
-				Cipher == aes_128_cbc;
-				Cipher == aes_128_gcm;
-                                Cipher == aes_128_ccm;
-                                Cipher == aes_128_ccm_8 ->
-    128;
-effective_key_bits('3des_ede_cbc') ->
-    168;
-effective_key_bits(Cipher) when Cipher == aes_256_cbc;
-				Cipher == aes_256_gcm;
-				Cipher == aes_256_ccm;
-                                Cipher == aes_256_ccm_8;
-				Cipher == chacha20_poly1305 ->
-    256.
 
 iv_size(Cipher) when Cipher == null;
 		     Cipher == rc4_128 ->
