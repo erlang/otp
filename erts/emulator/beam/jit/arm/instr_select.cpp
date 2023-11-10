@@ -474,7 +474,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
         }
     }
 
-    a.cmp(TMP1, imm(args.size()));
+    cmp(TMP1, args.size());
     if (Fail.isLabel()) {
         a.b_hs(resolve_beam_label(Fail, disp1MB));
     } else {

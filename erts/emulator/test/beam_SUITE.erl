@@ -293,7 +293,10 @@ select_val(Config) when is_list(Config) ->
     Mod = ?FUNCTION_NAME,
 
     %% Test select_val instructions around interesting powers of 2.
-    Powers = lists:seq(0, 33) ++ lists:seq(47, 49) ++ lists:seq(58, 65),
+    Powers = lists:seq(0, 33) ++
+        lists:seq(47, 49) ++
+        lists:seq(58, 65) ++
+        lists:seq(8192 - 5, 8192 + 5),
     L = make_tests(Powers, 0, []),
     Code = make_module(Mod, L),
     merl:compile_and_load(Code, []),
@@ -345,14 +348,11 @@ make_tests([P|Ps], N0, Acc0) ->
     {Acc,N} = make_tests_1(1 bsl P, N0, Acc0),
     make_tests(Ps, N, Acc);
 make_tests([], N0, Acc0) ->
-    %% Finally, generate a function with a huge number of clauses.
-    NC = 2000,
+    %% Finally, generate some functions with a huge number of clauses.
 
-    %% Let the last number be a bignum.
-    Last = 1 bsl (erlang:system_info(wordsize)*8 - 5),
+    {Acc1, N1} = make_huge_bsearch(N0, Acc0),
+    {Acc, _N} = make_huge_jump_tab(N1, Acc1),
 
-    Step = 5,
-    {Acc,_} = make_test("huge_bsearch", Last - NC*Step, Last, Step, N0, Acc0),
     lists:reverse(Acc).
 
 make_tests_1(V, N0, Acc0) ->
@@ -376,6 +376,19 @@ make_tests_3(_First, _Last, 0, _Step, N, Acc) ->
 make_tests_3(First, Last, NumClauses, Step, N0, Acc0) ->
     {Acc,N} = make_test("f", First, Last, Step, N0, Acc0),
     make_tests_3(First+Step, Last+Step, NumClauses-1, Step, N, Acc).
+
+make_huge_jump_tab(N, Acc) ->
+    NC = 16384 + 1,
+    make_test("huge_jump_tab", 0, NC, 1, N, Acc).
+
+make_huge_bsearch(N0, Acc) ->
+    NC = 2000,
+
+    %% Let the last number be a bignum.
+    Last = 1 bsl (erlang:system_info(wordsize)*8 - 5),
+    Step = 5,
+
+    make_test("huge_bsearch", Last - NC*Step, Last, Step, N0, Acc).
 
 make_test(Prefix, First, Last, Step, N, Acc) ->
     Name = list_to_atom(Prefix ++ integer_to_list(N)),
