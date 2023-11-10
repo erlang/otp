@@ -278,14 +278,21 @@ String Content
 "++ foo() ++"
       </pre>
       <p>
-        From Erlang/OTP 26.1 up to 27.0 the compiler issues a warning for
-        a sequence of 3 or more double-quote characters
+        From Erlang/OTP 26.1 up to 26.2 the compiler issues a warning
+        for a sequence of 3 or more double-quote characters
         since that is almost certainly a mistake or
         something like a result of bad automatic code generation.
         If a users gets that warning, the code should be corrected
         for example by inserting appropriate spaces between
         the empty strings, or removing the redundant ones alltogether,
         which will have the same meaning before and after Erlang/OTP 27.
+      </p>
+      <p>
+        From Erlang/OTP 26.2 up to 27.0 this is improved
+        so the compiler instead issues a warning for adjacent string literals
+        without intervening white space, which effectively is the same
+        at a string start, but also covers the same situation
+        at a string end.
       </p>
     </section>
 
