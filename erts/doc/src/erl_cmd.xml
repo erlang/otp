@@ -424,7 +424,7 @@ $ <input>erl \
           is mandatory if flag <c><![CDATA[-loader inet]]></c> is present.</p>
         <p>The IP addresses must be specified in the standard form (four
           decimal numbers separated by periods, for example,
-          <c><![CDATA["150.236.20.74"]]></c>. Hosts names are not acceptable,
+          <c><![CDATA["150.236.20.74"]]></c>). Hosts names are not acceptable,
           but a broadcast address (preferably limited to the local network)
           is.</p>
       </item>
