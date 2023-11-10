@@ -16,6 +16,8 @@ jobs:
   pr-number:
     runs-on: ubuntu-20.04
     if: github.repository == 'erlang/otp'
+    permissions:
+      issues: read
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
@@ -33,6 +35,8 @@ jobs:
   starting-tests:
     runs-on: ubuntu-latest
     needs: pr-number
+    permissions:
+      issues: write
     if: github.event.action == 'requested' && needs.pr-number.outputs.result != ''
     steps:
       - uses: actions/checkout@v4.1.1
@@ -49,6 +53,8 @@ jobs:
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
+    permissions:
+      issues: write
     if: >-
           github.event.action == 'completed' &&
           needs.pr-number.outputs.result != '' &&
