@@ -3,10 +3,11 @@
     {vsn, "%VSN%"},
     {modules, [
 	       %% TLS/SSL
-	       tls_connection,
                tls_client_connection_1_3,
                tls_server_connection_1_3,
                tls_gen_connection_1_3,
+               tls_client_connection,
+               tls_server_connection,
 	       tls_handshake,
 	       tls_handshake_1_3,
 	       tls_record,
@@ -23,7 +24,8 @@
                tls_dyn_connection_sup,
 	       ssl_dh_groups,
 	       %% DTLS
-	       dtls_connection,
+	       dtls_client_connection,
+               dtls_server_connection,
 	       dtls_handshake,
 	       dtls_record,
 	       dtls_socket,
@@ -39,7 +41,9 @@
 	       ssl,  %% Main API
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
-               tls_dtls_connection,
+               tls_dtls_client_connection,
+               tls_dtls_server_connection,
+               tls_dtls_gen_connection,
 	       ssl_config,
                ssl_gen_statem,
 	       ssl_handshake,

@@ -134,7 +134,7 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
                                           TestCase == renegotiate_dos_mitigate_passive;
                                           TestCase == renegotiate_dos_mitigate_absolute ->
-    ct:timetrap({seconds, 160}),
+    ct:timetrap({seconds, 25}),
     Config;
 init_per_testcase(_, Config) ->
     ct:timetrap({seconds, 15}),

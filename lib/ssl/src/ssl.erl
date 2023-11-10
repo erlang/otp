@@ -3028,13 +3028,13 @@ renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
         _ ->
             case tls_sender:renegotiate(Sender) of
                 {ok, Write} ->
-                    tls_dtls_connection:renegotiation(Pid, Write);
+                    tls_dtls_gen_connection:renegotiation(Pid, Write);
                 Error ->
                     Error
             end
     end;
 renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
-    tls_dtls_connection:renegotiation(Pid);
+    tls_dtls_gen_connection:renegotiation(Pid);
 renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
 renegotiate(#sslsocket{pid = {_Listen, #config{}}}) ->

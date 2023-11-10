@@ -54,8 +54,7 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]},
-            {timetrap,{seconds,60}}].
+suite() -> [{timetrap,{seconds,60}}].
 
 all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
           tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
@@ -140,16 +139,16 @@ tc_api_profile(Config) ->
         #{
           call =>
               [{"    (server) -> ssl:handshake/2", ssl, handshake},
-               {"    (server) -> ssl_gen_statem:initial_hello/3",
-                ssl_gen_statem, initial_hello},
-               {"    (client) -> ssl_gen_statem:initial_hello/3",
-                ssl_gen_statem, initial_hello}],
+               {"    (server) -> tls_server_connection:initial_hello/3",
+                tls_server_connection, initial_hello},
+               {"    (client) -> tls_client_connection:initial_hello/3",
+                tls_client_connection, initial_hello}],
          return_from =>
               [{"    (server) <- ssl:listen/2 returned", ssl, listen},
-               {"    (server) <- ssl_gen_statem:initial_hello/3 returned",
-                ssl_gen_statem, initial_hello},
-               {"    (client) <- ssl_gen_statem:initial_hello/3 returned",
-                ssl_gen_statem, initial_hello},
+               {"    (server) <- tls_server_connection:initial_hello/3 returned",
+                tls_server_connection, initial_hello},
+               {"    (client) <- tls_client_connection:initial_hello/3 returned",
+                tls_client_connection, initial_hello},
                {"    (client) <- ssl_gen_statem:connect/8 returned",
                 ssl_gen_statem, connect},
                {"    (client) <- ssl:connect/3 returned", ssl, connect},

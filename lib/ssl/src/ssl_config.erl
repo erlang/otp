@@ -35,7 +35,8 @@
          get_ticket_lifetime/0,
          get_ticket_store_size/0,
          get_internal_active_n/0,
-         get_internal_active_n/1
+         get_internal_active_n/1,
+         new_emulated/2
         ]).
 
 %%====================================================================
@@ -228,6 +229,11 @@ get_internal_active_n(false) ->
          _  ->
             ?INTERNAL_ACTIVE_N
     end.
+
+new_emulated([], EmOpts) ->
+    EmOpts;
+new_emulated(NewEmOpts, _) ->
+    NewEmOpts.
 
 %%====================================================================
 %% Internal functions 
