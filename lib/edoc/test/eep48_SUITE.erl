@@ -233,6 +233,8 @@ links(Config) ->
 		 get_doc_link({function, local_function_link, 0}, Docs)),
     ?assertEqual({<<"seetype">>, <<"#t/0">>},
 		 get_doc_link({function, local_type_link, 0}, Docs)),
+    ?assertEqual({<<"seetype">>, <<"#t/0">>},
+		 get_doc_link({function, local_type_link_macro, 0}, Docs)),
     ?assertEqual({<<"seetype">>, <<"eep48_links#t/0">>},
 		 get_doc_link({function, external_type_link, 0}, Docs)).
 

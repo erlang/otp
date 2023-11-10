@@ -660,10 +660,13 @@ href(E) ->
     case get_attrval(href, E) of
 	"" -> [];
 	URI ->
-	    T = case get_attrval(target, E) of
-		    "" -> [];
-		    S -> [{target, S}]
-		end,
+	    T = lists:flatmap(
+                  fun(K) ->
+                          case get_attrval(K, E) of
+                              "" -> [];
+                              S -> [{K, S}]
+                          end
+                  end, [target, 'docgen-rel', 'docgen-href']),
 	    [{href, URI} | T]
     end.
 
