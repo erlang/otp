@@ -143,6 +143,8 @@
          api_b_sendmsg_iov_stream_inet/1,
          api_b_sendmsg_iov_stream_inet6/1,
          api_b_sendmsg_iov_stream_local/1,
+         api_b_dgram_connect_udp4/1,
+         api_b_dgram_connect_udp6/1,
 
          %% *** API sendfile ***
          api_sendfile_inet/1,
@@ -1020,7 +1022,9 @@ api_basic_cases() ->
      api_b_sendmsg_iov_dgram_local,
      api_b_sendmsg_iov_stream_inet,
      api_b_sendmsg_iov_stream_inet6,
-     api_b_sendmsg_iov_stream_local
+     api_b_sendmsg_iov_stream_local,
+     api_b_dgram_connect_udp4,
+     api_b_dgram_connect_udp6
     ].
 
 api_sendfile_cases() ->
@@ -4916,6 +4920,330 @@ api_b_sendmsg_iov_stream(Domain) ->
 	?P("api_b_sendmsg_iov_stream -> after - a: close socket"),
         socket:close(Sa)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically connect, send and receive using the "common" functions
+%% (send and recv) on an IPv4 UDP (dgram) socket.
+api_b_dgram_connect_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 type   => dgram,
+                                 proto  => udp},
+                   ok = api_b_dgram_connect(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically connect, send and receive using the "common" functions
+%% (send and recv) on an IPv6 UDP (dgram) socket.
+api_b_dgram_connect_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 type   => dgram,
+                                 proto  => udp},
+                   ok = api_b_dgram_connect(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_b_dgram_connect(InitState) ->
+    PeerSeq = 
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{local_sa => LSA}}
+                   end},
+
+         #{desc => "open",
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Protocol} = State) ->
+                           case socket:open(Domain, Type, Protocol) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, eprotonosupport = Reason}
+                                 when (Reason =:= epfnosupport)    orelse
+                                      (Reason =:= eprotonosupport) orelse
+                                      (Reason =:= esocktnosupport) ->
+                                   ?SEV_IPRINT("failed open: ~p => SKIP",
+                                               [Reason]),
+                                   {skip, Reason};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "bind to local address",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := LSA} = State) ->
+                           case socket:bind(Sock, LSA) of
+                               ok ->
+                                   {ok, State#{sock_sa => LSA}};
+                               {error, Reason} = ERROR ->
+				   ?SEV_EPRINT("failed binding: "
+					       "~n   ~p", [Reason]),
+                                   ERROR
+                           end;
+                      (#{sock := Sock, local_sa := LSA} = State) ->
+                           case sock_bind(Sock, LSA#{port => 0}) of
+                               ok ->
+                                   Port = sock_port(Sock),
+                                   {ok, State#{sock_sa => LSA#{port => Port}}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, sock_sa := SSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, SSA),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (peer sa)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
+                               {ok, PeerSA} ->
+                                   ?SEV_IPRINT("Peer SA:"
+                                               "~n   ~p", [PeerSA]),
+                                   {ok, State#{peer_sa => PeerSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "connect",
+           cmd  => fun(#{sock := Sock, peer_sa := PSA}) ->
+                           ?SEV_IPRINT("try connect"),
+                           socket:connect(Sock, PSA)
+                   end},
+
+         #{desc => "announce ready (connected)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connected),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (send and recv)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester,
+                                                    tester, send_and_recv) of
+                               {ok, Role} ->
+                                   ?SEV_IPRINT("role: ~p", [Role]),
+                                   {ok, State#{role => Role}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "send (client) or recv (server) request",
+           cmd  => fun(#{sock := Sock, role := client}) ->
+                           ?SEV_IPRINT("[client] try send request"),
+                           socket:send(Sock, ?BASIC_REQ);
+                      (#{sock := Sock, role := server}) ->
+                           ?SEV_IPRINT("[server] try recv request"),
+                           case socket:recv(Sock) of
+                               {ok, ?BASIC_REQ} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "recv (client) send (server) reply",
+           cmd  => fun(#{sock := Sock, role := client}) ->
+                           ?SEV_IPRINT("[client] try recv reply"),
+                           case socket:recv(Sock) of
+                               {ok, ?BASIC_REP} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock, role := server}) ->
+                           ?SEV_IPRINT("[server] try send reply"),
+                           socket:send(Sock, ?BASIC_REP)
+                   end},
+
+         #{desc => "announce ready (send_and_recv)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_recv),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor peer 1",
+           cmd  => fun(#{peer_1 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor peer 2",
+           cmd  => fun(#{peer_2 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         #{desc => "order peer 1 start",
+           cmd  => fun(#{peer_1 := Pid}) ->
+                           ?SEV_ANNOUNCE_START(Pid)
+                   end},
+         #{desc => "order peer 2 start",
+           cmd  => fun(#{peer_2 := Pid}) ->
+                           ?SEV_ANNOUNCE_START(Pid)
+                   end},
+
+         #{desc => "await peer 1 ready (init)",
+           cmd  => fun(#{peer_1 := Pid} = State) ->
+                           {ok, PeerSA} = ?SEV_AWAIT_READY(Pid, peer1, init),
+                           {ok, State#{peer_1_sa => PeerSA}}
+                   end},
+         #{desc => "await peer 2 ready (init)",
+           cmd  => fun(#{peer_2 := Pid} = State) ->
+                           {ok, PeerSA} = ?SEV_AWAIT_READY(Pid, peer2, init),
+                           {ok, State#{peer_2_sa => PeerSA}}
+                   end},
+
+
+         #{desc => "order peer 1 to continue (with connect)",
+           cmd  => fun(#{peer_1 := Pid, peer_2_sa := PeerSA} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, PeerSA),
+                           ok
+                   end},
+         #{desc => "order peer 2 to continue (with connect)",
+           cmd  => fun(#{peer_2 := Pid, peer_1_sa := PeerSA} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, PeerSA),
+                           ok
+                   end},
+
+
+         #{desc => "await peer 1 ready (connected)",
+           cmd  => fun(#{peer_1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, peer1, connected)
+                   end},
+         #{desc => "await peer 2 ready (connected)",
+           cmd  => fun(#{peer_2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, peer2, connected)
+                   end},
+
+
+
+         %% We should pick one to issue the request
+         %% (and the other is then to *await* the request
+         %%  and respond).
+
+
+
+         #{desc => "order peer 1 to continue (with send_and_recv)",
+           cmd  => fun(#{peer_1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, send_and_recv, client),
+                           ok
+                   end},
+         #{desc => "order peer 2 to continue (with send_and_recv)",
+           cmd  => fun(#{peer_2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, send_and_recv, server),
+                           ok
+                   end},
+
+
+         #{desc => "await peer 1 ready (send_and_recv)",
+           cmd  => fun(#{peer_1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, peer1, send_and_recv)
+                   end},
+         #{desc => "await peer 2 ready (send_and_recv)",
+           cmd  => fun(#{peer_2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, peer2, send_and_recv)
+                   end},
+
+
+         ?SEV_SLEEP(?SECS(1)),
+
+
+         %% *** Termination ***
+         #{desc => "order peer 1 to terminate",
+           cmd  => fun(#{peer_1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await peer 1 termination",
+           cmd  => fun(#{peer_1 := Pid} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Pid),
+                           State1 = maps:remove(peer_1, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order peer 2 to terminate",
+           cmd  => fun(#{peer_2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await peer 2 termination",
+           cmd  => fun(#{peer_2 := Pid} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Pid),
+                           State1 = maps:remove(peer_2, State),
+                           {ok, State1}
+                   end},
+
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    Peer1  = ?SEV_START("peer 1", PeerSeq,   InitState),
+    Peer2  = ?SEV_START("peer 2", PeerSeq,   InitState),
+    Tester = ?SEV_START("tester", TesterSeq, #{peer_1 => Peer1#ev.pid,
+                                               peer_2 => Peer2#ev.pid}),
+    ok = ?SEV_AWAIT_FINISH([Peer1, Peer2, Tester]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

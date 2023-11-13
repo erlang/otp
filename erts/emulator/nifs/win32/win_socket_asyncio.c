@@ -2051,7 +2051,50 @@ ERL_NIF_TERM esaio_connect_dgram(ErlNifEnv*       env,
                                  ESockAddress*    addrP,
                                  SOCKLEN_T        addrLen)
 {
-    return enif_make_badarg(env);
+    int       save_errno;
+    ErlNifPid self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    if (descP->connectorP != NULL) {
+        /* Connect in progress */
+
+        return esock_make_error(env, esock_atom_already);
+    }
+
+    /* No connect in progress */
+
+    if (addrP == NULL) {
+        /* Connect without an address is not allowed
+         */
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    /* Initial connect call, with address */
+
+    if (sock_connect(descP->sock, (struct sockaddr*) addrP, addrLen) == 0) {
+        /* Success! */
+        SSDBG( descP, ("WIN-ESAIO",
+                       "essio_connect_dgram {%d} -> connected\r\n",
+                       descP->sock) );
+
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        return esock_atom_ok;
+    }
+
+    /* Connect returned error */
+    save_errno = sock_errno();
+    
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_connect_dgram {%d} -> error: %d\r\n",
+            descP->sock, save_errno) );
+
+    return esock_make_error_errno(env, save_errno);
+
 }
 
 
