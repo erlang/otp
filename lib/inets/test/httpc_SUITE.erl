@@ -58,6 +58,7 @@ all() ->
      {group, http},
      {group, http_ipv6},
      {group, sim_http},
+     {group, sim_http_ipv6},
      {group, http_internal},
      {group, http_unix_socket},
      {group, https},
@@ -75,6 +76,11 @@ groups() ->
      %% will fail.
      {sim_http, [], only_simulated() ++ server_closing_connection() ++
           [process_leak_on_keepalive]},
+     {sim_http_ipv6, [], only_simulated() ++ server_closing_connection()
+          % The following two tests are not functional on IPv6 yet:
+          % ++ [process_leak_on_keepalive]
+          -- [server_closing_connection_on_second_response]
+          },
      {http_internal, [], real_requests_esi()},
      {http_internal_minimum_bytes, [], [remote_socket_close_parallel]},
      {http_unix_socket, [], simulated_unix_socket()},
@@ -268,13 +274,14 @@ init_per_group(http_unix_socket = Group, Config0) ->
             {Pid, Port} = server_start(Group, server_config(Group, Config)),
             lists:append([{dummy_server_pid, Pid}, {port, Port}], Config)
     end;
-init_per_group(http_ipv6 = Group, Config0) ->
+init_per_group(Group, Config0) when Group == http_ipv6;
+                                    Group == sim_http_ipv6 ->
     case is_ipv6_supported() of
         true ->
             start_apps(Group),
             Config = proplists:delete(port, Config0),
             Port = server_start(Group, server_config(Group, Config)),
-            [{port, Port} | Config];
+            [{port, Port}, {request_opts, [{socket_opts, [{ipfamily, inet6}]}]} | Config];
         false ->
             {skip, "Host does not support IPv6"}
      end;
@@ -430,7 +437,8 @@ get_space() ->
     [{"Test http get request with '%20' in the path of the URL."}].
 get_space(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/space%20.html", Config), []},
-    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], RequestOpts),
 
     inets_test_lib:check_body(Body).
 
@@ -544,7 +552,8 @@ trace() ->
     [{doc, "Perform a TRACE request."}].
 trace(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/trace.html", Config), []},
-    case httpc:request(trace, Request, [?SSL_NO_VERIFY], []) of
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    case httpc:request(trace, Request, [?SSL_NO_VERIFY], RequestOpts) of
 	{ok, {{_,200,_}, [_ | _], "TRACE /trace.html" ++ _}} ->
 	    ok;
 	 Other ->
@@ -632,49 +641,55 @@ stream() ->
     [{doc, "Test the option stream for asynchrony requests"}].
 stream(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    stream_test(Request, {stream, self}).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    stream_test(Request, {stream, self}, RequestOpts).
 %%-------------------------------------------------------------------------
 stream_once() ->
     [{doc, "Test the option stream for asynchrony requests"}].
 stream_once(Config) when is_list(Config) ->
     Request0  = {url(group_name(Config), "/dummy.html", Config), []},
-    stream_test(Request0, {stream, {self, once}}),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    stream_test(Request0, {stream, {self, once}}, RequestOpts),
 
     Request1  = {url(group_name(Config), "/once.html", Config), []},
-    stream_test(Request1, {stream, {self, once}}),
+    stream_test(Request1, {stream, {self, once}}, RequestOpts),
 
     Request2  = {url(group_name(Config), "/once_chunked.html", Config), []},
-    stream_test(Request2, {stream, {self, once}}).
+    stream_test(Request2, {stream, {self, once}}, RequestOpts).
 %%-------------------------------------------------------------------------
 stream_single_chunk() ->
     [{doc, "Test the option stream for asynchrony requests"}].
 stream_single_chunk(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/single_chunk.html", Config), []},
-    stream_test(Request, {stream, self}).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    stream_test(Request, {stream, self}, RequestOpts).
 %%-------------------------------------------------------------------------
 stream_no_length() ->
     [{doc, "Test the option stream for asynchrony requests with HTTP 1.0 "
       "body end on closed connection" }].
 stream_no_length(Config) when is_list(Config) ->
     Request1 = {url(group_name(Config), "/http_1_0_no_length_single.html", Config), []},
-    stream_test(Request1, {stream, self}),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    stream_test(Request1, {stream, self}, RequestOpts),
     Request2 = {url(group_name(Config), "/http_1_0_no_length_multiple.html", Config), []},
-    stream_test(Request2, {stream, self}).
+    stream_test(Request2, {stream, self}, RequestOpts).
 %%-------------------------------------------------------------------------
 stream_large_not_200_or_206() ->
     [{doc, "Test the option stream for large responses with status codes "
       "other than 200 or 206" }].
 stream_large_not_200_or_206(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/large_404_response.html", Config), []},
-    {404, _} = not_streamed_test(Request, {stream, self}).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {404, _} = not_streamed_test(Request, {stream, self}, RequestOpts).
 %%-------------------------------------------------------------------------
 not_streamed_once() ->
     [{doc, "Test not streamed responses with once streaming"}].
 not_streamed_once(Config) when is_list(Config) ->
     Request0 = {url(group_name(Config), "/404.html", Config), []},
-    {404, _} = not_streamed_test(Request0, {stream, {self, once}}),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {404, _} = not_streamed_test(Request0, {stream, {self, once}}, RequestOpts),
     Request1 = {url(group_name(Config), "/404_chunked.html", Config), []},
-    {404, _} = not_streamed_test(Request1, {stream, {self, once}}).
+    {404, _} = not_streamed_test(Request1, {stream, {self, once}}, RequestOpts).
 
 
 %%-------------------------------------------------------------------------
@@ -683,12 +698,13 @@ redirect_multiple_choises() ->
       "be performed automatically."}].
 redirect_multiple_choises(Config) when is_list(Config) ->
     URL300 = url(group_name(Config), "/300.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     catch {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL300, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL300, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,300,_}, [_ | _], _}} =
-	httpc:request(get, {URL300, []}, [{autoredirect, false},?SSL_NO_VERIFY], []).
+	httpc:request(get, {URL300, []}, [{autoredirect, false},?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_moved_permanently() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -699,16 +715,17 @@ redirect_moved_permanently() ->
 redirect_moved_permanently(Config) when is_list(Config) ->
 
     URL301 = url(group_name(Config), "/301.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL301, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(head, {URL301, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
-			[?SSL_NO_VERIFY], []).
+			[?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_found() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -719,16 +736,17 @@ redirect_found() ->
 redirect_found(Config) when is_list(Config) ->
 
     URL302 = url(group_name(Config), "/302.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL302, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL302, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL302, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(head, {URL302, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL302, [],"text/plain", "foobar"},
-			[?SSL_NO_VERIFY], []).
+			[?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_see_other() ->
     [{doc, "The different URI SHOULD be given by the Location field in the response. "
@@ -737,16 +755,17 @@ redirect_see_other() ->
 redirect_see_other(Config) when is_list(Config) ->
 
     URL303 =  url(group_name(Config), "/303.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL303, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL303, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL303, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(head, {URL303, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL303, [],"text/plain", "foobar"},
-			[?SSL_NO_VERIFY], []).
+			[?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_temporary_redirect() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -757,16 +776,17 @@ redirect_temporary_redirect() ->
 redirect_temporary_redirect(Config) when is_list(Config) ->
 
     URL307 =  url(group_name(Config), "/307.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL307, []}, [], []),
+	= httpc:request(get, {URL307, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL307, []}, [], []),
+	= httpc:request(head, {URL307, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL307, [],"text/plain", "foobar"},
-			[], []).
+			[], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_permanent_redirect() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -777,16 +797,17 @@ redirect_permanent_redirect() ->
 redirect_permanent_redirect(Config) when is_list(Config) ->
 
     URL308 =  url(group_name(Config), "/308.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL308, []}, [], []),
+	= httpc:request(get, {URL308, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL308, []}, [], []),
+	= httpc:request(head, {URL308, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL308, [],"text/plain", "foobar"},
-			[], []).
+			[], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_relative_uri() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -797,25 +818,27 @@ redirect_relative_uri() ->
 redirect_relative_uri(Config) when is_list(Config) ->
 
     URL301 = url(group_name(Config), "/301_rel_uri.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, []}, [], []),
+	= httpc:request(get, {URL301, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, []}, [], []),
+	= httpc:request(head, {URL301, []}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
-			[], []).
+			[], RequestOpts).
 %%-------------------------------------------------------------------------
 redirect_loop() ->
     [{"doc, Test redirect loop detection"}].
 redirect_loop(Config) when is_list(Config) ->
 
     URL =  url(group_name(Config), "/redirectloop.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,300,_}, [_ | _], _}}
-	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 redirect_http_to_https() ->
@@ -824,17 +847,18 @@ redirect_http_to_https() ->
 redirect_http_to_https(Config) when is_list(Config) ->
     URL301 = mixed_url(http, "/301_custom_url.html", Config),
     TargetUrl = mixed_url(https, "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, Headers}, [?SSL_NO_VERIFY], []),
+	= httpc:request(head, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
-			[?SSL_NO_VERIFY], []).
+			[?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 redirect_relative_different_port() ->
@@ -842,6 +866,7 @@ redirect_relative_different_port() ->
       "port, is handled correctly."}].
 redirect_relative_different_port(Config) when is_list(Config) ->
     URL301 = mixed_url(http, "/301_custom_url.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     % We need an extra server of the same protocol here, so spawn a new
     % HTTP-protocol one
@@ -852,14 +877,14 @@ redirect_relative_different_port(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, Headers}, [], []),
+	= httpc:request(get, {URL301, Headers}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, Headers}, [], []),
+	= httpc:request(head, {URL301, Headers}, [], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
-			[], []).
+			[], RequestOpts).
 %%-------------------------------------------------------------------------
 cookie() ->
     [{doc, "Test cookies."}].
@@ -867,15 +892,16 @@ cookie(Config) when is_list(Config) ->
     ok = httpc:set_options([{cookies, enabled}]),
 
     Request0 = {url(group_name(Config), "/cookie.html", Config), []},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], RequestOpts),
 
     Request1 = {url(group_name(Config), "/", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}} = global:trans(
         {cookies, verify},
-        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], []) end,
+        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], RequestOpts) end,
         [node()],
         100
     ),
@@ -894,15 +920,16 @@ cookie_profile(Config) when is_list(Config) ->
     ok = httpc:set_options([{cookies, enabled}], cookie_test),
 
     Request0 = {url(group_name(Config), "/cookie.html", Config), []},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [?SSL_NO_VERIFY], [], cookie_test),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], RequestOpts, cookie_test),
 
     Request1 = {url(group_name(Config), "/", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}} = global:trans(
         {cookies, verify},
-        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], [], cookie_test) end,
+        fun() -> httpc:request(get, Request1, [?SSL_NO_VERIFY], RequestOpts, cookie_test) end,
         [node()],
         100
     ),
@@ -916,9 +943,10 @@ empty_set_cookie(Config) when is_list(Config) ->
     ok = httpc:set_options([{cookies, enabled}]),
 
     Request0 = {url(group_name(Config), "/empty_set_cookie.html", Config), []},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], RequestOpts),
 
     ok = httpc:set_options([{cookies, disabled}]).
 
@@ -929,8 +957,9 @@ invalid_set_cookie(Config) when is_list(Config) ->
     ok = httpc:set_options([{cookies, enabled}]),
 
     URL = url(group_name(Config), "/invalid_set_cookie.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {ok, {{_,200,_}, [_|_], [_|_]}} =
-        httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
+        httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ok = httpc:set_options([{cookies, disabled}]).
 
@@ -939,12 +968,14 @@ headers_as_is(doc) ->
     ["Test the option headers_as_is"];
 headers_as_is(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {ok, {{_,200,_}, [_|_], [_|_]}} =
 	httpc:request(get, {URL, [{"Host", "localhost"},{"Te", ""}]},
-		     [?SSL_NO_VERIFY], [{headers_as_is, true}]),
+		     [?SSL_NO_VERIFY], [{headers_as_is, true} | RequestOpts]),
 
     {ok, {{_,400,_}, [_|_], [_|_]}} =
-	httpc:request(get, {URL, [{"Te", ""}]}, [?SSL_NO_VERIFY], [{headers_as_is, true}]).
+	httpc:request(get, {URL, [{"Te", ""}]},
+                      [?SSL_NO_VERIFY], [{headers_as_is, true} | RequestOpts]).
 
 %%-------------------------------------------------------------------------
 
@@ -952,17 +983,16 @@ userinfo(doc) ->
     [{doc, "Test user info e.i. http://user:passwd@host:port/"}];
 userinfo(Config) when is_list(Config) ->
     
-    {ok,Host} = inet:gethostname(),
-    
-    URLAuth = url(group_name(Config), "alladin:sesame@" ++ Host ++ ":","/userinfo.html", Config),
+    URLAuth = url(group_name(Config), "alladin:sesame", "/userinfo.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,200,_}, [_ | _], _}}
-	= httpc:request(get, {URLAuth, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URLAuth, []}, [?SSL_NO_VERIFY], RequestOpts),
 
-    URLUnAuth = url(group_name(Config), "alladin:foobar@" ++ Host ++ ":","/userinfo.html", Config),
+    URLUnAuth = url(group_name(Config), "alladin:foobar", "/userinfo.html", Config),
 
     {ok, {{_,401, _}, [_ | _], _}} =
-	httpc:request(get, {URLUnAuth, []}, [?SSL_NO_VERIFY], []).
+	httpc:request(get, {URLUnAuth, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -970,20 +1000,24 @@ page_does_not_exist(doc) ->
     ["Test that we get a 404 when the page is not found."];
 page_does_not_exist(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/doesnotexist.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {ok, {{_,404,_}, [_ | _], [_ | _]}}
-	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 
 streaming_error(doc) ->
-    [{doc, "Only async requests can be stremed - Solves OTP-8056"}];
+    [{doc, "Only async requests can be streamed - Solves OTP-8056"}];
 
 streaming_error(Config) when is_list(Config) ->
     Method      = get,
     Request     = {url(group_name(Config), "/dummy.html", Config), []},
-    {error, streaming_error} = httpc:request(Method, Request,
-					     [?SSL_NO_VERIFY],  [{sync, true}, {stream, {self, once}}]),
-    {error, streaming_error} = httpc:request(Method, Request,
-					     [?SSL_NO_VERIFY], [{sync, true}, {stream, self}]).
+    RequestOpts = [{sync, true} | proplists:get_value(request_opts, Config, [])],
+
+    {error, streaming_error} = httpc:request(Method, Request, [?SSL_NO_VERIFY],
+                                             [{stream, {self, once}} | RequestOpts]),
+
+    {error, streaming_error} = httpc:request(Method, Request, [?SSL_NO_VERIFY],
+                                             [{stream, self} | RequestOpts]).
 %%-------------------------------------------------------------------------
 
 server_does_not_exist(doc) ->
@@ -1000,7 +1034,8 @@ no_content_204(doc) ->
     ["Test the case that the HTTP 204 no content header - Solves OTP 6982"];
 no_content_204(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/no_content.html", Config),
-    {ok, {{_,204,_}, [], []}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,204,_}, [], []}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1009,7 +1044,8 @@ tolerate_missing_CR() ->
      "as delimiter. Solves OTP-7304"}].
 tolerate_missing_CR(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/missing_CR.html", Config),
-    {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 
 empty_body() ->
@@ -1017,8 +1053,9 @@ empty_body() ->
       "seconds. Solves OTP-6243."}].
 empty_body(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/empty.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {ok, {{_,200,_}, [_ | _], []}} =
-	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1026,13 +1063,15 @@ transfer_encoding() ->
     [{doc, "Transfer encoding is case insensitive. Solves OTP-6807"}].
 transfer_encoding(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/capital_transfer_encoding.html", Config),
-    {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
 transfer_encoding_identity(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/identity_transfer_encoding.html", Config),
-    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1040,7 +1079,8 @@ empty_response_header() ->
     [{doc, "Test the case that the HTTP server does not send any headers. Solves OTP-6830"}].
 empty_response_header(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/no_headers.html", Config),
-    {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1051,9 +1091,10 @@ bad_response(Config) when is_list(Config) ->
 
     URL0 = url(group_name(Config), "/missing_crlf.html", Config),
     URL1 = url(group_name(Config), "/wrong_statusline.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
-    {error, timeout} = httpc:request(get, {URL0, []}, [{timeout, 400},?SSL_NO_VERIFY], []),
-    {error, Reason} = httpc:request(get, {URL1, []}, [?SSL_NO_VERIFY], []),
+    {error, timeout} = httpc:request(get, {URL0, []}, [{timeout, 400},?SSL_NO_VERIFY], RequestOpts),
+    {error, Reason} = httpc:request(get, {URL1, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ct:log("Wrong Statusline: ~p~n", [Reason]).
 %%-------------------------------------------------------------------------
@@ -1062,7 +1103,8 @@ timeout_redirect() ->
     [{doc, "Test that timeout works for redirects, check ERL-420."}].
 timeout_redirect(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/redirect_to_missing_crlf.html", Config),
-    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400},?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400},?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1071,9 +1113,10 @@ internal_server_error(doc) ->
 internal_server_error(Config) when is_list(Config) ->
 
     URL500 = url(group_name(Config), "/500.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{_,500,_}, [_ | _], _}}
-	= httpc:request(get, {URL500, []}, [?SSL_NO_VERIFY], []),
+	= httpc:request(get, {URL500, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     URL503 = url(group_name(Config), "/503.html", Config),
 
@@ -1082,12 +1125,12 @@ internal_server_error(Config) when is_list(Config) ->
     ets:insert(unavailable, {503, unavailable}),
 
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ets:insert(unavailable, {503, long_unavailable}),
 
     {ok, {{_,503, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ets:delete(unavailable).
 
@@ -1100,9 +1143,10 @@ invalid_http(suite) ->
 invalid_http(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/invalid_http.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {error, {could_not_parse_as_http, _} = Reason} =
-	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ct:log("Parse error: ~p ~n", [Reason]).
 
@@ -1115,9 +1159,10 @@ invalid_chunk_size(suite) ->
 invalid_chunk_size(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/invalid_chunk_size.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {error, {chunk_size, _} = Reason} =
-	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts),
 
     ct:log("Parse error: ~p ~n", [Reason]).
 
@@ -1128,12 +1173,13 @@ emulate_lower_versions(doc) ->
 emulate_lower_versions(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}, ?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}, ?SSL_NO_VERIFY], RequestOpts),
     inets_test_lib:check_body(Body1),
     {ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}, ?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}, ?SSL_NO_VERIFY], RequestOpts),
     inets_test_lib:check_body(Body2).
 
 %%-------------------------------------------------------------------------
@@ -1143,14 +1189,15 @@ relaxed(doc) ->
 relaxed(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/missing_reason_phrase.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     {error, Reason} =
-	httpc:request(get, {URL, []}, [{relaxed, false}, ?SSL_NO_VERIFY], []),
+	httpc:request(get, {URL, []}, [{relaxed, false}, ?SSL_NO_VERIFY], RequestOpts),
 
     ct:log("Not relaxed: ~p~n", [Reason]),
 
     {ok, {{_, 200, _}, [_ | _], [_ | _]}} =
-	httpc:request(get, {URL, []}, [{relaxed, true}, ?SSL_NO_VERIFY], []).
+	httpc:request(get, {URL, []}, [{relaxed, true}, ?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1159,6 +1206,7 @@ headers() ->
 headers(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     DocRoot = proplists:get_value(doc_root, Config),
 
     {ok, FileInfo} =
@@ -1178,7 +1226,7 @@ headers(Config) when is_list(Config) ->
 				   Mod},
 				  {"From","webmaster@erlang.se"},
 				  {"Date", Date}
-				 ]}, [?SSL_NO_VERIFY], []),
+				 ]}, [?SSL_NO_VERIFY], RequestOpts),
 
     Mod1 =  httpd_util:rfc1123_date(
 	      calendar:gregorian_seconds_to_datetime(
@@ -1187,7 +1235,7 @@ headers(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, [{"If-UnModified-Since",
 				   Mod1}
-				 ]}, [?SSL_NO_VERIFY], []),
+				 ]}, [?SSL_NO_VERIFY], RequestOpts),
 
     Tag = httpd_util:create_etag(FileInfo),
 
@@ -1195,13 +1243,13 @@ headers(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, [{"If-Match",
 				   Tag}
-				 ]}, [?SSL_NO_VERIFY], []),
+				 ]}, [?SSL_NO_VERIFY], RequestOpts),
 
     {ok, {{_,200,_}, [_ | _], _}} =
 	httpc:request(get, {URL, [{"If-None-Match",
 				   "NotEtag,NeihterEtag"},
 				  {"Connection", "Close"}
-				 ]}, [?SSL_NO_VERIFY], []).
+				 ]}, [?SSL_NO_VERIFY], RequestOpts).
 %%-------------------------------------------------------------------------
 headers_dummy() ->
     ["Test the code for handling headers we do not want/can send "
@@ -1212,6 +1260,7 @@ headers_dummy() ->
 headers_dummy(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy_headers.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
 
     Foo = http_chunk:encode("foobar") ++
 	binary_to_list(http_chunk:encode_last()),
@@ -1260,14 +1309,15 @@ headers_dummy(Config) when is_list(Config) ->
 		       {"Last-Modified", "Sat, 29 Oct 1994 19:43:31 GMT"},
 		       {"Trailer","1#User-Agent"}
 		      ], "text/plain", FooBar},
-		     [?SSL_NO_VERIFY], []).
+		     [?SSL_NO_VERIFY], RequestOpts).
 
 
 %%-------------------------------------------------------------------------
 
 headers_with_obs_fold(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
-    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], RequestOpts),
     "a b" = proplists:get_value("folded", Headers).
 
 %%-------------------------------------------------------------------------
@@ -1278,8 +1328,9 @@ headers_conflict_chunked_with_length(doc) ->
      "and must receive successful response in relaxed mode"];
 headers_conflict_chunked_with_length(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/headers_conflict_chunked_with_length.html", Config), []},
-    {error, {could_not_parse_as_http, _}} = httpc:request(get, Request, [{relaxed, false}, ?SSL_NO_VERIFY], []),
-    {ok,{{_,200,_},_,_}} = httpc:request(get, Request, [{relaxed, true}, ?SSL_NO_VERIFY], []),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {error, {could_not_parse_as_http, _}} = httpc:request(get, Request, [{relaxed, false}, ?SSL_NO_VERIFY], RequestOpts),
+    {ok,{{_,200,_},_,_}} = httpc:request(get, Request, [{relaxed, true}, ?SSL_NO_VERIFY], RequestOpts),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1287,23 +1338,26 @@ invalid_headers(doc) ->
     ["Test invalid header format"];
 invalid_headers(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {error,{invalid_header,{"headers",
                             [{"user-agent","httpc"}]}}}	=
         httpc:request(get, {URL, [{"headers", [{"user-agent", "httpc"}]}]},
-                                  [?SSL_NO_VERIFY], []).
+                                  [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 invalid_headers_key(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config),
                 [{cookie, "valid cookie"}]},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {error, {headers_error, invalid_field}} =
-        httpc:request(get, Request, [?SSL_NO_VERIFY], []).
+        httpc:request(get, Request, [?SSL_NO_VERIFY], RequestOpts).
 
 invalid_headers_value(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config),
                 [{"cookie", atom_value}]},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     {error, {headers_error, invalid_value}} =
-        httpc:request(get, Request, [?SSL_NO_VERIFY], []).
+        httpc:request(get, Request, [?SSL_NO_VERIFY], RequestOpts).
 
 %%-------------------------------------------------------------------------
 
@@ -1478,14 +1532,16 @@ invalid_uri(Config) ->
 %%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
-    {error, socket_closed_remotely} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {error, socket_closed_remotely} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], RequestOpts).
 
 
 %%-------------------------------------------------------------------------
 
 remote_socket_close_async(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/just_close.html", Config), []},
-    Options     = [{sync, false}],
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Options     = [{sync, false} | RequestOpts],
     Profile     = httpc:default_profile(),
     {ok, RequestId} =
 	httpc:request(get, Request, [?SSL_NO_VERIFY], Options, Profile),
@@ -1498,8 +1554,9 @@ remote_socket_close_async(Config) when is_list(Config) ->
 
 process_leak_on_keepalive(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     HttpcHandlers0 = supervisor:which_children(httpc_handler_sup),
-    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], RequestOpts),
     HttpcHandlers1 = supervisor:which_children(httpc_handler_sup),
     ChildrenCount = supervisor:count_children(httpc_handler_sup),
     %% Assuming that the new handler will be selected for keep_alive
@@ -1512,7 +1569,7 @@ process_leak_on_keepalive(Config) ->
     #session{socket=Socket} = element(3, State),
     gen_tcp:close(Socket),
 
-    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], RequestOpts),
     %% bad handler with the closed socket should get replaced by
     %% the new one, so children count should stay the same
     ChildrenCount = supervisor:count_children(httpc_handler_sup),
@@ -1574,19 +1631,22 @@ inet_opts(Config) when is_list(Config) ->
 port_in_host_header(Config) when is_list(Config) ->
 
     Request = {url(group_name(Config), "/ensure_host_header_with_port.html", Config), []},
-    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], RequestOpts),
     inets_test_lib:check_body(Body).
 %%-------------------------------------------------------------------------
 redirect_port_in_host_header(Config) when is_list(Config) ->
 
     Request = {url(group_name(Config), "/redirect_ensure_host_header_with_port.html", Config), []},
-    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], RequestOpts),
     inets_test_lib:check_body(Body).
 
 %%-------------------------------------------------------------------------
 multipart_chunks(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/multipart_chunks.html", Config), []},
-    {ok, Ref} = httpc:request(get, Request, [], [{sync, false}, {stream, self}]),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    {ok, Ref} = httpc:request(get, Request, [], [{sync, false}, {stream, self} | RequestOpts]),
     ok = receive_stream_n(Ref, 10),
     httpc:cancel_request(Ref).
     
@@ -1808,10 +1868,11 @@ server_closing_connection_on_first_response() ->
       "requests on that connection and close the connection after reading"
       "the response message containing the \"close\""}].
 server_closing_connection_on_first_response(Config) when is_list(Config) ->
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     ReqSrvSendOctFun =
         fun(V, U, S) ->
                 {ok, {{V, S, _}, Headers0, []}} =
-                    httpc:request(get, {U, []}, [{version, V}], []),
+                    httpc:request(get, {U, []}, [{version, V}], RequestOpts),
                 {_, SendOctStr} =
                     proplists:lookup("x-socket-stat-send-oct", Headers0),
                 list_to_integer(SendOctStr)
@@ -1831,10 +1892,11 @@ server_closing_connection_on_second_response() ->
       "requests on that connection and close the connection after reading"
       "the response message containing the \"close\""}].
 server_closing_connection_on_second_response(Config) when is_list(Config) ->
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     ReqSrvSendOctFun =
         fun(V, U, S) ->
                 {ok, {{V, S, _}, Headers0, []}} =
-                    httpc:request(get, {U, []}, [{version, V}], []),
+                    httpc:request(get, {U, []}, [{version, V}], RequestOpts),
                 {_, SendOctStr} =
                     proplists:lookup("x-socket-stat-send-oct", Headers0),
                 list_to_integer(SendOctStr)
@@ -1884,20 +1946,22 @@ delete_no_body(doc) ->
     ["Test that a DELETE request without Body does not send a Content-Type header - Solves ERL-536"];
 delete_no_body(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/delete_no_body.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     %% Simulated server replies 500 if 'Content-Type' header is present
     {ok, {{_,200,_}, _, _}} =
-        httpc:request(delete, {URL, []}, [], []),
+        httpc:request(delete, {URL, []}, [], RequestOpts),
     {ok, {{_,500,_}, _, _}} =
-        httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], []).
+        httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], RequestOpts).
 
 %%--------------------------------------------------------------------
 post_with_content_type(doc) ->
     ["Test that a POST request with explicit 'Content-Type' does not drop the 'Content-Type' header - Solves ERL-736"];
 post_with_content_type(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/delete_no_body.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
     %% Simulated server replies 500 if 'Content-Type' header is present
     {ok, {{_,500,_}, _, _}} =
-        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [?SSL_NO_VERIFY], []).
+        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [?SSL_NO_VERIFY], RequestOpts).
 
 %%--------------------------------------------------------------------
 request_options() ->
@@ -2048,11 +2112,11 @@ stream_deliver(ReplyInfo, Type, ReceiverPid) ->
     ReceiverPid ! {Type, ReplyInfo},
     ok.
 
-stream_test(Request, To) ->
+stream_test(Request, To, RequestOpts) ->
     {ok, {{_,200,_}, [_ | _], Body}} =
-	httpc:request(get, Request, [?SSL_NO_VERIFY], []),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], RequestOpts),
     {ok, RequestId} =
-	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}, To]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}, To | RequestOpts]),
 
     StreamedBody =
 	receive
@@ -2066,11 +2130,12 @@ stream_test(Request, To) ->
 
     Body = binary_to_list(StreamedBody).
 
-not_streamed_test(Request, To) ->
+not_streamed_test(Request, To, RequestOpts) ->
     {ok, {{_,Code,_}, [_ | _], Body}} =
-	httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary}]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary} | RequestOpts]),
     {ok, RequestId} =
-	httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary}, {sync, false}, To]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY],
+                      [{body_format, binary}, {sync, false}, To | RequestOpts]),
 
     receive
 	{http, {RequestId, {{_, Code, _}, _Headers, Body}}} ->
@@ -2079,34 +2144,36 @@ not_streamed_test(Request, To) ->
 	    ct:fail(Msg)
     end.
 
-url(http, End, Config) ->
+url(Group, End, Config) when Group == http;
+                             Group == sim_http;
+                             Group == http_internal;
+                             Group == http_internal_minimum_bytes ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
-url(http_ipv6, End, Config) ->
+url(Group, End, Config) when Group == http_ipv6;
+                             Group == sim_http_ipv6 ->
     Port = proplists:get_value(port, Config),
     ?URL_START ++ "[::1]" ++ ":" ++ integer_to_list(Port) ++ End;
-url(https, End, Config) ->
+url(Group, End, Config) when Group == https;
+                             Group == sim_https ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
-    ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
-url(Group, End, Config) when Group == sim_http;
-                             Group == http_internal;
-                             Group == http_internal_minimum_bytes ->
-    url(http, End, Config);
-url(sim_https, End, Config) ->
-    url(https, End, Config).
+    ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
 
-url(http, UserInfo, End, Config) ->
+url(Group, UserInfo, End, Config) when Group == http;
+                                       Group == sim_http ->
     Port = proplists:get_value(port, Config),
-    ?URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
-url(https, UserInfo, End, Config) ->
+    {ok, Hostname} = inet:gethostname(),
+    ?URL_START ++ UserInfo ++ "@" ++ Hostname ++ ":" ++ integer_to_list(Port) ++ End;
+url(sim_http_ipv6, UserInfo, End, Config) ->
     Port = proplists:get_value(port, Config),
-    ?TLS_URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
-url(sim_http, UserInfo, End, Config) ->
-    url(http, UserInfo, End, Config);
-url(sim_https, UserInfo, End, Config) ->
-    url(https, UserInfo, End, Config).
+    ?URL_START ++ UserInfo ++ "@" ++ "[::1]:" ++ integer_to_list(Port) ++ End;
+url(Group, UserInfo, End, Config) when Group == https;
+                                       Group == sim_https ->
+    Port = proplists:get_value(port, Config),
+    {ok, Hostname} = inet:gethostname(),
+    ?TLS_URL_START ++ UserInfo ++ "@" ++ Hostname ++ ":" ++ integer_to_list(Port) ++ End.
 
 % Only for use in the `mixed` test group, where both http and https
 % URLs are possible.
@@ -2131,6 +2198,11 @@ server_start(sim_http, _) ->
     Inet = inet_version(),
     ok = httpc:set_options([{ipfamily, Inet},{unix_socket, undefined}]),
     {_Pid, Port} = http_test_lib:dummy_server(ip_comm, Inet, [{content_cb, ?MODULE}]),
+    Port;
+
+server_start(sim_http_ipv6, _) ->
+    ok = httpc:set_options([{ipfamily, inet6},{unix_socket, undefined}]),
+    {_Pid, Port} = http_test_lib:dummy_server(ip_comm, inet6, [{content_cb, ?MODULE}]),
     Port;
 
 server_start(sim_https, SslConfig) ->
