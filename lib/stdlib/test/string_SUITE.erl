@@ -36,7 +36,8 @@
          uppercase/1, lowercase/1, titlecase/1, casefold/1,
          to_integer/1,to_float/1,
          prefix/1, split/1, replace/1, find/1,
-         lexemes/1, nth_lexeme/1, cd_gc/1, meas/1
+         lexemes/1, nth_lexeme/1, cd_gc/1, meas/1,
+         jaro_distance/1
         ]).
 
 -export([len/1,old_equal/1,old_concat/1,chr_rchr/1,str_rstr/1]).
@@ -66,7 +67,7 @@ groups() ->
        to_integer, to_float,
        uppercase, lowercase, titlecase, casefold,
        prefix, find, split, replace, cd_gc,
-       meas]},
+       meas, jaro_distance]},
      {list_string,
       [len, old_equal, old_concat, chr_rchr, str_rstr, span_cspan,
        substr, old_tokens, chars, copies, words, strip, sub_word,
@@ -788,6 +789,20 @@ nth_lexeme(_) ->
     ?TEST([<<"aae">>,778,"öeeåäö"], [2,"e"], "åäö"),
     ok.
 
+jaro_distance(_) ->
+    ?TEST("", [""], 1.0),
+    ?TEST("", [["", <<"">>]], 1.0),
+    %% From https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance#Jaro_similarity
+    ?TEST("faremviel", ["farmville"], 0.8842592592592592),
+    ?TEST("michelle", ["michael"], 0.8690476190476191),
+    ?TEST("michelle", [<<"michael">>], 0.8690476190476191),
+    ?TEST(<<"Édouard"/utf8>>, ["Claude"], 0.5317460317460317),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:jaro_distance("foo", InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:jaro_distance("foo", <<$a, InvalidUTF8/binary, $z>>)),
+
+    ok.
 
 meas(Config) ->
     Parent = self(),
@@ -1004,8 +1019,10 @@ res(Int, Exp) ->
 
 
 check_types(_Line, _Func, _Str, Res)
-  when is_integer(Res); is_boolean(Res); Res =:= nomatch ->
-    %% length or equal
+  when is_integer(Res); %% length
+       is_float(Res); %% jaro_distance
+       is_boolean(Res); %% equal
+       Res =:= nomatch -> %% prefix, find
     ok;
 check_types(Line, Func, [S1,S2], Res)
   when Func =:= concat ->

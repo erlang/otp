@@ -58,7 +58,8 @@
          prefix/2,
          split/2,split/3,replace/3,replace/4,
          find/2,find/3,
-         next_codepoint/1, next_grapheme/1
+         next_codepoint/1, next_grapheme/1,
+         jaro_distance/2
         ]).
 
 -export([to_float/1, to_integer/1]).
@@ -2286,3 +2287,102 @@ join([], Sep) when is_list(Sep) ->
     [];
 join([H|T], Sep) ->
     H ++ lists:append([Sep ++ X || X <- T]).
+
+%% Finds the Jaro distance between two strings.
+%% Translated from Elixir's `String.jaro_distance/2'.
+-spec jaro_distance(String1, String2) -> Distance when
+      String1 :: unicode:chardata(),
+      String2 :: unicode:chardata(),
+      %% Between +0.0 and 1.0
+      Distance :: float().
+
+jaro_distance(String1, String2) ->
+    {Chars1, Len1} = grapheme_clusters_and_length(String1),
+    {Chars2, Len2} = grapheme_clusters_and_length(String2),
+    case {Chars1, Chars2} of
+        {Chars, Chars} ->
+            1.0;
+        {[], _} ->
+            +0.0;
+        {_, []} ->
+            +0.0;
+        _ ->
+            case jaro_match(Chars1, Len1, Chars2, Len2) of
+                {0, _Transpositions} ->
+                    +0.0;
+                {Common, Transpositions} ->
+                    (Common / Len1 +
+                     Common / Len2 +
+                     (Common - Transpositions) / Common) / 3
+            end
+    end.
+
+jaro_match(Chars1, Len1, Chars2, Len2) ->
+    %% Iterate through the shorter grapheme cluster list.
+    case Len1 < Len2 of
+        true ->
+            jaro_match(Chars1, Chars2, Len1 div 2 - 1);
+        false ->
+            jaro_match(Chars2, Chars1, Len2 div 2 - 1)
+    end.
+
+jaro_match(Chars1, Chars2, Limit) ->
+    jaro_match(Chars1, Chars2, {0, Limit}, {0, 0, -1}, 0).
+
+jaro_match([Char | Rest], Chars, Range, State, Idx) ->
+    {Chars1, State1} = jaro_submatch(Char, Chars, Range, State, Idx),
+    case Range of
+        {Limit, Limit} ->
+            jaro_match(Rest, tl(Chars1), Range, State1, Idx + 1);
+        {Pre, Limit} ->
+            jaro_match(Rest, Chars1, {Pre + 1, Limit}, State1, Idx + 1)
+    end;
+jaro_match([], _, _, {Common, Transpositions, _}, _) ->
+    {Common, Transpositions}.
+
+jaro_submatch(Char, Chars, {Pre, _} = Range, State, Idx) ->
+    case jaro_detect(Char, Chars, Range) of
+        undefined ->
+            {Chars, State};
+        {SubIdx, Chars1} ->
+            {Chars1, jaro_proceed(State, Idx - Pre + SubIdx)}
+    end.
+
+jaro_detect(Char, Chars, {Pre, Limit}) ->
+    jaro_detect(Char, Chars, Pre + 1 + Limit, 0, []).
+
+jaro_detect(_Char, _Chars, 0, _Idx, _Acc) ->
+    undefined;
+jaro_detect(_Char, [], _Limit, _Idx, _Acc) ->
+    undefined;
+jaro_detect(Char, [Char | Rest], _Limit, Idx, Acc) ->
+    {Idx, lists:reverse(Acc, ['=:=' | Rest])};
+jaro_detect(Char, [Other | Rest], Limit, Idx, Acc) ->
+    jaro_detect(Char, Rest, Limit - 1, Idx + 1, [Other | Acc]).
+
+jaro_proceed({Common, Transpositions, Former}, Current) ->
+    case Current < Former of
+        true ->
+            {Common + 1, Transpositions + 1, Current};
+        false ->
+            {Common + 1, Transpositions, Current}
+    end.
+
+%% Separates the grapheme clusters of the binary and counts grapheme clusters.
+-spec grapheme_clusters_and_length(String) -> {Characters, Length} when
+      String :: unicode:chardata(),
+      Characters :: [grapheme_cluster()],
+      Length :: non_neg_integer().
+
+grapheme_clusters_and_length(Bin) ->
+    grapheme_clusters_and_length(Bin, [], 0).
+
+grapheme_clusters_and_length(Bin, Acc, Length) ->
+    case unicode_util:gc(Bin) of
+        [Gc | Rest] ->
+            grapheme_clusters_and_length(Rest, [Gc | Acc], Length + 1);
+        [] ->
+            {lists:reverse(Acc), Length};
+        {error, Err} ->
+            error({badarg, Err})
+    end.
