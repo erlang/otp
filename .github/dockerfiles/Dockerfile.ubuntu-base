@@ -93,7 +93,7 @@ RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
     tinyproxy knot ldnsutils expect vsftpd python3 emacs nano vim \
     linux-tools-common linux-tools-generic jq \
-    xvfb libgl1-mesa-dri && \
+    xvfb libgl1-mesa-dri zstd && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
 RUN apt-get install -y linux-tools-$(uname -r) || true

@@ -47,7 +47,8 @@ reviewed() ->
       <<"autoconf-simple-exception">>, <<"unicode">>, <<"tcl">>, <<"gpl-2.0 WITH classpath-exception-2.0">>,
       <<"zlib">>, <<"lgpl-2.0-plus WITH wxwindows-exception-3.1">>,
       <<"openssl-ssleay">>, <<"cc-by-sa-3.0">>, <<"cc-by-4.0">>, <<"dco-1.1">>, <<"fsf-ap">>,
-      <<"classpath-exception-2.0">>, <<"ietf-trust">>, <<"apache-2.0-or-lgpl-2.1-or-later">> ].
+      <<"classpath-exception-2.0">>, <<"ietf-trust">>, <<"apache-2.0-or-lgpl-2.1-or-later">>,
+      <<"bsd-new OR gpl-2.0">> ].
 
 not_approved() ->
     [<<"gpl">>, <<"gpl-3.0-plus">>, <<"gpl-2.0">>, <<"gpl-1.0-plus">>, <<"unlicense">>,

@@ -112,6 +112,7 @@ MODULES= \
 	random_iolist \
 	error_logger_forwarder \
 	maps_SUITE \
+	zstd_SUITE \
 	zzz_SUITE
 
 ERTS_MODULES= erts_test_utils

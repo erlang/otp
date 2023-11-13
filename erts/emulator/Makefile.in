@@ -399,6 +399,17 @@ else
 LIBS += $(OPENSSL_LIB)
 endif
 
+ZSTD_DIR = $(ERL_TOP)/erts/emulator/zstd/obj/$(TARGET)/$(TYPE)
+ZSTD_LIB = $(ZSTD_DIR)/$(LIB_PREFIX)zstd$(LIB_SUFFIX)
+DEPLIBS += $(ZSTD_LIB)
+ 
+ifeq ($(TARGET),win32)
+LIBS    += -L$(ZSTD_DIR) -lzstd
+else
+# Build on darwin fails if -l$(ZSTD_LIB) is used
+LIBS    += $(ZSTD_LIB)
+endif
+
 LIBSCTP = @LIBSCTP@
 
 ORG_THR_LIBS=@EMU_THR_LIBS@
@@ -442,7 +453,8 @@ CREATE_DIRS += $(OBJDIR) \
 	pcre/obj/$(TARGET)/$(TYPE) \
 	$(ZLIB_OBJDIR) \
 	$(RYU_OBJDIR) \
-	$(OPENSSL_OBJDIR)
+	$(OPENSSL_OBJDIR) \
+        $(ZSTD_OBJDIR)
 
 ifeq ($(FLAVOR),jit)
 CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/$(JIT_ARCH)
@@ -513,6 +525,7 @@ include zlib/zlib.mk
 include pcre/pcre.mk
 include ryu/ryu.mk
 include openssl/openssl.mk
+include zstd/zstd.mk
 
 $(ERTS_LIB):
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
@@ -816,9 +829,7 @@ COMMON_INCLUDES = -Ibeam -Isys/$(ERLANG_OSTYPE) -Isys/common -I$(TARGET)
 ifndef Z_LIB
 COMMON_INCLUDES += -Izlib 
 endif
-COMMON_INCLUDES += -Ipcre
-COMMON_INCLUDES += -Iryu
-COMMON_INCLUDES += -Iopenssl/include
+COMMON_INCLUDES += -Ipcre -Iryu -Iopenssl/include -Izstd
 COMMON_INCLUDES += -I../include -I../include/$(TARGET)
 COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
@@ -936,6 +947,9 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 
 $(OBJDIR)/%.o: nifs/common/%.c
 	$(V_CC) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
+
+$(OBJDIR)/%.o: nifs/common/%.cpp
+	$(V_CXX) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
 
 $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
@@ -1158,6 +1172,7 @@ NIF_OBJS = \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
 	$(OBJDIR)/zlib_nif.o \
+	$(OBJDIR)/zstd_nif.o \
 	$(ESOCK_NIF_OBJS)
 
 ifeq ($(TARGET),win32)
@@ -1410,7 +1425,7 @@ $(TARGET)/gen_git_version.mk:
 # rebuild.
 	$(V_at)if utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
 
-DEPEND_DEPS=jit src drv nif sys target zlib ryu
+DEPEND_DEPS=jit src drv nif sys target zlib ryu zstd
 
 $(TTF_DIR)/src.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
@@ -1441,6 +1456,10 @@ $(TTF_DIR)/zlib.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 $(TTF_DIR)/ryu.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND_ZLIB) $@.tmp  > $@
+$(TTF_DIR)/zstd.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZSTD_SRC) > $@.tmp
 	$(V_at)$(SED_DEPEND_ZLIB) $@.tmp  > $@
 $(TTF_DIR)/jit.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
