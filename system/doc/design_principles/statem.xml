@@ -195,7 +195,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       state machines depending on the protocol version.
       There <i>might</i> be other use cases.
       <i>Beware</i> that the new callback module
-      completely replaces the previous behaviour module,
+      completely replaces the previous callback module,
       so all relevant callback functions have to handle
       the state and data from the previous callback module.
     </p>
