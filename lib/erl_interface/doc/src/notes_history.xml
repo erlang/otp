@@ -65,7 +65,7 @@
         <item>
           <p>There are new functions that support the GCC and Visual
             C++ 64 bit extended integer types.</p>
-          <code type="none"><![CDATA[
+          <code type="c"><![CDATA[
 int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
 int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);
 int ei_encode_longlong(char *buf, int *index, EI_LONGLONG p);
@@ -80,7 +80,7 @@ int ei_x_encode_ulonglong(ei_x_buff* x, EI_ULONGLONG n);
             library together with GMP, the GNU multi precision
             library, to convert integers larger than 64 bits from and
             to the external format.</p>
-          <code type="none"><![CDATA[
+          <code type="c"><![CDATA[
 int ei_decode_bignum(const char *buf, int *index, mpz_t obj);
 int ei_encode_bignum(char *buf, int *index, mpz_t obj);
 int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);

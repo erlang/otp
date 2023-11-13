@@ -400,7 +400,7 @@ TERM=sun    </pre>
       <p><em>Example:</em> The following is an example of the contents of an
         application configuration file.</p>
       <p></p>
-      <pre>
+      <pre type="erl">
 [{os_mon, [{start_os_sup, true}, {os_sup_own, "/etc"}, 
  {os_sup_syslogconf, "/etc/syslog.conf"}, {os_sup_errortag, std_error}]}].      </pre>
     </section>

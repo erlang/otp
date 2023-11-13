@@ -143,7 +143,7 @@ D2 = [otp, sasl]</pre>
 	<p>Example: stop all events with domain <c>[otp,
 	  sasl | _]</c></p>
 
-	<code>
+	<code type="erl">
 logger:set_handler_config(h1, filter_default, log). % this is the default
 Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
 logger:add_handler_filter(h1, no_sasl, Filter).
@@ -203,7 +203,7 @@ ok</code>
 
 	  <p>Example: only allow debug level log events</p>
 
-	  <code>
+	  <code type="erl">
 logger:set_handler_config(h1, filter_default, stop).
 Filter = {fun logger_filters:level/2, {log, eq, debug}}.
 logger:add_handler_filter(h1, debug_only, Filter).

@@ -121,7 +121,7 @@
     are still supported so old configurations will work.</p>
     <p>The following example shows a <c>manager.conf</c> file: 
       </p>
-    <pre>
+    <pre type="erl">
 {transports,       [{transportDomainUdpIpv4, {{141,213,11,24}, 5000}},
                     {transportDomainUdpIpv6, {{0,0,0,0,0,0,0,1}, 5000}}]}.
 {engine_id,        "mgrEngine"}.

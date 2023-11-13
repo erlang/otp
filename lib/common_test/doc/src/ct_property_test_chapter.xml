@@ -75,7 +75,7 @@
     in our application:
     </p>
 
-  <code>
+  <code type="erl">
 -module(ct_prop).
 -export([prop_sort/0]).
 
@@ -103,7 +103,7 @@ is_sorted(_) ->
 
   <p>We also need a CommonTest test suite:
   </p>
-  <code>
+  <code type="erl">
 -module(ct_property_test_SUITE).
 -compile(export_all). % Only in tests!
 
@@ -163,7 +163,7 @@ Testing lib.common_test.ct_property_test_SUITE: TEST COMPLETE, 1 ok, 0 failed of
     <marker id="stateful1"></marker>
     <title>A stateful testing example</title>
     <p>Assume a test that generates some parallel stateful commands, and runs 300 tests:</p>
-    <code>
+    <code type="erl">
 prop_parallel(Config) ->
     numtests(300,
              ?FORALL(Cmds, parallel_commands(?MODULE),

@@ -7157,7 +7157,7 @@
 	    and <c>inet:setopts/2</c> has been changed to also
 	    include the original header unmodified. See <seemfa
 	    marker="erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seemfa>.
-	    Example: </p> <pre> >
+	    Example: </p> <pre type="erl"> >
 	    erlang:decode_packet(httph_bin,&lt;&lt;"HELLO:
 	    hi\r\n\r\n"&gt;&gt;,[]).
 	    {ok,{http_header,0,&lt;&lt;"Hello"&gt;&gt;,&lt;&lt;"HELLO"&gt;&gt;,&lt;&lt;"hi"&gt;&gt;},&lt;&lt;"\r\n"&gt;&gt;}
@@ -29717,7 +29717,7 @@
           <p><em>NOTE</em>: This change can cause some obscure code
             to fail which previously did not. For example, the
             following code might hang:</p>
-          <code type="none"><![CDATA[
+          <code type="erl"><![CDATA[
             Mon = erlang:monitor(process, Pid),
             %% ...
             exit(Pid, bang),

@@ -54,14 +54,14 @@ END      </pre>
       <p>The following shows how the compiler
         can be called from the  Erlang shell:</p>
 
-      <pre>
+      <pre type="erl">
 1><input> asn1ct:compile("People", [ber]).</input>
 ok
 2>      </pre>
 
       <p>Option <c>verbose</c> can be added to get information
       about the generated files:</p>
-      <pre>
+      <pre type="erl">
 2><input> asn1ct:compile("People", [ber,verbose]).</input>
 Erlang ASN.1 compiling "People.asn" 
 --{generated,"People.asn1db"}--
@@ -85,7 +85,7 @@ ok
         application that receives instances of the ASN.1 defined
         type <c>Person</c>, modifies, and sends them back again:</p>
 
-      <code type="none">
+      <code type="erl">
 receive
    {Port,{data,Bytes}} ->
        case 'People':decode('Person',Bytes) of
@@ -106,7 +106,7 @@ receive
         instance of a defined ASN.1 type and transforms it to a
         binary according to the BER or PER encoding rules.</p>
         <p>The encoder and decoder can also be run from the shell:</p>
-      <pre>
+      <pre type="erl">
 2> <input>Rockstar = {'Person',"Some Name",roving,50}.</input>
 {'Person',"Some Name",roving,50}
 3> <input>{ok,Bin} = 'People':encode('Person',Rockstar).</input>
@@ -315,7 +315,7 @@ File3.asn    </pre>
     for the ASN.1 specification to be valid. Example of
     an old-style specification:</p>
 
-    <pre>
+    <pre type="erl">
 Tags DEFINITIONS ::=
 BEGIN
   Afters ::= CHOICE { cheese [0] IA5String,
@@ -330,7 +330,7 @@ END </pre>
     compiler automatically adds tags when needed. The following is the
     same specification in <c>AUTOMATIC TAGS</c> mode:</p>
 
-    <pre>
+    <pre type="erl">
 Tags DEFINITIONS AUTOMATIC TAGS ::=
 BEGIN
   Afters ::= CHOICE { cheese IA5String,
@@ -409,7 +409,7 @@ END </pre>
     <pre>
 Operational ::= BOOLEAN --ASN.1 definition    </pre>
     <p>In Erlang code it can look as follows:</p>
-    <pre>
+    <pre type="erl">
 Val = true,
 {ok,Bytes} = MyModule:encode('Operational', Val),    </pre>
 
@@ -441,7 +441,7 @@ Myvar1 = true,</code>
         to other ASN.1 types. The details of subtyping are not
         explained here; for more information, see X.680. Various
         syntaxes are allowed when defining a type as an integer:</p>
-      <pre>
+      <pre type="erl">
 T1 ::= INTEGER
 T2 ::= INTEGER (-2..7)
 T3 ::= INTEGER (0..MAX)
@@ -453,7 +453,7 @@ T6 ::= INTEGER {red(0),blue(1),white(2)}</pre>
         list) is specified.</p>
       <p>The following is an example of Erlang code that assigns values for the
         types in the previous list:</p>
-      <pre>
+      <pre type="erl">
 T1value = 0,
 T2value = 6,
 T6value1 = blue,
@@ -521,7 +521,7 @@ Day1 = saturday,</pre>
         is made up of arbitrary length series of bits. It is intended
         to be used for selection of flags, not for binary files.</p>
       <p>In ASN.1, <c>BIT STRING</c> definitions can look as follows:</p>
-      <pre>
+      <pre type="erl">
 Bits1 ::= BIT STRING
 Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}</pre>
       <p>The following two notations are available for representation of <c>BIT
@@ -586,7 +586,7 @@ Bits3 ::= BIT STRING (SIZE(0..31))      </pre>
       unstructured information complying with two rules: the
       bytes consist of octets and encoding is not required.</p>
       <p>It is possible to have the following ASN.1 type definitions:</p>
-      <pre>
+      <pre type="erl">
 O1 ::= OCTET STRING
 O2 ::= OCTET STRING (SIZE(28))      </pre>
       <p>With the following example assignments in Erlang:</p>
@@ -630,11 +630,11 @@ O2Val = &lt;&lt;"must be exactly 28 chars...."&gt;&gt;,</pre>
         they affect the encoding.
         </p>
       <p>Examples:</p>
-      <pre>
+      <pre type="erl">
 Digs ::= NumericString (SIZE(1..3))
 TextFile ::= IA5String (SIZE(0..64000))      </pre>
       <p>The corresponding Erlang assignments:</p>
-      <pre>
+      <pre type="c">
 DigsVal1 = "456",
 DigsVal2 = "123",
 TextFileVal1 = "abc...xyz...",
@@ -658,7 +658,7 @@ END    </pre>
 
        <p>Encoding and decoding some strings:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>asn1ct:compile('PrimStrings', [ber]).</input>
 ok
 2> <input>{ok,Bytes1} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,45,56}]).</input>
@@ -681,7 +681,7 @@ ok
 
       <p>The following shows examples of how UTF-8 encoded binaries can
       be created and manipulated:</p>
-      <pre>
+      <pre type="erl">
 1> <input>Gs = "Мой маленький Гном".</input>
 [1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
  1081,32,1043,1085,1086,1084]
@@ -709,7 +709,7 @@ END   </pre>
 
       <p>Encoding and decoding a string with Unicode characters:</p>
 
-      <pre>
+      <pre type="erl">
 5> <input>asn1ct:compile('UTF', [ber]).</input>
 ok
 6> <input>{ok,Bytes1} = 'UTF':encode('UTF', &lt;&lt;"Гном"/utf8>>).</input>
@@ -729,7 +729,7 @@ ok
       <p>The type <c>OBJECT IDENTIFIER</c> is used whenever a unique identity is
         required. An ASN.1 module, a transfer syntax, and so on, is identified
         with an <c>OBJECT IDENTIFIER</c>. Assume the following example:</p>
-      <pre>
+      <pre type="erl">
 Oid ::= OBJECT IDENTIFIER</pre>
       <p>Therefore, the following example is a valid Erlang instance of
         type 'Oid':</p>
@@ -780,7 +780,7 @@ OidVal1 = {1,2,55},</pre>
       <p>A <c>SEQUENCE</c> in ASN.1 is
         comparable with a struct in C and a record in Erlang.
         A <c>SEQUENCE</c> can be defined as follows:</p>
-      <pre>
+      <pre type="erl">
 Pdu ::= SEQUENCE {
    a INTEGER,
    b REAL,
@@ -794,12 +794,12 @@ Pdu ::= SEQUENCE {
         For each <c>SEQUENCE</c> and <c>SET</c> in an ASN.1 module an Erlang
         record declaration is generated. For <c>Pdu</c>, a record
         like the following is defined:</p>
-      <pre>
+      <pre type="erl">
 -record('Pdu',{a, b, c, d}).      </pre>
       <p>The record declarations for a module <c>M</c> are placed in a
         separate <c>M.hrl</c> file.</p>
       <p>Values can be assigned in Erlang as follows:</p>
-      <pre>
+      <pre type="erl">
 MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
       <p>The decode functions return a record as result when decoding
       a <c>SEQUENCE</c> or a <c>SET</c>.</p>
@@ -842,7 +842,7 @@ Seq3 ::= SEQUENCE {
 END </pre>
       <p>Example where the BER encoder is able to omit encoding
       of the default values:</p>
-      <pre>
+      <pre type="erl">
 1> <input>asn1ct:compile('File', [ber]).</input>
 ok
 2> <input>'File':encode('Seq1', {'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
@@ -852,14 +852,14 @@ ok
 
      <p>Example with a named <c>BIT STRING</c> where the BER
      encoder does not omit the encoding:</p>
-     <pre>
+     <pre type="erl">
 4> <input>'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</input>
 {ok,&lt;&lt;48,0>>}
 5> <input>'File':encode('Seq3', {'Seq3',&lt;&lt;16#101:3>>).</input>
 {ok,&lt;&lt;48,4,128,2,5,160>>}     </pre>
 
      <p>The DER encoder omits the encoding for the same <c>BIT STRING</c>:</p>
-     <pre>
+     <pre type="erl">
 6> <input>asn1ct:compile('File', [ber,der]).</input>
 ok
 7> <input>'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</input>
@@ -919,7 +919,7 @@ END   </pre>
       <p>Optional fields are to be omitted from the map if they have
       no value:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>asn1ct:compile('File', [per,maps]).</input>
 ok
 2> <input>{ok,E} = 'File':encode('Seq1', #{a=>0,c=>"string"}).</input>
@@ -927,12 +927,12 @@ ok
 
       <p>When decoding, optional fields will be omitted from the map:</p>
 
-      <pre>
+      <pre type="erl">
 3> <input>'File':decode('Seq1', E).</input>
 {ok,#{a => 0,c => "string"}}   </pre>
 
       <p>Default values can be omitted from the map:</p>
-      <pre>
+      <pre type="erl">
 4> <input>{ok,E2} = 'File':encode('Seq1', #{c=>"string"}).</input>
 {ok,&lt;&lt;0,6,115,116,114,105,110,103&gt;&gt;}
 5> <input>'File':decode('Seq1', E2).</input>
@@ -957,7 +957,7 @@ T ::= CHOICE {
         z OBJECT IDENTIFIER }
 END </pre>
       <p>It is then possible to assign values as follows:</p>
-      <pre>
+      <pre type="erl">
 TVal1 = {y,17},
 TVal2 = {z,{0,1,2}},</pre>
       <p>A <c>CHOICE</c> value is always represented as the tuple
@@ -1061,7 +1061,7 @@ T ::= CHOICE {
         z OBJECT IDENTIFIER }
         END      </pre>
       <p><c>SEQUENCE</c> <c>b</c> can be encoded as follows in Erlang:</p>
-      <pre>
+      <pre type="erl">
 1> 'EmbeddedExample':encode('B', {'B',[4,5,6,7,8],{x,"7.77"}}).
 {ok,&lt;&lt;5,56,0,8,3,55,55,55,46,69,45,50>>} </pre>
     </section>
@@ -1099,11 +1099,11 @@ Emb ::= SEQUENCE {
 
 FooType ::= [3] VisibleString      </pre>
       <p>The following records are generated because of type <c>Emb</c>:</p>
-      <pre>
+      <pre type="erl">
 -record('Emb,{a, b, c}).
 -record('Emb_b',{a, b = asn1_DEFAULT}). % the embedded SET type </pre>
       <p>Values of type <c>Emb</c> can be assigned as follows:</p>
-      <code type="none">
+      <code type="erl">
 V = #'Emb'{a=["qqqq",[1,2,255]], 
            b = #'Emb_b'{a=99}, 
            c ={b,"Can you see this"}}.</code>
@@ -1123,7 +1123,7 @@ Seq ::= SEQUENCE{
     }
 }      </pre>
       <p>This results in the following record:</p>
-      <pre>
+      <pre type="erl">
 -record('Seq_a_b',{c}).      </pre>
       <p>If the structured type has a component with an embedded
         <c>SEQUENCE OF</c>/<c>SET OF</c> which embedded type in turn
@@ -1140,7 +1140,7 @@ Seq ::= SEQUENCE {
                }
 }      </pre>
       <p>This results in the following records:</p>
-      <pre>
+      <pre type="erl">
 -record('Seq_a_SEQOF'{b}).
 -record('Seq_c_SETOF'{d}).      </pre>
       <p>A parameterized type is to be considered as an embedded
@@ -1162,7 +1162,7 @@ PType{T} ::= SEQUENCE{
       <title>Recursive Types</title>
       <p>Types that refer to themselves are called recursive types.
       Example:</p>
-      <pre>
+      <pre type="erl">
 Rec ::= CHOICE {
      nothing NULL,
      something SEQUENCE {
@@ -1172,7 +1172,7 @@ Rec ::= CHOICE {
       <p>This is allowed in ASN.1 and the ASN.1-to-Erlang compiler
       supports this recursive type.
       A value for this type is assigned in Erlang as follows:</p>
-      <pre>
+      <pre type="erl">
 V = {something,#'Rec_something'{a = 77, 
                                 b = "some octets here", 
                                 c = {nothing,'NULL'}}}.      </pre>
@@ -1186,7 +1186,7 @@ V = {something,#'Rec_something'{a = 77,
       a value was assigned to an ASN.1 type in Erlang. The full value
       syntax of ASN.1 is supported and X.680 describes in detail how
       to assign values in ASN.1. A short example:</p>
-    <pre>
+    <pre type="erl">
 TT ::= SEQUENCE {
    a INTEGER,
    b SET OF OCTET STRING }
@@ -1202,7 +1202,7 @@ SS ::= SET {
       code is defined in ASN.1 module <c>Values</c>, the ASN.1 value
       <c>tt</c> can be reached from Erlang as a function call to
       <c>'Values':tt()</c> as in the following example:</p>
-    <pre>
+    <pre type="erl">
 1> <input>Val = 'Values':tt().</input>
 {'TT',77,["kalle","kula"]}
 2> <input>{ok,Bytes} = 'Values':encode('TT',Val).</input>
@@ -1280,7 +1280,7 @@ GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
       it when defining other ASN.1 entities. Typically you refer to a
       class as well as to object sets by table constraints and component
       relation constraints (X.682) in ASN.1 types, as in the following:</p>
-    <pre>
+    <pre type="erl">
 StartMessage  ::= SEQUENCE {
     msgId  GENERAL-PROCEDURE.&amp;id  ({GENERAL-PROCEDURES}),
     content GENERAL-PROCEDURE.&amp;Message ({GENERAL-PROCEDURES}{@msgId}),

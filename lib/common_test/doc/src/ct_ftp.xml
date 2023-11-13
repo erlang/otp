@@ -185,14 +185,14 @@
         <p>If the target host is a "special" node, the FTP address must be
           specified in the configuration file as follows:</p>
 
-        <pre>
+        <pre type="erl">
  {node,[{ftp,IpAddr}]}.</pre>
 
         <p>If the target host is something else, for example, a UNIX host,
           the configuration file must also include the username and password
           (both strings):</p>
 
-        <pre>
+        <pre type="erl">
  {unix,[{ftp,IpAddr},
         {username,Username},
         {password,Password}]}.</pre>

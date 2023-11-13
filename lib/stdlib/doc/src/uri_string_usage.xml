@@ -131,7 +131,7 @@
     characters that are not allowed in a URI such as "ö" and the space. We can verify
     this by parsing the URI:
   </p>
-  <pre>
+  <pre type="erl">
   1> uri_string:parse("http://cities/örebro?foo bar").
   {error,invalid_uri,":"}
   </pre>
@@ -143,7 +143,7 @@
   <p>The proper way to solve this problem is to use
   <seemfa marker="uri_string#recompose/1"><c>uri_string:recompose/1</c></seemfa>
   with a <seetype marker="uri_string#uri_map"><c>uri_map()</c></seetype> as input:</p>
-  <pre>
+  <pre type="erl">
   2> uri_string:recompose(#{scheme => "http", host => "cities", path => "/örebro",
   query => "foo bar"}).
   "http://cities/%C3%B6rebro?foo%20bar"
@@ -154,7 +154,7 @@
   <seemfa marker="uri_string#percent_decode/1"><c>uri_string:percent_decode/1</c></seemfa>
   on the URI returns the original input:
   </p>
-  <pre>
+  <pre type="erl">
   3> uri_string:percent_decode(uri_string:parse("http://cities/%C3%B6rebro?foo%20bar")).
   #{host => "cities",path => "/örebro",query => "foo bar",
   scheme => "http"}
@@ -192,7 +192,7 @@
     that lists the allowed set of characters in each major
     URI component, and also in the most important standard character sets.
     </p>
-    <pre>
+    <pre type="erl">
     1> uri_string:allowed_characters().
     <![CDATA[[{scheme,
      "+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"},
@@ -217,7 +217,7 @@
     <p>If a URI component has a character that is not allowed, it will be
     percent-encoded when the URI is produced:
     </p>
-    <pre>
+    <pre type="erl">
     2> uri_string:recompose(#{scheme => "https", host => "local#host", path => ""}).
     "https://local%23host"
     </pre>
@@ -240,7 +240,7 @@
     percent-encoded triplets that correspond to a character in the unreserved set.
     Normalization is a safe, idempotent operation that converts a URI into its
     canonical form:</p>
-    <pre>
+    <pre type="erl">
     4> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20").
     "http://local%23host/%F6re%26bro%20"
     5> uri_string:normalize("http://%6C%6Fcal%23host/%F6re%26bro%20", [return_map]).
@@ -254,7 +254,7 @@
     for raw percent decoding
     that you can use on the host and path components, or on the whole map:
     </p>
-    <pre>
+    <pre type="erl">
     6> uri_string:percent_decode("local%23host").
     "local#host"
     7> uri_string:percent_decode("/%F6re%26bro%20").
@@ -272,7 +272,7 @@
     transcode the path to UTF-8 and run the percent-decode operation on the
     transcoded string:
     </p>
-    <pre>
+    <pre type="erl">
     9> uri_string:transcode("/%F6re%26bro%20", [{in_encoding, latin1}]).
     "/%C3%B6re%26bro%20"
     10> uri_string:percent_decode("/%C3%B6re%26bro%20").
@@ -282,7 +282,7 @@
     <seemfa marker="uri_string#percent_decode/1"><c>uri_string:percent_decode/1</c></seemfa>
     directly on an input URI:
     </p>
-    <pre>
+    <pre type="erl">
     11> uri_string:percent_decode("http://%6C%6Fcal%23host/%C3%B6re%26bro%20").
     <![CDATA["http://local#host/öre&bro "
     12> uri_string:parse("http://local#host/öre&bro ").]]>

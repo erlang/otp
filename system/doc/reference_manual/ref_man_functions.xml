@@ -40,7 +40,7 @@
     <p>A clause <em>head</em> consists of the function name, an
       argument list, and an optional guard sequence
       beginning with the keyword <c>when</c>:</p>
-    <pre>
+    <pre type="erl">
 Name(Pattern11,...,Pattern1N) [when GuardSeq1] ->
     Body1;
 ...;
@@ -63,7 +63,7 @@ ExprN</pre>
     <p>Valid Erlang expressions and guard sequences are described in
       <seeguide marker="expressions">Expressions</seeguide>.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 fact(N) when N>0 ->  % first clause head
     N * fact(N-1);   % first clause body
 
@@ -93,7 +93,7 @@ fact(0) ->           % second clause head
       evaluated. That is, the expressions in the body are evaluated
       sequentially and the value of the last expression is returned.</p>
     <p>Consider the function <c>fact</c>:</p>
-    <pre>
+    <pre type="erl">
 -module(m).
 -export([fact/1]).
 
@@ -108,7 +108,7 @@ fact(0) ->
       matched against argument 1. The matching succeeds and
       the guard (<c>N>0</c>) is true, thus <c>N</c> is bound to 1, and
       the corresponding body is evaluated:</p>
-    <pre>
+    <pre type="erl">
 <input>N * fact(N-1)</input> => (N is bound to 1)
 <input>1 * fact(0)</input></pre>
     <p>Now, <c>fact(0)</c> is called, and the function clauses are
@@ -135,7 +135,7 @@ fact(0) ->
       that an infinite loop can be done if it uses tail-recursive
       calls.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 loop(N) ->
     io:format("~w~n", [N]),
     loop(N+1).</pre>
@@ -160,7 +160,7 @@ loop(N) ->
       <c>atom_to_list</c> and BIFs allowed in guards can be called
       without specifying the module name.</p>
       <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>tuple_size({a,b,c}).</input>
 3
 2> <input>atom_to_list('Erlang').</input>

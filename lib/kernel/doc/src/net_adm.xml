@@ -79,7 +79,7 @@
           <c>epmd</c> registered at the specified host. Returns
           <c>{error, address}</c> if <c>epmd</c> is not operational.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 (arne@dunn)1> <input>net_adm:names().</input>
 {ok,[{"arne",40262}]}</pre>
       </desc>

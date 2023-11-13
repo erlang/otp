@@ -44,7 +44,7 @@
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
 
 transportAddress() =

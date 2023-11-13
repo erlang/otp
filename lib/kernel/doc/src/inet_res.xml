@@ -129,7 +129,7 @@
           that can be examined with access functions in <c>inet_dns</c>, which
           return lists of <c>{Field,Value}</c> tuples. The arity 2 functions
           only return the value for a specified field.</p>
-        <pre>
+        <pre type="erl">
 dns_msg() = DnsMsg
     inet_dns:msg(DnsMsg) ->
         [ {header, dns_header()}
@@ -178,7 +178,7 @@ dns_rr() = DnsRr
                      | {data, dns_data()} ]
     inet_dns:rr(DnsRr, Field) -> Value</pre>
         <p>There is an information function for the types above:</p>
-        <pre>
+        <pre type="erl">
 inet_dns:record_type(dns_msg()) -> msg;
 inet_dns:record_type(dns_header()) -> header;
 inet_dns:record_type(dns_query()) -> dns_query;
@@ -341,7 +341,7 @@ inet_dns:record_type(_) -> undefined.</pre>
       can be implemented using
       <seemfa marker="#resolve/3"><c>resolve/3</c></seemfa>
       from outside the module:</p>
-    <code type="none">
+    <code type="erl">
 example_lookup(Name, Class, Type) ->
     case inet_res:resolve(Name, Class, Type) of
         {ok,Msg} ->

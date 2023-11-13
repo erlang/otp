@@ -283,7 +283,7 @@
       <p>Use function 
       <seemfa marker="rb#show/1"><c>rb:show(Number)</c></seemfa> 
       to show details of a specific report:</p>
-      <pre>
+      <pre type="erl">
 7> <input>rb:show(4).</input>
         
 PROGRESS REPORT  &lt;0.20.0>                                   1996-10-16 16:16:36

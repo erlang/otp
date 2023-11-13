@@ -55,7 +55,7 @@
       <p>
 	If the engine is located in the OpenSSL/LibreSSL installation <c>engines</c> directory.
       </p>
-      <code>
+      <code type="erl">
 1> {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine">>, [], []).
  {ok, #Ref}</code>
     </section>
@@ -65,7 +65,7 @@
       <p>
 	Load an engine with the help of the dynamic engine by giving the path to the library.
       </p>
-      <code>
+      <code type="erl">
  2> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
                                       [{&lt;&lt;"SO_PATH">>,
                                         &lt;&lt;"/some/path/otp_test_engine.so">>},
@@ -81,7 +81,7 @@
 	Load an engine with the help of the dynamic engine and just
 	replace some engine methods.
       </p>
-      <code>
+      <code type="erl">
  3> {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic">>,
                                       [{&lt;&lt;"SO_PATH">>,
                                         &lt;&lt;"/some/path/otp_test_engine.so">>},
@@ -100,20 +100,20 @@ ok</code>
 	engine list of OpenSSL. The following calls to the function will check if the ID is loaded
 	and then just get a new reference to the engine.
       </p>
-      <code>
+      <code type="erl">
  5> {ok, Engine} = crypto:ensure_engine_loaded(&lt;&lt;"MD5">>,
                                                &lt;&lt;"/some/path/otp_test_engine.so">>).
  {ok, #Ref}</code>
       <p>
 	To remove the tag from the OpenSSL engine list use <c>crypto:engine_remove/1</c>.
       </p>
-      <code>
+      <code type="erl">
  6> crypto:engine_remove(Engine).
  ok</code>
       <p>
 	To unload it use <c>crypto:engine_unload/1</c> which removes the references to the engine.	
       </p>
-      <code>
+      <code type="erl">
  6> crypto:engine_unload(Engine).
  ok</code>
       
@@ -123,7 +123,7 @@ ok</code>
 
     <section>
       <title>List all engines currently loaded</title>
-      <code>
+      <code type="erl">
  8> crypto:engine_list().
 [&lt;&lt;"dynamic">>, &lt;&lt;"MD5">>]</code>
     </section>

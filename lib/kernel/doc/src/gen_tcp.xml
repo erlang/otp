@@ -35,7 +35,7 @@
     <p>The following code fragment is a simple example of
       a client connecting to a server at port 5678, transferring a
       binary, and closing the connection:</p>
-    <code type="none">
+    <code type="erl">
 client() ->
     SomeHostInNet = "localhost", % to make it runnable on one machine
     {ok, Sock} = gen_tcp:connect(SomeHostInNet, 5678, 
@@ -44,7 +44,7 @@ client() ->
     ok = gen_tcp:close(Sock).</code>
     <p>At the other end, a server is listening on port 5678, accepts
       the connection, and receives the binary:</p>
-    <code type="none">
+    <code type="erl">
 server() ->
     {ok, LSock} = gen_tcp:listen(5678, [binary, {packet, 0}, 
                                         {active, false}]),
@@ -656,7 +656,7 @@ do_recv(Sock, Bs) ->
     connections. If <c>LPort</c> is specified as <c>0</c>, an
     ephemeral port number is used, which is why the start function
     returns the actual port number allocated:</p>
-    <code type="none">
+    <code type="erl">
 start(Num,LPort) ->
     case gen_tcp:listen(LPort,[{active, false},{packet,2}]) of
         {ok, ListenSock} ->
@@ -695,7 +695,7 @@ loop(S) ->
             ok
     end.</code>
     <p>Example of a simple client:</p>
-    <code type="none">
+    <code type="erl">
 client(PortNo,Message) ->
     {ok,Sock} = gen_tcp:connect("localhost",PortNo,[{active,false},
                                                     {packet,2}]),
@@ -716,7 +716,7 @@ client(PortNo,Message) ->
       for each message it sends, but has to rely on the send time-out
       option to detect that the other end is unresponsive. Option
       <c>send_timeout</c> can be used when connecting:</p>
-    <code type="none">
+    <code type="erl">
 ...
 {ok,Sock} = gen_tcp:connect(HostAddress, Port,
                             [{active,false},
@@ -726,7 +726,7 @@ client(PortNo,Message) ->
 ...</code>
     <p>In the loop where requests are handled, send time-outs can now be
       detected:</p>
-    <code type="none">
+    <code type="erl">
 loop(Sock) ->
     receive
         {Client, send_data, Binary} ->

@@ -219,7 +219,7 @@
         </warning>
         <p>The following example illustrates how this function and
           <c>proc_lib:start_link/3</c> are used:</p>
-        <code type="none">
+        <code type="erl">
 -module(my_proc).
 -export([start_link/0]).
 -export([init/1]).
@@ -289,7 +289,7 @@ init(Parent) ->
         </p>
         <p>The following example illustrates how this function and
           <c>proc_lib:start_link/3</c> can be used:</p>
-        <code type="none">
+        <code type="erl">
 -module(my_proc).
 -export([start_link/0]).
 -export([init/1]).

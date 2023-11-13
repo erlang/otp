@@ -1074,7 +1074,7 @@
 	</p>
 	<p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	<p>Here is an example of this option:</p>
-	<code>
+	<code type="erl">
 	  {preferred_algorithms,
 	  [{public_key,['ssh-rsa','ssh-dss']},
 	  {cipher,[{client2server,['aes128-ctr']},
@@ -1627,7 +1627,7 @@
 	ssh-keygen commands. The string from the second variant is prepended by the algorithm name
 	in uppercase as in newer ssh-keygen commands.</p>
 	<p>Examples:</p>
-      <code>
+      <code type="erl">
  2> ssh:hostkey_fingerprint(Key).
  "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
 

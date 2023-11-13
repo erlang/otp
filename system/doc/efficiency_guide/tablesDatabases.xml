@@ -75,7 +75,7 @@
 ets:delete(Tab, Key),
 ...</pre>
       <p><em>DO NOT</em></p>
-      <pre>
+      <pre type="erl">
 ...
 case ets:lookup(Tab, Key) of
     [] ->
@@ -178,7 +178,7 @@ print_occupation(PersonID) ->
         one field from each record, for example, the age of every person,
         then:</p>
       <p><em>DO</em></p>
-      <pre>
+      <pre type="erl">
 ...
 ets:select(Tab,[{ #person{idno='_', 
                           name='_', 
@@ -188,7 +188,7 @@ ets:select(Tab,[{ #person{idno='_',
                 ['$1']}]),
 ...</pre>
       <p><em>DO NOT</em></p>
-      <pre>
+      <pre type="erl">
 ...
 TabList = ets:tab2list(Tab),
 lists:map(fun(X) -> X#person.age end, TabList),
@@ -196,7 +196,7 @@ lists:map(fun(X) -> X#person.age end, TabList),
       <p>If you are only interested in the age of all persons named
         "Bryan", then:</p>
       <p><em>DO</em></p>
-      <pre>
+      <pre type="erl">
 ...
 ets:select(Tab,[{ #person{idno='_', 
                           name="Bryan", 
@@ -206,7 +206,7 @@ ets:select(Tab,[{ #person{idno='_',
                 ['$1']}]),
 ...</pre>
       <p><em>DO NOT</em></p>
-      <pre>
+      <pre type="erl">
 ...
 TabList = ets:tab2list(Tab),
 lists:foldl(fun(X, Acc) -> case X#person.name of
@@ -218,7 +218,7 @@ lists:foldl(fun(X, Acc) -> case X#person.name of
              end, [], TabList),
 ...</pre>
       <p><em>REALLY DO NOT</em></p>
-      <pre>
+      <pre type="erl">
 ...
 TabList = ets:tab2list(Tab),
 BryanList = lists:filter(fun(X) -> X#person.name == "Bryan" end,
@@ -228,7 +228,7 @@ lists:map(fun(X) -> X#person.age end, BryanList),
       <p>If you need all information stored in the Ets table about
         persons named "Bryan", then:</p>
       <p><em>DO</em></p>
-      <pre>
+      <pre type="erl">
 ...
 ets:select(Tab, [{#person{idno='_', 
                           name="Bryan", 
@@ -236,7 +236,7 @@ ets:select(Tab, [{#person{idno='_',
                           occupation = '_'}, [], ['$_']}]),
 ...</pre>
       <p><em>DO NOT</em></p>
-      <pre>
+      <pre type="erl">
 ...
 TabList = ets:tab2list(Tab),
 lists:filter(fun(X) -> X#person.name == "Bryan" end, TabList),
@@ -298,7 +298,7 @@ lists:filter(fun(X) -> X#person.name == "Bryan" end, TabList),
  #index_entry{name="Carl", idno=4}]</pre>
       <p>Given this index table, a lookup of the <c>age</c> fields for
         all persons named "Bryan" can be done as follows:</p>
-      <pre>
+      <pre type="erl">
 ...
 MatchingIDs = ets:lookup(IndexTable,"Bryan"),
 lists:map(fun(#index_entry{idno = ID}) ->
@@ -332,7 +332,7 @@ lists:map(fun(#index_entry{idno = ID}) ->
         use "mnesia:index_read" to get faster access, however this
         requires more memory.</p>
 	<p><em>Example</em></p>
-      <pre>
+      <pre type="erl">
 -record(person, {idno, name, age, occupation}).
         ...
 {atomic, ok} = 
@@ -358,7 +358,7 @@ PersonsAge42 =
         solved by only letting one process update the table. Other
         processes must send update requests to that process.</p>
 	<p><em>Example</em></p>
-      <pre>
+      <pre type="erl">
 ...
 % Using transaction
 

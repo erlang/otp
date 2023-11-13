@@ -92,7 +92,7 @@
 
     <p>The following shows an example <c>.rel</c> file with TLS 
     added:</p>
-    <code type="none">
+    <code type="erl">
       {release, {"OTP  APN 181 01","R15A"}, {erts, "5.9"},
       [{kernel,"2.15"},
       {stdlib,"1.18"},
@@ -212,7 +212,7 @@ Eshell V5.0  (abort with ^G)
       Create a file named for example
       <c>"/home/me/ssl/ssl_test@myhost.conf"</c>:
     </p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{server,
   [{certfile, "/home/me/ssl/erlserver.pem"},
    {secure_renegotiate, true}]},
@@ -340,7 +340,7 @@ Eshell V5.0  (abort with ^G)
 
     <p>In a Unix (Bourne) shell, it can look as follows (line breaks are for
       readability, they are not to be there when typed):</p>
-    <code type="none">
+    <code type="erl">
 $ ERL_FLAGS="-boot /home/me/ssl/start_ssl -proto_dist inet_tls
   -ssl_dist_opt server_certfile /home/me/ssl/erlserver.pem
   -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true"

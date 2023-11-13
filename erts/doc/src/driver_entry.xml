@@ -145,7 +145,7 @@ extern "C" DRIVER_INIT(drivername);</pre>
   <section>
     <title>Data Types</title>
     <p><c>ErlDrvEntry</c></p>
-    <code type="none">
+    <code type="c">
 typedef struct erl_drv_entry {
     int (*init)(void);          /* Called at system startup for statically
                                    linked drivers, and after loading for

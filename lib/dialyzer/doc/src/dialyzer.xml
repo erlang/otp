@@ -510,7 +510,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 
     <p>An example configuration file's contents might be:</p>
 
-    <code type="none">
+    <code type="erl">
       {incremental,
         {default_apps,[stdlib,kernel,erts]},
         {default_warning_apps,[stdlib]}
@@ -529,7 +529,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       For example, to turn off all warnings for the function
       <c>f/0</c>, include the following line:</p>
 
-    <code type="none">
+    <code type="erl">
 -dialyzer({nowarn_function, f/0}).</code>
 
     <p>To turn off warnings for improper lists, add the following line
@@ -541,15 +541,15 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>Attribute <c>-dialyzer()</c> is allowed after function
       declarations. Lists of warning options or functions are allowed:</p>
 
-    <code type="none">
+    <code type="erl">
 -dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).</code>
 
     <p>Warning options can be restricted to functions:</p>
 
-    <code type="none">
+    <code type="erl">
 -dialyzer({no_improper_lists, g/0}).</code>
 
-    <code type="none">
+    <code type="erl">
 -dialyzer({[no_return, no_match], [g/0, h/0]}).</code>
 
     <p>The warning option for underspecified functions, <c>-Wunderspecs</c>,
@@ -559,7 +559,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       off the warning for underspecified function <c>f/0</c>,
       include the following line:</p>
 
-    <code type="none">
+    <code type="erl">
 -dialyzer({no_underspecs, f/0}).</code>
 
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The

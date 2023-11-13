@@ -175,7 +175,7 @@
     table identifiers for the ETS tables are stored as a single
     persistent term:</p>
 
-<pre>
+<pre type="erl">
     %% There is one ETS table for each scheduler.
     Sid = erlang:system_info(scheduler_id),
     Tid = element(Sid, persistent_term:get(?MODULE)),

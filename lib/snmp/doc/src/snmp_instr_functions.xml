@@ -70,7 +70,7 @@
       <title>New / Delete Operations</title>
       <p>For scalar variables:
         </p>
-      <code type="none">
+      <code type="c">
 variable_access(new [, ExtraArg1, ...])
 variable_access(delete [, ExtraArg1, ...])
       </code>
@@ -267,7 +267,7 @@ my_table(get_next, [1, 2], [3, 4])
         </code>
         <p>The function should now return:
           </p>
-        <code type="none">
+        <code type="erl">
 [{[3, 2, 1], g}, {[5, 1, 1], c}]
         </code>
         <p>This is illustrated in the following table:
@@ -285,7 +285,7 @@ getNext{ myTable.myTableEntry,
         </code>
         <p>This will be transform into two calls to <c>my_table</c>:
           </p>
-        <code type="none">
+        <code type="erl">
 my_table(get_next, [], [0]) and
 my_table(get_next, [3, 2], [1])
         </code>
@@ -321,7 +321,7 @@ my_table(get_next, [3, 2], [1])
       text file as follows:
       </p>
     <p></p>
-    <code type="none">
+    <code type="erl">
 {ipAdr, {my_module, ip_access, []}}.
 % Or using the oid syntax for 'name'
 {[1,1,7], {my_module, name_access, []}}.
@@ -336,7 +336,7 @@ my_table(get_next, [3, 2], [1])
       similarly, we could write a <c>generic_access</c> function using
       the <c>ListOfExtraArguments</c>:
       </p>
-    <code type="none">
+    <code type="erl">
 {ipAdr, {my_module, generic_access, ['IPADR']}}.
 % The mnemonic 'name' is more convenient than 1.1.7
 {name, {my_module, generic_access, ['NAME']}}.
@@ -346,7 +346,7 @@ my_table(get_next, [3, 2], [1])
       </p>
     <p>Yet another possibility, closer to the hardware, could be:
       </p>
-    <code type="none">
+    <code type="erl">
 {ipAdr, {my_module, generic_access, [16#2543]}}.
 {name, {my_module, generic_access, [16#A2B3]}}.
     </code>

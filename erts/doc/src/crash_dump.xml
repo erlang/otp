@@ -763,7 +763,7 @@ Slogan: &lt;reason&gt;</pre>
       loader online <c><![CDATA[(5)]]></c> and <c><![CDATA[(6)]]></c>
       in the following example:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 (1)  3cac44   Return addr 0x13BF58 (<terminate process normally>)
 (2)  y(0)     ["/view/siri_r10_dev/clearcase/otp/erts/lib/kernel/ebin",
 (3)            "/view/siri_r10_dev/clearcase/otp/erts/lib/stdlib/ebin"]

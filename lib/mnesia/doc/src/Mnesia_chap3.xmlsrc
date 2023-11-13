@@ -130,7 +130,7 @@
             takes a record of the old type, and returns the record of the
             new type. The table key must not be changed.</p>
           <p><em>Example:</em></p>
-          <code type="none">
+          <code type="erl">
 -record(old, {key, val}).
 -record(new, {key, val, extra}).
 
@@ -331,7 +331,7 @@ skeppet %<input>erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'</inpu
       <p>Thus, it can be assumed that if an application wants to use
         tables <c>a</c> and <c>b</c>, the application must perform
         some action similar to following before it can use the tables:</p>
-      <pre>
+      <pre type="erl">
           case mnesia:wait_for_tables([a, b], 20000) of
             {timeout,   RemainingTabs} ->
               panic(RemainingTabs);
@@ -391,7 +391,7 @@ skeppet %<input>erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'</inpu
               each record is always the first attribute of the record.</p>
             <p>The following example illustrates the difference between
               type <c>set</c> and <c>bag</c>:</p>
-            <pre>
+            <pre type="erl">
  f() ->
     F = fun() ->
           mnesia:write({foo, 1, 2}),
@@ -504,12 +504,12 @@ skeppet %<input>erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'</inpu
       </item>
     </list>
     <p>As an example, consider the following record definition:</p>
-    <pre>
+    <pre type="erl">
       -record(funky, {x, y}).</pre>
     <p>The following call would create a table that is replicated on two
       nodes, has an extra index on attribute <c>y</c>, and is of type
       <c>bag</c>.</p>
-    <pre>
+    <pre type="erl">
       mnesia:create_table(funky, [{disc_copies, [N1, N2]}, {index,
       [y]}, {type, bag}, {attributes, record_info(fields, funky)}]).</pre>
     <p>Whereas a call to the following default code values would return

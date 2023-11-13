@@ -343,7 +343,7 @@
           that a character can be decoded from a range of binaries as long
           as the whole range is specified as input without errors occurring.</p>
         <p><em>Example:</em></p>
-        <code>
+        <code type="erl">
 decode_data(Data) ->
    case unicode:characters_to_list(Data,unicode) of
       {incomplete,Encoded, Rest} ->
@@ -378,7 +378,7 @@ decode_data(Data) ->
         encoding.
 	</p>
 	<p>The result is a list of characters.</p>
-        <code>
+        <code type="erl">
 3> unicode:characters_to_nfc_list([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776]]).
 "abc..åäö"
 </code>
@@ -396,7 +396,7 @@ decode_data(Data) ->
 	<p>Any binaries in the input must be encoded with utf8
         encoding.</p>
 	<p>The result is an utf8 encoded binary.</p>
-        <code>
+        <code type="erl">
 4> unicode:characters_to_nfc_binary([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776]]).
 &lt;&lt;"abc..åäö"/utf8>>
 </code>
@@ -415,7 +415,7 @@ decode_data(Data) ->
         encoding.
 	</p>
 	<p>The result is a list of characters.</p>
-        <code>
+        <code type="erl">
 1> unicode:characters_to_nfd_list("abc..åäö").
 [97,98,99,46,46,97,778,97,776,111,776]
 </code>
@@ -433,7 +433,7 @@ decode_data(Data) ->
 	<p>Any binaries in the input must be encoded with utf8
         encoding.</p>
 	<p>The result is an utf8 encoded binary.</p>
-        <code>
+        <code type="erl">
 2> unicode:characters_to_nfd_binary("abc..åäö").
 &lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136>>
 </code>
@@ -452,7 +452,7 @@ decode_data(Data) ->
         encoding.
 	</p>
 	<p>The result is a list of characters.</p>
-        <code>
+        <code type="erl">
 3> unicode:characters_to_nfkc_list([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 "abc..åäö32"
 </code>
@@ -470,7 +470,7 @@ decode_data(Data) ->
 	<p>Any binaries in the input must be encoded with utf8
         encoding.</p>
 	<p>The result is an utf8 encoded binary.</p>
-        <code>
+        <code type="erl">
 4> unicode:characters_to_nfkc_binary([&lt;&lt;"abc..a">>,[778],$a,[776],$o,[776],[65299,65298]]).
 &lt;&lt;"abc..åäö32"/utf8>>
 </code>
@@ -489,7 +489,7 @@ decode_data(Data) ->
         encoding.
 	</p>
 	<p>The result is a list of characters.</p>
-        <code>
+        <code type="erl">
 1> unicode:characters_to_nfkd_list(["abc..åäö",[65299,65298]]).
 [97,98,99,46,46,97,778,97,776,111,776,51,50]
 </code>
@@ -507,7 +507,7 @@ decode_data(Data) ->
 	<p>Any binaries in the input must be encoded with utf8
         encoding.</p>
 	<p>The result is an utf8 encoded binary.</p>
-        <code>
+        <code type="erl">
 2> unicode:characters_to_nfkd_binary(["abc..åäö",[65299,65298]]).
 &lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50>>
 </code>

@@ -157,7 +157,7 @@
       and their details, see <c>mnesia:create_table/2</c>.</p>
     <p>This Reference Manual uses a table of persons to illustrate
       various examples. The following record definition is assumed:</p>
-    <code type="none">
+    <code type="erl">
 -record(person, {name,
                  age = 0,
                  address = unknown,
@@ -635,7 +635,7 @@ mnesia:add_table_index(person, age)</code>
       <desc>
       <marker id="change_table_copy_type"></marker>
         <p>For example:</p>
-        <code type="none">
+        <code type="erl">
 mnesia:change_table_copy_type(person, node(), disc_copies)</code>
         <p>Transforms the <c>person</c> table from a RAM table into
           a disc-based table at <c>Node</c>.</p>
@@ -811,7 +811,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
             cannot contain properties already used by Mnesia,
             such as <c>type</c> or <c>named_table</c>.</p>
             <p>For example:</p>
-            <code type="none">
+            <code type="erl">
 mnesia:create_table(table, [{ram_copies, [node()]}, {disc_only_copies, nodes()},
        {storage_properties,
         [{ets, [compressed]}, {dets, [{auto_save, 5000}]} ]}])</code>
@@ -834,7 +834,7 @@ mnesia:create_table(table, [{ram_copies, [node()]}, {disc_only_copies, nodes()},
         </list>
         <p>For example, the following call creates the <c>person</c>
           table (defined earlier) and replicates it on two nodes:</p>
-        <code type="none">
+        <code type="erl">
 mnesia:create_table(person,
     [{ram_copies, [N1, N2]},
      {attributes, record_info(fields, person)}]).</code>
@@ -842,7 +842,7 @@ mnesia:create_table(person,
           maintain an extra index table on attribute <c>address</c>
           of all the <c>person</c> records that are inserted in the
           table, the following code would be issued:</p>
-        <code type="none">
+        <code type="erl">
 mnesia:create_table(person,
     [{ram_copies, [N1, N2]},
      {index, [address]},
@@ -1912,7 +1912,7 @@ mnesia:create_table(person,
           STDLIB.</p>
         <p>For example, to find the names of all male persons older
           than 30 in table <c>Tab</c>:</p>
-        <code type="none">
+        <code type="erl">
 MatchHead = #person{name='$1', sex=male, age='$2', _='_'},
 Guard = {'>', '$2', 30},
 Result = '$1',
@@ -2087,7 +2087,7 @@ mnesia:snmp_open_table(person, [{key, string}])</code>
           employees. Each employee is identified by department number
           and name. The other table column stores the telephone
           number:</p>
-        <code type="none">
+        <code type="erl">
 mnesia:create_table(employee,
     [{snmp, [{key, {integer, string}}]},
      {attributes, record_info(fields, employees)}]),</code>
@@ -2636,7 +2636,7 @@ mnesia:create_table(employee,
         <p>A function that adds a family to the database can be
           written as follows if there is a structure
           <c>{family, Father, Mother, ChildrenList}</c>:</p>
-        <code type="none">
+        <code type="erl">
 add_family({family, F, M, Children}) ->
     ChildOids = lists:map(fun oid/1, Children),
     Trans = fun() ->
@@ -2661,7 +2661,7 @@ oid(Rec) -> {element(1, Rec), element(2, Rec)}.</code>
           For example, the function <c>raise(Name, Amount)</c>, which
           adds <c>Amount</c> to the salary field of a person, is to
           be implemented as follows:</p>
-        <code type="none">
+        <code type="erl">
 raise(Name, Amount) ->
     mnesia:transaction(fun() ->
         case mnesia:wread({person, Name}) of

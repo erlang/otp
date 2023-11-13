@@ -67,7 +67,7 @@
     The example below is a fully functioning Erlang program accepting two command line
     arguments and printing their product.</p>
 
-    <code>
+    <code type="erl">
 #!/usr/bin/env escript
 
 main(Args) ->
@@ -107,7 +107,7 @@ cli() ->
       commands. Nested commands example (assuming <c>progname</c> is <c>nested</c>):
     </p>
 
-    <code>
+    <code type="erl">
 cli() ->
   #{
     %% top level argument applicable to all commands
@@ -158,7 +158,7 @@ cli() ->
     <p>In the user input, short options may be concatenated with their values. Long
     options support values separated by <c>=</c>. Consider this definition:</p>
 
-    <code>
+    <code type="erl">
 cli() ->
   #{
     arguments => [
@@ -238,7 +238,7 @@ cli() ->
           <tag><c>short</c></tag>
           <item>
             <p>Defines a short (single character) form of an optional argument.</p>
-            <code>
+            <code type="erl">
 %% Define a command accepting argument named myarg, with short form $a:
 1> Cmd = #{arguments => [#{name => myarg, short => $a}]}.
 %% Parse command line "-a str":
@@ -257,7 +257,7 @@ cli() ->
           <tag><c>long</c></tag>
           <item>
             <p>Defines a long form of an optional argument.</p>
-            <code>
+            <code type="erl">
 1> Cmd = #{arguments => [#{name => myarg, long => "name"}]}.
 %% Parse command line "-name Erlang":
 2> {ok, ArgMap, _, _} = argparse:parse(["-name", "Erlang"], Cmd), ArgMap.
@@ -281,7 +281,7 @@ cli() ->
           <item>
             <p>Specifies the default value to put in the parsed argument map
             if the value is not supplied in the command line.</p>
-            <code>
+            <code type="erl">
 1> argparse:parse([], #{arguments => [#{name => myarg, short => $m}]}).
 
 {ok,#{}, ...
@@ -306,7 +306,7 @@ cli() ->
               <item><p> Consume exactly this number of positional arguments, fail if there
                 is not enough. Value in the argument map contains a list of exactly this
                 length. Example, defining a positional argument expecting 3 integer values:</p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => ints, type => integer, nargs => 3}]},
 argparse:parse(["1", "2", "3"], Cmd).
 
@@ -314,7 +314,7 @@ argparse:parse(["1", "2", "3"], Cmd).
                 </code>
                 <p>Another example defining an option accepted as <c>-env</c> and
                 expecting two string arguments:</p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => env, long => "env", nargs => 2}]},
 argparse:parse(["-env", "key", "value"], Cmd).
 
@@ -326,7 +326,7 @@ argparse:parse(["-env", "key", "value"], Cmd).
                 <p>Consume all following arguments until hitting the next option (starting
                 with an option prefix). May result in an empty list added to the arguments
                 map.</p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [
   #{name => nodes, long => "nodes", nargs => list},
   #{name => verbose, short => $v, type => boolean}
@@ -347,7 +347,7 @@ argparse:parse(["-nodes", "one", "two", "-v"], Cmd).
                 <p>Consumes the next argument from the command line, if it does not start
                   with an option prefix. Otherwise, adds a default value to the arguments
                   map.</p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [
   #{name => level, short => $l, nargs => 'maybe', default => "error"},
   #{name => verbose, short => $v, type => boolean}
@@ -373,7 +373,7 @@ argparse:parse(["-l", "info", "-v"], Cmd).
                 <p>Fold all remaining command line arguments into a list, ignoring
                   any option prefixes or switches. Useful for proxying arguments
                   into another command line utility.</p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [
     #{name => verbose, short => $v, type => boolean},
     #{name => raw, long => "-", nargs => all}
@@ -394,7 +394,7 @@ argparse:parse(["-v", "--", "-kernel", "arg", "opt"], Cmd).
               <item><p>
                 Store the value in the arguments map. Overwrites the value previously written.
               </p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => str, short => $s}]},
 argparse:parse(["-s", "one", "-s", "two"], Cmd).
 
@@ -405,7 +405,7 @@ argparse:parse(["-s", "one", "-s", "two"], Cmd).
               <item><p>
                 Stores the specified term instead of reading the value from the command line.
               </p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => str, short => $s, action => {store, "two"}}]},
 argparse:parse(["-s"], Cmd).
 
@@ -416,7 +416,7 @@ argparse:parse(["-s"], Cmd).
               <item><p>
                 Appends the repeating occurrences of the argument instead of overwriting.
               </p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => node, short => $n, action => append}]},
 argparse:parse(["-n", "one", "-n", "two", "-n", "three"], Cmd).
 
@@ -438,7 +438,7 @@ argparse:parse(["-n", "one", "-n", "two", "-n", "three"], Cmd).
                 Puts a counter as a value in the arguments map. Useful for implementing
                 verbosity option:
               </p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => verbose, short => $v, action => count}]},
 argparse:parse(["-v"], Cmd).
 
@@ -455,7 +455,7 @@ argparse:parse(["-v"], Cmd).
                 Valid only for <c>nargs</c> set to <c>list</c>, <c>nonempty_list</c>,
                 <c>all</c> or <c>pos_integer()</c>.
               </p>
-                <code>
+                <code type="erl">
 1> Cmd = #{arguments => [#{name => duet, short => $d, nargs => 2, action => extend}]},
 argparse:parse(["-d", "a", "b", "-d", "c", "d"], Cmd).
 
@@ -512,7 +512,7 @@ argparse:parse(["-d", "a", "b", "-d", "c", "d"], Cmd).
             list for this command. Arguments missing from the parsed map are replaced
             with the <c>Default</c>. Convenient way to expose existing functions.
           </p>
-          <code>
+          <code type="erl">
 1> Cmd = #{arguments => [
         #{name => x, type => float},
         #{name => y, type => float, short => $p}],

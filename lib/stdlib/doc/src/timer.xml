@@ -460,7 +460,7 @@
     <title>Examples</title>
     <p><em>Example 1</em></p>
     <p>The following example shows how to print "Hello World!" in 5 seconds:</p>
-    <pre>
+    <pre type="erl">
 1> <input>timer:apply_after(5000, io, format, ["~nHello World!~n", []]).</input>
 {ok,TRef}
 Hello World!</pre>
@@ -469,7 +469,7 @@ Hello World!</pre>
     <p>The following example shows a process performing a 
       certain action, and if this action is not completed within a certain 
       limit, the process is killed:</p>
-    <code type="none">
+    <code type="erl">
 Pid = spawn(mod, fun, [foo, bar]),
 %% If pid is not finished in 10 seconds, kill him
 {ok, R} = timer:kill_after(timer:seconds(10), Pid),
@@ -533,7 +533,7 @@ timer:cancel(R),
     <p>Using <c>self()</c> <em>inside</em> the timed function, the code below does
       not work as intended. The task gets done, but the <c>done</c> message gets
       sent to the wrong process and is lost.</p>
-    <pre>
+    <pre type="erl">
 1> <input>timer:apply_after(1000, fun() -> do_something(), self() ! done end).</input>
 {ok,TRef}
 2> <input>receive done -> done after 5000 -> timeout end.</input>
@@ -542,7 +542,7 @@ timeout</pre>
     <p>The code below calls <c>self()</c> in the process which sets the timer and
       assigns it to a variable, which is then used in the function to send the
       <c>done</c> message to, and so works as intended.</p>
-    <pre>
+    <pre type="erl">
 1> <input>Target = self()</input>
 &lt;0.82.0&gt;
 2> <input>timer:apply_after(1000, fun() -> do_something(), Target ! done end).</input>
@@ -551,7 +551,7 @@ timeout</pre>
 %% ... 1s passes...
 done</pre>
     <p>Another option is to pass the message target as a parameter to the function.</p>
-    <pre>
+    <pre type="erl">
 1> <input>timer:apply_after(1000, fun(Target) -> do_something(), Target ! done end, [self()]).</input>
 {ok,TRef}
 2> <input>receive done -> done after 5000 -> timeout end.</input>

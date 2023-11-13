@@ -78,7 +78,7 @@
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 snmp_gen_info() = {ErrorStatus :: atom(), 
                    ErrorIndex  :: pos_integer(), 
                    Varbinds    :: [snmp:varbind()]}

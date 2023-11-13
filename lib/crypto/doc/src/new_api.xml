@@ -227,7 +227,7 @@
       <seeguide marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seeguide>,
       but now with one call to <seemfa marker="crypto#crypto_one_time/5">crypto_one_time/5</seemfa>:
       </p>
-      <code>
+      <code type="erl">
 	1> Key = &lt;&lt;1:128>>.
 	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
 	2> IV = &lt;&lt;0:128>>.
@@ -250,7 +250,7 @@
       <seeguide marker="#example-of-crypto_one_time-5">previous section</seeguide>,
       but now with one call to <seemfa marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seemfa>:
       </p>
-      <code>
+      <code type="erl">
 	1> Key = &lt;&lt;1:128>>.
 	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
 	2> IV = &lt;&lt;0:128>>.
@@ -272,7 +272,7 @@
 
     <section>
       <title>Example of mac_init mac_update and mac_final</title>
-      <code>
+      <code type="erl">
 	1> Key = &lt;&lt;1:128>>.           
 	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
 	2> StateMac = crypto:mac_init(cmac, aes_128_cbc, Key).                   
@@ -289,7 +289,7 @@
 	7>
       </code>
       <p>and compare the result with a single calculation just for this example:</p>
-      <code>
+      <code type="erl">
 	7> crypto:mac(cmac, aes_128_cbc, Key, "First bytes last bytes").
 	&lt;&lt;68,191,219,128,84,77,11,193,197,238,107,6,214,141,160,
 	249>>

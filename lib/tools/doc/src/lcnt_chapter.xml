@@ -58,7 +58,7 @@ cd $ERL_TOP
 	<pre>
 $ERL_TOP/bin/erl -emu_type lcnt</pre>
 	<p>To verify that lock counting is enabled check that <c>[lock-counting]</c> appears in the status text when the VM is started.</p>
-	<pre>
+	<pre type="erl">
 Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe]
  [kernel-poll:false] [lock-counting]</pre>
     </section>
@@ -155,7 +155,7 @@ ok
       <section>
 	<title> Example with Mnesia Transaction Benchmark </title>
 	<p>From the Erlang shell:</p>
-<pre>
+<pre type="erl">
 Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]
  [kernel-poll:false] [lock-counting]
 
@@ -176,7 +176,7 @@ Eshell V5.7.4  (abort with ^G)
 ignore
 </pre>
 <p>Initial configuring of the benchmark is done. It is time to profile the actual benchmark and Mnesia</p>
-<pre>
+<pre type="erl">
 3> lcnt:apply(fun() -> {ok,{time, Tps,_,_,_,_}} = mnesia_tpcb:run([{use_running_mnesia,
  true}|Conf]), Tps/60 end).
 12037.483333333334
@@ -226,7 +226,7 @@ ok
 </pre>
 <p>Listing without class combiner.</p>
 
-<pre>
+<pre type="erl">
 7> lcnt:conflicts([{combine, false}, {print, [name, id, tries, ratio, time]}]).
                    lock                        id   #tries  collisions [%]  time [us]
                   -----                       ---  ------- --------------- ----------

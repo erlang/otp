@@ -36,7 +36,7 @@ This chapter contains in extenso versions
 
   <section>
     <title>OpenSSL License</title>
-    <code type="none">
+    <code type="c">
 /* ====================================================================
  * Copyright (c) 1998-2011 The OpenSSL Project.  All rights reserved.
  *
@@ -94,7 +94,7 @@ This chapter contains in extenso versions
 
   <section>
     <title>SSLeay License</title>
-    <code type="none">
+    <code type="c">
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

@@ -93,7 +93,7 @@
           or with <c>badarg</c> if <c><anno>Pred</anno></c> is not a
           function of arity 2.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
   Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
   maps:filter(Pred,M).
@@ -119,7 +119,7 @@
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
           function of arity 2.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
   Map = #{k1 => 1, "k2" => 2, "k3" => 3},
   maps:filtermap(Fun,Map).
@@ -138,7 +138,7 @@
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"hi" => 42},
   Key = "hi",
   maps:find(Key,Map).
@@ -162,7 +162,7 @@
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
           function of arity 3.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:fold(Fun,0,Map).
@@ -192,7 +192,7 @@
           point to the same value. The key can be in any order, and keys
           and value can be of any term.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
 #{"a" => ok,"b" => ok,"c" => ok}</code>
       </desc>
@@ -208,7 +208,7 @@
           once, the latter (right-most) value is used and the previous values
           are ignored.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
   maps:from_list(List).
 #{42 => value_three,1337 => "value two","a" => 1}</code>
@@ -226,7 +226,7 @@
           <c><anno>Map</anno></c> is not a map, or with a <c>{badkey,Key}</c>
           exception if no value is associated with <c><anno>Key</anno></c>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Key = 1337,
   Map = #{42 => value_two,1337 => "value one","a" => 1},
   maps:get(Key,Map).
@@ -245,7 +245,7 @@
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{ key1 => val1, key2 => val2 }.
 #{key1 => val1,key2 => val2}
 > maps:get(key1, Map, "Default value").
@@ -266,7 +266,7 @@ val1
         <p>The order of elements within each group list is preserved from the original
           list.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
 <input>maps:groups_from_list(EvenOdd, [1, 2, 3]).</input>
 #{even => [2], odd => [1, 3]}
@@ -287,7 +287,7 @@ val1
         <p>The order of elements within each group list is preserved from the
           original list.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
 > <input>Square = fun(X) -> X * X end,</input>
 > <input>maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).</input>
@@ -312,7 +312,7 @@ val1
         <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
         map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:intersect(Map1,Map2).
@@ -339,7 +339,7 @@ val1
         <c><anno>Combiner</anno></c> is not a fun that takes three
         arguments.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
@@ -357,7 +357,7 @@ val1
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"42" => value}.
 #{"42" => value}
 > maps:is_key("42",Map).
@@ -379,7 +379,7 @@ false</code>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
 > I = maps:iterator(M), ok.
@@ -405,7 +405,7 @@ none</code>
           <c><anno>Map</anno></c> is not a map or if <c><anno>Order</anno></c>
           is invalid.</p>
         <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>ordered</c><em>):</em></p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
 > OrdI = maps:iterator(M, ordered), ok.
@@ -418,7 +418,7 @@ ok
 none
      ]]></code>
         <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>reversed</c><em>):</em></p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
 > RevI = maps:iterator(M, reversed), ok.
@@ -431,7 +431,7 @@ ok
 none
      ]]></code>
         <p><em>Example (when </em><c><anno>Order</anno></c><em> is an arithmetic sorting function):</em></p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
 #{-1 => a,0 => c,-1.0 => b,0.0 => d}
 > ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end), ok.
@@ -455,7 +455,7 @@ ok
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:keys(Map).
 [42,1337,"a"]</code>
@@ -478,7 +478,7 @@ ok
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
           function of arity 2.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Fun = fun(K,V1) when is_list(K) -> V1*2 end,
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:map(Fun,Map).
@@ -496,7 +496,7 @@ ok
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:merge(Map1,Map2).
@@ -523,7 +523,7 @@ ok
         <c><anno>Combiner</anno></c> is not a fun that takes three
         arguments.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
@@ -556,7 +556,7 @@ ok
           <c>none</c> is returned.
         </p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{a => 1, b => 2, c => 3}.
 #{a => 1,b => 2,c => 3}
 > I = maps:iterator(Map), ok.
@@ -586,7 +586,7 @@ none</code>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map1</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"a" => 1}.
 #{"a" => 1}
 > maps:put("a", 42, Map).
@@ -606,7 +606,7 @@ none</code>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map1</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"a" => 1}.
 #{"a" => 1}
 > maps:remove("a",Map).
@@ -623,7 +623,7 @@ none</code>
         <p>Returns the number of key-value associations in
           <c><anno>Map</anno></c>. This operation occurs in constant time.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_two,1337 => "value one","a" => 1},
   maps:size(Map).
 3</code>
@@ -645,7 +645,7 @@ none</code>
 	<c><anno>Map1</anno></c> is not a map.
 	</p>
 	<p>Example:</p>
-	<code type="none">
+	<code type="erl">
 > Map = #{"a" => "hello", "b" => "world"}.
 #{"a" => "hello", "b" => "world"}
 > maps:take("a",Map).
@@ -667,12 +667,12 @@ error</code>
         by a call to <seemfa marker="#iterator/1">iterator/1</seemfa> or
         <seemfa marker="#iterator/2">iterator/2</seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]</code>
         <p><em>Example (using </em><seemfa marker="#iterator/2">iterator/2</seemfa><em>):</em></p>
-<code type="none"><![CDATA[
+<code type="erl"><![CDATA[
 > Map = #{ z => 1, y => 2, x => 3 }.
 #{x => 3,y => 2,z => 1}
 > maps:to_list(maps:iterator(Map, ordered)).
@@ -693,7 +693,7 @@ error</code>
           <c><anno>Map1</anno></c> is not a map, or with a <c>{badkey,Key}</c>
           exception if no value is associated with <c><anno>Key</anno></c>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"a" => 1}.
 #{"a" => 1}
 > maps:update("a", 42, Map).
@@ -712,7 +712,7 @@ error</code>
         generated if <c><anno>Key</anno></c> is not present in the
         map.</p>
         <p>Example:</p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"counter" => 1},
   Fun = fun(V) -> V + 1 end,
   maps:update_with("counter",Fun,Map).
@@ -732,7 +732,7 @@ error</code>
         associated with <c><anno>Key</anno></c>.
         </p>
         <p>Example:</p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"counter" => 1},
   Fun = fun(V) -> V + 1 end,
   maps:update_with("new counter",Fun,42,Map).
@@ -749,7 +749,7 @@ error</code>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:values(Map).
 [value_three,"value two",1]</code>
@@ -765,7 +765,7 @@ error</code>
           <c><anno>Map1</anno></c>. Any key in <c><anno>Ks</anno></c> that does
           not exist in <c><anno>Map1</anno></c> is ignored.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   Ks = ["a",42,"other key"],
   maps:with(Ks,Map).
@@ -782,7 +782,7 @@ error</code>
           <c><anno>Map1</anno></c>. Any key in <c><anno>Ks</anno></c> that does
           not exist in <c><anno>Map1</anno></c> is ignored</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   Ks = ["a",42,"other key"],
   maps:without(Ks,Map).

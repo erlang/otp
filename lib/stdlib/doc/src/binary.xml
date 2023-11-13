@@ -104,7 +104,7 @@
 
       <p><em>Example:</em></p>
 
-<code>
+<code type="erl">
 1> binary:bin_to_list(&lt;&lt;"erlang"&gt;&gt;, {1,3}).
 "rla"
 %% or [114,108,97] in list notation.</code>
@@ -182,7 +182,7 @@
 
       <p><em>Example</em></p>
 
-      <code>
+      <code type="erl">
 1> binary:decode_hex(&lt;&lt;"66"&gt;&gt;).
 &lt;&lt;"f"&gt;&gt;</code>
       </desc>
@@ -216,7 +216,7 @@
         <p>The default case is <c>uppercase</c>.</p>
         <p><em>Example:</em></p>
 
-        <code>
+        <code type="erl">
 1> binary:encode_hex(&lt;&lt;"f"&gt;&gt;).
 &lt;&lt;"66"&gt;&gt;
 2> binary:encode_hex(&lt;&lt;"/"&gt;&gt;).
@@ -287,7 +287,7 @@
 
       <p><em>Example:</em></p>
 
-<code>
+<code type="erl">
 1> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"ergonomy"&gt;&gt;]).
 2
 2> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
@@ -308,7 +308,7 @@
 
       <p><em>Example:</em></p>
 
-<code>
+<code type="erl">
 1> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"fang"&gt;&gt;]).
 3
 2> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;, &lt;&lt;"perl"&gt;&gt;]).
@@ -382,7 +382,7 @@
       <p>The first and longest match is preferred to a shorter,
       which is illustrated by the following example:</p>
 
-<code>
+<code type="erl">
 1> binary:matches(&lt;&lt;"abcde"&gt;&gt;,
                   [&lt;&lt;"bcde"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;,&lt;&lt;"de"&gt;&gt;],[]).
 [{1,4}]</code>
@@ -425,7 +425,7 @@
       <p>A negative length can be used to extract bytes at the end of a
       binary:</p>
 
-<code>
+<code type="erl">
 1> Bin = &lt;&lt;1,2,3,4,5,6,7,8,9,10&gt;&gt;.
 2> binary:part(Bin, {byte_size(Bin), -5}).
 &lt;&lt;6,7,8,9,10&gt;&gt;</code>
@@ -457,7 +457,7 @@
 
       <p><em>Example:</em></p>
 
-      <code>
+      <code type="erl">
 store(Binary, GBSet) ->
   NewBin =
       case binary:referenced_byte_size(Binary) of
@@ -482,7 +482,7 @@ store(Binary, GBSet) ->
 
       <p>Example of binary sharing:</p>
 
-      <code>
+      <code type="erl">
 1> A = binary:copy(&lt;&lt;1&gt;&gt;, 100).
 &lt;&lt;1,1,1,1,1 ...
 2> byte_size(A).
@@ -540,7 +540,7 @@ store(Binary, GBSet) ->
           <seemfa marker="#compile_pattern/1"><c>compile_pattern/1</c></seemfa>.</p>
         <p><em>Examples:</em></p>
 
-<pre>
+<pre type="erl">
 1> <input>binary:replace(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"b"&gt;&gt;, &lt;&lt;"d"&gt;&gt;], &lt;&lt;"X"&gt;&gt;, []).</input>
 &lt;&lt;"aXcde"&gt;&gt;
 
@@ -584,7 +584,7 @@ store(Binary, GBSet) ->
 
       <p><em>Example:</em></p>
 
-<code>
+<code type="erl">
 1> binary:split(&lt;&lt;1,255,4,0,0,0,2,3&gt;&gt;, [&lt;&lt;0,0,0&gt;&gt;,&lt;&lt;2&gt;&gt;],[]).
 [&lt;&lt;1,255,4&gt;&gt;, &lt;&lt;2,3&gt;&gt;]
 2> binary:split(&lt;&lt;0,1,0,0,4,255,255,9&gt;&gt;, [&lt;&lt;0,0&gt;&gt;, &lt;&lt;255,255&gt;&gt;],[global]).
@@ -616,7 +616,7 @@ store(Binary, GBSet) ->
      <p>Example of the difference between a scope and taking the
      binary apart before splitting:</p>
 
-<code>
+<code type="erl">
 1> binary:split(&lt;&lt;"banana"&gt;&gt;, [&lt;&lt;"a"&gt;&gt;],[{scope,{2,3}}]).
 [&lt;&lt;"ban"&gt;&gt;,&lt;&lt;"na"&gt;&gt;]
 2> binary:split(binary:part(&lt;&lt;"banana"&gt;&gt;,{2,3}), [&lt;&lt;"a"&gt;&gt;],[]).

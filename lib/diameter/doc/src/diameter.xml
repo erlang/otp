@@ -408,7 +408,7 @@ It is an error to specify duplicate tuples.</p>
 An expression that can be evaluated as a function in the following
 sense.</p>
 
-<pre>
+<pre type="erl">
 eval([{M,F,A} | T]) ->
     apply(M, F, T ++ A);
 eval([[F|A] | T]) ->
@@ -593,7 +593,7 @@ implies the termination of all transport processes.</p>
 <tag><c>{up, Ref, Peer, Config}</c></tag><item/>
 <tag><c>{down, Ref, Peer, Config}</c></tag>
 <item>
-<pre>
+<pre type="c">
 Ref    = &transport_ref;
 Peer   = &app_peer;
 Config = {connect|listen, [&transport_opt;]}
@@ -689,7 +689,7 @@ connection establishment.</p>
 
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
-<pre>
+<pre type="erl">
 Result = ResultCode | atom() | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
@@ -732,7 +732,7 @@ of connection establishment.</p>
 
 <tag><c>{watchdog, Ref, PeerRef, {From, To}, Config}</c></tag>
 <item>
-<pre>
+<pre type="c">
 Ref = &transport_ref;
 PeerRef = &app_peer_ref;
 From, To = initial | okay | suspect | down | reopen
@@ -1484,7 +1484,7 @@ For example, the following options on a connecting transport
 request a connection with one peer over SCTP or another
 (typically the same) over TCP.</p>
 
-<pre>
+<pre type="erl">
 {transport_module, diameter_sctp}
 {transport_config, SctpOpts, 5000}
 {transport_module, diameter_tcp}
@@ -1786,7 +1786,7 @@ An arity-3-valued <c>Pred</c> removes all transports for which
 as returned by it.
 The remaining forms are equivalent to an arity-3 fun as follows.</p>
 
-<pre>
+<pre type="erl">
 Pred = fun(transport_ref(), list()):  fun(Ref, _, Opts) -> Pred(Ref, Opts) end
 Pred = fun(list()):                   fun(_, _, Opts) -> Pred(Opts) end
 Pred = transport_ref():               fun(Ref, _, _)  -> Pred == Ref end
@@ -1871,7 +1871,7 @@ An example return value with for a client service with Origin-Host
 "client.example.com" configured with a single transport connected to
 "server.example.com" might look as follows.</p>
 
-<pre>
+<pre type="erl">
 [[{ref,#Ref&lt;0.0.0.93>},
   {type,connect},
   {options,[{transport_module,diameter_tcp},
@@ -1953,7 +1953,7 @@ since there may be multiple accepted connections for the same
 The <c>transport</c> info returned by a server with a single client
 connection might look as follows.</p>
 
-<pre>
+<pre type="erl">
 [[{ref,#Ref&lt;0.0.0.61>},
   {type,listen},
   {options,[{transport_module,diameter_tcp},
@@ -2031,7 +2031,7 @@ connections and for which Diameter-level statistics are accumulated
 only for the lifetime of the transport connection.
 A return value for the server above might look as follows.</p>
 
-<pre>
+<pre type="erl">
 [[{ref,#Ref&lt;0.0.0.61>},
   {type,accept},
   {options,[{transport_module,diameter_tcp},
@@ -2110,7 +2110,7 @@ Otherwise it contains the <c>ref</c>, <c>type</c> and <c>options</c>
 tuples as in <c>transport</c> and <c>connections</c> info above.
 For example:</p>
 
-<pre>
+<pre type="erl">
 [{ref,#Ref&lt;0.0.0.61>},
  {type,accept},
  {options,[{transport_module,diameter_tcp},

@@ -52,7 +52,7 @@
     <seeguide marker="gen_server_concepts#ex">gen_server Behaviour</seeguide>
     can look as follows:</p>
     <marker id="ex"></marker>
-    <code type="none">
+    <code type="erl">
 -module(ch_sup).
 -behaviour(supervisor).
 
@@ -83,7 +83,7 @@ init(_Args) ->
     <marker id="flags"/>
     <title>Supervisor Flags</title>
     <p>This is the type definition for the supervisor flags:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 sup_flags() = #{strategy => strategy(),           % optional
                 intensity => non_neg_integer(),   % optional
                 period => pos_integer(),          % optional
@@ -351,7 +351,7 @@ SupFlags = #{auto_shutdown => AutoShutdown, ...}</code>
     <marker id="spec"></marker>
     <title>Child Specification</title>
     <p>The type definition for a child specification is as follows:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 child_spec() = #{id => child_id(),             % mandatory
                  start => mfargs(),            % mandatory
                  restart => restart(),         % optional
@@ -479,7 +479,7 @@ child_spec() = #{id => child_id(),             % mandatory
     </list>
     <p><em>Example:</em> The child specification to start the server
     <c>ch3</c> in the previous example look as follows:</p>
-    <code type="none">
+    <code type="erl">
 #{id => ch3,
   start => {ch3, start_link, []},
   restart => permanent,
@@ -494,7 +494,7 @@ child_spec() = #{id => child_id(),             % mandatory
     <p>Example: A child specification to start the event manager from
       the chapter about
       <seeguide marker="events#mgr">gen_event</seeguide>:</p>
-    <code type="none">
+    <code type="erl">
 #{id => error_man,
   start => {gen_event, start_link, [{local, error_man}]},
   modules => dynamic}</code>
@@ -508,7 +508,7 @@ child_spec() = #{id => child_id(),             % mandatory
       the shutdown time is set to 5000 ms (which is the default
       value).</p>
     <p>Example: A child specification to start another supervisor:</p>
-    <code type="none">
+    <code type="erl">
 #{id => sup,
   start => {sup, start_link, []},
   restart => transient,
@@ -520,7 +520,7 @@ child_spec() = #{id => child_id(),             % mandatory
     <title>Starting a Supervisor</title>
     <p>In the previous example, the supervisor is started by calling
       <c>ch_sup:start_link()</c>:</p>
-    <code type="none">
+    <code type="erl">
 start_link() ->
     supervisor:start_link(ch_sup, []).</code>
     <p><c>ch_sup:start_link</c> calls function
@@ -542,7 +542,7 @@ start_link() ->
     <p>The new supervisor process calls the callback function
       <c>ch_sup:init([])</c>. <c>init</c> shall return
       <c>{ok, {SupFlags, ChildSpecs}}</c>:</p>
-    <code type="none">
+    <code type="erl">
 init(_Args) ->
     SupFlags = #{},
     ChildSpecs = [#{id => ch3,
@@ -603,7 +603,7 @@ supervisor:delete_child(Sup, Id)</code>
       processes are dynamically added instances of the same process.</p>
     <p>The following is an example of a callback module for a
     <c>simple_one_for_one</c> supervisor:</p>
-    <code type="none">
+    <code type="erl">
 -module(simple_sup).
 -behaviour(supervisor).
 

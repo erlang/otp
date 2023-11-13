@@ -410,7 +410,7 @@ File3.asn</pre>
           </item>
         </list>
         <p>Schematically, the following occurs for each type in the module:</p>
-        <code type="none">
+        <code type="erl">
 {ok, Value} = asn1ct:value(Module, Type),
 {ok, Bytes} = Module:encode(Type, Value),
 {ok, Value} = Module:decode(Type, Bytes).</code>

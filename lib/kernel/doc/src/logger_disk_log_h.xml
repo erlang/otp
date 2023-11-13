@@ -128,7 +128,7 @@
     disk_log options (<c>file</c>, <c>type</c>, <c>max_no_files</c>,
     <c>max_no_bytes</c>) must not be modified.</p>
     <p>Example of adding a disk_log handler:</p>
-    <code type="none">
+    <code type="erl">
 logger:add_handler(my_disk_log_h, logger_disk_log_h,
                    #{config => #{file => "./my_disk_log",
                                  type => wrap,

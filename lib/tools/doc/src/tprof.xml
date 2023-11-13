@@ -116,7 +116,7 @@
       functions or modules:
     </p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       1> tprof:profile(fun() -> lists:seq(1, 16) end, #{type => call_memory}).
 
       ****** Process <0.224.0>    -- 100.00 % of total allocations ***
@@ -173,7 +173,7 @@
 
     <p>This example prints the combined memory allocation of
         all processes, sorted by total allocated words in the descending order</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
         5> tprof:profile(test, test_spawn, [],
                          #{type => call_memory, report => {total, {words, descending}}}).
 
@@ -187,7 +187,7 @@
     ]]></code>
 
     <p>You can also collect the profile for further inspection.</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       6> {done, ProfileData} = tprof:profile(fun test:test_spawn/0,
                                              #{type => call_memory, report => return}).
       <...>
@@ -285,7 +285,7 @@
       to ensure cleanup.
     </p>
 
-    <code type="none">
+    <code type="erl">
       9> tprof:profile(timer, sleep, [100000], #{timeout => 1000}).
     </code>
 
@@ -295,7 +295,7 @@
       trace patterns.
     </p>
 
-    <code type="none">
+    <code type="erl">
       1> tprof:profile(fun() -> lists:seq(1, 32) end,
           #{registered => false, pattern => [{lists, '_', '_'}]}).
     </code>
@@ -312,7 +312,7 @@
       activity of all processes supervised by kernel:
     </p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       1> tprof:start(#{type => call_memory}).
       {ok,<0.200.0>}
       2> tprof:enable_trace({all_children, kernel_sup}).
@@ -345,7 +345,7 @@
       It is possible to profile the entire running system, and then examine
       individual processes:
     </p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       1> tprof:start(#{type => call_memory}).
       2> tprof:enable_trace(processes), tprof:set_pattern('_', '_' , '_').
       9041
@@ -489,7 +489,7 @@
           the same rules as <seemfa marker="erts:erlang#trace_pattern/3">
           <c>erlang:trace_pattern/3</c></seemfa>. Returns number of functions
           matching the supplied pattern.</p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 1> tprof:set_pattern(lists, seq, '_').
 2
 2> tprof:set_pattern(lists, keyfind, 3).
@@ -499,7 +499,7 @@
         ]]></code>
         <p>If there are no functions matching the pattern, error
         is returned</p>
-        <code><![CDATA[
+        <code type="erl"><![CDATA[
 > tprof:set_pattern(no_module, func, '_').
 {error,{trace_pattern,no_module,func,'_'}}
         ]]></code>
@@ -511,7 +511,7 @@
       <fsummary>Disables tracing for a specific trace pattern.</fsummary>
       <desc>
         <p>Turns tracing off for the supplied pattern.</p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 1> tprof:set_pattern(lists, seq, '_').
 2
 2> tprof:clear_pattern(lists, seq, 3).

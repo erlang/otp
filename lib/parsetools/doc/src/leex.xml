@@ -188,7 +188,7 @@
         <p>It is not designed to be called directly by an application
           but used through the i/o system where it can typically be
           called in an application by:</p>
-        <code>
+        <code type="erl">
 io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
   -> TokenRet</code>
       </desc>
@@ -222,7 +222,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
         <p>It is not designed to be called directly by an application
           but used through the i/o system where it can typically be
           called in an application by:</p>
-        <code>
+        <code type="erl">
 io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
   -> TokensRet</code>
       </desc>
@@ -352,7 +352,7 @@ NAME = VALUE</code>
     <p>The following example would match a simple Erlang integer or
       float and return a token which could be sent to the Erlang
       parser:</p>
-    <code>
+    <code type="erl">
 D = [0-9]
 
 {D}+ :

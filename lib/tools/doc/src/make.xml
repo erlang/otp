@@ -132,7 +132,7 @@ Modules.
       <c>[debug_info,{i,"../foo"}]</c>, while all other files in the
       current directory shall be compiled with only the
       <c>debug_info</c> flag.</p>
-    <code type="none">
+    <code type="erl">
 {'file1',[debug_info,{i,"../foo"}]}.
 {'*',[debug_info]}.    </code>
     <p></p>

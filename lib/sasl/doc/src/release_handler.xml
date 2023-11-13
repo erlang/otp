@@ -346,7 +346,7 @@
               <c>$ROOT/lib/myapp-1.0</c>. A new version <c>NewVsn</c> is
               unpacked outside the release handler and the release
               handler is informed about this with a call as follows:</p>
-            <code type="none">
+            <code type="erl">
 release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 => {ok,NewVsn}</code>
             <p>If <c>NewVsn</c> is installed with option

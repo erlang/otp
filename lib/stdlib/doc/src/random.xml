@@ -99,7 +99,7 @@
           dictionary and returns the old state.</p>
         <p>The following is an easy way of obtaining a unique value to seed
           with:</p>
-        <code type="none">
+        <code type="erl">
 random:seed(erlang:phash2([node()]),
             erlang:monotonic_time(),
             erlang:unique_integer())</code>

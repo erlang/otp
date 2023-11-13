@@ -67,7 +67,7 @@
     <p>The MIB compiler is started with a call to
       <c><![CDATA[snmpc:compile(<mibname>).]]></c> For example:
       </p>
-    <code type="none">
+    <code type="erl">
 snmpc:compile("RFC1213-MIB").
     </code>
     <p>The output is a new file which is called <c><![CDATA[<mibname>.bin]]></c>.
@@ -88,7 +88,7 @@ snmpc:compile("RFC1213-MIB").
       current directory, or a directory in the current path. The path is
       supplied with the <c>{i, Path}</c> option, for example:
       </p>
-    <code type="none">
+    <code type="erl">
 snmpc:compile("MY-MIB", 
        [{i, ["friend_mibs/", "../standard_mibs/"]}]).
     </code>
@@ -96,7 +96,7 @@ snmpc:compile("MY-MIB",
       <c>"include_lib"</c> like fashion with the <c>il</c>
       option. Example:
       </p>
-    <code type="none">
+    <code type="erl">
 snmpc:compile("MY-MIB", 
        [{il, ["snmp/priv/mibs/", "myapp/priv/mibs/"]}]).
     </code>

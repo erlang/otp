@@ -42,7 +42,7 @@
   <section>
     <title>Common Data Types</title>
     <p>The following data types are used in the functions below:</p>
-<code type="none"><![CDATA[
+<code type="erl"><![CDATA[
 oid() = [byte()]  -  The oid() type is used to represent an ASN.1 OBJECT IDENTIFIER
 snmp_reply() = {error_status(), error_index(), varbinds()}
 error_status() = noError | atom()
@@ -1048,7 +1048,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Load a <c>Mib</c> into the manager. The <c>MibName</c> is the 
           name of the Mib, including the path to where the compiled mib is 
           found.  For example,</p>
-        <code type="none">
+        <code type="erl">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:load_mib(Dir ++ "MY-MIB").
         </code>
@@ -1069,7 +1069,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Unload a <c>Mib</c> from the manager. The <c>MibName</c> is the 
           name of the Mib, including the path to where the compiled mib is 
           found.  For example,</p>
-        <code type="none">
+        <code type="erl">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:unload_mib(Dir ++ "MY-MIB").
         </code>

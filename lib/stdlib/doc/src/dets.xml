@@ -569,7 +569,7 @@
       <desc>
         <p>Returns a list of all objects with key <c><anno>Key</anno></c>
           stored in table <c><anno>Name</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 2> <input>dets:open_file(abc, [{type, bag}]).</input>
 {ok,abc}
 3> <input>dets:insert(abc, {1,2,3}).</input>
@@ -1120,17 +1120,17 @@ ok
         </list>
         <p>The following example uses an explicit match specification
           to traverse the table:</p>
-        <pre>
+        <pre type="erl">
 1> <input>dets:open_file(t, []),</input>
 <input>ok = dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),</input>
 <input>MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X &lt; 5) -> {Y} end),</input>
 <input>QH1 = dets:table(t, [{traverse, {select, MS}}]).</input></pre>
         <p>An example with implicit match specification:</p>
-        <pre>
+        <pre type="erl">
 2> <input>QH2 = qlc:q([{Y} || {X,Y} &lt;- dets:table(t), (X > 1) or (X &lt; 5)]).</input></pre>
         <p>The latter example is equivalent to the former, which 
           can be verified using function <c>qlc:info/1</c>:</p>
-        <pre>
+        <pre type="erl">
 3> <input>qlc:info(QH1) =:= qlc:info(QH2).</input>
 true</pre>
         <p><c>qlc:info/1</c> returns information about a query handle.
@@ -1168,7 +1168,7 @@ true</pre>
             <p>Continue to perform the traversal. For example, the
               following function can be used to print the contents
               of a table:</p>
-            <pre>
+            <pre type="erl">
 fun(X) -> io:format("~p~n", [X]), continue end.</pre>
           </item>
           <tag><c>{continue, Val}</c></tag>

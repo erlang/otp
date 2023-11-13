@@ -359,7 +359,7 @@
       in directory <c><![CDATA[./cfg_files]]></c>) can then look as follows
       (Unix):</p>
 
-    <pre>
+    <pre type="erl">
 %% -- ERLANG INET CONFIGURATION FILE --
 %% read the hosts file
 {file, hosts, "/etc/hosts"}.

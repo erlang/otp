@@ -60,13 +60,13 @@
           tuple in <c>Patterns</c> is converted to a list, which in turn is passed to
           <c>ttb:tpl/2,3,4</c>.</p>
          <p>The call:</p>
-	 <pre>
+	 <pre type="erl">
 > <input>ttb:start_trace([Node, OtherNode],
                   [{mod, foo, []}, {mod, bar, 2}],
                   {all, call},
                   [{file, File}, {handler,{fun myhandler/4, S}}]).</input></pre>
          <p> is equivalent to:</p>
-	 <pre>
+	 <pre type="erl">
 > <input>ttb:start_trace([Node, OtherNode],
                   [{file, File}, {handler,{fun myhandler/4, S}}]),
 ttb:tpl(mod, foo, []),
@@ -521,7 +521,7 @@ ttb:p(all, call).</input></pre>
             started with <c>ttb:tracer/0,1,2</c>.</p>
         </note>
         <p>An example of how to use function <c>seq_trigger_ms/0,1</c> follows:</p>
-        <pre>
+        <pre type="erl">
 (tiger@durin)5> <input>ttb:tracer().</input>
 {ok,[tiger@durin]}
 (tiger@durin)6> <input>ttb:p(all,call).</input>

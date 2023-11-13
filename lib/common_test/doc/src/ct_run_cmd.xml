@@ -182,7 +182,7 @@
 
   <section>
     <title>Run Common Test in Interactive Mode</title>
-    <pre>
+    <pre type="erl">
  ct_run -shell
   [-config ConfigFile1 ConfigFile2 ... ConfigFileN]
   [-userconfig CallbackModule1 ConfigString1 and CallbackModule2

@@ -73,7 +73,7 @@ here, depending on configuration.</p>
 The &header; and &packet; records below
 are defined in diameter.hrl, which can be included as follows.</p>
 
-<pre>
+<pre type="erl">
 -include_lib("diameter/include/diameter.hrl").
 </pre>
 

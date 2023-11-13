@@ -347,7 +347,7 @@
 	    function produces log entries from the
 	    error reports:</p>
 
-	    <code>
+	    <code type="c">
 #{server_name => string()
   protocol => internal | 'TCP' | 'TLS' | 'HTTP',
   transport => "TCP" | "TLS", %% Present when protocol = 'HTTP'
@@ -374,7 +374,7 @@ Transport: TLS
 <p>Using this option makes mod_log and mod_disk_log error logs redundant.</p>
 
 	<p>Add the filter</p>
-	<code>
+	<code type="erl">
 {fun logger_filters:domain/2,
 	{log,equal,[otp,inets, httpd, ServerID, error]}</code>
 
@@ -383,7 +383,7 @@ Transport: TLS
         <c>ServerID</c> of <c>my_server</c> to a file you can use the following
         sys.config:
 
-	<code>[{kernel,
+	<code type="erl">[{kernel,
  [{logger,
   [{handler, http_error_test, logger_std_h,
     #{config => #{ file => "log/http_error.log" },
@@ -396,7 +396,7 @@ Transport: TLS
 
 	<p>or if you want to add it to the default logger via an API:</p>
 
-	<code>logger:add_handler_filter(default,
+	<code type="erl">logger:add_handler_filter(default,
                           inets_httpd,
                           {fun logger_filters:domain/2,
                            {log, equal,
@@ -456,11 +456,11 @@ Transport: TLS
 	directly by a human, <c>pretty</c> is the best option.</p>
 	<p><c>pretty</c> has a format corresponding to:</p>
 
-	<code>io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code>
+	<code type="erl">io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code>
 
 	<p><c>compact</c> has a format corresponding to:</p>
 
-	<code>io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code>
+	<code type="erl">io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code>
 
 	<p>This affects the error logs written by <c>mod_log</c> and
 	<c>mod_disk_log</c>.
@@ -509,7 +509,7 @@ Transport: TLS
 	directory. Several files can be given, in which case the server
 	returns the first it finds, for example:</p>
 
-	<code>{directory_index, ["index.html", "welcome.html"]}</code>
+	<code type="erl">{directory_index, ["index.html", "welcome.html"]}</code>
 
 	<p>Access to http://your.server.org/docs/ would return
 	http://your.server.org/docs/index.html or
@@ -958,7 +958,7 @@ Transport: TLS
   <section>
     <title>ERLANG WEB SERVER API DATA TYPES</title>
     <p>The Erlang web server API data types are as follows:</p>
-    <code type="none">
+    <code type="erl">
       ModData = #mod{}
 
       -record(mod, {
@@ -977,7 +977,7 @@ Transport: TLS
 	}).</code>
 
     <p>To access the record in your callback-module use:</p>
-    <code> -include_lib("inets/include/httpd.hrl").</code>
+    <code type="erl"> -include_lib("inets/include/httpd.hrl").</code>
 
     <p>The fields of record <c>mod</c> have the following meaning:
       </p>

@@ -842,7 +842,7 @@
 	    and a <seemfa marker="erlang#unique_integer/1">strictly
 	    monotonically increasing integer</seemfa> as follows:</p>
 
-	    <code type="none">
+	    <code type="erl">
 Time = erlang:monotonic_time(),
 UMI = erlang:unique_integer([monotonic]),
 EventTag = {Time, UMI}</code>

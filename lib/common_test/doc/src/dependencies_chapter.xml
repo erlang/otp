@@ -95,7 +95,7 @@
       client can be grouped into one test case. The resulting suite can look as
       follows:</p>
 
-    <pre>      
+    <pre type="erl">      
  -module(my_server_SUITE).
  -compile(export_all).
  -include_lib("ct.hrl").
@@ -202,7 +202,7 @@
 
       <p><em>Example:</em></p>
       
-      <pre>
+      <pre type="erl">
  -module(server_b_SUITE).
  -compile(export_all).
  -include_lib("ct.hrl").
@@ -270,7 +270,7 @@
 	in <c>server_b_SUITE</c> crashes, <c>deallocate</c> is skipped,
 	the following sequence can be defined:</p>
       
-      <pre>
+      <pre type="erl">
  groups() -> [{alloc_and_dealloc, [sequence], [alloc,dealloc]}].</pre>
 
       <p>Assume that the suite contains the test case <c>get_resource_status</c> 
@@ -291,7 +291,7 @@
 	successful in the log. Any number of sequences can be specified.</p>
 	<p><em>Example:</em></p>
 
-      <pre>
+      <pre type="erl">
  groups() -> [{scenarioA, [sequence], [testA1, testA2]}, 
               {scenarioB, [sequence], [testB1, testB2, testB3]}].
 

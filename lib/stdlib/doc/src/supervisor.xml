@@ -75,7 +75,7 @@
     <p>The supervisor properties are defined by the supervisor flags.
       The type definition for the supervisor flags is as follows:</p>
 
-    <pre>
+    <pre type="erl">
 sup_flags() = #{strategy => strategy(),           % optional
                 intensity => non_neg_integer(),   % optional
                 period => pos_integer(),          % optional
@@ -198,7 +198,7 @@ sup_flags() = #{strategy => strategy(),           % optional
     <marker id="child_spec"/>
     <p>The type definition of a child specification is as follows:</p>
 
-    <pre>
+    <pre type="erl">
 child_spec() = #{id => child_id(),             % mandatory
                  start => mfargs(),            % mandatory
                  restart => restart(),         % optional

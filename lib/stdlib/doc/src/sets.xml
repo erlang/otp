@@ -130,7 +130,7 @@
         different if and only if they do not compare equal (<c>==</c>).
       </p>
       <p><em>Example:</em></p>
-      <pre>
+      <pre type="erl">
 1> <input>sets:is_element(1.0, sets:from_list([1])).</input>
 false
 2> <input>ordsets:is_element(1.0, ordsets:from_list([1])).</input>

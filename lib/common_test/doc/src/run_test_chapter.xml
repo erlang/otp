@@ -378,7 +378,7 @@
     <pre>
  <![CDATA[$ ct_run -group <group_names_or_paths> [-case <cases>]]]></pre>
     <p>The syntax in the Erlang shell is as follows:</p>
-    <pre>
+    <pre type="erl">
  <![CDATA[1> ct:run_test([{group,GroupsNamesOrPaths}, {case,Cases}]).]]></pre>
     
     <p>Parameter <c>group_names_or_paths</c> specifies one
@@ -445,7 +445,7 @@
     The following examples illustrates this.</p></note>   
 
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
  -module(x_SUITE).
  ...
  %% The group definitions:      
@@ -508,13 +508,13 @@
     <p>In the following example, by specifying the unique path <c>top2 -> sub21 -> sub2X2</c>, 
     only one test is executed. The second possible path, from <c>top2</c> to <c>sub2X2</c> 
     (from the former example) is discarded:</p>
-    <pre>
+    <pre type="erl">
  $ ct_run -suite "x_SUITE" -group [sub21,sub2X2]
  1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub21,sub2X2]]}]).</pre>
 
     <p>The following executes only the test cases for <c>sub22</c> and in reverse order 
     compared to the group definition:</p>
-    <pre>
+    <pre type="erl">
  $ ct_run -suite "x_SUITE" -group [sub22] -case tc22 tc21
  1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub22]]}, {testcase,[tc22,tc21]}]).</pre>
 
@@ -575,7 +575,7 @@
       or in the <seeguide marker="write_test_chapter#info_function">Test Case Information Function</seeguide>.</p>
       
     <p><em>Example:</em></p>
-    <pre> 
+    <pre type="erl"> 
  1> ct:require(unix_telnet, unix).
  ok
  2> ct_telnet:open(unix_telnet).
@@ -715,7 +715,7 @@
 	(as with start flag/option <c>join_specs</c> above).</p>
 	<p><em>Example:</em></p>
 
-	<pre>
+	<pre type="erl">
  %% In specification file "a.spec"
  {specs, join, ["b.spec", "c.spec"]}.
  {specs, separate, ["d.spec", "e.spec"]}.
@@ -818,7 +818,7 @@
 	</list>
 
       <p><em>Configuration terms:</em></p>
-      <pre>
+      <pre type="erl">
  {merge_tests, Bool}.
 
  {define, Constant, Value}.
@@ -901,7 +901,7 @@
  {release_shell, Bool}.</pre>
 	
       <p><em>Test terms:</em></p>
-      <pre>
+      <pre type="erl">
  {suites, Dir, Suites}.                                
  {suites, NodeRefs, Dir, Suites}.
 
@@ -975,7 +975,7 @@
 	<c>ConfigDir</c>, <c>ConfigBaseNames</c> is a list of base names,
 	that is, without directory paths. <c>ConfigFiles</c> must be full names,
 	including paths. For example, the following two terms have the same meaning:</p>
-	<pre>
+	<pre type="erl">
  {config, ["/home/testuser/tests/config/nodeA.cfg",
            "/home/testuser/tests/config/nodeB.cfg"]}.
 
@@ -1011,7 +1011,7 @@
 	  (and avoid repetition) of long strings, such as file paths.</p>
 	  <p><em>Examples:</em></p>
 	  
-	  <pre>
+	  <pre type="erl">
  %% 1a. no constant
  {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
  {suites, "/home/testuser/tests/suites", all}.
@@ -1037,7 +1037,7 @@
 	    terms with <c>define</c> is strongly recommended though. An example
 	    of such replacement follows:</p>
 	    
-	    <pre>
+	    <pre type="erl">
  %% using the old alias term
  {config, "/home/testuser/tests/config/nodeA.cfg"}.
  {alias, suite_dir, "/home/testuser/tests/suites"}.
@@ -1060,7 +1060,7 @@
 	  <title>Example</title>
 	  
 	  <p>Here follows a simple test specification example:</p>
-	  <pre>
+	  <pre type="erl">
  {define, 'Top', "/home/test"}.
  {define, 'T1', "'Top'/t1"}.
  {define, 'T2', "'Top'/t2"}.
@@ -1136,7 +1136,7 @@
  {config, "../../my_server_interface.cfg"}.
  ...</pre>	    
 	  <p>And in, for example, a test suite or a <c>Common Test Hook</c> function:</p>
-	  <pre>
+	  <pre type="erl">
  ...
  [{label,[{_Node,TestType}]}, {config,CfgFiles}] =
      ct:get_testspec_terms([label,config]),
@@ -1394,7 +1394,7 @@ div.error pre { color:white }</pre>
 	  per test case basis.</p>
 	  <p><em>Example:</em></p>
 
-	<pre>
+	<pre type="erl">
  -module(my_SUITE).
  ...
  suite() -> [..., {stylesheet,"suite_categories.css"}, ...].
@@ -1574,7 +1574,7 @@ div.error pre { color:white }</pre>
       
 	<p><em>Example 3:</em></p>
       
-      <pre>
+      <pre type="erl">
  -module(my_SUITE).
 
  suite() -> [..., {silent_connections,[telnet,ssh]}, ...].

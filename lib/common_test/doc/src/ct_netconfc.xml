@@ -67,7 +67,7 @@
     <p>Connect/session options can be specified in a configuration
     file with entries like the following.</p>
 
-    <pre>
+    <pre type="erl">
  {server_id(), [option()]}.</pre>
 
     <p>The <seetype marker="#server_id"><c>server_id()</c></seetype>
@@ -107,7 +107,7 @@
       <c>ct_conn_log_h</c>. To use this error handler, add the
       <c>cth_conn_log</c> hook in the test suite, for example:</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
     [{ct_hooks, [{cth_conn_log, [{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}]}].</pre>
 
@@ -148,12 +148,12 @@
     <p>The hook options can also be specified in a configuration file with
       configuration variable <c>ct_conn_log</c>:</p>
 
-    <pre>
+    <pre type="erl">
  {ct_conn_log,[{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}.</pre>
 
     <p>For example:</p>
 
-    <pre>
+    <pre type="erl">
  {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
                              {hosts,[<seetype marker="ct#key_or_name"><c>ct:key_or_name()</c></seetype>]}]}]}</pre>
 
@@ -170,7 +170,7 @@
       <c>nc_server1</c> and <c>nc_server2</c>. Any other connections are
       logged to default NETCONF log.</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
     [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
                                                {hosts,[nc_server1,nc_server2]}]}
@@ -178,7 +178,7 @@
 
     <p>Connections must be opened as follows:</p>
 
-    <pre>
+    <pre type="erl">
  open(nc_server1,[...]),
  open(nc_server2,[...]).</pre>
 
@@ -193,7 +193,7 @@
 
     <p>The <c>ct_hooks</c> statement must look as follows:</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
     [{ct_hooks, [{cth_conn_log, []}]}].</pre>
 
@@ -553,7 +553,7 @@
           request. The value must be a list containing valid simple XML,
           for example:</p>
 
-        <pre>
+        <pre type="erl">
  [{'default-operation', ["none"]},
   {'error-option', ["rollback-on-error"]}]</pre>
 

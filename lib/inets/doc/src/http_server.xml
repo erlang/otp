@@ -78,7 +78,7 @@
     </p>
     
     <p>The available configuration properties are as follows:</p>
-    <code type="none">
+    <code type="erl">
      httpd_service() -> {httpd, httpd()}
      httpd()         -> [httpd_config()] 
      httpd_config()  -> {proplist_file, file()}
@@ -108,7 +108,7 @@
     <title>Getting Started</title>
     <marker id="using_http_server_api"></marker>
     <p>Start <c>Inets</c>:</p>
-    <code type="none">
+    <code type="erl">
       1 > inets:start().
       ok</code>
     <p>Start an HTTP server with minimal required configuration.
@@ -116,13 +116,13 @@
        used, and you can use function <c>info</c> to find which port 
        number that was picked:</p>
 
-    <code type="none">
+    <code type="erl">
       2 > {ok, Pid} = inets:start(httpd, [{port, 0}, {server_root,"/tmp"},
       {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
       {ok, 0.79.0}      </code>
     
       <p>Call <c>info</c>:</p>
-    <code type="none">
+    <code type="erl">
       3 >  httpd:info(Pid).
       [{mime_types,[{"html","text/html"},{"htm","text/html"}]},
       {server_name,"machine.local"},
@@ -134,7 +134,7 @@
     <p>Reload the configuration without restarting the server:
       
     </p>
-    <code type="none">
+    <code type="erl">
     4 > httpd:reload_config([{port, 59408},
       {server_root,"/tmp/www_test"}, {document_root,"/tmp/www_test/htdocs"},
       {bind_address, "localhost"}], non_disturbing).
@@ -144,16 +144,16 @@
       Clients trying to access the server during the reload
       get a service temporary unavailable answer.</p></note>
 
-    <code type="none">
+    <code type="erl">
       5 >  httpd:info(Pid, [server_root, document_root]).
       [{server_root,"/tmp/www_test"},{document_root,"/tmp/www_test/htdocs"}] </code>
 
-    <code type="none">
+    <code type="erl">
       6 > ok = inets:stop(httpd, Pid).</code>
     
     <p>Alternative:</p>
     
-    <code type="none">
+    <code type="erl">
       6 > ok = inets:stop(httpd, {{127,0,0,1}, 59408}).</code>
 
     <p>Notice that <c>bind_address</c> must be the IP address reported 
@@ -400,7 +400,7 @@ http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)</code>
 	  be initiated. This function must only be used when the
 	  schema and the tables are already created.</p>
 	
-	<code>
+	<code type="erl">
 -module(mnesia_test).
 -export([start/0,load_data/0]).
 -include_lib("mod_auth.hrl").

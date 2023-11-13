@@ -54,14 +54,14 @@
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
 
     <p>And the viewer window will look like:</p>
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
 Eshell V5.7.4  (abort with ^G)
@@ -210,7 +210,7 @@ Eshell V5.7.4  (abort with ^G)
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(megaco_filter).
 -export([start/0]).
 
@@ -231,7 +231,7 @@ start() ->
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 erl -sname observer
 Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
@@ -247,7 +247,7 @@ Eshell V5.7.4  (abort with ^G)
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 erl -sname mgc -pa ../../megaco/examples/simple
 Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
@@ -281,7 +281,7 @@ ok
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
 Eshell V5.7.4  (abort with ^G)

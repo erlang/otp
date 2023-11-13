@@ -61,7 +61,7 @@
           <c>get_token/0</c> or <c>set_token/1</c>. <c>set_token/1</c>
           can be used to temporarily exclude message passing from
           the trace by setting the trace token to empty like this:</p>
-        <code type="none">
+        <code type="erl">
 OldToken = seq_trace:set_token([]), % set to empty and save 
                                     % old value
 % do something that should not be part of the trace
@@ -249,7 +249,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
     <code type="none">
 {seq_trace, Label, SeqTraceInfo}</code>
     <p>Where:</p>
-    <code type="none">
+    <code type="erl">
 Label = int()
 TimeStamp = {Seconds, Milliseconds, Microseconds}  
   Seconds = Milliseconds = Microseconds = int()</code>
@@ -519,7 +519,7 @@ prev_cnt := tcurr</code>
       primitives can be used and what kind of output it produces.</p>
     <p>Assume that you have an initiating process with
       <c><![CDATA[Pid == <0.30.0>]]></c> like this:</p>
-    <code type="none">
+    <code type="erl">
 -module(seqex).
 -compile(export_all).
 
@@ -537,7 +537,7 @@ loop(Port) ->
     loop(Port).</code>
     <p>And a registered process <c>call_server</c> with
       <c><![CDATA[Pid == <0.31.0>]]></c> like this:</p>
-    <code type="none">
+    <code type="erl">
 loop() ->
     receive
         {PortController,Message} ->
@@ -548,7 +548,7 @@ loop() ->
     loop().</code>
     <p>A possible output from the system's <c>sequential_tracer</c> can be
       like this:</p>
-    <pre>
+    <pre type="erl">
 17:&lt;0.30.0> Info {0,1} WITH
 "**** Trace Started ****"
 17:&lt;0.31.0> Received {0,2} FROM &lt;0.30.0> WITH
@@ -559,7 +559,7 @@ loop() ->
 {ack,{received,the_message}}</pre>
     <p>The implementation of a system tracer process that produces
       this printout can look like this:</p>
-    <code type="none">
+    <code type="erl">
 tracer() ->
     receive
         {seq_trace,Label,TraceInfo} ->
@@ -587,14 +587,14 @@ print_trace({send,Serial,From,To,Message}) ->
               [From,Serial,To,Message]).</code>
     <p>The code that creates a process that runs this tracer function
       and sets that process as the system tracer can look like this:</p>
-    <code type="none">
+    <code type="erl">
 start() ->
     Pid = spawn(?MODULE,tracer,[]),
     seq_trace:set_system_tracer(Pid), % set Pid as the system tracer 
     ok.</code>
     <p>With a function like <c>test/0</c>, the whole example can be
       started:</p>
-    <code type="none">
+    <code type="erl">
 test() ->
     P = spawn(?MODULE, loop, [port]),
     register(call_server, spawn(?MODULE, loop, [])),

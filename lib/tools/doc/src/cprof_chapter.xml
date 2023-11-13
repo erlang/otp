@@ -94,7 +94,7 @@
   <section>
     <title>Example: Background work</title>
     <p>From the Erlang shell:</p>
-    <pre>
+    <pre type="erl">
 1> <input>cprof:start(), cprof:pause(). % Stop counters just after start</input>
 8492
 2> <input>cprof:analyse().</input>
@@ -138,7 +138,7 @@
   <section>
     <title>Example: One module</title>
     <p>From the Erlang shell:</p>
-    <pre>
+    <pre type="erl">
 1> <input>cprof:start(),R=calendar:day_of_the_week(1896,4,27),cprof:pause(),R.</input>
 1
 2> <input>cprof:analyse(calendar).</input>
@@ -167,7 +167,7 @@
   <section>
     <title>Example: In the code</title>
     <p>Write a module:</p>
-    <pre>
+    <pre type="erl">
 -module(sort).
 -export([do/1]).
 
@@ -183,7 +183,7 @@ do(0, L) ->
 do(N, L) ->
     do(N-1, [rand:uniform(256)-1 | L]).</pre>
     <p>From the Erlang shell:</p>
-    <pre>
+    <pre type="erl">
 1> <input>c(sort).</input>
 {ok,sort}
 2> <input>rand:seed(default, 42), ok.</input>

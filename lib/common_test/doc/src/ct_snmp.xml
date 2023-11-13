@@ -135,7 +135,7 @@
       you allocate in your test suite using a <c>require</c> statement.
       Example (where <c>MgrAgentConfName = snmp_mgr_agent</c>):</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt; [{require, snmp_mgr_agent, snmp}].</pre>
 
     <p>or</p>
@@ -155,7 +155,7 @@
       For example, to get the Erlang node name from <c>erlNodeTable</c>
       in the OTP-MIB:</p>
 
-    <pre>
+    <pre type="erl">
  Oid = ?erlNodeEntry ++ [?erlNodeName, 1]</pre>
 
     <p>Furthermore, values can be set for <c>SNMP</c> application configuration
@@ -163,7 +163,7 @@
       a list of valid parameters and types, see the  <seeguide marker="snmp:index"><c>User's Guide for the SNMP application</c></seeguide>). This is
       done by defining a configuration data variable on the following form:</p>
 
-    <pre>
+    <pre type="erl">
  {snmp_app, [{manager, [snmp_app_manager_params()]},
              {agent, [snmp_app_agent_params()]}]}.</pre>
 

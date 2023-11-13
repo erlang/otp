@@ -92,7 +92,7 @@
 
         <p><em>Example:</em></p>
 
-        <pre>
+        <pre type="erl">
  gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])</pre>
       </desc>
     </func>

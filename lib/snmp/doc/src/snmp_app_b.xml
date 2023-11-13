@@ -38,7 +38,7 @@
 
     <section>
       <title>RowStatus (from RFC1903)</title>
-      <pre>
+      <pre type="c">
 RowStatus ::= TEXTUAL-CONVENTION
     STATUS       current
     DESCRIPTION

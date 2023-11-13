@@ -197,7 +197,7 @@
       </type>
       <desc>
 	<p> Add an entry. The entry must not exist.</p>
-	<code>
+	<code type="erl">
   add(Handle,
       "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
        [{"objectclass", ["person"]},
@@ -259,7 +259,7 @@
       </type>
       <desc>
 	<p> Modify an entry.</p>
-	<code>
+	<code type="erl">
   modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
          [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
 	  eldap:mod_add("description", ["LDAP Hacker"]) ])
@@ -342,7 +342,7 @@
 	Default values: scope is <c>wholeSubtree()</c>, deref is <c>derefAlways()</c>,
 	types_only is <c>false</c> and timeout is <c>0</c> (meaning infinity).
 	</p>
-	<code>
+	<code type="erl">
   Filter = eldap:substrings("cn", [{any,"V"}]),
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</code>
@@ -453,7 +453,7 @@
 	<v>Attr = {matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}</v>
       </type>
       <desc> <p>Creates an extensible match filter. For example, </p>
-      <code>
+      <code type="erl">
   eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
       </code>
       <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
@@ -495,7 +495,7 @@
         <p>This function creates a control with the specified page
         size for use in
         <c>search/3</c>, for example:</p>
-   	<code>
+   	<code type="erl">
 Control = eldap:paged_result_control(50),
 {ok, SearchResults} = search(Handle, [{base, "dc=example, dc=com"}], [Control]),
 	</code>     
@@ -518,7 +518,7 @@ Control = eldap:paged_result_control(50),
         size and cookie for use in
         <c>search/3</c> to retrieve the next results page.</p>
         <p>For example:</p>
-        <code>
+        <code type="erl">
 PageSize = 50,
 Control1 = eldap:paged_result_control(PageSize),
 {ok, SearchResults1} = search(Handle, [{base, "dc=example, dc=com"}], [Control1]),

@@ -82,7 +82,7 @@
     <p>The following example shows how to reconstruct Erlang source code from
       the debug information in a BEAM file <c>Beam</c>:</p>
 
-    <code type="none">
+    <code type="erl">
 {ok,{_,[{abstract_code,{_,AC}}]}} = beam_lib:chunks(Beam,[abstract_code]).
 io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </section>
@@ -148,7 +148,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
 
     <p>File <c>.erlang.crypt</c> is to contain a single list of tuples:</p>
 
-    <code type="none">
+    <code type="erl">
 {debug_info, Mode, Module, Key}</code>
 
     <p><c>Mode</c> is the type of crypto algorithm; currently, the only
@@ -163,14 +163,14 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     <p>The following is an example of an <c>.erlang.crypt</c> file that returns
       the same key for all modules:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{debug_info, des3_cbc, [], "%>7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].]]></code>
 
     <p>The following is a slightly more complicated example of an
       <c>.erlang.crypt</c> providing one key for module
       <c>t</c> and another key for all other modules:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{debug_info, des3_cbc, t, "My KEY"},
  {debug_info, des3_cbc, [], "%>7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].]]></code>
 
@@ -385,7 +385,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
         <p>If a fun is already registered when attempting to
           register a fun, <c>{error, exists}</c> is returned.</p>
         <p>The fun must handle the following arguments:</p>
-        <code type="none">
+        <code type="erl">
 CryptoKeyFun(init) -> ok | {ok, NewCryptoKeyFun} | {error, Term}</code>
         <p>Called when the fun is registered, in the process that holds
           the fun. Here the crypto key fun can do any necessary
@@ -394,7 +394,7 @@ CryptoKeyFun(init) -> ok | {ok, NewCryptoKeyFun} | {error, Term}</code>
           <c>CryptoKeyFun</c>. If <c>{error, Term}</c> is returned,
           the registration is aborted and <c>crypto_key_fun/1</c>
           also returns <c>{error, Term}</c>.</p>
-        <code type="none">
+        <code type="erl">
 CryptoKeyFun({debug_info, Mode, Module, Filename}) -> Key</code>
         <p>Called when the key is needed for module <c>Module</c>
           in the file named <c>Filename</c>. <c>Mode</c> is the type of
@@ -561,7 +561,7 @@ CryptoKeyFun(clear) -> term()</code>
           returned. If there are many <c>-vsn</c> module attributes,
           the result is the concatenated list of versions.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>beam_lib:version(a).</input> % -vsn(1).
 {ok,{a,[1]}}
 2> <input>beam_lib:version(b).</input> % -vsn([1]).

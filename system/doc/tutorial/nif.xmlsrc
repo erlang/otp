@@ -127,7 +127,7 @@
 unix> <input>gcc -o complex6_nif.so -fpic -shared complex.c complex6_nif.c</input>
 windows> <input>cl -LD -MD -Fe complex6_nif.dll complex.c complex6_nif.c</input></pre>
     <p><em>Step 2:</em> Start Erlang and compile the Erlang code:</p>
-    <pre>
+    <pre type="erl">
 > <input>erl</input>
 Erlang R13B04 (erts-5.7.5) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
@@ -135,7 +135,7 @@ Eshell V5.7.5  (abort with ^G)
 1> <input>c(complex6).</input>
 {ok,complex6}</pre>
     <p><em>Step 3:</em> Run the example:</p>
-<pre>
+<pre type="erl">
 3> <input>complex6:foo(3).</input>
 4
 4> <input>complex6:bar(5).</input>

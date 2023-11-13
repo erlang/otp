@@ -57,7 +57,7 @@
       Finite State Machine, it can be described as
       a set of relations of the following form:
     </p>
-    <pre>
+    <pre type="erl">
 State(S) x Event(E) -> Actions(A), State(S')</pre>
     <p>
       These relations are interpreted as follows:
@@ -866,7 +866,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       near the rest of the <em>state transition</em> rules.
       It typically looks like this:
     </p>
-    <pre>
+    <pre type="erl">
 StateName(enter, OldState, Data) ->
     ... code for state enter actions here ...
     {keep_state, NewData};

@@ -347,7 +347,7 @@
       </p></item>
 
       <tag><marker id="ei_socket_callbacks"/><c>ei_socket_callbacks</c></tag>
-      <item><code type="none">
+      <item><code type="c">
 typedef struct {
     int flags;
     int (*socket)(void **ctx, void *setup_ctx);
@@ -393,7 +393,7 @@ typedef struct {
 
       <tag><marker id="erlang_msg"/><c>erlang_msg</c></tag>
       <item>
-	<code type="none">
+	<code type="c">
 typedef struct {
     long msgtype;
     erlang_pid from;
@@ -524,7 +524,7 @@ typedef struct {
           <c>connect</c><em>(2)</em>
           system calls may be propagated into <c>erl_errno</c>.</p>
         <p><em>Example:</em></p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 #define NODE   "madonna@chivas.du.etx.ericsson.se"
 #define ALIVE  "madonna"
 #define IP_ADDR "150.236.14.75"
@@ -627,7 +627,7 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
         <p>These functions return a negative value indicating that an error
           occurred.</p>
         <p><em>Example 1:</em></p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 unsigned n = 0;
 struct in_addr addr;
 ei_cnode ec;
@@ -644,7 +644,7 @@ if (ei_connect_xinit(&ec,
 }
         ]]></code>
         <p><em>Example 2:</em></p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     fprintf(stderr,"ERROR when initializing: %d",erl_errno);
     exit(-1);
@@ -1028,7 +1028,7 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
           <c>EIO</c>.</p>
         <p><em>Example:</em></p>
         <p>Send the atom "ok" to the process "worker":</p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 ei_x_buff x;
 ei_x_new_with_version(&x);
 ei_x_encode_atom(&x, "ok");
@@ -1206,7 +1206,7 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
         </taglist>
         <p><em>Example:</em></p>
         <p>Check to see if an Erlang process is alive:</p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 int index = 0, is_alive;
 ei_x_buff args, result;
 

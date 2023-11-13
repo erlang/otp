@@ -304,7 +304,7 @@
         the transaction that first acquired the lock has terminated. To
         illustrate this, assume that the following transaction is
         executed:</p>
-      <code type="none">
+      <code type="erl">
         F = fun() ->
               mnesia:write(#foo{a = kalle})
             end,
@@ -321,7 +321,7 @@
       </list>
       <p>If sticky locks are used, the code must first be changed as
         follows:</p>
-      <code type="none">
+      <code type="erl">
         F = fun() ->
               mnesia:s_write(#foo{a = kalle})
             end,
@@ -369,7 +369,7 @@
       </list>
       <p>Alternative syntax for acquisition of table locks is as
         follows:</p>
-      <code type="none">
+      <code type="erl">
         mnesia:lock({table, Tab}, read)
         mnesia:lock({table, Tab}, write)</code>
       <p>The matching operations in <c>Mnesia</c> can either lock the
@@ -562,13 +562,13 @@ mnesia:all_keys/1</seemfa>.
       most of the examples in this User's Guide. If a table is created
       without property <c>record_name</c>, the following code ensures
       that all records in the tables have the same name as the table:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:create_table(subscriber, [])</code>
     <p>However, if the table is created with an explicit record name
       as argument, as shown in the following example, subscriber records
       can be stored in both of the tables regardless of the table
       names:</p>
-    <code type="none">
+    <code type="erl">
       TabDef = [{record_name, subscriber}],
       mnesia:create_table(my_subscriber, TabDef),
       mnesia:create_table(your_subscriber, TabDef).</code>
@@ -580,14 +580,14 @@ mnesia:all_keys/1</seemfa>.
       <seemfa marker="mnesia#write/1">mnesia:write/1</seemfa>
       and
       <seemfa marker="mnesia#s_write/1">mnesia:s_write/1</seemfa>:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:write(subscriber, #subscriber{}, write)
       mnesia:write(my_subscriber, #subscriber{}, sticky_write)
       mnesia:write(your_subscriber, #subscriber{}, write)</code>
     <p>The following simple code illustrates the
       relationship between the simplified access functions used in
       most of the examples and their more flexible counterparts:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:dirty_write(Record) ->
         Tab = element(1, Record),
         mnesia:dirty_write(Tab, Record).
@@ -848,7 +848,7 @@ mnesia:all_keys/1</seemfa>.
       library functions that manipulate <c>Mnesia</c> tables.</p>
     <p>Consider a function that adds a subscriber to a telephony
       system:</p>
-    <pre>
+    <pre type="erl">
       add_subscriber(S) ->
           mnesia:transaction(fun() ->
               case mnesia:read( ..........</pre>
@@ -864,7 +864,7 @@ mnesia:all_keys/1</seemfa>.
       semantics if they are called inside a transaction and thus
       grab locks and use two or three phase commit.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
       add_subscriber(S) ->
           mnesia:transaction(fun() ->
              %% Transaction context 
@@ -890,7 +890,7 @@ mnesia:all_keys/1</seemfa>.
       provides the programmer with several functions for matching
       records against a pattern. The most useful ones
       are the following:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:select(Tab, MatchSpecification, LockKind) ->
           transaction abort | [ObjectList]
       mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->  
@@ -924,7 +924,7 @@ mnesia:all_keys/1</seemfa>.
       Do not make the pattern hard-coded, as this makes the code more
       vulnerable to future changes of the record definition.</p>
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
       Wildpattern = mnesia:table_info(employee, wild_pattern), 
       %% Or use
       Wildpattern = #employee{_ = '_'},</code>
@@ -934,14 +934,14 @@ mnesia:all_keys/1</seemfa>.
     <p>To constrain the match, it is needed to replace some
       of the <c>'_'</c> elements. The code for matching out
       all female employees looks as follows:</p>
-    <code type="none">
+    <code type="erl">
       Pat = #employee{sex = female, _ = '_'},
       F = fun() -> mnesia:match_object(Pat) end,
       Females = mnesia:transaction(F).</code>
     <p>The match function can also be used to check the equality of
       different attributes. For example, to find all employees with
       an employee number equal to their room number:</p>
-    <code type="none">
+    <code type="erl">
       Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
       F = fun() -> mnesia:match_object(Pat) end,
       Odd = mnesia:transaction(F).</code>
@@ -1027,7 +1027,7 @@ mnesia:all_keys/1</seemfa>.
     <p>If no options are specified, a read lock is acquired, 100
       results are returned in each chunk, and <c>select</c> is used
       to traverse the table, that is:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:table(Tab) ->
           mnesia:table(Tab, [{n_objects,100},{lock, read}, {traverse, select}]).</code>
     <p>The function
@@ -1040,7 +1040,7 @@ mnesia:all_keys/1</seemfa>.
     <marker id="iteration"></marker>
     <p><c>Mnesia</c> provides the following functions that iterate over all
       the records in a table:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
       mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
       mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
@@ -1070,7 +1070,7 @@ mnesia:all_keys/1</seemfa>.
       or when you want to perform some action on certain records.</p>
     <p>For example, finding all the employees who have a salary
       less than 10 can look as follows:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       find_low_salaries() ->
         Constraint = 
              fun(Emp, Acc) when Emp#employee.salary < 10 ->
@@ -1083,7 +1083,7 @@ mnesia:all_keys/1</seemfa>.
     ]]></code>
     <p>To raise the salary to 10 for everyone with a salary less than 10
       and return the sum of all raises:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       increase_low_salaries() ->
          Increase = 
              fun(Emp, Acc) when Emp#employee.salary < 10 ->
@@ -1105,7 +1105,7 @@ mnesia:all_keys/1</seemfa>.
     <p><c>Mnesia</c> also provides some functions that make it possible
       for the user to iterate over the table. The order of the iteration
       is unspecified if the table is not of type <c>ordered_set</c>:</p>
-    <code type="none">
+    <code type="erl">
       mnesia:first(Tab) ->  Key | transaction abort
       mnesia:last(Tab)  ->  Key | transaction abort
       mnesia:next(Tab,Key)  ->  Key | transaction abort

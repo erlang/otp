@@ -49,7 +49,7 @@
     <p>The <c>relup</c> file contains one single Erlang term, which
       defines the instructions used to upgrade the release. The file has
       the following syntax:</p>
-    <code type="none">
+    <code type="c">
 {Vsn,
   [{UpFromVsn, Descr, Instructions}, ...],
   [{DownToVsn, Descr, Instructions}, ...]}.</code>

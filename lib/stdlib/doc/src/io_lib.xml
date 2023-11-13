@@ -219,7 +219,7 @@
           </item>
         </taglist>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 3> <input>io_lib:fread("~f~f~f", "15.6 17.3e-6 24.5").</input>
 {ok,[15.6,1.73e-5,24.5],[]}</pre>
       </desc>
@@ -404,7 +404,7 @@
           defaults to -1, which means no limit on the number of
           characters returned.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9})).</input>
 "{1,[2],[3],[4,5],6,7,8,9}"
 2> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5)).</input>

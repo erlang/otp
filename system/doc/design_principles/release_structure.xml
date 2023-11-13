@@ -57,7 +57,7 @@
       or in short a <c>.rel</c> file. In the file, specify the name and
       version of the release, which ERTS version it is based on,
       and which applications it consists of:</p>
-    <code type="none">
+    <code type="erl">
 {release, {Name,Vsn}, {erts, EVsn},
  [{Application1, AppVsn1},
    ...
@@ -77,7 +77,7 @@
     <p><em>Example: </em> A release of <c>ch_app</c> from
       <seeguide marker="applications#ch_app">Applications</seeguide>
       has the following <c>.app</c> file:</p>
-    <code type="none">
+    <code type="erl">
 {application, ch_app,
  [{description, "Channel allocator"},
   {vsn, "1"},
@@ -89,7 +89,7 @@
     <p>The <c>.rel</c> file must also contain <c>kernel</c>,
       <c>stdlib</c>, and <c>sasl</c>, as these applications are required
       by <c>ch_app</c>. The file is called <c>ch_rel-1.rel</c>:</p>
-    <code type="none">
+    <code type="erl">
 {release,
  {"ch_rel", "A"},
  {erts, "5.3"},
@@ -158,7 +158,7 @@ Eshell V5.3  (abort with ^G)
     <p>The <c>systools:make_tar/1,2</c> function takes a <c>.rel</c> file
     as input and creates a zipped tar file with the code for the specified
     applications, a <em>release package</em>:</p>
-    <pre>
+    <pre type="erl">
 1> <input>systools:make_script("ch_rel-1").</input>
 ok
 2> <input>systools:make_tar("ch_rel-1").</input>

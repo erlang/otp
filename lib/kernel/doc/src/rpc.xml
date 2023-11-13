@@ -368,7 +368,7 @@
         <p>The following example is useful when new object code is to
           be loaded on all nodes in the network, and indicates
           some side effects that RPCs can produce:</p>
-        <code type="none">
+        <code type="erl">
 %% Find object code for module Mod
 {Mod, Bin, File} = code:get_object_code(Mod),
 

@@ -575,7 +575,7 @@
 	<item>
 	  <p>The fun must be defined as:</p>
 
-	  <code>
+	  <code type="erl">
 fun(OtpCert :: #'OTPCertificate'{},
     Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
              {extension, #'Extension'{}},
@@ -688,7 +688,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	<item>
 	  <p>The fun has the following type specification:</p>
 
-	  <code> fun(#'DistributionPoint'{}, #'CertificateList'{}) ->
+	  <code type="erl"> fun(#'DistributionPoint'{}, #'CertificateList'{}) ->
         #'CertificateList'{}</code>
 
 	  <p>The fun uses the information in the distribution point to access
@@ -702,7 +702,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	<item>
 	  <p>The fun has the following type specification:</p>
 	  
-	  <code>
+	  <code type="erl">
 fun(#'DistributionPoint'{}, #'CertificateList'{},
     {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
 	{ok, #'OTPCertificate'{}, [der_encoded]}</code>
@@ -710,7 +710,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	  <p>The fun returns the root certificate and certificate chain
 	  that has signed the CRL. 
 	  </p>
-	  <code> fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}</code>
+	  <code type="erl"> fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}</code>
 	</item>
 
 	<tag>{undetermined_details, boolean()}</tag>
@@ -879,7 +879,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	      
 	  <p>Default extensions included in CA certificates if not
 	  otherwise specified are: </p>
-	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+	  <code type="erl">[#'Extension'{extnID = ?'id-ce-keyUsage',
               extnValue = [keyCertSign, cRLSign],
               critical = false},
 #'Extension'{extnID = ?'id-ce-basicConstraints',
@@ -889,7 +889,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
 	  <p>Default extensions included in the server peer cert if not
 	  otherwise specified are: </p>
-	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+	  <code type="erl">[#'Extension'{extnID = ?'id-ce-keyUsage',
               extnValue = [digitalSignature, keyAgreement],
               critical = false},
 #'Extension'{extnID = ?'id-ce-subjectAltName',
@@ -963,7 +963,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <taglist>
 	<tag><c>match_fun</c></tag>
 	<item>
-	  <code>
+	  <code type="erl">
 fun(ReferenceId::ReferenceId() | FQDN::string(),
     PresentedId::{dNSName,string()} | {uniformResourceIdentifier,string() |
                  {iPAddress,list(byte())} | {OtherId::atom()|oid(),term()}})</code>

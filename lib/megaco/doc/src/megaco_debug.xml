@@ -141,7 +141,7 @@
             <p>Is best run by modifying the meas.sh.skel skeleton script
               provided by the tool.</p>
             <p>To run it manually do the following: </p>
-              <code type="none"><![CDATA[
+              <code type="erl"><![CDATA[
         % erl -pa <path-megaco-ebin-dir> -pa <path-to-meas-module-dir>
         Erlang (BEAM) emulator version 5.6 [source]
 
@@ -202,7 +202,7 @@ For each codec:
         <p>This is simply an erlang compatible text-file with the following 
           structure: <c>{codec_name(), messages_list()}</c>. </p>
 
-<pre>
+<pre type="erl">
 codec_name() = pretty | compact | ber | per | erlang      (how the messages are encoded)
 messages_list() = [{message_name(), message()}]
 message_name() = atom()

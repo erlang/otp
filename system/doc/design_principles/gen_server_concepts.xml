@@ -56,7 +56,7 @@
       The server can be reimplemented using <c>gen_server</c>,
       resulting in this callback module:</p>
     <marker id="ex"></marker>
-    <code type="none">
+    <code type="erl">
 -module(ch3).
 -behaviour(gen_server).
 
@@ -90,7 +90,7 @@ handle_cast({free, Ch}, Chs) ->
     <title>Starting a Gen_Server</title>
     <p>In the example in the previous section, <c>gen_server</c> is
     started by calling <c>ch3:start_link()</c>:</p>
-    <code type="none">
+    <code type="erl">
 start_link() ->
     gen_server:start_link({local, ch3}, ch3, [], []) => {ok, Pid}</code>
     <p><c>start_link</c> calls function <c>gen_server:start_link/4</c>.
@@ -131,7 +131,7 @@ start_link() ->
       expected to return <c>{ok, State}</c>, where <c>State</c> is the
       internal state of the <c>gen_server</c>. In this case, the state
       is the available channels.</p>
-    <code type="none">
+    <code type="erl">
 init(_Args) ->
     {ok, channels()}.</code>
     <p><c>gen_server:start_link</c> is synchronous. It does not return
@@ -162,7 +162,7 @@ alloc() ->
       the reply that is to be sent back to the client, and
       <c>State1</c> is a new value for the state of the
       <c>gen_server</c>.</p>
-    <code type="none">
+    <code type="erl">
 handle_call(alloc, _From, Chs) ->
     {Ch, Chs2} = alloc(Chs),
     {reply, Ch, Chs2}.</code>
@@ -178,7 +178,7 @@ handle_call(alloc, _From, Chs) ->
     <title>Asynchronous Requests - Cast</title>
     <p>The asynchronous request <c>free(Ch)</c> is implemented using
       <c>gen_server:cast/2</c>:</p>
-    <code type="none">
+    <code type="erl">
 free(Ch) ->
     gen_server:cast(ch3, {free, Ch}).</code>
     <p><c>ch3</c> is the name of the <c>gen_server</c>.
@@ -190,7 +190,7 @@ free(Ch) ->
       <c>handle_cast(Request, State)</c>, which is expected to
       return a tuple <c>{noreply,State1}</c>. <c>State1</c> is a new
       value for the state of the <c>gen_server</c>.</p>
-    <code type="none">
+    <code type="erl">
 handle_cast({free, Ch}, Chs) ->
     Chs2 = free(Ch, Chs),
     {noreply, Chs2}.</code>
@@ -215,7 +215,7 @@ handle_cast({free, Ch}, Chs) ->
 	be set to trap exit signals in function <c>init</c>. When ordered
         to shutdown, the <c>gen_server</c> then calls the callback
 	function <c>terminate(shutdown, State)</c>:</p>
-      <code type="none">
+      <code type="erl">
 init(Args) ->
     ...,
     process_flag(trap_exit, true),
@@ -233,7 +233,7 @@ terminate(shutdown, State) ->
       <title>Standalone Gen_Servers</title>
       <p>If the <c>gen_server</c> is not part of a supervision tree, a
         stop function can be useful, for example:</p>
-      <code type="none">
+      <code type="erl">
 ...
 export([stop/0]).
 ...
@@ -267,12 +267,12 @@ terminate(normal, State) ->
       must be implemented to handle them. Examples of other messages
       are exit messages, if the <c>gen_server</c> is linked to other
       processes (than the supervisor) and trapping exit signals.</p>
-    <code type="none">
+    <code type="erl">
 handle_info({'EXIT', Pid, Reason}, State) ->
     ..code to handle exits here..
     {noreply, State1}.</code>
     <p>The <c>code_change</c> method must also be implemented.</p>
-    <code type="none">
+    <code type="erl">
 code_change(OldVsn, State, Extra) ->
     ..code to convert state (and more) during code change
     {ok, NewState}.</code>

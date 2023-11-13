@@ -235,7 +235,7 @@
       difference between the pretty and compact versions of text messages. 
       First the pretty printed, well indented version with long keywords:</p>
     <p></p>
-    <pre>
+    <pre type="c">
 MEGACO/1 [124.124.124.222] 
   Transaction = 9998 { 
     Context = - { 

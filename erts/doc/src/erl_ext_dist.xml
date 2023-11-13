@@ -426,7 +426,7 @@
           and finally the actual message. This would all be encoded into:
         </p>
 
-        <code>
+        <code type="c">
 131,69,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,2,               %% Header with seq and frag id
 5,4,137,9,10,5,236,3,114,101,103,9,4,99,97,108,108,      %% Atom cache updates
 238,13,115,101,116,95,103,101,116,95,115,116,97,116,101,
@@ -447,13 +447,13 @@
          distribution header tags together with the sequence id and
          a fragment id of 2.
        </p>
-       <code>
+       <code type="erl">
 131,69,                   %% Start fragment header
 0,0,2,168,0,0,5,83,       %% The sequence ID
 0,0,0,0,0,0,0,2,           %% The fragment ID
 </code>
        <p>Then we have the updates to the atom cache:</p>
-       <code>
+       <code type="erl">
 5,4,137,9,  %% 5 atoms and their flags
 10,5,       %% The already cached atom ids
 236,3,114,101,103,  %% The atom 'reg'
@@ -483,14 +483,14 @@
        <p>
          When the atom cache is setup correctly the control message is sent.
        </p>
-       <code>104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,</code>
+       <code type="erl">104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,</code>
        <p>
          Note that up until here it is not allowed to fragments the message.
          The entire atom cache and control message has to be part of the
          starting fragment. After the control message the payload of the message
          is sent using 128 bytes:
        </p>
-       <code>
+       <code type="c">
 104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,
 104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -503,7 +503,7 @@
          fragments. The second fragment does not have any atom cache update
          instructions so it is a lot simpler:
        </p>
-       <code>
+       <code type="c">
 131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1, %% Continuation dist header 70 with seq and frag id
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, %% remaining payload
 0,0,0,0

@@ -226,7 +226,7 @@
 	</list>
 	<p>This is called <em>synchronized code replacement</em> and for
 	this the following instructions are used:</p>
-      <code type="none">
+      <code type="erl">
 {update, Module, {advanced, Extra}}
 {update, Module, supervisor}</code>
       <p><c>update</c> with argument <c>{advanced,Extra}</c> is used
@@ -243,7 +243,7 @@
         which processes that are <em>using</em> the module by
         traversing the supervision tree of each running application
         and checking all the child specifications:</p>
-      <code type="none">
+      <code type="erl">
 {Id, StartFunc, Restart, Shutdown, Type, Modules}</code>
       <p>A process uses a module if the name is listed in
         <c>Modules</c> in the child specification for the process.</p>
@@ -262,7 +262,7 @@
       <title>add_module and delete_module</title>
       <p>If a new module is introduced, the following instruction is
         used:</p>
-      <code type="none">
+      <code type="erl">
 {add_module, Module}</code>
       <p>The instruction loads the module and is necessary
         when running Erlang in embedded mode. It is not strictly
@@ -271,7 +271,7 @@
         loads unloaded modules.</p>
       <p>The opposite of <c>add_module</c> is <c>delete_module</c>, which
         unloads a module:</p>
-      <code type="none">
+      <code type="erl">
 {delete_module, Module}</code>
       <p>Any process, in any application, with <c>Module</c>
         as residence module, is killed when the instruction is
@@ -398,7 +398,7 @@
       file is created.
       The file is to be called <c>Application.appup</c>, where
       <c>Application</c> is the application name:</p>
-    <code type="none">
+    <code type="c">
 {Vsn,
  [{UpFromVsn1, InstructionsU1},
   ...,
@@ -429,7 +429,7 @@
       <c>ch3</c>, which returns the number of available channels (when
       trying out the example, change in a copy of the original
       directory, so that the first versions are still available):</p>
-    <code type="none">
+    <code type="erl">
 -module(ch3).
 -behaviour(gen_server).
 
@@ -465,7 +465,7 @@ handle_cast({free, Ch}, Chs) ->
     {noreply, Chs2}.</code>
     <p>A new version of the <c>ch_app.app</c> file must now be created,
       where the version is updated:</p>
-    <code type="none">
+    <code type="erl">
 {application, ch_app,
  [{description, "Channel allocator"},
   {vsn, "2"},
@@ -479,7 +479,7 @@ handle_cast({free, Ch}, Chs) ->
       load the new (old) version of the <c>ch3</c> callback module.
       Create the application upgrade file <c>ch_app.appup</c> in
       the <c>ebin</c> directory:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{load_module, ch3}]}],
  [{"1", [{load_module, ch3}]}]
@@ -509,7 +509,7 @@ handle_cast({free, Ch}, Chs) ->
       version of the <c>.rel</c> file is also needed. This time the file
       is called <c>ch_rel-2.rel</c> and the release version string is
       changed from "A" to "B":</p>
-    <code type="none">
+    <code type="erl">
 {release,
  {"ch_rel", "B"},
  {erts, "5.3"},
@@ -554,7 +554,7 @@ ok</pre>
       <c>$ROOT/releases</c>.</p>
     <p>First, <em>unpack</em> the release package.
       The files are then extracted from the package:</p>
-    <code type="none">
+    <code type="erl">
 release_handler:unpack_release(ReleaseName) => {ok, Vsn}</code>
    <list type="bulleted">
      <item><c>ReleaseName</c> is the name of the release package except
@@ -571,7 +571,7 @@ release_handler:unpack_release(ReleaseName) => {ok, Vsn}</code>
     <p>An unpacked release can be <em>installed</em>. The release
       handler then evaluates the instructions in <c>relup</c>, step by
       step:</p>
-    <code type="none">
+    <code type="erl">
 release_handler:install_release(Vsn) => {ok, FromVsn, []}</code>
     <p>If an error occurs during the installation, the system is
       rebooted using the old version of the release. If installation
@@ -588,7 +588,7 @@ release_handler:make_permanent(Vsn) => ok</code>
       <c>$ROOT/releases/start_erl.data</c>.</p>
     <p>To downgrade from <c>Vsn</c> to <c>FromVsn</c>,
       <c>install_release</c> must be called again:</p>
-    <code type="none">
+    <code type="erl">
 release_handler:install_release(FromVsn) => {ok, Vsn, []}</code>
     <p>An installed, but not permanent, release can be <em>removed</em>.
       Information about the release is then deleted from
@@ -622,7 +622,7 @@ release_handler:remove_release(Vsn) => ok</code>
       create a release package for the new version <c>"B"</c>. Remember to
       include (a possible updated) <c>sys.config</c> and the <c>relup</c> file,
       see <seeguide marker="#relup">Release Upgrade File</seeguide>.</p>
-      <pre>
+      <pre type="erl">
 1> <input>systools:make_script("ch_rel-2").</input>
 ok
 2> <input>systools:make_tar("ch_rel-2").</input>
@@ -653,7 +653,7 @@ releases/ch_rel-2.rel</code>
       to the <c>$ROOT/releases</c> directory.</p>
     <p><em>Step 5)</em> In the running target system, unpack the release
       package:</p>
-      <pre>
+      <pre type="erl">
 1> <input>release_handler:unpack_release("ch_rel-2").</input>
 {ok,"B"}</pre>
     <p>The new application version <c>ch_app-2</c> is installed under
@@ -665,14 +665,14 @@ releases/ch_rel-2.rel</code>
       <c>sys.config</c>, and <c>relup</c>.</p>
     <p><em>Step 6)</em> Check if the function <c>ch3:available/0</c> is
       available:</p>
-      <pre>
+      <pre type="erl">
 2> <input>ch3:available().</input>
 ** exception error: undefined function ch3:available/0</pre>
     <p><em>Step 7)</em> Install the new release. The instructions in
       <c>$ROOT/releases/B/relup</c> are executed one by one, resulting
       in the new version of <c>ch3</c> being loaded. The function
       <c>ch3:available/0</c> is now available:</p>
-      <pre>
+      <pre type="erl">
 3> <input>release_handler:install_release("B").</input>
 {ok,"A",[]}
 4> <input>ch3:available().</input>
@@ -687,7 +687,7 @@ releases/ch_rel-2.rel</code>
     <p><em>Step 8)</em> If the target system is now rebooted, it uses
       version "A" again. The "B" version must be made permanent, to be
       used when the system is rebooted.</p>
-      <pre>
+      <pre type="erl">
 7> <input>release_handler:make_permanent("B").</input>
 ok</pre>
     </section>
@@ -723,7 +723,7 @@ ok</pre>
     <p>After the installation, the application controller compares
       the old and new configuration parameters for all running
       applications and call the callback function:</p>
-    <code type="none">
+    <code type="erl">
 Module:config_change(Changed, New, Removed)</code>
     <list type="bulleted">
       <item><c>Module</c> is the application callback module as defined

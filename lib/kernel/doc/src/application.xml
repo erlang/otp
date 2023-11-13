@@ -234,7 +234,7 @@
           grouped using tuples to indicate that they have the same
           priority.</p>
 	  <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <p>This means that the application is preferably to be started
           at <c>cp1@cave</c>. If <c>cp1@cave</c> is down,

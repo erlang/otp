@@ -101,7 +101,7 @@
     <p>An event_handler tuple in argument <c>Opts</c> has the following definition 
     (see <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>):</p>
 
-    <pre>
+    <pre type="erl">
  {event_handler,EventHandlers}
 
  EventHandlers = EH | [EH]
@@ -109,7 +109,7 @@
  InitArgs = [term()]</pre>
 
     <p>In the following example, two event handlers for the <c>my_SUITE</c> test are installed:</p>
-    <pre>
+    <pre type="erl">
  1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).</pre>
     <p>Event handler <c>my_evh1</c> is started with <c>[]</c> as argument to the init function. 
     Event handler <c>my_evh2</c> is started with the name of the current node in the init argument list.</p>

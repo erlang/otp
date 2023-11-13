@@ -46,7 +46,7 @@
       followed by the field names of the record. Record and field names
       must be atoms. Each field can be given an optional default value.
       If no default value is supplied, <c>undefined</c> is used.</p>
-    <pre>
+    <pre type="erl">
 -record(Name, {Field1 [= Value1],
                ...
                FieldN [= ValueN]}).</pre>
@@ -76,7 +76,7 @@
     intended to be used to create patterns for ETS and Mnesia match
     functions.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 -record(person, {name, phone, address}).
 
 ...
@@ -96,7 +96,7 @@ Expr#Name.Field</pre>
     <pre>
 #Name.Field</pre>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 -record(person, {name, phone, address}).
 
 ...
@@ -124,7 +124,7 @@ Expr#Name{Field1=Expr1,...,FieldK=ExprK}</pre>
       guards. However all subexpressions, for example, for field
       initiations, must be valid guard expressions as well.</p>
     <p><em>Examples:</em></p>
-    <code type="none">
+    <code type="erl">
 handle(Msg, State) when Msg==#msg{to=void, no=3} ->
     ...
 
@@ -132,7 +132,7 @@ handle(Msg, State) when State#state.running==true ->
     ...</code>
     <p>There is also a type test BIF <c>is_record(Term, RecordTag)</c>.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 is_person(P) when is_record(P, person) ->
     true;
 is_person(_P) ->
@@ -152,7 +152,7 @@ is_person(_P) ->
   <section>
     <title>Nested Records</title>
     <p>Assume the following record definitions:</p>
-    <pre>
+    <pre type="erl">
 -record(nrec0, {name = "nested0"}).
 -record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
 -record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
@@ -174,7 +174,7 @@ N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},</pre>
     <title>Internal Representation of Records</title>
     <p>Record expressions are translated to tuple expressions during
       compilation. A record defined as:</p>
-    <pre>
+    <pre type="erl">
 -record(Name, {Field1,...,FieldN}).</pre>
     <p>is internally represented by the tuple:</p>
     <pre>
@@ -182,7 +182,7 @@ N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},</pre>
     <p>Here each <c>ValueI</c> is the default value for <c>FieldI</c>.</p>
     <p>To each module using records, a pseudo function is added
       during compilation to obtain information about records:</p>
-    <pre>
+    <pre type="erl">
 record_info(fields, Record) -> [Field]
 record_info(size, Record) -> Size</pre>
     <p><c>Size</c> is the size of the tuple representation, that is,

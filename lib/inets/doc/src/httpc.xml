@@ -399,7 +399,7 @@
             <p>In all of these cases, <c>ReplyInfo</c> has the following
             structure:</p>
 
-            <pre>
+            <pre type="erl">
  {RequestId, saved_to_file}
  {RequestId, {error, Reason}}
  {RequestId, Result}

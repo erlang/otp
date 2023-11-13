@@ -317,7 +317,7 @@
       queries <c>QH1</c> and <c>QH2</c> while removing all duplicates. This is
       accomplished by using option <c>unique</c>:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[qlc:q([X || X <- qlc:append(QH1, QH2)], {unique, true})]]></code>
 
     <p>The cost is substantial: every returned answer is stored
@@ -331,7 +331,7 @@
       alternative to the <c>unique</c> option, namely to sort the
       answers uniquely:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[qlc:sort(qlc:q([X || X <- qlc:append(QH1, QH2)], {unique, true})).]]></code>
 
     <p>This query also removes duplicates but the answers are
@@ -345,7 +345,7 @@
       code returns no more than five answers using an ETS table for
       storing the unique answers:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[C = qlc:cursor(qlc:q([X || X <- qlc:append(QH1, QH2)],{unique,true})),
 R = qlc:next_answers(C, 5),
 ok = qlc:delete_cursor(C),
@@ -355,7 +355,7 @@ R.]]></code>
       constraints on data from two or more tables. The following example
       does a natural join on two query handles on position 2:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[qlc:q([{X1,X2,X3,Y1} || 
           {X1,X2,X3} <- QH1, 
           {Y1,Y2} <- QH2, 
@@ -376,7 +376,7 @@ R.]]></code>
       that the excessively slow join method called "nested loop" has
       been chosen:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[qlc:q([{X1,X2,X3,Y1} || 
           {X1,X2,X3} <- QH1, 
           {Y1,Y2} <- QH2, 
@@ -407,7 +407,7 @@ R.]]></code>
       substitute the list of answers for <c>QH2</c> in the query. Another way
       is to use option <c>cache</c>. It is expressed like this:</p>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[QH2' = qlc:q([X || X <- QH2], {cache, ets})]]></code>
 
     <p>or only</p>
@@ -455,7 +455,7 @@ R.]]></code>
       marker="gb_trees"><c>gb_trees</c></seeerl> module is given:</p>
       <marker id="gb_table"/>
 
-    <code type="none">
+    <code type="erl">
 <![CDATA[-module(gb_table).
 
 -export([table/1]).
@@ -577,7 +577,7 @@ gb_iter(I0, N, EFun) ->
       constant is free of integers, it does not matter which one of
       <c>==/2</c> or <c>=:=/2</c> is used:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>E1 = ets:new(t, [set]), % uses =:=/2 for key equality</input>
 <input>Q1 = qlc:q([K ||</input>
 <input>{K} &lt;- ets:table(E1),</input>
@@ -603,7 +603,7 @@ ets:match_spec_run(
       constant; every combination of integers and floats must be
       looked up:</p>
 
-    <pre>
+    <pre type="erl">
 2> <input>E2 = ets:new(t, [set]),</input>
 <input>true = ets:insert(E2, [{{2,2},a},{{2,2.0},b},{{2.0,2},c}]),</input>
 <input>F2 = fun(I) -></input>
@@ -626,7 +626,7 @@ ets:table(#Ref&lt;0.3098908599.2283929601.256125>,
       which operator is used in the QLC. However, <c>==/2</c> is to
       be preferred:</p>
 
-    <pre>
+    <pre type="erl">
 4> <input>E3 = ets:new(t, [ordered_set]), % uses ==/2 for key equality</input>
 <input>true = ets:insert(E3, [{{2,2.0},b}]),</input>
 <input>F3 = fun(I) -></input>
@@ -766,7 +766,7 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
           <c>spawn_options</c> is used as last argument when calling
           <c>spawn_opt/2</c>. Defaults to <c>[link]</c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>QH = qlc:q([{X,Y} || X &lt;- [a,b], Y &lt;- [1,2]]),</input>
 <input>QC = qlc:cursor(QH),</input>
 <input>qlc:next_answers(QC, 1).</input>
@@ -801,7 +801,7 @@ ok</pre>
         <p>Evaluates a query handle in the
           calling process and collects all answers in a list.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>QH = qlc:q([{X,Y} || X &lt;- [a,b], Y &lt;- [1,2]]),</input>
 <input>qlc:eval(QH).</input>
 [{a,1},{a,2},{b,1},{b,2}]</pre>
@@ -824,7 +824,7 @@ ok</pre>
           <c><anno>Acc0</anno></c> is returned if there are no answers
           to the query handle.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>QH = [1,2,3,4,5,6],</input>
 <input>qlc:fold(fun(X, Sum) -> X + Sum end, 0, QH).</input>
 21</pre>
@@ -891,7 +891,7 @@ ok</pre>
         <p><em>Examples:</em></p>
         <p>In the following example two simple QLCs are inserted only to
           hold option <c>{unique,&nbsp;true}</c>:</p>
-        <pre>
+        <pre type="erl">
 1> <input>QH = qlc:q([{X,Y} || X &lt;- [x,y], Y &lt;- [a,b]]),</input>
 <input>io:format("~s~n", [qlc:info(QH, unique_all)]).</input>
 begin
@@ -919,7 +919,7 @@ end</pre>
           method chosen. A convention is used for lookup join: the
           first generator (<c>G2</c>) is the one traversed, the second
           (<c>G1</c>) is the table where constants are looked up.</p>
-        <pre>
+        <pre type="erl">
 1> <input>E1 = ets:new(e1, []),</input>
 <input>E2 = ets:new(e2, []),</input>
 <input>true = ets:insert(E1, [{1,a},{2,b}]),</input>
@@ -999,7 +999,7 @@ end</pre>
           The QLC must be the first argument to this function, otherwise
           it is evaluated as an ordinary list comprehension. It is also
           necessary to add the following line to the source code:</p>
-        <code type="none">
+        <code type="erl">
 -include_lib("stdlib/include/qlc.hrl").</code>
         <p>This causes a parse transform to substitute a fun for the QLC. The
           (compiled) fun is called when the query handle is evaluated.</p>
@@ -1010,7 +1010,7 @@ end</pre>
           is also true when expressions are evaluated by
           <c>file:eval/1,2</c> or in the debugger.</p>
         <p>To be explicit, this does not work:</p>
-        <pre>
+        <pre type="erl">
 ...
 A = [X || {X} &lt;- [{1},{2}]],
 QH = qlc:q(A),
@@ -1076,7 +1076,7 @@ QH = qlc:q(A),
           traversed for each value of <c>A</c>. Notice that without option
           <c>cache</c> the join would have been carried out
           three times, once for each value of <c>A</c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>Q = qlc:q([{A,X,Z,W} ||</input>
 <input>A &lt;- [a,b,c],</input>
 <input>{X,Z} &lt;- [{a,1},{b,4},{c,6}],</input>
@@ -1137,7 +1137,7 @@ end</pre>
           <c>{1,a}</c>, <c>{1,b}</c>, <c>{1,c}</c>, <c>{2,a}</c>,
           <c>{2,b}</c>, and <c>{2,c}</c>. The reason is that the two
           elements of key <c>{X,&nbsp;Y}</c> are compared separately.</p>
-        <pre>
+        <pre type="erl">
 1> <input>T = gb_trees:empty(),</input>
 <input>QH = qlc:q([X || {{X,Y},_} &lt;- gb_table:table(T),</input>
 <input>((X == 1) or (X == 2)) andalso</input>
@@ -1234,7 +1234,7 @@ ets:match_spec_run(
           <seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>.
           The query string is to be one single QLC terminated by a period.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>L = [1,2,3],</input>
 <input>Bs = erl_eval:add_binding('L', L, erl_eval:new_bindings()),</input>
 <input>QH = qlc:string_to_handle("[X+1 || X &lt;- L].", [], Bs),</input>

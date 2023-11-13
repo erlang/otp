@@ -613,11 +613,11 @@
           the previous checksum, <c><anno>OldAdler</anno></c>, with
           the checksum of <c><anno>Data</anno></c>.</p>
         <p>The following code:</p>
-        <code>
+        <code type="erl">
 X = erlang:adler32(Data1),
 Y = erlang:adler32(X,Data2).</code>
         <p>assigns the same value to <c>Y</c> as this:</p>
-        <code>
+        <code type="erl">
 Y = erlang:adler32([Data1,Data2]).</code>
       </desc>
     </func>
@@ -630,11 +630,11 @@ Y = erlang:adler32([Data1,Data2]).</code>
           This computation requires the size of the data object for
           the second checksum to be known.</p>
         <p>The following code:</p>
-        <code>
+        <code type="erl">
 Y = erlang:adler32(Data1),
 Z = erlang:adler32(Y,Data2).</code>
         <p>assigns the same value to <c>Z</c> as this:</p>
-        <code>
+        <code type="erl">
 X = erlang:adler32(Data1),
 Y = erlang:adler32(Data2),
 Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
@@ -671,7 +671,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	  </p></item>
 	</taglist>
 	<p>Example:</p>
-        <code>
+        <code type="erl">
 server() ->
     receive
         {request, AliasReqId, Request} ->
@@ -721,7 +721,7 @@ client(ServerPid, Request) ->
           Semantically equivalent to
           <c>list_to_tuple(tuple_to_list(<anno>Tuple1</anno>) ++
           [<anno>Term</anno>])</c>, but much faster. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:append_element({one, two}, three).</input>
 {one,two,three}</pre>
       </desc>
@@ -754,7 +754,7 @@ client(ServerPid, Request) ->
           The applied function must
           be exported from <c>Module</c>. The arity of the function is
           the length of <c>Args</c>. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>apply(lists, reverse, [[a, b, c]]).</input>
 [c,b,a]
 > <input>apply(erlang, atom_to_list, ['Erlang']).</input>
@@ -836,14 +836,14 @@ client(ServerPid, Request) ->
         <c><anno>PosLen</anno></c>.</p>
       <p>Negative length can be used to extract bytes at the end
         of a binary, for example:</p>
-<code>
+<code type="erl">
 1> Bin = &lt;&lt;1,2,3,4,5,6,7,8,9,10&gt;&gt;.
 2> binary_part(Bin,{byte_size(Bin), -5}).
 &lt;&lt;6,7,8,9,10&gt;&gt;</code>
       <p>Failure: <c>badarg</c> if <c><anno>PosLen</anno></c> in any way
         references outside the binary.</p>
       <p><c><anno>Start</anno></c> is zero-based, that is:</p>
-<code>
+<code type="erl">
 1> Bin = &lt;&lt;1,2,3&gt;&gt;
 2> binary_part(Bin,{0,2}).
 &lt;&lt;1,2&gt;&gt;</code>
@@ -903,7 +903,7 @@ client(ServerPid, Request) ->
           (section Advanced)</seeguide>.</p>
         </note>
         <p>Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
 'Erlang'</pre>
         <pre>
@@ -1059,7 +1059,7 @@ client(ServerPid, Request) ->
           binary object <c><anno>Binary</anno></c>, which must be encoded
           according to the <seeguide marker="erts:erl_ext_dist">
           Erlang external term format</seeguide>.</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin = term_to_binary(hello).</input>
 &lt;&lt;131,100,0,5,104,101,108,108,111>>
 > <input>hello = binary_to_term(Bin).</input>
@@ -1100,7 +1100,7 @@ hello
               creation of new external function references.
               None of those resources are garbage collected, so unchecked
               creation of them can exhaust available memory.</p>
-        <pre>
+        <pre type="erl">
 > <input>binary_to_term(&lt;&lt;131,100,0,5,"hello">>, [safe]).</input>
 ** exception error: bad argument
 > <input>hello.</input>
@@ -1122,7 +1122,7 @@ hello
           <item>
 	    <p>Changes the return value to <c>{Term, Used}</c> where <c>Used</c>
 	    is the number of bytes actually read from <c>Binary</c>.</p>
-        <pre>
+        <pre type="erl">
 > <input>Input = &lt;&lt;131,100,0,5,"hello","world">>.</input>
 &lt;&lt;131,100,0,5,104,101,108,108,111,119,111,114,108,100>>
 > <input>{Term, Used} = binary_to_term(Input, [used]).</input>
@@ -1149,7 +1149,7 @@ hello
       <desc>
         <p>Returns an integer that is the size in bits of
           <c><anno>Bitstring</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>bit_size(&lt;&lt;433:16,3:3&gt;&gt;).</input>
 19
 > <input>bit_size(&lt;&lt;1,2,3&gt;&gt;).</input>
@@ -1166,7 +1166,7 @@ hello
           <c><anno>Bitstring</anno></c>. If the number of bits in the binary
           is not divisible by 8, the last element of the list is a bitstring
         containing the remaining 1-7 bits. Examples:</p>
-                <pre>
+                <pre type="erl">
 > <input>bitstring_to_list(&lt;&lt;433:16&gt;&gt;).</input>
 [1,177]</pre>
                 <pre>
@@ -1201,7 +1201,7 @@ hello
           contain <c><anno>Bitstring</anno></c>. That is, if the number of bits
           in <c><anno>Bitstring</anno></c> is not divisible by 8, the resulting
           number of bytes is rounded <em>up</em>. Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>byte_size(&lt;&lt;433:16,3:3&gt;&gt;).</input>
 3
 > <input>byte_size(&lt;&lt;1,2,3&gt;&gt;).</input>
@@ -1475,11 +1475,11 @@ hello
           the previous checksum, <c><anno>OldCrc</anno></c>, with the checksum
           of <c><anno>Data</anno></c>.</p>
         <p>The following code:</p>
-        <code>
+        <code type="erl">
 X = erlang:crc32(Data1),
 Y = erlang:crc32(X,Data2).</code>
         <p>assigns the same value to <c>Y</c> as this:</p>
-        <code>
+        <code type="erl">
 Y = erlang:crc32([Data1,Data2]).</code>
       </desc>
     </func>
@@ -1492,11 +1492,11 @@ Y = erlang:crc32([Data1,Data2]).</code>
           This computation requires the size of the data object for
           the second checksum to be known.</p>
         <p>The following code:</p>
-        <code>
+        <code type="erl">
 Y = erlang:crc32(Data1),
 Z = erlang:crc32(Y,Data2).</code>
         <p>assigns the same value to <c>Z</c> as this:</p>
-	<code>
+	<code type="erl">
 X = erlang:crc32(Data1),
 Y = erlang:crc32(Data2),
 Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
@@ -1512,7 +1512,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           the underlying OS. The return value is based on the <seeguide
         marker="time_correction#os-system-time">OS System
         Time</seeguide>. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>date().</input>
 {1995,2,19}</pre>
       </desc>
@@ -1626,7 +1626,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           </item>
         </taglist>
         <p>Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:decode_packet(1,&lt;&lt;3,"abcd"&gt;&gt;,[]).</input>
 {ok,&lt;&lt;"abc"&gt;&gt;,&lt;&lt;"d"&gt;&gt;}
 > <input>erlang:decode_packet(1,&lt;&lt;5,"abcd"&gt;&gt;,[]).</input>
@@ -1641,7 +1641,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
       <desc>
         <p>Returns a new tuple with element at <c><anno>Index</anno></c>
           removed from tuple <c><anno>Tuple1</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:delete_element(2, {one, two, three}).</input>
 {one,three}</pre>
       </desc>
@@ -1732,7 +1732,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               monitoring has been stopped.</p>
             <p>Calling <c>demonitor(<anno>MonitorRef</anno>, [flush])</c>
               is equivalent to the following, but more efficient:</p>
-            <code type="none">
+            <code type="erl">
 demonitor(MonitorRef),
 receive
     {_, MonitorRef, _, _, _} ->
@@ -2047,7 +2047,7 @@ end</code>
       <desc>
         <p>Returns the <c><anno>N</anno></c>th element (numbering from 1) of
           <c><anno>Tuple</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>element(2, {a, b, c}).</input>
 b</pre>
         <p>Allowed in guard tests.</p>
@@ -2060,7 +2060,7 @@ b</pre>
       <desc>
         <p>Returns the process dictionary and deletes it, for
           example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(key1, {1, 2, 3}),</input>
 <input>put(key2, [a, b, c]),</input>
 <input>erase().</input>
@@ -2081,7 +2081,7 @@ b</pre>
         O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
         where <c>N</c> is the number of items in the process
         dictionary. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(key1, {merry, lambs, are, playing}),</input>
 <input>X = erase(key1),</input>
 <input>{X, erase(key1)}.</input>
@@ -2102,7 +2102,7 @@ b</pre>
           type). See the guide about <seeguide
           marker="system/reference_manual:errors">errors and error
           handling</seeguide> for additional information. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{shell,apply_fun,3,
                         [{file,"shell.erl"},{line,906}]},
@@ -2133,7 +2133,7 @@ b</pre>
           marker="system/reference_manual:errors">errors and error
           handling</seeguide> for additional information. Example:</p>
           <p><c>test.erl</c>:</p>
-<code>
+<code type="erl">
 -module(test).
 -export([example_fun/2]).
 
@@ -2141,7 +2141,7 @@ example_fun(A1, A2) ->
     erlang:error(my_error, [A1, A2]).
 </code>
 <p>Erlang shell:</p>
-<pre>
+<pre type="erl">
 <input>6> c(test).</input>
 {ok,test}
 <input>7> test:example_fun(arg1,"this is the second argument").</input>
@@ -2202,7 +2202,7 @@ example_fun(A1, A2) ->
         <p>
           Example:
         </p>
-        <pre>
+        <pre type="erl">
 > <input>exit(foobar).</input>
 ** exception exit: foobar
 > <input>catch exit(foobar).</input>
@@ -2323,7 +2323,7 @@ example_fun(A1, A2) ->
         <p>Calculates, without doing the encoding, the maximum byte size for
           a term encoded in the Erlang external term format. The following
           condition applies always:</p>
-          <pre>
+          <pre type="erl">
 > <input>Size1 = byte_size(term_to_binary(<anno>Term</anno>)),</input>
 > <input>Size2 = erlang:external_size(<anno>Term</anno>),</input>
 > <input>true = Size1 =&lt; Size2.</input>
@@ -2342,7 +2342,7 @@ erlang:external_size(<anno>Term</anno>, [])</code>
         <p>Calculates, without doing the encoding, the maximum byte size for
           a term encoded in the Erlang external term format. The following
           condition applies always:</p>
-          <pre>
+          <pre type="erl">
 > <input>Size1 = byte_size(term_to_binary(<anno>Term</anno>, <anno>Options</anno>)),</input>
 > <input>Size2 = erlang:external_size(<anno>Term</anno>, <anno>Options</anno>),</input>
 > <input>true = Size1 =&lt; Size2.</input>
@@ -2395,7 +2395,7 @@ true</pre>
           point formatting. <c><anno>Options</anno></c> behaves in the same
           way as <seemfa marker="#float_to_list/2">
           <c>float_to_list/2</c></seemfa>. Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>float_to_binary(7.12, [{decimals, 4}]).</input>
 &lt;&lt;"7.1200">>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
@@ -2459,7 +2459,7 @@ true</pre>
           </item>
         </list>
         <p>Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>float_to_list(7.12, [{decimals, 4}]).</input>
 "7.1200"
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
@@ -2681,14 +2681,14 @@ of Floating Point Numbers</seeguide>.</p>
           versions.</p>
         </change>
         <p>Examples:</p>
-        <code>
+        <code type="erl">
 -module(test).
 -export([add/1, add2/0, fun_tuple/0]).
 add(A) -> fun(B) -> A + B end.
 add2() -> fun add/1.
 fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
         </code>
-<pre>
+<pre type="erl">
 > <input>{fun test:add/1, test:add2()}.</input>
 {fun test:add/1,#Fun&lt;test.1.107738983>}
 </pre>
@@ -2708,7 +2708,7 @@ account.</p>
 </pre>
 <p>Explanation: The string representations differ because the funs
 come from different fun expressions.</p>
-<pre>
+<pre type="erl">
 > <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
 {#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
 </pre>
@@ -2829,7 +2829,7 @@ uncompiled code with the same arity are mapped to the same list by
         <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples.
         The items in the returned list can be in any order.
         Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
 <input>put(key3, {are, playing}),</input>
@@ -2849,7 +2849,7 @@ uncompiled code with the same arity are mapped to the same list by
           O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
           where <c>N</c> is the number of items in the process
           dictionary. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
 <input>put({any, [valid, term]}, {are, playing}),</input>
@@ -2888,7 +2888,7 @@ uncompiled code with the same arity are mapped to the same list by
         <p>Returns a list of all keys present in the process dictionary.
         The items in the returned list can be in any order.
         Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(dog, {animal,1}),</input>
 <input>put(cow, {animal,2}),</input>
 <input>put(lamb, {animal,3}),</input>
@@ -2905,7 +2905,7 @@ uncompiled code with the same arity are mapped to the same list by
         <c><anno>Val</anno></c> in the process dictionary.
         The items in the returned list can be in any order.
         Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>put(mary, {1, 2}),</input>
 <input>put(had, {1, 2}),</input>
 <input>put(a, {1, 2}),</input>
@@ -3171,7 +3171,7 @@ os_prompt%</pre>
         <pre>
 > <input>hd([1,2,3,4,5]).</input>
 1</pre>
-        <pre>
+        <pre type="erl">
 > <input>hd([first, second, third, so_on | improper_end]).</input>
 first</pre>
         <p>Allowed in guard tests.</p>
@@ -3236,7 +3236,7 @@ first</pre>
           All elements from position <c><anno>Index</anno></c> and upwards are
           pushed one step higher in the new tuple <c><anno>Tuple2</anno></c>.
           Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:insert_element(2, {one, two, three}, new).</input>
 {one,new,two,three}</pre>
       </desc>
@@ -3299,7 +3299,7 @@ first</pre>
         <p>Returns an integer, that is the size in bytes,
           of the binary that would be the result of
           <c>iolist_to_binary(<anno>Item</anno>)</c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>iolist_size([1,2|&lt;&lt;3,4>>]).</input>
 4</pre>
       </desc>
@@ -3311,7 +3311,7 @@ first</pre>
       <desc>
         <p>Returns a binary that is made from the integers and
           binaries in <c><anno>IoListOrBinary</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
@@ -3339,7 +3339,7 @@ first</pre>
           is that it does not have to copy
           <seeguide marker="system/efficiency_guide:binaryhandling#refc_binary">
             off-heap binaries</seeguide>. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
@@ -3504,7 +3504,7 @@ first</pre>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Map = #{"42" => value}.
 #{"42" => value}
 > is_map_key("42",Map).
@@ -3642,7 +3642,7 @@ is_process_alive(P2Pid),
       <fsummary>Length of a list.</fsummary>
       <desc>
         <p>Returns the length of <c><anno>List</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>length([1,2,3,4,5,6,7,8,9]).</input>
 9</pre>
         <p>Allowed in guard tests.</p>
@@ -3766,7 +3766,7 @@ is_process_alive(P2Pid),
           (section Advanced)</seeguide>.</p>
         </note>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>list_to_atom("Erlang").</input>
 'Erlang'</pre>
       </desc>
@@ -3778,7 +3778,7 @@ is_process_alive(P2Pid),
       <desc>
         <p>Returns a binary that is made from the integers and
           binaries in <c><anno>IoList</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
@@ -3799,7 +3799,7 @@ is_process_alive(P2Pid),
           bitstrings in <c><anno>BitstringList</anno></c>. (The last tail in
           <c><anno>BitstringList</anno></c> is allowed to be a bitstring.)
           Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
@@ -3861,7 +3861,7 @@ is_process_alive(P2Pid),
         <pre>
 > <input>list_to_integer("123").</input>
 123</pre>
-        <pre>
+        <pre type="erl">
 > <input>list_to_integer("-123").</input>
 -123</pre>
         <pre>
@@ -3967,7 +3967,7 @@ is_process_alive(P2Pid),
       <desc>
         <p>Returns a tuple corresponding to <c><anno>List</anno></c>,
           for example</p>
-        <pre>
+        <pre type="erl">
 > <input>list_to_tuple([share, ['Ericsson_B', 163]]).</input>
 {share, ['Ericsson_B', 163]}</pre>
         <p><c><anno>List</anno></c> can contain any Erlang terms.</p>
@@ -4096,7 +4096,7 @@ is_process_alive(P2Pid),
         <p>Returns the current local date and time,
           <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c>,
           for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:localtime().</input>
 {{1996,11,6},{14,45,17}}</pre>
         <p>The time zone and Daylight Saving Time correction depend on
@@ -4115,7 +4115,7 @@ is_process_alive(P2Pid),
           (UTC), if supported by the underlying OS. Otherwise
           no conversion is done and <c><anno>Localtime</anno></c>
           is returned. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).</input>
 {{1996,11,6},{13,45,17}}</pre>
         <p>Failure: <c>badarg</c> if <c><anno>Localtime</anno></c> denotes an
@@ -4137,7 +4137,7 @@ is_process_alive(P2Pid),
           OS can guess, which is the same as calling
           <c>erlang:localtime_to_universaltime(<anno>Localtime</anno>)</c>.</p>
         <p>Examples:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}, true).</input>
 {{1996,11,6},{12,45,17}}
 > <input>erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}, false).</input>
@@ -4172,7 +4172,7 @@ is_process_alive(P2Pid),
       <desc>
         <p>Creates a new tuple of the specified <c><anno>Arity</anno></c>, where
           all elements are <c><anno>InitialValue</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:make_tuple(4, []).</input>
 {[],[],[],[]}</pre>
       </desc>
@@ -4190,7 +4190,7 @@ is_process_alive(P2Pid),
           newly created tuple and the second element is any term. If a
           position occurs more than once in the list, the term corresponding
           to the last occurrence is used. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).</input>
 {[],aa,[],[],zz}</pre>
       </desc>
@@ -4207,7 +4207,7 @@ is_process_alive(P2Pid),
           <c><anno>Map</anno></c> is not a map, or with a <c>{badkey,Key}</c>
           exception if no value is associated with <c><anno>Key</anno></c>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > Key = 1337,
   Map = #{42 => value_two,1337 => "value one","a" => 1},
   map_get(Key,Map).
@@ -4222,7 +4222,7 @@ is_process_alive(P2Pid),
       <desc>
         <p>Returns an integer, which is the number of key-value pairs
           in <c><anno>Map</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>map_size(#{a=>1, b=>2, c=>3}).</input>
 3</pre>
         <p>Allowed in guard tests.</p>
@@ -4544,7 +4544,7 @@ RealSystem = system + MissedSystem</code>
           <pre>
 > <input>min(1, 1.0).</input>
 1</pre>
-          <pre>
+          <pre type="erl">
 > <input>min("abc", "b").</input>
 "abc"</pre>
         <p>Allowed in guard tests.</p>
@@ -4582,7 +4582,7 @@ RealSystem = system + MissedSystem</code>
 	  entity identified by <c><anno>Item</anno></c>. If the monitored entity
           does not exist or it changes monitored state, the caller of
           <c>monitor/2</c> is notified by a message on the following format:</p>
-        <code type="none">
+        <code type="erl">
 {Tag, <anno>MonitorRef</anno>, <anno>Type</anno>, Object, Info}</code>
 	<note>
           <p>The monitor request is an asynchronous signal. That is, it
@@ -4608,7 +4608,7 @@ RealSystem = system + MissedSystem</code>
 
         <p>When a <c>process</c> or <c>port</c> monitor is triggered,
           a <c>'DOWN'</c> message is sent that has the following pattern:</p>
-          <code type="none">
+          <code type="erl">
 {'DOWN', MonitorRef, Type, Object, Info}</code>
 
         <p>In the monitor message <c>MonitorRef</c> and <c>Type</c> are the
@@ -4816,7 +4816,7 @@ RealSystem = system + MissedSystem</code>
 	      </p></item>
 	    </taglist>
 	    <p>Example:</p>
-            <code>
+            <code type="erl">
 server() ->
     receive
         {request, AliasReqId, Request} ->
@@ -4866,7 +4866,7 @@ client(ServerPid, Request) ->
 	      receive optimization</seeguide>, introduced in OTP 24, when making
 	      multiple requests to different servers:
 	    </p>
-            <code>
+            <code type="erl">
 server() ->
     receive
         {request, From, ReqId, Request} ->
@@ -5699,7 +5699,7 @@ receive_replies(ReqId, N, Acc) ->
       <desc>
         <p>Returns a string corresponding to the text
         representation of <c><anno>Pid</anno></c>. Example:</p>
-         <pre>
+         <pre type="erl">
 > <input>erlang:pid_to_list(self()).</input>
 "&lt;0.85.0>"</pre>
 <note>
@@ -7239,7 +7239,7 @@ receive_replies(ReqId, N, Acc) ->
           O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
           where <c>N</c> is the number of items in the process
           dictionary. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>X = put(name, walrus), Y = put(name, carpenter),</input>
 <input>Z = get(name),</input>
 <input>{X, Y, Z}.</input>
@@ -7424,7 +7424,7 @@ true</pre>
         <p>Returns a list of names that have been registered using
           <seemfa marker="#register/2"><c>register/2</c></seemfa>, for
           example:</p>
-        <pre>
+        <pre type="erl">
 > <input>registered().</input>
 [code_server, file_server, init, user, my_db]</pre>
       </desc>
@@ -7486,7 +7486,7 @@ true</pre>
         <pre>
 <input>round(-5.5).</input>
 -6</pre>
-        <pre>
+        <pre type="erl">
 <input>round(36028797018963969.0).</input>
 36028797018963968</pre>
       <p>In the last example, <c>round(36028797018963969.0)</c>
@@ -7730,7 +7730,7 @@ true</pre>
           <c><anno>Index</anno></c>
           (the first element is the element with index 1) replaced by
           argument <c><anno>Value</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>setelement(2, {10, green, bottles}, red).</input>
 {10,red,bottles}</pre>
       </desc>
@@ -7742,7 +7742,7 @@ true</pre>
       <desc>
         <p>Returns the number of elements in a tuple or the number of
           bytes in a binary or bitstring, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>size({morni, mulle, bwange}).</input>
 3
 > <input>size(&lt;&lt;11, 22, 33&gt;&gt;).</input>
@@ -8613,7 +8613,7 @@ true</pre>
           position <c><anno>Pos</anno></c>.
           This is not a destructive operation. After the operation,
           there are three binaries altogether. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>B = list_to_binary("0123456789").</input>
 &lt;&lt;"0123456789">>
 > <input>byte_size(B).</input>
@@ -8822,7 +8822,7 @@ true</pre>
           contains data about how much time has been spent in the various
           states.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:statistics(microstate_accounting).</input>
 [#{counters => #{aux => 1899182914,
                  check_io => 2605863602,
@@ -8837,7 +8837,7 @@ true</pre>
           <seemfa marker="kernel:os#perf_counter/0">
           <c>os:perf_counter/0</c></seemfa>.
           So, to convert it to milliseconds, you can do something like this:</p>
-        <pre>
+        <pre type="erl">
 lists:map(
   fun(#{ counters := Cnt } = M) ->
           MsCnt = maps:map(fun(_K, PerfCount) ->
@@ -9144,14 +9144,14 @@ lists:map(
         <p>You can use <c>scheduler_wall_time</c> to calculate
           scheduler utilization. First you take a sample of the values
           returned by <c>erlang:statistics(scheduler_wall_time)</c>.</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
 > <input>Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok</pre>
         <p>Some time later the user takes another snapshot and calculates
           scheduler utilization per scheduler, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok
 > <input>lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
@@ -9166,7 +9166,7 @@ ok
  {8,0.9741297293248656}]</pre>
         <p>Using the same snapshots to calculate a total
           scheduler utilization:</p>
-        <pre>
+        <pre type="erl">
 > <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
 	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)),
 	TotalSchedulerUtilization = A/T.</input>
@@ -9177,7 +9177,7 @@ ok
 	<p>Another (probably more) useful value is to calculate
 	total scheduler utilization weighted against maximum amount
 	of available CPU time:</p>
-        <pre>
+        <pre type="erl">
 > <input>WeightedSchedulerUtilization = (TotalSchedulerUtilization
                                   * (erlang:system_info(schedulers)
                                      + erlang:system_info(dirty_cpu_schedulers)))
@@ -9942,7 +9942,7 @@ ok
         messages generated by ERTS. If set to <c>undefined</c>,
         all logging messages generated by ERTS will be dropped.
         The messages will be in the format:</p>
-        <code>
+        <code type="erl">
 {log,Level,Format,ArgList,Metadata} where
 
 Level = atom(),
@@ -11954,7 +11954,7 @@ Metadata = #{ pid => pid(),
           writing a term to a file in an efficient way, or sending an
           Erlang term to some type of communications channel not
           supported by distributed Erlang.</p>
-        <pre>
+        <pre type="erl">
 > <input>Bin = term_to_binary(hello).</input>
 &lt;&lt;131,100,0,5,104,101,108,108,111>>
 > <input>hello = binary_to_term(Bin).</input>
@@ -12229,13 +12229,13 @@ hello
           <seeguide marker="system/reference_manual:expressions#catch">
 	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
           Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>catch throw({hello, there}).</input>
         {hello,there}</pre>
          <p>If evaluated within a
           <c>try</c>-block of a <seeguide marker="system/reference_manual:expressions#try">try expression</seeguide>, the value <c><anno>Any</anno></c> can be caught within the catch block.
           Example:</p>
-        <code>
+        <code type="erl">
 try
     throw({my_exception, "Something happened"})
 catch
@@ -12257,7 +12257,7 @@ end</code>
         the underlying OS. The return value is based on the <seeguide
         marker="time_correction#os-system-time">OS System
         Time</seeguide>. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>time().</input>
 {9,42,44}</pre>
       </desc>
@@ -12334,7 +12334,7 @@ end</code>
           <seemfa marker="#system_time/1">
           <c>erlang:system_time/1</c></seemfa>.</p>
         <p>The <c>erlang:timestamp()</c> BIF is equivalent to:</p>
-<code type="none">
+<code type="c">
 timestamp() ->
     ErlangSystemTime = erlang:system_time(microsecond),
     MegaSecs = ErlangSystemTime div 1000_000_000_000,
@@ -13312,19 +13312,19 @@ improper_end</pre>
         <p>The return value is always <c>1</c>.</p>
         <p>Examples:</p>
         <p>Only trace messages to a specific process <c>Pid</c>:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern(send, [{[Pid, '_'],[],[]}], []).</input>
 1</pre>
         <p>Only trace messages matching <c>{reply, _}</c>:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern(send, [{['_', {reply,'_'}],[],[]}], []).</input>
 1</pre>
         <p>Only trace messages sent to the sender itself:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern(send, [{['$1', '_'],[{'=:=','$1',{self}}],[]}], []).</input>
 1</pre>
         <p>Only trace messages sent to other nodes:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern(send, [{['$1', '_'],[{'=/=',{node,'$1'},{node}}],[]}], []).</input>
 1</pre>
         <note>
@@ -13401,15 +13401,15 @@ improper_end</pre>
         <p>The return value is always <c>1</c>.</p>
         <p>Examples:</p>
         <p>Only trace messages from a specific process <c>Pid</c>:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern('receive', [{['_',Pid, '_'],[],[]}], []).</input>
 1</pre>
         <p>Only trace messages matching <c>{reply, _}</c>:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern('receive', [{['_','_', {reply,'_'}],[],[]}], []).</input>
 1</pre>
         <p>Only trace messages from other nodes:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:trace_pattern('receive', [{['$1', '_', '_'],[{'=/=','$1',{node}}],[]}], []).</input>
 1</pre>
         <note>
@@ -13674,7 +13674,7 @@ improper_end</pre>
         <pre>
 > <input>trunc(5).</input>
 5</pre>
-        <pre>
+        <pre type="erl">
 > <input>trunc(36028797018963969.0).</input>
 36028797018963968</pre>
       <p>In the last example, <c>trunc(36028797018963969.0)</c>
@@ -13696,7 +13696,7 @@ improper_end</pre>
       <desc>
         <p>Returns an integer that is the number of elements in
           <c><anno>Tuple</anno></c>, for example:</p>
-        <pre>
+        <pre type="erl">
 > <input>tuple_size({morni, mulle, bwange}).</input>
 3</pre>
         <p>Allowed in guard tests.</p>
@@ -13710,7 +13710,7 @@ improper_end</pre>
         <p>Returns a list corresponding to <c><anno>Tuple</anno></c>.
           <c><anno>Tuple</anno></c> can contain any Erlang terms.
           Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>tuple_to_list({share, {'Ericsson_B', 163}}).</input>
 [share,{'Ericsson_B',163}]</pre>
       </desc>
@@ -13850,7 +13850,7 @@ improper_end</pre>
           <c>erlang:localtime()</c>. The return value is based on the <seeguide
         marker="time_correction#os-system-time">OS System
         Time</seeguide>. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:universaltime().</input>
 {{1996,11,6},{14,18,43}}</pre>
       </desc>
@@ -13867,7 +13867,7 @@ improper_end</pre>
           supported by the underlying OS.
           Otherwise no conversion is done, and
           <c><anno>Universaltime</anno></c> is returned. Example:</p>
-        <pre>
+        <pre type="erl">
 > <input>erlang:universaltime_to_localtime({{1996,11,6},{14,18,43}}).</input>
 {{1996,11,7},{15,18,43}}</pre>
         <p>Failure: <c>badarg</c> if <c>Universaltime</c> denotes
@@ -13923,7 +13923,7 @@ improper_end</pre>
 	  the message queue after a call to <c>unlink(<anno>Id</anno>)</c>
 	  as follows, when trapping exits:
 	</p>
-        <code type="none">
+        <code type="erl">
 unlink(Id),
 receive
     {'EXIT', Id, _} ->

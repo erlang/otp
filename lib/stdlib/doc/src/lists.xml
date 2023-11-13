@@ -93,7 +93,7 @@
         <p>Returns a list in which all the sublists of
           <c><anno>ListOfLists</anno></c> have been appended.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:append([[1, 2, 3], [a, b], [4, 5, 6]]).</input>
 [1,2,3,a,b,4,5,6]</pre>
       </desc>
@@ -107,7 +107,7 @@
           the elements of <c><anno>List1</anno></c> followed by the elements of
           <c><anno>List2</anno></c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:append("abc", "def").</input>
 "abcdef"</pre>
         <p><c>lists:append(A, B)</c> is equivalent to <c>A ++ B</c>.</p>
@@ -194,13 +194,13 @@ enumerate(I, S, List) ->
         <p>The default values for <c><anno>Index</anno></c> and
 	  <c><anno>Step</anno></c> are both <c>1</c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:enumerate([a,b,c]).</input>
 [{1,a},{2,b},{3,c}]</pre>
-        <pre>
+        <pre type="erl">
 > <input>lists:enumerate(10, [a,b,c]).</input>
 [{10,a},{11,b},{12,c}]</pre>
-        <pre>
+        <pre type="erl">
 > <input>lists:enumerate(0, -2, [a,b,c]).</input>
 [{0,a},{-2,b},{-4,c}]</pre>
       </desc>
@@ -230,7 +230,7 @@ enumerate(I, S, List) ->
           <c>{true, <anno>Elem</anno>}</c>.</p>
         <p>That is, <c>filtermap</c> behaves as if it had been defined as
           follows:</p>
-        <code type="none">
+        <code type="erl">
 filtermap(Fun, List1) ->
     lists:foldr(fun(Elem, Acc) ->
                        case Fun(Elem) of
@@ -240,7 +240,7 @@ filtermap(Fun, List1) ->
                        end
                 end, [], List1).</code>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:filtermap(fun(X) -> case X rem 2 of 0 -> {true, X div 2}; _ -> false end end, [1,2,3,4,5]).</input>
 [1,2]</pre>
       </desc>
@@ -266,11 +266,11 @@ filtermap(Fun, List1) ->
           <c><anno>List1</anno></c> and appending the resulting lists.</p>
         <p>That is, <c>flatmap</c> behaves as if it had been defined as
           follows:</p>
-        <code type="none">
+        <code type="erl">
 flatmap(Fun, List1) ->
     append(map(Fun, List1)).</code>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:flatmap(fun(X)->[X,X] end, [a,b,c]).</input>
 [a,a,b,b,c,c]</pre>
       </desc>
@@ -305,7 +305,7 @@ flatmap(Fun, List1) ->
           the accumulator. <c><anno>Acc0</anno></c> is returned if the list is
           empty.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:foldl(fun(X, Sum) -> X + Sum end, 0, [1,2,3,4,5]).</input>
 15
 > <input>lists:foldl(fun(X, Prod) -> X * Prod end, 1, [1,2,3,4,5]).</input>
@@ -320,7 +320,7 @@ flatmap(Fun, List1) ->
         <p>Like <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa>, but the
           list is traversed from right to left.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>P = fun(A, AccIn) -> io:format("~p ", [A]), AccIn end.</input>
 #Fun&lt;erl_eval.12.2225172&gt;
 > <input>lists:foldl(P, void, [1,2,3]).</input>
@@ -338,7 +338,7 @@ flatmap(Fun, List1) ->
       <desc>
         <p>Inserts <c><anno>Sep</anno></c> between each element in <c><anno>List1</anno></c>. Has no
           effect on the empty list and on a singleton list. For example:</p>
-        <pre>
+        <pre type="erl">
 > <input>lists:join(x, [a,b,c]).</input>
 [a,x,b,x,c]
 > <input>lists:join(x, [a]).</input>
@@ -395,7 +395,7 @@ flatmap(Fun, List1) ->
           has been replaced with the result of calling
           <c><anno>Fun</anno>(<anno>Term1</anno>)</c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>Fun = fun(Atom) -> atom_to_list(Atom) end.</input>
 #Fun&lt;erl_eval.6.10732646&gt;
 2> <input>lists:keymap(Fun, 2, [{name,jane,22},{name,lizzie,20},{name,lydia,15}]).</input>
@@ -532,7 +532,7 @@ flatmap(Fun, List1) ->
           <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa> into one pass.</p>
         <p><em>Example:</em></p>
         <p>Summing the elements in a list and double them at the same time:</p>
-        <pre>
+        <pre type="erl">
 > <input>lists:mapfoldl(fun(X, Sum) -> {2*X, X+Sum} end,</input>
 <input>0, [1,2,3,4,5]).</input>
 {[2,4,6,8,10],15}</pre>
@@ -646,7 +646,7 @@ flatmap(Fun, List1) ->
         <p>Returns the <c><anno>N</anno></c>th element of
           <c><anno>List</anno></c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:nth(3, [a, b, c, d, e]).</input>
 c</pre>
       </desc>
@@ -661,7 +661,7 @@ c</pre>
           that is, the sublist of <c><anno>List</anno></c> starting at
           <c><anno>N</anno>+1</c> and continuing up to the end of the list.</p>
         <p><em>Example</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:nthtail(3, [a, b, c, d, e]).</input>
 [d,e]
 > <input>tl(tl(tl([a, b, c, d, e]))).</input>
@@ -683,7 +683,7 @@ c</pre>
           and the second list contains all elements for which
           <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>false</c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:partition(fun(A) -> A rem 2 == 1 end, [1,2,3,4,5,6,7]).</input>
 {[1,3,5,7],[2,4,6]}
 > <input>lists:partition(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).</input>
@@ -718,7 +718,7 @@ c</pre>
         <p>Returns a list with the elements in <c><anno>List1</anno></c>
           in reverse order, with tail <c><anno>Tail</anno></c> appended.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:reverse([1, 2, 3, 4], [a, b, c]).</input>
 [4,3,2,1,a,b,c]</pre>
       </desc>
@@ -766,11 +766,11 @@ c</pre>
           </item>
         </list>
         <p>The following equalities hold for all sequences:</p>
-        <code type="none">
+        <code type="erl">
 length(lists:seq(From, To)) =:= To - From + 1
 length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:seq(1, 10).</input>
 [1,2,3,4,5,6,7,8,9,10]
 > <input>lists:seq(1, 20, 3).</input>
@@ -826,11 +826,11 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
         <p>Partitions <c><anno>List</anno></c> into two lists according to
           <c><anno>Pred</anno></c>. <c>splitwith/2</c> behaves as if it is
           defined as follows:</p>
-        <code type="none">
+        <code type="erl">
 splitwith(Pred, List) ->
     {takewhile(Pred, List), dropwhile(Pred, List)}.</code>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:splitwith(fun(A) -> A rem 2 == 1 end, [1,2,3,4,5,6,7]).</input>
 {[1],[2,3,4,5,6,7]}
 > <input>lists:splitwith(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).</input>
@@ -865,7 +865,7 @@ splitwith(Pred, List) ->
           <c><anno>Start</anno>+<anno>Len</anno></c> to exceed the length of
           the list.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:sublist([1,2,3,4], 2, 2).</input>
 [2,3]
 > <input>lists:sublist([1,2,3,4], 2, 5).</input>
@@ -884,7 +884,7 @@ splitwith(Pred, List) ->
           for each element in <c><anno>List2</anno></c>, its first occurrence
           in <c><anno>List1</anno></c> is deleted.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:subtract("123212", "212").</input>
 "312".</pre>
         <p><c>lists:subtract(A, B)</c> is equivalent to <c>A -- B</c>.</p>
@@ -1075,7 +1075,7 @@ splitwith(Pred, List) ->
           <tag><c>trim</c></tag>
 	  <item>Surplus elements from the longer list will be ignored.
             <p><em>Examples:</em></p>
-            <pre>
+            <pre type="erl">
 > <input>lists:zip([a, b], [1, 2, 3], trim).</input>
 [{a,1},{b,2}]
 > <input>lists:zip([a, b, c], [1, 2], trim).</input>
@@ -1086,7 +1086,7 @@ splitwith(Pred, List) ->
             longer list, using the respective elements from the given
             <c>Defaults</c> tuple.
 	    <p><em>Examples:</em></p>
-            <pre>
+            <pre type="erl">
 > <input>lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).</input>
 [{a,1},{b,2},{x,3}]
 > <input>lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).</input>
@@ -1125,7 +1125,7 @@ splitwith(Pred, List) ->
         <p><c>zipwith(fun(X, Y) -> {X,Y} end, List1, List2)</c> is
           equivalent to <c>zip(List1, List2)</c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:zipwith(fun(X, Y) -> X+Y end, [1,2,3], [4,5,6]).</input>
 [5,7,9]</pre>
       </desc>
@@ -1146,7 +1146,7 @@ splitwith(Pred, List) ->
         <p><c>zipwith3(fun(X, Y, Z) -> {X,Y,Z} end, List1, List2, List3)</c> is
           equivalent to <c>zip3(List1, List2, List3)</c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:zipwith3(fun(X, Y, Z) -> X+Y+Z end, [1,2,3], [4,5,6], [7,8,9]).</input>
 [12,15,18]
 > <input>lists:zipwith3(fun(X, Y, Z) -> [X,Y,Z] end, [a,b,c], [x,y,z], [1,2,3]).</input>
@@ -1163,7 +1163,7 @@ splitwith(Pred, List) ->
         (preserving the order of the elements).  The first occurrence of
         each element is kept.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:uniq([3,3,1,2,1,2,3]).</input>
 [3,1,2]
 > <input>lists:uniq([a, a, 1, b, 2, a, 3]).</input>
@@ -1184,7 +1184,7 @@ splitwith(Pred, List) ->
         (preserving the order of the elements).  The first occurrence
         of each element is kept.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>lists:uniq(fun({X, _}) -> X end, [{b, 2}, {a, 1}, {c, 3}, {a, 2}]).</input>
 [{b, 2}, {a, 1}, {c, 3}]</pre>
       </desc>

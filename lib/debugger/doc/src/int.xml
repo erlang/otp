@@ -281,7 +281,7 @@
 
 	<p>When the specified event occurs, the function <c>Function</c>
 	  is called as:</p>
-	<pre>
+	<pre type="erl">
 spawn(Module, Name, [Pid | Args])</pre>
 
 	<p><c>Pid</c> is the pid of the process executing interpreted

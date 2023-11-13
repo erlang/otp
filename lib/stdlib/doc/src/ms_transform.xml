@@ -89,7 +89,7 @@
 
     <p>Consider a simple table of employees:</p>
 
-    <code type="none">
+    <code type="erl">
 -record(emp, {empno,     %Employee number as a string, the key
               surname,   %Surname of the employee
               givenname, %Given name of employee
@@ -103,7 +103,7 @@ ets:new(emp_tab, [{keypos,#emp.empno},named_table,ordered_set]).</code>
 
     <p>We fill the table with randomly chosen data:</p>
 
-    <code type="none">
+    <code type="erl">
 [{emp,"011103","Black","Alfred",sales,2000},
  {emp,"041231","Doe","John",prod,2001},
  {emp,"052341","Smith","John",dev,1997},
@@ -119,7 +119,7 @@ ets:new(emp_tab, [{keypos,#emp.empno},named_table,ordered_set]).</code>
 
       <p><c>ets:match/2</c> can be used:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ets:match(emp_tab, {'_', '$1', '_', '_', sales, '_'}).</input>
 [["011103"],["076324"]]</pre>
 
@@ -130,7 +130,7 @@ ets:new(emp_tab, [{keypos,#emp.empno},named_table,ordered_set]).</code>
     <p><seemfa marker="ets#foldl/3"><c>ets:foldl/3</c></seemfa> or
       <seemfa marker="ets#foldr/3"><c>ets:foldr/3</c></seemfa> can be used to avoid the nested lists:</p>
 
-    <code type="none">
+    <code type="erl">
 ets:foldr(fun(#emp{empno = E, dept = sales},Acc) -> [E | Acc];
              (_,Acc) -> Acc
           end,
@@ -147,7 +147,7 @@ ets:foldr(fun(#emp{empno = E, dept = sales},Acc) -> [E | Acc];
     <p>Consider a "pure" <c>ets:select/2</c> call that does what
     <c>ets:foldr</c> does:</p>
 
-    <code type="none">
+    <code type="erl">
 ets:select(emp_tab, [{#emp{empno = '$1', dept = sales, _='_'},[],['$1']}]).</code>
 
     <p>Although the record syntax is used, it is still hard to
@@ -169,7 +169,7 @@ ets:select(emp_tab, [{#emp{empno = '$1', dept = sales, _='_'},[],['$1']}]).</cod
       the <c>ets:foldr/3</c> and the efficiency of the pure
       <c>ets:select/2</c> example:</p>
 
-    <code type="none">
+    <code type="erl">
 -include_lib("stdlib/include/ms_transform.hrl").
 
 ets:select(emp_tab, ets:fun2ms(
@@ -206,7 +206,7 @@ ets:select(emp_tab, ets:fun2ms(
       expressed there.
       Once again, <c>ets:foldr/3</c> can do it (slowly, but correct):</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 ets:foldr(fun(#emp{empno = E, empyear = Y},Acc) when Y < 2000 -> [E | Acc];
                   (_,Acc) -> Acc
           end,
@@ -217,7 +217,7 @@ ets:foldr(fun(#emp{empno = E, empyear = Y},Acc) when Y < 2000 -> [E | Acc];
     as expected. The equivalent expression using a handwritten match
     specification would look like this:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 ets:select(emp_tab, [{#emp{empno = '$1', empyear = '$2', _='_'},
                      [{'<', '$2', 2000}],
                      ['$1']}]).    ]]></code>
@@ -229,7 +229,7 @@ ets:select(emp_tab, [{#emp{empno = '$1', empyear = '$2', _='_'},
 
     <p>We write it using <c>ets:fun2ms/1</c>:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -include_lib("stdlib/include/ms_transform.hrl").
 
 ets:select(emp_tab, ets:fun2ms(
@@ -245,7 +245,7 @@ ets:select(emp_tab, ets:fun2ms(
       of the record and build it up once again in the body of the fun, but
       the following is easier:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 ets:select(emp_tab, ets:fun2ms(
                       fun(Obj = #emp{empno = E, empyear = Y}) 
                          when Y < 2000 ->
@@ -273,7 +273,7 @@ ets:select(emp_tab, ets:fun2ms(
       one (<c>1</c>) instead, and that we want to create the list
       <c><![CDATA[[{<Old empno>,<New empno>}]]]></c>:</p>
 
-    <code type="none">
+    <code type="erl">
 ets:select(emp_tab, ets:fun2ms(
                       fun(#emp{empno = [$0 | Rest] }) ->
                               {[$0|Rest],[$1|Rest]}
@@ -310,7 +310,7 @@ ets:select(emp_tab, ets:fun2ms(
 
     <p>This is accomplished as follows:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 ets:select(emp_tab, ets:fun2ms(
                       fun(#emp{empno = E, surname = "Smith" }) ->
                               {guru,E};
@@ -324,7 +324,7 @@ ets:select(emp_tab, ets:fun2ms(
 
     <p>The result is as follows:</p>
 
-    <code type="none">
+    <code type="erl">
 [{rookie,"011103"},
  {rookie,"041231"},
  {guru,"052341"},
@@ -435,7 +435,7 @@ ets:select(emp_tab, ets:fun2ms(
 
     <p>The following is an example module to trace on:</p>
 
-    <code type="none">
+    <code type="erl">
 -module(toy).
 
 -export([start/1, store/2, retrieve/1]).
@@ -473,7 +473,7 @@ retrieve(Key) ->
     <p>We specify the filter, we want to view calls that resemble
       <c><![CDATA[ets:new(toy_table, <something>)]]></c>:</p>
 
-    <pre>
+    <pre type="erl">
 3> <input>dbg:tp(ets,new,dbg:fun2ms(fun([toy_table,_]) -> true end)).</input>
 {ok,[{matched,nonode@nohost,1},{saved,1}]}</pre>
 
@@ -488,18 +488,18 @@ retrieve(Key) ->
 
     <p>The following trace output is received during test:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 (<0.86.0>) call ets:new(toy_table, [ordered_set])    ]]></code>
 
     <p>Assume that we have not found the problem yet, and want to see what
       <c>ets:new/2</c> returns. We use a slightly different trace pattern:</p>
 
-    <pre>
+    <pre type="erl">
 4> <input>dbg:tp(ets,new,dbg:fun2ms(fun([toy_table,_]) -> return_trace() end)).</input></pre>
 
     <p>The following trace output is received during test:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 (<0.86.0>) call ets:new(toy_table,[ordered_set])
 (<0.86.0>) returned from ets:new/2 -> 24    ]]></code>
 
@@ -515,14 +515,14 @@ retrieve(Key) ->
       supplied by the test program do not include <c>named_table</c>. We
       rewrite the start function:</p>
 
-    <code type="none">
+    <code type="erl">
 start(Args) ->
     toy_table = ets:new(toy_table, [named_table|Args]).</code>
 
     <p>With the same tracing turned on, the following trace output is
       received:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 (<0.86.0>) call ets:new(toy_table,[named_table,ordered_set])
 (<0.86.0>) returned from ets:new/2 -> toy_table    ]]></code>
 
@@ -534,7 +534,7 @@ start(Args) ->
       clearly not the entire system. We turn on call tracing and try to
       see calls to the module with an atom as the key:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>dbg:tracer().</input>
 {ok,&lt;0.88.0>}
 2> <input>dbg:p(all,call).</input>
@@ -556,7 +556,7 @@ start(Args) ->
       specification function <c>message</c> must be used. The filter
       call looks like this (looking for calls to <c>ets:insert/2</c>):</p>
 
-    <pre>
+    <pre type="erl">
 4> <input>dbg:tpl(ets,insert,dbg:fun2ms(fun([toy_table,{A,_}]) when is_atom(A) -> </input>
 <input>                                    message(caller()) </input>
 <input>                                  end)). </input>
@@ -565,7 +565,7 @@ start(Args) ->
     <p>The caller is now displayed in the "additional message" part of the
       trace output, and the following is displayed after a while:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 (<0.86.0>) call ets:insert(toy_table,{garbage,can}) ({evil_mod,evil_fun,2})    ]]></code>
 
     <p>You have realized that function <c>evil_fun</c> of the
@@ -636,7 +636,7 @@ start(Args) ->
         <p>Variables that are not included in the head are imported
           from the environment and made into match specification
           <c>const</c> expressions. Example from the shell:</p>
-        <pre>
+        <pre type="erl">
 1> <input>X = 25.</input>
 25
 2> <input>ets:fun2ms(fun({A,B}) when A > X -> B end).</input>
@@ -646,7 +646,7 @@ start(Args) ->
         <p>Matching with <c>=</c> cannot be used in the body. It can only
           be used on the top-level in the head of the fun.
           Example from the shell again:</p>
-        <pre>
+        <pre type="erl">
 1> <input>ets:fun2ms(fun({A,[B|C]} = D) when A > B -> D end).</input>
 [{{'$1',['$2'|'$3']},[{'>','$1','$2'}],['$_']}]
 2> <input>ets:fun2ms(fun({A,[B|C]=D}) when A > B -> D end).</input>
@@ -663,7 +663,7 @@ Error: fun with body matching ('=' in body) is illegal as match_spec
           a more natural access to the whole matched object. Pseudo
           function <c>object()</c> can be used instead, see below.</p>
         <p>The following expressions are translated equally:</p>
-        <code type="none">
+        <code type="erl">
 ets:fun2ms(fun({a,_} = A) -> A end).
 ets:fun2ms(fun({a,_}) -> object() end).</code>
       </item>
@@ -673,16 +673,16 @@ ets:fun2ms(fun({a,_}) -> object() end).</code>
           (for <c>'$_'</c>) and <c>bindings()</c> (for <c>'$*'</c>).
           As an example, one can translate the following
           <c>ets:match_object/2</c> call to a <c>ets:select/2</c> call:</p>
-        <code type="none">
+        <code type="erl">
 ets:match_object(Table, {'$1',test,'$2'}). </code>
         <p>This is the same as:</p>
-        <code type="none">
+        <code type="erl">
 ets:select(Table, ets:fun2ms(fun({A,test,B}) -> object() end)).</code>
         <p>In this simple case, the former
           expression is probably preferable in terms of readability.</p>
         <p>The <c>ets:select/2</c> call conceptually looks like this
           in the resulting code:</p>
-        <code type="none">
+        <code type="erl">
 ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
         <p>Matching on the top-level of the fun head can be a
           more natural way to access <c>'$_'</c>, see above.</p>

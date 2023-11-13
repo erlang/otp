@@ -422,14 +422,14 @@
 
         <p>Given the following configuration file:</p>
 
-        <pre>
+        <pre type="erl">
  {unix,[{telnet,IpAddr},
         {user,[{username,Username},
                {password,Password}]}]}.</pre>
 
         <p>Then:</p>
 
-        <pre>
+        <pre type="erl">
  ct:get_config(unix,Default) -&gt; [{telnet,IpAddr}, 
   {user, [{username,Username}, {password,Password}]}]
  ct:get_config({unix,telnet},Default) -&gt; IpAddr
@@ -442,7 +442,7 @@
           or a <c>require</c> statement), the name can be used instead
           of the key to read the value:</p>
 
-        <pre>
+        <pre type="erl">
  ct:require(myuser,{unix,user}) -&gt; ok.
  ct:get_config(myuser,Default) -&gt; [{username,Username}, {password,Password}]</pre>
   
@@ -473,7 +473,7 @@
 
           <p><em>Example:</em></p>
 
-          <pre>
+          <pre type="erl">
  gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</pre>
       </desc>
     </func>
@@ -575,7 +575,7 @@
 
         <p><em>Example:</em></p>
 
-        <pre>
+        <pre type="erl">
  install([{config,["config_node.ctc","config_user.ctc"]}])</pre>
 
         <p>This function is automatically run by program <c>ct_run</c>.</p>
@@ -888,7 +888,7 @@
 
         <p><em>Example 1.</em> Require the variable <c>myvar</c>:</p>
 
-        <pre>
+        <pre type="erl">
  ok = ct:require(myvar).</pre>
  
         <p>In this case the configuration file must at least contain:</p>
@@ -899,23 +899,23 @@
         <p><em>Example 2.</em> Require key <c>myvar</c> with subkeys
           <c>sub1</c> and <c>sub2</c>:</p>
 
-        <pre>
+        <pre type="erl">
  ok = ct:require({myvar,[sub1,sub2]}).</pre>
 
         <p>In this case the configuration file must at least contain:</p>
 
-        <pre>
+        <pre type="erl">
  {myvar,[{sub1,Value},{sub2,Value}]}.</pre>
 
         <p><em>Example 3.</em> Require key <c>myvar</c> with subkey
           <c>sub1</c> with <c>subsub1</c>:</p>
 
-        <pre>
+        <pre type="erl">
  ok = ct:require({myvar,sub1,sub2}).</pre>
 
         <p>In this case the configuration file must at least contain:</p>
 
-        <pre>
+        <pre type="erl">
  {myvar,[{sub1,[{sub2,Value}]}]}.</pre>
 
         <p>See also
@@ -947,18 +947,18 @@
        <p>Require one node with a Telnet connection and an FTP connection.
          Name the node <c>a</c>:</p>
 
-       <pre>
+       <pre type="erl">
  ok = ct:require(a,{machine,node}).</pre>
 
         <p>All references to this node can then use the node name. For
           example, a file over FTP is fetched like follows:</p>
 
-        <pre>
+        <pre type="erl">
  ok = ct:ftp_get(a,RemoteFile,LocalFile).</pre>
 
         <p>For this to work, the configuration file must at least contain:</p>
 
-        <pre>
+        <pre type="erl">
  {machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre>
 
         <note><p>The behavior of this function changed radically in
@@ -1093,7 +1093,7 @@
 
         <p><em>Example:</em></p>
 
-        <pre>
+        <pre type="erl">
  &gt; ct:require(unix_telnet, unix).
  ok
  &gt; ct_telnet:open(unix_telnet).

@@ -104,7 +104,7 @@
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 oid() = [byte()] 
 atl_type() = read | write | read_write
 notification_delivery_info() = #snmpa_notification_delivery_info{}
@@ -304,7 +304,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Load a single <c>Mib</c> into an agent. The <c>MibName</c> 
 	is the name of the Mib, including the path to where the compiled 
 	mib is found. For example: </p>
-	<code type="none">
+	<code type="erl">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpa:load_mib(snmp_master_agent, Dir ++ "MY-MIB").
         </code>
@@ -333,7 +333,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	it will indicate where loading was aborted. The <c>MibName</c> 
 	is the name of the Mib, including the path to where the compiled 
 	mib is found. For example,</p>
-	<code type="none">
+	<code type="erl">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpa:load_mibs(snmp_master_agent, [Dir ++ "MY-MIB"]).
         </code>
@@ -1022,7 +1022,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
           this activity should be done carefully.  For example, a
           strange behaviour would result from the following
           configuration:</p>
-        <pre>
+        <pre type="erl">
 snmp_agent:register_subagent(MAPid,[1,2,3,4],SA1),
 snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         </pre>
@@ -1310,7 +1310,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p><c>Address</c> is a management target address and <c>Addresses</c> is a 
           list of management target addresses. They are defined as followes: </p>
 
-<pre>
+<pre type="erl">
         Addresses  = [address()]
         Address    = address()
         address()  = v1_address() | v3_address()

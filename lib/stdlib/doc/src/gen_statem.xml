@@ -172,7 +172,7 @@
       callback module exporting a predefined set of functions.
       The relationship between the behavior functions and the callback
       functions is as follows:</p>
-    <pre>
+    <pre type="erl">
 gen_statem module            Callback module
 -----------------            ---------------
 gen_statem:start
@@ -3002,7 +3002,7 @@ handle_event(_, _, State, Data) ->
 	    Since this callback is not optional it can
 	    in that case be implemented as:
 	  </p>
-	  <pre>
+	  <pre type="erl">
 -spec init(_) -> no_return().
 init(Args) -> erlang:error(not_implemented, [Args]).</pre>
         </note>

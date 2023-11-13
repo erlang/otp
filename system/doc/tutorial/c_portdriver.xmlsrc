@@ -61,7 +61,7 @@
       the tuple <c>{spawn, DriverName}</c> as the first argument. The
       string <c>SharedLib</c> is the name of the port driver. The second
       argument is a list of options, none in this case:</p>
-    <pre>
+    <pre type="erl">
 -module(complex5).
 -export([start/1, init/1]).
 
@@ -80,7 +80,7 @@ init(SharedLib) ->
     <p>Now <c>complex5:foo/1</c> and <c>complex5:bar/1</c>
       can be implemented. Both send a message to the
       <c>complex</c> process and receive the following reply:</p>
-    <pre>
+    <pre type="erl">
 foo(X) ->
     call_port({foo, X}).
 bar(Y) ->
@@ -100,7 +100,7 @@ call_port(Msg) ->
        <item>Decodes the reply.</item>
        <item>Sends it back to the caller:</item>
      </list>
-    <pre>
+    <pre type="erl">
 loop(Port) ->
     receive
         {call, Caller, Msg} ->
@@ -116,7 +116,7 @@ loop(Port) ->
       is employed. In this scheme, <c>foo</c> is represented by byte
       1, <c>bar</c> is represented by 2, and the argument/result is
       represented by a single byte as well:</p>
-    <pre>
+    <pre type="erl">
 encode({foo, X}) -> [1, X];
 encode({bar, Y}) -> [2, Y].
 
@@ -172,7 +172,7 @@ Eshell V5.1 (abort with ^G)
 1> <input>c(complex5).</input>
 {ok,complex5}</pre>
     <p><em>Step 3.</em> Run the example:</p>
-    <pre>
+    <pre type="erl">
 2> <input>complex5:start("example_drv").</input>
 &lt;0.34.0>
 3> <input>complex5:foo(3).</input>

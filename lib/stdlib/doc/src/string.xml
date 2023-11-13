@@ -97,7 +97,7 @@
       the input type. That is, binary input returns binary output,
       list input returns a list output, and mixed input can return a
       mixed output.</p>
-      <code>
+      <code type="erl">
 1> string:trim("  sarah  ").
 "sarah"
 2> string:trim(&lt;&lt;"  sarah  ">>).
@@ -143,7 +143,7 @@
 	  for equality. See also <seemfa marker="#equal/4"><c>equal/4</c></seemfa>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:casefold("Ω and ẞ SHARP S").</input>
 "ω and ss sharp s"</pre>
       </desc>
@@ -158,7 +158,7 @@
 	  <c>\r\n</c> have been removed from <c><anno>String</anno></c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 182> <input>string:chomp(&lt;&lt;"\nHello\n\n">>).</input>
 &lt;&lt;"\nHello">>
 183> <input>string:chomp("\nHello\r\r\n").</input>
@@ -193,7 +193,7 @@
 	<c><anno>IgnoreCase</anno></c> is <c>false</c> and
 	<c><anno>Norm</anno></c> is <c>none</c>.</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:equal("åäö", &lt;&lt;"åäö"/utf8>>).</input>
 true
 2> <input>string:equal("åäö", unicode:characters_to_nfd_binary("åäö")).</input>
@@ -220,7 +220,7 @@ true</pre>
           By default, <c><anno>Dir</anno></c> is <c>leading</c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:find("ab..cd..ef", ".").</input>
 "..cd..ef"
 2> <input>string:find(&lt;&lt;"ab..cd..ef">>, "..", trailing).</input>
@@ -239,7 +239,7 @@ nomatch</pre>
         <p>Returns <c>true</c> if <c><anno>String</anno></c> is the
         empty string, otherwise <c>false</c>.</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:is_empty("foo").</input>
 false
 2> <input>string:is_empty(["",&lt;&lt;>>]).</input>
@@ -279,7 +279,7 @@ true</pre>
 	  Returns the number of grapheme clusters in <c><anno>String</anno></c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:length("ß↑e̊").</input>
 3
 2> <input>string:length(&lt;&lt;195,159,226,134,145,101,204,138>>).</input>
@@ -305,7 +305,7 @@ true</pre>
 	</p>
 	<p>Notice that <c>[$\r,$\n]</c> is one grapheme cluster.</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:lexemes("abc de̊fxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).</input>
 ["abc","de̊f","ghi","jkl","foo"]
 2> <input>string:lexemes(&lt;&lt;"abc de̊fxxghix jkl\r\nfoo"/utf8>>, "x e" ++ [$\r,$\n]).</input>
@@ -326,7 +326,7 @@ true</pre>
 	  be tested for equality.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 2> <input>string:lowercase(string:uppercase("Michał")).</input>
 "michał"</pre>
       </desc>
@@ -343,7 +343,7 @@ true</pre>
 	  <c>{error, String}</c> tuple if the next byte is invalid.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:next_codepoint(unicode:characters_to_binary("e̊fg")).</input>
 [101|&lt;&lt;"̊fg"/utf8>>]</pre>
       </desc>
@@ -360,7 +360,7 @@ true</pre>
 	  <c>{error, String}</c> tuple if the next byte is invalid.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:next_grapheme(unicode:characters_to_binary("e̊fg")).</input>
 ["e̊"|&lt;&lt;"fg">>]</pre>
       </desc>
@@ -375,7 +375,7 @@ true</pre>
 	the grapheme clusters in <c><anno>SeparatorList</anno></c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:nth_lexeme("abc.de̊f.ghiejkl", 3, ".e").</input>
 "ghi"</pre>
       </desc>
@@ -397,7 +397,7 @@ true</pre>
 	<c><anno>Dir</anno></c> is <c>trailing</c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:pad(&lt;&lt;"He̊llö"/utf8>>, 8).</input>
 [&lt;&lt;72,101,204,138,108,108,195,182>>,32,32,32]
 2> <input>io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).</input>
@@ -439,9 +439,9 @@ nomatch</pre>
 	  <c><anno>SearchPattern</anno></c> are to be replaced.
 	</p>
 	<p>Can be implemented as:</p>
-	<pre>lists:join(Replacement, split(String, SearchPattern, Where)).</pre>
+	<pre type="erl">lists:join(Replacement, split(String, SearchPattern, Where)).</pre>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:replace(&lt;&lt;"ab..cd..ef">>, "..", "*").</input>
 [&lt;&lt;"ab">>,"*",&lt;&lt;"cd..ef">>]
 2> <input>string:replace(&lt;&lt;"ab..cd..ef">>, "..", "*", all).</input>
@@ -457,7 +457,7 @@ nomatch</pre>
 	  Returns the reverse list of the grapheme clusters in <c><anno>String</anno></c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> Reverse = <input>string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).</input>
 [[79,776],[65,776],[65,778]]
 2> <input>io:format("~ts~n",[Reverse]).</input>
@@ -475,7 +475,7 @@ ÖÄÅ</pre>
 	<c><anno>Start</anno></c>.</p>
 	<p>By default, <c><anno>Length</anno></c> is <c>infinity</c>.</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:slice(&lt;&lt;"He̊llö Wörld"/utf8>>, 4).</input>
 &lt;&lt;"ö Wörld"/utf8>>
 2> <input>string:slice(["He̊llö ", &lt;&lt;"Wörld"/utf8>>], 4,4).</input>
@@ -498,7 +498,7 @@ ÖÄÅ</pre>
 	  <c><anno>SearchPattern</anno></c> will split <c><anno>String</anno></c>.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 0> <input>string:split("ab..bc..cd", "..").</input>
 ["ab","bc..cd"]
 1> <input>string:split(&lt;&lt;"ab..bc..cd">>, "..", trailing).</input>
@@ -522,7 +522,7 @@ ÖÄÅ</pre>
         which direction characters are to be taken.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 5> <input>string:take("abc0z123", lists:seq($a,$z)).</input>
 {"abc","0z123"}
 6> <input>string:take(&lt;&lt;"abc0z123">>, lists:seq($0,$9), true, leading).</input>
@@ -542,7 +542,7 @@ ÖÄÅ</pre>
 	  Converts <c><anno>String</anno></c> to titlecase.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:titlecase("ß is a SHARP s").</input>
 "Ss is a SHARP s"</pre>
       </desc>
@@ -558,7 +558,7 @@ ÖÄÅ</pre>
           Remaining characters in the string after the float are returned in
           <c><anno>Rest</anno></c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>{F1,Fs} = string:to_float("1.0-1.0e-1"),</input>
 > <input>{F2,[]} = string:to_float(Fs),</input>
 > <input>F1+F2.</input>
@@ -580,7 +580,7 @@ ÖÄÅ</pre>
           Remaining characters in the string after the integer are returned in
           <c><anno>Rest</anno></c>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 > <input>{I1,Is} = string:to_integer("33+22"),</input>
 > <input>{I2,[]} = string:to_integer(Is),</input>
 > <input>I1-I2.</input>
@@ -632,7 +632,7 @@ ÖÄÅ</pre>
 	  to the Unicode Standard.
 	</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:trim("\t  Hello  \n").</input>
 "Hello"
 2> <input>string:trim(&lt;&lt;"\t  Hello  \n">>, leading).</input>
@@ -651,7 +651,7 @@ ÖÄÅ</pre>
 	</p>
 	<p>See also <seemfa marker="#titlecase/1"><c>titlecase/1</c></seemfa>.</p>
 	<p><em>Example:</em></p>
-	<pre>
+	<pre type="erl">
 1> <input>string:uppercase("Michał").</input>
 "MICHAŁ"</pre>
       </desc>
@@ -777,7 +777,7 @@ ÖÄÅ</pre>
 	Use
 	<seemfa marker="lists#join/2"><c>lists:join/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > join(["one", "two", "three"], ", ").
 "one, two, three"</code>
       </desc>
@@ -798,7 +798,7 @@ ÖÄÅ</pre>
 	<seemfa marker="#pad/2"><c>pad/2</c></seemfa> or
 	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > string:left("Hello",10,$.).
 "Hello....."</code>
       </desc>
@@ -843,7 +843,7 @@ ÖÄÅ</pre>
 	Use
 	<seemfa marker="#pad/3"><c>pad/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > string:right("Hello", 10, $.).
 ".....Hello"</code>
       </desc>
@@ -861,7 +861,7 @@ ÖÄÅ</pre>
 	Use
 	<seemfa marker="#find/3"><c>find/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > string:rstr(" Hello Hello World World ", "Hello World").
 8</code>
       </desc>
@@ -896,7 +896,7 @@ ÖÄÅ</pre>
 	Use
 	<seemfa marker="#find/2"><c>find/2</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > string:str(" Hello Hello World World ", "Hello World").
 8</code>
       </desc>
@@ -972,7 +972,7 @@ sub_string("Hello World", 4, 8).
 	Use
 	<seemfa marker="#nth_lexeme/3"><c>nth_lexeme/3</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > string:sub_word(" Hello old boy !",3,$o).
 "ld b"</code>
       </desc>
@@ -1007,7 +1007,7 @@ sub_string("Hello World", 4, 8).
         <p>Returns a list of tokens in <c><anno>String</anno></c>, separated
           by the characters in <c><anno>SeparatorList</anno></c>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 > tokens("abc defxxghix jkl", "x ").
 ["abc", "def", "ghi", "jkl"]</code>
         <p>Notice that, as shown in this example, two or more

@@ -295,7 +295,7 @@
             <p>The output will be encoded in UTF-8.</p>
             <p>For example, if you have the following module:
             </p>
-            <code>
+            <code type="erl">
 -module(module).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -582,7 +582,7 @@ module.beam: module.erl \
 	  <p>If this option is written in the source code, as a 
 	  <c>-compile</c> directive, the syntax <c>F/A</c> can be used instead 
 	  of <c>{F,A}</c>, for example:</p>
-	  <code>-compile({no_auto_import,[error/1]}).</code>
+	  <code type="erl">-compile({no_auto_import,[error/1]}).</code>
 	  </item>
 
           <tag><c>no_auto_import</c></tag>
@@ -1156,7 +1156,7 @@ module.beam: module.erl \
 
     <p>Example of explicit inlining:</p>
 
-    <pre>
+    <pre type="erl">
 -compile({inline,[pi/0]}).
 
 pi() -> 3.1416.
@@ -1173,7 +1173,7 @@ pi() -> 3.1416.
       inlined).</p>
 
     <p>Example:</p>
-    <pre>
+    <pre type="erl">
 %% Aggressive inlining - will increase code size.
 -compile(inline).
 -compile({inline_size,100}).</pre>

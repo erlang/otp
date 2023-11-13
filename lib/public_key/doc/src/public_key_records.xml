@@ -44,7 +44,7 @@
   <p>Use the following include directive to get access to the
   records and constant macros described in the following sections:</p>
   
-  <code> -include_lib("public_key/include/public_key.hrl"). </code>
+  <code type="erl"> -include_lib("public_key/include/public_key.hrl"). </code>
 
  <section>
     <title>Data Types</title>   
@@ -115,7 +115,7 @@
     <p>Erlang representation of <url href="http://www.ietf.org/rfc/rfc3447.txt"> 
     Rivest-Shamir-Adleman cryptosystem (RSA)</url> keys follows:</p>
     
-    <code>
+    <code type="erl">
 #'RSAPublicKey'{
 	  modulus,       % integer()
 	  publicExponent % integer()
@@ -160,7 +160,7 @@
   <section>
     <title>DSA</title>
      <p>Erlang representation of <url href="http://www.ietf.org/rfc/rfc6979.txt">Digital Signature Algorithm (DSA)</url> keys</p>
-    <code>	 
+    <code type="erl">	 
 #'DSAPrivateKey',{
 	  version,      % integer()
 	  p,            % integer()
@@ -184,7 +184,7 @@
     <p>Erlang representation of  <url href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</url> and <url href="https://tools.ietf.org/html/rfc8032">Edwards-Curve Digital Signature Algorithm (EDDSA)</url> where
     parameters in the private key will be <c>{namedCurve, ?'id-Ed25519' | ?'id-Ed448'}</c>.</p> 
     
-    <code>	 
+    <code type="erl">	 
 #'ECPrivateKey'{
           version,       % integer()
 	  privateKey,    % binary()  
@@ -224,7 +224,7 @@
     <title>PKIX Certificates</title>   
     <p>Erlang representation of PKIX certificates derived from ASN.1 
     specifications see also <url href="http://www.ietf.org/rfc/rfc5280.txt">X509 certificates (RFC 5280)</url>, also referred to as <c>plain</c> type,  are as follows:</p>
-<code>
+<code type="erl">
 #'Certificate'{
 		tbsCertificate,        % #'TBSCertificate'{}
 		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
@@ -251,7 +251,7 @@
 
 <p>Erlang alternate representation of PKIX certificate, also referred to as <c>otp</c> type</p>
 	 
-<code>
+<code type="erl">
 #'OTPCertificate'{
 		tbsCertificate,        % #'OTPTBSCertificate'{}
 		signatureAlgorithm,    % #'SignatureAlgorithm'
@@ -319,7 +319,7 @@
 <p>The data type <c>'AttributeTypeAndValue'</c>, is represented as
  the following erlang record:</p>
 
-<code>
+<code type="erl">
 #'AttributeTypeAndValue'{
 	  type,   % id_attributes()
 	  value   % term() 
@@ -394,7 +394,7 @@ are as follows:</p>
 <p>The data types <c>'Validity'</c>, <c>'SubjectPublicKeyInfo'</c>, and 
 <c>'SubjectPublicKeyInfoAlgorithm'</c> are represented as the following Erlang records:</p>
 
-<code>
+<code type="erl">
 #'Validity'{ 
 	  notBefore, % time()
 	  notAfter   % time()
@@ -433,7 +433,7 @@ are as follows:</p>
       <tcaption>Public-Key Algorithm OIDs</tcaption>
 </table>
     
-<code>
+<code type="erl">
 #'Extension'{
 	  extnID,    % id_extensions() | oid() 
 	  critical,  % boolean()
@@ -580,7 +580,7 @@ are as follows:</p>
       <tcaption>Key Purpose OIDs</tcaption>
 </table>
     
-    <code>
+    <code type="erl">
 #'AuthorityKeyIdentifier'{
 	  keyIdentifier,	    % oid()
 	  authorityCertIssuer,      % general_name()
@@ -675,7 +675,7 @@ are as follows:</p>
         <tcaption>Private Internet Extensions</tcaption>
       </table>   
  
-<code>
+<code type="erl">
 #'AccessDescription'{
            accessMethod,    % oid()
 	   accessLocation   % general_name()
@@ -689,7 +689,7 @@ are as follows:</p>
     <p>Erlang representation of CRL and CRL extensions profile 
     derived from ASN.1 specifications and RFC 5280 are as follows:</p>
 
- <code>
+ <code type="erl">
 #'CertificateList'{
           tbsCertList,        % #'TBSCertList{}
           signatureAlgorithm, % #'AlgorithmIdentifier'{} 
@@ -755,7 +755,7 @@ are as follows:</p>
       <p>Here, the data type <c>'IssuingDistributionPoint'</c> is represented as 
       the following Erlang record:</p>
 
-      <code>
+      <code type="erl">
 #'IssuingDistributionPoint'{
           distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
 	  [#AttributeTypeAndValue'{}]}

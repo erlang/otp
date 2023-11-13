@@ -307,7 +307,7 @@
           When UDP packets arrive
           at the opened port, if the socket is in an active mode, the packets
           are delivered as messages to the controlling process:</p>
-        <code type="none">
+        <code type="erl">
 {udp, Socket, IP, InPortNo, Packet} % Without ancillary data
 {udp, Socket, IP, InPortNo, AncData, Packet} % With ancillary data
 	</code>

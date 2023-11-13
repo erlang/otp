@@ -385,7 +385,7 @@
         <p>Compiles and then loads the code for a file on all nodes.
           <c><anno>Options</anno></c> defaults to <c>[]</c>.
           Compilation is equivalent to:</p>
-        <code type="none">
+        <code type="erl">
 compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_warnings])</code>
       </desc>
     </func>

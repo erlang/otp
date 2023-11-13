@@ -75,7 +75,7 @@
           list. The resulting list of lists is concatenated. This is often
           useful for "incremental" options.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
         <p>returns:</p>
         <code type="none">
@@ -119,13 +119,13 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
           <c><anno>ListIn</anno></c>.</p>
         <p>For example, the following expressions all return
           <c>[fie, bar, baz, fum]</c>:</p>
-        <code type="none">
+        <code type="erl">
 expand([{foo, [bar, baz]}], [fie, foo, fum])
 expand([{{foo, true}, [bar, baz]}], [fie, foo, fum])
 expand([{{foo, false}, [bar, baz]}], [fie, {foo, false}, fum])</code>
         <p>However, no expansion is done in the following call
           because <c>{foo, false}</c> shadows <c>foo</c>:</p>
-        <code type="none">
+        <code type="erl">
 expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
         <p>Notice that if the original property term is to be preserved in the
           result when expanded, it must be included in the expansion list. The
@@ -314,10 +314,10 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           of the specified keys,
           also with their original relative order preserved.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
         <p>returns:</p>
-        <code type="none">
+        <code type="erl">
 {[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</code>
       </desc>
     </func>
@@ -388,7 +388,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           the value that would be returned by a call to
           <c>get_value(Key, List)</c>.</p>
         <p><em>Example:</em></p>
-        <code type="none">
+        <code type="erl">
 to_map([a, {b, 1}, {c, 2}, {c, 3}])</code>
         <p>returns:</p>
         <code type="none">

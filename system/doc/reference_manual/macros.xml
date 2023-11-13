@@ -33,7 +33,7 @@
     <section>
       <title>File Inclusion</title>
       <p>A file can be included as follows:</p>
-      <pre>
+      <pre type="erl">
 -include(File).
 -include_lib(File).</pre>
       <p><c>File</c>, a string, is to point out a file. The contents of
@@ -63,7 +63,7 @@
            <seeerl marker="compiler:compile">compile(3)</seeerl>
            manual page in Compiler.</p>
       <p><em>Examples:</em></p>
-      <pre>
+      <pre type="erl">
 -include("my_records.hrl").
 -include("incdir/my_records.hrl").
 -include("/home/user/proj/my_records.hrl").
@@ -73,7 +73,7 @@
         (possibly after variable substitution) is assumed to be
         the name of an application.</p>
 	<p><em>Example:</em></p>
-      <pre>
+      <pre type="erl">
 -include_lib("kernel/include/file.hrl").</pre>
       <p>The code server uses <c>code:lib_dir(kernel)</c> to find
         the directory of the current (latest) version of Kernel, and
@@ -84,7 +84,7 @@
   <section>
     <title>Defining and Using Macros</title>
     <p>A macro is defined as follows:</p>
-    <code type="none">
+    <code type="erl">
 -define(Const, Replacement).
 -define(Func(Var1,...,VarN), Replacement).</code>
     <p>A macro definition can be placed anywhere among the attributes
@@ -99,13 +99,13 @@
     <p>Macros are expanded during compilation. A simple macro
       <c>?Const</c> is replaced with <c>Replacement</c>.</p>
       <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -define(TIMEOUT, 200).
 ...
 call(Request) ->
     server:call(refserver, Request, ?TIMEOUT).</code>
     <p>This is expanded to:</p>
-    <code type="none">
+    <code type="erl">
 call(Request) ->
     server:call(refserver, Request, 200).</code>
     <p>A macro <c>?Func(Arg1,...,ArgN)</c> is replaced with
@@ -113,14 +113,14 @@ call(Request) ->
       from the macro definition are replaced with the corresponding
       argument <c>Arg</c>.</p>
       <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -define(MACRO1(X, Y), {a, X, b, Y}).
 ...
 bar(X) ->
     ?MACRO1(a, b),
     ?MACRO1(X, 123)</code>
     <p>This is expanded to:</p>
-    <code type="none">
+    <code type="erl">
 bar(X) ->
     {a,a,b,b},
     {a,X,b,123}.</code>
@@ -184,12 +184,12 @@ bar(X) ->
       least one definition of <c>Func</c> with arguments, but none
       with N arguments.</p>
     <p>Assuming these definitions:</p>
-    <code type="none">
+    <code type="erl">
 -define(F0(), c).
 -define(F1(A), A).
 -define(C, m:f).</code>
     <p>the following does not work:</p>
-    <code type="none">
+    <code type="erl">
 f0() ->
     ?F0. % No, an empty list of arguments expected.
 
@@ -200,7 +200,7 @@ f1(A) ->
 f() ->
     ?C().</code>
     <p>is expanded to</p>
-    <code>
+    <code type="erl">
 f() ->
     m:f().</code>
   </section>
@@ -208,7 +208,7 @@ f() ->
   <section>
     <title>Removing a macro definition</title>
     <p>A definition of macro can be removed as follows:</p>
-    <code type="none">
+    <code type="erl">
 -undef(Macro).</code>
   </section>
 
@@ -256,7 +256,7 @@ f() ->
     functions results in a compilation error.</p>
 
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -module(m).
 ...
 
@@ -269,7 +269,7 @@ f() ->
 ...</code>
     <p>When trace output is desired, <c>debug</c> is to be defined
       when the module <c>m</c> is compiled:</p>
-    <pre>
+    <pre type="erl">
 % <input>erlc -Ddebug m.erl</input>
 
 or
@@ -280,7 +280,7 @@ or
       and provide the user with some simple trace output.</p>
 
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -module(m)
 ...
 -if(?OTP_RELEASE >= 25).
@@ -295,7 +295,7 @@ or
     select code depending on release.</p>
 
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -module(m)
 ...
 -if(?OTP_RELEASE >= 26 andalso defined(debug)).
@@ -335,7 +335,7 @@ or
     <p>The directive <c>-error(Term)</c> causes a compilation error.</p>
 
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -module(t).
 -export([version/0]).
 
@@ -355,7 +355,7 @@ t.erl:7: -error("Macro VERSION must be defined.").</pre>
     <p>The directive <c>-warning(Term)</c> causes a compilation warning.</p>
 
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -module(t).
 -export([version/0]).
 
@@ -383,13 +383,13 @@ t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version."
       the argument. This is similar to the <c>#arg</c> stringifying
       construction in C.</p>
     <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 -define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
 
 ?TESTCALL(myfunction(1,2)),
 ?TESTCALL(you:function(2,1)).</code>
     <p>results in</p>
-    <code type="none">
+    <code type="erl">
 io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
 io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code>
     <p>That is, a trace output, with both the function called and

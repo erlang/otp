@@ -58,7 +58,7 @@ snmp_index:new(string)
     <p>For each new process we create, we insert an item in an
       <c>snmp_index</c> structure:
       </p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 new_process(Name, SnmpIndex) ->
   Pid = start_process(),
   NewSnmpIndex = 
@@ -68,7 +68,7 @@ new_process(Name, SnmpIndex) ->
     <p>With this structure, we can now map an OBJECT IDENTIFIER in
       e.g. a GET NEXT request, to the correct process:
       </p>
-    <code type="none">
+    <code type="erl">
 get_next_pid(Oid, SnmpIndex) ->
   {ok, {_, Pid}} = snmp_index:get_next(SnmpIndex, Oid),
   Pid.

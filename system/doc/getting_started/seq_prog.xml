@@ -84,7 +84,7 @@ BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
     <p>Type "a" to leave the Erlang system.</p>
     <p>Another way to shut down the Erlang system is by entering
       <c>halt()</c>:</p>
-    <pre>
+    <pre type="erl">
 3> <input>halt().</input>
 % </pre>
   </section>
@@ -102,7 +102,7 @@ BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
       marker="tools:erlang_mode_chapter">The Erlang mode for
       Emacs</seeguide> in Tools User's Guide), but you can manage
       perfectly well without. Here is the code to enter:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut).
 -export([double/1]).
 
@@ -112,7 +112,7 @@ double(X) ->
       numbers. The first two lines of the code are described later.
       Let us compile the program. This can be done in an Erlang shell
       as follows, where <c>c</c> means compile:</p>
-    <pre>
+    <pre type="erl">
 3> <input>c(tut).</input>
 {ok,tut}</pre>
     <p>The <c>{ok,tut}</c> means that the compilation is OK. If it
@@ -131,7 +131,7 @@ double(X) ->
       <em>module</em>. The first line of code in the module is
       the module name (see
       <seeguide marker="system/reference_manual:modules">Modules</seeguide>):</p>
-    <code type="none">
+    <code type="erl">
 -module(tut).</code>
     <p>Thus, the module is called <em>tut</em>. Notice
       the full stop "." at the end of the line. The files which are
@@ -147,7 +147,7 @@ double(X) ->
     <p>The second line says that the module <c>tut</c> contains a
       function called <c>double</c>, which takes one argument
       (<c>X</c> in our example):</p>
-    <code type="none">
+    <code type="erl">
 -export([double/1]).</code>
     <p>The second line also says that this function can be called from
       outside the module <c>tut</c>. More about this later. Again,
@@ -155,7 +155,7 @@ double(X) ->
     <p>Now for a more complicated example, the factorial of a number.
       For example, the factorial of 4 is 4 * 3 * 2 * 1, which equals 24.</p>
     <p>Enter the following code in a file named <c>tut1.erl</c>:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut1).
 -export([fac/1]).
 
@@ -174,7 +174,7 @@ fac(1) ->
       that there is more of the function <c>fac></c> to come.</p>
     <p>The second part says that the factorial of N is N multiplied
       by the factorial of N - 1:</p>
-    <code type="none">
+    <code type="erl">
 fac(N) ->
     N * fac(N - 1).</code>
     <p>Notice that this part ends with a "." saying that there are
@@ -191,7 +191,7 @@ fac(N) ->
       with argument <c>4</c>.</p>
     <p>A function can have many arguments. Let us expand the module
       <c>tut1</c> with the function to multiply two numbers:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut1).
 -export([fac/1, mult/2]).
 
@@ -232,7 +232,7 @@ mult(X, Y) ->
       else. They are not like variables, which can have a value.</p>
     <p>Enter the next program in a file named <c>tut2.erl</c>). It can be
       useful for converting from inches to centimeters and conversely:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut2).
 -export([convert/2]).
 
@@ -266,7 +266,7 @@ convert(N, centimeter) ->
       The shell formats the error message nicely, but the error tuple
       is saved in the shell's history list and can be output by the shell
       command <c>v/1</c>:</p>
-    <pre>
+    <pre type="erl">
 13> <input>v(12).</input>
 {'EXIT',{function_clause,[{tut2,convert,
                                 [3,miles],
@@ -294,7 +294,7 @@ tut2:convert(3, inch).</code>
       <c>{centimeter,5}</c> denotes 5 centimeters. Now let us write a
       new program that converts centimeters to inches and conversely.
       Enter the following code in a file called <c>tut3.erl</c>):</p>
-    <code type="none">
+    <code type="erl">
 -module(tut3).
 -export([convert_length/1]).
 
@@ -303,7 +303,7 @@ convert_length({centimeter, X}) ->
 convert_length({inch, Y}) ->
     {centimeter, Y * 2.54}.</code>
     <p>Compile and test:</p>
-    <pre>
+    <pre type="erl">
 14> <input>c(tut3).</input>
 {ok,tut3}
 15> <input>tut3:convert_length({inch, 5}).</input>
@@ -326,7 +326,7 @@ convert_length({inch, Y}) ->
       as many parts as you want, and contain any valid Erlang
       <em>term</em>. For example, to represent the temperature of
       various cities of the world:</p>
-    <code type="none">
+    <code type="erl">
 {moscow, {c, -10}}
 {cape_town, {f, 70}}
 {paris, {f, 28}}</code>
@@ -343,7 +343,7 @@ convert_length({inch, Y}) ->
       represent lists of things. Lists in Erlang are surrounded by
       square brackets, "[" and "]". For example, a list of the
       temperatures of various cities in the world can be:</p>
-    <code type="none">
+    <code type="erl">
 [{moscow, {c, -10}}, {cape_town, {f, 70}}, {stockholm, {c, -4}},
  {paris, {f, 28}}, {london, {f, 36}}]</code>
     <p>Notice that this list was so long that it did not fit on one line.
@@ -392,7 +392,7 @@ convert_length({inch, Y}) ->
       context (scope). More about this later.</p>
     <p>The following example shows how to find the length of a list.
      Enter the following code in a file named <c>tut4.erl</c>):</p>
-    <code type="none">
+    <code type="erl">
 -module(tut4).
 
 -export([list_length/1]).
@@ -402,17 +402,17 @@ list_length([]) ->
 list_length([First | Rest]) ->
     1 + list_length(Rest).</code>
     <p>Compile and test:</p>
-    <pre>
+    <pre type="erl">
 28> <input>c(tut4).</input>
 {ok,tut4}
 29> <input>tut4:list_length([1,2,3,4,5,6,7]).</input>
 7</pre>
     <p>Explanation:</p>
-    <code type="none">
+    <code type="erl">
 list_length([]) ->
     0;</code>
     <p>The length of an empty list is obviously 0.</p>
-    <code type="none">
+    <code type="erl">
 list_length([First | Rest]) ->
     1 + list_length(Rest).</code>
     <p>The length of a list with the first element <c>First</c> and
@@ -447,7 +447,7 @@ list_length([First | Rest]) ->
     <p>The following example shows how to calculate alpha blending
       using maps to reference color and alpha channels. Enter the code
       in a file named <c>color.erl</c>):</p>
-    <code type="none">
+    <code type="erl">
 -module(color).
 
 -export([new/4, blend/2]).
@@ -499,7 +499,7 @@ blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
 #{alpha => 1.0,blue => 0.38,green => 0.52,red => 0.51}
 </pre>
     <p>This example warrants some explanation:</p>
-    <code type="none">
+    <code type="erl">
 -define(is_channel(V), (is_float(V) andalso V &gt;= 0.0 andalso V =&lt; 1.0)).</code>
     <p>First a macro <c>is_channel</c> is defined to help with the
       guard tests. This is only here for convenience and to reduce
@@ -507,7 +507,7 @@ blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
       <seeguide marker="system/reference_manual:macros">
       The Preprocessor</seeguide>.
     </p>
-    <code type="none">
+    <code type="erl">
 new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
                   ?is_channel(B), ?is_channel(A) ->
     #{red =&gt; R, green =&gt; G, blue =&gt; B, alpha =&gt; A}.</code>
@@ -525,7 +525,7 @@ new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
     <p>The first thing <c>blend/2</c> does is to calculate the
       resulting alpha channel:
     </p>
-    <code type="none">
+    <code type="erl">
 alpha(#{alpha := SA}, #{alpha := DA}) ->
     SA + DA*(1.0 - SA).</code>
     <p>The value associated with key <c>alpha</c> is fetched for both
@@ -535,7 +535,7 @@ alpha(#{alpha := SA}, #{alpha := DA}) ->
     </p>
     <p>This is also the case for functions <c>red/2</c>,
       <c>blue/2</c>, and <c>green/2</c>.</p>
-    <code type="none">
+    <code type="erl">
 red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
     SV*SA + DV*DA*(1.0 - SA).</code>
     <p>The difference here is that a check is made for two keys in
@@ -543,7 +543,7 @@ red(#{red := SV, alpha := SA}, #{red := DV, alpha := DA}) ->
     </p>
     <p>Finally, let us return the resulting color in <c>blend/3</c>:
     </p>
-    <code type="none">
+    <code type="erl">
 blend(Src,Dst,Alpha) when Alpha > 0.0 ->
     Dst#{
         red   := red(Src,Dst) / Alpha,
@@ -591,7 +591,7 @@ http://www.erlang.org/doc/r9b/doc/index.html</code>
       the next example shows a simple way to use the <c>io:format</c>
       function. Like all other exported functions, you can test the
       <c>io:format</c> function in the shell:</p>
-    <pre>
+    <pre type="erl">
 31> <input>io:format("hello world~n", []).</input>
 hello world
 ok
@@ -626,7 +626,7 @@ ok</pre>
       of cities in the world. Some of them are in Celsius
       and some in Fahrenheit (as in the previous list). First let us
       convert them all to Celsius, then let us print the data neatly.</p>
-    <code type="none">
+    <code type="erl">
 %% This module is in file tut5.erl
 
 -module(tut5).
@@ -646,7 +646,7 @@ convert_to_celsius({Name, {f, Temp}}) ->  % Do the conversion
 
 print_temp({Name, {c, Temp}}) ->
     io:format("~-15w ~w c~n", [Name, Temp]).</code>
-    <pre>
+    <pre type="erl">
 35> <input>c(tut5).</input>
 {ok,tut5}
 36> <input>tut5:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
@@ -702,7 +702,7 @@ ok</pre>
       in lists like this. Before extending the program to do this,
       let us look at functions for finding the maximum value of
       the elements in a list:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut6).
 -export([list_max/1]).
 
@@ -715,7 +715,7 @@ list_max([Head|Rest], Result_so_far) when Head > Result_so_far ->
     list_max(Rest, Head);
 list_max([Head|Rest], Result_so_far)  ->
     list_max(Rest, Result_so_far).</code>
-    <pre>
+    <pre type="erl">
 37> <input>c(tut6).</input>
 {ok,tut6}
 38> <input>tut6:list_max([1,2,3,4,5,7,4,3,2,1]).</input>
@@ -772,7 +772,7 @@ list_max([Head|Rest], Result_so_far)  ->
       called <c>M</c> is created with the value 5. If, in
       the same scope, you then write <c>M = 6</c>, an error is returned. Try
       this out in the shell:</p>
-    <pre>
+    <pre type="erl">
 39> <input>M = 5.</input>
 5
 40> <input>M = 6.</input>
@@ -783,7 +783,7 @@ list_max([Head|Rest], Result_so_far)  ->
 6</pre>
     <p>The use of the match operator is particularly useful for pulling
       apart Erlang terms and creating new ones.</p>
-    <pre>
+    <pre type="erl">
 43> <input>{X, Y} = {paris, {f, 28}}.</input>
 {paris,{f,28}}
 44> <input>X.</input>
@@ -794,13 +794,13 @@ paris
       <c>Y</c><c>{f,28}</c>.</p>
     <p>If you try to do the same again with another city,
       an error is returned:</p>
-    <pre>
+    <pre type="erl">
 46> <input>{X, Y} = {london, {f, 36}}.</input>
 ** exception error: no match of right hand side value {london,{f,36}}</pre>
     <p>Variables can also be used to improve the readability of
       programs. For example, in function <c>list_max/2</c> above,
       you can write:</p>
-    <code type="none">
+    <code type="erl">
 list_max([Head|Rest], Result_so_far) when Head > Result_so_far ->
     New_result_far = Head,
     list_max(Rest, New_result_far);</code>
@@ -811,7 +811,7 @@ list_max([Head|Rest], Result_so_far) when Head > Result_so_far ->
     <title>More About Lists</title>
     <p>Remember that the | operator can be used to get the head of a
       list:</p>
-    <pre>
+    <pre type="erl">
 47> <input>[M1|T1] = [paris, london, rome].</input>
 [paris,london,rome]
 48> <input>M1.</input>
@@ -826,7 +826,7 @@ paris
 [madrid,london,rome]</pre>
     <p>Now an example of this when working with lists - reversing
       the order of a list:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut8).
 
 -export([reverse/1]).
@@ -838,7 +838,7 @@ reverse([Head | Rest], Reversed_List) ->
     reverse(Rest, [Head | Reversed_List]);
 reverse([], Reversed_List) ->
     Reversed_List.</code>
-    <pre>
+    <pre type="erl">
 52> <input>c(tut8).</input>
 {ok,tut8}
 53> <input>tut8:reverse([1,2,3]).</input>
@@ -847,7 +847,7 @@ reverse([], Reversed_List) ->
       then successively the heads are taken off of the list to be reversed
       and added to the the <c>Reversed_List</c>, as shown in
       the following:</p>
-    <code type="none">
+    <code type="erl">
 reverse([1|2,3], []) =>
     reverse([2,3], [1|[]])
 
@@ -868,7 +868,7 @@ reverse([], [3,2,1]) =>
     <p>Now let us get back to the cities and temperatures, but take a more
       structured approach this time. First let us convert the whole list
       to Celsius as follows:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut7).
 -export([format_temps/1]).
 
@@ -885,7 +885,7 @@ convert_list_to_c([City | Rest]) ->
 convert_list_to_c([]) ->
     [].</code>
     <p>Test the function:</p>
-    <pre>
+    <pre type="erl">
 54> <input>c(tut7).</input>
 {ok, tut7}.
 55> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
@@ -896,7 +896,7 @@ convert_list_to_c([]) ->
  {paris,{c,-2.2222222222222223}},
  {london,{c,2.2222222222222223}}]</pre>
     <p>Explanation:</p>
-    <code type="none">
+    <code type="erl">
 format_temps(List_of_cities) ->
     convert_list_to_c(List_of_cities).</code>
     <p>Here <c>format_temps/1</c> calls
@@ -911,11 +911,11 @@ format_temps(List_of_cities) ->
 [City | convert_list_to_c(Rest)];</code>
     <p>This is done until the end of the list is reached, that is,
       the list is empty:</p>
-    <code type="none">
+    <code type="erl">
 convert_list_to_c([]) ->
     [].</code>
     <p>Now when the list is converted, a function to print it is added:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut7).
 -export([format_temps/1]).
 
@@ -938,7 +938,7 @@ print_temp([{Name, {c, Temp}} | Rest]) ->
     print_temp(Rest);
 print_temp([]) ->
     ok.</code>
-    <pre>
+    <pre type="erl">
 56> <input>c(tut7).</input>
 {ok,tut7}
 57> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
@@ -955,7 +955,7 @@ ok</pre>
       of cities four times. But it is better to first strive for
       clarity and correctness and to make programs efficient only if
       needed.</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(tut7).
 -export([format_temps/1]).
 
@@ -1006,7 +1006,7 @@ find_max_and_min([], Max_City, Min_City) ->
 
 print_max_and_min({Max_name, {c, Max_temp}}, {Min_name, {c, Min_temp}}) ->
     io:format("Max temperature was ~w c in ~w~n", [Max_temp, Max_name]),
-    io:format("Min temperature was ~w c in ~w~n", [Min_temp, Min_name]).]]></code><pre>
+    io:format("Min temperature was ~w c in ~w~n", [Min_temp, Min_name]).]]></code><pre type="erl">
 58> <input>c(tut7).</input>
 {ok, tut7}
 59> <input>tut7:format_temps([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
@@ -1026,7 +1026,7 @@ ok</pre>
     <p>The function <c>find_max_and_min</c> works out the maximum and
       minimum temperature. A new construct, <c>if</c>, is introduced here.
       If works as follows:</p>
-    <code type="none">
+    <code type="c">
 if
     Condition 1 ->
         Action 1;
@@ -1049,7 +1049,7 @@ end</code>
       the <c>true</c> if all other conditions have failed.</p>
     <p>The following is a short program to show the workings of
       <c>if</c>.</p>
-    <code type="none">
+    <code type="erl">
 -module(tut9).
 -export([test_if/2]).
 
@@ -1069,7 +1069,7 @@ test_if(A, B) ->
             a_equals_1_or_b_equals_7
     end.</code>
     <p>Testing this program gives:</p>
-    <pre>
+    <pre type="erl">
 60> <input>c(tut9).</input>
 {ok,tut9}
 61> <input>tut9:test_if(5,33).</input>
@@ -1097,13 +1097,13 @@ a_equals_1_or_b_equals_7
       for details of the many guard tests available.</p>
     <p><c>case</c> is another construct in Erlang. Recall that the
       <c>convert_length</c> function was written as:</p>
-    <code type="none">
+    <code type="erl">
 convert_length({centimeter, X}) ->
     {inch, X / 2.54};
 convert_length({inch, Y}) ->
     {centimeter, Y * 2.54}.</code>
     <p>The same program can also be written as:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut10).
 -export([convert_length/1]).
 
@@ -1114,7 +1114,7 @@ convert_length(Length) ->
         {inch, Y} ->
             {centimeter, Y * 2.54}
     end.</code>
-    <pre>
+    <pre type="erl">
 67> <input>c(tut10).</input>
 {ok,tut10}
 68> <input>tut10:convert_length({inch, 6}).</input>
@@ -1128,7 +1128,7 @@ convert_length(Length) ->
       The following example clarifies this. It
       tells us the length of a month, given the year.
       The year must be known, since February has 29 days in a leap year.</p>
-    <code type="none">
+    <code type="erl">
 -module(tut11).
 -export([month_length/2]).
 
@@ -1161,7 +1161,7 @@ month_length(Year, Month) ->
         oct -> 31;
         dec -> 31
     end.</code>
-    <pre>
+    <pre type="erl">
 70> <input>c(tut11).</input>
 {ok,tut11}
 71> <input>tut11:month_length(2004, feb).</input>
@@ -1225,7 +1225,7 @@ Year rem 400 == 0 ->
       <seeguide marker="system/reference_manual:expressions">Guard Sequences</seeguide>)
       (For advanced readers: This is to ensure that guards do not have side
       effects.) Let us play with a few of these functions in the shell:</p>
-    <pre>
+    <pre type="erl">
 75> <input>trunc(5.6).</input>
 5
 76> <input>round(5.6).</input>
@@ -1244,7 +1244,7 @@ true
 false</pre>
     <p>All of these can be used in guards. Now for some BIFs that cannot be
       used in guards:</p>
-    <pre>
+    <pre type="erl">
 83> <input>atom_to_list(hello).</input>
 "hello"
 84> <input>list_to_atom("goodbye").</input>
@@ -1259,7 +1259,7 @@ goodbye
     <title>Higher-Order Functions (Funs)</title>
     <p>Erlang, like most modern functional programming languages, has
       higher-order functions. Here is an example using the shell:</p>
-    <pre>
+    <pre type="erl">
 86> <input>Xf = fun(X) -> X * 2 end.</input>
 #Fun&lt;erl_eval.5.123085357&gt;
 87> <input>Xf(5).</input>
@@ -1269,7 +1269,7 @@ goodbye
       <c>Xf(5)</c> returns value 10. Two useful functions when
       working with lists are <c>foreach</c> and <c>map</c>, which are
       defined as follows:</p>
-    <code type="none">
+    <code type="erl">
 foreach(Fun, [First|Rest]) ->
     Fun(First),
     foreach(Fun, Rest);
@@ -1286,13 +1286,13 @@ map(Fun, []) ->
       applying a fun to every element in a list. Going back to
       the shell, <c>map</c> is used and a fun to add 3 to
       every element of a list:</p>
-    <pre>
+    <pre type="erl">
 88> <input>Add_3 = fun(X) -> X + 3 end.</input>
 #Fun&lt;erl_eval.5.123085357&gt;
 89> <input>lists:map(Add_3, [1,2,3]).</input>
 [4,5,6]</pre>
     <p>Let us (again) print the temperatures in a list of cities:</p>
-    <pre>
+    <pre type="erl">
 90> <input>Print_City = fun({City, {X, Temp}}) -> io:format("~-15w ~w ~w~n",</input>
 <input>[City, X, Temp]) end.</input>
 #Fun&lt;erl_eval.5.123085357&gt;
@@ -1306,7 +1306,7 @@ london          f 36
 ok</pre>
     <p>Let us now define a fun that can be used to go through a list
       of cities and temperatures and transform them all to Celsius.</p>
-    <code type="none">
+    <code type="erl">
 -module(tut13).
 
 -export([convert_list_to_c/1]).
@@ -1318,7 +1318,7 @@ convert_to_c({Name, {c, Temp}}) ->
 
 convert_list_to_c(List) ->
     lists:map(fun convert_to_c/1, List).</code>
-    <pre>
+    <pre type="erl">
 92> <input>tut13:convert_list_to_c([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
 <input>{stockholm, {c, -4}}, {paris, {f, 28}}, {london, {f, 36}}]).</input>
 [{moscow,{c,-10}},
@@ -1341,7 +1341,7 @@ lists:map(fun convert_to_c/1, List)</code>
       arguments. This fun returns <c>true</c> if the first
       argument is less than the second argument, or else <c>false</c>.
       Sorting is added to the <c>convert_list_to_c</c>:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(tut13).
 
 -export([convert_list_to_c/1]).
@@ -1355,7 +1355,7 @@ convert_list_to_c(List) ->
     New_list = lists:map(fun convert_to_c/1, List),
     lists:sort(fun({_, {c, Temp1}}, {_, {c, Temp2}}) ->
                        Temp1 < Temp2 end, New_list).]]></code>
-    <pre>
+    <pre type="erl">
 93> <input>c(tut13).</input>
 {ok,tut13}
 94> <input>tut13:convert_list_to_c([{moscow, {c, -10}}, {cape_town, {f, 70}},</input>
@@ -1366,7 +1366,7 @@ convert_list_to_c(List) ->
  {london,{c,2}},
  {cape_town,{c,21}}]</pre>
     <p>In <c>sort</c> the fun is used:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 fun({_, {c, Temp1}}, {_, {c, Temp2}}) -> Temp1 < Temp2 end,]]></code>
     <p>Here the concept of an <em>anonymous variable</em>
       "_" is introduced. This is simply shorthand for a variable that

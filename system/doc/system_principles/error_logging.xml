@@ -77,7 +77,7 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       to <c>true</c>. For more information, see
       <seeguide marker="sasl:error_logging">SASL Error Logging</seeguide>
       in the SASL User's Guide.</p>
-    <pre>
+    <pre type="erl">
 % <input>erl -kernel logger_level info</input>
 Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
 

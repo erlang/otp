@@ -41,7 +41,7 @@
     erlang:statistics(microstate_accounting)</c></seeerl>.</p>
     <marker id="msacc_print_example"></marker>
     <p><em>Basic Scenario</em></p>
-    <pre>1> <input>msacc:start(1000).</input>
+    <pre type="erl">1> <input>msacc:start(1000).</input>
 ok
 2> <input>msacc:print().</input>
 Average thread real-time    : 1000513 us
@@ -224,7 +224,7 @@ ok
         thread you can do:</p>
         <pre><input>msacc:print(msacc:stats(runtime,msacc:stats())).</input></pre>
         <p>If you want to only print run-time per thread type you can do:</p>
-        <pre><input>msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</input></pre>
+        <pre type="erl"><input>msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</input></pre>
         <p><em>Options</em></p>
         <taglist>
           <tag><c>system</c></tag><item>Print percentage of time spent in each

@@ -46,7 +46,7 @@
       a predefined set of functions. The relationship between the behavior
       functions and the callback functions is as follows:</p>
 
-    <pre>
+    <pre type="erl">
 gen_event module                   Callback module
 ----------------                   ---------------
 gen_event:start

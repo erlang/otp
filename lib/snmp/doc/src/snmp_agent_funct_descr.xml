@@ -452,7 +452,7 @@
       <c>snmpc:mib_to_hrl/1</c>.  Include these files in your code as in
       the following example:
       </p>
-    <code type="none">
+    <code type="erl">
 -include_lib("snmp/include/SNMPv2-MIB.hrl").
     </code>
     <p>The initial values for the managed objects defined in these
@@ -776,7 +776,7 @@ INDEX { vacmViewTreeFamilyViewName,
       decides to send a notification, it calls one of the following
       functions:
       </p>
-    <code type="none">
+    <code type="erl">
 snmpa:send_notification(Agent, Notification, Receiver
                        [, NotifyName, ContextName, Varbinds])
 snmpa:send_trap(Agent, Notification, Community [, Receiver, Varbinds])

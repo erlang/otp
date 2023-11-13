@@ -86,7 +86,7 @@
           <c><anno>Flag</anno></c>. If <c><anno>Flag</anno></c> is provided
           several times, each <c><anno>Values</anno></c> is returned in
           preserved order. Example:</p>
-        <pre>
+        <pre type="erl">
 % <input>erl -a b c -a d</input>
 ...
 1> <input>init:get_argument(a).</input>
@@ -104,14 +104,14 @@
           <tag><c>progname</c></tag>
           <item>
             <p>The name of the program which started Erlang:</p>
-            <pre>
+            <pre type="erl">
 3> <input>init:get_argument(progname).</input>
 {ok,[["erl"]]}</pre>
           </item>
           <tag><marker id="home"/><c>home</c></tag>
           <item>
             <p>The home directory (on Unix, the value of $HOME):</p>
-            <pre>
+            <pre type="erl">
 4> <input>init:get_argument(home).</input>
 {ok,[["/home/harry"]]}</pre>
           </item>
@@ -304,7 +304,7 @@ BF</pre>
           <seemfa marker="#get_plain_arguments/0">
           <c>get_plain_arguments/0</c></seemfa>.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 % <input>erl -extra +A 1 --</input>
 ...
 1> <input>init:get_plain_arguments().</input>
@@ -415,7 +415,7 @@ foo:bar([baz, '1', '2']).</code>
 
   <section>
     <title>Example</title>
-    <pre>
+    <pre type="erl">
 % <input>erl -- a b -children thomas claire -ages 7 3 -- x y</input>
 ...
 

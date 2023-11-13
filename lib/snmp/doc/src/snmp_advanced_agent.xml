@@ -346,7 +346,7 @@
       </code>
       <p>The corresponding Mnesia table is specified as follows:
         </p>
-      <code type="none">
+      <code type="erl">
 mnesia:create_table([{name, employees},
                      {snmp, [{key, {integer, string}}]},
                      {attributes, [key, telno, row_status]}]).
@@ -363,7 +363,7 @@ mnesia:create_table([{name, employees},
       <p>The MIB table shown in the previous section can be compiled
         as follows:
         </p>
-      <pre>
+      <pre type="erl">
 1> <input>snmpc:compile("EmpMIB", [{db, mnesia}]).</input>
       </pre>
       <p>This is all that has to be done! Now the manager can read,
@@ -382,7 +382,7 @@ mnesia:create_table([{name, employees},
         </p>
       <p>The following example illustrates this idea:
         </p>
-      <code type="none">
+      <code type="erl">
 emp_table(set, RowIndex, Cols) ->
     notify_internal_resources(RowIndex, Cols),
     snmp_generic:table_func(set, RowIndex, Cols, {empTable, mnesia});
@@ -408,7 +408,7 @@ emp_table(Op, RowIndex, Cols) ->
         <c>empTable</c> with one internal column. We create it as
         before, but with an arity of 4, by adding another attribute.
         </p>
-      <code type="none">
+      <code type="erl">
 mnesia:create_table([{name, employees},
                      {snmp, [{key, {integer, string}}]},
                      {attributes, {key, telno, row_status, internal_col}}]).
@@ -418,7 +418,7 @@ mnesia:create_table([{name, employees},
         value to the internal column. The instrumentation functions will now
         look as follows:
         </p>
-      <code type="none">
+      <code type="erl">
 -define(createAndGo, 4).
 -define(createAndWait, 5).
 

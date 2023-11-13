@@ -77,7 +77,7 @@
 	This example shows how to construct a key reference that is used in a sign operation.
 	The actual key is stored in the engine that is loaded at prompt 1.
       </p>
-      <code>
+      <code type="erl">
 1> {ok, EngineRef} = crypto:engine_load(....).
 ...
 {ok,#Ref&lt;0.2399045421.3028942852.173962>}
@@ -97,7 +97,7 @@
 	The public key is stored in an engine, only to exemplify that it is possible. The public
 	key could of course be handled openly as usual.
       </p>
-      <code>
+      <code type="erl">
 4> PublicKey = #{engine => EngineRef,
                  key_id => "id of the public key in Engine"}.
 ...
@@ -112,7 +112,7 @@ true
       <p>
 	The same example as the first sign example, except that a password protects the key down in the Engine.
       </p>
-      <code>
+      <code type="erl">
 6> PrivKeyPwd = #{engine => EngineRef,
                   key_id => "id of the pwd protected private key in Engine",
 		  password => "password"}.

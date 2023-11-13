@@ -61,7 +61,7 @@
     <p>A typical <c>Common Test</c> test suite using <c>ct_property_test</c>
     is organized as follows:</p>
 
-    <code>
+    <code type="erl">
 -module(my_prop_test_SUITE).
 -compile(export_all).
 
@@ -81,7 +81,7 @@
       <p>and the the property test module (in this example <c>ftp_simple_client_server.erl</c>)
       as almost a usual property testing module
       (More examples are in <seeguide marker="ct_property_test_chapter">the User's Guide</seeguide>):</p>
-      <code>
+      <code type="erl">
 -module(ftp_simple_client_server).	
 -export([prop_ftp/0...]).
 
@@ -130,7 +130,7 @@ prop_ftp() -&gt;
 	<p>The file(s) in the <c>property_test</c> subdirectory could, or should,
 	include the ct_property_test include file:
 	</p>
-	<code>
+	<code type="erl">
 -include_lib("common_test/include/ct_property_test.hrl").
 	</code>
 	<p>This included file will:
@@ -206,7 +206,7 @@ prop_ftp() -&gt;
       </p>
       <p>It is assumed to be called inside the property called by
       <seemfa marker="#quickcheck/2">quickcheck/2</seemfa>:</p>
-      <code>
+      <code type="erl">
 ...
 RunResult = run_parallel_commands(?MODULE, Cmds),
 ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)	
@@ -257,7 +257,7 @@ ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)
                                                   fun num_calls/1}]
 	</code></item>
 	<item>For parallel commands:
-	<code>
+	<code type="erl">
 [{"Distribution sequential/parallel", fun sequential_parallel/1},
  {"Function calls", fun cmnd_names/1},
  {"Length of command sequences", fun print_frequency_ranges/0,

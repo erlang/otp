@@ -132,7 +132,7 @@
     <p>Table attributes are specified when the table is created. For
       example, the following function creates a table with two
       RAM replicas:</p>
-    <pre>
+    <pre type="erl">
       mnesia:create_table(foo,
                           [{ram_copies, [N1, N2]},
                            {attributes, record_info(fields, foo)}]).</pre>
@@ -233,7 +233,7 @@
       <p>The following code illustrates how a <c>Mnesia</c> table is
         converted to be a fragmented table and how more fragments
         are added later:</p>
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 Eshell V4.7.3.3  (abort with ^G)
 (a@sam)1> mnesia:start().
 ok
@@ -370,7 +370,7 @@ ok
           <p>Enables a table-specific parameterization of a
             generic hash module. This property can explicitly be set
             at table creation. Default is <c>undefined</c>.</p>
-          <code type="none"><![CDATA[
+          <code type="erl"><![CDATA[
 Eshell V4.7.3.3  (abort with ^G)
 (a@sam)1> mnesia:start().
 ok
@@ -722,7 +722,7 @@ ok
       <seemfa marker="mnesia#change_table_copy_type/3">mnesia:change_table_copy_type/3</seemfa>
       can be used to change the storage type of the schema.
       This is illustrated as follows:</p>
-    <pre>
+    <pre type="erl">
         1> mnesia:start().
         ok
         2> mnesia:change_table_copy_type(schema, node(), disc_copies).
@@ -1221,7 +1221,7 @@ ok
       for minor experiments and initial prototyping. The major
       advantage of these functions is that they are easy to use.</p>
     <p>The format of the text file is as follows:</p>
-    <pre>
+    <pre type="erl">
       {tables, [{Typename, [Options]},
       {Typename2 ......}]}.
       
@@ -1236,7 +1236,7 @@ ok
     <codeinclude file="FRUITS" tag="%0" type="erl"></codeinclude>
     <p>The following session with the Erlang shell shows how
       to load the <c>FRUITS</c> database:</p>
-    <pre><![CDATA[
+    <pre type="erl"><![CDATA[
       % erl
       Erlang (BEAM) emulator version 4.9
  
@@ -1315,7 +1315,7 @@ ok
     <p>The following record definitions can be created:</p>
     <codeinclude file="company_o.hrl" tag="%0" type="erl"></codeinclude>
     <p>A record that describes an employee can look as follows:</p>
-    <pre>
+    <pre type="erl">
         Me = #employee{emp_no= 104732,
         name = klacke,
         salary = 7,

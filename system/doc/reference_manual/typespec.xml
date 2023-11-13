@@ -336,7 +336,7 @@
       but they are expected to be rarely used. Hence, they have long names:
     </p>
   </note>
-  <pre>
+  <pre type="erl">
   nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
   nonempty_improper_list(Type1, Type2)
   nonempty_maybe_improper_list(Type1, Type2)</pre>
@@ -348,7 +348,7 @@
     Also for convenience, record notation is allowed to be used.
     Records are shorthands for the corresponding tuples:
   </p>
-  <pre>
+  <pre type="erl">
   Record :: #Erlang_Atom{}
           | #Erlang_Atom{Fields}</pre>
   <p>
@@ -372,7 +372,7 @@
     <p>As an example, imagine that the Erlang/OTP 42 release introduces
     a new type <c>gadget()</c> defined like this:</p>
 
-    <pre>
+    <pre type="erl">
   -type gadget() :: {'gadget', reference()}.</pre>
 
     <p>Further imagine that some code has its own (different)
@@ -393,7 +393,7 @@
       parentheses. New types are declared using <c>-type</c> and <c>-opaque</c>
       attributes as in the following:
     </p>
-    <pre>
+    <pre type="erl">
   -type my_struct_type() :: Type.
   -opaque my_opaq_type() :: Type.</pre>
     <p>
@@ -420,7 +420,7 @@
       Naturally, these variables can - and is to - appear on the RHS of the
       definition. A concrete example follows:
     </p>
-    <pre>
+    <pre type="erl">
   -type orddict(Key, Val) :: [{Key, Val}].</pre>
     <p>
       A module can export some types to declare that other modules
@@ -431,12 +431,12 @@
     <p>Here the Ti's are atoms (the name of the type) and the Ai's are their
       arguments</p>
       <p><em>Example:</em></p>
-      <pre>
+      <pre type="erl">
   -export_type([my_struct_type/0, orddict/2]).</pre>
     <p>Assuming that these types are exported from module <c>'mod'</c>,
       you can refer to them from other modules using remote type expressions
       like the following:</p>
-      <pre>
+      <pre type="erl">
   mod:my_struct_type()
   mod:orddict(atom(), term())</pre>
     <p>It is not allowed to refer to types that are not declared as exported.
@@ -460,19 +460,19 @@
       The types of record fields can be specified in the declaration of the
       record. The syntax for this is as follows:
     </p>
-    <pre>
+    <pre type="erl">
   -record(rec, {field1 :: Type1, field2, field3 :: Type3}).</pre>
     <p>
       For fields without type annotations, their type defaults to any().
       That is, the previous example is a shorthand for the following:
     </p>
-    <pre>
+    <pre type="erl">
   -record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).</pre>
     <p>
       In the presence of initial values for fields,
       the type must be declared after the initialization, as follows:
     </p>
-    <pre>
+    <pre type="erl">
   -record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).</pre>
     <p>
       The initial values for fields are to be compatible
@@ -485,7 +485,7 @@
       the singleton type <c>'undefined'</c> was added to all declared types.
       In other words, the following two record declarations had identical
       effects:</p>
-    <pre>
+    <pre type="erl">
   -record(rec, {f1 = 42 :: integer(),
                 f2      :: float(),
                 f3      :: 'a' | 'b'}).
@@ -518,7 +518,7 @@
         Mnesia match functions, Dialyzer may need some help not to emit
         bad warnings. For example:</p>
 
-<pre>
+<pre type="erl">
     -type height() :: pos_integer().
     -record(person, {name :: string(), height :: height()}).
 
@@ -532,7 +532,7 @@
         smallest record field types to accommodate all your needs,
         and then create refinements as needed. The modified example:</p>
 
-<pre>
+<pre type="erl">
     -record(person, {name :: string(), height :: height() | '_'}).
 
     -type person() :: #person{height :: height()}.</pre>
@@ -572,7 +572,7 @@
       A function specification can be overloaded.
       That is, it can have several types, separated by a semicolon (<c>;</c>):
     </p>
-    <pre>
+    <pre type="erl">
   -spec foo(T1, T2) -> T3
          ; (T4, T5) -> T6.</pre>
     <p>
@@ -580,7 +580,7 @@
       by Dialyzer, is that the domains of the argument types cannot overlap.
       For example, the following specification results in a warning:
     </p>
-    <pre>
+    <pre type="erl">
   -spec foo(pos_integer()) -> pos_integer()
          ; (integer()) -> integer().</pre>
     <p>
@@ -597,7 +597,7 @@
       These types can be constrained by guard-like subtype constraints
       and provide bounded quantification:
     </p>
-    <pre>  -spec id(X) -> X when X :: tuple().</pre>
+    <pre type="erl">  -spec id(X) -> X when X :: tuple().</pre>
     <p>
       Currently, the <c>::</c> constraint
       (read as &laquo;is a subtype of&raquo;) is
@@ -610,7 +610,7 @@
       the same type variable. That provides more type information than the
       following function specification, where the type variables are missing:
       </p>
-      <pre>  -spec id(tuple()) -> tuple().</pre>
+      <pre type="erl">  -spec id(tuple()) -> tuple().</pre>
       <p>
 	The latter specification says that the function takes some tuple
 	and returns some tuple. The specification with the <c>X</c> type
@@ -631,7 +631,7 @@
       constituents of an overloaded contract, as shown in the
       following example:
     </p>
-    <pre>
+    <pre type="erl">
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
     <p>
@@ -639,7 +639,7 @@
       either because they define servers or because they are used to
       throw exceptions, as in the following function:
     </p>
-    <pre>  my_error(Err) -> erlang:throw({error, Err}).</pre>
+    <pre type="erl">  my_error(Err) -> erlang:throw({error, Err}).</pre>
     <p>
       For such functions, it is recommended to use the special
       <c>no_return()</c> type for their "return", through a contract

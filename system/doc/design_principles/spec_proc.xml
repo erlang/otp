@@ -47,7 +47,7 @@
     example from
     <seeguide marker="statem#Example">gen_statem Behaviour</seeguide>
     is used to illustrate this:</p>
-    <pre>
+    <pre type="erl">
 Erlang/OTP 20 [DEVELOPMENT] [erts-9.0] [source-5ace45e] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false]
 
 Eshell V9.0  (abort with ^G)
@@ -130,7 +130,7 @@ ok
       implemented using <c>sys</c> and <c>proc_lib</c> so it fits into a
       supervision tree:</p>
       <marker id="ex"></marker>
-      <pre>
+      <pre type="erl">
 -module(ch4).
 -export([start_link/0]).
 -export([alloc/0, free/1]).
@@ -198,7 +198,7 @@ write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).</pre>
       <p>Example on how the simple debugging functions in the <c>sys</c>
       module can also be used for <c>ch4</c>:</p>
-      <pre>
+      <pre type="erl">
 % <input>erl</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
 
@@ -249,7 +249,7 @@ ok
         User's Guide.</p>
       <p>In the example, synchronous start is used. The process
         starts by calling <c>ch4:start_link()</c>:</p>
-      <code type="none">
+      <code type="erl">
 start_link() ->
     proc_lib:start_link(ch4, init, [self()]).</code>
       <p><c>ch4:start_link</c> calls the function
@@ -262,7 +262,7 @@ start_link() ->
       <p>All initialization, including name registration, is done in
       <c>init</c>. The new process must also acknowledge that it has
       been started to the parent:</p>
-      <code type="none">
+      <code type="erl">
 init(Parent) ->
     ...
     proc_lib:init_ack(Parent, {ok, self()}),
@@ -280,7 +280,7 @@ init(Parent) ->
       <p>To support the debug facilities in <c>sys</c>, a
         <em>debug structure</em> is needed. The <c>Deb</c> term is
         initialized using <c>sys:debug_options/1</c>:</p>
-      <code type="none">
+      <code type="erl">
 init(Parent) ->
     ...
     Deb = sys:debug_options([]),
@@ -292,7 +292,7 @@ init(Parent) ->
         <c>sys(3)</c> manual page in STDLIB.</p>
       <p>Then, for each <em>system event</em> to be logged
         or traced, the following function is to be called.</p>
-      <code type="none">
+      <code type="erl">
 sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
 <p>Here:</p>
       <list type="bulleted">
@@ -324,7 +324,7 @@ sys:handle_debug(Deb, Func, Info, Event) => Deb1</code>
         and outgoing message. The format function <c>Func</c> is
         the function <c>ch4:write_debug/3</c>, which prints the message
         using <c>io:format/3</c>.</p>
-      <code type="none">
+      <code type="erl">
 loop(Chs, Parent, Deb) ->
     receive
         {From, alloc} ->
@@ -356,12 +356,12 @@ write_debug(Dev, Event, Name) ->
       <p>The content and meaning of these messages do not need to be
         interpreted by the process. Instead the following function
         is to be called:</p>
-      <code type="none">
+      <code type="erl">
 sys:handle_system_msg(Request, From, Parent, Module, Deb, State)</code>
       <p>This function does not return. It handles the system
       message and then either calls the following if process execution is
       to continue:</p>
-      <code type="none">
+      <code type="erl">
 Module:system_continue(Parent, Deb, State)</code>
       <p>Or calls the following if the process is to terminate:</p>
       <code type="none">
@@ -387,7 +387,7 @@ Module:system_get_state(State)</code>
       <code type="none">
 Module:system_replace_state(StateFun, State)</code>
       <p>In the example:</p>
-      <code type="none">
+      <code type="erl">
 loop(Chs, Parent, Deb) ->
     receive
         ...
@@ -413,7 +413,7 @@ system_replace_state(StateFun, Chs) ->
       <p>If the special process is set to trap exits and if the parent
       process terminates, the expected behavior is to terminate with
       the same reason:</p>
-      <code type="none">
+      <code type="erl">
 init(...) ->
     ...,
     process_flag(trap_exit, true),
@@ -476,7 +476,7 @@ loop(...) ->
       <c>-optional_callbacks</c> attributes you may directly implement
       and export <c>behaviour_info()</c>:</p>
 
-    <code type="none">
+    <code type="erl">
 behaviour_info(callbacks) ->
     [{Name1, Arity1},...,{NameN, ArityN}].</code>
 
@@ -491,7 +491,7 @@ behaviour_info(callbacks) ->
       <c>Mod</c>, and issues a warning if any callback function is
       missing.</p>
     <p>Example:</p>
-    <code type="none">
+    <code type="erl">
 %% User-defined behaviour module
 -module(simple_server).
 -export([start_link/2, init/3, ...]).
@@ -523,7 +523,7 @@ init(Parent, Name, Module) ->
 
 ...</code>
     <p>In a callback module:</p>
-    <code type="none">
+    <code type="erl">
 -module(db).
 -behaviour(simple_server).
 
@@ -537,7 +537,7 @@ init(Parent, Name, Module) ->
     <c>-callback</c> contracts are usually generic. The same callback
     module with contracts for the callbacks:</p>
     
-    <code type="none">
+    <code type="erl">
 -module(db).
 -behaviour(simple_server).
 

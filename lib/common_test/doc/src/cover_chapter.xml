@@ -131,7 +131,7 @@
 
    <p>Here follows the general configuration terms that are allowed in a cover specification file:</p>
    
-    <pre>
+    <pre type="erl">
  %% List of Nodes on which cover will be active during test.
  %% Nodes = [atom()]
  {nodes, Nodes}.       
@@ -251,7 +251,7 @@
     <p>If instead the cover specification for <c>s2</c> is like
     the following:</p>
 
-<code type="none">
+<code type="erl">
  s2.cover:
    {cross,[{s1,[m1]}]}.</code>
 
@@ -264,7 +264,7 @@
 
     <p>The call to the analyze function must be as follows:</p>
 
-<code type="none">
+<code type="erl">
  ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).</code>
 
     <p>Here, <c>S1LogDir</c> and <c>S2LogDir</c> are the directories

@@ -419,7 +419,7 @@
         <p>The following is a complete <c>Fun</c> parameter for reading and
           writing on files using the
           <seeerl marker="kernel:file"><c>file</c></seeerl> module:</p>
-        <code type="none">
+        <code type="erl">
 ExampleFun = 
    fun(write, {Fd,Data}) ->  file:write(Fd, Data);
       (position, {Fd,Pos}) -> file:position(Fd, Pos);
@@ -427,11 +427,11 @@ ExampleFun =
       (close, Fd) -> file:close(Fd)
    end</code>
         <p>Here <c>Fd</c> was specified to function <c>init/3</c> as:</p>
-        <code>
+        <code type="erl">
 {ok,Fd} = file:open(Name, ...).
 {ok,TarDesc} = erl_tar:init(Fd, [write], ExampleFun),</code>
         <p><c>TarDesc</c> is then used:</p>
-        <code>
+        <code type="erl">
 erl_tar:add(TarDesc, SomeValueIwantToAdd, FileNameInTarFile),
 ...,
 erl_tar:close(TarDesc)</code>

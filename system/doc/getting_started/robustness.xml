@@ -50,7 +50,7 @@
       finish is to make "pong" exit if it does not receive a message
       from ping within a certain time. This can be done by adding a
       <em>time-out</em> to <c>pong</c> as shown in the following example:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut19).
 
 -export([start_ping/1, start_pong/0,  ping/2, pong/0]).
@@ -100,7 +100,7 @@ Ping received pong
 Ping received pong
 ping finished   </pre>
     <p>The time-out is set in:</p>
-    <code type="none">
+    <code type="erl">
 pong() ->
     receive
         {ping, Ping_PID} ->
@@ -173,7 +173,7 @@ after pong_timeout() -></code>
       the spawned process.</p>
     <p>Now an example of the ping pong example using links to terminate
       "pong":</p>
-    <code type="none">
+    <code type="erl">
 -module(tut20).
 
 -export([start/1,  ping/2, pong/0]).
@@ -233,7 +233,7 @@ process_flag(trap_exit, true)</code>
       the supervisory programs in OTP.
       However, the ping pong program is modified to illustrate exit
       trapping.</p>
-    <code type="none">
+    <code type="erl">
 -module(tut21).
 
 -export([start/1,  ping/2, pong/0]).
@@ -286,7 +286,7 @@ pong exiting, got {'EXIT',&lt;3820.39.0>,ping}</pre>
     <title>The Larger Example with Robustness Added</title>
     <p>Let us return to the messenger program and add changes to
       make it more robust:</p>
-    <code type="none">
+    <code type="erl">
 %%% Message passing utility.  
 %%% User interface:
 %%% login(Name)

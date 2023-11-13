@@ -294,7 +294,7 @@ ok</code>
     algorithms you should append them to the default list as the
     configuration is in prefered order, something like this:</p>
 
-    <code>
+    <code type="erl">
     MySignatureAlgs = ssl:signature_algs(default, 'tlsv1.3') ++ [{sha, rsa}, {sha, dsa}],
     ssl:connect(Host,Port,[{signature_algs, MySignatureAlgs,...]}),
     ...
@@ -348,7 +348,7 @@ ssl:connect("localhost", 9999,
    to for instance enable wireshark to decrypt TLS packets.</p>
 
    <p><em>Server (with NSS key logging)</em></p>
-    <code type="none">
+    <code type="erl">
     server() ->
         application:load(ssl),
         {ok, _} = application:ensure_all_started(ssl),
@@ -363,7 +363,7 @@ ssl:connect("localhost", 9999,
         {ok, CSock} = ssl:handshake(ASock).
     </code>
     <p><em>Exporting the secrets</em></p>
-    <code type="none">
+    <code type="erl">
       {ok, [{keylog, KeylogItems}]} = ssl:connection_information(CSock, [keylog]).
       file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem &lt;- KeylogItems]).
     </code>
@@ -718,7 +718,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
     <p>An example of sending early data with automatic and manual session ticket handling:</p>
 
     <p><em>Server</em></p>
-    <code type="none">
+    <code type="erl">
     early_data_server() ->
         application:load(ssl),
         {ok, _} = application:ensure_all_started(ssl),

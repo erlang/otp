@@ -67,7 +67,7 @@
       <desc>
         <p><c>escript</c> runs a script written in Erlang.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 $ <input>chmod u+x factorial</input>
 $ <input>cat factorial</input>
 #!/usr/bin/env escript
@@ -117,7 +117,7 @@ $ <input>escript factorial 5</input></pre>
           <p>The encoding specified by the above mentioned comment
             applies to the script itself. The encoding of the
             I/O-server, however, must be set explicitly as follows:</p>
-          <code>
+          <code type="erl">
 io:setopts([{encoding, latin1}])</code>
           <p>The default encoding of the I/O-server for <seetype marker="stdlib:io#standard_io"><c>standard_io</c></seetype>
             is <c>unicode</c> if its supported. (see section
@@ -167,7 +167,7 @@ halt(1).</pre>
           This means that you, for example, can use predefined macros
           (such as <c>?MODULE</c>) and include directives like
           the <c>-include_lib</c> directive. For example, use</p>
-        <pre>
+        <pre type="erl">
 -include_lib("kernel/include/file.hrl").</pre>
         <p>to include the record definitions for the records used by function
           <seemfa marker="kernel:file#read_link_info/1">
@@ -186,7 +186,7 @@ halt(1).</pre>
         <p>By default, the script will be compiled by the Erlang compiler.</p>
         <p>It is possible to force it to be interpreted by including
         the following line somewhere in the script file:</p>
-        <pre>
+        <pre type="erl">
 -mode(interpret).</pre>
         <p>Execution of interpreted code is slower than compiled code,
         and some language constructs will not work, but there is no
@@ -274,7 +274,7 @@ factorial 5 = 120</pre>
           interpreted escript that uses <c>emu_args</c> to set some emulator
           flag. In this case, it happens to set number of schedulers with <c>+S3</c>. We
           also extract the different sections from the newly created script:</p>
-        <pre>
+        <pre type="erl">
 &gt; <input>Source = "%% Demo\nmain(_Args) ->\n    io:format(\"~p\",[erlang:system_info(schedulers)]).\n".</input>
 "%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedulers)).\n"
 &gt; <input>io:format("~s\n", [Source]).</input>
@@ -294,7 +294,7 @@ ok
 {ok,[{shebang,default}, {comment,default}, {emu_args,"+S3"},
      {source,&lt;&lt;"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedu"...&gt;&gt;}]}</pre>
         <p>An escript without header can be created as follows:</p>
-        <pre>
+        <pre type="erl">
 &gt; <input>file:write_file("demo.erl",
                   ["%% demo.erl\n-module(demo).\n-export([main/1]).\n\n", Source]).</input>
 ok
@@ -314,7 +314,7 @@ ok
           code and Beam code, then we iterate over all files in
           the archive and collect their contents and some information about
           them:</p>
-        <pre>
+        <pre type="erl">
 &gt; <input>{ok, SourceCode} = file:read_file("demo.erl").</input>
 {ok,&lt;&lt;"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...&gt;&gt;}
 &gt; <input>escript:create("demo.escript",
@@ -386,7 +386,7 @@ ok
           BeamCode}</c> is returned instead of <c>{source,
           SourceCode}</c>.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 &gt; <input>escript:create("demo.escript",
                  [shebang, {archive, [{"demo.erl", SourceCode},
                                       {"demo.beam", BeamCode}], []}]).</input>

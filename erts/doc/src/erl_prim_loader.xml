@@ -121,7 +121,7 @@
           <c>file_info</c>, defined in the Kernel include file
           <c>file.hrl</c>. Include the following directive in the module
           from which the function is called:</p>
-        <code type="none">
+        <code type="erl">
 -include_lib("kernel/include/file.hrl").</code>
         <p>For more information about the record <c>file_info</c>, see
           <seeerl marker="kernel:file"><c>file(3)</c></seeerl>.</p>

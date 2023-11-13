@@ -54,7 +54,7 @@
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 % erl -pa et/examples
 Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
@@ -67,7 +67,7 @@ Eshell V5.7.4  (abort with ^G)
     display. <c>Events</c> are for example reported to the
     <c>Collector</c> with <c>et_collector:report_event/6</c>:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 2> Collector = et_viewer:get_collector_pid(Viewer).
 <0.39.0>
 3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer,
@@ -93,7 +93,7 @@ Eshell V5.7.4  (abort with ^G)
     caused by a <c>Mnesia</c> transaction that writes a record in a local
     table:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
 
     <p>At this stage when we have a couple of <c>Events</c>, it is time to
@@ -140,7 +140,7 @@ mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 filter(TraceData) -> false | true | {true, NewEvent}
 
 TraceData = Event | erlang_trace_data()
@@ -200,7 +200,7 @@ NewEvent = #event{}]]></code>
 
     <p></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 4> Fun = fun(E) -> et_demo:mgr_actors(E) end.
 #Fun<erl_eval.6.13229925>
 5> et_collector:dict_insert(Collector, {filter, mgr_actors}, Fun).

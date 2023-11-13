@@ -46,7 +46,7 @@
     <p>For example, to extract data from a variable <c>P</c>
       that contains such a tuple, you can write the following code
       and then use pattern matching to extract the relevant fields:</p>
-    <code type="none">
+    <code type="erl">
 Name = element(1, P),
 Address = element(2, P),
 ...</code>
@@ -58,7 +58,7 @@ Address = element(2, P),
     <p>Records allow references to the fields by name, instead of by
       position. In the following example, a record instead of a tuple
       is used to store the data:</p>
-    <code type="none">
+    <code type="erl">
 -record(person, {name, phone, address}).</code>
     <p>This enables references to the fields of the record by name.
     For example, if <c>P</c> is a variable whose value is a
@@ -82,11 +82,11 @@ Address = P#person.address,
       The default value for <c>address</c> is the atom
       <c>undefined</c>, since no default value is supplied for this
       field:</p>
-    <pre>
+    <pre type="erl">
 -record(person, {name = "", phone = [], address}).</pre>
     <p>The record must be defined in the shell to enable
       use of the record syntax in the examples:</p>
-    <pre>
+    <pre type="erl">
 > <input>rd(person, {name = "", phone = [], address}).</input>
 person</pre>
     <p>This is because record definitions are only available
@@ -99,7 +99,7 @@ person</pre>
   <section>
     <title>Creating a Record</title>
     <p>A new <c>person</c> record is created as follows:</p>
-    <pre>
+    <pre type="erl">
 > <input>#person{phone=[0,8,2,3,4,3,1,2], name="Robert"}.</input>
 #person{name = "Robert",phone = [0,8,2,3,4,3,1,2],address = undefined}</pre>
     <p>As the <c>address</c> field was omitted, its default value
@@ -119,7 +119,7 @@ person</pre>
   <section>
     <title>Accessing a Record Field</title>
     <p>The following example shows how to access a record field:</p>
-    <pre>
+    <pre type="erl">
 > <input>P = #person{name = "Joe", phone = [0,8,2,3,4,3,1,2]}.</input>
 #person{name = "Joe",phone = [0,8,2,3,4,3,1,2],address = undefined}
 > <input>P#person.name.</input>
@@ -157,7 +157,7 @@ foo(_) -> not_a_person.</pre>
     <p>The following function takes a list of <c>person</c> records
       and searches for the phone number of a person with a particular
       name:</p>
-    <code type="none">
+    <code type="erl">
 find_phone([#person{name=Name, phone=Phone} | _], Name) ->
     {found,  Phone};
 find_phone([_| T], Name) ->
@@ -172,7 +172,7 @@ find_phone([], Name) ->
     <p>The value of a field in a record can be an instance of a
       record. Retrieval of nested data can be done stepwise, or in a
       single step, as shown in the following example:</p>
-    <pre>
+    <pre type="erl">
 -record(name, {first = "Robert", last = "Ericsson"}).
 -record(person, {name = #name{}, phone}).
 
@@ -185,7 +185,7 @@ demo() ->
   <section>
     <title>A Longer Example</title>
     <p>Comments are embedded in the following example:</p>
-    <pre>
+    <pre type="erl">
 %% File: person.hrl
 
 %%-----------------------------------------------------------
@@ -199,7 +199,7 @@ demo() ->
 %%           A {Key, Value} list (default is the empty list).
 %%------------------------------------------------------------
 -record(person, {name, age, phone = [], dict = []}).</pre>
-    <pre>
+    <pre type="erl">
 -module(person).
 -include("person.hrl").
 -compile(export_all). % For test purposes only.

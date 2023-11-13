@@ -37,7 +37,7 @@
     <p>The following example test suite shows some tests of a database server:
     </p>
 
-<code>
+<code type="erl">
  -module(db_data_type_SUITE).
 
  -include_lib("common_test/include/ct.hrl").
@@ -381,7 +381,7 @@
      ok.</code>
     <br></br>
     <p><em>Small Common Test Suite</em></p>
-<code>
+<code type="erl">
  %%%-------------------------------------------------------------------
  %%% File    : example_SUITE.erl
  %%% Author  : 

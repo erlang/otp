@@ -44,7 +44,7 @@
       To quickly get started on tracing function calls you can use the following
       code in the Erlang shell:
     </p>
-    <pre>
+    <pre type="erl">
 1> dbg:tracer(). %% Start the default trace message receiver
 {ok,&lt;0.36.0>}
 2> dbg:p(all, c). %% Setup call (c) tracing on all processes
@@ -100,12 +100,12 @@
           <c>receive</c> etc). The return value from the fun will be
           the return value of the resulting match_spec.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 1> <input>dbg:fun2ms(fun([M,N]) when N > 3 -> return_trace() end).</input>
 [{['$1','$2'],[{'>','$2',3}],[{return_trace}]}]</pre>
         <p>Variables from the environment can be imported, so that this
           works:</p>
-        <pre>
+        <pre type="erl">
 2> <input>X=3.</input>
 3
 3> <input>dbg:fun2ms(fun([M,N]) when N > X  -> return_trace() end).</input>
@@ -116,7 +116,7 @@
           function calls cannot be in the guard or body of the fun
           however. Calls to builtin match_spec functions of course is
           allowed:</p>
-        <pre>
+        <pre type="erl">
 4> <input>dbg:fun2ms(fun([M,N]) when N > X, is_atomm(M)  -> return_trace() end).</input>
 Error: fun containing local erlang function calls ('is_atomm' called in guard)\
  cannot be translated into match_spec
@@ -401,7 +401,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           presented as a list of tuples <c>{error, string()}</c> where
           the string is a textual explanation of the compilation
           error. An example:</p>
-        <pre>
+        <pre type="erl">
 (x@y)4> <input>dbg:tp({dbg,ltp,0},[{[],[],[{message, two, arguments}, {noexist}]}]).</input>
 {error,
  [{error,"Special form 'message' called with wrong number of
@@ -650,7 +650,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
 	  parameters, return values and exceptions thrown from functions. 
 	  Caller traces display function names, parameters and information 
 	  about which function called it. An example using a built-in alias:</p>
-	  <pre>
+	  <pre type="erl">
 (x@y)4> <input>dbg:tp(lists,sort,cx).</input>
 {ok,[{matched,nonode@nohost,2},{saved,cx}]}
 (x@y)4> <input>lists:sort([2,1]).</input>
@@ -1069,7 +1069,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           distributed), where the formatting occurs:</p>
         <p>On the node <c>stack</c> there's an Erlang node
           <c>ant@stack</c>, in the shell, type the following:</p>
-        <pre>
+        <pre type="erl">
 ant@stack> <input>dbg:tracer(port, dbg:trace_port(ip,4711)).</input>
 &lt;0.17.0>
 ant@stack> <input>dbg:p(self(), send).</input>
@@ -1078,7 +1078,7 @@ ant@stack> <input>dbg:p(self(), send).</input>
           which in turn listens for connections on the TCP/IP port
           4711. If we want to see the messages on another node,
           preferably on another host, we do like this:</p>
-        <pre>
+        <pre type="erl">
 -> <input>dbg:trace_client(ip, {"stack", 4711}).</input>
 &lt;0.42.0></pre>
         <p>If we now send a message from the shell on the node
@@ -1175,7 +1175,7 @@ hello</pre>
     <p>The simplest way of tracing from the Erlang shell is to use
       <c>dbg:c/3</c> or <c>dbg:c/4</c>, e.g. tracing the function
       <c>dbg:get_tracer/0</c>:</p>
-    <pre>
+    <pre type="erl">
 (tiger@durin)84> <input>dbg:c(dbg,get_tracer,[]).</input>
 (&lt;0.154.0>) &lt;0.152.0> ! {&lt;0.154.0>,{get_tracer,tiger@durin}}
 (&lt;0.154.0>) out {dbg,req,1}
@@ -1188,7 +1188,7 @@ hello</pre>
       <em>tracer</em> and then set the <em>trace flags</em> of your
       choice on the processes you want to trace, e.g. trace messages and
       process events:</p>
-    <pre>
+    <pre type="erl">
 (tiger@durin)66> <input>Pid = spawn(fun() -> receive {From,Msg} -> From ! Msg end end).</input>
 &lt;0.126.0>
 (tiger@durin)67> <input>dbg:tracer().</input>
@@ -1207,7 +1207,7 @@ ok
 (tiger@durin)71></pre>
     <p>If you set the <c>call</c> trace flag, you also have to set a
       <em>trace pattern</em> for the functions you want to trace:</p>
-    <pre>
+    <pre type="erl">
 (tiger@durin)77> <input>dbg:tracer().</input>
 {ok,&lt;0.142.0>}
 (tiger@durin)78> <input>dbg:p(all,call).</input>
@@ -1245,7 +1245,7 @@ ok
       combination of <c>dbg</c> and <c>seq_trace</c> can be quite
       powerful.  This brief example shows a session where sequential
       tracing is used:</p>
-    <pre>
+    <pre type="erl">
 1> <input>dbg:tracer().</input>
 {ok,&lt;0.30.0>}
 2> <input>{ok, Tracer} = dbg:get_tracer().</input>
@@ -1284,7 +1284,7 @@ SeqTrace [0]: (&lt;0.30.0>) &lt;0.25.0> ! {dbg,{ok,&lt;0.31.0>}} [Serial: {4,5}]
       Note that when
       <c>dbg:p(all,call)</c> is called, IO processes are also traced.
       Here's an example:</p>
-    <pre>
+    <pre type="erl">
 %% Using a default line editing shell
 1> <input>dbg:tracer(process, {fun(Msg,_) -> io:format("~p~n", [Msg]), 0 end, 0}).</input>
 {ok,&lt;0.37.0>}
@@ -1295,7 +1295,7 @@ SeqTrace [0]: (&lt;0.30.0>) &lt;0.25.0> ! {dbg,{ok,&lt;0.31.0>}} [Serial: {4,5}]
 4> <input>mymod:</input> % TAB pressed here
 %% -- Deadlock --</pre>
     <p>Here's another example:</p>
-    <pre>
+    <pre type="erl">
 %% Using a shell without line editing (oldshell)
 1> <input>dbg:tracer(process).</input>
 {ok,&lt;0.31.0>}

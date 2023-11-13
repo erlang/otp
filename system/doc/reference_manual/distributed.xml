@@ -72,7 +72,7 @@
       <seemfa marker="erts:erlang#node/0"><c>node()</c></seemfa>
       returns the name of the node.</p>
       <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 % <input>erl -name dilbert</input>
 (dilbert@uab.ericsson.se)1> <input>node().</input>
 'dilbert@uab.ericsson.se'
@@ -86,7 +86,7 @@ dilbert@uab</pre>
       <seemfa marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>.
     </p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 % <input>erl</input>
 1> <input>node().</input>
 nonode@nohost

@@ -88,7 +88,7 @@
 	the entry or <c>false</c> to discard the entry. </p>
 	<p>For example, to get an interface list which only contains
 	non-<c>loopback</c> <c>inet</c> interfaces: </p>
-	<code type="none"><![CDATA[
+	<code type="erl"><![CDATA[
 	net:getifaddrs(fun(#{addr  := #{family := inet},
 	                     flags := Flags}) ->
 			       not lists:member(loopback, Flags);

@@ -343,14 +343,14 @@
 	    </p>
 	    <p><em>Examples:</em></p>
 
-	  <pre>
+	  <pre type="erl">
  testcase1() ->
      [{require, ftp},
       {default_config, ftp, [{ftp, "my_ftp_host"},
                              {username, "aladdin"},
                              {password, "sesame"}]}}].</pre>
 
-	  <pre>
+	  <pre type="erl">
  testcase2() ->
      [{require, unix_telnet, unix},
       {require, {unix, [telnet, username, password]}},
@@ -382,7 +382,7 @@
       <p>
 	An example of a test case information function follows:
       </p>
-      <pre>
+      <pre type="erl">
  reboot_node() ->
      [
       {timetrap,{seconds,60}},
@@ -421,7 +421,7 @@
        <p>
 	An example of the suite information function follows:
       </p>
-      <pre>
+      <pre type="erl">
  suite() ->
      [
       {timetrap,{minutes,10}},
@@ -459,7 +459,7 @@
     within the <c>GroupsAndTestCases</c> list of another group.
     <c>Properties</c> is the list of execution
     properties for the group. The possible values are as follows:</p>
-    <pre>
+    <pre type="erl">
  Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]
  Shuffle = shuffle | {shuffle,Seed}
  Seed = {integer(),integer(),integer()}
@@ -483,7 +483,7 @@
      </taglist>
 
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  groups() -> [{group1, [parallel], [test1a,test1b]},
               {group2, [shuffle,sequence], [test2a,test2b,test2c]}].</pre>
 
@@ -511,17 +511,17 @@
       properties.</p>
 
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  groups() -> [{tests1, [], [{tests2, [], [t2a,t2b]},
                            {tests3, [], [t31,t3b]}]}].</pre>
     <p>To execute group <c>tests1</c> twice with different properties for <c>tests2</c>
       each time:</p>
-    <pre>
+    <pre type="erl">
  all() ->
     [{group, tests1, default, [{tests2, [parallel]}]},
      {group, tests1, default, [{tests2, [shuffle,{repeat,10}]}]}].</pre>
     <p>This is equivalent to the following specification:</p>
-    <pre>
+    <pre type="erl">
  all() ->
     [{group, tests1, default, [{tests2, [parallel]},
                                {tests3, default}]},
@@ -531,7 +531,7 @@
       are to be used.</p>
     <p>The following example shows how to override properties in a scenario
       with deeply nested groups:</p>
-    <pre>
+    <pre type="erl">
  groups() ->
     [{tests1, [], [{group, tests2}]},
      {tests2, [], [{group, tests3}]},
@@ -545,7 +545,7 @@
     <p>For ease of readability, all syntax definitions can be replaced by a function
     call whose return value should match the expected syntax case.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  all() ->
     [{group, tests1, default, test_cases()},
      {group, tests1, default, [shuffle_test(),
@@ -600,7 +600,7 @@
     functions. Nested groups can be defined by including a group definition,
     or a group name reference, in the test case list of another group.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  groups() -> [{group1, [shuffle], [test1a,
                                    {group2, [], [test2a,test2b]},
                                    test1b]},
@@ -707,7 +707,7 @@
     that have been executed with the corresponding status as result.</p>
 
     <p>The following is an example of how to return the status from a group:</p>
-    <pre>
+    <pre type="erl">
  end_per_group(_Group, Config) ->
      Status = proplists:get_value(tc_group_result, Config),
      case proplists:get_value(failed, Status) of
@@ -723,7 +723,7 @@
     group name is stored in a tuple <c>{group_result,GroupName}</c>,
     which can be searched for in the status lists.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  end_per_group(group1, Config) ->
      Status = proplists:get_value(tc_group_result, Config),
      Failed = proplists:get_value(failed, Status),
@@ -775,7 +775,7 @@
 	the group information function, is all test cases and subgroups in the
 	group in question (<c>GroupName</c>).</p>
       <p><em>Example:</em></p>
-      <pre>
+      <pre type="erl">
  group(connection_tests) ->
     [{require,login_data},
      {timetrap,1000}].</pre>
@@ -1016,7 +1016,7 @@ Importance >= (100-VerbosityLevel)</pre>
 
     <p><em>Examples:</em></p>
     <p>Some printouts during test case execution:</p>
-    <pre>
+    <pre type="erl">
  io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
  ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
  ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]),
@@ -1039,7 +1039,7 @@ Importance >= (100-VerbosityLevel)</pre>
    <pre>
  $ ct_run -verbosity 1 and info 75</pre>
    <p>the following is printed:</p>
-   <pre>
+   <pre type="erl">
  3. Categorized info, importance = 50
  4. Categorized info, importance = 25
  6. Categorized error, importance = 99</pre>
@@ -1049,7 +1049,7 @@ Importance >= (100-VerbosityLevel)</pre>
     <pre>
 ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</pre>
     <p>Or perhaps in combination with constants:</p>
-    <pre>
+    <pre type="erl">
 -define(INFO, ?LOW_IMPORTANCE).
 -define(ERROR, ?HI_IMPORTANCE).
 

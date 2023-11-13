@@ -38,7 +38,7 @@
     <p>When a functional module has been changed, for example,
       if a new function has been added or a bug has been corrected,
       simple code replacement is sufficient, for example:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{load_module, m}]}],
  [{"1", [{load_module, m}]}]
@@ -66,7 +66,7 @@
       as described in the example in
       <seeguide marker="release_handling#appup">Release Handling</seeguide>,
     <c>ch_app.appup</c> looks as follows:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{load_module, ch3}]}],
  [{"1", [{load_module, ch3}]}]
@@ -91,7 +91,7 @@
       so far. This means that the format must be changed to
       <c>{Chs,N}</c>.</p>
     <p>The <c>.appup</c> file can look as follows:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{update, ch3, {advanced, []}}]}],
  [{"1", [{update, ch3, {advanced, []}}]}]
@@ -104,7 +104,7 @@
       page in STDLIB). The term <c>Extra</c>, in this case
       <c>[]</c>, is passed as is to the function:</p>
     <marker id="code_change"></marker>
-    <code type="none">
+    <code type="erl">
 -module(ch3).
 ...
 -export([code_change/3]).
@@ -142,7 +142,7 @@ code_change(_Vsn, Chs, _Extra) ->
       <c>m1</c> is said to be <em>dependent on</em> <c>ch3</c>. In a release
       handling instruction, this is expressed by the
       <c>DepMods</c> element:</p>
-    <code type="none">
+    <code type="erl">
 {load_module, Module, DepMods}
 {update, Module, {advanced, Extra}, DepMods}</code>
     <p><c>DepMods</c> is a list of modules, on which <c>Module</c> is
@@ -150,7 +150,7 @@ code_change(_Vsn, Chs, _Extra) ->
     <p><em>Example:</em> The module <c>m1</c> in application <c>myapp</c> is
       dependent on <c>ch3</c> when upgrading from "1" to "2", or
       downgrading from "2" to "1":</p>
-    <code type="none">
+    <code type="erl">
 myapp.appup:
 
 {"2",
@@ -166,7 +166,7 @@ ch_app.appup:
 }.</code>
     <p>If instead <c>m1</c> and <c>ch3</c> belong to the same application,
       the <c>.appup</c> file can look as follows:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1",
    [{load_module, ch3},
@@ -200,14 +200,14 @@ ch_app.appup:
       <seeguide marker="spec_proc#ex">sys and proc_lib</seeguide>.
       When started by a supervisor, the child specification can look
       as follows:</p>
-    <code type="none">
+    <code type="erl">
 {ch4, {ch4, start_link, []},
  permanent, brutal_kill, worker, [ch4]}</code>
     <p>If <c>ch4</c> is part of the application <c>sp_app</c> and a new
       version of the module is to be loaded when upgrading from
       version "1" to "2" of this application, <c>sp_app.appup</c> can
       look as follows:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{update, ch4, {advanced, []}}]}],
  [{"1", [{update, ch4, {advanced, []}}]}]
@@ -217,7 +217,7 @@ ch_app.appup:
       process call the callback function <c>system_code_change/4</c>, a
       function the user must implement. The term <c>Extra</c>, in this
       case <c>[]</c>, is passed as is to <c>system_code_change/4</c>:</p>
-    <code type="none">
+    <code type="erl">
 -module(ch4).
 ...
 -export([system_code_change/4]).
@@ -274,14 +274,14 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
 	<seeguide marker="sup_princ#ex">Supervisor Behaviour</seeguide>)
 	from <c>one_for_one</c> to <c>one_for_all</c>, change the callback
 	function <c>init/1</c> in <c>ch_sup.erl</c>:</p>
-      <code type="none">
+      <code type="erl">
 -module(ch_sup).
 ...
 
 init(_Args) ->
     {ok, {#{strategy => one_for_all, ...}, ...}}.</code>
       <p>The file <c>ch_app.appup</c>:</p>
-      <code type="none">
+      <code type="erl">
 {"2",
  [{"1", [{update, ch_sup, supervisor}]}],
  [{"1", [{update, ch_sup, supervisor}]}]
@@ -293,7 +293,7 @@ init(_Args) ->
       <p>The instruction, and thus the <c>.appup</c> file, when
         changing an existing child specification, is the same as when
         changing properties as described earlier:</p>
-      <code type="none">
+      <code type="erl">
 {"2",
  [{"1", [{update, ch_sup, supervisor}]}],
  [{"1", [{update, ch_sup, supervisor}]}]
@@ -320,7 +320,7 @@ init(_Args) ->
         added to <c>ch_sup</c> when upgrading <c>ch_app</c> from "1" to "2".
         This means <c>m1</c> is to be deleted when downgrading from
         "2" to "1":</p>
-      <code type="none">
+      <code type="erl">
 {"2",
  [{"1",
    [{update, ch_sup, supervisor},
@@ -343,7 +343,7 @@ init(_Args) ->
       <p>If the module <c>m1</c> is introduced in version "2" of
         <c>ch_app</c>, it must also be loaded when upgrading and
         deleted when downgrading:</p>
-      <code type="none">
+      <code type="erl">
 {"2",
  [{"1",
    [{add_module, m1},
@@ -370,7 +370,7 @@ init(_Args) ->
     <title>Adding or Deleting a Module</title>
     <p><em>Example:</em> A new functional module <c>m</c> is added to
       <c>ch_app</c>:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{add_module, m}]}],
  [{"1", [{delete_module, m}]}]</code>
@@ -401,7 +401,7 @@ init(_Args) ->
       <seeguide marker="#sup_add">Adding and Deleting Child Processes</seeguide>
       in Changing a Supervisor, an alternative to updating
       the supervisor is to restart the entire application:</p>
-    <code type="none">
+    <code type="erl">
 {"2",
  [{"1", [{restart_application, ch_app}]}],
  [{"1", [{restart_application, ch_app}]}]
@@ -414,7 +414,7 @@ init(_Args) ->
     <p>When installing a release, the application specifications are
       automatically updated before evaluating the <c>relup</c> script.
       Thus, no instructions are needed in the <c>.appup</c> file:</p>
-    <pre>
+    <pre type="erl">
 {"2",
  [{"1", []}],
  [{"1", []}]
@@ -448,7 +448,7 @@ init(_Args) ->
       process to <c>prim_sup</c>.</p>
     <p>The workflow is as follows:</p>
     <p><em>Step 1)</em> Edit the code for <c>prim_sup</c>:</p>
-    <code type="none">
+    <code type="erl">
 init(...) ->
     {ok, {...supervisor flags...,
           [...,
@@ -456,7 +456,7 @@ init(...) ->
             permanent,infinity,supervisor,[ch_sup]},
            ...]}}.</code>
     <p><em>Step 2)</em> Edit the <c>.app</c> file for <c>prim_app</c>:</p>
-    <code type="none">
+    <code type="erl">
 {application, prim_app,
  [...,
   {vsn, "2"},
@@ -491,7 +491,7 @@ init(...) ->
         either from scratch or by editing the generated version.
         The instructions for starting/stopping <c>ch_app</c> are
         replaced by instructions for loading/unloading the application:</p>
-      <code type="none">
+      <code type="c">
 {"B",
  [{"A",
    [],
@@ -541,7 +541,7 @@ init(...) ->
         downgrading, <c>prim_sup</c> is to updated first, before
         the code for <c>ch_app</c> and its application specification
         are unloaded.</p>
-      <code type="none">
+      <code type="erl">
 {"B",
  [{"A",
    [],
@@ -583,7 +583,7 @@ init(...) ->
       the Erlang process controlling the port is a <c>gen_server</c>
       <c>portc</c> and that the port is opened in the callback function
       <c>init/1</c>:</p>
-    <code type="none">
+    <code type="erl">
 init(...) ->
     ...,
     PortPrg = filename:join(code:priv_dir(App), "portc"),
@@ -596,7 +596,7 @@ init(...) ->
       (If necessary, the <c>gen_server</c> can
       first request data that must be saved from the port
       program and pass this data to the new port):</p>
-    <code type="none">
+    <code type="erl">
 code_change(_OldVsn, State, port) ->
     State#state.port ! close,
     receive
@@ -608,14 +608,14 @@ code_change(_OldVsn, State, port) ->
     {ok, #state{port=Port, ...}}.</code>
     <p>Update the application version number in the <c>.app</c> file
       and write an <c>.appup</c> file:</p>
-    <code type="none">
+    <code type="erl">
 ["2",
  [{"1", [{update, portc, {advanced,port}}]}],
  [{"1", [{update, portc, {advanced,port}}]}]
 ].</code>
     <p>Ensure that the <c>priv</c> directory, where the C program is
       located, is included in the new release package:</p>
-    <pre>
+    <pre type="erl">
 1> <input>systools:make_tar("my_release", [{dirs,[priv]}]).</input>
 ...</pre>
   </section>
@@ -645,7 +645,7 @@ code_change(_OldVsn, State, port) ->
       are needed, that is, if the restart itself is enough for the
       upgraded applications to start running the new versions, a
       simple <c>relup</c> file can be created manually:</p>
-    <code type="none">
+    <code type="erl">
 {"B",
  [{"A",
    [],

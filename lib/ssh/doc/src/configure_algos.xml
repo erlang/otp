@@ -273,7 +273,7 @@
     <section>
       <title>Example 4</title>
       <p>It is of course possible to change more than one list:</p>
-      <code>
+      <code type="erl">
 4> ssh:chk_algos_opts(
                [{preferred_algorithms,
                      [{cipher,['aes128-ctr']},

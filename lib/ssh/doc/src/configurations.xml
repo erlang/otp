@@ -54,7 +54,7 @@
       <seemfa marker="ssh#daemon/3">ssh:daemon/3</seemfa> or
       <seemfa marker="ssh#connect/3">ssh:connect/3</seemfa> or
       any of their variants. Example:
-      <code>ssh:connect(22, [{user,"foo"}])</code>
+      <code type="erl">ssh:connect(22, [{user,"foo"}])</code>
       </item>
 
       <item>In <seefile marker="kernel:config">OTP Configuration Parameters</seefile>:
@@ -64,7 +64,7 @@
       <pre>erl -ssh user \"foo\"</pre>
       </item>
       <item>In the <c>ssh.app</c> file, in the <c>env</c> part
-      <code>
+      <code type="erl">
 {application, ssh,
  [{description, "SSH-2 for Erlang/OTP"},
   {vsn, "4.9"},
@@ -81,7 +81,7 @@
       <item>In a .config file:
       <pre>erl -config ex1</pre>
       where <c>ex1.config</c> contains:
-      <code>[
+      <code type="erl">[
 {ssh, [{user, "foo"}]}
 ].
 </code>
@@ -89,7 +89,7 @@
       </list>
     <p>If the option is intended only for a server or for a client, it may be set in this way:
     </p>
-    <code>[
+    <code type="erl">[
 {ssh, [{server_options,[{user, "foo"}]},
        {client_options,[{user, "bar"}]}
 ].
@@ -195,7 +195,7 @@ Eshell V10.6.4  (abort with ^G)
 	<p>Note that the algorithms in the file <c>ex2.config</c> is not yet applied. They will be
 	when we start ssh:
 	</p>
-	<code>
+	<code type="erl">
 2> ssh:start().
 ok
 3> ssh:default_algorithms().
@@ -236,7 +236,7 @@ ok
 	algorithm set. We remove the only one (<c>'ecdh-sha2-nistp384'</c>) and add
 	<c>'curve25519-sha256@libssh.org'</c>
 	by appending it to the now empty list:</p>
-	<code>
+	<code type="erl">
 4> {ok,C} = ssh:connect(loopback, 22,
                         [{modify_algorithms,
                                  [{rm,
@@ -253,7 +253,7 @@ ok
 	<p>We check which algorithms are negotiated by the client and the server, and note that
 	the (only) <c>kex</c> algorithm <c>'curve25519-sha256@libssh.org'</c> was selected:
 	</p>
-	<code>
+	<code type="erl">
 5> ssh:connection_info(C, algorithms).
 {algorithms,[{kex,'curve25519-sha256@libssh.org'},
              {hkey,'ssh-rsa'},
@@ -279,7 +279,7 @@ ok
 	</p>
 	<p>The config file <c>ex3.config</c> has the contents:
 	</p>
-	<code>
+	<code type="erl">
 [
  {ssh, [{modify_algorithms,
          [ {prepend, [{public_key, ['ssh-dss']}]} ]
@@ -297,7 +297,7 @@ ok
 	</code>
 	<p>A call to <c>ssh:connect/3</c> removes all algorithms but one of each type:
 	</p>
-	<code>
+	<code type="erl">
 2> ssh:start().
 ok
 3> {ok,C} = ssh:connect(loopback, 22,

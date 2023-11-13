@@ -516,7 +516,7 @@
     <p>As an example, we will use the following function, that you may
       recognise as a slightly modified benchmark function from the
       manpage file(3):</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(foo).
 -export([create_file_slow/2]).
 
@@ -539,12 +539,12 @@ create_file_slow(FD, M, N) ->
     ok = file:write(FD, <<M:32/unsigned>>),
     create_file_slow(FD, M+1, N).]]></code>
     <p>Let us have a look at the printout after running:</p>
-    <pre>
+    <pre type="erl">
 1> <input>fprof:apply(foo, create_file_slow, [junk, 1024]).</input>
 2> <input>fprof:profile().</input>
 3> <input>fprof:analyse().</input></pre>
     <p>The printout starts with:</p>
-    <pre>
+    <pre type="erl">
 %% Analysis results:
 {  analysis_options,
  [{callers, true},
@@ -565,7 +565,7 @@ create_file_slow(FD, M, N) ->
     <p>All time values in the printout are in milliseconds.
       </p>
     <p>The printout continues:</p>
-    <pre>
+    <pre type="erl">
 %                                       CNT       ACC       OWN        
 [{ "&lt;0.28.0>",                         9627,undefined, 1659.074}].   %%</pre>
     <p>This is the printout header of one process. The printout
@@ -581,7 +581,7 @@ create_file_slow(FD, M, N) ->
       function calls within this process.
       </p>
     <p>Now we come to something more interesting:</p>
-    <pre>
+    <pre type="erl">
 {[{undefined,                             0, 1691.076,    0.030}],     
  { {fprof,apply_start_stop,4},            0, 1691.076,    0.030},     %
  [{{foo,create_file_slow,2},              1, 1691.046,    0.103},      
@@ -645,7 +645,7 @@ create_file_slow(FD, M, N) ->
       the call stack, or that the process exited from there.
       </p>
     <p>Let us continue down the printout to find:</p>
-    <pre>
+    <pre type="erl">
 {[{{foo,create_file_slow,2},              1,  249.678,    0.029},      
   {{foo,create_file_slow,3},            768,    0.000,   23.294}],     
  { {foo,create_file_slow,3},            769,  249.678,   23.323},     %
@@ -667,7 +667,7 @@ create_file_slow(FD, M, N) ->
       </p>
     <p></p>
     <p>Let us find the <c>suspend</c> entry:</p>
-    <pre>
+    <pre type="erl">
 {[{{file,write,2},                       53,    6.281,    0.000},      
   {{foo,create_file_slow,3},             57,    6.041,    0.000},      
   {{prim_file,drv_command,4},            50,    4.582,    0.000},      
@@ -700,7 +700,7 @@ create_file_slow(FD, M, N) ->
       </p>
     <p>Now we look at another interesting pseudo function,
       <c>garbage_collect</c>:</p>
-    <pre>
+    <pre type="erl">
 {[{{prim_file,drv_command,4},            25,    0.873,    0.873},      
   {{prim_file,write,2},                  16,    0.692,    0.692},      
   {{lists,map,2},                         2,    0.195,    0.195}],     
@@ -722,7 +722,7 @@ create_file_slow(FD, M, N) ->
       collection. 
       </p>
     <p>Let us now get back to the test code:</p>
-    <pre>
+    <pre type="erl">
 {[{{foo,create_file_slow,3},            768,  220.314,   14.539},      
   {{foo,create_file_slow,2},              1,    0.316,    0.021}],     
  { {file,write,2},                      769,  220.630,   14.560},     %
@@ -740,14 +740,14 @@ create_file_slow(FD, M, N) ->
     <p>But, if we nevertheless <em>do</em> dig down we find
       the call to the linked in driver that does the file operations
       towards the host operating system:</p>
-    <pre>
+    <pre type="erl">
 {[{{prim_file,drv_command,4},           772, 1458.356, 1456.643}],     
  { {erlang,port_command,2},             772, 1458.356, 1456.643},     %
  [{suspend,                              15,    1.713,    0.000}]}.    </pre>
     <p>This is 86 % of the total run time, and as we saw before it
       is the close operation the absolutely biggest contributor. We
       find a comparison ratio a little bit up in the call stack:</p>
-    <pre>
+    <pre type="erl">
 {[{{prim_file,close,1},                   1, 1398.748,    0.024},      
   {{prim_file,write,2},                 769,  174.672,   12.810},      
   {{prim_file,open_int,4},                1,   19.755,    0.017},      
@@ -770,7 +770,7 @@ create_file_slow(FD, M, N) ->
       for <c>prim_file:drv_command/4</c> where it is evident that not
       only <c>prim_file:drv_command/2</c> is called but also a fun:
       </p>
-    <pre>
+    <pre type="erl">
 {[{{prim_file,drv_command,2},           772, 1578.973,   27.265}],     
  { {prim_file,drv_command,4},           772, 1578.973,   27.265},     %
  [{{erlang,port_command,2},             772, 1458.356, 1456.643},      
@@ -783,7 +783,7 @@ create_file_slow(FD, M, N) ->
       <c>prim_file:open_int_setopts/3</c>, which complicates the
       picture. 
       </p>
-    <pre>
+    <pre type="erl">
 {[{{prim_file,open,2},                    1,   20.309,    0.029},      
   {{prim_file,open_int,4},                1,    0.000,    0.057}],     
  { {prim_file,open_int,4},                2,   20.309,    0.086},     %

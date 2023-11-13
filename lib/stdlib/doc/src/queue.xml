@@ -133,7 +133,7 @@
           returns <c>true</c> for all items <c><anno>Item</anno></c> in
           <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 2> <input>queue:all(fun (E) -> E > 3 end, Queue).</input>
 false
@@ -151,7 +151,7 @@ true</pre>
           returns <c>true</c> for at least one item <c><anno>Item</anno></c>
           in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 2> <input>queue:any(fun (E) -> E > 10 end, Queue).</input>
 false
@@ -168,7 +168,7 @@ true</pre>
           matching <c><anno>Item</anno></c> is deleted, if there is such an
           item.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 2> <input>Queue1 = queue:delete(3, Queue).</input>
 3> <input>queue:member(3, Queue1).</input>
@@ -184,7 +184,7 @@ false</pre>
           matching <c><anno>Item</anno></c> is deleted, if there is such an
           item.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,3,5]).</input>
 2> <input>Queue1 = queue:delete_r(3, Queue).</input>
 3> <input>queue:to_list(Queue1).</input>
@@ -201,7 +201,7 @@ false</pre>
           for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
           if there is such an item.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([100,1,2,3,4,5]).</input>
 2> <input>Queue1 = queue:delete_with(fun (E) -> E > 0, Queue).</input>
 3> <input>queue:to_list(Queue1).</input>
@@ -218,7 +218,7 @@ false</pre>
           for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
           if there is such an item.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5,100]).</input>
 2> <input>Queue1 = queue:delete_with(fun (E) -> E > 10, Queue).</input>
 3> <input>queue:to_list(Queue1).</input>
@@ -239,7 +239,7 @@ false</pre>
           the list elements are inserted instead of <c>Item</c> in the
           result queue.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue1 = queue:filter(fun (E) -> E > 2 end, Queue).</input>
@@ -253,7 +253,7 @@ false</pre>
           returning <c>false</c>. But returning a list builds
           more garbage than returning an atom.</p>
           <p><em>Example 2:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue1 = queue:filter(fun (E) -> [E, E+1] end, Queue).</input>
@@ -276,7 +276,7 @@ false</pre>
           <c>{true, NewItem}</c>, the queue element at this position is replaced
           with <c>NewItem</c> in the result queue.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue1 = queue:filtermap(fun (E) -> E > 2 end, Queue).</input>
@@ -303,7 +303,7 @@ false</pre>
           the accumulator. <c><anno>Acc0</anno></c> is returned if the queue is
           empty.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>queue:fold(fun(X, Sum) -> X + Sum end, 0, queue:from_list([1,2,3,4,5])).</input>
 15
 2> <input>queue:fold(fun(X, Prod) -> X * Prod end, 1, queue:from_list([1,2,3,4,5])).</input>
@@ -329,7 +329,7 @@ false</pre>
           <c><anno>Q1</anno></c>.
           Returns the resulting queue <c><anno>Q2</anno></c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue1 = queue:in(100, Queue).</input>
@@ -347,7 +347,7 @@ false</pre>
           <c><anno>Q1</anno></c>.
           Returns the resulting queue <c><anno>Q2</anno></c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue1 = queue:in_r(100, Queue).</input>
@@ -388,7 +388,7 @@ false</pre>
           <c><anno>Q1</anno></c> and <c><anno>Q2</anno></c> with
           <c><anno>Q1</anno></c> in front of <c><anno>Q2</anno></c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue1 = queue:from_list([1,3]).</input>
 {[3],[1]}
 2> <input>Queue2 = queue:from_list([2,4]).</input>
@@ -434,7 +434,7 @@ false</pre>
           <c><anno>Q1</anno></c> is empty, tuple
           <c>{empty, <anno>Q1</anno>}</c> is returned.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>{{value, 1=Item}, Queue1} = queue:out(Queue).</input>
@@ -454,7 +454,7 @@ false</pre>
           <c><anno>Q2</anno></c> is the new queue. If <c><anno>Q1</anno></c> is
           empty, tuple <c>{empty, <anno>Q1</anno>}</c> is returned.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>{{value, 5=Item}, Queue1} = queue:out_r(Queue).</input>
@@ -490,7 +490,7 @@ false</pre>
         <p>Returns a list of the items in the queue in the same order;
           the front item of the queue becomes the head of the list.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>List == queue:to_list(Queue).</input>
@@ -513,7 +513,7 @@ true</pre>
           the front item from <c><anno>Q1</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue = queue:drop(Queue).</input>
@@ -531,7 +531,7 @@ true</pre>
           the rear item from <c><anno>Q1</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>Queue = queue:drop_r(Queue).</input>
@@ -549,7 +549,7 @@ true</pre>
           <c><anno>Q</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>1 == queue:get(Queue).</input>
@@ -565,7 +565,7 @@ true</pre>
           <c><anno>Q</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
 {[5,4,3],[1,2]}
 2> <input>5 == queue:get_r(Queue).</input>
@@ -581,7 +581,7 @@ true</pre>
           <c><anno>Item</anno></c> is the front item of <c><anno>Q</anno></c>,
           or <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>queue:peek(queue:new()).</input>
 empty
 2> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
@@ -599,7 +599,7 @@ empty
           <c><anno>Item</anno></c> is the rear item of <c><anno>Q</anno></c>,
           or <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>queue:peek_r(queue:new()).</input>
 empty
 2> <input>Queue = queue:from_list([1,2,3,4,5]).</input>
@@ -622,7 +622,7 @@ empty
           <c><anno>Q1</anno></c>. Returns
           the new queue <c><anno>Q2</anno></c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:cons(0, queue:from_list([1,2,3])).</input>
 {[3,2],[0,1]}
 2> <input>queue:to_list(Queue).</input>
@@ -637,7 +637,7 @@ empty
         <p>Returns the tail item of queue <c><anno>Q</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>queue:daeh(queue:from_list([1,2,3])).</input>
 3</pre>
       </desc>
@@ -651,7 +651,7 @@ empty
           <c><anno>Q</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>queue:head(queue:from_list([1,2,3])).</input>
 1</pre>
       </desc>
@@ -665,7 +665,7 @@ empty
           the tail item from <c><anno>Q1</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:init(queue:from_list([1,2,3])).</input>
 {[2],[1]}
 2> <input>queue:to_list(Queue).</input>
@@ -691,7 +691,7 @@ empty
         <p>Returns the tail item of queue <c><anno>Q</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>queue:last(queue:from_list([1,2,3])).</input>
 3</pre>
       </desc>
@@ -705,7 +705,7 @@ empty
           the tail item from <c><anno>Q1</anno></c>.</p>
         <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:liat(queue:from_list([1,2,3])).</input>
 {[2],[1]}
 2> <input>queue:to_list(Queue).</input>
@@ -721,7 +721,7 @@ empty
           <c><anno>Q1</anno></c>. Returns
           the new queue <c><anno>Q2</anno></c>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>Queue = queue:snoc(queue:from_list([1,2,3]), 4).</input>
 {[4,3,2],[1]}
 2> <input>queue:to_list(Queue).</input>

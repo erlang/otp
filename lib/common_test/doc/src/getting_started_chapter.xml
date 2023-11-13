@@ -110,7 +110,7 @@
      check that module <c>mymod</c> exists (that is, can be successfully loaded by the 
      code server):
     </p>
-    <pre>
+    <pre type="erl">
  -module(my1st_SUITE).
  -compile(export_all).
 
@@ -146,7 +146,7 @@
       to open and close a log file for the test cases (an operation that is
       unnecessary and irrelevant to perform by each test case):
     </p>
-    <pre>
+    <pre type="erl">
  -module(check_log_SUITE).
  -export([all/0, init_per_suite/1, end_per_suite/1]).
  -export([check_restart_result/1, check_no_errors/1]).
@@ -188,10 +188,10 @@
 
     <p>To use the Erlang shell to run our test, you can evaluate the following call:
     </p>
-    <pre>
+    <pre type="erl">
  1> ct:run_test([{dir, "."}]).</pre>
     <p>or:</p>
-    <pre>
+    <pre type="erl">
  1> ct:run_test([{suite, "check_log_SUITE"}]).</pre>
     <p>
       The result from running the test is printed in log files in HTML format

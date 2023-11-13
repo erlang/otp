@@ -83,7 +83,7 @@
           <c>mnesia:create_table/2</c>. For example, if the table
           is to reside as <c>disc_only_copies</c> on all nodes,
           a call looks as follows:</p>
-        <code type="none">
+        <code type="erl">
           TabDef = [{{disc_only_copies, node()|nodes()]}],
           mnesia_registry:create_table(my_reg, TabDef)</code>
       </desc>

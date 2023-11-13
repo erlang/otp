@@ -642,7 +642,7 @@
 
     <p>The following is an example session using it on Linux:</p>
 
-    <pre>
+    <pre type="erl">
 $ gcc -I erts-8.0/include/ -fPIC -shared -o erl_msg_tracer.so erl_msg_tracer.c
 $ erl
 Erlang/OTP 19 [DEVELOPMENT] [erts-8.0] [source-ed2b56b] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false]
@@ -668,7 +668,7 @@ ok
 
     <p><c>erl_msg_tracer.erl</c>:</p>
 
-    <pre>
+    <pre type="erl">
 -module(erl_msg_tracer).
 
 -export([enabled/3, trace/5, load/0]).
@@ -684,7 +684,7 @@ trace(_, _, _, _, _) ->
 
     <p><c>erl_msg_tracer.c</c>:</p>
 
-    <pre>
+    <pre type="c">
 #include &lt;erl_nif.h&gt;
 
 /* NIF interface declarations */

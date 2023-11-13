@@ -42,7 +42,7 @@
 
     <p>A typical (compress) usage is as follows:</p>
 
-    <pre>
+    <pre type="erl">
 Z = zlib:open(),
 ok = zlib:deflateInit(Z,default),
 
@@ -140,7 +140,7 @@ list_to_binary([Compressed|Last])</pre>
           If <c><anno>Data</anno></c> is the empty binary or the empty iolist,
           this function returns the required initial value for the checksum.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 Crc = lists:foldl(fun(Data,Crc0) ->
                       zlib:adler32(Z, Crc0, Data),
                   end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
@@ -222,7 +222,7 @@ Crc = lists:foldl(fun(Data,Crc0) ->
           If <c><anno>Data</anno></c> is the empty binary or the empty iolist,
           this function returns the required initial value for the CRC.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 Crc = lists:foldl(fun(Data,Crc0) ->
                       zlib:crc32(Z, Crc0, Data),
                   end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
@@ -290,7 +290,7 @@ Crc = lists:foldl(fun(Data,Crc0) ->
           after <seemfa marker="#deflateInit/1"><c>deflateInit</c></seemfa>
           if all compression is to be done in one step.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 zlib:deflateInit(Z),
 B1 = zlib:deflate(Z,Data),
 B2 = zlib:deflate(Z,&lt;&lt; &gt;&gt;,finish),
@@ -567,7 +567,7 @@ list_to_binary([B1,B2])</pre>
            <seemfa marker="#inflateSetDictionary/2">
            <c>inflateSetDictionary/2</c></seemfa> for details.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 walk(Compressed, Handler) ->
     Z = zlib:open(),
     zlib:inflateInit(Z),
@@ -668,7 +668,7 @@ loop(Z, Handler, Uncompressed) ->
         <p>After setting the dictionary the inflate operation should be
            retried without new input.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 deprecated_unpack(Z, Compressed, Dict) ->
      case catch zlib:inflate(Z, Compressed) of
           {'EXIT',{{need_dictionary,_DictID},_}} ->
@@ -718,7 +718,7 @@ new_unpack(Z, Compressed, Dict) ->
            <seemfa marker="#inflateSetDictionary/2">
            <c>inflateSetDictionary/2</c></seemfa>) for details.</p>
         <p>Example:</p>
-        <pre>
+        <pre type="erl">
 walk(Compressed, Handler) ->
     Z = zlib:open(),
     zlib:inflateInit(Z),

@@ -124,7 +124,7 @@
 Grand Danois
 &lt;/dog&gt;    </pre>
     <p>The parse result will be:</p>
-    <pre>
+    <pre type="erl">
 #xmlElement{name = dog,
             ...
             parents = [],
@@ -170,7 +170,7 @@ Grand Danois\
     <codeinclude file="motorcycles_dtd.txt" tag="" type="none"></codeinclude>
     <p>If you want to parse the XML file motorcycles.xml you run
       it in the Erlang shell like:</p>
-    <pre>
+    <pre type="erl">
 3> {ParseResult,Misc}=xmerl_scan:file("motorcycles.xml").
 {{xmlElement,motorcycles,
              motorcycles,
@@ -285,7 +285,7 @@ Grand Danois\
       Davidsson 1200 cc Sportster motorcycle from 2003 that is in
       shape as new in the motorcycles.xml document you can put the
       data in a simple-form data structure like:</p>
-    <pre>
+    <pre type="erl">
 Data =
   {bike,
      [{year,"2003"},{color,"black"},{condition,"new"}],
@@ -300,13 +300,13 @@ Data =
     <p>In order to append this data to the end of the
       motorcycles.xml document you have to parse the file and add Data
       to the end of the root element content.</p>
-    <pre>
+    <pre type="erl">
     {RootEl,Misc}=xmerl_scan:file('motorcycles.xml'),
     #xmlElement{content=Content} = RootEl,
     NewContent=Content++lists:flatten([Data]),
     NewRootEl=RootEl#xmlElement{content=NewContent},    </pre>
     <p>Then you can run it through the export_simple/2 function: </p>
-    <pre>
+    <pre type="erl">
     {ok,IOF}=file:open('new_motorcycles.xml',[write]),
     Export=xmerl:export_simple([NewRootEl],xmerl_xml),
     io:format(IOF,"~s~n",[lists:flatten(Export)]),    </pre>
@@ -320,7 +320,7 @@ Data =
       referenced. If so, it is possible to pass a RootAttribute
       <c>{prolog,Value}</c> to <c>export_simple/3</c>. The following
       example code fixes those changes in the previous example:</p>
-    <pre>
+    <pre type="erl">
     Data =
       [#xmlText{value="  "},
        {bike,[{year,"2003"},{color,"black"},{condition,"new"}],
@@ -379,7 +379,7 @@ Data =
       HTML. If you want the same structure and tags of the resulting
       HTML document as of the XML document then you can use the
       <c>xmerl:export/2</c> function. The following:</p>
-    <pre>
+    <pre type="erl">
 2> {Doc,Misc}=xmerl_scan:file('motorcycles.xml').
 {{xmlElement,motorcycles,
              motorcycles,
@@ -426,18 +426,18 @@ Data =
       what kind of output you want. Thus if you want to encapsulate a
       <c>bike</c> element in &lt;p&gt; tags you simply write a
       function:</p>
-    <pre>
+    <pre type="erl">
 template(E = #xmlElement{name='bike'}) ->
     ["&lt;p&gt;",xslapply(fun template/1,E),"&lt;/p&gt;"];    </pre>
     <p>With <c>xslapply</c> you tell the XSLT processor in which
       order it should traverse the XML structure. By default it goes
       in preorder traversal, but with the following we make a
       deliberate choice to break that order:</p>
-    <pre>
+    <pre type="erl">
 template(E = #xmlElement{name='bike'}) ->
     ["&lt;p&gt;",xslapply(fun template/1,select("bike/name/manufacturer")),"&lt;/p&gt;"];    </pre>
     <p>If you want to output the content of an XML element or an attribute you will get the value as a string by the <c>value_of</c> function:</p>
-    <pre>
+    <pre type="erl">
 template(E = #xmlElement{name='motorcycles'}) ->
     ["&lt;p&gt;",value_of(select("bike/name/manufacturer",E),"&lt;/p&gt;"];    </pre>
     <p>In the xmerl_xs functions you can provide a select(String)
@@ -445,7 +445,7 @@ template(E = #xmlElement{name='motorcycles'}) ->
       functionality. For more details see the xmerl_xs <url href="xmerl_xs_examples.html">tutorial</url>.</p>
     <p>Now, back to the example where we wanted to make the output
       more arranged. With the template:</p>
-    <pre>
+    <pre type="c">
 template(E = #xmlElement{name='motorcycles'}) ->
     [    "&lt;head&gt;\
 &lt;title&gt;motorcycles&lt;/title&gt;\
@@ -474,7 +474,7 @@ template(E = #xmlElement{name='motorcycles'}) ->
       by brand according to the task formulation in the beginning of
       this example.</p>
     <p>The next template matches on the <c>bike</c> element:</p>
-    <pre>
+    <pre type="erl">
 template(E = #xmlElement{name='bike'}) ->
     {value_of(select("name/manufacturer",E)),["&lt;dt&gt;",xslapply(fun template/1,select("name",E)),"&lt;/dt&gt;",
     "&lt;dd&gt;&lt;ul&gt;\

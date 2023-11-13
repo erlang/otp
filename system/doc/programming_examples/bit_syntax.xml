@@ -74,7 +74,7 @@ Bin12 = <<"abc">>]]></code>
      </list>
       <p><em>Example 2:</em>Similarly, a binary can be constructed
         from a set of bound variables:</p>
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 A = 1, B = 17, C = 42,
 Bin2 = <<A, B, C:16>>]]></code>
       <p>This gives a binary of size 4.
@@ -92,7 +92,7 @@ Bin2 = <<A, B, C:16>>]]></code>
         of matching. Here, <c>Dgram</c> is bound to the consecutive
         bytes of an IP datagram of IP protocol version 4. The ambition is
       to extract the header and the data of the datagram:</p>
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
 
@@ -352,7 +352,7 @@ foo(<<A:8,Rest/bitstring>>) ->]]></code>
   <section>
     <title>Appending to a Binary</title>
     <p>Appending to a binary in an efficient way can be done as follows:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 triples_to_bin(T) ->
     triples_to_bin(T, <<>>).
 

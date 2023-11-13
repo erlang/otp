@@ -42,7 +42,7 @@
 
     <p>Consider the following shell dialog:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>lists:reverse("abc").</input>
 "cba"
 2> <input>c(foo).</input>

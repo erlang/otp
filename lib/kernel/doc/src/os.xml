@@ -118,7 +118,7 @@
           target OS, captures the standard output and standard error of the
           command, and returns this result as a string.</p>
         <p><em>Examples:</em></p>
-        <code type="none">
+        <code type="erl">
 LsOut = os:cmd("ls"), % on unix platform
 DirOut = os:cmd("dir"), % on Win32 platform</code>
         <p>Notice that in some cases, standard output of a command when
@@ -135,7 +135,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
             <p>The maximum size of the data returned by the <c>os:cmd</c> call.
               This option is a safety feature that should be used when the command
               executed can return a very large, possibly infinite, result.</p>
-            <code type="none">
+            <code type="erl">
 > os:cmd("cat /dev/zero", #{ max_size => 20 }).
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]</code>
           </item>
@@ -330,7 +330,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
         &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where DD is the day of month,
         Mon is the textual month name, YYYY is the year, HH:MM:SS is the time,
         and mmmmmm is the microseconds in six positions:</p>
-      <code>
+      <code type="erl">
 -module(print_time).
 -export([format_utc_timestamp/0]).
 format_utc_timestamp() ->
@@ -342,7 +342,7 @@ calendar:now_to_universal_time(TS),
     io_lib:format("~2w ~s ~4w ~2w:~2..0w:~2..0w.~6..0w",
     [Day,Mstr,Year,Hour,Minute,Second,Micro]).</code>
        <p>This module can be used as follows:</p>
-       <pre>
+       <pre type="erl">
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
 29 Apr 2009  9:55:30.051711</pre>
        <p>OS system time can also be retrieved by
@@ -369,7 +369,7 @@ calendar:now_to_universal_time(TS),
       system with the same guarantees. This means that two consecutive calls
       to the function are not guaranteed to be monotonic, though it most likely will be.
       The performance counter will be converted to the resolution passed as an argument.</p>
-      <pre>1> <input>T1 = os:perf_counter(1000),receive after 10000 -> ok end,T2 = os:perf_counter(1000).</input>
+      <pre type="erl">1> <input>T1 = os:perf_counter(1000),receive after 10000 -> ok end,T2 = os:perf_counter(1000).</input>
 176525861
 2> <input>T2 - T1.</input>
 10004</pre>

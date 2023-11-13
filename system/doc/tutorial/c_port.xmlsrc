@@ -57,7 +57,7 @@
       explicitly in the external C program.</p>
     <p>The process is also set to trap exits, which enables detection
       of failure of the external program:</p>
-    <pre>
+    <pre type="erl">
 -module(complex1).
 -export([start/1, init/1]).
 
@@ -72,7 +72,7 @@ init(ExtPrg) ->
     <p>Now <c>complex1:foo/1</c> and <c>complex1:bar/1</c> can be
       implemented. Both send a message to the <c>complex</c> process
       and receive the following replies:</p>
-    <pre>
+    <pre type="erl">
 foo(X) ->
   call_port({foo, X}).
 bar(Y) ->
@@ -92,7 +92,7 @@ call_port(Msg) ->
        <item>Decodes the reply.</item>
        <item>Sends it back to the caller:</item>
      </list>
-    <pre>
+    <pre type="erl">
 loop(Port) ->
   receive
     {call, Caller, Msg} ->
@@ -108,7 +108,7 @@ loop(Port) ->
       is employed. In this scheme, <c>foo</c> is represented by byte
       1, <c>bar</c> is represented by 2, and the argument/result is
       represented by a single byte as well:</p>
-    <pre>
+    <pre type="erl">
 encode({foo, X}) -> [1, X];
 encode({bar, Y}) -> [2, Y].
 
@@ -157,7 +157,7 @@ Eshell V4.9.1.2 (abort with ^G)
 1> <input>c(complex1).</input>
 {ok,complex1}</pre>
     <p><em>Step 3.</em> Run the example:</p>
-    <pre>
+    <pre type="erl">
 2> <input>complex1:start("./extprg").</input>
 &lt;0.34.0>
 3> <input>complex1:foo(3).</input>

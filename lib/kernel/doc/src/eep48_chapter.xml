@@ -68,7 +68,7 @@
       <c>term_to_binary/1</c></seemfa>. The term may be optionally compressed when serialized.
       It must follow the type specification below:</p>
 
-    <code>
+    <code type="erl">
 {docs_v1,
  Anno :: erl_anno:anno(),
  BeamLanguage :: atom(),

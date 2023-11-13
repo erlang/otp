@@ -200,7 +200,7 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
       tail-recursive so that they can execute in constant memory space:</p>
 
     <p><em>DO</em></p>
-    <code type="none">
+    <code type="erl">
 list_length(List) ->
     list_length(List, 0).
 
@@ -212,7 +212,7 @@ list_length([_|Tail], AccLen) ->
 
     <p><em>DO NOT</em></p>
 
-    <code type="none">
+    <code type="erl">
 list_length([]) ->
     0. % Base case
 list_length([_ | Tail]) ->

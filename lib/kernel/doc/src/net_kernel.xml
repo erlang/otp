@@ -43,7 +43,7 @@ $ <input>erl -sname foobar</input></pre>
     <p>It is also possible to call
       <seemfa marker="#start/2"><c>net_kernel:start(foobar, #{})</c></seemfa>
       directly from the normal Erlang shell prompt:</p>
-    <pre>
+    <pre type="erl">
 1> <input>net_kernel:start(foobar, #{name_domain => shortnames}).</input>
 {ok,&lt;0.64.0>}
 (foobar@gringotts)2></pre>

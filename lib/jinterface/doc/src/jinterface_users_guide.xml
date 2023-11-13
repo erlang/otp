@@ -151,7 +151,7 @@
     <p>In this example, the host name is appended
       automatically to the identifier, and the port number is chosen by the
       underlying system:</p>
-    <code type="none">
+    <code type="erl">
 OtpNode node = new OtpNode("gurka");    </code>
     <p>It is also possible to use alternative communication (or distribution)
       protocols without Epmd by switching to a custom transport factory extending
@@ -159,7 +159,7 @@ OtpNode node = new OtpNode("gurka");    </code>
       Unix Domain Sockets instead of the default TCP/IP sockets.</p>
     <p>In this example, the host name is appended automatically to the identifier
       and a custom transport factory is used:</p>
-    <code type="none">
+    <code type="erl">
 OtpGenericTransportFactory customFactory = new MyCustomFactory();
 OtpNode node = new OtpNode("gurka", customFactory);
     </code>
@@ -191,7 +191,7 @@ OtpNode node = new OtpNode("gurka", customFactory);
     <code type="none">
         OtpMbox mbox = node.createMbox("server");    </code>
     <p>or later on, as necessary:</p>
-    <code type="none">
+    <code type="erl">
         OtpMbox mbox = node.createMbox();
         mbox.registerName("server");    </code>
     <p>Registered names are usually necessary in order to start
@@ -255,7 +255,7 @@ OtpNode node = new OtpNode("gurka", customFactory);
       node.</p>
     <p>In this example, we create a message containing our own pid so the
       echo process can reply:</p>
-    <code type="none">
+    <code type="erl">
         OtpErlangObject[] msg = new OtpErlangObject[2];
         msg[0] = mbox.self();
         msg[1] = new OtpErlangAtom("hello, world");
@@ -273,7 +273,7 @@ OtpNode node = new OtpNode("gurka", customFactory);
       you need this kind of confirmation, you should wait for a response
       from the remote process.</p>
     <p>The echo server itself might look like this:</p>
-    <code type="none">
+    <code type="erl">
     OtpNode self = new OtpNode("gurka");
     OtpMbox mbox = self.createMbox("echo");
     OtpErlangObject o;
@@ -320,7 +320,7 @@ OtpNode node = new OtpNode("gurka", customFactory);
       encapsulated in an OtpErlangBinary before being sent. The recipient
       will receive an OtpErlangBinary but can extract the original object
       from it:</p>
-    <code type="none">
+    <code type="erl">
         msg = mbox.receive();
         if (msg instanceof OtpErlangBinary) {
            OtpErlangBinary b = (OtpErlangBinary)msg;
@@ -412,7 +412,7 @@ OtpNode node = new OtpNode("gurka", customFactory);
       The following example shows how the
       <seefile marker="java/com/ericsson/otp/erlang/OtpConnection">OtpConnection</seefile> 
       class is used for remote procedure calls:</p>
-    <code type="none">
+    <code type="c">
 
 OtpSelf self = new OtpSelf("client", "hejsan" ); 
 OtpPeer other  = new OtpPeer("server@balin"); 

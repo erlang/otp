@@ -102,7 +102,7 @@
       list, such as <c><![CDATA[[SomePid,SomeTableRef]]]></c>, the callback
       function is expected to have these (in this case two) extra
       arguments last in the argument list:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
         handle_connect(Handle, Version, SomePid, SomeTableRef)
     ]]></code>
 
@@ -158,13 +158,13 @@
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 action_request() = #'ActionRequest'{}
 action_reply() = #'ActionReply'{}
 error_desc() = #'ErrorDescriptor'{}
 segment_no() = integer()
     ]]></code>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 conn_handle() = #megaco_conn_handle{}    ]]></code>
     <p>The record initially returned by <c><![CDATA[megaco:connect/4,5]]></c>. 
       It identifies a "virtual" connection and may be reused after a 

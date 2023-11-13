@@ -80,7 +80,7 @@
       SASL), which specifies the ERTS version and lists
       all applications that are to be included in the new basic target
       system. An example is the following <c>mysystem.rel</c> file:</p>
-    <code type="none">
+    <code type="erl">
 %% mysystem.rel
 {release,
  {"MYSYSTEM", "FIRST"},
@@ -288,7 +288,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
       so are the applications ERTS, Kernel, STDLIB
       and SASL.</p>
     <p><em>Step 1.</em> Create the file <c>.rel</c>:</p>
-    <code type="none">
+    <code type="erl">
 %% mysystem2.rel
 {release,
  {"MYSYSTEM", "SECOND"},
@@ -300,7 +300,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
     <p><em>Step 2.</em> Create the application upgrade file (see the
       <seefile marker="sasl:appup">appup(4)</seefile> manual page in
       SASL) for Pea, for example:</p>
-    <code type="none">
+    <code type="erl">
 %% pea.appup
 {"2.0",
  [{"1.0",[{load_module,pea_lib}]}],
@@ -404,7 +404,7 @@ os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>
     <p>
       Check which releases there are in the system:
     </p>
-    <pre>
+    <pre type="c">
 1> <input>release_handler:which_releases().</input>
 [{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
@@ -426,7 +426,7 @@ os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>
     <p>
       Check the releases again:
     </p>
-    <pre>
+    <pre type="c">
 3> <input>release_handler:which_releases().</input>
 [{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],

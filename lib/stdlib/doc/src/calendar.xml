@@ -340,7 +340,7 @@
 	    The default is <c>second</c>.</p>
 	  </item>
 	</taglist>
-        <pre>
+        <pre type="erl">
 1> <input>calendar:rfc3339_to_system_time("2018-02-01T16:17:58+01:00").</input>
 1517498278
 2> <input>calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
@@ -417,7 +417,7 @@
             </p>
 	  </item>
 	</taglist>
-        <pre>
+        <pre type="erl">
 1> <input>calendar:system_time_to_rfc3339(erlang:system_time(second)).</input>
 "2018-04-23T14:56:28+02:00"
 2> <input>calendar:system_time_to_rfc3339(erlang:system_time(second),

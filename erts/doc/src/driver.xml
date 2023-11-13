@@ -131,7 +131,7 @@
       only <c><![CDATA[start]]></c>, <c><![CDATA[stop]]></c>,
       and <c><![CDATA[control]]></c> are provided:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 /* Driver interface declarations */
 static ErlDrvData start(ErlDrvPort port, char *command);
 static void stop(ErlDrvData drv_data);
@@ -161,7 +161,7 @@ static ErlDrvEntry pq_driver_entry = {
     <p>We have a structure to store state needed by the driver,
       in this case we only need to keep the database connection:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 typedef struct our_data_s {
     PGconn* conn;
 } our_data_t;
@@ -184,7 +184,7 @@ typedef struct our_data_s {
       All the other functions are static, and will not be exported
       from the library.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 /* INITIALIZATION AFTER LOADING */
 
 /* 
@@ -203,7 +203,7 @@ DRIVER_INIT(pq_drv)
       <c><![CDATA[open_port]]></c>. The data will be passed to
       <c><![CDATA[control]]></c> and <c><![CDATA[stop]]></c>.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 /* DRIVER INTERFACE */
 static ErlDrvData start(ErlDrvPort port, char *command)
 { 
@@ -219,7 +219,7 @@ static ErlDrvData start(ErlDrvPort port, char *command)
     <p>We call disconnect to log out from the database.
       (This should have been done from Erlang, but just in case.)</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_disconnect(our_data_t* data, ei_x_buff* x);
 
 static void stop(ErlDrvData drv_data)
@@ -245,7 +245,7 @@ static void stop(ErlDrvData drv_data)
       <c><![CDATA[*rbuf]]></c>.
       (Notice that this binary is freed by the emulator, not by us.)</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static char* get_s(const char* buf, int len);
 static int do_connect(const char *s, our_data_t* data, ei_x_buff* x);
 static int do_select(const char* s, our_data_t* data, ei_x_buff* x);
@@ -279,7 +279,7 @@ static int control(ErlDrvData drv_data, unsigned int command, char *buf,
       data, and return <c>'ok'</c>. Otherwise, we return the error message
       from postgres and store <c><![CDATA[NULL]]></c> in the driver data.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_connect(const char *s, our_data_t* data, ei_x_buff* x)
 {
     PGconn* conn = PQconnectdb(s);
@@ -301,7 +301,7 @@ static int do_connect(const char *s, our_data_t* data, ei_x_buff* x)
       encode an <c>'ok'</c>, as we can get here from function
       <c><![CDATA[stop]]></c>, which does not return data to the emulator:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_disconnect(our_data_t* data, ei_x_buff* x)
 {
     if (data->conn == NULL)
@@ -318,7 +318,7 @@ static int do_disconnect(our_data_t* data, ei_x_buff* x)
       another C module, <c><![CDATA[pg_encode.c]]></c>, which is also provided
       as sample code.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_select(const char* s, our_data_t* data, ei_x_buff* x)
 {
    PGresult* res = PQexec(data->conn, s);
@@ -335,7 +335,7 @@ static int do_select(const char* s, our_data_t* data, ei_x_buff* x)
       the result as strings to Erlang. (The head of the list
       contains the column names.)</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
 {
     int row, n_rows, col, n_cols;
@@ -404,7 +404,7 @@ void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
     <p>The following code is the Erlang part of the synchronous
       postgres driver, <c><![CDATA[pg_sync.erl]]></c>:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(pg_sync).
 
 -define(DRV_CONNECT, 1).
@@ -481,7 +481,7 @@ select(Port, Query) ->
     <p>The asynchronous version of the driver is in the sample files
       <c><![CDATA[pg_async.c]]></c> and <c><![CDATA[pg_asyng.erl]]></c>.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 /* Driver interface declarations */
 static ErlDrvData start(ErlDrvPort port, char *command);
 static void stop(ErlDrvData drv_data);
@@ -535,7 +535,7 @@ typedef struct our_data_t {
       <c><![CDATA[ready_io]]></c> is called both when connecting and
       when there is a query result.)</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_connect(const char *s, our_data_t* data)
 {
     PGconn* conn = PQconnectStart(s);
@@ -572,7 +572,7 @@ static int do_connect(const char *s, our_data_t* data)
       is an error here, otherwise we wait for the connection to be completed,
       in which case our <c><![CDATA[ready_io]]></c> function is called.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static int do_select(const char* s, our_data_t* data)
 {
     data->connecting = 0;
@@ -594,7 +594,7 @@ static int do_select(const char* s, our_data_t* data)
       if there is no immediate error. The result is returned
       when <c><![CDATA[ready_io]]></c> is called.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static void ready_io(ErlDrvData drv_data, ErlDrvEvent event)
 {
     PGresult* res = NULL;
@@ -657,7 +657,7 @@ static void ready_io(ErlDrvData drv_data, ErlDrvEvent event)
     <p>The Erlang part of the asynchronous driver consists of the
       sample file <c><![CDATA[pg_async.erl]]></c>.</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(pg_async).
 
 -define(DRV_CONNECT, $C).
@@ -741,7 +741,7 @@ return_port_data(Port) ->
       <c><![CDATA[next_perm.cc]]></c>. The driver entry looks like before,
       but also contains the callback <c><![CDATA[ready_async]]></c>.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static ErlDrvEntry next_perm_driver_entry = {
     NULL,                        /* init */
     start,
@@ -776,7 +776,7 @@ static ErlDrvEntry next_perm_driver_entry = {
       <c><![CDATA[driver_async]]></c>), it is only used if the task is cancelled
       programmatically.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 struct our_async_data {
     bool prev;
     vector<int> data;
@@ -804,7 +804,7 @@ static void output(ErlDrvData drv_data, char *buf, int len)
     <p>In the <c><![CDATA[do_perm]]></c> we do the work, operating
       on the structure that was allocated in <c><![CDATA[output]]></c>.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static void do_perm(void* async_data)
 {
     our_async_data* d = reinterpret_cast<our_async_data*>(async_data);
@@ -825,7 +825,7 @@ static void do_perm(void* async_data)
 
     <p>When the data is returned, we deallocate our data.</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
 {
     ErlDrvPort port = reinterpret_cast<ErlDrvPort>(drv_data);
@@ -854,7 +854,7 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
     <p>The input is changed into a list of integers and sent to
       the driver.</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(next_perm).
 
 -export([next_perm/1, prev_perm/1, load/0, all_perm/1]).

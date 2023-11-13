@@ -173,7 +173,7 @@
 	<p>This functionality is used when a client process communicates with a file i/o-server to spread the user tag to the I/O-server and then down to the efile_drv driver. By using <c>spread_tag/1</c> and <c>restore_tag/1</c>, one can enable or disable spreading of user tags to other processes and then restore the previous state of the user tag. The TagData returned from this call contains all previous information so the state (including any previously spread user tags) will be completely restored by a later call to <c>restore_tag/1</c>.</p> 
 	<p>The <seeerl marker="kernel:file">file</seeerl> module already spread's tags, so there is no need to manually call these function to get user tags spread to the efile driver through that module.</p>
 	<p>The most use of this function would be if one for example uses the <seeerl marker="stdlib:io">io</seeerl> module to communicate with an I/O-server for a regular file, like in the following example:</p>
-<pre>
+<pre type="erl">
 f() ->
    {ok, F} = file:open("test.tst",[write]),
    Saved = dyntrace:spread_tag(true),
@@ -192,7 +192,7 @@ f() ->
       </type>
       <desc>
 	<p>Restores the previous state of user tags and their spreading as it was before a call to <seemfa marker="#spread_tag/1">spread_tag/1</seemfa>. Note that the restoring is not limited to the same process, one can utilize this to turn off spreding in one process and restore it in a newly created, the one that actually is going to send messages:</p>
-<pre>
+<pre type="erl">
 f() ->
     TagData=dyntrace:spread_tag(false),
     spawn(fun() ->

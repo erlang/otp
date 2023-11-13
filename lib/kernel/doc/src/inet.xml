@@ -70,7 +70,7 @@ Address          ip_address()
 127.0.0.1        {127,0,0,1}
 192.168.42.2     {192,168,42,2}</code>
     <p><em>IPv6 address examples:</em></p>
-    <code type="none">
+    <code type="erl">
 Address          ip_address()
 -------          ------------
 ::1             {0,0,0,0,0,0,0,1}
@@ -84,7 +84,7 @@ fe80::204:acff:fe17:bf38
     <p>Function
       <seemfa marker="#parse_address/1"><c>parse_address/1</c></seemfa>
         can be useful:</p>
-    <pre>
+    <pre type="erl">
 1> <input>inet:parse_address("192.168.42.2").</input>
 {ok,{192,168,42,2}}
 2> <input>inet:parse_address("::FFFF:192.168.42.2").</input>
@@ -99,7 +99,7 @@ fe80::204:acff:fe17:bf38
         <p>The record is defined in the Kernel include file
           <c>"inet.hrl"</c>.</p>
         <p>Add the following directive to the module:</p>
-        <code>
+        <code type="erl">
 -include_lib("kernel/include/inet.hrl").</code>
       </desc>
     </datatype>
@@ -646,7 +646,7 @@ fe80::204:acff:fe17:bf38
           size is 92 (bytes), the offset of <c>tcpi_sacked</c> is 28 bytes,
           and the value is a 32-bit integer. The following code can be used
           to retrieve the value:</p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 get_tcpi_sacked(Sock) ->
     {ok,[{raw,_,_,Info}]} = inet:getopts(Sock,[{raw,6,11,92}]),
     <<_:28/binary,TcpiSacked:32/native,_/binary>> = Info,
@@ -787,7 +787,7 @@ get_tcpi_sacked(Sock) ->
 	<p>If the monitored socket does not exist or when the
 	monitor is triggered, a <c>'DOWN'</c> message is sent
 	that has the following pattern:</p>
-	<code type="none">
+	<code type="erl">
 	    {'DOWN', MonitorRef, Type, Object, Info}
 	  </code>
         <taglist>

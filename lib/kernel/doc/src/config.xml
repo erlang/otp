@@ -63,7 +63,7 @@
       <c>Name</c> is any name.</p>
     <p>File <c>.config</c> contains a single Erlang term and
       has the following syntax:</p>
-    <code type="none">
+    <code type="erl">
 [{Application1, [{Par11, Val11}, ...]},
  ...
  {ApplicationN, [{ParN1, ValN1}, ...]}].</code>

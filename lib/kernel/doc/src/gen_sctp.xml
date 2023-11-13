@@ -61,7 +61,7 @@
       <seemfa marker="#peeloff/2"><c>peeloff/2</c></seemfa>,
       one-to-one style sockets (type <c>stream</c>) were introduced.</p>
     <p>Record definitions for this module can be found using:</p>
-    <pre>
+    <pre type="erl">
 -include_lib("kernel/include/inet_sctp.hrl").</pre>
     <p>These record definitions use the "new" spelling 'adaptation',
       not the deprecated 'adaption', regardless of which
@@ -227,7 +227,7 @@
           The result of <c>connect/*</c> is an <c>#sctp_assoc_change{}</c>
           event that contains, in particular, the new
           <seetype marker="#assoc_id">Association ID</seetype>:</p>
-        <pre>
+        <pre type="c">
 #sctp_assoc_change{
       state             = atom(),
       error             = integer(),
@@ -237,7 +237,7 @@
 }</pre>
         <p>The number of outbound and inbound streams can be set by
           giving an <c>sctp_initmsg</c> option to <c>connect</c> as in:</p>
-        <pre>
+        <pre type="erl">
 connect(Socket, Ip, Port>,
       [{sctp_initmsg,#sctp_initmsg{num_ostreams=OutStreams,
                                    max_instreams=MaxInStreams}}])</pre>
@@ -583,7 +583,7 @@ connect(Socket, Ip, Port>,
             <seeerl marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seeerl>
           </item>
           <item>
-            <pre>
+            <pre type="erl">
 #sctp_paddr_change{
       addr      = {ip_address(),port()},
       state     = atom(),
@@ -618,7 +618,7 @@ connect(Socket, Ip, Port>,
             </p>
           </item>
           <item>
-          <pre>
+          <pre type="c">
 #sctp_send_failed{
       flags     = true | false,
       error     = integer(),
@@ -826,7 +826,7 @@ connect(Socket, Ip, Port>,
       </item>
       <tag><c>{sctp_rtoinfo, #sctp_rtoinfo{}}</c></tag>
       <item>
-      <pre>
+      <pre type="c">
 #sctp_rtoinfo{
       assoc_id = assoc_id(),
       initial  = integer(),
@@ -844,7 +844,7 @@ connect(Socket, Ip, Port>,
       </item>
       <tag><c>{sctp_associnfo, #sctp_assocparams{}}</c></tag>
       <item>
-      <pre>
+      <pre type="c">
 #sctp_assocparams{
       assoc_id                 = assoc_id(),
       asocmaxrxt               = integer(),
@@ -861,7 +861,7 @@ connect(Socket, Ip, Port>,
       </item>
       <tag><c>{sctp_initmsg, #sctp_initmsg{}}</c></tag>
       <item>
-      <pre>
+      <pre type="c">
 #sctp_initmsg{
      num_ostreams   = integer(),
      max_instreams  = integer(),
@@ -965,7 +965,7 @@ connect(Socket, Ip, Port>,
       </item>
       <tag><c>{sctp_peer_addr_params, #sctp_paddrparams{}}</c></tag>
       <item>
-        <pre>
+        <pre type="erl">
 #sctp_paddrparams{
       assoc_id   = assoc_id(),
       address    = {IP, Port},
@@ -1017,7 +1017,7 @@ Port = port_number()</pre>
       <tag><c>{sctp_default_send_param, #sctp_sndrcvinfo{}}</c></tag>
       <item>
         <marker id="record-sctp_sndrcvinfo"></marker>
-        <pre>
+        <pre type="erl">
 #sctp_sndrcvinfo{
       stream     = integer(),
       ssn        = integer(),
@@ -1069,7 +1069,7 @@ Port = port_number()</pre>
       <tag><c>{sctp_events, #sctp_event_subscribe{}}</c></tag>
       <item>
         <marker id="record-sctp_event_subscribe"></marker>
-        <pre>
+        <pre type="erl">
 #sctp_event_subscribe{
         data_io_event          = true | false,
         association_event      = true | false,
@@ -1107,7 +1107,7 @@ Port = port_number()</pre>
       </item>
       <tag><c>{sctp_status, #sctp_status{}}</c></tag>
       <item>
-        <pre>
+        <pre type="c">
 #sctp_status{
       assoc_id            = assoc_id(),
       state               = atom(),
@@ -1167,7 +1167,7 @@ Port = port_number()</pre>
       <tag><c>{sctp_get_peer_addr_info, #sctp_paddrinfo{}}</c></tag>
       <item>
         <marker id="record-sctp_paddrinfo"></marker>
-        <pre>
+        <pre type="erl">
 #sctp_paddrinfo{
       assoc_id  = assoc_id(),
       address   = {IP, Port},
@@ -1200,7 +1200,7 @@ Port = port_number()</pre>
     <title>SCTP Examples</title>
       <p>Example of an Erlang SCTP server that receives SCTP messages and
          prints them on the standard output:</p>
-      <pre>
+      <pre type="erl">
 -module(sctp_server).
 
 -export([server/0,server/1,server/2]).
@@ -1237,7 +1237,7 @@ server_loop(S) -&gt;
         over stream 5 fails. The client then <c>abort</c>s the association,
         which results in that the corresponding event is received on
         the server side.</p>
-      <pre>
+      <pre type="erl">
 -module(sctp_client).
 
 -export([client/0, client/1, client/2]).
@@ -1272,7 +1272,7 @@ client(Host, Port) when is_integer(Port) -&gt;
     timer:sleep(1000),
     gen_sctp:close(S).</pre>
       <p>A simple Erlang SCTP client that uses the <c>connect_init</c> API:</p>
-      <pre>
+      <pre type="erl">
 -module(ex3).
 
 -export([client/4]).

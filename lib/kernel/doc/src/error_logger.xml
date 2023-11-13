@@ -128,7 +128,7 @@
 	  <seemfa marker="logger#error/1"><c>logger:error/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>error_logger:error_msg("An error occurred in ~p", [a_module]).</input>
 =ERROR REPORT==== 22-May-2018::11:18:43.376917 ===
 An error occurred in a_module
@@ -155,7 +155,7 @@ ok</pre>
 	  <seemfa marker="logger#error/1"><c>logger:error/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 2> <input>error_logger:error_report([{tag1,data1},a_term,{tag2,data}]).</input>
 =ERROR REPORT==== 22-May-2018::11:24:23.699306 ===
     tag1: data1
@@ -230,7 +230,7 @@ ok</pre>
 	  <seemfa marker="logger#info/1"><c>logger:info/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>error_logger:info_msg("Something happened in ~p", [a_module]).</input>
 =INFO REPORT==== 22-May-2018::12:03:32.612462 ===
 Something happened in a_module
@@ -257,7 +257,7 @@ ok</pre>
 	  <seemfa marker="logger#info/1"><c>logger:info/1,2,3</c></seemfa>
 	  instead.</p>
 	<p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 2> <input>error_logger:info_report([{tag1,data1},a_term,{tag2,data}]).</input>
 =INFO REPORT==== 22-May-2018::12:06:35.994440 ===
     tag1: data1

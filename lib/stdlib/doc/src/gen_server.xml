@@ -44,7 +44,7 @@
       The relationship between the behavior functions and the callback
       functions is as follows:</p>
 
-    <pre>
+    <pre type="erl">
 gen_server module            Callback module
 -----------------            ---------------
 gen_server:start

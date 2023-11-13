@@ -405,7 +405,7 @@ chown root mod_syslog]]></code>
           on the command line to <c>erl</c>.</p>
         <p><em>Example:</em> Contents of an application configuration
 	  file:</p>
-	  <pre>
+	  <pre type="erl">
           [{os_mon, [{start_os_sup, true}, {os_sup_own, "/etc"}, 
           {os_sup_syslogconf, "/etc/syslog.conf"}, {os_sup_errortag, std_error}]}].</pre>
     </section>

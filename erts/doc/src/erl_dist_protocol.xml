@@ -336,7 +336,7 @@
 
       <p><c>NodeInfo</c> is, as expressed in Erlang:</p>
 
-      <code>
+      <code type="erl">
 io:format("name ~ts at port ~p~n", [NodeName, Port]).</code>
     </section>
 
@@ -375,13 +375,13 @@ io:format("name ~ts at port ~p~n", [NodeName, Port]).</code>
 
       <p><c>NodeInfo</c> is, as expressed in Erlang:</p>
 
-      <code>
+      <code type="erl">
 io:format("active name     ~ts at port ~p, fd = ~p~n",
           [NodeName, Port, Fd]).</code>
 
       <p>or</p>
 
-      <code>
+      <code type="erl">
 io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
           [NodeName, Port, Fd]).</code>
     </section>
@@ -908,7 +908,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 
     <section>
       <title>Semigraphic View</title>
-      <pre>
+      <pre type="erl">
 A (initiator)                                      B (acceptor)
 
 TCP connect ------------------------------------&gt;

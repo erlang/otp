@@ -57,7 +57,7 @@
     <title>Starting Mnesia for the First Time</title>
     <p>This section provides a simplified demonstration of a <c>Mnesia</c>
       system startup. The dialogue from the Erlang shell is as follows:</p>
-    <pre><![CDATA[
+    <pre type="erl"><![CDATA[
         unix>  erl -mnesia dir '"/tmp/funky"'
         Erlang (BEAM) emulator version 4.9
         
@@ -182,7 +182,7 @@
       <title>Program</title>
       <p>The following shell interaction starts <c>Mnesia</c> and
         initializes the schema for the <c>Company</c> database:</p>
-      <pre>
+      <pre type="erl">
         % <input>erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'</input>
          Erlang (BEAM) emulator version 4.9
           
@@ -223,7 +223,7 @@
       </list>
       <p>Continuing the dialogue with the Erlang shell produces the
         following:</p>
-      <pre><![CDATA[
+      <pre type="erl"><![CDATA[
         3> company:init().
         {atomic,ok}
         4> mnesia:info().
@@ -310,7 +310,7 @@
         </item>
       </list>
       <p>The function can be used as follows:</p>
-      <code type="none">
+      <code type="erl">
           Emp  = #employee{emp_no= 104732,
                            name = klacke,
                            salary = 7,
@@ -413,7 +413,7 @@
       <p>After adding more records to the <c>Company</c> database, the
         result can be the following records:</p>
       <p><c>employees</c>:</p>
-      <code type="none">
+      <code type="erl">
         {employee, 104465, "Johnson Torbjorn",   1, male,  99184, {242,038}}.
         {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}}.
         {employee, 114872, "Dacker Bjarne",      3, male,  99415, {221,035}}.
@@ -423,12 +423,12 @@
         {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}}.
         {employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.</code>
       <p><c>dept</c>:</p>
-      <code type="none">
+      <code type="erl">
         {dept, 'B/SF',  "Open Telecom Platform"}.
         {dept, 'B/SFP', "OTP - Product Development"}.
         {dept, 'B/SFR', "Computer Science Laboratory"}.</code>
       <p><c>projects</c>:</p>
-      <code type="none">
+      <code type="erl">
         %% projects
         {project, erlang, 1}.
         {project, otp, 2}.
@@ -444,12 +444,12 @@
         relationships. These tables are <c>manager</c>,
         <c>at_dep</c>, and <c>in_proj</c>.</p>
       <p><c>manager</c>:</p>
-      <code type="none">
+      <code type="erl">
         {manager, 104465, 'B/SF'}.
         {manager, 104465, 'B/SFP'}.
         {manager, 114872, 'B/SFR'}.</code>
       <p><c>at_dep</c>:</p>
-      <code type="none">
+      <code type="erl">
         {at_dep, 104465, 'B/SF'}.
         {at_dep, 107912, 'B/SF'}.
         {at_dep, 114872, 'B/SFR'}.
@@ -459,7 +459,7 @@
         {at_dep, 117716, 'B/SFP'}.
         {at_dep, 115018, 'B/SFP'}.</code>
       <p><c>in_proj</c>:</p>
-      <code type="none">
+      <code type="erl">
         {in_proj, 104465, otp}.
         {in_proj, 107912, otp}.
         {in_proj, 114872, otp}.
@@ -515,7 +515,7 @@
         <title>Using Mnesia Functions</title>
         <p>The following function extracts the names of the female employees
           stored in the database:</p>
-        <pre>
+        <pre type="erl">
 mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).</pre>
         <p><c>select</c> must always run within an activity, such as a
           transaction. The following function can be constructed to call
@@ -524,7 +524,7 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
         <p>The <c>select</c> expression matches all entries in table
           employee with the field <c>sex</c> set to <c>female</c>.</p>
         <p>This function can be called from the shell as follows:</p>
-        <pre>
+        <pre type="erl">
           (klacke@gin)1> <input>company:all_females().</input>
           {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}</pre>
         <p>For a description of <c>select</c> and its syntax, see
@@ -542,7 +542,7 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
           functions directly but offers a nice syntax.</p>
         <p>The following function extracts a list of female employees
           from the database:</p>
-        <pre>
+        <pre type="erl">
           Q = qlc:q([E#employee.name || E <![CDATA[<-]]> mnesia:table(employee),
                                 E#employee.sex == female]),
           qlc:e(Q),</pre>
@@ -551,7 +551,7 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
           function:</p>
         <codeinclude file="company.erl" tag="%2" type="erl"></codeinclude>
         <p>This function can be called from the shell as follows:</p>
-        <pre>
+        <pre type="erl">
           (klacke@gin)1> <input>company:females().</input>
           {atomic, ["Carlsson Tuula", "Fedoriw Anna"]}</pre>
         <p>In traditional relational database terminology, this

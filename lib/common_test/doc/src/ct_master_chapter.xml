@@ -145,7 +145,7 @@
      now extended with node information and intended to be executed by
     <c>Common Test</c> Master:</p>
 
-    <pre>
+    <pre type="erl">
  {define, 'Top', "/home/test"}.
  {define, 'T1', "'Top'/t1"}.
  {define, 'T2', "'Top'/t2"}.
@@ -206,7 +206,7 @@
       test target nodes using test specification term <c>init</c>.</p>
     <p>Two subterms are supported, <c>node_start</c> and <c>eval</c>.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  {node, node1, node1@host1}.
  {node, node2, node1@host2}.
  {node, node3, node2@host2}.

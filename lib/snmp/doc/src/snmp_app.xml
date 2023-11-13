@@ -79,7 +79,7 @@ in the snmp_config file!
 
     <p>A minimal config file for starting a node with both a manager 
       and an agent:</p>
-    <pre>
+    <pre type="erl">
       [{snmp, 
         [{agent, [{db_dir, "/tmp/snmp/agent/db"},
                   {config, [{dir, "/tmp/snmp/agent/conf"}]}]},
@@ -103,7 +103,7 @@ in the snmp_config file!
     <p>Each snmp component has its own set of configuration parameters,
       even though some of the types are common to both components. </p>
 
-    <pre>
+    <pre type="erl">
       snmp_components_config() -> [snmp_component_config()]
       snmp_component_config() -> {agent, agent_options()} | {manager, manager_options()}
       agent_options() = [agent_option()]

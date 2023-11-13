@@ -97,18 +97,18 @@ _Height</pre>
       generate warnings.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
-    <pre>
+    <pre type="erl">
 member(_, []) ->
     [].</pre>
     <p>can be rewritten to be more readable:</p>
-    <pre>
+    <pre type="erl">
 member(Elem, []) ->
     [].</pre>
     <p>This causes a warning for an unused variable,
       <c>Elem</c>, if the code is compiled with the flag
       <c>warn_unused_vars</c> set. Instead, the code can be rewritten
       to:</p>
-    <pre>
+    <pre type="erl">
 member(_Elem, []) ->
     [].</pre>
     <p>Notice that since variables starting with an underscore are
@@ -155,14 +155,14 @@ Pattern1 = Pattern2</pre>
       <c>Pattern2</c> are matched against the term. The idea behind
       this feature is to avoid reconstruction of terms.</p>
        <p><em>Example:</em></p>
-      <pre>
+      <pre type="erl">
 f({connect,From,To,Number,Options}, To) ->
     Signal = {connect,From,To,Number,Options},
     ...;
 f(Signal, To) ->
     ignore.</pre>
       <p>can instead be written as</p>
-      <pre>
+      <pre type="erl">
 f({connect,_,To,_,_} = Signal, To) ->
     ...;
 f(Signal, To) ->
@@ -213,7 +213,7 @@ Pattern = Expr</pre>
     evaluated from right to left.</p>
     <p>If the matching fails, a <c>badmatch</c> run-time error occurs.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>{A, B} = T = {answer, 42}.</input>
 {answer,42}
 2> <input>A.</input>
@@ -232,7 +232,7 @@ answer
 Pattern1 = Pattern2 = . . . = PatternN = Expression</pre>
 
     <p>is equivalent to:</p>
-    <pre>
+    <pre type="c">
 Temporary = Expression,
 PatternN = Temporary,
    .
@@ -261,7 +261,7 @@ Pattern = Temporary</pre>
     sub patterns of the same compound pattern.</p>
     <p><em>Examples:</em></p>
 
-    <pre>
+    <pre type="erl">
 1> <input>fun(#{Key := Value} = #{key := Key}) -> Value end.</input>
 * 1:7: variable 'Key' is unbound
 2> <input>F = fun({A, B} = E) -> {E, A + B} end, F({1,2}).</input>
@@ -275,7 +275,7 @@ Pattern = Temporary</pre>
     evaluated from right to left.</p>
 
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>M = #{key => key2, key2 => value}.</input>
 #{key => key2,key2 => value}
 2> <input>f(Key), #{Key := Value} = #{key := Key} = M, Value.</input>
@@ -347,11 +347,11 @@ lists:keysearch(Name, 1, List)</code>
       imported BIF. </p>
       <p><em>Examples:</em></p>
 
-    <code type="none">
+    <code type="erl">
 handle(Msg, State)
 spawn(m, init, [])</code>
     <p><em>Examples</em> where <c>ExprF</c> is a fun:</p>
-    <pre>
+    <pre type="erl">
 1> <input>Fun1 = fun(X) -> X+1 end,</input>
 <input>Fun1(3).</input>
 4
@@ -394,7 +394,7 @@ spawn(m, init, [])</code>
     qualified function call. Otherwise you get a compilation
     error. See the following example:</p>
 
-    <code type="none">
+    <code type="erl">
 -export([length/1,f/1]).
 
 -compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
@@ -414,7 +414,7 @@ f(X) when erlang:length(X) > 3 -> %% Calls erlang:length/1,
     function from another module and have the function declared in the
     module at the same time:</p>
 
-    <code type="none">
+    <code type="erl">
 -export([f/1]).
 
 -compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
@@ -441,7 +441,7 @@ f(X) ->
 
   <section>
     <title>If</title>
-    <pre>
+    <pre type="erl">
 if
     GuardSeq1 ->
         Body1;
@@ -460,7 +460,7 @@ end</pre>
       occurs. If necessary, the guard expression <c>true</c> can be
       used in the last branch, as that guard sequence is always true.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 is_greater_than(X, Y) ->
     if
         X>Y ->
@@ -473,7 +473,7 @@ is_greater_than(X, Y) ->
   <section>
     <marker id="case"></marker>
     <title>Case</title>
-    <pre>
+    <pre type="erl">
 case Expr of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -490,7 +490,7 @@ end</pre>
     <p>If there is no matching pattern with a true guard sequence,
       a <c>case_clause</c> run-time error occurs.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 is_valid_signal(Signal) ->
     case Signal of
         {signal, _What, _From, _To} ->
@@ -662,7 +662,7 @@ Expr1 ! Expr2</pre>
   <section>
     <marker id="receive"></marker>
     <title>Receive</title>
-    <pre>
+    <pre type="erl">
 receive
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -689,7 +689,7 @@ end</pre>
       indefinitely, until a message arrives that matches one of
       the patterns and with a true guard sequence. </p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 wait_for_onhook() ->
     receive
         onhook ->
@@ -701,7 +701,7 @@ wait_for_onhook() ->
     end.</pre>
     <p>The <c>receive</c> expression can be augmented with a
       timeout:</p>
-    <pre>
+    <pre type="erl">
 receive
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -728,7 +728,7 @@ end</pre>
       useful for timeout values that are calculated at runtime.
     </p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 wait_for_onhook() ->
     receive
         onhook ->
@@ -754,7 +754,7 @@ end</pre>
       execution in the process for <c>ExprT</c> milliseconds. This can be
       used to implement simple timers.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 timer() ->
     spawn(m, timer, [self()]).
 
@@ -1081,7 +1081,7 @@ case A >= -1.0 andalso math:sqrt(A+1) > B of</pre>
     <p>This works even if <c>A</c> is less than <c>-1.0</c>,
       since in that case, <c>math:sqrt/1</c> is never evaluated.</p>
     <p><em>Example 2:</em></p>
-    <pre>
+    <pre type="erl">
 OnlyOne = is_atom(L) orelse
          (is_list(L) andalso length(L) == 1),</pre>
 
@@ -1090,7 +1090,7 @@ OnlyOne = is_atom(L) orelse
     tail-recursive.</p>
 
     <p><em>Example 3 (tail-recursive function):</em></p>
-    <pre>
+    <pre type="erl">
 all(Pred, [Hd|Tail]) ->
     Pred(Hd) andalso all(Pred, Tail);
 all(_, []) ->
@@ -1114,7 +1114,7 @@ Expr1 -- Expr2</pre>
       for each element in the second argument, the first
       occurrence of this element (if any) is removed.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>[1,2,3]++[4,5].</input>
 [1,2,3,4,5]
 2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
@@ -1153,7 +1153,7 @@ Expr1 -- Expr2</pre>
 	  <p>
 		  <em>Examples:</em>
 	  </p>
-	  <code>
+	  <code type="erl">
 M0 = #{},                 % empty map
 M1 = #{a => &lt;&lt;"hello"&gt;&gt;}, % single association with literals
 M2 = #{1 => 2, b => b},   % multiple associations with literals
@@ -1229,7 +1229,7 @@ M4 = #{{"w", 1} => f()}.  % compound key associated with an evaluated expression
 	  <p>
 		  <em>Examples:</em>
 	  </p>
-	  <code>
+	  <code type="erl">
 M0 = #{},
 M1 = M0#{a => 0},
 M2 = M1#{a => 1, b => 2},
@@ -1241,7 +1241,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <p>
 		  <em>More examples:</em>
 	  </p>
-<pre>
+<pre type="erl">
 1> <input>M = #{1 => a}.</input>
 #{1 => a }
 2> <input>M#{1.0 => b}.</input>
@@ -1266,7 +1266,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Matching of key-value associations from maps is done as follows:
 	  </p>
 
-	  <code>#{ K := V } = M</code>
+	  <code type="erl">#{ K := V } = M</code>
 	  <p>
 	    Here <c>M</c> is any map. The key <c>K</c> must be a
 	    <seeguide marker="#guard_expressions">guard
@@ -1283,7 +1283,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <c>K</c> was restricted to be either a single variable or a
 	  literal.</p></change>
 	  <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>M = #{"tuple" => {1,2}}.</input>
 #{"tuple" => {1,2}}
 2> <input>#{"tuple" := {1,B}} = M.</input>
@@ -1296,7 +1296,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <p>
 		  Similarly, multiple values from the map can be matched:
 	  </p>
-	  <code>#{ K1 := V1, .., Kn := Vn } = M</code>
+	  <code type="erl">#{ K1 := V1, .., Kn := Vn } = M</code>
 	  <p>
 		  Here keys <c>K1 .. Kn</c> are any expressions with
 		  literals or bound variables. If all key expressions
@@ -1327,7 +1327,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Duplicate keys are allowed in matching and match each pattern associated
 		  to the keys:
 	  </p>
-	  <code>#{ K := V1, K := V2 } = M</code>
+	  <code type="erl">#{ K := V1, K := V2 } = M</code>
 	  <p>
 		  Matching an expression against an empty map literal, matches its type but
 		  no variables are bound:
@@ -1338,14 +1338,14 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  it fails with an exception <c>badmatch</c>.
 	  </p>
 	  <p>Here the key to be retrieved is constructed from an expression:</p>
-	  <code>#{{tag,length(List)} := V} = Map</code>
+	  <code type="erl">#{{tag,length(List)} := V} = Map</code>
 	  <p><c>List</c> must be an already bound variable.</p>
 	  <section>
 		  <title>Matching Syntax</title>
 		  <p>
 			  Matching of literals as keys are allowed in function heads:
 		  </p>
-		  <code>
+		  <code type="erl">
 %% only start if not_started
 handle_call(start, From, #{ state := not_started } = S) ->
 ...
@@ -1565,7 +1565,7 @@ Ei = Value |
 
       <p>For example, the following examples all succeed:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>&lt;&lt;(&lt;&lt;"abc">>)/bitstring>>.</input>
 &lt;&lt;"abc">>
 2> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary-unit:1>>.</input>
@@ -1598,7 +1598,7 @@ Ei = Value |
       the rest of the binary is evenly divisible by the unit
       value:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"">>.</input>
 &lt;&lt;>>
 2> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"a">>.</input>
@@ -1669,7 +1669,7 @@ Ei = Value |
     </section>
 
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>Bin1 = &lt;&lt;1,17,42&gt;&gt;.</input>
 &lt;&lt;1,17,42&gt;&gt;
 2> <input>Bin2 = &lt;&lt;"abc"&gt;&gt;.</input>
@@ -1716,7 +1716,7 @@ Ei = Value |
   <section>
     <marker id="funs"></marker>
     <title>Fun Expressions</title>
-    <pre>
+    <pre type="erl">
 fun
     [Name](Pattern11,...,Pattern1N) [when GuardSeq1] ->
               Body1;
@@ -1735,7 +1735,7 @@ end</pre>
       Variables bound in a fun body are local to the fun body.</p>
     <p>The return value of the expression is the resulting fun.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>Fun1 = fun (X) -> X+1 end.</input>
 #Fun&lt;erl_eval.6.39074546&gt;
 2> <input>Fun1(2).</input>
@@ -1881,7 +1881,7 @@ end</code>
     <p>The <c>try</c> expression can have an <c>of</c>
       section:
       </p>
-    <code type="none">
+    <code type="erl">
 try Exprs of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -1907,7 +1907,7 @@ end</code>
     <p>The <c>try</c> expression can also be augmented with an
       <c>after</c> section, intended to be used for cleanup with side
       effects:</p>
-    <code type="none">
+    <code type="erl">
 try Exprs of
     Pattern1 [when GuardSeq1] ->
         Body1;
@@ -1962,7 +1962,7 @@ try Exprs after AfterBody end</code>
       even in the event of exceptions in <c>file:read/2</c> or in
       <c>binary_to_term/1</c>. The exceptions are the same as
       without the <c>try</c>...<c>after</c>...<c>end</c> expression:</p>
-    <code type="none">
+    <code type="erl">
 termize_file(Name) ->
     {ok,F} = file:open(Name, [read,binary]),
     try
@@ -2094,7 +2094,7 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 
     <p>Variables bound in a generator expression are not visible outside the expression:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>[{E,L} || E &lt;- L=[1,2,3]].</input>
 * 1:5: variable 'L' is unbound</pre>
 
@@ -2138,27 +2138,27 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 &lt;&lt;2,4,6&gt;&gt;</pre>
 
     <p>Creating a mapping from an integer to its square:</p>
-    <pre>
+    <pre type="erl">
 1> <input>#{X => X*X || X &lt;- [1,2,3]}.</input>
 #{1 => 1,2 => 4,3 => 9}</pre>
 
     <p>Multiplying the value of each element in a map by two:</p>
-    <pre>
+    <pre type="erl">
 1> <input>#{K => 2*V || K := V &lt;- #{a => 1,b => 2,c => 3}}.</input>
 #{a => 2,b => 4,c => 6}</pre>
 
     <p>Filtering a list, keeping odd numbers:</p>
-    <pre>
+    <pre type="erl">
 1> <input>[X || X &lt;- [1,2,3,4,5], X rem 2 =:= 1].</input>
 [1,3,5]</pre>
 
     <p>Filtering a list, keeping only elements that match:</p>
-    <pre>
+    <pre type="erl">
 1> <input>[X || {_,_}=X &lt;- [{a,b}, [a], {x,y,z}, {1,2}]].</input>
 [{a,b},{1,2}]</pre>
 
     <p>Combining elements from two list generators:</p>
-    <pre>
+    <pre type="erl">
 1> <input>[{P,Q} || P &lt;- [a,b,c], Q &lt;- [1,2]].</input>
 [{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
 </pre>
@@ -2198,7 +2198,7 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 
     <p><strong>Examples</strong> (using a guard expression as filter):</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>List = [1,2,a,b,c,3,4].</input>
 [1,2,a,b,c,3,4]
 2> <input>[E || E &lt;- List, E rem 2].</input>
@@ -2208,7 +2208,7 @@ KeyPattern := ValuePattern &lt;- MapExpression</pre>
 
     <p><strong>Examples</strong> (using a non-guard expression as filter):</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>List = [1,2,a,b,c,3,4].</input>
 [1,2,a,b,c,3,4]
 2> <input>FaultyIsEven = fun(E) -> E rem 2 end.</input>

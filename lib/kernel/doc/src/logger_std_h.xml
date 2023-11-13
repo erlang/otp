@@ -178,7 +178,7 @@
     runtime, the <c>type</c>, <c>file</c>, or <c>modes</c> parameters
     must not be modified.</p>
     <p>Example of adding a standard handler:</p>
-    <code type="none">
+    <code type="erl">
 logger:add_handler(my_standard_h, logger_std_h,
                    #{config => #{file => "./system_info.log",
                                  filesync_repeat_interval => 1000}}).

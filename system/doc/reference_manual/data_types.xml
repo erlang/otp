@@ -133,7 +133,7 @@
 </pre>
 <p>The real numbers <c>0.1</c> and <c>0.2</c> cannot be represented
 exactly as floats.</p>
-<pre>
+<pre type="erl">
 > <input>{36028797018963968.0, 36028797018963968 == 36028797018963968.0,
   36028797018963970.0, 36028797018963970 == 36028797018963970.0}.</input>
 {3.602879701896397e16, true,
@@ -222,7 +222,7 @@ phone_number
       an anonymous function and pass the function itself -- not its
       name -- as argument to other functions.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>Fun1 = fun (X) -> X+1 end.</input>
 #Fun&lt;erl_eval.6.39074546&gt;
 2> <input>Fun1(2).</input>
@@ -264,7 +264,7 @@ phone_number
       BIF can be used to test whether a term is a PID. 
     </p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 -module(m).
 -export([loop/0]).
 
@@ -294,7 +294,7 @@ who_are_you</pre>
       the <em>size</em> of the tuple.</p>
     <p>There exists a number of BIFs to manipulate tuples.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>P = {adam,24,{july,29}}.</input>
 {adam,24,{july,29}}
 2> <input>element(1,P).</input>
@@ -321,7 +321,7 @@ adam
       the <em>size</em> of the map.</p>
     <p>There exists a number of BIFs to manipulate maps.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>M1 = #{name=>adam,age=>24,date=>{july,29}}.</input>
 #{age => 24,date => {july,29},name => adam}
 2> <input>maps:get(name,M1).</input>
@@ -370,7 +370,7 @@ adam
       list, for example, <c>[a|b]</c>. However, this type of list is of
       little practical use.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>L1 = [a,2,{c,4}].</input>
 [a,2,{c,4}]
 2> <input>[H|T] = L1.</input>
@@ -689,7 +689,7 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
       <seeerl marker="stdlib:shell">shell(3)</seeerl> manual
       page in STDLIB).</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 -module(person).
 -export([new/2]).
 
@@ -871,7 +871,7 @@ true</pre>
     <title>Type Conversions</title>
     <p>There are a number of BIFs for type conversions.</p>
     <p><em>Examples:</em></p>
-    <pre>
+    <pre type="erl">
 1> <input>atom_to_list(hello).</input>
 "hello"
 2> <input>list_to_atom("hello").</input>

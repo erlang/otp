@@ -60,7 +60,7 @@
  {CfgVarName,Value}.</pre>
 
     <p>where</p>
-    <pre>
+    <pre type="erl">
  CfgVarName = atom()
  Value = term() | [{CfgVarName,Value}]</pre>
 
@@ -106,7 +106,7 @@
     <seemfa marker="ct#get_config/1"><c>get_config/1,2,3</c></seemfa>.
     </p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
  suite() -> 
      [{require, domain, 'CONN_SPEC_DNS_SUFFIX'}].
 
@@ -213,7 +213,7 @@
     <section>
       <title>Using XML Configuration Files</title>
       <p>An example of an XML configuration file follows:</p>
-      <pre>
+      <pre type="c">
  <![CDATA[
  <config>
     <ftp_host>
@@ -226,7 +226,7 @@
 
       <p>Once read, this file produces the same configuration
       variables as the following text file:</p>
-      <pre>
+      <pre type="erl">
  {ftp_host, [{ftp,"targethost"},
              {username,"tester"},
              {password,"letmein"}]}.
@@ -291,7 +291,7 @@
 	key-value sublists as values, like the earlier configuration file
 	example:</p>
 
-      <pre>
+      <pre type="erl">
  [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
   {lm_directory, "/test/loadmodules"}]</pre>
 
@@ -305,7 +305,7 @@
     <p>A configuration file for using the FTP client to access files on a remote
       host can look as follows:</p>
 
-    <pre>
+    <pre type="erl">
  {ftp_host, [{ftp,"targethost"},
 	     {username,"tester"},
 	     {password,"letmein"}]}.
@@ -318,7 +318,7 @@
 
     <p>The following is an example of how to assert that the configuration data is available
       and can be used for an FTP session:</p>
-    <pre>
+    <pre type="erl">
  init_per_testcase(ftptest, Config) ->
      {ok,_} = ct_ftp:open(ftp),
      Config.
@@ -339,7 +339,7 @@
     <p>The following is an example of how the functions in the previous example 
        can be rewritten if it is necessary to open multiple connections to the 
        FTP server:</p>
-    <pre>
+    <pre type="erl">
  init_per_testcase(ftptest, Config) ->
      {ok,Handle1} = ct_ftp:open(ftp_host),
      {ok,Handle2} = ct_ftp:open(ftp_host),
@@ -366,7 +366,7 @@
     <title>Example of User-Specific Configuration Handler</title>
     <p>A simple configuration handling driver, asking an external server for
       configuration data, can be implemented as follows:</p>
-    <pre>
+    <pre type="erl">
  -module(config_driver).
  -export([read_config/1, check_parameter/1]).
 
@@ -392,7 +392,7 @@
     <p>The configuration string for this driver can be <c>config_server</c>, if the
       <c>config_server.erl</c> module that follows is compiled and exists in the code path
       during test execution:</p>
-    <pre>
+    <pre type="erl">
  -module(config_server).
  -export([start/0, stop/0, init/1, get_config/0, loop/0]).
 

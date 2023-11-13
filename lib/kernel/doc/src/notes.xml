@@ -9335,7 +9335,7 @@
           <p><em>NOTE</em>: This change can cause some obscure code
             to fail which previously did not. For example, the
             following code might hang:</p>
-          <code type="none">
+          <code type="erl">
             Mon = erlang:monitor(process, Pid),
             %% ...
             exit(Pid, bang),

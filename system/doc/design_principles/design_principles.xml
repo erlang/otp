@@ -80,7 +80,7 @@
       by calling the functions <c>alloc/0</c> and <c>free/1</c>,
       respectively.</p>
     <marker id="ch1"></marker>
-    <code type="none">
+    <code type="erl">
 -module(ch1).
 -export([start/0]).
 -export([alloc/0, free/1]).
@@ -117,7 +117,7 @@ loop(Chs) ->
     end.</code>
     <p>The code for the server can be rewritten into a generic part
       <c>server.erl</c>:</p>
-    <code type="none">
+    <code type="erl">
 -module(server).
 -export([start/1]).
 -export([call/2, cast/2]).
@@ -153,7 +153,7 @@ loop(Mod, State) ->
             loop(Mod, State2)
     end.</code>
     <p>And a callback module <c>ch2.erl</c>:</p>
-    <code type="none">
+    <code type="erl">
 -module(ch2).
 -export([start/0]).
 -export([alloc/0, free/1]).
@@ -197,7 +197,7 @@ handle_cast({free, Ch}, Chs) ->
       below. This is an example only, a realistic
       implementation must be able to handle situations like running out
       of channels to allocate, and so on.</p>
-    <code type="none">
+    <code type="erl">
 channels() ->
    {_Allocated = [], _Free = lists:seq(1,100)}.
 
@@ -235,7 +235,7 @@ free(Ch, {Alloc, Free} = Channels) ->
     <p>The compiler understands the module attribute
       <c>-behaviour(Behaviour)</c> and issues warnings about
       missing callback functions, for example:</p>
-    <code type="none">
+    <code type="erl">
 -module(chs3).
 -behaviour(gen_server).
 ...

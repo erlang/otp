@@ -96,7 +96,7 @@
       be restarted at <c>cp2@cave</c> or <c>cp3@cave</c>. A system
       configuration file <c>cp1.config</c> for <c>cp1@cave</c> can
       look as follows:</p>
-    <code type="none">
+    <code type="erl">
 [{kernel,
   [{distributed, [{myapp, 5000, [cp1@cave, {cp2@cave, cp3@cave}]}]},
    {sync_nodes_mandatory, [cp2@cave, cp3@cave]},
@@ -130,7 +130,7 @@
       configuration parameter. The application is started as usual.
       That is, an application master is created and calls the
       application callback function:</p>
-    <code type="none">
+    <code type="erl">
 Module:start(normal, StartArgs)</code>
     <p>Example:</p>
     <p>Continuing the example from the previous section, the three nodes
@@ -160,13 +160,13 @@ Module:start(normal, StartArgs)</code>
       <em>failover</em>.</p>
     <p>The application is started the normal way at the new node,
       that is, by the application master calling:</p>
-    <code type="none">
+    <code type="erl">
 Module:start(normal, StartArgs)</code>
     <p>An exception is if the application has the <c>start_phases</c>
       key defined
       (see <seeguide marker="included_applications">Included Applications</seeguide>).
       The application is then instead started by calling:</p>
-    <code type="none">
+    <code type="erl">
 Module:start({failover, Node}, StartArgs)</code>
     <p>Here <c>Node</c> is the terminated node.</p>
     <p><em>Example:</em></p>
@@ -197,7 +197,7 @@ Module:start({failover, Node}, StartArgs)</code>
       new node and stopped at the old node. This is
       called a <em>takeover</em>.</p>
     <p>The application is started by the application master calling:</p>
-    <code type="none">
+    <code type="erl">
 Module:start({takeover, Node}, StartArgs)</code>
     <p>Here <c>Node</c> is the old node.</p>
     <p><em>Example: </em></p>

@@ -47,7 +47,7 @@
     <p>The <c>.appup</c> file contains one single Erlang term, which
       defines the instructions used to upgrade or downgrade
       the application. The file has the following syntax:</p>
-    <code type="none">
+    <code type="c">
 {Vsn,
   [{UpFromVsn, Instructions}, ...],
   [{DownToVsn, Instructions}, ...]}.</code>
@@ -188,7 +188,7 @@
     </taglist>
     <p><c>update</c> with argument <c>supervisor</c> is used when
       changing the start specification of a supervisor.</p>
-    <pre>
+    <pre type="erl">
 {load_module, Mod}
 {load_module, Mod, DepMods}
 {load_module, Mod, PrePurge, PostPurge, DepMods}
@@ -202,7 +202,7 @@
       <c>Mod</c> is dependent on. In the <c>relup</c> file, instructions for
       loading these modules come before the instruction for loading
       <c>Mod</c> when upgrading, and conversely when downgrading.</p>
-    <pre>
+    <pre type="erl">
 {add_module, Mod}
 {add_module, Mod, DepMods}
   Mod = atom()
@@ -213,7 +213,7 @@
       related to these modules come before the instruction for
       loading <c>Mod</c> when upgrading, and conversely when
       downgrading.</p>
-    <pre>
+    <pre type="erl">
 {delete_module, Mod}
 {delete_module, Mod, DepMods}
   Mod = atom()</pre>
@@ -264,7 +264,7 @@
 
     <section>
     <title>Low-Level Instructions</title>
-    <pre>
+    <pre type="erl">
 {load_object_code, {App, Vsn, [Mod]}}
   App = Mod = atom()
   Vsn = string()</pre>
@@ -298,7 +298,7 @@ point_of_no_return</pre>
   Mod = atom()</pre>
     <p>Purges each module <c>Mod</c>, that is, removes the old code.
       Notice that any process executing purged code is killed.</p>
-    <pre>
+    <pre type="erl">
 {suspend, [Mod | {Mod, Timeout}]}
   Mod = atom()
   Timeout = int()>0 | default | infinity</pre>
@@ -314,7 +314,7 @@ point_of_no_return</pre>
 {resume, [Mod]}
   Mod = atom()</pre>
     <p>Resumes all suspended processes using a module <c>Mod</c>.</p>
-    <pre>
+    <pre type="erl">
 {code_change, [{Mod, Extra}]}
 {code_change, Mode, [{Mod, Extra}]}
   Mod = atom()
@@ -334,12 +334,12 @@ point_of_no_return</pre>
       This instruction is useful
       when the simplest way to change code is to stop and restart the
       processes that run the code.</p>
-    <pre>
+    <pre type="erl">
 {start, [Mod]}
   Mod = atom()</pre>
     <p>Starts all stopped processes using a module <c>Mod</c> by calling
       <seemfa marker="stdlib:supervisor#restart_child/2"><c>supervisor:restart_child/2</c></seemfa>.</p>
-    <pre>
+    <pre type="erl">
 {sync_nodes, Id, [Node]}
 {sync_nodes, Id, {M, F, A}}
   Id = term()
@@ -355,7 +355,7 @@ point_of_no_return</pre>
       the local node is restarted from the old release. There is no
       time-out for this instruction, which means that it can hang
       forever.</p>
-    <pre>
+    <pre type="erl">
 {apply, {M, F, A}}
   M = F = atom()
   A = [term()]</pre>

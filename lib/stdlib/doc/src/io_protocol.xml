@@ -71,7 +71,7 @@
     <p>As described in Robert's paper, I/O servers and clients communicate
       using <c>io_request</c>/<c>io_reply</c> tuples as follows:</p>
 
-    <pre>
+    <pre type="erl">
 {io_request, From, ReplyAs, Request}
 {io_reply, ReplyAs, Reply}</pre>
 
@@ -112,7 +112,7 @@
     <p>To output characters on an I/O device, the following <c>Request</c>s
       exist:</p>
 
-    <pre>
+    <pre type="erl">
 {put_chars, Encoding, Characters}
 {put_chars, Encoding, Module, Function, Args}</pre>
 
@@ -175,7 +175,7 @@ ok
     <p>To read characters from an I/O device, the following <c>Request</c>s
       exist:</p>
 
-    <pre>
+    <pre type="erl">
 {get_until, Encoding, Prompt, Module, Function, ExtraArgs}</pre>
 
     <list type="bulleted">
@@ -207,7 +207,7 @@ ok
           function and arguments to determine when enough data is written. The
           function is to take two more arguments, the last state, and a list of
           characters. The function is to return one of:</p>
-        <pre>
+        <pre type="erl">
 {done, Result, RestChars}
 {more, Continuation}</pre>
         <p><c>Result</c> can be any Erlang term, but if it is a <c>list()</c>,
@@ -234,7 +234,7 @@ ok
           reached on the IO device is the atom <c>eof</c>.</p>
         <p>An emulation of the <c>get_line</c> request can be (inefficiently)
           implemented using the following functions:</p>
-        <code>
+        <code type="erl">
 -module(demo).
 -export([until_newline/3, get_line/1]).
 
@@ -366,7 +366,7 @@ eof
     <p>As an example, the I/O server for the interactive shell (in
       <c>group.erl</c>) understands the following options:</p>
 
-    <pre>
+    <pre type="erl">
 {binary, boolean()} (or binary/list)
 {echo, boolean()}
 {expand_fun, fun()}
@@ -429,7 +429,7 @@ OptList
     <p>The I/O server can, for a list of requests, send any of the following
       valid results in the reply, depending on the requests in the list:</p>
 
-    <pre>
+    <pre type="erl">
 ok
 {ok, Data}
 {ok, Options}
@@ -491,7 +491,7 @@ N
     <p>The module begins with the usual directives, a function to start the
       I/O server and a main loop handling the requests:</p>
 
-    <code>
+    <code type="erl">
 -module(ets_io_server).
 
 -export([start_link/0, init/0, loop/1, until_newline/3, until_enough/3]).
@@ -544,7 +544,7 @@ loop(State) -&gt;
 
     <p>First, we examine the reply function:</p>
 
-    <code>
+    <code type="erl">
 reply(From, ReplyAs, Reply) -&gt;
     From ! {io_reply, ReplyAs, Reply}.</code>
 
@@ -555,7 +555,7 @@ reply(From, ReplyAs, Reply) -&gt;
     <p>We need to handle some requests. First the requests for writing
       characters:</p>
 
-    <code>
+    <code type="erl">
 request({put_chars, Encoding, Chars}, State) -&gt;
     put_chars(unicode:characters_to_list(Chars,Encoding),State);
 request({put_chars, Encoding, Module, Function, Args}, State) -&gt;
@@ -579,7 +579,7 @@ request({put_chars, Encoding, Module, Function, Args}, State) -&gt;
 
     <p>We handle the requests for retrieving data:</p>
 
-    <code>
+    <code type="erl">
 request({get_until, Encoding, _Prompt, M, F, As}, State) -&gt;
     get_until(Encoding, M, F, As, State);
 request({get_chars, Encoding, _Prompt, N}, State) -&gt;
@@ -596,7 +596,7 @@ request({get_line, Encoding, _Prompt}, State) -&gt;
       implementing functions <c>put_chars/2</c> and <c>get_until/5</c>, we
       examine the few remaining requests:</p>
 
-    <code>
+    <code type="erl">
 request({get_geometry,_}, State) -&gt;
     {error, {error,enotsup}, State};
 request({setopts, Opts}, State) -&gt;
@@ -617,14 +617,14 @@ request({requests, Reqs}, State) -&gt;
     <p><c>{error, request}</c> must be returned if the request is not
       recognized:</p>
 
-    <code>
+    <code type="erl">
 request(_Other, State) -&gt;
     {error, {error, request}, State}.</code>
 
     <p>Next we handle the different requests, first the fairly generic
       multi-request type:</p>
 
-    <code>
+    <code type="erl">
 multi_request([R|Rs], {ok, _Res, State}) -&gt;
     multi_request(Rs, request(R, State));
 multi_request([_|_], Error) -&gt;
@@ -640,7 +640,7 @@ multi_request([], Result) -&gt;
     <p>Requests <c>getopts</c> and <c>setopts</c> are also simple to handle.
       We only change or read the state record:</p>
 
-    <code>
+    <code type="erl">
 setopts(Opts0,State) -&gt;
     Opts = proplists:unfold(
 	     proplists:substitute_negations(
@@ -693,7 +693,7 @@ getopts(#state{mode=M} = S) -&gt;
       writing of the data to/from the ETS table. First function
       <c>put_chars/3</c>:</p>
 
-    <code>
+    <code type="erl">
 put_chars(Chars, #state{table = T, position = P} = State) -&gt;
     R = P div ?CHARS_PER_REC,
     C = P rem ?CHARS_PER_REC,
@@ -709,7 +709,7 @@ put_chars(Chars, #state{table = T, position = P} = State) -&gt;
       reads data and applies the function until it says that it is done. The
       result is sent back to the client:</p>
 
-    <code>
+    <code type="erl">
 get_until(Encoding, Mod, Func, As, 
 	  #state{position = P, mode = M, table = T} = State) -&gt;
     case get_loop(Mod,Func,As,T,P,[]) of
@@ -772,7 +772,7 @@ get_loop(M,F,A,T,P,C) -&gt;
 
     <p>To manipulate the table we implement the following utility functions:</p>
 
-    <code>
+    <code type="erl">
 check(unicode, List) -&gt;
     List;
 check(latin1, List) -&gt;
@@ -792,7 +792,7 @@ check(latin1, List) -&gt;
       helpers used together with function <c>get_until/5</c> to implement
       <c>get_chars</c> and <c>get_line</c> (inefficiently):</p>
 
-    <code>
+    <code type="erl">
 until_newline([],eof,_MyStopCharacter) -&gt;
     {done,eof,[]};
 until_newline(ThisFar,eof,_MyStopCharacter) -&gt;
@@ -824,7 +824,7 @@ until_enough(ThisFar,CharList,_N) -&gt;
     <p>To complete the I/O server, we only need to read and write the table in
       an appropriate way:</p>
 
-    <code>
+    <code type="erl">
 get(P,Tab) -&gt;
     R = P div ?CHARS_PER_REC,
     C = P rem ?CHARS_PER_REC,

@@ -590,7 +590,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr, Data) -> ok | {error, Error}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr, Data) -> ok | {error, Error}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier of
 	    the distribution controller and <c>Data</c>
@@ -604,7 +604,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier of the distribution
 	    controller.
@@ -624,7 +624,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier of
 	    the distribution controller. Called just
@@ -639,7 +639,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier of
 	    the distribution controller. Called just
@@ -715,7 +715,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr) -> {ok, Received, Sent, PendSend}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr) -> {ok, Received, Sent, PendSend}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier
 	    of the distribution controller, <c>Received</c>
@@ -753,7 +753,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> ok | {error, Error}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrl, Opts) -> ok | {error, Error}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier
 	    of the distribution controller and <c>Opts</c>
@@ -767,7 +767,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> {ok, OptionValues} | {error, Error}]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrl, Opts) -> {ok, OptionValues} | {error, Error}]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier
 	    of the distribution controller and <c>Opts</c>
@@ -781,7 +781,7 @@
 	  <p>
 	    A fun with the following signature:
 	  </p>
-	  <code type="none"><![CDATA[fun (DistCtrlr, Node, DHandle) -> void()]]></code>
+	  <code type="erl"><![CDATA[fun (DistCtrlr, Node, DHandle) -> void()]]></code>
 	  <p>
 	    where <c>DistCtrlr</c> is the identifier
 	    of the distribution controller, <c>Node</c> is
@@ -1054,7 +1054,7 @@
         declaring prototypes and filling in a static <c>ErlDrvEntry</c>
         structure:</p>
 
-      <code type="none"><![CDATA[
+      <code type="c"><![CDATA[
 ( 1) #include <stdio.h>
 ( 2) #include <stdlib.h>
 ( 3) #include <string.h>
@@ -1227,7 +1227,7 @@
 
       <p>An enum is defined for the different types of ports:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) typedef enum { 
 ( 2)     portTypeUnknown,      /* An uninitialized port */
 ( 3)     portTypeListener,     /* A listening port/socket */
@@ -1294,7 +1294,7 @@
         code with multiple indirections, so here is used one struct for
         all types of ports, for readability:</p>
 
-      <code type="none"><![CDATA[
+      <code type="c"><![CDATA[
 ( 1) typedef unsigned char Byte;
 ( 2) typedef unsigned int Word;
 
@@ -1447,7 +1447,7 @@
         to use is named <c><![CDATA[DRIVER_INIT]]></c> and takes the driver name
         as parameter:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 (1) /* Beginning of linked list of ports */
 (2) static UdsData *first_data;
 
@@ -1466,7 +1466,7 @@
         initialize it. Creating the actual socket is left to the
         <c><![CDATA[uds_command]]></c> routine.</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static ErlDrvData uds_start(ErlDrvPort port, char *buff)
 ( 2) {
 ( 3)     UdsData *ud;
@@ -1502,7 +1502,7 @@
         asynchronous commands when the port is in <c>command</c> mode and
         the sending of all data when the port is in <c>data</c> mode:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static void uds_command(ErlDrvData handle, char *buff, int bufflen)
 ( 2) {
 ( 3)     UdsData *ud = (UdsData *) handle;
@@ -1626,7 +1626,7 @@
         a read command is issued and no data is available. The
         <c><![CDATA[do_recv]]></c> routine is as follows:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static void do_recv(UdsData *ud)
 ( 2) {
 ( 3)     int res;
@@ -1683,7 +1683,7 @@
         handle
         data arriving at the socket by calling <c><![CDATA[do_recv]]></c>:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static void uds_input(ErlDrvData handle, ErlDrvEvent event)
 ( 2) {
 ( 3)     UdsData *ud = (UdsData *) handle;
@@ -1722,7 +1722,7 @@
       <p>The output mechanisms are similar to the input.
         The <c><![CDATA[do_send]]></c> routine is as follows:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static void do_send(UdsData *ud, char *buff, int bufflen) 
 ( 2) {
 ( 3)     char header[4];
@@ -1793,7 +1793,7 @@
 
       <p>The <c><![CDATA[send_out_queue]]></c> routine is as follows:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static int send_out_queue(UdsData *ud)
 ( 2) {
 ( 3)     for(;;) {
@@ -1842,7 +1842,7 @@
       <p>The routine above is called from the <c><![CDATA[uds_output]]></c>
         routine:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static void uds_output(ErlDrvData handle, ErlDrvEvent event)
 ( 2) {
 ( 3)    UdsData *ud = (UdsData *) handle;
@@ -1928,7 +1928,7 @@
         but is free to allocate its own buffer if the provided one is
         too small. The <c><![CDATA[uds_control]]></c> code is as follows:</p>
 
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 ( 1) static int uds_control(ErlDrvData handle, unsigned int command, 
 ( 2)                        char* buf, int count, char** res, int res_size)
 ( 3) {

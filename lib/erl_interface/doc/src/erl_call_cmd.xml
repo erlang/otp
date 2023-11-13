@@ -340,7 +340,7 @@ start() ->
    ]]></code>
     <p>To forward standard output without printing the result term
     (<em>again, the input ends with EOF (Control-D)</em>):</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 erl_call -s -e -sname madonna -fetch_stdout -no_result_term
 io:format("Number of schedulers: ~p~n", [erlang:system_info(schedulers)]),
 io:format("Number of logical cores: ~p~n", [erlang:system_info(logical_processors_available)]).

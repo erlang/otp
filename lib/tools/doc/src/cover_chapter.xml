@@ -47,7 +47,7 @@
       <title>Example</title>
       <p>Assume that a test case for the following program should be
         verified:</p>
-      <code type="none">
+      <code type="erl">
 -module(channel).
 -behaviour(gen_server).
 
@@ -101,7 +101,7 @@ alloc([]) ->
 free(Channel,Channels) ->
     [Channel|Channels].</code>
       <p>The test case is implemented as follows:</p>
-      <code type="none">
+      <code type="erl">
 -module(test).
 -export([s/0]).
 
@@ -116,7 +116,7 @@ s() ->
       <title>Preparation</title>
       <p>First of all, Cover must be started. This spawns a process which
         owns the Cover database where all coverage data will be stored.</p>
-      <pre>
+      <pre type="erl">
 1> <input>cover:start().</input>
 {ok,&lt;0.30.0>}</pre>
       <p>To include other nodes in the coverage analysis, use
@@ -129,7 +129,7 @@ s() ->
         added to the module before it is compiled into a binary which then
         is <seeguide marker="#loading">loaded</seeguide>. The source file of
         the module is not affected and no <c>.beam</c> file is created.</p>
-      <pre>
+      <pre type="erl">
 2> <input>cover:compile_module(channel).</input>
 {ok,channel}</pre>
       <p>Each time a function in the Cover compiled module <c>channel</c>
@@ -156,7 +156,7 @@ ok</pre>
         that have not been executed.</p>
       <p>If the analysis is made on module level, the result is given for
         the entire module as a tuple <c>{Module,{Cov,NotCov}}</c>:</p>
-      <pre>
+      <pre type="erl">
 4> <input>cover:analyse(channel,coverage,module).</input>
 {ok,{channel,{14,1}}}</pre>
       <p>For <c>channel</c>, the result shows that 14 lines in the module
@@ -165,7 +165,7 @@ ok</pre>
         a list of tuples <c>{Function,{Cov,NotCov}}</c>, one for each
         function in the module. A function is specified by its module name,
         function name and arity:</p>
-      <pre>
+      <pre type="erl">
 5> <input>cover:analyse(channel,coverage,function).</input>
 {ok,[{{channel,start_link,0},{1,0}},
      {{channel,stop,0},{1,0}},
@@ -184,7 +184,7 @@ ok</pre>
         function clause in the module. A clause is specified by its module
         name, function name, arity and position within the function
         definition:</p>
-      <pre>
+      <pre type="erl">
 6> <input>cover:analyse(channel,coverage,clause).</input>
 {ok,[{{channel,start_link,0,1},{1,0}},
      {{channel,stop,0,1},{1,0}},
@@ -205,7 +205,7 @@ ok</pre>
         as a list of tuples <c>{Line,{Cov,NotCov}}</c>, one for each
         executable line in the source code. A line is specified by its
         module name and line number.</p>
-      <pre>
+      <pre type="erl">
 7> <input>cover:analyse(channel,coverage,line).</input>
 {ok,[{{channel,9},{1,0}},
      {{channel,12},{1,0}},
@@ -234,7 +234,7 @@ ok</pre>
       <p>If the analysis is made on module level, the result is given as a
         tuple <c>{Module,Calls}</c>. Here <c>Calls</c> is the total number
         of calls to functions in the module:</p>
-      <pre>
+      <pre type="erl">
 8> <input>cover:analyse(channel,calls,module).</input>
 {ok,{channel,12}}</pre>
       <p>For <c>channel</c>, the result shows that a total of twelve calls
@@ -242,7 +242,7 @@ ok</pre>
       <p>If the analysis is made on function level, the result is given as
         a list of tuples <c>{Function,Calls}</c>. Here <c>Calls</c> is
         the number of calls to each function:</p>
-      <pre>
+      <pre type="erl">
 9> <input>cover:analyse(channel,calls,function).</input>
 {ok,[{{channel,start_link,0},1},
      {{channel,stop,0},1},
@@ -260,7 +260,7 @@ ok</pre>
       <p>If the analysis is made on clause level, the result is given as
         a list of tuples <c>{Clause,Calls}</c>. Here <c>Calls</c> is
         the number of calls to each function clause:</p>
-      <pre>
+      <pre type="erl">
 10> <input>cover:analyse(channel,calls,clause).</input>
 {ok,[{{channel,start_link,0,1},1},
      {{channel,stop,0,1},1},
@@ -281,7 +281,7 @@ ok</pre>
       <p>Finally, if the analysis is made on line level, the result is given
         as a list of tuples <c>{Line,Calls}</c>. Here <c>Calls</c> is 
         the number of times each line has been executed:</p>
-      <pre>
+      <pre type="erl">
 11> <input>cover:analyse(channel,calls,line).</input>
 {ok,[{{channel,9},1},
      {{channel,12},1},
@@ -307,13 +307,13 @@ ok</pre>
       <title>Analysis to File</title>
       <p>A line level calls analysis of <c>channel</c> can be written to
         a file using <c>cover:analysis_to_file/1</c>:</p>
-      <pre>
+      <pre type="erl">
 12> <input>cover:analyse_to_file(channel).</input>
 {ok,"channel.COVER.out"}</pre>
       <p>The function creates a copy of <c>channel.erl</c> where it for
         each executable line is specified how many times that line has been
         executed. The output file is called <c>channel.COVER.out</c>.</p>
-      <pre>
+      <pre type="erl">
 File generated from channel.erl by COVER 2001-05-21 at 11:16:38
 
 ****************************************************************************
@@ -384,7 +384,7 @@ File generated from channel.erl by COVER 2001-05-21 at 11:16:38
         compiled modules are <seeguide marker="#loading">unloaded</seeguide>.
         The code for <c>channel</c> is now loaded as usual from a
         <c>.beam</c> file in the current path.</p>
-      <pre>
+      <pre type="erl">
 13> <input>code:which(channel).</input>
 cover_compiled
 14> <input>cover:stop().</input>
@@ -424,7 +424,7 @@ ok
       <p>In the example below, lines number 2,4,6,8 and 11 are executable
         lines:</p>
       <p></p>
-      <pre>
+      <pre type="erl">
 1: is_loaded(Module,Compiled) ->
 2:   case get_file(Module,Compiled) of
 3:     {ok,File} ->

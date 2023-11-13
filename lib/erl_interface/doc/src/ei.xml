@@ -1260,7 +1260,7 @@ ei_encode_tuple_header(buf, &amp;i, 0);</code>
           <c>fmt</c> contains a format string, with arguments like
           <c>~d</c>, to insert terms from variables. The following
           formats are supported (with the C types given):</p>
-        <pre>
+        <pre type="c">
 ~a  An atom, char*
 ~c  A character, char
 ~s  A string, char*

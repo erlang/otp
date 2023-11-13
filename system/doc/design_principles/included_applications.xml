@@ -59,7 +59,7 @@
     <title>Specifying Included Applications</title>
     <p>Which applications to include is defined by
       the <c>included_applications</c> key in the <c>.app</c> file:</p>
-    <pre>
+    <pre type="erl">
 {application, prim_app,
  [{description, "Tree application"},
   {vsn, "1"},
@@ -87,7 +87,7 @@
       where <c>Module</c> as usual is the application callback module.
       <c>StartArgs</c> is a term provided as argument to the callback
       function <c>Module:start/2</c>:</p>
-    <code type="none">
+    <code type="erl">
 {application, prim_app,
  [{description, "Tree application"},
   {vsn, "1"},
@@ -142,7 +142,7 @@
     <p>When starting <c>prim_app</c> as defined above, the application
     controller calls the following callback functions before
     <c>application:start(prim_app)</c> returns a value:</p>
-    <code type="none">
+    <code type="erl">
 application:start(prim_app)
  => prim_app_cb:start(normal, [])
  => prim_app_cb:start_phase(init, normal, [])

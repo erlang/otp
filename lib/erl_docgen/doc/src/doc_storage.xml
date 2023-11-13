@@ -52,7 +52,7 @@
     <p>When generating documentation for EEP-48 Erl_Docgen uses the format mime type
       &lt;&lt;"application/erlang+html"&gt;&gt;. The documentation content is an Erlang
       term that represents an HTML like structure.</p>
-      <code>
+      <code type="erl">
 -type chunk_elements() :: [chunk_element()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | unicode:unicode_binary().

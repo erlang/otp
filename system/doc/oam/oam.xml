@@ -191,14 +191,14 @@
       <p>An application that needs to import an MIB into another
       MIB is to use the <c>il</c> option to the SNMP MIB compiler:</p>
 
-      <code type="none">
+      <code type="erl">
 snmp:c("MY-MIB", [{il, ["snmp/priv/mibs"]}]).</code>
 
       <p>If the application needs to include a generated
       <c>.hrl</c> file, it is to use the <c>-include_lib</c>
       directive to the Erlang compiler:</p>
 
-      <code type="none">
+      <code type="erl">
 -module(my_mib).
 -include_lib("snmp/include/OTP-REG.hrl").</code>
 

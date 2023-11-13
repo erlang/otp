@@ -165,7 +165,7 @@
       readable test case functions that look much more like scripts than actual programs. 
       A simple example:
     </p>
-    <pre>
+    <pre type="erl">
  session(_Config) ->
      {started,ServerId} = my_server:start(),
      {clients,[]} = my_server:get_clients(ServerId),

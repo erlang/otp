@@ -71,7 +71,7 @@
     <p>These parameters can be modified by the user with the following
       configuration term:</p>
 
-    <pre>
+    <pre type="erl">
  {telnet_settings, [{connect_timeout,Millisec},
                     {command_timeout,Millisec},
                     {reconnection_attempts,N},
@@ -108,7 +108,7 @@
       Test</c> hook named <c>cth_conn_log</c>. Example (using the test suite
       information function):</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
      [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].</pre>
 
@@ -141,7 +141,7 @@
 
     <p><em>Example:</em></p>
  
-    <pre>
+    <pre type="erl">
  {ct_conn_log, [{ct_telnet,[{log_type,raw},
                             {hosts,[key_or_name()]}]}]}</pre>
 
@@ -158,7 +158,7 @@
       <c>server2</c>. Traffic for any other connections is logged in the
       default Telnet log.</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
      [{ct_hooks,
        [{cth_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}]}].</pre>
@@ -166,13 +166,13 @@
     <p>As previously explained, this specification can also be provided by an
       entry like the following in a configuration file:</p>
 
-    <pre>
+    <pre type="erl">
  {ct_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}.</pre>
 
     <p>In this case the <c>ct_hooks</c> statement in the test suite can look
       as follows:</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt;
      [{ct_hooks, [{cth_conn_log, []}]}].</pre>
   </section>
@@ -408,7 +408,7 @@
 
         <p><em>Example 1:</em></p>
 
-        <pre>
+        <pre type="erl">
  expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[sequence,{halt,[{nnn,"NNN"}]}])</pre>
 
         <p>First this tries to match <c>"ABC"</c>, and then <c>"XYZ"</c>, but
@@ -418,7 +418,7 @@
 
         <p><em>Example 2:</em></p>
 
-        <pre>
+        <pre type="erl">
  expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[{repeat,2},{halt,[{nnn,"NNN"}]}])</pre>
 
         <p>This tries to match <c>"ABC"</c> or <c>"XYZ"</c> twice. If

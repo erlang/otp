@@ -50,7 +50,7 @@
     ports with registered names can be opened beforehand, and the port to
     be used can be chosen based on the scheduler ID as follows:</p>
 
-    <code type="none">
+    <code type="erl">
 -define(PORT_NAMES(),
 	{some_driver_01, some_driver_02, some_driver_03, some_driver_04,
 	 some_driver_05, some_driver_06, some_driver_07, some_driver_08,

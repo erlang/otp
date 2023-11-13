@@ -129,7 +129,7 @@
       is not used.
       </p>
     <p>Do something like this:</p>
-    <pre>
+    <pre type="erl">
 {ok, Tracer} = fprof:profile(start),
 fprof:trace([start, {tracer, Tracer}]),
 %% Code to profile

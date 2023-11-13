@@ -190,7 +190,7 @@
       list of binaries is used as input. The results are collected in
       a list of terms.</p>
 
-    <pre>
+    <pre type="erl">
 sort(Log) ->
     {ok, _} = disk_log:open([{name,Log}, {mode,read_only}]),
     Input = input(Log, start),

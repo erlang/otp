@@ -173,7 +173,7 @@ ok.]]></code>
       ...</pre>
 
     <p><em>DO NOT</em></p>
-    <pre>
+    <pre type="erl">
       ...
       port_command(Port, lists:flatten(DeepList))
       ...</pre>
@@ -181,7 +181,7 @@ ok.]]></code>
     <p>A common way to send a zero-terminated string to a port is the following:</p>
 
     <p><em>DO NOT</em></p>
-    <pre>
+    <pre type="erl">
       ...
       TerminatedStr = String ++ [0], % String="foo" => [$f, $o, $o, 0]
       port_command(Port, TerminatedStr)
@@ -190,7 +190,7 @@ ok.]]></code>
     <p>Instead:</p>
 
     <p><em>DO</em></p>
-    <pre>
+    <pre type="erl">
       ...
       TerminatedStr = [String, 0], % String="foo" => [[$f, $o, $o], 0]
       port_command(Port, TerminatedStr) 
@@ -201,13 +201,13 @@ ok.]]></code>
       <title>Append Example</title>
 
     <p><em>DO</em></p>
-    <pre>
+    <pre type="erl">
       > lists:append([[1], [2], [3]]).
       [1,2,3]
       ></pre>
 
     <p><em>DO NOT</em></p>
-    <pre>
+    <pre type="erl">
       > lists:flatten([[1], [2], [3]]).
       [1,2,3]
       ></pre>

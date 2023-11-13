@@ -123,7 +123,7 @@
       of the difference between the pretty and compact versions of
       text messages. First the pretty, well indented version with long
       keywords:</p>
-    <pre>
+    <pre type="c">
    MEGACO/1 [124.124.124.222]
    Transaction = 9998 {
            Context = - {
@@ -145,7 +145,7 @@
     <p>And the programmers view of the same message.
       First a list of ActionRequest records are constructed and
       then it is sent with one of the send functions in the API:</p>
-    <pre>
+    <pre type="erl">
   Prof = #'ServiceChangeProfile'{profileName = "resgw", version = 1},
   Parm = #'ServiceChangeParm'{serviceChangeMethod  = restart,
                               serviceChangeAddress = {portNumber, 55555},
@@ -157,7 +157,7 @@
                               commandRequests = {serviceChangeReq, Req}}],
   megaco:call(ConnHandle, Actions, Config).    </pre>
     <p>And finally a print-out of the entire internal form:</p>
-    <pre>
+    <pre type="erl">
   {'MegacoMessage',
    asn1_NOVALUE,
    {'Message',

@@ -46,7 +46,7 @@
     when information is changed. </p>
 
     <p>The overall structure is shown in the following figure:</p>
-    <pre>
+    <pre type="c">
          +---------------+
          |   SNMP Agent  |
          +- - - - - - - -+
@@ -85,11 +85,11 @@
       variable <c>myVar</c> does not have a name when compiling an
       MIB, the compiler generates an entry.
       </p>
-    <pre>
+    <pre type="erl">
 {myVar, {snmp_generic, variable_func, [{myVar, Db]}}.
     </pre>
     <p>And for a table:</p>
-    <pre>
+    <pre type="erl">
 {myTable, {snmp_generic, table_func, [{myTable, Db]}}.
     </pre>
   </description>
@@ -216,7 +216,7 @@
     <marker id="data_types"></marker>
     <title>DATA TYPES</title>
     <p>In the functions defined below, the following types are used:</p>
-    <code type="none">
+    <code type="erl">
 name_db() = {name(), db()} 
 name() = atom()
 db() = volatile | persistent | mnesia
@@ -609,7 +609,7 @@ value() = term()
       stored in Mnesia, but with some checks performed at set-request
       operations.
       </p>
-    <pre>
+    <pre type="erl">
 myTable_func(new, NameDb) ->   % pass unchanged
   snmp_generic:table_func(new, NameDb).
 
@@ -641,7 +641,7 @@ myTable_func(Op, RowIndex, Cols, NameDb) ->   % pass unchanged
     </pre>
     <p>The <c>.funcs</c> file would look like:
       </p>
-    <pre>
+    <pre type="erl">
 {myTable, {myModule, myTable_func, [{myTable, mnesia}]}}.
     </pre>
   </section>

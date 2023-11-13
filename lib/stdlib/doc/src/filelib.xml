@@ -342,7 +342,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
           of the relative path.</p></item>
         </list>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>{ok, Cwd} = file:get_cwd().</input>
 ...
 2> <input>filelib:safe_relative_path("dir/sub_dir/..", Cwd).</input>

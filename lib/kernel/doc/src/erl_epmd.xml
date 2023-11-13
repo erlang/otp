@@ -106,7 +106,7 @@
         specified host. Returns <c>{error, address}</c> if <c>epmd</c> is not
         operational.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 (arne@dunn)1> <input>erl_epmd:names(localhost).</input>
 {ok,[{"arne",40262}]}</pre>
       </desc>

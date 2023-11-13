@@ -544,7 +544,7 @@
       </item>
       <tag><marker id="ErlDrvSysInfo"/><c>ErlDrvSysInfo</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef struct ErlDrvSysInfo {
    int driver_major_version;
    int driver_minor_version;
@@ -709,7 +709,7 @@ typedef struct ErlDrvBinary {
       </item>
       <tag><marker id="ErlIOVec"/><c>ErlIOVec</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef struct ErlIOVec {
   int vsize;
   ErlDrvSizeT size;
@@ -2549,7 +2549,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
         <p><c>ERL_DRV_STRING</c> constructs a string, and ends
           it. (So it is the same as <c>ERL_DRV_NIL</c> followed by
           <c>ERL_DRV_STRING_CONS</c>.)</p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 /* to send [x, "abc", y] to the port: */
 ErlDrvTermData spec[] = {
     ERL_DRV_ATOM, driver_mk_atom("x"),
@@ -2559,7 +2559,7 @@ ErlDrvTermData spec[] = {
     ERL_DRV_LIST, 4
 };
 erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));    ]]></code>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 /* to send "abc123" to the port: */
 ErlDrvTermData spec[] = {
     ERL_DRV_NIL,        /* with STRING_CONS, the tail comes first */

@@ -296,7 +296,7 @@
 <code type="none">
 f.txt:  {person, "kalle", 25}.
         {person, "pelle", 30}.</code>
-<pre>
+<pre type="erl">
 1> <input>file:consult("f.txt").</input>
 {ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
         <p>The encoding of <c><anno>Filename</anno></c> can be set
@@ -2225,7 +2225,7 @@ f.txt:  {person, "kalle", 25}.
        operations to a minimum. As a contrived example, the following function
        writes 4MB in 2.5 seconds when tested:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 create_file_slow(Name) ->
     {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
     create_file_slow_1(Fd, 4 bsl 20),
@@ -2241,7 +2241,7 @@ create_file_slow_1(Fd, M) ->
        to <seemfa marker="#write/2"><c>write/2</c></seemfa> and so does the
        same work in 0.08 seconds, which is roughly 30 times faster:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 create_file(Name) ->
     {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
     create_file_1(Fd, 4 bsl 20),

@@ -98,7 +98,7 @@
       <p>If the exclusive decode function has, for example, the name
         <c>decode_exclusive</c> and an ASN.1 encoded message
         <c>Bin</c> is to be exclusive decoded, the call is as follows:</p>
-      <pre>
+      <pre type="erl">
 {ok,ExclMessage} = 'MyModule':decode_exclusive(Bin)</pre>
       <marker id="UndecodedPart"></marker>
       <p>The result <c>ExclMessage</c> has the same structure as a
@@ -108,7 +108,7 @@
         </p>
       <p>Each undecoded part that is to be decoded must be fed into
         function <c>decode_part/2</c> as follows:</p>
-      <pre>
+      <pre type="erl">
 {ok,PartMessage} = 'MyModule':decode_part(TypeKey, UndecodedValue)</pre>
     </section>
 
@@ -117,7 +117,7 @@
       <title>Writing an Exclusive Decode Instruction</title>
       <p>This instruction is written in the configuration file
         in the following format:</p>
-      <pre>
+      <pre type="erl">
 ExclusiveDecodeInstruction = {exclusive_decode,{ModuleName,DecodeInstructions}}.
 
 ModuleName = atom()
@@ -210,7 +210,7 @@ Name = atom()</pre>
       <p></p>
       <p>Here follows an example of how the module. Note that option <c>no_ok_wrapper</c>
       is used to make the make example more concise.</p>
-      <pre>
+      <pre type="erl">
 1> <input>asn1ct:compile('GUI', [ber,asn1config,no_ok_wrapper]).</input>
 ok
 2> <input>rr('GUI').</input>
@@ -333,7 +333,7 @@ ok
       <title>Writing a Selective Decode Instruction</title>
       <p>One or more selective decode functions can be described in a
         configuration file. Use the following notation:</p>
-      <pre>
+      <pre type="erl">
 SelectiveDecodeInstruction = {selective_decode,{ModuleName,DecodeInstructions}}.
 
 ModuleName = atom()
@@ -387,7 +387,7 @@ ListSelector = [integer()]</pre>
       <p>In this example, the same ASN.1 specification as in Section
         <seeguide marker="#Asn1spec">Writing an Exclusive Decode Instruction</seeguide>
          is used. The following is a valid selective decode instruction:</p>
-      <pre>
+      <pre type="erl">
 {selective_decode,
     {'GUI',
         [{selected_decode_Window1,
@@ -413,7 +413,7 @@ ListSelector = [integer()]</pre>
         <c>ValAction = {'Action',17,{'Button',4711,false}}</c>, the internal
         value 4711 is to be picked by <c>selected_decode_Action</c>. In an
         Erlang terminal it looks as follows:</p>
-      <pre>
+      <pre type="erl">
 1> <input>asn1ct:compile('GUI', [ber,asn1config,no_ok_wrapper]).</input>
 ok
 2> <input>ValAction = {'Action',17,{'Button',4711,false}}.</input>
@@ -456,7 +456,7 @@ ok
         <c>selected_decode_Window2</c> and
         <c>selected_decode_Window1</c> decodes the intended subvalue
         of value <c>Val</c>:</p>
-      <pre>
+      <pre type="erl">
 1> <input>Val = {status,{'Status',12,
                     [{'Button',13,true},
                      {'Button',14,false},

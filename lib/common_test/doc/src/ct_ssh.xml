@@ -51,7 +51,7 @@
     <p>The following options are valid for specifying an SSH/SFTP
       connection (that is, can be used as configuration elements):</p>
 
-    <pre>
+    <pre type="erl">
  [{ConnType, Addr},
   {port, Port},
   {user, UserName}

@@ -44,7 +44,7 @@
 
     <p>It requires the following entry in the configuration file:</p>
 
-    <pre>
+    <pre type="erl">
  {unix,[{telnet,HostNameOrIpAddress},
         {port,PortNum},                 % optional
         {username,UserName},
@@ -59,12 +59,12 @@
     <p><c>Name</c> is the name you allocated to the Unix host in your
       <c>require</c> statement, for example:</p>
 
-    <pre>
+    <pre type="erl">
  suite() -&gt; [{require,Name,{unix,[telnet]}}].</pre>
 
     <p>or</p>
 
-    <pre>
+    <pre type="erl">
  ct:require(Name,{unix,[telnet]}).</pre>
 
     <p>The "keep alive" activity (that is, that <c>Common Test</c> sends NOP

@@ -41,7 +41,7 @@
     do that you need to first start a <c>Viewer</c> (which by default
     starts a <c>Collector</c>):</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       {ok, ViewerPid} = et_viewer:start([{title,"Coffee Order"}]),
       CollectorPid = et_viewer:get_collector_pid(ViewerPid).]]></code>
 
@@ -137,7 +137,7 @@
     in your program. Then you just start the <c>Collector</c> with
     global tracing enabled:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
       et_viewer:start([{trace_global, true}, {trace_pattern, {et,max}}]).]]></code>
 
     <p>This will start a <c>Collector</c>, a <c>Viewer</c> and also

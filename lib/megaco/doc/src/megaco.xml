@@ -2587,7 +2587,7 @@
         <p>The function print_version_info/0 uses the result of function
           version1/0 as <c><![CDATA[VersionInfo]]></c>.</p>
         <p>Example: </p>
-        <pre>
+        <pre type="erl">
            {ok, V} = megaco:versions1(), megaco:format_versions(V). 
         </pre>
         <marker id="enable_trace"></marker>

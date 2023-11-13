@@ -216,7 +216,7 @@
       <c>Mnesia</c> directory for the database:</p>
     <pre>
 % <input>erl -sname klacke -mnesia dir '"/ldisc/scratch/klacke"'</input></pre>
-    <pre>
+    <pre type="erl">
 Erlang (BEAM) emulator version 4.9
  
 Eshell V4.9  (abort with ^G)
@@ -237,7 +237,7 @@ Suspended</pre>
       had been specified, identical
       backup files would have been created on all nodes.</p>
     <p><em>Step 3:</em> Start <c>Mnesia</c>:</p>
-    <pre>
+    <pre type="erl">
 (klacke@gin)3><input>mnesia:start( ).</input>
 ok</pre>
     <p><em>Step 4:</em> You can see the following listing in
@@ -252,7 +252,7 @@ ok</pre>
       after the successful "restoration". You also see some files
       that are for internal use by <c>Mnesia</c>.</p>
     <p><em>Step 5:</em> Create a table:</p>
-    <pre>
+    <pre type="erl">
 (klacke@gin)4> <input>mnesia:create_table(foo,[{disc_copies, [node()]}]).</input>
 {atomic,ok}</pre>
     <p><em>Step 6:</em> You can see the following listing in
@@ -327,7 +327,7 @@ ok</pre>
         contents of a <c>Mnesia</c> <c>DAT</c> file. However, this
         can only be done when <c>Mnesia</c> is not running. So, to
         view the schema file, do as follows;</p>
-      <pre>
+      <pre type="erl">
 {ok, N} = dets:open_file(schema, [{file, "./schema.DAT"},{repair,false}, 
 {keypos, 2}]),
 F = fun(X) -> io:format("~p~n", [X]), continue end,

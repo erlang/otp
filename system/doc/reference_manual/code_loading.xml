@@ -45,7 +45,7 @@
     <p>The compiler is located in the module <c>compile</c> (see the
       <seeerl marker="compiler:compile">compile(3)</seeerl> manual page in
       Compiler).</p>
-    <pre>
+    <pre type="erl">
 compile:file(Module)
 compile:file(Module, Options)</pre>
     <p>The Erlang shell understands the command <c>c(Module)</c> which
@@ -56,7 +56,7 @@ compile:file(Module, Options)</pre>
       manual page in Tools.</p>
     <p>The compiler can also be accessed from the OS prompt, see the
       <seecom marker="erts:erl">erl(1)</seecom> manual page in ERTS.</p>
-    <pre>
+    <pre type="erl">
 % erl -compile <input>Module1</input>...<input>ModuleN</input>
 % erl -make</pre>
     <p>The <c>erlc</c> program provides an even better way to compile
@@ -106,7 +106,7 @@ compile:file(Module, Options)</pre>
     <p>To change from old code to current code, a process must make a
       fully qualified function call.</p>
       <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 -module(m).
 -export([loop/0]).
 
@@ -171,7 +171,7 @@ loop() ->
 
     <p><em>Example:</em></p>
 
-    <pre>
+    <pre type="erl">
 -module(m).
 -on_load(load_my_nifs/0).
 

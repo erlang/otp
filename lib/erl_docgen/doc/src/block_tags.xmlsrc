@@ -64,7 +64,7 @@ Eat yourself&lt;br/&gt;senseless!
     <title>&lt;code&gt; - Code Example</title>
 
     <p>Highlight code examples. Example:</p>
-    <pre>
+    <pre type="erl">
 &lt;code>
 sum([H|T]) ->
     H + sum(T);
@@ -73,7 +73,7 @@ sum([]) ->
 &lt;/code>
     </pre>
     <p>results in:</p>
-    <code>
+    <code type="erl">
 sum([H|T]) ->
     H + sum(T);
 sum([]) ->
@@ -106,7 +106,7 @@ sum([]) ->
 
     <p>provided there is a file named <c>examples.txt</c> looking like this:
     </p>
-    <code>
+    <code type="erl">
 ...
 
 %% Erlang example
@@ -142,7 +142,7 @@ start(Pid) ->
       the <seeguide marker="#block_subset">common subset of block
 	tags</seeguide> and <seeguide marker="inline_tags">inline
 	tags</seeguide>. Example:</p>
-    <pre>
+    <pre type="erl">
 &lt;list type="ordered"&gt;
   &lt;item&gt;Askosal:
     &lt;list&gt;
@@ -298,7 +298,7 @@ Eshell V5.5.3  (abort with ^G)
       the <seeguide marker="#block_subset">common subset of block
 	tags</seeguide> and <seeguide marker="inline_tags">inline
 	tags</seeguide>. Example:</p>
-    <pre>
+    <pre type="erl">
 &lt;taglist>
   &lt;tag>&lt;c>eacces&lt;/c>&lt;/tag>
   &lt;item>Permission denied.&lt;/item>

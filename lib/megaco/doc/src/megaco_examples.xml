@@ -85,7 +85,7 @@
     <p>If you "only" want to start a single MG which tries to connect
       an MG on a host named "baidarka", you may use one of these
       functions (instead of the megaco_simple_mg:start/0 above):</p>
-    <pre>
+    <pre type="erl">
       megaco_simple_mg:start_tcp_text("baidarka", []).
       megaco_simple_mg:start_tcp_binary("baidarka", []).
       megaco_simple_mg:start_udp_text("baidarka", []).

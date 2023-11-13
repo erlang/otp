@@ -171,7 +171,7 @@ dialyzer --plt_info</code>
 
       <p>Non-overlapping argument:</p>
 
-      <code>
+      <code type="erl">
 -spec foo(boolean()) -> string().
 %% Dialyzer will infer: foo(integer()) -> string().
 foo(N) ->
@@ -181,7 +181,7 @@ foo(N) ->
         the type that Dialyzer inferred, Dialyzer will generate the
         following warning:</p>
 
-      <pre>
+      <pre type="erl">
 some_module.erl:7:2: Invalid type specification for function some_module:foo/1.
  The success typing is t:foo
           (integer()) -> string()
@@ -191,7 +191,7 @@ some_module.erl:7:2: Invalid type specification for function some_module:foo/1.
 
       <p>Non-overlapping return:</p>
 
-      <code>
+      <code type="erl">
 -spec bar(a | b) -> atom().
 %% Dialyzer will infer: bar(a | b) -> binary().
 bar(a) -> &lt;&lt;"a">>;
@@ -201,7 +201,7 @@ bar(b) -> &lt;&lt;"b">>.</code>
         by Dialyzer are different, Dialyzer will generate the following
         warning:</p>
 
-      <pre>
+      <pre type="erl">
 some_module.erl:11:2: Invalid type specification for function some_module:bar/1.
  The success typing is t:bar
           ('a' | 'b') -> &lt;&lt;_:8>>
@@ -211,7 +211,7 @@ some_module.erl:11:2: Invalid type specification for function some_module:bar/1.
 
       <p>Overlapping spec and inferred type:</p>
 
-      <code>
+      <code type="erl">
 -spec baz(a | b) -> non_neg_integer().
 %% Dialyzer will infer: baz(b | c | d) -> -1 | 0 | 1.
 baz(b) -> -1;

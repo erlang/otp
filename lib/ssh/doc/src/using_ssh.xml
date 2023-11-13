@@ -58,7 +58,7 @@
     <c>ssh:shell/1</c> client to connect to the <em>openssh</em> daemon running on a
     host called <em>tarlop</em>:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, S} = ssh:shell("tarlop").</input>
@@ -100,7 +100,7 @@ $bash> <input>ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa</input>
     <marker id="start-daemon-step3"></marker>
     <p><em>Step 3.</em> Start the Erlang <c>ssh</c> daemon:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
@@ -154,7 +154,7 @@ ok
     <p>Do an one-time execution of a remote OS command ("pwd") over <c>ssh</c> to the
     ssh server of the OS at the host "tarlop":</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 22, []).</input>
@@ -177,7 +177,7 @@ ok
     for finding documentation of the channel messages.</p>
 
     <p>To collect the channel messages in a program, use <c>receive...end</c> instead of <c>flush/1</c>:</p>
-    <pre>
+    <pre type="erl">
 5> <input>receive</input>
 5> <input>    {ssh_cm, ConnectionRef, {data, ChannelId, Type, Result}} when Type == 0 -></input>
 5> <input>        {ok,Result}</input>
@@ -192,7 +192,7 @@ ok
     The connection is still up and can handle previously opened channels. It is also
     possible to open a new channel:</p>
 
-    <pre>
+    <pre type="erl">
 % try to open a new channel to check if the ConnectionRef is still open
 7> <input>{ok, NewChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
 {ok,1}
@@ -224,7 +224,7 @@ true
 $bash></pre>
 
       <p>The same example but now using the Erlang ssh client to contact the Erlang server:</p>
-      <pre>
+      <pre type="erl">
 1> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 8989, []).</input>
 {ok,&lt;0.216.0>}
 2> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
@@ -270,7 +270,7 @@ write something: <input>[a,b,c].</input>
 $bash></pre>
 
       <p>The same example but using the Erlang ssh client:</p>
-      <pre>	
+      <pre type="erl">	
 Eshell V10.5.2  (abort with ^G)
 1> <input>ssh:start().</input>
 ok
@@ -323,7 +323,7 @@ ok
 	we change <seeguide marker="#start-daemon-step3">Step 3</seeguide> by adding the option
 	<c>{exec, disabled}</c>
 	to:
-	<pre>
+	<pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
@@ -342,7 +342,7 @@ $bash> <input>echo $?</input>
 $bash>	</pre>
 	<p>And the Erlang client library also returns the text "Prohibited." on data type 1 instead of the normal 0
 	and exit status 255:</p>
-	<pre>
+	<pre type="erl">
 2> <input>{ok, ConnectionRef} = ssh:connect(loopback, 8989, []).</input>
 {ok,&lt;0.92.0>}
 3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
@@ -360,7 +360,7 @@ ok
 	
 	<item>Install an alternative evaluator.<br/>
 	Start the damon with a reference to a <c>fun()</c> that handles the evaluation:
-	<pre>
+	<pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>MyEvaluator = fun("1") -> {ok, some_value};
@@ -392,7 +392,7 @@ $bash> 	</pre>
 	Note that spaces are preserved and that no point (.) is needed at the end - that was required
 	by the default evaluator.
 	<p>The error return in the Erlang client (The text as data type 1 and exit_status 255):</p>
-	<pre>
+	<pre type="erl">
 2> <input>{ok, ConnectionRef} = ssh:connect(loopback, 1234, []).</input>
 {ok,&lt;0.92.0>}
 3> <input>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).</input>
@@ -428,7 +428,7 @@ ok
 
     <p>Start the Erlang <c>ssh</c> daemon with the SFTP subsystem:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
@@ -455,7 +455,7 @@ sftp> </pre>
 
     <p>Fetch a file with the Erlang SFTP client:</p>
 
-    <pre>
+    <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).</input>
@@ -600,7 +600,7 @@ terminate(_Reason, _State) ->
  as described in Section <seeguide marker="#Running an Erlang ssh Daemon">
  Running an Erlang ssh Daemon</seeguide>:</p>
 
- <pre>
+ <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
@@ -609,7 +609,7 @@ ok
 {ok,&lt;0.54.0>}
 3> </pre>
 
- <pre>
+ <pre type="erl">
 1> <input>ssh:start().</input>
 ok
 2> <input>{ok, ConnectionRef} = ssh:connect("tarlop", 8989,

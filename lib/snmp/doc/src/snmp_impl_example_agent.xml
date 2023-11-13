@@ -142,7 +142,7 @@ END
       current directory ("./STANDARD-MIB.bin","./RFC1213-MIB.bin") when
       compiling.
       </p>
-    <pre>
+    <pre type="erl">
 unix> <input>erl -config ./sys</input>
 1> <input>application:start(snmp).</input>
 ok
@@ -157,7 +157,7 @@ ok
       questions. As an example of this, we start another Erlang system
       and the simple Erlang manager in the toolkit:
       </p>
-    <pre>
+    <pre type="erl">
 1> <input>snmp_test_mgr:start_link([{agent,"dront.ericsson.se"},{community,"all-rights"},</input>
  %% making it understand symbolic names: {mibs,["EX1-MIB","STANDARD-MIB"]}]).
 {ok, &lt;0.89.0&gt;}
@@ -217,7 +217,7 @@ ok
 
     <section>
       <title>Code</title>
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 -module(ex1).
 -author('dummy@flop.org').
 %% External exports
@@ -438,7 +438,7 @@ merge_rows(Row, []) ->
       <p>The association file <c>EX1-MIB.funcs</c> for the real
         implementation looks as follows:
         </p>
-      <code type="none">
+      <code type="erl">
 {myName, {ex1, my_name, []}}.
 {friendsTable, {ex1, friends_table, []}}.
       </code>
@@ -449,7 +449,7 @@ merge_rows(Row, []) ->
       <p>To use the real implementation, we must recompile the MIB and
         load it into the agent.
         </p>
-      <pre>
+      <pre type="erl">
 1> <input>application:start(snmp).</input>
 ok
 2> <input>snmpc:compile("EX1-MIB").</input>
@@ -478,7 +478,7 @@ ok
         </p>
       <p>we use a simple Erlang SNMP manager, which can receive traps.
         </p>
-      <pre>
+      <pre type="erl">
 [MANAGER]
 1> <input>snmp_test_mgr:start_link([{agent,"dront.ericsson.se"},{community,"public"}</input>
  %% does not have write-access

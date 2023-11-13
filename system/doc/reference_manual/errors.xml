@@ -107,7 +107,7 @@
     <p>The stack trace can be bound to a variable from within a <c>try</c>
       expression for any exception class, or as part of the exit reason when
       a run-time error is caught by a <c>catch</c>. Example:</p>
-      <pre>
+      <pre type="erl">
 > <input>{'EXIT',{test,Stacktrace}} = (catch error(test)), Stacktrace.</input>
 [{shell,apply_fun,3,[]},
  {erl_eval,do_apply,6,[]},

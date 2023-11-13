@@ -228,7 +228,7 @@
 	    This function is <em>not recommended</em> as it's so easy to get invalid
 	    results without noticing. In particular do not do this:
 	  </p>
-<pre>
+<pre type="erl">
 scheduler:utilization(scheduler:sample()). % DO NOT DO THIS!
 </pre>
           <p>

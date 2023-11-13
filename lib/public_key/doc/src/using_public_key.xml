@@ -63,17 +63,17 @@
       <p>A DSA private key can look as follows:</p>
       <note><p>File handling is not done by the Public Key application.</p></note>
       
-      <code>1> {ok, PemBin} = file:read_file("dsa.pem").
+      <code type="erl">1> {ok, PemBin} = file:read_file("dsa.pem").
 {ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code>
       
       <p>The following PEM file has only one entry, a private DSA key:</p>
-      <code>2> [DSAEntry] =  public_key:pem_decode(PemBin).
+      <code type="erl">2> [DSAEntry] =  public_key:pem_decode(PemBin).
 [{'DSAPrivateKey',&lt;&lt;48,130,1,187,2,1,0,2,129,129,0,183,
                     179,230,217,37,99,144,157,21,228,204,
 		    162,207,61,246,...&gt;&gt;,
 		    not_encrypted}]</code>
       
-      <code>3> Key = public_key:pem_entry_decode(DSAEntry).
+      <code type="c">3> Key = public_key:pem_entry_decode(DSAEntry).
 #'DSAPrivateKey'{version = 0,
                  p = 12900045185019966618...6593,
                  q = 1216700114794736143432235288305776850295620488937,
@@ -86,18 +86,18 @@
       <title>RSA Private Key with Password</title>
       <p>An RSA private key encrypted with a password can look as follows:</p>
       
-      <code>1> {ok, PemBin} = file:read_file("rsa.pem").
+      <code type="erl">1> {ok, PemBin} = file:read_file("rsa.pem").
 {ok,&lt;&lt;"Bag Attribute"...&gt;&gt;}</code>
 
     <p>The following PEM file has only one entry, a private RSA key:</p>
-    <code>2>[RSAEntry] = public_key:pem_decode(PemBin).
+    <code type="erl">2>[RSAEntry] = public_key:pem_decode(PemBin).
 [{'RSAPrivateKey',&lt;&lt;224,108,117,203,152,40,15,77,128,126,
                     221,195,154,249,85,208,202,251,109,
                     119,120,57,29,89,19,9,...&gt;&gt;,
                   {"DES-EDE3-CBC",&lt;&lt;"kÙeø¼pµL"&gt;&gt;}}]</code>
 
     <p>In this following example, the password is <c>"abcd1234"</c>:</p>
-    <code>3> Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
+    <code type="erl">3> Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
     #'RSAPrivateKey'{version = 'two-prime',
                  modulus = 1112355156729921663373...2737107,
                  publicExponent = 65537,
@@ -114,11 +114,11 @@
     <title>X509 Certificates</title>
     <p>The following is an example of X509 certificates:</p>
     
-      <code>1> {ok, PemBin} = file:read_file("cacerts.pem").
+      <code type="erl">1> {ok, PemBin} = file:read_file("cacerts.pem").
 {ok,&lt;&lt;"-----BEGIN CERTIFICATE-----\nMIIC7jCCAl"...&gt;&gt;}</code>
 
       <p>The following file includes two certificates:</p>
-      <code>2> [CertEntry1, CertEntry2] = public_key:pem_decode(PemBin).
+      <code type="erl">2> [CertEntry1, CertEntry2] = public_key:pem_decode(PemBin).
 [{'Certificate',&lt;&lt;48,130,2,238,48,130,2,87,160,3,2,1,2,2,
                   9,0,230,145,97,214,191,2,120,150,48,13,
                   ...&gt;&gt;,
@@ -128,7 +128,7 @@
                 not_encrypted}]</code>
       
       <p>Certificates can be decoded as usual:</p>
-      <code>2> Cert = public_key:pem_entry_decode(CertEntry1).
+      <code type="erl">2> Cert = public_key:pem_entry_decode(CertEntry1).
 #'Certificate'{
     tbsCertificate =
         #'TBSCertificate'{
@@ -223,7 +223,7 @@
       In the recent example, the first value of <c>rdnSequence</c> is 
       of ASN.1 type <c>'X520CommonName'. ({2,5,4,3} = ?id-at-commonName)</c>:</p>
       
-      <code>public_key:der_decode('X520CommonName', &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;).
+      <code type="erl">public_key:der_decode('X520CommonName', &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;).
 {printableString,"erlangCA"}</code>
 
       <p>However, certificates can also be decoded using <c>pkix_decode_cert/2</c>, 
@@ -339,7 +339,7 @@
     <p>The second element of the PEM-entry is the ASN.1 <c>DER</c> encoded
     key data:</p>
 
-    <code>1> PemEntry = public_key:pem_entry_encode('RSAPublicKey', RSAPubKey).
+    <code type="erl">1> PemEntry = public_key:pem_entry_encode('RSAPublicKey', RSAPubKey).
 {'RSAPublicKey', &lt;&lt;48,72,...&gt;&gt;, not_encrypted}
 
 2> PemBin = public_key:pem_encode([PemEntry]).
@@ -350,7 +350,7 @@ ok</code>
 
     <p>or:</p>
 
-    <code>1> PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
+    <code type="erl">1> PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
 {'SubjectPublicKeyInfo', &lt;&lt;48,92...&gt;&gt;, not_encrypted}
 
 2> PemBin = public_key:pem_encode([PemEntry]).
@@ -374,11 +374,11 @@ ok</code>
        <p>Then you can proceed as follows:</p>
 
        <p>Encrypt with the private key:</p>
-       <code>RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
+       <code type="erl">RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
 Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code>
 
        <p>Encrypt with the public key:</p>
-       <code>RsaEncrypted = public_key:encrypt_public(Msg, PublicKey),
+       <code type="erl">RsaEncrypted = public_key:encrypt_public(Msg, PublicKey),
 Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
 
       <note><p>You normally do only one of the encrypt or decrypt operations, 
@@ -401,7 +401,7 @@ Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
      </list>
      <p>Then you can proceed as follows:</p>
 
-    <code>Signature = public_key:sign(Msg, sha, PrivateKey),
+    <code type="erl">Signature = public_key:sign(Msg, sha, PrivateKey),
 true = public_key:verify(Msg, sha, Signature, PublicKey),</code>
 
     <note><p>You normally do only one of the sign or verify operations,
@@ -411,7 +411,7 @@ true = public_key:verify(Msg, sha, Signature, PublicKey),</code>
     calling <c>sign</c> or <c>verify</c>, and then use <c>none</c> as 
     second argument:</p>
 
-    <code>Digest = crypto:sha(Msg),
+    <code type="erl">Digest = crypto:sha(Msg),
 Signature = public_key:sign(Digest, none, PrivateKey),
 true = public_key:verify(Digest, none, Signature, PublicKey),</code>
     
@@ -542,7 +542,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      URI is therefore the Reference IDs of the client.
      The call will be:
      </p>
-     <code>
+     <code type="erl">
  public_key:pkix_verify_hostname(CertFromHost,
                                  [{uri_id, "https://www.example.net"}
                                  ]).
@@ -584,7 +584,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
        the default fqdn extraction function. The return value <c>undefined</c> removes the current
        URI from the fqdn extraction.
        </p>
-       <code>
+       <code type="erl">
  ...
  Extract = fun({uri_id, "myspecial://"++HostName}) -> HostName;
               (_Else) -> default
@@ -606,7 +606,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
        <c>false</c> or <c>default</c>. The value  <c>default</c> will invoke the default
        match function.
        </p>
-       <code>
+       <code type="erl">
  ...
  Match = fun({uri_id,"myspecial://"++A},
              {uniformResourceIdentifier,"myspecial://"++B}) ->
@@ -653,7 +653,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      <p>This could be accomplished with the option <c>fail_callback</c> which will
      be called if the hostname verification fails:
      </p>
-     <code>
+     <code type="erl">
  -include_lib("public_key/include/public_key.hrl"). % Record def
  ...
  Fail = fun(#'OTPCertificate'{}=C) ->

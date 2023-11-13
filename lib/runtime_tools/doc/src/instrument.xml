@@ -56,7 +56,7 @@
         <p>For example, the histogram below has 40 (<c>message</c>) blocks
            between 128-256 bytes in size, 78 blocks between 256-512 bytes,2
            blocks between 512-1024 bytes, and 2 blocks between 1-2KB.</p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
 {ok, {128, 0, #{ message => {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0}, ... } }}
         ]]></code>
@@ -166,7 +166,7 @@
           </item>
         </taglist>
         <p><em>Example:</em></p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
 {ok,{128,0,
      #{udp_inet =>
@@ -239,7 +239,7 @@
           </item>
         </taglist>
         <p><em>Example:</em></p>
-        <code type="none"><![CDATA[
+        <code type="erl"><![CDATA[
 > instrument:carriers(#{ histogram_start => 512, histogram_width => 8 }).
 {ok,{512,
      [{driver_alloc,false,262144,0,

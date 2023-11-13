@@ -96,7 +96,7 @@
           name, as this can give incorrect results on file systems that
           allow links.</p>
         <p><em>Unix examples:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>pwd().</input>
 "/usr/local"
 2> <input>filename:absname("foo").</input>
@@ -106,7 +106,7 @@
 4> <input>filename:absname("/").</input>
 "/"</pre>
         <p><em>Windows examples:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>pwd().</input>
 "D:/usr/local"
 2> <input>filename:absname("foo").</input>
@@ -200,7 +200,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
                 On Darwin: <pre>
 1> <input>filename:basedir(user_cache, "my_application", #{os=>darwin}).</input>
 "/home/otptest/Library/Caches/my_application"</pre>
-                On Windows: <pre>
+                On Windows: <pre type="erl">
 1> <input>filename:basedir(user_cache, "My App").</input>
 "c:/Users/otptest/AppData/Local/My App/Cache"
 2> <input>filename:basedir(user_cache, "My App").</input>
@@ -223,10 +223,10 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
                 <pre>
 2> <input>filename:basedir(user_config, "my_application", #{os=>linux}).</input>
 "/home/otptest/.config/my_application"</pre>
-                On Darwin:<pre>
+                On Darwin:<pre type="erl">
 2> <input>filename:basedir(user_config, "my_application", #{os=>darwin}).</input>
 "/home/otptest/Library/Application Support/my_application"</pre>
-                On Windows:<pre>
+                On Windows:<pre type="erl">
 1> <input>filename:basedir(user_config, "My App").</input>
 "c:/Users/otptest/AppData/Roaming/My App"
 2> <input>filename:basedir(user_config, "My App", #{author=>"Erlang", version=>"1.2"}).</input>
@@ -243,10 +243,10 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
                 <pre>
 3> <input>filename:basedir(user_data, "my_application", #{os=>linux}).</input>
 "/home/otptest/.local/my_application"</pre>
-                On Darwin:<pre>
+                On Darwin:<pre type="erl">
 3> <input>filename:basedir(user_data, "my_application", #{os=>darwin}).</input>
 "/home/otptest/Library/Application Support/my_application"</pre>
-                On Windows:<pre>
+                On Windows:<pre type="erl">
 8> <input>filename:basedir(user_data, "My App").</input>
 "c:/Users/otptest/AppData/Local/My App"
 9> <input>filename:basedir(user_data, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
@@ -260,10 +260,10 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
                 <pre>
 4> <input>filename:basedir(user_log, "my_application", #{os=>linux}).</input>
 "/home/otptest/.cache/my_application/log"</pre>
-                On Darwin:<pre>
+                On Darwin:<pre type="erl">
 4> <input>filename:basedir(user_log, "my_application", #{os=>darwin}).</input>
 "/home/otptest/Library/Logs/my_application"</pre>
-                On Windows:<pre>
+                On Windows:<pre type="erl">
 12> <input>filename:basedir(user_log, "My App").</input>
 "c:/Users/otptest/AppData/Local/My App/Logs"
 13> <input>filename:basedir(user_log, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
@@ -272,7 +272,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
             <item><marker id="site_config"/><c>site_config</c><p>
                 On Linux:
                 Respects the os environment variable <c>XDG_CONFIG_DIRS</c>.</p>
-<pre>
+<pre type="erl">
 5> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
 ["/usr/local/share/my_application",
  "/usr/share/my_application"]
@@ -286,7 +286,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 true
 9> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
 ["/etc/xdg/my_application"]</pre>
-                On Darwin:<pre>
+                On Darwin:<pre type="erl">
 5> <input>filename:basedir(site_config, "my_application", #{os=>darwin}).</input>
 ["/Library/Application Support/my_application"]</pre>
             </item>
@@ -321,7 +321,7 @@ true
           <c><anno>Filename</anno></c> itself if it does not contain any
           directory separators.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 5> <input>filename:basename("foo").</input>
 "foo"
 6> <input>filename:basename("/usr/foo").</input>
@@ -342,7 +342,7 @@ true
           existing extension when you are unsure which one it is, use
           <c>rootname(basename(Filename))</c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 8> <input>filename:basename("~/src/kalle.erl", ".erl").</input>
 "kalle"
 9> <input>filename:basename("~/src/kalle.beam", ".erl").</input>
@@ -362,12 +362,12 @@ true
       <desc>
         <p>Returns the directory part of <c><anno>Filename</anno></c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 13> <input>filename:dirname("/usr/src/kalle.erl").</input>
 "/usr/src"
 14> <input>filename:dirname("kalle.erl").</input>
 "."</pre>
-        <pre>
+        <pre type="erl">
 5> <input>filename:dirname("\\usr\\src/kalle.erl").</input> % Windows
 "/usr/src"</pre>
       </desc>
@@ -381,7 +381,7 @@ true
           including the period. Returns an empty string if no extension
           exists.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 15> <input>filename:extension("foo.erl").</input>
 ".erl"
 16> <input>filename:extension("beam.src/kalle").</input>
@@ -421,7 +421,7 @@ true
 "/usr/local/bin"
 18> <input>filename:join(["a/b///c/"]).</input>
 "a/b/c"</pre>
-        <pre>
+        <pre type="erl">
 6> <input>filename:join(["B:a\\b///c/"]).</input> % Windows
 "b:a/b/c"</pre>
       </desc>
@@ -451,7 +451,7 @@ true
         <pre>
 19> <input>filename:nativename("/usr/local/bin/").</input> % Unix
 "/usr/local/bin"</pre>
-        <pre>
+        <pre type="erl">
 7> <input>filename:nativename("/usr/local/bin/").</input> % Windows
 "\\usr\\local\\bin"</pre>
       </desc>
@@ -515,7 +515,7 @@ true
         <p>Returns a list whose elements are the path components of
           <c><anno>Filename</anno></c>.</p>
         <p><em>Examples:</em></p>
-        <pre>
+        <pre type="erl">
 24> <input>filename:split("/usr/local/bin").</input>
 ["/","usr","local","bin"]
 25> <input>filename:split("foo/bar").</input>

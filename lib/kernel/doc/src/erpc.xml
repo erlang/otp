@@ -546,7 +546,7 @@
 	  <c>send_request()/receive_response()</c> combination can,
           however, not utilize this optimization.
 	</p>
-	<pre>
+	<pre type="erl">
 my_multicall(Nodes, Module, Function, Args) ->
   ReqIds = lists:map(fun (Node) ->
                        <seemfa marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seemfa>
@@ -694,7 +694,7 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  <c>send_request()/receive_response()</c> combination can,
           however, not utilize this optimization.
 	</p>
-	<pre>
+	<pre type="erl">
 my_call(Node, Module, Function, Args, Timeout) ->
   RequestId = <seemfa marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seemfa>,
   erpc:receive_response(RequestId, Timeout).
@@ -928,7 +928,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  <c>send_request()/receive_response()</c> combination can,
           however, not utilize this optimization.
 	</p>
-	<pre>
+	<pre type="erl">
 my_call(Node, Module, Function, Args, Timeout) ->
   RequestId = erpc:send_request(Node, Module, Function, Args),
   <seemfa marker="#receive_response/2">erpc:receive_response(RequestId, Timeout)</seemfa>.

@@ -42,12 +42,12 @@
       the expression <c>X > 3</c> is a filter.</p>
     <p>An additional filter, <c>is_integer(X)</c>, can be added to restrict
       the result to integers:</p>
-    <pre>
+    <pre type="erl">
 > <input>[X || X &lt;- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].</input>
 [4,5,6]</pre>
     <p>Generators can be combined. For example, the Cartesian product
       of two lists can be written as follows:</p>
-    <pre>
+    <pre type="erl">
 > <input>[{X, Y} || X &lt;- [1,2,3], Y &lt;- [a,b]].</input>
 [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]</pre>
   </section>
@@ -55,7 +55,7 @@
   <section>
     <title>Quick Sort</title>
     <p>The well-known quick sort routine can be written as follows:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 sort([]) -> [];
 sort([_] = L) -> L;
 sort([Pivot|T]) ->
@@ -103,7 +103,7 @@ sort([Pivot|T]) ->
     <title>Permutations</title>
     <p>The following example generates all permutations of
       the elements in a list:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 perms([]) -> [[]];
 perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].]]></code>
     <p>This takes <c>H</c> from <c>L</c> in all possible ways.
@@ -122,7 +122,7 @@ perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].]]></code>
     <p>The function <c>pyth(N)</c> generates a list of all integers
       <c>{A,B,C}</c> such that <c>A**2 + B**2 = C**2</c> and where
       the sum of the sides is equal to, or less than, <c>N</c>:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 pyth(N) ->
     [ {A,B,C} ||
         A <- lists:seq(1,N),
@@ -131,7 +131,7 @@ pyth(N) ->
         A+B+C =< N,
         A*A+B*B == C*C 
     ].]]></code>
-    <pre>
+    <pre type="erl">
 > <input>pyth(3).</input>
 [].
 > <input>pyth(11).</input>
@@ -153,7 +153,7 @@ pyth(N) ->
  {16,12,20}]</pre>
     <p>The following code reduces the search space and is more
       efficient:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 pyth1(N) ->
    [{A,B,C} ||
        A <- lists:seq(1,N-2),
@@ -167,7 +167,7 @@ pyth1(N) ->
     <title>Simplifications With List Comprehensions</title>
     <p>As an example, list comprehensions can be used to simplify some
       of the functions in <c>lists.erl</c>:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 append(L)   ->  [X || L1 <- L, X <- L1].
 map(Fun, L) -> [Fun(X) || X <- L].
 filter(Pred, L) -> [X || X <- L, Pred(X)].]]></code>
@@ -198,23 +198,23 @@ filter(Pred, L) -> [X || X <- L, Pred(X)].]]></code>
       the pattern is not the same as the variable <c>X</c>
       that occurs in the function head.</p>
     <p>Evaluating <c>select</c> gives the following result:</p>
-    <pre>
+    <pre type="erl">
 > <input>select(b,[{a,1},{b,2},{c,3},{b,7}]).</input>
 [1,2,3,7]</pre>
     <p>This is not the wanted result. To achieve the desired
       effect, <c>select</c> must be written as follows:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 select(X, L) ->  [Y || {X1, Y} <- L, X == X1].]]></code>
     <p>The generator now contains unbound variables and the test has
       been moved into the filter.</p>
       <p>This now works as expected:</p>
-    <pre>
+    <pre type="erl">
 > <input>select(b,[{a,1},{b,2},{c,3},{b,7}]).</input>
 [2,7]</pre>
     <p>Also note that a variable in a generator pattern will shadow
     a variable with the same name bound in a previous generator
     pattern. For example:</p>
-    <pre>
+    <pre type="erl">
 > <input>[{X,Y} || X &lt;- [1,2,3], X=Y &lt;- [a,b,c]].</input>
 [{a,a},{b,b},{c,c},{a,a},{b,b},{c,c},{a,a},{b,b},{c,c}]</pre>
     <p>A consequence of the rules for importing variables into a

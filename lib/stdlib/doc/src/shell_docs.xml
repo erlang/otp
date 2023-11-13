@@ -39,7 +39,7 @@
       to be printed in a shell. This is the module that is used to render the
       docs accessed through the shell through <seemfa marker="c#h/1"><c>c:h/1,2,3</c></seemfa>.
     Example:</p>
-    <code>
+    <code type="erl">
 1> h(maps,new,0).
 
   -spec new() -> Map when Map :: #{}.

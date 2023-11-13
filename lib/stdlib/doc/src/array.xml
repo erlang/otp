@@ -60,14 +60,14 @@
 
     <p>Create a fixed-size array with entries 0-9 set to <c>undefined</c>:</p>
 
-    <pre>
+    <pre type="erl">
 A0 = array:new(10).
 10 = array:size(A0).</pre>
 
     <p>Create an extendible array and set entry 17 to <c>true</c>, causing the
       array to grow automatically:</p>
 
-    <pre>
+    <pre type="erl">
 A1 = array:set(17, true, array:new()).
 18 = array:size(A1).</pre>
 
@@ -89,7 +89,7 @@ undefined = array:get(18, A1).</pre>
 
     <p>"Sparse" functions ignore default-valued entries:</p>
 
-    <pre>
+    <pre type="erl">
 A2 = array:set(4, false, A1).
 [{4, false}, {17, true}] = array:sparse_to_orddict(A2).</pre>
 
@@ -101,7 +101,7 @@ A3 = array:fix(A2).</pre>
     <p>A fixed-size array does not grow automatically and does not allow
       accesses beyond the last set entry:</p>
 
-    <pre>
+    <pre type="erl">
 {'EXIT',{badarg,_}} = (catch array:set(18, true, A3)).
 {'EXIT',{badarg,_}} = (catch array:get(18, A3)).</pre>
   </description>
@@ -328,11 +328,11 @@ A3 = array:fix(A2).</pre>
         <pre>
 array:new(100)</pre>
         <p>creates a fixed-size array of size 100.</p>
-        <pre>
+        <pre type="erl">
 array:new({default,0})</pre>
         <p>creates an empty, extendible array whose default value is <c>0</c>.
         </p>
-        <pre>
+        <pre type="erl">
 array:new([{size,10},{fixed,false},{default,-1}])</pre>
         <p>creates an extendible array with initial size 10 whose default value
           is <c>-1</c>.</p>
@@ -361,7 +361,7 @@ array:new([{size,10},{fixed,false},{default,-1}])</pre>
           [<anno>Options</anno>]])</c>. However, using this function directly is
           more efficient.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 array:new(100, {default,0})</pre>
         <p>creates a fixed-size array of size 100, whose default value is
           <c>0</c>.</p>

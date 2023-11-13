@@ -112,7 +112,7 @@
     <section>
       <title>Tracing Local Node from Erlang Shell</title>
       <p>The following small module is used in the subsequent example:</p>
-      <code type="none">
+      <code type="erl">
 -module(m).
 -export([f/0]).
 f() ->
@@ -128,7 +128,7 @@ f() ->
         directory, where <c>Node</c> is the node name. The
         default handler prints the formatted trace messages in the
         shell:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)47> %% First I spawn a process running my test function
 (tiger@durin)47> <input>Pid = spawn(m,f,[]).</input>
 &lt;0.125.0>
@@ -175,7 +175,7 @@ ok</pre>
       <title>Build Your Own Tool</title>
       <p>The following example shows a simple tool for "debug tracing",
         that is, tracing of function calls with return values:</p>
-      <code type="none"><![CDATA[
+      <code type="erl"><![CDATA[
 -module(mydebug).
 -export([start/0,trc/1,stop/0,format/1]).
 -export([print/4]).
@@ -287,7 +287,7 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
         a trace control node with disk access, and option <c>file</c>
         must be specified to function <c>tracer/2</c> with value
         <c>{local, File}</c>, for example:</p>
-      <pre>
+      <pre type="erl">
 (trace_control@durin)1> <input>ttb:tracer(mynode@diskless,
                                    {file,{local,{wrap,"mytrace"}}}).</input>
 {ok,[mynode@diskless]}</pre>
@@ -322,7 +322,7 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
           always sets up all patterns before invoking <c>ttb:p/2</c>.</p>
           <p>The following example shows how to set up a trace that is
           automatically stopped and formatted after 5 seconds:
-        </p><pre>
+        </p><pre type="erl">
 (tiger@durin)1> <input>ttb:start_trace([node()],
                                 [{erlang, now,[]}],
                                 {all, call},
@@ -356,7 +356,7 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
             handle three calls: <c>init</c>, <c>check</c>, and <c>stop</c>. <c>init</c>
             and <c>stop</c> allow some setup and teardown required by
             the check. An overload check module can look as follows:
-          </p><code type="none">
+          </p><code type="erl">
 -module(overload).
 -export([check/1]).
 
@@ -404,7 +404,7 @@ check(stop) ->
 	    about the API, see module
 	    <seeerl marker="ttb"><c>ttb</c></seeerl>. 
 	    The following example shows the default handler:</p>
-          <code>
+          <code type="erl">
 -module(ttb_autostart).
 -export([read_config/0,
          write_config/1,
@@ -546,7 +546,7 @@ write_config(Data) ->
     <p>A format handler is a fun taking four arguments. This fun is
       called for each trace message in the binary log(s). A simple
       example that only prints each trace message can be as follows:</p>
-    <code type="none">
+    <code type="erl">
 fun(Fd, Trace, _TraceInfo, State) ->
    io:format(Fd, "Trace: ~p~n", [Trace]),
    State
@@ -557,12 +557,12 @@ end.    </code>
       <seeguide marker="#trace_info">Trace Information and File .ti</seeguide>). <c>State</c> is a state variable for the format
       handler fun. The initial value of variable <c>State</c> is
       specified with the handler option, for example:</p>
-    <code type="none">
+    <code type="erl">
 ttb:format("tiger@durin-ttb", [{handler, {{Mod,Fun}, initial_state}}])
                                                      ^^^^^^^^^^^^^    </code>
     <p>Another format handler can be used to calculate the time spent by
       the garbage collector:</p>
-    <code type="none">
+    <code type="erl">
 fun(_Fd,{trace_ts,P,gc_start,_Info,StartTs},_TraceInfo,State) ->
       [{P,StartTs}|State];
    (Fd,{trace_ts,P,gc_end,_Info,EndTs},_TraceInfo,State) ->
@@ -605,7 +605,7 @@ end    </code>
       </p>
       <p><em>Example:</em></p>
     <p>Start tracing:</p>
-    <pre>
+    <pre type="erl">
 (tiger@durin)1> <input>ttb:tracer(node(),{file,{wrap,"trace"}}).</input>
 {ok,[tiger@durin]}
 (tiger@durin)2> <input>ttb:p(...)</input>
@@ -617,19 +617,19 @@ tiger@durin-trace.1.wrp
 tiger@durin-trace.2.wrp
 ...    </code>
     <p>Format the whole set of logs:</p>
-    <pre>
+    <pre type="erl">
 1> <input>ttb:format("tiger@durin-trace.*.wrp").</input>
 ....
 ok
 2>    </pre>
     <p>Format only the first log:</p>
-    <pre>
+    <pre type="erl">
 1> <input>ttb:format("tiger@durin-trace.0.wrp").</input>
 ....
 ok
 2>    </pre>
     <p>To merge all wrap logs from two nodes:</p>
-    <pre>
+    <pre type="erl">
 1> <input>ttb:format(["tiger@durin-trace.*.wrp","lion@durin-trace.*.wrp"]).</input>
 ....
 ok
@@ -673,7 +673,7 @@ ok
       <p>The same result can be obtained by using the flag <c>call</c>
         only and setting a match specification on local or
         global function calls as follows:</p>
-      <pre>
+      <pre type="erl">
 1> <input>dbg:fun2ms(fun(_) -> return_trace(),message(caller()) end).</input>
 [{'_',[],[{return_trace},{message,{caller}}]}]</pre>
       <p>This must however be done with care, as function
@@ -696,7 +696,7 @@ ok
         have many vertical lines, one for each process it resides on.
         </p>
       <p>In the following example, modules <c>foo</c> and <c>bar</c> are used:</p>
-      <code type="none">
+      <code type="erl">
 -module(foo).
 -export([start/0,go/0]).
 
@@ -712,7 +712,7 @@ go() ->
             go()
     end.</code>
 
-<code type="none">
+<code type="erl">
 -module(bar).
 -export([f1/0,f3/0]).
 f1() ->
@@ -724,7 +724,7 @@ f3() ->
     ok.</code>
 
       <p>Setting up the trace:</p>
-<pre>
+<pre type="erl">
 (tiger@durin)1> %%First we retrieve the Pid to limit traced processes set
 (tiger@durin)1> <input>Pid = foo:start().</input>
 (tiger@durin)2> %%Now we set up tracing
@@ -748,7 +748,7 @@ f3() ->
       <p>Notice that function 
       <seemfa marker="ttb#start_trace/4"><c>ttb:start_trace/4</c></seemfa> 
       can be used as help as follows:</p>
-<pre>
+<pre type="erl">
 (tiger@durin)1> <input>Pid = foo:start().</input>
 (tiger@durin)2> <input>ttb:start_trace([node()],
                                 [{bar,[]}],
@@ -839,7 +839,7 @@ f3() ->
 
       <p><em>Example:</em></p>
       <p>See the content of the history buffer:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)191> <input>ttb:tracer().</input>
 {ok,[tiger@durin]}
 (tiger@durin)192> <input>ttb:p(self(),[garbage_collection,call]).</input>
@@ -851,7 +851,7 @@ f3() ->
  {2,{ttb,p,[&lt;0.1244.0>,[garbage_collection,call]]}},
  {3,{ttb,tp,[ets,new,2,[]]}}]</pre>
       <p>Execute an entry from the history buffer:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)195> <input>ttb:ctp(ets,new,2).</input>
 {ok,[{matched,1}]}
 (tiger@durin)196> <input>ttb:list_history().</input>
@@ -864,7 +864,7 @@ ttb:tp(ets,new,2,[]) ->
 {ok,[{matched,1}]}</pre>
       <p>Write the content of the history buffer to a configuration
         file:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)198> <input>ttb:write_config("myconfig",all).</input>
 ok
 (tiger@durin)199> <input>ttb:list_config("myconfig").</input>
@@ -874,7 +874,7 @@ ok
  {4,{ttb,ctp,[ets,new,2]}},
  {5,{ttb,tp,[ets,new,2,[]]}}]</pre>
       <p>Extend an existing configuration:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)200> <input>ttb:write_config("myconfig",[{ttb,tp,[ets,delete,1,[]]}],
 [append]).</input>
 ok
@@ -887,7 +887,7 @@ ok
  {6,{ttb,tp,[ets,delete,1,[]]}}]</pre>
       <p>Go back to a previous configuration after stopping Trace Tool
         Builder:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)202> <input>ttb:stop().</input>
 ok
 (tiger@durin)203> <input>ttb:run_config("myconfig").</input>
@@ -912,7 +912,7 @@ ttb:tp(ets,delete,1,[]) ->
 ok</pre>
       <p>Write selected entries from the history buffer to a
         configuration file:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)204> <input>ttb:list_history().</input>
 [{1,{ttb,tracer,[tiger@durin,[]]}},
  {2,{ttb,p,[&lt;0.1244.0>,[garbage_collection,call]]}},
@@ -961,7 +961,7 @@ ok
       <p>In the following example, function
         <c>dbg:get_tracer/0</c> is used as trigger for sequential
         tracing:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)110> <input>ttb:tracer().</input>
 {ok,[tiger@durin]}
 (tiger@durin)111> <input>ttb:p(self(),call).</input>
@@ -986,7 +986,7 @@ ok
         shell, but rather implicitly within a larger system. When
         calling a function from the shell, it is simpler to start
         sequential tracing directly, for example, as follows:</p>
-      <pre>
+      <pre type="erl">
 (tiger@durin)116> <input>ttb:tracer().</input>
 {ok,[tiger@durin]}
 (tiger@durin)117> <input>seq_trace:set_token(send,true), dbg:get_tracer(),

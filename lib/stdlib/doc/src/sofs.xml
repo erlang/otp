@@ -367,7 +367,7 @@
 
     <p>Examples of SetFuns:</p>
 
-    <pre>
+    <pre type="erl">
 fun sofs:union/1
 fun(S) -> sofs:partition(1, S) end
 {external, fun(A) -> A end}
@@ -489,7 +489,7 @@ fun(S) -> sofs:partition(1, S) end
           then the returned relation is
           the <seeerl marker="#canonical_map">canonical map</seeerl> from
           X onto the equivalence classes with respect to R.</p>
-        <pre>
+        <pre type="erl">
 1> <input>Ss = sofs:from_term([[a,b],[b,c]]),</input>
 <input>CR = sofs:canonical_relation(Ss),</input>
 <input>sofs:to_external(CR).</input>
@@ -504,7 +504,7 @@ fun(S) -> sofs:partition(1, S) end
         <p>Returns the <seeerl marker="#composite">composite</seeerl> of 
           the functions <c><anno>Function1</anno></c> and
           <c><anno>Function2</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:a_function([{a,1},{b,2},{c,2}]),</input>
 <input>F2 = sofs:a_function([{1,x},{2,y},{3,z}]),</input>
 <input>F = sofs:composite(F1, F2),</input>
@@ -520,7 +520,7 @@ fun(S) -> sofs:partition(1, S) end
       <desc>
         <p>Creates the <seeerl marker="#function">function</seeerl>
           that maps each element of set <c>Set</c> onto <c>AnySet</c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S = sofs:set([a,b]),</input>
 <input>E = sofs:from_term(1),</input>
 <input>R = sofs:constant_function(S, E),</input>
@@ -535,7 +535,7 @@ fun(S) -> sofs:partition(1, S) end
       <desc>
         <p>Returns the <seeerl marker="#converse">converse</seeerl>
           of the binary relation <c><anno>BinRel1</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,a}]),</input>
 <input>R2 = sofs:converse(R1),</input>
 <input>sofs:to_external(R2).</input>
@@ -578,7 +578,7 @@ fun(S) -> sofs:partition(1, S) end
       <desc>
         <p>Returns the <seeerl marker="#domain">domain</seeerl> of
           the binary relation <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:domain(R),</input>
 <input>sofs:to_external(S).</input>
@@ -594,7 +594,7 @@ fun(S) -> sofs:partition(1, S) end
           <c><anno>BinRel1</anno></c>
           and the <seeerl marker="#restriction">restriction</seeerl>
           of <c><anno>BinRel1</anno></c> to <c><anno>Set</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([2,4,6]),</input>
 <input>R2 = sofs:drestriction(R1, S),</input>
@@ -613,7 +613,7 @@ fun(S) -> sofs:partition(1, S) end
           elements that do not give
           an element in <c><anno>Set2</anno></c> as the result of applying
           <c><anno>SetFun</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>SetFun = {external, fun({_A,B,C}) -> {B,C} end},</input>
 <input>R1 = sofs:relation([{a,aa,1},{b,bb,2},{c,cc,3}]),</input>
 <input>R2 = sofs:relation([{bb,2},{cc,3},{dd,4}]),</input>
@@ -645,7 +645,7 @@ fun(S) -> sofs:partition(1, S) end
           <seeerl marker="#domain">domain</seeerl> of
           <c><anno>BinRel1</anno></c>, <c><anno>BinRel2</anno></c> contains the
           pair (E,&nbsp;<c>AnySet</c>).</p>
-        <pre>
+        <pre type="erl">
 1> <input>S = sofs:set([b,c]),</input>
 <input>A = sofs:empty_set(),</input>
 <input>R = sofs:family([{a,[1,2]},{b,[3]}]),</input>
@@ -681,7 +681,7 @@ fun(S) -> sofs:partition(1, S) end
           the difference between <c><anno>Family1</anno></c>[i]
           and <c><anno>Family2</anno></c>[i] if <c><anno>Family2</anno></c>
           maps i, otherwise <c><anno>Family1</anno>[i]</c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[6,7]}]),</input>
 <input>F3 = sofs:family_difference(F1, F2),</input>
@@ -703,7 +703,7 @@ fun(S) -> sofs:partition(1, S) end
           that <c><anno>Family2</anno></c>[i] is
           the <seeerl marker="#domain">domain</seeerl> of
           <c><anno>Family1</anno>[i]</c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_domain(FR),</input>
 <input>sofs:to_external(F).</input>
@@ -724,7 +724,7 @@ fun(S) -> sofs:partition(1, S) end
           that <c><anno>Family2</anno></c>[i] is
           the <seeerl marker="#field">field</seeerl> of
           <c><anno>Family1</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_field(FR),</input>
 <input>sofs:to_external(F).</input>
@@ -751,7 +751,7 @@ fun(S) -> sofs:partition(1, S) end
           of <c><anno>Family1</anno></c>[i].</p>
         <p>If <c><anno>Family1</anno></c>[i] is an empty set for some i,
           the process exits with a <c>badarg</c> message.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:from_term([{a,[[1,2,3],[2,3,4]]},{b,[[x,y,z],[x,y]]}]),</input>
 <input>F2 = sofs:family_intersection(F1),</input>
 <input>sofs:to_external(F2).</input>
@@ -770,7 +770,7 @@ fun(S) -> sofs:partition(1, S) end
           <c><anno>Family2</anno></c>:s index sets,
           and <c><anno>Family3</anno></c>[i] is the intersection of
           <c><anno>Family1</anno></c>[i] and <c><anno>Family2</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]),</input>
 <input>F3 = sofs:family_intersection(F1, F2),</input>
@@ -790,7 +790,7 @@ fun(S) -> sofs:partition(1, S) end
           that <c><anno>Family2</anno></c>[i] is the result of
           calling <c><anno>SetFun</anno></c> with <c><anno>Family1</anno></c>[i]
           as argument.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:from_term([{a,[[1,2],[2,3]]},{b,[[]]}]),</input>
 <input>F2 = sofs:family_projection(fun sofs:union/1, F1),</input>
 <input>sofs:to_external(F2).</input>
@@ -811,7 +811,7 @@ fun(S) -> sofs:partition(1, S) end
           that <c><anno>Family2</anno></c>[i] is
           the <seeerl marker="#range">range</seeerl> of
           <c><anno>Family1</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>FR = sofs:from_term([{a,[{1,a},{2,b},{3,c}]},{b,[]},{c,[{4,d},{5,e}]}]),</input>
 <input>F = sofs:family_range(FR),</input>
 <input>sofs:to_external(F).</input>
@@ -835,7 +835,7 @@ fun(S) -> sofs:partition(1, S) end
           the <seeerl marker="#external_set">external set</seeerl>
           of <c><anno>Family1</anno></c>[i], otherwise <c><anno>Fun</anno></c>
            is applied to <c><anno>Family1</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:family([{a,[1,2,3]},{b,[1,2]},{c,[1]}]),</input>
 <input>SpecFun = fun(S) -> sofs:no_elements(S) =:= 2 end,</input>
 <input>F2 = sofs:family_specification(SpecFun, F1),</input>
@@ -880,7 +880,7 @@ fun(S) -> sofs:partition(1, S) end
           all pairs (i,&nbsp;x) such that i belongs to the index set
           of <c><anno>Family</anno></c> and x belongs
           to <c><anno>Family</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>F = sofs:family([{a,[]}, {b,[1]}, {c,[2,3]}]),</input>
 <input>R = sofs:family_to_relation(F),</input>
 <input>sofs:to_external(R).</input>
@@ -901,7 +901,7 @@ fun(S) -> sofs:partition(1, S) end
           that <c><anno>Family2</anno></c>[i] is
           the <seeerl marker="#union_n">union</seeerl> of
           <c><anno>Family1</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:from_term([{a,[[1,2],[2,3]]},{b,[[]]}]),</input>
 <input>F2 = sofs:family_union(F1),</input>
 <input>sofs:to_external(F2).</input>
@@ -924,7 +924,7 @@ fun(S) -> sofs:partition(1, S) end
           of <c><anno>Family1</anno></c>[i] and <c><anno>Family2</anno></c>[i]
           if both map i, otherwise <c><anno>Family1</anno></c>[i]
           or <c><anno>Family2</anno></c>[i].</p>
-        <pre>
+        <pre type="erl">
 1> <input>F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]),</input>
 <input>F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]),</input>
 <input>F3 = sofs:family_union(F1, F2),</input>
@@ -939,7 +939,7 @@ fun(S) -> sofs:partition(1, S) end
       <desc>
         <p>Returns the <seeerl marker="#field">field</seeerl> of the
           binary relation <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:field(R),</input>
 <input>sofs:to_external(S).</input>
@@ -969,7 +969,7 @@ fun(S) -> sofs:partition(1, S) end
         <p>Returns the <seeerl marker="#sets_definition">unordered
           set</seeerl> containing the sets of list
           <c><anno>ListOfSets</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:relation([{a,1},{b,2}]),</input>
 <input>S2 = sofs:relation([{x,3},{y,4}]),</input>
 <input>S = sofs:from_sets([S1,S2]),</input>
@@ -1004,7 +1004,7 @@ fun(S) -> sofs:partition(1, S) end
           can be used to limit the depth of the traversal; an atomic
           type stops the traversal, as shown by the following example
           where <c>"foo"</c> and <c>{"foo"}</c> are left unmodified:</p>
-        <pre>
+        <pre type="erl">
 1> <input>S = sofs:from_term([{{"foo"},[1,1]},{"foo",[2,2]}],
 [{atom,[atom]}]),</input>
 <input>sofs:to_external(S).</input>
@@ -1018,7 +1018,7 @@ fun(S) -> sofs:partition(1, S) end
           does not want to waste heap by rebuilding the elements of
           the unordered set. The following example shows that a set can be
           built "layer by layer":</p>
-        <pre>
+        <pre type="erl">
 1> <input>A = sofs:from_term(a),</input>
 <input>S = sofs:set([1,2,3]),</input>
 <input>P1 = sofs:from_sets({A,S}),</input>
@@ -1045,7 +1045,7 @@ fun(S) -> sofs:partition(1, S) end
         <p>Returns the <seeerl marker="#image">image</seeerl> of
           set <c><anno>Set1</anno></c> under the binary
           relation <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]),</input>
 <input>S1 = sofs:set([1,2]),</input>
 <input>S2 = sofs:image(R, S1),</input>
@@ -1085,7 +1085,7 @@ fun(S) -> sofs:partition(1, S) end
         </p>
         <p>Intersecting an empty family exits the process with a
           <c>badarg</c> message.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),</input>
 <input>S = sofs:intersection_of_family(F),</input>
 <input>sofs:to_external(S).</input>
@@ -1099,7 +1099,7 @@ fun(S) -> sofs:partition(1, S) end
       <desc>
         <p>Returns the <seeerl marker="#inverse">inverse</seeerl>
           of function <c><anno>Function1</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>R2 = sofs:inverse(R1),</input>
 <input>sofs:to_external(R2).</input>
@@ -1115,7 +1115,7 @@ fun(S) -> sofs:partition(1, S) end
         <p>Returns the <seeerl marker="#inverse_image">inverse
           image</seeerl> of <c><anno>Set1</anno></c> under the binary
           relation <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]),</input>
 <input>S1 = sofs:set([c,d,e]),</input>
 <input>S2 = sofs:inverse_image(R, S1),</input>
@@ -1163,7 +1163,7 @@ fun(S) -> sofs:partition(1, S) end
           are <seeerl marker="#equal">equal</seeerl>, otherwise
           <c>false</c>. The following  example shows that <c>==/2</c> is
           used when comparing sets for equality:</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:set([1.0]),</input>
 <input>S2 = sofs:set([1]),</input>
 <input>sofs:is_equal(S1, S2).</input>
@@ -1230,7 +1230,7 @@ true</pre>
           join</seeerl> of the relations <c><anno>Relation1</anno></c>
           and <c><anno>Relation2</anno></c> on coordinates <c><anno>I</anno></c>
           and <c><anno>J</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{a,x,1},{b,y,2}]),</input>
 <input>R2 = sofs:relation([{1,f,g},{1,h,i},{2,3,4}]),</input>
 <input>J = sofs:join(R1, 3, R2, 1),</input>
@@ -1251,7 +1251,7 @@ true</pre>
           the <seeerl marker="#multiple_relative_product">multiple relative
           product</seeerl> of the ordered set
           (R[i],&nbsp;...,&nbsp;R[n]) and <c><anno>BinRel1</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>Ri = sofs:relation([{a,1},{b,2},{c,3}]),</input>
 <input>R = sofs:relation([{a,b},{b,c},{c,a}]),</input>
 <input>MP = sofs:multiple_relative_product({Ri, Ri}, R),</input>
@@ -1277,7 +1277,7 @@ true</pre>
           the union of the set of sets <c><anno>SetOfSets</anno></c> such that
           two elements are considered equal if they belong to the same
           elements of <c><anno>SetOfSets</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>Sets1 = sofs:from_term([[a,b,c],[d,e,f],[g,h,i]]),</input>
 <input>Sets2 = sofs:from_term([[b,c,d],[e,f,g],[h,i,j]]),</input>
 <input>P = sofs:partition(sofs:union(Sets1, Sets2)),</input>
@@ -1293,7 +1293,7 @@ true</pre>
         <p>Returns the <seeerl marker="#partition">partition</seeerl> of
           <c><anno>Set</anno></c> such that two elements are considered equal
           if the results of applying <c><anno>SetFun</anno></c> are equal.</p>
-        <pre>
+        <pre type="erl">
 1> <input>Ss = sofs:from_term([[a],[b],[c,d],[e,f]]),</input>
 <input>SetFun = fun(S) -> sofs:from_term(sofs:no_elements(S)) end,</input>
 <input>P = sofs:partition(SetFun, Ss),</input>
@@ -1313,7 +1313,7 @@ true</pre>
           <c><anno>Set1</anno></c> gives an element in <c><anno>Set2</anno></c>,
           the element belongs to <c><anno>Set3</anno></c>, otherwise the
           element belongs to <c><anno>Set4</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([2,4,6]),</input>
 <input>{R2,R3} = sofs:partition(1, R1, S),</input>
@@ -1337,7 +1337,7 @@ true</pre>
           same value i. This i is the index that <c><anno>Family</anno></c>
           maps onto the <seeerl marker="#equivalence_class">equivalence
           class</seeerl>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S = sofs:relation([{a,a,a,a},{a,a,b,b},{a,b,b,b}]),</input>
 <input>SetFun = {external, fun({A,_,C,_}) -> {A,C} end},</input>
 <input>F = sofs:partition_family(SetFun, S),</input>
@@ -1355,7 +1355,7 @@ true</pre>
           <c><anno>TupleOfSets</anno></c>. If (x[1],&nbsp;...,&nbsp;x[n]) is
           an element of the n-ary relation <c><anno>Relation</anno></c>, then
           x[i] is drawn from element i of <c><anno>TupleOfSets</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:set([a,b]),</input>
 <input>S2 = sofs:set([1,2]),</input>
 <input>S3 = sofs:set([x,y]),</input>
@@ -1372,7 +1372,7 @@ true</pre>
         <p>Returns the <seeerl marker="#Cartesian_product">Cartesian
           product</seeerl> of <c><anno>Set1</anno></c>
           and <c><anno>Set2</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:set([1,2]),</input>
 <input>S2 = sofs:set([a,b]),</input>
 <input>R = sofs:product(S1, S2),</input>
@@ -1394,7 +1394,7 @@ true</pre>
           <c><anno>Set1</anno></c> is a relation, then the returned set is
           the <seeerl marker="#projection">projection</seeerl> of
           <c><anno>Set1</anno></c> onto coordinate i.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:from_term([{1,a},{2,b},{3,a}]),</input>
 <input>S2 = sofs:projection(2, S1),</input>
 <input>sofs:to_external(S2).</input>
@@ -1408,7 +1408,7 @@ true</pre>
       <desc>
         <p>Returns the <seeerl marker="#range">range</seeerl> of the
           binary relation <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),</input>
 <input>S = sofs:range(R),</input>
 <input>sofs:to_external(S).</input>
@@ -1445,7 +1445,7 @@ true</pre>
           relation <c><anno>BinRel</anno></c>, and <c><anno>Family</anno></c>[i]
           is the <seeerl marker="#image">image</seeerl> of the set of i
           under <c><anno>BinRel</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R = sofs:relation([{b,1},{c,2},{c,3}]),</input>
 <input>F = sofs:relation_to_family(R),</input>
 <input>sofs:to_external(F).</input>
@@ -1472,7 +1472,7 @@ true</pre>
           product</seeerl> of the ranges of R[i],
           range&nbsp;R[1]&nbsp;&times;&nbsp;...&nbsp;&times;&nbsp;range&nbsp;R[n],
           is used instead (intuitively, nothing is "lost").</p>
-        <pre>
+        <pre type="erl">
 1> <input>TR = sofs:relation([{1,a},{1,aa},{2,b}]),</input>
 <input>R1 = sofs:relation([{1,u},{2,v},{3,c}]),</input>
 <input>R2 = sofs:relative_product([TR, R1]),</input>
@@ -1505,7 +1505,7 @@ true</pre>
           the <seeerl marker="#converse">converse</seeerl> of the
           binary relation <c><anno>BinRel1</anno></c> and the binary
           relation <c><anno>BinRel2</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{1,aa},{2,b}]),</input>
 <input>R2 = sofs:relation([{1,u},{2,v},{3,c}]),</input>
 <input>R3 = sofs:relative_product1(R1, R2),</input>
@@ -1523,7 +1523,7 @@ true</pre>
         <p>Returns the <seeerl marker="#restriction">restriction</seeerl> of
           the binary relation <c><anno>BinRel1</anno></c>
           to <c><anno>Set</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S = sofs:set([1,2,4]),</input>
 <input>R2 = sofs:restriction(R1, S),</input>
@@ -1539,7 +1539,7 @@ true</pre>
         <p>Returns a subset of <c><anno>Set1</anno></c> containing those
           elements that gives an element in <c><anno>Set2</anno></c> as the
           result of applying <c><anno>SetFun</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:relation([{1,a},{2,b},{3,c}]),</input>
 <input>S2 = sofs:set([b,c,d]),</input>
 <input>S3 = sofs:restriction(2, S1, S2),</input>
@@ -1572,7 +1572,7 @@ true</pre>
           <seeerl marker="#external_set">external set</seeerl> of
           each element, otherwise <c><anno>Fun</anno></c> is applied to each
           element.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{a,1},{b,2}]),</input>
 <input>R2 = sofs:relation([{x,1},{x,2},{y,3}]),</input>
 <input>S1 = sofs:from_sets([R1,R2]),</input>
@@ -1590,7 +1590,7 @@ true</pre>
         <p>Returns the <seeerl marker="#strict_relation">strict
           relation</seeerl> corresponding to the binary
           relation <c><anno>BinRel1</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,1},{1,2},{2,1},{2,2}]),</input>
 <input>R2 = sofs:strict_relation(R1),</input>
 <input>sofs:to_external(R2).</input>
@@ -1606,7 +1606,7 @@ true</pre>
           is <c><anno>Set1</anno></c>. The value of an element of the domain
           is the result of applying <c><anno>SetFun</anno></c> to the
           element.</p>
-        <pre>
+        <pre type="erl">
 1> <input>L = [{a,1},{b,2}].</input>
 [{a,1},{b,2}]
 2> <input>sofs:to_external(sofs:projection(1,sofs:relation(L))).</input>
@@ -1617,7 +1617,7 @@ true</pre>
 <input>sofs:to_external(sofs:projection(SetFun,sofs:relation(L))).</input>
 [{{a,1},a},{{b,2},b}]</pre>
         <p>The relation of equality between the elements of {a,b,c}:</p>
-        <pre>
+        <pre type="erl">
 1> <input>I = sofs:substitution(fun(A) -> A end, sofs:set([a,b,c])),</input>
 <input>sofs:to_external(I).</input>
 [{a,a},{b,b},{c,c}]</pre>
@@ -1626,7 +1626,7 @@ true</pre>
           <c>SetOfSets</c> onto the <seeerl marker="#image">image</seeerl>
           of <c>Set</c> under <c>BinRel</c> is returned by the following
           function:</p>
-        <pre>
+        <pre type="erl">
 images(SetOfSets, BinRel) ->
    Fun = fun(Set) -> sofs:image(BinRel, Set) end,
    sofs:substitution(Fun, SetOfSets).</pre>
@@ -1639,7 +1639,7 @@ images(SetOfSets, BinRel) ->
           following efficient function can be used instead under the
           assumption that the image of each element of <c>SetOfSets</c> under
           <c>BinRel</c> is non-empty:</p>
-        <pre>
+        <pre type="erl">
 images2(SetOfSets, BinRel) ->
    CR = sofs:canonical_relation(SetOfSets),
    R = sofs:relative_product1(CR, BinRel),
@@ -1654,7 +1654,7 @@ images2(SetOfSets, BinRel) ->
         <p>Returns the <seeerl marker="#symmetric_difference">symmetric
           difference</seeerl> (or the Boolean sum)
           of <c><anno>Set1</anno></c> and <c><anno>Set2</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>S1 = sofs:set([1,2,3]),</input>
 <input>S2 = sofs:set([2,3,4]),</input>
 <input>P = sofs:symdiff(S1, S2),</input>
@@ -1737,7 +1737,7 @@ images2(SetOfSets, BinRel) ->
       <desc>
         <p>Returns the union of <seeerl marker="#family">family</seeerl>
           <c><anno>Family</anno></c>.</p>
-        <pre>
+        <pre type="erl">
 1> <input>F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),</input>
 <input>S = sofs:union_of_family(F),</input>
 <input>sofs:to_external(S).</input>
@@ -1757,7 +1757,7 @@ images2(SetOfSets, BinRel) ->
           <c><anno>BinRel1</anno></c>. The
           subset S is defined so that x S y if x W y for some x in F
           and for some y in F.</p>
-        <pre>
+        <pre type="erl">
 1> <input>R1 = sofs:relation([{1,1},{1,2},{3,1}]),</input>
 <input>R2 = sofs:weak_relation(R1),</input>
 <input>sofs:to_external(R2).</input>

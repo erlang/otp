@@ -59,7 +59,7 @@
     <title>Application Callback Module</title>
     <p>How to start and stop the code for the application, that is,
       the supervision tree, is described by two callback functions:</p>
-    <code type="none">
+    <code type="erl">
 start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State}
 stop(State)
     </code>
@@ -87,7 +87,7 @@ stop(State)
     <p>Example of an application callback module for packaging
       the supervision tree from
       <seeguide marker="sup_princ#ex">Supervisor Behaviour</seeguide>:</p>
-    <code type="none">
+    <code type="erl">
 -module(ch_app).
 -behaviour(application).
 
@@ -140,7 +140,7 @@ ch_app:stop([])</code>
       <seeguide marker="release_structure">Releases</seeguide>), the keys
       <c>description</c>, <c>vsn</c>, <c>modules</c>, <c>registered</c>,
       and <c>applications</c> are also to be specified:</p>
-    <code type="none">
+    <code type="erl">
 {application, ch_app,
  [{description, "Channel allocator"},
   {vsn, "1"},
@@ -323,7 +323,7 @@ ch_app:stop([])</code>
     <p>Before an application can be started, it must be <em>loaded</em>.
       The application controller reads and stores the information from
       the <c>.app</c> file:</p>
-    <pre>
+    <pre type="erl">
 1> <input>application:load(ch_app).</input>
 ok
 2> <input>application:loaded_applications().</input>
@@ -333,7 +333,7 @@ ok
     <p>An application that has been stopped, or has never been started,
       can be unloaded. The information about the application is
       erased from the internal database of the application controller.</p>
-    <pre>
+    <pre type="erl">
 3> <input>application:unload(ch_app).</input>
 ok
 4> <input>application:loaded_applications().</input>
@@ -349,7 +349,7 @@ ok
     <marker id="stopping"></marker>
     <title>Starting and Stopping Applications</title>
     <p>An application is started by calling:</p>
-    <pre>
+    <pre type="erl">
 5> <input>application:start(ch_app).</input>
 ok
 6> <input>application:which_applications().</input>
@@ -391,7 +391,7 @@ ok</pre>
     <em>configuration parameters</em>. These are a list of
     <c>{Par,Val}</c> tuples
     specified by a key <c>env</c> in the <c>.app</c> file:</p>
-    <code type="none">
+    <code type="erl">
 {application, ch_app,
  [{description, "Channel allocator"},
   {vsn, "1"},
@@ -407,7 +407,7 @@ ok</pre>
       number of similar functions, see the <c>application(3)</c>
       manual page in Kernel.</p>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 % <input>erl</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
 
@@ -419,7 +419,7 @@ ok
     <p>The values in the <c>.app</c> file can be overridden by values
       in a <em>system configuration file</em>. This is a file that
       contains configuration parameters for relevant applications:</p>
-    <code type="none">
+    <code type="erl">
 [{Application1, [{Par11,Val11},...]},
  ...,
  {ApplicationN, [{ParN1,ValN1},...]}].</code>
@@ -433,7 +433,7 @@ ok
 [{ch_app, [{file, "testlog"}]}].</code>
     <p>The value of <c>file</c> overrides the value of <c>file</c>
       as defined in the <c>.app</c> file:</p>
-    <pre>
+    <pre type="erl">
 % <input>erl -config test</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
 
@@ -452,7 +452,7 @@ ok
     <pre>
 % <input>erl -ApplName Par1 Val1 ... ParN ValN</input></pre>
     <p><em>Example:</em></p>
-    <pre>
+    <pre type="erl">
 % <input>erl -ch_app file '"testlog"'</input>
 Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
 

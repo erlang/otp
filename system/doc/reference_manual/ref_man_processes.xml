@@ -41,7 +41,7 @@
   <section>
     <title>Process Creation</title>
     <p>A process is created by calling <c>spawn()</c>:</p>
-    <pre>
+    <pre type="erl">
 spawn(Module, Name, Args) -> pid()
   Module = Name = atom()
   Args = [Arg1,...,ArgN]

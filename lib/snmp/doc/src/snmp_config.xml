@@ -89,7 +89,7 @@
       defined in an Erlang system configuration file. The following
       configuration parameters are defined for the SNMP application:</p>
 
-    <pre>
+    <pre type="erl">
       agent_options() = [agent_option()]
       agent_option() = {restart_type,     restart_type()}     | 
                        {agent_type,       agent_type()}       |  
@@ -1298,7 +1298,7 @@ ok
       The verbosity itself has several <em>levels</em>: <c>silence | info |  log | debug | trace</c>. For the lowest verbosity <c>silence</c>, 
       nothing is printed. The higher the verbosity, the more is printed.
       Default value is always <c>silence</c>.</p>
-    <pre>
+    <pre type="c">
 3> <input>snmpa:verbosity(master_agent, log).</input>
 ok
 5> <input>snmpa:verbosity(net_if, log).</input>

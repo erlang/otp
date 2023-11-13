@@ -321,7 +321,7 @@
           supported item is <c>namelist</c>, which returns the tuple
           <c>{namelist, [binary()]}</c>, containing the names of all (unique)
           named subpatterns in the regular expression. For example:</p>
-        <code type="none">
+        <code type="erl">
 1&gt; {ok,MP} = re:compile("(?&lt;A&gt;A)|(?&lt;B&gt;B)|(?&lt;C&gt;C)").
 {ok,{re_pattern,3,0,0,
                 &lt;&lt;69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
@@ -342,7 +342,7 @@
           an option to <seemfa marker="#run/3"><c>run/3</c></seemfa>.
           You can therefore create a name-to-value mapping from the result of
           <c>run/3</c> like this:</p>
-        <code>
+        <code type="erl">
 1&gt; {ok,MP} = re:compile("(?&lt;A&gt;A)|(?&lt;B&gt;B)|(?&lt;C&gt;C)").
 {ok,{re_pattern,3,0,0,
                 &lt;&lt;69,82,67,80,119,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,
@@ -415,7 +415,7 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
           matches in the order in which they appear in the regular expression.
           The returned value will be inserted in the result.</p>
         <p><em>Example:</em></p>
-        <code>
+        <code type="erl">
 re:replace("abcd", ".(.)", fun(Whole, [&lt;&lt;C&gt;&gt;]) -> &lt;&lt;$#, Whole/binary, $-, (C - $a + $A), $#&gt;&gt; end, [{return, list}]).</code>
         <p>gives</p>
         <code>
@@ -592,7 +592,7 @@ re:run("cat","(|at)",[global]).</code>
               </item>
             </taglist>
             <p>The result of the call is:</p>
-            <code>
+            <code type="erl">
 {match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}</code>
           </item>
           <tag><c>notempty</c></tag>
@@ -739,7 +739,7 @@ instead of the stack, the amount of heap memory that can be used.</code>
               the use of machine heap, not C stack.</p>
             <p>Specifying a lower value can result in matches with deep
               recursion failing, when they should have matched:</p>
-            <code type="none">
+            <code type="erl">
 1&gt; re:run("aaaaaaaaaaaaaz","(a+)*z").
 {match,[{0,14},{0,13}]}
 2&gt; re:run("aaaaaaaaaaaaaz","(a+)*z",[{match_limit_recursion,5}]).
@@ -1064,13 +1064,13 @@ re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
         <p>If subexpressions are specified in the regular expression, the
           matching subexpressions are returned in the resulting list as
           well. For example:</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","[ln]",[{return,list}]).</code>
         <p>gives</p>
         <code>
 ["Er","a","g"]</code>
         <p>while</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","([ln])",[{return,list}]).</code>
         <p>gives</p>
         <code>
@@ -1086,10 +1086,10 @@ re:split("Erlang","([ln])",[{return,list}]).</code>
           obvious, one can use option <c>group</c>, which groups together the
           part of the subject string with the parts matching the subexpressions
           when the string was split:</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","([ln])",[{return,list},group]).</code>
         <p>gives</p>
-        <code>
+        <code type="erl">
 [["Er","l"],["a","n"],["g"]]</code>      
         <p>Here the regular expression first matched the &quot;l&quot;,
           causing &quot;Er&quot; to be the first part in the result. When
@@ -1103,7 +1103,7 @@ re:split("Erlang","([ln])",[{return,list},group]).</code>
           as no more matches are found.</p>
         <p>By default, all parts of the string, including the empty strings,
           are returned from the function, for example:</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","[lg]",[{return,list}]).</code>
         <p>gives</p>
         <code>
@@ -1114,7 +1114,7 @@ re:split("Erlang","[lg]",[{return,list}]).</code>
           Perl, where empty strings at the end are by default removed. To
           get the &quot;trimming&quot; default behavior of Perl, specify
           <c>trim</c> as an option:</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","[lg]",[{return,list},trim]).</code>
         <p>gives</p>
         <code>
@@ -1123,7 +1123,7 @@ re:split("Erlang","[lg]",[{return,list},trim]).</code>
           possible except the empty ones&quot;, which sometimes can be
           useful. You can also specify how many parts you want, by specifying
           <c>{parts,</c>N<c>}</c>:</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","[lg]",[{return,list},{parts,2}]).</code>    
         <p>gives</p>
         <code>
@@ -1133,7 +1133,7 @@ re:split("Erlang","[lg]",[{return,list},{parts,2}]).</code>
           and the splitting stops when enough parts are given, which is
           why the result differs from that of <c>trim</c>.</p>
         <p>More than three parts are not possible with this indata, so</p>
-        <code>
+        <code type="erl">
 re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
         <p>gives the same result as the default, which is to be
           viewed as &quot;an infinite number of parts&quot;.</p> 
@@ -2354,7 +2354,7 @@ foo\Kbar</code>
       check the length of the next character, as in the following pattern, which
       can be used with a UTF-8 string (ignore whitespace and line breaks):</p>
 
-<code type="none">
+<code type="erl">
 (?| (?=[\x00-\x7f])(\C) |
     (?=[\x80-\x{7ff}])(\C)(\C) |
     (?=[\x{800}-\x{ffff}])(\C)(\C)(\C) |
@@ -3443,7 +3443,7 @@ abcd$</code>
     <p>Many assertions (of any sort) can occur in succession. For example, the
       following matches "foo" preceded by three digits that are not "999":</p>
 
-    <code>
+    <code type="erl">
 (?&lt;=\d{3})(?&lt;!999)foo</code>
 
     <p>Notice that each of the assertions is applied independently at the same
@@ -3496,7 +3496,7 @@ abcd$</code>
       of the condition. The following pattern fragment is an example where the
       alternatives are complex:</p>
 
-    <code>
+    <code type="erl">
 (?(1) (A|B|C) | (D | (?(2)E|F) | E) )</code>
 
     <p>There are four kinds of condition: references to subpatterns, references
@@ -3880,7 +3880,7 @@ $re = qr{\( (?: (?&gt;[^()]+) | (?p{$re}) )* \)}x;</code>
       defined before or after the reference. A numbered reference can be
       absolute or relative, as in the following examples:</p>
 
-    <code>
+    <code type="erl">
 (...(absolute)...)...(?2)...
 (...(relative)...)...(?-1)...
 (...(?+1)...(relative)...</code>
@@ -4126,7 +4126,7 @@ a+(*COMMIT)b</code>
       anchor, unless the PCRE start-of-match optimizations are turned off, as
       shown in the following example:</p>
 
-<code type="none">
+<code type="erl">
 1&gt; re:run("xyzabc","(*COMMIT)abc",[{capture,all,list}]).
 {match,["abc"]}
 2&gt; re:run("xyzabc","(*COMMIT)abc",[{capture,all,list},no_start_optimize]).

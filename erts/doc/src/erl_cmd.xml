@@ -93,7 +93,7 @@
 	  </item>
 	</list>
 	<p><em>Examples:</em></p>
-	<pre>
+	<pre type="erl">
 % <input>erl +W w -sname arnie +R 9 -s my_init -extra +bertie</input>
 (arnie@host)1> <input>init:get_argument(sname).</input>
 {ok,[["arnie"]]}
@@ -107,7 +107,7 @@
 	  Erlang runtime system to become distributed. Finally, everything after
 	  <c><![CDATA[-extra]]></c> (that is, <c><![CDATA[+bertie]]></c>) is
 	  considered as plain arguments.</p>
-	<pre>
+	<pre type="erl">
 % <input>erl -myflag 1</input>
 1> <input>init:get_argument(myflag).</input>
 {ok,[["1"]]}
@@ -1636,7 +1636,7 @@ $ <input>erl \
             </list>
             <p>A simple example. A single quad core processor can be
               described as follows:</p>
-<pre>
+<pre type="erl">
 % <input>erl +sct L0-3c0-3</input>
 1> <input>erlang:system_info(cpu_topology).</input>
 [{processor,[{core,{logical,0}},
@@ -1647,7 +1647,7 @@ $ <input>erl \
               processors, each processor in its own NUMA node.
               The ordering of logical processors is a bit weird.
               This to give a better example of identifier lists:</p>
-<pre>
+<pre type="erl">
 % <input>erl +sct L0-1,3-2c0-3p0N0:L7,4,6-5c0-3p1N1</input>
 1> <input>erlang:system_info(cpu_topology).</input>
 [{node,[{processor,[{core,{logical,0}},
@@ -2079,7 +2079,7 @@ $ <input>erl \
           input to the shell.</p>
         <p>A typical <c>.erlang</c> file contains a set of search paths, for
           example:</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 io:format("executing user profile in $HOME/.erlang\n",[]).
 code:add_path("/home/calvin/test/ebin").
 code:add_path("/home/hobbes/bigappl-1.2/ebin").

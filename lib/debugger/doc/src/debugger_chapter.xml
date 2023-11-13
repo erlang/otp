@@ -117,7 +117,7 @@
 
       <p>In the following example, lines 2, 4, 6, 8, and 11 are
         executable lines:</p>
-      <pre>
+      <pre type="erl">
 1: is_loaded(Module,Compiled) ->
 2:   case get_file(Module,Compiled) of
 3:     {ok,File} ->
@@ -201,12 +201,12 @@
         <c>true</c> and the process stops.</p>
 
       <p>Extract from <c>fact.erl</c>:</p>
-      <pre>
+      <pre type="erl">
 5. fac(0) -> 1;
 6. fac(N) when N > 0, is_integer(N) -> N * fac(N-1).</pre>
 
       <p>Definition of <c>c_test:c_break/1</c>:</p>
-      <pre>
+      <pre type="erl">
 -module(c_test).
 -export([c_break/1]).
 
@@ -245,7 +245,7 @@ c_break(Bindings) ->
     <p>The Erlang emulator keeps track of a <em>stack trace</em>,
       information about recent function calls. This information is
       used if an error occurs, for example:</p>
-    <pre>
+    <pre type="erl">
 1> <input>catch a+1.</input>
 {'EXIT',{badarith,[{erlang,'+',[a,1],[]},
                    {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,573}]},
@@ -585,7 +585,7 @@ c_break(Bindings) ->
 
     <p>An example of how to compile code with debug information using
       <c>erlc</c>:</p>
-    <pre>
+    <pre type="erl">
 % erlc +debug_info module.erl</pre>
 
     <p>An example of how to compile code with debug information from

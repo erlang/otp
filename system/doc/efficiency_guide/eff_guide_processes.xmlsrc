@@ -39,7 +39,7 @@
     <p>A newly spawned Erlang process uses 326 words of memory. The size can
     be found as follows:</p>
 
-    <pre>
+    <pre type="erl">
 Erlang/OTP 24 [erts-12.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
 Eshell V5.6  (abort with ^G)
@@ -352,7 +352,7 @@ days_in_month(M) ->
     <p>Using the <c>erts_debug:size/1</c> BIF, it can be seen that the
     deep list only requires 22 words of heap space:</p>
 
-    <pre>
+    <pre type="erl">
 2> <input>erts_debug:size(efficiency_guide:kilo_byte()).</input>
 22</pre>
 
@@ -361,14 +361,14 @@ days_in_month(M) ->
     the size of the list when it has been sent to another process
     or stored in an Ets table:</p>
 
-    <pre>
+    <pre type="erl">
 3> <input>erts_debug:flat_size(efficiency_guide:kilo_byte()).</input>
 4094</pre>
 
     <p>It can be verified that sharing will be lost if the data is
     inserted into an Ets table:</p>
 
-    <pre>
+    <pre type="erl">
 4> <input>T = ets:new(tab, []).</input>
 #Ref&lt;0.1662103692.2407923716.214181>
 5> <input>ets:insert(T, {key,efficiency_guide:kilo_byte()}).</input>

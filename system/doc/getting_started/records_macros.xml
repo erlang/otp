@@ -56,14 +56,14 @@
     <p>While doing this, the message passing interface between the shell,
       the client, and the server is cleaned up and is defined
       using <em>records</em>. Also, <em>macros</em> are introduced:</p>
-    <code type="none">
+    <code type="erl">
 %%%----FILE mess_config.hrl----
 
 %%% Configure the location of the server node,
 -define(server_node, messenger@super).
 
 %%%----END FILE----</code>
-    <code type="none">
+    <code type="erl">
 %%%----FILE mess_interface.hrl----
 
 %%% Message interface between client and server and client shell for
@@ -91,7 +91,7 @@
 %%% logoff
 
 %%%----END FILE----</code>
-    <code type="none">
+    <code type="erl">
 %%%----FILE user_interface.erl----
 
 %%% User interface to the messenger program
@@ -135,7 +135,7 @@ message(ToName, Message) ->
 end.
 
 %%%----END FILE----</code>
-    <code type="none">
+    <code type="erl">
 %%%----FILE mess_client.erl----
 
 %%% The client process which runs on each user node
@@ -176,7 +176,7 @@ await_result() ->
     end.
 
 %%%----END FILE---</code>
-    <code type="none">
+    <code type="erl">
 %%%----FILE mess_server.erl----
 
 %%% This is the server process of the messenger service
@@ -252,10 +252,10 @@ server_transfer(From, Name, To, Message, User_List) ->
     <title>Header Files</title>
     <p>As shown above, some files have extension <c>.hrl</c>. These
       are header files that are included in the <c>.erl</c> files by:</p>
-    <code type="none">
+    <code type="erl">
 -include("File_Name").</code>
     <p>for example:</p>
-    <code type="none">
+    <code type="erl">
 -include("mess_interface.hrl").</code>
     <p>In the case above the file is fetched from the same directory as
       all the other files in the messenger example. (*manual*).</p>
@@ -269,7 +269,7 @@ server_transfer(From, Name, To, Message, User_List) ->
     <code type="none">
 -record(name_of_record,{field_name1, field_name2, field_name3, ......}).</code>
     <p>For example:</p>
-    <code type="none">
+    <code type="erl">
 -record(message_to,{to_name, message}).</code>
     <p>This is equivalent to:</p>
     <code type="none">
@@ -302,11 +302,11 @@ server_transfer(From, Name, To, Message, User_List) ->
     <title>Macros</title>
     <p>Another thing that has been added to the messenger is a macro.
       The file <c>mess_config.hrl</c> contains the definition:</p>
-    <code type="none">
+    <code type="erl">
 %%% Configure the location of the server node,
 -define(server_node, messenger@super).</code>
     <p>This file is included in <c>mess_server.erl</c>:</p>
-    <code type="none">
+    <code type="erl">
 -include("mess_config.hrl").</code>
     <p>Every occurrence of <c>?server_node</c> in <c>mess_server.erl</c>
       is now replaced by <c>messenger@super</c>.</p>

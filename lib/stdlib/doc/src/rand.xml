@@ -249,7 +249,7 @@ R2 = rand:uniform(),</pre>
 
     <p>Use a specified algorithm with a constant seed:</p>
 
-    <pre>
+    <pre type="erl">
 _ = rand:seed(exs928ss, {123, 123534, 345345}),
 R3 = rand:uniform(),</pre>
 
@@ -261,7 +261,7 @@ S0 = rand:seed_s(exsss),
 
    <p>Textbook basic form Box-Muller standard normal deviate</p>
 
-   <pre>
+   <pre type="erl">
 R5 = rand:uniform_real(),
 R6 = rand:uniform(),
 SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
@@ -305,7 +305,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       If this is a problem; to generate a boolean with these algorithms
       use something like this:
     </p>
-    <pre>(rand:uniform(256) > 128) % -> boolean()</pre>
+    <pre type="erl">(rand:uniform(256) > 128) % -> boolean()</pre>
     <pre>((rand:uniform(256) - 1) bsr 7) % -> 0 | 1</pre>
     <p>
       For a general range, with <c>N = 1</c> for <c>exrop</c>,
@@ -632,7 +632,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	    If neither endpoint is desired you can test and re-try
 	    like this:
 	  </p>
-	  <pre>
+	  <pre type="erl">
 my_uniform() ->
     case rand:uniform() of
         0.0 -> my_uniform();
@@ -715,7 +715,7 @@ end.</pre>
 	    If neither endpoint is desired you can test and re-try
 	    like this:
 	  </p>
-	  <pre>
+	  <pre type="erl">
 my_uniform(State) ->
     case rand:uniform(State) of
         {0.0, NewState} -> my_uniform(NewState);

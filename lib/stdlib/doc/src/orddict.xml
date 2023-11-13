@@ -70,7 +70,7 @@
           is not a list of values.</p>
         <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
           <p><em>Example 1:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{x, []}]).</input>
 [{x,[]}]
 2> <input>OrdDict2 = orddict:append(x, 1, OrdDict1).</input>
@@ -80,7 +80,7 @@
 4> <input>orddict:append(y, 3, OrdDict3).</input>
 [{x,[1,2]},{y,[3]}]</pre>
           <p><em>Example 2:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, no_list}]).</input>
 [{a,no_list}]
 2> <input>orddict:append(a, 1, OrdDict1).</input>
@@ -100,7 +100,7 @@
           <c><anno>Key</anno></c> is not a list of values.</p>
         <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{x, []}]).</input>
 [{x,[]}]
 2> <input>OrdDict2 = orddict:append_list(x, [1,2], OrdDict1).</input>
@@ -116,7 +116,7 @@
       <desc>
         <p>Erases all items with a specified key from a dictionary.</p>
           <p><em>Example:</em></p>
-          <pre>
+          <pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:erase(a, OrdDict1).</input>
@@ -134,7 +134,7 @@
           is generated if <c><anno>Key</anno></c> is not in the dictionary.</p>
         <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:fetch(a, OrdDict1).</input>
@@ -150,7 +150,7 @@
       <desc>
         <p>Returns a list of all keys in a dictionary.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:fetch_keys(OrdDict1).</input>
@@ -165,7 +165,7 @@
         <p>This function returns value from dictionary and new dictionary without this value.
             Returns <c>error</c> if the key is not present in the dictionary.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:take(a, OrdDict1).</input>
@@ -184,7 +184,7 @@ error</pre>
           <c><anno>Pred</anno>(<anno>Key</anno>, <anno>Value</anno>)</c> is
           <c>true</c>.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:filter(fun (K, V) -> V > 1 end, OrdDict1).</input>
@@ -202,7 +202,7 @@ error</pre>
           the key is not present in the dictionary.</p>
         <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:find(a, OrdDict1).</input>
@@ -222,7 +222,7 @@ error</pre>
           accumulator that is passed to the next call. <c><anno>Acc0</anno></c>
           is returned if the list is empty.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:fold(fun (K, V, Acc) -> [{K, V+100} | Acc] end, [], OrdDict1).</input>
@@ -264,7 +264,7 @@ error</pre>
         <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
           <c><anno>Orddict1</anno></c> to return a new value for each key.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:map(fun (_K, V) -> V + 100 end, OrdDict1).</input>
@@ -283,13 +283,13 @@ error</pre>
           both dictionaries, <c><anno>Fun</anno></c> is called with the key and
           both values to return a new value.
 	  <c>merge/3</c> can be defined as follows, but is faster:</p>
-        <code type="none">
+        <code type="erl">
 merge(Fun, D1, D2) ->
     fold(fun (K, V1, D) ->
                  update(K, fun (V2) -> Fun(K, V1, V2) end, V1, D)
          end, D2, D1).</code>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>OrdDict2 = orddict:from_list([{b, 7}, {c, 8}]).</input>
@@ -325,7 +325,7 @@ merge(Fun, D1, D2) ->
           <c><anno>Orddict1</anno></c>,
           the associated value is replaced by <c><anno>Value</anno></c>.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:store(a, 99, OrdDict1).</input>
@@ -351,7 +351,7 @@ merge(Fun, D1, D2) ->
           on the value to get a new value. An exception is generated if
           <c><anno>Key</anno></c> is not present in the dictionary.</p>
         <p><em>Example:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:update(a, fun (V) -> V1 + 100 end, OrdDict1).</input>
@@ -368,17 +368,17 @@ merge(Fun, D1, D2) ->
           present in the dictionary, <c><anno>Initial</anno></c> is stored as
           the first value. For example, <c>append/3</c> can be defined
           as follows:</p>
-        <code type="none">
+        <code type="erl">
 append(Key, Val, D) ->
     update(Key, fun (Old) -> Old ++ [Val] end, [Val], D).</code>
         <p><em>Example 1:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:update(c, fun (V) -> V1 + 100 end, 99, OrdDict1).</input>
 [{a,1},{b,2},{c,99}]</pre>
         <p><em>Example 2:</em></p>
-<pre>
+<pre type="erl">
 1> <input>OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).</input>
 [{a,1},{b,2}]
 2> <input>orddict:update(a, fun (V) -> V1 + 100 end, 99, OrdDict1).</input>
@@ -396,7 +396,7 @@ append(Key, Val, D) ->
           the dictionary, <c><anno>Increment</anno></c> is stored as
           the first value.</p>
         <p>This can be defined as follows, but is faster:</p>
-        <code type="none">
+        <code type="erl">
 update_counter(Key, Incr, D) ->
     update(Key, fun (Old) -> Old + Incr end, Incr, D).</code>
       </desc>
@@ -409,7 +409,7 @@ update_counter(Key, Incr, D) ->
     <p>Functions <c>append/3</c> and <c>append_list/3</c> are included
       so that keyed values can be stored in a list <em>accumulator</em>, for
       example:</p>
-    <pre>
+    <pre type="erl">
 > D0 = orddict:new(),
   D1 = orddict:store(files, [], D0),
   D2 = orddict:append(files, f1, D1),

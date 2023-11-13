@@ -534,7 +534,7 @@ by the value of &mod_string_decode;.</p>
 <marker id="Float64"/>
 <marker id="Grouped"/>
 
-<pre>
+<pre type="erl">
 OctetString() = string() | binary()
 Integer32()   = -2147483647..2147483647
 Integer64()   = -9223372036854775807..9223372036854775807
@@ -572,7 +572,7 @@ An IPv6 tuple() has length 8 and contains values of type 0..65535.
 The tuple representation is used on decode.</p>
 
 <marker id="Time"/>
-<pre>
+<pre type="erl">
 Time() = {date(), time()}
 
 where
@@ -651,7 +651,7 @@ dictionary's hrl file.</p>
 
 <marker id="IPFilterRule"/>
 <marker id="QoSFilterRule"/>
-<pre>
+<pre type="erl">
 IPFilterRule()  = OctetString()
 QoSFilterRule() = OctetString()
 </pre>

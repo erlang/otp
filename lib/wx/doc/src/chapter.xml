@@ -63,14 +63,14 @@ tuples in any order.</p>
 <em>wxWindow</em> erlang module and the
 member <em>wxWindow::CenterOnParent</em> is
 thus <em>wxWindow:centerOnParent</em>.  The following C++ code:
-</p><pre>
+</p><pre type="erl">
   wxWindow MyWin = new wxWindow();
   MyWin.CenterOnParent(wxVERTICAL);
   ...
   delete MyWin;
 </pre><p>
 would in erlang look like:
-</p><pre>
+</p><pre type="erl">
   MyWin = wxWindow:new(),
   wxWindow:centerOnParent(MyWin, [{dir,?wxVERTICAL}]),
   ...
@@ -126,7 +126,7 @@ you must share the environment. You can get the active environment with
 with <c>wx:set_env/1</c>.  Two processes or applications which
 have both called wx:new() will not be able use each others objects.</p>
 
-<pre>
+<pre type="erl">
   wx:new(), 
   MyWin = wxFrame:new(wx:null(), 42, "Example", []),
   Env = wx:get_env(),

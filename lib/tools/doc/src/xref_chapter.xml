@@ -57,7 +57,7 @@
     <title>Module Check</title>
     <p>Assume we want to check the following module:
       </p>
-    <pre>
+    <pre type="erl">
     -module(my_module).
 
     -export([t/1]).
@@ -70,7 +70,7 @@
     <p>Cross reference data are read from BEAM files, so the first
       step when checking an edited module is to compile it:
       </p>
-    <pre>
+    <pre type="erl">
     1> <input>c(my_module, debug_info).</input>
     ./my_module.erl:10: Warning: function t2/1 is unused
     {ok, my_module}    </pre>
@@ -81,7 +81,7 @@
     <p>The module can now be checked for calls to <seeerl marker="xref#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="xref#undefined_function">undefined functions</seeerl>,
       and for unused local functions:
       </p>
-    <pre>
+    <pre type="erl">
     2> <input>xref:m(my_module)</input>
     [{deprecated,[]},
      {undefined,[{{my_module,t,1},{my_module,t2,1}}]},
@@ -107,7 +107,7 @@
     <p>Each Xref server is referred to by a unique name. The name
       is given when creating the server:
       </p>
-    <pre>
+    <pre type="erl">
     1> <input>xref:start(s).</input>
     {ok,&lt;0.27.0>}    </pre>
     <p>Next the system to be analyzed is added to the Xref server.
@@ -120,7 +120,7 @@
       when adding analyzed modules, but these messages can be avoided
       by setting default values of some options:
       </p>
-    <pre>
+    <pre type="erl">
     2> <input>xref:set_default(s, [{verbose,false}, {warnings,false}]).</input>
     ok
     3> <input>xref:add_release(s, code:lib_dir(), {name, otp}).</input>
@@ -133,7 +133,7 @@
     <p>It is now easy to check the release for calls to undefined
       functions:
       </p>
-    <pre>
+    <pre type="erl">
     4> <input>xref:analyze(s, undefined_function_calls).</input>
     {ok, [...]}    </pre>
     <p>We can now continue with further analyses, or we can delete
@@ -154,7 +154,7 @@
       The check for calls to undefined functions can thus be stated as
       a query:
       </p>
-    <pre>
+    <pre type="erl">
     4> <input>xref:q(s, "(XC - UC) || (XU - X - B)").</input>
     {ok,[...]}    </pre>
     <p>The query asks for the restriction of external calls except the
@@ -223,7 +223,7 @@
       providing useful examples. The analyzed system is assumed to be
       OTP, so in order to run the queries, first evaluate these calls:
       </p>
-    <pre>
+    <pre type="erl">
     xref:start(s).
     xref:add_release(s, code:root_dir()).    </pre>
     <taglist>

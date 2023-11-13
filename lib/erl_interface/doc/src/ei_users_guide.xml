@@ -233,7 +233,7 @@ ei_x_free(&buf);      ]]></code>
       which stores information, such as the hostname, and node name
       for later use:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 int identification_number = 99;
 int creation=1;
 char *cookie="a secret cookie string"; /* An example */
@@ -254,7 +254,7 @@ ei_connect_init(&ec,
       <c>ei_connect_*()</c> family of functions. The following example sets up the
       connection and is to result in a valid socket file descriptor:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 int sockfd;
 const char* node_name = "einode@durin"; /* An example */
 if ((sockfd = ei_connect(&ec, nodename)) < 0)
@@ -359,7 +359,7 @@ ei_reg_send(&ec, fd, "my_server", buf.buff, buf.index);]]></code>
       <title>Example of Receiving Messages</title>
       <p>In this example, <c>{Pid, Something}</c> is received.</p>
 
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 erlang_msg msg;
 int index = 0;
 int version;
@@ -413,7 +413,7 @@ ei_decode_pid(buf.buff, &index, &pid);     ]]></code>
 
     <p>The following example checks if a specific Erlang process is alive:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 int index = 0, is_alive;
 ei_x_buff args, result;
 
@@ -453,7 +453,7 @@ if (ei_decode_version(result.buff, &index) < 0
 
     <p>To see what names there are:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 char **names;
 int count;
 int i;
@@ -482,7 +482,7 @@ free(names);    ]]></code>
 
     <p>To look up one of the names:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 ETERM *pid;
 char node[256];
 erlang_pid the_pid;

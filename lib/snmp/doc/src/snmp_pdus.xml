@@ -46,7 +46,7 @@
       <c>snmp/include/snmp_types.hrl</c>.  If snmpv3 is used, the module
       that includes <c>snmp_types.hrl</c> must define the constant
       <c>SNMP_USE_V3</c> before the header file is included.  Example:</p>
-    <pre>
+    <pre type="erl">
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").    </pre>
     <p>Encoding and decoding must be done explicitly when writing your

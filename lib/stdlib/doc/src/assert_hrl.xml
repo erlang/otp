@@ -37,7 +37,7 @@
     <p>Include the following directive in the module from which the function is
       called:</p>
 
-    <code type="none">
+    <code type="erl">
 -include_lib("stdlib/include/assert.hrl").</code>
 
     <p>When an assertion succeeds, the assert macro yields the atom <c>ok</c>.
@@ -114,7 +114,7 @@ erlc -DNOASSERT=true *.erl</code>
         <code type="none">
 ?assertMatch({bork, _}, f())</code>
         <p>Notice that a guard <c>when ...</c> can be included:</p>
-        <code type="none">
+        <code type="erl">
 ?assertMatch({bork, X} when X > 0, f())</code>
       </item>
       <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>

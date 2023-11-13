@@ -52,7 +52,7 @@
     <title>File Syntax</title>
     <p>The boot script is stored in a file with extension
       <c>.script</c>. The file has the following syntax:</p>
-    <code type="none">
+    <code type="erl">
 {script, {Name, Vsn},
  [
   {progress, loading},

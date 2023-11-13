@@ -481,7 +481,7 @@
 	  pss_pss is prefered over pss_rsae that is prefered over rsa</p>
 
 	  <p><c>Default_TLS_12_Alg_Pairs =</c></p>
-	  <code>[
+	  <code type="erl">[
 %% SHA2
 {sha512, ecdsa},
 {sha512, rsa},
@@ -504,7 +504,7 @@ rsa_pss_rsae_sha256]
  </code>
 
  <p><c> TLS_13_Legacy_Schemes =</c></p>
- <code> [
+ <code type="erl"> [
  %% Legacy algorithms only applicable to certificate signatures
 rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
 rsa_pkcs1_sha384, %% Corresponds to {sha384, rsa}
@@ -631,7 +631,7 @@ version.
       <desc>
 	<p>The verification fun is to be defined as follows:</p>
 
-	<code>
+	<code type="erl">
 fun(OtpCert :: #'OTPCertificate'{},
     Event, InitialUserState :: term()) ->
 	{valid, UserState :: term()} |
@@ -683,7 +683,7 @@ Types:
 
 	<p>Default option <c>verify_fun</c> in <c>verify_peer mode</c>:</p>
 
-      <code>
+      <code type="erl">
 {fun(_,{bad_cert, _} = Reason, _) ->
 	 {fail, Reason};
     (_,{extension, _}, UserState) ->
@@ -697,7 +697,7 @@ Types:
 
       <p>Default option <c>verify_fun</c> in mode <c>verify_none</c>:</p>
 
-       <code>
+       <code type="erl">
 {fun(_,{bad_cert, _}, UserState) ->
 	 {valid, UserState};
     (_,{extension, #'Extension'{critical = true}}, UserState) ->
@@ -826,7 +826,7 @@ marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_valid
     <datatype>
       <name name="root_fun"/>
       <desc>
-	<code>
+	<code type="erl">
 fun(Chain::[public_key:der_encoded()]) ->
 	{trusted_ca, DerCert::public_key:der_encoded()} | unknown_ca.
 	</code>
@@ -853,7 +853,7 @@ fun(Chain::[public_key:der_encoded()]) ->
       <name name="custom_user_lookup"/>
       <desc><p>The lookup fun is to defined as follows:</p>
 
-	<code>
+	<code type="erl">
 fun(psk, PSKIdentity :: binary(), UserState :: term()) ->
 	{ok, SharedSecret :: binary()} | error;
 fun(srp, Username :: binary(), UserState :: term()) ->
@@ -2227,7 +2227,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
         configuration of the signature algorithms, to <c>Version</c>.</p>
 
 	<p> Example: </p>
-	<code>
+	<code type="erl">
 
       1&gt; ssl:signature_algs(default, 'tlsv1.3').
       [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,

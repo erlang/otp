@@ -68,7 +68,7 @@ fun(_, _, _) -> false end</pre>
       <name name="format_fun"/>
       <desc><p>A fun used to format function arguments for BIF and function calls.
       By default the following fun will be used:</p>
-      <pre>
+      <pre type="erl">
 fun(Term, I) -> io_lib:print(Term, I, 80, 30) end</pre>
       </desc>
     </datatype>
@@ -152,7 +152,7 @@ end</code>
           indent the text correctly.</p>
           <p>Example:</p>
           <codeinclude file="../../examples/my_error_module.erl" tag="%% example" type="erl"></codeinclude>
-        <pre>
+        <pre type="erl">
 1> c(my_error_module).
 {ok,my_error_module}
 2> my_error_module:atom_to_string(1).

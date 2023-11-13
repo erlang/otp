@@ -782,7 +782,7 @@
       beginning with argument one and two (that is,
       <c><![CDATA[[a,b,[a,b,c]]]]></c> or <c><![CDATA[[a,b,{a,b}]]]></c>):</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{['$1', '$2', '$3'],
   [{'orelse', 
       {'=:=', '$3', {{'$1','$2'}}},
@@ -803,7 +803,7 @@
       a list that in turn begins with the second argument times
       two (that is, <c>[{[4,x],y},2]</c> or <c>[{[8], y, z},4])</c>:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{['$1', '$2'],[{'=:=', {'*', 2, '$2'}, {hd, {element, 1, '$1'}}}],
   []}]
     ]]></code>
@@ -813,7 +813,7 @@
       let the trace message be "as is", but set the sequential trace
       token label to 4711:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{['$1', '$1', '$1'],
   [{is_number, '$1'}],
   [{message, {process_dump}}]},
@@ -828,7 +828,7 @@
 
     <p>Generate a trace message only if the trace control word is set to 1:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{'_',
   [{'==',{get_tcw},{const, 1}}],
   []}]
@@ -836,7 +836,7 @@
 
     <p>Generate a trace message only if there is a <c>seq_trace</c> token:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{'_',
   [{'==',{is_seq_trace},{const, 1}}],
   []}]
@@ -845,7 +845,7 @@
     <p>Remove the <c>'silent'</c> trace flag when the first argument is
       <c>'verbose'</c>, and add it when it is <c>'silent':</c></p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{'$1',
   [{'==',{hd, '$1'},verbose}],
   [{trace, [silent],[]}]},
@@ -856,7 +856,7 @@
 
     <p>Add a <c>return_trace</c> message if the function is of arity 3:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{'$1',
   [{'==',{length, '$1'},3}],
   [{return_trace}]},
@@ -866,7 +866,7 @@
     <p>Generate a trace message only if the function is of arity 3 and the
       first argument is <c>'trace'</c>:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{['trace','$2','$3'],
   [],
   []},
@@ -889,7 +889,7 @@
     <p>Match all objects in an ETS table with arity &gt; 1 and the first
       element is 'gandalf', and return element 2:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{'$1',
   [{'==', gandalf, {element, 1, '$1'}},{'>=',{size, '$1'},2}],
   [{element,2,'$1'}]}]
@@ -905,7 +905,7 @@
     <p>Match tuples of three elements, where the second element is either
       <c>'merry'</c> or <c>'pippin'</c>, and return the whole objects:</p>
 
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 [{{'_',merry,'_'},
   [],
   ['$_']},

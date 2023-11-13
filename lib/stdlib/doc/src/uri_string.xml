@@ -197,7 +197,7 @@
 	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).</input>
 <![CDATA["foo+bar=1&city=%C3%B6rebro"]]>
 2> <![CDATA[uri_string:compose_query([{<<"foo bar">>,<<"1">>},
@@ -230,7 +230,7 @@
 	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],</input>
 1> [{encoding, latin1}]).
 <![CDATA["foo+bar=1&city=%F6rebro"
@@ -257,7 +257,7 @@
 	<c>compose_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input><![CDATA[uri_string:dissect_query("foo+bar=1&city=%C3%B6rebro").]]></input>
 [{"foo bar","1"},{"city","örebro"}]
 2> <![CDATA[uri_string:dissect_query(<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>).]]>
@@ -327,7 +327,7 @@
 	<p>See also the opposite operation <seemfa marker="#recompose/1">
 	<c>recompose/1</c></seemfa>.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").</input>
 #{fragment => "nose",host => "example.com",
   path => "/over/there",port => 8042,query => "name=ferret",
@@ -350,7 +350,7 @@
 	this function directly on a standard URI can effectively change it.</p>
 	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input>uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],</input>
 1> <input>scheme => "http"}).</input>
 #{host => "localhost-örebro",path => [],scheme => "http"}
@@ -362,7 +362,7 @@
 	example shows, that after each consecutive application of the function
 	the resulting URI will be changed. None of these URIs refer to the same
         resource.</p>
-	<pre>
+	<pre type="erl">
 <![CDATA[3> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
 <<"http://local%2Fhost/path">>
 4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
@@ -379,7 +379,7 @@
         <p>Unreserved characters defined in
         <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url> are not quoted.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input><![CDATA[uri_string:quote("SomeId/04").]]></input>
 <![CDATA["SomeId%2F04"]]>
 2> <input><![CDATA[uri_string:quote(<<"SomeId/04">>).]]></input>
@@ -400,7 +400,7 @@
         <p>Same as <c>quote/1</c>, but <c><anno>Safe</anno></c> allows user to
         provide a list of characters to be protected from encoding.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input><![CDATA[uri_string:quote("SomeId/04", "/").]]></input>
 <![CDATA["SomeId/04"]]>
 2> <input><![CDATA[uri_string:quote(<<"SomeId/04">>, "/").]]></input>
@@ -490,7 +490,7 @@
 	percent-encoding, is not supported.
 	If an argument is invalid, an error tuple is returned.</p>
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input><![CDATA[uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,]]></input>
 1> [{in_encoding, utf32},{out_encoding, utf8}]).
 <![CDATA[<<"foo%C3%B6bar"/utf8>>]]>
@@ -508,7 +508,7 @@
         <p>Percent decode characters.</p>
 
         <p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 1> <input><![CDATA[uri_string:unquote("SomeId%2F04").]]></input>
 <![CDATA["SomeId/04"]]>
 2> <input><![CDATA[uri_string:unquote(<<"SomeId%2F04">>).]]></input>

@@ -203,7 +203,7 @@
           The iteration can be ended prematurely in a controlled manner
           by throwing an exception.</p>
 	<p><em>Example:</em></p>
-        <pre>
+        <pre type="erl">
 &gt; <input>Name = "dummy.zip".</input>
 "dummy.zip"
 &gt; <input>{ok, {Name, Bin}} = zip:create(Name, [{"foo", &lt;&lt;"FOO"&gt;&gt;}, {"bar", &lt;&lt;"BAR"&gt;&gt;}], [memory]).</input>

@@ -70,7 +70,7 @@
     <c>year</c> elements followed by zero of more <c>holder</c> elements.<br/> 
     See example below:
     </p>
-    <code><![CDATA[
+    <code type="c"><![CDATA[
     <copyright>
       <year>1997</year>
       <year>2007</year>

@@ -176,7 +176,7 @@
 	can also be used for introducing delays after failed password checking attempts. Here is a simple
 	example of such a pwdfun:
 	</p>
-	<code>
+	<code type="erl">
 fun(User, Password, _PeerAddress, State) ->
         case lists:member({User,Password}, my_user_pwds()) of
             true ->
@@ -269,7 +269,7 @@ end.
       <seetype marker="ssh#id_string_common_option">id_string</seetype>.
       We start a daemon with that option:
       </p>
-      <code>
+      <code type="erl">
 	ssh:daemon(1234, [{id_string,"hi there"}, ... ]).
       </code>
       <p>and the daemon will present itself as:</p>

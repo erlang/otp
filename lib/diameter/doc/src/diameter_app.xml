@@ -495,7 +495,7 @@ application.</p>
 <p>
 The argument &packet; has the following signature.</p>
 
-<pre>
+<pre type="erl">
 #diameter_packet{header = #diameter_header{},
                  avps   = [#diameter_avp{}],
                  msg    = record() | undefined,

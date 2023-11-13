@@ -47,7 +47,7 @@
     <p>The <c>.rel</c> file contains one single Erlang term, which is
       called a <em>release specification</em>. The file has the
       following syntax:</p>
-    <code type="none">
+    <code type="erl">
 {release, {RelName,Vsn}, {erts, EVsn},
   [{Application, AppVsn} |
    {Application, AppVsn, Type} |

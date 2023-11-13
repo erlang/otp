@@ -86,7 +86,7 @@
     <p>The Erlang editing mode provides a command that knows about the
       Erlang comment structure and can be used to fill text paragraphs
       in comments. Ex:</p>
-    <code type="none">
+    <code type="erl">
       %% This is   just a very simple test to show
       %% how the Erlang fill
       %% paragraph   command works.</code>
@@ -163,7 +163,7 @@
       <item>
         <p><em><c>C-c C-a</c></em> (<c>erlang-align-arrows</c>) -
           aligns arrows after clauses inside a region.</p>
-        <code type="none">
+        <code type="erl">
         Example:
         
         sum(L) -> sum(L, 0).

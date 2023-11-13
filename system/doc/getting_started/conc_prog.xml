@@ -53,7 +53,7 @@
     <p>The Erlang BIF <c>spawn</c> is used to create a new process:
       <c>spawn(Module, Exported_Function, List of Arguments)</c>.
       Consider the following module:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut14).
 
 -export([start/0, say_something/2]).
@@ -116,7 +116,7 @@ spawn(tut14, say_something, [goodbye, 3]).</code>
     <title>Message Passing</title>
     <p>In the following example two processes are created and
     they send messages to each other a number of times.</p>
-    <code type="none">
+    <code type="erl">
 -module(tut15).
 
 -export([start/0, ping/2, pong/0]).
@@ -173,7 +173,7 @@ spawn(tut15, ping, [3, Pong_PID]),</code>
 tut15:ping(3, Pong_PID)</code>
     <p>&lt;0.36.0&gt; is the return value from the <c>start</c> function.</p>
     <p>The process "pong" now does:</p>
-    <code type="none">
+    <code type="erl">
 receive
     finished ->
         io:format("Pong finished~n", []);
@@ -184,7 +184,7 @@ receive
 end.</code>
     <p>The <c>receive</c> construct is used to allow processes to wait
       for messages from other processes. It has the following format:</p>
-    <code type="none">
+    <code type="c">
 receive
    pattern1 ->
        actions1;
@@ -259,7 +259,7 @@ Pong_PID ! {ping, self()},</code>
       for "pong", this lands up in the variable <c>Ping_PID</c> in
       the <c>receive</c> previously explained.)</p>
     <p>"Ping" now waits for a reply from "pong":</p>
-    <code type="none">
+    <code type="erl">
 receive
     pong ->
         io:format("Ping received pong~n", [])
@@ -271,7 +271,7 @@ ping(N - 1, Pong_PID)</code>
     <p><c>N-1</c> causes the first argument to be decremented until it
       becomes 0. When this occurs, the first clause of <c>ping/2</c>
       is executed:</p>
-    <code type="none">
+    <code type="erl">
 ping(0, Pong_PID) ->
     Pong_PID !  finished,
     io:format("ping finished~n", []);</code>
@@ -296,7 +296,7 @@ ping(0, Pong_PID) ->
 register(some_atom, Pid)</code>
     <p>Let us now rewrite the ping pong example using this and give
       the name <c>pong</c> to the "pong" process:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut16).
 
 -export([start/0, ping/1, pong/0]).
@@ -340,7 +340,7 @@ Ping received pong
 ping finished
 Pong finished</pre>
     <p>Here the <c>start/0</c> function,</p>
-    <code type="none">
+    <code type="erl">
 register(pong, spawn(tut16, pong, [])),</code>
     <p>both spawns the "pong" process and gives it the name <c>pong</c>.
       In the "ping" process, messages can be sent to <c>pong</c> by:</p>
@@ -397,7 +397,7 @@ $ <input>erl -sname my_name</input></pre>
       full.)</p>
     <p>Here is the ping pong example modified to run on two separate
       nodes:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut17).
 
 -export([start_ping/1, start_pong/0,  ping/2, pong/0]).
@@ -447,7 +447,7 @@ Erlang (BEAM) emulator version 5.2.3.7 [hipe] [threads:0]
 Eshell V5.2.3.7  (abort with ^G)
 (pong@gollum)1></pre>
     <p>Now the "pong" process on gollum is started:</p>
-    <pre>
+    <pre type="erl">
 (pong@gollum)1> <input>tut17:start_pong().</input>
 true</pre>
     <p>And the "ping" process on kosken is started (from the code above you
@@ -471,7 +471,7 @@ Pong finished
     <p>Looking at the <c>tut17</c> code, you see that the <c>pong</c>
       function itself is unchanged, the following lines work in the same way
       irrespective of on which node the "ping" process is executes:</p>
-    <code type="none">
+    <code type="erl">
 {ping, Ping_PID} ->
     io:format("Pong received ping~n", []),
     Ping_PID ! pong,</code>
@@ -481,7 +481,7 @@ Pong finished
       if the process is on the same node or on a different node.</p>
     <p>A difference is how messages are sent to a registered process on
       another node:</p>
-    <code type="none">
+    <code type="erl">
 {pong, Pong_Node} ! {ping, self()},</code>
     <p>A tuple <c>{registered_name,node_name}</c> is used instead of
       just the <c>registered_name</c>.</p>
@@ -490,7 +490,7 @@ Pong finished
       used to start processes in other nodes.</p>
       <p>The next example is the ping pong program, yet again,
       but this time "ping" is started in another node:</p>
-    <code type="none">
+    <code type="erl">
 -module(tut18).
 
 -export([start/1,  ping/2, pong/0]).
@@ -570,7 +570,7 @@ ping finished</pre>
       is located to send a message.</p>
     <p>File <c>messenger.erl</c>:</p>
     <marker id="ex"></marker>
-    <code type="none">
+    <code type="erl">
 %%% Message passing utility.  
 %%% User interface:
 %%% logon(Name)
@@ -750,7 +750,7 @@ await_result() ->
     <p>Four Erlang nodes are started up: messenger@super, c1@bilbo,
       c2@kosken, c3@gollum.</p>
     <p>First the server at messenger@super is started up:</p>
-    <pre>
+    <pre type="erl">
 (messenger@super)1> <input>messenger:start_server().</input>
 true</pre>
     <p>Now Peter logs on at c1@bilbo:</p>
@@ -769,7 +769,7 @@ logged_on</pre>
 true
 logged_on</pre>
     <p>Now Peter sends Fred a message:</p>
-    <pre>
+    <pre type="erl">
 (c1@bilbo)2> <input>messenger:message(fred, "hello").</input>
 ok
 sent</pre>
@@ -783,7 +783,7 @@ sent
 (c3@gollum)3> <input>messenger:logoff().</input>
 logoff</pre>
     <p>James now tries to send a message to Fred:</p>
-    <pre>
+    <pre type="erl">
 (c2@kosken)2> <input>messenger:message(fred, "peter doesn't like you").</input>
 ok
 receiver_not_found</pre>
@@ -810,14 +810,14 @@ receiver_not_found</pre>
       is the same as <c>Key</c>. The first element is position 1. If it
       finds a tuple where the element at <c>Position</c> is the same as
       <c>Key</c>, it returns <c>true</c>, otherwise <c>false</c>.</p>
-    <pre>
+    <pre type="erl">
 3> <input>lists:keymember(a, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
 true
 4> <input>lists:keymember(p, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
 false</pre>
     <p><c>lists:keydelete</c> works in the same way but deletes
       the first tuple found (if any) and returns the remaining list:</p>
-    <pre>
+    <pre type="erl">
 5> <input>lists:keydelete(a, 2, [{x,y,z},{b,b,b},{b,a,c},{q,r,s}]).</input>
 [{x,y,z},{b,b,b},{q,r,s}]</pre>
     <p><c>lists:keysearch</c> is like <c>lists:keymember</c>, but it
@@ -853,7 +853,7 @@ whereis(mess_client) </code>
     <code type="none">
 mess_client ! {message_to, fred, "hello"}</code>
     <p>The client sends the message to the server by:</p>
-    <code type="none">
+    <code type="erl">
 {messenger, messenger@super} ! {self(), message_to, fred, "hello"},</code>
     <p>And waits for a reply from the server.</p>
     <p>The server receives this message and calls:</p>
@@ -895,7 +895,7 @@ ToPid ! {message_from, peter, "hello"}, </code>
     <code type="none">
 From ! {messenger, sent} </code>
     <p>Fred's client receives the message and prints it:</p>
-    <code type="none">
+    <code type="erl">
 {message_from, peter, "hello"} ->
     io:format("Message from ~p: ~p~n", [peter, "hello"])</code>
     <p>Peter's client receives the message in

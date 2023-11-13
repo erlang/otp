@@ -49,7 +49,7 @@
       for the application.</p>
     <p>The file must contain a single Erlang term, which is called an
       <em>application specification</em>:</p>
-    <code type="none">
+    <code type="erl">
 {application, Application,
   [{description,  Description},
    {id,           Id},
@@ -198,7 +198,7 @@ ApplicationVersion = string()</code>
         <p>Start phases can be used to synchronize startup of an
           application and its included applications. In this case,
           key <c>mod</c> must be specified as follows:</p>
-        <code type="none">
+        <code type="erl">
 {mod, {application_starter,[Module,StartArgs]}}</code>
         <p>The application master then calls <c>Module:start/2</c>
           for the primary application, followed by calls to

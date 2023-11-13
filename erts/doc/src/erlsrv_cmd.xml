@@ -468,7 +468,7 @@
 
     <p>A brief example in C of how to set the console control handler:</p>
 
-    <code type="none"><![CDATA[
+    <code type="c"><![CDATA[
 #include <windows.h>
 /*
 ** A Console control handler that ignores the log off events,

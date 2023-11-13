@@ -112,7 +112,7 @@
       </item>
     </list>
     <p>The following example shows an <c>agent.conf</c> file: </p>
-    <pre>
+    <pre type="erl">
 {intAgentUDPPort, 4000}.
 {intAgentTransports,
  [{transportDomainUdpIpv4, {141,213,11,24}},
@@ -123,7 +123,7 @@
 
     <p>These are the supported entries and their value types: </p>
 
-    <pre>
+    <pre type="erl">
       {snmpEngine,               string()}.             % Mandatory
       {snmpEngineMaxMessageSize, non_neg_integer()}.    % Mandatory
       {intAgentUDPPort,          pos_integer()}.        % Optional
@@ -132,7 +132,7 @@
 
     <p>And here are the transport value types: </p>
 
-    <pre>
+    <pre type="erl">
       intAgentTransports() :: [intAgentTransport()].
       intAgentTransport()  :: {TDomain, Addr} |
                               {TDomain, EAddr, Kind} |
@@ -156,7 +156,7 @@
     possible to also specify a transport (for that domain) with a specific
     <c>Kind</c>. This is for example <em>not</em> allowed:</p>
 
-    <pre>
+    <pre type="erl">
  [{transportDomainUdpIpv4, {{141,213,11,24}, 4000}},
   {transportDomainUdpIpv4, {{141,213,11,24}, 4001}, trap_sender}].
     </pre>
@@ -231,7 +231,7 @@
       </item>
     </list>
     <p>The following example shows a valid <c>standard.conf</c> file: </p>
-    <pre>
+    <pre type="erl">
 {sysDescr, "Erlang SNMP agent"}.
 {sysObjectID, [1,2,3]}.
 {sysContact, "(mbj,eklas)@erlang.ericsson.se"}.

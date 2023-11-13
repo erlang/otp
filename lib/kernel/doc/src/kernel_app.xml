@@ -406,7 +406,7 @@
 	the actual time <c>T</c> a node have been unresponsive when
 	detected may vary between <c>MinT</c> and <c>MaxT</c>,
 	where:</p>
-        <code type="none">
+        <code type="c">
 MinT = NetTickTime - NetTickTime / NetTickIntensity
 MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
         <p><c>NetTickTime</c> defaults to <c>60</c> seconds and
@@ -660,7 +660,7 @@ erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{file=>"/tmp/erlan
       <tag><c>error_logger_format_depth</c></tag>
       <item>Replaced by setting the <seeerl marker="logger_formatter#depth"><c>depth</c></seeerl>
       parameter of the default handlers formatter. Example:
-      <code type="none">
+      <code type="erl">
 erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatter,#{legacy_header=>true,template=>[{logger_formatter,header},"\n",msg,"\n"],depth=>10}}}]'
       </code>
       </item>

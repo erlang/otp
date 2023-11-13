@@ -103,7 +103,7 @@
           want to execute <c>pxw</c> graphics code on this node, you can
           start server <c>pxw_server</c> as a pseudo server at
           the slave node. This is illustrated as follows:</p>
-        <code type="none">
+        <code type="erl">
 rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
       </desc>
     </func>
@@ -151,7 +151,7 @@ rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
             set to the display of the master node.</item>
         </list>
         <p>The following code is executed to achieve this:</p>
-        <code type="none">
+        <code type="erl">
 E = " -env DISPLAY " ++ net_adm:localhost() ++ ":0 ",
 Arg = "-mnesia_dir " ++ M ++ " -pa " ++ Dir ++ E,
 slave:start(H, Name, Arg).</code>

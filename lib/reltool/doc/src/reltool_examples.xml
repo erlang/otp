@@ -49,7 +49,7 @@
     <seemfa marker="reltool#start_link/1"><c>reltool:get_server/1</c></seemfa>
     </p>
     
-    <pre>
+    <pre type="erl">
 Erlang/OTP 20 [erts-9.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
 [hipe] [kernel-poll:false]
 Eshell V9.0  (abort with ^G)
@@ -74,7 +74,7 @@ ok
   <section>
     <title>Inspecting the configuration</title>
 
-    <pre>
+    <pre type="erl">
 Erlang/OTP 20 [erts-9.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
 [hipe] [kernel-poll:false]
 Eshell V9.0  (abort with ^G)
@@ -299,7 +299,7 @@ Eshell V9.0  (abort with ^G)
 
   <section>
     <title>Generate release and script files</title>
-    <pre>
+    <pre type="erl">
 Erlang/OTP 20 [erts-10.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
 [hipe] [kernel-poll:false]
 Eshell V10.0  (abort with ^G)
@@ -367,7 +367,7 @@ ok
 
   <section>
     <title>Create a target system</title>
-    <pre>
+    <pre type="erl">
 Erlang/OTP 20 [erts-10.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:10]
 [hipe] [kernel-poll:false]
 Eshell V10.0  (abort with ^G)

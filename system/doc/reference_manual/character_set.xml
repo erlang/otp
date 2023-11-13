@@ -148,7 +148,7 @@
     <p>Two examples, both selecting Latin-1 as the source file encoding:</p>
       <pre>
 %% For this file we have chosen encoding = Latin-1</pre>
-      <pre>
+      <pre type="erl">
 %% -*- coding: latin-1 -*-</pre>
 
      <change><p>The default encoding for Erlang source files was changed from

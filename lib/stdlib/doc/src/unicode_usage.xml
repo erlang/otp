@@ -339,7 +339,7 @@
           (<c>latin1</c>) encoding. It was changed to UTF-8 in Erlang/OTP 17.0.
           You can control the encoding by a comment like the following in the
           beginning of the file:</p>
-        <code>
+        <code type="erl">
 %% -*- coding: utf-8 -*-</code>
         <p>This of course requires your editor to support UTF-8 as well. The
           same comment is also interpreted by functions like
@@ -420,7 +420,7 @@
       binaries have characters encoded in UTF-8 and the lists contain such
       binaries or numbers representing Unicode code points:</p>
 
-    <code type="none">
+    <code type="erl">
 unicode_binary() = binary() with characters encoded in UTF-8 coding standard
 
 chardata() = charlist() | unicode_binary()
@@ -433,7 +433,7 @@ charlist() = maybe_improper_list(char() | unicode_binary() | charlist(),
       UTF-8, but that is a special case to allow for conversions to and from
       external data:</p>
 
-    <code type="none">
+    <code type="erl">
 external_unicode_binary() = binary() with characters coded in a user-specified
   Unicode encoding other than UTF-8 (UTF-16 or UTF-32)
 
@@ -505,7 +505,7 @@ Bin4 = &lt;&lt;"Hello"/utf16&gt;&gt;,</code>
         heuristically. Typically you will see heuristic detection in a
         situation like this:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>[97,98,99].</input>
 "abc"
 2> <input>&lt;&lt;97,98,99&gt;&gt;.</input>
@@ -536,7 +536,7 @@ Bin4 = &lt;&lt;"Hello"/utf16&gt;&gt;,</code>
 
       <p>The following examples show the two startup options:</p>
 
-      <pre>
+      <pre type="erl">
 $ <input>erl +pc latin1</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -552,7 +552,7 @@ Eshell V5.10.1  (abort with ^G)
 5> <input>&lt;&lt;229/utf8,228/utf8,246/utf8&gt;&gt;.</input>
 &lt;&lt;"åäö"/utf8&gt;&gt;</pre>
 
-      <pre>
+      <pre type="erl">
 $ <input>erl +pc unicode</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -583,7 +583,7 @@ Eshell V5.10.1  (abort with ^G)
         and friends when modifier <c>t</c> is used with <c>~p</c> or
         <c>~P</c>:</p>
 
-      <pre>
+      <pre type="erl">
 $ <input>erl +pc latin1</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -592,7 +592,7 @@ Eshell V5.10.1  (abort with ^G)
 {&lt;&lt;"åäö"&gt;&gt;,&lt;&lt;"åäö"/utf8&gt;&gt;,&lt;&lt;208,174,208,189,208,184,208,186,208,190,208,180&gt;&gt;}
 ok</pre>
 
-      <pre>
+      <pre type="erl">
 $ <input>erl +pc unicode</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -645,7 +645,7 @@ en_US.UTF-8</pre>
       <seemfa marker="stdlib:io#getopts/1"><c>io:getopts()</c></seemfa>
       can be used when the shell is started:</p>
 
-    <pre>
+    <pre type="erl">
 $ <input>LC_CTYPE=en_US.ISO-8859-1 erl</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -686,7 +686,7 @@ Eshell V5.10.1  (abort with ^G)
     <p>Now you are set up for some Unicode input and output. The simplest thing
       to do is to enter a string in the shell:</p>
 
-    <pre>
+    <pre type="erl">
 $ <input>erl</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -735,7 +735,7 @@ Eshell V5.10.1  (abort with ^G)
       and then print the <seetype marker="unicode#charlist">charlist()</seetype>
       represented by it.
     </p>
-<pre>
+<pre type="erl">
 #!/usr/bin/env escript
 %%! -kernel standard_io_encoding latin1
 
@@ -1151,7 +1151,7 @@ $ escript test.es
       Erlang terms to a file, you are advised to insert such comments when
       applicable:</p>
 
-    <pre>
+    <pre type="erl">
 $ <input>erl +fna +pc unicode</input>
 Erlang R16B (erts-5.10.1) [source]  [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -1304,7 +1304,7 @@ ok
 
       <p>Notice that error handling is omitted from the code:</p>
 
-      <code>
+      <code type="erl">
 open_bom_file_for_reading(File) -&gt;
     {ok,F} = file:open(File,[read,binary]),
     {ok,Bin} = file:read(F,4),
@@ -1325,7 +1325,7 @@ open_bom_file_for_reading(File) -&gt;
 
       <p>To open a file for writing and place the BOM first is even simpler:</p>
 
-      <code>
+      <code type="erl">
 open_bom_file_for_writing(File,Encoding) -&gt;
     {ok,F} = file:open(File,[write,binary]),
     ok = file:write(File,unicode:encoding_to_bom(Encoding)),
@@ -1350,7 +1350,7 @@ open_bom_file_for_writing(File,Encoding) -&gt;
         control character <c>s</c> in a formatting string, it accepts all
         Unicode code points and expects binaries to be in UTF-8:</p>
 
-      <pre>
+      <pre type="erl">
 1> <input>io:format("~ts~n",[&lt;&lt;"åäö"/utf8&gt;&gt;]).</input>
 åäö
 ok
@@ -1384,7 +1384,7 @@ ok</pre>
         you want to communicate with is Unicode-aware, the returned list can
         still be used directly:</p>
 
-      <pre>
+      <pre type="erl">
 $ <input>erl +pc unicode</input>
 Erlang R16B (erts-5.10.1) [source] [async-threads:0] [hipe] [kernel-poll:false]
 
@@ -1426,7 +1426,7 @@ ok</pre>
         The <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl>
         module can be used to determine if data can be interpreted as UTF-8:</p>
 
-      <code>
+      <code type="erl">
 heuristic_encoding_bin(Bin) when is_binary(Bin) -&gt;
     case unicode:characters_to_binary(Bin,utf8,utf8) of
 	Bin ->
@@ -1444,7 +1444,7 @@ heuristic_encoding_bin(Bin) when is_binary(Bin) -&gt;
         of character boundaries when reading chunks of bytes in UTF-8
         encoding:</p>
 
-      <code>
+      <code type="erl">
 heuristic_encoding_file(FileName) -&gt;
     {ok,F} = file:open(FileName,[read,binary]),
     loop_through_file(F,&lt;&lt;&gt;&gt;,file:read(F,1024)).
@@ -1468,7 +1468,7 @@ loop_through_file(F,Acc,{ok,Bin}) when is_binary(Bin) -&gt;
         <seemfa marker="stdlib:io#get_chars/3"><c>io:get_chars/3</c></seemfa>,
         as we have to read characters with a code point &gt; 255:</p>
 
-      <code>
+      <code type="erl">
 heuristic_encoding_file2(FileName) -&gt;
     {ok,F} = file:open(FileName,[read,binary,{encoding,utf8}]),
     loop_through_file2(F,io:get_chars(F,'',1024)).
@@ -1491,7 +1491,7 @@ loop_through_file2(F,Bin) when is_binary(Bin) -&gt;
         converting the binary of UTF-8 encoded characters back to a Unicode
         string:</p>
 
-      <code>
+      <code type="erl">
 utf8_list_to_string(StrangeList) ->
   unicode:characters_to_list(list_to_binary(StrangeList)).</code>
     </section>
@@ -1516,7 +1516,7 @@ utf8_list_to_string(StrangeList) ->
         lists of UTF-8 instead of proper Unicode strings, and then convert them
         to UTF-8 in a binary or on a file:</p>
 
-      <code>
+      <code type="erl">
 wrong_thing_to_do() ->
   {ok,Bin} = file:read_file("an_utf8_encoded_file.txt"),
   MyList = binary_to_list(Bin), %% Wrong! It is an utf8 binary!
@@ -1529,7 +1529,7 @@ wrong_thing_to_do() ->
       <p>Ensure you know what a binary contains before converting it to a
         string. If no other option exists, try heuristics:</p>
 
-      <code>
+      <code type="erl">
 if_you_can_not_know() ->
   {ok,Bin} = file:read_file("maybe_utf8_encoded_file.txt"),
   MyList = case unicode:characters_to_list(Bin) of

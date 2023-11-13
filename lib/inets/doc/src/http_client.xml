@@ -51,7 +51,7 @@
 
     <p>The following is to be put in the Erlang node application configuration file
       to start a profile at application startup:</p>
-    <pre>
+    <pre type="erl">
       [{inets, [{services, [{httpc, PropertyList}]}]}]</pre>
     <p>For valid properties, see 
     <seeerl marker="httpc">httpc(3)</seeerl>. </p>
@@ -109,7 +109,7 @@
       httpc:request(put, {"http:///v1/kv/foo", [], [], "hello"}, [], []).</code>
     <p>Start an HTTP client profile:</p>
    
-    <code><![CDATA[
+    <code type="erl"><![CDATA[
       10 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
       {ok, <0.45.0>}       
       ]]></code>

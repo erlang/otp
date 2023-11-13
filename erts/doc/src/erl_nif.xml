@@ -77,7 +77,7 @@
 
     <p>A minimal example of a NIF library can look as follows:</p>
 
-    <code type="none">
+    <code type="c">
 /* niftest.c */
 #include &lt;erl_nif.h&gt;
 
@@ -95,7 +95,7 @@ ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)</code>
 
     <p>The Erlang module can look as follows:</p>
 
-    <code type="none">
+    <code type="erl">
 -module(niftest).
 
 -export([init/0, hello/0]).
@@ -181,7 +181,7 @@ $> erl
           created during loading can be referred as a term in any <c>ErlNifEnv</c>.
           That is, the best practice it to create all your atoms during
           loading and store them in static/global variables, for example:</p>
-          <code type="none"><![CDATA[
+          <code type="c"><![CDATA[
 #include <erl_nif.h>
 
 ERL_NIF_TERM world_atom;
@@ -268,7 +268,7 @@ ERL_NIF_INIT(niftest, nif_funcs, load, NULL, NULL, NULL)
         <marker id="enif_resource_example"/>
         <p>The following is a template example of how to create and return a
           resource object.</p>
-        <code type="none">
+        <code type="c">
 ERL_NIF_TERM term;
 MyStruct* obj = enif_alloc_resource(my_resource_type, sizeof(MyStruct));
 
@@ -412,7 +412,7 @@ return term;</code>
             <c>enif_free_iovec()</c></seecref></item>
           </list>
         <p>Typical usage when writing to a file descriptor looks like this:</p>
-          <code type="none"><![CDATA[
+          <code type="c"><![CDATA[
 int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
                ErlNifIOQueue *q, int fd) {
 
@@ -734,7 +734,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
       </item>
       <tag><marker id="ErlNifFunc"/><c>ErlNifFunc</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef struct {
     const char* name;
     unsigned arity;
@@ -871,7 +871,7 @@ typedef void ErlNifOnHaltCallback(void *priv_data);</code>
       </item>
       <tag><marker id="ErlNifResourceTypeInit"/><c>ErlNifResourceTypeInit</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef struct {
     ErlNifResourceDtor* dtor;       // #1 Destructor
     ErlNifResourceStop* stop;       // #2 Select stop
@@ -895,7 +895,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* caller_env, void* obj);</code>
       </item>
       <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef void ErlNifResourceDown(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <seecref marker="#enif_monitor_process">
@@ -916,7 +916,7 @@ typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent ev
       </item>
       <tag><marker id="ErlNifResourceDynCall"/><c>ErlNifResourceDynCall</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_data);</code>
         <p>
 	  The function prototype of a dynamic resource call function, called by
@@ -1023,7 +1023,7 @@ typedef enum {
       </item>
       <tag><marker id="ErlNifIOVec"/><c>ErlNifIOVec</c></tag>
       <item>
-        <code type="none">
+        <code type="c">
 typedef struct {
   int iovcnt;
   size_t size;
@@ -1442,7 +1442,7 @@ typedef struct {
           This is needed only if a <c>NULL</c> environment is passed to
           <seecref marker="#enif_inspect_iovec">
           <c>enif_inspect_iovec</c></seecref>.</p>
-          <code type="none"><![CDATA[
+          <code type="c"><![CDATA[
 ErlNifIOVec *iovec = NULL;
 size_t max_elements = 128;
 ERL_NIF_TERM tail;
@@ -1802,7 +1802,7 @@ enif_free_iovec(iovec);]]></code>
            <c>NULL</c> or a ErlNifIOVec structure that should be used if
            possible. e.g.
         </p>
-        <code type="none"><![CDATA[
+        <code type="c"><![CDATA[
 /* Don't use a pre-allocated structure */
 ErlNifIOVec *iovec = NULL;
 enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
@@ -2715,7 +2715,7 @@ enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
           <c>env</c> that the <c>map</c> belongs to. The iterator must be
           destroyed by calling <seecref marker="#enif_map_iterator_destroy">
           <c>enif_map_iterator_destroy</c></seecref>:</p>
-        <code type="none">
+        <code type="c">
 ERL_NIF_TERM key, value;
 ErlNifMapIterator iter;
 enif_map_iterator_create(env, my_map, &amp;iter, ERL_NIF_MAP_ITERATOR_FIRST);
@@ -3414,7 +3414,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  information for both failed and successful calls. Do NOT use equality tests
 	  like <c>==</c>, as that may cause your application to stop working.</p>
 	  <p>Example:</p>
-	  <code type="none">
+	  <code type="c">
 retval = enif_select(env, fd, ERL_NIF_SELECT_STOP, resource, ref);
 if (retval &lt; 0) {
     /* handle error */

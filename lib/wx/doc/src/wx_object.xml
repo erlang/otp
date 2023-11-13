@@ -64,7 +64,7 @@ terminate(Reason, State)</p>
 
   <p>Example:</p>
 
-  <pre>  -module(myDialog).
+  <pre type="erl">  -module(myDialog).
   -export([new/2, show/1, destroy/1]).  %% API
   -export([init/1, handle_call/3, handle_event/2,
            handle_info/2, code_change/3, terminate/2]).
