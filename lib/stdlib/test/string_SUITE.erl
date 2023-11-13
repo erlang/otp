@@ -956,14 +956,14 @@ test_1(Line, Func, Str, Args, Exp) ->
         check_types(Line, Func, Args, Res),
         case res(Res, Exp) of
             true -> ok;
-            {Res1,Exp1} when is_tuple(Exp1) ->
+            {Res1,Exp1} when is_binary(Exp1) orelse is_list(Exp1) ->
+                io:format("~p:~p: ~ts~w =>~n  :~ts~w:~ts~w~n",
+                          [Func,Line, Str,Str, Res1,Res1, Exp1,Exp1]),
+                exit({error, Func});
+            {Res1,Exp1} ->
                 io:format("~p~n",[Args]),
                 io:format("~p:~p: ~ts~w =>~n  :~w:~w~n",
                           [Func,Line, Str,Str,Res1,Exp1]),
-                exit({error, Func});
-            {Res1,Exp1} ->
-                io:format("~p:~p: ~ts~w =>~n  :~ts~w:~ts~w~n",
-                          [Func,Line, Str,Str, Res1,Res1, Exp1,Exp1]),
                 exit({error, Func})
         end
     catch
