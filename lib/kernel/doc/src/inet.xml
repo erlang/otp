@@ -1134,6 +1134,10 @@ get_tcpi_sacked(Sock) ->
               has been set on <c><anno>Socket</anno></c>. On non-Windows
               systems this option is silently ignored.
             </p>
+	    <note>
+	      <p>This option is <em>currently</em> not supported for
+	      socket created with <c>inet_backend = socket</c></p>
+	    </note>
           </item>
           <tag><c>{header, Size}</c></tag>
           <item>
@@ -1678,7 +1682,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 See also the
                 <seeerl marker="#option-exclusiveaddruse"><c>exclusiveaddruse</c></seeerl>
                 option.
-              </p>
+	      </p>
             </note>
             <note>
               <p>
@@ -1691,7 +1695,11 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 by enabling <c>reuseport</c> and then disabling
                 <c>reuseport_lb</c> both will end up being disabled.
               </p>
-            </note>
+	    </note>
+	    <note>
+	      <p>This option is <em>currently</em> not supported for
+	      socket created with <c>inet_backend = socket</c></p>
+	    </note>
           </item>
           <tag><c>{reuseport_lb, Boolean}</c><marker id="option-reuseport_lb"/></tag>
           <item>
@@ -1712,6 +1720,10 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 <c>reuseport</c> both will end up being disabled.
               </p>
             </note>
+	    <note>
+	      <p>This option is <em>currently</em> not supported for
+	      socket created with <c>inet_backend = socket</c></p>
+	    </note>
           </item>
           <tag><c>{send_timeout, Integer}</c></tag>
           <item>
