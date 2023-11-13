@@ -609,14 +609,12 @@ next_catch(Process* c_p, Eterm *reg) {
 
             if (BeamIsReturnTrace(return_address)) {
                 if (return_address == beam_exception_trace) {
-                    ErtsTracer *tracer;
                     ErtsCodeMFA *mfa;
 
                     mfa = (ErtsCodeMFA*)cp_val(frame[0]);
-                    tracer = ERTS_TRACER_FROM_ETERM(&frame[1]);
 
                     ASSERT_MFA(mfa);
-                    erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
+                    erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1]);
                 }
                 ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
             } else if (BeamIsReturnCallAccTrace(return_address)) {

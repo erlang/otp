@@ -972,49 +972,38 @@ erts_trace_return_to(Process *p, ErtsCodePtr pc)
  */
 void
 erts_trace_return(Process* p, ErtsCodeMFA *mfa,
-                  Eterm retval, ErtsTracer *tracer)
+                  Eterm retval, ErtsTracer tracer)
 {
     Eterm* hp;
     Eterm mfa_tuple;
-    Uint32 meta_flags;
-    Uint32 *tracee_flags;
+    Uint32 tracee_flags;
 
-    ASSERT(tracer);
-    if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
+    if (ERTS_TRACER_COMPARE(tracer, erts_tracer_true)) {
 	/* Breakpoint trace enabled without specifying tracer =>
 	 *   use process tracer and flags
 	 */
-	tracer = &ERTS_TRACER(p);
+	tracer = ERTS_TRACER(p);
+        tracee_flags = ERTS_TRACE_FLAGS(p);
+        if (! (tracee_flags & F_TRACE_CALLS))
+            return;
     }
-    if (ERTS_TRACER_IS_NIL(*tracer)) {
+    else {
+        /* Meta tracing with specified tracer and fixed flags */
+        tracee_flags = F_TRACE_CALLS | F_NOW_TS;
+    }
+
+    if (ERTS_TRACER_IS_NIL(tracer)) {
 	/* Trace disabled */
 	return;
     }
-    ASSERT(IS_TRACER_VALID(*tracer));
-    if (tracer == &ERTS_TRACER(p)) {
-	/* Tracer specified in process structure =>
-	 *   non-breakpoint trace =>
-	 *     use process flags
-	 */
-	tracee_flags = &ERTS_TRACE_FLAGS(p);
-        if (! (*tracee_flags & F_TRACE_CALLS)) {
-            return;
-        }
-    } else {
-	/* Tracer not specified in process structure =>
-	 *   tracer specified in breakpoint =>
-	 *     meta trace =>
-	 *       use fixed flag set instead of process flags
-	 */
-	meta_flags = F_TRACE_CALLS | F_NOW_TS;
-	tracee_flags = &meta_flags;
-    }
+
+    ASSERT(IS_TRACER_VALID(tracer));
 
     hp = HAlloc(p, 4);
     mfa_tuple = TUPLE3(hp, mfa->module, mfa->function,
                        make_small(mfa->arity));
     hp += 4;
-    send_to_tracer_nif_raw(p, NULL, *tracer, *tracee_flags, p->common.id,
+    send_to_tracer_nif_raw(p, NULL, tracer, tracee_flags, p->common.id,
                            NULL, TRACE_FUN_T_CALL, am_return_from, mfa_tuple,
                            retval, am_true);
 }
@@ -1028,51 +1017,41 @@ erts_trace_return(Process* p, ErtsCodeMFA *mfa,
  */
 void
 erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
-		     ErtsTracer *tracer)
+		     ErtsTracer tracer)
 {
     Eterm* hp;
     Eterm mfa_tuple, cv;
-    Uint32 meta_flags;
-    Uint32 *tracee_flags;
+    Uint32 tracee_flags;
 
-    ASSERT(tracer);
-    if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
+    if (ERTS_TRACER_COMPARE(tracer, erts_tracer_true)) {
 	/* Breakpoint trace enabled without specifying tracer =>
 	 *   use process tracer and flags
 	 */
-	tracer = &ERTS_TRACER(p);
+	tracer = ERTS_TRACER(p);
+        tracee_flags = ERTS_TRACE_FLAGS(p);
+        if (! (tracee_flags & F_TRACE_CALLS))
+            return;
     }
-    if (ERTS_TRACER_IS_NIL(*tracer)) {
+    else {
+        /* Meta tracing with specified tracer and fixed flags */
+        tracee_flags = F_TRACE_CALLS | F_NOW_TS;
+    }
+
+    if (ERTS_TRACER_IS_NIL(tracer)) {
 	/* Trace disabled */
 	return;
     }
-    ASSERT(IS_TRACER_VALID(*tracer));
-    if (tracer == &ERTS_TRACER(p)) {
-	/* Tracer specified in process structure =>
-	 *   non-breakpoint trace =>
-	 *     use process flags
-	 */
-	tracee_flags = &ERTS_TRACE_FLAGS(p);
-        if (! (*tracee_flags & F_TRACE_CALLS)) {
-            return;
-        }
-    } else {
-	/* Tracer not specified in process structure =>
-	 *   tracer specified in breakpoint =>
-	 *     meta trace =>
-	 *       use fixed flag set instead of process flags
-	 */
-	meta_flags = F_TRACE_CALLS | F_NOW_TS;
-	tracee_flags = &meta_flags;
-    }
+
+    ASSERT(IS_TRACER_VALID(tracer));
 
     hp = HAlloc(p, 7);;
     mfa_tuple = TUPLE3(hp, mfa->module, mfa->function, make_small(mfa->arity));
     hp += 4;
     cv = TUPLE2(hp, class, value);
     hp += 3;
-    send_to_tracer_nif_raw(p, NULL, *tracer, *tracee_flags, p->common.id,
-                           NULL, TRACE_FUN_T_CALL, am_exception_from, mfa_tuple, cv, am_true);
+    send_to_tracer_nif_raw(p, NULL, tracer, tracee_flags, p->common.id,
+                           NULL, TRACE_FUN_T_CALL, am_exception_from,
+                           mfa_tuple, cv, am_true);
 }
 
 /*

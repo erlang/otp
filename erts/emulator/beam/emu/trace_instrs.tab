@@ -24,7 +24,7 @@ return_trace() {
 
     SWAPOUT;		/* Needed for shared heap */
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, x(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
+    erts_trace_return(c_p, mfa, x(0), E[2]/* tracer */);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
     E += 1 + BEAM_RETURN_TRACE_FRAME_SZ;

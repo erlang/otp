@@ -1046,6 +1046,7 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
                 trace_cp = beam_return_trace;
             }
 
+            ERTS_CT_ASSERT(BEAM_RETURN_TRACE_FRAME_SZ == 2);
             E -= 2;
             E[1] = copy_object(tracer, c_p);
             E[0] = make_cp(&info->mfa.module);

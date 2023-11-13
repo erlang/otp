@@ -135,7 +135,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
 static void return_trace(Process *c_p,
                          ErtsCodeMFA *mfa,
                          Eterm val,
-                         ErtsTracer *tracer) {
+                         ErtsTracer tracer) {
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     erts_trace_return(c_p, mfa, val, tracer);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
@@ -144,7 +144,7 @@ static void return_trace(Process *c_p,
 void BeamModuleAssembler::emit_return_trace() {
     a.ldr(ARG2, getYRef(0));
     a.mov(ARG3, XREG0);
-    lea(ARG4, getYRef(1));
+    a.ldr(ARG4, getYRef(1));
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eHeapAlloc>(1);
