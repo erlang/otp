@@ -292,6 +292,8 @@ string_quote({$",_}) -> $".
 
 -define(UNI255(C), (is_integer(C) andalso 0 =< C andalso C =< 16#ff)).
 
+-define(NO_SIGIL, {}).
+
 options(Opts0) when is_list(Opts0) ->
     Opts = lists:foldr(fun expand_opt/2, [], Opts0),
     [RW_fun] =
@@ -443,8 +445,7 @@ scan1([$.=C|Cs], St, Line, Col, Toks) ->
 scan1([$'|Cs], St, Line, Col, Toks) -> %' Emacs
     scan_qatom(Cs, St, Line, Col, Toks);
 scan1([$"|_]=Cs, St, Line, Col, Toks) -> %" Emacs
-    SigilType = {},
-    scan_string(Cs, St, Line, Col, Toks, SigilType);
+    scan_string(Cs, St, Line, Col, Toks, ?NO_SIGIL);
 scan1([$~=C|Cs], St, Line, Col, Toks) ->
     scan_sigil_prefix(Cs, St, Line, Col, Toks, [C]);
 scan1([$$|Cs], St, Line, Col, Toks) ->
@@ -921,24 +922,22 @@ scan_string(Cs, St, Line, Col, Toks, SigilType) ->
 -compile({inline,[string_right_delimiter/1]}).
 string_right_delimiter(C) ->
     case C of
-        $" -> $";
-        _  -> undefined
+        $( -> $);
+        $[ -> $];
+        ${ -> $};
+        $< -> $>;
+        _ when
+              C =:= $/;
+              C =:= $|;
+              C =:= $#;
+              C =:= $`;
+              C =:= $'; %'
+              C =:= $"  %"
+              ->
+            C;
+        _ ->
+            undefined
     end.
-%%%     case C of
-%%%         $( -> $);
-%%%         $[ -> $];
-%%%         ${ -> $};
-%%%         $< -> $>;
-%%%         _ when
-%%%               C =:= $/;
-%%%               C =:= $|;
-%%%               C =:= $'; %'
-%%%               C =:= $"  %"
-%%%               ->
-%%%             C;
-%%%         _ ->
-%%%             undefined
-%%%     end.
 
 -record(tqs, % Triple-quoted String state
         {line,                  % Line number of first quote character
@@ -1097,9 +1096,9 @@ scan_tqstring_lines(Cs0, Tqs, Line, Col, Str, Qn, ContentR, Acc) ->
     end.
 
 scan_tqstring_eof(ContentR, Tqs, Line, Col) ->
-    Estr = string:slice(lists_foldl_reverse(ContentR, ""), 0, 16),
     #tqs{ line = Line0, col = Col0, qs = Qs } = Tqs,
-    {error,eof,Line0,Col0,Line,Col,{string,{$",Qs},Estr}}. %"
+    {error,eof,Line0,Col0,Line,Col,
+     scan_content_error_tag(ContentR, {$",Qs})}. %"
 
 %% Strip last line newline,
 %% get indentation definition from last line,
@@ -1229,7 +1228,7 @@ check_white_space([C|Cs], N) ->
 %%
 scan_qstring(Cs, St, Line, Col, Toks, SigilType, Q1, Q2) ->
     if
-        SigilType =:= {};       % Non-sigil string()
+        SigilType =:= ?NO_SIGIL;
         SigilType =:= '';       % The vanilla (default) sigil
         SigilType =:= 'b';      % binary() with escape sequences
         SigilType =:= 's' ->    % string() with escape sequences
@@ -1260,15 +1259,15 @@ scan_qstring(
             Nqstring = Qstring#qstring{ str = Nstr, wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nqstring,fun scan_qstring/6}};
         {error, {Ncs,Nline,Ncol,Nwcs}} ->
-            %% Expanded escape chars.
-            Estr = string:slice(lists:reverse(Nwcs), 0, 16),
-            #qstring{ line = Line0, col = Col0, q1 = Q1 } = Qstring,
-            scan_error({string,Q1,Estr}, Line0, Col0, Nline, Ncol, Ncs);
+            #qstring{ line = Line0, col = Col0 } = Qstring,
+            scan_error(
+              scan_content_error_tag([Nwcs], $"), %"
+              Line0, Col0, Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
 
-scan_sigil_suffix(Cs, St, Line, Col, Toks, {}) -> % Non-sigil string
+scan_sigil_suffix(Cs, St, Line, Col, Toks, ?NO_SIGIL) ->
     scan_string_concat(Cs, St, Line, Col, Toks, "");
 scan_sigil_suffix(Cs, St, Line, Col, Toks, SigilType)
   when is_atom(SigilType) -> % Sigil string - scan suffix
@@ -1329,7 +1328,7 @@ scan_vstring(
                line = Line0, col = Col0,
                sigil_type = SigilType, q1 = Q1 } = Vstring,
             AnnoStr =
-                ?STR(string, St, Text, [Q1|requote(Nwcs, Q2, [Q2])]),
+                ?STR(string, St, Text, [Q1|lists:reverse(Nwcs, [Q2])]),
             Anno = anno(Line0, Col0, St, AnnoStr),
             Tok = {string,Anno,lists:reverse(Nwcs)},
             scan_sigil_suffix(Ncs, St, Nline, Ncol, [Tok|Toks], SigilType);
@@ -1337,10 +1336,10 @@ scan_vstring(
             Nvstring = Vstring#vstring{ wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nvstring,fun scan_vstring/6}};
         {error, {Ncs,Nline,Ncol,Nwcs}} ->
-            %% Expanded escape chars.
-            Estr = string:slice(lists:reverse(Nwcs), 0, 16),
-            #vstring{ line = Line0, col = Col0, q1 = Q1 } = Vstring,
-            scan_error({string,Q1,Estr}, Line0, Col0, Nline, Ncol, Ncs);
+            #vstring{ line = Line0, col = Col0 } = Vstring,
+            scan_error(
+              scan_content_error_tag([Nwcs], $"), %"
+              Line0, Col0, Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
@@ -1349,10 +1348,6 @@ scan_vstring(Cs, Q, Line, no_col, Wcs) ->
     scan_vstring(Cs, Q, Line, Wcs);
 scan_vstring(Cs, Q, Line, Col, Wcs) ->
     case Cs of
-        [$\\,Q|Ncs] ->
-            scan_vstring(Ncs, Q, Line, Col+2, [Q|Wcs]);
-        [$\\] ->
-            {more, {Cs,Line,Col,Wcs}};
         [Q|Ncs] ->
             {ok, {Ncs,Line,Col+1,Wcs}};
         [$\n=C|Ncs] ->
@@ -1374,10 +1369,6 @@ scan_vstring(Cs, Q, Line, Col, Wcs) ->
 %%
 scan_vstring(Cs, Q, Line, Wcs) ->
     case Cs of
-        [$\\,Q|Ncs] ->
-            scan_vstring(Ncs, Q, Line, [Q|Wcs]);
-        [$\\] ->
-            {more, {Cs,Line,no_col,Wcs}};
         [Q|Ncs] ->
             {ok, {Ncs,Line,no_col,Wcs}};
         [$\n=C|Ncs] ->
@@ -1394,11 +1385,6 @@ scan_vstring(Cs, Q, Line, Wcs) ->
             {error, {Cs,Line,no_col,Wcs}}
     end.
 
-requote([Q|Cs], Q, Acc) ->
-    requote(Cs, Q, [$\\,Q|Acc]);
-requote([C|Cs], Q, Acc) ->
-    requote(Cs, Q, [C|Acc]);
-requote([], _, Acc) -> Acc.
 
 -record(qatom, { line, col, str = undefined, wcs = "" }).
 
@@ -1428,13 +1414,17 @@ scan_qatom(
             Nqatom = Qatom#qatom{ str = Nstr, wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nqatom,fun scan_qatom/6}};
         {error, {Ncs,Nline,Ncol,Nwcs}} ->
-            %% Expanded escape chars.
-            Estr = string:slice(lists:reverse(Nwcs), 0, 16),
             #qatom{ line = Line0, col = Col0 } = Qatom,
-            scan_error({string,C,Estr}, Line0, Col0, Nline, Ncol, Ncs);
+            scan_error(
+              scan_content_error_tag([Nwcs], C),
+              Line0, Col0, Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
+
+scan_content_error_tag(ContentR, Quote) ->
+    Head = string:slice(lists_foldl_reverse(ContentR, ""), 0, 16),
+    {string,Quote,Head}.
 
 scan_string0(Cs, #erl_scan{has_fun=true}, Line, Col, Q, Str, Wcs)
   when Str =/= undefined ->
