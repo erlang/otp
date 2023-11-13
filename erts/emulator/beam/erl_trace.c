@@ -2960,11 +2960,6 @@ static void free_tracer(void *p)
     }
 }
 
-/* un-define erts_tracer_update before implementation */
-#ifdef erts_tracer_update
-#undef erts_tracer_update
-#endif
-
 /*
  * ErtsTracer is either NIL, 'true' or [Mod | State]
  *
@@ -2991,7 +2986,7 @@ static void free_tracer(void *p)
  * the refc when *tracer is NIL.
  */
 void
-erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
+erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer)
 {
     ErlHeapFragment *hf;
 
@@ -3001,7 +2996,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
         ErtsThrPrgrLaterOp *lop;
         ASSERT(is_list(*tracer));
         if (is_not_immed(ERTS_TRACER_STATE(*tracer))) {
-            hf = (void*)(((char*)(ptr_val(*tracer)) - offsetof(ErlHeapFragment, mem)));
+            hf = ErtsContainerStruct_(ptr_val(*tracer), ErlHeapFragment, mem);
             offs = hf->used_size;
             size = hf->alloc_size * sizeof(Eterm) + sizeof(ErlHeapFragment);
             ASSERT(offs == size_object(*tracer));
