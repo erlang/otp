@@ -896,6 +896,8 @@ scan_string(Cs, St, Line, Col, Toks, SigilType) ->
             scan_tqstring(Ncs, St, Line, Col, Toks, SigilType, 3);
         [$",$"] ->
             {more,{Cs,St,Col,Toks,Line,SigilType,fun scan_string/6}};
+        [$"] ->
+            {more,{Cs,St,Col,Toks,Line,SigilType,fun scan_string/6}};
         [Q1|Ncs] ->
             case string_right_delimiter(Q1) of
                 undefined ->
