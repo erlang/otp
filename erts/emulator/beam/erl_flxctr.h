@@ -290,7 +290,7 @@ int erts_flxctr_suspend_until_thr_prg_if_snapshot_ongoing(ErtsFlxCtr* c, Process
 
 /**
  * @brief This function returns the number of bytes that are allocated
- * for for the given FlxCtr.
+ * for the given FlxCtr.
  *
  * @return nr of bytes allocated for the FlxCtr
  */

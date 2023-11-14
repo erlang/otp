@@ -238,7 +238,7 @@ When we insert a new element in the table we do the following:
     be done before we publish the structure in the table. This, for
     example, includes storing the identifier in the process structure. 
 
-6.  Now we can publish the structure in the table by writing the the
+6.  Now we can publish the structure in the table by writing the
     pointer to the process structure in the slot previously reserved
     in 3.
 

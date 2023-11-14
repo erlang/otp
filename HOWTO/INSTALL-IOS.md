@@ -17,7 +17,7 @@ In order to inform the build system that it should generate the static linkable 
 
 ### Configure Erlang/OTP ###
 
-    To build without without OpenSSL support, run `configure` like this:
+    To build without OpenSSL support, run `configure` like this:
     
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf  \

@@ -3991,7 +3991,7 @@
         </item>
         <item>
           <p>
-	    If a timetrap timeout occurred during execution of of a
+	    If a timetrap timeout occurred during execution of a
 	    function in a lib module (i.e. a function called directly
 	    or indirectly from a test case), the Suite argument in
 	    the end_tc/3 framework callback function would not
@@ -5082,7 +5082,7 @@
         <item>
           <p>
 	    The rx library, included with common_test, failed to
-	    build on on some architectures because the -fPIC compiler
+	    build on some architectures because the -fPIC compiler
 	    option was missing.</p>
           <p>
 	    Own Id: OTP-7111</p>

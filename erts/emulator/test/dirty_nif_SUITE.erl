@@ -520,7 +520,7 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
     true = Time2 >= 1900,
 
     %% Make sure that the send trace is
-    %% in between an in and and out trace
+    %% in between an in and an out trace
     (fun F() ->
              %% We got an in trace, look for out or send
              {trace,Sndr,in,_} = recv_trace_from(Sndr),

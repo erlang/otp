@@ -106,7 +106,7 @@ belong. For example, the functions for the map BIFs are placed in
 `erl_map.c` together with the other map-related functions. When
 building, YCF is invoked to generate the transformed versions of the
 functions into a header file that is included in the source file that
-contains the the non-transformed version of the function (search for
+contains the non-transformed version of the function (search for
 YCF in `$ERL_TOP/erts/emulator/Makefile.in` to see examples of how YCF
 can be invoked).
 

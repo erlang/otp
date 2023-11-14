@@ -194,7 +194,7 @@ enum class ProtectJitAccess : uint32_t {
 
 //! Protects access of memory mapped with MAP_JIT flag for the current thread.
 //!
-//! \note This feature is only available on Apple hardware (AArch64) at the moment and and uses a non-portable
+//! \note This feature is only available on Apple hardware (AArch64) at the moment and uses a non-portable
 //! `pthread_jit_write_protect_np()` call when available.
 //!
 //! This function must be called before and after a memory mapped with MAP_JIT flag is modified. Example:

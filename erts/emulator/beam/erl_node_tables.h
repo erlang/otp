@@ -196,7 +196,7 @@ Vs = [begin [Val, _, _, _, What] = All = string:lexemes(Ln, " "),{Val,What,All} 
 Accs = lists:foldl(fun({V,<<"ERL_NODE_INC">>,_},M) -> Val = maps:get(V,M,0), M#{ V => Val + 1 }; ({V,<<"ERL_NODE_DEC">>,_},M) -> Val = maps:get(V,M,0), M#{ V => Val - 1 } end, #{}, Vs).
 lists:usort(lists:filter(fun({V,N}) -> N /= 0 end, maps:to_list(Accs))).
 
- * There are bound to be bugs in the the instrumentation code, but
+ * There are bound to be bugs in the instrumentation code, but
  * at least this is a place to start when hunting refc bugs.
  *
  */
