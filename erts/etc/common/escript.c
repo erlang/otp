@@ -106,35 +106,36 @@ get_env(char *key)
 {
 #ifdef __WIN32__
     DWORD size = 32;
-    char  *value=NULL;
-    wchar_t *wcvalue = NULL;
     wchar_t wckey[256];
-    int len; 
+    int len;
 
     MultiByteToWideChar(CP_UTF8, 0, key, -1, wckey, 256);
     
-    while (1) {
-	DWORD nsz;
-	if (wcvalue)
-	    efree(wcvalue);
-	wcvalue = (wchar_t *) emalloc(size*sizeof(wchar_t));
-	SetLastError(0);
-	nsz = GetEnvironmentVariableW(wckey, wcvalue, size);
-	if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
-	    efree(wcvalue);
-	    return NULL;
-	}
-	if (nsz <= size) {
-	    len = WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, NULL, 0, NULL, NULL);
-	    value = emalloc(len*sizeof(char));
-	    WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, value, len, NULL, NULL);
-	    efree(wcvalue);
-	    return value;
-	}
-	size = nsz;
+    while (TRUE) {
+        DWORD nsz;
+        char *value = NULL;
+        wchar_t *wcvalue = (wchar_t *) emalloc(size*sizeof(wchar_t));
+        SetLastError(0);
+        nsz = GetEnvironmentVariableW(wckey, wcvalue, size);
+        if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
+            efree(wcvalue);
+            return NULL;
+        }
+        if (nsz <= size) {
+            len = WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, NULL, 0, NULL, NULL);
+            value = emalloc(len*sizeof(char));
+            WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, value, len, NULL, NULL);
+            efree(wcvalue);
+            return value;
+        }
+
+        if (wcvalue)
+            efree(wcvalue);
+
+        size = nsz;
     }
 #else
-    return getenv(key);
+    return secure_getenv(key);
 #endif
 }
 
@@ -154,9 +155,7 @@ set_env(char *key, char *value)
     sprintf(str, "%s=%s", key, value);
     if (putenv(str) != 0)
         error("putenv(\"%s\") failed!", str);
-#ifdef HAVE_COPYING_PUTENV
     efree(str);
-#endif
 #endif
 }
 
@@ -644,10 +643,9 @@ run_erlang(char* progname, char** argv)
 #endif
 
     if (debug) {
-	int i = 0;
-	while (argv[i] != NULL)
-	    printf(" %s", argv[i++]);
-	printf("\n");
+        int i = 0;
+        while (argv[i] != NULL)
+            printf(" %s\n", argv[i++]);
     }
 
 #ifdef __WIN32__
