@@ -533,7 +533,7 @@ start_link() ->
       <item>The second argument, <c>[]</c>, is a term that is passed
        as is to
        the callback function <c>init</c>. Here, <c>init</c> does not
-       need any indata and ignores the argument.</item>
+       need any data and ignores the argument.</item>
     </list>
     <p>In this case, the supervisor is not registered. Instead its pid
       must be used. A name can be specified by calling
