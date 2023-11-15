@@ -162,7 +162,7 @@
     <marker id="distribution_module"/>
     <title>Distribution Module</title>
     <p>
-      The distribution module expose an API that <c>net_kernel</c> call
+      The distribution module exposes an API that <c>net_kernel</c> calls
       in order to manage connections to other nodes. The module name
       should have the suffix <c>_dist</c>.
     </p>
@@ -1152,7 +1152,7 @@
         callbacks although it has marked itself as busy. This has always been a
         requirement on drivers used by the distribution, but no capability
         information has been available about this previously. For more
-        information. see <seecref marker="erl_driver#set_busy_port">
+        information, see <seecref marker="erl_driver#set_busy_port">
         <c>erl_driver:set_busy_port()</c></seecref>).</p>
 
       <p>This driver was written before the runtime system had SMP support.

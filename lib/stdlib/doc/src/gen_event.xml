@@ -1408,7 +1408,7 @@ format_status(Status) ->
         </list>
         <p>This function is useful for changing the form and
           appearance of the event handler state for these cases. An
-          event handler callback module wishing to change the
+          event handler callback module wishing to change
           the <c>sys:get_status/1,2</c> return value as well as how
           its state appears in termination error logs, exports an
           instance of <c>format_status/2</c> that returns a term

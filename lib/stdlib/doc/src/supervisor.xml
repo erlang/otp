@@ -39,7 +39,7 @@
       <seeerl marker="gen_server"><c>gen_server</c></seeerl>, or
       <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
       behaviors. A supervisor implemented using this module has
-      a standard set of interface functions and include functionality
+      a standard set of interface functions and includes functionality
       for tracing and error reporting. Supervisors are used to build a
       hierarchical process structure called a supervision tree, a
       nice way to structure a fault-tolerant application. For more
@@ -66,7 +66,7 @@
     <p>The children of a supervisor are defined as a list of
       <em>child specifications</em>. When the supervisor is started, the child
       processes are started in order from left to right according to
-      this list. When the supervisor terminates, it first terminates
+      this list. When the supervisor is going to terminate, it first terminates
       its child processes in reversed start order, from right to left.</p>
 
       <section>
