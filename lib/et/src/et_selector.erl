@@ -128,8 +128,8 @@ old_tp({Mod, _Fun, Args}, Pattern) ->
 
 error_to_exit({error, Reason}) ->
     exit(Reason);
-error_to_exit({ok, Res}) ->
-    Res.
+error_to_exit({ok, _Res}) ->
+    ok.
 
 %%----------------------------------------------------------------------
 %% parse_event(Mod, ValidTraceData) -> false | true | {true, Event}

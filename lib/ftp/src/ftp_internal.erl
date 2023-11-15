@@ -710,15 +710,15 @@ init(Options) ->
     %% Maybe activate dbg
     case key_search(debug, Options, disable) of
         trace ->
-            dbg:tracer(),
-            dbg:p(all, [call]),
+            _ = dbg:tracer(),
+            _ = dbg:p(all, [call]),
             {ok, _} = dbg:tpl(ftp_internal, [{'_', [], [{return_trace}]}]),
             {ok, _} = dbg:tpl(ftp_response, [{'_', [], [{return_trace}]}]),
             {ok, _} = dbg:tpl(ftp_progress, [{'_', [], [{return_trace}]}]),
             ok;
         debug ->
-            dbg:tracer(),
-            dbg:p(all, [call]),
+            _ = dbg:tracer(),
+            _ = dbg:p(all, [call]),
             {ok, _} = dbg:tp(ftp_internal, [{'_', [], [{return_trace}]}]),
             {ok, _} = dbg:tp(ftp_response, [{'_', [], [{return_trace}]}]),
             {ok, _} = dbg:tp(ftp_progress, [{'_', [], [{return_trace}]}]),

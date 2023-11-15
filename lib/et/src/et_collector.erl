@@ -908,7 +908,7 @@ init_global(S) ->
             EventFun = fun(Event, {ok, TH}) -> report(TH, Event) end,
             EndFun = fun(Acc) -> Acc end,
             Spec = trace_spec_wrapper(EventFun, EndFun, {ok, self()}),
-            dbg:tracer(process, Spec),
+            _ = dbg:tracer(process, Spec),
             et_selector:change_pattern(S#state.trace_pattern),
             ok = net_kernel:monitor_nodes(true),
             lists:foreach(fun(N) -> self() ! {nodeup, N} end, nodes()),
