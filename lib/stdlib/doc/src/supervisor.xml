@@ -66,7 +66,7 @@
     <p>The children of a supervisor are defined as a list of
       <em>child specifications</em>. When the supervisor is started, the child
       processes are started in order from left to right according to
-      this list. When the supervisor terminates, it first terminates
+      this list. When the supervisor is going to terminate, it first terminates
       its child processes in reversed start order, from right to left.</p>
 
       <section>
