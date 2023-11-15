@@ -489,7 +489,7 @@ child_spec() = #{id => child_id(),             % mandatory
     <p>or simplified, relying on the default values:</p>
     <code type="none">
 #{id => ch3,
-  start => {ch3, start_link, []}
+  start => {ch3, start_link, []},
   shutdown => brutal_kill}</code>
     <p>Example: A child specification to start the event manager from
       the chapter about
