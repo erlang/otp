@@ -39,7 +39,7 @@
       <seeerl marker="gen_server"><c>gen_server</c></seeerl>, or
       <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
       behaviors. A supervisor implemented using this module has
-      a standard set of interface functions and include functionality
+      a standard set of interface functions and includes functionality
       for tracing and error reporting. Supervisors are used to build a
       hierarchical process structure called a supervision tree, a
       nice way to structure a fault-tolerant application. For more
