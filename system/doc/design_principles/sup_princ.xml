@@ -567,7 +567,7 @@ supervisor:start_child(Sup, ChildSpec)</code>
     <c>ChildSpec</c> is a
     <seeguide marker="#spec">child specification</seeguide>.</p>
     <p>Child processes added using <c>start_child/2</c> behave in
-      the same way as the other child processes, with the an important
+      the same way as the other child processes, with one important
       exception: if a supervisor dies and is recreated, then
       all child processes that were dynamically added to the supervisor
       are lost.</p>
