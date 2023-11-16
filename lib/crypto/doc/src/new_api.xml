@@ -257,8 +257,8 @@
 	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
 	3> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>].
 	[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]
-	4> AAD = &lt;&lt;"Some bytes">>.
-	&lt;&lt;"Some bytes">>
+	4> AAD = &lt;&lt;"Some additional auth data">>.
+	&lt;&lt;"Some additional auth data">>
 	5> crypto:crypto_one_time_aead(aes_128_gcm, Key, IV, Txt, AAD, true).
 	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
 	192,103,176,90,104,15,71,158>>,

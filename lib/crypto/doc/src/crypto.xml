@@ -835,6 +835,8 @@ end
 	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
 	in the argument	<c>TagOrTagLength</c>.
 	</p>
+  <p>The <c>AAD</c> argument represents the Additional Authentication Data. It's optional. If it's
+  not needed, it can be set to an empty binary (<c>&lt;&lt;&gt;&gt;</c>).
 	<p>See <seeguide marker="crypto:new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</seeguide>
 	</p>
       </desc>
