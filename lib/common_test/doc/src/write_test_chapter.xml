@@ -277,10 +277,9 @@
     <seemfa marker="stdlib:proplists#get_value/2"><c>proplists:get_value/2</c></seemfa>.
     Also, or alternatively, the general <seeerl marker="stdlib:lists"><c>lists</c></seeerl>
     module contains useful functions. Normally, the only operations
-    performed on <c>Config</c> is insert (adding a tuple to the head of the list)
-    and lookup. <c>Common Test</c> provides a simple macro named <c>?config</c>,
-    which returns a value of an item in <c>Config</c> given the key (exactly like
-    <c>proplists:get_value</c>). Example: <c>PrivDir = ?config(priv_dir, Config)</c>.
+    performed on <c>Config</c> are insertion (adding a tuple to the head of the list)
+    and lookup. To look up a value in the config, <c>proplists:get_value</c> can
+    be used. For example: <c>PrivDir = proplists:get_value(priv_dir, Config)</c>.
     </p>
 
     <p>If the test case function crashes or exits purposely, it is considered
@@ -717,7 +716,7 @@
     <p>The following is an example of how to return the status from a group:</p>
     <pre>
  end_per_group(_Group, Config) ->
-     Status = ?config(tc_group_result, Config),
+     Status = proplists:get_value(tc_group_result, Config),
      case proplists:get_value(failed, Status) of
          [] ->                                   % no failed cases
              {return_group_result,ok};
@@ -733,7 +732,7 @@
     <p><em>Example:</em></p>
     <pre>
  end_per_group(group1, Config) ->
-     Status = ?config(tc_group_result, Config),
+     Status = proplists:get_value(tc_group_result, Config),
      Failed = proplists:get_value(failed, Status),
      case lists:member({group_result,group2}, Failed) of
            true ->
