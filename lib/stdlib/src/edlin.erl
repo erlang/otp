@@ -73,7 +73,7 @@ start(Pbs) ->
 
 %% Only two modes used: 'none' and 'search'. Other modes can be
 %% handled inline through specific character handling.
-start(Pbs, {_,{_,_},[]}=Cont) ->
+start(Pbs, {_,{_,[]},[]}=Cont) ->
     %% Skip redraw if the cursor is at the end.
     {more_chars,{line,Pbs,Cont,{normal,none}},[{insert_chars,unicode,multi_line_prompt(Pbs)}]};
 
