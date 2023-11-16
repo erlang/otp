@@ -90,7 +90,7 @@
  %% Description: Cleanup after the suite.
  %%--------------------------------------------------------------------
  end_per_suite(Config) ->    
-     Ref = ?config(con_ref, Config),
+     Ref = proplists:get_value(con_ref, Config),
      db:disconnect(Ref),
      ok.
  
@@ -105,8 +105,8 @@
  %% Description: Initialization before each test case.
  %%--------------------------------------------------------------------
  init_per_testcase(Case, Config) ->
-     Ref = ?config(con_ref, Config),   
-     TableName = ?config(table_name, Config),
+     Ref = proplists:get_value(con_ref, Config),   
+     TableName = proplists:get_value(table_name, Config),
      ok = db:create_table(Ref, TableName, table_type(Case)),
      Config.
 
@@ -121,8 +121,8 @@
  %% Description: Cleanup after each test case.
  %%--------------------------------------------------------------------
  end_per_testcase(_Case, Config) -> 
-     Ref = ?config(con_ref, Config),   
-     TableName = ?config(table_name, Config),
+     Ref = proplists:get_value(con_ref, Config),   
+     TableName = proplists:get_value(table_name, Config),
      ok = db:delete_table(Ref, TableName),   
      ok. 
 
@@ -154,8 +154,8 @@
 
 
  insert_and_lookup(Key, Value, Config) ->
-     Ref = ?config(con_ref, Config),   
-     TableName = ?config(table_name, Config),
+     Ref = proplists:get_value(con_ref, Config),   
+     TableName = proplists:get_value(table_name, Config),
      ok = db:insert(Ref, TableName, Key, Value),
      [Value] = db:lookup(Ref, TableName, Key),
      ok = db:delete(Ref, TableName, Key),
