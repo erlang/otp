@@ -832,14 +832,14 @@ sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
     sign({digest, Digest}, sha, Key, Options);
 sign(DigestOrPlainText, DigestType, Key, Options) ->
     case format_sign_key(Key) of
-	badarg ->
-	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
-    {extern, {Mod, Fun}} ->
-        Mod:Fun(DigestOrPlainText, DigestType, Options);
-    {extern, Fun} when is_function(Fun) ->
-        Fun(DigestOrPlainText, DigestType, Options);
-	{Algorithm, CryptoKey} ->
-	    try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
+	    badarg ->
+	        erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
+        {extern, {Mod, Fun}} ->
+            Mod:Fun(DigestOrPlainText, DigestType, Options);
+        {extern, Fun} when is_function(Fun) ->
+            Fun(DigestOrPlainText, DigestType, Options);
+	    {Algorithm, CryptoKey} ->
+	        try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
             catch %% Compatible with old error schema
                 error:{notsup,_,_} -> error(notsup);
                 error:{error,_,_} -> error(error);
