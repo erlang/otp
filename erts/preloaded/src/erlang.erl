@@ -122,6 +122,7 @@ a bitstring with a size divisible by 8.
 -doc "An Erlang [bitstring](`e:system:data_types.md#bit-strings-and-binaries`).".
 -doc(#{title => <<"Predefined datatypes">>}).
 -type bitstring() :: <<_:_*1>>.
+-doc false.
 -type bool() :: boolean().
 -doc "A [boolean](`e:system:data_types.md#boolean`) value.".
 -doc(#{title => <<"Predefined datatypes">>}).
