@@ -489,7 +489,7 @@ child_spec() = #{id => child_id(),             % mandatory
     <p>or simplified, relying on the default values:</p>
     <code type="none">
 #{id => ch3,
-  start => {ch3, start_link, []}
+  start => {ch3, start_link, []},
   shutdown => brutal_kill}</code>
     <p>Example: A child specification to start the event manager from
       the chapter about
@@ -533,7 +533,7 @@ start_link() ->
       <item>The second argument, <c>[]</c>, is a term that is passed
        as is to
        the callback function <c>init</c>. Here, <c>init</c> does not
-       need any indata and ignores the argument.</item>
+       need any data and ignores the argument.</item>
     </list>
     <p>In this case, the supervisor is not registered. Instead its pid
       must be used. A name can be specified by calling
@@ -567,7 +567,7 @@ supervisor:start_child(Sup, ChildSpec)</code>
     <c>ChildSpec</c> is a
     <seeguide marker="#spec">child specification</seeguide>.</p>
     <p>Child processes added using <c>start_child/2</c> behave in
-      the same way as the other child processes, with the an important
+      the same way as the other child processes, with one important
       exception: if a supervisor dies and is recreated, then
       all child processes that were dynamically added to the supervisor
       are lost.</p>
