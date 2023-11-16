@@ -534,7 +534,7 @@ do_serve(#{address := Address, port := Port, directory := Path}) ->
     ),
     % This is needed to support random port assignment (--port 0)
     [{port, ActualPort}] = info(Pid, [port]),
-    io:fwrite("~nStarted HTTP server on http://~s:~w at ~s~n",
+    io:fwrite("Started HTTP server on http://~s:~w at ~s~n",
               [inet:ntoa(Address), ActualPort, AbsPath]),
     receive
         {From, shutdown} ->

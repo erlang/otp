@@ -222,7 +222,7 @@ wait_for_startup_line([], Unexpected, Tries) when Tries > 0 ->
     end,
     timer:sleep(?STARTUP_WAIT_NAPTIME_MS),
     wait_for_startup_line(ct:capture_get(), Unexpected, Tries - 1);
-wait_for_startup_line(["\nStarted HTTP" ++ _Rest = Line | _Lines], _Unexpected, _Tries) ->
+wait_for_startup_line(["Started HTTP" ++ _Rest = Line | _Lines], _Unexpected, _Tries) ->
     {ok, Line};
 wait_for_startup_line([Line | Lines], Unexpected, Tries) ->
     wait_for_startup_line(Lines, [Line | Unexpected], Tries).
@@ -232,7 +232,7 @@ wait_for_startup_line([Line | Lines], Unexpected, Tries) ->
 %%   Started HTTP server on http://127.0.0.1:8000 at /path/to/lib/inets/make_test_dir/ct_logs/ct_run.test_server@zulu.2023-06-06_12.07.27\n"
 parse_startup_line(Line) ->
     {match, [_, RawIp, RawPort, Path]} = re:run(
-        Line, "^\nStarted HTTP server on http://(.+):(\\d+) at (.*)\\n$", [{capture, all, list}]
+        Line, "^Started HTTP server on http://(.+):(\\d+) at (.*)\\n$", [{capture, all, list}]
     ),
     {ok, Ip} = inet:parse_address(RawIp),
     Port = list_to_integer(RawPort),
