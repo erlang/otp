@@ -99,6 +99,7 @@
 -type maybe_improper_list() :: maybe_improper_list(any(), any()).
 -type maybe_improper_list(ContentType, TerminationType) :: maybe_improper_list(ContentType, TerminationType).
 -type mfa() :: {module(),atom(),arity()}.
+-type mfargs() :: {M :: module(), F :: atom(), A :: [term()]}.
 -type module() :: atom().
 -type neg_integer() :: neg_integer().
 -type nil() :: [].
