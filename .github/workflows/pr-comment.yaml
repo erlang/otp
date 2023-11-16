@@ -55,7 +55,7 @@ jobs:
     concurrency: erlang.github.io-deploy
     permissions:
       issues: write
-      checks: read
+      checks: write
     if: >-
           github.event.action == 'completed' &&
           needs.pr-number.outputs.result != '' &&
