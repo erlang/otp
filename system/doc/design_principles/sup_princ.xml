@@ -433,7 +433,7 @@ child_spec() = #{id => child_id(),             % mandatory
            signal back. If no exit signal is received within
            the specified time, the child process is unconditionally
            terminated using <c>exit(Child, kill)</c>.</item>
-          <item>If the child process is another supervisor, it must be
+          <item>If the child process is another supervisor, it should be
            set to <c>infinity</c> to give the subtree enough time to
            shut down. It is also allowed to set it to <c>infinity</c>,
            if the child process is a worker. See the warning below:</item>
