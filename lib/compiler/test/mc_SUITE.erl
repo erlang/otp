@@ -55,6 +55,8 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+-record(foo, {a,b}).
+
 basic(_Config) ->
     mc_double(0),
     mc_double(1),
@@ -105,6 +107,20 @@ basic(_Config) ->
     <<>> = << <<0>> || a := b <- #{} >>,
     <<>> = << <<0>> || a := b <- #{x => y} >>,
     <<0>> = << <<0>> || a := b <- #{a => b} >>,
+
+    %% Matching partial records.
+    RecordMap = id(#{#foo{a=I,b=I*I} => I*I*I || I <- [1,2,3,4]}),
+
+    EvenMap = maps:from_list([{K,V} ||
+                                 {#foo{a=N}=K,V} <- maps:to_list(RecordMap),
+                                 N rem 2 =:= 0]),
+    EvenMap = #{K => V ||
+                  #foo{a=N}=K := V <- RecordMap,
+                  N rem 2 =:= 0},
+
+    Odd = lists:sort([V || {#foo{a=N}, V} <- maps:to_list(RecordMap),
+                           N rem 2 =:= 1]),
+    Odd = lists:sort([V || #foo{a=N} := V <- RecordMap, N rem 2 =:= 1]),
 
     ok.
 
