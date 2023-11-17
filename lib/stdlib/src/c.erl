@@ -672,7 +672,22 @@ mfa_string(X) ->
     w(X).
 
 display_info(Pid) ->
-    case pinfo(Pid) of
+    PInfo0 = pinfo(Pid, [initial_call, current_function, reductions, message_queue_len,
+                         heap_size, stack_size, registered_name,
+                         {dictionary, '$process_label'},
+                         {dictionary, '$initial_call'}]),
+    PInfo = case PInfo0 of
+                PInfo0 when is_list(PInfo0) ->
+                    PInfo0;
+                {badrpc, {'EXIT', {badarg, _}}} ->
+                    patch_old_pinfo(pinfo(Pid, [initial_call, current_function,
+                                                reductions, message_queue_len,
+                                                heap_size, stack_size, registered_name,
+                                                dictionary]));
+                _ ->
+                    undefined
+            end,
+    case PInfo of
 	undefined -> {0,0,0,0};
 	Info ->
 	    Call = initial_call(Info),
@@ -689,16 +704,31 @@ display_info(Pid) ->
 	    iformat(w(Pid), mfa_string(Call),
 		    w(HS),
 		    w(Reds), w(LM)),
-	    iformat(case fetch(registered_name, Info) of
-			0 -> "";
-			X -> io_lib:format("~tw", [X])
-		    end,
+	    iformat(fetch_label(fetch(registered_name, Info), Info),
 		    mfa_string(Curr),
 		    w(SS),
 		    "",
 		    ""),
 	    {Reds, LM, HS, SS}
     end.
+
+fetch_label([], Info) ->
+    case fetch({dictionary, '$process_label'}, Info) of
+        undefined -> "";
+        Id -> format_label(Id)
+    end;
+fetch_label(Reg, _) ->
+    Reg.
+
+format_label(Id) when is_list(Id); is_binary(Id) ->
+    case unicode:characters_to_binary(Id) of
+        {error, _, _} ->
+            io_lib:format("~0.tp", [Id]);
+        BinString ->
+            BinString
+    end;
+format_label(TermId) ->
+    io_lib:format("~0.tp", [TermId]).
 
 %% We have to do some assumptions about the initial call.
 %% If the initial call is proc_lib:init_p/3,5 we can find more information
@@ -727,6 +757,20 @@ pinfo(Pid) ->
 	true -> rpc:call(node(Pid), erlang, process_info, [Pid]);
 	false -> process_info(Pid)
     end.
+
+pinfo(Pid, What) ->
+    case is_alive() of
+	true -> rpc:call(node(Pid), erlang, process_info, [Pid, What]);
+	false -> process_info(Pid, What)
+    end.
+
+patch_old_pinfo(undefined) ->
+    undefined;
+patch_old_pinfo(KeyList0) ->
+    {value, {dictionary, Dict}, KeyList} = lists:keytake(dictionary, 1, KeyList0),
+    PD = proplists:get_value('$process_label', Dict, undefined),
+    IC = proplists:get_value('$initial_call', Dict, undefined),
+    [{'$process_label', PD}, {'$initial_call', IC} | KeyList].
 
 fetch(Key, Info) ->
     case lists:keyfind(Key, 1, Info) of
