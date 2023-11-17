@@ -658,9 +658,10 @@ encrypt_decrypt_sign_fun() ->
 encrypt_decrypt_sign_fun(Config) when is_list(Config) ->
     {PrivateKey, _DerKey} = erl_make_certs:gen_rsa(64),
     #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateKey,
-    EncryptFun = fun (PlainText, Options) ->
-        public_key:encrypt_private(PlainText, PrivateKey, Options)
-    end,
+    EncryptFun =
+        fun (PlainText, Options) ->
+                public_key:encrypt_private(PlainText, PrivateKey, Options)
+        end,
     CustomPrivKey = #{sign_fun => EncryptFun},
     PublicKey = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
@@ -753,8 +754,8 @@ custom_sign_fun_verify(Config) when is_list(Config) ->
     #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateRSA,
     PublicRSA = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
     SignFun = fun (Msg, HashAlgo, Options) ->
-        public_key:sign(Msg, HashAlgo, PrivateRSA, Options)
-    end,
+                      public_key:sign(Msg, HashAlgo, PrivateRSA, Options)
+              end,
     CustomKey = #{algorithm => rsa, sign_fun => SignFun},
 
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
