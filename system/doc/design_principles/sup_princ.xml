@@ -433,7 +433,7 @@ child_spec() = #{id => child_id(),             % mandatory
            signal back. If no exit signal is received within
            the specified time, the child process is unconditionally
            terminated using <c>exit(Child, kill)</c>.</item>
-          <item>If the child process is another supervisor, it must be
+          <item>If the child process is another supervisor, it should be
            set to <c>infinity</c> to give the subtree enough time to
            shut down. It is also allowed to set it to <c>infinity</c>,
            if the child process is a worker. See the warning below:</item>
@@ -491,7 +491,7 @@ child_spec() = #{id => child_id(),             % mandatory
 #{id => ch3,
   start => {ch3, start_link, []},
   shutdown => brutal_kill}</code>
-    <p>Example: A child specification to start the event manager from
+    <p><em>Example</em>: A child specification to start the event manager from
       the chapter about
       <seeguide marker="events#mgr">gen_event</seeguide>:</p>
     <code type="none">
@@ -507,7 +507,7 @@ child_spec() = #{id => child_id(),             % mandatory
       need some time for the event handlers to clean up, thus
       the shutdown time is set to 5000 ms (which is the default
       value).</p>
-    <p>Example: A child specification to start another supervisor:</p>
+    <p><em>Example</em>: A child specification to start another supervisor:</p>
     <code type="none">
 #{id => sup,
   start => {sup, start_link, []},
