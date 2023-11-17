@@ -37,6 +37,7 @@ jobs:
     needs: pr-number
     permissions:
       issues: write
+      pull-requests: write
     if: github.event.action == 'requested' && needs.pr-number.outputs.result != ''
     steps:
       - uses: actions/checkout@v4.1.1
@@ -56,6 +57,7 @@ jobs:
     permissions:
       issues: write
       checks: write
+      pull-requests: write
     if: >-
           github.event.action == 'completed' &&
           needs.pr-number.outputs.result != '' &&
