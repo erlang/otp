@@ -427,6 +427,12 @@ format_msg(_Config) ->
     ct:log(String12),
     "string" = String12,
 
+    Map = {#{292 => <<5,174,250,106>>,observe => 0,uri_path => [<<"ps">>,<<"coap">>,<<"test">>],uri_query => #{<<"clientid">> => <<"0622ff402c06010122ff">>,<<"token">> => <<"129493754">>}}},
+    MapStr = io_lib:format("~p", [Map]),
+    String13 = format(info,{string, MapStr},#{},#{template=>Template}),
+    ct:log(String13),
+    "{#{292 => <<5,174,250,106>>, observe => 0, uri_path => [<<\"ps\">>,<<\"coap\">>,<<\"test\">>], uri_query => #{<<\"clientid\">> => <<\"0622ff402c06010122ff\">>, <<\"token\">> => <<\"129493754\">>}}}" = String13,
+
     ok.
 
 report_cb(_Config) ->

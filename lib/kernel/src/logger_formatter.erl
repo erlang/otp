@@ -85,13 +85,12 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
                 MsgStr0 = format_msg(Msg0,Meta1,Config1),
                 case maps:get(single_line,Config) of
                     true ->
-                        %% Trim leading and trailing whitespaces, and replace
-                        %% newlines with ", "
+                        %% Trim leading and trailing whitespaces
                         T = lists:reverse(
                               trim(
                                 lists:reverse(
                                   trim(MsgStr0,false)),true)),
-                        re:replace(T,",?\r?\n\s*",", ",
+                        re:replace(T,"\r?\n\s*"," ",
                                    [{return,list},global,unicode]);
                     _false ->
                         MsgStr0
