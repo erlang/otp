@@ -71,6 +71,7 @@ MODULES= \
 	ct_config_xml \
 	ct_slave \
         ct_hooks_lock\
+	cte_track\
 	cth_log_redirect\
 	cth_surefire \
 	ct_netconfc \
