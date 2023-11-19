@@ -236,7 +236,7 @@ jobs:
     runs-on: windows-2022
     needs: pack
     steps:
-      - uses: Vampire/setup-wsl@v2.0.1
+      - uses: Vampire/setup-wsl@v2.0.2
         with:
           distribution: Ubuntu-18.04
 
