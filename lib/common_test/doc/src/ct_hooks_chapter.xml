@@ -511,6 +511,25 @@ results(State) ->
         use another level either change the <c>default</c> handler level before
         starting common_test, or use the <seemfa marker="kernel:logger#set_handler_config/3">
         <c>logger:set_handler_config/3</c></seemfa> API.</p>
+        <p>This hook supports the following options:</p>
+        <taglist>
+          <tag><c>{mode, add}</c></tag>
+          <item>
+            <p>Add <c>cth_log_redirect</c> to the default logging handler:
+              Logs will be emitted to both standard output via the
+              default handler, and into the Common Test HTML logs.
+              This is the default behaviour.</p>
+          </item>
+          <tag><c>{mode, replace}</c></tag>
+          <item>
+            <p>Replace the <c>default</c> logging handler with <c>cth_log_redirect</c>
+              instead of logging to both the default handler and this handler.
+              This effectively silences any logger output which would normally be printed
+              to standard output during test runs. To enable this mode, you can pass
+              the following options to <c>ct_run</c>:</p>
+            <p><c>-enable_builtin_hooks false -ct_hooks cth_log_redirect [{mode,replace}]</c></p>
+          </item>
+        </taglist>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>
