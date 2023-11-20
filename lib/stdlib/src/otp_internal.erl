@@ -242,7 +242,7 @@ obsolete(gen_fsm, _, _) ->
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
-    {deprecated, "use the 'peer' module instead", "OTP 27"};
+    {deprecated, "use the 'peer' module instead", "OTP 29"};
 obsolete(erts_alloc_config, _, _) ->
     {removed, "this module has as of OTP 26.0 been removed"};
 obsolete(os_mon_mib, _, _) ->
