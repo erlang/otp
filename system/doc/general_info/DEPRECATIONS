@@ -27,7 +27,7 @@ dbg:stop_clear/0 since=26 remove=27
 #
 # Added in OTP 25.
 #
-slave:_/_ since=25 remove=27
+slave:_/_ since=25 remove=29
 ct_slave:_/_ since=25 remove=29
 httpd_util:encode_hex/1 since=25 remove=26
 httpd_util:decode_hex/1 since=25 remove=26
