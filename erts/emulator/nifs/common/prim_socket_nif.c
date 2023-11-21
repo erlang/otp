@@ -22,7 +22,7 @@
  *
  * All of the nif-functions which are part of the API has two parts.
  * The first function is called 'nif_<something>', e.g. nif_open.
- * This does the initial validation and argument processing and then 
+ * This does the initial validation and argument processing and then
  * calls the function that does the actual work. This is called
  * '<io-backend>_<something>', e.g. essio_open (actually
  * essio_open_with_fd or essio_open_plain).
@@ -328,7 +328,7 @@ ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
 #endif
 
 /*
- * We *may* need this stuff later when we *fully* implement support for SCTP 
+ * We *may* need this stuff later when we *fully* implement support for SCTP
  *
 
 #if defined(__GNUC__) && defined(HAVE_SCTP_BINDX)
@@ -1009,7 +1009,7 @@ ESockSendfileCounters initESockSendfileCounters =
  *
  * These are the functions making up the "official" API.
  * Basically, these functions does some preliminary checks and argument
- * extractions and then call the functions called 'n<funcname>', which 
+ * extractions and then call the functions called 'n<funcname>', which
  * does the actual work. Except for the info function.
  *
  * nif_info
@@ -2483,7 +2483,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(wstates);          \
     LOCAL_ATOM_DECL(zerocopy)
 
-/* Local error reason atoms 
+/* Local error reason atoms
  * Keep this (commented) for future use...
  */
 /*
@@ -4643,7 +4643,7 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
     if (argc == 0)
         return ESOCK_IO_SUPPORTS_0(env);
 
-    if (argc == 1) 
+    if (argc == 1)
         return ESOCK_IO_SUPPORTS_1(env, argv[0]);
 
     return esock_make_error(env, esock_atom_einval);
@@ -4686,6 +4686,13 @@ ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
     is_supported = esock_atom_false;
 #endif
     TARRAY_ADD(opts, MKT2(env, esock_atom_local, is_supported));
+
+#if defined(HAS_AF_VSOCK)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, esock_atom_vsock, is_supported));
 
 #if defined(HAVE_SETNS)
     is_supported = esock_atom_true;
@@ -5406,7 +5413,7 @@ ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           int              backlog)
 {
-    
+
     /*
      * Verify that we are in the proper state
      */
@@ -5426,7 +5433,7 @@ ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
     /*
      * And attempt to make socket listening
      */
-    
+
     SSDBG( descP, ("SOCKET", "esock_listen(%d) -> try listen with"
                    "\r\n   backlog: %d"
                    "\r\n", descP->sock, backlog) );
@@ -6884,7 +6891,7 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 {
     const ERL_NIF_TERM* t;   // The array of the elements of the tuple
     int                 tsz; // The size of the tuple - should be 2
-#ifndef __WIN32__    
+#ifndef __WIN32__
     unsigned int        n;
 #endif
     size_t              bufSz;
@@ -6913,11 +6920,11 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_setopt_otp_rcvbuf(%d) -> done invalid\r\n",
                 descP->sock) );
-        return esock_make_invalid(env, esock_atom_value);        
+        return esock_make_invalid(env, esock_atom_value);
     }
 
 #else
-    
+
     if (esock_decode_bufsz(env,
                            eVal,
                            ESOCK_RECV_BUFFER_SIZE_DEFAULT,
@@ -7289,7 +7296,7 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
             "\r\n   opt:   %d"
             "\r\n   eVal:  %T"
             "\r\n", descP->sock, level, opt, eVal) );
-    
+
     sys_memzero(&val, sizeof(val));
 
     if ((! GET_MAP_VAL(env, eVal, atom_onoff, &eOnOff)) ||
@@ -7316,7 +7323,7 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
             "\r\n   val.l_onoff:  %d"
             "\r\n   val.l_linger: %d"
             "\r\n", descP->sock, val.l_onoff, val.l_linger) );
-    
+
     return esock_setopt_level_opt(env, descP, level, opt,
                                   &val, sizeof(val));
 }
@@ -7626,7 +7633,7 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
     SSDBG( descP, ("SOCKET",
                    "esock_setopt_addrform -> try set opt to %d\r\n",
                    domain) );
-    
+
     return esock_setopt_level_opt(env, descP, level, opt,
                                   &domain, sizeof(domain));
 }
@@ -9092,7 +9099,7 @@ ERL_NIF_TERM esock_getopt_bsp_state(ErlNifEnv*       env,
                 "\r\n   proto: %T"
                 "\r\n", descP->sock,
                 la, ra, type, proto) );
-    
+
         ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &bspState) );
 
@@ -9100,7 +9107,7 @@ ERL_NIF_TERM esock_getopt_bsp_state(ErlNifEnv*       env,
                ("SOCKET", "esock_getopt_bsp_state(%d) -> "
                 "\r\n   BSP State: %T"
                 "\r\n", descP->sock, bspState) );
-    
+
         result = esock_make_ok2(env, bspState);
     } else {
         result = esock_make_ok2(env, esock_atom_undefined);
@@ -9276,7 +9283,7 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
                 "\r\n", descP->sock,
                 val.l_onoff, lOnOff,
                 val.l_linger, lSecs) );
-    
+
         ESOCK_ASSERT( numKeys == NUM(vals) );
         ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &linger) );
 
@@ -9284,7 +9291,7 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
                ("SOCKET", "esock_getopt_linger(%d) -> "
                 "\r\n   linger: %T"
                 "\r\n", descP->sock, linger) );
-    
+
         result = esock_make_ok2(env, linger);
     }
 
@@ -9936,7 +9943,7 @@ ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
 	ERL_NIF_TERM vals[NUM(keys)];
 	size_t       numKeys = NUM(keys);
 	BOOLEAN_T    haveValue;
-    
+
 	vals[0] = esock_encode_level(env, currentP->cmsg_level);
 	vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
 
@@ -9973,7 +9980,7 @@ ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
 		"\r\n", descP->sock, cmsgHdr) );
 
 	/* And finally add it to the list... */
-	TARRAY_ADD(cmsghdrs, cmsgHdr);	    
+	TARRAY_ADD(cmsghdrs, cmsgHdr);
       }
     }
 
@@ -10108,7 +10115,7 @@ ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
 
     if (! IS_OPEN(descP->readState))
         return esock_make_error_closed(env);
-    
+
     SSDBG( descP,
            ("SOCKET", "esock_sockname {%d} -> open - try get sockname\r\n",
             descP->sock) );
@@ -10392,7 +10399,7 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
 
     /* <KOLLA>
      *
-     * Do we really need all these variants? Should it not be enough with: 
+     * Do we really need all these variants? Should it not be enough with:
      *
      *     connect | accept | send | recv
      *
@@ -11416,7 +11423,7 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
             *val   = -1;
             result = FALSE;
         }
-            
+
 #endif // ifdef __WIN32__
 
     } else if (IS_NUM(env, eVal)) {
@@ -11870,7 +11877,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
 }
 
 
-/* This function is *only* called during 'open' after an 
+/* This function is *only* called during 'open' after an
  * descriptor has been allocated but before it has been used.
  */
 extern
@@ -11891,7 +11898,7 @@ void esock_dealloc_descriptor(ErlNifEnv*       env,
         esock_free_env("dealloc descriptor", descP->closeEnv);
         descP->closeEnv = NULL;
     }
-    
+
     if (descP->meta.env != NULL) {
         esock_free_env("dealloc descriptor", descP->meta.env);
         descP->meta.env = NULL;
@@ -11955,7 +11962,7 @@ extern
 void esock_inc_socket(int domain, int type, int protocol)
 {
     esock_cnt_inc(&data.numSockets, 1);
-    
+
     /* *** Domain counter *** */
     if (domain == AF_INET)
         esock_cnt_inc(&data.numDomainInet, 1);
@@ -12133,7 +12140,7 @@ void esock_send_wrap_msg(ErlNifEnv*       env,
                          ERL_NIF_TERM     cnt)
 {
     ERL_NIF_TERM msg = mk_wrap_msg(env, sockRef, cnt);
-    
+
     if (! esock_send_msg(env, &descP->ctrlPid, msg, NULL)) {
         SSDBG( descP,
                ("SOCKET",
@@ -12218,7 +12225,7 @@ void esock_send_abort_msg(ErlNifEnv*       env,
 
 
 
-                          
+
 {
     ERL_NIF_TERM msg;
 
@@ -12364,14 +12371,14 @@ ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
                           ERL_NIF_TERM reason)
 {
     ERL_NIF_TERM info = MKT2(env, opRef, reason);
-    
+
     return esock_mk_socket_msg(env, sockRef, esock_atom_abort, info);
 }
 
 
 /* *** mk_wrap_msg ***
  *
- * Construct a counter wrap (socket) message. It has the form: 
+ * Construct a counter wrap (socket) message. It has the form:
  *
  *         {'$socket', Socket, counter_wrap, Counter}
  *
@@ -12387,7 +12394,7 @@ ERL_NIF_TERM mk_wrap_msg(ErlNifEnv*   env,
 
 /* *** mk_close_msg ***
  *
- * Construct a close (socket) message. It has the form: 
+ * Construct a close (socket) message. It has the form:
  *
  *         {'$socket', Socket, close, closeRef}
  *
@@ -12404,7 +12411,7 @@ ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
 
 /* *** mk_select_msg ***
  *
- * Construct a select (socket) message. It has the form: 
+ * Construct a select (socket) message. It has the form:
  *
  *         {'$socket', Socket, select, selectRef}
  *
@@ -12456,7 +12463,7 @@ ERL_NIF_TERM esock_mk_socket(ErlNifEnv*   env,
     return MKT2(env, esock_atom_socket_tag, sockRef);
 }
 
-                              
+
 /* ----------------------------------------------------------------------
  *  S e l e c t   W r a p p e r   F u n c t i o n s
  * ----------------------------------------------------------------------
@@ -12472,7 +12479,7 @@ ERL_NIF_TERM esock_mk_socket(ErlNifEnv*   env,
  *    and then pass it on to the select function.
  * 2) Or, to create the message using any available environment,
  *    and then pass a NULL pointer to the select function.
- *    This will have the effect that the select function will 
+ *    This will have the effect that the select function will
  *    create its own environment and then copy the message to it.
  * We choose the second alternative.
  */
@@ -12555,7 +12562,7 @@ int esock_select_cancel(ErlNifEnv*             env,
  * *** esock_activate_next_writer   ***
  * *** esock_activate_next_reader   ***
  *
- * This functions pops the requestors queue and then selects until it 
+ * This functions pops the requestors queue and then selects until it
  * manages to successfully activate a requestor or the queue is empty.
  * Return value indicates if a new requestor was activated or not.
  */
@@ -12654,7 +12661,7 @@ ACTIVATE_NEXT_FUNCS
  * ----------------------------------------------------------------------
  *
  * Since each of these functions (search4pid, push, pop and unqueue
- * are virtually identical for acceptors, writers and readers, 
+ * are virtually identical for acceptors, writers and readers,
  * we make use of set of declaration macros.
  */
 
@@ -12866,7 +12873,7 @@ BOOLEAN_T esock_requestor_pop(ESockRequestQueue* q,
         esock_requestor_init(reqP);
         return FALSE;
     }
-    
+
 }
 
 extern
@@ -12902,7 +12909,7 @@ BOOLEAN_T qsearch4pid(ErlNifEnv*         env,
                       ErlNifPid*         pid)
 {
     ESockRequestQueueElement* tmp = q->first;
-    
+
     while (tmp != NULL) {
         if (COMPARE_PIDS(&tmp->data.pid, pid) == 0)
             return TRUE;
@@ -12949,7 +12956,7 @@ static
 ESockRequestQueueElement* qpop(ESockRequestQueue* q)
 {
     ESockRequestQueueElement* e = q->first;
-    
+
     if (e != NULL) {
         /* At least one element in the queue */
         if (e == q->last) {
@@ -12960,7 +12967,7 @@ ESockRequestQueueElement* qpop(ESockRequestQueue* q)
             q->first = e->nextP;
         }
     }
-    
+
     return e;
 }
 
@@ -12976,7 +12983,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
     ESockRequestQueueElement* e = qget(env, descP, slogan, q, refP, pidP);
 
     if (e != NULL) {
-        (void) DEMONP(slogan, env, descP, &e->data.mon);           
+        (void) DEMONP(slogan, env, descP, &e->data.mon);
         esock_clear_env(slogan, e->data.env);
         esock_free_env(slogan, e->data.env);
         FREE(e);
@@ -13011,11 +13018,11 @@ ESockRequestQueueElement* qget(ErlNifEnv*         env,
                 /* Not the first, but could be the last */
                 if (q->last == e) {
                     q->last  = p;
-                    p->nextP = NULL;                    
+                    p->nextP = NULL;
                 } else {
                     p->nextP = e->nextP;
                 }
-                    
+
             } else {
                 /* The first and could also be the last */
                 if (q->last == e) {
@@ -13269,7 +13276,7 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
     // This is a scheduled call, caller gets ERL_NIF_SELECT_STOP_SCHEDULED
     MLOCK(descP->readMtx);
     MLOCK(descP->writeMtx);
-    
+
     SSDBG( descP, ("SOCKET", "esock_stop {%d/%d} -> when %s"
                    "\r\n   ctrlPid:      %T"
                    "\r\n   closerPid:    %T"
@@ -13523,7 +13530,7 @@ char* extract_debug_filename(ErlNifEnv*   env,
     ERL_NIF_TERM val;
     ErlNifBinary bin;
     char *filename;
-    
+
     if (! GET_MAP_VAL(env, map, atom_debug_filename, &val))
         return NULL;
 
@@ -13594,7 +13601,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         char *debug_filename;
 
         debug_filename = extract_debug_filename(env, load_info);
-        
+
         if (esock_dbg_init(debug_filename)) {
             // Pick up early debug flags only if debug_filename is ok
 
@@ -13651,7 +13658,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
             for (int optIdx = 0; optIdx < numOpts; optIdx++) {
                 ESOCK_EPRINTF("[ESOCK] %T[%d]: %T -> %d\r\n",
                               lname, optIdx, lname, opts[optIdx].opt);
-                
+
             }
             ESOCK_EPRINTF("\r\n");
         }
@@ -13688,7 +13695,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     ioNumThreads = esock_get_uint_from_map(env, load_info,
                                            atom_io_num_threads,
                                            ioNumThreadsDef);
-    
+
 #ifdef __WIN32__
 
     io_backend.init           = esaio_init;
