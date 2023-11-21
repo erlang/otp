@@ -1635,6 +1635,7 @@ void fd_ready_async(ErlDrvData drv_data,
 /* Forker driver */
 
 static int forker_fd;
+extern struct termios erl_sys_initial_tty_mode;
 
 static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
                                SysDriverOpts* opts)
@@ -1716,6 +1717,28 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
     erts_free(ERTS_ALC_T_CS_PROG_PATH, child_setup_prog);
 
     close(fds[1]);
+
+    /* If stdin is a tty then we need to restore its settings when we exit.
+       So we send the tty mode to erl_child_setup so that it can cleanup
+       in case the emulator is terminated with SIGKILL. */
+    if (isatty(0)) {
+        ssize_t res, pos = 0;
+        size_t size = sizeof(struct termios);
+        byte *buff = (byte *)&erl_sys_initial_tty_mode;
+        do {
+            if ((res = write(forker_fd, buff + pos, size - pos)) < 0) {
+                if (errno == ERRNO_BLOCK || errno == EINTR)
+                    continue;
+                erts_exit(ERTS_ABORT_EXIT,
+                          "Could not write tty mode to domain socket in spawn_init: %d\n",
+                          errno);
+            }
+            if (res == 0) {
+                erts_exit(0, "erl_child_setup closed\n");
+            }
+            pos += res;
+        } while (size - pos != 0);
+    }
 
     SET_NONBLOCKING(forker_fd);
 
