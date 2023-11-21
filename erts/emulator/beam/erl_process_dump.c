@@ -900,6 +900,12 @@ dump_literals(fmtfn_t to, void *to_arg)
     for (idx = 0; idx < erts_num_persistent_areas; idx++) {
         dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
     }
+
+    for (ErtsLiteralArea *lambda_area = erts_get_next_lambda_lit_area(NULL);
+         lambda_area != NULL;
+         lambda_area = erts_get_next_lambda_lit_area(lambda_area)) {
+        dump_module_literals(to, to_arg, lambda_area);
+    }
 }
 
 static void

@@ -4905,7 +4905,6 @@ dec_term_atom_common:
             }
         case EXPORT_EXT:
             {
-                ErlFunThing *funp;
                 Export *export;
                 Eterm mod;
                 Eterm name;
@@ -4937,9 +4936,7 @@ dec_term_atom_common:
                 }
 
                 export = erts_export_get_or_make_stub(mod, name, arity);
-                funp = erts_new_export_fun_thing(&factory->hp, export, arity);
-                hp = factory->hp;
-                *objp = make_fun(funp);
+                *objp = export->lambda;
             }
             break;
 	case MAP_EXT:
@@ -5185,8 +5182,19 @@ dec_term_atom_common:
         }
     }
 
-    ASSERT(hp <= factory->hp_end
-           || (factory->mode == FACTORY_CLOSED && is_immed(*dbg_resultp)));
+#ifdef DEBUG
+    if (factory->mode == FACTORY_CLOSED) {
+        erts_literal_area_t purge_area;
+        INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+
+        /* When we've got a dummy factory we should only be able to produce
+         * global literals and immediates. */
+        ASSERT(size_object_litopt(*dbg_resultp, &purge_area) == 0);
+    } else {
+        ASSERT(hp <= factory->hp_end);
+    }
+#endif
+
     factory->hp = hp;
     /*
      * From here on factory may produce (more) heap fragments
@@ -6016,7 +6024,12 @@ init_done:
 	    CHKSIZE(1);
 	    n = *ep++;
             ADDTERMS(n);
-	    heap_size += n + 1;
+            /* When decoding the empty tuple we always use the canonical
+             * global literal, so it won't occupy any heap space in the block
+             * we're decoding to. */
+            if (n > 0) {
+                heap_size += n + 1;
+            }
 	    break;
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
@@ -6024,14 +6037,24 @@ init_done:
 	    ep += 4;
             CHKSIZE(n); /* Fail faster if the binary is too short. */
 	    ADDTERMS(n);
-	    heap_size += n + 1;
+            /* See SMALL_TUPLE_EXT. */
+            if (n > 0) {
+                heap_size += n + 1;
+            }
 	    break;
 	case MAP_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
 	    ep += 4;
             if (n <= MAP_SMALL_MAP_LIMIT) {
-                heap_size += 3 + n + 1 + n;
+                heap_size += 3 + n;
+
+                /* When decoding the empty tuple we always use the canonical
+                 * global literal, so it won't occupy any heap space in the
+                 * block we're decoding to. */
+                if (n > 0) {
+                    heap_size += 1 + n;
+                }
 #if defined(ARCH_64)
             } else if ((n >> 31) != 0) {
                 /* Avoid overflow by limiting the number of elements in
@@ -6095,8 +6118,10 @@ init_done:
 	    }
 	    break;
 	case EXPORT_EXT:
-	    ADDTERMS(3);
-	    heap_size += ERL_FUN_SIZE;
+            /* When decoding these we always use the canonical fun from the
+             * export entry, so they won't occupy any heap space in the block
+             * we're decoding to. */
+            ADDTERMS(3);
 	    break;
 	case NEW_FUN_EXT:
 	    {
