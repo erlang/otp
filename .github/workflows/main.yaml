@@ -460,7 +460,7 @@ jobs:
           esac
           sudo service apport stop
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
-          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 512 \
+          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
             -e TEST_NEEDS_RELEASE=true -e "RELEASE_ROOT=/buildroot/otp/Erlang ∅⊤℞" \
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/$DIR/make_test_dir/${{ matrix.type }}_junit.xml\"}]" \
