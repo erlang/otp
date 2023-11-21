@@ -63,7 +63,6 @@
          signature_schemes_1_2/1,
          scheme_to_components/1, 
          hash_size/1, 
-         effective_key_bits/1,
          key_material/1, 
          signature_algorithm_to_scheme/1,
          bulk_cipher_algorithm/1]).
@@ -108,8 +107,6 @@ security_parameters(Version, CipherSuite, SecParams) ->
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
       cipher_type = type(Cipher),
-      key_size = effective_key_bits(Cipher),
-      expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
       mac_algorithm = mac_algorithm(Hash),
@@ -556,17 +553,11 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) ->
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member({Hash, rsa_pss_rsae}, HashSigns);
 is_supported_sign(SignAlgo, HashSigns) ->
-    lists:any(fun (SignAlgo0) -> lists:member(SignAlgo0, HashSigns) end,
-              [SignAlgo, supported_signalgo(SignAlgo)]).
-
-supported_signalgo({Hash, rsa}) -> {Hash,rsa_pss_rsae}; %% PRE TLS-1.3 %% PRE TLS-1.3
-supported_signalgo(rsa_pkcs1_sha256) -> rsa_pss_rsae_sha256; %% TLS-1.3 legacy
-supported_signalgo(rsa_pkcs1_sha384) -> rsa_pss_rsae_sha384; %% TLS-1.3 legacy
-supported_signalgo(rsa_pkcs1_sha512) -> rsa_pss_rsae_sha512; %% TLS-1.3 legacy
-supported_signalgo(_) -> skip_test. %% made up atom, PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
-
-
+    lists:member(SignAlgo, HashSigns).
 
 signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
 signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
@@ -638,6 +629,8 @@ signature_schemes_1_2(SigAlgs) ->
                                 [{Hash, Sign} | Acc];
                             {Hash, Sign = rsa_pss_rsae,_} ->
                                 [{Hash, Sign} | Acc];
+                            {Hash, Sign, undefined} ->
+                                [{Hash, format_sign(Sign)} | Acc];
                             {_, _, _} ->
                                 Acc
                         end;
@@ -665,6 +658,11 @@ scheme_to_components(rsa_pkcs1_sha1) -> {sha, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
+
+format_sign(rsa_pkcs1) ->
+    rsa;
+format_sign(Value) ->
+    Value.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -744,44 +742,6 @@ key_material(aes_256_ccm) ->
     32;
 key_material(chacha20_poly1305) ->
     32.
-
-expanded_key_material(null) ->
-    0;
-expanded_key_material(rc4_128) ->
-    16;
-expanded_key_material(Cipher) when Cipher == des_cbc ->
-    8;
-expanded_key_material('3des_ede_cbc') ->
-    24;
-expanded_key_material(Cipher) when Cipher == aes_128_cbc;
-				   Cipher == aes_256_cbc;
-				   Cipher == aes_128_gcm;
-				   Cipher == aes_256_gcm;
-                                   Cipher == aes_128_ccm;
-				   Cipher == aes_256_ccm;
-                                   Cipher == aes_128_ccm_8;
-				   Cipher == aes_256_ccm_8;
-				   Cipher == chacha20_poly1305 ->
-    unknown.  
-
-effective_key_bits(null) ->
-    0;
-effective_key_bits(des_cbc) ->
-    56;
-effective_key_bits(Cipher) when Cipher == rc4_128;
-				Cipher == aes_128_cbc;
-				Cipher == aes_128_gcm;
-                                Cipher == aes_128_ccm;
-                                Cipher == aes_128_ccm_8 ->
-    128;
-effective_key_bits('3des_ede_cbc') ->
-    168;
-effective_key_bits(Cipher) when Cipher == aes_256_cbc;
-				Cipher == aes_256_gcm;
-				Cipher == aes_256_ccm;
-                                Cipher == aes_256_ccm_8;
-				Cipher == chacha20_poly1305 ->
-    256.
 
 iv_size(Cipher) when Cipher == null;
 		     Cipher == rc4_128 ->

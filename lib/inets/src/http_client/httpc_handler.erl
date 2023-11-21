@@ -1025,7 +1025,8 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
            options      = Options,
            profile_name = ProfileName} = State,
     handle_cookies(Headers, Request, Options, ProfileName), 
-    case httpc_response:result({StatusLine, Headers, Body}, Request) of
+    RequestWithIpFamily = add_ipfamily_to_request(Request, Options#options.ipfamily),
+    case httpc_response:result({StatusLine, Headers, Body}, RequestWithIpFamily) of
 	%% 100-continue
 	continue ->
 	    %% Send request body
@@ -1072,6 +1073,22 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
 	    NewState = maybe_send_answer(Request, Msg, State),
 	    {stop, normal, NewState}
     end.
+
+sanitize_request_socket_opts(undefined) -> [];
+sanitize_request_socket_opts(Opts) -> Opts.
+
+% Carry over the IP family from the existing state options for the case
+% where we perform a retry or redirect. Without interpolating the ipfamily
+% into the request socket options, the newly started httpc_handler would lose
+% context of the IP family and may try to contact IPv6 hosts over IPv4 via
+% the default ipfamily option "inet". Skip adding it for IPv4 (inet) to
+% prevent TLS errors on following redirects.
+add_ipfamily_to_request(Request, inet) -> Request;
+add_ipfamily_to_request(Request, IpFamily) ->
+    SocketOpts = sanitize_request_socket_opts(Request#request.socket_opts),
+    Request#request{
+        socket_opts = [{ipfamily, IpFamily} | SocketOpts]
+    }.
 
 handle_cookies(_,_, #options{cookies = disabled}, _) ->
     ok;

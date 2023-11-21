@@ -31,7 +31,7 @@
                     {'ok',#b_module{}} | {'error',list()}.
 module(#b_module{body=Fs,name=Name}=Mod0, _Options) ->
     Es0 = append([validate_function(F) || F <- Fs]),
-    case [{?MODULE,E} || E <- Es0] of
+    case [{none,?MODULE,E} || E <- Es0] of
         [] ->
             {ok, Mod0};
         [_|_]=Es ->
@@ -117,7 +117,8 @@ vvars_assert_unique(Blocks, Args) ->
 -spec vvars_assert_unique_1(Is, Defined) -> ok when
       Is :: list(beam_ssa:b_set()),
       Defined :: #{ beam_ssa:b_var() => beam_ssa:b_set() }.
-vvars_assert_unique_1([#b_set{dst=Dst}=I|Is], Defined) ->
+vvars_assert_unique_1([#b_set{dst=Dst,anno=Anno}=I|Is], Defined) ->
+    check_anno(Anno),
     case Defined of
         #{Dst:=Old} -> throw({redefined_variable, Dst, Old, I});
         _ -> vvars_assert_unique_1(Is, Defined#{Dst=>I})
@@ -288,7 +289,8 @@ vvars_block_1([], _Terminator, State) ->
       Terminator :: beam_ssa:terminator(),
       From :: beam_ssa:label(),
       State :: #vvars{}.
-vvars_terminator(#b_ret{ arg = Arg }=I, From, State) ->
+vvars_terminator(#b_ret{arg=Arg,anno=Anno}=I, From, State) ->
+    check_anno(Anno),
     ok = vvars_assert_args([Arg], I, State),
     TryTags = State#vvars.try_tags,
     case {gb_sets:is_empty(TryTags),From} of
@@ -302,17 +304,20 @@ vvars_terminator(#b_ret{ arg = Arg }=I, From, State) ->
         {true,_} ->
             State
     end;
-vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch}=I, From, State) ->
+vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch,anno=Anno}=I, From, State) ->
+    check_anno(Anno),
     ok = vvars_assert_args([Arg], I, State),
     ok = vvars_assert_args([A || {A,_Lbl} <- Switch], I, State),
     Labels = [Fail | [Lbl || {_Arg, Lbl} <- Switch]],
     ok = vvars_assert_labels(Labels, I, State),
     vvars_terminator_1(Labels, From, State);
-vvars_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}=I, From, State) ->
+vvars_terminator(#b_br{bool=#b_literal{val=true},succ=Succ,anno=Anno}=I, From, State) ->
+    check_anno(Anno),
     Labels = [Succ],
     ok = vvars_assert_labels(Labels, I, State),
     vvars_terminator_1(Labels, From, State);
-vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) ->
+vvars_terminator(#b_br{bool=Arg,succ=Succ,fail=Fail,anno=Anno}=I, From, State) ->
+    check_anno(Anno),
     ok = vvars_assert_args([Arg], I, State),
     Labels = [Fail, Succ],
     ok = vvars_assert_labels(Labels, I, State),
@@ -430,6 +435,9 @@ vvars_kill_try_tag(Var, State0) ->
     TryTags = gb_sets:delete(Var, State0#vvars.try_tags),
     State0#vvars{ try_tags = TryTags }.
 
+check_anno(#{}) -> ok;
+check_anno(BadAnno) -> throw({bad_annotation,BadAnno}).
+
 format_error_1({redefined_variable, Name, Old, I}) ->
     io_lib:format("Variable ~ts (~ts) redefined by ~ts",
                   [format_var(Name), format_instr(Old), format_instr(I)]);
@@ -472,4 +480,6 @@ format_error_1({succeeded_not_followed_by_two_way_br, I}) ->
 format_error_1({active_try_tags_on_return, TryTags0, I}) ->
     TryTags = format_vars(gb_sets:to_list(TryTags0)),
     io_lib:format("Try tags ~ts are still active on ~ts",
-                  [TryTags, format_instr(I)]).
+                  [TryTags, format_instr(I)]);
+format_error_1({bad_annotation, BadAnno}) ->
+    io_lib:format("Badly formed annotation: ~p", [BadAnno]).

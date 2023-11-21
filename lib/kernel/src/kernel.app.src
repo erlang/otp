@@ -162,7 +162,7 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-14.0", "stdlib-5.0",
+  {runtime_dependencies, ["erts-14.0", "stdlib-6.0",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.

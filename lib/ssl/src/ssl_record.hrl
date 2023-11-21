@@ -57,9 +57,7 @@
           bulk_cipher_algorithm,
           cipher_type,
           iv_size,
-          key_size,				% unit 8
           key_material_length,			% unit 8 
-          expanded_key_material_length,		% unit 8 
           mac_algorithm,			% unit 8  
           prf_algorithm,			% unit 8
           hash_size,				% unit 8
@@ -68,8 +66,7 @@
           application_traffic_secret,
           client_early_data_secret,
           client_random,			% opaque 32
-          server_random,			% opaque 32
-          exportable				% boolean
+          server_random			        % opaque 32
        }). 
 
 -define(INITIAL_BYTES, 5).

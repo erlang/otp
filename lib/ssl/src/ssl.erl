@@ -141,6 +141,7 @@
               srp_param_type/0,
               named_curve/0,
               sign_scheme/0,
+              signature_algs/0,
               group/0]).
 
 %% -------------------------------------------------------------------------------------------------------
@@ -1108,7 +1109,7 @@ append_cipher_suites(Filters, Suites) ->
     (Suites -- Deferred) ++  Deferred.
 
 %%--------------------------------------------------------------------
--spec signature_algs(Description, Version) -> [signature_algs()] when
+-spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
       Version :: protocol_version().
 
@@ -1138,9 +1139,9 @@ signature_algs(Description, 'dtlsv1.2') ->
 signature_algs(Description, Version) when Description == default;
                                           Description == all;
                                           Description == exclusive->
-    {error, {signature_algs_not_supported_in_protocol_version, Version}};
-signature_algs(Description,_) ->
-    {error, {badarg, Description}}.
+    erlang:error({signature_algs_not_supported_in_protocol_version, Version});
+signature_algs(Description, Version) ->
+    erlang:error(badarg, [Description, Version]).
 
 %%--------------------------------------------------------------------
 -spec eccs() -> NamedCurves when

@@ -163,6 +163,8 @@
     <taglist>
       <tag>Pid</tag>
       <item><p>The process identifier.</p></item>
+      <tag>Description</tag>
+      <item><p>Registered name, <seemfa marker="stdlib:proc_lib#set_label/1">process label</seemfa> or initial function.</p></item>
       <tag>Reds</tag>
       <item><p>The number of reductions executed on the process. 
       This can be presented as accumulated values or as values since the last update.</p></item>

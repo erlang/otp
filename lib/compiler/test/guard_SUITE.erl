@@ -3140,6 +3140,9 @@ beam_ssa_bool_coverage() ->
     error = beam_ssa_bool_coverage_2(false),
     error = beam_ssa_bool_coverage_2(42),
 
+    error = beam_ssa_bool_coverage_3(42),
+    error = beam_ssa_bool_coverage_3(a),
+
     ok.
 
 collect_modifiers([H | T], Buffer)
@@ -3157,6 +3160,11 @@ beam_ssa_bool_coverage_1(_) ->
 beam_ssa_bool_coverage_2(A) when is_pid(A) andalso true; A ->
     ok;
 beam_ssa_bool_coverage_2(_) ->
+    error.
+
+beam_ssa_bool_coverage_3(A) when ok; ((ok =< A + 1) or false) and true orelse ok ->
+    ok;
+beam_ssa_bool_coverage_3(_) ->
     error.
 
 gh_6164() ->

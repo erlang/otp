@@ -23,9 +23,11 @@
 -export([get_state/0, get_function/2]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
--export([catch_exception/1, prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, multiline_prompt_func/1, strings/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
+-export([default_multiline_prompt/1, inverted_space_prompt/1]).
+-export([prompt_width/1]).
 -export([whereis/0]).
 
 -define(LINEMAX, 30).
@@ -279,7 +281,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                         [text,{reserved_word_fun,ResWordFun}])
                   of
                       {ok,Toks,_EndPos} ->
-                          %% NOTE: we can handle function definitions, records and soon type declarations
+                          %% NOTE: we can handle function definitions, records and type declarations
                           %% but this cannot be handled by the function which only expects erl_parse:abstract_expressions()
                           %% for now just pattern match against those types and pass the string to shell local func.
                           case Toks of
@@ -300,7 +302,8 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                   case Atom of
                                       record -> SpecialCase(rd);
                                       spec -> SpecialCase(ft);
-                                      type -> SpecialCase(td)
+                                      type -> SpecialCase(td);
+                                      _ -> erl_eval:extended_parse_exprs(Toks)
                                   end;
                               [{atom, _, FunName}, {'(', _}|_] ->
                                   case erl_parse:parse_form(Toks) of
@@ -973,7 +976,7 @@ not_restricted(exit, []) ->
     true;
 not_restricted(fl, []) ->
     true;
-not_restricted(fd, [_]) ->
+not_restricted(fd, [_,_]) ->
     true;
 not_restricted(ft, [_]) ->
     true;
@@ -998,6 +1001,8 @@ not_restricted(rr, [_]) ->
 not_restricted(rr, [_,_]) ->
     true;
 not_restricted(rr, [_,_,_]) ->
+    true;
+not_restricted(v, [_]) ->
     true;
 not_restricted(_, _) ->
     false.
@@ -1692,9 +1697,47 @@ catch_exception(Bool) ->
 prompt_func(PromptFunc) ->
     set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
+-spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
+      PromptFunc :: 'default' | {module(),function()} | string(),
+      PromptFunc2 :: 'default' | {module(),function()} | string().
+
+multiline_prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
+
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),
       Strings2 :: boolean().
 
 strings(Strings) ->
     set_env(stdlib, shell_strings, Strings, ?DEF_STRINGS).
+
+-spec prompt_width(unicode:chardata()) -> non_neg_integer().
+
+prompt_width(String) when is_list(String) ->
+    prompt_width(unicode:characters_to_binary(String));
+prompt_width(String) ->
+    case string:next_grapheme(String) of
+        [] -> 0;
+        [$\e | Rest] ->
+            case re:run(String, prim_tty:ansi_regexp(), [unicode]) of
+                {match, [{0, N}]} ->
+                    <<_Ansi:N/binary, AnsiRest/binary>> = String,
+                    prompt_width(AnsiRest);
+                _ ->
+                    prim_tty:npwcwidth($\e) + prompt_width(Rest)
+            end;
+        [H|Rest] when is_list(H)-> lists:sum([prim_tty:npwcwidth(A)||A<-H]) + prompt_width(Rest);
+        [H|Rest] -> prim_tty:npwcwidth(H) + prompt_width(Rest)
+    end.
+
+-spec default_multiline_prompt(unicode:chardata()) ->
+      unicode:chardata().
+
+default_multiline_prompt(Pbs) ->
+    lists:duplicate(max(0, prompt_width(Pbs) - 3), $\s) ++ ".. ".
+
+-spec inverted_space_prompt(unicode:chardata()) ->
+      unicode:chardata().
+
+inverted_space_prompt(Pbs) ->
+    "\e[7m" ++ lists:duplicate(prompt_width(Pbs) - 1, $\s) ++ "\e[27m ".

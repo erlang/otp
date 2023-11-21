@@ -50,7 +50,10 @@
     any_parameter_function/2,
     ann_type_parameter_function/2,
     ann_type_parameter_function2/2,
-    atom_parameter_function/2
+    atom_parameter_function/2,
+    caseSensitiveFunctionName/2,
+    caseSensitiveFunction/2,
+    casesensitivefunction/2
     ]).
 -record(a_record, {}).
 %% test first and second parameter
@@ -162,3 +165,10 @@ ann_type_parameter_function(_,_) -> false.
 
 -spec ann_type_parameter_function2(W::any(), V::atom()) -> boolean().
 ann_type_parameter_function2(_,_) -> false.
+
+-spec caseSensitiveFunctionName(A::atom(), B::any()) -> boolean().
+caseSensitiveFunctionName(_,_) -> false.
+-spec caseSensitiveFunction(A::atom(), B::any()) -> boolean().
+caseSensitiveFunction(_,_) -> false.
+-spec casesensitivefunction(A::atom(), B::any()) -> boolean().
+casesensitivefunction(_,_) -> false.

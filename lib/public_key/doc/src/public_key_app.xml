@@ -41,7 +41,7 @@
     <list type="bulleted">
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url> -
       Internet X.509 Public-Key Infrastructure Certificate and Certificate Revocation List 
-      (CRL) Profile. Certificate policies are currently not supported. </item>
+      (CRL) Profile. Certificate policies supported since OTP-26.2 </item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc3447.txt"> PKCS-1 </url> - 
       RSA Cryptography Standard </item>
       <item>Supports <url href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf"> DSS</url> - 

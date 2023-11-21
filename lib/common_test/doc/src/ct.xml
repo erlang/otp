@@ -43,13 +43,10 @@
        tests and basic functions for <c>Common Test</c> case issues, such as
        configuration and logging.</p>
 
-     <p><em>Test Suite Support Macros</em></p> 
-
-     <p>The <c>config</c> macro is defined in <c>ct.hrl</c>. This macro is
-       to be used to retrieve information from the <c>Config</c> variable sent
-       to all test cases. It is used with two arguments; the first is the name
-       of the configuration variable to retrieve, the second is the
-       <c>Config</c> variable supplied to the test case.</p>
+     <p>The framework stores configuration values in a property list usually named
+       <c>Config</c>. The list contains information about the test run added by the
+       framework itself and may also contain user-provided values. The configuration
+       is passed into individual test cases as well as support functions if defined.</p>
 
     <p>Possible configuration variables include:</p>
 
@@ -62,6 +59,10 @@
       <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
       in the test suite.</p></item>
     </list>
+
+    <warning><p>The <c>?config</c> macro, used to receive individual config values from
+      the <c>Config</c> property list, is deprecated. Please use
+      <c>proplists:get_value/2-3</c> instead.</p></warning>
 
   </description>
 

@@ -98,8 +98,27 @@
 %%     Mod = atom()
 %%     Options = term() ignored
 %%--------------------------------------------------------------------
+-spec i(AbsModules) -> ok when
+      AbsModules :: [AbsModule],
+      AbsModule :: Module | File,
+      Module :: module(),
+      File :: file:name_all();
+       (AbsModule) -> {module,Module} | error when
+      AbsModule :: Module | File,
+      Module :: module(),
+      File :: file:name_all().
 i(AbsMods) -> i2(AbsMods, local, ok).
 i(AbsMods, _Options) -> i2(AbsMods, local, ok).
+
+-spec ni(AbsModules) -> ok when
+      AbsModules :: [AbsModule],
+      AbsModule :: Module | File,
+      Module :: module(),
+      File :: file:name_all();
+        (AbsModule) -> {module,Module} | error when
+      AbsModule :: Module | File,
+      Module :: module(),
+      File :: file:name_all().
 ni(AbsMods) -> i2(AbsMods, distributed, ok).
 ni(AbsMods, _Options) -> i2(AbsMods, distributed, ok).
     
@@ -121,7 +140,14 @@ i2(AbsMod, Dist, _Acc) when is_atom(AbsMod); is_list(AbsMod); is_tuple(AbsMod) -
 %% n(AbsMods) -> ok
 %% nn(AbsMods) -> ok
 %%--------------------------------------------------------------------
+-spec n(AbsModule) -> ok when AbsModule :: Module | File | [Module | File],
+    Module :: module(),
+    File :: file:name_all().
 n(AbsMods) -> n2(AbsMods, local).
+-spec nn(AbsModule) -> ok when
+      AbsModule :: Module | File | [Module | File],
+      Module :: module(),
+      File :: file:name_all().
 nn(AbsMods) -> n2(AbsMods, distributed).
 
 n2([AbsMod|AbsMods], Dist) when is_atom(AbsMod); is_list(AbsMod) ->
@@ -137,6 +163,7 @@ n2(AbsMod, Dist) when is_atom(AbsMod); is_list(AbsMod) ->
 %%--------------------------------------------------------------------
 %% interpreted() -> [Mod]
 %%--------------------------------------------------------------------
+-spec interpreted() -> [Module] when Module :: module().
 interpreted() ->
     dbg_iserver:safe_call(all_interpreted).
 
@@ -145,6 +172,8 @@ interpreted() ->
 %%   Mod = atom()
 %%   File = string()
 %%--------------------------------------------------------------------
+-spec file(Module) -> File | {error,not_loaded} when Module :: module(),
+                                                     File :: file:filename_all().
 file(Mod) when is_atom(Mod) ->
     dbg_iserver:safe_call({file, Mod}).
 
@@ -153,6 +182,12 @@ file(Mod) when is_atom(Mod) ->
 %%   AbsMod = Mod | File
 %%   Reason = no_src | no_beam | no_debug_info | badarg | {app, App}
 %%--------------------------------------------------------------------
+-spec interpretable(AbsModule) -> true | {error,Reason} when
+      AbsModule :: Module | File,
+      Module :: module(),
+      File :: file:name_all(),
+      Reason :: no_src | no_beam | no_debug_info | badarg | {app,App},
+      App :: atom().
 interpretable(AbsMod) ->
     case check(AbsMod) of
 	{ok, _Res} -> true;
@@ -170,12 +205,24 @@ interpretable(AbsMod) ->
 %%  spawn(Mod, Func, [Dist, Pid, Meta | Args]) (living process) or
 %%  spawn(Mod, Func, [Dist, Pid, Reason, Info | Args]) (dead process)
 %%--------------------------------------------------------------------
+-spec auto_attach() -> false | {Flags,Function} when Flags :: [init | break | exit],
+   Function :: {Module,Name,Args},
+    Module :: module(),
+   Name :: atom(),
+    Args :: [term()].
 auto_attach() ->
     dbg_iserver:safe_call(get_auto_attach).
 
+-spec auto_attach(false) -> term().
 auto_attach(false) ->
     dbg_iserver:safe_cast({set_auto_attach, false}).
 
+-spec auto_attach(Flags, Function) -> term() when
+      Flags :: [init | break | exit],
+      Function :: {Module,Name,Args},
+      Module :: module(),
+      Name :: atom(),
+      Args :: [term()].
 auto_attach([], _Function) ->
     auto_attach(false);
 auto_attach(Flags, {Mod, Func}) ->
@@ -194,9 +241,11 @@ check_flags([]) -> true.
 %% stack_trace(Flag)
 %%   Flag = all | true | no_tail | false
 %%--------------------------------------------------------------------
+-spec stack_trace() -> Flag when Flag :: all | no_tail | false.
 stack_trace() ->
     dbg_iserver:safe_call(get_stack_trace).
 
+-spec stack_trace(Flag) -> term() when Flag :: all | no_tail | false.
 stack_trace(true) ->
     stack_trace(all);
 stack_trace(Flag) ->
@@ -235,13 +284,19 @@ check_flag(false) -> true.
 %%       Status = active | inactive
 %%       Cond = null | Function
 %%--------------------------------------------------------------------
+-spec break(Module, Line) -> ok | {error, break_exists}
+               when Module :: module(), Line :: integer().
 break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_call({new_break, {Mod, Line},
 			   [active, enable, null, null]}).
 
+-spec delete_break(Module, Line) -> ok
+                      when Module :: module(), Line :: integer().
 delete_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({delete_break, {Mod, Line}}).
 
+-spec break_in(Module, Name, Arity) -> ok | {error, function_not_found}
+                  when Module :: module(), Name :: atom(), Arity :: integer().
 break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
     case dbg_iserver:safe_call({is_interpreted, Mod, Func, Arity}) of
 	{true, Clauses} ->
@@ -251,6 +306,12 @@ break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) -
 	    {error, function_not_found}
     end.
 
+-spec del_break_in(Module, Name, Arity) ->
+                      ok | {error, function_not_found}
+                      when
+                          Module :: module(),
+                          Name :: atom(),
+                          Arity :: integer().
 del_break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
     case dbg_iserver:safe_call({is_interpreted, Mod, Func, Arity}) of
 	{true, Clauses} ->
@@ -269,18 +330,29 @@ first_line({clause,_L,_Vars,_,Exprs}) ->
 first_line([Expr|_Exprs]) -> % Expr = {Op, Line, ..varying no of args..}
     element(2, Expr).
 
+-spec no_break() -> ok.
 no_break() ->
     dbg_iserver:safe_cast(no_break).
 
+-spec no_break(Module :: term()) -> ok.
 no_break(Mod) when is_atom(Mod) ->
     dbg_iserver:safe_cast({no_break, Mod}).
 
+-spec disable_break(Module, Line) -> ok
+                       when Module :: module(), Line :: integer().
 disable_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({break_option, {Mod, Line}, status, inactive}).
     
+-spec enable_break(Module, Line) -> ok
+                      when Module :: module(), Line :: integer().
 enable_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({break_option, {Mod, Line}, status, active}).
 
+-spec action_at_break(Module, Line, Action) -> ok
+                         when
+                             Module :: module(),
+                             Line :: integer(),
+                             Action :: enable | disable | delete.
 action_at_break(Mod, Line, Action) when is_atom(Mod), is_integer(Line) ->
     check_action(Action),
     dbg_iserver:safe_cast({break_option, {Mod, Line}, action, Action}).
@@ -289,17 +361,48 @@ check_action(enable) -> true;
 check_action(disable) -> true;
 check_action(delete) -> true.
 
+-spec test_at_break(Module, Line, Function) -> ok when
+      Module :: module(),
+      Line :: integer(),
+      Function :: {Module,Name},
+      Name :: atom().
 test_at_break(Mod, Line, Function) when is_atom(Mod), is_integer(Line) ->
     check_function(Function),
     dbg_iserver:safe_cast({break_option, {Mod, Line}, condition, Function}).
 
 check_function({Mod, Func}) when is_atom(Mod), is_atom(Func) -> true.
 
+-spec get_binding(Var, Bindings) -> {value,Value} | unbound when Var :: atom(),
+   Bindings :: term(),
+   Value :: term().
 get_binding(Var, Bs) ->
     dbg_icmd:get_binding(Var, Bs).
 
+-spec all_breaks() -> [Break] when
+      Break :: {Point,Options},
+      Point :: {Module,Line},
+      Module :: module(),
+      Line :: integer(),
+      Options :: [Status | Trigger | null | Cond],
+      Status :: active | inactive,
+      Trigger :: enable | disable | delete,
+      Cond :: null | Function,
+      Function :: {Module,Name},
+      Name :: atom().
 all_breaks() ->
     dbg_iserver:safe_call(all_breaks).
+
+-spec all_breaks(Module) -> [Break] when
+      Break :: {Point,Options},
+      Point :: {Module,Line},
+      Module :: module(),
+      Line :: integer(),
+      Options :: [Status | Trigger | null | Cond],
+      Status :: active | inactive,
+      Trigger :: enable | disable | delete,
+      Cond :: null | Function,
+      Function :: {Module,Name},
+      Name :: atom().
 all_breaks(Mod) when is_atom(Mod) ->
     dbg_iserver:safe_call({all_breaks, Mod}).
 
@@ -313,12 +416,24 @@ all_breaks(Mod) when is_atom(Mod) ->
 %%     Line = integer()
 %%     ExitReason = term()
 %%--------------------------------------------------------------------
+-spec snapshot() -> [Snapshot] when
+      Snapshot :: {Pid, Function, Status, Info},
+      Pid :: pid(),
+      Function :: {Module,Name,Args},
+      Module :: module(),
+      Name :: atom(),
+      Args :: [term()],
+      Status :: idle | running | waiting | break | exit | no_conn,
+      Info :: {} | {Module,Line} | ExitReason,
+      Line :: integer(),
+      ExitReason :: term().
 snapshot() ->
     dbg_iserver:safe_call(snapshot).
 
 %%--------------------------------------------------------------------
 %% clear()
 %%--------------------------------------------------------------------
+-spec clear() -> ok.
 clear() ->
     dbg_iserver:safe_cast(clear).
     
@@ -326,6 +441,7 @@ clear() ->
 %% continue(Pid) -> ok | {error, not_interpreted}
 %% continue(X, Y, Z) -> ok | {error, not_interpreted}
 %%--------------------------------------------------------------------
+-spec continue(Pid :: pid()) -> ok | {error,not_interpreted}.
 continue(Pid) when is_pid(Pid) ->
     case dbg_iserver:safe_call({get_meta, Pid}) of
 	{ok, Meta} when is_pid(Meta) ->
@@ -335,6 +451,10 @@ continue(Pid) when is_pid(Pid) ->
 	    Error
     end.
     
+-spec continue(X,Y,Z) -> ok | {error,not_interpreted} when
+      X :: integer(),
+      Y :: integer(),
+      Z :: integer().
 continue(X, Y, Z) when is_integer(X), is_integer(Y), is_integer(Z) ->
     continue(c:pid(X, Y, Z)).
 
@@ -746,3 +866,4 @@ del_mod(AbsMod, Dist) ->
 		       erlang:yield()
 		   end),
     ok.
+

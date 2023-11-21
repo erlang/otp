@@ -352,9 +352,7 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
-#if !defined(OPENSSL_NO_ENGINE) && \
-    !defined(HAS_3_0_API)
-/* Disable FIPS for 3.0 temporaryly until the support is added (might core dump) */
+#if !defined(OPENSSL_NO_ENGINE)
 # define HAS_ENGINE_SUPPORT
 #endif
 #endif

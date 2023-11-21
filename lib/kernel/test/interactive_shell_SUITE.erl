@@ -402,6 +402,8 @@ shell_navigation(Config) ->
              check_location(Term, {0, 0}),
              send_tty(Term,"C-E"),
              check_location(Term, {0, width("{aaa,'b"++U++"b',ccc}")}),
+             send_tty(Term,"C-H"),
+             check_location(Term, {0, width("{aaa,'b"++U++"b',ccc")}),
              send_tty(Term,"C-A"),
              check_location(Term, {0, 0}),
              send_tty(Term,"Enter")
@@ -476,10 +478,10 @@ shell_multiline_navigation(Config) ->
     end.
 
 shell_multiline_prompt(Config) ->
-    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{edlin,inverted_space_prompt}"]}|Config]),
+    Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{shell,inverted_space_prompt}"]}|Config]),
     Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
     Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
-
+    Term4 = start_tty(Config),
     try
         check_location(Term1, {0, 0}),
         send_tty(Term1,"\na"),
@@ -505,6 +507,15 @@ shell_multiline_prompt(Config) ->
         ok
     after
         stop_tty(Term3)
+    end,
+    try
+        send_tty(Term4, "shell:multiline_prompt_func(\"-> \").\n"),
+        check_content(Term4, "default"),
+        send_tty(Term4, "a\nb"),
+        check_content(Term4, "-> b"),
+        ok
+    after
+        stop_tty(Term4)
     end.
 
 shell_clear(Config) ->
@@ -1213,12 +1224,19 @@ shell_ignore_pager_commands(Config) ->
 test_valid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+    erpc:call(Term#tmux.node, application, set_env,
+              [stdlib, shell_prompt_func_test,
+               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
     try
         check_not_in_content(Term, "Invalid key"),
         check_not_in_content(Term, "Invalid function"),
         send_tty(Term, "asdf"),
         send_tty(Term, "C-u"),
         check_content(Term, ">$"),
+        send_tty(Term, "1.\n"),
+        send_tty(Term, "C-b"),
+        check_content(Term, "2>\\s1.$"),
         ok
     after
         stop_tty(Term),

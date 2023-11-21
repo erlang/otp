@@ -262,7 +262,7 @@
       <desc>
         <p><c>i/0</c> displays system information, listing
           information about all processes. <c>ni/0</c> does the same,
-          but for all nodes the network.</p>
+          but for all nodes in the network.</p>
       </desc>
     </func>
 

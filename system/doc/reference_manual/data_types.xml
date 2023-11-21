@@ -404,7 +404,15 @@ a
     <p>is equivalent to</p>
     <pre>
 "string42"</pre>
+    <change>
+      <p>
+        Starting with Erlang/OTP 27 two adjacent string literals
+        have to be separated by white space, or else it is a syntax error.
+        This avoids possible confusion with <em>triple-quoted strings</em>.
+      </p>
+    </change>
     <p>
+      <marker id="tqstring"/>
       Strings can also be written as <em>triple-quoted strings</em>,
       which can be <em>indented</em> over multiple lines to follow
       the indentation of the surrounding code.
@@ -501,7 +509,6 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
 """
   
   """</pre>
-
   <marker id="triple-quoted-strings-warning"/>
   <warning>
     <p>
@@ -524,13 +531,140 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
     <p>
       The compiler preprocessor was patched in Erlang/OTP 26.1
       to warn about 3 or more sequential double quote characters.
+      In Erlang/OTP 26.2 this was improved to warn about
+      adjacent string literals without intervening white space,
+      which also covers the same problem at a string end.
+    </p>
+    <p>
       If the compiler should emit such a warning, please change
-      all such double quote character sequences to have a whitespace
-      after every second character, making the code more readable,
-      and mean the same thing in all releases.
+      such double quote character sequences to have a whitespace
+      after every second quote character, remove redundant empty strings,
+      or write them as one string.  This makes the code more readable,
+      and means the same thing in all releases.
     </p>
   </warning>
+  </section>
 
+  <section>
+    <title>Sigil</title>
+    <p>
+      A <em>sigil</em> is a prefix to a string literal.
+      It is not a data type in Erlang, but a shorthand
+      notation that indicates how to interpret the string literal.
+      Sigils offer mainly two things: a compact way to create
+      UTF-8 encoded binary strings, and a way to write verbatim
+      strings (not having to escape <c>\</c> characters),
+      useful for regular expressions, for example.
+    </p>
+    <p>
+      A sigil starts with the Tilde character: <c>~</c>
+      followed by a name defining the sigil type.
+    </p>
+    <p>
+      Immediately after follows the sigil content;
+      a character sequence, delimited by <c>"</c> characters
+      just like a regular <seeguide marker="#string">string</seeguide>,
+      or by <seeguide marker="#tqstring">triple-quote</seeguide>
+      string delimiters.
+    </p>
+    <p>
+      The
+      <seeguide marker="#escape-sequences">
+        character escaping rules
+      </seeguide>
+      for the sigil content depends on the sigil type,
+      but the end delimiter character can always be escaped
+      by preceding it with a <c>\</c> character.
+    </p>
+    <p>
+      <seeguide marker="#tqstring">Triple-quoted strings</seeguide>,
+      conceptually doesn't contain the end delimiter,
+      so there is way to escape the end delimiter
+      between triple-quoted string delimiters.
+    </p>
+    <p>
+      The Sigils are:
+    </p>
+    <taglist>
+      <tag><c>~</c></tag>
+      <item>
+        The Vanilla (default) Sigil.
+        Shorthand for a
+        <seetype marker="stdlib:unicode#unicode_binary">UTF-8 encoded</seetype>
+        <seetype marker="erts:erlang#binary"><c>binary()</c></seetype>.
+        This sigil does not affect the character escaping rules, so
+        with triple-quoted string delimiters it is the same as <c>~B</c>,
+        and for the regular string delimiters it is the same as <c>~b</c>.
+      </item>
+      <tag><c>~b</c></tag>
+      <item>
+        The Binary Sigil.
+        Shorthand for a UTF-8 encoded <c>binary()</c>, as if calling
+        <seemfa marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1</c></seemfa>
+        on the sigil content.
+        Character escaping rules are the same as for <c>~s</c>.
+      </item>
+      <tag><c>~B</c></tag>
+      <item>
+        The Binary Sigil, verbatim.
+        As <c>~b</c> but characters in the sigil content are verbatim.
+        Only the end delimiter character can be escaped.
+      </item>
+      <tag><c>~s</c></tag>
+      <item>
+        The String Sigil.
+        Shorthand for a
+        <seetype marker="erts:erlang#string"><c>string()</c></seetype>,
+        that is, a <c>[char()]</c> which is a list of Unicode codepoints.
+        <seeguide marker="#escape-sequences">
+          Character escaping rules
+        </seeguide>
+        are the same as for a normal <c>string()</c>.
+        Using this sigil on a regular string does effectively nothing.
+      </item>
+      <tag><c>~S</c></tag>
+      <item>
+        The String Sigil, verbatim.
+        As <c>~s</c> but verbatim like <c>~B</c>.
+        Using this sigil on a triple-quoted string does effectively nothing.
+      </item>
+    </taglist>
+    <p>Examples</p>
+    <pre>
+&lt;&lt;"\"\\µA\""/utf8&gt;&gt; = &lt;&lt;$",$\\,194,181,$A,$"&gt;&gt; =
+    ~b"""
+        "\\µA"
+        """ = ~b"\"\\µA\"" =
+    ~B"""
+        "\µA"
+        """ = ~B"\"\µA\"" =
+    ~"""
+        "\µA"
+        """ = ~"\"\\µA\""</pre>
+    <pre>
+[$",$\\,$µ,$A,$"] =
+    ~s"""
+        "\\µA"
+        """ = ~s"\"\\µA\"" =
+    ~S"""
+        "\µA"
+        """ = ~S"\"\µA\"" =
+    """
+        "\µA"
+        """ = "\"\\µA\""</pre>
+    <p>
+      Adjacent strings are concatenated, but that is not possible
+      with sigils, since they in general are transformed into
+      terms that may not be concatenated.
+      So, <c>"a"&nbsp;"b"</c> is equivalent to <c>"ab"</c>,
+      but <c>~s"a"&nbsp;"b"</c> or <c>~s"a"&nbsp;~s"b"</c>
+      is a syntax error.  <c>~s"a"&nbsp;++&nbsp;"b"</c>, however,
+      is equivalent to <c>"ab"</c> since the <c>++</c> operator
+      concatenates two strings.
+    </p>
+    <change>
+      <p>Sigils were introduced in Erlang/OTP 27</p>
+    </change>
   </section>
 
   <section>
@@ -575,8 +709,12 @@ true</pre>
 
   <section>
     <title>Escape Sequences</title>
-    <p>Within strings (<c>"</c>-delimited) and quoted atoms,
-      the following escape sequences are recognized:</p>
+    <p>
+      Within strings (<c>"</c>-delimited), quoted atoms,
+      and the content of
+      <seeguide marker="#sigil"><c>~b</c> and <c>~s</c> sigils</seeguide>,
+      the following escape sequences are recognized:
+    </p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Sequence</em></cell>
@@ -687,18 +825,33 @@ true</pre>
     26, only the documented characters are allowed.</p></change>
 
     <p>
-      Within triple-quoted strings, escape sequences are not recognized.
+      Within
+      <seeguide marker="#tqstring">triple-quoted strings</seeguide>,
+      escape sequences are not recognized.
       The only text that cannot be written in a triple-quoted string
       is three consecutive double quote characters at the beginning
       of a line (preceded only by whitespace).  This limitation can
       be worked around by using more double quote characters
       for the string delimiters than in the string.
-      Any number three or above is allowed.
+      Any number three or above is allowed for the start delimiter
+      and the end delimiter is the same as the start delimiter.
+    </p>
+
+    <p>
+      When triple-quote string delimiters are used with the
+      <seeguide marker="#sigil">
+        <c>~</c>, <c>~B</c> or <c>~S</c> sigils
+      </seeguide>
+      the same applies, but for the
+      <seeguide marker="#sigil">
+        <c>~b</c> or <c>~s</c> sigils
+      </seeguide>
+      the escape sequences for normal strings, above, are used.
     </p>
 
     <change>
       <p>
-        Triple quoted strings were introduced in Erlang/OTP 27.
+        Triple-quoted strings and sigils were introduced in Erlang/OTP 27.
       </p>
     </change>
   </section>

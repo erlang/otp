@@ -176,7 +176,7 @@ purge_prs(Target) ->
     %% Start by deleting all data from common_test test runs as they are huge.
     os:cmd("rm -rf "++Target++"*/ct_logs/ct_run*/*common_test_test*/run*/log_private/ct_run*"),
     Files = string:split(cmd("find " ++ Target ++ " -type f -a "
-                             "-name \\! suite.log.html -exec du -a {} \\+"),"\n",all),
+                             "\\! -name suite.log.html -exec du -a {} \\+"),"\n",all),
     SortedFiles =
         lists:sort(fun([A|_]=As,[B|_]=Bs) ->
                                binary_to_integer(A) >= binary_to_integer(B)

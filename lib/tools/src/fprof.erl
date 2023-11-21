@@ -1524,13 +1524,8 @@ spawn_link_dbg_trace_client(File, Table, GroupLeader, Dump) ->
 			   {init, GroupLeader, Table, Dump}}) of
 	Pid when is_pid(Pid) ->
 	    link(Pid),
-	    Pid;
-	Other ->
-	    exit(Other)
+	    Pid
     end.
-			  
-
-
 
 spawn_link_trace_client(Table, GroupLeader, Dump) ->
     Parent = self(),

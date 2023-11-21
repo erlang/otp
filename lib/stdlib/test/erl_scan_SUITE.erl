@@ -247,8 +247,8 @@ punctuations() ->
 
     PTs2 = [{'#',{1,1}},{'&',{1,2}},{'*',{1,3}},{'+',{1,4}},{'/',{1,5}},
             {':',{1,6}},{'<',{1,7}},{'>',{1,8}},{'?',{1,9}},{'@',{1,10}},
-            {'\\',{1,11}},{'^',{1,12}},{'`',{1,13}},{'~',{1,14}}],
-    test_string("#&*+/:<>?@\\^`~", PTs2),
+            {'\\',{1,11}},{'^',{1,12}},{'`',{1,13}}],
+    test_string("#&*+/:<>?@\\^`", PTs2),
 
     test_string(".. ", [{'..',{1,1}}]),
     test_string("1 .. 2",
@@ -1498,12 +1498,25 @@ triple_quoted_string(Config) when is_list(Config) ->
           "\t\"\"", % Lacking one double-quote char in closing seq
           {1,1}, []),
 
-    {error,{{3,4},erl_scan,{string,$",[]}},{3,5}} =
+    {error,{{3,4},erl_scan,string_concat},{3,4}} =
         erl_scan:string(
           "\"\"\"\n"
           "x\n"
-          "\"\"\"\"", % A string starts at the last char but never ends
+          "\"\"\"\"",
+          %% Bad end delimiter: adjacent string start without white space
           {1,1}, []),
+
+    {error,{{3,2},erl_scan,string_concat},{3,2}} =
+        erl_scan:string(
+          "\"\n"
+          "x\n"
+          "\"\"\"",
+          %% False triple-quote: adjacent string start without white space
+          {1,1}, []),
+
+    {error,{{1,6},erl_scan,string_concat},{1,6}} =
+        %% Adjacent string start without white space
+        erl_scan:string("\"abc\"\"def\"", {1,1}, []),
 
     {ok,[{string,1,[16#D000]}],3} =
         erl_scan:string(

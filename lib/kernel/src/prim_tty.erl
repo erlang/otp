@@ -106,7 +106,7 @@
 
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
          handle_signal/2, window_size/1, handle_request/2, write/2, write/3, npwcwidth/1,
-         npwcwidthstring/1]).
+         ansi_regexp/0]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
@@ -189,6 +189,10 @@
 -type tty() :: reference().
 -opaque state() :: #state{}.
 -export_type([state/0]).
+
+-spec ansi_regexp() -> binary().
+ansi_regexp() ->
+    ?ANSI_REGEXP.
 
 -spec on_load() -> ok.
 on_load() ->
@@ -1005,23 +1009,6 @@ update_geometry(State) ->
         _Error ->
             ?dbg({?FUNCTION_NAME, _Error}),
             State
-    end.
-
-npwcwidthstring(String) when is_list(String) ->
-    npwcwidthstring(unicode:characters_to_binary(String));
-npwcwidthstring(String) ->
-    case string:next_grapheme(String) of
-        [] -> 0;
-        [$\e | Rest] ->
-            case re:run(String, ?ANSI_REGEXP, [unicode]) of
-                {match, [{0, N}]} ->
-                    <<_Ansi:N/binary, AnsiRest/binary>> = String,
-                    npwcwidthstring(AnsiRest);
-                _ ->
-                    npwcwidth($\e) + npwcwidthstring(Rest)
-            end;
-        [H|Rest] when is_list(H)-> lists:sum([npwcwidth(A)||A<-H]) + npwcwidthstring(Rest);
-        [H|Rest] -> npwcwidth(H) + npwcwidthstring(Rest)
     end.
 
 npwcwidth(Char) ->

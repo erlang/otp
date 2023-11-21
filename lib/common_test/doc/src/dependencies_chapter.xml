@@ -118,8 +118,8 @@
  end_per_testcase(start_and_stop, _) ->
      ok;
 
- end_per_testcase(_, _) ->
-     ServerPid = ?config(server_pid),
+ end_per_testcase(_, Config) ->
+     ServerPid = proplists:get_value(server_pid, Config),
      stop_server(ServerPid).
 
  %%% test cases...
@@ -133,12 +133,12 @@
 
  %% configuration test
  config(Config) ->
-     ServerPid = ?config(server_pid, Config),
+     ServerPid = proplists:get_value(server_pid, Config),
      configure_server(ServerPid).
 
  %% test connecting and disconnecting client
  connect_and_disconnect(Config) ->
-     ServerPid = ?config(server_pid, Config),
+     ServerPid = proplists:get_value(server_pid, Config),
      {ok,SessionId} = my_server:connect(ServerPid),
      ok = my_server:disconnect(ServerPid, SessionId).
 
@@ -179,18 +179,18 @@
       <p>To save <c>Config</c> data, return tuple <c>{save_config,ConfigList}</c>
          from <c>end_per_testcase</c> or from the main test case function.</p>
 
-      <p>To read data saved by a previous test case, use macro <c>config</c> with a 
-	<c>saved_config</c> key as follows:</p>
+      <p>To read data saved by a previous test case, use <c>proplists:get_value</c>
+        with a <c>saved_config</c> key as follows:</p>
       
-      <p><c>{Saver,ConfigList} = ?config(saved_config, Config)</c></p>
+      <p><c>{Saver,ConfigList} = proplists:get_value(saved_config, Config)</c></p>
 
       <p><c>Saver</c> (<c>atom()</c>) is the name of the previous test case (where the
-	data was saved). The <c>config</c> macro can be used to extract particular data
-	also from the recalled <c>ConfigList</c>. It is strongly recommended that 
-	<c>Saver</c> is always matched to the expected name of the saving test case. 
-	This way, problems because of restructuring of the test suite can be avoided. 
-	Also, it makes the dependency more explicit and the test suite easier to read 
-        and maintain.</p>
+       data was saved). The <c>proplists:get_value</c> function can be used to extract
+       particular data also from the recalled <c>ConfigList</c>. It is strongly
+       recommended that <c>Saver</c> is always matched to the expected name of
+       the saving test case. This way, problems because of restructuring of the
+       test suite can be avoided. Also, it makes the dependency more explicit
+       and the test suite easier to read and maintain.</p>
 
       <p>To pass data from one test suite to another, the same mechanism is used. The data
 	is to be saved by finction
@@ -211,9 +211,9 @@
 
  init_per_suite(Config) ->
      %% read config saved by previous test suite
-     {server_a_SUITE,OldConfig} = ?config(saved_config, Config),
+     {server_a_SUITE,OldConfig} = proplists:get_value(saved_config, Config),
      %% extract server identity (comes from server_a_SUITE)
-     ServerId = ?config(server_id, OldConfig),
+     ServerId = proplists:get_value(server_id, OldConfig),
      SessionId = connect_to_server(ServerId),
      [{ids,{ServerId,SessionId}} | Config].
 
@@ -226,16 +226,16 @@
  all() -> [allocate, deallocate].
 
  allocate(Config) ->
-     {ServerId,SessionId} = ?config(ids, Config),
+     {ServerId,SessionId} = proplists:get_value(ids, Config),
      {ok,Handle} = allocate_resource(ServerId, SessionId),
      %% save handle for deallocation test
      NewConfig = [{handle,Handle}],
      {save_config,NewConfig}.
 
  deallocate(Config) ->
-     {ServerId,SessionId} = ?config(ids, Config),
-     {allocate,OldConfig} = ?config(saved_config, Config),
-     Handle = ?config(handle, OldConfig),
+     {ServerId,SessionId} = proplists:get_value(ids, Config),
+     {allocate,OldConfig} = proplists:get_value(saved_config, Config),
+     Handle = proplists:get_value(handle, OldConfig),
      ok = deallocate_resource(ServerId, SessionId, Handle).</pre>
 
       <p>To save <c>Config</c> data from a test case that is to be
@@ -245,7 +245,7 @@
       <p>The result is that the test case is skipped with <c>Reason</c> printed to
       the log file (as described earlier) and <c>ConfigList</c> is saved 
       for the next test case. <c>ConfigList</c> can be read using 
-      <c>?config(saved_config, Config)</c>, as described earlier. <c>skip_and_save</c>
+      <c>proplists:get_value(saved_config, Config)</c>, as described earlier. <c>skip_and_save</c>
       can also be returned from <c>init_per_suite</c>. In this case, the saved data can
       be read by <c>init_per_suite</c> in the suite that follows.</p>
     </section>

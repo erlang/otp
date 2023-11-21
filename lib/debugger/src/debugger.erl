@@ -69,8 +69,11 @@
 %% GUI specific functionality used by more than one window type.
 %%
 %%====================================================================
+-spec start() -> term().
 start() ->
     start(global, default, default).
+-spec start(Mode) -> term() when Mode :: local | global | wx;
+           (File) -> term() when File :: string().
 start(Mode) when Mode==local; Mode==global ->
     start(Mode, default, default);
 start(Gui) when Gui==wx ->
@@ -78,6 +81,8 @@ start(Gui) when Gui==wx ->
 start(SFile) when is_list(SFile), is_integer(hd(SFile)) ->
     start(global, SFile, default).
 
+-spec start(Mode, File) -> term() when Mode :: local | global,
+   File :: string().
 start(Mode, SFile) ->
     start(Mode, SFile, default).
 
@@ -90,6 +95,9 @@ start(Mode, SFile, default) ->
 stop() ->
     dbg_wx_mon:stop().
 
+-spec quick(Module, Name, Args) -> term() when Module :: atom(),
+   Name :: atom(),
+   Args :: [term()].
 quick(M, F, A) ->
     int:i(M),
     auto_attach([init]),
@@ -101,3 +109,4 @@ auto_attach(Flags) ->
     end.
 
 which_gui() -> wx.
+

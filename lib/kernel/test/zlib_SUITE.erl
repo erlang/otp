@@ -49,7 +49,7 @@
        chunk_bench_zeroed/1, chunk_bench_rand/1]).
 
 %% Others
--export([smp/1, otp_9981/1, otp_7359/1]).
+-export([smp/1, otp_9981/1, otp_7359/1, checksum/1]).
 
 -define(m(Guard, Expression),
     fun() ->
@@ -72,7 +72,8 @@ all() ->
     [{group, api}, {group, examples}, {group, func},
      {group, bench}, smp,
      otp_9981,
-     otp_7359].
+     otp_7359,
+     checksum].
 
 groups() -> 
     [{api, [],
@@ -1184,6 +1185,17 @@ otp_9981(Config) when is_list(Config) ->
     Ports = lists:sort(erlang:ports()),
     catch zlib:gunzip(Invalid),
     Ports = lists:sort(erlang:ports()),
+    ok.
+
+%% ERIERL-994: the Adler32 checksum returned by the dictionary functionality
+%% could be negative due to returning a signed instead of unsigned integer.
+checksum(Config) when is_list(Config) ->
+    Z = zlib:open(),
+    ok = zlib:deflateInit(Z),
+    TestVec = list_to_binary(lists:duplicate(16, 255)),
+    Chk = zlib:deflateSetDictionary(Z, TestVec),
+    true = Chk >= 0,
+    zlib:close(Z),
     ok.
 
 -define(BENCH_SIZE, (16 bsl 20)).

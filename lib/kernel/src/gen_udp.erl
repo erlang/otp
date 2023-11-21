@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@
 
 -define(module_socket(Handler, Handle),
         {'$inet', (Handler), (Handle)}).
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 -type option() ::
         {active,          true | false | once | -32768..32767} |
@@ -377,15 +379,20 @@ connect(?module_socket(GenUdpMod, _) = S, Address, Port)
     GenUdpMod:?FUNCTION_NAME(S, Address, Port);
 
 connect(S, Address, Port) when is_port(S) ->
+    %% ?DBG([{address, Address}, {port, Port}]),
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
+	    %% ?DBG([{mod, Mod}]),
 	    case Mod:getaddr(Address) of    
 		{ok, IP} ->
+		    %% ?DBG([{ip, IP}]),
 		    Mod:connect(S, IP, Port);
 		Error ->
+		    %% ?DBG(['getaddr', {error, Error}]),
 		    Error
 	    end;
 	Error ->
+	    %% ?DBG(['lookup', {error, Error}]),
 	    Error
     end.
 

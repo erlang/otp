@@ -169,11 +169,21 @@ get_mnesia_loop(Parent, {Match, Cont}) ->
 
 get_port_list() ->
     ExtraItems = [monitors,monitored_by,parallelism,locking,queue_size,memory],
-    [begin
-	 [{port_id,P}|erlang:port_info(P)] ++
-             port_info(P,ExtraItems) ++
-             inet_port_extra(erlang:port_info(P, name), P)
-     end || P <- erlang:ports()].
+    PortInfo =
+        fun(P, Acc) ->
+                case erlang:port_info(P) of
+                    undefined ->
+                        Acc;
+                    Info ->
+                        [
+                         [{port_id,P}|Info] ++
+                             port_info(P,ExtraItems) ++
+                             inet_port_extra(erlang:port_info(P, name), P)
+                        | Acc ]
+                end
+        end,
+    PIs = lists:foldl(PortInfo, [], erlang:ports()),
+    lists:reverse(PIs).
 
 port_info(P,[Item|Items]) ->
     case erlang:port_info(P,Item) of
@@ -575,15 +585,21 @@ etop_memi() ->
 etop_collect([P|Ps], Acc) when P =:= self() ->
     etop_collect(Ps, Acc);
 etop_collect([P|Ps], Acc) ->
-    Fs = [registered_name,initial_call,memory,reductions,current_function,message_queue_len],
+    Fs = [registered_name,initial_call,
+          {dictionary, '$initial_call'}, {dictionary, '$process_label'},
+          memory,reductions,current_function,message_queue_len],
     case process_info(P, Fs) of
 	undefined ->
 	    etop_collect(Ps, Acc);
-	[{registered_name,Reg},{initial_call,Initial},{memory,Mem},
-	 {reductions,Reds},{current_function,Current},{message_queue_len,Qlen}] ->
-	    Name = case Reg of
-		       [] -> initial_call(Initial, P);
-		       _ -> Reg
+	[{registered_name,Reg},{initial_call,Initial},
+         {{dictionary, '$initial_call'}, DictInitial},
+         {{dictionary, '$process_label'}, ProcId},
+	 {memory,Mem},{reductions,Reds},
+         {current_function,Current},{message_queue_len,Qlen}
+        ] ->
+	    Name = if Reg /= "" -> Reg;
+                      ProcId /= undefined -> id_to_binary(ProcId);
+                      true -> initial_call(Initial, DictInitial)
 		   end,
 	    Info = #etop_proc_info{pid=P,mem=Mem,reds=Reds,name=Name,
 				   cf=Current,mq=Qlen},
@@ -591,8 +607,23 @@ etop_collect([P|Ps], Acc) ->
     end;
 etop_collect([], Acc) -> Acc.
 
-initial_call({proc_lib, init_p, _}, Pid) ->
-    proc_lib:translate_initial_call(Pid);
+id_to_binary(Id) when is_list(Id); is_binary(Id) ->
+    case unicode:characters_to_binary(Id) of
+        {error, _, _} ->
+            unicode:characters_to_binary(io_lib:format("~0.tp", [Id]));
+        BinString ->
+            BinString
+    end;
+id_to_binary(TermId) ->
+    unicode:characters_to_binary(io_lib:format("~0.tp", [TermId])).
+
+initial_call({proc_lib, init_p, _}, DictInitial) ->
+    case DictInitial of
+        {_,_,_} = MFA ->
+            MFA;
+        undefined -> %% Fetch the default initial call
+            proc_lib:translate_initial_call([])
+    end;
 initial_call(Initial, _Pid) ->
     Initial.
 

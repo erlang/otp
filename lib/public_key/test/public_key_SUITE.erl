@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -export([
          suite/0,
@@ -95,6 +96,10 @@
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
          pkix_path_validation_root_expired/1,
+         pkix_ext_key_usage/0,
+         pkix_ext_key_usage/1,
+         pkix_path_validation_bad_date/0,
+         pkix_path_validation_bad_date/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -156,6 +161,8 @@ all() ->
      pkix_decode_cert,
      pkix_path_validation,
      pkix_path_validation_root_expired,
+     pkix_ext_key_usage,
+     pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
@@ -190,9 +197,9 @@ groups() ->
 init_per_suite(Config) ->
     application:stop(crypto),
     try crypto:start() of
-	ok ->
-	    application:start(asn1),
-	    Config
+        ok ->
+            application:start(asn1),
+            Config
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -934,6 +941,66 @@ pkix_path_validation_root_expired(Config) when is_list(Config) ->
     Peer = proplists:get_value(cert, Conf),
     {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
     
+pkix_ext_key_usage() ->
+    [{doc, "Extended key usage is usually in end entity certs, may be in CA but should not be critical in such case"}].
+pkix_ext_key_usage(Config) when is_list(Config) ->
+    SRootSpec = public_key:pkix_test_root_cert("OTP test server ROOT", []),
+    CRootSpec = public_key:pkix_test_root_cert("OTP test client ROOT", []),
+
+    FailCAExt = [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                              extnValue = [?'anyExtendedKeyUsage'],
+                              critical = true}],
+    CAExt = [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                          extnValue = [?'anyExtendedKeyUsage'],
+                          critical = false}],
+
+    #{server_config := SConf,
+      client_config := CConf} = public_key:pkix_test_data(#{server_chain => #{root => SRootSpec,
+                                                                             intermediates => [[{extensions, FailCAExt}]],
+                                                                             peer => []},
+                                                           client_chain => #{root => CRootSpec,
+                                                                             intermediates => [[{extensions, CAExt}]],
+                                                                             peer => []}}),
+    [_STRoot, SICA, SRoot] = proplists:get_value(cacerts, SConf),
+    [_CTRoot, CICA, CRoot] = proplists:get_value(cacerts, CConf),
+    SPeer = proplists:get_value(cert, SConf),
+    CPeer = proplists:get_value(cert, CConf),
+
+    {error, {bad_cert, invalid_ext_key_usage}} = public_key:pkix_path_validation(SRoot, [SICA, SPeer], []),
+
+    {ok, _} = public_key:pkix_path_validation(CRoot, [CICA, CPeer], []).
+
+pkix_path_validation_bad_date() ->
+    [{doc, "Ensure bad date formats in `validity` are handled gracefully by verify fun"}].
+pkix_path_validation_bad_date(Config) when is_list(Config) ->
+    % Load PEM certchain from file
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok, Bin} = file:read_file(filename:join(DataDir,"bad_date_certchain.pem")),
+
+    % Decode and extract raw der encoded certificates
+    CertificateList = public_key:pem_decode(Bin),
+    [Root | CertificateChain] = lists:map(fun({'Certificate', Der, _}) -> Der end, CertificateList),
+
+    % First test error `invalid_validity_dates` being returned correctly without `verify_fun` override
+    {error, {bad_cert, invalid_validity_dates}} = public_key:pkix_path_validation(Root, CertificateChain, []),
+
+    % Then test no exception thrown if verify_fun function traps the date error
+    {ok, _} = public_key:pkix_path_validation(Root, CertificateChain, [
+       {verify_fun, % This is the same as ?DEFAULT_VERIFYFUN, but it handles `invalid_validity_dates` gracefully.
+            {fun
+                % Test if we can successfully override `invalid_validity_dates`
+                (_, {bad_cert, invalid_validity_dates}, UserState) ->
+                    {valid, UserState};
+                (_,{extension, _}, UserState) ->
+		            {unknown, UserState};
+                (_, valid_peer, UserState) ->
+				    {valid, UserState};
+                (_, valid, UserState) ->
+                    {valid, UserState}
+            end, []}
+        }
+    ]).
+
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
 %%
@@ -1369,6 +1436,37 @@ cacerts_load() ->
 cacerts_load(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {error, enoent} = public_key:cacerts_load("/dummy.file"),
+
+    %% White box testing of paths loading
+    %% TestDirs
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_dir"),
+                                 Datadir,
+                                 filename:join(Datadir, "cacerts.pem")
+                                ]),
+    true = 10 < length(public_key:cacerts_get()),
+    %% We currently pick the first found in input order
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_file"),
+                                 filename:join(Datadir, "ldap_uri_cert.pem"),
+                                 filename:join(Datadir, "cacerts.pem")]),
+    1 = length(public_key:cacerts_get()),
+    ok = pubkey_os_cacerts:load([filename:join(Datadir, "non_existing_file"),
+                                 filename:join(Datadir, "cacerts.pem"),
+                                 filename:join(Datadir, "ldap_uri_cert.pem")]),
+    2 = length(public_key:cacerts_get()),
+
+    true = public_key:cacerts_clear(),
+
+    LinkedCaCerts = filename:join(Datadir, "link_to_cacerts.pem"),
+    case file:make_symlink(filename:join(Datadir, "cacerts.pem"), LinkedCaCerts) of
+        ok ->
+            ok = pubkey_os_cacerts:load([LinkedCaCerts]),
+            2 = length(public_key:cacerts_get()),
+            true = public_key:cacerts_clear(),
+            ok = file:delete(LinkedCaCerts);
+        _ ->
+            ok
+    end,
+
     %% Load default OS certs
     %%    there is no default installed OS certs on netbsd
     %%    can be installed with 'pkgin install mozilla-rootcerts'

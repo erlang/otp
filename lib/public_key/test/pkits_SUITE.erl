@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -167,18 +167,102 @@
          valid_uri_name_constraints/0,
          whitespace_name_chain/1,
          whitespace_name_chain/0,
-
-         %% Marked as "Not supported yet":
-         certificate_policies/0,
-         certificate_policies/1,
-         require_explicit_policy/0,
-         require_explicit_policy/1,
-         policy_mappings/0,
-         policy_mappings/1,
-         inhibit_policy_mapping/0,
-         inhibit_policy_mapping/1,
-         inhibit_any_policy/0,
-         inhibit_any_policy/1
+         certificate_all_same_policy/0,
+         certificate_all_same_policy/1,
+         certificate_no_policies/0,
+         certificate_no_policies/1,
+         certificate_different_policies_first_ca/0,
+         certificate_different_policies_first_ca/1,
+         certificate_different_policies_end_entity/0,
+         certificate_different_policies_end_entity/1,
+         certificate_different_policies_second_ca/0,
+         certificate_different_policies_second_ca/1,
+         certificate_overlapping_policies/0,
+         certificate_overlapping_policies/1,
+         certificate_different_policies_no_overlapp_7/0,
+         certificate_different_policies_no_overlapp_7/1,
+         certificate_different_policies_no_overlapp_8/0,
+         certificate_different_policies_no_overlapp_8/1,
+         certificate_different_policies_no_overlapp_9/0,
+         certificate_different_policies_no_overlapp_9/1,
+         certificate_all_same_policies/0,
+         certificate_all_same_policies/1,
+         certificate_all_any_policy/0,
+         certificate_all_any_policy/1,
+         certificate_different_policies/0,
+         certificate_different_policies/1,
+         certificate_all_same_policies_13/0,
+         certificate_all_same_policies_13/1,
+         certificate_any_policy/0,
+         certificate_any_policy/1,
+         certificate_user_notice_qualifier_15/0,
+         certificate_user_notice_qualifier_15/1,
+         certificate_user_notice_qualifier_16/0,
+         certificate_user_notice_qualifier_16/1,
+         certificate_user_notice_qualifier_17/0,
+         certificate_user_notice_qualifier_17/1,
+         certificate_user_notice_qualifier_18/0,
+         certificate_user_notice_qualifier_18/1,
+         certificate_user_notice_qualifier_19/0,
+         certificate_user_notice_qualifier_19/1,
+         certificate_cps_pointer_qualifier/0,
+         certificate_cps_pointer_qualifier/1,
+         require_explicit_valid_empty/0,
+         require_explicit_valid_empty/1,
+         require_explicit_valid/0,
+         require_explicit_valid/1,
+         require_explicit_invalid/0,
+         require_explicit_invalid/1,
+         require_explicit_valid_selfissued/0,
+         require_explicit_valid_selfissued/1,
+         require_explicit_invalid_selfissued/0,
+         require_explicit_invalid_selfissued/1,
+         valid_policy_mapping/0,
+         valid_policy_mapping/1,
+         invalid_policy_mapping_2/0,
+         invalid_policy_mapping_2/1,
+         valid_policy_mapping_3/0,
+         valid_policy_mapping_3/1,
+         invalid_policy_mapping_4/0,
+         invalid_policy_mapping_4/1,
+         valid_policy_mapping_5/0,
+         valid_policy_mapping_5/1,
+         valid_policy_mapping_6/0,
+         valid_policy_mapping_6/1,
+         invalid_policy_mapping_7/0,
+         invalid_policy_mapping_7/1,
+         invalid_policy_mapping_8/0,
+         invalid_policy_mapping_8/1,
+         valid_policy_mapping_9/0,
+         valid_policy_mapping_9/1,
+         invalid_policy_mapping_10/0,
+         invalid_policy_mapping_10/1,
+         valid_policy_mapping_11/0,
+         valid_policy_mapping_11/1,
+         valid_policy_mapping_12/0,
+         valid_policy_mapping_12/1,
+         valid_policy_mapping_13/0,
+         valid_policy_mapping_13/1,
+         valid_policy_mapping_14/0,
+         valid_policy_mapping_14/1,
+         inhibit_mapping_invalid/0,
+         inhibit_mapping_invalid/1,
+         inhibit_mapping_valid/0,
+         inhibit_mapping_valid/1,
+         inhibit_mapping_valid_selfissued/0,
+         inhibit_mapping_valid_selfissued/1,
+         inhibit_mapping_invalid_selfissued/0,
+         inhibit_mapping_invalid_selfissued/1,
+         inhibit_any_invalid_empty/0,
+         inhibit_any_invalid_empty/1,
+         inhibit_any_valid/0,
+         inhibit_any_valid/1,
+         inhibit_any_invalid/0,
+         inhibit_any_invalid/1,
+         inhibit_any_valid_selfissued/0,
+         inhibit_any_valid_selfissued/1,
+         inhibit_any_invalid_selfissued/0,
+         inhibit_any_invalid_selfissued/1
         ]).
 
 -define(error(Format,Args), error(Format,Args,?FILE,?LINE)).
@@ -198,10 +282,23 @@
 -define(NIST5, "2.16.840.1.101.3.2.1.48.5").
 -define(NIST6, "2.16.840.1.101.3.2.1.48.6").
 
+-define(NIST1_OID, {2,16,840,1,101,3,2,1,48,1}).
+-define(NIST2_OID, {2,16,840,1,101,3,2,1,48,2}).
+-define(NIST3_OID, {2,16,840,1,101,3,2,1,48,3}).
+-define(NIST4_OID, {2,16,840,1,101,3,2,1,48,4}).
+-define(NIST5_OID, {2,16,840,1,101,3,2,1,48,5}).
+-define(NIST6_OID, {2,16,840,1,101,3,2,1,48,6}).
+-define(NIST7_OID, {2,16,840,1,101,3,2,1,48,7}).
+-define(NIST8_OID, {2,16,840,1,101,3,2,1,48,8}).
+
+-define(POLICY_ROOT, [[{expected_policy_set,[?anyPolicy]},
+                       {valid_policy, ?anyPolicy}
+                      ]]).
+
 -record(verify_state, {
-	  crls,
-	  crl_paths,
-	  revoke_state}).
+                       crls,
+                       crl_paths,
+                       revoke_state}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -209,7 +306,7 @@
 suite() ->
     [].
 
-all() -> 
+all() ->
     [{group, signature_verification},
      {group, validity_periods},
      {group, verifying_name_chaining},
@@ -220,9 +317,15 @@ all() ->
      {group, verifying_basic_constraints},
      {group, key_usage},
      {group, name_constraints},
-     {group, private_certificate_extensions}].
+     {group, private_certificate_extensions},
+     {group, policies},
+     {group, require_explicit_policy},
+     {group, policy_mappings},
+     {group, inhibit_policy_mapping},
+     {group, inhibit_any_policy}
+    ].
 
-groups() -> 
+groups() ->
     [{signature_verification, [], [valid_rsa_signature,
 				   invalid_rsa_signature, valid_dsa_signature,
 				   invalid_dsa_signature]},
@@ -261,7 +364,68 @@ groups() ->
        invalid_dns_name_constraints, valid_uri_name_constraints,
        invalid_uri_name_constraints]},
      {private_certificate_extensions, [],
-      [unknown_critical_extension, unknown_not_critical_extension]}
+      [unknown_critical_extension, unknown_not_critical_extension]},
+     {policies, [], [certificate_all_same_policy,
+                     certificate_no_policies,
+                     certificate_different_policies_first_ca,
+                     certificate_different_policies_end_entity,
+                     certificate_different_policies_second_ca,
+                     certificate_overlapping_policies,
+                     certificate_different_policies_no_overlapp_7,
+                     certificate_different_policies_no_overlapp_8,
+                     certificate_different_policies_no_overlapp_9,
+                     certificate_all_same_policies,
+                     certificate_all_any_policy,
+                     certificate_different_policies,
+                     certificate_all_same_policies_13,
+                     certificate_any_policy,
+                     certificate_user_notice_qualifier_15,
+                     certificate_user_notice_qualifier_16,
+                     certificate_user_notice_qualifier_17,
+                     certificate_user_notice_qualifier_18,
+                     certificate_user_notice_qualifier_19,
+                     certificate_cps_pointer_qualifier
+                    ]},
+     {require_explicit_policy, [],
+      [
+       require_explicit_valid_empty,
+       require_explicit_valid,
+       require_explicit_invalid,
+       require_explicit_valid_selfissued,
+       require_explicit_invalid_selfissued
+      ]},
+     {policy_mappings, [],
+      [
+       valid_policy_mapping,
+       invalid_policy_mapping_2,
+       valid_policy_mapping_3,
+       invalid_policy_mapping_4,
+       valid_policy_mapping_5,
+       valid_policy_mapping_6,
+       invalid_policy_mapping_7,
+       invalid_policy_mapping_8,
+       valid_policy_mapping_9,
+       invalid_policy_mapping_10,
+       valid_policy_mapping_11,
+       valid_policy_mapping_12,
+       valid_policy_mapping_13,
+       valid_policy_mapping_14
+      ]},
+     {inhibit_policy_mapping, [],
+      [
+       inhibit_mapping_invalid,
+       inhibit_mapping_valid,
+       inhibit_mapping_valid_selfissued,
+       inhibit_mapping_invalid_selfissued
+      ]},
+     {inhibit_any_policy, [],
+      [
+       inhibit_any_invalid_empty,
+       inhibit_any_valid,
+       inhibit_any_invalid,
+       inhibit_any_valid_selfissued,
+       inhibit_any_invalid_selfissued
+      ]}
     ].
 
 %%--------------------------------------------------------------------
@@ -419,13 +583,13 @@ missing_CRL() ->
     [{doc,"Test basic CRL handling"}].
 missing_CRL(Config) when is_list(Config) ->
     run([{ "4.4.1", "Invalid Missing CRL Test1 EE",{bad_cert,
-    revocation_status_undetermined}}]).
+                                                    revocation_status_undetermined}}]).
 
 revoked_CA() ->
     [{doc,"Test basic CRL handling"}].
 revoked_CA(Config) when is_list(Config) ->
     run([{ "4.4.2", "Invalid Revoked CA Test2 EE", {bad_cert,
-    {revoked, keyCompromise}}}]).
+                                                    {revoked, keyCompromise}}}]).
 
 revoked_peer() ->
     [{doc,"Test basic CRL handling"}].
@@ -437,7 +601,7 @@ invalid_CRL_signature() ->
     [{doc,"Test basic CRL handling"}].
 invalid_CRL_signature(Config) when is_list(Config) ->
     run([{ "4.4.4", "Invalid Bad CRL Signature Test4 EE",
-		   {bad_cert, revocation_status_undetermined}}]).
+           {bad_cert, revocation_status_undetermined}}]).
 invalid_CRL_issuer() ->
     [{doc,"Test basic CRL handling"}].
 invalid_CRL_issuer(Config) when is_list(Config) ->
@@ -565,31 +729,509 @@ valid_key_usage() ->
 valid_key_usage(Config) when is_list(Config) ->
     run([{ "4.7.3",  "Valid keyUsage Not Critical Test3 EE", ok}]).
 
+%%-----------------------------Certificate Policies-------------------------------------
+certificate_all_same_policy() ->
+    [{doc,"Certificate all same policy tests"}].
+certificate_all_same_policy(Config) when is_list(Config) ->
+    run([{"4.8.1.1", "Valid Certificate Path Test1 EE", ok},
+         {"4.8.1.2", "Valid Certificate Path Test1 EE", ok},
+         {"4.8.1.3", "Valid Certificate Path Test1 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}},
+         {"4.8.1.4", "Valid Certificate Path Test1 EE", ok}]).
+
+certificate_no_policies() ->
+    [{doc,"In this test, the certificatePolicies extension is omitted from "
+      "every certificate in the path."}].
+certificate_no_policies(Config) when is_list(Config) ->
+    run([{"4.8.2.1", "All Certificates No Policies Test2 EE ", ok},
+         {"4.8.2.2", "All Certificates No Policies Test2 EE ",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}]).
+
+certificate_different_policies_first_ca() ->
+    [{doc,"In this test, every certificate in the path asserts the same certificate "
+      "policy except the first certificate in the path."}].
+certificate_different_policies_first_ca(Config) when is_list(Config) ->
+    run([{"4.8.3.1", "Different Policies Test3 EE", ok},
+         {"4.8.3.2", "Different Policies Test3 EE ", {bad_cert,
+                                                      {policy_requirement_not_met,
+                                                       {{explicit_policy, 0},
+                                                        {policy_set, []}}}}},
+         {"4.8.3.3", "Different Policies Test3 EE", {bad_cert,
+                                                     {policy_requirement_not_met,
+                                                      {{explicit_policy, 0},
+                                                       {policy_set, []}}}}}
+        ]).
+
+certificate_different_policies_end_entity() ->
+    [{doc,"In this test, every certificate in the path asserts the same certificate policy "
+      "except the end entity certificate"}].
+certificate_different_policies_end_entity(Config) when is_list(Config) ->
+    run([{"4.8.4", "Different Policies Test4 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+certificate_different_policies_second_ca() ->
+    [{doc,"In this test, every certificate in the path except the second certificate asserts the same policy."}].
+certificate_different_policies_second_ca(Config) when is_list(Config) ->
+    run([{"4.8.5", "Different Policies Test5 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+certificate_overlapping_policies() ->
+    [{doc,"The following path is such that the intersection of certificate policies among "
+      "all the certificates has exactly one policy, NIST-test-policy-1"}].
+certificate_overlapping_policies(Config) when is_list(Config) ->
+    run([{"4.8.6.1", "Overlapping Policies Test6 EE", ok},
+         {"4.8.6.2", "Overlapping Policies Test6 EE", ok},
+         {"4.8.6.3", "Overlapping Policies Test6 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+
+certificate_different_policies_no_overlapp_7() ->
+    [{doc,""}].
+certificate_different_policies_no_overlapp_7(Config) when is_list(Config) ->
+    run([{"4.8.7", "Different Policies Test7 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+
+certificate_different_policies_no_overlapp_8() ->
+    [{doc,""}].
+certificate_different_policies_no_overlapp_8(Config) when is_list(Config) ->
+    run([{"4.8.8", "Different Policies Test8 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+certificate_different_policies_no_overlapp_9() ->
+    [{doc,""}].
+certificate_different_policies_no_overlapp_9(Config) when is_list(Config) ->
+    run([{"4.8.9", "Different Policies Test9 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+certificate_all_same_policies() ->
+    [{doc,"Certificate all same policies tests"}].
+certificate_all_same_policies(Config) when is_list(Config) ->
+    run([{"4.8.10.1", "All Certificates Same Policies Test10 EE", ok},
+         {"4.8.10.2", "All Certificates Same Policies Test10 EE", ok},
+         {"4.8.10.3", "All Certificates Same Policies Test10 EE", ok}]).
+
+certificate_all_any_policy() ->
+    [{doc,"Every certificate in the path asserts the special policy anyPolicy"}].
+certificate_all_any_policy(Config) when is_list(Config) ->
+    run([{"4.8.11.1", "All Certificates anyPolicy Test11 EE", ok},
+         {"4.8.11.2", "All Certificates anyPolicy Test11 EE", ok}]).
+
+certificate_different_policies() ->
+    [{doc,"Every certificate in the path asserts the special policy anyPolicy"}].
+certificate_different_policies(Config) when is_list(Config) ->
+    run([{"4.8.12", "Different Policies Test12 EE", {bad_cert,
+                                                     {policy_requirement_not_met,
+                                                      {{explicit_policy, 0},
+                                                       {policy_set, []}}}}}]).
+certificate_all_same_policies_13() ->
+    [{doc,"In this test, every certificate in the path asserts the same policies, NIST-test-policy-1, "
+      "NIST-testpolicy-2, and NIST-test-policy-3"}].
+certificate_all_same_policies_13(Config) when is_list(Config) ->
+    run([{"4.8.13.1", "All Certificates Same Policies Test13 EE", ok},
+         {"4.8.13.2", "All Certificates Same Policies Test13 EE", ok},
+         {"4.8.13.3", "All Certificates Same Policies Test13 EE", ok}
+        ]).
+
+certificate_any_policy() ->
+    [{doc,"In this test, the intermediate certificate asserts anyPolicy and the end entity certificate "
+      "asserts NIST-test-policy-1"}].
+certificate_any_policy(Config) when is_list(Config) ->
+    run([{"4.8.14.1", "AnyPolicy Test14 EE", ok},
+         {"4.8.14.2", "AnyPolicy Test14 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy, 0},
+             {policy_set, []}}}}}
+        ]).
+
+certificate_user_notice_qualifier_15() ->
+    [{doc, "In this test, the path consists of a single certificate. "
+      "The certificate asserts the policy NIST-testpolicy-1 and includes "
+      "a user notice policy qualifier."}].
+certificate_user_notice_qualifier_15(Config) when is_list(Config) ->
+    run([{"4.8.15", "User Notice Qualifier Test15 EE", ok}]).
+
+certificate_user_notice_qualifier_16() ->
+    [{doc, "In this test, the path consists of an intermediate certificate "
+      "and an end entity certificate. The intermediate certificate asserts "
+      "the policy NIST-test-policy-1. The end entity certificate asserts "
+      "both NIST-test-policy-1 and NIST-test-policy-2. Each policy in the "
+      "end entity certificate has a different user notice qualifier associated with it."}].
+certificate_user_notice_qualifier_16(Config) when is_list(Config) ->
+    run([{"4.8.16", "User Notice Qualifier Test16 EE", ok}]).
+
+certificate_user_notice_qualifier_17() ->
+    [{doc, "In this test, the path consists of an intermediate certificate and an end entity "
+      "certificate. The intermediate certificate asserts the policy NIST-test-policy-1. The "
+      "end entity certificate asserts anyPolicy. There is a user notice policy qualifier "
+      "associated with anyPolicy in the end entity certificate"}].
+certificate_user_notice_qualifier_17(Config) when is_list(Config) ->
+    run([{"4.8.17", "User Notice Qualifier Test17 EE", ok}]).
+
+certificate_user_notice_qualifier_18() ->
+    [{doc, "In this test, the intermediate certificate asserts policies"
+      "NIST-test-policy-1 and NIST-test-policy-2. The end certificate "
+      "asserts NIST-test-policy-1 and anyPolicy. Each of the policies in the end ",
+      "entity certificate asserts a different user notice policy qualifier. "
+      "If possible, it is recommended that the certification path in this "
+      "test be validated using the following inputs"}].
+certificate_user_notice_qualifier_18(Config) when is_list(Config)->
+    run([{"4.8.18.1", "User Notice Qualifier Test18 EE", ok},
+         {"4.8.18.2", "User Notice Qualifier Test18 EE", ok}
+        ]).
+
+certificate_user_notice_qualifier_19() ->
+    [{doc, "In this test, the path consists of a single certificate."
+      "The certificate asserts the policy NIST-testpolicy-1 and "
+      "includes a user notice policy qualifier. The user notice qualifier contains explicit text "
+      "that is longer than 200 bytes. "}].
+certificate_user_notice_qualifier_19(Config) when is_list(Config)->
+    run([{"4.8.19", "User Notice Qualifier Test19 EE", ok}]).
+
+certificate_cps_pointer_qualifier() ->
+    [{doc, "In this test, the path consists of an intermediate certificate and an end entity "
+      "certificate, both of which assert the policy NIST-test-policy-1. There is a CPS pointer "
+      "policy qualifier associated with NIST-test-policy-1 in the end entity certificate. "}].
+certificate_cps_pointer_qualifier(Config) when is_list(Config)->
+    run([{"4.8.20", "CPS Pointer Qualifier Test20 EE", ok}]).
+
+
+
+%%-----------------------------Require explicit policy -------------------------
+
+require_explicit_valid_empty() ->
+    [{doc, "The path should validate successfully since the explicit-policyindicator is not set"}].
+require_explicit_valid_empty(Config) when is_list(Config)->
+    run([{ "4.9.1",  "Valid requireExplicitPolicy Test1 EE", ok},
+         { "4.9.2",  "Valid requireExplicitPolicy Test2 EE ", ok}
+        ]).
+
+require_explicit_valid() ->
+    [{doc, "The path should validate successfully (as long as the initial-policy-set "
+      "is either any-policy or otherwise includes NIST-test-policy-1) since "
+      "the user-constrained-policy-set is not empty."}].
+require_explicit_valid(Config) when is_list(Config)->
+    run([{ "4.9.4",  "Valid requireExplicitPolicy Test4 EE ", ok}
+        ]).
+
+require_explicit_invalid() ->
+    [{doc, "The path should not validate successfully since the explicit-policyindicator is set "
+      "and the authorities-constrained-policy-set is empty. "}].
+require_explicit_invalid(Config) when is_list(Config)->
+    run([{ "4.9.3",  "Invalid requireExplicitPolicy Test3 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         {"4.9.5",  "Invalid requireExplicitPolicy Test5 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+require_explicit_valid_selfissued() ->
+    [{doc, "The path should validate successfully since the explicit-policyindicator is not set"}].
+require_explicit_valid_selfissued(Config) when is_list(Config)->
+    run([{ "4.9.6",  "Valid Self-Issued requireExplicitPolicy Test6 EE", ok}
+        ]).
+
+require_explicit_invalid_selfissued() ->
+    [{doc, "The path should not validate successfully since the explicit-policyindicator "
+      "is set and the authorities-constrained-policy-set is empty"}].
+require_explicit_invalid_selfissued(Config) when is_list(Config)->
+    run([{ "4.9.7",  "Invalid Self-Issued requireExplicitPolicy Test7 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.9.8",  "Invalid Self-Issued requireExplicitPolicy Test8 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
 %%-----------------------------------------------------------------------------
-certificate_policies() ->
-    [{doc,"Not supported yet"}].
-certificate_policies(Config) when is_list(Config) ->
-    run(certificate_policies_tests()).
-%%-----------------------------------------------------------------------------
-require_explicit_policy() ->
-    [{doc,"Not supported yet"}].
-require_explicit_policy(Config) when is_list(Config) ->
-    run(require_explicit_policy_tests()).
-%%-----------------------------------------------------------------------------
-policy_mappings() ->
-    [{doc,"Not supported yet"}].
-policy_mappings(Config) when is_list(Config) ->
-    run(policy_mappings_tests()).
-%%-----------------------------------------------------------------------------
-inhibit_policy_mapping() ->
-    [{doc,"Not supported yet"}].
-inhibit_policy_mapping(Config) when is_list(Config) ->
-    run(inhibit_policy_mapping_tests()).
-%%-----------------------------------------------------------------------------
-inhibit_any_policy() ->
-    [{doc,"Not supported yet"}].
-inhibit_any_policy(Config) when is_list(Config) ->
-    run(inhibit_any_policy_tests()).
+
+valid_policy_mapping() ->
+    [{doc, ""}].
+valid_policy_mapping(Config) when is_list(Config)->
+    run([{"4.10.1.1",  "Valid Policy Mapping Test1 EE", ok},
+         {"4.10.1.2",  "Valid Policy Mapping Test1 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}},
+         {"4.10.1.3",  "Valid Policy Mapping Test1 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+invalid_policy_mapping_2() ->
+    [{doc, ""}].
+invalid_policy_mapping_2(Config) when is_list(Config)->
+    run([{"4.10.2.1", "Invalid Policy Mapping Test2 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}},
+         {"4.10.2.2", "Invalid Policy Mapping Test2 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+valid_policy_mapping_3() ->
+    [{doc, ""}].
+valid_policy_mapping_3(Config) when is_list(Config)->
+    run([{"4.10.3.1", "Valid Policy Mapping Test3 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.10.3.2", "Valid Policy Mapping Test3 EE", ok}
+        ]).
+
+invalid_policy_mapping_4() ->
+    [{doc, ""}].
+invalid_policy_mapping_4(Config) when is_list(Config)->
+    run([{"4.10.4", "Invalid Policy Mapping Test4 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+valid_policy_mapping_5() ->
+    [{doc, ""}].
+valid_policy_mapping_5(Config) when is_list(Config)->
+    run([{"4.10.5.1",  "Valid Policy Mapping Test5 EE", ok},
+         {"4.10.5.2",  "Valid Policy Mapping Test5 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+valid_policy_mapping_6() ->
+    [{doc, ""}].
+valid_policy_mapping_6(Config) when is_list(Config)->
+    run([{"4.10.6.1", "Valid Policy Mapping Test6 EE", ok},
+         {"4.10.6.2", "Valid Policy Mapping Test6 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+invalid_policy_mapping_7() ->
+    [{doc, "In this test, the intermediate certificate includes a policyMappings extension "
+      "that includes a mapping in which the issuerDomainPolicy is anyPolicy. The intermediate "
+      "certificate also includes a critical policyConstraints extension with requireExplicitPolicy "
+      "set to 0. "}].
+invalid_policy_mapping_7(Config) when is_list(Config)->
+    run([{"4.10.7", "Invalid Mapping From anyPolicy Test7 EE",
+          {bad_cert,
+           {invalid_policy_mapping,
+            #'PolicyMappings_SEQOF'{
+               issuerDomainPolicy = ?anyPolicy,
+               subjectDomainPolicy = oidify(?NIST1)
+              }}}}
+        ]).
+invalid_policy_mapping_8() ->
+    [{doc, "In this test, the intermediate certificate includes a policyMappings "
+      "extension that includes a mapping in which the subjectDomainPolicy is anyPolicy. "
+      "The intermediate certificate also includes a critical policyConstraints extension with "
+      "requireExplicitPolicy set to 0. "}].
+invalid_policy_mapping_8(Config) when is_list(Config)->
+    run([{"4.10.8", "Invalid Mapping To anyPolicy Test8 EE",
+          {bad_cert,
+           {invalid_policy_mapping,
+            #'PolicyMappings_SEQOF'{
+               issuerDomainPolicy = oidify(?NIST1),
+               subjectDomainPolicy = ?anyPolicy}}}}
+        ]).
+
+valid_policy_mapping_9() ->
+    [{doc, ""}].
+valid_policy_mapping_9(Config) when is_list(Config)->
+    run([{"4.10.9", "Valid Policy Mapping Test9 EE", ok}
+        ]).
+
+invalid_policy_mapping_10() ->
+    [{doc, ""}].
+invalid_policy_mapping_10(Config) when is_list(Config)->
+    run([{"4.10.10",  "Invalid Policy Mapping Test10 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+valid_policy_mapping_11() ->
+    [{doc, ""}].
+valid_policy_mapping_11(Config) when is_list(Config)->
+    run([{"4.10.11",  "Valid Policy Mapping Test11 EE", ok}
+        ]).
+
+valid_policy_mapping_12() ->
+    [{doc, ""}].
+valid_policy_mapping_12(Config) when is_list(Config)->
+    run([{"4.10.12.1", "Valid Policy Mapping Test12 EE", ok},
+         {"4.10.12.2", "Valid Policy Mapping Test12 EE", ok}
+        ]).
+
+valid_policy_mapping_13() ->
+    [{doc, ""}].
+valid_policy_mapping_13(Config) when is_list(Config)->
+    run([{"4.10.13", "Valid Policy Mapping Test13 EE", ok}
+        ]).
+
+valid_policy_mapping_14() ->
+    [{doc, ""}].
+valid_policy_mapping_14(Config) when is_list(Config)->
+    run([{ "4.10.14",  "Valid Policy Mapping Test14 EE", ok}
+        ]).
+
+
+%%-------------------Inhibit policy mapping tests -----------------------------
+
+inhibit_mapping_invalid() ->
+    [{doc, ""}].
+inhibit_mapping_invalid(Config) when is_list(Config)->
+    run([{ "4.11.1", "Invalid inhibitPolicyMapping Test1 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.3", "Invalid inhibitPolicyMapping Test3 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.5", "Invalid inhibitPolicyMapping Test5 EE ",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.6", "Invalid inhibitPolicyMapping Test6 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+inhibit_mapping_valid() ->
+    [{doc," "}].
+inhibit_mapping_valid(Config) when is_list(Config) ->
+    run([{ "4.11.2",  "Valid inhibitPolicyMapping Test2 EE", ok},
+         { "4.11.4",  "Valid inhibitPolicyMapping Test4 EE", ok}
+        ]).
+
+inhibit_mapping_valid_selfissued() ->
+    [{doc, ""}].
+inhibit_mapping_valid_selfissued(Config) when is_list(Config)->
+    run([{ "4.11.7",  "Valid Self-Issued inhibitPolicyMapping Test7 EE", ok}
+        ]).
+
+inhibit_mapping_invalid_selfissued() ->
+    [{doc, ""}].
+inhibit_mapping_invalid_selfissued(Config) when is_list(Config)->
+    run([{ "4.11.8", "Invalid Self-Issued inhibitPolicyMapping Test8 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.9",  "Invalid Self-Issued inhibitPolicyMapping Test9 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.10", "Invalid Self-Issued inhibitPolicyMapping Test10 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.11.11",  "Invalid Self-Issued inhibitPolicyMapping Test11 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+%%---------------------- Inhibit any policy tests ------------------------------
+
+inhibit_any_invalid_empty() ->
+    [{doc, ""}].
+inhibit_any_invalid_empty(Config) when is_list(Config)->
+    run([{ "4.12.1",  "Invalid inhibitAnyPolicy Test1 EE ",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.12.6",  "Invalid inhibitAnyPolicy Test6 EE ",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+inhibit_any_valid() ->
+    [{doc, ""}].
+inhibit_any_valid(Config) when is_list(Config)->
+    run([{ "4.12.2",  "Valid inhibitAnyPolicy Test2 EE", ok},
+         { "4.12.3.1",  "inhibitAnyPolicy Test3 EE", ok},
+         { "4.12.3.2",  "inhibitAnyPolicy Test3 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+inhibit_any_invalid() ->
+    [{doc, " "}].
+inhibit_any_invalid(Config) when is_list(Config)->
+    run([{ "4.12.4",  "Invalid inhibitAnyPolicy Test4 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         {"4.12.5", "Invalid inhibitAnyPolicy Test5 EE",
+          {bad_cert,
+           {policy_requirement_not_met,
+            {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+inhibit_any_valid_selfissued() ->
+    [{doc, ""}].
+inhibit_any_valid_selfissued(Config) when is_list(Config)->
+    run([{ "4.12.7",  "Valid Self-Issued inhibitAnyPolicy Test7 EE", ok},
+         { "4.12.9",  "Valid Self-Issued inhibitAnyPolicy Test9 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
+inhibit_any_invalid_selfissued() ->
+    [{doc, ""}].
+inhibit_any_invalid_selfissued(Config) when is_list(Config)->
+    run([{ "4.12.8",  "Invalid Self-Issued inhibitAnyPolicy Test8 EE",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}},
+         { "4.12.10",  "Invalid Self-Issued inhibitAnyPolicy Test10 EE ",
+           {bad_cert,
+            {policy_requirement_not_met,
+             {{explicit_policy,0},{policy_set,[]}}}}}
+        ]).
+
 %%-------------------------------name_constraints----------------------------------------------
 
 valid_DN_name_constraints() ->
@@ -680,10 +1322,10 @@ invalid_uri_name_constraints(Config) when is_list(Config) ->
 delta_without_crl() ->
     [{doc,"Delta CRL tests"}].
 delta_without_crl(Config) when is_list(Config) ->
-  run([{ "4.15.1",  "Invalid deltaCRLIndicator No Base Test1 EE",{bad_cert,
-							       revocation_status_undetermined}},
-       {"4.15.10", "Invalid delta-CRL Test10 EE", {bad_cert,
-						   revocation_status_undetermined}}]).
+    run([{ "4.15.1",  "Invalid deltaCRLIndicator No Base Test1 EE",{bad_cert,
+                                                                    revocation_status_undetermined}},
+         {"4.15.10", "Invalid delta-CRL Test10 EE", {bad_cert,
+                                                     revocation_status_undetermined}}]).
 valid_delta_crls() ->
     [{doc,"Delta CRL tests"}].
 valid_delta_crls(Config) when is_list(Config) ->
@@ -722,12 +1364,12 @@ invalid_distribution_points() ->
 invalid_distribution_points(Config) when is_list(Config) ->
     run([{ "4.14.2",  "Invalid distributionPoint Test2 EE", {bad_cert,{revoked, keyCompromise}}},
 	 { "4.14.3",  "Invalid distributionPoint Test3 EE", {bad_cert,
-							  revocation_status_undetermined}},
+                                                             revocation_status_undetermined}},
 	 { "4.14.6",  "Invalid distributionPoint Test6 EE", {bad_cert,{revoked, keyCompromise}}},
 	 { "4.14.8",  "Invalid distributionPoint Test8 EE", {bad_cert,
-							  revocation_status_undetermined}},
+                                                             revocation_status_undetermined}},
 	 { "4.14.9",  "Invalid distributionPoint Test9 EE", {bad_cert,
-							  revocation_status_undetermined}}
+                                                             revocation_status_undetermined}}
 	]).
 
 valid_only_contains() ->
@@ -829,7 +1471,7 @@ unknown_not_critical_extension(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 -spec run([tuple()]) -> ok.
-run(Tests) ->    
+run(Tests) ->
     [TA] = read_certs("Trust Anchor Root Certificate"),
     run(Tests, TA).
 
@@ -842,23 +1484,27 @@ run(Tests) ->
       CertificateBodies :: [binary()].
 run({Chap, Test, Result}, TA) ->
     run({Chap, Test, Result, read_certs(Test)}, TA);
-
 run({Chap, Test, Result, CertsBody}, TA) ->
+    TestStr = lists:flatten(io_lib:format("Running ~p ~p  ~n", [Chap, Test])),
+    ct:log("~s", [TestStr]),
     CertChain = cas(Chap) ++ CertsBody,
     Options = path_validation_options(Chap),
     try public_key:pkix_path_validation(TA, CertChain, Options) of
-	{Result, _} -> ok;
+	{Result, {_, PolicySet}} ->
+            true = validate_policy_set(Chap, PolicySet);
 	{error,Result} when Result =/= ok ->
-	    ok;
+            ok;
 	{error, Error}  ->
 	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, Error]),
 	    fail;
 	{ok, _OK} when Result =/= ok ->
-	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, ok]),
+	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, _OK]),
 	    fail
     catch Type:Reason:Stack ->
-	    io:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack]),
-	    io:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result]),
+            Str1 = lists:flatten(io_lib:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack])),
+	    Str2 = lists:flatten(io_lib:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result])),
+            erlang:display(Str1),
+            erlang:display(Str2),
             exit(crash)
     end;
 
@@ -867,21 +1513,22 @@ run(Tests,TA) when is_list(Tests) ->
     ok.
 
 path_validation_options(Chap) ->
-    case needs_crl_options(Chap) of
-	true ->
-	    crl_options(Chap);
-	false ->
-	     Fun =
-		fun(_,{bad_cert, _} = Reason, _) ->
-			{fail, Reason};
-		   (_,{extension, _}, UserState) ->
-			{unknown, UserState};
-		   (_, Valid, UserState) when Valid == valid;
-					      Valid == valid_peer ->
-			{valid, UserState}
-		 end,
-	    [{verify_fun, {Fun, []}}]
-    end.
+    Options = case needs_crl_options(Chap) of
+                  true ->
+                      crl_options(Chap);
+                  false ->
+                      Fun =
+                          fun(_,{bad_cert, _} = Reason, _) ->
+                                  {fail, Reason};
+                             (_,{extension, _}, UserState) ->
+                                  {unknown, UserState};
+                             (_, Valid, UserState) when Valid == valid;
+                                                        Valid == valid_peer ->
+                                  {valid, UserState}
+                          end,
+                      [{verify_fun, {Fun, []}}]
+              end,
+    policy_options(Chap, Options).
 
 -spec read_certs(TestCase :: string()) -> [CertificateContent :: binary()].
 read_certs(Test) ->
@@ -1015,14 +1662,14 @@ crl_path_db([{_, CRL} |CRLs], [Path | Paths], Acc) ->
 crl_info(_, [], Acc) ->
     Acc;
 crl_info(OtpCert, [{_, #'CertificateList'{tbsCertList =
-						     #'TBSCertList'{issuer = Issuer,
-								    crlExtensions = CRLExtensions}}}
-				= CRL | Rest], Acc) ->
+                                              #'TBSCertList'{issuer = Issuer,
+                                                             crlExtensions = CRLExtensions}}}
+                   = CRL | Rest], Acc) ->
     OtpTBSCert =  OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions = OtpTBSCert#'OTPTBSCertificate'.extensions,
     ExtList = pubkey_cert:extensions_list(CRLExtensions),
     DPs  = case pubkey_cert:select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
-	      #'Extension'{extnValue = Value} ->
+               #'Extension'{extnValue = Value} ->
 		   lists:foldl(fun(Point, Acc0) ->
 				       Dp = pubkey_cert_records:transform(Point, decode),
 				       IDP = pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint',
@@ -1090,7 +1737,7 @@ trusted_cert_and_path(_, #'CertificateList'{} = CRL, _, PathDb) ->
 
     case lists:keysearch(CRL, 1, PathDb) of
 	{_, {CRL, [ _| _] = Path}} ->
-		      {ok, TrustedCert, [TrustedDERCert | Path]};
+            {ok, TrustedCert, [TrustedDERCert | Path]};
 	{_, {CRL, []}} ->
 	    {ok, TrustedCert, [TrustedDERCert]}
     end.
@@ -1107,7 +1754,7 @@ cas(Chap) ->
     CAS = intermidiate_cas(Chap),
     lists:foldl(fun([], Acc) ->
 			Acc;
-		   (CA, Acc) -> 
+		   (CA, Acc) ->
 			[CACert] = read_certs(CA),
 			[CACert | Acc]
 		end, [], CAS).
@@ -1125,8 +1772,14 @@ intermidiate_cas(Chap) when Chap == "4.1.1";
 			    Chap == "4.3.3";
 			    Chap == "4.3.4";
 			    Chap == "4.3.5";
-			    Chap == "4.4.3"
-			    ->
+			    Chap == "4.4.3";
+                            Chap == "4.8.1.1";
+                            Chap == "4.8.1.2";
+                            Chap == "4.8.1.3";
+                            Chap == "4.8.1.4";
+                            Chap == "4.8.16";
+                            Chap == "4.8.17";
+                            Chap == "4.8.20"->
     ["Good CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.1.2" ->
@@ -1140,12 +1793,12 @@ intermidiate_cas(Chap) when Chap == "4.1.5" ->
     ["DSA Parameters Inherited CA Cert", "DSA CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.2.1";
-			   Chap == "4.2.5" ->
+                            Chap == "4.2.5" ->
     ["Bad notBefore Date CA Cert"];
 
 intermidiate_cas(Chap) when  Chap == "4.16.1";
-			    Chap == "4.16.2" ->
-    ["Trust Anchor Root Certificate"];			    
+                             Chap == "4.16.2" ->
+    ["Trust Anchor Root Certificate"];
 
 intermidiate_cas(Chap) when Chap == "4.3.2" ->
     ["Name Ordering CA Cert"];
@@ -1154,7 +1807,7 @@ intermidiate_cas(Chap) when Chap == "4.13.34";
 			    Chap == "4.13.35" ->
     ["nameConstraints URI1 CA Cert"];
 intermidiate_cas(Chap) when Chap == "4.13.36";
-			   Chap == "4.13.37" ->
+                            Chap == "4.13.37" ->
     ["nameConstraints URI2 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.13.30";
@@ -1164,13 +1817,13 @@ intermidiate_cas(Chap) when Chap == "4.13.30";
     ["nameConstraints DNS1 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.13.32";
-			   Chap == "4.13.33" ->
+                            Chap == "4.13.33" ->
     ["nameConstraints DNS2 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.13.27";
 			    Chap == "4.13.28";
 			    Chap == "4.13.29" ->
-    ["nameConstraints DN1 subCA3 Cert", 
+    ["nameConstraints DN1 subCA3 Cert",
      "nameConstraints DN1 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.13.21";
@@ -1205,7 +1858,7 @@ intermidiate_cas(Chap) when Chap == "4.5.4";
 			    Chap == "4.5.5" ->
     ["Basic Self-Issued Old Key CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.13.1"; 
+intermidiate_cas(Chap) when Chap == "4.13.1";
 			    Chap == "4.13.2";
 			    Chap == "4.13.3";
 			    Chap == "4.13.4";
@@ -1252,78 +1905,78 @@ intermidiate_cas(Chap) when Chap == "4.13.19" ->
      "nameConstraints DN1 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.7.1";
-			    Chap == "4.7.4" -> 
+			    Chap == "4.7.4" ->
     ["keyUsage Critical keyCertSign False CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.7.2";
-			    Chap == "4.7.5" -> 
+			    Chap == "4.7.5" ->
     ["keyUsage Not Critical keyCertSign False CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.7.3" -> 
+intermidiate_cas(Chap) when Chap == "4.7.3" ->
     ["keyUsage Not Critical CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.3.7" -> 
+intermidiate_cas(Chap) when Chap == "4.3.7" ->
     ["RFC3280 Mandatory Attribute Types CA Cert"];
-intermidiate_cas(Chap) when Chap == "4.3.8" -> 
+intermidiate_cas(Chap) when Chap == "4.3.8" ->
     ["RFC3280 Optional Attribute Types CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.3.6" -> 
+intermidiate_cas(Chap) when Chap == "4.3.6" ->
     ["UIDCACert"];
 
-intermidiate_cas(Chap) when Chap == "4.6.4" -> 
+intermidiate_cas(Chap) when Chap == "4.6.4" ->
     ["basicConstraints Not Critical CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.1.26" -> 
+intermidiate_cas(Chap) when Chap == "4.1.26" ->
     ["nameConstraints RFC822 CA3 Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.3.9" -> 
+intermidiate_cas(Chap) when Chap == "4.3.9" ->
     ["UTF8String Encoded Names CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.3.10" -> 
+intermidiate_cas(Chap) when Chap == "4.3.10" ->
     ["Rollover from PrintableString to UTF8String CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.3.11" -> 
+intermidiate_cas(Chap) when Chap == "4.3.11" ->
     ["UTF8String Case Insensitive Match CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.6.7";
 			    Chap == "4.6.8"
-			    -> 
+			    ->
     ["pathLenConstraint0 CA Cert"];
-intermidiate_cas(Chap) when Chap == "4.6.13" -> 
+intermidiate_cas(Chap) when Chap == "4.6.13" ->
     [ "pathLenConstraint6 subsubsubCA41X Cert",
-      "pathLenConstraint6 subsubCA41 Cert", 
-      "pathLenConstraint6 subCA4 Cert", 
+      "pathLenConstraint6 subsubCA41 Cert",
+      "pathLenConstraint6 subCA4 Cert",
       "pathLenConstraint6 CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.6.14" -> 
+intermidiate_cas(Chap) when Chap == "4.6.14" ->
     [ "pathLenConstraint6 subsubsubCA41X Cert",
-      "pathLenConstraint6 subsubCA41 Cert", 
-      "pathLenConstraint6 subCA4 Cert", 
+      "pathLenConstraint6 subsubCA41 Cert",
+      "pathLenConstraint6 subCA4 Cert",
       "pathLenConstraint6 CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.6.15" -> 
-     [ "pathLenConstraint0 Self-Issued CA Cert",
-       "pathLenConstraint0 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.6.15" ->
+    [ "pathLenConstraint0 Self-Issued CA Cert",
+      "pathLenConstraint0 CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.6.17" -> 
+intermidiate_cas(Chap) when Chap == "4.6.17" ->
     ["pathLenConstraint1 Self-Issued subCA Cert",
-     "pathLenConstraint1 subCA Cert", 
-     "pathLenConstraint1 Self-Issued CA Cert", 
+     "pathLenConstraint1 subCA Cert",
+     "pathLenConstraint1 Self-Issued CA Cert",
      "pathLenConstraint1 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.6.5";
-			    Chap == "4.6.6" -> 
-    ["pathLenConstraint0 subCA Cert", 
-     "pathLenConstraint0 CA Cert"]; 
+			    Chap == "4.6.6" ->
+    ["pathLenConstraint0 subCA Cert",
+     "pathLenConstraint0 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.6.9";
-			    Chap == "4.6.10" -> 
+			    Chap == "4.6.10" ->
     ["pathLenConstraint6 subsubCA00 Cert",
      "pathLenConstraint6 subCA0 Cert",
      "pathLenConstraint6 CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.6.11";
-			    Chap == "4.6.12" -> 
+			    Chap == "4.6.12" ->
     ["pathLenConstraint6 subsubsubCA11X Cert",
      "pathLenConstraint6 subsubCA11 Cert",
      "pathLenConstraint6 subCA1 Cert",
@@ -1339,9 +1992,6 @@ intermidiate_cas(Chap) when Chap == "4.4.1" ->
 
 intermidiate_cas(Chap) when Chap == "4.4.2" ->
     ["Revoked subCA Cert", "Good CA Cert"];
-
-intermidiate_cas(Chap) when Chap == "4.4.3" ->
-    ["Good CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.4.4" ->
     ["Bad CRL Signature CA Cert"];
@@ -1474,8 +2124,244 @@ intermidiate_cas(Chap) when Chap == "4.5.6";
 			    Chap == "4.5.7" ->
     ["Basic Self-Issued CRL Signing Key CA Cert"];
 intermidiate_cas(Chap) when Chap == "4.5.8" ->
-    ["Basic Self-Issued CRL Signing Key CRL Cert"].
+    ["Basic Self-Issued CRL Signing Key CRL Cert"];
+intermidiate_cas(Chap) when Chap == "4.8.2.1";
+                            Chap == "4.8.2.2" ->
+    ["No Policies CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.8.3.1";
+                            Chap == "4.8.3.2";
+                            Chap == "4.8.3.3" ->
+    ["Policies P2 subCA Cert","Good CA Cert"
+    ];
+intermidiate_cas("4.8.4") ->
+    ["Good subCA Cert", "Good CA Cert"
+    ];
+intermidiate_cas("4.8.5") ->
+    ["Policies P2 subCA2 Cert", "Good CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.8.6.1";
+                            Chap == "4.8.6.2";
+                            Chap == "4.8.6.3" ->
+    ["Policies P1234 subsubCAP123P12 Cert",
+     "Policies P1234 subCAP123 Cert",
+     "Policies P1234 CA Cert"];
 
+intermidiate_cas("4.8.7") ->
+    ["Policies P123 subsubCAP12P1 Cert",
+     "Policies P123 subCAP12 Cert",
+     "Policies P123 CA Cert"];
+intermidiate_cas("4.8.8") ->
+    ["Policies P12 subsubCAP1P2 Cert",
+     "Policies P12 subCAP1 Cert",
+     "Policies P12 CA Cert"
+    ];
+intermidiate_cas("4.8.9") ->
+    ["Policies P123 subsubsubCAP12P2P1 Cert",
+     "Policies P123 subsubCAP12P2 Cert",
+     "Policies P123 subCAP12 Cert",
+     "Policies P123 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.8.10.1";
+                            Chap == "4.8.10.2";
+                            Chap == "4.8.10.3";
+                            Chap == "4.8.18.1";
+                            Chap == "4.8.18.2"->
+    ["Policies P12 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.8.11.1";
+                            Chap == "4.8.11.2" ->
+    ["anyPolicy CA Cert"];
+intermidiate_cas("4.8.12") ->
+    ["Policies P3 CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.8.13.1";
+                            Chap == "4.8.13.2";
+                            Chap == "4.8.13.3" ->
+    ["Policies P123 CA Cert"];
+intermidiate_cas(Chap) when  Chap == "4.8.14.1";
+                             Chap == "4.8.14.2" ->
+    ["anyPolicy CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.9.1" ->
+    ["requireExplicitPolicy10 subsubsubCA Cert",
+     "requireExplicitPolicy10 subsubCA Cert",
+     "requireExplicitPolicy10 subCA Cert",
+     "requireExplicitPolicy10 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.2" ->
+    ["requireExplicitPolicy5 subsubsubCA Cert",
+     "requireExplicitPolicy5 subsubCA Cert",
+     "requireExplicitPolicy5 subCA Cert",
+     "requireExplicitPolicy5 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.3" ->
+    ["requireExplicitPolicy4 subsubsubCA Cert",
+     "requireExplicitPolicy4 subsubCA Cert",
+     "requireExplicitPolicy4 subCA Cert",
+     "requireExplicitPolicy4 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.4" ->
+    ["requireExplicitPolicy0 subsubsubCA Cert",
+     "requireExplicitPolicy0 subsubCA Cert",
+     "requireExplicitPolicy0 subCA Cert",
+     "requireExplicitPolicy0 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.5" ->
+    ["requireExplicitPolicy7 subsubsubCARE2RE4 Cert",
+     "requireExplicitPolicy7 subsubCARE2RE4 Cert",
+     "requireExplicitPolicy7 subCARE2 Cert",
+     "requireExplicitPolicy7 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.6" ->
+    ["requireExplicitPolicy2 Self-Issued CA Cert",
+     "requireExplicitPolicy2 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.9.7" ->
+    ["requireExplicitPolicy2 subCA Cert",
+     "requireExplicitPolicy2 Self-Issued CA Cert",
+     "requireExplicitPolicy2 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.9.8" ->
+    ["requireExplicitPolicy2 Self-Issued subCA Cert",
+     "requireExplicitPolicy2 subCA Cert",
+     "requireExplicitPolicy2 Self-Issued CA Cert",
+     "requireExplicitPolicy2 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.8.15";
+                            Chap == "4.8.19" ->
+    [];
+intermidiate_cas(Chap) when Chap == "4.10.1.1";
+                            Chap == "4.10.1.2";
+                            Chap == "4.10.1.3";
+                            Chap == "4.10.2.1";
+                            Chap == "4.10.2.2" ->
+    ["Mapping 1to2 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.10.3.1";
+                            Chap == "4.10.3.2";
+                            Chap == "4.10.4"->
+    [
+     "P12 Mapping 1to3 subsubCA Cert",
+     "P12 Mapping 1to3 subCA Cert",
+     "P12 Mapping 1to3 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.5.1";
+                            Chap == "4.10.5.2";
+                            Chap == "4.10.6.1";
+                            Chap == "4.10.6.2"->
+    [
+     "P1 Mapping 1to234 subCA Cert",
+     "P1 Mapping 1to234 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.7" ->
+    [
+     "Mapping From anyPolicy CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.8" ->
+    [
+     "Mapping To anyPolicy CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.9" ->
+    [
+     "PanyPolicy Mapping 1to2 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.10";
+                            Chap == "4.10.11" ->
+    [
+     "Good subCA PanyPolicy Mapping 1to2 CA Cert",
+     "Good CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.12.1";
+                            Chap == "4.10.12.2" ->
+    [
+     "P12 Mapping 1to3 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.10.13";
+                            Chap == "4.10.14" ->
+    [
+     "P1anyPolicy Mapping 1to2 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.1" ->
+    [
+     "inhibitPolicyMapping0 subCA Cert",
+     "inhibitPolicyMapping0 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.2" ->
+    [
+     "inhibitPolicyMapping1 P12 subCA Cert",
+     "inhibitPolicyMapping1 P12 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.3";
+                            Chap == "4.11.4" ->
+    [
+     "inhibitPolicyMapping1 P12 subsubCA Cert",
+     "inhibitPolicyMapping1 P12 subCA Cert",
+     "inhibitPolicyMapping1 P12 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.5" ->
+    [
+     "inhibitPolicyMapping5 subsubsubCA Cert",
+     "inhibitPolicyMapping5 subsubCA Cert",
+     "inhibitPolicyMapping5 subCA Cert",
+     "inhibitPolicyMapping5 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.6" ->
+    [
+     "inhibitPolicyMapping1 P12 subsubCAIPM5 Cert",
+     "inhibitPolicyMapping1 P12 subCAIPM5 Cert",
+     "inhibitPolicyMapping1 P12 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.7" ->
+    [
+     "inhibitPolicyMapping1 P1 subCA Cert",
+     "inhibitPolicyMapping1 P1 Self-Issued CA Cert",
+     "inhibitPolicyMapping1 P1 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.8";
+                            Chap == "4.11.9" ->
+    [
+     "inhibitPolicyMapping1 P1 subsubCA Cert",
+     "inhibitPolicyMapping1 P1 subCA Cert",
+     "inhibitPolicyMapping1 P1 Self-Issued CA Cert ",
+     "inhibitPolicyMapping1 P1 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.11.10";
+                            Chap == "4.11.11" ->
+    [
+     "inhibitPolicyMapping1 P1 Self-Issued subCA Cert",
+     "inhibitPolicyMapping1 P1 subCA Cert",
+     "inhibitPolicyMapping1 P1 Self-Issued CA Cert",
+     "inhibitPolicyMapping1 P1 CA Cert"
+    ];
+intermidiate_cas(Chap) when Chap == "4.12.1";
+                            Chap == "4.12.2" ->
+    ["inhibitAnyPolicy0 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.3.1";
+                            Chap == "4.12.3.2";
+                            Chap == "4.12.4" ->
+    ["inhibitAnyPolicy1 subCA1 Cert",
+     "inhibitAnyPolicy1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.5" ->
+    ["inhibitAnyPolicy5 subsubCA Cert",
+     "inhibitAnyPolicy5 subCA Cert",
+     "inhibitAnyPolicy5 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.6" ->
+    ["inhibitAnyPolicy1 subCAIAP5 Cert",
+     "inhibitAnyPolicy1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.7" ->
+    ["inhibitAnyPolicy1 subCA2 Cert",
+     "inhibitAnyPolicy1 Self-Issued CA Cert",
+     "inhibitAnyPolicy1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.8" ->
+    ["inhibitAnyPolicy1 subsubCA2 Cert",
+     "inhibitAnyPolicy1 subCA2 Cert",
+     "inhibitAnyPolicy1 Self-Issued CA Cert",
+     "inhibitAnyPolicy1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.9" ->
+    ["inhibitAnyPolicy1 Self-Issued subCA2 Cert",
+     "inhibitAnyPolicy1 subCA2 Cert",
+     "inhibitAnyPolicy1 Self-Issued CA Cert",
+     "inhibitAnyPolicy1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.12.10" ->
+    ["inhibitAnyPolicy1 subCA2 Cert",
+     "inhibitAnyPolicy1 Self-Issued CA Cert",
+     "inhibitAnyPolicy1 CA Cert"].
 
 %%%%%%%%%%%%%%% CRL mappings %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 crl_names("4.3.10") ->
@@ -1487,123 +2373,361 @@ crl_names("4.4.2") ->
 crl_names("4.4.3") ->
     ["Trust Anchor Root CRL", "Good CA CRL", "Revoked subCA CRL"];
 crl_names("4.4.4") ->
-     ["Trust Anchor Root CRL", "Bad CRL Signature CA CRL"];
+    ["Trust Anchor Root CRL", "Bad CRL Signature CA CRL"];
 crl_names("4.4.5") ->
-      ["Trust Anchor Root CRL", "Bad CRL Issuer Name CA CRL"];
+    ["Trust Anchor Root CRL", "Bad CRL Issuer Name CA CRL"];
 crl_names("4.4.6") ->
-     ["Trust Anchor Root CRL", "Wrong CRL CA CRL"];
+    ["Trust Anchor Root CRL", "Wrong CRL CA CRL"];
 crl_names("4.4.7") ->
-   ["Trust Anchor Root CRL", "Two CRLs CA Good CRL", "Two CRLs CA Bad CRL"];
+    ["Trust Anchor Root CRL", "Two CRLs CA Good CRL", "Two CRLs CA Bad CRL"];
 crl_names("4.4.8") ->
-   ["Trust Anchor Root CRL", "Unknown CRL Entry Extension CA CRL"];
+    ["Trust Anchor Root CRL", "Unknown CRL Entry Extension CA CRL"];
 crl_names(Chap) when Chap == "4.4.9";
-		Chap == "4.4.10"->
-   ["Trust Anchor Root CRL", "Unknown CRL Extension CA CRL"];
+                     Chap == "4.4.10"->
+    ["Trust Anchor Root CRL", "Unknown CRL Extension CA CRL"];
 crl_names("4.4.11") ->
-   ["Trust Anchor Root CRL", "Old CRL nextUpdate CA CRL"];
+    ["Trust Anchor Root CRL", "Old CRL nextUpdate CA CRL"];
 crl_names("4.4.12") ->
-   ["Trust Anchor Root CRL", "pre2000 CRL nextUpdate CA CRL"];
+    ["Trust Anchor Root CRL", "pre2000 CRL nextUpdate CA CRL"];
 crl_names("4.4.13") ->
-   ["Trust Anchor Root CRL", "GeneralizedTime CRL nextUpdate CA CRL"];
+    ["Trust Anchor Root CRL", "GeneralizedTime CRL nextUpdate CA CRL"];
 crl_names(Chap) when Chap == "4.4.14";
-		Chap == "4.4.15"->
+                     Chap == "4.4.15"->
     ["Trust Anchor Root CRL", "Negative Serial Number CA CRL"];
 crl_names(Chap) when Chap == "4.4.16";
-		Chap == "4.4.17";
-		Chap == "4.4.18" ->
+                     Chap == "4.4.17";
+                     Chap == "4.4.18" ->
     ["Trust Anchor Root CRL", "Long Serial Number CA CRL"];
 crl_names(Chap)when Chap == "4.4.19";
-	       Chap == "4.4.20" ->
+                    Chap == "4.4.20" ->
     ["Trust Anchor Root CRL", "Separate Certificate and CRL Keys CRL"];
 crl_names("4.4.21") ->
-   ["Trust Anchor Root CRL", "Separate Certificate and CRL Keys CA2 CRL"];
+    ["Trust Anchor Root CRL", "Separate Certificate and CRL Keys CA2 CRL"];
 crl_names(Chap) when Chap == "4.5.1";
 		     Chap == "4.5.2"->
-   ["Trust Anchor Root CRL", "Basic Self-Issued New Key CA CRL"];
+    ["Trust Anchor Root CRL", "Basic Self-Issued New Key CA CRL"];
 crl_names(Chap) when Chap == "4.5.3";
-		Chap == "4.5.4";
-		Chap == "4.5.5" ->
-   ["Trust Anchor Root CRL", "Basic Self-Issued Old Key Self-Issued Cert CRL",
-    "Basic Self-Issued Old Key CA CRL"];
+                     Chap == "4.5.4";
+                     Chap == "4.5.5" ->
+    ["Trust Anchor Root CRL", "Basic Self-Issued Old Key Self-Issued Cert CRL",
+     "Basic Self-Issued Old Key CA CRL"];
 crl_names(Chap) when  Chap == "4.5.6";
 		      Chap == "4.5.7";
 		      Chap == "4.5.8" ->
-   ["Trust Anchor Root CRL", "Basic Self-Issued CRL Signing Key CRL Cert CRL",
-	"Basic Self-Issued CRL Signing Key CA CRL"
-   ];
+    ["Trust Anchor Root CRL", "Basic Self-Issued CRL Signing Key CRL Cert CRL",
+     "Basic Self-Issued CRL Signing Key CA CRL"
+    ];
 crl_names("4.7.4") ->
-   ["Trust Anchor Root CRL", "keyUsage Critical cRLSign False CA CRL"];
+    ["Trust Anchor Root CRL", "keyUsage Critical cRLSign False CA CRL"];
 crl_names("4.7.5") ->
-   ["Trust Anchor Root CRL", "keyUsage Not Critical cRLSign False CA CRL"];
+    ["Trust Anchor Root CRL", "keyUsage Not Critical cRLSign False CA CRL"];
 crl_names(Chap) when Chap == "4.14.1";
-		Chap == "4.14.2";
-		Chap == "4.14.3";
-		Chap == "4.14.4" ->
+                     Chap == "4.14.2";
+                     Chap == "4.14.3";
+                     Chap == "4.14.4" ->
     ["Trust Anchor Root CRL", "distributionPoint1 CA CRL"];
 crl_names(Chap) when Chap == "4.14.5";
-		Chap == "4.14.6";
-		Chap == "4.14.7";
-		Chap == "4.14.8";
-		Chap == "4.14.9" ->
+                     Chap == "4.14.6";
+                     Chap == "4.14.7";
+                     Chap == "4.14.8";
+                     Chap == "4.14.9" ->
     ["Trust Anchor Root CRL", "distributionPoint2 CA CRL"];
 crl_names("4.14.10") ->
-   ["Trust Anchor Root CRL", "No issuingDistributionPoint CA CRL"];
+    ["Trust Anchor Root CRL", "No issuingDistributionPoint CA CRL"];
 crl_names("4.14.11") ->
-   ["Trust Anchor Root CRL", "onlyContainsUserCerts CA CRL"];
+    ["Trust Anchor Root CRL", "onlyContainsUserCerts CA CRL"];
 crl_names(Chap) when Chap == "4.14.12";
-		Chap == "4.14.13" ->
+                     Chap == "4.14.13" ->
     ["Trust Anchor Root CRL", "onlyContainsCACerts CA CRL"];
 crl_names("4.14.14") ->
     ["Trust Anchor Root CRL", "onlyContainsAttributeCerts CA CRL"];
 crl_names(Chap) when Chap == "4.14.15";
-		Chap == "4.14.16" ->
-   ["Trust Anchor Root CRL", "onlySomeReasons CA1 compromise CRL",
-    "onlySomeReasons CA1 other reasons CRL"];
+                     Chap == "4.14.16" ->
+    ["Trust Anchor Root CRL", "onlySomeReasons CA1 compromise CRL",
+     "onlySomeReasons CA1 other reasons CRL"];
 crl_names("4.14.17") ->
-   ["Trust Anchor Root CRL",
-    "onlySomeReasons CA2 CRL1", "onlySomeReasons CA2 CRL2"];
+    ["Trust Anchor Root CRL",
+     "onlySomeReasons CA2 CRL1", "onlySomeReasons CA2 CRL2"];
 crl_names("4.14.18") ->
-   ["Trust Anchor Root CRL",
-    "onlySomeReasons CA3 compromise CRL", "onlySomeReasons CA3 other reasons CRL"];
+    ["Trust Anchor Root CRL",
+     "onlySomeReasons CA3 compromise CRL", "onlySomeReasons CA3 other reasons CRL"];
 crl_names(Chap) when Chap == "4.14.19";
-		Chap == "4.14.20";
-		Chap == "4.14.21" ->
-   ["Trust Anchor Root CRL", "onlySomeReasons CA4 compromise CRL",
-    "onlySomeReasons CA4 other reasons CRL"];
+                     Chap == "4.14.20";
+                     Chap == "4.14.21" ->
+    ["Trust Anchor Root CRL", "onlySomeReasons CA4 compromise CRL",
+     "onlySomeReasons CA4 other reasons CRL"];
 crl_names(Chap) when Chap == "4.14.22";
-		Chap == "4.14.23";
-		Chap == "4.14.24";
-		Chap == "4.14.25";
-		Chap == "4.14.26" ->
-   ["Trust Anchor Root CRL", "indirectCRL CA1 CRL"];
-crl_names("4.14.27") ->
-   ["Trust Anchor Root CRL", "Good CA CRL"];
-
+                     Chap == "4.14.23";
+                     Chap == "4.14.24";
+                     Chap == "4.14.25";
+                     Chap == "4.14.26" ->
+    ["Trust Anchor Root CRL", "indirectCRL CA1 CRL"];
+crl_names(Chap) when Chap == "4.14.27";
+                     Chap == "4.8.1.1";
+                     Chap == "4.8.1.2";
+                     Chap == "4.8.1.3";
+                     Chap == "4.8.1.4";
+                     Chap == "4.8.16";
+                     Chap == "4.8.17";
+                     Chap == "4.8.20" ->
+    ["Trust Anchor Root CRL", "Good CA CRL"];
 crl_names(Chap) when Chap == "4.14.28";
 		     Chap == "4.14.29" ->
     ["Trust Anchor Root CRL", "indirectCRL CA3 CRL", "indirectCRL CA3 cRLIssuer CRL"];
 crl_names("4.14.30") ->
-   ["Trust Anchor Root CRL", "indirectCRL CA4 cRLIssuer CRL"];
+    ["Trust Anchor Root CRL", "indirectCRL CA4 cRLIssuer CRL"];
 crl_names(Chap) when Chap == "4.14.31";
-		Chap == "4.14.32";
-		Chap == "4.14.33";
-		Chap == "4.14.34";
-		Chap == "4.14.35" ->
-   ["Trust Anchor Root CRL", "indirectCRL CA5 CRL"];
+                     Chap == "4.14.32";
+                     Chap == "4.14.33";
+                     Chap == "4.14.34";
+                     Chap == "4.14.35" ->
+    ["Trust Anchor Root CRL", "indirectCRL CA5 CRL"];
 crl_names("4.15.1") ->
-   ["Trust Anchor Root CRL", "deltaCRLIndicator No Base CA CRL"];
+    ["Trust Anchor Root CRL", "deltaCRLIndicator No Base CA CRL"];
 crl_names(Chap)  when Chap == "4.15.2";
-		 Chap == "4.15.3";
-		 Chap == "4.15.4";
-		 Chap == "4.15.5";
-		 Chap == "4.15.6";
-		 Chap == "4.15.7" ->
+                      Chap == "4.15.3";
+                      Chap == "4.15.4";
+                      Chap == "4.15.5";
+                      Chap == "4.15.6";
+                      Chap == "4.15.7" ->
     ["Trust Anchor Root CRL", "deltaCRL CA1 CRL", "deltaCRL CA1 deltaCRL"];
 crl_names(Chap) when Chap == "4.15.8";
-		Chap == "4.15.9" ->
-   ["Trust Anchor Root CRL", "deltaCRL CA2 CRL", "deltaCRL CA2 deltaCRL"];
+                     Chap == "4.15.9" ->
+    ["Trust Anchor Root CRL", "deltaCRL CA2 CRL", "deltaCRL CA2 deltaCRL"];
 crl_names("4.15.10") ->
-    ["Trust Anchor Root CRL", "deltaCRL CA3 CRL", "deltaCRL CA3 deltaCRL"].
+    ["Trust Anchor Root CRL", "deltaCRL CA3 CRL", "deltaCRL CA3 deltaCRL"];
+crl_names(Chap) when Chap == "4.8.2.1";
+                     Chap == "4.8.2.2" ->
+    ["No Policies CA CRL"];
+crl_names(Chap) when Chap == "4.8.3.1";
+                     Chap == "4.8.3.2";
+                     Chap == "4.8.3.3" ->
+    ["Trust Anchor Root CRL", "Good CA CRL", "Policies P2 subCA CRL"];
+crl_names("4.8.4") ->
+    ["Trust Anchor Root CRL", "Good CA CRL", "Good subCA CRL"];
+crl_names("4.8.5") ->
+    ["Trust Anchor Root CRL", "Good CA CRL", "Policies P2 subCA2 CRL"];
+crl_names(Chap) when Chap == "4.8.6.1";
+                     Chap == "4.8.6.2";
+                     Chap == "4.8.6.3" ->
+    ["Trust Anchor Root CRL", "Policies P1234 CA CRL",
+     "Policies P1234 subCAP123 CRL", "Policies P1234 subsubCAP123P12 CRL"];
+crl_names("4.8.7") ->
+    ["Trust Anchor Root CRL", "Policies P123 CA CRL",
+     "Policies P123 subCAP12 CRL", "Policies P123 subsubCAP12P1 CRL"];
+crl_names("4.8.8") ->
+    ["Trust Anchor Root CRL", "Policies P12 CA CRL",
+     "Policies P12 subCAP1 CRL", "Policies P12 subsubCAP1P2 CRL"];
+crl_names("4.8.9") ->
+    ["Trust Anchor Root CRL", "Policies P123 CA CRL",
+     "Policies P123 subCAP12 CRL", "Policies P123 subsubCAP2P2 CRL", "Policies P123 subsubsubCAP12P2P1 CRL"];
+crl_names(Chap) when Chap == "4.8.10.1";
+                     Chap == "4.8.10.2";
+                     Chap == "4.8.10.3";
+                     Chap == "4.8.18.1";
+                     Chap == "4.8.18.2" ->
+    ["Policies P12 CA CRL"];
+crl_names(Chap) when Chap == "4.8.11.1";
+                     Chap == "4.8.11.2" ->
+    ["Trust Anchor Root CRL", "anyPolicy CA CRL"];
+crl_names("4.8.12") ->
+    ["Policies P3 CA CRL"];
+crl_names(Chap) when Chap == "4.8.13.1";
+                     Chap == "4.8.13.2";
+                     Chap == "4.8.13.3" ->
+    ["Policies Policies P123 CA CRL"];
+crl_names(Chap) when Chap == "4.8.14.1";
+                     Chap == "4.8.14.2" ->
+    ["anyPolicy CA CRL"];
+crl_names(Chap) when Chap == "4.8.15" ->
+    ["Trust Anchor Root CRL"];
+
+crl_names(Chap) when Chap == "4.9.1" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy10 CA CRL"
+     "requireExplicitPolicy10 subCA CRL",
+     "requireExplicitPolicy10 subsubCA CRL",
+     "requireExplicitPolicy10 subsubsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.9.2" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy5 CA CRL"
+     "requireExplicitPolicy5 subCA CRL",
+     "requireExplicitPolicy5 subsubCA CRL",
+     "requireExplicitPolicy5 subsubsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.9.3" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy4 CA CRL"
+     "requireExplicitPolicy4 subCA CRL",
+     "requireExplicitPolicy4 subsubCA CRL",
+     "requireExplicitPolicy4 subsubsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.9.4" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy0 CA CRL"
+     "requireExplicitPolicy0 subCA CRL",
+     "requireExplicitPolicy0 subsubCA CRL",
+     "requireExplicitPolicy0 subsubsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.9.5" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy7 CA CRL"
+     "requireExplicitPolicy7 subCARE2 CRL ",
+     "requireExplicitPolicy7 subsubCARE2RE4 CRL",
+     "requireExplicitPolicy7 subsubsubCARE2RE4 CRL"
+    ];
+crl_names(Chap) when Chap == "4.9.6" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy2 CA CRL"];
+crl_names(Chap) when Chap == "4.9.7";
+                     Chap == "4.9.8" ->
+    ["Trust Anchor Root CRL",
+     "requireExplicitPolicy2 CA CRL",
+     "requireExplicitPolicy2 subCA CRL"];
+crl_names(Chap) when Chap == "4.10.1.1";
+                     Chap == "4.10.1.2";
+                     Chap == "4.10.1.3";
+                     Chap == "4.10.2.1";
+                     Chap == "4.10.2.2" ->
+    ["Trust Anchor Root CRL",
+     "Mapping 1to2 CA CRL"];
+crl_names(Chap) when Chap == "4.10.3.1";
+                     Chap == "4.10.3.2";
+                     Chap == "4.10.4" ->
+    ["Trust Anchor Root CRL",
+     "P12 Mapping 1to3 CA CRL",
+     "P12 Mapping 1to3 subCA CRL",
+     "P12 Mapping 1to3 subsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.5.1";
+                     Chap == "4.10.5.2" ->
+    ["Trust Anchor Root CRL",
+     "P1 Mapping 1to234 CA CRL",
+     "P1 Mapping 1to234 subCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.5.1";
+                     Chap == "4.10.5.2";
+                     Chap == "4.10.6.1";
+                     Chap == "4.10.6.2" ->
+    ["Trust Anchor Root CRL",
+     "P1 Mapping 1to234 CA CRL",
+     "P1 Mapping 1to234 subCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.7" ->
+    ["Trust Anchor Root CRL",
+     "Mapping From anyPolicy CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.8" ->
+    ["Trust Anchor Root CRL",
+     "Mapping To anyPolicy CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.9" ->
+    ["Trust Anchor Root CRL",
+     "PannyPolicy Mapping 1to2 CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.10";
+                     Chap == "4.10.11" ->
+    ["Trust Anchor Root CRL",
+     "Good CA CRL",
+     "Good subCA PannyPolicy Mapping 1to2 CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.12" ->
+    ["Trust Anchor Root CRL",
+     "P12 Mapping 1to3 CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.10.13";
+                     Chap == "4.10.14" ->
+    ["Trust Anchor Root CRL",
+     "P1anyPolicy Mapping 1to2 CA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.1" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping0 CA CRL",
+     "inhibitPolicyMapping0 subCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.2" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P12 CA CRL",
+     "inhibitPolicyMapping1 P12 subCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.3";
+                     Chap == "4.11.4" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P12 CA CRL",
+     "inhibitPolicyMapping1 P12 subCA CRL",
+     "inhibitPolicyMapping1 P12 subsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.5" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping5 CA CRL",
+     "inhibitPolicyMapping5 subCA CRL",
+     "inhibitPolicyMapping5 subsubCA CRL",
+     "inhibitPolicyMapping5 subsubsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.6" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P12 CA CRL",
+     "inhibitPolicyMapping1 P12 subCAIPM5 CRL",
+     " inhibitPolicyMapping1 P12 subsubCAIPM5 CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.7" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P1 CA CRL",
+     "inhibitPolicyMapping1 P1 subCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.11.8";
+                     Chap == "4.11.9" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P1 CA CRL",
+     "inhibitPolicyMapping1 P1 subCA CRL",
+     "inhibitPolicyMapping1 P1 subsubCA"
+    ];
+crl_names(Chap) when Chap == "4.11.10";
+                     Chap == "4.11.11" ->
+    ["Trust Anchor Root CRL",
+     "inhibitPolicyMapping1 P1 CA CRL",
+     "inhibitPolicyMapping1 P1 subCA CRL"];
+crl_names(Chap) when Chap == "4.12.1";
+                     Chap == "4.12.2" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy0 CA CRL"];
+crl_names(Chap) when Chap == "4.12.3.1";
+                     Chap == "4.12.3.2";
+                     Chap == "4.12.4" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy1 CA CRL",
+     "inhibitAnyPolicy1 subCA1 CRL"
+    ];
+crl_names(Chap) when Chap == "4.12.5" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy5 CA CRL",
+     "inhibitAnyPolicy5 subCA CRL",
+     "inhibitAnyPolicy5 subsubCA CRL"
+    ];
+crl_names(Chap) when Chap == "4.12.6" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy1 CA CRL",
+     "inhibitAnyPolicy1 subCAIAP5 CRL"
+    ];
+crl_names(Chap) when Chap == "4.12.7" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy1 CA CRL",
+     "nhibitAnyPolicy1 subCA2 CRL"];
+crl_names(Chap) when Chap == "4.12.8" ->
+    ["Trust Anchor Root CRL",
+     "inhibitAnyPolicy1 CA CRL",
+     "inhibitAnyPolicy1 subCA2 CRL"
+     "inhibitAnyPolicy1 subsubCA2 CRL"
+    ];
+crl_names(Chap) when Chap == "4.12.9";
+                     Chap == "4.12.10" ->
+    ["Trust Anchor Root CRL"
+     "inhibitAnyPolicy1 CA CRL",
+     "inhibitAnyPolicy1 subCA2 CRL"];
+
+crl_names(_) ->
+    [].
 
 crl_root_cert() ->
     "Trust Anchor Root Certificate".
@@ -1625,7 +2749,7 @@ crl_path("Separate Certificate and CRL Keys CA2 CRL") ->
 crl_path("Basic Self-Issued Old Key Self-Issued Cert CRL") ->
     ["Basic Self-Issued Old Key CA Cert"];
 crl_path("Basic Self-Issued Old Key CA CRL") ->
-      ["Basic Self-Issued Old Key CA Cert", "Basic Self-Issued Old Key NewWithOld CA Cert"];
+    ["Basic Self-Issued Old Key CA Cert", "Basic Self-Issued Old Key NewWithOld CA Cert"];
 
 crl_path("Basic Self-Issued CRL Signing Key CRL Cert CRL") ->
     ["Basic Self-Issued CRL Signing Key CA Cert"];
@@ -1662,118 +2786,283 @@ crl_path(CRL) ->
     [Base ++ "Cert"].
 
 crls(CRLS) ->
-     lists:foldl(fun([], Acc) ->
+    lists:foldl(fun([], Acc) ->
 			Acc;
 		   (CRLFile, Acc) ->
 			[CRL] = read_crls(CRLFile),
 			[CRL | Acc]
 		end, [], CRLS).
 
+policy_options(Chap, Options) when Chap == "4.8.1.1";
+                                   Chap == "4.8.2.2";
+                                   Chap == "4.8.3.2";
+                                   Chap == "4.8.7";
+                                   Chap == "4.8.8";
+                                   Chap == "4.8.9";
+                                   Chap == "4.8.12";
+                                   Chap == "4.8.15";
+                                   Chap == "4.8.16";
+                                   Chap == "4.8.17";
+                                   Chap == "4.8.20";
+                                   Chap == "4.9.3";
+                                   Chap == "4.9.5";
+                                   Chap == "4.9.7";
+                                   Chap == "4.9.8";
+                                   Chap == "4.12.1";
+                                   Chap == "4.12.2";
+                                   Chap == "4.8.10.1";
+                                   Chap == "4.8.11.1" ->
+    [{explicit_policy, true} | Options];
+policy_options(Chap, Options) when Chap == "4.9.4";
+                                   Chap == "4.8.1.2";
+                                   Chap == "4.8.6.2";
+                                   Chap == "4.8.10.2";
+                                   Chap == "4.8.11.2";
+                                   Chap == "4.8.13.1";
+                                   Chap == "4.8.14.1";
+                                   Chap == "4.8.18.1";
+                                   Chap == "4.10.1.1";
+                                   Chap == "4.10.3.1";
+                                   Chap == "4.10.5.1";
+                                   Chap == "4.10.6.1";
+                                   Chap == "4.10.12.1";
+                                   Chap == "4.11.2";
+                                   Chap == "4.11.7" ->
+    [{explicit_policy, true}, {policy_set, [?NIST1]} | Options];
+policy_options(Chap, Options)  when Chap == "4.8.1.3";
+                                    Chap == "4.8.6.3";
+                                    Chap == "4.8.10.3";
+                                    Chap == "4.8.13.2";
+                                    Chap == "4.8.14.2";
+                                    Chap == "4.8.18.2";
+                                    Chap == "4.10.1.2";
+                                    Chap == "4.10.3.2";
+                                    Chap == "4.10.12.2";
+                                    Chap == "4.11.4"->
+    [{explicit_policy, true}, {policy_set, [?NIST2]} | Options];
+policy_options(Chap, Options) when Chap == "4.8.1.4" ->
+    [{explicit_policy, true}, {policy_set, [?NIST1, ?NIST2]} | Options];
+policy_options(Chap, Options)  when Chap == "4.8.13.3"->
+    [{explicit_policy, true}, {policy_set, [?NIST3]} | Options];
+policy_options(Chap, Options) when Chap == "4.8.1.4";
+                                   Chap == "4.8.3.3"->
+    [{explicit_policy, true}, {policy_set, [?NIST1, ?NIST2]} | Options];
+policy_options(Chap, Options) when Chap == "4.10.5.2";
+                                   Chap == "4.10.6.2" ->
+    [{explicit_policy, true}, {policy_set, [?NIST6]} | Options];
+policy_options(Chap, Options) when Chap == "4.10.1.3" ->
+    [{explicit_policy, true}, {inhibit_policy_mapping, true} | Options];
+policy_options(Chap, Options) when Chap == "4.10.2.2";
+                                   Chap == "4.12.3.2" ->
+    [{explicit_policy, true}, {inhibit_any_policy, true} | Options];
+policy_options(Chap, Options) when  Chap == "4.10.10";
+                                    Chap == "4.10.4";
+                                    Chap == "4.12.4";
+                                    Chap == "4.12.5";
+                                    Chap == "4.12.8";
+                                    Chap == "4.12.10";
+                                    Chap == "4.11.1";
+                                    Chap == "4.11.3";
+                                    Chap == "4.11.5";
+                                    Chap == "4.11.6";
+                                    Chap == "4.11.8";
+                                    Chap == "4.11.9";
+                                    Chap == "4.11.10";
+                                    Chap == "4.11.11" ->
+    [{explicit_policy, true} | Options];
+policy_options(_, Options) ->
+    Options.
 
-%% TODO: If we implement policy support
-%% Certificate policy tests need special handling. They can have several
-%% sub tests and we need to check the outputs are correct.
+oidify(Oid) when is_tuple(Oid) ->
+    Oid;
+oidify(Oid) when  is_list(Oid) ->
+    Tokens = string:tokens(Oid, "$."),
+    OidList = [list_to_integer(StrInt) || StrInt <- Tokens],
+    list_to_tuple(OidList).
 
-certificate_policies_tests() ->
-    %%{ "4.8", "Certificate Policies" },
-    [{"4.8.1.1", "All Certificates Same Policy Test1", "-policy anyPolicy -explicit_policy", "True", ?NIST1, ?NIST1, 0},
-     {"4.8.1.2", "All Certificates Same Policy Test1", "-policy ?NIST1BasicSelfIssuedCRLSigningKeyCACert.pem -explicit_policy", "True", ?NIST1, ?NIST1, 0},
-     {"4.8.1.3", "All Certificates Same Policy Test1", "-policy ?NIST2 -explicit_policy", "True", ?NIST1, "<empty>", 43},
-     {"4.8.1.4", "All Certificates Same Policy Test1", "-policy ?NIST1 -policy ?NIST2 -explicit_policy", "True", ?NIST1, ?NIST1, 0},
-     {"4.8.2.1", "All Certificates No Policies Test2", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
-     {"4.8.2.2", "All Certificates No Policies Test2", "-policy anyPolicy -explicit_policy", "True", "<empty>", "<empty>", 43},
-     {"4.8.3.1", "Different Policies Test3", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
-    {"4.8.3.2", "Different Policies Test3", "-policy anyPolicy -explicit_policy", "True", "<empty>", "<empty>", 43},
-     {"4.8.3.3", "Different Policies Test3", "-policy ?NIST1 -policy ?NIST2 -explicit_policy", "True", "<empty>", "<empty>", 43},
-     {"4.8.4", "Different Policies Test4", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.5", "Different Policies Test5", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.6.1", "Overlapping Policies Test6", "-policy anyPolicy", "True", ?NIST1, ?NIST1, 0},
-     {"4.8.6.2", "Overlapping Policies Test6", "-policy ?NIST1", "True", ?NIST1, ?NIST1, 0},
-     {"4.8.6.3", "Overlapping Policies Test6", "-policy ?NIST2", "True", ?NIST1, "<empty>", 43},
-     {"4.8.7", "Different Policies Test7", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.8", "Different Policies Test8", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.9", "Different Policies Test9", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.10.1", "All Certificates Same Policies Test10", "-policy ?NIST1", "True", "?NIST1:?NIST2", "?NIST1", 0},
-     {"4.8.10.2", "All Certificates Same Policies Test10", "-policy ?NIST2", "True", "?NIST1:?NIST2", "?NIST2", 0},
-     {"4.8.10.3", "All Certificates Same Policies Test10", "-policy anyPolicy", "True", "?NIST1:?NIST2", "?NIST1:?NIST2", 0},
-     {"4.8.11.1", "All Certificates AnyPolicy Test11", "-policy anyPolicy", "True", "$apolicy", "$apolicy", 0},
-    {"4.8.11.2", "All Certificates AnyPolicy Test11", "-policy ?NIST1", "True", "$apolicy", "?NIST1", 0},
-     {"4.8.12", "Different Policies Test12", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.8.13.1", "All Certificates Same Policies Test13", "-policy ?NIST1", "True", "?NIST1:?NIST2:?NIST3", "?NIST1", 0},
-     {"4.8.13.2", "All Certificates Same Policies Test13", "-policy ?NIST2", "True", "?NIST1:?NIST2:?NIST3", "?NIST2", 0},
-     {"4.8.13.3", "All Certificates Same Policies Test13", "-policy ?NIST3", "True", "?NIST1:?NIST2:?NIST3", "?NIST3", 0},
-     {"4.8.14.1",       "AnyPolicy Test14", "-policy ?NIST1", "True", "?NIST1",         "?NIST1", 0},
-     {"4.8.14.2",       "AnyPolicy Test14", "-policy ?NIST2", "True", "?NIST1",         "<empty>", 43},
-     {"4.8.15", "User Notice Qualifier Test15", "-policy anyPolicy", "False", "?NIST1", "?NIST1", 0},
-     {"4.8.16", "User Notice Qualifier Test16", "-policy anyPolicy", "False", "?NIST1", "?NIST1", 0},
-    {"4.8.17", "User Notice Qualifier Test17", "-policy anyPolicy", "False", "?NIST1", "?NIST1", 0},
-     {"4.8.18.1", "User Notice Qualifier Test18", "-policy ?NIST1", "True", "?NIST1:?NIST2", "?NIST1", 0},
-     {"4.8.18.2", "User Notice Qualifier Test18", "-policy ?NIST2", "True", "?NIST1:?NIST2", "?NIST2", 0},
-     {"4.8.19", "User Notice Qualifier Test19", "-policy anyPolicy", "False", "?NIST1", "?NIST1", 0},
-     {"4.8.20", "CPS Pointer Qualifier Test20", "-policy anyPolicy -explicit_policy", "True", "?NIST1", "?NIST1", 0}].
-require_explicit_policy_tests() ->
-    %%{ "4.9", "Require Explicit Policy" },
-    [{"4.9.1", "Valid RequireExplicitPolicy Test1", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
-     {"4.9.2", "Valid RequireExplicitPolicy Test2", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
-     {"4.9.3", "Invalid RequireExplicitPolicy Test3", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.9.4", "Valid RequireExplicitPolicy Test4", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.9.5", "Invalid RequireExplicitPolicy Test5", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.9.6", "Valid Self-Issued requireExplicitPolicy Test6", "-policy anyPolicy", "False", "<empty>", "<empty>", 0},
-     {"4.9.7", "Invalid Self-Issued requireExplicitPolicy Test7", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.9.8", "Invalid Self-Issued requireExplicitPolicy Test8", "-policy anyPolicy", "True", "<empty>", "<empty>", 43}].
-policy_mappings_tests() ->
-    %%{ "4.10", "Policy Mappings" },
-    [{"4.10.1.1", "Valid Policy Mapping Test1", "-policy ?NIST1", "True", "?NIST1", "?NIST1", 0},
-     {"4.10.1.2", "Valid Policy Mapping Test1", "-policy ?NIST2", "True", "?NIST1", "<empty>", 43},
-     {"4.10.1.3", "Valid Policy Mapping Test1", "-policy anyPolicy -inhibit_map", "True", "<empty>", "<empty>", 43},
-     {"4.10.2.1", "Invalid Policy Mapping Test2", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.10.2.2", "Invalid Policy Mapping Test2", "-policy anyPolicy -inhibit_map", "True", "<empty>", "<empty>", 43},
-     {"4.10.3.1", "Valid Policy Mapping Test3", "-policy ?NIST1", "True", "?NIST2", "<empty>", 43},
-     {"4.10.3.2", "Valid Policy Mapping Test3", "-policy ?NIST2", "True", "?NIST2", "?NIST2", 0},
-     {"4.10.4", "Invalid Policy Mapping Test4", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.10.5.1", "Valid Policy Mapping Test5", "-policy ?NIST1", "True", "?NIST1", "?NIST1", 0},
-     {"4.10.5.2", "Valid Policy Mapping Test5", "-policy ?NIST6", "True", "?NIST1", "<empty>", 43},
-     {"4.10.6.1", "Valid Policy Mapping Test6", "-policy ?NIST1", "True", "?NIST1", "?NIST1", 0},
-     {"4.10.6.2", "Valid Policy Mapping Test6", "-policy ?NIST6", "True", "?NIST1", "<empty>", 43},
-     { "4.10.7", "Invalid Mapping From anyPolicy Test7", 42 },
-     { "4.10.8", "Invalid Mapping To anyPolicy Test8",   42 },
-     {"4.10.9", "Valid Policy Mapping Test9", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.10.10", "Invalid Policy Mapping Test10", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.10.11", "Valid Policy Mapping Test11", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
+validate_policy_set(Chap, Set) when Chap == "4.8.1.1";
+                                    Chap == "4.8.1.2";
+                                    Chap == "4.8.1.4";
+                                    Chap == "4.8.6.1";
+                                    Chap == "4.8.6.2";
+                                    Chap == "4.12.7";
+                                    Chap == "4.8.10.2";
+                                    Chap == "4.8.13.1";
+                                    Chap == "4.8.11.2";
+                                    Chap == "4.8.14.1";
+                                    Chap == "4.9.1";
+                                    Chap == "4.9.2";
+                                    Chap == "4.9.4";
+                                    Chap == "4.9.6";
+                                    Chap == "4.10.9";
+                                    Chap == "4.10.11";
+                                    Chap == "4.11.2";
+                                    Chap == "4.11.7";
+                                    Chap == "4.12.2";
+                                    Chap == "4.12.3.1";
+                                    Chap == "4.12.7" ->
+    validate_nodes([[{expected_policy_set,[?NIST1_OID]},
+                     {valid_policy, ?NIST1_OID}]], Set);
 
-     %% TODO: check notice display
-     {"4.10.12.1", "Valid Policy Mapping Test12", "-policy ?NIST1", "True", "?NIST1:?NIST2", "?NIST1", 0},
+validate_policy_set(Chap, []) when Chap == "4.8.2.1";
+                                   Chap == "4.8.3.1"->
+    true;
+validate_policy_set(Chap, Set) when Chap == "4.8.10.1" ->
+    validate_nodes([[{expected_policy_set,[?NIST1_OID]},
+                     {valid_policy, ?NIST1_OID}],
+                    [{expected_policy_set,[?NIST2_OID]},
+                     {valid_policy, ?NIST2_OID}]
+                   ], Set);
+validate_policy_set(Chap, Set) when Chap == "4.8.10.3";
+                                    Chap == "4.8.13.2";
+                                    Chap == "4.10.3.2";
+                                    Chap == "4.11.4" ->
+    validate_nodes([[{expected_policy_set,[?NIST2_OID]},
+                     {valid_policy, ?NIST2_OID}]], Set);
+validate_policy_set(Chap, Set) when Chap == "4.8.13.3" ->
+    validate_nodes([[{expected_policy_set,[?NIST3_OID]},
+                     {valid_policy, ?NIST3_OID}]], Set);
+validate_policy_set("4.8.11.1", Set) ->
+    validate_nodes([[{expected_policy_set,[?anyPolicy]},
+                     {valid_policy, ?anyPolicy}]], Set);
+validate_policy_set(Chap, Set) when Chap == "4.8.15";
+                                    Chap == "4.8.16";
+                                    Chap == "4.8.17";
+                                    Chap == "4.8.19";
+                                    Chap == "4.8.18.1";
+                                    Chap == "4.8.20" ->
+    validate_nodes([[{expected_policy_set,[?NIST1_OID]},
+                     {valid_policy, ?NIST1_OID}]], Set),
+    validate_qualifiers(Chap, Set);
+validate_policy_set(Chap, Set) when Chap == "4.10.1.1" ->
+    validate_nodes([[{expected_policy_set,[?NIST2_OID]},
+                     {valid_policy, ?NIST1_OID}]], Set);
+validate_policy_set(Chap, Set) when Chap == "4.10.5.1";
+                                    Chap == "4.10.6.1" ->
+    validate_nodes([[{expected_policy_set,[?NIST2_OID, ?NIST3_OID, ?NIST4_OID]},
+                     {valid_policy, ?NIST1_OID}]], Set);
+validate_policy_set(Chap, Set) when Chap == "4.10.12.1" ->
+    true = validate_nodes([[{expected_policy_set,[?NIST3_OID]},
+                            {valid_policy, ?NIST1_OID}]
+                          ], Set),
+    validate_qualifiers(Chap, Set);
+validate_policy_set(Chap, Set) when Chap == "4.8.18.2";
+                                    Chap == "4.10.12.2" ->
+    true = validate_nodes([[{expected_policy_set,[?NIST2_OID]},
+                            {valid_policy, ?NIST2_OID}]
+                          ], Set),
+    validate_qualifiers(Chap, Set);
+validate_policy_set(Chap, Set) when Chap == "4.10.13" ->
+    true = validate_nodes([[{expected_policy_set,[?NIST2_OID]},
+                            {valid_policy, ?NIST1_OID}],
+                           [{expected_policy_set,[?NIST2_OID]},
+                            {valid_policy, ?NIST2_OID}]
+                          ], Set),
+    validate_qualifiers(Chap, Set);
+validate_policy_set(Chap, Set) when Chap == "4.10.14" ->
+    true = validate_nodes([[{expected_policy_set,[?NIST1_OID]},
+                            {valid_policy, ?NIST1_OID}]
+                          ], Set),
+    validate_qualifiers(Chap, Set);
+validate_policy_set(_Chap, _Set) ->
+    true.
 
-     %% TODO: check notice display
-     {"4.10.12.2", "Valid Policy Mapping Test12", "-policy ?NIST2", "True", "?NIST1:?NIST2", "?NIST2", 0},
-     {"4.10.13", "Valid Policy Mapping Test13", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
+validate_nodes([], []) ->
+    true;
+validate_nodes([], _) ->
+    false;
+validate_nodes([Expected | Rest], Nodes) ->
+    Remaining  = lists:filtermap(fun(Node) -> 
+                                         not validate_node(Expected, Node)
+                                 end, Nodes),
+    validate_nodes(Rest, Remaining).
 
-     %% TODO: check notice display
-     {"4.10.14", "Valid Policy Mapping Test14", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0}].
+validate_node([{Key, Value}], Node) ->
+    case maps:get(Key, Node) of
+        Value ->
+            true;
+        _ ->
+           false
+    end;
+validate_node([{Key, Value}| Rest], Node) ->
+    case maps:get(Key, Node) of
+        Value ->
+            validate_node(Rest, Node);
+        _ ->
+           false
+    end.
 
-inhibit_policy_mapping_tests() ->
-    %%{ "4.11", "Inhibit Policy Mapping" },
-    [{"4.11.1", "Invalid inhibitPolicyMapping Test1", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.2", "Valid inhibitPolicyMapping Test2", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.11.3", "Invalid inhibitPolicyMapping Test3", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.4", "Valid inhibitPolicyMapping Test4", "-policy anyPolicy", "True", "?NIST2", "?NIST2", 0},
-     {"4.11.5", "Invalid inhibitPolicyMapping Test5", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.6", "Invalid inhibitPolicyMapping Test6", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.7", "Valid Self-Issued inhibitPolicyMapping Test7", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.11.8", "Invalid Self-Issued inhibitPolicyMapping Test8", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.9", "Invalid Self-Issued inhibitPolicyMapping Test9", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.10", "Invalid Self-Issued inhibitPolicyMapping Test10", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.11.11", "Invalid Self-Issued inhibitPolicyMapping Test11", "-policy anyPolicy", "True", "<empty>", "<empty>", 43}].
-inhibit_any_policy_tests() ->
-    %%{ "4.12", "Inhibit Any Policy" },
-    [{"4.12.1", "Invalid inhibitAnyPolicy Test1", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.12.2", "Valid inhibitAnyPolicy Test2", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.12.3.1", "inhibitAnyPolicy Test3", "-policy anyPolicy", "True", "?NIST1", "?NIST1", 0},
-     {"4.12.3.2", "inhibitAnyPolicy Test3", "-policy anyPolicy -inhibit_any", "True", "<empty>", "<empty>", 43},
-     {"4.12.4", "Invalid inhibitAnyPolicy Test4", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.12.5", "Invalid inhibitAnyPolicy Test5", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.12.6", "Invalid inhibitAnyPolicy Test6", "-policy anyPolicy", "True", "<empty>", "<empty>", 43},
-     {"4.12.7",  "Valid Self-Issued inhibitAnyPolicy Test7",      ok},
-     {"4.12.8",  "Invalid Self-Issued inhibitAnyPolicy Test8",    43 },
-     {"4.12.9",  "Valid Self-Issued inhibitAnyPolicy Test9",      ok},
-     {"4.12.10", "Invalid Self-Issued inhibitAnyPolicy Test10",   43 }].
+validate_qualifiers("4.8.15", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString,
+                               "q1:  This is the user notice from qualifier 1.  "
+                               "This certificate is for test purposes only"}}] == QSet;
+validate_qualifiers("4.8.16", [#{qualifier_set := QSet}]) ->
+    ct:log("~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                       {visibleString,
+                        "q1:  This is the user notice from qualifier 1.  "
+                        "This certificate is for test purposes only"}}] == QSet;
+validate_qualifiers("4.8.17", [#{qualifier_set := QSet}]) ->
+    ct:log("~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString,
+                               "q3:  This is the user notice from qualifier 3.  "
+                        "This certificate is for test purposes only"}}] == QSet;
+validate_qualifiers("4.8.18.1",[#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true =  [#'UserNotice'{explicitText =
+                               {visibleString,
+                                "q4:  This is the user notice from qualifier 4 associated "
+                                "with NIST-test-policy-1.  "
+                                "This certificate is for test purposes only"}}] == QSet;
+validate_qualifiers("4.8.18.2", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString,
+                               "q5:  This is the user notice from qualifier 5 associated"
+                               " with anyPolicy.  This user notice should be associated "
+                               "with NIST-test-policy-2" }}] == QSet;
+validate_qualifiers("4.8.19", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText = 
+                              {visibleString, "q6:  Section 4.2.1.5 of RFC 3280 states the maximum size of "
+                               "explicitText is 200 characters, but warns that some non-conforming CAs "
+                               "exceed this limit.  Thus RFC 3280 states that certificate users SHOULD "
+                               "gracefully handle explicitText with more than 200 characters.  This "
+                               "explicitText is over 200 characters long"
+                              }}] == QSet;
+validate_qualifiers("4.8.20",  [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [{uri, "http://csrc.nist.gov/groups/ST/crypto_apps_infra/csor/pki_registration.html#PKITest"}] 
+        == QSet;
+
+validate_qualifiers("4.10.12.1", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString, "q7:  This is the user notice from qualifier 7"
+                               " associated with NIST-test-policy-3.  This user notice should "
+                               "be displayed when  NIST-test-policy-1 is in the user-constrained-policy-set"
+                              }}] == QSet;
+validate_qualifiers("4.10.12.2", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString, "q8:  This is the user notice from qualifier 8 "
+                               "associated with anyPolicy.  This user notice should be displayed"
+                               " when NIST-test-policy-2 is in the user-constrained-policy-set"
+                          }}] == QSet;
+validate_qualifiers("4.10.13", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString, "q9:  This is the user notice from qualifier 9 "
+                               "associated with NIST-test-policy-1.  This user notice should be"
+                               " displayed for Valid Policy Mapping Test13"
+                              }}] == QSet;
+validate_qualifiers("4.10.14", [#{qualifier_set := QSet}]) ->
+    ct:log("QS ~p", [QSet]),
+    true = [#'UserNotice'{explicitText =
+                              {visibleString, "q10:  This is the user notice from qualifier 10 "
+                               "associated with anyPolicy.  This user notice should be displayed"
+                               " for Valid Policy Mapping Test14"
+                              }}] == QSet.

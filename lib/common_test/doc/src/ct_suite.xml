@@ -594,8 +594,7 @@
 	  (which also causes the test case process to terminate).</p>
 
 	<p>Elements from the <c>Config</c> list can, for example, be read
-	  with <c>proplists:get_value/2</c> in STDLIB
-	  (or the macro <c>?config</c> defined in <c>ct.hrl</c>).</p>
+	  with <c>proplists:get_value/2</c> in STDLIB.</p>
 
 	<p>If you decide not to run the test case after all, return
 	  <c>{skip, Reason}</c>. <c>Reason</c> is then
