@@ -193,6 +193,7 @@ init_per_group(Alg, Config) when
       Alg == rsa_pss_pss_1_3 ->
     Supports = crypto:supports(),
     RSAOpts = proplists:get_value(rsa_opts, Supports),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
 
     case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
         andalso lists:member(rsa_pss_saltlen, RSAOpts)
@@ -202,10 +203,10 @@ init_per_group(Alg, Config) when
         true ->
             #{client_config := COpts,
               server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, rsa_alg(Alg)},
+            [{cert_key_alg, rsa_alg(Alg)} |
              lists:delete(cert_key_alg,
                           [{client_cert_opts, openssl_sig_algs(rsa_alg(Alg)) ++ COpts},
-                           {server_cert_opts, sig_algs(rsa_alg(Alg)) ++ SOpts} |
+                           {server_cert_opts, ssl_test_lib:sig_algs(Alg, Version) ++ SOpts} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
         false ->
@@ -510,15 +511,6 @@ rsa_alg(rsa_pss_pss_1_3) ->
     rsa_pss_pss;
 rsa_alg(Atom) ->
     Atom.
-
-sig_algs(rsa_pss_pss) ->
-    [{signature_algs, [rsa_pss_pss_sha512,
-                       rsa_pss_pss_sha384,
-                       rsa_pss_pss_sha256]}];
-sig_algs(rsa_pss_rsae) ->
-    [{signature_algs,[rsa_pss_rsae_sha512,
-                      rsa_pss_rsae_sha384,
-                      rsa_pss_rsae_sha256]}].
 
 openssl_sig_algs(rsa_pss_pss) ->
     [{sigalgs, "rsa_pss_pss_sha256"}];
