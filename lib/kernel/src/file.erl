@@ -1502,6 +1502,8 @@ consult_stream(Fd, Line, Acc) ->
     case io:read(Fd, '', Line) of
 	{ok,Term,EndLine} ->
 	    consult_stream(Fd, EndLine, [Term|Acc]);
+	{error,Error} ->
+	    {error,Error};
 	{error,Error,_Line} ->
 	    {error,Error};
 	{eof,_Line} ->
