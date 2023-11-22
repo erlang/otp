@@ -62,7 +62,8 @@ norm({set,[D],[S],get_tl})        -> {get_tl,S,D};
 norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
 norm({set,[],[],remove_message})   -> remove_message;
-norm({set,[],[],{line,_}=Line}) -> Line.
+norm({set,[],[],{line,_}=Line}) -> Line;
+norm({set,[],[],{executable_line,_}=Line}) -> Line.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
     [{test_heap,Nh,Regs}];

@@ -689,3 +689,9 @@ BEAM_FORMAT_NUMBER=0
 ##       * {get_tail,Live,Unit,Dst}
 ##       * {'=:=',Live,Size,Value}.
 182: bs_match/3
+
+# OTP 27
+
+## @spec executable_line Location
+## @doc  Provide location for an executable line.
+183: executable_line/1

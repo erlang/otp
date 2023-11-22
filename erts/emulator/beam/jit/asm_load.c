@@ -69,6 +69,57 @@ int beam_load_prepare_emit(LoaderState *stp) {
     hdr->md5_ptr = NULL;
     hdr->are_nifs = NULL;
 
+    stp->coverage = hdr->coverage = NULL;
+    stp->line_coverage_valid = hdr->line_coverage_valid = NULL;
+
+    hdr->line_coverage_len = 0;
+
+    if (stp->beam.lines.flags & BEAMFILE_FORCE_LINE_COUNTERS) {
+        hdr->coverage_mode = ERTS_COV_LINE_COUNTERS;
+    } else if ((stp->beam.lines.flags & BEAMFILE_EXECUTABLE_LINE) == 0 &&
+               (erts_coverage_mode == ERTS_COV_LINE ||
+                erts_coverage_mode == ERTS_COV_LINE_COUNTERS)) {
+        /* A line coverage mode is enabled, but there are no
+         * executable_line instructions in this module; therefore,
+         * turn off coverage for this module. */
+        hdr->coverage_mode = ERTS_COV_NONE;
+    } else {
+        /* Use the system default coverage mode for this module. */
+        hdr->coverage_mode = erts_coverage_mode;
+    }
+
+    switch (hdr->coverage_mode) {
+    case ERTS_COV_FUNCTION:
+    case ERTS_COV_FUNCTION_COUNTERS: {
+        size_t alloc_size = hdr->num_functions;
+        if (hdr->coverage_mode == ERTS_COV_FUNCTION_COUNTERS) {
+            alloc_size *= sizeof(Uint);
+        }
+        stp->coverage = erts_alloc(ERTS_ALC_T_CODE_COVERAGE, alloc_size);
+        sys_memset(stp->coverage, 0, alloc_size);
+        break;
+    }
+    case ERTS_COV_LINE:
+    case ERTS_COV_LINE_COUNTERS: {
+        size_t alloc_size = stp->beam.lines.instruction_count;
+        Uint coverage_size;
+
+        if (hdr->coverage_mode == ERTS_COV_LINE) {
+            coverage_size = sizeof(byte);
+        } else {
+            coverage_size = sizeof(Uint);
+        }
+        stp->coverage = erts_alloc(ERTS_ALC_T_CODE_COVERAGE,
+                                   alloc_size * coverage_size);
+        sys_memset(stp->coverage, 0, alloc_size * coverage_size);
+        stp->line_coverage_valid =
+                erts_alloc(ERTS_ALC_T_CODE_COVERAGE, alloc_size);
+        sys_memset(stp->line_coverage_valid, 0, alloc_size);
+        hdr->line_coverage_len = alloc_size;
+        break;
+    }
+    }
+
     stp->load_hdr = hdr;
 
     stp->labels = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
@@ -199,6 +250,16 @@ int beam_load_prepared_dtor(Binary *magic) {
     if (stp->func_line) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, stp->func_line);
         stp->func_line = NULL;
+    }
+
+    if (stp->coverage) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, stp->coverage);
+        stp->coverage = NULL;
+    }
+
+    if (stp->line_coverage_valid) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, stp->line_coverage_valid);
+        stp->line_coverage_valid = NULL;
     }
 
     if (stp->ba) {
@@ -586,6 +647,30 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             goto load_error;
         }
         break;
+    case op_executable_line_I: {
+        byte coverage_size = 0;
+
+        /* We'll save some memory by not inserting a line entry that
+         * is equal to the previous one. */
+        if (add_line_entry(stp, tmp_op->a[0].val, 0)) {
+            goto load_error;
+        }
+        if (stp->load_hdr->coverage_mode == ERTS_COV_LINE) {
+            coverage_size = sizeof(byte);
+        } else if (stp->load_hdr->coverage_mode == ERTS_COV_LINE_COUNTERS) {
+            coverage_size = sizeof(Uint);
+        }
+        if (coverage_size) {
+            unsigned loc_index = stp->current_li - 1;
+            ASSERT(stp->beam.lines.item_count > 0);
+            stp->line_coverage_valid[loc_index] = 1;
+            beamasm_emit_coverage(stp->ba,
+                                  stp->coverage,
+                                  loc_index,
+                                  coverage_size);
+        }
+        break;
+    }
     case op_int_code_end:
         /* End of code found. */
         if (stp->function_number != stp->beam.code.function_count) {
@@ -598,6 +683,27 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         stp->function = THE_NON_VALUE;
         stp->genop = NULL;
         stp->specific_op = -1;
+
+        if (stp->load_hdr->coverage_mode == ERTS_COV_LINE ||
+            stp->load_hdr->coverage_mode == ERTS_COV_LINE_COUNTERS) {
+            stp->load_hdr->line_coverage_len = stp->current_li;
+        }
+        break;
+    case op_i_test_yield:
+        if (stp->load_hdr->coverage_mode == ERTS_COV_FUNCTION) {
+            ASSERT(stp->function_number != 0);
+            beamasm_emit_coverage(stp->ba,
+                                  stp->coverage,
+                                  stp->function_number - 1,
+                                  sizeof(byte));
+        } else if (stp->load_hdr->coverage_mode == ERTS_COV_FUNCTION_COUNTERS) {
+            ASSERT(stp->function_number != 0);
+            beamasm_emit_coverage(stp->ba,
+                                  stp->coverage,
+                                  stp->function_number - 1,
+                                  sizeof(Uint));
+        }
+        break;
     }
 
     return 1;
@@ -780,6 +886,13 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Save the updated code pointer and code size. */
     stp->code_hdr = code_hdr_ro;
     stp->loaded_size = module_size;
+
+    /* Transfer ownership of the coverage tables to the loaded code. */
+    code_hdr_rw->coverage = stp->coverage;
+    code_hdr_rw->line_coverage_valid = stp->line_coverage_valid;
+
+    stp->coverage = NULL;
+    stp->line_coverage_valid = NULL;
 
     /*
      * Place the literals in their own allocated heap (for fast range check)
@@ -1024,4 +1137,14 @@ void beam_load_finalize_code(LoaderState *stp,
     stp->executable_region = NULL;
     stp->writable_region = NULL;
     stp->code_hdr = NULL;
+}
+
+void beam_load_purge_aux(const BeamCodeHeader *hdr) {
+    if (hdr->coverage) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->coverage);
+    }
+
+    if (hdr->line_coverage_valid) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->line_coverage_valid);
+    }
 }

@@ -64,6 +64,8 @@ struct erl_module_instance;
 void beam_load_finalize_code(LoaderState *stp,
                              struct erl_module_instance* inst_p);
 
+void beam_load_purge_aux(const BeamCodeHeader *hdr);
+
 void beam_load_new_genop(LoaderState* stp);
 
 #ifndef BEAMASM

@@ -2604,6 +2604,7 @@ use_zreg(bs_checked_skip) -> yes;
 use_zreg(bs_ensure) -> yes;
 use_zreg(bs_match_string) -> yes;
 use_zreg(bs_set_position) -> yes;
+use_zreg(executable_line) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
 use_zreg(recv_marker_bind) -> yes;

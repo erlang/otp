@@ -2680,3 +2680,34 @@ void BeamModuleAssembler::emit_i_perf_counter() {
 void BeamModuleAssembler::emit_mark_unreachable() {
     mark_unreachable();
 }
+
+void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
+    Uint address = Uint(coverage) + index * size;
+    comment("coverage index = %d", index);
+
+    mov_imm(TMP1, address);
+    if (size == sizeof(Uint)) {
+        if (hasCpuFeature(CpuFeatures::ARM::kLSE)) {
+            mov_imm(TMP2, 1);
+            a.ldaddal(TMP2, TMP2, arm::Mem(TMP1));
+        } else {
+            Label again = a.newLabel();
+            a.bind(again);
+            {
+                a.ldaxr(TMP2, arm::Mem(TMP1));
+                a.add(TMP2, TMP2, imm(1));
+                a.stlxr(TMP2, TMP2, arm::Mem(TMP1));
+                a.cbnz(TMP2, again);
+            }
+        }
+    } else if (size == sizeof(byte)) {
+        if ((address & 0xff) != 0) {
+            a.strb(TMP1.w(), arm::Mem(TMP1));
+        } else {
+            mov_imm(TMP2, 1);
+            a.strb(TMP2.w(), arm::Mem(TMP1));
+        }
+    } else {
+        ASSERT(0);
+    }
+}

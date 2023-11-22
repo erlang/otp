@@ -109,7 +109,7 @@
                    'bs_match' | 'bs_start_match' | 'bs_test_tail' |
                    'build_stacktrace' |
                    'call' | 'catch_end' |
-                   'extract' |
+                   'executable_line' | 'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
                    'has_map_field' |
                    'is_nonempty_list' | 'is_tagged_tuple' |

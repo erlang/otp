@@ -55,6 +55,10 @@
 -type module_code() ::
         {module(),[_],[_],[asm_function()],pos_integer()}.
 
+%% Flags for the line table.
+-define(BEAMFILE_EXECUTABLE_LINE, 1).
+-define(BEAMFILE_FORCE_LINE_COUNTERS, 2).
+
 -spec module(module_code(), [{binary(), binary()}], [{atom(),term()}], [compile:option()]) ->
                     {'ok',binary()}.
 
@@ -180,7 +184,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, Com
 		   end,
 
     %% Create the line chunk.
-    LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
+    LineChunk = chunk(<<"Line">>, build_line_table(Dict, CompilerOpts)),
 
     %% Create the type table chunk.
     {NumTypes, TypeTab} = beam_dict:type_table(Dict),
@@ -282,8 +286,8 @@ build_attributes(Attr, Compile, MD5) ->
     CompileBinary = term_to_binary([{version,?COMPILER_VSN}|Compile]),
     {AttrBinary,CompileBinary}.
 
-build_line_table(Dict) ->
-    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0} =
+build_line_table(Dict, Options) ->
+    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0,ExecLine} =
 	beam_dict:line_table(Dict),
     NumFnames = NumFnames0 - 1,
     [_|Fnames1] = Fnames0,
@@ -292,9 +296,19 @@ build_line_table(Dict) ->
     Lines1 = encode_line_items(Lines0, 0),
     Lines = iolist_to_binary(Lines1),
     Ver = 0,
-    Bits = 0,
+    Bits = line_bits(ExecLine, Options),
     <<Ver:32,Bits:32,NumLineInstrs:32,NumLines:32,NumFnames:32,
      Lines/binary,Fnames/binary>>.
+
+line_bits(ExecLine, Options) ->
+        case member(force_line_counters, Options) of
+            true ->
+                ?BEAMFILE_FORCE_LINE_COUNTERS bor ?BEAMFILE_EXECUTABLE_LINE;
+            false when ExecLine =:= true ->
+                ?BEAMFILE_EXECUTABLE_LINE;
+            false ->
+                0
+        end.
 
 %% encode_line_items([{FnameIndex,Line}], PrevFnameIndex)
 %%  Encode the line items compactly. Tag the FnameIndex with
@@ -347,9 +361,12 @@ bif_type(_, 2)      -> bif2.
 
 make_op({'%',_}, Dict) ->
     {[],Dict};
-make_op({line,Location}, Dict0) ->
-    {Index,Dict} = beam_dict:line(Location, Dict0),
+make_op({line=Op,Location}, Dict0) ->
+    {Index,Dict} = beam_dict:line(Location, Dict0, Op),
     encode_op(line, [Index], Dict);
+make_op({executable_line=Op,Location}, Dict0) ->
+    {Index,Dict} = beam_dict:line(Location, Dict0, Op),
+    encode_op(executable_line, [Index], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

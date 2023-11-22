@@ -56,19 +56,17 @@
 %%
 %% TABLES
 %%
-%% Each node has two tables: ?COVER_MAPPING_TABLE and ?COVER_CLAUSE_TABLE.
+%% Each node has one table: ?COVER_MAPPING_TABLE.
+%%
 %% ?COVER_MAPPING_TABLE maps from a #bump{} record to an index in the
 %% counter array for the module. It is used both during instrumentation
 %% of cover-compiled modules and when collecting the counter values.
 %%
-%% ?COVER_CLAUSE_TABLE contains information about which clauses in which modules
-%% cover is currently collecting statistics.
-%%
-%% The main node owns the tables ?COLLECTION_TABLE and
-%% ?COLLECTION_CLAUSE_TABLE. The counter data is consolidated into those
-%% tables from the counters on both the main node and from remote nodes.
-%% This consolidation is done when a remote node is stopped with
-%% cover:stop/1 or just before starting an analysis.
+%% The main node owns the table ?COLLECTION_TABLE. The counter data
+%% is consolidated into this table from the counters on both the main
+%% node and from remote nodes. This consolidation is done when a
+%% remote node is stopped with cover:stop/1 or just before starting an
+%% analysis.
 %%
 %% The main node also has a table named ?BINARY_TABLE. This table
 %% contains the abstract code code for each cover-compiled
@@ -139,36 +137,12 @@
 -define(BUMP_REC_NAME,bump).
 -define(CHUNK_SIZE, 20000).
 
--record(vars, {module,                      % atom() Module name
-	       
-	       init_info=[],                % [{M,F,A,C,L}]
-
-	       function,                    % atom()
-	       arity,                       % int()
-	       clause,                      % int()
-	       lines,                       % [int()]
-               no_bump_lines,               % [int()]
-	       depth,                       % int()
-	       is_guard=false               % boolean
-	      }).
-
 -define(COVER_MAPPING_TABLE, 'cover_internal_mapping_table').
--define(COVER_CLAUSE_TABLE, 'cover_internal_clause_table').
 -define(BINARY_TABLE, 'cover_binary_code_table').
 -define(COLLECTION_TABLE, 'cover_collected_remote_data_table').
--define(COLLECTION_CLAUSE_TABLE, 'cover_collected_remote_clause_table').
 
 -define(TAG, cover_compiled).
 -define(SERVER, cover_server).
-
-%% Line doesn't matter.
--define(BLOCK(Expr), {block,erl_anno:new(0),[Expr]}).
--define(BLOCK1(Expr), 
-        if 
-            element(1, Expr) =:= block ->
-                Expr;
-            true -> ?BLOCK(Expr)
-        end).
 
 -define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
 -define(STYLESHEET, "styles.css").
@@ -826,13 +800,9 @@ init_main(Starter) ->
         true ->
             ?COVER_MAPPING_TABLE = ets:new(?COVER_MAPPING_TABLE,
                                            [ordered_set, public, named_table]),
-            ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
-                                                                named_table]),
             ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
             ?COLLECTION_TABLE = ets:new(?COLLECTION_TABLE, [set, public,
                                                             named_table]),
-            ?COLLECTION_CLAUSE_TABLE = ets:new(?COLLECTION_CLAUSE_TABLE,
-                                               [set, public, named_table]),
             ok = net_kernel:monitor_nodes(true),
             Starter ! {?SERVER,started},
             main_process_loop(#main_state{})
@@ -961,10 +931,8 @@ main_process_loop(State) ->
 	      State#main_state.nodes),
 	    reload_originals(State#main_state.compiled),
             ets:delete(?COVER_MAPPING_TABLE),
-            ets:delete(?COVER_CLAUSE_TABLE),
             ets:delete(?BINARY_TABLE),
             ets:delete(?COLLECTION_TABLE),
-            ets:delete(?COLLECTION_CLAUSE_TABLE),
             delete_all_counters(),
             unregister(?SERVER),
 	    reply(From, ok);
@@ -1099,8 +1067,6 @@ init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
     ?COVER_MAPPING_TABLE = ets:new(?COVER_MAPPING_TABLE,
                                    [ordered_set, public, named_table]),
-    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
-                                                        named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
 
@@ -1143,7 +1109,6 @@ remote_process_loop(State) ->
 	{remote,stop} ->
 	    reload_originals(State#remote_state.compiled),
 	    ets:delete(?COVER_MAPPING_TABLE),
-            ets:delete(?COVER_CLAUSE_TABLE),
             delete_all_counters(),
             unregister(?SERVER),
 	    ok; % not replying since 'DOWN' message will be received anyway
@@ -1227,9 +1192,8 @@ load_compiled([Data|Compiled],Acc) ->
     %% Make sure the #bump{} records and counters are available *before*
     %% compiling and loading the code.
     #remote_data{module=Module,file=File,code=Beam,
-                 mapping=InitialMapping,clauses=InitialClauses} = Data,
+                 mapping=InitialMapping} = Data,
     ets:insert(?COVER_MAPPING_TABLE, InitialMapping),
-    ets:insert(?COVER_CLAUSE_TABLE, InitialClauses),
     maybe_create_counters(Module, true),
 
     Sticky = case code:is_sticky(Module) of
@@ -1290,7 +1254,7 @@ do_start_nodes(Nodes, State) ->
     {_LoadedModules,Compiled} =
 	get_compiled_still_loaded(State#main_state.nodes,
 				  State#main_state.compiled),
-    remote_load_compiled(StartedNodes,Compiled),
+    remote_load_compiled(StartedNodes, Compiled, State),
 
     State1 =
 	State#main_state{nodes = State#main_state.nodes ++ StartedNodes,
@@ -1339,7 +1303,7 @@ sync_compiled(Node,State) ->
 		remote_unload([Node],Unload),
 		Load = [L || L <- Compiled,
 			     false == lists:member(L,RemoteCompiled)],
-		remote_load_compiled([Node],Load),
+		remote_load_compiled([Node], Load, State),
 		State#main_state{compiled=Compiled, nodes=[Node|Nodes]}
 	end,
     State1#main_state{lost_nodes=Lost--[Node]}.
@@ -1348,8 +1312,14 @@ sync_compiled(Node,State) ->
 %% We do it ?MAX_MODS modules at a time so that we don't
 %% run out of memory on the cover_server node. 
 -define(MAX_MODS, 10).
-remote_load_compiled(Nodes,Compiled) ->
-    remote_load_compiled(Nodes, Compiled, [], 0).
+remote_load_compiled(Nodes, Compiled, #main_state{local_only=LocalOnly}) ->
+    case LocalOnly of
+        true ->
+            ok;
+        false ->
+            remote_load_compiled(Nodes, Compiled, [], 0)
+    end.
+
 remote_load_compiled(_Nodes, [], [], _ModNum) ->
     ok;
 remote_load_compiled(Nodes, Compiled, Acc, ModNum) 
@@ -1396,10 +1366,9 @@ get_data_for_remote_loading({Module,File}) ->
     [{Module,Code}] = ets:lookup(?BINARY_TABLE, Module),
     %%! The InitialTable list will be long if the module is big - what to do??
     Mapping = counters_mapping_table(Module),
-    InitialClauses = ets:lookup(?COVER_CLAUSE_TABLE,Module),
 
     #remote_data{module=Module,file=File,code=Code,
-                 mapping=Mapping,clauses=InitialClauses}.
+                 mapping=Mapping,clauses=[]}.
 
 %% Unload modules on remote nodes
 remote_unload(Nodes,UnloadedModules) ->
@@ -1661,7 +1630,7 @@ do_compile_beams(ModsAndFiles, State) ->
 		  end,
 		  ModsAndFiles),
     Compiled = [{M,F} || {ok,M,F} <- Result0],
-    remote_load_compiled(State#main_state.nodes,Compiled),
+    remote_load_compiled(State#main_state.nodes, Compiled, State),
     fix_state_and_result(Result0,State,[]).
 
 do_compile_beam(Module,BeamFile0,State) ->
@@ -1702,7 +1671,7 @@ do_compile(Files, Options, State) ->
 		   end,
 		   Files),
     Compiled = [{M,F} || {ok,M,F} <- Result0],
-    remote_load_compiled(State#main_state.nodes,Compiled),
+    remote_load_compiled(State#main_state.nodes, Compiled, State),
     fix_state_and_result(Result0,State,[]).
 
 do_compile1(File, Options, LocalOnly) ->
@@ -1765,7 +1734,7 @@ do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->
 
     %% Instrument the abstract code by inserting
     %% calls to update the counters.
-    {Forms,Vars} = transform(Forms0, Module, MainFile, LocalOnly),
+    Forms = transform(Forms0, Module, MainFile, LocalOnly),
 
     %% Create counters.
     maybe_create_counters(Module, not LocalOnly),
@@ -1778,21 +1747,16 @@ do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->
     %% Compile and load the result.
     %% It's necessary to check the result of loading since it may
     %% fail, for example if Module resides in a sticky directory.
-    Options = SourceInfo ++ UserOptions,
+    Options0 = SourceInfo ++ UserOptions,
+    Options = [report_errors,force_line_counters|Options0],
+
     {ok, Module, Binary} = compile:forms(Forms, Options),
 
     case code:load_binary(Module, ?TAG, Binary) of
 	{module, Module} ->
-
-	    %% Store info about all function clauses in database.
-	    InitInfo = lists:reverse(Vars#vars.init_info),
-	    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
-
 	    %% Store binary code so it can be loaded on remote nodes.
 	    ets:insert(?BINARY_TABLE, {Module, Binary}),
-
 	    {ok, Module};
-
 	_Error ->
 	    do_clear(Module),
 	    error
@@ -1820,11 +1784,9 @@ get_compile_info(Module, Beam) ->
 		[]
     end.
 
-transform(Code, Module, MainFile, LocalOnly) ->
-    Vars0 = #vars{module=Module},
-    {ok,MungedForms0,Vars} = transform_2(Code, [], Vars0, MainFile, on),
-    MungedForms = patch_code(Module, MungedForms0, LocalOnly),
-    {MungedForms,Vars}.
+transform(Code, Module, _MainFile, LocalOnly) ->
+    {ok,MungedForms0} = sys_coverage:cover_transform(Code, fun counter_index/5),
+    patch_code(Module, MungedForms0, LocalOnly).
 
 %% Helpfunction which returns the first found file-attribute, which can
 %% be interpreted as the name of the main erlang source file.
@@ -1835,528 +1797,13 @@ find_main_filename([_|Rest]) ->
 find_main_filename([]) ->
     {error, no_file_attribute}.
 
-
-transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
-    Form = expand(Form0),
-    case munge(Form,Vars,MainFile,Switch) of
-	ignore ->
-	    transform_2(Forms,MungedForms,Vars,MainFile,Switch);
-	{MungedForm,Vars2,NewSwitch} ->
-	    transform_2(Forms,[MungedForm|MungedForms],Vars2,MainFile,NewSwitch)
-    end;
-transform_2([],MungedForms,Vars,_,_) ->
-    {ok, lists:reverse(MungedForms), Vars}.
-
-%% Expand short-circuit Boolean expressions.
-expand(Expr) ->
-    AllVars = sets:from_list(ordsets:to_list(vars([], Expr))),
-    {Expr1,_} = expand(Expr, AllVars, 1),
-    Expr1.
-
-expand({clause,Anno,Pattern,Guards,Body}, Vs, N) ->
-    %% We must not expand andalso/orelse in guards.
-    {ExpandedBody,N2} = expand(Body, Vs, N),
-    {{clause,Anno,Pattern,Guards,ExpandedBody},N2};
-expand({lc,Anno,Expr,Qs}, Vs, N) ->
-    {ExpandedExpr,N2} = expand(Expr, Vs, N),
-    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
-    {{lc,Anno,ExpandedExpr,ExpandedQs},N3};
-expand({bc,Anno,Expr,Qs}, Vs, N) ->
-    {ExpandedExpr,N2} = expand(Expr, Vs, N),
-    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
-    {{bc,Anno,ExpandedExpr,ExpandedQs},N3};
-expand({mc,Anno,Expr,Qs}, Vs, N) ->
-    {ExpandedExpr,N2} = expand(Expr, Vs, N),
-    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
-    {{mc,Anno,ExpandedExpr,ExpandedQs},N3};
-expand({op,_Anno,'andalso',ExprL,ExprR}, Vs, N) ->
-    {ExpandedExprL,N2} = expand(ExprL, Vs, N),
-    {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    Anno = element(2, ExpandedExprL),
-    {bool_switch(ExpandedExprL, 
-                 ExpandedExprR,
-                 {atom,Anno,false},
-                 Vs, N3),
-     N3 + 1};
-expand({op,_Anno,'orelse',ExprL,ExprR}, Vs, N) ->
-    {ExpandedExprL,N2} = expand(ExprL, Vs, N),
-    {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    Anno = element(2, ExpandedExprL),
-    {bool_switch(ExpandedExprL,
-                 {atom,Anno,true},
-                 ExpandedExprR,
-                 Vs, N3),
-     N3 + 1};
-expand(T, Vs, N) when is_tuple(T) ->
-    {TL,N2} = expand(tuple_to_list(T), Vs, N),
-    {list_to_tuple(TL),N2};
-expand([E|Es], Vs, N) ->
-    {E2,N2} = expand(E, Vs, N),
-    {Es2,N3} = expand(Es, Vs, N2),
-    {[E2|Es2],N3};
-expand(T, _Vs, N) ->
-    {T,N}.
-
-expand_qualifiers([Q|Qs], Vs, N) ->
-    {Q2,N2} = case erl_lint:is_guard_test(Q) of
-                  true ->
-                      %% This qualifier is a guard test and will be
-                      %% compiled as such. Don't expand andalso/orelse
-                      %% because that would turn it into a body
-                      %% expression that may raise an exception. Here
-                      %% is an example of a filter where the error
-                      %% behaviour would change:
-                      %%
-                      %%      V == a orelse element(1, V) == a
-                      %%
-                      {Q,N};
-                  false ->
-                      %% A generator or a filter that is not a guard
-                      %% test.
-                      expand(Q, Vs, N)
-              end,
-    {Qs2,N3} = expand_qualifiers(Qs, Vs, N2),
-    {[Q2|Qs2],N3};
-expand_qualifiers([], _Vs, N) ->
-    {[],N}.
-
-vars(A, {var,_,V}) when V =/= '_' ->
-    [V|A];
-vars(A, T) when is_tuple(T) ->
-    vars(A, tuple_to_list(T));
-vars(A, [E|Es]) ->
-    vars(vars(A, E), Es);
-vars(A, _T) ->
-    A.
-
-bool_switch(E, T, F, AllVars, AuxVarN) ->
-    Anno = element(2, E),
-    AuxVar = {var,Anno,aux_var(AllVars, AuxVarN)},
-    {'case',Anno,E,
-     [{clause,Anno,[{atom,Anno,true}],[],[T]},
-      {clause,Anno,[{atom,Anno,false}],[],[F]},
-      %% Mark the next clause as compiler-generated to suppress
-      %% a warning if the case expression is an obvious boolean
-      %% value.
-      {clause,erl_anno:set_generated(true, Anno),[AuxVar],[],
-       [{call,Anno,
-         {remote,Anno,{atom,Anno,erlang},{atom,Anno,error}},
-         [{tuple,Anno,[{atom,Anno,badarg},AuxVar]}]}]}]}.
-
-aux_var(Vars, N) ->
-    Name = list_to_atom(lists:concat(['_', N])),
-    case sets:is_element(Name, Vars) of
-        true -> aux_var(Vars, N + 1);
-        false -> Name
-    end.
-
-%% This code traverses the abstract code, stored as the abstract_code
-%% chunk in the BEAM file, as described in absform(3).
-%% The switch is turned off when we encounter other files than the main file.
-%% This way we will be able to exclude functions defined in include files.
-munge({function,Anno,Function,Arity,Clauses},Vars,_MainFile,on) ->
-    Vars2 = Vars#vars{function=Function,
-		      arity=Arity,
-		      clause=1,
-		      lines=[],
-                      no_bump_lines=[],
-		      depth=1},
-    {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
-    {{function,Anno,Function,Arity,MungedClauses},Vars3,on};
-munge(Form={attribute,_,file,{MainFile,_}},Vars,MainFile,_Switch) ->
-    {Form,Vars,on};                     % Switch on transformation!
-munge(Form={attribute,_,file,{_InclFile,_}},Vars,_MainFile,_Switch) ->
-    {Form,Vars,off};                    % Switch off transformation!
-munge({attribute,_,compile,{parse_transform,_}},_Vars,_MainFile,_Switch) ->
-    %% Don't want to run parse transforms more than once.
-    ignore;
-munge(Form,Vars,_MainFile,Switch) ->    % Other attributes and skipped includes.
-    {Form,Vars,Switch}.
-
-munge_clauses(Clauses, Vars) ->
-    munge_clauses(Clauses, Vars, Vars#vars.lines, []).
-
-munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
-    {clause,Anno,Pattern,Guards,Body} = Clause,
-    {MungedGuards, _Vars} = munge_exprs(Guards, Vars#vars{is_guard=true},[]),
-
-    case Vars#vars.depth of
-	1 -> % function clause
-	    {MungedBody, Vars2} = munge_body(Body, Vars#vars{depth=2}),
-	    ClauseInfo = {Vars2#vars.module,
-			  Vars2#vars.function,
-			  Vars2#vars.arity,
-			  Vars2#vars.clause,
-			  length(Vars2#vars.lines)}, % Not used?
-	    InitInfo = [ClauseInfo | Vars2#vars.init_info],
-	    Vars3 = Vars2#vars{init_info=InitInfo,
-			       clause=(Vars2#vars.clause)+1,
-			       lines=[],
-                               no_bump_lines=[],
-			       depth=1},
-            NewBumps = Vars2#vars.lines,
-            NewLines = NewBumps ++ Lines,
-	    munge_clauses(Clauses, Vars3, NewLines,
-			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
-			   MClauses]);
-
-	2 -> % receive-,  case-, if-, or try-clause
-            Lines0 = Vars#vars.lines,
-	    {MungedBody, Vars2} = munge_body(Body, Vars),
-            NewBumps = new_bumps(Vars2, Vars),
-            NewLines = NewBumps ++ Lines,
-	    munge_clauses(Clauses, Vars2#vars{lines=Lines0},
-                          NewLines,
-			  [{clause,Anno,Pattern,MungedGuards,MungedBody}|
-			   MClauses])
-    end;
-munge_clauses([], Vars, Lines, MungedClauses) -> 
-    {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
-
-munge_body(Expr, Vars) ->
-    munge_body(Expr, Vars, [], []).
-
-munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
-    %% Here is the place to add a call to cover:bump/6!
-    Line = erl_anno:line(element(2, Expr)),
-    Lines = Vars#vars.lines,
-    case lists:member(Line,Lines) of
-	true -> % already a bump at this line
-	    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-            NewBumps = new_bumps(Vars2, Vars),
-            NoBumpLines = [Line|Vars#vars.no_bump_lines],
-            Vars3 = Vars2#vars{no_bump_lines = NoBumpLines},
-            MungedBody1 = 
-                maybe_fix_last_expr(MungedBody, Vars3, LastExprBumpLines),
-            MungedExprs1 = [MungedExpr|MungedBody1],
-	    munge_body(Body, Vars3, MungedExprs1, NewBumps);
-	false ->
-            Bump = bump_call(Vars, Line),
-	    Lines2 = [Line|Lines],
-	    {MungedExpr, Vars2} = munge_expr(Expr, Vars#vars{lines=Lines2}),
-            NewBumps = new_bumps(Vars2, Vars),
-            NoBumpLines = subtract(Vars2#vars.no_bump_lines, NewBumps),
-            Vars3 = Vars2#vars{no_bump_lines = NoBumpLines},
-            MungedBody1 =
-                maybe_fix_last_expr(MungedBody, Vars3, LastExprBumpLines),
-            MungedExprs1 = [MungedExpr,Bump|MungedBody1],
-	    munge_body(Body, Vars3, MungedExprs1, NewBumps)
-    end;
-munge_body([], Vars, MungedBody, _LastExprBumpLines) ->
-    {lists:reverse(MungedBody), Vars}.
-
-%%% Fix last expression (OTP-8188). A typical example:
-%%%
-%%%  3:   case X of
-%%%  4:       1 -> a; % Bump line 5 after "a" has been evaluated!
-%%%  5:       2 -> b; 3 -> c end, F()
-%%%
-%%% Line 5 wasn't bumped just before "F()" since it was already bumped
-%%% before "b" (and before "c") (one mustn't bump a line more than
-%%% once in a single "evaluation"). The expression "case X ... end" is
-%%% now traversed again ("fixed"), this time adding bumps of line 5
-%%% where appropriate, in this case when X matches 1.
-%%%
-%%% This doesn't solve all problems with expressions on the same line,
-%%% though. 'case' and 'try' are tricky. An example:
-%%%
-%%% 7:    case case X of 1 -> foo(); % ?
-%%% 8:                   2 -> bar() end of a -> 1;
-%%% 9:                                     b -> 2 end.
-%%%
-%%% If X matches 1 and foo() evaluates to a then line 8 should be
-%%% bumped, but not if foo() evaluates to b. In other words, line 8
-%%% cannot be bumped after "foo()" on line 7, so one has to bump line
-%%% 8 before "begin 1 end". But if X matches 2 and bar evaluates to a
-%%% then line 8 would be bumped twice (there has to be a bump before
-%%% "bar()". It is like one would have to have two copies of the inner
-%%% clauses, one for each outer clause. Maybe the munging should be
-%%% done on some of the compiler's "lower level" format.
-%%%
-%%% 'fun' is also problematic since a bump inside the body "shadows"
-%%% the rest of the line.
-
-maybe_fix_last_expr(MungedExprs, Vars, LastExprBumpLines) ->
-    case last_expr_needs_fixing(Vars, LastExprBumpLines) of
-        {yes, Line} ->
-            fix_last_expr(MungedExprs, Line, Vars);
-        no ->
-            MungedExprs
-    end.
-
-last_expr_needs_fixing(Vars, LastExprBumpLines) ->
-    case common_elems(Vars#vars.no_bump_lines, LastExprBumpLines) of
-        [Line] ->
-            {yes, Line};
-        _ ->
-            no
-    end.
-
-fix_last_expr([MungedExpr|MungedExprs], Line, Vars) ->
-    %% No need to update ?COVER_TABLE.
-    Bump = bump_call(Vars, Line),
-    [fix_expr(MungedExpr, Line, Bump)|MungedExprs].
-
-fix_expr({'if',A,Clauses}, Line, Bump) ->
-    FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'if',A,FixedClauses};
-fix_expr({'case',A,Expr,Clauses}, Line, Bump) ->
-    FixedExpr = fix_expr(Expr, Line, Bump),
-    FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'case',A,FixedExpr,FixedClauses};
-fix_expr({'receive',A,Clauses}, Line, Bump) ->
-    FixedClauses = fix_clauses(Clauses, Line, Bump),
-    {'receive',A,FixedClauses};
-fix_expr({'receive',A,Clauses,Expr,Body}, Line, Bump) ->
-    FixedClauses = fix_clauses(Clauses, Line, Bump),
-    FixedExpr = fix_expr(Expr, Line, Bump),
-    FixedBody = fix_expr(Body, Line, Bump),
-    {'receive',A,FixedClauses,FixedExpr,FixedBody};
-fix_expr({'try',A,Exprs,Clauses,CatchClauses,After}, Line, Bump) ->
-    FixedExprs = fix_expr(Exprs, Line, Bump),
-    FixedClauses = fix_clauses(Clauses, Line, Bump),
-    FixedCatchClauses = fix_clauses(CatchClauses, Line, Bump),
-    FixedAfter = fix_expr(After, Line, Bump),
-    {'try',A,FixedExprs,FixedClauses,FixedCatchClauses,FixedAfter};
-fix_expr([E | Es], Line, Bump) ->
-    [fix_expr(E, Line, Bump) | fix_expr(Es, Line, Bump)];
-fix_expr(T, Line, Bump) when is_tuple(T) ->
-    list_to_tuple(fix_expr(tuple_to_list(T), Line, Bump));
-fix_expr(E, _Line, _Bump) ->
-    E.
-
-fix_clauses([], _Line, _Bump) ->
-    [];
-fix_clauses(Cs, Line, Bump) ->
-    case bumps_line(lists:last(Cs), Line) of
-        true ->
-            fix_cls(Cs, Line, Bump);
-        false ->
-            Cs
-    end.
-
-fix_cls([], _Line, _Bump) ->
-    [];
-fix_cls([Cl | Cls], Line, Bump) ->
-    case bumps_line(Cl, Line) of
-        true ->
-            [fix_expr(C, Line, Bump) || C <- [Cl | Cls]];
-        false ->
-            {clause,CA,P,G,Body} = Cl,
-            UniqueVarName = list_to_atom(lists:concat(["$cover$ ",Line])),
-            A = erl_anno:new(0),
-            V = {var,A,UniqueVarName},
-            [Last|Rest] = lists:reverse(Body),
-            Body1 = lists:reverse(Rest, [{match,A,V,Last},Bump,V]),
-            [{clause,CA,P,G,Body1} | fix_cls(Cls, Line, Bump)]
-    end.
-
-bumps_line(E, L) ->
-    try bumps_line1(E, L) catch true -> true end.
-
-bumps_line1({'BUMP',Line,_}, Line) ->
-    throw(true);
-bumps_line1([E | Es], Line) ->
-    bumps_line1(E, Line),
-    bumps_line1(Es, Line);
-bumps_line1(T, Line) when is_tuple(T) ->
-    bumps_line1(tuple_to_list(T), Line);
-bumps_line1(_, _) ->
-    false.
-
-%% Insert a place holder for the call to counters:add/3 in the
-%% abstract code.
-bump_call(Vars, Line) ->
-    {'BUMP',Line,counter_index(Vars, Line)}.
-
-%%% End of fix of last expression.
-
-munge_expr({match,Anno,ExprL,ExprR}, Vars) ->
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{match,Anno,MungedExprL,MungedExprR}, Vars3};
-munge_expr({maybe_match,Anno,ExprL,ExprR}, Vars) ->
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{maybe_match,Anno,MungedExprL,MungedExprR}, Vars3};
-munge_expr({tuple,Anno,Exprs}, Vars) ->
-    {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
-    {{tuple,Anno,MungedExprs}, Vars2};
-munge_expr({record,Anno,Name,Exprs}, Vars) ->
-    {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
-    {{record,Anno,Name,MungedExprFields}, Vars2};
-munge_expr({record,Anno,Arg,Name,Exprs}, Vars) ->
-    {MungedArg, Vars2} = munge_expr(Arg, Vars),
-    {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{record,Anno,MungedArg,Name,MungedExprFields}, Vars3};
-munge_expr({record_field,Anno,ExprL,ExprR}, Vars) ->
-    {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
-    {{record_field,Anno,ExprL,MungedExprR}, Vars2};
-munge_expr({map,Anno,Fields}, Vars) ->
-    %% EEP 43
-    {MungedFields, Vars2} = munge_exprs(Fields, Vars, []),
-    {{map,Anno,MungedFields}, Vars2};
-munge_expr({map,Anno,Arg,Fields}, Vars) ->
-    %% EEP 43
-    {MungedArg, Vars2} = munge_expr(Arg, Vars),
-    {MungedFields, Vars3} = munge_exprs(Fields, Vars2, []),
-    {{map,Anno,MungedArg,MungedFields}, Vars3};
-munge_expr({map_field_assoc,Anno,Name,Value}, Vars) ->
-    %% EEP 43
-    {MungedName, Vars2} = munge_expr(Name, Vars),
-    {MungedValue, Vars3} = munge_expr(Value, Vars2),
-    {{map_field_assoc,Anno,MungedName,MungedValue}, Vars3};
-munge_expr({map_field_exact,Anno,Name,Value}, Vars) ->
-    %% EEP 43
-    {MungedName, Vars2} = munge_expr(Name, Vars),
-    {MungedValue, Vars3} = munge_expr(Value, Vars2),
-    {{map_field_exact,Anno,MungedName,MungedValue}, Vars3};
-munge_expr({cons,Anno,ExprH,ExprT}, Vars) ->
-    {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
-    {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
-    {{cons,Anno,MungedExprH,MungedExprT}, Vars3};
-munge_expr({op,Anno,Op,ExprL,ExprR}, Vars) ->
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{op,Anno,Op,MungedExprL,MungedExprR}, Vars3};
-munge_expr({op,Anno,Op,Expr}, Vars) ->
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    {{op,Anno,Op,MungedExpr}, Vars2};
-munge_expr({'catch',Anno,Expr}, Vars) ->
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    {{'catch',Anno,MungedExpr}, Vars2};
-munge_expr({call,Anno1,{remote,Anno2,ExprM,ExprF},Exprs},
-	   Vars) ->
-    {MungedExprM, Vars2} = munge_expr(ExprM, Vars),
-    {MungedExprF, Vars3} = munge_expr(ExprF, Vars2),
-    {MungedExprs, Vars4} = munge_exprs(Exprs, Vars3, []),
-    {{call,Anno1,{remote,Anno2,MungedExprM,MungedExprF},MungedExprs}, Vars4};
-munge_expr({call,Anno,Expr,Exprs}, Vars) ->
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    {MungedExprs, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{call,Anno,MungedExpr,MungedExprs}, Vars3};
-munge_expr({lc,Anno,Expr,Qs}, Vars) ->
-    {MungedExpr, Vars2} = munge_expr(?BLOCK1(Expr), Vars),
-    {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
-    {{lc,Anno,MungedExpr,MungedQs}, Vars3};
-munge_expr({bc,Anno,Expr,Qs}, Vars) ->
-    {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
-    {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
-    {{bc,Anno,MungedExpr,MungedQs}, Vars3};
-munge_expr({mc,Anno,{map_field_assoc,FAnno,K,V},Qs}, Vars) ->
-    Expr = {map_field_assoc,FAnno,?BLOCK1(K),?BLOCK1(V)},
-    {MungedExpr,Vars2} = munge_expr(Expr, Vars),
-    {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
-    {{mc,Anno,MungedExpr,MungedQs}, Vars3};
-munge_expr({block,Anno,Body}, Vars) ->
-    {MungedBody, Vars2} = munge_body(Body, Vars),
-    {{block,Anno,MungedBody}, Vars2};
-munge_expr({'if',Anno,Clauses}, Vars) ->
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
-    {{'if',Anno,MungedClauses}, Vars2};
-munge_expr({'case',Anno,Expr,Clauses}, Vars) ->
-    {MungedExpr,Vars2} = munge_expr(Expr, Vars),
-    {MungedClauses,Vars3} = munge_clauses(Clauses, Vars2),
-    {{'case',Anno,MungedExpr,MungedClauses}, Vars3};
-munge_expr({'receive',Anno,Clauses}, Vars) ->
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars),
-    {{'receive',Anno,MungedClauses}, Vars2};
-munge_expr({'receive',Anno,Clauses,Expr,Body}, Vars) ->
-    {MungedExpr, Vars1} = munge_expr(Expr, Vars),
-    {MungedClauses,Vars2} = munge_clauses(Clauses, Vars1),
-    {MungedBody,Vars3} = 
-        munge_body(Body, Vars2#vars{lines = Vars1#vars.lines}),
-    Vars4 = Vars3#vars{lines = Vars2#vars.lines ++ new_bumps(Vars3, Vars2)},
-    {{'receive',Anno,MungedClauses,MungedExpr,MungedBody}, Vars4};
-munge_expr({'try',Anno,Body,Clauses,CatchClauses,After}, Vars) ->
-    {MungedBody, Vars1} = munge_body(Body, Vars),
-    {MungedClauses, Vars2} = munge_clauses(Clauses, Vars1),
-    {MungedCatchClauses, Vars3} = munge_clauses(CatchClauses, Vars2),
-    {MungedAfter, Vars4} = munge_body(After, Vars3),
-    {{'try',Anno,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter},
-     Vars4};
-munge_expr({'maybe',Anno,Exprs}, Vars) ->
-    {MungedExprs, Vars2} = munge_body(Exprs, Vars),
-    {{'maybe',Anno,MungedExprs}, Vars2};
-munge_expr({'maybe',MaybeAnno,Exprs,{'else',ElseAnno,Clauses}}, Vars) ->
-    {MungedExprs, Vars2} = munge_body(Exprs, Vars),
-    {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
-    {{'maybe',MaybeAnno,MungedExprs,{'else',ElseAnno,MungedClauses}}, Vars3};
-munge_expr({'fun',Anno,{clauses,Clauses}}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{'fun',Anno,{clauses,MungedClauses}}, Vars2};
-munge_expr({named_fun,Anno,Name,Clauses}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{named_fun,Anno,Name,MungedClauses}, Vars2};
-munge_expr({bin,Anno,BinElements}, Vars) ->
-    {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
-    {{bin,Anno,MungedBinElements}, Vars2};
-munge_expr({bin_element,Anno,Value,Size,TypeSpecifierList}, Vars) ->
-    {MungedValue,Vars2} = munge_expr(Value, Vars),
-    {MungedSize,Vars3} = munge_expr(Size, Vars2),
-    {{bin_element,Anno,MungedValue,MungedSize,TypeSpecifierList},Vars3};
-munge_expr(Form, Vars) ->
-    {Form, Vars}.
-
-munge_exprs([Expr|Exprs], Vars, MungedExprs) when Vars#vars.is_guard=:=true,
-						  is_list(Expr) ->
-    {MungedExpr, _Vars} = munge_exprs(Expr, Vars, []),
-    munge_exprs(Exprs, Vars, [MungedExpr|MungedExprs]);
-munge_exprs([Expr|Exprs], Vars, MungedExprs) ->
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_exprs(Exprs, Vars2, [MungedExpr|MungedExprs]);
-munge_exprs([], Vars, MungedExprs) ->
-    {lists:reverse(MungedExprs), Vars}.
-
-%% Every qualifier is decorated with a counter.
-munge_qualifiers(Qualifiers, Vars) ->
-    munge_qs(Qualifiers, Vars, []).
-
-munge_qs([{generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
-    A = element(2, Expr),
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, A, {generate,Anno,Pattern,MungedExpr}, Vars, Vars2, MQs);
-munge_qs([{b_generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
-    A = element(2, Expr),
-    {MExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, A, {b_generate,Anno,Pattern,MExpr}, Vars, Vars2, MQs);
-munge_qs([{m_generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
-    A = element(2, Expr),
-    {MExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, A, {m_generate,Anno,Pattern,MExpr}, Vars, Vars2, MQs);
-munge_qs([Expr|Qs], Vars, MQs) ->
-    A = element(2, Expr),
-    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
-    munge_qs1(Qs, A, MungedExpr, Vars, Vars2, MQs);
-munge_qs([], Vars, MQs) ->
-    {lists:reverse(MQs), Vars}.
-
-munge_qs1(Qs, Anno, NQ, Vars, Vars2, MQs) ->
-    case new_bumps(Vars2, Vars) of
-        [_] ->
-            munge_qs(Qs, Vars2, [NQ | MQs]);
-        _ -> 
-            {MungedTrue, Vars3} = munge_expr(?BLOCK({atom,Anno,true}), Vars2),
-            munge_qs(Qs, Vars3, [NQ, MungedTrue | MQs])
-    end.
-
-new_bumps(#vars{lines = New}, #vars{lines = Old}) ->
-    subtract(New, Old).
-
-subtract(L1, L2) ->
-    [E || E <- L1, not lists:member(E, L2)].
-
-common_elems(L1, L2) ->
-    [E || E <- L1, lists:member(E, L2)].
-
 %%%--Counters------------------------------------------------------------
 
 init_counter_mapping(Mod) ->
     true = ets:insert_new(?COVER_MAPPING_TABLE, {Mod,0}),
     ok.
 
-counter_index(Vars, Line) ->
-    #vars{module=Mod,function=F,arity=A,clause=C} = Vars,
+counter_index(Mod, F, A, C, Line) ->
     Key = #bump{module=Mod,function=F,arity=A,
                 clause=C,line=Line},
     case ets:lookup(?COVER_MAPPING_TABLE, Key) of
@@ -2371,10 +1818,15 @@ counter_index(Vars, Line) ->
 
 %% Create the counter array and store as a persistent term.
 maybe_create_counters(Mod, true) ->
-    Cref = create_counters(Mod),
-    Key = {?MODULE,Mod},
-    persistent_term:put(Key, Cref),
-    ok;
+    case has_native_coverage() of
+        false ->
+            Cref = create_counters(Mod),
+            Key = {?MODULE,Mod},
+            persistent_term:put(Key, Cref),
+            ok;
+        true ->
+            ok
+    end;
 maybe_create_counters(_Mod, false) ->
     ok.
 
@@ -2385,18 +1837,24 @@ create_counters(Mod) ->
     ets:insert(?COVER_MAPPING_TABLE, {{counters,Mod},Cref}),
     Cref.
 
-patch_code(Mod, Forms, false) ->
-    A = erl_anno:new(0),
-    AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
-    patch_code1(Forms, {distributed,AbstrKey});
-patch_code(Mod, Forms, true) ->
-    Cref = create_counters(Mod),
-    AbstrCref = cid_to_abstract(Cref),
-    patch_code1(Forms, {local_only,AbstrCref}).
+patch_code(Mod, Forms, Local) ->
+    case has_native_coverage() of
+        true ->
+            _ = catch code:reset_coverage(Mod),
+            Forms;
+        false when Local =:= false ->
+            A = erl_anno:new(0),
+            AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
+            patch_code1(Forms, {distributed,AbstrKey});
+        false when Local =:= true ->
+            Cref = create_counters(Mod),
+            AbstrCref = cid_to_abstract(Cref),
+            patch_code1(Forms, {local_only,AbstrCref})
+    end.
 
-%% Go through the abstract code and replace 'BUMP' forms
+%% Go through the abstract code and replace 'executable_line' forms
 %% with the actual code to increment the counters.
-patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrKey}) ->
+patch_code1({executable_line,_Anno,Index}, {distributed,AbstrKey}) ->
     %% Replace with counters:add(persistent_term:get(Key), Index, 1).
     %% This code will work on any node.
     A = element(2, AbstrKey),
@@ -2404,7 +1862,7 @@ patch_code1({'BUMP',_Anno,Index}, {distributed,AbstrKey}) ->
                [AbstrKey]},
     {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
      [GetCref,{integer,A,Index},{integer,A,1}]};
-patch_code1({'BUMP',_Anno,Index}, {local_only,AbstrCref}) ->
+patch_code1({executable_line,_Anno,Index}, {local_only,AbstrCref}) ->
     %% Replace with counters:add(Cref, Index, 1). This code
     %% will only work on the local node.
     A = element(2, AbstrCref),
@@ -2446,30 +1904,37 @@ send_counters(Mod, CollectorPid) ->
 %% Called on the main node. Collect the counters and consolidate
 %% them into the collection table. Also zero the counters.
 move_counters(Mod) ->
-    move_counters(Mod, fun insert_in_collection_table/1).
+    Process = fun insert_in_collection_table/1,
+    move_counters(Mod, Process).
 
 move_counters(Mod, Process) ->
+    Move = case has_native_coverage() of
+               true ->
+                   native_move(Mod);
+               false ->
+                   standard_move(Mod)
+           end,
     Pattern = {#bump{module=Mod,_='_'},'_'},
     Matches = ets:match_object(?COVER_MAPPING_TABLE, Pattern, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    move_counters1(Matches, Cref, Process).
+    move_counters1(Matches, Move, Process).
 
-move_counters1({Mappings,Continuation}, Cref, Process) ->
-    Move = fun({Key,Index}) ->
-                   Count = counters:get(Cref, Index),
-                   ok = counters:sub(Cref, Index, Count),
-                   {Key,Count}
-           end,
-    Process(lists:map(Move, Mappings)),
-    move_counters1(ets:match_object(Continuation), Cref, Process);
-move_counters1('$end_of_table', _Cref, _Process) ->
+move_counters1({Mappings,Continuation}, Move, Process) ->
+    Moved = [Move(Item) || Item <- Mappings],
+    Process(Moved),
+    move_counters1(ets:match_object(Continuation), Move, Process);
+move_counters1('$end_of_table', _Move, _Process) ->
     ok.
 
 counters_mapping_table(Mod) ->
     Mapping = counters_mapping(Mod),
-    Cref = get_counters_ref(Mod),
-    #{size:=Size} = counters:info(Cref),
-    [{Mod,Size}|Mapping].
+    case has_native_coverage() of
+        false ->
+            Cref = get_counters_ref(Mod),
+            #{size:=Size} = counters:info(Cref),
+            [{Mod,Size}|Mapping];
+        true ->
+            Mapping
+    end.
 
 get_counters_ref(Mod) ->
     ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 2).
@@ -2485,14 +1950,44 @@ clear_counters(Mod) ->
     _ = ets:match_delete(?COVER_MAPPING_TABLE, Pattern),
     ok.
 
+standard_move(Mod) ->
+    Cref = get_counters_ref(Mod),
+    fun({Key,Index}) ->
+            Count = counters:get(Cref, Index),
+            ok = counters:sub(Cref, Index, Count),
+            {Key,Count}
+    end.
+
+native_move(Mod) ->
+    Coverage = maps:from_list(code:get_coverage(line, Mod)),
+    _ = code:reset_coverage(Mod),
+    fun({#bump{line=Line}=Key,_Index}) ->
+                   case Coverage of
+                       #{Line := false} ->
+                           {Key,0};
+                       #{Line := true} ->
+                           {Key,1};
+                       #{Line := N} when is_integer(N), N >= 0 ->
+                           {Key,N};
+                       #{} ->
+                           {Key,0}
+                   end
+           end.
+
 %% Reset counters (set counters to 0).
 reset_counters(Mod) ->
-    Pattern = {#bump{module=Mod,_='_'},'$1'},
-    MatchSpec = [{Pattern,[],['$1']}],
-    Matches = ets:select(?COVER_MAPPING_TABLE,
-                         MatchSpec, ?CHUNK_SIZE),
-    Cref = get_counters_ref(Mod),
-    reset_counters1(Matches, Cref).
+    case has_native_coverage() of
+        true ->
+            _ = catch code:reset_coverage(Mod),
+            ok;
+        false ->
+            Pattern = {#bump{module=Mod,_='_'},'$1'},
+            MatchSpec = [{Pattern,[],['$1']}],
+            Matches = ets:select(?COVER_MAPPING_TABLE,
+                                 MatchSpec, ?CHUNK_SIZE),
+            Cref = get_counters_ref(Mod),
+            reset_counters1(Matches, Cref)
+    end.
 
 reset_counters1({Indices,Continuation}, Cref) ->
     _ = [counters:put(Cref, N, 0) || N <- Indices],
@@ -2508,37 +2003,27 @@ delete_all_counters() ->
 
 %% Collect data for all modules
 collect(Nodes) ->
-    %% local node
-    AllClauses = ets:tab2list(?COVER_CLAUSE_TABLE),
-    Mon1 = spawn_monitor(fun() -> pmap(fun move_modules/1,AllClauses) end),
-
-    %% remote nodes
-    Mon2 = spawn_monitor(fun() -> remote_collect('_',Nodes,false) end),
-    get_downs([Mon1,Mon2]).
+    Modules = [Module || {Module,_} <- ets:tab2list(?BINARY_TABLE)],
+    collect_modules(Modules, Nodes).
 
 %% Collect data for a list of modules
-collect(Modules,Nodes) ->
-    MS = [{{'$1','_'},[{'==','$1',M}],['$_']} || M <- Modules],
-    Clauses = ets:select(?COVER_CLAUSE_TABLE,MS),
-    Mon1 = spawn_monitor(fun() -> pmap(fun move_modules/1,Clauses) end),
+collect(Modules0, Nodes) ->
+    Modules = [Module || Module <- Modules0, ets:member(?BINARY_TABLE, Module)],
+    collect_modules(Modules, Nodes).
 
-    %% remote nodes
-    Mon2 = spawn_monitor(fun() -> remote_collect('_',Nodes,false) end),
+collect_modules(Modules, Nodes) ->
+    Mon1 = spawn_monitor(fun() -> pmap(fun move_modules/1, Modules) end),
+    Mon2 = spawn_monitor(fun() -> remote_collect('_', Nodes, false) end),
     get_downs([Mon1,Mon2]).
 
 %% Collect data for one module
-collect(Module,Clauses,Nodes) ->
-    %% local node
-    move_modules({Module,Clauses}),
-    
-    %% remote nodes
-    remote_collect([Module],Nodes,false).
-
+collect_module(Module, #main_state{nodes=Nodes}) ->
+    move_modules(Module),
+    remote_collect([Module], Nodes, false).
 
 %% When analysing, the data from the local ?COVER_TABLE is moved to the
 %% ?COLLECTION_TABLE. Resetting data in ?COVER_TABLE
-move_modules({Module,Clauses}) ->
-    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses}),
+move_modules(Module) when is_atom(Module) ->
     move_counters(Module).
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
@@ -2607,40 +2092,34 @@ analyse_list(Modules, Analysis, Level, State) ->
     Loaded = [M || {M,_} <- LoadedMF],
     Imported = [M || {M,_} <- ImportedMF],
     collect(Loaded, State#main_state.nodes),
-    MS = [{{'$1','_'},[{'==','$1',M}],['$_']} || M <- Loaded ++ Imported],
-    AllClauses = ets:select(?COLLECTION_CLAUSE_TABLE,MS),
-    Fun = fun({Module,Clauses}) ->
-		  do_analyse(Module, Analysis, Level, Clauses)
+    All = Loaded ++ Imported,
+    Fun = fun(Module) ->
+		  do_analyse(Module, Analysis, Level)
 	  end,
-    {result, lists:flatten(pmap(Fun, AllClauses)), Error}.
+    {result, lists:flatten(pmap(Fun, All)), Error}.
 
 analyse_all(Analysis, Level, State) ->
     collect(State#main_state.nodes),
-    AllClauses = ets:tab2list(?COLLECTION_CLAUSE_TABLE),
-    Fun = fun({Module,Clauses}) ->
-		  do_analyse(Module, Analysis, Level, Clauses)
+    All = ets:tab2list(?BINARY_TABLE),
+    Fun = fun({Module,_}) ->
+		  do_analyse(Module, Analysis, Level)
 	  end,
-    {result, lists:flatten(pmap(Fun, AllClauses)), []}.
+    {result, lists:flatten(pmap(Fun, All)), []}.
 
 do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     analyse_info(Module,State#main_state.imported),
-    C = case Loaded of
+    _ = case Loaded of
 	    {loaded, _File} ->
-		[{Module,Clauses}] = 
-		    ets:lookup(?COVER_CLAUSE_TABLE,Module),
-		collect(Module,Clauses,State#main_state.nodes),
-		Clauses;
+		collect_module(Module, State);
 	    _ ->
-		[{Module,Clauses}] = 
-		    ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
-		Clauses
+                ok
 	end,
-    R = do_analyse(Module, Analysis, Level, C),
+    R = do_analyse(Module, Analysis, Level),
     reply(From, {ok,R}).
 
 %% do_analyse(Module, Analysis, Level, Clauses)-> {ok,Answer} | {error,Error}
 %%   Clauses = [{Module,Function,Arity,Clause,Lines}]
-do_analyse(Module, Analysis, line, _Clauses) ->
+do_analyse(Module, Analysis, line) ->
     Pattern = {#bump{module=Module},'_'},
     Bumps = ets:match_object(?COLLECTION_TABLE, Pattern),
     Fun = case Analysis of
@@ -2656,15 +2135,15 @@ do_analyse(Module, Analysis, line, _Clauses) ->
 		  end
 	  end,
     lists:keysort(1, lists:map(Fun, Bumps));
-do_analyse(Module, Analysis, clause, _Clauses) ->
+do_analyse(Module, Analysis, clause) ->
     Pattern = {#bump{module=Module},'_'},
     Bumps = lists:keysort(1,ets:match_object(?COLLECTION_TABLE, Pattern)),
     analyse_clause(Analysis,Bumps);
-do_analyse(Module, Analysis, function, Clauses) ->
-    ClauseResult = do_analyse(Module, Analysis, clause, Clauses),
+do_analyse(Module, Analysis, function) ->
+    ClauseResult = do_analyse(Module, Analysis, clause),
     merge_clauses(ClauseResult, merge_fun(Analysis));
-do_analyse(Module, Analysis, module, Clauses) ->
-    FunctionResult = do_analyse(Module, Analysis, function, Clauses),
+do_analyse(Module, Analysis, module) ->
+    FunctionResult = do_analyse(Module, Analysis, function),
     Result = merge_functions(FunctionResult, merge_fun(Analysis)),
     {Module,Result}.
 
@@ -2767,10 +2246,7 @@ split_ok_error([],Ok,Error) ->
 do_parallel_analysis_to_file(Module, Opts, Loaded, From, State) ->
     File = case Loaded of
 	       {loaded, File0} ->
-		   [{Module,Clauses}] = 
-		       ets:lookup(?COVER_CLAUSE_TABLE,Module),
-		   collect(Module, Clauses,
-			   State#main_state.nodes),
+		   collect_module(Module, State),
 		   File0;
 	       {imported, File0, _} ->
 		   File0
@@ -2980,10 +2456,7 @@ do_export(Module, OutFile, From, State) ->
 			export_info(Module,State#main_state.imported),
 			try is_loaded(Module, State) of
 			    {loaded, File} ->
-				[{Module,Clauses}] = 
-				    ets:lookup(?COVER_CLAUSE_TABLE,Module),
-				collect(Module, Clauses,
-					State#main_state.nodes),
+				collect_module(Module, State),
 				do_export_table([{Module,File}],[],Fd);
 			    {imported, File, ImportFiles} ->
 				%% don't know if I should allow this - 
@@ -3015,14 +2488,12 @@ merge([{Module,File,_ImportFiles}|Imported],ModuleList) ->
 merge([],ModuleList) ->
     ModuleList.
 
-write_module_data([{Module,File}|ModList],Fd) ->
-    write({file,Module,File},Fd),
-    [Clauses] = ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
-    write(Clauses,Fd),
-    ModuleData = ets:match_object(?COLLECTION_TABLE,{#bump{module=Module},'_'}),
-    do_write_module_data(ModuleData,Fd),
-    write_module_data(ModList,Fd);
-write_module_data([],_Fd) ->
+write_module_data([{Module,File}|ModList], Fd) ->
+    write({file,Module,File}, Fd),
+    ModuleData = ets:match_object(?COLLECTION_TABLE, {#bump{module=Module},'_'}),
+    do_write_module_data(ModuleData, Fd),
+    write_module_data(ModList, Fd);
+write_module_data([], _Fd) ->
     ok.
 
 do_write_module_data([H|T],Fd) ->
@@ -3063,14 +2534,6 @@ do_import_to_table(Fd,ImportFile,Imported,DontImport) ->
 		    ok
 	    end,
 	    do_import_to_table(Fd,ImportFile,Imported,DontImport);
-	{Module,Clauses} ->
-	    case lists:member(Module,DontImport) of
-		false ->
-		    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses});
-		true ->
-			    ok
-	    end,
-	    do_import_to_table(Fd,ImportFile,Imported,DontImport);
 	eof ->
 	    Imported
     end.
@@ -3100,15 +2563,14 @@ do_reset_main_node(Module,Nodes) ->
     remote_reset(Module,Nodes).
 
 do_reset_collection_table(Module) ->
-    ets:delete(?COLLECTION_CLAUSE_TABLE,Module),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
 do_clear(Module) ->
-    ets:match_delete(?COVER_CLAUSE_TABLE, {Module,'_'}),
     clear_counters(Module),
     case lists:member(?COLLECTION_TABLE, ets:all()) of
 	true ->
 	    %% We're on the main node
+            ets:match_delete(?BINARY_TABLE, {Module,'_'}),
 	    ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'});
 	false ->
 	    ok
@@ -3204,3 +2666,6 @@ html_encoding(latin1) ->
     "iso-8859-1";
 html_encoding(utf8) ->
     "utf-8".
+
+has_native_coverage() ->
+    code:coverage_support().

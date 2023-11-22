@@ -65,6 +65,10 @@ void beamasm_purge_module(const void *executable_region,
                           size_t size);
 void beamasm_delete_assembler(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
+void beamasm_emit_coverage(void *instance,
+                           void *coverage,
+                           Uint index,
+                           Uint size);
 ErtsCodePtr beamasm_get_code(void *ba, int label);
 ErtsCodePtr beamasm_get_lambda(void *ba, int index);
 const byte *beamasm_get_rodata(void *ba, char *label);

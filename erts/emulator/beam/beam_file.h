@@ -124,6 +124,11 @@ typedef struct {
     BeamFile_LineEntry *items;
 } BeamFile_LineTable;
 
+enum beamfile_line_flags {
+    BEAMFILE_EXECUTABLE_LINE = 1, /* The executable_line instruction is used. */
+    BEAMFILE_FORCE_LINE_COUNTERS = 2 /* Force emission of line counters. */
+};
+
 typedef struct {
     struct erl_heap_fragment *heap_fragments;
     Eterm value;

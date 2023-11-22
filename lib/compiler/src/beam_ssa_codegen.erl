@@ -389,6 +389,7 @@ classify_heap_need(build_stacktrace) -> gc;
 classify_heap_need(call) -> gc;
 classify_heap_need(catch_end) -> gc;
 classify_heap_need(copy) -> neutral;
+classify_heap_need(executable_line) -> neutral;
 classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
 classify_heap_need(get_map_element) -> neutral;
@@ -1809,6 +1810,9 @@ cg_instr(bs_get_tail, [Src], Dst, Set) ->
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
+cg_instr(executable_line, [], _Dst, #cg_set{anno=Anno}) ->
+    {line,Location} = line(Anno),
+    [{executable_line,Location}];
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];

@@ -86,6 +86,8 @@ func_line I
 line n => _
 line I
 
+executable_line I
+
 allocate t t
 allocate_heap t I t
 

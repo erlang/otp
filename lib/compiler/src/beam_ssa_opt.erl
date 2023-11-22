@@ -488,6 +488,14 @@ merge_updates_bs([{LblA,
     %% Note that we retain the first update_record in case it's used elsewhere,
     %% it's too rare to warrant special handling here.
     [{LblA, BlkA}, {LblB, BlkB#b_blk{is=[Update]}}| merge_updates_bs(Bs)];
+merge_updates_bs([{LblA,
+                   #b_blk{is=[#b_set{op=update_record}]=IsA,
+                          last=#b_br{bool=#b_literal{val=true},
+                                     succ=LblB}}=BlkA},
+                  {LblB,
+                   #b_blk{is=[#b_set{op=executable_line}]=IsB}=BlkB} | Bs0]) ->
+    Bs = [{LblB,BlkB#b_blk{is=IsA}} | Bs0],
+    [{LblA,BlkA#b_blk{is=IsB}} | merge_updates_bs(Bs)];
 merge_updates_bs([{Lbl, Blk} | Bs]) ->
     [{Lbl, Blk} | merge_updates_bs(Bs)];
 merge_updates_bs([]) ->

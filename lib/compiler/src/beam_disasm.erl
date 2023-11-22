@@ -1304,6 +1304,13 @@ resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
     {bs_match,Fail,Ctx,{commands,Commands}};
 
 %%
+%% OTP 27.
+%%
+
+resolve_inst({executable_line,[Index]},_,_,_) ->
+    {line,resolve_arg(Index)};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).

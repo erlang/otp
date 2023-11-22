@@ -620,7 +620,38 @@ module.beam: module.erl \
             option is internal to the compiler and can be changed or
             removed at any time without prior warning.</p>
           </item>
-	</taglist>
+
+          <tag><c>line_coverage</c></tag>
+          <item>
+            <p><marker id="line_coverage"/>Instrument the compiled
+            code for line coverage by inserting an
+            <c>executable_line</c> instruction for each executable
+            line in the source code. By default, this instruction will
+            be ignored when loading the code.</p> <p>To activate the
+            <c>executable_line</c> instructions, the runtime system
+            must be started with the option <seecom
+            marker="erts:erl#+JPcover">+JPcover</seecom> to enable a
+            coverage mode. Alternatively, <seemfa
+            marker="kernel:code#set_coverage_mode/1">code:set_coverage_mode/1</seemfa>
+            can be used to set a coverage mode before
+            loading the code.</p>
+            <p>The coverage information gathered by the instrumented
+            code can be retrieved by calling <seemfa
+            marker="kernel:code#get_coverage/2">code:get_coverage(line, Module)</seemfa>.</p>
+          </item>
+
+	  <tag><c>force_line_counters</c></tag>
+          <item>
+            <p><marker id="force_line_counters"/> When combined with
+            option <c>line_coverage</c>, this module will be loaded in
+            the <c>line_counter</c> coverage mode, regardless of the
+            current <seemfa
+            marker="kernel:code#get_coverage_mode/0">coverage
+            mode</seemfa> in the runtime system. This option is used
+            by <seeerl marker="tools:cover">cover</seeerl> to load
+            cover-compiled code.</p>
+          </item>
+        </taglist>
 
         <p>If warnings are turned on (option <c>report_warnings</c>
           described earlier), the following options control what type of

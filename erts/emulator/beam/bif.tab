@@ -783,3 +783,13 @@ bif erts_internal:list_to_integer/2
 ubif erlang:min/2
 ubif erlang:max/2
 bif erts_internal:term_to_string/2
+
+#
+# New in 27.
+#
+bif code:coverage_support/0
+bif code:get_coverage_mode/0
+bif code:get_coverage_mode/1
+bif code:get_coverage/2
+bif code:reset_coverage/1
+bif code:set_coverage_mode/1
