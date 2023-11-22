@@ -127,7 +127,7 @@ erts_atomic32_t erts_break_requested;
 
 
 /* set early so the break handler has access to initial mode */
-static struct termios initial_tty_mode;
+struct termios erl_sys_initial_tty_mode;
 static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
 int using_oldshell = 1;
@@ -161,7 +161,7 @@ void sys_tty_reset(int exit_code)
     SET_BLOCKING(0);
   }
   else if (isatty(0)) {
-    tcsetattr(0,TCSANOW,&initial_tty_mode);
+    tcsetattr(0,TCSANOW,&erl_sys_initial_tty_mode);
   }
 }
 
@@ -329,7 +329,7 @@ erl_sys_init(void)
     /* we save this so the break handler can set and reset it properly */
     /* also so that we can reset on exit (break handler or not) */
     if (isatty(0)) {
-	tcgetattr(0,&initial_tty_mode);
+	tcgetattr(0,&erl_sys_initial_tty_mode);
     }
 }
 
@@ -792,7 +792,7 @@ void erts_do_break_handling(void)
     }
     else if (isatty(0)) {
       tcgetattr(0,&temp_mode);
-      tcsetattr(0,TCSANOW,&initial_tty_mode);
+      tcsetattr(0,TCSANOW,&erl_sys_initial_tty_mode);
       saved = 1;
     }
 
