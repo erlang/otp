@@ -303,10 +303,22 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the entries of
           <c><anno>Set</anno></c>; see
-          <seemfa marker="#next/1"><c>next/1</c></seemfa>. The implementation
-          of this is very efficient; traversing the whole set using
-          <c>next/1</c> is only slightly slower than getting the list of all
-          elements using <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>.</p>
+        <p>Equivalent to <c>iterator(<anno>Set</anno>, ordered)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator" arity="2" since=""/>
+      <fsummary>Return an iterator for a set.</fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the entries of
+          <c><anno>Set</anno></c> in either <c>ordered</c> or <c>reversed</c>
+          direction; see <seemfa marker="#next/1"><c>next/1</c></seemfa>.
+          The implementation of this is very efficient; traversing the whole
+          set using <c>next/1</c> is only slightly slower than getting the list
+          of all elements using
+          <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
           and traversing that.
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
@@ -324,8 +336,36 @@
           <seemfa marker="#next/1"><c>next/1</c></seemfa>.
           The difference as compared to the iterator returned by
           <seemfa marker="#iterator/1"><c>iterator/1</c></seemfa>
-          is that the first element greater than
-          or equal to <c><anno>Element</anno></c> is returned.</p>
+          is that the iterator starts with the first element greater than
+          or equal to <c><anno>Element</anno></c>.</p>
+        <p>Equivalent to <c>iterator_from(<anno>Element</anno>,
+          <anno>Set</anno>, ordered)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iterator_from" arity="3" since="OTP 18.0"/>
+      <fsummary>Return an iterator for a set starting from a specified element.
+      </fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+          entries of <c><anno>Set</anno></c>; see
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>.
+          The difference as compared to the iterator returned by
+          <seemfa marker="#iterator/2"><c>iterator/2</c></seemfa>
+          is that the iterator starts with the first element next to
+          or equal to <c><anno>Element</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="larger" arity="2" since=""/>
+      <fsummary>Return larger element.</fsummary>
+      <desc>
+        <p>Returns <c>{found, <anno>Element2</anno>}</c>, where
+          <c><anno>Element2</anno></c> is the least element strictly greater
+          than <c><anno>Element1</anno></c>.</p>
+        <p>Returns <c>none</c> if no such element exists.</p>
       </desc>
     </func>
 
@@ -382,6 +422,17 @@
       <fsummary>Return the number of elements in a set.</fsummary>
       <desc>
         <p>Returns the number of elements in <c><anno>Set</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="smaller" arity="2" since=""/>
+      <fsummary>Return smaller element.</fsummary>
+      <desc>
+        <p>Returns <c>{found, <anno>Element2</anno>}</c>, where
+          <c><anno>Element2</anno></c> is the greatest element strictly less
+          than <c><anno>Element1</anno></c>.</p>
+        <p>Returns <c>none</c> if no such element exists.</p>
       </desc>
     </func>
 
