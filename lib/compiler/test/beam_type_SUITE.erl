@@ -31,7 +31,7 @@
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
-         funs/1,will_succeed/1]).
+         funs/1,will_succeed/1,float_confusion/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -76,7 +76,8 @@ groups() ->
        binary_unit,
        premature_concretization,
        funs,
-       will_succeed
+       will_succeed,
+       float_confusion
       ]}].
 
 init_per_suite(Config) ->
@@ -1504,6 +1505,47 @@ will_succeed_1(_V0, _V1)
     a;
 will_succeed_1(_, _) ->
     b.
+
+%% GH-7901: Range operations did not honor the total order of floats.
+float_confusion(_Config) ->
+    ok = float_confusion_1(catch (true = ok), -0.0),
+    ok = float_confusion_1(ok, 0.0),
+    {'EXIT', _} = catch float_confusion_2(),
+    {'EXIT', _} = catch float_confusion_3(id(0.0)),
+    ok = float_confusion_4(id(1)),
+    {'EXIT', _} = catch float_confusion_5(),
+    ok.
+
+float_confusion_1(_, _) ->
+    ok.
+
+float_confusion_2() ->
+    [ok || _ := _ <- ok,
+     float_confusion_crash(catch float_confusion_crash(ok, -1), -0.0)].
+
+float_confusion_crash(_, 18446744073709551615) ->
+    ok.
+
+float_confusion_3(V) ->
+    -0.0 = abs(V),
+    ok.
+
+float_confusion_4(V) when -0.0 < floor(V band 1) ->
+    ok.
+
+float_confusion_5() ->
+    -0.0 =
+        case
+            fun() ->
+                ok
+            end
+        of
+            _V2 when (_V2 > ok) ->
+                2147483647.0;
+            _ ->
+                -2147483648
+        end * 0,
+    ok.
 
 %%%
 %%% Common utilities.
