@@ -120,24 +120,10 @@ maybe_convert_to_localhost(Ip) ->
 verify_200_at(Url) ->
     HttpcOpts = [{socket_opts, [{ipfamily, inet6fb4}]}],
     Request = {Url, []},
-    Response = httpc:request(get, Request, [{autoredirect, false}], HttpcOpts),
+    Response = httpc:request(get, Request, [], HttpcOpts),
     case Response of
         {ok, {{_Version, 200, _}, _Headers, _Body}} ->
             Response;
-        {ok, {{_Version, 301, _}, Headers, _Body}} ->
-            % To be resilient against the case where the server is not
-            % reachable under its `server_name`, for instance, in test
-            % containers or other hosts with unexpected networking setups,
-            % replace the suggested hostname with the hostname we came from.
-            {_, SuggestedTarget} = proplists:lookup("location", Headers),
-            #{path := SuggestedPath} = uri_string:parse(SuggestedTarget),
-            OurUri = uri_string:parse(Url),
-            DecomposedTarget = maps:put(path, SuggestedPath, OurUri),
-            RedirectTarget = uri_string:recompose(DecomposedTarget),
-            RedirectedRequest = {RedirectTarget, []},
-            RedirectedResponse = httpc:request(get, RedirectedRequest, [], HttpcOpts),
-            ct:log("Following redirect (rewritten from ~s to ~s)", [SuggestedTarget, RedirectTarget]),
-            {ok, {{_, 200, _}, _, _}} = RedirectedResponse;
         {error, {failed_connect, [{to_address, {"::", _Port}},
                                   {inet6, [inet6], eaddrnotavail},
                                   {inet, [inet], nxdomain}]}} ->
