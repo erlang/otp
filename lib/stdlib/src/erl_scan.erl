@@ -118,13 +118,14 @@
 
 -spec format_error(ErrorDescriptor) -> string() when
       ErrorDescriptor :: error_description().
-format_error({string,Quote,Head}) ->
-    lists:flatten(["unterminated " ++ string_thing(Quote) ++
-                   " starting with " ++
-                   io_lib:write_string(Head, string_quote(Quote))]);
+format_error({unterminated,char}) -> "unterminated character";
+format_error({unterminated,What,Head}) ->
+    %% The reported position should be the first char in Head
+    lists:flatten(
+      ["unterminated ", string_thing(What), " starting with ",
+       io_lib:write_string(Head, string_quote(What))]);
 format_error({illegal,Type}) ->
     lists:flatten(io_lib:fwrite("illegal ~w", [Type]));
-format_error(char) -> "unterminated character";
 format_error({base,Base}) ->
     lists:flatten(io_lib:fwrite("illegal base '~w'", [Base]));
 format_error(indentation) ->
@@ -268,16 +269,22 @@ symbol(T) ->
 %%% Local functions
 %%%
 
-string_thing($') -> %' Stupid Emacs
-    "atom";
-string_thing($") -> %"
-    "string";
-string_thing({$",_}) -> %"
-    "triple-quoted string".
+string_thing(What) ->
+    case What of
+        atom ->
+            "atom";
+        string ->
+            "string";
+        {string,_N} ->
+            "triple-quoted string";
+        {sigil,Name,Q1,Q2} ->
+            [$~,atom_to_list(Name),Q1,Q2," sigil string"];
+        {sigil,Name,_N} ->
+            "triple-quoted " ++ [$~,atom_to_list(Name) | " sigil string"]
+    end.
 
-string_quote($') -> $';
-string_quote($") -> $";
-string_quote({$",_}) -> $".
+string_quote(atom) -> $'; %'
+string_quote(_)    -> $". %"
 
 -define(WHITE_SPACE(C),
         (is_integer(C) andalso
@@ -837,7 +844,7 @@ scan_char([$\\|Cs]=Cs0, St, Line, Col, Toks) ->
         {error,Ncs,Error,Ncol} ->
             scan_error(Error, Line, Col, Line, Ncol, Ncs);
         {eof,Ncol} ->
-            scan_error(char, Line, Col, Line, Ncol, eof);
+            scan_error({unterminated,char}, Line, Col, Line, Ncol, eof);
         {nl,Val,Str,Ncs,Ncol} ->
             Anno = anno(Line, Col, St, ?STR(char, St, "$\\"++Str)), %"
             Ntoks = [{char,Anno,Val}|Toks],
@@ -858,7 +865,7 @@ scan_char([C|_Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
 scan_char([], St, Line, Col, Toks) ->
     {more,{[$$],St,Col,Toks,Line,[],fun scan/6}};
 scan_char(eof, _St, Line, Col, _Toks) ->
-    scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
+    scan_error({unterminated,char}, Line, Col, Line, incr_column(Col, 1), eof).
 
 %% Sigil Prefix is scanned here and handled in scan_tqstring/6
 %% and scan_qstring/8 where non-verbatim sigils (that handle
@@ -1096,9 +1103,16 @@ scan_tqstring_lines(Cs0, Tqs, Line, Col, Str, Qn, ContentR, Acc) ->
     end.
 
 scan_tqstring_eof(ContentR, Tqs, Line, Col) ->
-    #tqs{ line = Line0, col = Col0, qs = Qs } = Tqs,
-    {error,eof,Line0,Col0,Line,Col,
-     scan_content_error_tag(ContentR, {$",Qs})}. %"
+    #tqs{ line = Line0, col = Col0, sigil_type = SigilType, qs = Qs } = Tqs,
+    {error,eof,Line0,incr_column(Col0, Qs),Line,Col,
+     {unterminated,
+      if
+          SigilType =:= ?NO_SIGIL ->
+              {string,Qs};
+          is_atom(SigilType) ->
+              {sigil,SigilType,Qs}
+      end,
+      string_head(ContentR)}}.
 
 %% Strip last line newline,
 %% get indentation definition from last line,
@@ -1258,11 +1272,20 @@ scan_qstring(
         {more, {Ncs,Nline,Ncol,Nstr,Nwcs}} ->
             Nqstring = Qstring#qstring{ str = Nstr, wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nqstring,fun scan_qstring/6}};
-        {error, {Ncs,Nline,Ncol,Nwcs}} ->
-            #qstring{ line = Line0, col = Col0 } = Qstring,
+        {eof, {Ncs,Nline,Ncol,Nwcs}} ->
+            #qstring{
+               line = Line0, col = Col0,
+               sigil_type = SigilType, q1 = Q1 } = Qstring,
             scan_error(
-              scan_content_error_tag([Nwcs], $"), %"
-              Line0, Col0, Nline, Ncol, Ncs);
+              {unterminated,
+               if
+                   SigilType =:= ?NO_SIGIL ->
+                       string;
+                   is_atom(SigilType) ->
+                       {sigil,SigilType,Q1,Q2}
+               end,
+               string_head([Nwcs])},
+              Line0, incr_column(Col0, 1), Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
@@ -1335,11 +1358,20 @@ scan_vstring(
         {more, {Ncs,Nline,Ncol,Nwcs}} ->
             Nvstring = Vstring#vstring{ wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nvstring,fun scan_vstring/6}};
-        {error, {Ncs,Nline,Ncol,Nwcs}} ->
-            #vstring{ line = Line0, col = Col0 } = Vstring,
+        {eof, {Ncs,Nline,Ncol,Nwcs}} ->
+            #vstring{
+               line = Line0, col = Col0,
+               sigil_type = SigilType, q1 = Q1 } = Vstring,
             scan_error(
-              scan_content_error_tag([Nwcs], $"), %"
-              Line0, Col0, Nline, Ncol, Ncs);
+              {unterminated,
+               if
+                   SigilType =:= ?NO_SIGIL ->
+                       string;
+                   is_atom(SigilType) ->
+                       {sigil,SigilType,Q1,Q2}
+               end,
+               string_head([Nwcs])},
+              Line0, incr_column(Col0, 1), Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
@@ -1360,7 +1392,7 @@ scan_vstring(Cs, Q, Line, Col, Wcs) ->
         [] ->
             {more, {Cs,Line,Col,Wcs}};
         eof ->
-            {error, {Cs,Line,Col,Wcs}}
+            {eof, {Cs,Line,Col,Wcs}}
     end.
 %%
 %% Duplicated code that optimizes for Col = no_col, which avoids
@@ -1382,7 +1414,7 @@ scan_vstring(Cs, Q, Line, Wcs) ->
         [] ->
             {more, {Cs,Line,no_col,Wcs}};
         eof ->
-            {error, {Cs,Line,no_col,Wcs}}
+            {eof, {Cs,Line,no_col,Wcs}}
     end.
 
 
@@ -1413,18 +1445,18 @@ scan_qatom(
         {more, {Ncs,Nline,Ncol,Nstr,Nwcs}} ->
             Nqatom = Qatom#qatom{ str = Nstr, wcs = Nwcs },
             {more, {Ncs,St,Ncol,Toks,Nline,Nqatom,fun scan_qatom/6}};
-        {error, {Ncs,Nline,Ncol,Nwcs}} ->
+        {eof, {Ncs,Nline,Ncol,Nwcs}} ->
             #qatom{ line = Line0, col = Col0 } = Qatom,
             scan_error(
-              scan_content_error_tag([Nwcs], C),
-              Line0, Col0, Nline, Ncol, Ncs);
+              {unterminated,atom,string_head([Nwcs])},
+              Line0, incr_column(Col0, 1), Nline, Ncol, Ncs);
         {{error,_,_}, _Ncs} = Error ->
             Error
     end.
 
-scan_content_error_tag(ContentR, Quote) ->
-    Head = string:slice(lists_foldl_reverse(ContentR, ""), 0, 16),
-    {string,Quote,Head}.
+string_head(ContentR) ->
+    string:slice(lists_foldl_reverse(ContentR, ""), 0, 16).
+
 
 scan_string0(Cs, #erl_scan{has_fun=true}, Line, Col, Q, Str, Wcs)
   when Str =/= undefined ->
@@ -1474,7 +1506,7 @@ scan_string1([$\\|Cs]=Cs0, Line, Col, Q, Str, Wcs) ->
         {error,Ncs,Error,Ncol} ->
             scan_error(Error, Line, Col, Line, incr_column(Ncol, 1), Ncs);
         {eof=Ncs,Ncol} ->
-            {error, {Ncs,Line,incr_column(Ncol, 1),lists:reverse(Wcs)}};
+            {eof, {Ncs,Line,incr_column(Ncol, 1),lists:reverse(Wcs)}};
         {nl,Val,ValStr,Ncs,Ncol} ->
             Nstr = lists:reverse(ValStr, [$\\|Str]),
             Nwcs = [Val|Wcs],
@@ -1493,7 +1525,7 @@ scan_string1([C|Cs], Line, Col, _Q, _Str, _Wcs) when ?CHAR(C) ->
 scan_string1([]=Cs, Line, Col, _Q, Str, Wcs) ->
     {more, {Cs,Line,Col,Str,Wcs}};
 scan_string1(eof=Cs, Line, Col, _Q, _Str, Wcs) ->
-    {error, {Cs,Line,Col,Wcs}}.
+    {eof, {Cs,Line,Col,Wcs}}.
 
 -define(OCT(C), (is_integer(C) andalso $0 =< C andalso C =< $7)).
 -define(HEX(C), (is_integer(C) andalso
