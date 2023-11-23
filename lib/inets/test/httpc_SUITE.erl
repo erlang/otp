@@ -59,6 +59,7 @@ all() ->
      {group, http},
      {group, http_ipv6},
      {group, sim_http},
+     {group, sim_http_process_leak},
      {group, sim_http_ipv6},
      {group, http_internal},
      {group, http_unix_socket},
@@ -71,22 +72,19 @@ all() ->
 groups() ->
     [
      {http, [parallel], real_requests()},
-     {http_ipv6, [], [request_options]},
-     %% process_leak_on_keepalive is depending on stream_fun_server_close
-     %% and it shall be the last test case in the suite otherwise cookie
-     %% will fail.
-     {sim_http, [], only_simulated() ++ server_closing_connection() ++
-          [process_leak_on_keepalive]},
-     {sim_http_ipv6, [], only_simulated() ++ server_closing_connection()
+     {http_ipv6, [parallel], [request_options]},
+     {sim_http, [parallel], only_simulated() ++ server_closing_connection()},
+     {sim_http_process_leak, [process_leak_on_keepalive]},
+     {sim_http_ipv6, [parallel], only_simulated() ++ server_closing_connection()
           % The following two tests are not functional on IPv6 yet:
           % ++ [process_leak_on_keepalive]
           -- [server_closing_connection_on_second_response]
           },
-     {http_internal, [], real_requests_esi()},
-     {http_internal_minimum_bytes, [], [remote_socket_close_parallel]},
-     {http_unix_socket, [], simulated_unix_socket()},
-     {https, [], [def_ssl_opt | real_requests()]},
-     {sim_https, [], only_simulated()},
+     {http_internal, [parallel], real_requests_esi()},
+     {http_internal_minimum_bytes, [parallel], [remote_socket_close_parallel]},
+     {http_unix_socket, [parallel], simulated_unix_socket()},
+     {https, [parallel], [def_ssl_opt | real_requests()]},
+     {sim_https, [parallel], only_simulated()},
      {misc, [parallel], misc()},
      {sim_mixed, [parallel], sim_mixed()}
     ].
@@ -2186,6 +2184,7 @@ not_streamed_test(Request, To, RequestOpts, Profile) ->
 
 url(Group, End, Config) when Group == http;
                              Group == sim_http;
+                             Group == sim_http_process_leak;
                              Group == http_internal;
                              Group == http_internal_minimum_bytes ->
     Port = proplists:get_value(port, Config),
@@ -2202,7 +2201,8 @@ url(Group, End, Config) when Group == https;
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
 
 url(Group, UserInfo, End, Config) when Group == http;
-                                       Group == sim_http ->
+                                       Group == sim_http;
+                                       Group == sim_http_process_leak ->
     Port = proplists:get_value(port, Config),
     {ok, Hostname} = inet:gethostname(),
     ?URL_START ++ UserInfo ++ "@" ++ Hostname ++ ":" ++ integer_to_list(Port) ++ End;
@@ -2234,7 +2234,7 @@ group_name(Config) ->
     GroupProp = proplists:get_value(tc_group_properties, Config),
     proplists:get_value(name, GroupProp).
 
-server_start(sim_http, _) ->
+server_start(Group, _) when Group == sim_http; Group == sim_http_process_leak ->
     Inet = inet_version(),
     ok = httpc:set_options([{ipfamily, Inet},{unix_socket, undefined}]),
     {_Pid, Port} = http_test_lib:dummy_server(ip_comm, Inet, [{content_cb, ?MODULE}]),
