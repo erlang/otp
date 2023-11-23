@@ -53,6 +53,7 @@
 #include "erl_proc_sig_queue.h"
 #include "beam_load.h"
 #include "erl_global_literals.h"
+#include "erl_iolist.h"
 
 #include "jit/beam_asm.h"
 
@@ -65,68 +66,6 @@
 #define ERTS_DEFAULT_SCHED_STACK_SIZE   128
 #define ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE 40
 #define ERTS_DEFAULT_DIO_SCHED_STACK_SIZE 40
-
-/*
- * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
- * only. Do not remove even though they aren't used elsewhere in the emulator!
- */
-const int etp_smp_compiled = 1;
-const int etp_thread_compiled = 1;
-const char etp_erts_version[] = ERLANG_VERSION;
-const char etp_otp_release[] = ERLANG_OTP_RELEASE;
-const char etp_arch[] = ERLANG_ARCHITECTURE;
-#if ERTS_ENABLE_KERNEL_POLL
-const int erts_use_kernel_poll = 1;
-const int etp_kernel_poll_support = 1;
-#else
-const int erts_use_kernel_poll = 0;
-const int etp_kernel_poll_support = 0;
-#endif
-#if defined(ARCH_64)
-const int etp_arch_bits = 64;
-#elif defined(ARCH_32)
-const int etp_arch_bits = 32;
-#else
-# error "Not 64-bit, nor 32-bit arch"
-#endif
-#ifdef BEAMASM
-const int etp_beamasm = 1;
-#else
-const int etp_beamasm = 0;
-#endif
-#ifdef DEBUG
-const int etp_debug_compiled = 1;
-#else
-const int etp_debug_compiled = 0;
-#endif
-#ifdef ERTS_ENABLE_LOCK_COUNT
-const int etp_lock_count = 1;
-#else
-const int etp_lock_count = 0;
-#endif
-#ifdef ERTS_ENABLE_LOCK_CHECK
-const int etp_lock_check = 1;
-#else
-const int etp_lock_check = 0;
-#endif
-const int etp_endianness = ERTS_ENDIANNESS;
-const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
-#ifdef ERTS_MAGIC_REF_THING_HEADER
-const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
-#else
-const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
-#endif
-const Eterm etp_the_non_value = THE_NON_VALUE;
-#ifdef TAG_LITERAL_PTR
-const Eterm etp_ptr_mask = (~(Eterm)7);
-#else
-const Eterm etp_ptr_mask = (~(Eterm)3);
-#endif
-#ifdef ERTS_HOLE_MARKER
-const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
-#else
-const Eterm etp_hole_marker = 0;
-#endif
 
 static int modified_sched_thread_suggested_stack_size = 0;
 
@@ -359,6 +298,7 @@ erl_init(int ncpu,
     init_emulator();
     erts_ptab_init(); /* Must be after init_emulator() */
     erts_init_binary(); /* Must be after init_emulator() */
+    erts_init_iolist(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(db_spin_count); /* Must be after init_emulator */
     erts_init_node_tables(node_tab_delete_delay);
@@ -434,9 +374,14 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
     hp = HAlloc(&parent, argc*2 + 4);
     args = NIL;
     for (i = argc-1; i >= 0; i--) {
-	int len = sys_strlen(argv[i]);
-	args = CONS(hp, new_binary(&parent, (byte*)argv[i], len), args);
-	hp += 2;
+        size_t len = sys_strlen(argv[i]);
+
+        args = CONS(hp,
+                    erts_new_binary_from_data(&parent,
+                                              len,
+                                              (byte*)argv[i]),
+                    args);
+        hp += 2;
     }
     boot_mod = erts_atom_put((byte *) mod_name, sys_strlen(mod_name),
                              ERTS_ATOM_ENC_LATIN1, 1);

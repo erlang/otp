@@ -1172,25 +1172,39 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
      */
     arity = info->mfa.arity;
     for (i = 0; i < arity; i++) {
-	Eterm arg = args[i];
-	if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
-	    ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(arg);
-	    ErlBinMatchBuffer* mb = &ms->mb;
-	    Uint bit_size;
-            ErlSubBin *sub_bin_heap = (ErlSubBin *)HAlloc(p, ERL_SUB_BIN_SIZE);
+        Eterm arg = args[i];
 
-	    bit_size = mb->size - mb->offset;
-	    sub_bin_heap->thing_word = HEADER_SUB_BIN;
-	    sub_bin_heap->size = BYTE_OFFSET(bit_size);
-	    sub_bin_heap->bitsize = BIT_OFFSET(bit_size);
-	    sub_bin_heap->offs = BYTE_OFFSET(mb->offset);
-	    sub_bin_heap->bitoffs = BIT_OFFSET(mb->offset);
-	    sub_bin_heap->is_writable = 0;
-	    sub_bin_heap->orig = mb->orig;
+        if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
+            ErlBinMatchState* ms = (ErlBinMatchState *)boxed_val(arg);
+            ErlBinMatchBuffer* mb = &ms->mb;
 
-	    arg = make_binary(sub_bin_heap);
-	}
-	transformed_args[i] = arg;
+            if (is_bitstring(mb->orig)) {
+                arg = erts_make_sub_bitstring(p,
+                                              mb->orig,
+                                              mb->offset,
+                                              mb->size - mb->offset);
+            } else {
+                Binary *refc_binary;
+                BinRef *br;
+                Eterm *hp;
+
+                br = (BinRef*)boxed_val(mb->orig);
+                refc_binary = br->val;
+
+                erts_refc_inctest(&refc_binary->intern.refc, 1);
+
+                hp = HAlloc(p, ERL_REFC_BITS_SIZE);
+                arg = erts_wrap_refc_bitstring(&MSO(p).first,
+                                               &MSO(p).overhead,
+                                               &hp,
+                                               refc_binary,
+                                               mb->base,
+                                               mb->offset,
+                                               mb->size - mb->offset);
+            }
+        }
+
+        transformed_args[i] = arg;
     }
     args = transformed_args;
 
@@ -1224,7 +1238,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
     if (tracee_flags == &meta_flags) {
         /* Meta trace */
         if (pam_result == am_false) {
-            UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
+            UnUseTmpHeap(ERL_SUB_BITS_SIZE,p);
             ERTS_TRACER_CLEAR(&pre_ms_tracer);
             return return_flags;
         }
@@ -1232,12 +1246,12 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
         /* Non-meta trace */
         if (*tracee_flags & F_TRACE_SILENT) {
             erts_match_set_release_result_trace(p, pam_result);
-            UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
+            UnUseTmpHeap(ERL_SUB_BITS_SIZE,p);
             ERTS_TRACER_CLEAR(&pre_ms_tracer);
             return 0;
         }
         if (pam_result == am_false) {
-            UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
+            UnUseTmpHeap(ERL_SUB_BITS_SIZE,p);
             ERTS_TRACER_CLEAR(&pre_ms_tracer);
             return return_flags;
         }
@@ -1690,28 +1704,30 @@ trace_port(Port *t_p, Eterm what, Eterm data) {
 
 
 static Eterm
-trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
+trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hpp)
 {
-    if (sz <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb = (ErlHeapBin *)*hp;
-        hb->thing_word = header_heap_bin(sz);
-        hb->size = sz;
-        sys_memcpy(hb->data, bin, sz);
-        *hp += heap_bin_size(sz);
-        return make_binary(hb);
+    Uint size_in_bits = NBITS(sz);
+
+    if (size_in_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        Eterm result = HEAP_BITSTRING(*hpp, bin, 0, size_in_bits);
+        *hpp += heap_bits_size(size_in_bits);
+        return result;
     } else {
-        ProcBin* pb = (ProcBin *)*hp;
-        Binary *bptr = erts_bin_nrml_alloc(sz);
-        sys_memcpy(bptr->orig_bytes, bin, sz);
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = sz;
-        pb->next = NULL;
-        pb->val = bptr;
-        pb->bytes = (byte*) bptr->orig_bytes;
-        pb->flags = 0;
-        *bptrp = bptr;
-        *hp += PROC_BIN_SIZE;
-        return make_binary(pb);
+        ErlOffHeap dummy_oh = {0};
+        Binary *refc_binary;
+
+        refc_binary = erts_bin_nrml_alloc(sz);
+
+        sys_memcpy(refc_binary->orig_bytes, bin, sz);
+        *bptrp = refc_binary;
+
+        return erts_wrap_refc_bitstring(&dummy_oh.first,
+                                        &dummy_oh.overhead,
+                                        hpp,
+                                        refc_binary,
+                                        (byte*)refc_binary->orig_bytes,
+                                        0,
+                                        size_in_bits);
     }
 }
 
@@ -1731,7 +1747,7 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_RECEIVE, am_receive)) {
         /* We can use a stack heap here, as the nif is called in the
            context of a port */
-#define LOCAL_HEAP_SIZE (3 + 3 + heap_bin_size(ERL_ONHEAP_BIN_LIMIT) + 3)
+#define LOCAL_HEAP_SIZE (3 + 3 + 3 + MAX(heap_bits_size(ERL_ONHEAP_BITS_LIMIT), ERL_REFC_BITS_SIZE))
         DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 
         Eterm *hp, data, *orig_hp = NULL;
@@ -1774,9 +1790,9 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
                 ErlIOVec *evp = va_arg(args, ErlIOVec*);
                 int i;
                 va_end(args);
-                if ((6 + evp->vsize * (2+PROC_BIN_SIZE+ERL_SUB_BIN_SIZE)) > LOCAL_HEAP_SIZE) {
+                if ((6 + evp->vsize * (2+ERL_REFC_BITS_SIZE)) > LOCAL_HEAP_SIZE) {
                     hp = erts_alloc(ERTS_ALC_T_TMP,
-                                    (6 + evp->vsize * (2+PROC_BIN_SIZE+ERL_SUB_BIN_SIZE)) * sizeof(Eterm));
+                                    (6 + evp->vsize * (2+ERL_REFC_BITS_SIZE)) * sizeof(Eterm));
                     orig_hp = hp;
                 }
                 arg = NIL;
@@ -1785,28 +1801,27 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
                    the port task keeps the reference alive. */
                 for (i = evp->vsize-1; i >= 0; i--) {
                     if (evp->iov[i].iov_len) {
-                        ProcBin* pb = (ProcBin*)hp;
-                        ErlSubBin *sb;
-                        ASSERT(evp->binv[i]);
-                        pb->thing_word = HEADER_PROC_BIN;
-                        pb->val = ErlDrvBinary2Binary(evp->binv[i]);
-                        pb->size = pb->val->orig_size;
-                        pb->next = NULL;
-                        pb->bytes = (byte*) pb->val->orig_bytes;
-                        pb->flags = 0;
-                        hp += PROC_BIN_SIZE;
+                        ErlOffHeap dummy_oh = {0};
+                        Uint byte_offset;
+                        Eterm wrapped;
+                        Binary *bin;
 
-                        sb = (ErlSubBin*) hp;
-                        sb->thing_word = HEADER_SUB_BIN;
-                        sb->size = evp->iov[i].iov_len;
-                        sb->offs = (byte*)(evp->iov[i].iov_base) - pb->bytes;
-                        sb->orig = make_binary(pb);
-                        sb->bitoffs = 0;
-                        sb->bitsize = 0;
-                        sb->is_writable = 0;
-                        hp += ERL_SUB_BIN_SIZE;
+                        bin = ErlDrvBinary2Binary(evp->binv[i]);
 
-                        arg = CONS(hp, make_binary(sb), arg);
+                        ASSERT((char*)evp->iov[i].iov_base >= bin->orig_bytes);
+                        byte_offset =
+                            (char*)evp->iov[i].iov_base - bin->orig_bytes;
+
+                        wrapped =
+                            erts_wrap_refc_bitstring(&dummy_oh.first,
+                                                     &dummy_oh.overhead,
+                                                     &hp,
+                                                     bin,
+                                                     (byte*)bin->orig_bytes,
+                                                     NBITS(byte_offset),
+                                                     NBITS(evp->iov[i].iov_len));
+
+                        arg = CONS(hp, wrapped, arg);
                         hp += 2;
                     }
                 }
@@ -1859,12 +1874,11 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SEND, am_send)) {
         Eterm msg;
         Binary* bptr = NULL;
-#define LOCAL_HEAP_SIZE (3 + 3 + heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
+#define LOCAL_HEAP_SIZE (3 + 3 + MAX(heap_bits_size(ERL_ONHEAP_BITS_LIMIT), ERL_REFC_BITS_SIZE))
         DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 
         Eterm *hp;
 
-        ERTS_CT_ASSERT(heap_bin_size(ERL_ONHEAP_BIN_LIMIT) >= PROC_BIN_SIZE);
         UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
         hp = local_heap;
 

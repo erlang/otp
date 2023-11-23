@@ -122,9 +122,9 @@ test_size(Config) when is_list(Config) ->
 	{32, 18} -> ok;
 	{64, 10} -> ok
     end,
-    6 = do_test_size(<<0:(8*65)>>),    % ProcBin
-    8 = do_test_size(<<5:7>>),         % ErlSubBin + ErlHeapBin
-    11 = do_test_size(<<0:(8*80+1)>>), % ErlSubBin + ProcBin
+    9 = do_test_size(<<0:(8*65)>>),    % ErlSubBits + BinRef
+    3 = do_test_size(<<5:7>>),         % ErlHeapBits
+    9 = do_test_size(<<0:(8*80+1)>>),  % ErlSubBits + BinRef
 
     %% Test shared data structures.
     do_test_size([ConsCell1|ConsCell1],
@@ -186,8 +186,8 @@ term_type(Config) when is_list(Config) ->
           {hfloat, -1.0e18},
 
           {heap_binary, <<1,2,3>>},
-          {refc_binary, <<0:(8*80)>>},
-          {sub_binary,  <<5:7>>},
+          {sub_binary, <<0:(8*80)>>},
+          {heap_binary, <<5:7>>},
 
           {flatmap, #{ a => 1}},
           {hashmap, maps:from_list([{I,I}||I <- lists:seq(1,76)])},

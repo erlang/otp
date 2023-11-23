@@ -1300,9 +1300,9 @@ protected:
                               Uint flags,
                               Uint bits,
                               const ArgRegister &Dst);
-    void emit_extract_binary(const x86::Gp bitdata,
-                             Uint bits,
-                             const ArgRegister &Dst);
+    void emit_extract_bitstring(const x86::Gp bitdata,
+                                Uint bits,
+                                const ArgRegister &Dst);
     void emit_read_integer(const x86::Gp bin_base,
                            const x86::Gp bin_position,
                            const x86::Gp tmp,

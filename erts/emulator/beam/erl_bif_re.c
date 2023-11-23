@@ -28,6 +28,7 @@
 #include "error.h"
 #include "bif.h"
 #include "erl_binary.h"
+#include "erl_iolist.h"
 #include "big.h"
 #define ERLANG_INTEGRATION 1
 #define PCRE_STATIC
@@ -492,7 +493,7 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
 		    options == PCRE_NEWLINE_ANYCRLF);
 	/* XXX: Optimize - keep in offheap binary to allow this to 
 	   be kept across traps w/o need of copying */
-	ret = new_binary(p, (byte *) result, pattern_size);
+        ret = erts_new_binary_from_data(p, pattern_size, (byte*)result);
 	erts_pcre_free(result);
 	hp = HAlloc(p, (with_ok) ? (3+6) : 6);
 	ret = TUPLE5(hp,am_re_pattern, make_small(capture_count), make_small(unicode),make_small(use_crlf),ret);
@@ -511,12 +512,10 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
 BIF_RETTYPE
 re_version_0(BIF_ALIST_0)
 {
-    Eterm ret;
-    size_t version_size = 0;
     byte *version = (byte *) erts_pcre_version();
-    version_size = sys_strlen((const char *) version);
-    ret = new_binary(BIF_P, version, version_size);
-    BIF_RET(ret);
+    size_t version_size = sys_strlen((const char*)version);
+
+    BIF_RET(erts_new_binary_from_data(BIF_P, version_size, version));
 }
 
 static BIF_RETTYPE
@@ -546,7 +545,7 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
 
-    if (pflags & PARSE_FLAG_UNICODE && !is_binary(arg1)) {
+    if (pflags & PARSE_FLAG_UNICODE && !is_bitstring(arg1)) {
 	BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
     }
 
@@ -743,13 +742,6 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 	} else {
 	    Eterm *tmp_vect;
 	    int i;
-	    Eterm orig = NIL;
-	    Uint offset = 0;
-	    Uint bitoffs = 0;
-	    Uint bitsize = 0;
-	    if (restartp->flags & RESTART_FLAG_SUBJECT_IN_BINARY) {
-		ERTS_GET_REAL_BIN(orig_subject, orig, offset, bitoffs, bitsize);
-	    }
 	    if (ri->num_spec <= 0) {
 		tmp_vect = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, 
 				      rc * sizeof(Eterm));
@@ -763,25 +755,19 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 			cp = restartp->subject + restartp->ovector[i*2];
 			len = restartp->ovector[i*2+1] - restartp->ovector[i*2];
 		    }
-		    if (ri->type == RetBin) { 
-			if (restartp->flags & RESTART_FLAG_SUBJECT_IN_BINARY) {
-			    /* Optimized - if subject was binary to begin 
-			       with, we can make sub-binaries. */
-			    ErlSubBin *sb;
-			    Uint virtual_offset = cp - restartp->subject;
-			    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
-			    sb = (ErlSubBin *) hp;
-			    sb->thing_word = HEADER_SUB_BIN;
-			    sb->size = len;
-			    sb->offs = offset + virtual_offset;
-			    sb->orig = orig;
-			    sb->bitoffs = bitoffs;
-			    sb->bitsize = bitsize;
-			    sb->is_writable = 0;
-			    tmp_vect[i] = make_binary(sb);
-			} else {
-			    tmp_vect[i] = new_binary(p, (byte *) cp, len);
-			}
+                if (ri->type == RetBin) { 
+                        if (restartp->flags & RESTART_FLAG_SUBJECT_IN_BINARY) {
+                            /* Optimized - if subject was binary to begin with,
+                             * we can make sub-binaries. */
+                            tmp_vect[i] =
+                                erts_make_sub_binary(p,
+                                                     orig_subject,
+                                                     cp - restartp->subject,
+                                                     len);
+                        } else {
+                            tmp_vect[i] =
+                                erts_new_binary_from_data(p, len, (byte*)cp);
+                        }
 		    } else {
 			Eterm *hp2;
 			hp2 = HAlloc(p,(2*len));
@@ -822,33 +808,28 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 			    cp = restartp->subject + restartp->ovector[x*2];
 			    len = restartp->ovector[x*2+1] - restartp->ovector[x*2];
 			}
-			if (ri->type == RetBin) { 
-			    if (restartp->flags & RESTART_FLAG_SUBJECT_IN_BINARY) {
-				/* Optimized - if subject was binary to begin 
-				   with, we could make sub-binaries. */
-				ErlSubBin *sb;
-				Uint virtual_offset = cp - restartp->subject;
-				hp = HAlloc(p, ERL_SUB_BIN_SIZE);
-				sb = (ErlSubBin *) hp;
-				sb->thing_word = HEADER_SUB_BIN;
-				sb->size = len;
-				sb->offs = offset + virtual_offset;
-				sb->orig = orig;
-				sb->bitoffs = bitoffs;
-				sb->bitsize = bitsize;
-				sb->is_writable = 0;
-				tmp_vect[n] = make_binary(sb);
-			    } else {
-				tmp_vect[n] = new_binary(p, (byte *) cp, len);
-			    }
+                        if (ri->type == RetBin) {
+                            if (restartp->flags & RESTART_FLAG_SUBJECT_IN_BINARY) {
+                                /* Optimized - if subject was binary to begin
+                                 * with, we can make sub-binaries. */
+                                tmp_vect[n] =
+                                    erts_make_sub_binary(p,
+                                                         orig_subject,
+                                                         cp - restartp->subject,
+                                                         len);
+                            } else {
+                                tmp_vect[n] =
+                                    erts_new_binary_from_data(p, len, (byte*)cp);
+                            }
 			} else {
 			    Eterm *hp2;
 			    hp2 = HAlloc(p,(2*len));
 			    tmp_vect[n] = buf_to_intlist(&hp2, cp, len, NIL);
 			} 
 		    } else {
-			if (ri->type == RetBin) { 
-			    tmp_vect[n] = new_binary(p, (byte *) "", 0);
+                        if (ri->type == RetBin) {
+                            tmp_vect[n] =
+                                erts_new_binary_from_data(p, 0, (byte*)"");
 			} else {
 			    tmp_vect[n] = NIL;
 			} 
@@ -1026,7 +1007,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 		}
 		if (term_to_int(val,&x)) {
 		    ri->v[ri->num_spec - 1] = x;
-		} else if (is_atom(val) || is_binary(val) || is_list(val)) {
+		} else if (is_atom(val) || is_bitstring(val) || is_list(val)) {
 		    int has_dupnames;
 		    unsigned long options;
 		    if (erts_pcre_fullinfo(code, NULL, PCRE_INFO_OPTIONS, &options) != 0)
@@ -1098,9 +1079,9 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 static BIF_RETTYPE
 re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 {
+    const byte *temp_alloc = NULL;
     const pcre *code_tmp;
     RestartContext restart;
-    byte *temp_alloc = NULL;
     ErlDrvSizeT slength;
     int startoffset = 0;
     int options = 0, comp_options = 0;
@@ -1109,7 +1090,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     Eterm *tp;
     int rc;
     Eterm res;
-    size_t code_size;
+    Uint code_size;
     Uint loop_limit_tmp;
     unsigned long loop_count;
     Eterm capture[CAPSPEC_SIZE] = CAPSPEC_INIT;
@@ -1135,7 +1116,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		   (capture[CAPSPEC_TYPE] == am_list));
 
     if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 5)) {
-	if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
+	if (is_bitstring(arg2) || is_list(arg2) || is_nil(arg2)) {
 	    /* Compile from textual RE */
 	    ErlDrvSizeT slen;
 	    char *expr;
@@ -1147,7 +1128,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    int buffres;
 
 	    if (pflags & PARSE_FLAG_UNICODE && 
-		(!is_binary(arg2) || !is_binary(arg1) ||
+		(!is_bitstring(arg2) || !is_bitstring(arg1) ||
 		 (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { 
 		BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
 	    }
@@ -1218,12 +1199,12 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	tp = tuple_val(arg2);
 	if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	    is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	    is_not_binary(tp[5])) {
+	    is_not_bitstring(tp[5])) {
 	    BIF_ERROR(p,BADARG);
 	}
 
 	if (unsigned_val(tp[3]) && 
-	    (!is_binary(arg1) ||
+	    (!is_bitstring(arg1) ||
 	     (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { /* unicode */
 	    BIF_TRAP3(urun_trap_exportp, p, arg1, arg2,
 		      arg3);
@@ -1238,8 +1219,9 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	}
 
 	ovsize = 3*(unsigned_val(tp[2])+1);
-	code_size = binary_size(tp[5]);
-	code_tmp = (const pcre *) erts_get_aligned_binary_bytes(tp[5], &temp_alloc);
+        code_tmp = (const pcre*)erts_get_aligned_binary_bytes(tp[5],
+                                                              &code_size,
+                                                              &temp_alloc);
 	if (code_tmp == NULL || code_size < 4) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_ERROR(p, BADARG);
@@ -1284,37 +1266,30 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	}
     }
 
-    /*  Optimized - if already in binary off heap, keep that and avoid
-        copying, also binary returns can be sub binaries in that case. */
-
+    /* Optimized - if already in binary off heap, keep that and avoid copying,
+     * also binary returns can be sub binaries in that case. */
     restart.flags = 0;
-    if (is_binary(arg1)) {
-	Eterm real_bin;
-	Uint offset;
-	Eterm* bptr;
-	int bitoffs;
-	int bitsize;
-	ProcBin* pb;
+    if (is_bitstring(arg1)) {
+        ERTS_DECLARE_DUMMY(Eterm br_flags);
+        ERTS_DECLARE_DUMMY(BinRef *br);
+        Uint offset, size;
+        byte *base;
 
-	ERTS_GET_REAL_BIN(arg1, real_bin, offset, bitoffs, bitsize);
+        ERTS_PIN_BITSTRING(arg1, br_flags, br, base, offset, size);
 
-	slength = binary_size(arg1);
-	bptr = binary_val(real_bin);
-	if (bitsize != 0 || bitoffs != 0 || slength <= ERL_ONHEAP_BIN_LIMIT) {
-            /* If this is an unaligned subbinary,
-               or the binary is smaller than the ERL_ONHEAP_BIN_LIMIT
-               we make a copy of the binary. */
-	    goto handle_iolist;
-	}
-	pb = (ProcBin *) bptr;
-	if (pb->flags) {
-	    erts_emasculate_writable_binary(pb);
-	}
-	restart.subject = (char *) (pb->bytes+offset);
-	restart.flags |= RESTART_FLAG_SUBJECT_IN_BINARY;
+        /* If this is an unaligned or on-heap binary, we'll make a copy of it
+         * instead. */
+        if (BIT_OFFSET(offset) != 0 || TAIL_BITS(size) != 0 ||
+            size <= ERL_ONHEAP_BITS_LIMIT) {
+            goto handle_iodata;
+        }
+
+        restart.flags |= RESTART_FLAG_SUBJECT_IN_BINARY;
+        restart.subject = (char*)&base[BYTE_OFFSET(offset)];
+        slength = BYTE_SIZE(size);
     } else {
 	int buffres;
-handle_iolist:
+handle_iodata:
 	if (erts_iolist_size(arg1, &slength)) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
@@ -1490,6 +1465,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
 BIF_RETTYPE
 re_inspect_2(BIF_ALIST_2) 
 {
+    const byte *temp_alloc = NULL;
     Eterm *tp,*tmp_vec,*hp;
     int i,top,j;
     int entrysize;
@@ -1499,24 +1475,25 @@ re_inspect_2(BIF_ALIST_2)
     int num_names;
     Eterm res;
     const pcre *code;
-    byte *temp_alloc = NULL;
-    int infores;    
+    Uint code_size;
+    int infores;
 
     if (is_not_tuple(BIF_ARG_1) || (arityval(*tuple_val(BIF_ARG_1)) != 5)) {
 	goto error;
     }
     tp = tuple_val(BIF_ARG_1);
     if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
-	is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	is_not_binary(tp[5]) || binary_size(tp[5]) < 4) {
-	goto error;
+        is_not_small(tp[3]) || is_not_small(tp[4])) {
+        goto error;
     }
     if (BIF_ARG_2 != am_namelist) {
-	goto error;
+        goto error;
     }
-    if ((code = (const pcre *) 
-	 erts_get_aligned_binary_bytes(tp[5], &temp_alloc)) == NULL) {
-	goto error;
+    code = (const pcre *)erts_get_aligned_binary_bytes(tp[5],
+                                                       &code_size,
+                                                       &temp_alloc);
+    if (code == NULL || code_size < 4) {
+        goto error;
     }
 
     /* OK, so let's try to get some info */
@@ -1559,9 +1536,11 @@ re_inspect_2(BIF_ALIST_2)
     name = nametable;
     j = 0;
     for(i=0;i<top;++i) {
-	if (last == NULL || !has_dupnames || sys_strcmp((char *) last+2,
-						    (char *) name+2)) {
-	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, sys_strlen((char *) name+2));
+        if (last == NULL ||
+            !has_dupnames ||
+            sys_strcmp((char *)&last[2], (char*)&name[2])) {
+            Uint len = sys_strlen((char*)&name[2]);
+            tmp_vec[j++] = erts_new_binary_from_data(BIF_P, len, (byte*)&name[2]);
 	}
 	last = name;
 	name += entrysize;

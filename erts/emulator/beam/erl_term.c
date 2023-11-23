@@ -25,6 +25,8 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_map.h"
+#include "erl_bits.h"
+#include "erl_binary.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -93,6 +95,61 @@ erts_term_init(void)
     ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsORefThing));
     ERTS_CT_ASSERT(ERTS_MAGIC_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsMRefThing));
 
+    ERTS_CT_ASSERT((POS_BIG_SUBTAG & _BIG_TAG_MASK)
+                    == POS_BIG_SUBTAG);
+    ERTS_CT_ASSERT((NEG_BIG_SUBTAG & _BIG_TAG_MASK)
+                    == POS_BIG_SUBTAG);
+    ERTS_CT_ASSERT((HEAP_BITS_SUBTAG & _BITSTRING_TAG_MASK)
+                    == HEAP_BITS_SUBTAG);
+    ERTS_CT_ASSERT((SUB_BITS_SUBTAG & _BITSTRING_TAG_MASK)
+                    == HEAP_BITS_SUBTAG);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PID & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+    ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_REF & _EXTERNAL_TAG_MASK)
+                    == _TAG_HEADER_EXTERNAL_PID);
+
+#ifdef DEBUG
+    {
+        /* Check that the tag masks cannot confuse tags outside of their
+         * category. */
+        const Eterm tags[] = {ARITYVAL_SUBTAG,
+                              BIN_MATCHSTATE_SUBTAG,
+                              POS_BIG_SUBTAG,
+                              NEG_BIG_SUBTAG,
+                              REF_SUBTAG,
+                              FUN_SUBTAG,
+                              FLOAT_SUBTAG,
+                              HEAP_BITS_SUBTAG,
+                              SUB_BITS_SUBTAG,
+                              BIN_REF_SUBTAG,
+                              MAP_SUBTAG,
+                              EXTERNAL_PID_SUBTAG,
+                              EXTERNAL_PORT_SUBTAG,
+                              EXTERNAL_REF_SUBTAG};
+
+        for (int i = 0; i < (sizeof(tags) / sizeof(tags[0])); i++) {
+            const Eterm tag = tags[i];
+
+            if ((tag & _EXTERNAL_TAG_MASK) == _TAG_HEADER_EXTERNAL_PID) {
+                ASSERT((tag == EXTERNAL_PID_SUBTAG) ||
+                       (tag == EXTERNAL_PORT_SUBTAG) ||
+                       (tag == EXTERNAL_REF_SUBTAG));
+            }
+
+            if ((tag & _BITSTRING_TAG_MASK) == HEAP_BITS_SUBTAG) {
+                ASSERT((tag == HEAP_BITS_SUBTAG) ||
+                       (tag == SUB_BITS_SUBTAG));
+            }
+
+            if ((tag & _BIG_TAG_MASK) == POS_BIG_SUBTAG) {
+                ASSERT((tag == POS_BIG_SUBTAG) ||
+                       (tag == NEG_BIG_SUBTAG));
+            }
+        }
+    }
+#endif
 }
 
 /*
@@ -120,7 +177,7 @@ ET_DEFINE_CHECKED(Uint,header_arity,Eterm,is_header);
 ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_sane_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
-ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);
+ET_DEFINE_CHECKED(Eterm*,bitstring_val,Wterm,is_bitstring);
 ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_any_fun);
 ET_DEFINE_CHECKED(int,bignum_header_is_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Eterm,bignum_header_neg,Eterm,_is_bignum_header);

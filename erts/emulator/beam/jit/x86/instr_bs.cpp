@@ -564,7 +564,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
                                                  const ArgWord &Live,
                                                  const ArgLabel &Fail,
                                                  const ArgRegister &Dst) {
-    Label is_binary = a.newLabel(), next = a.newLabel();
+    Label next = a.newLabel();
 
     mov_arg(ARG2, Src);
 
@@ -588,32 +588,23 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
 #endif
 
     if (Fail.get() != 0) {
-        comment("is_binary_header");
-        a.cmp(RETb, _TAG_HEADER_SUB_BIN);
-        a.short_().je(is_binary);
-        ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
-        a.and_(RETb, imm(~4));
-        a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
+        comment("is_bitstring_header");
+        a.and_(RETb, imm(_BITSTRING_TAG_MASK));
+        a.cmp(RETb, imm(_TAG_HEADER_HEAP_BITS));
         a.jne(resolve_beam_label(Fail));
     }
 
-    a.bind(is_binary);
-    {
-        emit_gc_test_preserve(ArgWord(ERL_BIN_MATCHSTATE_SIZE(0)),
-                              Live,
-                              Src,
-                              ARG2);
+    emit_gc_test_preserve(ArgWord(ERL_BIN_MATCHSTATE_SIZE(0)), Live, Src, ARG2);
 
-        emit_enter_runtime<Update::eHeapOnlyAlloc>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
-        a.mov(ARG1, c_p);
-        /* ARG2 was set above */
-        runtime_call<2>(erts_bs_start_match_3);
+    a.mov(ARG1, c_p);
+    /* ARG2 was set above */
+    runtime_call<2>(erts_bs_start_match_3);
 
-        emit_leave_runtime<Update::eHeapOnlyAlloc>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
-        a.lea(ARG2, x86::qword_ptr(RET, TAG_PRIMARY_BOXED));
-    }
+    a.lea(ARG2, x86::qword_ptr(RET, TAG_PRIMARY_BOXED));
 
     a.bind(next);
     mov_arg(Dst, ARG2);
@@ -800,7 +791,10 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
 
     mov_arg(ARG1, Ctx);
 
-    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, Ctx, ARG1);
+    emit_gc_test_preserve(ArgWord(BUILD_SUB_BITSTRING_HEAP_NEED),
+                          Live,
+                          Ctx,
+                          ARG1);
 
     a.mov(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.size)));
     a.sub(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
@@ -832,15 +826,21 @@ void BeamGlobalAssembler::emit_bs_get_tail_shared() {
     emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     a.mov(ARG2, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.orig)));
-    a.mov(ARG3, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.base)));
-    a.mov(ARG4, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
+    a.mov(ARG3, ARG2);
+
+    /* ARG2 = tag bits of mb.orig, ARG3 = mb.orig without tag bits  */
+    a.and_(ARG2, imm(TAG_PTR_MASK__));
+    a.and_(ARG3, imm(~TAG_PTR_MASK__));
+
+    a.mov(ARG4, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.base)));
+    a.mov(ARG5, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
 
     /* Extracted size = mb->size - mb->offset */
-    a.mov(ARG5, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.size)));
-    a.sub(ARG5, ARG4);
+    a.mov(ARG6, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.size)));
+    a.sub(ARG6, ARG5);
 
     a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
-    runtime_call<5>(erts_extract_sub_binary);
+    runtime_call<6>(erts_build_sub_bitstring);
 
     emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -852,7 +852,10 @@ void BeamModuleAssembler::emit_bs_get_tail(const ArgRegister &Ctx,
                                            const ArgWord &Live) {
     mov_arg(ARG1, Ctx);
 
-    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, Ctx, ARG1);
+    emit_gc_test_preserve(ArgWord(BUILD_SUB_BITSTRING_HEAP_NEED),
+                          Live,
+                          Ctx,
+                          ARG1);
 
     safe_fragment_call(ga->get_bs_get_tail_shared());
 
@@ -909,7 +912,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
 
         mov_arg(ARG4, Ctx);
 
-        emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED),
+        emit_gc_test_preserve(ArgWord(BUILD_SUB_BITSTRING_HEAP_NEED),
                               Live,
                               Ctx,
                               ARG4);
@@ -2365,7 +2368,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             bsc_op = BSC_OP_UTF32;
             break;
         default:
-            bsc_op = BSC_OP_BINARY;
+            bsc_op = BSC_OP_BITSTRING;
             break;
         }
 
@@ -2461,8 +2464,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
      * construction. If so, allocate and construct the binary now
      * before entering the runtime mode.
      */
-    if (!sizeReg.isValid() && num_bits % 8 == 0 &&
-        num_bits / 8 <= ERL_ONHEAP_BIN_LIMIT && segments[0].type != am_append &&
+    if (!sizeReg.isValid() && num_bits <= ERL_ONHEAP_BITS_LIMIT &&
+        segments[0].type != am_append &&
         segments[0].type != am_private_append) {
         const int x_reg_offset =
                 offsetof(ErtsSchedulerRegisters, x_reg_array.d);
@@ -2476,20 +2479,19 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 x86::qword_ptr(registers, cur_bin_base - x_reg_offset);
         x86::Mem mem_bin_offset =
                 x86::qword_ptr(registers, cur_bin_offset - x_reg_offset);
-        Uint num_bytes = num_bits / 8;
+        Uint heap_size = heap_bits_size(num_bits);
 
-        comment("allocate heap binary");
-        allocated_size = (num_bytes + 7) & (-8);
+        comment("allocate heap bitstring");
+        allocated_size = (heap_size - heap_bits_size(0)) * sizeof(Eterm);
 
         /* Ensure that there is enough room on the heap. */
-        Uint need = heap_bin_size(num_bytes) + Alloc.get();
-        emit_gc_test(ArgWord(0), ArgWord(need), Live);
+        emit_gc_test(ArgWord(0), ArgWord(heap_size + Alloc.get()), Live);
 
         /* Create the heap binary. */
         a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
         a.mov(TMP_MEM1q, RET);
-        a.mov(x86::qword_ptr(HTOP, 0), imm(header_heap_bin(num_bytes)));
-        a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bytes));
+        a.mov(x86::qword_ptr(HTOP, 0), imm(header_heap_bits(num_bits)));
+        a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bits));
 
         /* Initialize the erl_bin_state struct. */
         a.add(HTOP, imm(sizeof(Eterm[2])));
@@ -2558,62 +2560,36 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
         if (seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
             seg.type == am_binary) {
-            comment("size of an entire binary");
+            comment("size of an entire bitstring");
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG1, seg.src);
 
             if (exact_type<BeamTypeId::Bitstring>(seg.src)) {
-                auto unit = getSizeUnit(seg.src);
-                bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
                 x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
 
-                if (is_bitstring) {
-                    comment("inlined size code because the value is always "
-                            "a bitstring");
-                } else {
-                    comment("inlined size code because the value is always "
-                            "a binary");
-                }
-
-                a.mov(ARG2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-
-                if (is_bitstring) {
-                    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-                }
-
-                a.lea(sizeReg, x86::Mem(sizeReg, ARG2, 3, 0, 1));
-
-                if (is_bitstring) {
-                    Label not_sub_bin = a.newLabel();
-                    const auto diff_mask =
-                            _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
-                    ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
-                                   (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
-                                   (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
-                    a.test(RETb, imm(diff_mask));
-                    a.short_().jz(not_sub_bin);
-
-                    a.movzx(RETd,
-                            emit_boxed_val(boxed_ptr,
-                                           offsetof(ErlSubBin, bitsize),
-                                           1));
-                    a.add(sizeReg, RET);
-
-                    a.bind(not_sub_bin);
-                }
+                comment("optimized size code because the value is always a "
+                        "bitstring");
+                a.add(sizeReg, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
             } else {
-                runtime_call<1>(beam_jit_bs_bit_size);
+                /* Note: ARG1 must remain equal to seg.src here for error
+                 * reporting to work. */
                 if (Fail.get() == 0) {
-                    mov_arg(ARG1, seg.src);
                     mov_imm(ARG4,
                             beam_jit_update_bsc_reason_info(seg.error_info,
                                                             BSC_REASON_BADARG,
                                                             BSC_INFO_TYPE,
                                                             BSC_VALUE_ARG1));
                 }
-                a.test(RET, RET);
-                a.js(error);
-                a.add(sizeReg, RET);
+
+                emit_is_boxed(error, seg.src, ARG1);
+
+                x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
+                a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+                a.and_(RETb, imm(_BITSTRING_TAG_MASK));
+                a.cmp(RETb, imm(_TAG_HEADER_HEAP_BITS));
+                a.jne(error);
+
+                a.add(sizeReg, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
             }
         } else if (seg.unit != 0) {
             bool can_fail = true;
@@ -2834,22 +2810,22 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     } else {
         comment("allocate binary");
         runtime_entered = bs_maybe_enter_runtime(runtime_entered);
+
         mov_arg(ARG5, Alloc);
         mov_arg(ARG6, Live);
         load_erl_bits_state(ARG3);
         load_x_reg_array(ARG2);
         a.mov(ARG1, c_p);
+
         if (sizeReg.isValid()) {
             a.mov(ARG4, sizeReg);
-            runtime_call<6>(beam_jit_bs_init_bits);
         } else {
-            allocated_size = (num_bits + 7) / 8;
-            if (allocated_size <= ERL_ONHEAP_BIN_LIMIT) {
-                allocated_size = (allocated_size + 7) & (-8);
-            }
+            /* Small static bitstrings should have been heap-allocated above. */
+            ASSERT(num_bits > ERL_ONHEAP_BITS_LIMIT);
             mov_imm(ARG4, num_bits);
-            runtime_call<6>(beam_jit_bs_init_bits);
         }
+        runtime_call<6>(beam_jit_bs_init_bits);
+
         a.mov(TMP_MEM1q, RET);
     }
 
@@ -3355,11 +3331,11 @@ struct BsmSegment {
         ENSURE_AT_LEAST,
         ENSURE_EXACTLY,
         READ,
-        EXTRACT_BINARY,
+        EXTRACT_BITSTRING,
         EXTRACT_INTEGER,
         READ_INTEGER,
         GET_INTEGER,
-        GET_BINARY,
+        GET_BITSTRING,
         SKIP,
         DROP,
         GET_TAIL,
@@ -3787,25 +3763,23 @@ void BeamModuleAssembler::emit_extract_integer(const x86::Gp bitdata,
     mov_arg(Dst, RET);
 }
 
-/*
- * Clobbers: RET
- */
-void BeamModuleAssembler::emit_extract_binary(const x86::Gp bitdata,
-                                              Uint bits,
-                                              const ArgRegister &Dst) {
-    Uint num_bytes = bits / 8;
-
+/* Clobbers: RET */
+void BeamModuleAssembler::emit_extract_bitstring(const x86::Gp bitdata,
+                                                 Uint bits,
+                                                 const ArgRegister &Dst) {
     a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
     mov_arg(Dst, RET);
-    a.mov(x86::qword_ptr(HTOP), header_heap_bin(num_bytes));
-    a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bytes));
-    a.mov(RET, bitdata);
-    a.bswap(RET);
-    if (num_bytes == 0) {
-        a.add(HTOP, imm(sizeof(Eterm[2])));
-    } else {
+
+    a.mov(x86::qword_ptr(HTOP), header_heap_bits(bits));
+    a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(bits));
+
+    if (bits > 0) {
+        a.mov(RET, bitdata);
+        a.bswap(RET);
         a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
         a.add(HTOP, imm(sizeof(Eterm[3])));
+    } else {
+        a.add(HTOP, imm(sizeof(Eterm[2])));
     }
 }
 
@@ -3828,11 +3802,11 @@ static std::vector<BsmSegment> opt_bsm_segments(
                 heap_need += BIG_NEED_FOR_BITS(seg.size);
             }
             break;
-        case BsmSegment::action::GET_BINARY:
-            heap_need += erts_extracted_binary_size(seg.size);
+        case BsmSegment::action::GET_BITSTRING:
+            heap_need += erts_extracted_bitstring_size(seg.size);
             break;
         case BsmSegment::action::GET_TAIL:
-            heap_need += EXTRACT_SUB_BIN_HEAP_NEED;
+            heap_need += BUILD_SUB_BITSTRING_HEAP_NEED;
             break;
         default:
             break;
@@ -3858,7 +3832,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
 
         switch (seg.action) {
         case BsmSegment::action::GET_INTEGER:
-        case BsmSegment::action::GET_BINARY: {
+        case BsmSegment::action::GET_BITSTRING: {
             bool is_common_size;
             switch (seg.size) {
             case 8:
@@ -3873,7 +3847,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
 
             if (seg.size > 64) {
                 read_action_pos = -1;
-            } else if (seg.action == BsmSegment::action::GET_BINARY &&
+            } else if (seg.action == BsmSegment::action::GET_BITSTRING &&
                        seg.size % 8 != 0) {
                 read_action_pos = -1;
             } else if ((seg.flags & BSF_LITTLE) != 0 && is_common_size) {
@@ -3903,8 +3877,8 @@ static std::vector<BsmSegment> opt_bsm_segments(
                 case BsmSegment::action::GET_INTEGER:
                     seg.action = BsmSegment::action::EXTRACT_INTEGER;
                     break;
-                case BsmSegment::action::GET_BINARY:
-                    seg.action = BsmSegment::action::EXTRACT_BINARY;
+                case BsmSegment::action::GET_BITSTRING:
+                    seg.action = BsmSegment::action::EXTRACT_BITSTRING;
                     break;
                 default:
                     break;
@@ -4052,7 +4026,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 seg.action = BsmSegment::action::GET_INTEGER;
                 break;
             case am_binary:
-                seg.action = BsmSegment::action::GET_BINARY;
+                seg.action = BsmSegment::action::GET_BITSTRING;
                 break;
             }
 
@@ -4252,12 +4226,12 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             is_position_valid = false;
             break;
         }
-        case BsmSegment::action::EXTRACT_BINARY: {
+        case BsmSegment::action::EXTRACT_BITSTRING: {
             auto bits = seg.size;
             auto Dst = seg.dst;
 
             comment("extract binary %ld", bits);
-            emit_extract_binary(bitdata, bits, Dst);
+            emit_extract_bitstring(bitdata, bits, Dst);
             if (!next_instr_clobbers && bits != 0 && bits != 64) {
                 a.shl(bitdata, imm(bits));
             }
@@ -4343,7 +4317,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             is_ctx_valid = is_position_valid = false;
             break;
         }
-        case BsmSegment::action::GET_BINARY: {
+        case BsmSegment::action::GET_BITSTRING: {
             comment("get binary %ld", seg.size);
             if (is_ctx_valid) {
                 a.mov(RET, ctx);
@@ -4353,12 +4327,15 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             emit_enter_runtime<Update::eHeapOnlyAlloc>();
             a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
             a.mov(ARG2, emit_boxed_val(RET, orig_offset));
-            a.mov(ARG3, emit_boxed_val(RET, base_offset));
-            a.mov(ARG4, emit_boxed_val(RET, position_offset));
-            mov_imm(ARG5, seg.size);
-            a.add(emit_boxed_val(RET, position_offset), ARG5);
+            a.mov(ARG3, ARG2);
+            a.and_(ARG2, imm(TAG_PTR_MASK__));
+            a.and_(ARG3, imm(~TAG_PTR_MASK__));
+            a.mov(ARG4, emit_boxed_val(RET, base_offset));
+            a.mov(ARG5, emit_boxed_val(RET, position_offset));
+            mov_imm(ARG6, seg.size);
+            a.add(emit_boxed_val(RET, position_offset), ARG6);
 
-            runtime_call<5>(erts_extract_sub_binary);
+            runtime_call<6>(erts_build_sub_bitstring);
 
             emit_leave_runtime<Update::eHeapOnlyAlloc>();
             mov_arg(seg.dst, RET);

@@ -418,7 +418,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
          */
         code_ptr = 0;
     }
-    bin = new_binary(p, (byte *) dsbufp->str, dsbufp->str_len);
+    bin = erts_new_binary_from_data(p,
+                                    dsbufp->str_len,
+                                    (byte *) dsbufp->str);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);

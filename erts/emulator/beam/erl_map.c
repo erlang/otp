@@ -3377,11 +3377,11 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                         default:
                             erts_exit(ERTS_ABORT_EXIT, "term_type: bad map header type %d\n", MAP_HEADER_TYPE(hdr));
                     }
-                case REFC_BINARY_SUBTAG:
+                case BIN_REF_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("refc_binary"));
-                case HEAP_BINARY_SUBTAG:
+                case HEAP_BITS_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("heap_binary"));
-                case SUB_BINARY_SUBTAG:
+                case SUB_BITS_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("sub_binary"));
                 case BIN_MATCHSTATE_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("matchstate"));

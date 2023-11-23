@@ -274,7 +274,7 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
     if (!edep)
 	erts_print(to, to_arg, "D0:E0:");
     else {
-	byte *e;
+	const byte *e;
 	size_t sz;
         int i;
 
@@ -465,6 +465,70 @@ print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 }
 
 static void
+dump_sub_bitstring(fmtfn_t to, void *to_arg, Uint br_flags, BinRef *br,
+                   const byte *base, Uint offset, Uint size) {
+    Binary *binary = br->val;
+
+    if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
+        binary->intern.flags = (UWord)all_binaries;
+        all_binaries = binary;
+    }
+
+    /* Emit bitstrings in the old sub-binary format which ignored bit offsets
+     * and truncated sizes to bytes (not even rounding up when required). This
+     * is not ideal but at least it contains most of the underlying data.
+     *
+     * When the BinRef hasn't been visited yet (header is still BIN_REF), we
+     * pretend that this is a BinRef because the crashdump viewer barfs on
+     * dumps where sub-binaries refer _directly_ to binaries that have been
+     * truncated. This will need to be revisited once crashdump viewer is made
+     * bitstring-aware. */
+    if (br->thing_word == HEADER_BIN_REF) {
+        erts_print(to, to_arg,
+                   "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
+                   binary, BYTE_OFFSET(offset), BYTE_SIZE(size));
+    } else {
+        Eterm br_term = (Eterm)br | br_flags;
+
+        erts_print(to, to_arg,
+                   "Ys" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
+                   br_term, BYTE_OFFSET(offset), BYTE_SIZE(size));
+    }
+}
+
+static void
+dump_heap_bitstring(fmtfn_t to, void *to_arg, byte *base,
+                    Uint offset, Uint size)
+{
+    /* We ignore trailing bits for now, the crashdump viewer has historically
+     * ignored bits altogether even for sub-binaries. */
+    erts_print(to, to_arg, "Yh%X:", BYTE_SIZE(size));
+    erts_print_base64(to, to_arg, &base[BYTE_OFFSET(offset)], BYTE_SIZE(size));
+    erts_putc(to, to_arg, '\n');
+}
+
+static void
+dump_bin_ref(fmtfn_t to, void *to_arg, BinRef *br)
+{
+    Binary *binary = br->val;
+
+    if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
+        binary->intern.flags = (UWord)all_binaries;
+        all_binaries = binary;
+    }
+
+    /* Dump the binary as-is, ignoring the fact that BIN_FLAG_MAGIC may keep
+     * the data elsewhere. This is incorrect but consistent with how things
+     * used to be done before bitstrings were refactored. We will need to
+     * revisit this. */
+    erts_print(to, to_arg,
+               "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
+               binary,
+               binary->orig_bytes,
+               binary->orig_size);
+}
+
+static void
 heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 {
     DeclareTmpHeapNoproc(last,1);
@@ -543,63 +607,28 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 		} else if (_is_bignum_header(hdr)) {
 		    erts_print(to, to_arg, "B%T\n", x);
 		    *ptr = OUR_NIL;
-		} else if (is_binary_header(hdr)) {
-		    Uint tag = thing_subtag(hdr);
-		    Uint size = binary_size(x);
+		} else if (is_bitstring_header(hdr)) {
+                    Uint offset, size;
+                    Eterm br_flags;
+                    byte *base;
+                    BinRef *br;
 
-		    if (tag == HEAP_BINARY_SUBTAG) {
-			byte* p;
+                    ERTS_GET_BITSTRING_REF(x, br_flags, br, base, offset, size);
 
-			erts_print(to, to_arg, "Yh%X:", size);
-			p = binary_bytes(x);
-                        erts_print_base64(to, to_arg, p, size);
-		    } else if (tag == REFC_BINARY_SUBTAG) {
-			ProcBin* pb = (ProcBin *) binary_val(x);
-			Binary* val = pb->val;
+                    if (br) {
+                        if (erts_is_literal(br_flags | (Eterm)br, (Eterm*)br)) {
+                            mark_literal((Eterm*)br);
+                        }
 
-			if (erts_atomic_xchg_nob(&val->intern.refc, 0) != 0) {
-			    val->intern.flags = (UWord) all_binaries;
-			    all_binaries = val;
-			}
-			erts_print(to, to_arg,
-				   "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
-				   val,
-				   pb->bytes - (byte *)val->orig_bytes,
-				   size);
-		    } else if (tag == SUB_BINARY_SUBTAG) {
-			ErlSubBin* Sb = (ErlSubBin *) binary_val(x);
-			Eterm* real_bin;
-			void* val;
+                        dump_sub_bitstring(to, to_arg, br_flags, br,
+                                           base, offset, size);
+                    } else {
+                        dump_heap_bitstring(to, to_arg, base, offset, size);
+                    }
 
-			/*
-			 * Must use boxed_val() here, because the original
-			 * binary may have been visited and have had its
-			 * header word changed to OUR_NIL (in which case
-			 * binary_val() will cause an assertion failure in
-			 * the DEBUG emulator).
-			 */
-
-			real_bin = boxed_val(Sb->orig);
-
-			if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
-			    /*
-			     * Unvisited REFC_BINARY: Point directly to
-			     * the binary.
-			     */
-			    ProcBin* pb = (ProcBin *) real_bin;
-			    val = pb->val;
-			} else {
-			    /*
-			     * Heap binary or visited REFC binary: Point
-			     * to heap binary or ProcBin on the heap.
-			     */
-			    val = real_bin;
-			}
-			erts_print(to, to_arg,
-				   "Ys" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
-				   val, Sb->offs, size);
-		    }
-		    erts_putc(to, to_arg, '\n');
+                    *ptr = OUR_NIL;
+                } else if (hdr == HEADER_BIN_REF) {
+                    dump_bin_ref(to, to_arg, (BinRef*)ptr);
 		    *ptr = OUR_NIL;
 		} else if (is_external_pid_header(hdr)) {
 		    erts_print(to, to_arg, "P%T\n", x);
@@ -931,54 +960,22 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                 erts_print(to, to_arg, "F%X:%s\n", i, sbuf);
             } else if (_is_bignum_header(w)) {
                 erts_print(to, to_arg, "B%T\n", term);
-            } else if (is_binary_header(w)) {
-                Uint tag = thing_subtag(w);
-                Uint size = binary_size(term);
+            } else if (is_bitstring_header(w)) {
+                ERTS_DECLARE_DUMMY(Eterm br_flags);
+                Uint offset, size;
+                byte *base;
+                BinRef *br;
 
-                if (tag == HEAP_BINARY_SUBTAG) {
-                    byte* p;
+                ERTS_GET_BITSTRING_REF(term, br_flags, br, base, offset, size);
 
-                    erts_print(to, to_arg, "Yh%X:", size);
-                    p = binary_bytes(term);
-                    erts_print_base64(to, to_arg, p, size);
-                } else if (tag == REFC_BINARY_SUBTAG) {
-                    ProcBin* pb = (ProcBin *) binary_val(term);
-                    Binary* val = pb->val;
-
-                    if (erts_atomic_xchg_nob(&val->intern.refc, 0) != 0) {
-                        val->intern.flags = (UWord) all_binaries;
-                        all_binaries = val;
-                    }
-                    erts_print(to, to_arg,
-                               "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
-                               val,
-                               pb->bytes - (byte *)val->orig_bytes,
-                               size);
-                } else if (tag == SUB_BINARY_SUBTAG) {
-                    ErlSubBin* Sb = (ErlSubBin *) binary_val(term);
-                    Eterm* real_bin;
-                    void* val;
-
-                    real_bin = boxed_val(Sb->orig);
-                    if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
-                        /*
-                         * Unvisited REFC_BINARY: Point directly to
-                         * the binary.
-                         */
-                        ProcBin* pb = (ProcBin *) real_bin;
-                        val = pb->val;
-                    } else {
-                        /*
-                         * Heap binary or visited REFC binary: Point
-                         * to heap binary or ProcBin on the heap.
-                         */
-                        val = real_bin;
-                    }
-                    erts_print(to, to_arg,
-                               "Ys" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
-                               val, Sb->offs, size);
+                if (br) {
+                    dump_sub_bitstring(to, to_arg, br_flags, br,
+                                       base, offset, size);
+                } else {
+                    dump_heap_bitstring(to, to_arg, base, offset, size);
                 }
-                erts_putc(to, to_arg, '\n');
+            } else if (w == HEADER_BIN_REF) {
+                dump_bin_ref(to, to_arg, (BinRef*)htop);
             } else if (is_map_header(w)) {
                 if (is_flatmap_header(w)) {
                     flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
@@ -1032,6 +1029,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                 dump_externally(to, to_arg, term);
                 erts_putc(to, to_arg, '\n');
             }
+
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
             case FUN_SUBTAG:
@@ -1044,7 +1042,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     size += hashmap_bitcount(MAP_HEADER_VAL(w));
                 }
                 break;
-            case SUB_BINARY_SUBTAG:
+            case SUB_BITS_SUBTAG:
                 size += 1;
                 break;
             }

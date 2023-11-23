@@ -167,8 +167,8 @@ erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 
     for (u.hdr = first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
-            erts_bin_release(u.pb->val);
+	case BIN_REF_SUBTAG:
+            erts_bin_release(u.br->val);
 	    break;
 	case FUN_SUBTAG:
             /* We _KNOW_ that this is a local fun, otherwise it would not

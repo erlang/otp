@@ -1569,7 +1569,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
                     insert_dist_entry(ctx->dep, type, id, 0);
             }
 	    break;
-	case REFC_BINARY_SUBTAG:
+	case BIN_REF_SUBTAG:
 	case FUN_SUBTAG:
 	    break; /* No need to */
 	default:
@@ -2114,24 +2114,24 @@ setup_reference_table(void)
     }
 
     { /* Add binaries stored elsewhere ... */
-	ErlOffHeap oh;
-	ProcBin pb[2];
-	int i = 0;
-	Binary *default_match_spec;
-	Binary *default_meta_match_spec;
+        ErlOffHeap oh;
+        BinRef bin_ref[2];
+        int i = 0;
+        Binary *default_match_spec;
+        Binary *default_meta_match_spec;
 
-	oh.first = NULL;
-	/* Only the ProcBin members thing_word, val and next will be inspected
-	   (by insert_offheap()) */
+        oh.first = NULL;
+        /* Only the BinRef members thing_word, val and next will be inspected
+           (by insert_offheap()) */
 #undef  ADD_BINARY
-#define ADD_BINARY(Bin)				 	     \
-	if ((Bin)) {					     \
-	    pb[i].thing_word = REFC_BINARY_SUBTAG;           \
-	    pb[i].val = (Bin);				     \
-	    pb[i].next = oh.first;		             \
-	    oh.first = (struct erl_off_heap_header*) &pb[i]; \
-	    i++;				             \
-	}
+#define ADD_BINARY(Bin)                                                       \
+        if ((Bin)) {                                                          \
+            bin_ref[i].thing_word = BIN_REF_SUBTAG;                       \
+            bin_ref[i].val = (Bin);                                           \
+            bin_ref[i].next = oh.first;                                       \
+            oh.first = (struct erl_off_heap_header*) &bin_ref[i];             \
+            i++;                                                              \
+        }
 
 	erts_get_default_trace_pattern(NULL,
 				       &default_match_spec,

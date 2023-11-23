@@ -55,6 +55,7 @@
 #include "erl_io_queue.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_global_literals.h"
+#include "erl_iolist.h"
 
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
@@ -102,7 +103,7 @@ static void driver_monitor_unlock_pdl(Port *p);
 #define DRV_MONITOR_LOCK_PDL(Port) driver_monitor_lock_pdl(Port)
 #define DRV_MONITOR_UNLOCK_PDL(Port) driver_monitor_unlock_pdl(Port)
 
-#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
+#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BINARY_LIMIT)
 #define SMALL_WRITE_VEC  16
 
 static ERTS_INLINE ErlPortIOQueue*
@@ -3357,10 +3358,10 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	need += 3;
     }
     if ((state & ERTS_PORT_SFLG_BINARY_IO) && buf != NULL) {
-        if (len <= ERL_ONHEAP_BIN_LIMIT)
-            need += heap_bin_size(len);
+        if (len <= ERL_ONHEAP_BINARY_LIMIT)
+            need += heap_bits_size(NBITS(len));
         else
-            need += PROC_BIN_SIZE;
+            need += ERL_REFC_BITS_SIZE;
     } else {
 	need += 2*len;
     }
@@ -3378,20 +3379,20 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if ((state & ERTS_PORT_SFLG_BINARY_IO) == 0) {
 	listp = buf_to_intlist(&hp, buf, len, listp);
     } else if (buf != NULL) {
-        if (len <= ERL_ONHEAP_BIN_LIMIT) {
-            ErlHeapBin *hbin = (ErlHeapBin *) hp;
-            hbin->thing_word = header_heap_bin(len);
-            hbin->size = (Uint) len;
-            sys_memcpy(hbin->data, buf, len);
-            listp = make_binary(hp);
-            hp += heap_bin_size(len);
-        }
-        else {
+        if (len <= ERL_ONHEAP_BINARY_LIMIT) {
+            listp = HEAP_BITSTRING(hp, buf, 0, NBITS(len));
+            hp += heap_bits_size(NBITS(len));
+        } else {
             Binary* bptr = erts_bin_nrml_alloc(len);
             sys_memcpy(bptr->orig_bytes, buf, len);
 
-            listp = erts_build_proc_bin(ohp, hp, bptr);
-            hp += PROC_BIN_SIZE;
+            listp = erts_wrap_refc_bitstring(&ohp->first,
+                                             &ohp->overhead,
+                                             &hp,
+                                             bptr,
+                                             (byte*)bptr->orig_bytes,
+                                             0,
+                                             NBITS(len));
         }
     }
 
@@ -3517,10 +3518,10 @@ deliver_vec_message(Port* prt,			/* Port */
     if (state & ERTS_PORT_SFLG_BINARY_IO) {
         Sint i;
         for (i = 0; i < vsize; i++) {
-            if (iov[i].iov_len <= ERL_ONHEAP_BIN_LIMIT)
-                need += heap_bin_size(iov[i].iov_len);
+            if (iov[i].iov_len <= ERL_ONHEAP_BINARY_LIMIT)
+                need += heap_bits_size(NBITS(iov[i].iov_len));
             else
-                need += PROC_BIN_SIZE;
+                need += ERL_REFC_BITS_SIZE;
         }
 	need += (vsize - 1)*2 + hlen*2;
     } else {
@@ -3547,18 +3548,12 @@ deliver_vec_message(Port* prt,			/* Port */
             iov--;
             binv--;
             bin_size = (Uint) iov->iov_len;
-            
-            if (bin_size <= ERL_ONHEAP_BIN_LIMIT) {
-                ErlHeapBin *hbin = (ErlHeapBin *) hp;
-                hbin->thing_word = header_heap_bin(bin_size);
-                hbin->size = bin_size;
-                sys_memcpy(hbin->data, iov->iov_base, bin_size);
-                bin = make_binary(hp);
-                hp += heap_bin_size(bin_size);
-            }
-            else {
+
+            if (bin_size <= ERL_ONHEAP_BINARY_LIMIT) {
+                bin = HEAP_BITSTRING(hp, iov->iov_base, 0, NBITS(bin_size));
+                hp += heap_bits_size(NBITS(bin_size));
+            } else {
                 ErlDrvBinary* b;
-                ProcBin* pb = (ProcBin*) hp;
                 byte* base;
 
                 if ((b = *binv) == NULL) {
@@ -3570,18 +3565,14 @@ deliver_vec_message(Port* prt,			/* Port */
                     driver_binary_inc_refc(b);
                     base = iov->iov_base;
                 }
-                pb->thing_word = HEADER_PROC_BIN;
-                pb->size = bin_size;
-                pb->next = ohp->first;
-                ohp->first = (struct erl_off_heap_header*)pb;
-                pb->val = ErlDrvBinary2Binary(b);
-                pb->bytes = base;
-                pb->flags = 0;
-                hp += PROC_BIN_SIZE;
-	    
-                OH_OVERHEAD(ohp, bin_size / sizeof(Eterm));
 
-                bin = make_binary(pb);
+                bin = erts_wrap_refc_bitstring(&ohp->first,
+                                               &ohp->overhead,
+                                               &hp,
+                                               ErlDrvBinary2Binary(b),
+                                               base,
+                                               0,
+                                               NBITS(bin_size));
             }
 
 	    if (listp == NIL) {  /* compatible with deliver_bin_message */
@@ -4082,18 +4073,22 @@ port_control_result_size(int control_flags,
 			 ErlDrvSizeT *resp_size,
 			 char *pre_alloc_buf)
 {
-    if (!resp_bufp)
-	return (Uint) 0;
+    if (!resp_bufp) {
+        return 0;
+    }
 
     if (control_flags & PORT_CONTROL_FLAG_BINARY) {
-	if (resp_bufp != pre_alloc_buf) {
-	    ErlDrvBinary *dbin = (ErlDrvBinary *) resp_bufp;
-	    *resp_size = dbin->orig_size;
-	    if (*resp_size > ERL_ONHEAP_BIN_LIMIT)
-		return PROC_BIN_SIZE;
-	}
-	ASSERT(*resp_size <= ERL_ONHEAP_BIN_LIMIT);
-	return (Uint) heap_bin_size((*resp_size));
+        if (resp_bufp != pre_alloc_buf) {
+            ErlDrvBinary *dbin = (ErlDrvBinary *) resp_bufp;
+            *resp_size = dbin->orig_size;
+
+            if (*resp_size > ERL_ONHEAP_BINARY_LIMIT) {
+                return ERL_REFC_BITS_SIZE;
+            }
+        }
+
+        ASSERT(*resp_size <= ERL_ONHEAP_BINARY_LIMIT);
+        return (Uint)heap_bits_size(NBITS(*resp_size));
     }
 
     return (Uint) 2*(*resp_size);
@@ -4113,30 +4108,35 @@ write_port_control_result(int control_flags,
     if (control_flags & PORT_CONTROL_FLAG_BINARY) {
 	/* Binary result */
 	ErlDrvBinary *dbin;
-	ErlHeapBin *hbin;
+        Eterm result;
 
-	if (resp_bufp == pre_alloc_buf)
-	    dbin = NULL;
-	else {
-	    dbin = (ErlDrvBinary *) resp_bufp;
-	    if (dbin->orig_size > ERL_ONHEAP_BIN_LIMIT) {
-                res = erts_build_proc_bin(ohp, *hpp, ErlDrvBinary2Binary(dbin));
-		*hpp += PROC_BIN_SIZE;
-                return res;
-	    }
-	    resp_bufp = dbin->orig_bytes;
-	    resp_size = dbin->orig_size;
-	}
+        if (resp_bufp == pre_alloc_buf) {
+            dbin = NULL;
+        } else {
+            dbin = (ErlDrvBinary*)resp_bufp;
+            if (dbin->orig_size > ERL_ONHEAP_BINARY_LIMIT) {
+                Binary *refc_binary = ErlDrvBinary2Binary(dbin);
 
-	hbin = (ErlHeapBin *) *hpp;
-	*hpp += heap_bin_size(resp_size);
-	ASSERT(resp_size <= ERL_ONHEAP_BIN_LIMIT);
-	hbin->thing_word = header_heap_bin(resp_size);
-	hbin->size = resp_size;
-	sys_memcpy(hbin->data, resp_bufp, resp_size);
-	if (dbin)
-	    driver_free_binary(dbin);
-	return make_binary(hbin);
+                return erts_wrap_refc_bitstring(&ohp->first,
+                                                &ohp->overhead,
+                                                hpp,
+                                                refc_binary,
+                                                (byte*)refc_binary->orig_bytes,
+                                                0,
+                                                NBITS(refc_binary->orig_size));
+            }
+            resp_bufp = dbin->orig_bytes;
+            resp_size = dbin->orig_size;
+        }
+
+        result = HEAP_BITSTRING(*hpp, resp_bufp, 0, NBITS(resp_size));
+        *hpp += heap_bits_size(NBITS(resp_size));
+
+        if (dbin) {
+            driver_free_binary(dbin);
+        }
+
+        return result;
     }
 
     /* List result */
@@ -4155,7 +4155,7 @@ port_sig_control(Port *prt,
     ASSERT(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY);
 
     if (op == ERTS_PROC2PORT_SIG_EXEC) {
-	char resp_buf[ERL_ONHEAP_BIN_LIMIT];
+	char resp_buf[ERL_ONHEAP_BINARY_LIMIT];
 	ErlDrvSizeT resp_size = sizeof(resp_buf);
 	char *resp_bufp = &resp_buf[0];
 	ErtsPortOpResult res;
@@ -4249,14 +4249,14 @@ erts_port_control(Process* c_p,
 		  Eterm data,
 		  Eterm *retvalp)
 {
+    ErtsAlcType_t allocation_type = ERTS_ALC_T_INVALID;
     ErtsPortOpResult res;
-    char *bufp = NULL;
+    byte *basep = NULL;
     ErlDrvSizeT size = 0;
     int try_call;
-    int tmp_alloced = 0;
     erts_aint32_t sched_flags;
     Binary *binp;
-    int copy;
+    BinRef *br;
     ErtsProc2PortSigData *sigdp;
 
     sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
@@ -4264,53 +4264,75 @@ erts_port_control(Process* c_p,
 	return ERTS_PORT_OP_BADARG;
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
+    binp = NULL;
 
-    if (is_binary(data) && binary_bitoffset(data) == 0) {
-	byte *bytep;
-	ERTS_DECLARE_DUMMY(Uint bitoffs);
-	ERTS_DECLARE_DUMMY(Uint bitsize);
-	ERTS_GET_BINARY_BYTES(data, bytep, bitoffs, bitsize);
-	bufp = (char *) bytep;
-	size = binary_size(data);
+    if (is_bitstring(data)) {
+        ERTS_DECLARE_DUMMY(Eterm br_flags);
+        Uint offset;
+
+        ERTS_PIN_BITSTRING(data, br_flags, br, basep, offset, size);
+
+        if (TAIL_BITS(size) != 0) {
+            return ERTS_PORT_OP_BADARG;
+        } else if (BIT_OFFSET(offset) != 0) {
+            goto handle_iodata;
+        }
+
+        basep = &basep[BYTE_OFFSET(offset)];
+        size = BYTE_SIZE(size);
+
+        if (br) {
+            binp = br->val;
+        }
     } else {
-	int r;
+        int r;
 
-	if (!try_call) {
-	    if (erts_iolist_size(data, &size))
-		return ERTS_PORT_OP_BADARG;
-	    bufp = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
-	    r = erts_iolist_to_buf(data, bufp, size);
-	    ASSERT(r == 0);
-	}
-	else {
-	    /* Try with an 8KB buffer first (will often be enough I guess). */
-	    size = 8*1024;
-	    bufp = erts_alloc(ERTS_ALC_T_TMP, size);
-	    tmp_alloced = 1;
+    handle_iodata:
+        if (!try_call) {
+            if (erts_iolist_size(data, &size)) {
+                return ERTS_PORT_OP_BADARG;
+            }
 
-	    r = erts_iolist_to_buf(data, bufp, size);
-	    if (ERTS_IOLIST_TO_BUF_SUCCEEDED(r)) {
-		size -= r;
-	    } else {
-		if (r == ERTS_IOLIST_TO_BUF_TYPE_ERROR) { /* Type error */
-		    erts_free(ERTS_ALC_T_TMP, bufp);
-		    return ERTS_PORT_OP_BADARG;
-		}
-		else {
-		    ASSERT(r == ERTS_IOLIST_TO_BUF_OVERFLOW); /* Overflow */
-		    erts_free(ERTS_ALC_T_TMP, bufp);
-		    if (erts_iolist_size(data, &size))
-			return ERTS_PORT_OP_BADARG; /* Type error */
-		}
-		bufp = erts_alloc(ERTS_ALC_T_TMP, size);
-		r = erts_iolist_to_buf(data, bufp, size);
-		ASSERT(r == 0);
-	    }
-	}
+            basep = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
+            allocation_type = ERTS_ALC_T_DRV_CTRL_DATA;
+
+            r = erts_iolist_to_buf(data, (char*)basep, size);
+            ASSERT(r == 0);
+        } else {
+            /* Try with an 8KB buffer first (will often be enough I guess). */
+            size = 8 * 1024;
+            basep = erts_alloc(ERTS_ALC_T_TMP, size);
+            allocation_type = ERTS_ALC_T_TMP;
+
+            r = erts_iolist_to_buf(data, (char*)basep, size);
+            if (ERTS_IOLIST_TO_BUF_SUCCEEDED(r)) {
+                size -= r;
+            } else {
+                erts_free(allocation_type, basep);
+
+                if (r == ERTS_IOLIST_TO_BUF_TYPE_ERROR) {
+                    return ERTS_PORT_OP_BADARG;
+                }
+
+                ASSERT(r == ERTS_IOLIST_TO_BUF_OVERFLOW);
+
+                if (erts_iolist_size(data, &size)) {
+                    return ERTS_PORT_OP_BADARG;
+                }
+
+                basep = erts_alloc(allocation_type, size);
+                r = erts_iolist_to_buf(data, (char*)basep, size);
+                ASSERT(r == 0);
+            }
+        }
     }
 
+    ASSERT(is_bitstring(data) ||
+           ((allocation_type == ERTS_ALC_T_DRV_CTRL_DATA) ^
+            (allocation_type == ERTS_ALC_T_TMP)));
+
     if (try_call) {
-	char resp_buf[ERL_ONHEAP_BIN_LIMIT];
+	char resp_buf[ERL_ONHEAP_BINARY_LIMIT];
 	char* resp_bufp = &resp_buf[0];
 	ErlDrvSizeT resp_size = sizeof(resp_buf);
 	ErtsTryImmDrvCallResult try_call_res;
@@ -4333,7 +4355,7 @@ erts_port_control(Process* c_p,
 	    res = call_driver_control(c_p->common.id,
 				      prt,
 				      command,
-				      bufp,
+				      (char*)basep,
 				      size,
 				      &resp_bufp,
 				      &resp_size);
@@ -4341,8 +4363,9 @@ erts_port_control(Process* c_p,
 	    control_flags = prt->control_flags;
 
 	    finalize_imm_drv_call(&try_call_state);
-	    if (tmp_alloced)
-		erts_free(ERTS_ALC_T_TMP, bufp);
+            if (allocation_type != ERTS_ALC_T_INVALID) {
+                erts_free(allocation_type, basep);
+            }
 	    if (res == ERTS_PORT_OP_BADARG) {
 		return ERTS_PORT_OP_BADARG;
 	    }
@@ -4362,66 +4385,40 @@ erts_port_control(Process* c_p,
 	    return ERTS_PORT_OP_DONE;
 	}
 	case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-	    if (tmp_alloced)
-		erts_free(ERTS_ALC_T_TMP, bufp);
-	    return ERTS_PORT_OP_BADARG;
+            if (allocation_type != ERTS_ALC_T_INVALID) {
+                erts_free(allocation_type, basep);
+            }
+            return ERTS_PORT_OP_BADARG;
 	default:
 	    /* Schedule control() call instead... */
 	    break;
 	}
     }
 
-    /* Convert data into something that can be scheduled */
+    if (binp) {
+        ASSERT(br && allocation_type == ERTS_ALC_T_INVALID);
+        erts_refc_inc(&binp->intern.refc, 1);
+    } else if (allocation_type != ERTS_ALC_T_DRV_CTRL_DATA) {
+        /* Convert data into something that can be scheduled */
+        byte *old_basep = basep;
 
-    copy = tmp_alloced;
+        basep = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
 
-    binp = NULL;
+        sys_memcpy(basep, old_basep, size);
 
-    if (is_binary(data) && binary_bitoffset(data) == 0) {
-	Eterm *ebinp = binary_val(data);
-	ASSERT(!tmp_alloced);
-	if (*ebinp == HEADER_SUB_BIN)
-	    ebinp = binary_val(((ErlSubBin *) ebinp)->orig);
-
-	if (*ebinp != HEADER_PROC_BIN)
-	    copy = 1;
-	else {
-            ProcBin *pb = (ProcBin *) ebinp;
-            int offset = bufp - pb->val->orig_bytes;
-
-	    ASSERT(pb->val->orig_bytes <= bufp
-		   && bufp + size <= pb->val->orig_bytes + pb->val->orig_size);
-
-            if (pb->flags) {
-                erts_emasculate_writable_binary(pb);
-
-                /* The procbin may have been reallocated, so update bufp */
-                bufp = pb->val->orig_bytes + offset;
-            }
-
-	    binp = pb->val;
-	    ASSERT(bufp <= bufp + size);
-	    ASSERT(binp->orig_bytes <= bufp
-		   && bufp + size <= binp->orig_bytes + binp->orig_size);
-	    erts_refc_inc(&binp->intern.refc, 1);
-	}
-    }
-
-    if (copy) {
-	char *old_bufp = bufp;
-	bufp = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, size);
-	sys_memcpy(bufp, old_bufp, size);
-	if (tmp_alloced)
-	    erts_free(ERTS_ALC_T_TMP, old_bufp);
+        if (allocation_type != ERTS_ALC_T_INVALID) {
+            ASSERT(allocation_type == ERTS_ALC_T_TMP);
+            erts_free(allocation_type, old_basep);
+        }
     }
 
     sigdp = erts_port_task_alloc_p2p_sig_data();
     sigdp->flags = ERTS_P2P_SIG_TYPE_CONTROL;
     sigdp->u.control.binp = binp;
     sigdp->u.control.command = command;
-    sigdp->u.control.bufp = bufp;
+    sigdp->u.control.bufp = (char*)basep;
     sigdp->u.control.size = size;
-    
+
     res = erts_schedule_proc2port_signal(c_p,
 					 prt,
 					 c_p->common.id,
@@ -5729,9 +5726,9 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    offset = ptr[2];
 	    if (!b || size + offset > b->orig_size)
 		ERTS_DDT_FAIL; /* No binary or outside the binary */
-	    need += (size <= ERL_ONHEAP_BIN_LIMIT
-			 ? heap_bin_size(size)
-			 : PROC_BIN_SIZE);
+	    need += (size <= ERL_ONHEAP_BINARY_LIMIT
+			 ? heap_bits_size(NBITS(size))
+			 : ERL_REFC_BITS_SIZE);
 	    ptr += 3;
 	    depth++;
 	    break;
@@ -5743,9 +5740,9 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    bufp = (byte *) ptr[0];
 	    size = (Uint) ptr[1];
 	    if (!bufp && size > 0) ERTS_DDT_FAIL; 
-	    need += (size <= ERL_ONHEAP_BIN_LIMIT
-		     ? heap_bin_size(size)
-		     : PROC_BIN_SIZE);
+	    need += (size <= ERL_ONHEAP_BINARY_LIMIT
+		     ? heap_bits_size(NBITS(size))
+		     : ERL_REFC_BITS_SIZE);
 	    ptr += 2;
 	    depth++;
 	    break;
@@ -5945,66 +5942,52 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 	    else
 		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
 
-	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
-		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
-								   heap_bin_size(size), HEAP_EXTRA);
-		hbp->thing_word = header_heap_bin(size);
-		hbp->size = size;
-		if (size > 0) {
-		    sys_memcpy((void *) hbp->data, (void *) (((byte*) b->orig_bytes) + offset), size);
-		}
-		mess = make_binary(hbp);
-	    }
-	    else {
-		ProcBin* pb = (ProcBin *) erts_produce_heap(&factory,
-							    PROC_BIN_SIZE, HEAP_EXTRA);
-		driver_binary_inc_refc(b);  /* caller will free binary */
-		pb->thing_word = HEADER_PROC_BIN;
-		pb->size = size;
-		pb->next = factory.off_heap->first;
-		factory.off_heap->first = (struct erl_off_heap_header*)pb;
-		pb->val = ErlDrvBinary2Binary(b);
-		pb->bytes = ((byte*) b->orig_bytes) + offset;
-		pb->flags = 0;
-		mess =  make_binary(pb);
-		OH_OVERHEAD(factory.off_heap, pb->size / sizeof(Eterm));
-	    }
-	    ptr += 3;
-	    break;
-	}
+	    if (size <= ERL_ONHEAP_BINARY_LIMIT) {
+                Eterm *hp = erts_produce_heap(&factory,
+                                              heap_bits_size(NBITS(size)),
+                                              HEAP_EXTRA);
+                mess = HEAP_BITSTRING(hp,
+                                      &b->orig_bytes[offset],
+                                      0,
+                                      NBITS(size));
+            } else {
+                Eterm *hp = erts_produce_heap(&factory,
+                                              ERL_REFC_BITS_SIZE,
+                                              HEAP_EXTRA);
+                driver_binary_inc_refc(b); /* caller will free binary */
+
+                mess = erts_wrap_refc_bitstring(&factory.off_heap->first,
+                                                &factory.off_heap->overhead,
+                                                &hp,
+                                                ErlDrvBinary2Binary(b),
+                                                (byte*)b->orig_bytes,
+                                                NBITS(offset),
+                                                NBITS(size));
+            }
+
+            ptr += 3;
+            break;
+        }
 
 	case ERL_DRV_BUF2BINARY: { /* char*, size */
-	    byte *bufp = (byte *) ptr[0];
-	    Uint size = (Uint) ptr[1];
+            byte *bufp = (byte *) ptr[0];
+            Uint size = (Uint) ptr[1];
 
-	    if (esdp)
-		esdp->io.in += (Uint64) size;
-	    else
-		erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) size);
+            if (esdp) {
+                esdp->io.in += (Uint64)size;
+            } else {
+                erts_atomic64_add_nob(&bytes_in, (erts_aint64_t)size);
+            }
 
-	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
-		ErlHeapBin* hbp = (ErlHeapBin *) erts_produce_heap(&factory,
-								   heap_bin_size(size),
-								   HEAP_EXTRA);
-		hbp->thing_word = header_heap_bin(size);
-		hbp->size = size;
-		if (size > 0) {
-		    ASSERT(bufp);
-		    sys_memcpy((void *) hbp->data, (void *) bufp, size);
-		}
-		mess = make_binary(hbp);
-	    }
-	    else {
-		Eterm* hp;
-		Binary* bp = erts_bin_nrml_alloc(size);
-		ASSERT(bufp);
-		sys_memcpy((void *) bp->orig_bytes, (void *) bufp, size);
-                hp = erts_produce_heap(&factory, PROC_BIN_SIZE, HEAP_EXTRA);
-                mess = erts_build_proc_bin(factory.off_heap, hp, bp);
-	    }
-	    ptr += 2;
-	    break;
-	}
+            ASSERT(IS_BINARY_SIZE_OK(size));
+            mess = erts_hfact_new_binary_from_data(&factory,
+                                                   HEAP_EXTRA,
+                                                   size,
+                                                   bufp);
+
+            ptr += 2;
+            break;
+        }
 
 	case ERL_DRV_STRING: /* char*, length */
 	    if (esdp)
@@ -6506,6 +6489,7 @@ ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_read(&bp->intern.refc, 1);
 }
 
@@ -6513,6 +6497,7 @@ ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_inctest(&bp->intern.refc, 2);
 }
 
@@ -6520,6 +6505,7 @@ ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
+    ASSERT(!(bp->intern.flags & BIN_FLAG_WRITABLE));
     return (ErlDrvSInt) erts_refc_dectest(&bp->intern.refc, 1);
 }
 

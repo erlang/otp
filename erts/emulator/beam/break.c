@@ -735,16 +735,16 @@ bin_check(void)
         oh_list = rp->off_heap.first;
         for (;;) {
             for (hdr = oh_list; hdr; hdr = hdr->next) {
-                if (hdr->thing_word == HEADER_PROC_BIN) {
-                    ProcBin *bp = (ProcBin*) hdr;
+                if (hdr->thing_word == HEADER_BIN_REF) {
+                    Binary *bin = ((BinRef*)hdr)->val;
                     if (!printed) {
                         erts_printf("Process %T holding binary data \n", rp->common.id);
                         printed = 1;
                     }
                     erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
-                                bp->val,
-                                bp->val->orig_size,
-                                erts_refc_read(&bp->val->intern.refc, 1));
+                                bin,
+                                bin->orig_size,
+                                erts_refc_read(&bin->intern.refc, 1));
                 }
             }
             if (oh_list == rp->wrt_bins)

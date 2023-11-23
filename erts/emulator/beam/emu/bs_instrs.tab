@@ -151,7 +151,7 @@ i_bs_get_binary_all2.execute(Fail, Live, Unit, Dst) {
     ErlBinMatchBuffer *_mb;
     Eterm _result;
 
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     if (((_mb->size - _mb->offset) % $Unit) == 0) {
         LIGHT_SWAPOUT;
@@ -181,7 +181,7 @@ i_bs_get_binary2.execute(Fail, Live, Sz, Flags, Dst) {
     Eterm _result;
     Uint _size;
     $BS_GET_FIELD_SIZE($Sz, (($Flags) >> 3), $FAIL($Fail), _size);
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     LIGHT_SWAPOUT;
     _result = erts_bs_get_binary_2(c_p, _size, $Flags, _mb);
@@ -208,7 +208,7 @@ i_bs_get_binary_imm2.fetch(Ctx) {
 i_bs_get_binary_imm2.execute(Fail, Live, Sz, Flags, Dst) {
     ErlBinMatchBuffer *_mb;
     Eterm _result;
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
     _mb = ms_matchbuffer(context);
     LIGHT_SWAPOUT;
     _result = erts_bs_get_binary_2(c_p, $Sz, $Flags, _mb);
@@ -427,49 +427,53 @@ bs_init.verify(Fail) {
 }
 
 bs_init.execute(Live, Dst) {
+    Uint num_bits, heap_extra;
+    Eterm new_binary;
+
     erts_bin_offset = 0;
 
-    if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin* hb;
+    num_bits = BsOp1 * CHAR_BIT;
+    heap_extra = BsOp2;
+
+    if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        ErlHeapBits *hb;
         Uint bin_need;
 
-        bin_need = heap_bin_size(BsOp1);
-        $GC_TEST(0, bin_need+BsOp2+ERL_SUB_BIN_SIZE, $Live);
-        hb = (ErlHeapBin *) HTOP;
+        bin_need = heap_bits_size(num_bits);
+        $GC_TEST(0, bin_need + heap_extra + ERL_SUB_BITS_SIZE, $Live);
+
+        hb = (ErlHeapBits*)HTOP;
         HTOP += bin_need;
-        hb->thing_word = header_heap_bin(BsOp1);
-        hb->size = BsOp1;
+
+        hb->thing_word = header_heap_bits(num_bits);
+        ERTS_SET_HB_SIZE(hb, num_bits);
         erts_current_bin = (byte *) hb->data;
-        $Dst = make_binary(hb);
+
+        new_binary = make_bitstring(hb);
     } else {
         Binary* bptr;
-        ProcBin* pb;
 
-        $TEST_BIN_VHEAP(BsOp1 / sizeof(Eterm), BsOp2 + PROC_BIN_SIZE, $Live);
+        $TEST_BIN_VHEAP(NBYTES(num_bits) / sizeof(Eterm),
+                        heap_extra + ERL_REFC_BITS_SIZE,
+                        $Live);
 
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(BsOp1);
+        bptr = erts_bin_nrml_alloc(NBYTES(num_bits));
         erts_current_bin = (byte *) bptr->orig_bytes;
 
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *) HTOP;
-        HTOP += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = BsOp1;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header*) pb;
-        pb->val = bptr;
-        pb->bytes = (byte*) bptr->orig_bytes;
-        pb->flags = 0;
+        LIGHT_SWAPOUT;
 
-        OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
+        new_binary = erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                              &MSO(c_p).overhead,
+                                              &HEAP_TOP(c_p),
+                                              bptr,
+                                              erts_current_bin,
+                                              0,
+                                              num_bits);
 
-        $Dst = make_binary(pb);
+        LIGHT_SWAPIN;
     }
+
+    $Dst = new_binary;
 }
 
 #
@@ -527,15 +531,11 @@ bs_init_bits.verify(Fail) {
 
 bs_init_bits.execute(Live, Dst) {
      Eterm new_binary;
-     Uint num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
 
-     if (num_bits & 7) {
-	 alloc += ERL_SUB_BIN_SIZE;
-     }
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 alloc += heap_bin_size(num_bytes);
+     if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        alloc += heap_bits_size(num_bits);
      } else {
-	 alloc += PROC_BIN_SIZE;
+        alloc += ERL_REFC_BITS_SIZE;
      }
 
      erts_bin_offset = 0;
@@ -545,58 +545,42 @@ bs_init_bits.execute(Live, Dst) {
       * alloc = Total number of words to allocate on heap
       * Operands: NotUsed NotUsed Dst
       */
-     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-	 ErlHeapBin* hb;
+     if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        ErlHeapBits *hb;
 
-         $test_heap(alloc, $Live);
-	 hb = (ErlHeapBin *) HTOP;
-	 HTOP += heap_bin_size(num_bytes);
-	 hb->thing_word = header_heap_bin(num_bytes);
-	 hb->size = num_bytes;
-	 erts_current_bin = (byte *) hb->data;
-	 new_binary = make_binary(hb);
+        $test_heap(alloc, $Live);
+
+        hb = (ErlHeapBits*) HTOP;
+        HTOP += heap_bits_size(num_bits);
+        hb->thing_word = header_heap_bits(num_bits);
+
+        ERTS_SET_HB_SIZE(hb, num_bits);
+
+        erts_current_bin = (byte*)hb->data;
+        new_binary = make_bitstring(hb);
      } else {
-	 Binary* bptr;
-	 ProcBin* pb;
+        Binary *bptr;
 
-         $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
+        $TEST_BIN_VHEAP(NBYTES(num_bits) / sizeof(Eterm),
+                        alloc + ERL_REFC_BITS_SIZE,
+                        $Live);
 
-	 /*
-	  * Allocate the binary struct itself.
-	  */
-	 bptr = erts_bin_nrml_alloc(num_bytes);
-	 erts_current_bin = (byte *) bptr->orig_bytes;
+        bptr = erts_bin_nrml_alloc(NBYTES(num_bits));
+        erts_current_bin = (byte *) bptr->orig_bytes;
 
-	 /*
-	  * Now allocate the ProcBin on the heap.
-	  */
-	 pb = (ProcBin *) HTOP;
-	 HTOP += PROC_BIN_SIZE;
-	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = num_bytes;
-	 pb->next = MSO(c_p).first;
-	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
-	 pb->val = bptr;
-	 pb->bytes = (byte*) bptr->orig_bytes;
-	 pb->flags = 0;
-	 OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-	 new_binary = make_binary(pb);
+        LIGHT_SWAPOUT;
+
+        new_binary = erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                              &MSO(c_p).overhead,
+                                              &HEAP_TOP(c_p),
+                                              bptr,
+                                              erts_current_bin,
+                                              0,
+                                              num_bits);
+
+        LIGHT_SWAPIN;
      }
 
-     if (num_bits & 7) {
-         ErlSubBin* sb;
-
-         sb = (ErlSubBin *) HTOP;
-         HTOP += ERL_SUB_BIN_SIZE;
-         sb->thing_word = HEADER_SUB_BIN;
-         sb->size = num_bytes - 1;
-         sb->bitsize = num_bits & 7;
-         sb->offs = 0;
-         sb->bitoffs = 0;
-         sb->is_writable = 0;
-         sb->orig = new_binary;
-         new_binary = make_binary(sb);
-     }
      HEAP_SPACE_VERIFIED(0);
      $Dst = new_binary;
 }
@@ -889,13 +873,12 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
     const BeamInstr* p_start = $NEXT_INSTRUCTION;
     const BeamInstr* p_end = p_start + n;
     const BeamInstr* p;
-    Uint num_bytes;
     Uint alloc = $Alloc;
     Eterm new_binary;
 
     /* We count the total number of bits in an unsigned integer. To avoid
-     * having to check for overflow when adding to `num_bits`, we ensure that the
-     * signed size of each segment fits in a word. */
+     * having to check for overflow when adding to `num_bits`, we ensure that
+     * the signed size of each segment fits in a word. */
     Uint num_bits = 0;
 
     /* Calculate size of binary in bits. */
@@ -911,22 +894,21 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             break;
         case BSC_BINARY_ALL:
             {
-                Uint byte_size;
                 Uint bit_size;
 
                 $BS_LOAD_SRC(p, Src);
-                if (is_not_binary(Src)) {
+                if (is_not_bitstring(Src)) {
                     $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
                 }
-                byte_size = binary_size(Src);
+
+                bit_size = bitstring_size(Src);
 #ifndef ARCH_64
-                if ((byte_size >> 28) != 0) {
-                    /* The size of the binary in bits will not fit in
-                     * a 32-bit signed integer. */
+                if (bit_size >= ERTS_SINT_MAX) {
+                    /* The size of the binary in bits will not fit in a 32-bit
+                     * signed integer. */
                     $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_binary, am_size);
                 }
 #endif
-                bit_size = (byte_size << 3) + binary_bitsize(Src);
                 num_bits += bit_size;
             }
             break;
@@ -1085,85 +1067,61 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         Uint unit;
         Eterm Src;
 
-        if (alloc) {
-            $test_heap(alloc, $Live);
-        }
+        $test_heap(alloc, $Live);
 
         $BS_LOAD_UNIT(p, unit);
         $BS_LOAD_SRC(p, Src);
+
         new_binary = erts_bs_private_append_checked(c_p, Src, num_bits, unit);
+
         if (is_non_value(new_binary)) {
             $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, Src);
         }
         p_start += BSC_NUM_ARGS;
     } else {
-        num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
-        if (num_bits & 7) {
-            alloc += ERL_SUB_BIN_SIZE;
-        }
-        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-            alloc += heap_bin_size(num_bytes);
+        if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+            alloc += heap_bits_size(num_bits);
         } else {
-            alloc += PROC_BIN_SIZE;
+            alloc += ERL_REFC_BITS_SIZE;
         }
 
         /* num_bits = Number of bits to build
-         * num_bytes = Number of bytes to allocate in the binary
          * alloc = Total number of words to allocate on heap
          */
         erts_bin_offset = 0;
-        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-            ErlHeapBin* hb;
+        if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+            ErlHeapBits *hb;
 
             $test_heap(alloc, $Live);
-            hb = (ErlHeapBin *) HTOP;
-            HTOP += heap_bin_size(num_bytes);
-            hb->thing_word = header_heap_bin(num_bytes);
-            hb->size = num_bytes;
+            hb = (ErlHeapBits *) HTOP;
+            HTOP += heap_bits_size(num_bits);
+            hb->thing_word = header_heap_bits(num_bits);
+            ERTS_SET_HB_SIZE(hb, num_bits);
             erts_current_bin = (byte *) hb->data;
-            new_binary = make_binary(hb);
+            new_binary = make_bitstring(hb);
         } else {
             Binary* bptr;
-            ProcBin* pb;
 
-            $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
+            $TEST_BIN_VHEAP(NBYTES(num_bits) / sizeof(Eterm),
+                            alloc + ERL_REFC_BITS_SIZE,
+                            $Live);
 
-            /*
-             * Allocate the binary struct itself.
-             */
-            bptr = erts_bin_nrml_alloc(num_bytes);
-            erts_current_bin = (byte *) bptr->orig_bytes;
+            bptr = erts_bin_nrml_alloc(NBYTES(num_bits));
+            erts_current_bin = (byte *)bptr->orig_bytes;
 
-            /*
-             * Now allocate the ProcBin on the heap.
-             */
-            pb = (ProcBin *) HTOP;
-            HTOP += PROC_BIN_SIZE;
-            pb->thing_word = HEADER_PROC_BIN;
-            pb->size = num_bytes;
-            pb->next = MSO(c_p).first;
-            MSO(c_p).first = (struct erl_off_heap_header*) pb;
-            pb->val = bptr;
-            pb->bytes = (byte*) bptr->orig_bytes;
-            pb->flags = 0;
-            OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-            new_binary = make_binary(pb);
+            LIGHT_SWAPOUT;
+
+            new_binary = erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                                  &MSO(c_p).overhead,
+                                                  &HEAP_TOP(c_p),
+                                                  bptr,
+                                                  erts_current_bin,
+                                                  0,
+                                                  num_bits);
+
+            LIGHT_SWAPIN;
         }
 
-        if (num_bits & 7) {
-            ErlSubBin* sb;
-
-            sb = (ErlSubBin *) HTOP;
-            HTOP += ERL_SUB_BIN_SIZE;
-            sb->thing_word = HEADER_SUB_BIN;
-            sb->size = num_bytes - 1;
-            sb->bitsize = num_bits & 7;
-            sb->offs = 0;
-            sb->bitoffs = 0;
-            sb->is_writable = 0;
-            sb->orig = new_binary;
-            new_binary = make_binary(sb);
-        }
         HEAP_SPACE_VERIFIED(0);
     }
 
@@ -1200,14 +1158,14 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             $BS_LOAD_SIZE(p, Size);
             $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
             if (!erts_new_bs_put_binary(c_p, Src, _size)) {
-                Eterm reason = is_binary(Src) ? am_short : am_type;
+                Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
             break;
         case BSC_BINARY_FIXED_SIZE:
             $BS_LOAD_FIXED_SIZE(p, Size);
             if (!erts_new_bs_put_binary(c_p, Src, Size)) {
-                Eterm reason = is_binary(Src) ? am_short : am_type;
+                Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
             break;
@@ -1576,14 +1534,18 @@ bs_get_tail.execute(Dst, Live) {
 
     ASSERT(header_is_bin_matchstate(*boxed_val(context)));
 
-    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+    $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
 
     htop = HTOP;
 
     mb = ms_matchbuffer(context);
 
-    bin = erts_extract_sub_binary(&htop,mb->orig,mb->base,
-                                  mb->offset,mb->size - mb->offset);
+    bin = erts_build_sub_bitstring(&htop,
+                                   mb->orig & TAG_PTR_MASK__,
+                                   (BinRef*)boxed_val(mb->orig),
+                                   mb->base,
+                                   mb->offset,
+                                   mb->size - mb->offset);
     HTOP = htop;
 
     $REFRESH_GEN_DEST();
@@ -1624,7 +1586,7 @@ i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
         position = mb->offset;
 
         $Dst = context;
-    } else if (is_binary_header(header)) {
+    } else if (is_bitstring_header(header)) {
         ErlBinMatchState *ms;
 
         $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
@@ -1672,7 +1634,7 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
     if (header_is_bin_matchstate(header)) {
         ASSERT(HEADER_NUM_SLOTS(header) == 0);
         $Dst = context;
-    } else if (is_binary_header(header)) {
+    } else if (is_bitstring_header(header)) {
         ErlBinMatchState *ms;
 
         $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
@@ -1837,7 +1799,7 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
             $REFRESH_GEN_DEST();
             $Dst = make_matchstate(new_ms);
         }
-    } else if (is_binary_header(header)) {
+    } else if (is_bitstring_header(header)) {
         Eterm result;
 
         $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(1), live, context);
@@ -2080,8 +2042,12 @@ i_bs_get_fixed_binary.execute(Size, Dst) {
 
     htop = HTOP;
     mb = ms_matchbuffer(context);
-    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
-                                     mb->offset, size);
+    result = erts_build_sub_bitstring(&htop,
+                                      mb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(mb->orig),
+                                      mb->base,
+                                      mb->offset,
+                                      size);
     HTOP = htop;
 
     mb->offset += size;
@@ -2112,8 +2078,12 @@ i_bs_get_tail.execute(Dst) {
 
     htop = HTOP;
     mb = ms_matchbuffer(context);
-    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
-                                     mb->offset, mb->size - mb->offset);
+    result = erts_build_sub_bitstring(&htop,
+                                      mb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(mb->orig),
+                                      mb->base,
+                                      mb->offset,
+                                      mb->size - mb->offset);
     HTOP = htop;
 
     $Dst = result;

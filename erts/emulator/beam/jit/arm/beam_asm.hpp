@@ -1231,9 +1231,9 @@ protected:
                               Uint bits,
                               const ArgRegister &Dst);
 
-    void emit_extract_binary(const arm::Gp bitdata,
-                             Uint bits,
-                             const ArgRegister &Dst);
+    void emit_extract_bitstring(const arm::Gp bitdata,
+                                Uint bits,
+                                const ArgRegister &Dst);
 
     UWord bs_get_flags(const ArgVal &val);
 

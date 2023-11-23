@@ -53,6 +53,7 @@
 #include "erl_alloc_util.h"
 #include "erl_global_literals.h"
 #include "beam_load.h"
+#include "erl_iolist.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -178,14 +179,14 @@ erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail)
 
     for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
         erts_align_offheap(&u, &tmp);
-	if (u.hdr->thing_word == HEADER_PROC_BIN) {
-	    Eterm val = erts_bld_uword(hpp, szp, (UWord) u.pb->val);
-	    Eterm orig_size = erts_bld_uint(hpp, szp, u.pb->val->orig_size);
+	if (u.hdr->thing_word == HEADER_BIN_REF) {
+	    Eterm val = erts_bld_uword(hpp, szp, (UWord) u.br->val);
+	    Eterm orig_size = erts_bld_uint(hpp, szp, u.br->val->orig_size);
     
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_refc_read(&u.pb->val->intern.refc, 1);
+		Uint refc = (Uint) erts_refc_read(&u.br->val->intern.refc, 1);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;
@@ -2148,8 +2149,10 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_BACKTRACE: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
 	erts_stack_dump(ERTS_PRINT_DSBUF, (void *) dsbufp, rp);
-	res = erts_heap_factory_new_binary(hfact, (byte *) dsbufp->str,
-                                           dsbufp->str_len, reserve_size);
+	res = erts_hfact_new_binary_from_data(hfact,
+                                              reserve_size,
+                                              dsbufp->str_len,
+                                              (byte*)dsbufp->str);
 	erts_destroy_tmp_dsbuf(dsbufp);
 	break;
     }
@@ -2929,7 +2932,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
        BIF_P->scheduler_data->current_process = BIF_P;
 
 	ASSERT(dsbufp && dsbufp->str);
-	res = new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len);
+        res = erts_new_binary_from_data(BIF_P,
+                                        dsbufp->str_len,
+                                        (byte*)dsbufp->str);
 	erts_destroy_info_dsbuf(dsbufp);
 	BIF_RET(res);
     } else if (am_async_dist == BIF_ARG_1) {
@@ -3834,8 +3839,9 @@ fun_info_2(BIF_ALIST_2)
         hp = HAlloc(p, 3);
         break;
     case am_new_uniq:
-        val = is_local_fun(funp) ? new_binary(p, fe->uniq, 16) :
-                                   am_undefined;
+        val = is_local_fun(funp) ?
+                erts_new_binary_from_data(p, 16, fe->uniq) :
+                am_undefined;
         hp = HAlloc(p, 3);
         break;
     case am_index:
@@ -4603,42 +4609,42 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    }
 	    else if (ERTS_IS_ATOM_STR("binary_info", tp[1])) {
 		Eterm bin = tp[2];
-		if (is_binary(bin)) {
-		    Eterm real_bin = bin;
-		    Eterm res = am_true;
-		    ErlSubBin* sb = (ErlSubBin *) binary_val(real_bin);
+		if (is_bitstring(bin)) {
+                    ERTS_DECLARE_DUMMY(Uint offset);
+                    ERTS_DECLARE_DUMMY(byte *base);
+                    ERTS_DECLARE_DUMMY(Eterm br_flags);
+                    BinRef *br;
+                    Uint size;
 
-		    if (sb->thing_word == HEADER_SUB_BIN) {
-			real_bin = sb->orig;
-		    }
-		    if (*binary_val(real_bin) == HEADER_PROC_BIN) {
-			ProcBin* pb;
-			Binary* val;
-			Eterm SzTerm;
-			Uint hsz = 3 + 5;
-			Eterm* hp;
-			DECL_AM(refc_binary);
+                    ERTS_GET_BITSTRING_REF(bin, br_flags, br, base, offset, size);
 
-			pb = (ProcBin *) binary_val(real_bin);
-			val = pb->val;
-			(void) erts_bld_uint(NULL, &hsz, pb->size);
-			(void) erts_bld_uint(NULL, &hsz, val->orig_size);
-			hp = HAlloc(BIF_P, hsz);
+                    if (br != NULL) {
+                        const Binary *refc_binary = br->val;
+                        Eterm SzTerm, BinInfoTerm;
+                        DECL_AM(refc_binary);
+                        Uint heap_size;
+                        Eterm* hp;
 
-			/* Info about the Binary* object */
-			SzTerm = erts_bld_uint(&hp, NULL, val->orig_size);
-			res = TUPLE2(hp, am_binary, SzTerm);
-			hp += 3;
+                        heap_size = 3 + 5;
 
-			/* Info about the ProcBin* object */
-			SzTerm = erts_bld_uint(&hp, NULL, pb->size);
-			res = TUPLE4(hp, AM_refc_binary, SzTerm,
-				     res, make_small(pb->flags));
-		    } else {	/* heap binary */
-			DECL_AM(heap_binary);
-			res = AM_heap_binary;
-		    }
-		    BIF_RET(res);
+                        (void) erts_bld_uint(NULL, &heap_size, refc_binary->orig_size);
+                        (void) erts_bld_uint(NULL, &heap_size, NBYTES(size));
+                        hp = HAlloc(BIF_P, heap_size);
+
+                        /* Info about the Binary* object */
+                        SzTerm = erts_bld_uint(&hp, NULL, refc_binary->orig_size);
+                        BinInfoTerm = TUPLE2(hp, am_binary, SzTerm);
+                        hp += 3;
+
+                        /* Info about the binary itself */
+                        SzTerm = erts_bld_uint(&hp, NULL, NBYTES(size));
+                        BIF_RET(TUPLE4(hp, AM_refc_binary, SzTerm,
+                                       BinInfoTerm,
+                                       make_small(refc_binary->intern.flags)));
+                    } else {
+                        DECL_AM(heap_binary);
+                        BIF_RET(AM_heap_binary);
+                    }
 		}
 	    }
 	    else if (ERTS_IS_ATOM_STR("dist_ctrl", tp[1])) {
@@ -5146,14 +5152,26 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
         }
         else if (ERTS_IS_ATOM_STR("binary", BIF_ARG_1)) {
             Sint64 size;
+
             if (term_to_Sint64(BIF_ARG_2, &size)) {
-                Binary* refbin = erts_bin_drv_alloc_fnf(size);
-                if (!refbin)
-                    BIF_RET(am_false);
-                sys_memset(refbin->orig_bytes, 0, size);
-                BIF_RET(erts_build_proc_bin(&MSO(BIF_P),
-                                            HAlloc(BIF_P, PROC_BIN_SIZE),
-                                            refbin));
+                Binary *refc_binary = erts_bin_drv_alloc_fnf(size);
+
+                if (refc_binary) {
+                    Eterm *hp = HAlloc(BIF_P, ERL_REFC_BITS_SIZE);
+                    byte *data = (byte*)refc_binary->orig_bytes;
+
+                    sys_memset(data, 0, size);
+
+                    BIF_RET(erts_wrap_refc_bitstring(&MSO(BIF_P).first,
+                                                     &MSO(BIF_P).overhead,
+                                                     &hp,
+                                                     refc_binary,
+                                                     data,
+                                                     0,
+                                                     NBITS(size)));
+                }
+
+                BIF_RET(am_false);
             }
         }
         else if (ERTS_IS_ATOM_STR("ets_force_trap", BIF_ARG_1)) {
@@ -5729,7 +5747,7 @@ compilation_info_for_module(Process* p, const BeamCodeHeader* code_hdr)
 static Eterm
 md5_of_module(Process* p, const BeamCodeHeader* code_hdr)
 {
-    return new_binary(p, code_hdr->md5_ptr, MD5_SIZE);
+    return erts_new_binary_from_data(p, MD5_SIZE, code_hdr->md5_ptr);
 }
 
 static Eterm

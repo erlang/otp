@@ -383,6 +383,7 @@ atom is_constant
 atom is_seq_trace
 atom iterator
 atom io
+atom iolist_size_continue
 atom iodata
 atom iovec
 atom keypos
@@ -404,7 +405,7 @@ atom line_length
 atom linked_in_driver
 atom links
 atom list
-atom list_to_binary_continue
+atom list_to_bitstring_continue
 atom little
 atom loaded
 atom load_cancelled

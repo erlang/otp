@@ -577,11 +577,11 @@ ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
 
 /** @brief Ensure off-heap header is word aligned, make a temporary copy if
  * not. Needed when inspecting ETS off-heap lists that may contain unaligned
- * ProcBin and ErtsMRefThing if table is 'compressed'.
+ * BinRef and ErtsMRefThing if table is 'compressed'.
  */
 union erts_tmp_aligned_offheap
 {
-    ProcBin proc_bin;
+    BinRef proc_bin;
     ErtsMRefThing mref_thing;
 };
 ERTS_GLB_INLINE void erts_align_offheap(union erl_off_heap_ptr*,
@@ -625,7 +625,7 @@ erts_align_offheap(union erl_off_heap_ptr* ohp,
 {
     if ((UWord)ohp->voidp % sizeof(UWord) != 0) {
         /*
-         * ETS store word unaligned ProcBin and ErtsMRefThing in its compressed
+         * ETS store word unaligned BinRef and ErtsMRefThing in its compressed
          * format. Make a temporary aligned copy.
          *
          * Warning, must pass (void*)-variable to memcpy. Otherwise it will
@@ -633,9 +633,9 @@ erts_align_offheap(union erl_off_heap_ptr* ohp,
          * about word aligned memory (type cast is not enough).
          */
         sys_memcpy(tmp, ohp->voidp, sizeof(Eterm)); /* thing_word */
-        if (tmp->proc_bin.thing_word == HEADER_PROC_BIN) {
+        if (tmp->proc_bin.thing_word == HEADER_BIN_REF) {
             sys_memcpy(tmp, ohp->voidp, sizeof(tmp->proc_bin));
-            ohp->pb = &tmp->proc_bin;
+            ohp->br = &tmp->proc_bin;
         }
         else {
             sys_memcpy(tmp, ohp->voidp, sizeof(tmp->mref_thing));

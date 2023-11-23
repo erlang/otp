@@ -27,9 +27,7 @@ my @beam_global_funcs = qw(
     bif_nif_epilogue
     bif_export_trap
     bif_bit_size_body
-    bif_bit_size_guard
     bif_byte_size_body
-    bif_byte_size_guard
     bif_element_body_shared
     bif_element_guard_shared
     bif_is_eq_exact_shared
@@ -38,7 +36,6 @@ my @beam_global_funcs = qw(
     bif_tuple_size_guard
     bs_add_guard_shared
     bs_add_body_shared
-    bs_bit_size_shared
     bs_create_bin_error_shared
     bs_get_tail_shared
     bs_get_utf8_shared
@@ -196,7 +193,6 @@ $decl_emit_funcs
     void emit_raise_badarg(const ErtsCodeMFA *mfa);
 
     void emit_bif_bit_size_helper(Label fail);
-    void emit_bif_byte_size_helper(Label fail);
     void emit_bif_element_helper(Label fail);
     void emit_bif_tuple_size_helper(Label fail);
 

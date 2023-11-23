@@ -239,15 +239,12 @@ erts_init_gc(void)
     int i = 0, ix;
     Sint max_heap_size = 0;
 
-    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
-    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
-    ERTS_CT_ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
-    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
-    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
-    ERTS_CT_ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
-    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
-    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
-    ERTS_CT_ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
+    ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
+    ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ErlFunThing,thing_word));
+    ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ExternalThing,header));
+    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(struct erl_off_heap_header,next));
+    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(ErlFunThing,next));
+    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(ExternalThing,next));
 
     erts_test_long_gc_sleep = 0;
 
@@ -485,11 +482,11 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 static ERTS_INLINE void assert_no_active_writers(Process *p)
 {
 #ifdef DEBUG
-    ProcBin *pb = (ProcBin*) p->wrt_bins;
-    while (pb) {
-	ASSERT(pb->thing_word == HEADER_PROC_BIN);
-        ERTS_ASSERT(!(pb->flags & PB_ACTIVE_WRITER));
-	pb = (ProcBin*) pb->next;
+    BinRef *br = (BinRef*)p->wrt_bins;
+    while (br) {
+        ASSERT(br->thing_word == HEADER_BIN_REF);
+        ERTS_ASSERT(!((br->val)->intern.flags & BIN_FLAG_ACTIVE_WRITER));
+        br = (BinRef*)br->next;
     }
 #endif
 }
@@ -1309,17 +1306,18 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
             ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
             switch (thing_subtag(ptr->thing_word)) {
-            case REFC_BINARY_SUBTAG:
+            case BIN_REF_SUBTAG:
                 {
-                    Binary* bptr = ((ProcBin*)ptr)->val;
-                    erts_refc_inc(&bptr->intern.refc, 2);
+                    Binary *refc_binary = ((BinRef*)ptr)->val;
+                    ASSERT(refc_binary->intern.flags == 0);
+                    erts_refc_inc(&refc_binary->intern.refc, 2);
                     break;
                 }
             case FUN_SUBTAG:
                 {
                     /* We _KNOW_ that this is a local fun, otherwise it would
                      * not be part of the off-heap list. */
-                    ErlFunEntry* fe = ((ErlFunThing*)ptr)->entry.fun;
+                    ErlFunEntry *fe = ((ErlFunThing*)ptr)->entry.fun;
                     ASSERT(is_local_fun((ErlFunThing*)ptr));
                     erts_refc_inc(&fe->refc, 2);
                     break;
@@ -1740,13 +1738,13 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 			val = *ptr;
 			if (IS_MOVED_BOXED(val)) {
 			    *origptr = val;
-			    mb->base = binary_bytes(val);
+			    mb->base = matchbuffer_base(val);
 			} else if (ErtsInArea(ptr, mature, mature_size)) {
 			    move_boxed(ptr,val,&old_htop,origptr);
-			    mb->base = binary_bytes(mb->orig);
+			    mb->base = matchbuffer_base(mb->orig);
 			} else if (ErtsInYoungGen(*origptr, ptr, oh, oh_size)) {
 			    move_boxed(ptr,val,&n_htop,origptr);
-			    mb->base = binary_bytes(mb->orig);
+			    mb->base = matchbuffer_base(mb->orig);
 			}
 		    }
 		    n_hp += (thing_arityval(gval)+1);
@@ -2299,10 +2297,10 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 		    val = *ptr;
 		    if (IS_MOVED_BOXED(val)) {
 			*origptr = val;
-			mb->base = binary_bytes(*origptr);
+			mb->base = matchbuffer_base(*origptr);
 		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
 			move_boxed(ptr,val,&n_htop,origptr);
-			mb->base = binary_bytes(*origptr);
+			mb->base = matchbuffer_base(*origptr);
 		    }
 		}
 		n_hp += (thing_arityval(gval)+1);
@@ -2395,10 +2393,10 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 		    val = *ptr;
 		    if (IS_MOVED_BOXED(val)) {
 			*origptr = val;
-			mb->base = binary_bytes(*origptr);
+			mb->base = matchbuffer_base(*origptr);
 		    } else if (ErtsInArea(ptr, src, src_size)) {
 			move_boxed(ptr,val,&htop,origptr);
-			mb->base = binary_bytes(*origptr);
+			mb->base = matchbuffer_base(*origptr);
 		    }
 		}
 		heap_ptr += (thing_arityval(gval)+1);
@@ -2519,7 +2517,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    case REF_SUBTAG:
 		if (!is_magic_ref_thing(fhp - 1))
 		    goto the_default;
-	    case REFC_BINARY_SUBTAG:
+	    case BIN_REF_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -2913,20 +2911,27 @@ next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz) {
 }
 
 static ERTS_INLINE void
-shrink_writable_bin(ProcBin *pb, Uint leave_unused)
+shrink_writable_binary(BinRef *br, Uint leave_unused)
 {
-    Uint new_size = pb->size;
+    Binary *binary;
+    Uint new_size;
 
-    if (leave_unused) {
-        new_size += (new_size * 100) / leave_unused;
-        /* Our allocators are 8 byte aligned, i.e., shrinking with
-           less than 8 bytes will have no real effect */
-        if (new_size + 8 >= pb->val->orig_size)
-            return;
+    binary = br->val;
+
+    new_size = binary->intern.apparent_size;
+    ASSERT(binary->orig_size >= new_size);
+
+    new_size += (new_size * leave_unused) / 100;
+
+    /* Our allocators are 8 byte aligned, i.e. shrinking with less than 8 bytes
+     * will have no real effect */
+    if ((new_size + 8) < binary->orig_size) {
+        ASSERT(erts_refc_read(&binary->intern.refc, 1) == 1);
+        binary = erts_bin_realloc(binary, new_size);
+
+        br->val = binary;
+        br->bytes = (byte*)binary->orig_bytes;
     }
-    ASSERT(erts_refc_read(&pb->val->intern.refc, 1) == 1);
-    pb->val = erts_bin_realloc(pb->val, new_size);
-    pb->bytes = (byte *) pb->val->orig_bytes;
 }
 
 #ifdef ERTS_MAGIC_REF_THING_HEADER
@@ -2955,8 +2960,8 @@ sweep_off_heap(Process *p, int fullsweep)
 #endif
     Uint shrink_ncandidates;
     Uint shrink_nactive;
-    ProcBin* shrink_unresolved_end;
-    ProcBin* pb;
+    BinRef *shrink_unresolved_end;
+    BinRef *br;
 
     if (fullsweep == 0) {
 	oheap = (char *) OLD_HEAP(p);
@@ -2980,15 +2985,26 @@ sweep_off_heap(Process *p, int fullsweep)
             *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    switch (ptr->thing_word) {
-	    case HEADER_PROC_BIN: {
-		int to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
-		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
-		if (to_new_heap) {
-		    bin_vheap += ptr->size / sizeof(Eterm);
-		} else {
-		    p->bin_old_vheap += ptr->size / sizeof(Eterm);
-		}
-                ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
+	    case HEADER_BIN_REF: {
+                Binary *refc_binary;
+                int to_new_heap;
+                Uint overhead;
+
+                br = (BinRef*)ptr;
+                refc_binary = br->val;
+
+                ASSERT(!(refc_binary->intern.flags &
+                         (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
+
+                overhead = refc_binary->orig_size;
+                to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
+                ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
+
+                if (to_new_heap) {
+                    bin_vheap += overhead / sizeof(Eterm);
+                } else {
+                    p->bin_old_vheap += overhead / sizeof(Eterm);
+                }
                 break;
             }
             case ERTS_USED_MAGIC_REF_THING_HEADER__: {
@@ -3024,9 +3040,9 @@ sweep_off_heap(Process *p, int fullsweep)
         else {
 	    /* garbage */
 	    switch (thing_subtag(ptr->thing_word)) {
-	    case REFC_BINARY_SUBTAG:
+	    case BIN_REF_SUBTAG:
 		{
-                    erts_bin_release(((ProcBin*)ptr)->val);
+                    erts_bin_release(((BinRef*)ptr)->val);
 		    break;
 		}
 	    case FUN_SUBTAG:
@@ -3078,9 +3094,13 @@ sweep_off_heap(Process *p, int fullsweep)
             ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
             ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
             switch (ptr->thing_word) {
-            case HEADER_PROC_BIN:
-                ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
-                break;
+            case HEADER_BIN_REF:
+                {
+                    const BinRef *br = (BinRef*)ptr;
+                    ASSERT(!((br->val)->intern.flags &
+                             (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
+                    break;
+                }
             default:
                 ASSERT(is_fun_header(ptr->thing_word) ||
                        is_external_header(ptr->thing_word) ||
@@ -3101,35 +3121,47 @@ sweep_off_heap(Process *p, int fullsweep)
     shrink_ncandidates = 0;         /* number of candidates for shrinking */
     shrink_unresolved_end = NULL;   /* end marker for second traversal */
 
-    pb = (ProcBin*) p->wrt_bins;
+    br = (BinRef*)p->wrt_bins;
     prev = &p->wrt_bins;
-    while (pb) {
+
+    while (br) {
+        Binary *refc_binary;
         int on_old_heap;
-        if (IS_MOVED_BOXED(pb->thing_word)) {
-            ASSERT(!ErtsInArea(pb, oheap, oheap_sz));
-            pb = (ProcBin*) boxed_val(pb->thing_word);
-            *prev = (struct erl_off_heap_header*) pb;
-            ASSERT(pb->thing_word == HEADER_PROC_BIN);
-            on_old_heap = ErtsInArea(pb, oheap, oheap_sz);
+
+        refc_binary = br->val;
+
+        if (IS_MOVED_BOXED(br->thing_word)) {
+            Uint overhead;
+
+            ASSERT(!ErtsInArea(br, oheap, oheap_sz));
+
+            br = (BinRef*)boxed_val(br->thing_word);
+            overhead = (br->val)->orig_size;
+
+            *prev = (struct erl_off_heap_header*) br;
+            ASSERT(br->thing_word == HEADER_BIN_REF);
+
+            on_old_heap = ErtsInArea(br, oheap, oheap_sz);
             if (!on_old_heap) {
-                bin_vheap += pb->size / sizeof(Eterm);
+                bin_vheap += overhead / sizeof(Eterm);
             } else {
-                p->bin_old_vheap += pb->size / sizeof(Eterm);
+                p->bin_old_vheap += overhead / sizeof(Eterm);
             }
         }
         else {
-            ASSERT(pb->thing_word == HEADER_PROC_BIN);
-            on_old_heap = ErtsInArea(pb, oheap, oheap_sz);
+            ASSERT(br->thing_word == HEADER_BIN_REF);
+            on_old_heap = ErtsInArea(br, oheap, oheap_sz);
             if (!on_old_heap) {
                 /* garbage */
-                erts_bin_release(pb->val);
-                pb = (ProcBin*) pb->next;
-                *prev = (struct erl_off_heap_header*) pb;
+                erts_bin_release(br->val);
+                br = (BinRef*) br->next;
+                *prev = (struct erl_off_heap_header*) br;
                 continue;
             }
         }
-        if (pb->flags) {
-            ASSERT(pb->flags & PB_IS_WRITABLE);
+
+        if (refc_binary->intern.flags) {
+            ASSERT(refc_binary->intern.flags & BIN_FLAG_WRITABLE);
 
             /*
              * How to shrink writable binaries. There are two distinct cases:
@@ -3148,43 +3180,48 @@ sweep_off_heap(Process *p, int fullsweep)
              *   shrink candidates
              */
 
-            if (pb->flags & PB_ACTIVE_WRITER) {
-                pb->flags &= ~PB_ACTIVE_WRITER;
+            if (refc_binary->intern.flags & BIN_FLAG_ACTIVE_WRITER) {
+                refc_binary->intern.flags &= ~BIN_FLAG_ACTIVE_WRITER;
                 shrink_nactive++;
                 if (!shrink_unresolved_end)
-                    shrink_unresolved_end = pb;
+                    shrink_unresolved_end = br;
             }
             else { /* inactive */
-                Uint unused = pb->val->orig_size - pb->size;
                 /* Our allocators are 8 byte aligned, i.e., shrinking with
                    less than 8 bytes will have no real effect */
-                if (unused >= 8) { /* A shrink candidate */
+                Uint used_size = refc_binary->intern.apparent_size;
+                if (refc_binary->orig_size - used_size >= 8) {
+                    /* A shrink candidate */
                     if (shrink_unresolved_end) {
-                        shrink_writable_bin(pb, 0);
+                        shrink_writable_binary(br, 0);
+                    } else {
+                        if (shrink_ncandidates >= ERTS_INACT_WR_PB_LEAVE_LIMIT) {
+                            shrink_unresolved_end = br;
+                            shrink_writable_binary(br, 0);
+                        }
+
+                        /* else unresolved, handle in second traversal below */
+                        shrink_ncandidates++;
                     }
-                    else if (++shrink_ncandidates > ERTS_INACT_WR_PB_LEAVE_LIMIT) {
-                        shrink_unresolved_end = pb;
-                        shrink_writable_bin(pb, 0);
-                    }
-                    /* else unresolved, handle in second traversal below */
                 }
             }
-            prev = &pb->next;
-            pb = (ProcBin*) pb->next;
+
+            prev = &br->next;
+            br = (BinRef*) br->next;
         }
         else {   /* emasculated, move to regular off-heap list */
-            struct erl_off_heap_header* next = pb->next;
+            struct erl_off_heap_header* next = br->next;
             if (on_old_heap) {
-                pb->next = *insert_old_here;
-                *insert_old_here = (struct erl_off_heap_header*)pb;
+                br->next = *insert_old_here;
+                *insert_old_here = (struct erl_off_heap_header*)br;
             }
             else {
-                pb->next = p->off_heap.first;
-                p->off_heap.first = (struct erl_off_heap_header*)pb;
+                br->next = p->off_heap.first;
+                p->off_heap.first = (struct erl_off_heap_header*)br;
                 if (insert_old_here == &p->off_heap.first)
-                    insert_old_here = &pb->next;
+                    insert_old_here = &br->next;
             }
-            pb = (ProcBin*) next;
+            br = (BinRef*) next;
             *prev = next;
         }
     }
@@ -3196,19 +3233,19 @@ sweep_off_heap(Process *p, int fullsweep)
 	Uint leave_unused = 0;
 
         if (shrink_nactive == 0) {
-	    if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT)
-		leave_unused = ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE;
-	    else if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_LIMIT)
+            if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT) {
+                leave_unused = ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE;
+            } else if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_LIMIT) {
                 leave_unused = ERTS_INACT_WR_PB_LEAVE_PERCENTAGE;
-	}
+            }
+        }
 
-        for (pb = (ProcBin *)p->wrt_bins;
-             pb != shrink_unresolved_end;
-             pb = (ProcBin *)pb->next) {
-            ASSERT(pb);
-            ASSERT(pb->flags == PB_IS_WRITABLE);
-            shrink_writable_bin(pb, leave_unused);
-	}
+        for (br = (BinRef*)p->wrt_bins;
+             br != shrink_unresolved_end;
+             br = (BinRef*)br->next) {
+            ASSERT(br && (br->val)->intern.flags == BIN_FLAG_WRITABLE);
+            shrink_writable_binary(br, leave_unused);
+        }
     }
 
     if (fullsweep) {
@@ -3250,7 +3287,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      case REF_SUBTAG:
 		  if (!is_magic_ref_thing(hp))
 		      break;
-	      case REFC_BINARY_SUBTAG:
+	      case BIN_REF_SUBTAG:
 	      case FUN_SUBTAG:
 	      case EXTERNAL_PID_SUBTAG:
 	      case EXTERNAL_PORT_SUBTAG:
@@ -3279,7 +3316,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		  ErlBinMatchBuffer *mb = &(ms->mb);
 		  if (ErtsInArea(ptr_val(mb->orig), area, area_size)) {
 		      mb->orig = offset_ptr(mb->orig, offs);
-		      mb->base = binary_bytes(mb->orig);
+		      mb->base = matchbuffer_base(mb->orig);
 		  }
 		}
 		break;
@@ -3549,38 +3586,6 @@ reply_gc_info(void *vgcirp)
     if (erts_atomic32_dec_read_nob(&gcirp->refc) == 0)
 	gcireq_free(vgcirp);
 }
-
-Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig) {
-    Eterm *htop = *hpp;
-    Eterm gval;
-    ErlSubBin *sb = (ErlSubBin *)ptr;
-    ErlHeapBin *hb = (ErlHeapBin *)htop;
-    Eterm *real_bin;
-    byte *bs;
-
-    real_bin = binary_val(follow_moved(sb->orig, (Eterm)0));
-
-    if (*real_bin == HEADER_PROC_BIN) {
-        bs = ((ProcBin *) real_bin)->bytes + sb->offs;
-    } else {
-        bs = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + sb->offs;
-    }
-
-    hb->thing_word = header_heap_bin(sb->size);
-    hb->size = sb->size;
-    sys_memcpy((byte *)hb->data, bs, sb->size);
-
-    gval  = make_boxed(htop);
-    *orig = gval;
-    *ptr  = gval;
-
-    ptr  += ERL_SUB_BIN_SIZE;
-    htop += heap_bin_size(sb->size);
-
-    *hpp = htop;
-    return ptr;
-}
-
 
 Eterm
 erts_gc_info_request(Process *c_p)
@@ -3974,7 +3979,7 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
             switch (val & _HEADER_SUBTAG_MASK) {
             case ARITYVAL_SUBTAG:
                 break;
-            case REFC_BINARY_SUBTAG:
+            case BIN_REF_SUBTAG:
                 goto off_heap_common;
             case FUN_SUBTAG:
                 goto off_heap_common;
@@ -4124,8 +4129,8 @@ repeat:
     for (; u.hdr; u.hdr = u.hdr->next) {
 	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
-	    refc = erts_refc_read(&u.pb->val->intern.refc, 1);
+	case BIN_REF_SUBTAG:
+	    refc = erts_refc_read(&(u.br->val)->intern.refc, 1);
 	    break;
         case FUN_SUBTAG:
             if (is_local_fun(u.fun)) {

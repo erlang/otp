@@ -108,19 +108,26 @@
 #define FUNNY_NUMBER14 268440611
 
 static Uint32
-hash_binary_bytes(Eterm bin, Uint sz, Uint32 hash)
+hash_binary_bytes(Eterm bin, Uint32 hash)
 {
+    Uint bitoffs, bitsize, bytesize, i;
+    Uint offset, size;
     byte* ptr;
-    Uint bitoffs;
-    Uint bitsize;
 
-    ERTS_GET_BINARY_BYTES(bin, ptr, bitoffs, bitsize);
+    ERTS_GET_BITSTRING(bin, ptr, offset, size);
+
+    ptr += BYTE_OFFSET(offset);
+    bytesize = BYTE_SIZE(size);
+    bitoffs = BIT_OFFSET(offset);
+    bitsize = TAIL_BITS(size);
+
     if (bitoffs == 0) {
-        while (sz--) {
-            hash = hash*FUNNY_NUMBER1 + *ptr++;
+        for (i = 0; i < bytesize; i++) {
+            hash = hash*FUNNY_NUMBER1 + ptr[i];
         }
+
         if (bitsize > 0) {
-            byte b = *ptr;
+            byte b = ptr[i];
 
             b >>= 8 - bitsize;
             hash = (hash*FUNNY_NUMBER1 + b) * FUNNY_NUMBER12 + bitsize;
@@ -131,22 +138,24 @@ hash_binary_bytes(Eterm bin, Uint sz, Uint32 hash)
         Uint lshift = bitoffs;
         Uint rshift = 8 - lshift;
 
-        while (sz--) {
+        for (i = 0; i < bytesize; i++) {
             b = (previous << lshift) & 0xFF;
-            previous = *ptr++;
+            previous = ptr[i];
             b |= previous >> rshift;
             hash = hash*FUNNY_NUMBER1 + b;
         }
+
         if (bitsize > 0) {
             b = (previous << lshift) & 0xFF;
-            previous = *ptr++;
+            previous = ptr[i];
             b |= previous >> rshift;
 
             b >>= 8 - bitsize;
             hash = (hash*FUNNY_NUMBER1 + b) * FUNNY_NUMBER12 + bitsize;
         }
     }
-    return hash;
+
+    return hash * FUNNY_NUMBER4 + bytesize;
 }
 
 Uint32 make_hash(Eterm term_arg)
@@ -216,12 +225,9 @@ tail_recur:
             hash *= (y1 < 0 ? FUNNY_NUMBER4 : FUNNY_NUMBER3);
             break;
         }
-    case BINARY_DEF:
+    case BITSTRING_DEF:
         {
-            Uint sz = binary_size(term);
-
-            hash = hash_binary_bytes(term, sz, hash);
-            hash = hash*FUNNY_NUMBER4 + sz;
+            hash = hash_binary_bytes(term, hash);
             break;
         }
     case FUN_DEF:
@@ -1197,31 +1203,29 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 }
             }
             break;
-            case REFC_BINARY_SUBTAG:
-            case HEAP_BINARY_SUBTAG:
-            case SUB_BINARY_SUBTAG:
+            case BIN_REF_SUBTAG:
+            case HEAP_BITS_SUBTAG:
+            case SUB_BITS_SUBTAG:
             {
 #define BYTE_BITS 8
-                ErtsMakeHash2Context_SUB_BINARY_SUBTAG ctx = {
-                    .bptr = 0,
-                    /* !!!!!!!!!!!!!!!!!!!! OBS !!!!!!!!!!!!!!!!!!!!
-                     *
-                     * The size is truncated to 32 bits on the line
-                     * below so that the code is compatible with old
-                     * versions of the code. This means that hash
-                     * values for binaries with a size greater than
-                     * 4GB do not take all bytes in consideration.
-                     *
-                     * !!!!!!!!!!!!!!!!!!!! OBS !!!!!!!!!!!!!!!!!!!!
-                     */ 
-                    .sz = (0xFFFFFFFF & binary_size(term)),
-                    .bitsize = 0,
-                    .bitoffs = 0,
-                    .no_bytes_processed = 0
-                };
+                ErtsMakeHash2Context_SUB_BINARY_SUBTAG ctx = {0};
                 Uint32 con = HCONST_13 + hash;
-                Uint iters_for_bin = MAX(1, ctx.sz / BLOCK_HASH_BYTES_PER_ITER);
-                ERTS_GET_BINARY_BYTES(term, ctx.bptr, ctx.bitoffs, ctx.bitsize);
+                Uint offset, size;
+                Uint iters_for_bin;
+
+                ERTS_GET_BITSTRING(term, ctx.bptr, offset, size);
+
+                /* Note that for compatibility with older versions, the size in
+                 * bytes is truncated to 32 bits. This means that hash values
+                 * for binaries larger than that will not take all bytes into
+                 * consideration. */
+                ctx.sz = BYTE_SIZE(size) & 0xFFFFFFFF;
+                ctx.bitsize = TAIL_BITS(size);
+                ctx.bptr += BYTE_OFFSET(offset);
+                ctx.bitoffs = BIT_OFFSET(offset);
+
+                iters_for_bin = MAX(1, ctx.sz / BLOCK_HASH_BYTES_PER_ITER);
+
                 if (ctx.sz == 0 && ctx.bitsize == 0) {
                     hash = con;
                 } else if (ctx.bitoffs == 0 &&
@@ -1930,41 +1934,42 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                 }
             }
             break;
-            case REFC_BINARY_SUBTAG:
-            case HEAP_BINARY_SUBTAG:
-            case SUB_BINARY_SUBTAG:
+            case BIN_REF_SUBTAG:
+            case HEAP_BITS_SUBTAG:
+            case SUB_BITS_SUBTAG:
             {
-                Uint bit_offset, bit_size, byte_size;
+                Uint offset, size;
                 const byte *data;
 
-                ERTS_GET_BINARY_BYTES(term, data, bit_offset, bit_size);
-                byte_size = binary_size(term);
+                ERTS_GET_BITSTRING(term, data, offset, size);
 
-                IHASH_MIX_ALPHA_2F32(IHASH_TYPE_BINARY, bit_size);
-                IHASH_MIX_BETA(byte_size);
+                IHASH_MIX_ALPHA(IHASH_TYPE_BINARY);
+                IHASH_MIX_BETA(offset);
+                IHASH_MIX_ALPHA(size);
 
-                if (byte_size > 0 || bit_size > 0) {
+                if (size > 0) {
                     const byte *bytes = data;
                     Uint64 value;
                     Uint it;
 
-                    if (ERTS_UNLIKELY(bit_offset != 0)) {
+                    if (BIT_OFFSET(offset) != 0) {
                         byte *tmp = (byte*)erts_alloc(ERTS_ALC_T_TMP,
-                                                  byte_size + (bit_size != 0));
-                        erts_copy_bits(data, bit_offset, 1, tmp, 0, 1,
-                                       byte_size * 8 + bit_size);
+                                                      NBYTES(size));
+                        erts_copy_bits(data, offset, 1, tmp, 0, 1, size);
                         bytes = tmp;
+                    } else {
+                        bytes = &data[BYTE_OFFSET(offset)];
                     }
 
                     for (it = 0;
-                         (it + sizeof(Uint64[2])) <= byte_size;
+                         it + sizeof(Uint64[2]) <= BYTE_SIZE(size);
                          it += sizeof(Uint64[2])) {
                         IHASH_MIX_ALPHA(read_u64(&bytes[it]));
                         IHASH_MIX_BETA(read_u64(&bytes[it + sizeof(Uint64)]));
                     }
 
                     value = 0;
-                    switch(byte_size % sizeof(Uint64[2]))
+                    switch(BYTE_SIZE(size) % sizeof(Uint64[2]))
                     {
                     case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30;
                     case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28;
@@ -1998,11 +2003,12 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                         }
                     };
 
-                    if (bit_size > 0) {
-                        IHASH_MIX_ALPHA(bytes[byte_size] >> (8 - bit_size));
+                    if (TAIL_BITS(size) != 0) {
+                        const byte shift = (8 - TAIL_BITS(size));
+                        IHASH_MIX_ALPHA(bytes[BYTE_OFFSET(size)] >> shift);
                     }
 
-                    if (bytes != data) {
+                    if (BIT_OFFSET(offset) != 0) {
                         erts_free(ERTS_ALC_T_TMP, (void *)bytes);
                     }
                 }
