@@ -636,6 +636,7 @@ $ <input>erl \
           <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument, or an empty list
           if no arguments are passed. All further arguments occurring after
           this option are passed to the specified function as strings.
+          Implies <c><![CDATA[-noshell]]></c>.
           See <seeerl marker="init"> <c>init(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c> (init

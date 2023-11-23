@@ -1035,6 +1035,7 @@ int main(int argc, char **argv)
                         /* This is a -S passed on command line */
 			process_args = 0;
 			ADD_BOOT_CONFIG;
+			add_arg("-noshell");
 			add_arg("-S");
                     } else {
 			add_arg(argv[i]);
