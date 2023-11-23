@@ -215,7 +215,7 @@ struct BeamModuleAssemblerCommon {
         switch (tag_val_def(constant)) {
         case ATOM_DEF:
             return BeamTypeId::Atom;
-        case BINARY_DEF:
+        case BITSTRING_DEF:
             return BeamTypeId::Bitstring;
         case FLOAT_DEF:
             return BeamTypeId::Float;
@@ -491,7 +491,7 @@ public:
 static const Uint BSC_SEGMENT_OFFSET = 10;
 
 typedef enum : Uint {
-    BSC_OP_BINARY = 0,
+    BSC_OP_BITSTRING = 0,
     BSC_OP_FLOAT = 1,
     BSC_OP_INTEGER = 2,
     BSC_OP_UTF8 = 3,

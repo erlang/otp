@@ -576,14 +576,18 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    PRINT_DOUBLE(res, fn, arg, 'e', 6, 0, ff.fd);
 	}
 	    break;
-	case BINARY_DEF:
+	case BITSTRING_DEF:
 	    {
-		byte* bytep;
-		Uint bytesize = binary_size(obj);
-		Uint bitoffs;
-		Uint bitsize;
-		byte octet;
-		ERTS_GET_BINARY_BYTES(obj, bytep, bitoffs, bitsize);
+                Uint bitoffs, bitsize, bytesize;
+                Uint size, offset;
+                byte* bytep;
+                byte octet;
+
+                ERTS_GET_BITSTRING(obj, bytep, offset, size);
+                bytep += BYTE_OFFSET(offset);
+                bitoffs = BIT_OFFSET(offset);
+                bytesize = BYTE_SIZE(size);
+                bitsize = TAIL_BITS(size);
 
 		if (bitsize || !bytesize
 		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {
@@ -770,6 +774,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
         }
 	case MATCHSTATE_DEF:
 	    PRINT_STRING(res, fn, arg, "#MatchState");
+	    break;
+	case BIN_REF_DEF:
+	    PRINT_STRING(res, fn, arg, "#BinRef");
 	    break;
         default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");

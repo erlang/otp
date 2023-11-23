@@ -812,54 +812,46 @@ void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
 Eterm beam_jit_bs_init(Process *c_p,
                        Eterm *reg,
                        ERL_BITS_DECLARE_STATEP,
-                       Eterm num_bytes,
+                       Uint num_bytes,
                        Uint alloc,
                        unsigned Live) {
+    const Uint num_bits = NBITS(num_bytes);
+
     erts_bin_offset = 0;
-    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb;
+    if (num_bytes <= ERL_ONHEAP_BINARY_LIMIT) {
+        ErlHeapBits *hb;
         Uint bin_need;
 
-        bin_need = heap_bin_size(num_bytes);
-        gc_test(c_p, reg, 0, bin_need + alloc + ERL_SUB_BIN_SIZE, Live);
-        hb = (ErlHeapBin *)c_p->htop;
+        bin_need = heap_bits_size(num_bits);
+        gc_test(c_p, reg, 0, bin_need + alloc + ERL_SUB_BITS_SIZE, Live);
+
+        hb = (ErlHeapBits *)c_p->htop;
         c_p->htop += bin_need;
-        hb->thing_word = header_heap_bin(num_bytes);
-        hb->size = num_bytes;
+
+        hb->thing_word = header_heap_bits(num_bits);
+        ERTS_SET_HB_SIZE(hb, num_bits);
+
         erts_current_bin = (byte *)hb->data;
-        return make_binary(hb);
+        return make_bitstring(hb);
     } else {
-        Binary *bptr;
-        ProcBin *pb;
+        Binary *new_binary;
 
         test_bin_vheap(c_p,
                        reg,
                        num_bytes / sizeof(Eterm),
-                       alloc + PROC_BIN_SIZE,
+                       alloc + ERL_REFC_BITS_SIZE,
                        Live);
 
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(num_bytes);
-        erts_current_bin = (byte *)bptr->orig_bytes;
+        new_binary = erts_bin_nrml_alloc(num_bytes);
+        erts_current_bin = (byte *)new_binary->orig_bytes;
 
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *)c_p->htop;
-        c_p->htop += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = num_bytes;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header *)pb;
-        pb->val = bptr;
-        pb->bytes = (byte *)bptr->orig_bytes;
-        pb->flags = 0;
-
-        OH_OVERHEAD(&(MSO(c_p)), num_bytes / sizeof(Eterm));
-
-        return make_binary(pb);
+        return erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                        &MSO(c_p).overhead,
+                                        &HEAP_TOP(c_p),
+                                        new_binary,
+                                        erts_current_bin,
+                                        0,
+                                        num_bits);
     }
 }
 
@@ -869,79 +861,43 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
                             Uint num_bits,
                             Uint alloc,
                             unsigned Live) {
-    Eterm new_binary;
-    Uint num_bytes = ((Uint64)num_bits + (Uint64)7) >> 3;
-
-    if (num_bits & 7) {
-        alloc += ERL_SUB_BIN_SIZE;
-    }
-    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-        alloc += heap_bin_size(num_bytes);
+    if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        alloc += heap_bits_size(num_bits);
     } else {
-        alloc += PROC_BIN_SIZE;
+        alloc += ERL_REFC_BITS_SIZE;
     }
 
     erts_bin_offset = 0;
 
-    /* num_bits = Number of bits to build
-     * num_bytes = Number of bytes to allocate in the binary
-     * alloc = Total number of words to allocate on heap
-     * Operands: NotUsed NotUsed Dst
-     */
-    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb;
+    if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        ErlHeapBits *hb;
 
         gc_test(c_p, reg, 0, alloc, Live);
-        hb = (ErlHeapBin *)c_p->htop;
-        c_p->htop += heap_bin_size(num_bytes);
-        hb->thing_word = header_heap_bin(num_bytes);
-        hb->size = num_bytes;
+        hb = (ErlHeapBits *)c_p->htop;
+
+        c_p->htop += heap_bits_size(num_bits);
+        hb->thing_word = header_heap_bits(num_bits);
+        ERTS_SET_HB_SIZE(hb, num_bits);
+
         erts_current_bin = (byte *)hb->data;
-        new_binary = make_binary(hb);
+        return make_bitstring(hb);
     } else {
-        Binary *bptr;
-        ProcBin *pb;
+        const Uint num_bytes = NBYTES(num_bits);
+        Binary *new_binary;
 
         test_bin_vheap(c_p, reg, num_bytes / sizeof(Eterm), alloc, Live);
 
-        /*
-         * Allocate the binary struct itself.
-         */
-        bptr = erts_bin_nrml_alloc(num_bytes);
-        erts_current_bin = (byte *)bptr->orig_bytes;
+        new_binary = erts_bin_nrml_alloc(num_bytes);
+        erts_current_bin = (byte *)new_binary->orig_bytes;
 
-        /*
-         * Now allocate the ProcBin on the heap.
-         */
-        pb = (ProcBin *)c_p->htop;
-        c_p->htop += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = num_bytes;
-        pb->next = MSO(c_p).first;
-        MSO(c_p).first = (struct erl_off_heap_header *)pb;
-        pb->val = bptr;
-        pb->bytes = (byte *)bptr->orig_bytes;
-        pb->flags = 0;
-        OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
-        new_binary = make_binary(pb);
+        return erts_wrap_refc_bitstring(&MSO(c_p).first,
+                                        &MSO(c_p).overhead,
+                                        &HEAP_TOP(c_p),
+                                        new_binary,
+                                        erts_current_bin,
+                                        0,
+                                        num_bits);
     }
-
-    if (num_bits & 7) {
-        ErlSubBin *sb;
-
-        sb = (ErlSubBin *)c_p->htop;
-        c_p->htop += ERL_SUB_BIN_SIZE;
-        sb->thing_word = HEADER_SUB_BIN;
-        sb->size = num_bytes - 1;
-        sb->bitsize = num_bits & 7;
-        sb->offs = 0;
-        sb->bitoffs = 0;
-        sb->is_writable = 0;
-        sb->orig = new_binary;
-        new_binary = make_binary(sb);
-    }
-
-    return new_binary;
 }
 
 Eterm beam_jit_bs_get_integer(Process *c_p,
@@ -994,7 +950,7 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
     Eterm value = am_undefined;
 
     switch (op) {
-    case BSC_OP_BINARY:
+    case BSC_OP_BITSTRING:
         Op = am_binary;
         break;
     case BSC_OP_FLOAT:
@@ -1057,8 +1013,8 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
         Info = am_unit;
         break;
     case BSC_INFO_DEPENDS:
-        ASSERT(op == BSC_OP_BINARY);
-        Info = is_binary(value) ? am_short : am_type;
+        ASSERT(op == BSC_OP_BITSTRING);
+        Info = is_bitstring(value) ? am_short : am_type;
         break;
     }
 
@@ -1077,10 +1033,13 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
 }
 
 Sint beam_jit_bs_bit_size(Eterm term) {
-    if (is_binary(term)) {
+    if (is_bitstring(term)) {
+        Uint size = bitstring_size(term);
+
         ASSERT(sizeof(Uint) == 8); /* Only support 64-bit machines. */
-        Uint byte_size = binary_size(term);
-        return (Sint)((byte_size << 3) + binary_bitsize(term));
+        ASSERT(size <= ERTS_SINT_MAX);
+
+        return (Sint)size;
     }
 
     /* Signal error */

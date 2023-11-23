@@ -202,15 +202,16 @@ BIF_RETTYPE is_tuple_1(BIF_ALIST_1)
 
 BIF_RETTYPE is_binary_1(BIF_ALIST_1)
 {
-    if (is_binary(BIF_ARG_1) && binary_bitsize(BIF_ARG_1) == 0) {
-	BIF_RET(am_true);
+    if (is_bitstring(BIF_ARG_1) && TAIL_BITS(bitstring_size(BIF_ARG_1)) == 0) {
+        BIF_RET(am_true);
     }
+
     BIF_RET(am_false);
 }
 
 BIF_RETTYPE is_bitstring_1(BIF_ALIST_1)
 {
-    if (is_binary(BIF_ARG_1)) {
+    if (is_bitstring(BIF_ARG_1)) {
 	BIF_RET(am_true);
     }
     BIF_RET(am_false);

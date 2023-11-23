@@ -940,64 +940,57 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     a.jne(resolve_beam_label(Fail));
 }
 
-void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                         const ArgSource &Src) {
-    Label is_binary = a.newLabel(), next = a.newLabel();
-
-    mov_arg(ARG1, Src);
-
-    emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
-
-    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
-        const auto diff_mask = _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
-        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
-                       (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
-                       (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
-        comment("simplified binary test since source is always a bitstring "
-                "when boxed");
-        a.test(emit_boxed_val(boxed_ptr, 0, 1), diff_mask);
-        a.short_().je(next);
-    } else {
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-        a.and_(RETb, imm(_TAG_HEADER_MASK));
-        a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
-        a.short_().jne(is_binary);
-    }
-
-    /* This is a sub binary. */
-    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize), sizeof(byte)),
-          imm(0));
-    a.jne(resolve_beam_label(Fail));
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) != BeamTypeId::Bitstring) {
-        a.short_().jmp(next);
-    }
-
-    a.bind(is_binary);
-    if (masked_types<BeamTypeId::MaybeBoxed>(Src) != BeamTypeId::Bitstring) {
-        ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
-        a.and_(RETb, imm(~4));
-        a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
-        a.jne(resolve_beam_label(Fail));
-    }
-
-    a.bind(next);
-}
-
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
     mov_arg(ARG1, Src);
 
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
-    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
+        comment("skipped header test since we know it's a bitstring when "
+                "boxed");
+    } else {
+        x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
-    const auto mask = _HEADER_SUBTAG_MASK - _BINARY_XXX_MASK;
-    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
-    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN == (_TAG_HEADER_REFC_BIN & mask));
-    a.and_(RETb, imm(mask));
-    a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
+        a.and_(RETb, imm(_BITSTRING_TAG_MASK));
+        a.cmp(RETb, imm(_TAG_HEADER_HEAP_BITS));
+        a.jne(resolve_beam_label(Fail));
+    }
+}
+
+void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
+                                         const ArgSource &Src) {
+    mov_arg(ARG1, Src);
+
+    emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
+
+    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
+
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
+        comment("skipped header test since we know it's a bitstring when "
+                "boxed");
+        ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
+        ERTS_CT_ASSERT(offsetof(ErlSubBits, size) == sizeof(Eterm));
+        a.test(emit_boxed_val(boxed_ptr, sizeof(Eterm), 1), imm(7));
+    } else {
+        a.mov(RETd, emit_boxed_val(boxed_ptr));
+        a.and_(RETd, imm(_BITSTRING_TAG_MASK));
+
+        /* Load the size in bits into ARG1d, then shift out all but the lowest
+         * three bits, leaving a non-zero value if the size is not evenly
+         * divisible by 8.
+         *
+         * Thus, OR-ing this value into the header word forces the check to
+         * fail when we have a non-binary bitstring. */
+        a.mov(ARG1d, emit_boxed_val(boxed_ptr, sizeof(Eterm), sizeof(Uint32)));
+        a.shl(ARG1d, imm(32 - 3));
+
+        ERTS_CT_ASSERT((7u << (32 - 3)) > _BITSTRING_TAG_MASK);
+        a.or_(RETd, ARG1d);
+        a.cmp(RETd, imm(_TAG_HEADER_HEAP_BITS));
+    }
+
     a.jne(resolve_beam_label(Fail));
 }
 
@@ -1106,7 +1099,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
         a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
-        a.and_(RETb, imm(_TAG_HEADER_MASK - _BIG_SIGN_BIT));
+        a.and_(RETb, imm(_BIG_TAG_MASK));
         a.cmp(RETb, imm(_TAG_HEADER_POS_BIG));
         a.jne(resolve_beam_label(Fail));
     }
@@ -1179,7 +1172,7 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
         a.mov(ARG1, emit_boxed_val(boxed_ptr));
 
         a.mov(RETd, ARG1d);
-        a.and_(RETb, imm(_TAG_HEADER_MASK - _BIG_SIGN_BIT));
+        a.and_(RETb, imm(_BIG_TAG_MASK));
         a.cmp(RETb, imm(_TAG_HEADER_POS_BIG));
         a.short_().je(next);
 
@@ -1403,26 +1396,18 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
-    bool is_empty_binary = false;
     if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        auto unit = getSizeUnit(X);
-        if (unit != 0 && std::gcd(unit, 8) == 8) {
-            Eterm literal =
-                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+
+        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
+            mov_arg(RET, X);
+
+            x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+
+            comment("simplified equality test with empty bitstring");
+            a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
+            a.jne(resolve_beam_label(Fail));
         }
-    }
-
-    if (is_empty_binary) {
-        mov_arg(RET, X);
-
-        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-        comment("simplified equality test with empty binary");
-        a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
-        a.jne(resolve_beam_label(Fail));
-
-        return;
     }
 
     /* If one argument is known to be an immediate, we can fail
@@ -1489,26 +1474,20 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
-    bool is_empty_binary = false;
     if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        auto unit = getSizeUnit(X);
-        if (unit != 0 && std::gcd(unit, 8) == 8) {
-            Eterm literal =
-                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+
+        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
+            mov_arg(RET, X);
+
+            x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+
+            comment("simplified non-equality test with empty bitstring");
+            a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
+            a.je(resolve_beam_label(Fail));
+
+            return;
         }
-    }
-
-    if (is_empty_binary) {
-        mov_arg(RET, X);
-
-        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-        comment("simplified non-equality test with empty binary");
-        a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
-        a.je(resolve_beam_label(Fail));
-
-        return;
     }
 
     /* If one argument is known to be an immediate, we can fail

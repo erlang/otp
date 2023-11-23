@@ -881,13 +881,13 @@ is_boolean(Fail, Src) {
 }
 
 is_binary(Fail, Src) {
-    if (is_not_binary($Src) || binary_bitsize($Src) != 0) {
+    if (is_not_bitstring($Src) || TAIL_BITS(bitstring_size($Src)) != 0) {
         $FAIL($Fail);
     }
 }
 
 is_bitstring(Fail, Src) {
-  if (is_not_binary($Src)) {
+  if (is_not_bitstring($Src)) {
         $FAIL($Fail);
     }
 }

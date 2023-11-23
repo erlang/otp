@@ -426,6 +426,7 @@ typedef long long          Sint  erts_align_attribute(sizeof(long long));
 typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
+#define ERTS_SINT_MAX ERTS_SWORD_MAX
 
 typedef const void *ErtsCodePtr;
 typedef UWord BeamInstr;

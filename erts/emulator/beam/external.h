@@ -67,7 +67,7 @@
 #define ATOM_INTERNAL_REF2 'I'
 #define ATOM_INTERNAL_REF3 'K'
 #define BINARY_INTERNAL_REF 'J'
-#define BIT_BINARY_INTERNAL_REF 'L'
+#define BITSTRING_INTERNAL_REF 'L'
 #define MAGIC_REF_INTERNAL_REF 'N'
 #define COMPRESSED        'P'
 
@@ -136,8 +136,8 @@ typedef struct erl_dist_external_data ErtsDistExternalData;
 struct erl_dist_external_data {
     Uint64 seq_id;
     Uint64 frag_id;
-    byte *extp;
-    byte *ext_endp;
+    const byte *extp;
+    const byte *ext_endp;
     struct binary *binp;
 };
 
@@ -208,8 +208,15 @@ typedef enum {
     ERTS_PREP_DIST_EXT_CLOSED
 } ErtsPrepDistExtRes;
 
-ErtsPrepDistExtRes erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struct binary *,
-                                         DistEntry *, Uint32, ErtsAtomCache *);
+ErtsPrepDistExtRes
+erts_prepare_dist_ext(ErtsDistExternal *edep,
+                      const byte *ext,
+                      Uint size,
+                      struct binary *binp,
+                      DistEntry *dep,
+                      Uint32 conn_id,
+                      ErtsAtomCache *cache);
+
 Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
 Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 

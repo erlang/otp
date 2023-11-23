@@ -147,13 +147,13 @@ typedef struct hashmap_head_s {
  *
  * Original HEADER representation:
  *
- *     aaaaaaaaaaaaaaaa aaaaaaaaaatttt00       arity:26, tag:4
+ *     aaaaaaaaaaaaaaaa aaaaaaaaaattttpp       arity:26, tag:4, ptag:2
  *
  * For maps we have:
  *
- *     vvvvvvvvvvvvvvvv aaaaaaaamm111100       val:16, arity:8, mtype:2
+ *     vvvvvvvvvvvvvvvv aaaaaaaamm1111pp       val:16, arity:8, mtype:2, ptag:2
  *
- * unsure about trailing zeros
+ * ptag is always TAG_PRIMARY_HEADER
  *
  * map-tag:
  *     00 - flat map tag (non-hamt) -> val:16 = #items
@@ -162,13 +162,22 @@ typedef struct hashmap_head_s {
  *     11 - map-head (bitmap-node)  -> val:16 = bitmap
  */
 
+/* 2 bits maps tag + subtag mask */
+#define _HEADER_MAP_SUBTAG_MASK       \
+    ((3 << _HEADER_ARITY_OFFS) | _HEADER_SUBTAG_MASK)
+/* As above, but with the lowest bit of the map tag cleared so that it only
+ * covers hashmap heads (whether array or bitmap). */
+#define _HEADER_MAP_HASHMAP_HEAD_MASK \
+    (~(1 << _HEADER_ARITY_OFFS) & _HEADER_MAP_SUBTAG_MASK)
+
 /* erl_map.h stuff */
 
 #define is_hashmap_header_head(x) (MAP_HEADER_TYPE(x) & (0x2))
 #define is_hashmap_header_node(x) (MAP_HEADER_TYPE(x) == 1)
 
 #define MAKE_MAP_HEADER(Type,Arity,Val) \
-    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_MAP))
+    (_make_header(((((Uint16)(Val)) << MAP_HEADER_ARITY_SZ) | \
+     (Arity)) << MAP_HEADER_TAG_SZ | (Type) , _TAG_HEADER_MAP))
 
 #define MAP_HEADER_FLATMAP \
     MAKE_MAP_HEADER(MAP_HEADER_TAG_FLATMAP_HEAD,0x1,0x0)
@@ -197,11 +206,6 @@ typedef struct hashmap_head_s {
  * node tuple contain key-value cons cells like the other nodes,
  * but they are sorted in map-key order.
  */
-
-/* 2 bits maps tag + 4 bits subtag + 2 ignore bits */
-#define _HEADER_MAP_SUBTAG_MASK       (0xfc)
-/* 1 bit map tag + 1 ignore bit + 4 bits subtag + 2 ignore bits */
-#define _HEADER_MAP_HASHMAP_HEAD_MASK (0xbc)
 
 #define HAMT_SUBTAG_NODE_BITMAP  ((MAP_HEADER_TAG_HAMT_NODE_BITMAP << _HEADER_ARITY_OFFS) | MAP_SUBTAG)
 #define HAMT_SUBTAG_HEAD_ARRAY   ((MAP_HEADER_TAG_HAMT_HEAD_ARRAY  << _HEADER_ARITY_OFFS) | MAP_SUBTAG)

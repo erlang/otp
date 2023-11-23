@@ -186,11 +186,14 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	    erts_print(to, to_arg, "%.20e", ff.fd);
 	}
 	break;
-    case BINARY_DEF:
+    case BITSTRING_DEF:
 	erts_print(to, to_arg, "#Bin");
 	break;
     case MATCHSTATE_DEF:
         erts_print(to, to_arg, "#Matchstate");
+        break;
+    case BIN_REF_DEF:
+        erts_print(to, to_arg, "#BinRef");
         break;
     default:
 	erts_print(to, to_arg, "unknown object %x", obj);

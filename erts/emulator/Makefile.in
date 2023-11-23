@@ -1120,7 +1120,9 @@ RUN_OBJS += \
 	$(OBJDIR)/beam_file.o \
 	$(OBJDIR)/beam_types.o \
 	$(OBJDIR)/erl_term_hashing.o \
-	$(OBJDIR)/erl_bif_coverage.o
+	$(OBJDIR)/erl_bif_coverage.o \
+	$(OBJDIR)/erl_iolist.o \
+	$(OBJDIR)/erl_etp.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 

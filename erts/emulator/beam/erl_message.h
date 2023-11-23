@@ -63,11 +63,20 @@ typedef struct erl_mesg ErtsMessage;
 /*
  * This struct represents data that must be updated by structure copy,
  * but is stored outside of any heap.
+ *
+ * Remember to update the static assertions in `erts_init_gc` whenever a new
+ * off-heap term type is added.
  */
 
 struct erl_off_heap_header {
     Eterm thing_word;
-    Uint size;
+
+    /* As an optimization, the first word of user data is stored before the
+     * next pointer so that the meaty part of the term (e.g. ErtsDispatchable)
+     * can be loaded together with the thing word on architectures that
+     * support it. */
+    UWord opaque;
+
     struct erl_off_heap_header* next;
 };
 

@@ -49,6 +49,7 @@
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 #include "lttng-wrapper.h"
+#include "erl_iolist.h"
 
 /*
  * Local types

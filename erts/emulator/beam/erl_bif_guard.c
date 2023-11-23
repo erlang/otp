@@ -307,7 +307,7 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args)
      * and return result.
      */
     BUMP_REDS(p, (saved_max_iter - max_iter) / 16);
-    return make_small(i);
+    BIF_RET(make_small(i));
 }
 
 /* returns the size of a tuple or a binary */
@@ -315,18 +315,20 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args)
 BIF_RETTYPE size_1(BIF_ALIST_1)
 {
     if (is_tuple(BIF_ARG_1)) {
-	Eterm* tupleptr = tuple_val(BIF_ARG_1);
+        Eterm* tupleptr = tuple_val(BIF_ARG_1);
 
-	BIF_RET(make_small(arityval(*tupleptr)));
-    } else if (is_binary(BIF_ARG_1)) {
-	Uint sz = binary_size(BIF_ARG_1);
-	if (IS_USMALL(0, sz)) {
-	    return make_small(sz);
-	} else {
-	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	    BIF_RET(uint_to_big(sz, hp));
-	}
+        BIF_RET(make_small(arityval(*tupleptr)));
+    } else if (is_bitstring(BIF_ARG_1)) {
+        Uint sz = BYTE_SIZE(bitstring_size(BIF_ARG_1));
+
+        if (IS_USMALL(0, sz)) {
+            BIF_RET(make_small(sz));
+        } else {
+            Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+            BIF_RET(uint_to_big(sz, hp));
+        }
     }
+
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -335,32 +337,20 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
 
 BIF_RETTYPE bit_size_1(BIF_ALIST_1)
 {
-    Uint low_bits;
-    Uint bytesize;
-    Uint high_bits;
-
     /* NOTE: The JIT has its own implementation of this BIF. */
-    if (is_binary(BIF_ARG_1)) {
-	bytesize = binary_size(BIF_ARG_1);
-	high_bits = bytesize >>  ((sizeof(Uint) * 8)-3);
-	low_bits = (bytesize << 3) + binary_bitsize(BIF_ARG_1);
-	if (high_bits == 0) {
-	    if (IS_USMALL(0,low_bits)) {
-		BIF_RET(make_small(low_bits));
-	    } else {
-		Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-		BIF_RET(uint_to_big(low_bits, hp));
-	    }
-	} else {
-	    Uint sz = BIG_UINT_HEAP_SIZE+1;
-	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, sz);
-	    hp[0] = make_pos_bignum_header(sz-1);
-	    BIG_DIGIT(hp,0) = low_bits;
-	    BIG_DIGIT(hp,1) = high_bits;
-	    BIF_RET(make_big(hp));
-	}
+    Uint size;
+
+    if (is_not_bitstring(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    size = bitstring_size(BIF_ARG_1);
+
+    if (IS_USMALL(0, size)) {
+        BIF_RET(make_small(size));
     } else {
-	BIF_ERROR(BIF_P, BADARG);
+        Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+        BIF_RET(uint_to_big(size, hp));
     }
 }
 
@@ -370,19 +360,19 @@ BIF_RETTYPE bit_size_1(BIF_ALIST_1)
 BIF_RETTYPE byte_size_1(BIF_ALIST_1)
 {
     /* NOTE: The JIT has its own implementation of this BIF. */
-    if (is_binary(BIF_ARG_1)) {
-	Uint bytesize = binary_size(BIF_ARG_1);
-	if (binary_bitsize(BIF_ARG_1) > 0) {
-	    bytesize++;
-	}
-	if (IS_USMALL(0, bytesize)) {
-	    BIF_RET(make_small(bytesize));
-	} else {
-	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	    BIF_RET(uint_to_big(bytesize, hp));
-	}
+    Uint size;
+
+    if (is_not_bitstring(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    size = NBYTES(bitstring_size(BIF_ARG_1));
+
+    if (IS_USMALL(0, size)) {
+        BIF_RET(make_small(size));
     } else {
-	BIF_ERROR(BIF_P, BADARG);
+        Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+        BIF_RET(uint_to_big(size, hp));
     }
 }
 

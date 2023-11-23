@@ -114,7 +114,7 @@ void BeamGlobalAssembler::emit_fconv_shared() {
 
     auto boxed_ptr = emit_ptr_val(ARG2, ARG2);
     a.mov(ARG2, emit_boxed_val(boxed_ptr));
-    a.and_(ARG2, imm(_TAG_HEADER_MASK - _BIG_SIGN_BIT));
+    a.and_(ARG2, imm(_BIG_TAG_MASK));
     a.cmp(ARG2, imm(_TAG_HEADER_POS_BIG));
     a.short_().jne(error);
 

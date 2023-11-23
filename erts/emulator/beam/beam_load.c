@@ -97,12 +97,12 @@ Eterm
 erts_preload_module(Process *c_p,
                     ErtsProcLocks c_p_locks,
                     Eterm group_leader, /* Group leader or NIL if none. */
-                    Eterm* modp,        /*
+                    Eterm *modp,        /*
                                          * Module name as an atom (NIL to not
                                          * check). On return, contains the
                                          * actual module name.
                                          */
-                    byte* code,         /* Points to the code to load */
+                    const byte* code,   /* Points to the code to load */
                     Uint size)          /* Size of code to load. */
 {
     Binary* magic = erts_alloc_loader_state();
@@ -121,7 +121,7 @@ erts_preload_module(Process *c_p,
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
-                     Eterm* modp, byte* code, Uint unloaded_size)
+                     Eterm* modp, const byte *code, Uint unloaded_size)
 {
     enum beamfile_read_result read_result;
     Eterm retval = am_badfile;
@@ -656,10 +656,10 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
 
     while (oh) {
         switch (thing_subtag(oh->thing_word)) {
-        case REFC_BINARY_SUBTAG:
+        case BIN_REF_SUBTAG:
             {
-                Binary* bptr = ((ProcBin*)oh)->val;
-                erts_bin_release(bptr);
+                Binary *bin = ((BinRef*)oh)->val;
+                erts_bin_release(bin);
                 break;
             }
         case FUN_SUBTAG:
