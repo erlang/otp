@@ -245,6 +245,30 @@ true</pre>
     </func>
 
     <func>
+      <name name="jaro_similarity" arity="2" since="OTP 27.0"/>
+      <fsummary>Calculate the Jaro similarity of two strings.</fsummary>
+      <desc>
+        <p>Returns a float between <c>+0.0</c> and <c>1.0</c> representing the
+        <url href="https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance">
+        Jaro similarity</url> between the given strings. Strings with many letters
+        in common relative to their lengths will score closer to <c>1.0</c>.
+        </p>
+        <p>The Jaro distance between two strings can be calculated with <c>JaroDistance = 1.0-JaroSimilarity</c>.
+        </p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>string:jaro_similarity("ditto", "ditto").</input>
+1.0
+2> <input>string:jaro_similarity("foo", "bar").</input>
++0.0
+3> <input>string:jaro_similarity("michelle", "michael").</input>
+0.8690476190476191
+4> <input>string:jaro_similarity(&lt;&lt;"Édouard"/utf8>>, &lt;&lt;"Claude">>).</input>
+0.5317460317460317</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="length" arity="1" since="OTP 20.0"/>
       <fsummary>Calculate length of the string.</fsummary>
       <desc>

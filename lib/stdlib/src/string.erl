@@ -58,6 +58,7 @@
          prefix/2,
          split/2,split/3,replace/3,replace/4,
          find/2,find/3,
+         jaro_similarity/2,
          next_codepoint/1, next_grapheme/1
         ]).
 
@@ -85,7 +86,7 @@
 -type grapheme_cluster() :: char() | [char()].
 -type direction() :: 'leading' | 'trailing'.
 
--dialyzer({no_improper_lists, [stack/2, length_b/3]}).
+-dialyzer({no_improper_lists, [stack/2, length_b/3, str_to_map/2]}).
 %%% BIFs internal (not documented) should not to be used outside of this module
 %%% May be removed
 -export([list_to_float/1, list_to_integer/1]).
@@ -562,6 +563,52 @@ find(String, SearchPattern, leading) ->
     find_l(String, unicode:characters_to_list(SearchPattern));
 find(String, SearchPattern, trailing) ->
     find_r(String, unicode:characters_to_list(SearchPattern), nomatch).
+
+-spec jaro_similarity(String1, String2) -> Similarity when
+      String1 :: unicode:chardata(),
+      String2 :: unicode:chardata(),
+      Similarity :: float(). %% Between +0.0 and 1.0
+jaro_similarity(A0, B0) ->
+    {A, ALen} = str_to_gcl_and_length(A0),
+    {B, BLen} = str_to_indexmap(B0),
+    Dist = max(ALen, BLen) div 2,
+    {AM, BM} = jaro_match(A, B, -Dist, Dist, [], []),
+    if
+        ALen =:= 0 andalso BLen =:= 0 ->
+            1.0;
+        ALen =:= 0 orelse BLen =:= 0 ->
+            0.0;
+        AM =:= [] ->
+            0.0;
+        true ->
+            {M,T} = jaro_calc_mt(AM, BM, 0, 0),
+            (M/ALen + M/BLen + (M-T/2)/M) / 3
+    end.
+
+jaro_match([A|As], B0, Min, Max, AM, BM) ->
+    case jaro_detect(maps:get(A, B0, []), Min, Max) of
+        false ->
+            jaro_match(As, B0, Min+1, Max+1, AM, BM);
+        {J, Remain} ->
+            B = B0#{A => Remain},
+            jaro_match(As, B, Min+1, Max+1, [A|AM], add_rsorted({J,A},BM))
+    end;
+jaro_match(_A, _B, _Min, _Max, AM, BM) ->
+    {AM, BM}.
+
+jaro_detect([Idx|Rest], Min, Max) when Min < Idx, Idx < Max ->
+    {Idx, Rest};
+jaro_detect([Idx|Rest], Min, Max) when Idx < Max ->
+    jaro_detect(Rest, Min, Max);
+jaro_detect(_, _, _) ->
+    false.
+
+jaro_calc_mt([CharA|AM], [{_, CharA}|BM], M, T) ->
+    jaro_calc_mt(AM, BM, M+1, T);
+jaro_calc_mt([_|AM], [_|BM], M, T) ->
+    jaro_calc_mt(AM, BM, M+1, T+1);
+jaro_calc_mt([], [], M, T) ->
+    {M, T}.
 
 %% Fetch first grapheme cluster and return rest in tail
 -spec next_grapheme(String::unicode:chardata()) ->
@@ -1794,6 +1841,37 @@ bin_search_str_2(Bin0, Start, Cont, First, SearchCPs) ->
             end
     end.
 
+
+%% Returns GC list and length
+str_to_gcl_and_length(S0) ->
+    gcl_and_length(unicode_util:gc(S0), [], 0).
+
+gcl_and_length([C|Str], Acc, N) ->
+    gcl_and_length(unicode_util:gc(Str), [C|Acc], N+1);
+gcl_and_length([], Acc, N) ->
+    {lists:reverse(Acc), N};
+gcl_and_length({error, Err}, _, _) ->
+    error({badarg, Err}).
+
+%% Returns GC map with index and length
+str_to_indexmap(S) ->
+    [M|L] = str_to_map(unicode_util:gc(S), 0),
+    {M,L}.
+
+str_to_map([], L) -> [#{}|L];
+str_to_map([G | Gs], I) ->
+    [M|L] = str_to_map(unicode_util:gc(Gs), I+1),
+    [maps:put(G, [I | maps:get(G, M, [])], M)| L];
+str_to_map({error,Error}, _) ->
+    error({badarg, Error}).
+
+%% Add in decreasing order
+add_rsorted(A, [H|_]=BM) when A > H ->
+    [A|BM];
+add_rsorted(A, [H|BM]) ->
+    [H|add_rsorted(A,BM)];
+add_rsorted(A, []) ->
+    [A].
 
 %%---------------------------------------------------------------------------
 %% OLD lists API kept for backwards compability
