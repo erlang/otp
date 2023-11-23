@@ -846,15 +846,7 @@ define etp-pid-1
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & etp_tag_immed1_mask) == etp_tag_immed1_pid
-    if (etp_arch_bits == 64)
-      if (etp_endianness > 0)
-      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 35) & 0x0fffffff)
-      else
-        set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 4) & 0x0fffffff)
-      end
-   else
-      set $etp_pid_data = (unsigned) (((((Uint32) $etp_pid_1) >> 4) & ~erts_proc.r.o.pix_mask) | ((((Uint32) $etp_pid_1) >> (erts_proc.r.o.pix_cl_shift + 4)) & erts_proc.r.o.pix_cl_mask) | (((((Uint32) $etp_pid_1) >> 4) & erts_proc.r.o.pix_cli_mask) << erts_proc.r.o.pix_cli_shift))
-   end
+    set $etp_pid_data = (unsigned) (((((Uint32) $etp_pid_1) >> 4) & ~erts_proc.r.o.pix_mask) | ((((Uint32) $etp_pid_1) >> (erts_proc.r.o.pix_cl_shift + 4)) & erts_proc.r.o.pix_cl_mask) | (((((Uint32) $etp_pid_1) >> 4) & erts_proc.r.o.pix_cli_mask) << erts_proc.r.o.pix_cli_shift))
     # Internal pid
     printf "<0.%u.%u>", $etp_pid_data & 0x7fff, ($etp_pid_data >> 15) & 0x1fff
   else
