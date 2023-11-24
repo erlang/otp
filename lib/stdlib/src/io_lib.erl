@@ -107,7 +107,8 @@ used for flattening deep lists.
 -export([write_bin/5, write_string_bin/3, write_binary_bin/4]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
-              fread_error/0, fread_item/0, format_spec/0, chars_limit/0]).
+              fread_error/0, fread_item/0, format_spec/0,
+              chars_limit/0, format_options/0]).
 
 -dialyzer([{nowarn_function,
             [string_bin_escape_unicode/6,
@@ -193,7 +194,19 @@ Unicode data is allowed.
 fwrite(Format, Args) ->
     format(Format, Args).
 
+-doc """
+A soft limit on the number of characters returned.
+
+When the number of characters is reached, remaining structures are
+replaced by "`...`". `CharsLimit` defaults to -1, which means no limit on the
+number of characters returned.
+""".
 -type chars_limit() :: integer().
+
+-doc """
+Options that can be passed to `format/3` and `fwrite/3`.
+""".
+-type format_options() :: [{'chars_limit', chars_limit()}].
 
 -doc """
 Returns a character list that represents `Data` formatted in accordance with
@@ -211,9 +224,7 @@ Valid option:
 -spec fwrite(Format, Data, Options) -> chars() when
       Format :: io:format(),
       Data :: [term()],
-      Options :: [Option],
-      Option :: {'chars_limit', CharsLimit},
-      CharsLimit :: chars_limit().
+      Options :: format_options().
 
 fwrite(Format, Args, Options) ->
     format(Format, Args, Options).
@@ -237,9 +248,7 @@ bfwrite(F, A) ->
 -spec bfwrite(Format, Data, Options) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()],
-      Options :: [Option],
-      Option :: {'chars_limit', CharsLimit},
-      CharsLimit :: chars_limit().
+      Options :: format_options().
 
 bfwrite(F, A, Opts) ->
     bformat(F, A, Opts).
@@ -342,9 +351,7 @@ format(Format, Args) ->
 -spec format(Format, Data, Options) -> chars() when
       Format :: io:format(),
       Data :: [term()],
-      Options :: [Option],
-      Option :: {'chars_limit', CharsLimit},
-      CharsLimit :: chars_limit().
+      Options :: format_options().
 
 format(Format, Args, Options) ->
     try io_lib_format:fwrite(Format, Args, Options)
@@ -374,9 +381,7 @@ bformat(Format, Args) ->
 -spec bformat(Format, Data, Options) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()],
-      Options :: [Option],
-      Option :: {'chars_limit', CharsLimit},
-      CharsLimit :: chars_limit().
+      Options :: format_options().
 
 bformat(Format, Args, Options) ->
     try io_lib_format:fwrite_bin(Format, Args, Options)
@@ -406,7 +411,9 @@ formatting to text in, for example, a logger.
       FormatList :: [char() | format_spec()].
 
 scan_format(Format, Args) ->
-    try io_lib_format:scan(Format, Args)
+    try
+        {Scanned, []} = io_lib_format:scan(Format, Args),
+        Scanned
     catch
         C:R:S ->
             test_modules_loaded(C, R, S),
@@ -439,9 +446,7 @@ build_text(FormatList) ->
 -doc false.
 -spec build_text(FormatList, Options) -> chars() when
       FormatList :: [char() | format_spec()],
-      Options :: [Option],
-      Option :: {'chars_limit', CharsLimit},
-      CharsLimit :: chars_limit().
+      Options :: format_options().
 
 build_text(FormatList, Options) ->
     try io_lib_format:build(FormatList, Options)
