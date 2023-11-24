@@ -674,6 +674,9 @@
 /* Define as 1 if function exists */
 #undef HAVE_GETHOSTNAME
 
+/* Define as 1 if function exists */
+#undef HAVE_COPY_FILE_RANGE
+
 /* Define to 1 if you have the `gethrtime' function. */
 #undef HAVE_GETHRTIME
 

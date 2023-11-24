@@ -16179,7 +16179,14 @@ printf "%s\n" "#define HAVE_GETHOSTNAME 1" >>confdefs.h
 
 fi
 
+ac_fn_c_check_func "$LINENO" "copy_file_range" "ac_cv_func_copy_file_range"
+if test "x$ac_cv_func_copy_file_range" = xyes
+then :
 
+printf "%s\n" "#define HAVE_COPY_FILE_RANGE 1" >>confdefs.h
+
+
+fi
 
 
 # Check whether --enable-esock-socket-registry was given.

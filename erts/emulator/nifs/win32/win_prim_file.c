@@ -1591,6 +1591,22 @@ posix_errno_t efile_altname(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_TE
     return 0;
 }
 
+posix_errno_t efile_copy_file(const efile_path_t *file_path_in, const efile_path_t *file_path_out) {
+    ASSERT_PATH_FORMAT(file_path_in);
+    ASSERT_PATH_FORMAT(file_path_out);
+
+    /* If this parameter is TRUE and the new file specified by lpNewFileName already exists, the function fails.
+     * If this parameter is FALSE and the new file already exists, the function overwrites the existing file and succeeds.
+     * For safety reason, we using TRUE as default value.
+     */
+
+    if(!CopyFileW((WCHAR*)file_path_in->data, (WCHAR*)file_path_out->data, TRUE)) {
+        return windows_to_posix_errno(GetLastError());
+    }
+
+    return 0;
+}
+
 static int windows_to_posix_errno(DWORD last_error) {
     switch(last_error) {
     case ERROR_SUCCESS:

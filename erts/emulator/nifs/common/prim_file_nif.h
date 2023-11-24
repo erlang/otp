@@ -177,6 +177,8 @@ posix_errno_t efile_from_fd(int fd,
                             ErlNifResourceType *nif_type,
                             efile_data_t **d);
 
+posix_errno_t efile_copy_file(const efile_path_t *source, const efile_path_t *destination);
+
 /** @brief Closes a file. The file must have entered the CLOSED state prior to
  * calling this to prevent double close.
  *
