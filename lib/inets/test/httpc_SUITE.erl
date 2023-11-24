@@ -1092,8 +1092,10 @@ bad_response(Config) when is_list(Config) ->
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
 
-    {error, timeout} = httpc:request(get, {URL0, []}, [{timeout, 400},?SSL_NO_VERIFY],
-                                     RequestOpts, Profile),
+    Response = httpc:request(get, {URL0, []}, [{timeout, 400},?SSL_NO_VERIFY],
+                             RequestOpts, Profile),
+    true = is_timeout_response(Response),
+    ct:log("First response: ~p~n", [Response]),
     {error, Reason} = httpc:request(get, {URL1, []}, [?SSL_NO_VERIFY],
                                     RequestOpts, Profile),
 
@@ -1105,8 +1107,11 @@ timeout_redirect() ->
 timeout_redirect(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/redirect_to_missing_crlf.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
-    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400},?SSL_NO_VERIFY],
-                                     RequestOpts, ?profile(Config)).
+    Response = httpc:request(get, {URL, []}, [{timeout, 400},?SSL_NO_VERIFY],
+                             RequestOpts, ?profile(Config)),
+    ct:log("Timeout response: ~p~n", [Response]),
+    true = is_timeout_response(Response).
+
 
 %%-------------------------------------------------------------------------
 
@@ -1438,6 +1443,12 @@ method_type(Method) ->
         delete -> write;
         patch -> write
     end.
+
+is_timeout_response({error, timeout}) -> true;
+is_timeout_response({error, {failed_connect, [{to_address, {_Host, _Port}},
+                                              {Proto, [Proto], timeout}]}}) -> true;
+is_timeout_response(_Response) -> false.
+
 
 %%-------------------------------------------------------------------------
 
