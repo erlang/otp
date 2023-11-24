@@ -42,7 +42,7 @@
 	      <item>
 		<url href="https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061">
 		  SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions [FIPS PUB 202]
-		</url>		
+		</url>
 	      </item>
             <tag>BLAKE2</tag>
               <item>
@@ -404,7 +404,7 @@
       <desc>
 	<code>srp_public() = key_integer() </code>
 	<p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
-	
+
 	<code>srp_private() = key_integer() </code>
 	<p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
       </desc>
@@ -630,7 +630,7 @@ end
   </section>
 
   <!--================ FUNCTIONS ================-->
- 
+
 
   <funcs>
     <func>
@@ -709,7 +709,7 @@ end
 	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	It does an actual crypto operation on a part of the full text. If the part is less
-	than a number of full blocks, only the full blocks (possibly none) are encrypted 
+	than a number of full blocks, only the full blocks (possibly none) are encrypted
 	or decrypted and the remaining bytes are saved to the next <c>crypto_update</c> operation.
 	The <c>State</c> should be created with
 	<seemfa marker="crypto#crypto_init/3">crypto_init/3</seemfa>
@@ -835,6 +835,12 @@ end
 	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
 	in the argument	<c>TagOrTagLength</c>.
 	</p>
+  <p>Additional Authentication Data (AAD) is plaintext data that will not be encrypted,
+  but will be covered by authenticity protection. It should be provided through the <c>AAD</c>
+  argument, but can be an empty binary as well (<c>&lt;&lt;&gt;&gt;</c>) if not needed. In that
+  case, a plain AE (Authenticated Encryption) is performed instead of AEAD (Authenticated
+  Encryption with Associated Data). This function only supports ciphers that can be used both with
+  and without AAD.</p>
 	<p>See <seeguide marker="crypto:new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</seeguide>
 	</p>
       </desc>
@@ -1715,7 +1721,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
   </funcs>
-   
+
 
   <funcs>
     <fsdescription>
@@ -1728,7 +1734,7 @@ FloatValue = rand:uniform().     % again
       <desc>
 	<p>Fetches the corresponding public key from a private key stored in an Engine.
 	The key must be of the type indicated by the Type parameter.
-	</p>	
+	</p>
       </desc>
     </func>
 
@@ -1952,20 +1958,20 @@ FloatValue = rand:uniform().     % again
       <desc>
 	<p>
 	  Loads an engine given by <c>EngineId</c> and the path to the dynamic library
-	  implementing the engine. An error tuple is returned if the engine can't be loaded. 
+	  implementing the engine. An error tuple is returned if the engine can't be loaded.
 
 	</p>
 	<p>
 	  This function differs from the normal engine_load in the sense that it
 	  also add the engine id to OpenSSL's internal engine list. The difference between
-	  the first call and the following is that the first loads the engine with the dynamical 
+	  the first call and the following is that the first loads the engine with the dynamical
 	  engine and the following calls fetch it from the OpenSSL's engine list.
 	  All references that is returned are equal.
 	</p>
 	<p>
 	  Use <c>engine_unload/1</c> function to remove the references. But remember that
 	  <c>engine_unload/1</c> just removes the references to the engine and not the
-	  tag in OpenSSL's engine list. That has to be done with the <c>engine_remove/1</c> 
+	  tag in OpenSSL's engine list. That has to be done with the <c>engine_remove/1</c>
 	  function when needed (just called once, from any of the references you got).
         </p>
 	<p>
