@@ -691,7 +691,7 @@ make_query(Dname, Class, Type, Options, Edns) ->
                                       class=Class}],
 		   arlist=ARList},
     ?verbose(Options#options.verbose, "Query: ~p~n", [dns_msg(Msg)]),
-    Buffer = inet_dns:encode(Msg),
+    Buffer = inet_dns:encode(Msg, false),
     {Msg, Buffer}.
 
 %% --------------------------------------------------------------------------
@@ -1091,7 +1091,7 @@ query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
     end.
 
 decode_answer(Answer, Q_Msg, Verbose) ->
-    case inet_dns:decode(Answer) of
+    case inet_dns:decode(Answer, false) of
 	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
 	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
 	    T = case lists:keyfind(dns_rr_tsig, 1, ARList) of

@@ -24,16 +24,18 @@ use strict;
 # for internal records.
 # 
 # The following defines which ADT function sets that will be generated
-# and which record fields that will be exponated.
+# and which record fields that will be exposed.
 #
 # (FunctionBaseName => [RecordName, FieldName ...], ...)
 my %Names = ('msg' => ['dns_rec', 'header', 'qdlist',
 		       'anlist', 'nslist', 'arlist'],
-	     'dns_rr' => ['dns_rr', 'domain', 'type', 'class', 'ttl', 'data'],
+	     'dns_rr' => ['dns_rr', 'domain', 'type', 'class', 'ttl', 'data',
+                          'func'],
 	     'dns_rr_opt' => ['dns_rr_opt', 'domain', 'type',
 			      'udp_payload_size', 'ext_rcode', 'version',
 			      'z', 'data', 'do'],
-	     'dns_query' => ['dns_query', 'domain', 'type', 'class'],
+	     'dns_query' => ['dns_query', 'domain', 'type', 'class',
+                             'unicast_response'],
 	     'header' => ['dns_header', 'id', 'qr', 'opcode', 'aa', 'tc',
 			  'rd', 'ra', 'pr', 'rcode']);
 # The functions are defined in the __DATA__ section at the end.
