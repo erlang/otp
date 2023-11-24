@@ -1309,7 +1309,8 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
             case BIN_REF_SUBTAG:
                 {
                     Binary *refc_binary = ((BinRef*)ptr)->val;
-                    ASSERT(refc_binary->intern.flags == 0);
+                    ASSERT((refc_binary->intern.flags &
+                           (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)) == 0);
                     erts_refc_inc(&refc_binary->intern.refc, 2);
                     break;
                 }
