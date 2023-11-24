@@ -212,8 +212,8 @@ parse_sigils(Config) when is_list(Config) ->
           ~"ab\"c\d".
           """),
     %%
-    IllegalPrefix = "illegal sigil prefix.",
-    IllegalSuffix = "illegal sigil suffix.",
+    IllegalPrefix = "illegal sigil prefix",
+    IllegalSuffix = "illegal sigil suffix",
     AllSigils = [" ~","~s","~S","~b","~B"],
     [{_, {error,{1,1},erl_parse,IllegalPrefix,{2,5}}} =
          {String, parse_term("~_"++String)}
