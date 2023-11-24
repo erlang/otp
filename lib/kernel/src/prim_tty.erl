@@ -115,17 +115,21 @@
 -export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
          is_reader/2, is_writer/2, output_mode/1]).
 
+%% Export to io_ansi
+-export([tigetstr/1, tputs/2, tigetflag/1, tigetnum/1, tinfo/0]).
+
 -nifs([isatty/1, tty_create/1, tty_init/2, setlocale/1,
        tty_select/2, tty_window_size/1,
        tty_encoding/1, tty_is_open/2, write_nif/2, read_nif/3, isprint/1,
        wcwidth/1, wcswidth/1,
-       sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3]).
+       sizeof_wchar/0, setupterm_nif/0, tigetnum_nif/1, tigetflag_nif/1,
+       tigetstr_nif/1, tinfo_nif/0, tputs_nif/2
+    ]).
 
 -export([reader_loop/2, writer_loop/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3, tty_is_open/2]).
+-export([sizeof_wchar/0, wcswidth/1, tty_is_open/2]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
@@ -151,6 +155,7 @@
                 buffer_expand_row = 1,
                 buffer_expand_limit = 0 :: non_neg_integer(),
                 putc_buffer = <<>>,    %% Buffer for putc containing the last row of characters
+                have_termcap = false :: boolean(),
                 cols = 80,
                 rows = 24,
                 xn = false,
@@ -267,7 +272,12 @@ init(UserOptions) when is_map(UserOptions) ->
                      true -> UnicodeSupported
                   end,
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
-    init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
+
+    HaveTermCap = setupterm() =:= ok,
+
+    init_term(#state{ tty = TTY, have_termcap = HaveTermCap,
+                      unicode = UnicodeMode, options = Options,
+                      ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(input, Options) of
@@ -358,66 +368,60 @@ init(State, ssh) ->
     State#state{ xn = true };
 init(State, {unix,_}) ->
 
-    case os:getenv("TERM") of
-        false ->
-            error(enotsup);
-        Term ->
-            case tgetent(Term) of
-                ok -> ok;
-                {error,_} -> error(enotsup)
-            end
-    end,
+    State#state.have_termcap orelse error(enotsup),
+
 
     %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
     %% for a list of all possible termcap capabilities
-    Clear = case tgetstr("clear") of
+    Clear = case tigetstr("clear") of
                 {ok, C} -> C;
                 false -> (#state{})#state.clear
             end,
-    Cols = case tgetnum("co") of
+    
+    Cols = case tigetnum("co") of
                {ok, Cs} -> Cs;
                _ -> (#state{})#state.cols
            end,
-    Up = case tgetstr("up") of
+    Up = case tigetstr("cuu1") of
              {ok, U} -> U;
              false -> error(enotsup)
          end,
-    Down = case tgetstr("do") of
+    Down = case tigetstr("cud1") of
                false -> (#state{})#state.down;
                {ok, D} -> D
            end,
-    Left = case {tgetflag("bs"),tgetstr("bc")} of
+    Left = case {tigetflag("OTbs"),tigetstr("OTbc")} of
                {true,_} -> (#state{})#state.left;
                {_,false} -> (#state{})#state.left;
                {_,{ok, L}} -> L
            end,
 
-    Right = case tgetstr("nd") of
+    Right = case tigetstr("cuf1") of
                 {ok, R} -> R;
                 false -> error(enotsup)
             end,
     Insert =
-        case tgetstr("IC") of
+        case tigetstr("ich") of
             {ok, IC} -> IC;
             false -> (#state{})#state.insert
         end,
 
-    Tab = case tgetstr("ta") of
+    Tab = case tigetstr("ht") of
               {ok, TA} -> TA;
               false -> (#state{})#state.tab
           end,
 
-    Delete = case tgetstr("DC") of
+    Delete = case tigetstr("dch") of
                  {ok, DC} -> DC;
                  false -> (#state{})#state.delete
              end,
 
-    Position = case tgetstr("u7") of
+    Position = case tigetstr("u7") of
                    {ok, <<"\e[6n">> = U7} ->
                        %% User 7 should contain the codes for getting
                        %% cursor position.
                        %% User 6 should contain how to parse the reply
-                       {ok, <<"\e[%i%d;%dR">>} = tgetstr("u6"),
+                       {ok, <<"\e[%i%d;%dR">>} = tigetstr("u6"),
                        <<"\e[6n">> = U7;
                    false -> (#state{})#state.position
                end,
@@ -425,7 +429,7 @@ init(State, {unix,_}) ->
     %% According to the manual this should only be issued when the cursor
     %% is at position 0, but until we encounter such a console we keep things
     %% simple and issue this with the cursor anywhere
-    DeleteAfter = case tgetstr("cd") of
+    DeleteAfter = case tigetstr("ed") of
                       {ok, DA} ->
                           DA;
                       false ->
@@ -435,7 +439,7 @@ init(State, {unix,_}) ->
     State#state{
       cols = Cols,
       clear = Clear,
-      xn = tgetflag("xn"),
+      xn = tigetflag("xn"),
       up = Up,
       down = Down,
       left = Left,
@@ -1512,36 +1516,28 @@ sizeof_wchar() ->
     erlang:nif_error(undef).
 wcswidth(_Char) ->
     erlang:nif_error(undef).
-tgetent(Char) ->
-    tgetent_nif([Char,0]).
-tgetnum(Char) ->
-    tgetnum_nif([Char,0]).
-tgetflag(Char) ->
-    tgetflag_nif([Char,0]).
-tgetstr(Char) ->
-    case tgetstr_nif([Char,0]) of
-        {ok, Str} ->
-            {ok, re:replace(Str, "\\$<[^>]*>","")};
-        Error ->
-            Error
-    end.
-tgoto(Char) ->
-    tgoto_nif([Char,0]).
-tgoto(Char, Arg) ->
-    tgoto_nif([Char,0], Arg).
-tgoto(Char, Arg1, Arg2) ->
-    tgoto_nif([Char,0], Arg1, Arg2).
-tgetent_nif(_Char) ->
+setupterm() ->
+    setupterm_nif().
+tigetnum(Char) ->
+    tigetnum_nif([Char,0]).
+tigetflag(Char) ->
+    tigetflag_nif([Char,0]).
+tigetstr(Char) ->
+    tigetstr_nif([Char,0]).
+tinfo() ->
+    tinfo_nif().
+tputs(Char, Args) ->
+    tputs_nif([Char,0], Args).
+
+setupterm_nif() ->
     erlang:nif_error(undef).
-tgetnum_nif(_Char) ->
+tigetnum_nif(_Char) ->
     erlang:nif_error(undef).
-tgetflag_nif(_Char) ->
+tigetflag_nif(_Char) ->
     erlang:nif_error(undef).
-tgetstr_nif(_Char) ->
+tinfo_nif() ->
     erlang:nif_error(undef).
-tgoto_nif(_Ent) ->
+tigetstr_nif(_Char) ->
     erlang:nif_error(undef).
-tgoto_nif(_Ent, _Arg) ->
-    erlang:nif_error(undef).
-tgoto_nif(_Ent, _Arg1, _Arg2) ->
+tputs_nif(_Ent, _Args) ->
     erlang:nif_error(undef).

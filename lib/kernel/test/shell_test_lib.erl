@@ -82,6 +82,9 @@ stop_tmux(_Config) ->
     ok.
 
 %% Setup a TTY, or a ssh server and client but do not type anything in terminal (except password)
+-spec setup_tty([{peer, peer:config()} | {tc_path, file:name()} |
+                 {env, [{Key :: string(), Value :: string()}]} |
+                 {args, [string()]}]) -> term().
 setup_tty(Config) ->
     ClientName = maps:get(name,proplists:get_value(peer, Config, #{}),
                     peer:random_name(proplists:get_value(tc_path, Config))),
@@ -317,7 +320,7 @@ check_content(Term, Match, Opts) when is_map(Opts) ->
     check_content(Term, Match, Opts, 5).
 check_content(Term, Match, Opts, Attempt) ->
     OrigContent = case Term of
-                    #tmux{} -> get_content(Term);
+                    #tmux{} -> get_content(Term, maps:get(args, Opts, ""));
                     Fun when is_function(Fun,0) -> Fun()
                 end,
     Content = case maps:find(replace, Opts) of

@@ -73,6 +73,7 @@ MODULES= \
 	gen_statem_SUITE \
 	id_transform_SUITE \
 	io_SUITE \
+	io_ansi_SUITE \
 	io_proto_SUITE \
 	json_SUITE \
 	lists_SUITE \
@@ -137,12 +138,14 @@ MODULES= \
 
 ERTS_MODULES= erts_test_utils
 SASL_MODULES= otp_vsns
-KERNEL_MODULES= rtnode
+KERNEL_MODULES= rtnode shell_test_lib
+KERNEL_HRL= shell_test_lib
 
 ERL_FILES=	$(MODULES:%=%.erl) \
 		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
 		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
-		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl)
+		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl) \
+		$(KERNEL_HRL:%=$(ERL_TOP)/lib/kernel/test/%.hrl)
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
