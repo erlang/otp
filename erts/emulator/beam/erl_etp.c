@@ -92,7 +92,6 @@ const Eterm etp_hole_marker = 0;
 #endif
 
 const Eterm etp_arityval_subtag = ARITYVAL_SUBTAG;
-const Eterm etp_bin_matchstate_subtag = BIN_MATCHSTATE_SUBTAG;
 const Eterm etp_big_tag_mask = _BIG_TAG_MASK;
 const Eterm etp_big_sign_bit = _BIG_SIGN_BIT;
 const Eterm etp_pos_big_subtag = POS_BIG_SUBTAG;
@@ -122,7 +121,6 @@ const Eterm etp_tag_header_sub_bits = _TAG_HEADER_SUB_BITS;
 const Eterm etp_tag_header_external_pid = _TAG_HEADER_EXTERNAL_PID;
 const Eterm etp_tag_header_external_port = _TAG_HEADER_EXTERNAL_PORT;
 const Eterm etp_tag_header_external_ref = _TAG_HEADER_EXTERNAL_REF;
-const Eterm etp_tag_header_bin_matchstate = _TAG_HEADER_BIN_MATCHSTATE;
 const Eterm etp_tag_header_map = _TAG_HEADER_MAP;
 
 const Eterm etp_tag_header_mask = _TAG_HEADER_MASK;

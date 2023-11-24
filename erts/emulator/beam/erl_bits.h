@@ -21,42 +21,6 @@
 #ifndef __ERL_BITS_H__
 #define __ERL_BITS_H__
 
-/* ************************************************************************* */
-
-/** @brief This structure represents a binary to be matched, we plan to replace
- * this with ErlSubBits in the near future. */
-typedef struct erl_bin_match_buffer {
-    Eterm orig;			/* Original binary term. */
-    byte* base;			/* Current position in binary. */
-    Uint offset;		/* Offset in bits. */
-    size_t size;		/* Size of binary in bits. */
-} ErlBinMatchBuffer;
-
-typedef struct erl_bin_match_struct {
-  Eterm thing_word;
-  ErlBinMatchBuffer mb;		/* Present match buffer */
-  Eterm save_offset[1];         /* Saved offsets, only valid for contexts
-                                 * created through bs_start_match2. */
-} ErlBinMatchState;
-
-#define ERL_BIN_MATCHSTATE_SIZE(_Max) \
-    ((offsetof(ErlBinMatchState, save_offset) + (_Max)*sizeof(Eterm))/sizeof(Eterm))
-#define HEADER_BIN_MATCHSTATE(_Max) \
-    _make_header(ERL_BIN_MATCHSTATE_SIZE((_Max)) - 1, _TAG_HEADER_BIN_MATCHSTATE)
-#define HEADER_NUM_SLOTS(hdr) \
-    (header_arity(hdr) - (offsetof(ErlBinMatchState, save_offset) / sizeof(Eterm)) + 1)
-
-#define make_matchstate(_Ms) make_boxed((Eterm*)(_Ms))
-#define ms_matchbuffer(_Ms) &(((ErlBinMatchState*) boxed_val(_Ms))->mb)
-
-#define matchbuffer_base(Bin)                                                 \
-  (*boxed_val(Bin) == HEADER_BIN_REF ?                                        \
-   ((BinRef*)boxed_val(Bin))->bytes :                                         \
-   (ASSERT(thing_subtag(*boxed_val(Bin)) == HEAP_BITS_SUBTAG),                \
-   (byte*)(&(((ErlHeapBits*)boxed_val(Bin))->data))))
-
-/* ************************************************************************* */
-
 /** @brief returns the number of bytes needed to store \c x bits. */
 #define NBYTES(x)  (((Uint64)(x) + (Uint64) 7) >> 3)
 /** @brief returns the number of bits there are in \c x bytes. */
@@ -71,24 +35,85 @@ typedef struct erl_bin_match_struct {
 
 /* ************************************************************************* */
 
-#define bitstring_size(Bin) (bitstring_val(Bin)[1])
+#define bitstring_size(Bin)                                                   \
+    ((bitstring_val(Bin)[0]) == HEADER_SUB_BITS ?                             \
+     (((ErlSubBits*)bitstring_val(Bin))->end -                                \
+      ((ErlSubBits*)bitstring_val(Bin))->start) :                             \
+     (((ErlHeapBits*)bitstring_val(Bin))->size))
 
-/* This structure represents the term form of an off-heap bitstring.
- *
- * Note: The last field (orig) is not counted in arityval in the header to
- * simplify garbage collection. */
+/* This structure represents either the term form of an off-heap bitstring, or
+ * a bitstring match context. */
 typedef struct erl_sub_bits {
-    Eterm thing_word;           /* Subtag SUB_BITS_SUBTAG. */
-    Uint size;                  /* Size in bits. */
-    Uint offs;                  /* Offset in bits. */
-    byte is_writable;           /* The underlying Binary* is writable */
-    Eterm orig;                 /* Boxed BinRef* */
+    /* Subtag SUB_BITS_SUBTAG. */
+    Eterm thing_word;
+
+    /* Combined base pointer and flag field, making room for the flags by
+     * truncating the lowest 2 bits from the base pointer and compensating by
+     * bumping start/end to match.
+     *
+     * This means that the base pointer returned from ERTS_GET_BITSTRING and
+     * friends is _ONLY_ valid when adjusted by the provided offset.
+     *
+     * This is placed first to simplify checking whether this is a viable
+     * match context. */
+    UWord base_flags;
+
+    /* Start and end offset in bits. */
+    Uint start;
+    Uint end;
+
+    /* Tagged pointer to BinRef or ErlHeapBits, the latter is valid iff this is
+     * a match context. */
+    Eterm orig;
 } ErlSubBits;
+
+#define ERL_SUB_BITS_FLAGS_MATCH_CONTEXT                                      \
+    ERL_SUB_BITS_FLAG_MUTABLE
+#define ERL_SUB_BITS_FLAGS_WRITABLE                                           \
+    (ERL_SUB_BITS_FLAG_MUTABLE | ERL_SUB_BITS_FLAG_VOLATILE)
+
+/* Whether it's safe to modify the SB itself, for example match contexts or
+ * active writable binaries (erts_bs_private_append). */
+#define ERL_SUB_BITS_FLAG_MUTABLE ((UWord)(1 << 0))
+/* Whether the underlying data can move around, for example if the SB is (or
+ * was) a writable bitstring. */
+#define ERL_SUB_BITS_FLAG_VOLATILE ((UWord)(1 << 1))
+#define ERL_SUB_BITS_FLAG_MASK ((UWord)3)
+
+ERTS_GLB_INLINE void
+erl_sub_bits_init(ErlSubBits *sb, UWord flags, Eterm orig, const void *base,
+                  Uint offset, Uint size);
+
+ERTS_GLB_INLINE void
+erl_sub_bits_update_moved(ErlSubBits *sb, Eterm orig);
+
+#define erl_sub_bits_is_normal(SubBits)                                       \
+    (erl_sub_bits_get_flags(SubBits) == 0)
+
+#define erl_sub_bits_is_match_context(SubBits)                                \
+    (erl_sub_bits_get_flags(SubBits) == ERL_SUB_BITS_FLAG_MUTABLE)
+
+#define erl_sub_bits_is_writable(SubBits)                                     \
+    (erl_sub_bits_get_flags(SubBits) ==                                       \
+     (ERL_SUB_BITS_FLAG_MUTABLE | ERL_SUB_BITS_FLAG_VOLATILE))
+
+#define erl_sub_bits_was_writable(SubBits)                                    \
+    (erl_sub_bits_get_flags(SubBits) & ERL_SUB_BITS_FLAG_VOLATILE)
+
+#define erl_sub_bits_clear_writable(SubBits)                                  \
+    (ASSERT(erl_sub_bits_is_writable(SubBits)),                               \
+     (SubBits)->base_flags &= ~ERL_SUB_BITS_FLAG_MUTABLE)
+
+#define erl_sub_bits_get_flags(SubBits)                                       \
+    ((SubBits)->base_flags & ERL_SUB_BITS_FLAG_MASK)
+
+#define erl_sub_bits_get_base(SubBits)                                        \
+    ((byte*)((SubBits)->base_flags & ~ERL_SUB_BITS_FLAG_MASK))
 
 /** @brief The size in words of an ErlSubBits. */
 #define ERL_SUB_BITS_SIZE (sizeof(ErlSubBits) / sizeof(Eterm))
 
-#define HEADER_SUB_BITS _make_header(ERL_SUB_BITS_SIZE-2,_TAG_HEADER_SUB_BITS)
+#define HEADER_SUB_BITS _make_header(ERL_SUB_BITS_SIZE-1,_TAG_HEADER_SUB_BITS)
 
 /** @brief A handle to an off-heap binary. While terms internally, these can
  * only be referred to by sub-bitstrings, and should never be exposed to the
@@ -97,10 +122,8 @@ typedef struct bin_ref {
     Eterm thing_word;           /* Subtag BIN_REF_SUBTAG. */
     Binary *val;                /* Pointer to Binary structure. */
     struct erl_off_heap_header *next;
-    byte *bytes;                /* Pointer to the actual data bytes. */
 } BinRef;
 
-/* process binaries stuff (special case of binaries) */
 #define HEADER_BIN_REF _make_header(ERL_BIN_REF_SIZE-1,_TAG_HEADER_BIN_REF)
 
 /** @brief The size in words of a BinRef. */
@@ -198,14 +221,14 @@ struct erl_bits_state {
 /* Helpers for the bitstring syntax */
 
 Eterm erts_bs_start_match_2(Process *p, Eterm Bin, Uint Max);
-ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Bin);
-Eterm erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
-Eterm erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
+ErlSubBits *erts_bs_start_match_3(Process *p, Eterm Bin);
+Eterm erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits* sb);
+Eterm erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits* sb);
 
 /* These will create heap binaries when appropriate, so they require free space
  * up to BUILD_SUB_BITSTRING_HEAP_NEED. */
-Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
-Eterm erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb);
+Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits* sb);
+Eterm erts_bs_get_binary_all_2(Process *p, ErlSubBits* sb);
 
 /* Binary construction, new instruction set. */
 int erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm Integer, Uint num_bits, unsigned flags));
@@ -216,9 +239,9 @@ int erts_new_bs_put_binary_all(Process *c_p, Eterm Bin, Uint unit);
 Eterm erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
 void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
 
-Uint32 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb);
-Eterm erts_bs_get_utf8(ErlBinMatchBuffer* mb);
-Eterm erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags);
+Uint32 erts_bs_get_unaligned_uint32(ErlSubBits* sb);
+Eterm erts_bs_get_utf8(ErlSubBits* sb);
+Eterm erts_bs_get_utf16(ErlSubBits* sb, Uint flags);
 Eterm erts_bs_append(Process* p, Eterm* reg, Uint live, Eterm build_size_term,
 		     Uint extra_words, Uint unit);
 Eterm erts_bs_append_checked(Process* p, Eterm* reg, Uint live, Uint size,
@@ -254,7 +277,7 @@ int erts_cmp_bits__(const byte* a_ptr,
 
 /** @brief Pins an off-heap binary in place, ensuring that it cannot be moved
  * by the writable-binary optimization. */
-int erts_pin_writable_binary(BinRef *br);
+void erts_pin_writable_binary(ErlSubBits *sb, BinRef *br);
 
 /* Calculate the heap space for a binary extracted by
  * erts_build_sub_bitstring(). */
@@ -322,25 +345,18 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
         (oh)->overhead += ((br)->val)->orig_size / sizeof(Eterm);             \
     } while(0)
 
-#define ERTS_SET_HB_SIZE(hb, bit_size)                                        \
-    do {                                                                      \
-        Uint __bit_size = (bit_size);                                         \
-        (hb)->size = __bit_size;                                              \
-    } while(0)
-
-#define ERTS_SET_SB_RANGE(sb, bit_offset, bit_size)                           \
-    do {                                                                      \
-        Uint __bit_size = (bit_size);                                         \
-        Uint __bit_offset = (bit_offset);                                     \
-        (sb)->size = __bit_size;                                              \
-        (sb)->offs = __bit_offset;                                            \
-    } while(0)
-
-/** @brief Extracts a window into the given bitstring. */
+/** @brief Extracts a window into the given bitstring.
+ *
+ * This works on _ALL_ bitstrings, including mutable ones like match contexts
+ * or writable binaries (where the returned values reflect the current state).
+ *
+ * In most routines that only look at the data, this lets us gloss over
+ * the fact that these terms are special, making it safe for the compiler to
+ * pass them to any routine known not to alias `Bin` itself. */
 #define ERTS_GET_BITSTRING(Bin,                                               \
                            Base,                                              \
-                           BitOffset,                                         \
-                           BitSize)                                           \
+                           Offset,                                            \
+                           Size)                                              \
     do {                                                                      \
         ERTS_DECLARE_DUMMY(const BinRef *_unused_br);                         \
         ERTS_DECLARE_DUMMY(Eterm _unused_br_tag);                             \
@@ -348,8 +364,8 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
                                _unused_br_tag,                                \
                                _unused_br,                                    \
                                Base,                                          \
-                               BitOffset,                                     \
-                               BitSize);                                      \
+                               Offset,                                        \
+                               Size);                                         \
     } while (0)
 
 /** @brief As \c ERTS_GET_BITSTRING but also extracts the underlying binary
@@ -357,18 +373,32 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
 #define ERTS_GET_BITSTRING_REF(Bin, RefFlags, Ref, Base, Offset, Size)        \
     do {                                                                      \
         const Eterm *_unboxed = bitstring_val(Bin);                           \
-        Size = _unboxed[1];                                                   \
         if (*_unboxed == HEADER_SUB_BITS) {                                   \
             ErlSubBits* _sb = (ErlSubBits*)_unboxed;                          \
-            BinRef *_br = ((BinRef*)boxed_val(_sb->orig));                    \
-            ASSERT(_br->thing_word == HEADER_BIN_REF);                        \
-            Base = &_br->bytes[0];                                            \
+            BinRef *_br;                                                      \
+            _unboxed = boxed_val(_sb->orig);                                  \
+            /* Match contexts may refer to on-heap bitstrings */              \
+            _br = (*_unboxed == HEADER_BIN_REF) ? (BinRef*)_unboxed : NULL;   \
+            ASSERT(erl_sub_bits_is_match_context(_sb) || _br);                \
+            if (ERTS_LIKELY(!erl_sub_bits_was_writable(_sb))) {               \
+                Base = (byte*)(_sb->base_flags & ~ERL_SUB_BITS_FLAG_MASK);    \
+            } else {                                                          \
+                /* If the source was writable its underlying binary may */    \
+                /* move at any point, so we need to follow it instead of */   \
+                /* using the stored pointer. */                               \
+                Base = (byte*)((_br->val)->orig_bytes);                       \
+                if (!((_br->val)->intern.flags & BIN_FLAG_WRITABLE)) {        \
+                    _sb->base_flags = (UWord)Base;                            \
+                }                                                             \
+            }                                                                 \
+            Offset = _sb->start;                                              \
+            Size = _sb->end - _sb->start;                                     \
             RefFlags = _sb->orig & TAG_PTR_MASK__;                            \
             Ref = _br;                                                        \
-            Offset = _sb->offs;                                               \
         } else {                                                              \
             const ErlHeapBits *_hb = ((ErlHeapBits*)_unboxed);                \
             Base = (byte*)&_hb->data[0];                                      \
+            Size = _hb->size;                                                 \
             Offset = 0;                                                       \
             RefFlags = 0;                                                     \
             Ref = NULL;                                                       \
@@ -380,21 +410,28 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
 #define ERTS_PIN_BITSTRING(Bin, RefFlags, Ref, Base, Offset, Size)            \
     do {                                                                      \
         const Eterm *_unboxed = bitstring_val(Bin);                           \
-        Size = _unboxed[1];                                                   \
         if (*_unboxed == HEADER_SUB_BITS) {                                   \
             ErlSubBits* _sb = (ErlSubBits*)_unboxed;                          \
-            BinRef *_br = ((BinRef*)boxed_val(_sb->orig));                    \
-            ASSERT(_br->thing_word == HEADER_BIN_REF);                        \
-            erts_pin_writable_binary(_br);                                    \
-            Base = &_br->bytes[0];                                            \
-            Offset = _sb->offs;                                               \
+            BinRef *_br;                                                      \
+            _unboxed = boxed_val(_sb->orig);                                  \
+            /* Match contexts may refer to on-heap bitstrings */              \
+            _br = (*_unboxed == HEADER_BIN_REF) ? (BinRef*)_unboxed : NULL;   \
+            ASSERT(erl_sub_bits_is_match_context(_sb) || _br);                \
+            if (ERTS_LIKELY(_br != NULL)) {                                   \
+                /* Pinning updates base and flags when necessary. */          \
+                erts_pin_writable_binary(_sb, _br);                           \
+            }                                                                 \
+            Base = (byte*)(_sb->base_flags & ~ERL_SUB_BITS_FLAG_MASK);        \
+            Offset = _sb->start;                                              \
+            Size = _sb->end - _sb->start;                                     \
             RefFlags = _sb->orig & TAG_PTR_MASK__;                            \
             Ref = _br;                                                        \
         } else {                                                              \
             const ErlHeapBits *_hb = ((ErlHeapBits*)_unboxed);                \
             Base = (byte*)&_hb->data[0];                                      \
-            Ref = NULL;                                                       \
+            Size = _hb->size;                                                 \
             Offset = 0;                                                       \
+            Ref = NULL;                                                       \
         }                                                                     \
     } while (0)
 
@@ -444,6 +481,57 @@ erts_free_aligned_binary_bytes(const byte* buf);
 #define BSC_NUM_ARGS            5
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erl_sub_bits_init(ErlSubBits *sb, UWord flags, Eterm orig, const void *base,
+                  Uint offset, Uint size)
+{
+    /* The data pointers that we produce are all aligned, but unaligned ones
+     * can sneak in through resource binaries or the likes, in which case we
+     * cannot use the lower bits for storage.
+     *
+     * To handle this corner case, we'll adjust the incoming pointer and shift
+     * the start of the bitstring to fit. */
+    Uint adjustment = (UWord)base & ERL_SUB_BITS_FLAG_MASK;
+
+    ASSERT(is_boxed(orig));
+    ASSERT(!(flags & ~ERL_SUB_BITS_FLAG_MASK));
+
+#ifdef DEBUG
+    if (*boxed_val(orig) == HEADER_BIN_REF) {
+        Binary *bin = ((BinRef*)boxed_val(orig))->val;
+        ASSERT((flags & ERL_SUB_BITS_FLAG_VOLATILE) ||
+               !(bin->intern.flags & BIN_FLAG_WRITABLE));
+    } else {
+        ASSERT(flags == ERL_SUB_BITS_FLAGS_MATCH_CONTEXT);
+    }
+#endif
+
+    sb->thing_word = HEADER_SUB_BITS;
+    sb->start = offset + adjustment * 8;
+    sb->end = sb->start + size;
+    sb->base_flags = ((UWord)base - adjustment) | flags;
+    sb->orig = orig;
+}
+
+ERTS_GLB_INLINE void
+erl_sub_bits_update_moved(ErlSubBits *sb, Eterm orig)
+{
+    Eterm *ptr = ptr_val(orig);
+
+    if (thing_subtag(*ptr) == HEAP_BITS_SUBTAG) {
+        UWord new_base = (UWord)&((ErlHeapBits*)ptr)->data;
+
+        /* Only match contexts can refer to on-heap bitstrings, ordinary
+         * ErlSubBits _must_ point to a BinRef at all times. */
+        ASSERT(erl_sub_bits_is_match_context(sb));
+
+        /* Heap alignment guarantees that we don't need to adjust offset
+         * according to the base here. */
+        ASSERT(!(new_base & ERL_SUB_BITS_FLAG_MASK));
+        sb->base_flags = new_base | (sb->base_flags & ERL_SUB_BITS_FLAG_MASK);
+    }
+}
 
 ERTS_GLB_INLINE void
 copy_binary_to_buffer(byte *dst_base, Uint dst_offset,

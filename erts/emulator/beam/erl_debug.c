@@ -189,9 +189,6 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
     case BITSTRING_DEF:
 	erts_print(to, to_arg, "#Bin");
 	break;
-    case MATCHSTATE_DEF:
-        erts_print(to, to_arg, "#Matchstate");
-        break;
     case BIN_REF_DEF:
         erts_print(to, to_arg, "#BinRef");
         break;

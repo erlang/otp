@@ -1728,26 +1728,27 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		break;
 	    }
 	    case TAG_PRIMARY_HEADER: {
-		if (!header_is_thing(gval))
-		    n_hp++;
-		else {
-		    if (header_is_bin_matchstate(gval)) {
-			ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
-			ErlBinMatchBuffer *mb = &(ms->mb);
-			Eterm* origptr = &(mb->orig);
-			ptr = boxed_val(*origptr);
-			val = *ptr;
-			if (IS_MOVED_BOXED(val)) {
-			    *origptr = val;
-			    mb->base = matchbuffer_base(val);
-			} else if (ErtsInArea(ptr, mature, mature_size)) {
-			    move_boxed(ptr,val,&old_htop,origptr);
-			    mb->base = matchbuffer_base(mb->orig);
-			} else if (ErtsInYoungGen(*origptr, ptr, oh, oh_size)) {
-			    move_boxed(ptr,val,&n_htop,origptr);
-			    mb->base = matchbuffer_base(mb->orig);
-			}
-		    }
+                if (!header_is_thing(gval)) {
+                    n_hp++;
+                } else {
+                    if (gval == HEADER_SUB_BITS) {
+                        ErlSubBits *sb = (ErlSubBits*)n_hp;
+                        Eterm *underlying = &sb->orig;
+
+                        ptr = boxed_val(*underlying);
+                        val = *ptr;
+
+                        if (IS_MOVED_BOXED(val)) {
+                            *underlying = val;
+                            erl_sub_bits_update_moved(sb, val);
+                        } else if (ErtsInArea(ptr, mature, mature_size)) {
+                            move_boxed(ptr, val, &old_htop, underlying);
+                            erl_sub_bits_update_moved(sb, sb->orig);
+                        } else if (ErtsInYoungGen(*underlying, ptr, oh, oh_size)) {
+                            move_boxed(ptr, val, &n_htop, underlying);
+                            erl_sub_bits_update_moved(sb, sb->orig);
+                        }
+                    }
 		    n_hp += (thing_arityval(gval)+1);
 		}
 		break;
@@ -2286,26 +2287,26 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 	    break;
 	}
 	case TAG_PRIMARY_HEADER: {
-	    if (!header_is_thing(gval)) {
-		n_hp++;
-	    } else {
-		if (header_is_bin_matchstate(gval)) {
-		    ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
-		    ErlBinMatchBuffer *mb = &(ms->mb);
-		    Eterm* origptr;
-		    origptr = &(mb->orig);
-		    ptr = boxed_val(*origptr);
-		    val = *ptr;
-		    if (IS_MOVED_BOXED(val)) {
-			*origptr = val;
-			mb->base = matchbuffer_base(*origptr);
-		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
-			move_boxed(ptr,val,&n_htop,origptr);
-			mb->base = matchbuffer_base(*origptr);
-		    }
-		}
-		n_hp += (thing_arityval(gval)+1);
-	    }
+            if (!header_is_thing(gval)) {
+                n_hp++;
+            } else {
+                if (gval == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*)n_hp;
+                    Eterm *underlying = &sb->orig;
+
+                    ptr = boxed_val(*underlying);
+                    val = *ptr;
+
+                    if (IS_MOVED_BOXED(val)) {
+                        *underlying = val;
+                        erl_sub_bits_update_moved(sb, *underlying);
+                    } else if (ERTS_IS_IN_SWEEP_AREA(*underlying, ptr)) {
+                        move_boxed(ptr, val, &n_htop, underlying);
+                        erl_sub_bits_update_moved(sb, *underlying);
+                    }
+                }
+                n_hp += (thing_arityval(gval)+1);
+            }
 	    break;
 	}
 	default:
@@ -2382,26 +2383,26 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 	    break;
 	}
 	case TAG_PRIMARY_HEADER: {
-	    if (!header_is_thing(gval)) {
-		heap_ptr++;
-	    } else {
-		if (header_is_bin_matchstate(gval)) {
-		    ErlBinMatchState *ms = (ErlBinMatchState*) heap_ptr;
-		    ErlBinMatchBuffer *mb = &(ms->mb);
-		    Eterm* origptr;
-		    origptr = &(mb->orig);
-		    ptr = boxed_val(*origptr);
-		    val = *ptr;
-		    if (IS_MOVED_BOXED(val)) {
-			*origptr = val;
-			mb->base = matchbuffer_base(*origptr);
-		    } else if (ErtsInArea(ptr, src, src_size)) {
-			move_boxed(ptr,val,&htop,origptr);
-			mb->base = matchbuffer_base(*origptr);
-		    }
-		}
-		heap_ptr += (thing_arityval(gval)+1);
-	    }
+            if (!header_is_thing(gval)) {
+                heap_ptr++;
+            } else {
+                if (gval == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*)heap_ptr;
+                    Eterm *underlying = &sb->orig;
+
+                    ptr = boxed_val(*underlying);
+                    val = *ptr;
+
+                    if (IS_MOVED_BOXED(val)) {
+                        *underlying = val;
+                        erl_sub_bits_update_moved(sb, *underlying);
+                    } else if (ErtsInArea(ptr, src, src_size)) {
+                        move_boxed(ptr, val, &htop, underlying);
+                        erl_sub_bits_update_moved(sb, *underlying);
+                    }
+                }
+                heap_ptr += (thing_arityval(gval)+1);
+            }
 	    break;
 	}
 	default:
@@ -2525,6 +2526,17 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 		oh = (struct erl_off_heap_header*) (hp-1);
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
+            case SUB_BITS_SUBTAG:
+            {
+                /* Match contexts and writable binaries should never be present
+                 * in signals. */
+                ASSERT(erl_sub_bits_is_normal((ErlSubBits*)(fhp - 1)));
+
+                /* Offset the `orig` field, as it's the last field inside the
+                 * thing we can handle it by pretending it's not part of it. */
+                cpy_sz = thing_arityval(val) - 1;
+                goto cpy_words;
+            }
             case FUN_SUBTAG:
             {
                 ErlFunThing *funp = (ErlFunThing*) (fhp - 1);
@@ -2931,7 +2943,6 @@ shrink_writable_binary(BinRef *br, Uint leave_unused)
         binary = erts_bin_realloc(binary, new_size);
 
         br->val = binary;
-        br->bytes = (byte*)binary->orig_bytes;
     }
 }
 
@@ -3311,16 +3322,16 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		      }
 		  }
 		  break;
-	      case BIN_MATCHSTATE_SUBTAG:
-		{	
-		  ErlBinMatchState *ms = (ErlBinMatchState*) hp;
-		  ErlBinMatchBuffer *mb = &(ms->mb);
-		  if (ErtsInArea(ptr_val(mb->orig), area, area_size)) {
-		      mb->orig = offset_ptr(mb->orig, offs);
-		      mb->base = matchbuffer_base(mb->orig);
-		  }
-		}
-		break;
+            case SUB_BITS_SUBTAG:
+                {
+                    ErlSubBits *sb = (ErlSubBits*) hp;
+
+                    if (ErtsInArea(ptr_val(sb->orig), area, area_size)) {
+                        sb->orig = offset_ptr(sb->orig, offs);
+                        erl_sub_bits_update_moved(sb, sb->orig);
+                    }
+                }
+                break;
 	      }
 	      sz -= tari;
 	      hp += tari + 1;

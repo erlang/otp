@@ -3383,8 +3383,6 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                     BIF_RET(ERTS_MAKE_AM("heap_binary"));
                 case SUB_BITS_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("sub_binary"));
-                case BIN_MATCHSTATE_SUBTAG:
-                    BIF_RET(ERTS_MAKE_AM("matchstate"));
                 case POS_BIG_SUBTAG:
                 case NEG_BIG_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("bignum"));

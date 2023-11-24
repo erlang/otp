@@ -122,9 +122,9 @@ test_size(Config) when is_list(Config) ->
 	{32, 18} -> ok;
 	{64, 10} -> ok
     end,
-    9 = do_test_size(<<0:(8*65)>>),    % ErlSubBits + BinRef
+    8 = do_test_size(<<0:(8*65)>>),    % ErlSubBits + BinRef
     3 = do_test_size(<<5:7>>),         % ErlHeapBits
-    9 = do_test_size(<<0:(8*80+1)>>),  % ErlSubBits + BinRef
+    8 = do_test_size(<<0:(8*80+1)>>),  % ErlSubBits + BinRef
 
     %% Test shared data structures.
     do_test_size([ConsCell1|ConsCell1],

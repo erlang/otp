@@ -339,8 +339,17 @@ void BeamGlobalAssembler::emit_bif_bit_size_helper(Label error) {
     emit_untag_ptr(TMP3, ARG1);
 
     ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
-    ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, thing_word, size);
     a.ldp(TMP1, TMP2, arm::Mem(TMP3));
+
+    Label not_sub_bits = a.newLabel();
+    a.cmp(TMP1, imm(HEADER_SUB_BITS));
+    a.b_ne(not_sub_bits);
+    {
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+        a.ldp(TMP2, TMP3, arm::Mem(TMP3, offsetof(ErlSubBits, start)));
+        a.sub(TMP2, TMP3, TMP2);
+    }
+    a.bind(not_sub_bits);
 
     const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
     ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
@@ -380,18 +389,26 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
         mov_var(dst, ARG1);
     } else {
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+        emit_untag_ptr(ARG1, src.reg);
+
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+        a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+
+        Label not_sub_bits = a.newLabel();
+        a.cmp(TMP1, imm(HEADER_SUB_BITS));
+        a.b_ne(not_sub_bits);
+        {
+            ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+            a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+            a.sub(TMP2, TMP3, TMP2);
+        }
+        a.bind(not_sub_bits);
 
         if (masked_types<BeamTypeId::MaybeBoxed>(Src) ==
             BeamTypeId::Bitstring) {
-            arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
-
             comment("skipped header test since we know it's a bitstring when "
                     "boxed");
-            a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
         } else {
-            emit_untag_ptr(ARG1, src.reg);
-            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
-
             const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
             ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
             ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS ==
@@ -445,18 +462,26 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
         mov_var(dst, ARG1);
     } else {
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+        emit_untag_ptr(ARG1, src.reg);
+
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+        a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+
+        Label not_sub_bits = a.newLabel();
+        a.cmp(TMP1, imm(HEADER_SUB_BITS));
+        a.b_ne(not_sub_bits);
+        {
+            ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+            a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+            a.sub(TMP2, TMP3, TMP2);
+        }
+        a.bind(not_sub_bits);
 
         if (masked_types<BeamTypeId::MaybeBoxed>(Src) ==
             BeamTypeId::Bitstring) {
-            arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
-
             comment("skipped header test since we know it's a bitstring when "
                     "boxed");
-            a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
         } else {
-            emit_untag_ptr(ARG1, src.reg);
-            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
-
             const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
             ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
             ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS ==

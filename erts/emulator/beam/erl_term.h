@@ -124,7 +124,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX
  */
 #define ARITYVAL_SUBTAG         (0x0 << _TAG_PRIMARY_SIZE) /* TUPLE */
-#define BIN_MATCHSTATE_SUBTAG   (0x1 << _TAG_PRIMARY_SIZE)
+/* (0x1 << _TAG_PRIMARY_SIZE)                                 FREE  */
 #define _BIG_TAG_MASK           (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
 #define _BIG_SIGN_BIT           (0x1 << _TAG_PRIMARY_SIZE)
 #define POS_BIG_SUBTAG          (0x2 << _TAG_PRIMARY_SIZE) /* BIGNUM */
@@ -155,7 +155,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_EXTERNAL_PID   (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PORT  (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_REF   (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
-#define _TAG_HEADER_BIN_MATCHSTATE (TAG_PRIMARY_HEADER|BIN_MATCHSTATE_SUBTAG)
 #define _TAG_HEADER_MAP	           (TAG_PRIMARY_HEADER|MAP_SUBTAG)
 
 
@@ -167,7 +166,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  (((x) & (_HEADER_SUBTAG_MASK)) == ARITYVAL_SUBTAG)
 #define header_is_arityval(x)	(((x) & _HEADER_SUBTAG_MASK) == ARITYVAL_SUBTAG)
 #define header_is_thing(x)	(!header_is_transparent((x)))
-#define header_is_bin_matchstate(x)	((((x) & (_HEADER_SUBTAG_MASK)) == BIN_MATCHSTATE_SUBTAG))
 
 #define _CPMASK		0x3
 
@@ -1421,8 +1419,7 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 #define FLOAT_DEF		0xe
 #define BIG_DEF			0xf
 #define SMALL_DEF		0x10
-#define MATCHSTATE_DEF          0x11   /* not a "real" term */
-#define BIN_REF_DEF             0x12   /* not a "real" term */
+#define BIN_REF_DEF             0x11   /* not a "real" term */
 
 #define FIRST_VACANT_TAG_DEF    0x13
 
@@ -1492,7 +1489,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 	    case (_TAG_HEADER_BIN_REF >> _TAG_PRIMARY_SIZE):	return BIN_REF_DEF;
 	    case (_TAG_HEADER_HEAP_BITS >> _TAG_PRIMARY_SIZE):	return BITSTRING_DEF;
 	    case (_TAG_HEADER_SUB_BITS >> _TAG_PRIMARY_SIZE):	return BITSTRING_DEF;
-	    case (_TAG_HEADER_BIN_MATCHSTATE >> _TAG_PRIMARY_SIZE): return MATCHSTATE_DEF;
 	  }
 
 	  break;
