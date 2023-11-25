@@ -1723,7 +1723,7 @@ erl_start(int argc, char **argv)
                         erts_coverage_mode = ERTS_COV_FUNCTION;
                     } else if (sys_strcmp(arg, "function_counters") == 0) {
                         erts_coverage_mode = ERTS_COV_FUNCTION_COUNTERS;
-                    } else if (sys_strcmp(arg, "line_coverage") == 0) {
+                    } else if (sys_strcmp(arg, "line") == 0) {
                         erts_coverage_mode = ERTS_COV_LINE;
                     } else if (sys_strcmp(arg, "line_counters") == 0) {
                         erts_coverage_mode = ERTS_COV_LINE_COUNTERS;
