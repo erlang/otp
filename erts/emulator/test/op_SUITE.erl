@@ -304,7 +304,7 @@ relop(Config) when is_list(Config) ->
     BitString = <<0:7>>,
     Map = #{a => b},
     Vs0 = [a,b,-33,-33.0,0,0.0,-0,0,42,42.0,Big1,Big2,F1,F2,
-           Bin,BitString,Map],
+           Bin,BitString,Map,[16#1234_5678_abcd]],
     Vs = [unvalue(V) || V <- Vs0],
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -315,8 +315,11 @@ complex_relop(Config) when is_list(Config) ->
     Float = float(Big),
     Bin = <<"abc">>,
     BitString = <<0:7>>,
+    EmptyBitString = <<>>,
     Map = #{a => b},
-    Vs0 = [an_atom,42.0,42,0.0,-0.0,Big,Float,Bin,BitString,Map],
+    EmptyMap = #{},
+    Vs0 = [an_atom,42.0,42,0.0,-0.0,Big,Float,Bin,BitString,
+           EmptyBitString,Map,EmptyMap],
     Vs = flatmap(fun(X) -> [unvalue({X}),unvalue([X])] end, Vs0),
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).

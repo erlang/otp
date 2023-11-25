@@ -63,6 +63,7 @@ extern "C"
 #include "beam_common.h"
 #include "code_ix.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 }
 
 using namespace asmjit;
@@ -1482,10 +1483,182 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
+/*
+ * ARG1 = First operand
+ * ARG2 = Literal list
+ *
+ * The result is returned in the Z flag.
+ */
+void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
+    Label loop = a.newLabel(), mid = a.newLabel(), done = a.newLabel();
+
+    a.b(mid);
+
+    a.bind(loop);
+    emit_untag_ptr(ARG1, ARG1);
+    emit_untag_ptr(ARG2, ARG2);
+    a.ldp(TMP1, ARG1, arm::Mem(ARG1));
+    a.ldp(TMP2, ARG2, arm::Mem(ARG2));
+    a.cmp(TMP1, TMP2);
+    a.b_ne(done);
+
+    a.bind(mid);
+    a.cmp(ARG1, ARG2);
+    a.b_eq(done);
+
+    /* If not equal, both terms must be CONSes. */
+#if !defined(DEBUG)
+    ERTS_CT_ASSERT(!is_list(make_small(0) | make_list(0)));
+    ERTS_CT_ASSERT(!is_list(make_boxed(0) | make_list(0)));
+#endif
+    a.orr(TMP1, ARG1, ARG2);
+    emit_is_not_cons(loop, TMP1);
+
+    /* Not equal. Clear Z flag. */
+    a.cmp(TMP1, imm(0));
+
+    a.bind(done);
+    a.ret(a64::x30);
+}
+
+/*
+ * ARG1 = LHS
+ * ARG2 = RHS
+ *
+ * The result is returned in the Z flag.
+ */
+void BeamGlobalAssembler::emit_is_eq_exact_shallow_boxed_shared() {
+    Label loop = a.newLabel();
+    Label done = a.newLabel();
+    Label not_equal = a.newLabel();
+
+    a.orr(TMP1, ARG1, ARG2);
+    emit_is_boxed(not_equal, TMP1);
+
+    emit_untag_ptr(TMP1, ARG1);
+    a.ldr(TMP3, arm::Mem(TMP1));
+    emit_untag_ptr(TMP2, ARG2);
+    a.lsr(ARG3, TMP3, imm(_HEADER_ARITY_OFFS));
+    a.sub(ARG3, ARG3, imm(1));
+
+    a.bind(loop);
+    {
+        a.ldp(TMP3, TMP4, arm::Mem(TMP1).post(16));
+        a.ldp(TMP5, TMP6, arm::Mem(TMP2).post(16));
+        a.cmp(TMP3, TMP5);
+        a.ccmp(TMP4, TMP6, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+        a.b_ne(done);
+
+        a.subs(ARG3, ARG3, imm(2));
+        a.b_pl(loop);
+    }
+
+    a.cmn(ARG3, imm(2));
+    a.b_eq(done);
+
+    a.ldr(TMP3, arm::Mem(TMP1));
+    a.ldr(TMP5, arm::Mem(TMP2));
+    a.cmp(TMP3, TMP5);
+
+    a.bind(done);
+    a.ret(a64::x30);
+
+    a.bind(not_equal);
+    a.cmp(TMP1, 0);
+    a.ret(a64::x30);
+}
+
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
+
+    if (Y.isLiteral()) {
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+
+        if (is_list(literal) && is_immed(CAR(list_val(literal))) &&
+            is_nil(CDR(list_val(literal)))) {
+            /* Inline the equality test if the RHS argument is a list
+             * of one immediate value such as `[42]` or `[a]`. */
+            arm::Gp cons_ptr;
+
+            comment("inlined equality test with %T", literal);
+            if (!exact_type<BeamTypeId::Cons>(X)) {
+                emit_is_cons(resolve_beam_label(Fail, dispUnknown), x.reg);
+            }
+            cons_ptr = emit_ptr_val(TMP1, x.reg);
+            a.sub(TMP1, cons_ptr, imm(TAG_PRIMARY_LIST));
+            a.ldp(TMP2, TMP3, arm::Mem(TMP1));
+            cmp(TMP2, CAR(list_val(literal)));
+            mov_imm(TMP4, NIL);
+            a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        } else if (beam_jit_is_list_of_immediates(literal)) {
+            comment("optimized equality test with %T", literal);
+            mov_var(ARG1, x);
+            mov_arg(ARG2, Y);
+            fragment_call(ga->get_is_eq_exact_list_shared());
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        } else if (beam_jit_is_shallow_boxed(literal)) {
+            comment("optimized equality test with %T", literal);
+            mov_var(ARG1, x);
+            mov_arg(ARG2, Y);
+            fragment_call(ga->get_is_eq_exact_shallow_boxed_shared());
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        } else if (is_bitstring(literal) && bitstring_size(literal) == 0) {
+            Label not_sub_bits = a.newLabel();
+
+            comment("simplified non-equality test with empty binary");
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), X, x.reg);
+            emit_untag_ptr(ARG1, x.reg);
+
+            ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+
+            a.cmp(TMP1, imm(HEADER_SUB_BITS));
+            a.b_ne(not_sub_bits);
+            {
+                ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+                a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+                a.sub(TMP2, TMP3, TMP2);
+            }
+            a.bind(not_sub_bits);
+
+            if (masked_types<BeamTypeId::MaybeBoxed>(X) ==
+                BeamTypeId::Bitstring) {
+                comment("skipped header test since we know it's a bitstring "
+                        "when boxed");
+                a.cbnz(TMP2, resolve_beam_label(Fail, disp1MB));
+            } else {
+                const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+                ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+                ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS ==
+                               (_TAG_HEADER_HEAP_BITS & mask));
+                a.and_(TMP1, TMP1, imm(mask));
+                a.cmp(TMP1, imm(_TAG_HEADER_HEAP_BITS));
+                a.ccmp(TMP2, imm(0), imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+            }
+
+            return;
+        } else if (is_map(literal) && erts_map_size(literal) == 0) {
+            comment("optimized equality test with empty map", literal);
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), X, x.reg);
+            emit_untag_ptr(ARG1, x.reg);
+            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+            cmp(TMP1, MAP_HEADER_FLATMAP);
+            a.ccmp(TMP2, imm(0), imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        }
+    }
 
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're not equal. */
@@ -1528,11 +1701,16 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     mov_var(ARG1, x);
     mov_var(ARG2, y);
 
-    emit_enter_runtime();
-    runtime_call<2>(eq);
-    emit_leave_runtime();
-
-    a.cbz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(X) ||
+        always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(Y)) {
+        fragment_call(ga->get_is_eq_exact_shallow_boxed_shared());
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(eq);
+        emit_leave_runtime();
+        a.cbz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
@@ -1541,6 +1719,98 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
+
+    if (Y.isLiteral()) {
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        bool imm_list = beam_jit_is_list_of_immediates(literal);
+
+        if (imm_list && erts_list_length(literal) == 1) {
+            arm::Gp cons_ptr;
+            Label next = a.newLabel();
+
+            /* Inline the equality test if the RHS argument is a list
+             * of one immediate value such as `[42]` or `[a]`. */
+            comment("inlined non-equality test with %T", literal);
+            if (!exact_type<BeamTypeId::Cons>(X)) {
+                emit_is_cons(next, x.reg);
+            }
+            cons_ptr = emit_ptr_val(TMP1, x.reg);
+            a.sub(TMP1, cons_ptr, imm(TAG_PRIMARY_LIST));
+            a.ldp(TMP2, TMP3, arm::Mem(TMP1));
+            cmp(TMP2, CAR(list_val(literal)));
+            mov_imm(TMP4, NIL);
+            a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
+
+            a.bind(next);
+
+            return;
+        } else if (imm_list) {
+            comment("optimized non-equality test with %T", literal);
+            mov_var(ARG1, x);
+            mov_arg(ARG2, Y);
+            fragment_call(ga->get_is_eq_exact_list_shared());
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        } else if (beam_jit_is_shallow_boxed(literal)) {
+            comment("optimized non-equality test with %T", literal);
+            mov_var(ARG1, x);
+            mov_arg(ARG2, Y);
+            fragment_call(ga->get_is_eq_exact_shallow_boxed_shared());
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        } else if (is_bitstring(literal) && bitstring_size(literal) == 0) {
+            Label next = a.newLabel(), not_sub_bits = a.newLabel();
+
+            comment("simplified non-equality test with empty binary");
+            emit_is_boxed(next, X, x.reg);
+            emit_untag_ptr(ARG1, x.reg);
+
+            ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+
+            a.cmp(TMP1, imm(HEADER_SUB_BITS));
+            a.b_ne(not_sub_bits);
+            {
+                ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+                a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+                a.sub(TMP2, TMP3, TMP2);
+            }
+            a.bind(not_sub_bits);
+
+            if (masked_types<BeamTypeId::MaybeBoxed>(X) ==
+                BeamTypeId::Bitstring) {
+                comment("skipped header test since we know it's a bitstring "
+                        "when boxed");
+                a.cbz(TMP2, resolve_beam_label(Fail, disp1MB));
+            } else {
+                const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
+                ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+                ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS ==
+                               (_TAG_HEADER_HEAP_BITS & mask));
+                a.and_(TMP1, TMP1, imm(mask));
+                a.cmp(TMP1, imm(_TAG_HEADER_HEAP_BITS));
+                a.ccmp(TMP2, imm(0), imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+                a.b_eq(resolve_beam_label(Fail, disp1MB));
+            }
+
+            a.bind(next);
+
+            return;
+        } else if (is_map(literal) && erts_map_size(literal) == 0) {
+            comment("optimized non-equality test with empty map", literal);
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), X, x.reg);
+            emit_untag_ptr(ARG1, x.reg);
+            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+            cmp(TMP1, MAP_HEADER_FLATMAP);
+            a.ccmp(TMP2, imm(0), imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
+
+            return;
+        }
+    }
 
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're equal. */
@@ -1580,13 +1850,16 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
     mov_var(ARG1, x);
     mov_var(ARG2, y);
 
-    emit_enter_runtime();
-
-    runtime_call<2>(eq);
-
-    emit_leave_runtime();
-
-    a.cbnz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(X) ||
+        always_one_of<BeamTypeId::Integer, BeamTypeId::Float>(Y)) {
+        fragment_call(ga->get_is_eq_exact_shallow_boxed_shared());
+        a.b_eq(resolve_beam_label(Fail, disp1MB));
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(eq);
+        emit_leave_runtime();
+        a.cbnz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
