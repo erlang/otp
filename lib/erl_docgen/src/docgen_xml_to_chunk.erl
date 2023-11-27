@@ -35,7 +35,7 @@ main([_Application, FromBeam, _Escript, ToChunk]) ->
 
     Anno = erl_anno:set_file(Name, erl_anno:new(0)),
 
-    EmptyDocs = add_hidden_docs(
+    EmptyDocs = add_hidden_functions(
                   Exports,
                   #docs_v1{ anno = Anno,
                             module_doc = hidden,
@@ -284,10 +284,11 @@ docs(Application, OTPXml, FromBEAM)->
                     put(application, Application),
                     put(module, filename:basename(filename:rootname(FromBEAM))),
                     NewDom = transform(Dom, []),
-                    Chunk = add_hidden_docs(
-                              proplists:get_value(exports, Chunks),
-                              to_chunk(NewDom, OTPXml, Module,
-                                       proplists:get_value(abstract_code, Chunks))),
+                    Chunk = add_hidden_types(
+                              add_hidden_functions(
+                                proplists:get_value(exports, Chunks),
+                                to_chunk(NewDom, OTPXml, Module,
+                                         proplists:get_value(abstract_code, Chunks)))),
                     verify_chunk(Module, proplists:get_value(exports, Chunks), Chunk),
                     Chunk;
                 _Else ->
@@ -299,13 +300,22 @@ docs(Application, OTPXml, FromBEAM)->
 
 %% Create hidden function entries for any exported functions that
 %% does not have any documentation.
-add_hidden_docs(Exports, #docs_v1{ anno = Anno, docs = Docs } = Chunk) ->
+add_hidden_functions(Exports, #docs_v1{ anno = Anno, docs = Docs } = Chunk) ->
     HiddenFuncs =
         [{{function, F, A}, Anno,
           [iolist_to_binary(io_lib:format("~p/~p", [F, A]))],
           hidden, #{}} || {F, A} <- Exports, F =/= module_info,
                           lists:keysearch({function, F, A}, 1, Docs) == false ],
     Chunk#docs_v1{ docs = HiddenFuncs ++ Docs }.
+
+add_hidden_types(#docs_v1{ anno = Anno, docs = Docs, metadata = Meta } = Chunk) ->
+    Types = maps:get(types, Meta, []),
+    HiddenTypes =
+        [{{type, F, A}, Anno,
+          [iolist_to_binary(io_lib:format("-type ~p/~p", [F, A]))],
+          hidden, #{}} || {F, A} := _ <- Types,
+                          lists:keysearch({type, F, A}, 1, Docs) == false ],
+    Chunk#docs_v1{ docs = HiddenTypes ++ Docs }.
 
 verify_chunk(M, Exports, #docs_v1{ docs = Docs } = Doc) ->
 
