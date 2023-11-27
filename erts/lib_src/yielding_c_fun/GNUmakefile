@@ -194,13 +194,13 @@ cmake_compile: CMakeLists.txt
 	cd cmake_mkdir && cmake ..
 
 clang_tidy:
-	(ls *.c ; echo lib/tiny_regex_c/re.c ; echo lib/simple_c_gc/simple_c_gc.c) | xargs -I{} -n1 clang-tidy -warnings-as-errors=*  {} -- $(YCF_INCLUDE_DIRS) $(YCF_CFLAGS)
+	(ls *.c ; echo lib/simple_c_gc/simple_c_gc.c) | xargs -I{} -n1 clang-tidy -warnings-as-errors=*  {} -- $(YCF_INCLUDE_DIRS) $(YCF_CFLAGS)
 
 clang_format:
 	clang-format -style="{BasedOnStyle: LLVM}" -i *.c *.h
 
 clean:
-	rm -f lib/simple_c_gc/*.o lib/tiny_regex_c/*.o ./*.o ./*~ core trap parse $(YCF_EXECUTABLE) CMakeLists.txt
+	rm -f lib/simple_c_gc/*.o ./*.o ./*~ core trap parse $(YCF_EXECUTABLE) CMakeLists.txt
 
 # Produce a CMakeLists.txt to build with cmake
 CMakeLists.txt: $(YCF_SOURCES)
