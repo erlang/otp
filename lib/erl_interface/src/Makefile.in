@@ -42,6 +42,8 @@ include $(TARGET)/eidefs.mk
 
 include $(ERL_TOP)/make/output.mk
 
+include openssl/openssl.mk
+
 EBINDIR=../ebin
 
 APP_FILE= erl_interface.app
@@ -96,7 +98,7 @@ AR_FLAGS=rcv
 endif
 
 INCFLAGS = -I. -I../include -Iconnect -Iencode -Idecode -Imisc -Iepmd \
-	-I$(TARGET) 
+	-Iopenssl/include -I$(TARGET) 
 
 ifeq ($(USING_VC),yes)
 WARNFLAGS = -Wall
@@ -106,7 +108,8 @@ endif
 
 WARNFLAGS += -DEI_NO_DEPR_WARN
 
-CFLAGS = @DED_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
+CFLAGS = @DED_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) \
+	-DERLANG_OPENSSL_INTEGRATION
 DED_LD = @DED_LD@
 DED_LDFLAGS = @DED_LDFLAGS@
 DED_LD_FLAG_RUNTIME_LIBRARY_PATH = @DED_LD_FLAG_RUNTIME_LIBRARY_PATH@
@@ -137,7 +140,7 @@ BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 # -Wno-char-subscripts
 # -Wshadow
 
-vpath %.c connect:encode:decode:misc:epmd:global
+vpath %.c connect:encode:decode:misc:epmd:global:$(OPENSSL_VPATH)
 
 ###########################################################################
 #  List targets
@@ -286,7 +289,8 @@ EISOURCES = \
 	$(ENCODESRC) \
 	$(EPMDSRC) \
 	$(MISCSRC) \
-	$(GLOBALSOURCES)
+	$(GLOBALSOURCES) \
+	$(OPENSSL_SOURCES)
 
 CONNECTSRC = \
 	connect/ei_connect.c \
@@ -365,7 +369,6 @@ MISCSRC = \
 	misc/ei_pthreads.c \
 	misc/ei_trace.c \
 	misc/ei_x_encode.c \
-	misc/eimd5.c \
 	misc/get_type.c \
 	misc/show_msg.c \
 	misc/ei_compat.c \
