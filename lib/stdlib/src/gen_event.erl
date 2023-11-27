@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,11 +193,15 @@ start() ->
 start(Name) when is_tuple(Name) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
 start(Options) when is_list(Options) ->
-    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options).
+    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options);
+start(Arg) ->
+    error(badarg, [Arg]).
 
 -spec start(emgr_name(), [option()]) -> start_ret().
+start(Name, Options) when is_tuple(Name), is_list(Options) ->
+    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options);
 start(Name, Options) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options).
+    error(badarg, [Name, Options]).
 
 -spec start_link() -> start_ret().
 start_link() ->
@@ -207,11 +211,15 @@ start_link() ->
 start_link(Name) when is_tuple(Name) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
 start_link(Options) when is_list(Options) ->
-    gen:start(?MODULE, link, ?NO_CALLBACK, [], Options).
+    gen:start(?MODULE, link, ?NO_CALLBACK, [], Options);
+start_link(Arg) ->
+    error(badarg, [Arg]).
 
 -spec start_link(emgr_name(), [option()]) -> start_ret().
+start_link(Name, Options) when is_tuple(Name), is_list(Options) ->
+    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options);
 start_link(Name, Options) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
+    error(badarg, [Name, Options]).
 
 -spec start_monitor() -> start_mon_ret().
 start_monitor() ->
@@ -221,11 +229,15 @@ start_monitor() ->
 start_monitor(Name) when is_tuple(Name) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
 start_monitor(Options) when is_list(Options) ->
-    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options);
+start_monitor(Arg) ->
+    error(badarg, [Arg]).
 
 -spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+start_monitor(Name, Options) when is_tuple(Name), is_list(Options) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options);
 start_monitor(Name, Options) ->
-    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
+    error(badarg, [Name, Options]).
 
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->

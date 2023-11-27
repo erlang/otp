@@ -587,43 +587,61 @@ event_type(Type) ->
 -spec start(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
+start(Module, Args, Opts)
+  when is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, nolink, Module, Args, Opts);
 start(Module, Args, Opts) ->
-    gen:start(?MODULE, nolink, Module, Args, Opts).
+    error(badarg, [Module, Args, Opts]).
 %%
 -spec start(
 	ServerName :: server_name(),
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
+start(ServerName, Module, Args, Opts)
+  when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, nolink, ServerName, Module, Args, Opts);
 start(ServerName, Module, Args, Opts) ->
-    gen:start(?MODULE, nolink, ServerName, Module, Args, Opts).
+    error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Start and link to a state machine
 -spec start_link(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
+start_link(Module, Args, Opts)
+  when is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, link, Module, Args, Opts);
 start_link(Module, Args, Opts) ->
-    gen:start(?MODULE, link, Module, Args, Opts).
+    error(badarg, [Module, Args, Opts]).
 %%
 -spec start_link(
 	ServerName :: server_name(),
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
+start_link(ServerName, Module, Args, Opts)
+  when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, link, ServerName, Module, Args, Opts);
 start_link(ServerName, Module, Args, Opts) ->
-    gen:start(?MODULE, link, ServerName, Module, Args, Opts).
+    error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Start and monitor a state machine
 -spec start_monitor(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_mon_ret().
+start_monitor(Module, Args, Opts)
+  when is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, monitor, Module, Args, Opts);
 start_monitor(Module, Args, Opts) ->
-    gen:start(?MODULE, monitor, Module, Args, Opts).
+    error(badarg, [Module, Args, Opts]).
 %%
 -spec start_monitor(
 	ServerName :: server_name(),
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_mon_ret().
+start_monitor(ServerName, Module, Args, Opts)
+  when is_tuple(ServerName), is_atom(Module), is_list(Opts) ->
+    gen:start(?MODULE, monitor, ServerName, Module, Args, Opts);
 start_monitor(ServerName, Module, Args, Opts) ->
-    gen:start(?MODULE, monitor, ServerName, Module, Args, Opts).
+    error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Stop a state machine
 -spec stop(ServerRef :: server_ref()) -> ok.
@@ -679,7 +697,7 @@ call(ServerRef, Request, {dirty_timeout, T} = Timeout) ->
 call(ServerRef, Request, {clean_timeout, T} = Timeout) ->
     call(ServerRef, Request, Timeout, T);
 call(ServerRef, Request, {_, _} = Timeout) ->
-    erlang:error(badarg, [ServerRef,Request,Timeout]);
+    error(badarg, [ServerRef,Request,Timeout]);
 call(ServerRef, Request, Timeout) ->
     call(ServerRef, Request, Timeout, Timeout).
 

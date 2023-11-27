@@ -199,8 +199,11 @@
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start(Mod, Args, Options)
+  when is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
@@ -210,8 +213,11 @@ start(Mod, Args, Options) ->
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start(Name, Mod, Args, Options)
+  when is_tuple(Name), is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Name, Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Name, Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
@@ -220,8 +226,11 @@ start(Name, Mod, Args, Options) ->
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start_link(Mod, Args, Options)
+  when is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start_link(Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
@@ -231,8 +240,11 @@ start_link(Mod, Args, Options) ->
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start_link(Name, Mod, Args, Options)
+  when is_tuple(Name), is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start_link(Name, Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Name, Mod, Args, Options]).
 
 gen_response({ok, Pid}) ->
     receive {started, Pid, Ref = #wx_ref{}} -> Ref end;

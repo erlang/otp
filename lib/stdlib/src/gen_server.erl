@@ -287,8 +287,11 @@
        ) ->
 		   start_ret().
 %%
+start(Module, Args, Options)
+  when is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, nolink, Module, Args, Options);
 start(Module, Args, Options) ->
-    gen:start(?MODULE, nolink, Module, Args, Options).
+    error(badarg, [Module, Args, Options]).
 
 -spec start(
 	ServerName :: server_name(),
@@ -298,8 +301,11 @@ start(Module, Args, Options) ->
        ) ->
 		   start_ret().
 %%
+start(ServerName, Module, Args, Options)
+  when is_tuple(ServerName), is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, nolink, ServerName, Module, Args, Options);
 start(ServerName, Module, Args, Options) ->
-    gen:start(?MODULE, nolink, ServerName, Module, Args, Options).
+    error(badarg, [ServerName, Module, Args, Options]).
 
 -spec start_link(
 	Module  :: module(),
@@ -308,8 +314,11 @@ start(ServerName, Module, Args, Options) ->
        ) ->
 		   start_ret().
 %%
+start_link(Module, Args, Options)
+  when is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, link, Module, Args, Options);
 start_link(Module, Args, Options) ->
-    gen:start(?MODULE, link, Module, Args, Options).
+    error(badarg, [Module, Args, Options]).
 
 -spec start_link(
 	ServerName :: server_name(),
@@ -319,8 +328,11 @@ start_link(Module, Args, Options) ->
        ) ->
 		   start_ret().
 %%
+start_link(ServerName, Module, Args, Options)
+  when is_tuple(ServerName), is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, link, ServerName, Module, Args, Options);
 start_link(ServerName, Module, Args, Options) ->
-    gen:start(?MODULE, link, ServerName, Module, Args, Options).
+    error(badarg, [ServerName, Module, Args, Options]).
 
 -spec start_monitor(
 	Module  :: module(),
@@ -329,8 +341,11 @@ start_link(ServerName, Module, Args, Options) ->
        ) ->
 		   start_mon_ret().
 %%
+start_monitor(Module, Args, Options)
+  when is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, monitor, Module, Args, Options);
 start_monitor(Module, Args, Options) ->
-    gen:start(?MODULE, monitor, Module, Args, Options).
+    error(badarg, [Module, Args, Options]).
 
 -spec start_monitor(
 	ServerName :: server_name(),
@@ -340,8 +355,11 @@ start_monitor(Module, Args, Options) ->
        ) ->
 		   start_mon_ret().
 %%
+start_monitor(ServerName, Module, Args, Options)
+  when is_tuple(ServerName), is_atom(Module), is_list(Options) ->
+    gen:start(?MODULE, monitor, ServerName, Module, Args, Options);
 start_monitor(ServerName, Module, Args, Options) ->
-    gen:start(?MODULE, monitor, ServerName, Module, Args, Options).
+    error(badarg, [ServerName, Module, Args, Options]).
 
 
 %% -----------------------------------------------------------------

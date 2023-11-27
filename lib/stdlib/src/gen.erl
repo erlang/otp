@@ -614,7 +614,9 @@ do_for_proc({_Name, Node} = Process, Fun) when is_atom(Node) ->
 %%%-----------------------------------------------------------------
 where({global, Name}) -> global:whereis_name(Name);
 where({via, Module, Name}) -> Module:whereis_name(Name);
-where({local, Name})  -> whereis(Name).
+where({local, Name})  -> whereis(Name);
+where(ServerName) ->
+    error(badarg, [ServerName]).
 
 register_name({local, Name} = LN) ->
     try register(Name, self()) of
