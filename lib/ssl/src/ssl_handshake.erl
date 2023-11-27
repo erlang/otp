@@ -2151,9 +2151,11 @@ do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = K
   when ?TLS_LTE(Version, ?TLS_1_1) ->
     public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #{algorithm := rsa, encrypt_fun := _} = Key, rsa)
+do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #{algorithm := rsa, encrypt_fun := Fun} = Key0, rsa)
   when ?TLS_LTE(Version, ?TLS_1_1) ->
-    public_key:encrypt_private(Digest, Key, [{rsa_pad, rsa_pkcs1_padding}]);
+    CustomOpts = maps:get(encrypt_opts, Key0, []),
+    Key = #{algorithm => rsa, encrypt_fun => Fun},
+    public_key:encrypt_private(Digest, Key, CustomOpts ++ [{rsa_pad, rsa_pkcs1_padding}]);
 do_digitally_signed(Version, {digest, Digest}, _,
                     #{algorithm := rsa, engine := _} = Engine, rsa) when ?TLS_LTE(Version, ?TLS_1_1) ->
     crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
@@ -2163,6 +2165,11 @@ do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg, engine := _} = Engine,
     crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
 do_digitally_signed(Version, {digest, _} = Msg , HashAlgo, Key, _) when ?TLS_LTE(Version,?TLS_1_1) ->
     public_key:sign(Msg, HashAlgo, Key);
+do_digitally_signed(_, Msg, HashAlgo, #{algorithm := SignAlgo, sign_fun := Fun} = Key0, SignAlgo) ->
+    CustomOpts = maps:get(sign_opts, Key0, []),
+    Options = signature_options(SignAlgo, HashAlgo),
+    Key = #{algorithm => SignAlgo, sign_fun => Fun},
+    public_key:sign(Msg, HashAlgo, Key, CustomOpts ++ Options);
 do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options).

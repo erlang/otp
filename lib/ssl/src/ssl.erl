@@ -357,7 +357,9 @@
                                        password => crypto:password()} |
                                      #{algorithm := sign_algo(),
                                        sign_fun := fun(),
-                                       encrypt_fun => fun() %% Only TLS-1.0, TLS-1.1 and rsa-key
+                                       sign_opts => list(),
+                                       encrypt_fun => fun(), %% Only TLS-1.0, TLS-1.1 and rsa-key
+                                       encrypt_opts => list()
                                       }. % exported
 -type key_pem()                   :: file:filename().
 -type key_pem_password()          :: iodata() | fun(() -> iodata()).

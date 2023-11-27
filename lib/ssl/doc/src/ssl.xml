@@ -344,11 +344,13 @@
       <name name="key"/>
       <desc>
 
-	<p>The user's private key. The map formats referring to a
-	crypto engine/provider (with key reference information) or Erlang fun,
-	can both be used for customized signing with
-	for instance hardware security modules (HSM) or trusted
-	platform modules (TPM). </p>
+	<p>The user's private key.  Either the key can be provided
+	directly as DER encoded entity, or indirectly using a crypto
+	engine/provider (with key reference information) or an Erlang
+	fun (with possible custom options).  The latter two options
+	can both be used for customized signing with for instance
+	hardware security modules (HSM) or trusted platform modules
+	(TPM). </p>
 
 	<list>
 	  <item><p>A DER encoded key will need to specify the ASN-1 type used to

@@ -89,28 +89,28 @@ auth() ->
 
 auth(Config) ->
     Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ClientOpts =  case Version of
                       'tlsv1.3' ->
-                          [{verify, verify_peer},
-                           {certificate_authorities, true} |
-                           ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)];
+                          [{certificate_authorities, true} | CommonClientOpts];
                       _ ->
-                          [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)]
+                          CommonClientOpts
                   end,
     ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
 %%--------------------------------------------------------------------
 client_auth_custom_key() ->
     [{doc,"Test that client and server can connect using their own signature function"}].
 
 client_auth_custom_key(Config) when is_list(Config) ->
     Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ClientOpts0 =  case Version of
                       'tlsv1.3' ->
-                          [{verify, verify_peer},
-                           {certificate_authorities, true} |
-                           ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)];
-                      _ ->[{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)]
+                           [{certificate_authorities, true} | CommonClientOpts];
+                      _ ->
+                           CommonClientOpts
                   end,
     ClientKeyFilePath =  proplists:get_value(keyfile, ClientOpts0),
     [ClientKeyEntry] = ssl_test_lib:pem_to_der(ClientKeyFilePath),

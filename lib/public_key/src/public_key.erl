@@ -124,6 +124,7 @@
                                  ed_private_key() |
                                  #{algorithm := eddsa | rsa_pss_pss | ecdsa | rsa | dsa,
                                    sign_fun => fun()} .
+-type custom_key_opts()      :: [term()].
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{} | #{algorithm := rsa,
                                                         encrypt_fun => fun()}.
@@ -646,7 +647,7 @@ encrypt_private(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
                                        Key :: rsa_private_key(),
-                                       Options :: crypto:pk_encrypt_decrypt_opts(),
+                                       Options :: crypto:pk_encrypt_decrypt_opts() | custom_key_opts(),
                                        CipherText :: binary() .
 encrypt_private(PlainText, Key, Options)
   when is_binary(PlainText),
@@ -842,7 +843,7 @@ sign(DigestOrPlainText, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
                                  Key :: private_key(),
-                                 Options :: crypto:pk_sign_verify_opts(),
+                                 Options :: crypto:pk_sign_verify_opts() | custom_key_opts(),
                                  Signature :: binary() .
 sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
     %% Backwards compatible
