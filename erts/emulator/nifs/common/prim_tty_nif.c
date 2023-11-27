@@ -336,19 +336,25 @@ static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                 res = writev(tty->ofd, iov, iovcnt);
             } while(res < 0 && (errno == EINTR || errno == EAGAIN));
 #else
-            for (int i = 0; i < iovec->iovcnt; i++) {
+            res = 0;
+            for (int i = 0; i < iovcnt; i++) {
                 ssize_t written;
 #ifdef HARD_DEBUG
-		for (int y = 0; y < iovec->iov[i].iov_len; y++)
-                    debug("Write %u\r\n",iovec->iov[i].iov_base[y]);
+		for (int y = 0; y < iov[i].iov_len; y++)
+                    debug("Write %u\r\n",iov[i].iov_base[y]);
 #endif
-                BOOL r = WriteFile(tty->ofd, iovec->iov[i].iov_base,
-                                   iovec->iov[i].iov_len, &written, NULL);
+                BOOL r = WriteFile(tty->ofd, iov[i].iov_base,
+                                   iov[i].iov_len, &written, NULL);
                 if (!r) {
                     res = -1;
                     break;
                 }
                 res += written;
+#ifdef DEBUG
+                /* In debug we simulate a partial write in order to test
+                   the code that handles it */
+                break;
+#endif
             }
 #endif
             if (res < 0) {
