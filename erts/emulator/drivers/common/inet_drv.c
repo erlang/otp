@@ -7482,7 +7482,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                           "inet_set_opts(L_init_mreq,inet) -> mreqn\r\n",
                           __LINE__, desc->s, driver_caller(desc->port)));
 
-                    mreq4.imr_ifindex          = sock_htonl(ival);
+                    mreq4.imr_ifindex          = ival;
                     ival = get_int32(ptr);
                     ptr += 4;
                     len -= 4;
