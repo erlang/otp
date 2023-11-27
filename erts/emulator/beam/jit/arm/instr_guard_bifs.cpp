@@ -81,7 +81,7 @@ void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
     emit_leave_runtime();
     emit_leave_runtime_frame();
 
-    a.cbz(ARG1, fail);
+    a.cbz(ARG1.w(), fail);
 
     a.bind(succ);
     {
@@ -113,7 +113,7 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     emit_leave_runtime();
     emit_leave_runtime_frame();
 
-    a.cbnz(ARG1, fail);
+    a.cbnz(ARG1.w(), fail);
 
     a.bind(succ);
     {
