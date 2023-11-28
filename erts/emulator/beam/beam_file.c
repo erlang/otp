@@ -759,6 +759,11 @@ static int parse_decompressed_literals(BeamFile *beam,
         ErlHeapFragment *fragments;
         Eterm value;
 
+#ifdef DEBUG
+        erts_literal_area_t purge_area;
+        INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+#endif
+
         LoadAssert(beamreader_read_i32(&reader, &ext_size));
         LoadAssert(beamreader_read_bytes(&reader, ext_size, &ext_data));
         term_size = erts_decode_ext_size(ext_data, ext_size);
@@ -774,14 +779,24 @@ static int parse_decompressed_literals(BeamFile *beam,
             erts_factory_close(&factory);
 
             LoadAssert(!is_non_value(value));
+            ASSERT(size_object_litopt(value, &purge_area) > 0);
 
             heap_size += erts_used_frag_sz(factory.heap_frags);
             fragments = factory.heap_frags;
         } else {
             erts_factory_dummy_init(&factory);
             value = erts_decode_ext(&factory, &ext_data, 0);
+
+            /* erts_decode_ext may return terms that are (or contain) global
+             * literals, for instance export funs or the empty tuple. As these
+             * are singleton values that belong to everyone, they can safely be
+             * returned without being copied into a fragment.
+             *
+             * (Note that erts_decode_ext_size does not include said term in
+             * the decoded size) */
             LoadAssert(!is_non_value(value));
-            ASSERT(is_immed(value));
+            ASSERT(size_object_litopt(value, &purge_area) == 0);
+
             fragments = NULL;
         }
 
@@ -1269,16 +1284,24 @@ static void move_literal_entries(BeamFile_LiteralEntry *entries, int count,
     int i;
 
     for (i = 0; i < count; i++) {
-        if (is_not_immed(entries[i].value)) {
-            ASSERT(entries[i].heap_fragments != NULL);
+        if (entries[i].heap_fragments != NULL) {
+            Eterm value = entries[i].value;
+
+#ifdef DEBUG
+            erts_literal_area_t purge_area;
+            INITIALIZE_LITERAL_PURGE_AREA(purge_area);
+#endif
+
+            ASSERT(size_object_litopt(value, &purge_area) > 0);
 
             erts_move_multi_frags(hpp, oh,
-                                  entries[i].heap_fragments, &entries[i].value,
+                                  entries[i].heap_fragments, &value,
                                   1, 1);
-            ASSERT(erts_is_literal(entries[i].value, ptr_val(entries[i].value)));
+            ASSERT(erts_is_literal(value, ptr_val(value)));
 
             free_literal_fragment(entries[i].heap_fragments);
             entries[i].heap_fragments = NULL;
+            entries[i].value = value;
         }
 
         ASSERT(entries[i].heap_fragments == NULL);

@@ -89,7 +89,6 @@ typedef struct erl_fun_thing {
  * C99-style flexible array */
 #define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm)))
 
-ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity);
 ErlFunThing *erts_new_local_fun_thing(Process *p,
                                       ErlFunEntry *fe,
                                       int arity,

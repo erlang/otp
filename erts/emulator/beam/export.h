@@ -57,6 +57,10 @@ typedef struct export_
     /* Non-zero if this is a BIF that's traced. */
     int is_bif_traced;
 
+    /* Globally shared external fun for this export entry. This is always a
+     * literal. */
+    Eterm lambda;
+
     /* This is a small trampoline function that can be used for lazy code
      * loading, global call tracing, and so on. It's only valid when
      * addresses points to it and should otherwise be left zeroed.

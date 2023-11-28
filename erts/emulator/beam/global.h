@@ -1005,6 +1005,12 @@ void erts_lookup_function_info(FunctionInfo* fi,
 extern ErtsLiteralArea** erts_dump_lit_areas;
 extern Uint erts_dump_num_lit_areas;
 
+/* export.c */
+
+/** @brief Iterates through the literal areas for canonical lambdas. This is
+ * destructive and can only be used for crash dumping. */
+ErtsLiteralArea *erts_get_next_lambda_lit_area(ErtsLiteralArea *prev);
+
 /* break.c */
 void init_break_handler(void);
 void erts_set_ignore_break(void);

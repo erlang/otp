@@ -296,28 +296,6 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
-
-ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity)
-{
-    ErlFunThing *funp;
-
-    funp = (ErlFunThing*)(*hpp);
-    *hpp += ERL_FUN_SIZE;
-
-    funp->thing_word = MAKE_FUN_HEADER(arity, 0, 1);
-    funp->entry.exp = exp;
-    funp->next = NULL;
-
-#ifdef DEBUG
-    {
-        const ErtsCodeMFA *mfa = &exp->info.mfa;
-        ASSERT(arity == mfa->arity);
-    }
-#endif
-
-    return funp;
-}
-
 ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
                                       int arity, int num_free)
 {
