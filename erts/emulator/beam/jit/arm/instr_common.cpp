@@ -1512,7 +1512,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     runtime_call<2>(eq);
     emit_leave_runtime();
 
-    a.cbz(ARG1, resolve_beam_label(Fail, disp1MB));
+    a.cbz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
 
     a.bind(next);
 }
@@ -1589,7 +1589,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
     emit_leave_runtime();
 
-    a.cbnz(ARG1, resolve_beam_label(Fail, disp1MB));
+    a.cbnz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
 
     a.bind(next);
 }
