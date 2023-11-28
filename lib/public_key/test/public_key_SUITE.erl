@@ -23,7 +23,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -export([
          suite/0,
