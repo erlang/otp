@@ -98,7 +98,7 @@ init_tool_extensions(_) ->
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
     F = function_name(quickcheck, Tool),
-    mk_ct_return( Tool:F(Property), Tool ).
+    mk_ct_return(Tool:F(Property)).
 
 
 %%%----------------------------------------------------------------
@@ -162,17 +162,10 @@ print_frequency_ranges(Options0) ->
 %%% 
 
 %%% Make return values back to the calling Common Test suite
-mk_ct_return(true, _Tool) ->
+mk_ct_return(true) ->
     true;
-mk_ct_return(Other, Tool) ->
-    try lists:last(hd(Tool:counterexample()))
-    of
-	{set,{var,_},{call,M,F,Args}} ->
-	    {fail, io_lib:format("~p:~tp/~p returned bad result",[M,F,length(Args)])}
-    catch
-	_:_ ->
-	    {fail, Other}
-    end.
+mk_ct_return(Other) ->
+    {fail, Other}.
 
 %%% Check if a property testing tool is found
 which_module_exists([Module|Modules]) ->
