@@ -196,23 +196,13 @@ connect_open(
 	    %% ?DBG(['server started', {server, Server}]),
             ErrRef = make_ref(),
             try
-		%% ?DBG(['try process opts',
-		%%       {start_opts, StartOpts},
-		%%       {connect_opts, ConnectOpts}]),
-                Setopts =
-                    default_active_true(
-                      [{start_opts, StartOpts} |
-                       setopts_opts(ErrRef, ConnectOpts)]),
-		%% ?DBG(['opts processed - try set', {setopts, Setopts}]),
-                ok(ErrRef, call(Server, {setopts, Setopts})),
-		%% ?DBG(['setopts set - try bind']),
-                ok(ErrRef, call_bind(Server, BindAddr)),
-		%% ?DBG(['bound - try connect']),
-                DefaultError = {error, einval},
-                Socket =
-                    val(ErrRef,
-                        connect_loop(Addrs, Server, DefaultError, Timer)),
-                {ok, ?MODULE_socket(Server, Socket)}
+                try_setopts(ErrRef, Server, StartOpts, ConnectOpts),
+                try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
+                Socket = try_connect(ErrRef, Server, Addrs, Timer),
+                MSock  = ?MODULE_socket(Server, Socket),
+                %% ?DBG(['done', {msock, MSock}]),
+                {ok, MSock}
+
             catch
                 throw : {ErrRef, Reason} ->
 		    %% ?DBG([{reason, Reason}]),
@@ -223,6 +213,10 @@ connect_open(
 	    %% ?DBG(['server start failed', {reason, _Reason}]),
             ?badarg_exit(Error)
     end.
+
+try_connect(ErrRef, Server, Addrs, Timer) ->
+    DefaultError = {error, einval},
+    val(ErrRef, connect_loop(Addrs, Server, DefaultError, Timer)).
 
 connect_loop([], _Server, Error, _Timer) ->
     %% ?DBG(['done', {error, Error}]),
@@ -424,8 +418,7 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
                         try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
                         try_setopts(ErrRef, Server, StartOpts, ListenOpts),
                         Socket = try_listen(ErrRef, Server, BackLog),
-
-                        MSock = ?MODULE_socket(Server, Socket),
+                        MSock  = ?MODULE_socket(Server, Socket),
                         %% ?DBG(['done', {msock, MSock}]),
                         {ok, MSock};
 
@@ -433,8 +426,7 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
                         try_setopts(ErrRef, Server, StartOpts, ListenOpts),
                         try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
                         Socket = try_listen(ErrRef, Server, BackLog),
-
-                        MSock = ?MODULE_socket(Server, Socket),
+                        MSock  = ?MODULE_socket(Server, Socket),
                         %% ?DBG(['done', {msock, MSock}]),
                         {ok, MSock}
                 end
@@ -462,12 +454,12 @@ try_bind(ErrRef, Server, Domain, BindAddr0, ExtraOpts) ->
     %% ?DBG(['try bind', {bind_addr1, BindAddr1}]),
     ok(ErrRef, call_bind(Server, BindAddr1)).
 
-try_setopts(ErrRef, Server, StartOpts, ListenOpts) ->
+try_setopts(ErrRef, Server, StartOpts, OperationOpts) ->
     %% ?DBG(['process options',
-    %%       {start_opts,  StartOpts},
-    %%       {listen_opts, ListenOpts}]),
+    %%       {start_opts,     StartOpts},
+    %%       {operation_opts, listenOpts}]),
     SetOpts = default_active_true([{start_opts, StartOpts} |
-                                   setopts_opts(ErrRef, ListenOpts)]),
+                                   setopts_opts(ErrRef, OperationOpts)]),
     %% ?DBG(['try setopts', {set_opts, SetOpts}]),
     ok(ErrRef, call(Server, {setopts, SetOpts})).
 
