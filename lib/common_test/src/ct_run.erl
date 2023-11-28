@@ -236,6 +236,8 @@ script_start1(Parent, Args) ->
     LogOpts = get_start_opt(logopts,
 			    fun(Os) -> [list_to_atom(O) || O <- Os] end,
 			    [], Args),
+    LoggerOutputDestination = get_start_opt(out, fun([Value]) -> Value end, undefined, Args),
+
     Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_number(MT) end, Args),
@@ -248,15 +250,25 @@ script_start1(Parent, Args) ->
 				     ([]) -> auto_per_tc
 				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
-    CTHooks = ct_hooks_args2opts(Args),
+    CTHooksRaw = ct_hooks_args2opts(Args),
+    CTHooks = case LoggerOutputDestination of
+                  undefined -> CTHooksRaw;
+                  Filename -> [{cth_log_redirect, [{default_log_destination, Filename}], ctfirst}
+                               | CTHooksRaw]
+              end,
     CTHooksOrder = get_start_opt(ct_hooks_order,
                                  fun([CTHO]) -> list_to_atom(CTHO);
                                     ([]) -> undefined
                                  end, undefined, Args),
-    EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
-				       fun([CT]) -> list_to_atom(CT);
-					  ([]) -> undefined
-				       end, undefined, Args),
+    EnableBuiltinHooksRaw = get_start_opt(enable_builtin_hooks,
+				          fun([CT]) -> list_to_atom(CT);
+				             ([]) -> undefined
+				          end, undefined, Args),
+    EnableBuiltinHooks = case {EnableBuiltinHooksRaw, LoggerOutputDestination} of
+                             {undefined, undefined} -> true;
+                             {undefined, _Filename} -> false;
+                             {Setting, _Filename} -> Setting
+                         end,
 
     %% check flags and set corresponding application env variables
 
@@ -760,6 +772,7 @@ script_usage() ->
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t [-logdir LogDir]"
 	      "\n\t [-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t [-out LoggerOutputDestination]"
 	      "\n\t [-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t [-stylesheet CSSFile]"	     
@@ -787,6 +800,7 @@ script_usage() ->
 	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t [-logdir LogDir]"
 	      "\n\t [-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t [-out LoggerOutputDestination]"
 	      "\n\t [-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t [-allow_user_terms]"
 	      "\n\t [-join_specs]"

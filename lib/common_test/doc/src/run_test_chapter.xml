@@ -265,6 +265,12 @@
       <item><p>Enables modification of the logging behavior, see
       <seeguide marker="run_test_chapter#logopts">Log options</seeguide>.</p></item>
 
+      <tag><c><![CDATA[-out <log_output_filename>]]></c></tag>
+      <item><p>Redirects logging output to the specified filename as opposed
+      to the default of logging to standard output. For example,
+      <c>-out test_run.log</c> will forward any logging output to <c>test_run.log</c>
+      and <c>-out /dev/null</c> will discard any logging output.</p></item>
+
       <tag><c><![CDATA[-verbosity <levels>]]></c></tag>
       <item><p>Sets <seeguide marker="write_test_chapter#logging">verbosity levels
       for printouts</seeguide>.</p></item>

@@ -56,9 +56,9 @@
 id(_Opts) ->
     ?MODULE.
 
-init(?MODULE, _Opts) ->
+init(?MODULE, Opts) ->
     ct_util:mark_process(),
-    ok = start_log_handler(),
+    ok = start_log_handler(Opts),
     {ok, tc_log_async}.
 
 pre_init_per_suite(Suite, Config, State) ->
@@ -115,7 +115,7 @@ post_end_per_group(_Suite, _Group, Config, Return, State) ->
     set_curr_func({group,undefined}, Config),
     {Return, State}.
 
-start_log_handler() ->
+start_log_handler(Options) ->
     case whereis(?MODULE) of
         undefined ->
             ChildSpec =
@@ -132,8 +132,10 @@ start_log_handler() ->
     end,
     {DefaultFormatter, DefaultLevel} =
         case logger:get_handler_config(default) of
-            {ok, Default} ->
-                {maps:get(formatter, Default), maps:get(level, Default)};
+            {ok, Handler} ->
+                DefaultLogDestination = proplists:get_value(default_log_destination, Options),
+                maybe_reconfigure_default_handler(DefaultLogDestination, Handler),
+                {maps:get(formatter, Handler), maps:get(level, Handler)};
             _Else ->
                 {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
         end,
@@ -299,3 +301,12 @@ format_header(#eh_state{curr_suite = Suite,
 			curr_func = TC}) ->
     lists:flatten(io_lib:format("System report during ~w:~tw/1 in ~tw",
                                 [Suite,TC,Group])).
+
+%% Update the default logging handler to log into the specified `DestinationFile',
+%% if it is not undefined.
+-spec maybe_reconfigure_default_handler(undefined | file:filename(), map()) -> ok | no_return().
+maybe_reconfigure_default_handler(undefined, _Handler) -> ok;
+maybe_reconfigure_default_handler(DestinationFile, #{config := Config} = Handler) ->
+    ok = logger:remove_handler(default),
+    NewHandler = Handler#{config := Config#{type := file, file => DestinationFile}},
+    ok = logger:add_handler(default, logger_std_h, NewHandler).
