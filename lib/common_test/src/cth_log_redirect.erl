@@ -21,7 +21,8 @@
 
 %%% Common Test Framework functions handling test specifications.
 %%%
-%%% This module redirects sasl and error logger info to common test log.
+%%% This module redirects sasl, error logger, and standard logger messages to
+%%% the common test log.
 
 %% CTH Callbacks
 -export([id/1, init/2,
@@ -56,9 +57,9 @@
 id(_Opts) ->
     ?MODULE.
 
-init(?MODULE, _Opts) ->
+init(?MODULE, Opts) ->
     ct_util:mark_process(),
-    ok = start_log_handler(),
+    ok = start_log_handler(Opts),
     {ok, tc_log_async}.
 
 pre_init_per_suite(Suite, Config, State) ->
@@ -115,7 +116,7 @@ post_end_per_group(_Suite, _Group, Config, Return, State) ->
     set_curr_func({group,undefined}, Config),
     {Return, State}.
 
-start_log_handler() ->
+start_log_handler(Options) ->
     case whereis(?MODULE) of
         undefined ->
             ChildSpec =
@@ -137,9 +138,15 @@ start_log_handler() ->
             _Else ->
                 {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
         end,
-    ok = logger:add_handler(?MODULE,?MODULE,
-                            #{level=>DefaultLevel,
-                              formatter=>DefaultFormatter}).
+    HandlerConfig = #{level => DefaultLevel, formatter => DefaultFormatter},
+    HandlerName = case proplists:get_value(mode, Options, add) of
+                      add ->
+                          ?MODULE;
+                      replace ->
+                          ok = logger:remove_handler(default),
+                          default
+                  end,
+    ok = logger:add_handler(HandlerName, ?MODULE, HandlerConfig).
 
 init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.

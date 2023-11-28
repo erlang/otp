@@ -112,9 +112,15 @@ all(suite) ->
        no_init_suite_config, no_init_config, no_end_config,
        failed_sequence, repeat_force_stop, config_clash,
        callbacks_on_skip, fallback, data_dir,
-       cth_log, cth_log_formatter, cth_log_unexpect
+       {group, cth_log_redirect}
       ]
     ).
+
+groups() ->
+    [
+     {cth_log_redirect, [], [cth_log_unexpect, cth_log_formatter,
+                             cth_log, cth_log_mode_replace]}
+    ].
 
 
 %%--------------------------------------------------------------------
@@ -300,36 +306,7 @@ data_dir(Config) when is_list(Config) ->
 cth_log(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% html I/O log
-    ct:timetrap({minutes,10}),
-    StartOpts = do_test(cth_log, "cth_log_SUITE.erl", [], Config),
-    Logdir = proplists:get_value(logdir, StartOpts),
-    TCLogs =
-	filelib:wildcard(
-	  filename:join(Logdir,
-			"ct_run*/cth.tests*/run*/cth_log_suite.tc*.html")),
-    lists:foreach(
-      fun(TCLog) ->
-	      {ok,Bin} = file:read_file(TCLog),
-	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,N,L}) ->
-					    {E+1,I,N,L};
-				       ("=INFO"++_,  {E,I,N,L}) ->
-					    {E,I+1,N,L};
-				       ("=NOTICE"++_,  {E,I,N,L}) ->
-					    {E,I,N+1,L};
-				       ("Logger"++_,  {E,I,N,L}) ->
-					    {E,I,N,L+1};
-				       (_, N) -> N
-				    end, {0,0,0,0}, Ts),
-	      ct:pal("~p ({Error,Info,Notice,Log}) matches in ~tp",
-                     [Matches,TCLog]),
-              MatchList = tuple_to_list(Matches),
-              case [N || N <- MatchList, N<1] of
-                  [] -> ok;
-                  _ -> exit({missing_io,TCLog})
-	      end
-      end, TCLogs),
-    ok.
+    verify_cth_log_output(Config, [], []).
 
 cth_log_formatter(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
@@ -397,6 +374,12 @@ cth_log_unexpect(Config) when is_list(Config) ->
 	      end
       end, UnexpIoLogs),
     ok.
+
+cth_log_mode_replace(Config) when is_list(Config) ->
+    %% test that cth_log_redirect writes properly to
+    %% html I/O log when replace mode is used
+    verify_cth_log_output(Config, [{cth_log_redirect, [{mode, replace}]}],
+                          [{enable_builtin_hooks, false}]).
 
 %% OTP-10599 adds the Suite argument as first argument to all hook
 %% callbacks that did not have a Suite argument from before. This test
@@ -541,6 +524,39 @@ gen_config(Name,KeyVals,Config) ->
     ok = file:write_file(File,[io_lib:format("~p.~n",[{Key,Value}])
                                || {Key,Value} <- KeyVals]),
     File.
+
+verify_cth_log_output(Config, CTHooks, ExtraOpts) ->
+    ct:timetrap({minutes,10}),
+    StartOpts = do_test(cth_log, "cth_log_SUITE.erl", CTHooks, Config, ok, 2, ExtraOpts),
+    Logdir = proplists:get_value(logdir, StartOpts),
+    TCLogs =
+	filelib:wildcard(
+	  filename:join(Logdir,
+			"ct_run*/cth.tests*/run*/cth_log_suite.tc*.html")),
+    lists:foreach(
+      fun(TCLog) ->
+	      {ok,Bin} = file:read_file(TCLog),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
+	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,N,L}) ->
+					    {E+1,I,N,L};
+				       ("=INFO"++_,  {E,I,N,L}) ->
+					    {E,I+1,N,L};
+				       ("=NOTICE"++_,  {E,I,N,L}) ->
+					    {E,I,N+1,L};
+				       ("Logger"++_,  {E,I,N,L}) ->
+					    {E,I,N,L+1};
+				       (_, N) -> N
+				    end, {0,0,0,0}, Ts),
+	      ct:pal("~p ({Error,Info,Notice,Log}) matches in ~tp",
+                     [Matches,TCLog]),
+              MatchList = tuple_to_list(Matches),
+              case [N || N <- MatchList, N<1] of
+                  [] -> ok;
+                  _ -> exit({missing_io,TCLog})
+	      end
+      end, TCLogs),
+    ok.
+
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
