@@ -340,7 +340,7 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
 	       md2    -> ?'md2WithRSAEncryption'
 	   end,
     {Type, 'NULL'};
-sign_algorithm({#'RSAPrivateKey'{},#'RSASSA-PSS-params'{}=P}, Opts) ->
+sign_algorithm({#'RSAPrivateKey'{},#'RSASSA-PSS-params'{}=P}, _Opts) ->
     {?'id-RSASSA-PSS', P};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
