@@ -10534,7 +10534,7 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
             return esock_atom_ok;
         } else {
             /* Has already sent the message */
-            return esock_make_error(env, esock_atom_select_sent);
+            return esock_atom_select_sent;
         }
     } else {
         /* Stopped? */
@@ -10543,7 +10543,7 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
                 "esock_cancel_mode_select {%d} -> failed: %d (0x%lX)"
                 "\r\n", descP->sock, selectRes, selectRes) );
 
-        return esock_make_error(env, esock_atom_not_found);
+        return esock_atom_not_found;
     }
 }
 #endif // #ifndef __WIN32__
