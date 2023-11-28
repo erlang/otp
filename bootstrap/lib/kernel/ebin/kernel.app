@@ -104,6 +104,7 @@
              inet,
              inet_db,
              inet_dns,
+             inet_dns_sig0,
              inet_dns_tsig,
              inet_parse,
              inet_res,

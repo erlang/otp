@@ -26,8 +26,10 @@
 %% RFC 1996: A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY)
 %% RFC 2136: Dynamic Updates in the Domain Name System (DNS UPDATE)
 %% RFC 2181: Clarifications to the DNS Specification
+%% RFC 2535: Domain Name System Security Extensions
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
+%% RFC 2931: DNS Request and Transaction Signatures ( SIG(0)s )
 %% RFC 5936: DNS Zone Transfer Protocol (AXFR)
 %% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
 %% RFC 6762: Multicast DNS
@@ -37,11 +39,14 @@
 
 -export([decode/1, encode/1]).
 -export([decode_algname/1, encode_algname/1]).
+-export([encode_dnssec_algname/1]).
 
 -import(lists, [reverse/1]).
 
 -include("inet_int.hrl").
 -include("inet_dns.hrl").
+
+-include_lib("public_key/include/public_key.hrl").
 
 -export([record_type/1, rr/1, rr/2]).
 -export([make_rr/0, make_rr/1, make_rr/2, make_rr/3]).
@@ -255,6 +260,32 @@ decode_rr_section(Opcode, Bin, N, Buffer, RRs) ->
                           z                = Z,
                           data             = D,
                           do               = DnssecOk};
+                   ?S_SIG ->
+                       {DR,Sig} = ?MATCH_ELSE_DECODE_ERROR(
+                          D,
+                          <<TypeCoveredEncoded:16, AlgEncoded:8, Labels:8,
+                            OriginalTTL:32, SigExp:32, SigInc:32,
+                            KeyTag:16, R/binary>>,
+                          {R,#dns_rr_sig{
+                             domain        = Name,
+                             type          = Type,
+                             offset        = byte_size(Buffer) - byte_size(Bin),
+                             type_covered  = decode_type(TypeCoveredEncoded),
+                             algorithm     = decode_dnssec_algname(AlgEncoded),
+                             labels        = Labels,
+                             original_ttl  = OriginalTTL,
+                             signature_expiration = SigExp,
+                             signature_inception = SigInc,
+                             key_tag       = KeyTag}}),
+                       %% RFC 2535: 4.3. SIG(0) must be last
+                       Sig#dns_rr_sig.type_covered == 0
+                         andalso Rest =/= <<>>
+                         andalso throw(?DECODE_ERROR),
+                       {SignatureEncoded,SignersName} = decode_name(DR, Buffer),
+                       Signature = decode_sig_signature(SignatureEncoded, Sig#dns_rr_sig.algorithm),
+                       Sig#dns_rr_sig{
+                           signers_name = SignersName,
+                           signature = Signature};
                    ?S_TSIG ->
                        %% RFC 8945: 5.2. FORMERR if not last
                        %% RFC 8945: 5.2. FORMERR if more than one dns_rr_tsig
@@ -374,6 +405,24 @@ encode_res_section(
       <<ExtRCode,Version,DO:1,Z:15>>, Data);
 encode_res_section(
   Opcode, Bin, Comp,
+  [#dns_rr_sig{
+      domain           = DName,
+      type_covered     = TypeCovered,
+      algorithm        = Algorithm,
+      labels           = Labels,
+      original_ttl     = OriginalTTL,
+      signature_expiration = SigExp,
+      signature_inception = SigInc,
+      key_tag          = KeyTag,
+      signers_name     = SignersName,
+      signature        = Signature }]) ->
+    Data = {TypeCovered,Algorithm,Labels,OriginalTTL,SigExp,SigInc,KeyTag,
+      SignersName,Signature},
+    encode_res_section_rr(
+      Opcode, Bin, Comp, [], DName, ?S_SIG, ?S_ANY, false,
+      <<0:32/signed>>, Data);
+encode_res_section(
+  Opcode, Bin, Comp,
   [#dns_rr_tsig{
       domain           = DName,
       algname          = AlgName,
@@ -427,6 +476,8 @@ decode_type(Type) ->
 	?T_MINFO -> ?S_MINFO;
 	?T_MX -> ?S_MX;
 	?T_TXT -> ?S_TXT;
+	?T_SIG -> ?S_SIG;
+	?T_KEY -> ?S_KEY;
 	?T_AAAA -> ?S_AAAA;
 	?T_LOC -> ?S_LOC;
 	?T_SRV -> ?S_SRV;
@@ -470,6 +521,8 @@ encode_type(Type) ->
 	?S_MINFO -> ?T_MINFO;
 	?S_MX -> ?T_MX;
 	?S_TXT -> ?T_TXT;
+	?S_SIG -> ?T_SIG;
+	?S_KEY -> ?T_KEY;
 	?S_AAAA -> ?T_AAAA;
 	?S_LOC -> ?T_LOC;
 	?S_SRV -> ?T_SRV;
@@ -674,11 +727,21 @@ decode_data(Data, ?S_CAA, _) ->
                   {Flags,inet_db:tolower(Tag),Value}
               end)
        end);
+decode_data(Data, ?S_KEY, _) ->
+    ?MATCH_ELSE_DECODE_ERROR(
+       Data,
+       <<Flags:16, ProtocolEncoded:8, AlgorithmEncoded:8,
+        PublicKeyEncoded/binary>>,
+       begin
+           Protocol = decode_key_protocol(ProtocolEncoded),
+           Algorithm = decode_dnssec_algname(AlgorithmEncoded),
+           PublicKey = decode_key_publickey(PublicKeyEncoded, Algorithm),
+           {Flags,Protocol,Algorithm,PublicKey}
+       end);
 %%
 %% sofar unknown or non standard
 decode_data(Data, Type, _) when is_integer(Type) ->
     Data.
-
 
 %% Array of strings
 %%
@@ -864,7 +927,7 @@ encode_data(Comp, _, ?S_SPF, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_URI, Data) ->
     {Prio,Weight,Target} = Data,
     {<<Prio:16,Weight:16,(iolist_to_binary(Target))/binary>>,Comp};
-encode_data(Comp, _, ?S_CAA, Data)->
+encode_data(Comp, _, ?S_CAA, Data) ->
     case Data of
         {Flags,Tag,Value} ->
             B0 = <<Flags:8>>,
@@ -874,13 +937,40 @@ encode_data(Comp, _, ?S_CAA, Data)->
         _ ->
             {encode_txt(Data),Comp}
     end;
-encode_data(Comp, _, ?S_TSIG, Data)->
+encode_data(Comp, _, ?S_KEY, Data) ->
+    {Flags,Protocol,Algorithm,PublicKey} = Data,
+    ProtocolEncoded = encode_key_protocol(Protocol),
+    AlgorithmEncoded = encode_dnssec_algname(Algorithm),
+    PublicKeyEncoded = encode_key_publickey(PublicKey, Algorithm),
+    DataB = <<Flags:16, ProtocolEncoded:8, AlgorithmEncoded:8,
+             PublicKeyEncoded/binary>>,
+    {DataB,Comp};
+encode_data(Comp, Pos, ?S_SIG, Data) ->
+    {TypeCovered,Algorithm,Labels,OriginalTTL,SigExp,SigInc,KeyTag,
+      SignersName,Signature} = Data,
+    TypeCoveredEncoded = encode_type(TypeCovered),
+    AlgorithmEncoded = encode_dnssec_algname(Algorithm),
+    %% Compression on the Wire allowed, just not during the
+    %% SIG RDATA calculation (RFC2535, sections 4.1.7, 4.1.8 and 8.1)
+    {SignersNameEncoded,Comp1} = encode_name(Comp, Pos, SignersName),
+    SignatureEncoded = if
+        Signature == <<>> ->
+            <<>>;
+        true ->
+            encode_sig_signature(Signature, Algorithm)
+    end,
+    DataB = <<TypeCoveredEncoded:16, AlgorithmEncoded:8, Labels:8,
+             OriginalTTL:32, SigExp:32, SigInc:32, KeyTag:16,
+             SignersNameEncoded/binary, SignatureEncoded/binary>>,
+    {DataB,Comp1};
+encode_data(Comp, _, ?S_TSIG, Data) ->
     {AlgName,Now,Fudge,MAC,OriginalId,Error,OtherData} = Data,
     %% Bypass name compression (RFC 8945, section 4.2)
-    {AlgNameEncoded,_} = encode_name(gb_trees:empty(), 0, AlgName),
+    AlgNameEncoded = encode_algname(AlgName),
+    {AlgNameEncoded1,_} = encode_name(gb_trees:empty(), 0, AlgNameEncoded),
     MACSize = byte_size(MAC),
     OtherLen = byte_size(OtherData),
-    DataB = <<AlgNameEncoded/binary,
+    DataB = <<AlgNameEncoded1/binary,
 	     Now:48, Fudge:16, MACSize:16, MAC:MACSize/binary,
 	     OriginalId:16, Error:16,
 	     OtherLen:16, OtherData:OtherLen/binary>>,
@@ -1024,6 +1114,67 @@ encode_loc_size(X)
     Multiplier = round(math:pow(10, Exponent)),
     Base = (X + Multiplier - 1) div Multiplier,
     <<Base:4, Exponent:4>>.
+
+%% https://www.iana.org/assignments/dns-key-rr/dns-key-rr.xhtml
+decode_key_protocol(Protocol) ->
+    case Protocol of
+        ?T_DNSKEY_PROTOCOL_DNSSEC -> ?S_DNSKEY_PROTOCOL_DNSSEC;
+       _ -> Protocol  % raw unknown protocol
+    end.
+
+encode_key_protocol(Protocol) ->
+    case Protocol of
+        ?S_DNSKEY_PROTOCOL_DNSSEC -> ?T_DNSKEY_PROTOCOL_DNSSEC;
+        Protocol when is_integer(Protocol) -> Protocol   % raw unknown protocol
+    end.
+
+decode_dnssec_algname(AlgName) ->
+    case AlgName of
+        ?T_DNSSEC_ALGNUM_RSAMD5 -> ?S_DNSSEC_ALGNUM_RSAMD5;
+        ?T_DNSSEC_ALGNUM_ECDSAP256SHA256 -> ?S_DNSSEC_ALGNUM_ECDSAP256SHA256;
+       _ -> AlgName  % raw unknown algname
+    end.
+
+encode_dnssec_algname(Alg) ->
+    case Alg of
+        ?S_DNSSEC_ALGNUM_RSAMD5 -> ?T_DNSSEC_ALGNUM_RSAMD5;
+        ?S_DNSSEC_ALGNUM_ECDSAP256SHA256 -> ?T_DNSSEC_ALGNUM_ECDSAP256SHA256;
+       Alg when is_integer(Alg) -> Alg  % raw unknown algname
+    end.
+
+%% RFC6605, section 4
+%% RFC5480, section 2.2
+-define(ECPOINT_UNCOMPRESSED, 4).
+decode_key_publickey(PublicKey, Algorithm) when is_atom(Algorithm) ->
+    decode_key_publickey(PublicKey, encode_dnssec_algname(Algorithm));
+decode_key_publickey(_PublicKey = <<Q:64/binary>>, ?T_DNSSEC_ALGNUM_ECDSAP256SHA256) ->
+    {#'ECPoint'{ point = <<?ECPOINT_UNCOMPRESSED, Q/binary>> }, {namedCurve, secp256r1}};
+decode_key_publickey(PublicKey, _Algorithm) when is_binary(PublicKey) ->
+    PublicKey.
+
+encode_key_publickey(PublicKey, Algorithm) when is_atom(Algorithm) ->
+    encode_key_publickey(PublicKey, encode_dnssec_algname(Algorithm));
+encode_key_publickey(#'ECPrivateKey'{ publicKey = PublicKey }, Algorithm) when Algorithm == ?T_DNSSEC_ALGNUM_ECDSAP256SHA256 ->
+    encode_key_publickey({#'ECPoint'{ point = PublicKey }, {namedCurve, secp256r1}}, Algorithm);
+encode_key_publickey(_PublicKey = {#'ECPoint'{ point = <<?ECPOINT_UNCOMPRESSED, Q:64/binary>> }, {namedCurve, secp256r1}}, ?T_DNSSEC_ALGNUM_ECDSAP256SHA256) ->
+    Q;
+encode_key_publickey(PublicKey, _Algorithm) when is_binary(PublicKey) ->
+    PublicKey.
+
+decode_sig_signature(Signature, Algorithm) when is_atom(Algorithm) ->
+    decode_sig_signature(Signature, encode_dnssec_algname(Algorithm));
+decode_sig_signature(_Signature = <<R:32/unit:8, S:32/unit:8>>, ?T_DNSSEC_ALGNUM_ECDSAP256SHA256) ->
+    public_key:der_encode('ECDSA-Sig-Value', #'ECDSA-Sig-Value'{ r = R, s = S });
+decode_sig_signature(Signature, _Algorithm) when is_binary(Signature) ->
+    Signature.
+
+encode_sig_signature(Signature, Algorithm) when is_atom(Algorithm) ->
+    encode_sig_signature(Signature, encode_dnssec_algname(Algorithm));
+encode_sig_signature(Signature, ?T_DNSSEC_ALGNUM_ECDSAP256SHA256) ->
+    #'ECDSA-Sig-Value'{ r = R, s = S } = public_key:der_decode('ECDSA-Sig-Value', Signature),
+    <<R:32/unit:8, S:32/unit:8>>;
+encode_sig_signature(Signature, _Algorithm) when is_binary(Signature) ->
+    Signature.
 
 decode_algname(AlgName) ->
     case AlgName of
