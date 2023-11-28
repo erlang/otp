@@ -918,7 +918,7 @@ notify_dirty_signal_handler(Eterm pid,
     ErtsMessage *mp;
     Process *sig_handler;
 
-    ASSERT(state & ERTS_PSFLG_DIRTY_RUNNING);
+    ASSERT(state & (ERTS_PSFLGS_DIRTY_WORK|ERTS_PSFLG_DIRTY_RUNNING));
 
     if (prio < 0)
         prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
@@ -958,13 +958,10 @@ delayed_notify_dirty_signal_handler(void *vdshnp)
     if (proc) {
         erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
         /*
-         * Notify the dirty signal handler if it is still running
-         * dirty and still have signals to handle...
+         * Notify the dirty signal handler if it is still scheduled
+         * or running dirty and still have signals to handle...
          */
-        if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
-            & !!(state & (ERTS_PSFLG_SIG_Q
-                          | ERTS_PSFLG_NMSG_SIG_IN_Q
-                          | ERTS_PSFLG_MSG_SIG_IN_Q))) {
+        if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state)) {
             notify_dirty_signal_handler(dshnp->pid, state, dshnp->prio);
         }
     }
@@ -1244,12 +1241,7 @@ maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
-                /*
-                 * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
-                 * more info see erts_execute_dirty_system_task()
-                 * in erl_process.c.
-                 */
-                if (state & ERTS_PSFLG_DIRTY_RUNNING)
+                if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state))
                     erts_ensure_dirty_proc_signals_handled(rp, state,
                                                            min_prio, 0);
             }
@@ -1257,6 +1249,15 @@ maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
     }
     return res;
 }
+
+typedef struct {
+    Eterm pid;
+    int nmsig;
+    int msig;
+} ErtsSchedSignalNotify;
+
+static void
+sched_sig_notify(void *vssnp);
 
 void
 erts_proc_sig_fetch__(Process *proc,
@@ -1391,11 +1392,53 @@ erts_proc_sig_fetch__(Process *proc,
              * future call to erts_proc_sig_fetch().
              */
             if (erts_atomic32_read_nob(&buffers->nonmsgs_in_slots))
-                set_flags |= ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_NMSG_SIG_IN_Q;
+                set_flags |= ERTS_PSFLG_NMSG_SIG_IN_Q;
             if (erts_atomic32_read_nob(&buffers->msgs_in_slots))
-                set_flags |= ERTS_PSFLG_ACTIVE|ERTS_PSFLG_MSG_SIG_IN_Q;
-            if (set_flags)
-                (void) erts_atomic32_read_bor_relb(&proc->state, set_flags);
+                set_flags |= ERTS_PSFLG_MSG_SIG_IN_Q;
+            if (set_flags) {
+                erts_aint32_t oflgs;
+                oflgs = erts_atomic32_read_bor_relb(&proc->state, set_flags);
+                if ((oflgs & (ERTS_PSFLG_NMSG_SIG_IN_Q
+                              | ERTS_PSFLG_MSG_SIG_IN_Q)) != set_flags) {
+                    int msig = 0, nmsig = 0;
+                    /*
+                     * We did set at least one of the flags; check if we may
+                     * need to set corresponding active flag(s)...
+                     */
+                    if ((!!(set_flags & ERTS_PSFLG_NMSG_SIG_IN_Q))
+                        & (!(oflgs & (ERTS_PSFLG_NMSG_SIG_IN_Q
+                                      | ERTS_PSFLG_ACTIVE_SYS)))) {
+                        /* We set nmsig-in-q flag and active-sys missing... */
+                        nmsig = !0;
+                    }
+                    if ((!!(set_flags & ERTS_PSFLG_MSG_SIG_IN_Q))
+                        & (!(oflgs & (ERTS_PSFLG_MSG_SIG_IN_Q
+                                      | ERTS_PSFLG_ACTIVE)))) {
+                        /* We set msig-in-q flag and active missing... */
+                        msig = !0;
+                    }
+                    if (msig | nmsig) {
+                        /*
+                         * We don't know exactly what locks we got, so
+                         * we need to schedule the notification...
+                         */
+                        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+                        int tid = (esdp && esdp->type == ERTS_SCHED_NORMAL
+                                   ? (int) esdp->no
+                                   : 1);
+                        ErtsSchedSignalNotify *ssnp =
+                            (ErtsSchedSignalNotify *)
+                            erts_alloc(ERTS_ALC_T_SCHD_SIG_NTFY,
+                                       sizeof(ErtsSchedSignalNotify));
+                        ssnp->nmsig = nmsig;
+                        ssnp->msig = msig;
+                        ssnp->pid = proc->common.id;
+                        erts_schedule_misc_aux_work(tid,
+                                                    sched_sig_notify,
+                                                    (void *) ssnp);
+                    }
+                }
+            }
             /* else:
              *       Another thread is currently operating on a buffer and
              *       will soon set appropriate.
@@ -1411,6 +1454,45 @@ erts_proc_sig_fetch__(Process *proc,
     }
 #endif
 
+}
+
+static void
+sched_sig_notify(void *vssnp)
+{
+    ErtsSchedSignalNotify *ssnp = (ErtsSchedSignalNotify *) vssnp;
+    Process *proc = erts_proc_lookup(ssnp->pid);
+    if (proc) {
+        erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
+        int nmsig = ssnp->nmsig;
+        int msig = ssnp->msig;
+        ASSERT(nmsig || msig);
+        if ((!!nmsig) & ((!(state & (ERTS_PSFLG_SIG_Q
+                                     | ERTS_PSFLG_NMSG_SIG_IN_Q)))
+                         | (!!(state & ERTS_PSFLG_ACTIVE_SYS)))) {
+            /*
+             * Either already handled or someone else set the active-sys
+             * flag...
+             */
+            nmsig = 0;
+        }
+        if ((!!msig) & (!!(state & ERTS_PSFLG_ACTIVE))) {
+            /*
+             * Someone else set the active flag (we cannot determine if it
+             * has been handled or not by looking at the state flag)...
+             */
+            msig = 0;
+        }
+        if (msig|nmsig) {
+            if (!nmsig) {
+                erts_proc_notify_new_message(proc, 0);
+            }
+            else {
+                erts_aint32_t extra = msig ? ERTS_PSFLG_ACTIVE : 0;
+                erts_proc_notify_new_sig(proc, state, extra);
+            }
+        }
+    }
+    erts_free(ERTS_ALC_T_SCHD_SIG_NTFY, vssnp);
 }
 
 void
@@ -8165,12 +8247,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
         BIF_RET(am_noproc);
 
     state = erts_atomic32_read_acqb(&rp->state);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
-    /*
-     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
-     * comment in erts_execute_dirty_system_task()
-     * in erl_process.c).
-     */
+    dirty = ERTS_PROC_IN_DIRTY_STATE(state);
     if (!dirty)
         BIF_RET(am_normal);
 
@@ -8184,7 +8261,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
 
     state = erts_atomic32_read_mb(&rp->state);
     noproc = (state & ERTS_PSFLG_FREE);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    dirty = ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state);
 
     if (busy) {
         if (noproc)

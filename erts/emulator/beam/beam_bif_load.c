@@ -630,7 +630,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
 {
     erts_aint32_t state;
     Process *rp;
-    int dirty, busy, reds = 0;
+    int busy, reds = 0;
     Eterm res;
 
     if (BIF_P != erts_dirty_process_signal_handler
@@ -652,13 +652,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
         BIF_RET(am_false);
 
     state = erts_atomic32_read_nob(&rp->state);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
-    /*
-     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
-     * comment in erts_execute_dirty_system_task()
-     * in erl_process.c).
-     */
-    if (!dirty)
+    if (!ERTS_PROC_IN_DIRTY_STATE(state))
         BIF_RET(am_normal);
 
     busy = erts_proc_trylock(rp, ERTS_PROC_LOCK_MAIN) == EBUSY;

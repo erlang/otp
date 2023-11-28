@@ -2499,7 +2499,7 @@ define etp-proc-state-int
     printf "active-sys | "
   end
   if ($arg0 & 0x80000)
-    printf "sig-in-q | "
+    printf "nmsig-in-q | "
   end
   if ($arg0 & 0x40000)
     printf "sys-tasks | "
@@ -2520,7 +2520,7 @@ define etp-proc-state-int
     printf "active | "
   end
   if ($arg0 & 0x1000)
-    printf "maybe-self-sigs | "
+    printf "msig-in-q | "
   end
   if ($arg0 & 0x800)
     printf "exiting | "

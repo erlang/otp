@@ -2004,15 +2004,12 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
         state = erts_proc_sys_schedule(rp, state, enable_flag);
     }
 
-    if (state & ERTS_PSFLG_DIRTY_RUNNING) {
-        /*
-         * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
-         * more info see erts_execute_dirty_system_task()
-         * in erl_process.c.
-         */
+    if (ERTS_PROC_IN_DIRTY_STATE(state)) {
         erts_ensure_dirty_proc_signals_handled(rp, state, -1, 0);
     }
 }
+
+
 
 ERTS_GLB_INLINE void
 erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
@@ -2021,12 +2018,7 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
     erts_aint32_t state = erts_atomic32_read_nob(&p->state);
     if (!(state & ERTS_PSFLG_ACTIVE))
 	erts_schedule_process(p, state, locks);
-    if (state & ERTS_PSFLG_DIRTY_RUNNING) {
-        /*
-         * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
-         * more info see erts_execute_dirty_system_task()
-         * in erl_process.c.
-         */
+    if (ERTS_PROC_NEED_DIRTY_SIG_HANDLING(state)) {
         erts_ensure_dirty_proc_signals_handled(p, state, -1, locks);
     }
 }
