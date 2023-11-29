@@ -502,6 +502,16 @@ shell_format(Config) ->
         timer:sleep(1000),
         send_tty(Term1, "Up"),
         check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
+        send_tty(Term1, "Down"),
+        send_stdin(Term1, "shell:format_shell_func({bad,format}).\n"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "\n"),
+        timer:sleep(1000),
+        check_content(Term1, "\\Q* Bad format function: {bad,format}\\E"),
+        send_tty(Term1, "Up"),
+        %% No modifications should be made, when default format function is used
+        check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
         ok
     after
         stop_tty(Term1)

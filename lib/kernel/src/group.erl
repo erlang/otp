@@ -526,7 +526,7 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
         {stop,Result,Rest} ->
             %% Prompt was valid expression, clear the prompt in user_drv
             %% First redraw without the multi line prompt
-            FormattedLine = format_expression(LineCont),
+            FormattedLine = format_expression(LineCont, Drv),
             case lists:reverse(string:split(FormattedLine, "\n", all)) of
                 [CL|LB] when is_list(CL) ->
                     LineCont1 = {LB,{lists:reverse(CL++"\n"), []},[]},
@@ -606,7 +606,7 @@ get_line1({open_editor, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
     end;
 get_line1({format_expression, _Cs, {line, _, _, _} = Cont, Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
-    Cs1 = format_expression(Cont),
+    Cs1 = format_expression(Cont, Drv),
     send_drv_reqs(Drv, edlin:erase_line()),
     {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
     send_drv_reqs(Drv, NewRs),
@@ -930,18 +930,22 @@ get_chars_echo_off1(Drv, Shell) ->
             exit(R)
     end.
 
-format_expression(Cont) ->
-    FormatingCommand = application:get_env(stdlib, format_shell_func),
+format_expression(Cont, Drv) ->
+    FormatingCommand = application:get_env(stdlib, format_shell_func, default),
     Buffer = edlin:current_line(Cont),
     try
         case FormatingCommand of
-            {ok, {M,F}} when is_atom(M), is_atom(F) ->
-                    M:F(Buffer);
-            {ok, FormatingCommand1} when is_list(FormatingCommand1) ->
+            default ->
+                Buffer;
+            {M,F} when is_atom(M), is_atom(F) ->
+                M:F(Buffer);
+            FormatingCommand1 when is_list(FormatingCommand1) ->
                 format_expression1(Buffer, FormatingCommand1)
         end
-    catch
-        _:_ -> Buffer
+    catch _:_ ->
+            send_drv_reqs(Drv, [{put_chars, unicode, io_lib:format("* Bad format function: ~tp~n", [FormatingCommand])}]),
+            shell:format_shell_func(default),
+            Buffer
     end.
 format_expression1(Buffer, FormatingCommand) ->
     %% Write the current expression to a file, format it with a formatting tool
