@@ -53,6 +53,7 @@
 #include "erl_alloc_util.h"
 #include "erl_global_literals.h"
 #include "beam_load.h"
+#include "erl_md5.h"
 #include "erl_iolist.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT

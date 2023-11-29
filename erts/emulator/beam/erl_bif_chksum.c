@@ -30,6 +30,7 @@
 #include "erl_binary.h"
 #include "big.h"
 #include "zlib.h"
+#include "erl_md5.h"
 
 
 typedef void (*ChksumFun)(void *sum_in_out, const byte *buf,
