@@ -977,6 +977,9 @@ default_signature_schemes(Version) ->
                ecdsa_secp521r1_sha512,
                ecdsa_secp384r1_sha384,
                ecdsa_secp256r1_sha256,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP256r1tls13_sha256,
                rsa_pss_pss_sha512,
                rsa_pss_pss_sha384,
                rsa_pss_pss_sha256,
@@ -1165,9 +1168,12 @@ groups() ->
 groups(all) ->
     [x25519,
      x448,
-     secp256r1,
-     secp384r1,
      secp521r1,
+     secp384r1,
+     secp256r1,
+     brainpoolP256r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP512r1tls13,
      ffdhe2048,
      ffdhe3072,
      ffdhe4096,
@@ -1176,17 +1182,22 @@ groups(all) ->
 groups(default) ->
     [x25519,
      x448,
+     secp521r1,
+     secp384r1,
      secp256r1,
-     secp384r1];
+     brainpoolP512r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP256r1tls13
+    ];
 groups(TLSGroups) when is_list(TLSGroups) ->
-    CryptoGroups = supported_groups(),
-    lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
+    CryptoGroups = crypto_supported_groups(),
+    lists:filter(fun(Group) -> proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups) end, TLSGroups).
 
 default_groups() ->
     TLSGroups = groups(default),
     groups(TLSGroups).
 
-supported_groups() ->
+crypto_supported_groups() ->
     crypto:supports(curves) ++
         [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
 
@@ -1195,6 +1206,9 @@ group_to_enum(secp384r1) -> ?SECP384R1;
 group_to_enum(secp521r1) -> ?SECP521R1;
 group_to_enum(x25519)    -> ?X25519;
 group_to_enum(x448)      -> ?X448;
+group_to_enum(brainpoolP256r1tls13) -> ?BRAINPOOLP256R1TLS13;
+group_to_enum(brainpoolP384r1tls13) -> ?BRAINPOOLP384R1TLS13;
+group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
 group_to_enum(ffdhe2048) -> ?FFDHE2048;
 group_to_enum(ffdhe3072) -> ?FFDHE3072;
 group_to_enum(ffdhe4096) -> ?FFDHE4096;
@@ -1206,6 +1220,9 @@ enum_to_group(?SECP384R1) -> secp384r1;
 enum_to_group(?SECP521R1) -> secp521r1;
 enum_to_group(?X25519) -> x25519;
 enum_to_group(?X448) -> x448;
+enum_to_group(?BRAINPOOLP256R1TLS13) -> brainpoolP256r1tls13;
+enum_to_group(?BRAINPOOLP384R1TLS13) -> brainpoolP384r1tls13;
+enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
 enum_to_group(?FFDHE2048) -> ffdhe2048;
 enum_to_group(?FFDHE3072) -> ffdhe3072;
 enum_to_group(?FFDHE4096) -> ffdhe4096;
@@ -1213,7 +1230,8 @@ enum_to_group(?FFDHE6144) -> ffdhe6144;
 enum_to_group(?FFDHE8192) -> ffdhe8192;
 enum_to_group(_) -> undefined.
 
-%% 1-22 deprecated in RFC 8422
+
+%% 1-22 Deprecated in RFC 8422
 oid_to_enum(?sect163k1) -> 1;
 oid_to_enum(?sect163r1) -> 2;
 oid_to_enum(?sect163r2) -> 3;
@@ -1236,10 +1254,12 @@ oid_to_enum(?secp192r1) -> 19;
 oid_to_enum(?secp224k1) -> 20;
 oid_to_enum(?secp224r1) -> 21;
 oid_to_enum(?secp256k1) -> 22;
+
 %% RFC 8422
 oid_to_enum(?secp256r1) -> 23;
 oid_to_enum(?secp384r1) -> 24;
 oid_to_enum(?secp521r1) -> 25;
+
 %% RFC 7027
 oid_to_enum(?brainpoolP256r1) -> 26;
 oid_to_enum(?brainpoolP384r1) -> 27;
@@ -1280,6 +1300,16 @@ enum_to_oid(29) -> ?'id-X25519';
 enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
+
+maybe_group_to_curve(brainpoolP512r1tls13) ->
+    brainpoolP512r1;
+maybe_group_to_curve(brainpoolP384r1tls13) ->
+    brainpoolP384r1;
+maybe_group_to_curve(brainpoolP256r1tls13) ->
+    brainpoolP256r1;
+maybe_group_to_curve(Group) ->
+    Group.
+
 
 %%%################################################################
 %%%#

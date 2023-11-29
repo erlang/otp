@@ -439,6 +439,10 @@ session_cb_opts(server = Role) ->
 ecdsa_support(#{versions := [?TLS_1_3]}) ->
     [secp521r1,
      secp384r1,
-     secp256r1];
+     secp256r1,
+     brainpoolP512r1,
+     brainpoolP384r1,
+     brainpoolP256r1
+    ];
 ecdsa_support(_) ->
     ssl:eccs() -- [x25519, x448].

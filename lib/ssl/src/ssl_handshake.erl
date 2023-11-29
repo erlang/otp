@@ -1569,10 +1569,9 @@ select_curve(undefined, _, _) ->
     end;
 select_curve({supported_groups, Groups}, Server, HonorServerOrder) ->
     %% TLS-1.3 hello but lesser version chosen
-    CryptoCurves = crypto:supports(curves),
-    TLSCommonCurves = [Curve || Curve <- [secp256r1,secp384r1,secp521r1], lists:member(Curve, CryptoCurves)],
-    Curves = [tls_v1:enum_to_oid(tls_v1:group_to_enum(Name)) || Name <- Groups, lists:member(Name, TLSCommonCurves)],
-    case Curves of
+    TLSCommonCurves = [secp256r1,secp384r1,secp521r1],
+    Curves = [Name || Name <- Groups, lists:member(Name, TLSCommonCurves)],
+    case tls_v1:ecc_curves(Curves) of
         [] ->
             select_curve(undefined, Server, HonorServerOrder);
         [_|_] = ClientCurves ->
@@ -1772,6 +1771,21 @@ get_ec_curve(#'OTPSubjectPublicKeyInfo'{
                                algorithm = ?'id-ecPublicKey',
                                parameters = {namedCurve, ?'secp521r1'}}}) ->
     secp521r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'brainpoolP512r1'}}}) ->
+    brainpoolP512r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'brainpoolP384r1'}}}) ->
+    brainpoolP384r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'brainpoolP256r1'}}}) ->
+    brainpoolP256r1;
 get_ec_curve(#'OTPSubjectPublicKeyInfo'{
                 algorithm = #'PublicKeyAlgorithm'{
                                algorithm = ?'id-ecPublicKey',
