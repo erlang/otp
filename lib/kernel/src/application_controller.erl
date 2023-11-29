@@ -23,7 +23,7 @@
 -export([start/1, 
 	 load_application/1, unload_application/1, 
 	 start_application/2, start_application_request/2,
-	 start_boot_application/2, stop_application/1,
+	 start_boot_application/2, stop_application/1, stop_application_request/1,
 	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
@@ -280,6 +280,9 @@ start_boot_application(Application, RestartType) ->
 
 stop_application(AppName) ->
     gen_server:call(?AC, {stop_application, AppName}, infinity).
+
+stop_application_request(AppName) ->
+	gen_server:send_request(?AC, {stop_application, AppName}).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Descr, Vsn}]
