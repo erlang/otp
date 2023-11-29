@@ -23,6 +23,7 @@
 
 #include "sys.h"
 #include "erl_process.h"
+#include "erl_md5.h"
 
 /* Macros for manipulating locations. */
 #define LINE_INVALID_LOCATION (0)
@@ -44,7 +45,7 @@
 #  define BEAM_NATIVE_MIN_FUNC_SZ 4
 #endif
 
-#define MD5_SIZE 16
+#define MD5_SIZE MD5_DIGEST_LENGTH
 
 typedef struct BeamCodeLineTab_ BeamCodeLineTab;
 
