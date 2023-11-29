@@ -282,9 +282,9 @@
     be used. For example: <c>PrivDir = proplists:get_value(priv_dir, Config)</c>.
     </p>
 
-    <p>If the test case function crashes or exits purposely, it is considered
-    <em>failed</em>. If it returns a value (no matter what value), it is
-    considered successful. An exception to this rule is the return value
+    <p>If the test case function crashes, exits purposely or returns <c>{fail,Reason}</c>,
+    it is considered <em>failed</em>. If it returns any other value (no matter what value),
+    it is considered successful. An exception to this rule is the return value
     <c>{skip,Reason}</c>. If this tuple is returned, the test case is considered
     skipped and is logged as such.</p>
 
