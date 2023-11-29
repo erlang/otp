@@ -81,7 +81,7 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    	Port when is_port(Port) ->
 		    wait_node_up(Node, 200),
 		    ct:pal("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
-		    ok  = rpc:call(Node, inets, start, []),
+		    {ok, _} = rpc:call(Node, application, ensure_all_started, [inets]),
 		    {ok, Pid} = rpc:call(Node, inets, start, [httpd, HttpdConf]),
 		    [{port, InetPort}] = rpc:call(Node, httpd, info, [Pid, [port]]),
 		    rpc:call(Node, erlang, halt, []);
