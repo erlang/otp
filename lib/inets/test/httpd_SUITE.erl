@@ -156,6 +156,7 @@ http_get() ->
      bad_dot_paths,
      %%actions, Add configuration so that this test mod_action
      esi,
+     filename_too_long,
      bad_hex,
      missing_CR,
      max_header,
@@ -895,8 +896,8 @@ chunked(Config) when is_list(Config) ->
 		      proplists:get_value(host, Config), proplists:get_value(node, Config)).
 %%-------------------------------------------------------------------------
 expect() ->   
-    ["Check that the server handles request with the expect header "
-     "field appropriate"].
+    [{doc, "Check that the server handles request with the expect header "
+      "field appropriate"}].
 expect(Config) when is_list(Config) ->
     httpd_1_1:expect(proplists:get_value(type, Config), proplists:get_value(port, Config), 
 		     proplists:get_value(host, Config), proplists:get_value(node, Config)).
@@ -1245,19 +1246,19 @@ trace(Config) when is_list(Config) ->
 	     proplists:get_value(host, Config), proplists:get_value(node, Config)).
 %%-------------------------------------------------------------------------
 light() ->
-    ["Test light load"].
+    [{doc, "Test light load"}].
 light(Config) when is_list(Config) ->
     httpd_load:load_test(proplists:get_value(type, Config), proplists:get_value(port, Config), proplists:get_value(host, Config), 
 			 proplists:get_value(node, Config), 10).
 %%-------------------------------------------------------------------------
 medium() ->
-    ["Test  medium load"].
+    [{doc, "Test  medium load"}].
 medium(Config) when is_list(Config) ->
     httpd_load:load_test(proplists:get_value(type, Config), proplists:get_value(port, Config), proplists:get_value(host, Config), 
 			 proplists:get_value(node, Config), 100).
 %%-------------------------------------------------------------------------
 heavy() ->
-    ["Test heavy load"].
+    [{doc, "Test heavy load"}].
 heavy(Config) when is_list(Config) ->
     httpd_load:load_test(proplists:get_value(type, Config), proplists:get_value(port, Config), proplists:get_value(host, Config), 
 			 proplists:get_value(node, Config),
@@ -1275,9 +1276,23 @@ content_length(Config) ->
 				       [{statuscode, 200},
 					{content_length, 274},
 					{version, Version}]).
+
+%-------------------------------------------------------------------------
+filename_too_long() ->
+    [{doc, "Tests what happens if supplied filename exceeds os-limit of filename characters."}].
+filename_too_long(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    TooLongFileName = lists:duplicate(257, $F),
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host,
+				       proplists:get_value(port, Config), proplists:get_value(node, Config),
+				       http_request("GET /" ++ TooLongFileName ++ " ", Version, Host),
+				       [{statuscode, 404},
+					{version, Version}]).
+
 %%-------------------------------------------------------------------------
 bad_hex() ->
-    ["Tests that a URI with a bad hexadecimal code is handled OTP-6003"].
+    [{doc, "Tests that a URI with a bad hexadecimal code is handled OTP-6003"}].
 bad_hex(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
@@ -1289,7 +1304,7 @@ bad_hex(Config) ->
 					{version, Version}]).
 %%-------------------------------------------------------------------------
 missing_CR() ->
-     ["Tests missing CR in delimiter OTP-7304"].
+     [{doc, "Tests missing CR in delimiter OTP-7304"}].
 missing_CR(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host =  proplists:get_value(host, Config),
@@ -1318,6 +1333,7 @@ customize(Config) when is_list(Config) ->
 					{no_header, "Server"},
 					{version, Version}]).
 
+%%-------------------------------------------------------------------------
 add_default() ->
     [{doc, "Test adding default header with custom callback"}].
 
@@ -1338,7 +1354,7 @@ add_default(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 max_header() ->
-    ["Denial Of Service (DOS) attack, prevented by max_header"].
+    [{doc, "Denial Of Service (DOS) attack, prevented by max_header"}].
 max_header(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host =  proplists:get_value(host, Config),
@@ -1352,7 +1368,7 @@ max_header(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 max_content_length() ->
-    ["Denial Of Service (DOS) attack, prevented by max_content_length"].
+    [{doc, "Denial Of Service (DOS) attack, prevented by max_content_length"}].
 max_content_length(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host =  proplists:get_value(host, Config),
@@ -1361,7 +1377,7 @@ max_content_length(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 ignore_invalid_header() ->
-    ["RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon"].
+    [{doc, "RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon"}].
 ignore_invalid_header(Config) when is_list(Config) ->
      Host =  proplists:get_value(host, Config),
      Port =  proplists:get_value(port, Config),
