@@ -282,17 +282,34 @@
     be used. For example: <c>PrivDir = proplists:get_value(priv_dir, Config)</c>.
     </p>
 
-    <p>If the test case function crashes, exits purposely or returns <c>{fail,Reason}</c>,
-    it is considered <em>failed</em>. If it returns any other value (no matter what value),
-    it is considered successful. An exception to this rule is the return value
-    <c>{skip,Reason}</c>. If this tuple is returned, the test case is considered
-    skipped and is logged as such.</p>
+    <p>Possible return values of the test case function are:</p>
+    <taglist>
+      <tag><c>{fail, Reason}</c></tag>
+      <item>The test case is considered failed, and the <c>Reason</c>
+        will be logged.</item>
+      <tag><c>{skip, Reason}</c></tag>
+      <item>The test case is considered skipped, and the <c>Reason</c>
+          will be logged.</item>
+      <tag><c>{comment, Comment}</c></tag>
+      <item>The test case is considered successful, and the <c>Comment</c>
+        will be logged.</item>
+      <tag><c>{save_config, SaveConfig}</c></tag>
+      <item>The test case is considered successful, and the <c>SaveConfig</c>
+        will be stored in the <c>Config</c> (see section
+        <seeguide marker="dependencies_chapter#save_config">Saving
+        Configuration Data</seeguide>).</item>
+      <tag><c>{skip_and_save, Reason, SaveConfig}</c></tag>
+      <item>The test case is considered skipped, the <c>Reason</c>
+        will be logged, and the <c>SaveConfig</c> will be stored in the
+        <c>Config</c> (see section
+        <seeguide marker="dependencies_chapter#save_config">Saving
+        Configuration Data</seeguide>).</item>
+    </taglist>
 
-    <p>If the test case returns the tuple <c>{comment,Comment}</c>, the case
-    is considered successful and <c>Comment</c> is printed in the overview
-    log file. This is equal to calling
-    <seemfa marker="ct#comment/1"><c>ct:comment(Comment)</c></seemfa>.
-    </p>
+    <p>If the test case function returns any other term, the test case is considered
+      successful.</p>
+
+    <p>If the test case function crashes, it is considered failed.</p>
 
   </section>
 
