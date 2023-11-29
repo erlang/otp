@@ -159,7 +159,7 @@ request(Url, Profile) ->
                         | {ipv6_host_with_brackets, boolean()},
       StreamTo :: none | self | {self, once} | file:name_all(),
       SocketOpt :: term(),
-      BodyFormat  :: string() | binary() | atom(),
+      BodyFormat  :: string | binary,
       Receiver :: pid()
                   | fun((term()) -> term())
                   | { ReceiverModule::atom()
@@ -220,7 +220,7 @@ request(Method, Request, HttpOptions, Options) ->
                      | {receiver, Receiver}
                      | {ipv6_host_with_brackets, boolean()},
       StreamTo :: none | self | {self, once} | file:name_all(),
-      BodyFormat  :: string() | binary() | atom(),
+      BodyFormat  :: string | binary,
       SocketOpt :: term(),
       Receiver :: pid()
                   | fun((term()) -> term())
@@ -903,7 +903,7 @@ maybe_format_body(BinBody, Options) ->
                         | {socket_opts, [SocketOpt]}
                         | {receiver, Receiver}
                         | {ipv6_host_with_brackets, boolean()},
-      BodyFormat  :: string() | binary() | atom(),
+      BodyFormat  :: string | binary,
       StreamTo :: none | self | {self, once} | file:name_all(),
       SocketOpt :: term(),
       Receiver :: pid()
@@ -1150,7 +1150,7 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
                      | {receiver, Receiver}
                      | {ipv6_host_with_brackets, boolean()},
       StreamTo :: none | self | {self, once} | file:name_all(),
-      BodyFormat  :: string() | binary() | atom(),
+      BodyFormat  :: string | binary,
       SocketOpt :: term(),
       Receiver :: pid()
                   | fun((term()) -> term())
