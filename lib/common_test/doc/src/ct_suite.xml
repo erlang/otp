@@ -616,16 +616,14 @@
 	  <item>The test case is considered skipped, the <c>Reason</c>
 	    will be logged, and the <c>SaveConfig</c> will be stored in the
 	    <c>Config</c> (see section
-            <seeguide marker="dependencies_chapter#save_config">Saving
-            Configuration Data</seeguide> in the User's Guide).</item>
+	    <seeguide marker="dependencies_chapter#save_config">Saving
+	    Configuration Data</seeguide> in the User's Guide).</item>
 	</taglist>
 
 	<p>If the function returns any other term, the test case is considered
-	  successful. It is common practice to explicitly return <c>ok</c> from
-	  successful test cases.</p>
+	  successful.</p>
 
-	<p>If the test case function crashes or exits purposely, it is considered
-	  failed.</p>
+	<p>If the test case function crashes, it is considered failed.</p>
 
 	<p>For details about test case implementation, see section
 	  <seeguide marker="write_test_chapter#test_cases">Test Cases</seeguide>
