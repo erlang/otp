@@ -652,7 +652,7 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                                     min(Limit, ExpandRows)
                             end,
                             ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
-                            BufferExpand1 = case ExpandRows > (R-InputRows) of
+                            BufferExpand1 = case ExpandRows > ExpandRowsLimit1 of
                                 true ->
                                         Color = ansi_color(cyan, bright_white),
                                         StatusLine = io_lib:format(Color ++"\e[1m" ++ "rows ~w to ~w of ~w" ++ "\e[0m",
@@ -669,13 +669,13 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                                 false ->
                                     ["\r\n",BufferExpand]
                                 end,
-                          {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, iolist_to_binary(BufferExpand1)),
+                          {ExpandBuffer, NewState} = insert_buf(RedrawState#state{ buffer_expand = [] }, unicode:characters_to_binary(BufferExpand1)),
                           BECols = cols(W, End, NewState#state.buffer_expand, U),
                           MoveToEnd = move_cursor(RedrawState, BECols, End),
                           {[encode(Redraw,U),encode(ExpandBuffer, U), MoveToEnd, Movement], RedrawState}
                   end,
     {Output, State};
-handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow, cols = W, rows = WindowRows, unicode = U}, {move_expand, N}) ->
+handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow, cols = W, rows = R, unicode = U}, {move_expand, N}) ->
     %% Get number of Lines in terminal window
     BufferExpandLines = case Expand of
         undefined -> [];
@@ -683,17 +683,18 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
     end,
     ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
     InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
-    ERow1 = if ExpandRows > WindowRows-InputRows -> %% We need to page expand rows
-        StatusLine = lists:flatten(io_lib:format("rows ~w to ~w of ~w", [ERow, (ERow-1) + WindowRows-1-InputRows, ExpandRows])),
-        StatusRows = (cols_multiline([StatusLine], W, U) div W),
-        min(ExpandRows-(WindowRows-InputRows-StatusRows-1),max(1,ERow + N));
+    ExpandRowsLimit = case State#state.buffer_expand_limit of
+        0 ->
+             ExpandRows;
+        Limit ->
+            min(Limit, ExpandRows)
+    end,
+    ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
+    ERow1 = if ExpandRows > ExpandRowsLimit1 -> %% We need to page expand rows
+        min(ExpandRows-ExpandRowsLimit1+1,max(1,ERow + N));
         true -> 1 %% No need to page expand rows
     end,
-    if ERow =:= ERow1 -> %% We don't need to do anything
-        {[], State};
-        true ->
-            handle_request(State#state{buffer_expand_row = ERow1}, redraw_prompt)
-    end;
+    handle_request(State#state{buffer_expand_row = ERow1}, redraw_prompt);
 %% Clear the expand buffer after the cursor when we handle any request.
 handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
   when Expand =/= undefined ->
@@ -991,7 +992,7 @@ in_view(#state{lines_after = LinesAfter, buffer_before = Bef, buffer_after = Aft
                rows=R, cols=W, unicode=U, buffer_expand = BufferExpand, buffer_expand_limit = BufferExpandLimit} = State) ->
     BufferExpandLines = case BufferExpand of
                             undefined -> [];
-                            _ -> string:split(erlang:binary_to_list(BufferExpand), "\r\n", all)
+                            _ -> string:split(unicode:characters_to_list(BufferExpand), "\r\n", all)
                         end,
     ExpandLimit = case BufferExpandLimit of
                         0 -> cols_multiline(BufferExpandLines, W, U) div W;
@@ -1087,7 +1088,10 @@ update_geometry(State) ->
     case tty_window_size(State#state.tty) of
         {ok, {Cols, Rows}} when Cols > 0 ->
             ?dbg({?FUNCTION_NAME, Cols}),
-            State#state{ cols = Cols, rows = Rows };
+            %% We also set buffer_expand_row to 0, in case we are in paging mode
+            %% this ensures that the expand area gets redrawn when we handle move_expand
+            %% event.
+            State#state{ cols = Cols, rows = Rows};
         _Error ->
             ?dbg({?FUNCTION_NAME, _Error}),
             State

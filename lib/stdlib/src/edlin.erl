@@ -206,7 +206,8 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
                      reverse(Rs0)};
                 tab_expand_quit ->
                     %% When exiting tab expand mode, we want to evaluate the key in normal mode
-                    edit(Buf, P, MultiLine, {normal,none}, Rs0);
+                    %% we send a {move_rel, 0} event to make sure the paging area is cleared
+                    edit(Buf, P, MultiLine, {normal,none}, [{move_rel, 0}|Rs0]);
                 Op ->
                     Op1 = case ShellMode of
                         search ->
