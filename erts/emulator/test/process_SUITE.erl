@@ -79,6 +79,8 @@
          spawn_new_node/1,
          spawn_request_reply_option/1,
          alias_bif/1,
+         dist_frag_alias/1,
+         dist_frag_unaliased/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
          monitor_tag/1]).
@@ -149,7 +151,8 @@ groups() ->
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
        otp_16436, otp_16642]},
      {alias, [],
-      [alias_bif, monitor_alias, spawn_monitor_alias]}].
+      [alias_bif, monitor_alias, spawn_monitor_alias,
+       dist_frag_alias, dist_frag_unaliased]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -4078,7 +4081,84 @@ alias_bif_test(Node) ->
                               end),
     [{A3,1},{'DOWN', M3, _, _, _}] = recv_msgs(2),
     ok.
-             
+
+dist_frag_alias(Config) when is_list(Config) ->
+    Tester = self(),
+    {ok, Node} = start_node(Config),
+    {P,M} = spawn_monitor(Node,
+                          fun () ->
+                                  Alias = alias(),
+                                  Tester ! {alias, Alias},
+                                  receive
+                                      {data, Data} ->
+                                          garbage_collect(),
+                                          Tester ! {received_data, Data}
+                                  end,
+                                  exit(end_of_test)
+                          end),
+    Data = term_to_binary(lists:seq(1, 1000000)),
+    receive
+        {alias, Alias} ->
+            Alias ! {data, Data},
+            receive
+                {received_data, RecvData} ->
+                    Data = RecvData;
+                {'DOWN', M, process, P, R2} ->
+                    ct:fail(R2)
+            end;
+        {'DOWN', M, process, P, R1} ->
+            ct:fail(R1)
+    end,
+    receive
+        {'DOWN', M, process, P, R3} ->
+            end_of_test = R3
+    end,
+    stop_node(Node),
+    ok.
+
+dist_frag_unaliased(Config) when is_list(Config) ->
+    %% Leak fixed by PR-7915 would have been detected using asan or valgrind
+    %% when running this test...
+    Tester = self(),
+    {ok, Node} = start_node(Config),
+    {P,M} = spawn_monitor(Node,
+                          fun () ->
+                                  Alias = alias(),
+                                  Tester ! {alias, Alias},
+                                  receive
+                                      {data, Data} ->
+                                          garbage_collect(),
+                                          unalias(Alias),
+                                          Tester ! {received_data, Data},
+                                          receive
+                                              {data, _Data} ->
+                                                  exit(received_data_again);
+                                              end_of_test ->
+                                                  exit(end_of_test)
+                                          end
+                                  end
+                          end),
+    Data = term_to_binary(lists:seq(1, 1000000)),
+    receive
+        {alias, Alias} ->
+            Alias ! {data, Data},
+            receive
+                {received_data, RecvData} ->
+                    Data = RecvData;
+                {'DOWN', M, process, P, R2} ->
+                    ct:fail(R2)
+            end,
+            Alias ! {data, Data},
+            P ! end_of_test;
+        {'DOWN', M, process, P, R1} ->
+            ct:fail(R1)
+    end,
+    receive
+        {'DOWN', M, process, P, R3} ->
+            end_of_test = R3
+    end,
+    stop_node(Node),
+    ok.
 
 monitor_alias(Config) when is_list(Config) ->
     monitor_alias_test(node()),
