@@ -316,12 +316,13 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                               [{atom, _, FunName}, {'(', _}|_] ->
                                   case erl_parse:parse_form(Toks) of
                                       {ok, FunDef} ->
-                                          case {edlin_expand:shell_default_or_bif(atom_to_list(FunName)), shell:local_func(FunName)} of
+                                          FunName1 = lists:flatten(io_lib:fwrite("~tw",[FunName])),
+                                          case {edlin_expand:shell_default_or_bif(FunName1), shell:local_func(FunName1)} of
                                               {"user_defined", false} ->
                                                 FunDef1 = lists:flatten(escape_quotes(lists:flatten(erl_pp:form(FunDef)))),
                                                 FakeLine = reconstruct(FunDef, FunName),
                                                   {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
-                                                                                     [], "fd("++ atom_to_list(FunName) ++ ", " ++ FakeLine ++ ", \"" ++ FunDef1 ++ "\").\n",
+                                                                                     [], "fd("++ FunName1 ++ ", " ++ FakeLine ++ ", \"" ++ FunDef1 ++ "\").\n",
                                                                                      {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
                                                   erl_eval:extended_parse_exprs(FakeResult);
                                               _ -> erl_eval:extended_parse_exprs(Toks)
@@ -1145,9 +1146,11 @@ local_func(lr, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
 local_func(save_module, [{string,_,PathToFile}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     [_Path, FileName] = string:split("/"++PathToFile, "/", trailing),
     [Module, _] = string:split(FileName, ".", leading),
+    Module1 = io_lib:fwrite("~tw",[list_to_atom(Module)]),
+    Exports = [lists:flatten(io_lib:fwrite("~tw",[F]))++"/"++integer_to_list(A)||{F,A}<-local_defined_functions(FT)],
     Output = (
-        "-module("++Module++").\n\n" ++
-        "-export(["++[atom_to_list(F)++"/"++integer_to_list(A)||{F,A}<-local_defined_functions(FT)]++"]).\n\n"++
+        "-module("++Module1++").\n\n" ++
+        "-export(["++lists:join(",",Exports)++"]).\n\n"++
         local_types(FT) ++
         local_records(FT) ++
         local_functions(FT)
@@ -1205,15 +1208,15 @@ local_func(ff, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     ets:select_delete(FT, [{{{function_type_def, '_'},'_'}, [],[true]}]),
     ets:select_delete(FT, [{{{function_type, '_'},'_'}, [],[true]}]),
     {value,ok,Bs};
-local_func(ff, [{tuple, _, [{atom, _, F}, {integer,_,A}]}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+local_func(ff, [{atom, _, F}, {integer,_,A}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     M = shell_default,
     ets:select_delete(FT, [{{{function_def, {M, F, A}},'_'}, [],[true]}]),
     ets:select_delete(FT, [{{{function, {M, F, A}},'_'}, [],[true]}]),
     ets:select_delete(FT, [{{{function_type_def, {M, F, A}},'_'}, [],[true]}]),
     ets:select_delete(FT, [{{{function_type, {M, F, A}},'_'}, [],[true]}]),
     {value,ok,Bs};
-local_func(ff, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
-    erlang:raise(error, function_clause, [{shell,ff,1}]);
+local_func(ff, [_,_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
+    erlang:raise(error, function_clause, [{shell,ff,2}]);
 local_func(td, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
     case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
         {done, {ok, Toks, _}, _} ->
@@ -1340,18 +1343,18 @@ local_functions_and_specs(FT) ->
     Keys1 = maps:keys(Output_functions),
     Keys2 = maps:keys(Output_function_specs),
     Keys = lists:uniq(Keys1 ++ Keys2),
-    lists:join($\n,lists:map(fun(Key) ->
+    string:trim(lists:join($\n,lists:map(fun(Key) ->
         Spec = maps:get(Key, Output_function_specs, nospec),
         Def = maps:get(Key, Output_functions, nodef),
         case {Spec, Def} of
             {nospec, _} -> Def;
             {_, nodef} ->
                 {FunName, Arity} = Key,
-                Spec ++ "%% " ++ atom_to_list(FunName) ++ "/" ++ integer_to_list(Arity) ++ " not implemented";
+                Spec ++ "%% " ++ lists:flatten(io_lib:fwrite("~tw",[FunName]))++ "/" ++ integer_to_list(Arity) ++ " not implemented";
             {_, _} -> Spec ++ Def
         end
     end,
-    Keys)).
+    Keys))).
 local_defined_functions(FT) ->
     [{F, A} ||{{function_def,{_, F, A}},_} <- ets:tab2list(FT)].
 local_functions(FT) ->
@@ -1375,7 +1378,7 @@ local_records(FT) ->
     lists:join($\n,
         [RecDef||{{record_def, _},RecDef} <- ets:tab2list(FT)]).
 write_and_compile_module(PathToFile, Output) ->
-    case file:write_file(PathToFile, Output) of
+    case file:write_file(PathToFile, unicode:characters_to_binary(Output)) of
         ok -> c:c(PathToFile);
         Error -> Error
     end.

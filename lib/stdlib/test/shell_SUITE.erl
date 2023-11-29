@@ -193,7 +193,7 @@ LocalFuncs = shell:local_func(),
 
 LocalFuncs2 = [
     <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
-    <<"fl()">>, <<"ff()">>, <<"ff({my_func,1})">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
+    <<"fl()">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
     <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
     <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>, <<"tf()">>, <<"tf(hej)">>, 
     <<"save_module(\"src/my_module.erl\")">>, <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
@@ -658,25 +658,31 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
     "ok.\n-record(svej,{a}).\n.\nok.\n" = t(
       <<"-record(svej, {a}).\n"
         "lr().">>),
-    "ok.\nok.\n-spec my_func(X) -> X.\nmy_func(X) ->\n    X.\n\n.\nok.\n" = t(
+    "ok.\nok.\n-spec my_func(X) -> X.\nmy_func(X) ->\n    X.\n.\nok.\n" = t(
       <<"-spec my_func(X) -> X.\n"
         "my_func(X) -> X.\n"
         "lf().">>),
     %% Save local definitions to a module
-    "ok.\nok.\nok.\nok.\n{ok,my_module}.\n" = t(
+    U = unicode:characters_to_binary("😊"),
+    "ok.\nok.\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
       <<"-type hej() :: integer().\n"
         "-record(svej, {a :: hej()}).\n"
-        "-spec my_func(X) -> X.\n my_func(#svej{a=A}) -> A.\n"
-        "save_module(\"my_module.erl\").">>),
+        "my_func(#svej{a=A}) -> A.\n"
+        "-spec not_implemented(X) -> X.\n"
+        "-spec 'my_func",U/binary,"'(X) -> X.\n"
+        "'my_func",U/binary,"'(#svej{a=A}) -> A.\n"
+        "save_module(\"MY_MODULE.erl\").">>, unicode}),
     %% Read back the newly created module
-    {ok,<<"-module(my_module).\n\n"
-          "-export([my_func/1]).\n\n"
+    {ok,<<"-module('MY_MODULE').\n\n"
+          "-export([my_func/1,'my_func",240,159,152,138,"'/1]).\n\n"
           "-type hej() :: integer().\n"
           "-record(svej,{a :: hej()}).\n"
-          "-spec my_func(X) -> X.\n"
           "my_func(#svej{a = A}) ->\n"
-          "    A.\n">>} = file:read_file("my_module.erl"),
-    file:delete("my_module.erl"),
+          "    A.\n\n"
+          "-spec 'my_func",240,159,152,138,"'(X) -> X.\n"
+          "'my_func",240,159,152,138,"'(#svej{a = A}) ->\n"
+          "    A.\n">>} = file:read_file("MY_MODULE.erl"),
+    file:delete("MY_MODULE.erl"),
 
     %% Forget one locally defined type
     "ok.\nok.\nok.\n-type svej() :: integer().\n.\nok.\n" = t(
@@ -691,12 +697,12 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
         "rf(svej).\n"
         "lr().">>),
     %% Forget one locally defined function
-    "ok.\nok.\nok.\nok.\nok.\n-spec my_func2(X) -> X.\nmy_func2(X) ->\n    X.\n\n.\nok.\n" = t(
+    "ok.\nok.\nok.\nok.\nok.\n-spec my_func2(X) -> X.\nmy_func2(X) ->\n    X.\n.\nok.\n" = t(
       <<"-spec my_func(X) -> X.\n"
         "my_func(X) -> X.\n"
         "-spec my_func2(X) -> X.\n"
         "my_func2(X) -> X.\n"
-        "ff({my_func,1}).\n"
+        "ff(my_func,1).\n"
         "lf().">>),
     %% Forget all locally defined types
     "ok.\nok.\nok.\n.\nok.\n" = t(

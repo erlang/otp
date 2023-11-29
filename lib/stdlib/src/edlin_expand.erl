@@ -633,18 +633,21 @@ expand_filepath(PathPrefix, Word) ->
     end.
 
 shell(Fun) ->
-    case shell:local_func(list_to_atom(Fun)) of
+    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
+    case shell:local_func(Fun1) of
         true -> "shell";
         false -> "user_defined"
     end.
 
 shell_default_or_bif(Fun) ->
-    case lists:member(list_to_atom(Fun), [E || {E,_}<-get_exports(shell_default)]) of
+    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
+    case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
         true -> "shell_default";
         _ -> bif(Fun)
     end.
 bif(Fun) ->
-    case lists:member(list_to_atom(Fun), [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
+    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
+    case lists:member(Fun1, [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
         true -> "erlang";
         _ -> shell(Fun)
     end.
