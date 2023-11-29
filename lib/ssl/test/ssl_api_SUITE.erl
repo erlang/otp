@@ -1684,9 +1684,10 @@ close_with_timeout(Config) when is_list(Config) ->
 close_in_error_state() ->
     [{doc,"Special case of closing socket in error state"}].
 close_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+
     _ = spawn(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
     receive
         {_Pid, Port} ->
@@ -1703,7 +1704,7 @@ close_in_error_state(Config) when is_list(Config) ->
 call_in_error_state() ->
     [{doc,"Special case of call error handling"}].
 call_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
     Pid = spawn(?MODULE, run_error_server, [[self() | ServerOpts]]),
@@ -2187,27 +2188,44 @@ options_whitebox() ->
 customize_defaults(Opts, Role, Host) ->
     %% In many options test scenarios we do not care about verifcation options
     %% but the client now requiers verification options by default.
-    ClientIgnorDef = case proplists:get_value(verify, Opts, undefined) of
-                         undefined when Role == client ->
-                             [{verify, verify_none}];
-                         _ ->
-                             []
-                     end,
+    DefOpts = case Role of
+                  client ->
+                      case proplists:get_value(verify, Opts, undefined) of
+                          undefined -> [{verify, verify_none}];
+                          _ -> []
+                      end;
+                  server ->
+                      Ciphers = proplists:get_value(ciphers, Opts, undefined),
+                      Cert = proplists:get_value(cert, Opts, undefined),
+                      Key = proplists:get_value(key, Opts, undefined),
+                      CertsKeys = proplists:get_value(certs_keys, Opts, undefined),
+                      NoCertOrKeys = Cert == undefined orelse Key == undefined andalso
+                          CertsKeys == undefined,
+                      if Ciphers == undefined andalso NoCertOrKeys ->
+                              [{certs_keys, [#{cert => <<>>, key => {rsa, <<>>}}]}];
+                         true ->
+                              []
+                      end
+              end,
+    NoVerify = case Role of
+                   client -> [{verify, verify_none}|DefOpts];
+                   server -> DefOpts
+               end,
     case proplists:get_value(protocol, Opts, tls) of
         dtls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([{verify, verify_none}, {protocol, dtls}], Role, Host),
-            {DOpts, ClientIgnorDef ++ Opts};
+            {ok, #config{ssl=DOpts}} = ssl:handle_options([{protocol, dtls}|NoVerify], Role, Host),
+            {DOpts, DefOpts ++ Opts};
         tls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([{verify, verify_none}], Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
             case proplists:get_value(versions, Opts) of
                 undefined ->
-                    {DOpts, ClientIgnorDef ++ [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
+                    {DOpts, DefOpts ++ [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
                 _ ->
-                    {DOpts, ClientIgnorDef ++ Opts}
+                    {DOpts, DefOpts ++ Opts}
             end;
         _ ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options(ClientIgnorDef, Role, Host),
-            {DOpts, ClientIgnorDef ++ Opts}
+            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
+            {DOpts, DefOpts ++ Opts}
     end.
 
 -define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
@@ -2278,6 +2296,41 @@ customize_defaults(Opts, Role, Host) ->
                         error({unexpected, C2, Other2,ST2})
                 end
         end()).
+
+-define(ERR_UPD(EXP, Opts, Role),
+        fun() ->
+                Host = "dummy.host.org",
+                {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
+                try ssl:handle_options(__Opts, Role, Host) of
+                    {ok, #config{}} ->
+                        ok;
+                    Other ->
+                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, Other})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    C:Other:ST ->
+                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        error({unexpected, C, Other,ST})
+                end,
+                try ssl:update_options(__Opts, Role, __DefOpts) of
+                    Other2 ->
+                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                                "ssl:update_options(~p,~p, element(2,Cfg)).",
+                                [Role,Host,__Opts,Role]),
+                        error({unexpected, Other2})
+                catch
+                    throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
+                    throw:{error, {options, EXP}} -> ok;
+                    throw:{error, EXP} -> ok;
+                    C2:Other2:ST2 ->
+                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
+                                "ssl:update_options(~p,~p, element(2,Cfg)).",
+                                [Role,Host,__Opts,Role]),
+                        error({unexpected, C2, Other2,ST2})
+                end
+        end()).
+
 
 options_whitebox(Config) when is_list(Config) ->
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
@@ -2520,6 +2573,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ?ERR({cert, #{}}, [{cert, #{}}], client),
     ?ERR({certfile, cert}, [{certfile, cert}], client),
     ?ERR({certs_keys, #{}}, [{certs_keys, #{}}], client),
+    ?ERR_UPD({certs_keys, cert_and_key_required}, [{certs_keys, []}], server),
     ?ERR({keyfile, #{}}, [{keyfile, #{}}], client),
     ?ERR({key, <<>>}, [{key, <<>>}], client),
     ?ERR({password, _}, [{password, fun(Arg) -> Arg end}], client),
@@ -2548,7 +2602,11 @@ options_ciphers(_Config) ->
     ?OK(#{ciphers := [_|_]}, [{ciphers, "RC4-SHA:RC4-MD5"}], client),
     ?OK(#{ciphers := [_|_]}, [{ciphers, ["RC4-SHA", "RC4-MD5"]}], client),
 
-    %% FIXME extend this
+    ?OK(#{ciphers := [_|_]}, [{ciphers, ["TLS_DH_anon_WITH_AES_256_CBC_SHA256"]}], server),
+    %% Errors
+    ?ERR({ciphers, _}, [{ciphers, "foobar:RC4-MD5"}], client),
+    ?ERR({ciphers, _}, [{ciphers, ["RC4-SHA:RC4-MD5", "RC4-SHA:RC4-MD5"]}], client),
+    ?ERR_UPD({certs_keys, cert_and_key_required}, [{ciphers, "RC4-SHA:RC4-MD5"}], server),
     ok.
 
 options_client_renegotiation(_Config) ->
