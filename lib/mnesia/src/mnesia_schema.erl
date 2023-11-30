@@ -2466,7 +2466,6 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 		_  ->
 		    ok
 	    end,
-            mnesia_lib:verbose("~w:~w Adding table~n",[?MODULE,?LINE]),
 
 	    case mnesia_controller:get_network_copy(Tid, Tab, Cs) of
 		{loaded, ok} ->
@@ -2474,6 +2473,8 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
                     insert_cstruct(Tid, Cs, true),
                     mnesia_controller:i_have_tab(Tab, Cs),
 		    {true, optional};
+                {not_loaded, {not_active, schema, Node}} ->
+                    mnesia:abort({node_not_running, Node});
 		{not_loaded, ErrReason} ->
 		    Reason = {system_limit, Tab, {Node, ErrReason}},
 		    mnesia:abort(Reason)
