@@ -1983,8 +1983,14 @@ erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
 
     ASSERT(is_ref(alias));
     pid = erts_get_pid_of_ref(alias);
-    if (!is_internal_pid(pid))
+    if (!is_internal_pid(pid)) {
+        if (hfrag) {
+            /* Fragmented message... */
+            erts_free_dist_ext_copy(erts_get_dist_ext(hfrag));
+            free_message_buffer(hfrag);
+        }
         return;
+    }
 
     /*
      * The receiver can distinguish between these two scenarios by
