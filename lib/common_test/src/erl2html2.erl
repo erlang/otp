@@ -274,7 +274,13 @@ possibly_enhance(Str,false) ->
 %%%-----------------------------------------------------------------
 %%% End of the file
 footer() ->
-    "".
+    %% If the URL has an anchor part at the end (# with line number),
+    %% color that line to make it easier to find on the screen.
+    "<script>\n"
+    "var hash = window.location.hash.substring(1);\n"
+    "var anchor = document.getElementsByName(hash);\n"
+    "anchor[0].style.backgroundColor=\"orange\";\n"
+    "</script>\n".
 
 %%%-----------------------------------------------------------------
 %%% Read encoding from source file
