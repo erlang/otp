@@ -939,27 +939,26 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 	    return_abort(Fun, Args, Why),
 	    Factor = 1,
 	    SleepTime = mnesia_lib:random_time(Factor, Tid#tid.counter),
-	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
+	    log_restart("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
 	    timer:sleep(SleepTime),
 	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
 	{node_not_running, _N} ->   %% Avoids hanging in receive_release_tid_ack
 	    return_abort(Fun, Args, Why),
 	    Factor = 1,
 	    SleepTime = mnesia_lib:random_time(Factor, Tid#tid.counter),
-	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
+	    log_restart("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
 	    timer:sleep(SleepTime),
 	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
 	_ ->
 	    SleepTime = mnesia_lib:random_time(Factor0, Tid#tid.counter),
 	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
-
+            
 	    if
 		Factor0 /= 10 ->
 		    ignore;
 		true ->
 		    %% Our serial may be much larger than other nodes ditto
 		    AllNodes = val({current, db_nodes}),
-		    verbose("Sync serial ~p~n", [Tid]),
 		    rpc:abcast(AllNodes, ?MODULE, {sync_trans_serial, Tid})
 	    end,
 	    intercept_friends(Tid, Ts),
@@ -976,6 +975,24 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 		{error, Reason} ->
 		    mnesia:abort(Reason)
 	    end
+    end.
+
+log_restart(F,A) ->
+    case get(transaction_client) of
+        undefined ->
+            dbg_out(F,A);
+        _ ->
+            case get(transaction_count) of
+                undefined ->
+                    put(transaction_count, 1),
+                    verbose(F,A);
+                N when (N rem 10) == 0 ->
+                    put(transaction_count, N+1),
+                    verbose(F,A);
+                N ->
+                    put(transaction_count, N+1),
+                    dbg_out(F,A)
+            end
     end.
 
 get_restarted(Tid) ->
@@ -2133,6 +2150,7 @@ new_cr_format(#commit{ext=Snmp}=Cr) ->
     Cr#commit{ext=[{snmp,Snmp}]}.
 
 rec_all([Node | Tail], Tid, Res, Pids) ->
+    put({?MODULE, ?FUNCTION_NAME}, {Node, Tail}),
     receive
 	{?MODULE, Node, {vote_yes, Tid}} ->
 	    rec_all(Tail, Tid, Res, Pids);
@@ -2151,8 +2169,12 @@ rec_all([Node | Tail], Tid, Res, Pids) ->
 	    Abort = {do_abort, {bad_commit, Node}},
 	    ?SAFE({?MODULE, Node} ! {Tid, Abort}),
 	    rec_all(Tail, Tid, Abort, Pids)
+    after 15000 ->
+            mnesia_lib:verbose("~p: trans ~p waiting ~p~n", [self(), Tid, Node]),
+            rec_all([Node | Tail], Tid, Res, Pids)
     end;
 rec_all([], _Tid, Res, Pids) ->
+    erase({?MODULE, ?FUNCTION_NAME}),
     {Res, Pids}.
 
 get_transactions() ->
