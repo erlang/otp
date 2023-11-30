@@ -282,34 +282,9 @@
     be used. For example: <c>PrivDir = proplists:get_value(priv_dir, Config)</c>.
     </p>
 
-    <p>Possible return values of the test case function are:</p>
-    <taglist>
-      <tag><c>{fail, Reason}</c></tag>
-      <item>The test case is considered failed, and the <c>Reason</c>
-        will be logged.</item>
-      <tag><c>{skip, Reason}</c></tag>
-      <item>The test case is considered skipped, and the <c>Reason</c>
-          will be logged.</item>
-      <tag><c>{comment, Comment}</c></tag>
-      <item>The test case is considered successful, and the <c>Comment</c>
-        will be logged.</item>
-      <tag><c>{save_config, SaveConfig}</c></tag>
-      <item>The test case is considered successful, and the <c>SaveConfig</c>
-        will be stored in the <c>Config</c> (see section
-        <seeguide marker="dependencies_chapter#save_config">Saving
-        Configuration Data</seeguide>).</item>
-      <tag><c>{skip_and_save, Reason, SaveConfig}</c></tag>
-      <item>The test case is considered skipped, the <c>Reason</c>
-        will be logged, and the <c>SaveConfig</c> will be stored in the
-        <c>Config</c> (see section
-        <seeguide marker="dependencies_chapter#save_config">Saving
-        Configuration Data</seeguide>).</item>
-    </taglist>
-
-    <p>If the test case function returns any other term, the test case is considered
-      successful.</p>
-
-    <p>If the test case function crashes, it is considered failed.</p>
+    <p>The test case result can be customized in several ways. See the manual for
+      <seemfa marker="ct_suite#Module:Testcase/1"><c>Module:Testcase/1</c></seemfa> in
+      the <seeerl marker="ct_suite"><c>ct_suite</c></seeerl> module for details.</p>
 
   </section>
 
