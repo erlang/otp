@@ -35,7 +35,8 @@
          edns0/1, edns0_multi_formerr/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
-         label_compression_limit/1, update/1, tsig_client/1, tsig_server/1
+         label_compression_limit/1, update/1, tsig_client/1, tsig_server/1,
+         mdns_encode_decode/1
         ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
@@ -78,6 +79,7 @@ all() ->
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
      label_compression_limit, update, tsig_client, tsig_server,
+     mdns_encode_decode,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -1660,6 +1662,83 @@ tsig_server(Domain, TS0, Sock) ->
     {ok,PktR3S,_TS} = inet_dns_tsig:sign(PktR3, TS3),
     ok = gen_tcp:send(Sock, PktR3S).
 
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% inet_dns encode/decode specials
+%% Should maybe be a suite of its own.
+
+mdns_encode_decode(Config) when is_list(Config) ->
+    Id = 4711,
+    Opcode = 'query',
+    Class = in,
+    Type = txt,
+    Domain = "test.local",
+    Text = ["abc", "123"],
+    BinText = <<3,$a,$b,$c, 3,$1,$2,$3>>,  % Wire format for Text
+    IN_h = 32769,                          % Class IN with high bit set
+    %%
+    %% Create a unicast-response to a mDNS query
+    %% with cache-flush bit on the RR record (func field),
+    %% which sets the class fields high bit when encoded
+    Header =
+        inet_dns:make_header(
+          [{id, Id}, {qr, true}, {opcode, Opcode},
+           {aa, false}, {tc, false}, {rd, false}, {ra, false}, {pr, false}]),
+    Query =
+        inet_dns:make_dns_query(
+          [{class, Class}, {type, Type}, {domain, Domain},
+           {unicast_response, true}]), % High bit 1
+    TxtRR =
+        inet_dns:make_rr(
+          [{domain, Domain}, {class, Class}, {type, Type},
+           {data, Text},
+           {func, true}]), % High bit 1
+    Msg =
+        inet_dns:make_msg(
+          [{header, Header}, {qdlist, [Query]}, {anlist, [TxtRR]}]),
+    %%
+    %% Encode and verify decode
+    Buffer = inet_dns:encode(Msg),
+    {{ok, Msg}, Msg} = {inet_dns:decode(Buffer), Msg},
+    %%
+    %% Decode as if not mDNS, which exposes the high class field bit,
+    %% and doesn't decode the RR data
+    Query2 =
+        inet_dns:make_dns_query(
+          Query,
+          [{class,IN_h},
+           {unicast_response,false}]),  % High bit 0
+    TxtRR2 =
+        inet_dns:make_rr(
+          TxtRR,
+          [{class,IN_h},
+           {data,BinText},  % Raw, encoded
+           {func,false}]),  % High bit 0
+    Msg2 = inet_dns:make_msg(Msg, [{qdlist, [Query2]}, {anlist, [TxtRR2]}]),
+    {{ok, Msg2}, Msg2} = {inet_dns:decode(Buffer, false), Msg2},
+    %%
+    %% Encode non-mDNS which ignores the high class bit flags
+    %% in #dns_query.unicast_response and #dns_rr.func
+    Buffer3 = inet_dns:encode(Msg, false),
+    %%
+    %% Decode non-mDNS and verify
+    Query3 =
+        inet_dns:make_dns_query(Query, unicast_response, false), % High bit 0
+    TxtRR3 = inet_dns:make_rr(TxtRR, func, false),               % High bit 0
+    Msg3 = inet_dns:make_msg(Msg, [{qdlist, [Query3]}, {anlist, [TxtRR3]}]),
+    {{ok, Msg3}, Msg3} = {inet_dns:decode(Buffer3, false), Msg3},
+    %%
+    %% Decode mDNS should give the same answer since the high bits
+    %% in the class fields are encoded as zero
+    {{ok, Msg3}, Msg3} = {inet_dns:decode(Buffer3, true), Msg3},
+    %%
+    %% Encode non-mDNS with class >= 32768
+    Buffer4 = inet_dns:encode(Msg2, false),
+    {{ok, Msg2}, Msg2} = {inet_dns:decode(Buffer4, false), Msg2},
+    %%
+    %% Decoding for mDNS should set the high class field flags
+    {{ok, Msg}, Msg} = {inet_dns:decode(Buffer4, true), Msg},
+    ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compatibility tests. Call the inet_SUITE tests, but with
