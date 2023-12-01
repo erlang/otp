@@ -36,7 +36,7 @@
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_certentries_by_ref/2,
-	 decode_pem_file/1, lookup/2]).
+	 select_certs_by_ref/2, decode_pem_file/1, lookup/2]).
 
 %%====================================================================
 %% Internal application API
@@ -250,6 +250,14 @@ foldl(Fun, Acc0, Cache) ->
 %%--------------------------------------------------------------------
 select_certentries_by_ref(Ref, Cache) ->
     ets:select(Cache, [{{{Ref,'_', '_'}, '_'},[],['$_']}]).
+
+%%--------------------------------------------------------------------
+-spec select_certs_by_ref(reference(), db_handle()) -> term().
+%%
+%% Description: Select certs originating from same source
+%%--------------------------------------------------------------------
+select_certs_by_ref(Ref, Cache) ->
+    ets:select(Cache, [{{{Ref,'_','_'},'$1'},[],['$1']}]).
 
 %%--------------------------------------------------------------------
 -spec ref_count(term(), db_handle(), integer()) -> integer().
