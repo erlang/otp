@@ -53,7 +53,7 @@ create(PEMCacheName) ->
     [%% Let connection process delete trusted certs
      %% that can only belong to one connection. (Supplied directly
      %% on DER format to ssl:connect/listen.)
-     ets:new(ssl_otp_cacertificate_db, [set, public]),
+     ets:new(ssl_otp_cacertificate_db, [set, public, {read_concurrency, true}]),
      %% Let connection processes call ref_count/3 directly
      {ets:new(ssl_otp_ca_file_ref, [set, public]),
       ets:new(ssl_otp_ca_ref_file_mapping, [set, protected])
