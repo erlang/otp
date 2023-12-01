@@ -665,6 +665,8 @@ format_ets_error(match_spec_compile, [_], _Cause) ->
     [bad_matchspec];
 format_ets_error(next, Args, Cause) ->
     format_default(bad_key, Args, Cause);
+format_ets_error(next_lookup, Args, Cause) ->
+    format_default(bad_key, Args, Cause);
 format_ets_error(new, [Name,Options], Cause) ->
     NameError = if
                     is_atom(Name) -> [];
@@ -680,6 +682,8 @@ format_ets_error(new, [Name,Options], Cause) ->
             [NameError, OptsError]
     end;
 format_ets_error(prev, Args, Cause) ->
+    format_default(bad_key, Args, Cause);
+format_ets_error(prev_lookup, Args, Cause) ->
     format_default(bad_key, Args, Cause);
 format_ets_error(rename, [_,NewName]=Args, Cause) ->
     case [format_cause(Args, Cause),

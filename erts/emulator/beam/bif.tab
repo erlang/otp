@@ -357,6 +357,7 @@ bif ets:delete/1
 bif ets:delete/2
 bif ets:delete_object/2
 bif ets:first/1
+bif ets:first_lookup/1
 bif ets:is_compiled_ms/1
 bif ets:lookup/2
 bif ets:lookup_element/3
@@ -364,6 +365,7 @@ bif ets:lookup_element/4
 bif ets:info/1
 bif ets:info/2
 bif ets:last/1
+bif ets:last_lookup/1
 bif ets:match/1
 bif ets:match/2
 bif ets:match/3
@@ -372,7 +374,9 @@ bif ets:match_object/2
 bif ets:match_object/3
 bif ets:member/2
 bif ets:next/2
+bif ets:next_lookup/2
 bif ets:prev/2
+bif ets:prev_lookup/2
 bif ets:insert/2
 bif ets:insert_new/2
 bif ets:rename/2
