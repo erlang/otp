@@ -72,7 +72,7 @@
          key_length/1,
          key_schedule/3,
          key_schedule/4,
-         create_info/3,
+         create_info/4,
          external_binder_key/2,
          resumption_binder_key/2,
          client_early_traffic_secret/3,
@@ -121,18 +121,18 @@ derive_secret(Secret, Label, Messages, Algo) ->
                         Context::binary(), Length::integer(),
                         Algo::ssl:hash()) -> KeyingMaterial::binary().
 hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
-    HkdfLabel = create_info(Label0, Context, Length),
+    HkdfLabel = create_info(Label0, Context, Length, <<"tls13 ">>),
     hkdf_expand(Secret, HkdfLabel, Length, Algo).
 
 %% Create info parameter for HKDF-Expand:
 %% HKDF-Expand(PRK, info, L) -> OKM
-create_info(Label0, Context0, Length) ->
+create_info(Label0, Context0, Length, Prefix) ->
     %% struct {
     %%     uint16 length = Length;
     %%     opaque label<7..255> = "tls13 " + Label;
     %%     opaque context<0..255> = Context;
     %% } HkdfLabel;
-    Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
+    Label1 = <<Prefix/binary, Label0/binary>>,
     LabelLen = byte_size(Label1),
     Label = <<?BYTE(LabelLen), Label1/binary>>,
     ContextLen = byte_size(Context0),
