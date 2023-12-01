@@ -76,14 +76,14 @@ significant.
 
 <!-- diameter_app -->
 
-<!ENTITY app_handle_answer '<seemfa marker="diameter_app#Mod:handle_answer/4">handle_answer/4</seemfa>'>
-<!ENTITY app_handle_request '<seemfa marker="diameter_app#Mod:handle_request/3">handle_request/3</seemfa>'>
-<!ENTITY app_handle_error '<seemfa marker="diameter_app#Mod:handle_error/4">handle_error/4</seemfa>'>
-<!ENTITY app_peer_down '<seemfa marker="diameter_app#Mod:peer_down/3">peer_down/3</seemfa>'>
-<!ENTITY app_peer_up '<seemfa marker="diameter_app#Mod:peer_up/3">peer_up/3</seemfa>'>
-<!ENTITY app_pick_peer '<seemfa marker="diameter_app#Mod:pick_peer/4">pick_peer/4</seemfa>'>
-<!ENTITY app_prepare_retransmit '<seemfa marker="diameter_app#Mod:prepare_retransmit/3">prepare_retransmit/3</seemfa>'>
-<!ENTITY app_prepare_request '<seemfa marker="diameter_app#Mod:prepare_request/3">prepare_request/3</seemfa>'>
+<!ENTITY app_handle_answer '<seemfa marker="diameter_app#Module:handle_answer/4">handle_answer/4</seemfa>'>
+<!ENTITY app_handle_request '<seemfa marker="diameter_app#Module:handle_request/3">handle_request/3</seemfa>'>
+<!ENTITY app_handle_error '<seemfa marker="diameter_app#Module:handle_error/4">handle_error/4</seemfa>'>
+<!ENTITY app_peer_down '<seemfa marker="diameter_app#Module:peer_down/3">peer_down/3</seemfa>'>
+<!ENTITY app_peer_up '<seemfa marker="diameter_app#Module:peer_up/3">peer_up/3</seemfa>'>
+<!ENTITY app_pick_peer '<seemfa marker="diameter_app#Module:pick_peer/4">pick_peer/4</seemfa>'>
+<!ENTITY app_prepare_retransmit '<seemfa marker="diameter_app#Module:prepare_retransmit/3">prepare_retransmit/3</seemfa>'>
+<!ENTITY app_prepare_request '<seemfa marker="diameter_app#Module:prepare_request/3">prepare_request/3</seemfa>'>
 
 <!ENTITY app_capabilities '<seeerl marker="diameter_app#capabilities">diameter_app:capabilities()</seeerl>'>
 <!ENTITY app_peer '<seeerl marker="diameter_app#peer">diameter_app:peer()</seeerl>'>
@@ -130,7 +130,7 @@ significant.
 <!-- diameter_transport -->
 
 <!ENTITY transport_start
- '<seemfa marker="diameter_transport#Mod:start/3">start/3</seemfa>'>
+ '<seemfa marker="diameter_transport#Module:start/3">start/3</seemfa>'>
 
 <!-- reference pages -->
 
