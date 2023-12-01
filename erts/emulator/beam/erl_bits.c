@@ -1793,7 +1793,7 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
 
     erts_current_bin = br->bytes;
 
-    return bin;
+    return make_bitstring(sb);
 }
 
 Eterm
