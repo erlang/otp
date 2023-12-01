@@ -562,25 +562,34 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
     </p>
     <p>
       Immediately after follows the sigil content;
-      a character sequence, delimited by <c>"</c> characters
-      just like a regular <seeguide marker="#string">string</seeguide>,
-      or by <seeguide marker="#tqstring">triple-quote</seeguide>
-      string delimiters.
+      a character sequence between content delimiters.
+      The allowed delimiters are these start-end delimiter pairs:
+      <c>() [] {} &lt;&gt;</c>, or these characters that are
+      both start and end delimiters: <c>/ | ' " ` #</c>.
+      <seeguide marker="#tqstring">Triple-quote</seeguide>
+      string delimiters may also be used.
     </p>
     <p>
       The
       <seeguide marker="#escape-sequences">
         character escaping rules
       </seeguide>
-      for the sigil content depends on the sigil type,
-      but the end delimiter character can always be escaped
-      by preceding it with a <c>\</c> character.
+      for the sigil content depends on the sigil type.
+      When the sigil content is <em>verbatim</em>,
+      there is no escape character.  The sigil content
+      simply ends when the end delimiter is found,
+      so it is impossible to have the end delimiter character
+      in the string content.  The set of delimiters is fairly generous,
+      and in most cases it is possible to choose an end delimiter
+      that's not in the literal string content.
     </p>
     <p>
-      <seeguide marker="#tqstring">Triple-quoted strings</seeguide>,
-      conceptually doesn't contain the end delimiter,
-      so there is way to escape the end delimiter
-      between triple-quoted string delimiters.
+      <seeguide marker="#tqstring">Triple-quote</seeguide>
+      string delimiters allow choosing a larger number of quote characters
+      in the end delimiter, than whatever is in the string content,
+      which thereby facilitates any content also with
+      a sequence of <c>"</c> characters at the start of a line
+      even for a <em>verbatim</em> string.
     </p>
     <p>
       The Sigils are:
@@ -589,26 +598,28 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
       <tag><c>~</c></tag>
       <item>
         The Vanilla (default) Sigil.
-        Shorthand for a
-        <seetype marker="stdlib:unicode#unicode_binary">UTF-8 encoded</seetype>
-        <seetype marker="erts:erlang#binary"><c>binary()</c></seetype>.
-        This sigil does not affect the character escaping rules, so
-        with triple-quoted string delimiters it is the same as <c>~B</c>,
-        and for the regular string delimiters it is the same as <c>~b</c>.
+        Shorthand for a UTF-8 encoded <c>binary()</c>,
+        This sigil does not affect the character escaping rules,
+        so with triple-quoted string delimiters they are
+        the same as for <c>~B</c>, and for other string delimiters
+        they are the same as for <c>~b</c>.
       </item>
       <tag><c>~b</c></tag>
       <item>
         The Binary Sigil.
-        Shorthand for a UTF-8 encoded <c>binary()</c>, as if calling
-        <seemfa marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1</c></seemfa>
+        Shorthand for a
+        <seetype marker="stdlib:unicode#unicode_binary">UTF-8 encoded <c>binary()</c></seetype>,
+        as if calling
+        <seemfa marker="stdlib:unicode#characters_to_binary/1">
+          <c>unicode:characters_to_binary/1</c>
+        </seemfa>
         on the sigil content.
         Character escaping rules are the same as for <c>~s</c>.
       </item>
       <tag><c>~B</c></tag>
       <item>
-        The Binary Sigil, verbatim.
-        As <c>~b</c> but characters in the sigil content are verbatim.
-        Only the end delimiter character can be escaped.
+        The Verbatim Binary Sigil.
+        As <c>~b</c>, but the sigil content is verbatim.
       </item>
       <tag><c>~s</c></tag>
       <item>
@@ -624,8 +635,8 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
       </item>
       <tag><c>~S</c></tag>
       <item>
-        The String Sigil, verbatim.
-        As <c>~s</c> but verbatim like <c>~B</c>.
+        The Verbatim String Sigil.
+        As <c>~s</c>, but the sigil content is verbatim.
         Using this sigil on a triple-quoted string does effectively nothing.
       </item>
     </taglist>
@@ -634,33 +645,33 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
 &lt;&lt;"\"\\µA\""/utf8&gt;&gt; = &lt;&lt;$",$\\,194,181,$A,$"&gt;&gt; =
     ~b"""
         "\\µA"
-        """ = ~b"\"\\µA\"" =
+        """ = ~b'"\\µA"' =
     ~B"""
         "\µA"
-        """ = ~B"\"\µA\"" =
+        """ = ~B&lt;"\µA"&gt; =
     ~"""
         "\µA"
-        """ = ~"\"\\µA\""</pre>
+        """ = ~"\"\\µA\"" = ~/"\\µA"/</pre>
     <pre>
 [$",$\\,$µ,$A,$"] =
     ~s"""
         "\\µA"
-        """ = ~s"\"\\µA\"" =
+        """ = ~s"\"\\µA\"" = ~s["\\µA"] =
     ~S"""
         "\µA"
-        """ = ~S"\"\µA\"" =
+        """ = ~S("\µA") =
     """
         "\µA"
         """ = "\"\\µA\""</pre>
     <p>
-      Adjacent strings are concatenated, but that is not possible
-      with sigils, since they in general are transformed into
-      terms that may not be concatenated.
+      Adjacent strings are concatenated in the compilation,
+      but that is not possible with sigils, since they are transformed
+      into terms that in general may not be concatenated.
       So, <c>"a"&nbsp;"b"</c> is equivalent to <c>"ab"</c>,
       but <c>~s"a"&nbsp;"b"</c> or <c>~s"a"&nbsp;~s"b"</c>
       is a syntax error.  <c>~s"a"&nbsp;++&nbsp;"b"</c>, however,
-      is equivalent to <c>"ab"</c> since the <c>++</c> operator
-      concatenates two strings.
+      evaluates to <c>"ab"</c> since both operands to
+      the <c>++</c> operator are strings.
     </p>
     <change>
       <p>Sigils were introduced in Erlang/OTP 27</p>
