@@ -757,7 +757,7 @@ namespace asmjit {
 //!
 //! There is no function that would return the number of unbound labels as this is completely unimportant from
 //! CodeHolder's perspective. If a label is not used then it doesn't matter whether it's bound or not, only actually
-//! used labels matter. After a Label is bound it's possible to query its offset relative to the start of the
+//! used labels matter. After a Label is bound it's possible to query its offset offset relative to the start of the
 //! section where it was bound:
 //!
 //! ```

@@ -21,7 +21,7 @@
 //!
 //! It's used to make sure that when user links to an incompatible version of AsmJit, it won't link. It has also some
 //! additional properties as well. When `ASMJIT_ABI_NAMESPACE` is defined by the user it would override the AsmJit
-//! default, which makes it possible to use multiple AsmJit libraries within a single project, totally controlled
+//! default, which makes it possible to use use multiple AsmJit libraries within a single project, totally controlled
 //! by the users. This is useful especially in cases in which some of such library comes from a third party.
 #ifndef ASMJIT_ABI_NAMESPACE
   #define ASMJIT_ABI_NAMESPACE _abi_1_10

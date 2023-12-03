@@ -45,7 +45,7 @@ struct Opcode {
   //!   `pp` in instruction manuals.
   //!
   //! - `LL` field is used exclusively by AVX+ and AVX512+ instruction sets. It describes vector size, which is `L.128`
-  //!   for XMM register, `L.256` for YMM register, and `L.512` for ZMM register. The `LL` field is omitted in case
+  //!   for XMM register, `L.256` for for YMM register, and `L.512` for ZMM register. The `LL` field is omitted in case
   //!   that instruction supports multiple vector lengths, however, if the instruction requires specific `L` value it
   //!   must be specified as a part of the opcode.
   //!
@@ -244,7 +244,7 @@ struct Opcode {
     // REX|VEX|EVEX B|X|R|W Bits
     // -------------------------
     //
-    // NOTE: REX.[B|X|R] are never stored within the opcode itself, they are reserved by AsmJit are added
+    // NOTE: REX.[B|X|R] are never stored within the opcode itself, they are reserved by AsmJit are are added
     // dynamically to the opcode to represent [REX|VEX|EVEX].[B|X|R] bits. REX.W can be stored in DB as it's sometimes
     // part of the opcode itself.
 
@@ -280,7 +280,7 @@ struct Opcode {
     // `L` or `LL` field in AVX/XOP/AVX-512
     // ------------------------------------
     //
-    // VEX/XOP prefix can only use the first bit `L.128` or `L.256`. EVEX prefix makes it possible to use also
+    // VEX/XOP prefix can only use the first bit `L.128` or `L.256`. EVEX prefix prefix makes it possible to use also
     // `L.512`. If the instruction set manual describes an instruction by `LIG` it means that the `L` field is ignored
     // and AsmJit defaults to `0` in such case.
     kLL_Shift      = 29,
