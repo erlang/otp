@@ -9435,7 +9435,12 @@ do_otp_18707(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 is_windows() ->
-    is_platform(win32, nt, "Windows").
+    case os:type() of
+        {win32, nt} ->
+            true;
+        _ ->
+            false
+    end.
 
 is_linux() ->
     is_unix(linux, "Linux").
@@ -9447,11 +9452,11 @@ is_platform(Family, Name, PlatformStr)
   when is_atom(Family) andalso
        is_atom(Name) andalso
        is_list(PlatformStr) ->
-      case os:type() of
-          {Family, Name} ->
-              ok;
+    case os:type() of
+        {Family, Name} ->
+            ok;
         _ ->
-              skip("Require " ++ PlatformStr)
+            skip("Require " ++ PlatformStr)
     end.
   
 
