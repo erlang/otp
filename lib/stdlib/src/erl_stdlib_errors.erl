@@ -349,11 +349,11 @@ format_re_error(inspect, [CompiledRE, Item], _) ->
 format_re_error(replace, [Subject, RE, Replacement], _) ->
     [must_be_iodata(Subject),
      must_be_regexp(RE),
-     must_be_iodata(Replacement)];
+     must_be_re_replacement(Replacement)];
 format_re_error(replace, [Subject, RE, Replacement, _Options], Cause) ->
     Errors = [must_be_iodata(Subject),
               must_be_regexp(RE),
-              must_be_iodata(Replacement)],
+              must_be_re_replacement(Replacement)],
     case Cause of
         badopt ->
             Errors ++ [bad_options];
@@ -909,6 +909,15 @@ is_update_op({Pos, Incr, Threshold, SetValue})
 is_update_op(Incr) ->
     is_integer(Incr).
 
+is_iodata(<<_/binary>>) -> true;
+is_iodata(Term) when is_list(Term) ->
+    try iolist_size(Term) of
+        _ -> true
+    catch
+        error:_ -> false
+    end;
+is_iodata(_) -> false.
+
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
 format_error_map([{general, E}|Es], ArgNum, Map) ->
@@ -955,10 +964,9 @@ must_be_non_neg_integer(N) ->
     must_be_integer(N, 0, infinity).
 
 must_be_iodata(Term) ->
-    try iolist_size(Term) of
-        _ -> []
-    catch
-        error:_ -> not_iodata
+    case is_iodata(Term) of
+        true -> [];
+        false -> not_iodata
     end.
 
 must_be_list(List) when is_list(List) ->
@@ -1029,6 +1037,13 @@ must_be_regexp(Term) ->
             end
     end.
 
+must_be_re_replacement(R) when is_function(R, 1) -> [];
+must_be_re_replacement(R) ->
+    case is_iodata(R) of
+        true -> [];
+        false -> bad_replacement
+    end.
+
 expand_error(already_owner) ->
     <<"the process is already the owner of the table">>;
 expand_error(bad_boolean) ->
@@ -1055,6 +1070,8 @@ expand_error(bad_matchspec) ->
     <<"not a valid match specification">>;
 expand_error(bad_options) ->
     <<"invalid options">>;
+expand_error(bad_replacement) ->
+    <<"not a valid replacement">>;
 expand_error(bad_table_name) ->
     <<"invalid table name (must be an atom)">>;
 expand_error(bad_update_op) ->
