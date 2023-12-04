@@ -619,9 +619,11 @@ expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc, St) ->
     As = expr_list(As0, St),
     {'try',ln(Anno),Es,CaseCs,CatchCs,As};
 expr({lc,_,_,_}=Compr, _Lc, St) ->
-    expr_lc_bc(Compr, St);
+    expr_comprehension(Compr, St);
 expr({bc,_,_,_}=Compr, _Lc, St) ->
-    expr_lc_bc(Compr, St);
+    expr_comprehension(Compr, St);
+expr({mc,_,_,_}=Compr, _Lc, St) ->
+    expr_comprehension(Compr, St);
 expr({match,Anno,P0,E0}, _Lc, St) ->
     E1 = expr(E0, false, St),
     P1 = pattern(P0, St),
@@ -660,7 +662,11 @@ expr({bin_element,Anno,Expr0,Size0,Type0}, _Lc, St) ->
     {Size1,Type} = make_bit_type(Anno, Size0, Type0),
     Expr = expr(Expr0, false, St),
     Size = expr(Size1, false, St),
-    {bin_element,ln(Anno),Expr,Size,Type}.
+    {bin_element,ln(Anno),Expr,Size,Type};
+expr({map_field_assoc,L,K0,V0}, _Lc, St) ->
+    K = expr(K0, false, St),
+    V = expr(V0, false, St),
+    {map_field_assoc,L,K,V}.
 
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
@@ -676,18 +682,26 @@ make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
     {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
     {Size,erl_bits:as_list(Bt)}.
 
-expr_lc_bc({Tag,Anno,E0,Gs0}, St) ->
-    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,pattern(P0, St),expr(Qs, false, St)};
-		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,pattern(P0, St),expr(Qs, false, St)};
-		       (Expr) ->
-			   case is_guard_test(Expr, St) of
-			       true -> {guard,guard([[Expr]], St)};
-			       false -> expr(Expr, false, St)
-			   end
-		   end, Gs0),
+expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
+    Gs = [case G of
+              ({generate,L,P0,Qs}) ->
+                  {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              (Expr) ->
+                  case is_guard_test(Expr, St) of
+                      true -> {guard,guard([[Expr]], St)};
+                      false -> expr(Expr, false, St)
+                  end
+          end || G <- Gs0],
     {Tag,ln(Anno),expr(E0, false, St),Gs}.
+
+mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
+    KeyP1 = pattern(KeyP0, St),
+    ValP1 = pattern(ValP0, St),
+    {map_field_exact,L,KeyP1,ValP1}.
 
 is_guard_test(Expr, #{ctype:=Ctypes}) ->
     IsOverridden = fun(NA) ->
