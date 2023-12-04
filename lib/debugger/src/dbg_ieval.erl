@@ -1087,6 +1087,8 @@ expr({lc,_Line,E,Qs}, Bs, Ieval) ->
     eval_lc(E, Qs, Bs, Ieval);
 expr({bc,_Line,E,Qs}, Bs, Ieval) ->
     eval_bc(E, Qs, Bs, Ieval);
+expr({mc,_Line,E,Qs}, Bs, Ieval) ->
+    eval_mc(E, Qs, Bs, Ieval);
 
 %% Brutal exit on unknown expressions/clauses/values/etc.
 expr(E, _Bs, _Ieval) ->
@@ -1107,16 +1109,9 @@ eval_named_fun(As, RF, {Info,Bs,Cs,FName}) ->
 eval_lc(E, Qs, Bs, Ieval) ->
     {value,eval_lc1(E, Qs, Bs, Ieval),Bs}.
 
-eval_lc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+eval_lc1(E, [{generator,G}|Qs], Bs, Ieval) ->
     CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
-    eval_generate(L1, P, Bs1, CompFun, Ieval);
-eval_lc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
-    CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
+    eval_generator(G, Bs, CompFun, Ieval);
 eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_lc1(E, Qs, Bs0, Ieval);
@@ -1140,16 +1135,9 @@ eval_bc(E, Qs, Bs, Ieval) ->
     Val = erlang:list_to_bitstring(eval_bc1(E, Qs, Bs, Ieval)),
     {value,Val,Bs}.
 
-eval_bc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+eval_bc1(E, [{generator,G}|Qs], Bs, Ieval) ->
     CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
-    eval_generate(L1, P, Bs1, CompFun, Ieval);
-eval_bc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
-    CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
+    eval_generator(G, Bs, CompFun, Ieval);
 eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_bc1(E, Qs, Bs0, Ieval);
@@ -1164,6 +1152,56 @@ eval_bc1(E, [Q|Qs], Bs0, Ieval) ->
 eval_bc1(E, [], Bs, Ieval) ->
     {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
     [V].
+
+eval_mc(E, Qs, Bs, Ieval) ->
+    Map = eval_mc1(E, Qs, Bs, Ieval),
+    {value,maps:from_list(Map),Bs}.
+
+eval_mc1(E, [{generator,G}|Qs], Bs, Ieval) ->
+    CompFun = fun(NewBs) -> eval_mc1(E, Qs, NewBs, Ieval) end,
+    eval_generator(G, Bs, CompFun, Ieval);
+eval_mc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
+    case guard(Q, Bs0) of
+	true -> eval_mc1(E, Qs, Bs0, Ieval);
+	false -> []
+    end;
+eval_mc1(E, [Q|Qs], Bs0, Ieval) ->
+    case expr(Q, Bs0, Ieval#ieval{top=false}) of
+	{value,true,Bs} -> eval_mc1(E, Qs, Bs, Ieval);
+	{value,false,_Bs} -> [];
+	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
+    end;
+eval_mc1({map_field_assoc,_,K0,V0}, [], Bs, Ieval) ->
+    {value,K,_} = expr(K0, Bs, Ieval#ieval{top=false}),
+    {value,V,_} = expr(V0, Bs, Ieval#ieval{top=false}),
+    [{K,V}].
+
+eval_generator({generate,Line,P,L0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+    eval_generate(L1, P, Bs1, CompFun, Ieval);
+eval_generator({b_generate,Line,P,Bin0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,Bin,Bs1} = expr(Bin0, Bs0, Ieval#ieval{top=false}),
+    eval_b_generate(Bin, P, Bs1, CompFun, Ieval);
+eval_generator({m_generate,Line,P,Map0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {map_field_exact,_,K,V} = P,
+    {value,Map,_Bs1} = expr(Map0, Bs0, Ieval),
+    Iter = case is_map(Map) of
+               true ->
+                   maps:iterator(Map);
+               false ->
+                   %% Validate iterator.
+                   try maps:foreach(fun(_, _) -> ok end, Map) of
+                       _ ->
+                           Map
+                   catch
+                       _:_ ->
+                           exception(error, {bad_generator,Map}, Bs0, Ieval)
+                   end
+           end,
+    eval_m_generate(Iter, {tuple,Line,[K,V]}, Bs0, CompFun, Ieval).
 
 eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
     case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
@@ -1192,6 +1230,20 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
     end;
 eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
+
+eval_m_generate(Iter0, P, Bs0, CompFun, Ieval) ->
+    case maps:next(Iter0) of
+        {K,V,Iter} ->
+            case catch match1(P, {K,V}, erl_eval:new_bindings(), Bs0) of
+                {match,Bsn} ->
+                    Bs2 = add_bindings(Bsn, Bs0),
+                    CompFun(Bs2) ++ eval_m_generate(Iter, P, Bs0, CompFun, Ieval);
+                nomatch ->
+                    eval_m_generate(Iter, P, Bs0, CompFun, Ieval)
+            end;
+        none ->
+            []
+    end.
 
 safe_bif(M, F, As, Bs, Ieval0) ->
     try apply(M, F, As) of
