@@ -576,7 +576,7 @@
     </func>
 
     <func>
-	<name since="OTP R14B">Module:Testcase(Config) -> term() | {skip, Reason} | {comment, Comment} | {save_config, SaveConfig} | {skip_and_save, Reason, SaveConfig} | exit()</name>
+      <name since="OTP R14B">Module:Testcase(Config) -> term() | {skip, Reason} | {fail, Reason} | {comment, Comment} | {save_config, SaveConfig} | {skip_and_save, Reason, SaveConfig} | exit()</name>
       <fsummary>A test case.</fsummary>
       <type>
 	<v>Config = SaveConfig = <seetype marker="#ct_config">ct_config()</seetype></v>
@@ -596,25 +596,38 @@
 	<p>Elements from the <c>Config</c> list can, for example, be read
 	  with <c>proplists:get_value/2</c> in STDLIB.</p>
 
-	<p>If you decide not to run the test case after all, return
-	  <c>{skip, Reason}</c>. <c>Reason</c> is then
-	  printed in field <c>Comment</c> on the HTML result page.</p>
+	<p>Possible return values are:</p>
+	<taglist>
+	  <tag><c>{fail, Reason}</c></tag>
+	  <item>The test case is considered failed, and the <c>Reason</c>
+	    will be logged.</item>
+	  <tag><c>{skip, Reason}</c></tag>
+	  <item>The test case is considered skipped, and the <c>Reason</c>
+	    will be logged.</item>
+	  <tag><c>{comment, Comment}</c></tag>
+	  <item>The test case is considered successful, and the <c>Comment</c>
+	    will be logged.</item>
+	  <tag><c>{save_config, SaveConfig}</c></tag>
+	  <item>The test case is considered successful, and the <c>SaveConfig</c>
+	    will be stored in the <c>Config</c> (see section
+	    <seeguide marker="dependencies_chapter#save_config">Saving
+	    Configuration Data</seeguide> in the User's Guide).</item>
+	  <tag><c>{skip_and_save, Reason, SaveConfig}</c></tag>
+	  <item>The test case is considered skipped, the <c>Reason</c>
+	    will be logged, and the <c>SaveConfig</c> will be stored in the
+	    <c>Config</c> (see section
+	    <seeguide marker="dependencies_chapter#save_config">Saving
+	    Configuration Data</seeguide> in the User's Guide).</item>
+	</taglist>
 
-	<p>To print some information in field <c>Comment</c> on the HTML
-	  result page, return <c>{comment, Comment}</c>.</p>
+	<p>If the function returns any other term, the test case is considered
+	  successful.</p>
 
-	<p>If the function returns anything else, the test case is
-	  considered successful. The return value always gets printed
-	  in the test case log file.</p>
+	<p>If the test case function crashes, it is considered failed.</p>
 
 	<p>For details about test case implementation, see section
 	  <seeguide marker="write_test_chapter#test_cases">Test Cases</seeguide>
 	  in the User's Guide.</p>
-
-	<p>For information on <c>save_config</c> and <c>skip_and_save</c>,
-	  see section
-	  <seeguide marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 

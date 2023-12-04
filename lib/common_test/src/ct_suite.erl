@@ -119,6 +119,7 @@
 -callback 'Testcase'(Config) ->
                         term() |
                         {skip, Reason} |
+                        {fail, Reason} |
                         {comment, Comment} |
                         {save_config, SaveConfig} |
                         {skip_and_save, Reason, SaveConfig}

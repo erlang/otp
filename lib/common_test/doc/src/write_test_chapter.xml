@@ -282,17 +282,9 @@
     be used. For example: <c>PrivDir = proplists:get_value(priv_dir, Config)</c>.
     </p>
 
-    <p>If the test case function crashes or exits purposely, it is considered
-    <em>failed</em>. If it returns a value (no matter what value), it is
-    considered successful. An exception to this rule is the return value
-    <c>{skip,Reason}</c>. If this tuple is returned, the test case is considered
-    skipped and is logged as such.</p>
-
-    <p>If the test case returns the tuple <c>{comment,Comment}</c>, the case
-    is considered successful and <c>Comment</c> is printed in the overview
-    log file. This is equal to calling
-    <seemfa marker="ct#comment/1"><c>ct:comment(Comment)</c></seemfa>.
-    </p>
+    <p>The test case result can be customized in several ways. See the manual for
+      <seemfa marker="ct_suite#Module:Testcase/1"><c>Module:Testcase/1</c></seemfa> in
+      the <seeerl marker="ct_suite"><c>ct_suite</c></seeerl> module for details.</p>
 
   </section>
 
