@@ -350,7 +350,7 @@
 	    <code>
 #{server_name => string()
   protocol => internal | 'TCP' | 'TLS' | 'HTTP',
-  transport => "TCP "| "TLS", %% Present when protocol = 'HTTP'
+  transport => "TCP" | "TLS", %% Present when protocol = 'HTTP'
   uri => string(), %% Present when protocol = 'HTTP' and URI is valid
   peer => inet:peername(),
   host => inet:hostname(),
