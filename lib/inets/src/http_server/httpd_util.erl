@@ -121,11 +121,18 @@ lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
 	[] ->
-	    case ets:lookup(ConfigDB,default_type) of
+	    case ets:lookup(ConfigDB,mime_type) of
 		[] ->
-		    Undefined;
-		[{default_type,DefaultType}|_] ->
-		    DefaultType
+		    %% `default_type` is a legacy undocumented property
+		    %% it's left here as a fallback case for backwards compatibility
+		    case ets:lookup(ConfigDB,default_type) of
+			[] ->
+		            Undefined;
+		        [{default_type,DefaultType}|_] ->
+		            DefaultType
+		    end;
+		[{mime_type,DefaultMimeType}|_] ->
+		    DefaultMimeType
 	    end;
 	[{Suffix,MimeType}|_] ->
 	    MimeType
