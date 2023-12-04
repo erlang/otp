@@ -72,6 +72,9 @@ all() ->
      {group, https_security},
      {group, http_reload},
      {group, https_reload},
+     {group, http_default_type},
+     {group, http_mime_type},
+     {group, http_mime_and_default_type},
      {group, http_mime_types},
      {group, http_logging},
      {group, http_post},
@@ -108,6 +111,9 @@ groups() ->
      {http_not_sup, [], [{group, not_sup}]},
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
+     {http_default_type, [], [default_type]},
+     {http_mime_type, [], [mime_type]},
+     {http_mime_and_default_type, [], [mime_and_default_type]},
      {http_mime_types, [parallel], [alias_1_1, alias_1_0]},
      {limit, [],  [content_length, max_clients_1_1]},
      {custom, [],  [customize, add_default]},
@@ -241,6 +247,9 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_reload;
                                       Group == http_not_sup;
                                       Group == http_post;
+                                      Group == http_default_type;
+                                      Group == http_mime_type;
+				      Group == http_mime_and_default_type;
                                       Group == http_mime_types
 				      ->
     ok = start_apps(Group),
@@ -283,6 +292,9 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_security;
 				     Group == http_reload;
                                      Group == http_post;
+                                     Group == http_default_type;
+                                     Group == http_mime_type;
+				     Group == http_mime_and_default_type;
                                      Group == http_mime_types;
                                      Group == esi
 				     ->
@@ -1146,6 +1158,72 @@ cgi_chunked_encoding_test(Config) when is_list(Config) ->
 					    Host,
 					    proplists:get_value(node, Config),
 					    Requests).
+%%-------------------------------------------------------------------------
+default_type() ->
+    [{doc, "Test default_type"}].
+
+default_type(Config) when is_list(Config) ->
+    TestURIs200 = [
+                   {"GET /file_without_extension ", 200, "text/html"},
+                   {"GET /file.with_nonstandard_extension ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    ok.
+
+%%-------------------------------------------------------------------------
+mime_type() ->
+    [{doc, "Test mime_type"}].
+
+mime_type(Config) when is_list(Config) ->
+    TestURIs200 = [
+                   {"GET /file_without_extension ", 200, "text/html"},
+                   {"GET /file.with_nonstandard_extension ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    ok.
+
+%%-------------------------------------------------------------------------
+mime_and_default_type() ->
+    [{doc, "Test that mime_type takes precedence over default_type"}].
+
+mime_and_default_type(Config) when is_list(Config) ->
+    TestURIs200 = [
+                   {"GET /file_without_extension ", 200, "text/html"},
+                   {"GET /file.with_nonstandard_extension ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    ok.
+
 %%-------------------------------------------------------------------------
 alias_1_1() ->
     [{doc, "Test mod_alias"}].
@@ -2047,6 +2125,9 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_logging;
 			Group == http_reload;
                         Group == http_post;
+                        Group == http_default_type;
+                        Group == http_mime_type;
+                        Group == http_mime_and_default_type;
                         Group == http_mime_types;
                         Group == http_rel_path_script_alias;
                         Group == http_not_sup;
@@ -2145,6 +2226,12 @@ server_config(https_security, Config) ->
     tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(https, Config);
 server_config(http_logging, Config) ->
     log_conf() ++ server_config(http, Config);
+server_config(http_default_type, Config) ->
+    [{default_type, "text/html"}] ++ basic_conf() ++ server_config(http, Config);
+server_config(http_mime_type, Config) ->
+    [{mime_type, "text/html"}] ++ basic_conf() ++ server_config(http, Config);
+server_config(http_mime_and_default_type, Config) ->
+    [{default_type, "text/richtext"}, {mime_type, "text/html"}] ++ basic_conf() ++ server_config(http, Config);
 server_config(http_mime_types, Config0) ->
     Config1 = basic_conf() ++  server_config(http, Config0),
     ServerRoot = proplists:get_value(server_root, Config0),

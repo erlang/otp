@@ -297,6 +297,11 @@ validate_config_params([{default_type, Value} | Rest]) when is_list(Value) ->
 validate_config_params([{default_type, Value} | _]) ->
     throw({default_type, Value});
 
+validate_config_params([{mime_type, Value} | Rest]) when is_list(Value) ->
+    validate_config_params(Rest);
+validate_config_params([{mime_type, Value} | _]) ->
+    throw({mime_type, Value});
+
 validate_config_params([{logger, Value} | Rest]) when is_list(Value) ->
     true = validate_logger(Value),
     validate_config_params(Rest);
