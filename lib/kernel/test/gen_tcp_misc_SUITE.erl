@@ -106,6 +106,7 @@
 	 socket_monitor2_manyc/1,
 	 otp_17492/1,
 	 otp_18357/1,
+         otp_18883/1,
 	 otp_18707/1
 	]).
 
@@ -239,7 +240,8 @@ all_std_cases() ->
 
 ticket_cases() ->
     [
-     otp_18357
+     otp_18357,
+     otp_18883
     ].
 
 close_cases() ->
@@ -9342,6 +9344,42 @@ do_otp_18357(#{name := Name, addr := Addr}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+otp_18883(Config) when is_list(Config) ->
+    ct:timetrap(?SECS(10)),
+    Cond = fun() ->
+                   is_socket_supported(),
+                   is_linux()
+           end,
+    Pre  = fun() -> undefined end,
+    Case = fun(_) -> do_otp_18883() end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_18883() ->
+    Opts = [{inet_backend, socket},
+            {debug, true},
+            {active, false},
+            {reuseaddr, true},
+            {raw, 1, 15, <<1:32/native>>}],
+    
+    ?P("Create first listen socket"),
+    {ok, L1}   = gen_tcp:listen(0, Opts),
+    {ok, Port} = inet:port(L1),
+
+    ?P("Create second listen socket with the same port number as first: ~w",
+       [Port]),
+    {ok, L2}   = gen_tcp:listen(Port, Opts),
+
+    ?P("success - cleanup"),
+    (catch gen_tcp:close(L1)),
+    (catch gen_tcp:close(L2)),
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% This is the most basic of tests.
 otp_18707(Config) when is_list(Config) ->
     ct:timetrap(?MINS(1)),
@@ -9398,11 +9436,29 @@ do_otp_18707(_Config) ->
 
 is_windows() ->
     case os:type() of
-	{win32, nt} ->
-	    true;
-	_ ->
-	    false
+        {win32, nt} ->
+            true;
+        _ ->
+            false
     end.
+
+is_linux() ->
+    is_unix(linux, "Linux").
+
+is_unix(Name, PlatformStr) ->
+    is_platform(unix, Name, PlatformStr).
+
+is_platform(Family, Name, PlatformStr)
+  when is_atom(Family) andalso
+       is_atom(Name) andalso
+       is_list(PlatformStr) ->
+    case os:type() of
+        {Family, Name} ->
+            ok;
+        _ ->
+            skip("Require " ++ PlatformStr)
+    end.
+  
 
 is_socket_supported() ->
     try socket:info() of
