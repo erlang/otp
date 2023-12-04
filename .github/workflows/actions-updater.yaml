@@ -27,3 +27,4 @@ jobs:
         uses: saadmk11/github-actions-version-updater@v0.8.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
+          pull_request_branch: "github/actions-update"
