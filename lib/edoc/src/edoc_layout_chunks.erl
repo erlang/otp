@@ -135,7 +135,6 @@ edoc_to_chunk(Doc, Opts) ->
       Opts :: proplists:proplist().
 doc_contents(XPath, Doc, Opts) ->
     case doc_visibility(XPath, Doc, Opts) of
-	none -> none;
 	hidden -> hidden;
 	show -> doc_contents_(XPath, Doc, Opts)
     end.
@@ -152,9 +151,9 @@ doc_visibility(_XPath, Doc, Opts) ->
 	%% EDoc `@private' maps to EEP-48 `hidden'
 	{<<"yes">>, _, _} ->
 	    hidden;
-	%% EDoc `@hidden' is EEP-48 `none'
+	%% EDoc `@hidden' is EEP-48 `hidden'
 	{_, _, <<"yes">>} ->
-	    none;
+	    hidden;
 	_ ->
 	    show
     end.
