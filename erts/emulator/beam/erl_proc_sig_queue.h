@@ -216,30 +216,42 @@ typedef struct {
     ERTS_SIG_Q_TYPE_MAX
 
 #define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
-    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
-                                     ERTS_SIG_Q_TYPE_DIST,           \
-                                     0))
+    (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
+               | ERTS_PROC_SIG_OP_MASK                               \
+               | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+                               ERTS_SIG_Q_TYPE_DIST,                 \
+                               0))
 #define ERTS_SIG_IS_DIST_ALIAS_MSG(sig)                              \
     ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(Tag)                      \
-    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
-                                     ERTS_SIG_Q_TYPE_OFF_HEAP,       \
-                                     0))
+    (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
+               | ERTS_PROC_SIG_OP_MASK                               \
+               | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+                               ERTS_SIG_Q_TYPE_OFF_HEAP,             \
+                               0))
 #define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG(sig)                          \
     ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(Tag)                          \
-    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
-                                     ERTS_SIG_Q_TYPE_HEAP,           \
-                                     0))
+    (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
+               | ERTS_PROC_SIG_OP_MASK                               \
+               | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+                               ERTS_SIG_Q_TYPE_HEAP,                 \
+                               0))
 #define ERTS_SIG_IS_HEAP_ALIAS_MSG(sig)                              \
     ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(Tag)                     \
-    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
-                                     ERTS_SIG_Q_TYPE_HEAP_FRAG,      \
-                                     0))
+    (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
+               | ERTS_PROC_SIG_OP_MASK                               \
+               | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+                               ERTS_SIG_Q_TYPE_HEAP_FRAG,            \
+                               0))
 #define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG(sig)                         \
     ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
@@ -357,6 +369,15 @@ int erts_proc_sig_queue_force_buffers(Process*);
                   | (((Xtra) & ERTS_SIG_Q_XTRA_MASK)            \
                      << ERTS_SIG_Q_XTRA_SHIFT),                 \
                   _TAG_HEADER_EXTERNAL_PID))
+
+#define ERTS_PROC_SIG_BASE_TAG_MASK \
+    ((1 << _HEADER_ARITY_OFFS)-1)
+#define ERTS_PROC_SIG_OP_MASK \
+    (ERTS_SIG_Q_OP_MASK << (ERTS_SIG_Q_OP_SHIFT + _HEADER_ARITY_OFFS))
+#define ERTS_PROC_SIG_TYPE_MASK \
+    (ERTS_SIG_Q_TYPE_MASK << (ERTS_SIG_Q_TYPE_SHIFT + _HEADER_ARITY_OFFS))
+#define ERTS_PROC_SIG_XTRA_MASK \
+    (ERTS_SIG_Q_XTRA_MASK << (ERTS_SIG_Q_XTRA_SHIFT + _HEADER_ARITY_OFFS))
 
 struct dist_entry_;
 
