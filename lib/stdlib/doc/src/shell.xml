@@ -282,6 +282,55 @@
           To read all record definitions, use
           <c>'_'</c> as value of <c>RecordNames</c>.</p>
       </item>
+      <tag><c>lf()</c></tag>
+      <item>
+        <p>Outputs locally defined function with function specs if they exist.
+        </p>
+      </item>
+      <tag><c>lt()</c></tag>
+      <item>
+        <p>Outputs locally defined types.
+        </p>
+      </item>
+      <tag><c>lr()</c></tag>
+      <item>
+        <p>Outputs locally defined records.
+        </p>
+      </item>
+      <tag><c>ff()</c></tag>
+      <item>
+        <p>Forget locally defined functions (including function specs if they exist).
+        </p>
+      </item>
+      <tag><c>ff({FunName,Arity})</c></tag>
+      <item>
+        <p>Forget a locally defined function (including function spec if it exist). Where
+        <c>FunName</c> is the name of the function as an atom and <c>Arity</c> is an integer.
+        </p>
+      </item>
+      <tag><c>tf()</c></tag>
+      <item>
+        <p>Forget locally defined types.
+        </p>
+      </item>
+      <tag><c>tf(Type)</c></tag>
+      <item>
+        <p>Forget locally defined type where <c>Type</c> is the name of the type represented as an atom.
+        </p>
+      </item>
+      <tag><c>fl()</c></tag>
+      <item>
+        <p>Forget locally defined functions, types and records.
+        </p>
+      </item>
+      <tag><c>save_module(FilePath)</c></tag>
+      <item>
+        <p>Saves all locally defined functions, types and records to a module file, where <c>FilePath</c> should include both the
+        path to the file and the name of the module with <c>.erl</c> suffix.
+        </p>
+        <p>Example: <c>src/my_module.erl</c>
+        </p>
+      </item>
     </taglist>
   </section>
 
