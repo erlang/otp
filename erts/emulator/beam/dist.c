@@ -2587,11 +2587,12 @@ int erts_net_message(Port *prt,
             if (!is_external_pid(watcher))
                 goto invalid_message;
             if (erts_this_dist_entry == external_pid_dist_entry(watcher))
-                break;
+                goto monitored_process_not_alive;
             goto invalid_message;
         }
 
         if (!erts_proc_lookup(watcher)) {
+        monitored_process_not_alive:
             if (ede_hfrag != NULL) {
                 erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
                 free_message_buffer(ede_hfrag);
