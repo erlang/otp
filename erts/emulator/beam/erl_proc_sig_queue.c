@@ -2190,8 +2190,14 @@ erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
 
     ASSERT(is_ref(alias));
     pid = erts_get_pid_of_ref(alias);
-    if (!is_internal_pid(pid))
+    if (!is_internal_pid(pid)) {
+        if (hfrag) {
+            /* Fragmented message... */
+            erts_free_dist_ext_copy(erts_get_dist_ext(hfrag));
+            free_message_buffer(hfrag);
+        }
         return;
+    }
 
     /*
      * The receiver can distinguish between these two scenarios by
@@ -5537,8 +5543,6 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
     ASSERT(is_internal_pid(from) || is_atom(from));
     ASSERT(is_internal_pid_ref(alias));
 
-    ERL_MESSAGE_FROM(sig) = from;
-
     mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), alias);
     flags = mon ? mon->flags : (Uint16) 0;
     if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
@@ -5548,17 +5552,13 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
          * drop message...
          */
         remove_nm_sig(c_p, sig, next_nm_sig);
-        /* restored as message... */
-        ERL_MESSAGE_TERM(sig) = msg;
-        if (type == ERTS_SIG_Q_TYPE_DIST)
-            sig->data.heap_frag = &sig->hfrag;
-        else
-            sig->data.attached = data_attached;
         sig->next = NULL;;
         erts_cleanup_messages(sig);
         return 2;
     }
 
+    ERL_MESSAGE_FROM(sig) = from;
+    
     if ((flags & ERTS_ML_STATE_ALIAS_MASK) == ERTS_ML_STATE_ALIAS_ONCE) {
         mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
 
