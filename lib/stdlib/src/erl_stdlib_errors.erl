@@ -162,7 +162,7 @@ format_binary_error(split, [Subject, Pattern, _Options], _) ->
 format_binary_error(replace, [Subject, Pattern, Replacement], _) ->
     [must_be_binary(Subject),
      must_be_pattern(Pattern),
-     must_be_binary(Replacement)];
+     must_be_binary_replacement(Replacement)];
 format_binary_error(replace, [Subject, Pattern, Replacement, _Options], Cause) ->
     Errors = format_binary_error(replace, [Subject, Pattern, Replacement], Cause),
     case Cause of
@@ -1014,6 +1014,10 @@ must_be_pattern(P) ->
         error:badarg ->
             bad_binary_pattern
     end.
+
+must_be_binary_replacement(R) when is_binary(R) -> [];
+must_be_binary_replacement(R) when is_function(R, 1) -> [];
+must_be_binary_replacement(_R) -> bad_replacement.
 
 must_be_position(Pos) when is_integer(Pos), Pos >= 0 -> [];
 must_be_position(Pos) when is_integer(Pos) -> range;
