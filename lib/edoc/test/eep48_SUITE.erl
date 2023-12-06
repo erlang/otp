@@ -516,10 +516,21 @@ lookup_entry(Kind, Function, Arity, Docs) ->
 get_metadata({_, _, _, _, Metadata}) -> Metadata.
 
 get_doc_link(KNA, Docs) ->
-    [Link] = [ Node || {a, _, _} = Node <- get_doc(KNA, Docs) ],
-    {a, Attrs, _} = Link,
-    <<"https://erlang.org/doc/link/", ShortRel/bytes>> = fetch(rel, Attrs),
-    {ShortRel, fetch(href, Attrs)}.
+    D = get_doc(KNA, Docs),
+    case lists:foldl(fun F({a, _, _} = E, Acc) ->
+                        [E | Acc];
+                    F({_E, _, Es}, Acc) when is_list(Es) ->
+                        lists:foldl(F, Acc, Es);
+                    F(_, Acc) ->
+                        Acc
+                end, [], D) of
+        [{a, Attrs, _}] ->
+            <<"https://erlang.org/doc/link/", ShortRel/bytes>> = fetch(rel, Attrs),
+            {ShortRel, fetch(href, Attrs)};
+        _Else ->
+            ct:log("Could not find link in ~p",[D]),
+            ct:fail("Did not find link in docs")
+    end.
 
 get_anno(Kind, Name, Arity, Docs) ->
     {_, Anno, _, _, _} = lookup_entry(Kind, Name, Arity, Docs),

@@ -479,7 +479,9 @@ xpath_to_text(XPath, Doc, Opts) ->
 	[] -> <<>>;
 	[#xmlAttribute{} = Attr] ->
 	    {_ , Value} = format_attribute(Attr),
-	    hd(shell_docs:normalize([Value]));
+            case shell_docs:normalize([Value]) of
+                [{p,[],[Normal]}] -> Normal
+            end;
 	[#xmlElement{}] = Elements ->
 	    xmerl_to_binary(Elements, Opts);
 	[_|_] ->
