@@ -45,7 +45,6 @@
          make_boolean/0,
          make_cons/2,
          make_float/1,
-         make_float/2,
          make_integer/1,
          make_integer/2]).
 
@@ -169,10 +168,16 @@ mts_records([{Key, A} | RsA], [{Key, B} | RsB], Acc) ->
         none -> mts_records(RsA, RsB, Acc);
         T -> mts_records(RsA, RsB, [{Key, T} | Acc])
     end;
-mts_records([{KeyA, _} | _ ]=RsA, [{KeyB, _} | RsB], Acc) when KeyA > KeyB ->
-    mts_records(RsA, RsB, Acc);
-mts_records([{KeyA, _} | RsA], [{KeyB, _} | _] = RsB, Acc) when KeyA < KeyB ->
-    mts_records(RsA, RsB, Acc);
+mts_records([{KeyA, _} | _]=RsA, [{KeyB, _} | _]=RsB, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            mts_records(tl(RsA), RsB, Acc);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            mts_records(RsA, tl(RsB), Acc)
+    end;
 mts_records(_RsA, [], [_|_]=Acc) ->
     reverse(Acc);
 mts_records([], _RsB, [_|_]=Acc) ->
@@ -320,10 +325,16 @@ jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
     #t_tuple{} = normalize_tuple_set(Acc, B);
 jts_records([{Key, A} | RsA], [{Key, B} | RsB], N, Acc) ->
     jts_records(RsA, RsB, N + 1, [{Key, lub(A, B)} | Acc]);
-jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
-jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
+jts_records([{KeyA, A} | _]=RsA, [{KeyB, B} | _]=RsB, N, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            jts_records(tl(RsA), RsB, N + 1, [{KeyA, A} | Acc]);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            jts_records(RsA, tl(RsB), N + 1, [{KeyB, B} | Acc])
+    end;
 jts_records([{KeyA, A} | RsA], [], N, Acc) ->
     jts_records(RsA, [], N + 1, [{KeyA, A} | Acc]);
 jts_records([], [{KeyB, B} | RsB], N, Acc) ->
@@ -479,8 +490,7 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) when Float /= 0 ->
-    %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
+get_singleton_value(#t_float{elements={Float,Float}}) ->
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
@@ -697,11 +707,7 @@ make_cons(Head0, Tail) ->
 
 -spec make_float(float()) -> type().
 make_float(Float) when is_float(Float) ->
-    make_float(Float, Float).
-
--spec make_float(float(), float()) -> type().
-make_float(Min, Max) when is_float(Min), is_float(Max), Min =< Max ->
-    #t_float{elements={Min, Max}}.
+    #t_float{elements={Float,Float}}.
 
 -spec make_integer(integer()) -> type().
 make_integer(Int) when is_integer(Int) ->
@@ -882,7 +888,7 @@ glb(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
 glb(#t_integer{elements=R1}, #t_number{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
 glb(#t_float{elements=R1}, #t_number{elements=R2}) ->
-    float_from_range(glb_ranges(R1, R2));
+    float_from_range(glb_ranges(R1, number_to_float_range(R2)));
 glb(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     %% A list is a union of `[type() | _]` and `[]`, so we're left with
@@ -903,7 +909,7 @@ glb(#t_number{elements=R1}, #t_number{elements=R2}) ->
 glb(#t_number{elements=R1}, #t_integer{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
 glb(#t_number{elements=R1}, #t_float{elements=R2}) ->
-    float_from_range(glb_ranges(R1, R2));
+    float_from_range(glb_ranges(number_to_float_range(R1), R2));
 glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of meet/2; elements don't need to be normal types.
@@ -1132,6 +1138,14 @@ lub_ranges({MinA,MaxA}, {MinB,MaxB}) ->
 lub_ranges(_, _) ->
     any.
 
+%% Expands integer 0 to `-0.0 .. +0.0`
+number_to_float_range({Min, 0}) ->
+    number_to_float_range({Min, +0.0});
+number_to_float_range({0, Max}) ->
+    number_to_float_range({-0.0, Max});
+number_to_float_range(Other) ->
+    Other.
+
 lub_bs_matchable(UnitA, UnitB) ->
     #t_bs_matchable{tail_unit=gcd(UnitA, UnitB)}.
 
@@ -1179,12 +1193,13 @@ float_from_range(none) ->
     none;
 float_from_range(any) ->
     #t_float{};
-float_from_range({Min0,Max0}) ->
-    case {safe_float(Min0),safe_float(Max0)} of
+float_from_range({Min0, Max0}) ->
+    true = inf_le(Min0, Max0),                  %Assertion.
+    case {safe_float(Min0), safe_float(Max0)} of
         {'-inf','+inf'} ->
             #t_float{};
-        {Min,Max} ->
-            #t_float{elements={Min,Max}}
+        {Min, Max} ->
+            #t_float{elements={Min, Max}}
     end.
 
 safe_float(N) when is_number(N) ->
@@ -1218,21 +1233,48 @@ number_from_range(N) ->
             none
     end.
 
-inf_le('-inf', _) -> true;
-inf_le(A, B) -> A =< B.
+inf_le('-inf', _) ->
+    true;
+inf_le(A, B) when is_float(A), is_float(B) ->
+    %% When float ranges are compared to float ranges, the total ordering
+    %% function must be used to preserve `-0.0 =/= +0.0`.
+    total_compare(A, B, fun erlang:'=<'/2);
+inf_le(A, B) ->
+    A =< B.
 
-inf_ge(_, '-inf') -> true;
-inf_ge('-inf', _) -> false;
-inf_ge(A, B) -> A >= B.
+inf_ge(_, '-inf') ->
+    true;
+inf_ge('-inf', _) ->
+    false;
+inf_ge(A, B) when is_float(A), is_float(B) ->
+    total_compare(A, B, fun erlang:'>='/2);
+inf_ge(A, B) ->
+    A >= B.
 
-inf_min(A, B) when A =:= '-inf'; B =:= '-inf' -> '-inf';
-inf_min(A, B) when A =< B -> A;
-inf_min(A, B) when A > B -> B.
+inf_min(A, B) when A =:= '-inf'; B =:= '-inf' ->
+    '-inf';
+inf_min(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'=<'/2) of
+        true -> A;
+        false -> B
+    end;
+inf_min(A, B) ->
+    min(A, B).
 
-inf_max('-inf', B) -> B;
-inf_max(A, '-inf') -> A;
-inf_max(A, B) when A >= B -> A;
-inf_max(A, B) when A < B -> B.
+inf_max('-inf', B) ->
+    B;
+inf_max(A, '-inf') ->
+    A;
+inf_max(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'>='/2) of
+        true -> A;
+        false -> B
+    end;
+inf_max(A, B) ->
+    max(A, B).
+
+total_compare(A, B, Order) ->
+    Order(erts_internal:cmp_term(A, B), 0).
 
 %%
 
