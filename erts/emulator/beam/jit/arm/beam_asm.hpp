@@ -842,8 +842,9 @@ class BeamModuleAssembler : public BeamAssembler,
     /* Save the last known unreachable position. */
     size_t last_unreachable_offset = 0;
 
-    /* Mark this point unreachable. Use at the end of a BEAM
-     * instruction. */
+    /* Mark this point unreachable. This must be placed at the very end when
+     * used in a BEAM instruction, and should not be used in helper
+     * functions. */
     void mark_unreachable() {
         last_unreachable_offset = a.offset();
     }

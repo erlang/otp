@@ -215,4 +215,5 @@ void BeamModuleAssembler::emit_i_hibernate() {
 
     a.bind(error);
     emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    mark_unreachable();
 }

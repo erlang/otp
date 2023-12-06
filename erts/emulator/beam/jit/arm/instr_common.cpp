@@ -2322,22 +2322,27 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
     emit_error(BADMATCH, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
     emit_error(EXC_CASE_CLAUSE, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
     emit_error(SYSTEM_LIMIT);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_if_end() {
     emit_error(EXC_IF_CLAUSE);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
     emit_error(EXC_BADRECORD, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
