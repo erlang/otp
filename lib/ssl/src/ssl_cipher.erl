@@ -344,15 +344,15 @@ tls_legacy_suites(Version) ->
 %%--------------------------------------------------------------------
 
 anonymous_suites(Version) when ?TLS_1_X(Version) ->
-    SuitesToTest = anonymous_suite_to_test(Version),
-    lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, SuitesToTest);
+    Versions = versions_included(Version),
+    lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, Versions);
 anonymous_suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:anonymous_suites(Version).
 
-anonymous_suite_to_test(?TLS_1_0) -> [?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-anonymous_suite_to_test(?TLS_1_3) -> [?TLS_1_3].
+versions_included(?TLS_1_0) -> [?TLS_1_0];
+versions_included(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
+versions_included(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
+versions_included(?TLS_1_3) -> [?TLS_1_3].
 
 %%--------------------------------------------------------------------
 -spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()],

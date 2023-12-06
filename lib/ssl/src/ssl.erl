@@ -1623,7 +1623,8 @@ ssl_options() ->
 -spec update_options([any()], client | server, map()) -> map().
 update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
     {UserSslOpts, _} = split_options(Opts, ssl_options()),
-    process_options(UserSslOpts, InheritedSslOpts, #{role => Role}).
+    Env = #{role => Role, validate_certs_or_anon_ciphers => Role == server},
+    process_options(UserSslOpts, InheritedSslOpts, Env).
 
 process_options(UserSslOpts, SslOpts0, Env) ->
     %% Reverse option list so we get the last set option if set twice,
@@ -1648,6 +1649,7 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
     SslOpts18 = opt_use_srtp(UserSslOptsMap, SslOpts17, Env),
     SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
+    validate_server_cert_opts(SslOpts, Env),
     SslOpts.
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
@@ -1657,8 +1659,10 @@ handle_options(Opts, Role, Host) ->
 %% Handle all options in listen, connect and handshake
 handle_options(Transport, Socket, Opts0, Role, Host) ->
     {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
-
-    Env = #{role => Role, host => Host},
+    NeedValidate = not (Socket == undefined) andalso Role =:= server, %% handshake options
+    Env = #{role => Role, host => Host,
+            validate_certs_or_anon_ciphers => NeedValidate
+           },
     SslOpts = process_options(UserSslOptsList, #{}, Env),
 
     %% Handle special options
@@ -2615,6 +2619,36 @@ validate_filename([_|_] = FN, _Option) ->
     unicode:characters_to_binary(FN, unicode, Enc);
 validate_filename(FN, Option) ->
     option_error(Option, FN).
+
+validate_server_cert_opts(_Opts, #{validate_certs_or_anon_ciphers := false}) ->
+    ok;
+validate_server_cert_opts(#{certs_keys := [_|_]=CertsKeys, ciphers := CPHS, versions := Versions}, _) ->
+    validate_certs_or_anon_ciphers(CertsKeys, CPHS, Versions);
+validate_server_cert_opts(#{ciphers := CPHS, versions := Versions}, _) ->
+    validate_anon_ciphers(CPHS, Versions).
+
+validate_certs_or_anon_ciphers(CertsKeys, Ciphers, Versions) ->
+    CheckCertsAndKeys =
+        fun(Map) ->
+                (maps:is_key(cert, Map) orelse maps:is_key(certfile, Map))
+                    andalso (maps:is_key(key, Map) orelse maps:is_key(keyfile, Map))
+        end,
+    case lists:any(CheckCertsAndKeys, CertsKeys) of
+        true -> ok;
+        false -> validate_anon_ciphers(Ciphers, Versions)
+    end.
+
+validate_anon_ciphers(Ciphers, Versions) ->
+    MakeSet = fun(Version, Acc) ->
+                      Set = sets:from_list(ssl_cipher:anonymous_suites(Version), [{version, 2}]),
+                      sets:union(Set, Acc)
+              end,
+    Anonymous = lists:foldl(MakeSet, sets:new([{version, 2}]), Versions),
+    CiphersSet = sets:from_list(Ciphers, [{version,2}]),
+    case sets:is_disjoint(Anonymous, CiphersSet) of
+        false -> ok;
+        true -> option_error(certs_keys, cert_and_key_required)
+    end.
 
 %% Do not allow configuration of TLS 1.3 with a gap where TLS 1.2 is not supported
 %% as that configuration can trigger the built in version downgrade protection

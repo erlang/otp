@@ -193,8 +193,9 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    ssl_test_lib:make_rsa_cert_with_protected_keyfile(Config0,
-                                                              ?CORRECT_PASSWORD)
+	    Config1 = ssl_test_lib:make_rsa_cert_with_protected_keyfile(Config0,
+                                                                        ?CORRECT_PASSWORD),
+            ssl_test_lib:make_dsa_cert(Config1)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -299,6 +300,7 @@ tls_upgrade_new_opts_with_sni_fun() ->
 tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerDsaOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
     Version = ssl_test_lib:protocol_version(Config),
@@ -309,23 +311,26 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                {ciphers, Ciphers},
                {verify, verify_peer}],
 
-    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
-						{from, self()},
-						{mfa, {?MODULE,
-						       upgrade_result, []}},
-						{tcp_options,
-						 [{active, false} | TcpOpts]},
-						{ssl_options, [{versions,  [Version |NewVersions]}, {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}]}]),
+    Server = ssl_test_lib:start_upgrade_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {?MODULE, upgrade_result, []}},
+                {tcp_options,
+                 [{active, false} | TcpOpts]},
+                {ssl_options, [{versions, [Version |NewVersions]},
+                               {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}
+                              | ServerDsaOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
-						{port, Port},
-				   {host, Hostname},
-				   {from, self()},
-				   {mfa, {?MODULE, upgrade_result, []}},
-				   {tcp_options, [binary]},
-				   {ssl_options,  [{versions,  [Version |NewVersions]},
-                                                   {ciphers, Ciphers},
-                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+    Client = ssl_test_lib:start_upgrade_client(
+               [{node, ClientNode},
+                {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {?MODULE, upgrade_result, []}},
+                {tcp_options, [binary]},
+                {ssl_options,  [{versions,  [Version |NewVersions]},
+                                {ciphers, Ciphers},
+                                {server_name_indication, Hostname} | ClientOpts]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -515,7 +520,7 @@ tls_client_closes_socket() ->
     [{doc,"Test what happens when client closes socket before handshake is completed"}].
 
 tls_client_closes_socket(Config) when is_list(Config) ->
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
