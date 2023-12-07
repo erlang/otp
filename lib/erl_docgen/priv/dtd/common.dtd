@@ -30,6 +30,7 @@
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
 <!ELEMENT pre                 (#PCDATA|%refs;|input|anno|em)* >
+<!ATTLIST pre                type (erl|c|none) "none" >
 <!ELEMENT input               (#PCDATA|%refs;|anno)* >
 <!ELEMENT code                (#PCDATA|anno)* >
 <!ATTLIST code                type (erl|c|none) "none" >
