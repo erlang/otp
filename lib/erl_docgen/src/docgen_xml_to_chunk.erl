@@ -698,15 +698,31 @@ strip_tags([]) ->
 
 transform_datatype(Dom,_Acc) ->
     ContentsNoName = transform([NC||NC <- Dom, element(1,NC) /= name],[]),
-    [case N of
-          {name,NameAttr,[]} ->
-              {datatype,NameAttr,ContentsNoName};
-          {name,[],Content} ->
-              [{Name,Arity}] = func_to_tuple(Content),
-              Signature = strip_tags(Content),
-              {datatype,[{name,Name},{n_vars,integer_to_list(Arity)},
-                         {signature,Signature}],ContentsNoName}
-      end || N = {name,_,_} <- Dom].
+    Names = lists:reverse([NC||NC <- Dom, element(1,NC) == name]),
+    {Equiv, MainDT} =
+        case hd(Names) of
+            {name,NameAttr,[]} ->
+                {function, Name} = func_to_atom(proplists:get_value(name, NameAttr)),
+                {{type,Name,proplists:get_value(n_vars, NameAttr)},
+                 {datatype,NameAttr,ContentsNoName}};
+            {name,[],Content} ->
+                [{Name,Arity}] = func_to_tuple(Content),
+                Signature = strip_tags(Content),
+                {function, AtomName} = func_to_atom(Name),
+                {{type, AtomName, Arity},
+                 {datatype,[{name,Name},{n_vars,integer_to_list(Arity)},
+                            {signature,Signature}],ContentsNoName}}
+        end,
+    EquivDTs = [case N of
+                    {name,ENameAttr,[]} ->
+                        {datatype,ENameAttr, Equiv};
+                    {name,[],EContent} ->
+                        [{EName,EArity}] = func_to_tuple(EContent),
+                        ESignature = strip_tags(EContent),
+                        {datatype,[{name,EName},{n_vars,integer_to_list(EArity)},
+                                   {signature,ESignature}],Equiv}
+                end || N <- tl(Names)],
+    [MainDT | EquivDTs].
 
 transform_see({See,[{marker,Marker}],Content}) ->
     AbsMarker =
@@ -799,7 +815,22 @@ to_chunk(Dom, Source, Module, AST) ->
                                           MetaSig
                                   end,
 
-                            docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaDepr, Descr)
+                            {MetaEquiv, DescrEquiv} =
+                                case Descr of
+                                    {type, EquivName, EquivArity} ->
+                                        Equiv =
+                                            case EquivArity of
+                                                undefined ->
+                                                    {type, EquivName, find_type_arity(EquivName, TypeMap)};
+                                                _ ->
+                                                    Descr
+                                            end,
+                                        {MetaDepr#{ equiv => Equiv }, ""};
+                                    Descr ->
+                                        {MetaDepr, Descr}
+                                end,
+
+                            docs_v1_entry(type, Anno, TypeName, TypeArity, TypeSignature, MetaEquiv, DescrEquiv)
                     end, Types);
              (_) -> []
           end, Mcontent),
