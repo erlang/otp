@@ -687,7 +687,7 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
                             end,
                  case get(expand_below) of
                      true ->
-                        send_drv(Drv, {put_expand, unicode, NlMatchStr, NLines}),
+                        send_drv(Drv, {put_expand, unicode, unicode:characters_to_binary(string:trim(MatchStr, trailing)), NLines}),
                         Cs1;
                      false ->
                          send_drv(Drv, {put_chars, unicode, NlMatchStr}),
@@ -773,7 +773,7 @@ get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},{search, none}}=Cont0,Rs},
                 put(search_result, Lines),
                 send_drv(Drv, delete_line),
                 send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
-                send_drv(Drv, {put_expand_no_trim, unicode, unicode:characters_to_binary(Line), 7}),
+                send_drv(Drv, {put_expand, unicode, unicode:characters_to_binary("  "++lists:join("\n  ",Lines)), 7}),
                 {Ls2, {[],{RevCmd, []},[]}}
         end,
         Cont = {line,Prompt,NewStack,{search, none}},

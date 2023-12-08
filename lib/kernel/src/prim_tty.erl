@@ -173,7 +173,6 @@
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
         {expand, unicode:unicode_binary(), integer()} |
-        {expand_with_trim, unicode:unicode_binary(), integer()} |
         {insert, unicode:unicode_binary()} |
         {insert_over, unicode:unicode_binary()} |
         {delete, integer()} |
@@ -709,9 +708,6 @@ handle_request(State, new_prompt) ->
 %% Print characters in the expandbuffer after the cursor
 handle_request(State, {expand, Expand, N}) ->
     handle_request(State#state{buffer_expand = Expand, buffer_expand_limit = N}, redraw_prompt);
-handle_request(State, {expand_with_trim, Binary, N}) ->
-    handle_request(State, 
-                   {expand, iolist_to_binary([string:trim(Binary, both)]), N});
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?

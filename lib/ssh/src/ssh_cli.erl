@@ -431,8 +431,8 @@ io_request({put_chars, Cs}, Buf, Tty, _Group) ->
     put_chars(bin_to_list(Cs), Buf, Tty);
 io_request({put_chars, unicode, Cs}, Buf, Tty, _Group) ->
     put_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
-io_request({put_expand_no_trim, unicode, Expand}, Buf, Tty, _Group) ->
-    insert_chars(unicode:characters_to_list(Expand, unicode), Buf, Tty);
+io_request({put_expand, unicode, Expand, _N}, Buf, Tty, _Group) ->
+    insert_chars(unicode:characters_to_list("\n"++Expand, unicode), Buf, Tty);
 io_request({insert_chars, Cs}, Buf, Tty, _Group) ->
     insert_chars(bin_to_list(Cs), Buf, Tty);
 io_request({insert_chars, unicode, Cs}, Buf, Tty, _Group) ->
