@@ -28,6 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 -compile(nowarn_export_all).
+-define(SOCKET_BACKLOG, 100).
 
 dummy_server(SocketType, Inet, Extra) ->
     dummy_server(self(), SocketType, Inet, Extra).
@@ -42,7 +43,8 @@ dummy_server(Caller, SocketType, Inet, Extra) ->
 
 dummy_server_init(Caller, ip_comm, Inet, Extra) ->
     ContentCb = proplists:get_value(content_cb, Extra),
-    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}, {nodelay, true}], 
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true},
+                {active, false}, {nodelay, true}, {backlog, ?SOCKET_BACKLOG}],
     Conf = proplists:get_value(conf, Extra),
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
@@ -60,8 +62,8 @@ dummy_server_init(Caller, unix_socket, Inet, Extra) ->
     ContentCb = proplists:get_value(content_cb, Extra),
     UnixSocket = proplists:get_value(unix_socket, Extra),
     SocketAddr = {local, UnixSocket},
-    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}, {nodelay, true},
-               {ifaddr, SocketAddr}],
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false},
+                {nodelay, true}, {ifaddr, SocketAddr}, {backlog, ?SOCKET_BACKLOG}],
     Conf = proplists:get_value(conf, Extra),
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
@@ -79,7 +81,8 @@ dummy_server_init(Caller, ssl, Inet, Extra) ->
     ContentCb = proplists:get_value(content_cb, Extra),
     SSLOptions = proplists:get_value(ssl, Extra),
     Conf = proplists:get_value(conf, Extra),
-    BaseOpts = [binary, {active, false}, {nodelay, true} | SSLOptions], 
+    BaseOpts = [binary, {active, false}, {nodelay, true},
+                {backlog, ?SOCKET_BACKLOG} | SSLOptions],
     dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf).
 
 dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf) ->
