@@ -1194,14 +1194,23 @@ gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
 			    Pdec;
 
 			_ ->
-			    emit(["[{",{asis,FirstTag},
-				  ",",{curr,v},"}|Temp",
-				  {curr,tlv},
-				  "] ->",nl]),
+                            DecTag =
+                                case asn1ct:get_gen_state_field(namelist) of
+                                    [{Cname,undecoded}|_] ->
+                                        emit(["[",{curr,v},"|Temp",{curr,tlv},"] ",
+                                              "when is_binary(",{curr,v},") ->",nl]),
+                                        Tag;
+                                    _ ->
+                                        emit(["[{",{asis,FirstTag},
+                                              ",",{curr,v},"}|Temp",
+                                              {curr,tlv},
+                                              "] ->",nl]),
+                                        RestTag
+                                end,
 			    emit([indent(4),"{"]),
 			    Pdec= 
 				gen_dec_call(InnerType,Erules,TopType,Cname,
-					     Type,BytesVar,RestTag,mandatory,
+					     Type,BytesVar,DecTag,mandatory,
 					     ", mandatory, ",DecObjInf,
 					     OptOrMand),
 			    
@@ -1358,10 +1367,9 @@ gen_dec_call1(WhatKind, _, TopType, Cname, Type, BytesVar, Tag) ->
 		    %% This is to prepare SEQUENCE OF value in
 		    %% partial incomplete decode for a later
 		    %% part-decode, i.e. skip %% the tag.
-		    asn1ct:add_generated_refed_func({[Cname|TopType],
-						     parts,
-						     [],Type}),
-		    emit(["{'",asn1ct_gen:list2name([Cname|TopType]),"',"]),
+                    Id = [parts,Cname|TopType],
+		    asn1ct:add_generated_refed_func({Id,parts,[],Type}),
+		    emit(["{'",asn1ct_gen:list2name(Id),"',"]),
 		    asn1ct_func:need({ber,match_tags,2}),
 		    EmitDecFunCall("match_tags"),
 		    emit("}");

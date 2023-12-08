@@ -1,0 +1,31 @@
+GUI DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+  Action ::= SEQUENCE {
+    number  INTEGER DEFAULT 15,
+    handle  Handle DEFAULT {number 12, on TRUE}
+  }
+
+  Key ::= Button
+  Handle ::= Key
+
+  Button ::= SEQUENCE {
+    number INTEGER,
+    on     BOOLEAN
+  }
+
+  Window ::= CHOICE {
+    vsn INTEGER,
+    status Status
+  }
+
+  Status ::= SEQUENCE {
+    state INTEGER,
+    buttonList SEQUENCE OF Button,
+    enabled BOOLEAN OPTIONAL,
+    actions CHOICE {
+      possibleActions SEQUENCE OF Action,
+      noOfActions INTEGER
+    }
+  }
+
+END

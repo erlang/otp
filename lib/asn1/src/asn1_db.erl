@@ -106,7 +106,9 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             loop(State);
         {save, OutFile, Mod} ->
             Mtab = ets:lookup_element(Table, Mod, 2),
-	    TempFile = OutFile ++ ".#temp",
+	    TempFile = OutFile ++
+                integer_to_list(erlang:unique_integer([positive])) ++
+                ".#temp",
             ok = ets:tab2file(Mtab, TempFile),
 	    ok = file:rename(TempFile, OutFile),
             loop(State);
