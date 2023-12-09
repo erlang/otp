@@ -3,9 +3,12 @@ This software is subject to the following Copyrights and Licenses:
 ---------------------------------------------------------------------------
 [Erlang/OTP except parts stated below]
 
+* Info:
+  * SPDX-License-Identifier: Apache-2.0
+
 %CopyrightBegin%
 
-Copyright Ericsson AB 1997-2021. All Rights Reserved.
+Copyright Ericsson AB 1997-2023. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,18 +25,99 @@ limitations under the License.
 %CopyrightEnd%
 
 ---------------------------------------------------------------------------
-[stdlib, compiler]
+[erl_posix_str.c]
 
-* assert.hrl is Copyright (C) 2004-1016 Richard Carlsson, Mickaël Rémond
-* array.erl is Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
-* gb_trees.erl is Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
-* gb_sets.erl is Copyright (C) 1999-2001 Richard Carlsson, Sven-Olof Nyström
-* proplists.erl is Copyright (C) 2000-2003 Richard Carlsson
-* cerl{_trees,_clauses}.erl are Copyright (C) 1999-2002 Richard Carlsson
-* cerl_inline.erl is Copyright (C) 1999-2002 Richard Carlsson
+* Info:
+  * SPDX-License-Identifier: TCL
+  * Modification of tclPosixStr.c from TCL
+  * Library: TCL
+  * Version 7.6
+  * Website: https://www.tcl.tk/
+  * OTP Location: ./erts/emulator/beam/erl_posix_str.c
+
+Copyright (c) 1991-1994 The Regents of the University of California.
+Copyright (c) 1994-1996 Sun Microsystems, Inc.
+
+This software is copyrighted by the Regents of the University of
+California, Sun Microsystems, Inc., and other parties.  The following
+terms apply to all files associated with the software unless explicitly
+disclaimed in individual files.
+
+The authors hereby grant permission to use, copy, modify, distribute,
+and license this software and its documentation for any purpose, provided
+that existing copyright notices are retained in all copies and that this
+notice is included verbatim in any distributions. No written agreement,
+license, or royalty fee is required for any of the authorized uses.
+Modifications to this software may be copyrighted by their authors
+and need not follow the licensing terms described here, provided that
+the new terms are clearly indicated on the first page of each file where
+they apply.
+
+IN NO EVENT SHALL THE AUTHORS OR DISTRIBUTORS BE LIABLE TO ANY PARTY
+FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ARISING OUT OF THE USE OF THIS SOFTWARE, ITS DOCUMENTATION, OR ANY
+DERIVATIVES THEREOF, EVEN IF THE AUTHORS HAVE BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+THE AUTHORS AND DISTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.  THIS SOFTWARE
+IS PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE
+NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+MODIFICATIONS.
+
+GOVERNMENT USE: If you are acquiring this software on behalf of the
+U.S. government, the Government shall have only "Restricted Rights"
+in the software and related documentation as defined in the Federal 
+Acquisition Regulations (FARs) in Clause 52.227.19 (c) (2).  If you
+are acquiring the software on behalf of the Department of Defense, the
+software shall be classified as "Commercial Computer Software" and the
+Government shall have only "Restricted Rights" as defined in Clause
+252.227-7013 (c) (1) of DFARs.  Notwithstanding the foregoing, the
+authors grant the U.S. Government and others acting in its behalf
+permission to use and distribute the software in accordance with the
+terms specified in this license.
+
+---------------------------------------------------------------------------
+[various contributions]
+
+* Info:
+  * SPDX-License-Identifier: Apache-2.0
+  * Various contributions made to Erlang/OTP under Apache 2.0 License
+
+* ./lib/stdlib/include/assert.hrl
+  and ./bootstrap/lib/stdlib/include/assert.hrl
+  * is Copyright (C) 2004-1016 Richard Carlsson, Mickaël Rémond
+* ./lib/stdlib/src/array.erl
+  * Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
+* ./lib/stdlib/src/gb_trees.erl
+  * Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
+* ./lib/stdlib/src/gb_sets.erl
+  * Copyright (C) 1999-2001 Richard Carlsson, Sven-Olof Nyström
+* ./lib/stdlib/src/proplists.erl
+  * Copyright (C) 2000-2003 Richard Carlsson
+* ./lib/compiler/src/cerl_trees.erl and
+  ./lib/dialyzer/test/options1_SUITE_data/src/compiler/cerl_trees.erl
+  * Copyright (C) 1999-2002 Richard Carlsson
+* ./lib/compiler/src/cerl_clauses.erl and
+  ./lib/dialyzer/test/options1_SUITE_data/src/compiler/cerl_clauses.erl
+  * Copyright (C) 1999-2002 Richard Carlsson
+* ./lib/compiler/src/cerl_inline.erl and
+  ./lib/dialyzer/test/options1_SUITE_data/src/compiler/cerl_inline.erl
+  * Copyright (C) 1999-2002 Richard Carlsson
+* ./lib/kernel/src/pg.erl and lib/kernel/doc/src/pg.xml and
+  ./lib/kernel/test/pg_SUITE.erl
+  * Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 
 ---------------------------------------------------------------------------
 [AsmJit]
+
+* Info
+  * SPDX-License-Identifier: Zlib
+  * Library: AsmJit
+  * Git Repository: https://github.com/asmjit/asmjit
+  * Commit: 23ddf56b00f47d8aa0c82ad225e4b3a92661da7e
+  * OTP Location: erts/emulator/asmjit
 
 Copyright (c) 2008-2020 The AsmJit Authors
 
@@ -55,6 +139,13 @@ freely, subject to the following restrictions:
 
 ---------------------------------------------------------------------------
 [PCRE]
+
+* Info:
+  * SPDX-License-Identifier: BSD-3-Clause
+  * Library: PCRE
+  * Version: 8.44
+  * Website: https://pcre.org
+  * OTP Location: ./erts/emulator/pcre
 
 PCRE LICENCE
 ------------
@@ -151,32 +242,19 @@ POSSIBILITY OF SUCH DAMAGE.
 End
 
 ---------------------------------------------------------------------------
-[Misc C library code]
-
-	/*
-	 * Copyright (c) 1985, 1988 Regents of the University of California.
-	 * All rights reserved.
-	 *
-	 * Redistribution and use in source and binary forms are permitted
-	 * provided that the above copyright notice and this paragraph are
-	 * duplicated in all such forms and that any documentation,
-	 * advertising materials, and other materials related to such
-	 * distribution and use acknowledge that the software was developed
-	 * by the University of California, Berkeley.  The name of the
-	 * University may not be used to endorse or promote products derived
-	 * from this software without specific prior written permission.
-	 * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
-	 * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
-	 * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-	 */
-
----------------------------------------------------------------------------
 [zlib]
 
-/* zlib.h -- interface of the 'zlib' general purpose compression library
-  version 1.2.3, July 18th, 2005
+* Info:
+  * SPDX-License-Identifier: Zlib
+  * Library: Zlib
+  * Version: 1.2.11
+  * Website: https://zlib.net/
+  * OTP Location: ./erts/emulator/zlib
 
-  Copyright (C) 1995-2005 Jean-loup Gailly and Mark Adler
+/* zlib.h -- interface of the 'zlib' general purpose compression library
+  version 1.2.11, January 15th, 2017
+
+  Copyright (C) 1995-2017 Jean-loup Gailly and Mark Adler
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -199,12 +277,19 @@ End
 
 
   The data format used by the zlib library is described by RFCs (Request for
-  Comments) 1950 to 1952 in the files http://www.ietf.org/rfc/rfc1950.txt
-  (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format).
+  Comments) 1950 to 1952 in the files http://tools.ietf.org/html/rfc1950
+  (zlib format), rfc1951 (deflate format) and rfc1952 (gzip format).
 */
 
 ---------------------------------------------------------------------------
 [fp16]
+
+* Info:
+  * SPDX-License-Identifier: MIT
+  * Library: FP16
+  * Git repository: https://github.com/Maratyszcza/FP16
+  * Commit: 0a92994d729ff76a58f692d3028ca1b64b145d91
+  * OTP Location: ./erts/emulator/beam/erl_bits_f16.h
 
 The MIT License (MIT)
 
@@ -232,6 +317,11 @@ DEALINGS IN THE SOFTWARE.
 ---------------------------------------------------------------------------
 [dialyzer]
 
+* Info:
+  * SPDX-License-Identifier: Apache-2.0
+  * Contribution made to Erlang/OTP
+  * OTP Location: ./lib/dialyzer
+
 %% Copyright 1997-2016 Tobias Lindahl, Stavros Aronis, Kostis Sagonas,
 %% Richard Carlsson, et al.
 %%
@@ -249,6 +339,11 @@ DEALINGS IN THE SOFTWARE.
 
 ---------------------------------------------------------------------------
 [edoc, syntax_tools]
+
+* Info:
+  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+  * Contribution made to Erlang/OTP
+  * OTP Location: ./lib/edoc and ./lib/syntax_tools
 
 %% Copyright 1997-2016 Richard Carlsson <carlsson.richard@gmail.com>
 %%
@@ -274,6 +369,11 @@ DEALINGS IN THE SOFTWARE.
 
 ---------------------------------------------------------------------------
 [eunit]
+
+* Info:
+  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+  * Contribution made to Erlang/OTP
+  * OTP Location: ./lib/eunit
 
 %% Copyright 2004-2016 Richard Carlsson <carlsson.richard@gmail.com>,
 %% Mickaël Rémond <mickael.remond@process-one.net>
@@ -301,7 +401,13 @@ DEALINGS IN THE SOFTWARE.
 ---------------------------------------------------------------------------
 [leex]
 
-%% Copyright (c) 2008 Robert Virding. All rights reserved.
+* Info:
+  * SPDX-License-Identifier: BSD-2-Clause
+  * Contribution made to Erlang/OTP
+  * OTP Location: ./lib/parsetools/src/leex.erl and
+                  ./lib/parsetools/doc/src/leex.xml
+
+%% Copyright (c) 2008,2009 Robert Virding. All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
 %% modification, are permitted provided that the following conditions
@@ -329,6 +435,13 @@ DEALINGS IN THE SOFTWARE.
 ---------------------------------------------------------------------------
 [eldap]
 
+* Info:
+  * SPDX-License-Identifier: MIT
+  * Contribution made to Erlang/OTP
+  * Repository: https://github.com/etnt/eldap.git
+  * Commit: 36c595f56c12a44adbc942eef218df85137cbbee
+  * OTP Location: ./lib/eldap/src/eldap.erl
+
 Copyright (c) 2010, Torbjorn Tornkvist
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -351,6 +464,10 @@ THE SOFTWARE.
 
 ---------------------------------------------------------------------------
 [wx documentation]
+
+* Info:
+  * No SPDX License Identifier exist for this license.
+  * OTP Location: ./lib/wx/doc/src
 
 wxWindows Free Documentation Licence, Version 3
 ===============================================
@@ -414,6 +531,9 @@ BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
 ---------------------------------------------------------------------------
 [wx webview2 loader on windows]
+
+* Info:
+  * SPDX-License-Identifier: BSD-3-Clause
 
 Copyright (C) Microsoft Corporation. All rights reserved.
 
