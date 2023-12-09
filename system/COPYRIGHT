@@ -118,7 +118,7 @@ terms specified in this license.
   * SPDX-License-Identifier: Zlib
   * Library: AsmJit
   * Git Repository: https://github.com/asmjit/asmjit
-  * Commit: 23ddf56b00f47d8aa0c82ad225e4b3a92661da7e
+  * Commit: 915186f6c5c2f5a4638e5cb97ccc23d741521a64
   * OTP Location: erts/emulator/asmjit
 
 Copyright (c) 2008-2020 The AsmJit Authors
@@ -249,12 +249,12 @@ End
 * Info:
   * SPDX-License-Identifier: Zlib
   * Library: Zlib
-  * Version: 1.2.12
+  * Version: 1.2.13
   * Website: https://zlib.net/
   * OTP Location: ./erts/emulator/zlib
 
 /* zlib.h -- interface of the 'zlib' general purpose compression library
-  version 1.2.12, March 11th, 2022
+  version 1.2.13, October 13th, 2022
 
   Copyright (C) 1995-2022 Jean-loup Gailly and Mark Adler
 
