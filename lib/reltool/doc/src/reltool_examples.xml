@@ -420,7 +420,7 @@ Eshell V10.0  (abort with ^G)
           {write_file,"start.boot",&lt;&lt;131,104,3,119,...&gt;&gt;}]},
      {copy_file,"Install"},
      {create_dir,"misc",
-         [{copy_file,"makewhatis"},{copy_file,"format_man_pages"}]},
+         [{copy_file,"format_man_pages"}]},
      {create_dir,"usr",
          [{create_dir,"lib",
               [{copy_file,"liberl_interface_st.a"},
