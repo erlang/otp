@@ -641,7 +641,7 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                           end,
                           ERow = State#state.buffer_expand_row,
 
-                            BufferExpandLines = string:split(erlang:binary_to_list(BufferExpand), "\n", all),
+                            BufferExpandLines = string:split(unicode:characters_to_list(BufferExpand), "\n", all),
                             InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
                             ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
                             ExpandRowsLimit = case State#state.buffer_expand_limit of
@@ -653,7 +653,7 @@ handle_request(State = #state{unicode = U, cols = W, rows = R}, redraw_prompt_pr
                             ExpandRowsLimit1 = min(ExpandRowsLimit, R-1-InputRows),
                             BufferExpand1 = case ExpandRows > ExpandRowsLimit1 of
                                 true ->
-                                        Color = ansi_color(cyan, bright_white),
+                                        Color = lists:flatten(ansi_color(cyan, bright_white)),
                                         StatusLine = io_lib:format(Color ++"\e[1m" ++ "rows ~w to ~w of ~w" ++ "\e[0m",
                                                                    [ERow, (ERow-1) + ExpandRowsLimit1, ExpandRows]),
                                         Cols1 = max(0,W*ExpandRowsLimit1),
@@ -678,7 +678,7 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
     %% Get number of Lines in terminal window
     BufferExpandLines = case Expand of
         undefined -> [];
-        _ -> string:split(erlang:binary_to_list(Expand), "\n", all)
+        _ -> string:split(unicode:characters_to_list(Expand), "\n", all)
     end,
     ExpandRows = (cols_multiline(BufferExpandLines, W, U) div W),
     InputRows = (cols_multiline([State#state.buffer_before ++ State#state.buffer_after], W, U) div W),
