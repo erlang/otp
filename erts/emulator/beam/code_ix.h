@@ -277,12 +277,8 @@ int erts_has_code_stage_permission(void);
 int erts_has_code_mod_permission(void);
 #endif
 
-/* module/function/arity can be NIL/NIL/-1 when the MFA is pointing to some
-   invalid code, for instance unloaded_fun. */
 #define ASSERT_MFA(MFA)                                                 \
-    ASSERT((is_atom((MFA)->module) || is_nil((MFA)->module)) &&         \
-           (is_atom((MFA)->function) || is_nil((MFA)->function)) &&     \
-           (((MFA)->arity >= 0 && (MFA)->arity < 1024) || (MFA)->arity == -1))
+    ASSERT(is_atom((MFA)->module) && is_atom((MFA)->function))
 
 extern erts_atomic32_t the_active_code_index;
 extern erts_atomic32_t the_staging_code_index;
