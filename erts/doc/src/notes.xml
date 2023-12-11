@@ -4587,7 +4587,7 @@
 	    map in a single pass.</p>
           <p>
 	    <c>maps:from_keys/2</c> constructs a map from a list of
-	    keys and a single value and can be used to to optimize
+	    keys and a single value and can be used to optimize
 	    sets operations such as from_list/1, filter/2,
 	    intersection/2, and subtract/2.</p>
           <p>
@@ -8336,7 +8336,7 @@
         <item>
           <p>
 	    The Kernel application's User's Guide now contain a
-	    Logger Cookbook with with common usage patterns.</p>
+	    Logger Cookbook with common usage patterns.</p>
           <p>
 	    Own Id: OTP-16208</p>
         </item>
@@ -12135,7 +12135,7 @@
 	    been called, all exceptions will now contain the entry
 	    for <em>one</em> function (despite the zero). It used to
 	    be that a hand-made stack backtrace passed to
-	    <c>erlang:raise/3</c> would be be truncated to an empty
+	    <c>erlang:raise/3</c> would be truncated to an empty
 	    list.</p>
           <p>
 	    Own Id: OTP-15026</p>
@@ -20798,7 +20798,7 @@
           <p>
 	    The previous default of a maximum of 32768 simultaneous
 	    processes has been raised to 262144. This value can be
-	    changed using the the <seecom
+	    changed using the <seecom
 	    marker="erl#+P">+P</seecom> command line flag of
 	    <seecom marker="erl">erl(1)</seecom>. Note that the
 	    value passed now is considered as a hint, and that actual
@@ -21602,7 +21602,7 @@
         </item>
         <item>
 	    <p>Calling trace_info/2 asking for information about a
-	    function that had native could could crash the run-time
+	    function that had native could crash the run-time
 	    system.</p>
           <p>
 	    Own Id: OTP-9886</p>
@@ -25413,7 +25413,7 @@
         <item>
           <p>
 	    Emulator flags in an escript were earlier inherited to
-	    emulators started from from the emulator running the
+	    emulators started from the emulator running the
 	    escript. For example when an escript invoked
 	    <c>os:cmd("erl")</c>, the new emulator were given
 	    erroneous emulator flags. This bug has now been fixed</p>
@@ -26873,7 +26873,7 @@
 	    In the section about binary construction, the reference
 	    manual now mentions what happens when an integer value
 	    does not fit into an integer segment of size N (namely,
-	    that the N least significant bits will be put into into
+	    that the N least significant bits will be put into
 	    the binary and that the most significant bits will be
 	    silently discarded). (Thanks to Edwin Fine.)</p>
           <p>
@@ -29653,7 +29653,7 @@
         </item>
         <item>
           <p>The undocumented <c><![CDATA[{packet,http}]]></c> option (for the
-            <c><![CDATA[gen_tcp]]></c> module) did not not work correctly when
+            <c><![CDATA[gen_tcp]]></c> module) did not work correctly when
             there were multiple continuation lines. (Thanks to Per
             Hedeland.)</p>
           <p>Own Id: OTP-5945</p>

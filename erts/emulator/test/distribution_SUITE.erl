@@ -1162,7 +1162,7 @@ roundtrip(Term) ->
     exit(Term).
 
 %% Test that the smallest external term [] aka NIL can be sent to
-%% another node node and back again.
+%% another node and back again.
 nil_roundtrip(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Peer, Node} = ?CT_PEER(),

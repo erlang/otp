@@ -466,7 +466,7 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    From ! {self(),Tag,ok},
 	    run_test_case_msgloop(St);
 	{abort_current_testcase,_,_}=Abort when St0#st.status =:= starting ->
-	    %% we're in init phase, must must postpone this operation
+	    %% we're in init phase, must postpone this operation
 	    %% until test case execution is in progress (or FW:init_tc
 	    %% gets killed)
 	    self() ! Abort,

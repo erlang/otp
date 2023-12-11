@@ -723,7 +723,7 @@
       <list>
         <item>
           <p>
-	    Many bugs have been eliminated in the the ASN.1 compiler
+	    Many bugs have been eliminated in the ASN.1 compiler
 	    so that it can now successfully compile many more ASN.1
 	    specifications. Error messages have also been improved.</p>
           <p>
@@ -977,7 +977,7 @@
         <item>
           <p>
 	    The ASN.1 compiler would fail to compile a constraint
-	    with values given for for the extension part (such as
+	    with values given for the extension part (such as
 	    <c>INTEGER (1..10, ..., 11..20)</c>).</p>
           <p>
 	    Own Id: OTP-11504</p>

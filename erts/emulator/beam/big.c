@@ -896,7 +896,7 @@ static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
         res_len += m;
         ASSERT(res_len <= xl + yl);
 
-        /* Copy result to the the final result buffer. */
+        /* Copy result to the final result buffer. */
         (void) I_add(z_res_buf, res_len, &zero, 1, r);
 
         erts_free(ERTS_ALC_T_TMP, (void *) heap);

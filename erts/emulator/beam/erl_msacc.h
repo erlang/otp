@@ -150,7 +150,7 @@ struct erl_msacc_t_ {
     Eterm id;
     char *type;
 
-    /* the the values below are protected by mtx iff unmanaged = 1 */
+    /* the values below are protected by mtx iff unmanaged = 1 */
     ErtsSysPerfCounter perf_counter;
     Uint state;
     ErtsMsAccPerfCntr counters[];

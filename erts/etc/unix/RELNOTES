@@ -236,7 +236,7 @@ the 4.2 system, but there is a number of incompatibilities.
 
 -- eprof, is a (tty-based) tool for real-time profiling, see eprof(3).
 
--- dbg, is a (tty-based) interface to the the trace/3 BIF, see dbg(3).
+-- dbg, is a (tty-based) interface to the trace/3 BIF, see dbg(3).
 
 -- pman, is a (pxw-based) interface to the trace/3 BIF.
 

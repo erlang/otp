@@ -153,7 +153,7 @@ through when adding a new breakpoint.
 9. Wait for thread progress.
 
 10. Prepare for next call to `trace_pattern` by updating the new staging part
-    (the old active) of the breakpoint to be identic to the the new active part.
+    (the old active) of the breakpoint to be identic to the new active part.
 
 11. Release code modification permission and return from `trace_pattern`.
 

@@ -729,7 +729,7 @@ put_tuple2(Dst, Arity) {
 
     /*
      * If operands are not packed (in the 32-bit VM),
-     * is is not safe to use $Dst directly after I
+     * it is not safe to use $Dst directly after I
      * has been updated.
      */
     Eterm* dst_ptr = &($Dst);

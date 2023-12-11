@@ -283,7 +283,7 @@ parse_Assignment([{typereference,_,_},{'{',_}|_]=Tokens) ->
     %% 2) ValueSet{...} Type ::= ...
     %%    ObjectSet{...} CLASS-NAME ::= CLASS {...}
     %% 3) CLASS-NAME{...} ::= CLASS {...}
-    %% A parameterized value set and and a parameterized object set
+    %% A parameterized value set and a parameterized object set
     %% cannot be distinguished from each other without type information.
     Flist = [fun parse_ParameterizedTypeAssignment/1,
 	     fun parse_ParameterizedValueSetTypeAssignment/1,

@@ -183,7 +183,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
     contain information from a \%CopyrightBegin\%, \%CopyrightEnd\% block
     if such exist (see below).
 
-*   A level `X` heading where `1 < X <= 6` will cause the the following
+*   A level `X` heading where `1 < X <= 6` will cause the following
     to be generated:
 
         <section>
@@ -209,7 +209,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
     other documents. That is, *be careful* when changing headings in an
     existing document.
 
-*   A level `X` heading where `6 < X` will cause the the following
+*   A level `X` heading where `6 < X` will cause the following
     to be generated:
 
         <marker id="..."/>
