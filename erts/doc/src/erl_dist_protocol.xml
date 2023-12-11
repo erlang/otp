@@ -1471,7 +1471,7 @@ DiB == gen_digest(ChA, ICA)?
 	  <item><p>Process identifier of the group leader of the
 	  newly created process.</p></item>
 	  <tag><c>{Module :: atom(), Function :: atom(), Arity :: integer() >= 0}</c></tag>
-	  <item><p>Entry point for the the new process.</p></item>
+	  <item><p>Entry point for the new process.</p></item>
 	  <tag><c>OptList :: [term()]</c></tag>
 	  <item><p>A proper list of spawn options to use when spawning.</p></item>
 	  <tag><c>ArgList :: [term()]</c></tag>

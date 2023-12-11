@@ -258,7 +258,7 @@ i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) =>
     i_get_tuple_element Tuple Pos Tuple
 
-# This is a current_tuple instruction instruction not followed by
+# This is a current_tuple instruction not followed by
 # get_tuple_element. Invalidate the current tuple pointer.
 
 current_tuple Tuple => _

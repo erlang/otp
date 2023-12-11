@@ -1684,7 +1684,7 @@ extern int erts_system_profile_ts_type;
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif
 
-/* F_TIMESTAMP_MASK is a bit-field of all all timestamp types */
+/* F_TIMESTAMP_MASK is a bit-field of all timestamp types */
 #define F_TIMESTAMP_MASK \
     (ERTS_TRACE_TS_TYPE_MASK << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
 

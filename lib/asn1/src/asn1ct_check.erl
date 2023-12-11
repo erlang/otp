@@ -4934,7 +4934,7 @@ componentrelation_leadingattr(S,CompList) ->
     %% get_simple_table_if_used/2 should find out whether there are any
     %% component relation constraints in the entire tree of Cs1 that
     %% relates to this level. It returns information about the simple
-    %% table constraint necessary for the the call to
+    %% table constraint necessary for the call to
     %% componentrelation_leadingattr/6. The step when the leading
     %% attribute and the syntax tree is modified to support the code
     %% generating.

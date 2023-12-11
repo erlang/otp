@@ -67,7 +67,7 @@ do_utf8_roundtrip(First, Last) when First =< Last ->
 
     %% Here a heap binary and a sub binary will be allocated. If the
     %% write in the utf8 segment extends beyond the end of heap binary,
-    %% it will will overwrite the header for the sub binary.
+    %% it will overwrite the header for the sub binary.
     <<-1:(64-9)/signed,Bin/binary>> = id(<<-1:(64-9),First/utf8>>),
     <<-1:63/signed,Bin/binary>> = id(<<-1:63,First/utf8>>),
 

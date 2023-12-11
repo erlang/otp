@@ -350,7 +350,7 @@ switches are:
   * Set environment variable `VALGRIND_MISC_FLAGS` for any extra valgrind flags you want to pass.
 * -asan
   * Start [Clang Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
-    with the the correct settings and use the `asan` [type](types-and-flavors).
+    with the correct settings and use the `asan` [type](types-and-flavors).
   * Set environment variable `ASAN_LOG_DIR` to where you want the logs.
   * Set environment variable `ASAN_OPTIONS` for any extra asan options you want to pass.
 * -gcov

@@ -8728,13 +8728,13 @@ true</pre>
 	  corresponds to scheduler number 1 and so on. If support for
 	  dirty schedulers exist, an element with the value for the
 	  dirty CPU run queue and its associated dirty CPU schedulers
-	  follow and then as last element the value for the the dirty
+	  follow and then as last element the value for the dirty
 	  IO run queue and its associated dirty IO schedulers follow.
 	  The information is <em>not</em> gathered atomically. That is,
 	  the result is not necessarily a consistent snapshot of the
 	  state, but instead quite efficiently gathered.</p>
 	<note><p>Each normal scheduler has one run queue that it
-	manages. If dirty schedulers schedulers are supported, all
+	manages. If dirty schedulers are supported, all
 	dirty CPU schedulers share one run queue, and all dirty IO
 	schedulers share one run queue. That is, we have multiple
 	normal run queues, one dirty CPU run queue and one dirty
@@ -9013,7 +9013,7 @@ lists:map(
 	  necessarily a consistent snapshot of the state, but
 	  instead quite efficiently gathered.</p>
 	<note><p>Each normal scheduler has one run queue that it
-	manages. If dirty schedulers schedulers are supported, all
+	manages. If dirty schedulers are supported, all
 	dirty CPU schedulers share one run queue, and all dirty IO
 	schedulers share one run queue. That is, we have multiple
 	normal run queues, one dirty CPU run queue and one dirty

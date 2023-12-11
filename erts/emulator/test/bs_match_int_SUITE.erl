@@ -112,7 +112,7 @@ get_int(Bin0) ->
     %% Note that it has become impossible to create a byte-sized sub
     %% binary (see erts_build_sub_bitstring() in erl_bits.c) of size 64
     %% or less. Therefore, to be able to create an unaligned binary,
-    %% we'll need to base it on on a binary with more than 64 bytes.
+    %% we'll need to base it on a binary with more than 64 bytes.
     Size = bit_size(Bin0),
     Filler = rand:bytes(65),
     UnsignedBigBin = id(<<Filler/binary,Bin0/bits>>),

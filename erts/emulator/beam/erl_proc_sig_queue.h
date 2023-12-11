@@ -1005,7 +1005,7 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to,
  * term returned by 'func'. If the return value of
  * 'func' is not an immediate term, 'func' has to
  * allocate a heap fragment where the result is stored
- * and update the the heap fragment pointer pointer
+ * and update the heap fragment pointer pointer
  * passed as third argument to point to it.
  *
  * If this function returns a reference, 'func' will
@@ -1070,7 +1070,7 @@ erts_proc_sig_send_rpc_request(Process *c_p,
  * term returned by 'func'. If the return value of
  * 'func' is not an immediate term, 'func' has to
  * allocate a heap fragment where the result is stored
- * and update the the heap fragment pointer pointer
+ * and update the heap fragment pointer pointer
  * passed as third argument to point to it.
  *
  * If this function returns a reference, 'func' will

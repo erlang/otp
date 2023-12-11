@@ -2994,7 +2994,7 @@ t_maps_without(_Config) ->
 
 %% MISC
 
-%% Verify that the the number of nodes in hashmaps
+%% Verify that the number of nodes in hashmaps
 %% of different types and sizes does not deviate too
 %% much from the theoretical model.
 %% For debug with DBG_HASHMAP_COLLISION_BONANZA the test will expect

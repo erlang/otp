@@ -118,7 +118,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  *
  * - The tag is zero for arityval and non-zero for thing headers.
  * - A single bit differentiates between positive and negative bignums.
- * - If more tags are needed, the REF and and EXTERNAL_REF tags could probably
+ * - If more tags are needed, the REF and EXTERNAL_REF tags could probably
  *   be combined to one tag.
  *
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX

@@ -227,7 +227,7 @@ test_squaring(I) ->
     Sqr = I * I,
 
     %% This expression will be multiplied in the usual way, because
-    %% the the two operands for '*' are stored at different addresses.
+    %% the two operands for '*' are stored at different addresses.
     Sqr = I * ((I + id(1)) - id(1)),
 
     ok.

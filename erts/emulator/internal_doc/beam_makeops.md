@@ -1071,8 +1071,8 @@ Here is first an example how it is used:
    is_map Fail Lit=q | literal_is_map(Lit) => _
 
 If the `Lit` operand is a literal, then the `literal_is_map()`
-predicate is called to determine wheter is is a map literal.
-It it is, the instruction is not needed and can be removed.
+predicate is called to determine whether it is a map literal.
+If it is, the instruction is not needed and can be removed.
 
 `literal_is_map()` is implemented like this (in `emu/predicates.tab`):
 
@@ -1682,7 +1682,7 @@ similar to this:
 
 #### Variable number of operands ####
 
-Here follows an example of how to to handle an instruction with a variable number
+Here follows an example of how to handle an instruction with a variable number
 of operands for the interpreter.  Here is the instruction definition in `emu/ops.tab`:
 
     put_tuple2 xy I *

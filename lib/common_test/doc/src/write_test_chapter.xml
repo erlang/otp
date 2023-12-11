@@ -817,7 +817,7 @@
 
     <p>In the data directory, <c>data_dir</c>, the test module has
       its own files needed for the testing. The name of <c>data_dir</c>
-      is the the name of the test suite followed by <c>"_data"</c>.
+      is the name of the test suite followed by <c>"_data"</c>.
       For example, <c>"some_path/foo_SUITE.beam"</c> has the data directory
       <c>"some_path/foo_SUITE_data/"</c>. Use this directory for portability,
       that is, to avoid hardcoding directory names in your suite. As the data

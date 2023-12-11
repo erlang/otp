@@ -367,7 +367,7 @@ ListSelector = [integer()]</pre>
       <item>Each name in <c>ElementList</c> must be a constructed type
         except the last name, which can be any type.</item>
       <item><c>ListSelector</c> makes it possible to choose one of the
-        encoded components in a a <c>SEQUENCE OF</c> or a <c>SET OF</c>.
+        encoded components in a <c>SEQUENCE OF</c> or a <c>SET OF</c>.
         It is also possible to go further in that component and pick a
         subtype of that to decode. So, in the <c>TypeList</c>:
         <c>['Window',status,buttonList,[1],number]</c>, component

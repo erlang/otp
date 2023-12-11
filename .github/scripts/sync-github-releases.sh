@@ -49,7 +49,7 @@ CREATE_RELEASE=()
 TAG_URL="${REPO}/tags?per_page=100"
 
 ## This function is used to loop over the pagianated results from github tags
-## It sets TAGS to be the the json from the current page of tags
+## It sets TAGS to be the json from the current page of tags
 _next_page() {
     TAGS=$(curl -s "${HDR[@]}" ${TAG_URL})
     ## In the "Link:" header from github we get the link for the next page.

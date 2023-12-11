@@ -4394,7 +4394,7 @@ document etp-search-alloc
 %---------------------------------------------------------------------------
 % etp-search-heaps Eterm
 % 
-% Search all internal allocator memory blocks for for the specified Eterm.
+% Search all internal allocator memory blocks for the specified Eterm.
 %---------------------------------------------------------------------------
 end
 

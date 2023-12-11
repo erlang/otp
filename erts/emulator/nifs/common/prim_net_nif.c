@@ -3648,7 +3648,7 @@ void encode_adapter_index_map(ErlNifEnv*            env,
  * nif_get_ip_address_table
  *
  * Description:
- * Get ip address table table.
+ * Get ip address table.
  * This is a windows only function!
  *
  * Active Interfaces?

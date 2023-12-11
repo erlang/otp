@@ -4632,7 +4632,7 @@ update_config(Config, []) ->
 %% simple list of test cases to call, when executing the test suite.
 %%
 %% CurMod is the "current" module, that is, the module the last instruction
-%% was read from. May be be set to 'none' initially.
+%% was read from. May be set to 'none' initially.
 %%
 %% SkipList is the list of test cases to skip and requirements to deny.
 %%

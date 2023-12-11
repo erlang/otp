@@ -589,7 +589,7 @@ constant_refc_binaries_test(Config) when is_list(Config) ->
     Bef = memory_binary(),
     io:format("Binary data (bytes) before test: ~p\n", [Bef]),
 
-    %% Compile the the literals module.
+    %% Compile the literals module.
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
@@ -858,7 +858,7 @@ t_copy_literals(Config) when is_list(Config) ->
     run_sys_proc_test(fun t_copy_literals_test/1, Config).
 
 t_copy_literals_test(Config) when is_list(Config) ->
-    %% Compile the the literals module.
+    %% Compile the literals module.
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
