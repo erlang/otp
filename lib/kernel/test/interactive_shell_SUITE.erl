@@ -59,7 +59,7 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
-         shell_format/1, format_func/1,
+         shell_format/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -478,29 +478,28 @@ shell_multiline_navigation(Config) ->
         stop_tty(Term)
     end.
 
-format_func(String) ->
-    lists:flatten(string:replace(String, "  ", " ", all)).
-
 shell_format(Config) ->
-    Term1 = start_tty([{args,["-stdlib","format_shell_func","{interactive_shell_SUITE,format_func}"]}|Config]),
+    Term1 = start_tty([{args,["-stdlib","format_shell_func","{shell,erl_pp_format_func}"]}|Config]),
     DataDir = proplists:get_value(data_dir, Config),
     EmacsFormat = "\""++DataDir ++ "emacs-format-file\"\n",
     try
         send_tty(Term1,"fun(X) ->\n  X\nend.\n"),
         send_tty(Term1,"Up"),
-        check_content(Term1, "fun\\(X\\) ->\\s*..  X\\s*.. end."),
+        %% Note, erl_pp puts 7 spaces before X
+        check_content(Term1, "fun\\(X\\) ->\\s*..        X\\s*.. end."),
         send_tty(Term1, "Down"),
         tmux(["resize-window -t ",tty_name(Term1)," -x ",200]),
         timer:sleep(1000),
         send_stdin(Term1, "shell:format_shell_func(\"emacs -batch \${file} -l \"\n"),
         send_stdin(Term1, EmacsFormat),
         send_stdin(Term1, "\" -f emacs-format-function\").\n"),
-        check_content(Term1, "{interactive_shell_SUITE,format_func}"),
+        check_content(Term1, "{shell,erl_pp_format_func}"),
         send_tty(Term1, "Up"),
         send_tty(Term1, "Up"),
         send_tty(Term1, "\n"),
         timer:sleep(1000),
         send_tty(Term1, "Up"),
+        %% Note, emacs-format puts 8 spaces before X
         check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
         send_tty(Term1, "Down"),
         send_stdin(Term1, "shell:format_shell_func({bad,format}).\n"),

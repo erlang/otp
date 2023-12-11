@@ -527,9 +527,10 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
             %% Prompt was valid expression, clear the prompt in user_drv
             %% First redraw without the multi line prompt
             FormattedLine = format_expression(LineCont, Drv),
-            case lists:reverse(string:split(FormattedLine, "\n", all)) of
-                [CL|LB] when is_list(CL) ->
-                    LineCont1 = {LB,{lists:reverse(CL++"\n"), []},[]},
+            case LineCont of
+                {[_|_], _, _} ->
+                    [CL1|LB1] = lists:reverse(string:split(FormattedLine, "\n", all)),
+                    LineCont1 = {LB1,{lists:reverse(CL1++"\n"), []},[]},
                     MultiLinePrompt = lists:duplicate(shell:prompt_width(Pbs), $\s),
                     send_drv_reqs(Drv, [{redraw_prompt, Pbs, MultiLinePrompt, LineCont1},new_prompt]);
                 _ -> skip %% oldshell mode
@@ -944,7 +945,7 @@ format_expression(Cont, Drv) ->
         end
     catch _:_ ->
             send_drv_reqs(Drv, [{put_chars, unicode, io_lib:format("* Bad format function: ~tp~n", [FormatingCommand])}]),
-            shell:format_shell_func(default),
+            _ = shell:format_shell_func(default),
             Buffer
     end.
 format_expression1(Buffer, FormatingCommand) ->

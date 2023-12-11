@@ -85,6 +85,7 @@
         somewhere in the string, for the shell to know where the file goes in the command.
         </p>
         <code>-stdlib format_shell_func "\"emacs -batch \${file} -l ~/erlang-format/emacs-format-file -f emacs-format-function\""</code>
+        <code>-stdlib format_shell_func "{shell, erl_pp_format_func}"</code>
       </item>
       <tag><marker id="shell_prompt_func"/><c>shell_prompt_func = {Mod, Func} | default</c></tag>
       <item>
