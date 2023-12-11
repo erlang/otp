@@ -42,17 +42,34 @@ typedef struct erl_fun_entry {
     int old_index;                  /* Old style index */
 
     erts_refc_t refc;               /* Reference count: One for code + one for
-                                     * each fun object in each process. */
+                                     * each FunRef. */
     ErtsCodePtr pend_purge_address; /* Address during a pending purge */
 } ErlFunEntry;
+
+/* Reference-holding structure for funs. As these normally live in the literal
+ * area of their module instance and are shared with all lambdas pointing to
+ * the same function, having it separated like this saves us from having to
+ * reference-count every single lambda.
+ *
+ * These references copied onto the heap under some circumstances, for example
+ * trips through ETS or the external term format, but generally they'll live
+ * off-heap. */
+typedef struct erl_fun_ref {
+    Eterm thing_word;
+    ErlFunEntry *entry;
+    struct erl_off_heap_header *next;
+} FunRef;
+
+#define ERL_FUN_REF_SIZE ((sizeof(FunRef)/sizeof(Eterm)))
+#define HEADER_FUN_REF _make_header(ERL_FUN_REF_SIZE-1,_TAG_HEADER_FUN_REF)
 
 /* This structure represents a 'fun' (lambda), whether local or external. It is
  * stored on process heaps, and has variable size depending on the size of the
  * environment. */
 
 typedef struct erl_fun_thing {
-    /* The header contains FUN_SUBTAG, arity, number of free variables, and
-     * whether this is an external fun. */
+    /* The header contains FUN_SUBTAG, arity, and the size of the environment,
+     * the latter being zero for external funs and non-zero for local ones. */
     Eterm thing_word;
 
     union {
@@ -61,38 +78,34 @@ typedef struct erl_fun_thing {
          * pointer to improve performance. */
         ErtsDispatchable *disp;
 
-        /* Pointer to function entry, valid iff the external bit is clear.*/
+        /* Pointer to function entry, valid iff this is local fun. */
         ErlFunEntry *fun;
 
-        /* Pointer to export entry, valid iff the external bit is set.*/
+        /* Pointer to export entry, valid iff this is an external fun. */
         Export *exp;
     } entry;
 
-    /* Next off-heap object, must be NULL when this is an external fun. */
-    struct erl_off_heap_header *next;
-
-    /* Environment (free variables), may be compound terms. */
+    /* Environment (free variables), may be compound terms.
+     *
+     * External funs lack this altogether, and local funs _always_ reference a
+     * `FunRef` just past the last free variable. This ensures that the
+     * `ErlFunEntry` above will always be valid. */
     Eterm env[];
 } ErlFunThing;
 
-#define is_external_fun(FunThing)                                             \
-    (!!(((FunThing)->thing_word >> FUN_HEADER_EXTERNAL_OFFS) & 1))
-#define is_local_fun(FunThing)                                                \
-    (!(is_external_fun(FunThing)))
+#define is_external_fun(FunThing) (fun_env_size(FunThing) == 0)
+#define is_local_fun(FunThing) (!is_external_fun(FunThing))
 
 #define fun_arity(FunThing)                                                   \
     (((FunThing)->thing_word >> FUN_HEADER_ARITY_OFFS) & 0xFF)
+#define fun_env_size(FunThing)                                                \
+    ((FunThing)->thing_word >> FUN_HEADER_ENV_SIZE_OFFS)
 #define fun_num_free(FunThing)                                                \
-    (((FunThing)->thing_word >> FUN_HEADER_NUM_FREE_OFFS) & 0xFF)
+    (ASSERT(is_local_fun(FunThing)), fun_env_size(FunThing) - 1)
 
 /* ERL_FUN_SIZE does _not_ include space for the environment which is a
  * C99-style flexible array */
 #define ERL_FUN_SIZE ((sizeof(ErlFunThing)/sizeof(Eterm)))
-
-ErlFunThing *erts_new_local_fun_thing(Process *p,
-                                      ErlFunEntry *fe,
-                                      int arity,
-                                      int num_free);
 
 void erts_init_fun_table(void);
 void erts_fun_info(fmtfn_t, void *);

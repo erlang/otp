@@ -205,45 +205,40 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    const ssize_t num_free = NumFree.get();
-    ssize_t i;
+    Uint i = 0;
 
-    ASSERT(num_free == (ssize_t)env.size());
+    ASSERT((NumFree.get() + 1) == env.size() &&
+           (NumFree.get() + Arity.get()) < MAX_ARG);
 
-    a.mov(ARG1, c_p);
-    mov_arg(ARG2, Lambda);
-    mov_arg(ARG3, Arity);
-    mov_arg(ARG4, NumFree);
+    mov_arg(TMP2, Lambda);
 
-    emit_enter_runtime<Update::eHeapOnlyAlloc>();
+    comment("Create fun thing");
+    mov_imm(TMP1, MAKE_FUN_HEADER(Arity.get(), NumFree.get(), 0));
+    ERTS_CT_ASSERT_FIELD_PAIR(ErlFunThing, thing_word, entry.fun);
+    a.stp(TMP1, TMP2, arm::Mem(HTOP, offsetof(ErlFunThing, thing_word)));
 
-    runtime_call<4>(erts_new_local_fun_thing);
-
-    emit_leave_runtime<Update::eHeapOnlyAlloc>();
-
-    if (num_free) {
-        comment("Move fun environment");
-    }
-
-    for (i = 0; i < num_free - 1; i += 2) {
-        ssize_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
+    comment("Move fun environment");
+    while (i < env.size() - 1) {
+        int offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
 
         if ((i % 128) == 0) {
             check_pending_stubs();
         }
 
         auto [first, second] = load_sources(env[i], TMP1, env[i + 1], TMP2);
-        safe_stp(first.reg, second.reg, arm::Mem(ARG1, offset));
+        safe_stp(first.reg, second.reg, arm::Mem(HTOP, offset));
+        i += 2;
     }
 
-    if (i < num_free) {
-        ssize_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-        mov_arg(arm::Mem(ARG1, offset), env[i]);
+    if (i < env.size()) {
+        int offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
+        mov_arg(arm::Mem(HTOP, offset), env[i]);
     }
 
     comment("Create boxed ptr");
     auto dst = init_destination(Dst, TMP1);
-    a.orr(dst.reg, ARG1, imm(TAG_PRIMARY_BOXED));
+    a.orr(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+    add(HTOP, HTOP, (ERL_FUN_SIZE + env.size()) * sizeof(Eterm));
     flush_var(dst);
 }
 

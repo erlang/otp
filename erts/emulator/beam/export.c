@@ -189,7 +189,6 @@ static void create_shared_lambda(Export *export)
 
     lambda->thing_word = MAKE_FUN_HEADER(export->info.mfa.arity, 0, 1);
     lambda->entry.exp = export;
-    lambda->next = NULL;
 
     export->lambda = make_fun(lambda);
 

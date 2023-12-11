@@ -541,16 +541,35 @@ i_init3(Y1, Y2, Y3) {
 }
 
 i_make_fun3(FunP, Dst, Arity, NumFree) {
-    ErlFunThing* funp;
     ErlFunEntry *fe = (ErlFunEntry *) $FunP;
     int i, num_free = $NumFree;
+    ErlFunThing* funp;
     //| -no_next
-    SWAPOUT;
-    funp = erts_new_local_fun_thing(c_p, fe, $Arity, num_free);
-    SWAPIN;
+
+    /* We add one word to account for the `FunRef` keeping our fun entry
+     * alive, it's kept as part of the environment. */
+    funp = (ErlFunThing*)HTOP;
+    HTOP += ERL_FUN_SIZE + num_free + 1;
+
+    funp->thing_word = MAKE_FUN_HEADER($Arity, num_free, 0);
+    funp->entry.fun = fe;
+
+#ifdef DEBUG
+    {
+        /* Note that `mfa` may be NULL if the fun is currently being purged. We
+         * ignore this since it's not an error and we only need `mfa` to
+         * sanity-check the arity at this point. If the fun is called while in
+         * this state, the `error_handler` module will take care of it. */
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
+        ASSERT(!mfa || fun_arity(funp) == mfa->arity - num_free);
+        ASSERT($Arity == fe->arity);
+    }
+#endif
+
     I = $NEXT_INSTRUCTION;
-    for (i = 0; i < num_free; i++) {
-	Eterm term = *I++;
+
+    for (i = 0; i < (num_free + 1); i++) {
+        Eterm term = *I++;
         switch (loader_tag(term)) {
         case LOADER_X_REG:
             term = x(loader_x_reg_index(term));
@@ -559,8 +578,9 @@ i_make_fun3(FunP, Dst, Arity, NumFree) {
             term = y(loader_y_reg_index(term));
             break;
         }
-	funp->env[i] = term;
+        funp->env[i] = term;
     }
+
     $Dst = make_fun(funp);
     Goto(*I);
 }

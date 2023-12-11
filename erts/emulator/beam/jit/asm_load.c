@@ -128,15 +128,15 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
-    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                      stp->beam.lambdas.count * sizeof(SWord));
+    stp->fun_refs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                               stp->beam.lambdas.count * sizeof(SWord));
 
     for (i = 0; i < stp->beam.lambdas.count; i++) {
         BeamFile_LambdaEntry *lambda = &stp->beam.lambdas.entries[i];
 
         if (stp->labels[lambda->label].lambda_index == INVALID_LAMBDA_INDEX) {
             stp->labels[lambda->label].lambda_index = i;
-            stp->lambda_literals[i] = ERTS_SWORD_MAX;
+            stp->fun_refs[i] = ERTS_SWORD_MAX;
         } else {
             beam_load_report_error(__LINE__,
                                    stp,
@@ -232,9 +232,9 @@ int beam_load_prepared_dtor(Binary *magic) {
         stp->labels = NULL;
     }
 
-    if (stp->lambda_literals) {
-        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
-        stp->lambda_literals = NULL;
+    if (stp->fun_refs) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->fun_refs);
+        stp->fun_refs = NULL;
     }
 
     if (stp->bif_imports) {
@@ -1006,7 +1006,7 @@ load_error:
 void beam_load_finalize_code(LoaderState *stp,
                              struct erl_module_instance *inst_p) {
     ErtsCodeIndex staging_ix;
-    int code_size, i;
+    int code_size;
 
     ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
                    erts_thr_progress_is_blocking());
@@ -1042,7 +1042,7 @@ void beam_load_finalize_code(LoaderState *stp,
     /* Exported functions */
     staging_ix = erts_staging_code_ix();
 
-    for (i = 0; i < stp->beam.exports.count; i++) {
+    for (int i = 0; i < stp->beam.exports.count; i++) {
         BeamFile_ExportEntry *entry = &stp->beam.exports.entries[i];
         ErtsCodePtr address;
         Export *ep;
@@ -1062,7 +1062,7 @@ void beam_load_finalize_code(LoaderState *stp,
 
     /* Patch external function calls, this is done after exporting functions as
      * the module may remote-call itself*/
-    for (i = 0; i < stp->beam.imports.count; i++) {
+    for (int i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *entry = &stp->beam.imports.entries[i];
         Export *import;
 
@@ -1073,12 +1073,13 @@ void beam_load_finalize_code(LoaderState *stp,
 
     /* Patch fun creation. */
     if (stp->beam.lambdas.count) {
-        ErtsLiteralArea *literal_area = (stp->code_hdr)->literal_area;
         BeamFile_LambdaTable *lambda_table = &stp->beam.lambdas;
 
-        for (i = 0; i < lambda_table->count; i++) {
+        for (int i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
             ErlFunEntry *fun_entry;
+            FunRef *fun_refp;
+            Eterm fun_ref;
 
             lambda = &lambda_table->entries[i];
 
@@ -1089,38 +1090,36 @@ void beam_load_finalize_code(LoaderState *stp,
                                             lambda->index,
                                             lambda->arity - lambda->num_free);
 
-            if (erts_is_fun_loaded(fun_entry, staging_ix)) {
-                /* We've reloaded a module over itself and inherited the old
-                 * instance's fun entries, so we need to undo the reference
-                 * bump in `erts_put_fun_entry2` to make fun purging work. */
-                erts_refc_dectest(&fun_entry->refc, 1);
+            ASSERT(stp->fun_refs[i] != ERTS_SWORD_MAX);
+            fun_ref = beamfile_get_literal(&stp->beam, stp->fun_refs[i]);
+
+            /* If there are no free variables, the literal refers to an
+             * ErlFunThing that needs to be fixed up before we process the
+             * FunRef. */
+            if (lambda->num_free == 0) {
+                ErlFunThing *funp = (ErlFunThing *)boxed_val(fun_ref);
+                ASSERT(fun_env_size(funp) == 1 && funp->entry.fun == NULL);
+                funp->entry.fun = fun_entry;
+                fun_ref = funp->env[0];
+            }
+
+            fun_refp = (FunRef *)boxed_val(fun_ref);
+            fun_refp->entry = fun_entry;
+
+            /* Bump the reference count: this could not be done when copying
+             * the literal as we had no idea which entry it belonged to.
+             *
+             * We also need to parry an annoying wrinkle: when reloading a
+             * module over itself, we inherit the old instance's fun entries,
+             * and thus have to cancel the reference bump in
+             * `erts_put_fun_entry2` to make fun purging work. */
+            if (!erts_is_fun_loaded(fun_entry, staging_ix)) {
+                erts_refc_inctest(&fun_entry->refc, 1);
             }
 
             erts_set_fun_code(fun_entry,
                               staging_ix,
                               beamasm_get_lambda(stp->ba, i));
-
-            /* Finalize the literal we've created for this lambda, if any,
-             * converting it from an external fun to a local one with the newly
-             * created fun entry. */
-            if (stp->lambda_literals[i] != ERTS_SWORD_MAX) {
-                ErlFunThing *funp;
-                Eterm literal;
-
-                literal = beamfile_get_literal(&stp->beam,
-                                               stp->lambda_literals[i]);
-                funp = (ErlFunThing *)fun_val(literal);
-
-                funp->entry.fun = fun_entry;
-
-                funp->next = literal_area->off_heap;
-                literal_area->off_heap = (struct erl_off_heap_header *)funp;
-
-                ASSERT(funp->thing_word & (1 << FUN_HEADER_EXTERNAL_OFFS));
-                funp->thing_word &= ~(1 << FUN_HEADER_EXTERNAL_OFFS);
-
-                erts_refc_inc(&fun_entry->refc, 2);
-            }
 
             beamasm_patch_lambda(stp->ba, stp->writable_region, i, fun_entry);
         }

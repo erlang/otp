@@ -243,7 +243,7 @@ erts_init_gc(void)
     ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ErlFunThing,thing_word));
     ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ExternalThing,header));
     ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(struct erl_off_heap_header,next));
-    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(ErlFunThing,next));
+    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(FunRef,next));
     ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(ExternalThing,next));
 
     erts_test_long_gc_sleep = 0;
@@ -1314,12 +1314,9 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     erts_refc_inc(&refc_binary->intern.refc, 2);
                     break;
                 }
-            case FUN_SUBTAG:
+            case FUN_REF_SUBTAG:
                 {
-                    /* We _KNOW_ that this is a local fun, otherwise it would
-                     * not be part of the off-heap list. */
-                    ErlFunEntry *fe = ((ErlFunThing*)ptr)->entry.fun;
-                    ASSERT(is_local_fun((ErlFunThing*)ptr));
+                    ErlFunEntry *fe = ((FunRef*)ptr)->entry;
                     erts_refc_inc(&fe->refc, 2);
                     break;
                 }
@@ -2523,6 +2520,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
+            case FUN_REF_SUBTAG:
 		oh = (struct erl_off_heap_header*) (hp-1);
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
@@ -2535,19 +2533,6 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
                 /* Offset the `orig` field, as it's the last field inside the
                  * thing we can handle it by pretending it's not part of it. */
                 cpy_sz = thing_arityval(val) - 1;
-                goto cpy_words;
-            }
-            case FUN_SUBTAG:
-            {
-                ErlFunThing *funp = (ErlFunThing*) (fhp - 1);
-
-                if (is_local_fun(funp)) {
-                    oh = (struct erl_off_heap_header*) (hp - 1);
-                } else {
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-                }
-
-                cpy_sz = thing_arityval(val);
                 goto cpy_words;
             }
 	    default:
@@ -3057,21 +3042,14 @@ sweep_off_heap(Process *p, int fullsweep)
                     erts_bin_release(((BinRef*)ptr)->val);
 		    break;
 		}
-	    case FUN_SUBTAG:
-		{
-                    ErlFunThing* funp = ((ErlFunThing*)ptr);
-
-                    if (is_local_fun(funp)) {
-                        ErlFunEntry* fe = funp->entry.fun;
-
-                        if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                            erts_erase_fun_entry(fe);
-                        }
-                    } else {
-                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+            case FUN_REF_SUBTAG:
+                {
+                    FunRef *refp = ((FunRef*)ptr);
+                    if (erts_refc_dectest(&(refp->entry)->refc, 0) == 0) {
+                        erts_erase_fun_entry(refp->entry);
                     }
-		    break;
-		}
+                    break;
+                }
 	    case REF_SUBTAG:
 		{
 		    ErtsMagicBinary *bptr;
@@ -3114,7 +3092,7 @@ sweep_off_heap(Process *p, int fullsweep)
                     break;
                 }
             default:
-                ASSERT(is_fun_header(ptr->thing_word) ||
+                ASSERT(ptr->thing_word == HEADER_FUN_REF ||
                        is_external_header(ptr->thing_word) ||
                        is_magic_ref_thing(ptr));
                 break;
@@ -3300,10 +3278,10 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		  if (!is_magic_ref_thing(hp))
 		      break;
 	      case BIN_REF_SUBTAG:
-	      case FUN_SUBTAG:
 	      case EXTERNAL_PID_SUBTAG:
 	      case EXTERNAL_PORT_SUBTAG:
 	      case EXTERNAL_REF_SUBTAG:
+	      case FUN_REF_SUBTAG:
 		  {
 		      struct erl_off_heap_header* oh = (struct erl_off_heap_header*) hp;
 
@@ -3992,12 +3970,10 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
             case ARITYVAL_SUBTAG:
                 break;
             case BIN_REF_SUBTAG:
-                goto off_heap_common;
-            case FUN_SUBTAG:
-                goto off_heap_common;
             case EXTERNAL_PID_SUBTAG:
             case EXTERNAL_PORT_SUBTAG:
             case EXTERNAL_REF_SUBTAG:
+            case FUN_REF_SUBTAG:
             off_heap_common:
                 {
                     int tari = thing_arityval(val);
@@ -4144,20 +4120,14 @@ repeat:
 	case BIN_REF_SUBTAG:
 	    refc = erts_refc_read(&(u.br->val)->intern.refc, 1);
 	    break;
-        case FUN_SUBTAG:
-            if (is_local_fun(u.fun)) {
-                refc = erts_refc_read(&u.fun->entry.fun->refc, 1);
-            } else {
-                /* Export fun, fake a valid refc. */
-                ASSERT(is_external_fun(u.fun) && u.fun->next == NULL);
-                refc = 1;
-            }
-	    break;
 	case EXTERNAL_PID_SUBTAG:
 	case EXTERNAL_PORT_SUBTAG:
 	case EXTERNAL_REF_SUBTAG:
 	    refc = erts_refc_read(&u.ext->node->refc, 1);
 	    break;
+        case FUN_REF_SUBTAG:
+            refc = erts_refc_read(&(u.fref->entry)->refc, 1);
+            break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
 	    refc = erts_refc_read(&u.mref->mb->intern.refc, 1);

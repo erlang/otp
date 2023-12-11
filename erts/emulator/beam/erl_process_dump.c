@@ -629,7 +629,11 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
                     *ptr = OUR_NIL;
                 } else if (hdr == HEADER_BIN_REF) {
                     dump_bin_ref(to, to_arg, (BinRef*)ptr);
-		    *ptr = OUR_NIL;
+                    *ptr = OUR_NIL;
+                } else if (hdr == HEADER_FUN_REF) {
+                    const FunRef *fref = (FunRef*)ptr;
+                    erts_print(to, to_arg, "Rf" PTR_FMT "\n", fref->entry);
+                    *ptr = OUR_NIL;
 		} else if (is_external_pid_header(hdr)) {
 		    erts_print(to, to_arg, "P%T\n", x);
 		    *ptr = OUR_NIL;
@@ -758,10 +762,10 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 	 * The crashdump_viewer does not allow inspection of them anyway.
 	 */
 	ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	Uint num_free = fun_num_free(funp);
+	Uint env_size = fun_env_size(funp);
 	Uint i;
 
-	for (i = 0; i < num_free; i++) {
+	for (i = 0; i < env_size; i++) {
 	    funp->env[i] = NIL;
 	}
     }
@@ -982,6 +986,9 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                 }
             } else if (w == HEADER_BIN_REF) {
                 dump_bin_ref(to, to_arg, (BinRef*)htop);
+            } else if (w == HEADER_FUN_REF) {
+                const FunRef *fref = (FunRef*)htop;
+                erts_print(to, to_arg, "Rf" PTR_FMT "\n", fref->entry);
             } else if (is_map_header(w)) {
                 if (is_flatmap_header(w)) {
                     flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
@@ -1039,7 +1046,10 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
             case FUN_SUBTAG:
-                ASSERT(fun_num_free((ErlFunThing*)(htop)) == 0);
+                {
+                    const ErlFunThing *funp = (ErlFunThing*)htop;
+                    size += fun_env_size(funp);
+                }
                 break;
             case MAP_SUBTAG:
                 if (is_flatmap_header(w)) {

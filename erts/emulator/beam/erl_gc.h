@@ -67,16 +67,25 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
     nelts = header_arity(hdr);
     switch ((hdr) & _HEADER_SUBTAG_MASK) {
     case MAP_SUBTAG:
-        if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
-        else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
-    break;
-    case FUN_SUBTAG: nelts+=fun_num_free((ErlFunThing*)(ptr)); break;
+        if (is_flatmap_header(hdr)) {
+            nelts += flatmap_get_size(ptr) + 1;
+        } else {
+            nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
+        }
+        break;
+    case FUN_SUBTAG:
+        nelts += fun_env_size((ErlFunThing*)(ptr));
+        break;
     }
+
     gval    = make_boxed(htop);
     *orig   = gval;
     *htop++ = hdr;
     *ptr++  = gval;
-    while (nelts--) *htop++ = *ptr++;
+
+    while (nelts--) {
+        *htop++ = *ptr++;
+    }
 
     *hpp = htop;
     return ptr;

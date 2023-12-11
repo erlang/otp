@@ -662,16 +662,21 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
                 erts_bin_release(bin);
                 break;
             }
-        case FUN_SUBTAG:
+        case FUN_REF_SUBTAG:
             {
-                /* We _KNOW_ that this is a local fun, otherwise it would not
-                 * be part of the off-heap list. */
-                ErlFunEntry* fe = ((ErlFunThing*)oh)->entry.fun;
+                ErlFunEntry* fe = ((FunRef*)oh)->entry;
 
-                ASSERT(is_local_fun((ErlFunThing*)oh));
-
-                if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                    erts_erase_fun_entry(fe);
+                /* All fun entries are NULL during module loading, before the
+                 * code is finalized, so we need to tolerate it to avoid
+                 * crashing in the prepared code destructor.
+                 *
+                 * Strictly speaking it would be nice to crash when we see this
+                 * outside of loading, but it's too complicated to keep track
+                 * of whether we are. */
+                if (fe != NULL) {
+                    if (erts_refc_dectest(&fe->refc, 0) == 0) {
+                        erts_erase_fun_entry(fe);
+                    }
                 }
                 break;
             }

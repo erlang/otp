@@ -88,10 +88,11 @@ struct LoaderState_ {
     void *coverage;
     byte *line_coverage_valid;
 
-    /* Translates lambda indexes to their literals, if any. Lambdas that lack
-     * a literal (for example if they have an environment) are represented by
-     * ERTS_SWORD_MAX. */
-    SWord *lambda_literals;
+    /* Translates lambda indexes to the literal holding their FunRef.
+     *
+     * Lambdas that lack an environment are represented by an ErlFunThing that
+     * is immediately followed by an FunRef. */
+    SWord *fun_refs;
 
     void *ba; /* Assembler used to create x86 assembly */
 

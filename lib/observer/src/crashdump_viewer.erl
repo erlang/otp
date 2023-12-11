@@ -2894,7 +2894,12 @@ parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {Map,Line,D};
 parse_heap_term("Mn"++Line0, Addr, DecodeOpts, D) -> %Interior node in a hashmap.
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, DecodeOpts, D, []).
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []);
+parse_heap_term("Rf"++Line0, Addr, _DecodeOpts, D0) -> %Fun reference
+    {N,[]} = get_hex(Line0),
+    Term = {'#CDVFRef', N},
+    D = gb_trees:insert(Addr, Term, D0),
+    {Term,[],D}.
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),

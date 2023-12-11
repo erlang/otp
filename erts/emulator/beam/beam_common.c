@@ -1730,7 +1730,12 @@ call_fun(Process* p,    /* Current process. */
 
     if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
                     fun_arity(funp) == arity)) {
-        for (int i = 0, num_free = fun_num_free(funp); i < num_free; i++) {
+        /* Copy the free variables, skipping the FunRef in the environment.
+         *
+         * Note that we avoid using fun_num_free as it asserts that the
+         * argument is a local function, which we don't need to care about
+         * here. */
+        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1739,7 +1744,6 @@ call_fun(Process* p,    /* Current process. */
             DTRACE_LOCAL_CALL(p, erts_code_to_codemfa(code_ptr));
         } else {
             Export *ep = funp->entry.exp;
-            ASSERT(is_external_fun(funp) && funp->next == NULL);
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
         }
 #endif

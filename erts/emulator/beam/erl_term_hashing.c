@@ -257,8 +257,6 @@ tail_recur:
             } else {
                 const ErtsCodeMFA *mfa = &funp->entry.exp->info.mfa;
 
-                ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                 hash = hash * FUNNY_NUMBER11 + mfa->arity;
                 hash = hash*FUNNY_NUMBER1 +
                        (atom_tab(atom_val(mfa->module))->slot.bucket.hvalue);
@@ -1189,8 +1187,6 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 } else {
                     Export *ep = funp->entry.exp;
 
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     UINT32_HASH_2
                         (ep->info.mfa.arity,
                          atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
@@ -1924,8 +1920,6 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
 
                     goto pop_next;
                 } else {
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     /* Assumes Export entries never move */
                     IHASH_MIX_ALPHA(IHASH_TYPE_EXTERNAL_FUN);
                     IHASH_MIX_BETA((UWord)funp->entry.exp);

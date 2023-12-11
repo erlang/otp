@@ -508,13 +508,19 @@ bad_md5(Bad) ->
     {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
 
 refc(Config) when is_list(Config) ->
+    %% As the fun entry is owned by the fun's shared reference holder and not
+    %% the fun itself, its reference count should be generally be unchanged
+    %% regardless of how many copies we create, and on which process we do so.
+    %%
+    %% Only certain operations that break the sharing of the literal reference
+    %% holder should have an impact.
     F1 = fun_factory(2),
     {refc,2} = erlang:fun_info(F1, refc),
     F2 = fun_factory(42),
-    {refc,3} = erlang:fun_info(F1, refc),
+    {refc,2} = erlang:fun_info(F1, refc),
 
     process_flag(trap_exit, true),
-    Pid = spawn_link(fun() -> {refc,4} = erlang:fun_info(F1, refc) end),
+    Pid = spawn_link(fun() -> {refc,2} = erlang:fun_info(F1, refc) end),
     receive
 	{'EXIT',Pid,normal} -> ok;
 	Other -> ct:fail({unexpected,Other})
@@ -522,13 +528,20 @@ refc(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     %% Wait to make sure that the process has terminated completely.
     receive after 1 -> ok end,
-    {refc,3} = erlang:fun_info(F1, refc),
+    {refc,2} = erlang:fun_info(F1, refc),
+
+    %% Force a copy of the underlying reference holder by passing through the
+    %% external term format.
+    F3 = binary_to_term(term_to_binary(F1)),
+    3 = fun_refc(F1),
+    3 = fun_refc(F3),
 
     %% Garbage collect. Only the F2 fun will be left.
     7 = F1(5),
     true = erlang:garbage_collect(),
     40 = F2(-2),
     {refc,2} = erlang:fun_info(F2, refc),
+
     ok.
 
 fun_factory(Const) ->

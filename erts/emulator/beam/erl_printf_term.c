@@ -670,8 +670,6 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                     long tdcount;
                     int tres;
 
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     PRINT_STRING(res, fn, arg, "fun ");
 
                     /* We pass a temporary 'dcount' and adjust the real one
@@ -772,9 +770,12 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
             }
             break;
         }
-	case BIN_REF_DEF:
-	    PRINT_STRING(res, fn, arg, "#BinRef");
-	    break;
+        case BIN_REF_DEF:
+            PRINT_STRING(res, fn, arg, "#BinRef");
+            break;
+        case FUN_REF_DEF:
+            PRINT_STRING(res, fn, arg, "#FunRef");
+            break;
         default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);
