@@ -346,7 +346,7 @@ gen.make_fun3(Idx, Dst, NumFree, Env) {
         if (NumFree.val == entry->num_free) {
             int i;
 
-            if (NumFree.val == 0 && erts_init_process_id != ERTS_INVALID_PID) {
+            if (NumFree.val == 0) {
                 $MakeLiteralLambda(op, Idx.val, Dst.type, Dst.val);
             } else {
                 $BeamOpNameArity(op, i_make_fun3, 4);
