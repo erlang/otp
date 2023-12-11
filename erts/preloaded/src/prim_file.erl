@@ -25,7 +25,7 @@
          sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          read_line/1, read/2, write/2, position/2,
          pread/2, pread/3, pwrite/2, pwrite/3,
-         copy_file/2]).
+         copy_file/2, copy_range/3]).
 
 %% OTP internal.
 
@@ -74,7 +74,7 @@
        del_dir_nif/1, get_device_cwd_nif/1, set_cwd_nif/1, get_cwd_nif/0,
        ipread_s32bu_p32bu_nif/3, read_file_nif/1,
        get_handle_nif/1, delayed_close_nif/1, altname_nif/1,
-       file_desc_to_ref_nif/1, copy_file_nif/2]).
+       file_desc_to_ref_nif/1, copy_file_nif/2, copy_range_nif/3]).
 
 -type prim_file_name() :: string() | unicode:unicode_binary().
 -type prim_file_name_error() :: 'error' | 'ignore' | 'warning'.
@@ -127,10 +127,13 @@ copy(#file_descriptor{module = ?MODULE} = Source,
     %% XXX Should be moved down to the driver for optimization.
     file:copy_opened(Source, Dest, Length).
 
-%% Returns {error, Reason} | {ok, BytesCopied}
+%% Returns {error, Reason} | ok
 %% Using unix syscall copy_file_range(2)
 copy_file(Source, Destination) ->
     copy_file_nif(encode_path(Source), encode_path(Destination)).
+copy_range(Source, Destination, Length)
+  when is_integer(Length), Length >= 0 ->
+    copy_range_nif(encode_path(Source), encode_path(Destination), Length).
 
 open(Name, Modes) ->
     %% The try/catch pattern seen here is used throughout the file to adhere to
@@ -536,6 +539,8 @@ delayed_close_nif(_FileRef) ->
 read_handle_info_nif(_FileRef) ->
     erlang:nif_error(undef).
 copy_file_nif(_Name, _Dest) ->
+     erlang:nif_error(undef).
+copy_range_nif(_Name, _Dest, _Length) ->
      erlang:nif_error(undef).
 
 %%

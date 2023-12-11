@@ -1595,17 +1595,66 @@ posix_errno_t efile_copy_file(const efile_path_t *file_path_in, const efile_path
     ASSERT_PATH_FORMAT(file_path_in);
     ASSERT_PATH_FORMAT(file_path_out);
 
-    /* If this parameter is TRUE and the new file specified by lpNewFileName already exists, the function fails.
-     * If this parameter is FALSE and the new file already exists, the function overwrites the existing file and succeeds.
-     * For safety reason, we using TRUE as default value.
-     */
-
-    if(!CopyFileW((WCHAR*)file_path_in->data, (WCHAR*)file_path_out->data, TRUE)) {
+    if(!CopyFileW((WCHAR*)file_path_in->data, (WCHAR*)file_path_out->data, FALSE)) {
         return windows_to_posix_errno(GetLastError());
     }
 
     return 0;
 }
+
+posix_errno_t efile_copy_range(const efile_path_t *file_path_in, const efile_path_t *file_path_out, off64_t length) {
+    HANDLE hInFile, hOutFile;
+
+    char buffer[4096];
+    DWORD totalBytesRead;
+    DWORD bytesRead, bytesWritten;
+    LARGE_INTEGER li;
+
+    ASSERT_PATH_FORMAT(file_path_in);
+    ASSERT_PATH_FORMAT(file_path_out);
+
+    hInFile = CreateFileW((WCHAR*)file_path_in->data, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hInFile == INVALID_HANDLE_VALUE) {
+        return windows_to_posix_errno(GetLastError());
+    }
+
+    hOutFile = CreateFileW((WCHAR*)file_path_out->data, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hOutFile == INVALID_HANDLE_VALUE) {
+        CloseHandle(hInFile);
+        return windows_to_posix_errno(GetLastError());
+    }
+
+    li.QuadPart = length;
+    if (!SetFilePointerEx(hInFile, li, NULL, FILE_BEGIN)) {
+        CloseHandle(hInFile);
+        CloseHandle(hOutFile);
+        return windows_to_posix_errno(GetLastError());
+    }
+
+    totalBytesRead = 0;
+
+    while (totalBytesRead < length) {
+        if (!ReadFile(hInFile, buffer, sizeof(buffer), &bytesRead, NULL) || bytesRead == 0) {
+            break;
+        }
+
+        if (!WriteFile(hOutFile, buffer, bytesRead, &bytesWritten, NULL)) {
+            break;
+        }
+
+        totalBytesRead += bytesRead;
+    }
+
+    CloseHandle(hInFile);
+    CloseHandle(hOutFile);
+
+    if (totalBytesRead < length) {
+        return errno;
+    }
+
+    return 0;
+}
+
 
 static int windows_to_posix_errno(DWORD last_error) {
     switch(last_error) {
