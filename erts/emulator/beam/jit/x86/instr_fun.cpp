@@ -193,16 +193,20 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
 
     ASSERT(NumFree.get() == num_free);
 
-    mov_arg(ARG2, Lambda);
-    mov_arg(ARG3, Arity);
-    mov_arg(ARG4, NumFree);
+    mov_arg(RET, Lambda);
 
-    emit_enter_runtime<Update::eHeapOnlyAlloc>();
+    comment("Bump fun entry reference count");
+    ERTS_CT_ASSERT(sizeof(erts_refc_t) == sizeof(UWord));
+    a.lock().inc(x86::qword_ptr(RET, offsetof(ErlFunEntry, refc)));
 
-    a.mov(ARG1, c_p);
-    runtime_call<4>(erts_new_local_fun_thing);
+    comment("Create fun thing");
+    a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, thing_word)),
+          imm(MAKE_FUN_HEADER(Arity.get(), num_free, 0)));
+    a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, entry.fun)), RET);
 
-    emit_leave_runtime<Update::eHeapOnlyAlloc>();
+    a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, off_heap)));
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, off_heap)), HTOP);
+    a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, next)), RET);
 
     comment("Move fun environment");
     for (unsigned i = 0; i < num_free; i++) {
@@ -210,7 +214,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
         switch (ArgVal::memory_relation(env[i], next)) {
         case ArgVal::Relation::consecutive: {
             x86::Mem src_ptr = getArgRef(env[i].as<ArgRegister>(), 16);
-            x86::Mem dst_ptr = x86::xmmword_ptr(RET,
+            x86::Mem dst_ptr = x86::xmmword_ptr(HTOP,
                                                 offsetof(ErlFunThing, env) +
                                                         i * sizeof(Eterm));
             comment("(moving two items)");
@@ -224,7 +228,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                 goto fallback;
             }
             x86::Mem src_ptr = getArgRef(env[i + 1].as<ArgRegister>(), 16);
-            x86::Mem dst_ptr = x86::xmmword_ptr(RET,
+            x86::Mem dst_ptr = x86::xmmword_ptr(HTOP,
                                                 offsetof(ErlFunThing, env) +
                                                         i * sizeof(Eterm));
             comment("(moving and swapping two items)");
@@ -235,7 +239,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
         }
         case ArgVal::Relation::none:
         fallback:
-            mov_arg(x86::qword_ptr(RET,
+            mov_arg(x86::qword_ptr(HTOP,
                                    offsetof(ErlFunThing, env) +
                                            i * sizeof(Eterm)),
                     env[i]);
@@ -244,7 +248,8 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     }
 
     comment("Create boxed ptr");
-    a.or_(RETb, TAG_PRIMARY_BOXED);
+    a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
+    a.add(HTOP, imm((ERL_FUN_SIZE + num_free) * sizeof(Eterm)));
     mov_arg(Dst, RET);
 }
 

@@ -205,45 +205,64 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    const ssize_t num_free = NumFree.get();
-    ssize_t i;
+    const int num_free = NumFree.get();
 
-    ASSERT(num_free == (ssize_t)env.size());
+    ASSERT(num_free == env.size() && num_free <= MAX_ARG);
 
-    a.mov(ARG1, c_p);
-    mov_arg(ARG2, Lambda);
-    mov_arg(ARG3, Arity);
-    mov_arg(ARG4, NumFree);
+    mov_arg(TMP1, Lambda);
 
-    emit_enter_runtime<Update::eHeapOnlyAlloc>();
+    comment("Bump fun entry reference count");
+    ERTS_CT_ASSERT(sizeof(erts_refc_t) == sizeof(UWord));
+    lea(TMP2, arm::Mem(TMP1, offsetof(ErlFunEntry, refc)));
+    if (hasCpuFeature(CpuFeatures::ARM::kLSE)) {
+        mov_imm(TMP3, 1);
+        a.ldaddal(TMP3, TMP3, arm::Mem(TMP2));
+    } else {
+        Label again = a.newLabel();
 
-    runtime_call<4>(erts_new_local_fun_thing);
-
-    emit_leave_runtime<Update::eHeapOnlyAlloc>();
-
-    if (num_free) {
-        comment("Move fun environment");
+        a.bind(again);
+        {
+            a.ldaxr(TMP3, arm::Mem(TMP2));
+            a.add(TMP3, TMP3, imm(1));
+            a.stlxr(TMP3, TMP3, arm::Mem(TMP2));
+            a.cbnz(TMP3, again);
+        }
     }
 
-    for (i = 0; i < num_free - 1; i += 2) {
-        ssize_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
+    comment("Create fun thing");
+    mov_imm(TMP2, MAKE_FUN_HEADER(Arity.get(), num_free, 0));
+    ERTS_CT_ASSERT_FIELD_PAIR(ErlFunThing, thing_word, entry.fun);
+    a.stp(TMP2, TMP1, arm::Mem(HTOP, offsetof(ErlFunThing, thing_word)));
 
-        if ((i % 128) == 0) {
-            check_pending_stubs();
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, off_heap)));
+    a.str(HTOP, arm::Mem(c_p, offsetof(Process, off_heap)));
+    a.str(TMP1, arm::Mem(HTOP, offsetof(ErlFunThing, next)));
+
+    if (num_free > 0) {
+        int i;
+
+        comment("Move fun environment");
+        for (i = 0; i < num_free - 1; i += 2) {
+            int offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
+
+            if ((i % 128) == 0) {
+                check_pending_stubs();
+            }
+
+            auto [first, second] = load_sources(env[i], TMP1, env[i + 1], TMP2);
+            safe_stp(first.reg, second.reg, arm::Mem(HTOP, offset));
         }
 
-        auto [first, second] = load_sources(env[i], TMP1, env[i + 1], TMP2);
-        safe_stp(first.reg, second.reg, arm::Mem(ARG1, offset));
-    }
-
-    if (i < num_free) {
-        ssize_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-        mov_arg(arm::Mem(ARG1, offset), env[i]);
+        if (i < num_free) {
+            int offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
+            mov_arg(arm::Mem(HTOP, offset), env[i]);
+        }
     }
 
     comment("Create boxed ptr");
     auto dst = init_destination(Dst, TMP1);
-    a.orr(dst.reg, ARG1, imm(TAG_PRIMARY_BOXED));
+    a.orr(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+    add(HTOP, HTOP, (ERL_FUN_SIZE + num_free) * sizeof(Eterm));
     flush_var(dst);
 }
 
