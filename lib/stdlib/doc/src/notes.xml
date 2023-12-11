@@ -31,6 +31,119 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>shell_docs</c> correctly trim the newline at the
+	    end of code blocks.</p>
+          <p>
+	    Own Id: OTP-18777 Aux Id: PR-7663 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where autocompletion could crash the shell
+	    when trying to expand a nested tuple.</p>
+          <p>
+	    Own Id: OTP-18822 Aux Id: PR-7796 </p>
+        </item>
+        <item>
+          <p>
+	    Removed auto closing feature, in autocompletion, for
+	    function arguments, tuples, records and maps, since this
+	    could interfere with autocompletion of atoms.</p>
+          <p>
+	    Own Id: OTP-18823</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where autocompletion string formatting would
+	    remove suggestions that had the same name but different
+	    case.</p>
+          <p>
+	    Own Id: OTP-18824</p>
+        </item>
+        <item>
+          <p>
+	    Fix so that ctrl+h, ctrl+backspace in the shell only
+	    removes one character instead of a whole word.</p>
+          <p>
+	    Own Id: OTP-18826 Aux Id: PR-7797 </p>
+        </item>
+        <item>
+          <p>
+	    Fix so that its possible to override the default keyboard
+	    shortcuts for the shell.</p>
+          <p>
+	    Own Id: OTP-18827 Aux Id: PR-7797 </p>
+        </item>
+        <item>
+          <p>
+	    Allow shell local func v(), in a restricted shell</p>
+          <p>
+	    Own Id: OTP-18828 Aux Id: PR-7799 </p>
+        </item>
+        <item>
+          <p>
+	    Report syntax error when writing an invalid attribute
+	    like '1> -hej.'</p>
+          <p>
+	    Own Id: OTP-18829 Aux Id: PR-7799 </p>
+        </item>
+        <item>
+	    <p>When attempting to match part of a record in the key
+	    of a map generator, the entire record would be
+	    matched.</p>
+          <p>
+	    Own Id: OTP-18866 Aux Id: GH-7875, PR-7878 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The warning for accidental use of a future triple-quoted
+	    string delimiter has been upgraded to instead warn for
+	    adjacent strings without intervening white space, which
+	    effectively is the same at a string start, but also
+	    covers the same situation at a string end.</p>
+          <p>
+	    Own Id: OTP-18821 Aux Id: OTP-18746 </p>
+        </item>
+        <item>
+	    <p>The removal of the deprecated <c>slave</c> module,
+	    originally planned for OTP 27, has been postponed to OTP
+	    29.</p>
+          <p>
+	    Own Id: OTP-18840 Aux Id: PR-7629 </p>
+        </item>
+        <item>
+          <p>
+	    Guards have been added to <c>gen_*:start*</c> API
+	    functions to catch bad arguments earlier. Before this
+	    change, in some cases, a bad argument could tag along and
+	    cause the server to fail later, right after start.</p>
+          <p>
+	    Own Id: OTP-18857 Aux Id: GH-7685 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.1.1</title>
 
     <section><title>Improvements and New Features</title>

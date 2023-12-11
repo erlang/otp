@@ -31,6 +31,98 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For <c>inet_backend = socket</c>, an unexpected receive
+	    error such as <c>etimedout</c> caused the receiving state
+	    machine server to crash. This bug has now been fixed.</p>
+          <p>
+	    Own Id: OTP-18749 Aux Id: GH-7608 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where reading using <c>file</c> from a unicode
+	    enabled <c>standard_io</c>, <c>standard_error</c> or any
+	    other <c>group</c> backed device would result in
+	    incorrect values being returned or a crash.</p>
+          <p>
+	    Now instead a no_translation error is returned to the
+	    caller when unicode data is read using <c>file</c>. See
+	    <seeguide
+	    marker="stdlib:unicode_usage#escripts-and-non-interactive-i-o">Using
+	    Unicode</seeguide> in the STDLIB User's Guide for more
+	    details on how to correctly read from <c>standard_io</c>.</p>
+          <p>
+	    Own Id: OTP-18800 Aux Id: PR-7714 GH-7591 </p>
+        </item>
+        <item>
+          <p>
+	    The native resolver interface module has gotten a rewrite
+	    of its ETS table handling to minimize term copying, and
+	    also to move the handling of client time-outs to the
+	    clients, which helps the native resolver name server from
+	    digging itself into a tar pit when heavily loaded.</p>
+          <p>
+	    Own Id: OTP-18812 Aux Id: ERIERL-997 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>pg</c> if a client process both monitored a
+	    group/scope and joined a group. The termination of such
+	    process resulted in crash of the <c>pg</c> server
+	    process.</p>
+          <p>
+	    Own Id: OTP-18833 Aux Id: GH-7625, PR-7659 </p>
+        </item>
+        <item>
+          <p>
+	    Fix crash when using <c>file:consult</c> and the
+	    underlying file read returns an error while reading.</p>
+          <p>
+	    Own Id: OTP-18873 Aux Id: PR-7831 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected gen_tcp_socket listen option handling.</p>
+          <p>
+	    Own Id: OTP-18883 Aux Id: #7764 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add Windows support for DGRAM socket connect.</p>
+          <p>
+	    Own Id: OTP-18762</p>
+        </item>
+        <item>
+          <p>
+	    Document the, previously opaque, types select_tag() and
+	    completion_tag().</p>
+          <p>
+	    Own Id: OTP-18818 Aux Id: #7337 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

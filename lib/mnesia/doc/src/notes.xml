@@ -39,7 +39,42 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.22.1</title>
+  <section><title>Mnesia 4.23</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Document <c>mnesia:foldl/4</c> and <c>mnesia:foldr/4</c>.</p>
+          <p>
+	    Own Id: OTP-18798</p>
+        </item>
+        <item>
+          <p>
+	    <c>mnesia:add_table_copy/3</c> no longer fails with
+	    reason system_limit when the node is starting.</p>
+          <p>
+	    Own Id: OTP-18850</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Restore recreate of disc_only tables could crash if they
+	    had an index.</p>
+          <p>
+	    Own Id: OTP-18843 Aux Id: GH-7766 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.22.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

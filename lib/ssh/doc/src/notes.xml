@@ -30,6 +30,52 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid outputting ansi escape sequences to dumb ssh
+	    clients.</p>
+          <p>
+	    Own Id: OTP-18861 Aux Id: PR-7627 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, connection handler does not execute
+	    socket operations until it becomes socket owner.
+	    Previously errors could occur if connection handler tried
+	    to work with socket whose owner exited.</p>
+          <p>
+	    Own Id: OTP-18869 Aux Id: PR-7849,GH-7571 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    With this change, reverse search works with ssh shell and
+	    non dumb terminals.</p>
+          <p>
+	    Own Id: OTP-18730 Aux Id: PR-7499 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

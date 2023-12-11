@@ -1278,7 +1278,7 @@ encodes the tuple {numbers,12,3.14159}</pre>
           without the initial version byte.</p>
 	<change>
           <p>
-	    Since OTP @OTP-18764@ maps can be encoded with syntax like
+	    Since OTP 26.2 maps can be encoded with syntax like
 	    <c>"#{k1 => v1, k2 => v2}"</c>.
 	  </p>
         </change>

@@ -33,6 +33,22 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    With this change, EUnit timetraps can be scaled with the
+	    use of scale_timeouts option.</p>
+          <p>
+	    Own Id: OTP-18771 Aux Id: PR-7635 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.8.2</title>
 
     <section><title>Improvements and New Features</title>

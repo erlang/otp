@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>dialyzer --output</c> flag to work. This option
+	    was accidentally removed in OTP 26.0.</p>
+          <p>
+	    Own Id: OTP-18767 Aux Id: PR-7657 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash in contract checking relating to opaque
+	    types.</p>
+          <p>
+	    Own Id: OTP-18772 Aux Id: GH-7676 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 5.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

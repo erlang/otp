@@ -31,7 +31,40 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.5.1</title>
+  <section><title>Erl_Docgen 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erl_docgen dtd to only allow a single
+	    <c>datatype_title</c> within a <c>datatypes</c> block.</p>
+          <p>
+	    Own Id: OTP-18775 Aux Id: PR-7663 </p>
+        </item>
+        <item>
+          <p>
+	    Fix so that EEP-48 doc chunks include the module summary
+	    and generates equiv tags in the correct order.</p>
+          <p>
+	    The function/type group title is now also included in the
+	    entry metadata.</p>
+          <p>
+	    Own Id: OTP-18776 Aux Id: PR-7663 </p>
+        </item>
+        <item>
+          <p>
+	    Update all &lt;tt&gt; html tags to be &lt;code&gt;
+	    instead.</p>
+          <p>
+	    Own Id: OTP-18799 Aux Id: PR-7695 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -31,6 +31,33 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed some benign compile warnings on Windows.</p>
+          <p>
+	    Own Id: OTP-18895</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enable engine support for OpenSSL versions 3.</p>
+          <p>
+	    Own Id: OTP-18832 Aux Id: PR-7763 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

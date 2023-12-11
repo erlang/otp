@@ -33,6 +33,20 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Map comprehensions now work in the Debugger.</p>
+          <p>
+	    Own Id: OTP-18888 Aux Id: GH-7914 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 5.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

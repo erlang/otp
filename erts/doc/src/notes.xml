@@ -31,6 +31,178 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erl.exe to to restore the console to its original
+	    state when exiting. This bug was introduced in OTP 26.0
+	    and only happens when erl.exe is run in cmd.exe.</p>
+          <p>
+	    Own Id: OTP-18751 Aux Id: GH-7621 GH-7548 </p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty debug assert when page size is larger than
+	    16kb, like on PowerPC. Did crash debug VM directly at
+	    start.</p>
+          <p>
+	    Own Id: OTP-18802</p>
+        </item>
+        <item>
+	    <p><c>zlib</c> will no longer randomly return garbage
+	    (negative) Adler32 checksums.</p>
+          <p>
+	    Own Id: OTP-18811 Aux Id: ERIERL-994 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+        <item>
+          <p>
+	    A process with <c>message_queue_data</c> configured as
+	    <c>off_heap</c> could end up in an inconsistent state
+	    when being <c>receive</c> traced, inspected using
+	    <c>process_info/2</c> with the <c>message_queue_len</c>
+	    item, or inspected using the break menu (CTRL-C). When it
+	    ended up in this inconsistent state, it was not enqueued
+	    into a run queue even though it was set in a runnable
+	    state.This also effected signals being sent to the
+	    process after it had gotten into this inconsistent state,
+	    in such a way that it was from this point not possible to
+	    communicate with it.</p>
+          <p>
+	    Own Id: OTP-18838 Aux Id: PR-7822, GH-7801 </p>
+        </item>
+        <item>
+          <p>
+	    A race occurring when a process was selected for dirty
+	    execution simultaneously as it was scheduled for handling
+	    a signal could cause the process to end up in an
+	    inconsistent state. When it ended up in this inconsistent
+	    state, it was not enqueued into a run queue even though
+	    it was set in a runnable state. This also effected
+	    signals being sent to the process after it had gotten
+	    into this inconsistent state, in such a way that it was
+	    from this point not possible to communicate with it.</p>
+          <p>
+	    Own Id: OTP-18839 Aux Id: PR-7822, GH-7801 </p>
+        </item>
+        <item>
+          <p>
+	    When a process had to to wait in the run queue for a long
+	    time before being selected for dirty execution, it could
+	    not receive signals. This caused inspection of such a
+	    process, for example using <c>process_info/2</c>, to take
+	    a long time.</p>
+          <p>
+	    This issue was introduced in OTP 25.3.2.6 and 26.1 when
+	    fixing an issue where a constant flow of signals
+	    prevented a process from being able to execute dirty.</p>
+          <p>
+	    Own Id: OTP-18841 Aux Id: PR-7822, GH-7801, OTP-18737 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the JIT that miscompiled large
+	    <c>select_val</c> instructions.</p>
+          <p>
+	    Own Id: OTP-18842</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug on Windows where large writes to
+	    <c>standard_io</c> could cause duplicate data to be
+	    written.</p>
+          <p>
+	    Own Id: OTP-18871 Aux Id: GH-7838 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>struct ip_mreqn</c> field <c>imr_ifindex</c> had
+	    got an incorrect byte order conversion that has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-18880 Aux Id: GH-7736, PR-7761 </p>
+        </item>
+        <item>
+          <p>
+	    On OTP 24 and OTP 25, incoming distributed messages
+	    larger than 64 KiB sent using an alias leaked memory if
+	    the alias had been removed prior to entering the node.
+	    This issue was not present on OTP 26.</p>
+          <p>
+	    Incoming distributed messages larger than 64 KiB sent
+	    using an alias which had been removed on the receiving
+	    node could crash the node. This crash was quite unlikely
+	    on OTP 24 and OTP 25, but very likely on OTP 26.</p>
+          <p>
+	    <c>'DOWN'</c> signals with exit reason larger than 64 KiB
+	    directed towards a process on a node with a not matching
+	    creation leaked memory on the receiving node. Such
+	    signals should however be very rare.</p>
+          <p>
+	    Own Id: OTP-18885 Aux Id: GH-7834, GH-7890, PR-7915 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add Windows support for DGRAM socket connect.</p>
+          <p>
+	    Own Id: OTP-18762</p>
+        </item>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erlang#process_info/2"><c>process_info/2</c></seemfa>
+	    now supports lookup of values for specific keys in the
+	    process dictionary. For example, <c>{{dictionary, Key},
+	    Value} = process_info(Pid, {dictionary, Key})</c>.</p>
+          <p>
+	    Own Id: OTP-18765 Aux Id: PR-7707 </p>
+        </item>
+        <item>
+          <p>
+	    Removed unnecessary regexp library used when generating
+	    yielding BIFs.</p>
+          <p>
+	    Own Id: OTP-18830 Aux Id: PR-7823 </p>
+        </item>
+        <item>
+          <p>
+	    Fix tty restore when <c>+Bc</c> is used.</p>
+          <p>
+	    Own Id: OTP-18872 Aux Id: GH-7832 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced old md5 implementation with an implementation
+	    from OpenSSL.</p>
+          <p>
+	    Own Id: OTP-18877</p>
+        </item>
+        <item>
+          <p>
+	    Removed unused <c>makewhatis</c> script.</p>
+          <p>
+	    Own Id: OTP-18899</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

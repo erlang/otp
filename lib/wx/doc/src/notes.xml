@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Guards have been added to <c>gen_*:start*</c> API
+	    functions to catch bad arguments earlier. Before this
+	    change, in some cases, a bad argument could tag along and
+	    cause the server to fail later, right after start.</p>
+          <p>
+	    Own Id: OTP-18857 Aux Id: GH-7685 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

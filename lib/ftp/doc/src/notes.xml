@@ -33,7 +33,24 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.2</title>
+  <section><title>Ftp 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
