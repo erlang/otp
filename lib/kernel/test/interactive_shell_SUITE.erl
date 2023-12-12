@@ -1128,20 +1128,48 @@ shell_expand_location_below(Config) ->
                           {module, long_module} = code:load_binary(long_module, "long_module.beam", Bin)
                   end),
         check_content(Term, "3>"),
+        tmux(["resize-window -t ",tty_name(Term)," -y 50"]),
+        timer:sleep(1000), %% Sleep to make sure window has resized
+        Result = 61,
+        Rows1 = 48,
         send_stdin(Term, "long_module:" ++ FunctionName),
         send_stdin(Term, "\t"),
+        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name0\\("),
+
         %% Check that correct text is printed below expansion
-        check_content(Term, io_lib:format("Press tab to see all ~p expansions",
-                                          [length(NumFunctions)])),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [1, 7, Result])),
         send_stdin(Term, "\t"),
-        %% The expansion does not fit on screen, verify that
-        %% expand above mode is used
-        check_content(fun() -> get_content(Term, "-S -5") end,
-                      "\nfunctions\n"),
-        check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+            [1, Rows1, Result])),
+        send_tty(Term, "Down"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [2, Rows1+1, Result])),
+        send_tty(Term, "PgDn"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [7, Rows1+6, Result])),
+        send_tty(Term, "PgUp"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [2, Rows1+1, Result])),
+        send_tty(Term, "PgUp"),
+        %% Overshoot up
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [1, Rows1, Result])),
+        %% Overshoot down
+        send_tty(Term, "PgDn"),
+        send_tty(Term, "PgDn"),
+        send_tty(Term, "PgDn"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [14, Rows1+13, Result])),
+        check_content(Term, "\n.*a_long_function_name99\\("),
+        send_tty(Term, "Up"),
+        check_content(Term, io_lib:format("rows ~w to ~w of ~w",
+                                          [13, Rows1+12, Result])),
+
+        send_stdin(Term, "\t"),
 
         %% We resize the terminal to make everything fit and test that
-        %% expand below mode is used
+        %% expand below displays everything
         tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Rows+10)]),
         timer:sleep(1000), %% Sleep to make sure window has resized
         send_stdin(Term, "\t\t"),

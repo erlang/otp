@@ -604,7 +604,7 @@ get_line1({open_editor, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
             get_line1(edlin:edit_line(Cs1, NewCont), Drv, Shell, Ls0, Encoding)
     end;
 %% Move Up, Down in History: Ctrl+P, Ctrl+N
-get_line1({history_up,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({history_up,Cs,{_,_,_,Mode0}=Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     case up_stack(save_line(Ls0, edlin:current_line(Cont))) of
         {none,_Ls} ->
@@ -612,7 +612,8 @@ get_line1({history_up,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
             get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
         {Lcs,Ls} ->
             send_drv_reqs(Drv, edlin:erase_line()),
-            {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
+            {more_chars,{A,B,C,_},Nrs} = edlin:start(edlin:prompt(Cont)),
+            Ncont = {A,B,C,Mode0},
             send_drv_reqs(Drv, Nrs),
             get_line1(
               edlin:edit_line1(
@@ -621,7 +622,7 @@ get_line1({history_up,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
                 Ncont),
               Drv, Shell, Ls, Encoding)
     end;
-get_line1({history_down,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({history_down,Cs,{_,_,_,Mode0}=Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     case down_stack(save_line(Ls0, edlin:current_line(Cont))) of
         {none,_Ls} ->
@@ -629,7 +630,8 @@ get_line1({history_down,Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
             get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
         {Lcs,Ls} ->
             send_drv_reqs(Drv, edlin:erase_line()),
-            {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
+            {more_chars,{A,B,C,_},Nrs} = edlin:start(edlin:prompt(Cont)),
+            Ncont = {A,B,C,Mode0},
             send_drv_reqs(Drv, Nrs),
             get_line1(edlin:edit_line1(string:to_graphemes(lists:sublist(Lcs,
                                                                          1,
@@ -656,6 +658,7 @@ get_line1({search,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     put(search_quit_prompt, Cont),
     Pbs = prompt_bytes("\033[;1;4msearch:\033[0m ", Encoding),
     {more_chars,Ncont,_Nrs} = edlin:start(Pbs, {search,none}),
+    put(search, new_search),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
 get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when Expand =:= expand; Expand =:= expand_full ->
@@ -678,34 +681,14 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
              {Cs1, _} when Cs1 =/= [] -> Cs1;
              _ ->
                  NlMatchStr = unicode:characters_to_binary("\n"++MatchStr),
+                 NLines = case Expand of
+                                expand -> 7;
+                                expand_full -> 0
+                            end,
                  case get(expand_below) of
                      true ->
-                         Lines = string:split(string:trim(MatchStr), "\n", all),
-                         NoLines = length(Lines),
-                         if NoLines > 5, Expand =:= expand ->
-                                 %% Only show 5 lines to start with
-                                 [L1,L2,L3,L4,L5|_] = Lines,
-                                 String = lists:join(
-                                            $\n,
-                                            [L1,L2,L3,L4,L5,
-                                             io_lib:format("Press tab to see all ~p expansions",
-                                                           [edlin_expand:number_matches(Matches)])]),
-                                 send_drv(Drv, {put_expand, unicode,
-                                                unicode:characters_to_binary(String)}),
-                                 Cs1;
-                            true ->
-                                 case get_tty_geometry(Drv) of
-                                     {_, Rows} when Rows > NoLines ->
-                                         %% If all lines fit on screen, we expand below
-                                         send_drv(Drv, {put_expand, unicode, NlMatchStr}),
-                                         Cs1;
-                                     _ ->
-                                         %% If there are more results than fit on
-                                         %% screen we expand above
-                                         send_drv_reqs(Drv, [{put_chars, unicode, NlMatchStr}]),
-                                         [$\e, $l | Cs1]
-                                 end
-                         end;
+                        send_drv(Drv, {put_expand, unicode, unicode:characters_to_binary(string:trim(MatchStr, trailing)), NLines}),
+                        Cs1;
                      false ->
                          send_drv(Drv, {put_chars, unicode, NlMatchStr}),
                          [$\e, $l | Cs1]
@@ -753,42 +736,49 @@ get_line1({search_cancel,_Cs,_,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, edlin:redraw_line(NCont)),
     get_line1({more_chars, NCont, []}, Drv, Shell, Ls, Encoding);
 %% Search mode is entered.
-get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},{search, none}},_Rs},
+get_line1({What,{line,Prompt,{_,{RevCmd0,_},_},{search, none}}=Cont0,Rs},
           Drv, Shell, Ls0, Encoding) ->
     %% Figure out search direction. ^S and ^R are returned through edlin
     %% whenever we received a search while being already in search mode.
+    OldSearch = get(search),
     {Search, Ls1, RevCmd} = case RevCmd0 of
                                 [$\^S|RevCmd1] ->
                                     {fun search_down_stack/2, Ls0, RevCmd1};
                                 [$\^R|RevCmd1] ->
                                     {fun search_up_stack/2, Ls0, RevCmd1};
-                                _ -> % new search, rewind stack for a proper search.
-                                    {fun search_up_stack/2, new_stack(get_lines(Ls0)), RevCmd0}
+                                _ when RevCmd0 =/= OldSearch -> % new search, rewind stack for a proper search.
+                                    {fun search_up_stack/2, new_stack(get_lines(Ls0)), RevCmd0};
+                                _ ->
+                                    {skip, Ls0, RevCmd0}
                             end,
+    put(search, RevCmd),
     Cmd = lists:reverse(RevCmd),
-    {Ls, NewStack} = case Search(Ls1, Cmd) of
-                         {none, Ls2} ->
-                             send_drv(Drv, beep),
-                             put(search_result, []),
-                             send_drv(Drv, delete_line),
-                             send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
-                             {Ls2, {[],{RevCmd, []},[]}};
-                         {Line, Ls2} -> % found. Complete the output edlin couldn't have done.
-                             Lines = string:split(string:to_graphemes(Line), "\n", all),
-                             Output = if length(Lines) > 5 ->
-                                            [A,B,C,D,E|_]=Lines,
-                                            (["\n  " ++ Line1 || Line1 <- [A,B,C,D,E]] ++
-                                                [io_lib:format("~n  ... (~w lines omitted)",[length(Lines)-5])]);
-                                         true -> ["\n  " ++ Line1 || Line1 <- Lines]
-                                      end,
-                             put(search_result, Lines),
-                             send_drv(Drv, delete_line),
-                             send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
-                             send_drv(Drv, {put_expand_no_trim, unicode, unicode:characters_to_binary(Output)}),
-                             {Ls2, {[],{RevCmd, []},[]}}
-                     end,
-    Cont = {line,Prompt,NewStack,{search, none}},
-    more_data(What, Cont, Drv, Shell, Ls, Encoding);
+    if Search =:= skip ->
+        %% Move expand are the only valid requests to bypass search mode
+        %% Sending delete_chars, insert_chars, etc. will result in
+        %% expand area being cleared.
+        Rs1 = [R||{move_expand,_}=R<-Rs],
+        send_drv_reqs(Drv, Rs1),
+        more_data(What, Cont0, Drv, Shell, Ls0, Encoding);
+       true ->
+        {Ls, NewStack} = case Search(Ls1, Cmd) of
+            {none, Ls2} ->
+                send_drv(Drv, beep),
+                put(search_result, []),
+                send_drv(Drv, delete_line),
+                send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
+                {Ls2, {[],{RevCmd, []},[]}};
+            {Line, Ls2} -> % found. Complete the output edlin couldn't have done.
+                Lines = string:split(string:to_graphemes(Line), "\n", all),
+                put(search_result, Lines),
+                send_drv(Drv, delete_line),
+                send_drv(Drv, {insert_chars, unicode, unicode:characters_to_binary(Prompt++Cmd)}),
+                send_drv(Drv, {put_expand, unicode, unicode:characters_to_binary("  "++lists:join("\n  ",Lines)), 7}),
+                {Ls2, {[],{RevCmd, []},[]}}
+        end,
+        Cont = {line,Prompt,NewStack,{search, none}},
+        more_data(What, Cont, Drv, Shell, Ls, Encoding)
+    end;
 get_line1({What,Cont0,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
     more_data(What, Cont0, Drv, Shell, Ls, Encoding).
