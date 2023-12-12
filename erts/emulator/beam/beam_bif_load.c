@@ -1224,19 +1224,21 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (!header_is_transparent(val)) {
-		Eterm* new_p;
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, mod_start, mod_size)) {
+                Eterm* new_p;
+
+                if (val == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*) p;
+
+                    if (ErtsInArea(sb->orig, mod_start, mod_size)) {
                         return 1;
                     }
                 }
-		new_p = p + thing_arityval(val);
-		ASSERT(start <= new_p && new_p < end);
-		p = new_p;
-	    }
-	}
+
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
     }
     return 0;
 }

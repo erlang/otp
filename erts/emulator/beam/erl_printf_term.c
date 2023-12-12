@@ -772,9 +772,6 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
             }
             break;
         }
-	case MATCHSTATE_DEF:
-	    PRINT_STRING(res, fn, arg, "#MatchState");
-	    break;
 	case BIN_REF_DEF:
 	    PRINT_STRING(res, fn, arg, "#BinRef");
 	    break;

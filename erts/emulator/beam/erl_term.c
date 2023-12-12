@@ -115,7 +115,6 @@ erts_term_init(void)
         /* Check that the tag masks cannot confuse tags outside of their
          * category. */
         const Eterm tags[] = {ARITYVAL_SUBTAG,
-                              BIN_MATCHSTATE_SUBTAG,
                               POS_BIG_SUBTAG,
                               NEG_BIG_SUBTAG,
                               REF_SUBTAG,

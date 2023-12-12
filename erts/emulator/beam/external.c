@@ -2642,7 +2642,6 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                     result_ref = (BinRef*)hp;
                     result_ref->thing_word = HEADER_BIN_REF;
                     result_ref->val = result_bin;
-                    result_ref->bytes = (byte*)result_bin->orig_bytes;
                     hp += ERL_BIN_REF_SIZE;
                     referenced_cbin = 0;
 
@@ -2666,16 +2665,17 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                             /* If the term refers to the entire segment, we can
                              * use it as is. Otherwise we need to return a
                              * shrunken copy. */
-                            if (from_sb->size != NBITS(iovp->iov_len)) {
+                            if (NBITS(iovp->iov_len) != (from_sb->end -
+                                                         from_sb->start)) {
                                 ErlSubBits *to_sb = (ErlSubBits*)hp;
 
                                 segment = make_bitstring(to_sb);
                                 hp += ERL_SUB_BITS_SIZE;
 
                                 *to_sb = *from_sb;
-                                to_sb->size = NBITS(iovp->iov_len);
+                                to_sb->end = to_sb->start + NBITS(iovp->iov_len);
 
-                                ASSERT(to_sb->size < from_sb->size);
+                                ASSERT(to_sb->end < from_sb->end);
                             }
                         } else {
                             /* We don't have a term and need to create one now,
@@ -2697,11 +2697,12 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 
                             ASSERT(IS_BINARY_SIZE_OK(iov_offset));
 
-                            sb->thing_word = HEADER_SUB_BITS;
-                            ERTS_SET_SB_RANGE(sb,
+                            erl_sub_bits_init(sb,
+                                              0,
+                                              make_boxed((Eterm*)result_ref),
+                                              result_bin->orig_bytes,
                                               NBITS(iov_offset),
                                               NBITS(iovp->iov_len));
-                            sb->orig = make_bitstring(result_ref);
 
                             segment = make_bitstring(sb);
                             hp += ERL_SUB_BITS_SIZE;
@@ -5116,6 +5117,8 @@ dec_term_atom_common:
 
                     sys_memcpy(sb, ep, sizeof(ErlSubBits) + sizeof(BinRef));
                     ep += sizeof(ErlSubBits) + sizeof(BinRef);
+
+                    sb->orig = make_boxed((Eterm*)br);
                 } else {
                     /* The encoded bitstring can be described entirely from the
                      * wrapped Binary* object, so we've skipped encoding an
@@ -5123,9 +5126,12 @@ dec_term_atom_common:
                     sys_memcpy(br, ep, sizeof(BinRef));
                     ep += sizeof(BinRef);
 
-                    sb->thing_word = HEADER_SUB_BITS;
-                    ERTS_SET_SB_RANGE(sb, 0, NBITS((br->val)->orig_size));
-                    sb->is_writable = 0;
+                    erl_sub_bits_init(sb,
+                                      0,
+                                      make_boxed((Eterm*)br),
+                                      &(br->val)->orig_bytes[0],
+                                      0,
+                                      NBITS((br->val)->orig_size));
                 }
 
                 erts_refc_inc(&(br->val)->intern.refc, 1);
@@ -5133,8 +5139,6 @@ dec_term_atom_common:
                 br->next = (factory->off_heap)->first;
                 (factory->off_heap)->first = (struct erl_off_heap_header*)br;
                 ERTS_BR_OVERHEAD(factory->off_heap, br);
-
-                sb->orig = make_boxed((Eterm*)br);
                 *objp = make_bitstring(sb);
                 break;
             }

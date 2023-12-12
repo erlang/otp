@@ -731,8 +731,8 @@ erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
 }
 
 typedef struct {
+    Eterm *result_tail;
     Eterm result_head;
-    Eterm result_tail;
     Eterm input_list;
 
     struct erl_off_heap_header **off_heap_tail;
@@ -786,8 +786,8 @@ static int iol2v_state_destructor(Binary *data) {
 static void iol2v_init(iol2v_state_t *state, Process *process, Eterm input) {
     state->process = process;
 
+    state->result_tail = &state->result_head;
     state->result_head = NIL;
-    state->result_tail = NIL;
     state->input_list = input;
 
     state->magic_reference = NIL;
@@ -802,24 +802,33 @@ static void iol2v_init(iol2v_state_t *state, Process *process, Eterm input) {
     CLEAR_SAVED_ESTACK(&state->estack);
 }
 
+static void iol2v_finish_accumulator(iol2v_state_t *state) {
+    Binary *accumulator;
+    BinRef *acc_ref;
+    Uint size;
+
+    accumulator = state->acc;
+    state->acc = NULL;
+
+    acc_ref = state->acc_ref;
+    ASSERT(acc_ref->val == accumulator);
+
+    /* Our allocators are 8-byte aligned, so don't bother reallocating for
+     * differences smaller than that. */
+    size = state->acc_offset + state->acc_size;
+    if (size < (accumulator->orig_size + 8)) {
+        acc_ref->val = erts_bin_realloc(accumulator, size);
+    }
+}
+
 /* Destructively enqueues a term to the result list, saving us the hassle of
  * having to reverse it later. This is safe since GC is disabled and we never
  * leak the unfinished term to the outside. */
 static void iol2v_enqueue_result(iol2v_state_t *state, Eterm term) {
-    Eterm prev_tail;
-    Eterm *hp;
+    Eterm *hp = HAlloc(state->process, 2);
 
-    prev_tail = state->result_tail;
-
-    hp = HAlloc(state->process, 2);
-    state->result_tail = CONS(hp, term, NIL);
-
-    if(prev_tail != NIL) {
-        Eterm *prev_cell = list_val(prev_tail);
-        CDR(prev_cell) = state->result_tail;
-    } else {
-        state->result_head = state->result_tail;
-    }
+    *state->result_tail = CONS(hp, term, NIL);
+    state->result_tail = &hp[1];
 
     state->reds_spent += 1;
 }
@@ -830,20 +839,21 @@ static Eterm iol2v_extract_acc_term(iol2v_state_t *state) {
 
     hp = HAlloc(state->process, ERL_SUB_BITS_SIZE);
 
+    /* We mark all our produced binaries as volatile as they may be reallocated
+     * when we shrink the final accumulator. As the underlying binary isn't
+     * writable, they will be lazily made non-volatile the first time they are
+     * accessed.
+     *
+     * (The base pointer is left NULL to catch errors in the aforementioned
+     * code) */
     sb = (ErlSubBits*)hp;
-    sb->thing_word = HEADER_SUB_BITS;
-    ERTS_SET_SB_RANGE(sb,
+    erl_sub_bits_init(sb,
+                      ERL_SUB_BITS_FLAG_VOLATILE,
+                      make_boxed((Eterm*)state->acc_ref),
+                      NULL,
                       NBITS(state->acc_offset),
                       NBITS(state->acc_size));
-    sb->orig = make_bitstring(state->acc_ref);
 
-    /* TODO: once we've moved base pointers from BinRefs to sub-binaries, link
-     * ourselves to a sub-binary list so that we can set our pointer after
-     * reallocating the accumulator to its actual size.
-     *
-     * The annoying part is that this is only necessary for the _very last_
-     * accumulator, as that's the only one to be shrunk. I wonder if there's
-     * anything clever we can do with that knowledge. */
     state->acc_offset += state->acc_size;
     state->acc_size = 0;
 
@@ -868,6 +878,7 @@ static Uint iol2v_expand_acc(iol2v_state_t *state, UWord extra) {
         }
 
         iol2v_enqueue_result(state, iol2v_extract_acc_term(state));
+        iol2v_finish_accumulator(state);
     }
 
     refc_binary = erts_bin_nrml_alloc(MAX(extra, IOL2V_ACC_SIZE));
@@ -875,7 +886,6 @@ static Uint iol2v_expand_acc(iol2v_state_t *state, UWord extra) {
     br = (BinRef*)HAlloc(state->process, ERL_BIN_REF_SIZE);
     br->thing_word = HEADER_BIN_REF;
     br->val = refc_binary;
-    br->bytes = (byte*)refc_binary->orig_bytes;
 
     (*state->off_heap_tail) = (struct erl_off_heap_header*)br;
     state->off_heap_tail = &br->next;
@@ -1027,6 +1037,10 @@ static BIF_RETTYPE iol2v_yield(iol2v_state_t *state) {
         boxed_state->magic_reference =
             erts_mk_magic_ref(&hp, &MSO(boxed_state->process), magic_binary);
 
+        if (state->result_tail == &state->result_head) {
+            boxed_state->result_tail = &boxed_state->result_head;
+        }
+
         if (state->off_heap_tail == &state->off_heap.first) {
             boxed_state->off_heap_tail = &boxed_state->off_heap.first;
         }
@@ -1125,6 +1139,8 @@ static BIF_RETTYPE iol2v_continue(iol2v_state_t *state) {
     }
 
     if (state->acc) {
+        iol2v_finish_accumulator(state);
+
         /* Link the state's off-heap list into the process. */
         ASSERT(state->off_heap.first != NULL && state->acc_ref != NULL);
         *(state->off_heap_tail) = MSO(state->process).first;

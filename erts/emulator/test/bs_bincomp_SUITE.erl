@@ -141,7 +141,7 @@ random_binary() ->
     << <<($a + rand:uniform($z - $a)):8>> || _ <- Seq >>.
 
 random_binaries(N) when N > 0 ->
-    random_binary(),
+    80 = bit_size(random_binary()),
     random_binaries(N - 1);
 random_binaries(_) -> ok.
 

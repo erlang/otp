@@ -961,34 +961,42 @@ void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
                                          const ArgSource &Src) {
+    Label not_sub_bits = a.newLabel();
+
     mov_arg(ARG1, Src);
 
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
 
+    ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
+    a.mov(RET, emit_boxed_val(boxed_ptr, offsetof(ErlHeapBits, size)));
+
+    a.mov(ARG2d, emit_boxed_val(boxed_ptr));
+    a.cmp(ARG2d, imm(HEADER_SUB_BITS));
+    a.short_().jne(not_sub_bits);
+    {
+        a.mov(RET, emit_boxed_val(boxed_ptr, offsetof(ErlSubBits, end)));
+        a.sub(RET, emit_boxed_val(boxed_ptr, offsetof(ErlSubBits, start)));
+    }
+    a.bind(not_sub_bits);
+
+    /* Shift out all but the lowest three bits from the size, leaving a
+     * non-zero value if it's not evenly divisible by 8.
+     *
+     * This is used to combine the size and header checks, where OR-ing the
+     * shifted size into the header word forces the check to fail when we have
+     * a non-binary bitstring. */
+    ERTS_CT_ASSERT((7u << (32 - 3)) > _BITSTRING_TAG_MASK);
+    a.shl(RETd, imm(32 - 3));
+
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
         comment("skipped header test since we know it's a bitstring when "
                 "boxed");
-        ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
-        ERTS_CT_ASSERT(offsetof(ErlSubBits, size) == sizeof(Eterm));
-        a.test(emit_boxed_val(boxed_ptr, sizeof(Eterm), 1), imm(7));
     } else {
-        a.mov(RETd, emit_boxed_val(boxed_ptr));
-        a.and_(RETd, imm(_BITSTRING_TAG_MASK));
-
-        /* Load the size in bits into ARG1d, then shift out all but the lowest
-         * three bits, leaving a non-zero value if the size is not evenly
-         * divisible by 8.
-         *
-         * Thus, OR-ing this value into the header word forces the check to
-         * fail when we have a non-binary bitstring. */
-        a.mov(ARG1d, emit_boxed_val(boxed_ptr, sizeof(Eterm), sizeof(Uint32)));
-        a.shl(ARG1d, imm(32 - 3));
-
-        ERTS_CT_ASSERT((7u << (32 - 3)) > _BITSTRING_TAG_MASK);
-        a.or_(RETd, ARG1d);
-        a.cmp(RETd, imm(_TAG_HEADER_HEAP_BITS));
+        a.and_(ARG2d, imm(_BITSTRING_TAG_MASK));
+        a.or_(ARG2d, RETd);
+        a.cmp(ARG2d, imm(_TAG_HEADER_HEAP_BITS));
     }
 
     a.jne(resolve_beam_label(Fail));
@@ -1396,20 +1404,6 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
-    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-
-        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
-            mov_arg(RET, X);
-
-            x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-            comment("simplified equality test with empty bitstring");
-            a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
-            a.jne(resolve_beam_label(Fail));
-        }
-    }
-
     /* If one argument is known to be an immediate, we can fail
      * immediately if they're not equal. */
     if (X.isRegister() && always_immediate(Y)) {
@@ -1474,22 +1468,6 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
-    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-
-        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
-            mov_arg(RET, X);
-
-            x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
-
-            comment("simplified non-equality test with empty bitstring");
-            a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
-            a.je(resolve_beam_label(Fail));
-
-            return;
-        }
-    }
-
     /* If one argument is known to be an immediate, we can fail
      * immediately if they're equal. */
     if (X.isRegister() && always_immediate(Y)) {

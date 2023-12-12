@@ -1048,9 +1048,6 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     size += hashmap_bitcount(MAP_HEADER_VAL(w));
                 }
                 break;
-            case SUB_BITS_SUBTAG:
-                size += 1;
-                break;
             }
             break;
         default:

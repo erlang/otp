@@ -1093,16 +1093,15 @@ Uint32
 erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
 		Eterm* args, int local, ErtsTracer *tracer)
 {
+    const int arity = info->mfa.arity;
     Eterm* hp;
     Eterm mfa_tuple;
-    int arity;
     int i;
     Uint32 return_flags;
     Eterm pam_result = am_true;
     Uint32 meta_flags;
     Uint32 *tracee_flags;
     ErtsTracerNif *tnif = NULL;
-    Eterm transformed_args[MAX_ARG];
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
 
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
@@ -1162,51 +1161,6 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
             break;
         }
     }
-
-    /*
-     * Because of the delayed sub-binary creation optimization introduced in
-     * R12B, (at most) one of arguments can be a match context instead of
-     * a binary. Since we don't want to handle match contexts in utility functions
-     * such as size_object() and copy_struct(), we must make sure that we
-     * temporarily convert any match contexts to sub binaries.
-     */
-    arity = info->mfa.arity;
-    for (i = 0; i < arity; i++) {
-        Eterm arg = args[i];
-
-        if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
-            ErlBinMatchState* ms = (ErlBinMatchState *)boxed_val(arg);
-            ErlBinMatchBuffer* mb = &ms->mb;
-
-            if (is_bitstring(mb->orig)) {
-                arg = erts_make_sub_bitstring(p,
-                                              mb->orig,
-                                              mb->offset,
-                                              mb->size - mb->offset);
-            } else {
-                Binary *refc_binary;
-                BinRef *br;
-                Eterm *hp;
-
-                br = (BinRef*)boxed_val(mb->orig);
-                refc_binary = br->val;
-
-                erts_refc_inctest(&refc_binary->intern.refc, 1);
-
-                hp = HAlloc(p, ERL_REFC_BITS_SIZE);
-                arg = erts_wrap_refc_bitstring(&MSO(p).first,
-                                               &MSO(p).overhead,
-                                               &hp,
-                                               refc_binary,
-                                               mb->base,
-                                               mb->offset,
-                                               mb->size - mb->offset);
-            }
-        }
-
-        transformed_args[i] = arg;
-    }
-    args = transformed_args;
 
     /*
      * If there is a PAM program, run it.  Return if it fails.

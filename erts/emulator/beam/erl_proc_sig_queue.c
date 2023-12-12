@@ -7366,12 +7366,11 @@ area_literal_size(Eterm* start, Eterm* end, char* lit_start, Uint lit_size)
             break;
         case TAG_PRIMARY_HEADER:
             if (!header_is_transparent(val)) {
-                Eterm* new_p;
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
-                        sz += size_object(mb->orig);
+                Eterm *new_p;
+                if (val == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*) p;
+                    if (ErtsInArea(sb->orig, lit_start, lit_size)) {
+                        sz += size_object(sb->orig);
                     }
                 }
                 new_p = p + thing_arityval(val);
@@ -7405,16 +7404,20 @@ area_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
         case TAG_PRIMARY_HEADER:
             if (!header_is_transparent(val)) {
                 Eterm* new_p;
-                /* matchstate in message, not possible. */
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
-                        sz = size_object(mb->orig);
-                        mb->orig = copy_struct(mb->orig, sz, hpp, ohp);
-                    }
+
+                if (val == HEADER_SUB_BITS) {
+                    /* Match contexts and writable binaries should never be
+                     * present in signals. */
+                    ASSERT(erl_sub_bits_is_normal((ErlSubBits*)p));
+
+                    /* Make sure to copy the `orig` field if needed. It's the
+                     * last field inside the thing structure so we can handle
+                     * it by pretending it's not part of the thing. */
+                    new_p = p + thing_arityval(val) - 1;
+                } else {
+                    new_p = p + thing_arityval(val);
                 }
-                new_p = p + thing_arityval(val);
+
                 ASSERT(start <= new_p && new_p < end);
                 p = new_p;
             }

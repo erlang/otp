@@ -4160,10 +4160,7 @@ static int fill_iovec_with_slice(ErlNifEnv *env,
             br->next = MSO(env->proc).first;
             MSO(env->proc).first = (struct erl_off_heap_header*)br;
             br->val = bin;
-            br->bytes = (byte*) bin->orig_bytes;
             ERTS_BR_OVERHEAD(&MSO(env->proc), br);
-
-            return make_bitstring(br);
         }
     }
 

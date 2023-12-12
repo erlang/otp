@@ -973,24 +973,26 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    emit_untag_ptr(ARG1, src.reg);
+
+    ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
+    a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+
+    Label not_sub_bits = a.newLabel();
+    a.cmp(TMP1, imm(HEADER_SUB_BITS));
+    a.b_ne(not_sub_bits);
+    {
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
+        a.ldp(TMP2, TMP3, arm::Mem(ARG1, offsetof(ErlSubBits, start)));
+        a.sub(TMP2, TMP3, TMP2);
+    }
+    a.bind(not_sub_bits);
 
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
-        arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
-
         comment("skipped header test since we know it's a bitstring when "
                 "boxed");
-
-        ERTS_CT_ASSERT(offsetof(ErlHeapBits, size) == sizeof(Eterm));
-        ERTS_CT_ASSERT(offsetof(ErlSubBits, size) == sizeof(Eterm));
-        a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
         a.tst(TMP2, imm(7));
     } else {
-        emit_untag_ptr(ARG1, src.reg);
-
-        ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
-        ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, thing_word, size);
-        a.ldp(TMP1, TMP2, arm::Mem(ARG1));
-
         const auto mask = _BITSTRING_TAG_MASK & ~_TAG_PRIMARY_MASK;
         ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
         ERTS_CT_ASSERT(_TAG_HEADER_HEAP_BITS == (_TAG_HEADER_HEAP_BITS & mask));
@@ -1449,19 +1451,6 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
 
-    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-
-        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
-            comment("simplified equality test with empty binary");
-
-            arm::Gp boxed_ptr = emit_ptr_val(ARG1, x.reg);
-            a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-            a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
-            return;
-        }
-    }
-
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're not equal. */
     if (always_immediate(X) || always_immediate(Y)) {
@@ -1521,20 +1510,6 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
-
-    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
-        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
-
-        if (is_bitstring(literal) && bitstring_size(literal) == 0) {
-            arm::Gp boxed_ptr = emit_ptr_val(ARG1, x.reg);
-
-            comment("simplified non-equality test with empty binary");
-            a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-            a.cbz(TMP1, resolve_beam_label(Fail, disp1MB));
-
-            return;
-        }
-    }
 
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're equal. */
@@ -2322,22 +2297,27 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
     emit_error(BADMATCH, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
     emit_error(EXC_CASE_CLAUSE, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
     emit_error(SYSTEM_LIMIT);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_if_end() {
     emit_error(EXC_IF_CLAUSE);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
     emit_error(EXC_BADRECORD, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,

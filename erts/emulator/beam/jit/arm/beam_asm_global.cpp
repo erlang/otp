@@ -247,8 +247,6 @@ void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
         fragment_call(ga->get_raise_exception_null_exp());
     }
 
-    mark_unreachable();
-
     /* `line` instructions need to know the latest offset that may throw an
      * exception. See the `line` instruction for details. */
     last_error_offset = a.offset();

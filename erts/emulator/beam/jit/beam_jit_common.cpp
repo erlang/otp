@@ -569,14 +569,6 @@ void BeamModuleAssembler::patchStrings(char *rw_base,
 
 #if defined(DEBUG) && defined(JIT_HARD_DEBUG)
 void beam_jit_validate_term(Eterm term) {
-    if (is_boxed(term)) {
-        Eterm header = *boxed_val(term);
-
-        if (header_is_bin_matchstate(header)) {
-            return;
-        }
-    }
-
     size_object_x(term, NULL);
 }
 #endif
@@ -829,7 +821,7 @@ Eterm beam_jit_bs_init(Process *c_p,
         c_p->htop += bin_need;
 
         hb->thing_word = header_heap_bits(num_bits);
-        ERTS_SET_HB_SIZE(hb, num_bits);
+        hb->size = num_bits;
 
         erts_current_bin = (byte *)hb->data;
         return make_bitstring(hb);
@@ -877,7 +869,7 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
 
         c_p->htop += heap_bits_size(num_bits);
         hb->thing_word = header_heap_bits(num_bits);
-        ERTS_SET_HB_SIZE(hb, num_bits);
+        hb->size = num_bits;
 
         erts_current_bin = (byte *)hb->data;
         return make_bitstring(hb);
@@ -906,7 +898,7 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
                               Uint flags,
                               Uint size,
                               Uint Live) {
-    ErlBinMatchBuffer *mb;
+    ErlSubBits *sb;
 
     if (size >= SMALL_BITS) {
         Uint wordsneeded;
@@ -917,8 +909,8 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
          *
          * Remember to re-acquire the matchbuffer after gc.
          */
-        mb = ms_matchbuffer(context);
-        if (mb->size - mb->offset < size) {
+        sb = (ErlSubBits *)bitstring_val(context);
+        if (sb->end - sb->start < size) {
             return THE_NON_VALUE;
         }
 
@@ -928,8 +920,8 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
         context = reg[Live];
     }
 
-    mb = ms_matchbuffer(context);
-    return erts_bs_get_integer_2(c_p, size, flags, mb);
+    sb = (ErlSubBits *)bitstring_val(context);
+    return erts_bs_get_integer_2(c_p, size, flags, sb);
 }
 
 void beam_jit_bs_construct_fail_info(Process *c_p,
