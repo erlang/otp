@@ -2556,7 +2556,17 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
         [{key, {rsa, <<>>}}], client, Old),
     ?OK(#{certs_keys := [#{key := #{}}]},
         [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client, Old),
-
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{algorithm => eddsa, sign_fun => fun(_,_,_,_) -> << "dummy signature">> end}},
+         {versions, ['tlsv1.3']}], client, Old),
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{algorithm => ecdsa, sign_fun => fun(_,_,_,_) -> << "dummy signature">> end}}],
+        client, Old),
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{algorithm => rsa,
+                  sign_fun => fun(_,_,_,_) -> << "dummy signature">> end,
+                 encrypt_fun => fun(_,_,_) -> << "dummy encrypt">> end}},
+         {versions, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1']}], client, Old),
     ?OK(#{certs_keys := [#{password := _}]}, [{password, "foobar"}], client, Old),
     ?OK(#{certs_keys := [#{password := _}]}, [{password, <<"foobar">>}], client, Old),
     Pwd = fun() -> "foobar" end,
@@ -2570,6 +2580,14 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
         client, Old),
 
     %% Errors
+    ?ERR({options,incompatible,[key,{versions,['tlsv1.2']}]},
+         [{key, #{algorithm => eddsa, sign_fun => fun(_,_,_,_) -> << "dummy signature">> end}},
+          {versions, ['tlsv1.2']}], client),
+    ?ERR({options,incompatible,[key,{versions,['tlsv1.3','tlsv1.2']}]},
+         [{key, #{algorithm => rsa,
+                  sign_fun => fun(_,_,_,_) -> << "dummy signature">> end,
+                  encrypt_fun => fun(_,_,_) -> << "dummy encrypt">> end
+                 }}], client),
     ?ERR({cert, #{}}, [{cert, #{}}], client),
     ?ERR({certfile, cert}, [{certfile, cert}], client),
     ?ERR({certs_keys, #{}}, [{certs_keys, #{}}], client),

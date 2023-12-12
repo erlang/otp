@@ -87,6 +87,9 @@ group_pairs([#{private_key := #'DSAPrivateKey'{}} = Pair | Rest], #{dsa := DSA} 
 group_pairs([#{private_key := #{algorithm := dss, engine := _}} = Pair | Rest], Group) ->
     Pairs = maps:get(dsa, Group),
     group_pairs(Rest, Group#{dsa => [Pair | Pairs]});
+group_pairs([#{private_key := #{algorithm := Alg, sign_fun := _}} = Pair | Rest], Group) ->
+    Pairs = maps:get(Alg, Group),
+    group_pairs(Rest, Group#{Alg => [Pair | Pairs]});
 group_pairs([#{private_key := #{algorithm := Alg, engine := _}} = Pair | Rest], Group) ->
     Pairs = maps:get(Alg, Group),
     group_pairs(Rest, Group#{Alg => [Pair | Pairs]});
@@ -107,16 +110,23 @@ prioritize_groups(#{eddsa := EDDSA,
 
 prio_eddsa(EDDSA) ->
     %% Engine not supported yet
-    using_curve({namedCurve, ?'id-Ed25519'}, EDDSA, []) ++ using_curve({namedCurve, ?'id-Ed448'}, EDDSA, []).
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- EDDSA],
+    SignFunPairs
+        ++ using_curve({namedCurve, ?'id-Ed25519'}, EDDSA, [])
+        ++ using_curve({namedCurve, ?'id-Ed448'}, EDDSA, []).
 
 prio_ecdsa(ECDSA) ->
     EnginePairs = [Pair || Pair = #{private_key := #{engine := _}} <- ECDSA],
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- ECDSA],
     Curves = tls_v1:ecc_curves(all),
-    EnginePairs ++ lists:foldr(fun(Curve, AccIn) ->
-                                       CurveOid = pubkey_cert_records:namedCurves(Curve),
-                                       Pairs = using_curve({namedCurve, CurveOid}, ECDSA -- EnginePairs, []),
-                                       Pairs ++ AccIn
-                               end, [], Curves).
+    EnginePairs
+        ++ SignFunPairs
+        ++ lists:foldr(
+            fun(Curve, AccIn) ->
+                CurveOid = pubkey_cert_records:namedCurves(Curve),
+                Pairs = using_curve({namedCurve, CurveOid}, ECDSA -- EnginePairs -- SignFunPairs, []),
+                Pairs ++ AccIn
+             end, [], Curves).
 using_curve(_, [], Acc) ->
     lists:reverse(Acc);
 using_curve(Curve, [#{private_key := #'ECPrivateKey'{parameters = Curve}} = Pair | Rest], Acc) ->
@@ -265,6 +275,8 @@ init_certificate_file(CertFile, PemCache, Role) ->
             file_error(CertFile, {certfile, Reason})
     end.
 
+init_private_key(#{algorithm := _, sign_fun := _SignFun} = Key, _, _) ->
+    Key;
 init_private_key(#{algorithm := Alg} = Key, _, _PemCache)
   when Alg =:= ecdsa; Alg =:= rsa; Alg =:= dss ->
     case maps:is_key(engine, Key) andalso maps:is_key(key_id, Key) of

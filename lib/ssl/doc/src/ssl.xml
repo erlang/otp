@@ -343,11 +343,35 @@
     <datatype>
       <name name="key"/>
       <desc>
-	<p>The DER-encoded user's private key or a map referring to a crypto
-	engine and its key reference that optionally can be password protected,
-	see also <seemfa marker="crypto:crypto#engine_load/3"> crypto:engine_load/3
-	</seemfa> and <seeguide marker="crypto:engine_load"> Crypto's Users Guide</seeguide>. If this option 
-	is supplied, it overrides option <c>keyfile</c>.</p>
+
+	<p>The user's private key.  Either the key can be provided
+	directly as DER encoded entity, or indirectly using a crypto
+	engine/provider (with key reference information) or an Erlang
+	fun (with possible custom options).  The latter two options
+	can both be used for customized signing with for instance
+	hardware security modules (HSM) or trusted platform modules
+	(TPM). </p>
+
+	<list>
+	  <item><p>A DER encoded key will need to specify the ASN-1 type used to
+	  create the encoding.</p></item>
+
+	  <item><p>An engine/provider needs to specify specific
+	  information to support this concept and can optionally be
+	  password protected, see also <seemfa
+	  marker="crypto:crypto#engine_load/3"> crypto:engine_load/3
+	  </seemfa> and <seeguide marker="crypto:engine_load">
+	  Crypto's Users Guide</seeguide>. </p></item>
+
+	  <item><p>A fun option should include a fun that mimics <seemfa
+	  marker="public_key:public_key#sign/4">public_key:sign/4</seemfa>
+	  and possibly <seemfa
+	  marker="public_key:public_key#encrypt_private/3">public_key:private_encrypt/4</seemfa>
+	  if legacy versions TLS-1.0 and TLS-1.1 should be supported. </p></item>
+	</list>
+
+	<p>If this option is supplied, it overrides option <c>keyfile</c>.
+	</p>
       </desc>
     </datatype>
     
@@ -616,7 +640,7 @@ version.
       ROOT-CA, and so on. The default value is 10.</p>
       </desc>
     </datatype>
-    
+
     <datatype>
       <name name="custom_verify"/>
       <desc>

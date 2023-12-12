@@ -145,6 +145,14 @@
       </desc>
     </datatype>
 
+     <datatype>
+      <name name="custom_key_opts"/>
+      <desc>
+	<p>Can be provided together with a custom private key, that specifies a key fun,
+	to provide additional options understood by the fun.</p>
+      </desc>
+    </datatype>
+
     <datatype>
       <name name="ed_oid_name"/>
       <desc>
@@ -390,9 +398,14 @@
     <name name="encrypt_private" arity="3" since="OTP 21.1"/>
     <fsummary>Public-key encryption using the private key.</fsummary>
   <desc> 
-    <p>Public-key encryption using the private key.
-     See also <seemfa
-	marker="crypto:crypto#private_encrypt/4">crypto:private_encrypt/4</seemfa>.</p> 
+    <p>Public-key encryption using the private key.  See also <seemfa
+    marker="crypto:crypto#private_encrypt/4">crypto:private_encrypt/4</seemfa>.
+    The key, can besides a standard RSA key, be a map specifing the
+    key algorithm <c>rsa</c> and a fun to handle the encryption
+    operation. This may be used for customized the encryption
+    operation with for instance hardware security modules (HSM) or
+    trusted platform modules (TPM).
+    </p>
   </desc> 
   </func>   
 
@@ -1006,7 +1019,11 @@ end
     <p>Creates a digital signature.</p> 
     <p>The <c>Msg</c> is either the binary "plain text" data to be
     signed or it is the hashed value of "plain text", that is, the
-    digest.</p>
+    digest. The key, can besides a standard key, be a map specifing
+    a key algorithm and a fun that should handle the signing. This may
+    be used for customized signing with for instance hardware security
+    modules (HSM) or trusted platform modules (TPM).
+    </p>
   </desc> 
   </func>   
 

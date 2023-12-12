@@ -29,6 +29,8 @@
          no_auth/1,
          auth/0,
          auth/1,
+         client_auth_custom_key/0,
+         client_auth_custom_key/1,
          client_auth_empty_cert_accepted/0,
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
@@ -87,17 +89,45 @@ auth() ->
 
 auth(Config) ->
     Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ClientOpts =  case Version of
                       'tlsv1.3' ->
-                          [{verify, verify_peer},
-                           {certificate_authorities, true} |
-                           ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)];
+                          [{certificate_authorities, true} | CommonClientOpts];
                       _ ->
-                          [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)]
+                          CommonClientOpts
                   end,
     ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
+%%--------------------------------------------------------------------
+client_auth_custom_key() ->
+    [{doc,"Test that client and server can connect using their own signature function"}].
+
+client_auth_custom_key(Config) when is_list(Config) ->
+    Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ClientOpts0 =  case Version of
+                      'tlsv1.3' ->
+                           [{certificate_authorities, true} | CommonClientOpts];
+                      _ ->
+                           CommonClientOpts
+                  end,
+    ClientKeyFilePath =  proplists:get_value(keyfile, ClientOpts0),
+    [ClientKeyEntry] = ssl_test_lib:pem_to_der(ClientKeyFilePath),
+    ClientKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ClientKeyEntry)),
+    ClientCustomKey = choose_custom_key(ClientKey, Version),
+
+    ClientOpts = [ ClientCustomKey | proplists:delete(key, proplists:delete(keyfile, ClientOpts0))],
+
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ServerKeyFilePath =  proplists:get_value(keyfile, ServerOpts0),
+    [ServerKeyEntry] = ssl_test_lib:pem_to_der(ServerKeyFilePath),
+    ServerKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ServerKeyEntry)),
+    ServerCustomKey = choose_custom_key(ServerKey, Version),
+
+    ServerOpts = [ ServerCustomKey, {verify, verify_peer} | ServerOpts0],
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
     [{doc,"Client sends empty cert chain as no cert is configured and server allows it"}].
@@ -517,3 +547,30 @@ group_config(Config, ServerOpts, ClientOpts) ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
+
+choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
+  when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
+    EFun = fun (PlainText, Options) ->
+                   public_key:encrypt_private(PlainText, Key, Options)
+          end,
+    SFun = fun (Msg, HashAlgo, Options) ->
+                   public_key:sign(Msg, HashAlgo, Key, Options)
+           end,
+    {key, #{algorithm => rsa, sign_fun => SFun, encrypt_fun => EFun}};
+choose_custom_key(Key, _) ->
+    Fun = fun (Msg, HashAlgo, Options) ->
+                  public_key:sign(Msg, HashAlgo, Key, Options)
+          end,
+    {key, #{algorithm => alg_key(Key), sign_fun => Fun}}.
+
+alg_key(#'RSAPrivateKey'{}) ->
+    rsa;
+alg_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}) ->
+    rsa_pss_pss;
+alg_key(#'DSAPrivateKey'{}) ->
+    dsa;
+alg_key(#'ECPrivateKey'{parameters = {namedCurve, CurveOId}}) when CurveOId == ?'id-Ed25519' orelse
+                                                                   CurveOId == ?'id-Ed448' ->
+    eddsa;
+alg_key(#'ECPrivateKey'{}) ->
+    ecdsa.

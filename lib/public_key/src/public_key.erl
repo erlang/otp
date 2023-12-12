@@ -112,10 +112,22 @@
               test_root_cert/0
              ]).
 
--type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
--type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
+-type public_key()           ::  rsa_public_key() |
+                                 rsa_pss_public_key() |
+                                 dsa_public_key() |
+                                 ec_public_key() |
+                                 ed_public_key() .
+-type private_key()          ::  rsa_private_key() |
+                                 rsa_pss_private_key() |
+                                 dsa_private_key() |
+                                 ec_private_key() |
+                                 ed_private_key() |
+                                 #{algorithm := eddsa | rsa_pss_pss | ecdsa | rsa | dsa,
+                                   sign_fun => fun()} .
+-type custom_key_opts()      :: [term()].
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
--type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
+-type rsa_private_key()      ::  #'RSAPrivateKey'{} | #{algorithm := rsa,
+                                                        encrypt_fun => fun()}.
 -type dss_public_key()       :: integer().
 -type rsa_pss_public_key()   ::  {rsa_pss_public_key(), #'RSASSA-PSS-params'{}}.
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
@@ -635,16 +647,16 @@ encrypt_private(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
                                        Key :: rsa_private_key(),
-                                       Options :: crypto:pk_encrypt_decrypt_opts(),
+                                       Options :: crypto:pk_encrypt_decrypt_opts() | custom_key_opts(),
                                        CipherText :: binary() .
-encrypt_private(PlainText,
-		#'RSAPrivateKey'{modulus = N, publicExponent = E,
-				 privateExponent = D} = Key,
-		Options)
+encrypt_private(PlainText, Key, Options)
   when is_binary(PlainText),
-       is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->
-    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), default_options(Options)).
+    Opts = default_options(Options),
+    case format_sign_key(Key) of
+        {extern, Fun} -> Fun(PlainText, Opts);
+        {rsa, CryptoKey} -> crypto:private_encrypt(rsa, PlainText, CryptoKey, Opts)
+    end.
 
 %%--------------------------------------------------------------------
 %% Description: List available group sizes among the pre-computed dh groups
@@ -831,7 +843,7 @@ sign(DigestOrPlainText, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
                                  Key :: private_key(),
-                                 Options :: crypto:pk_sign_verify_opts(),
+                                 Options :: crypto:pk_sign_verify_opts() | custom_key_opts(),
                                  Signature :: binary() .
 sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
     %% Backwards compatible
@@ -840,6 +852,8 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
     case format_sign_key(Key) of
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
+        {extern, Fun} when is_function(Fun) ->
+            Fun(DigestOrPlainText, DigestType, Options);
 	{Algorithm, CryptoKey} ->
 	    try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
             catch %% Compatible with old error schema
@@ -1505,7 +1519,16 @@ format_pkix_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
     Key;
 format_pkix_sign_key(Key) ->
     Key.
+
+format_sign_key(#{encrypt_fun := KeyFun}) ->
+    {extern, KeyFun};
+format_sign_key(#{sign_fun := KeyFun}) ->
+    {extern, KeyFun};
 format_sign_key(Key = #'RSAPrivateKey'{}) ->
+    {rsa, format_rsa_private_key(Key)};
+format_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
+    %% Params are handled in options arg
+    %% provided by caller.
     {rsa, format_rsa_private_key(Key)};
 format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     {dss, [P, Q, G, X]};

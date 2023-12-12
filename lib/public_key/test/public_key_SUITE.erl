@@ -77,12 +77,16 @@
          cert_pem/1,
          encrypt_decrypt/0,
          encrypt_decrypt/1,
+         encrypt_decrypt_sign_fun/0,
+         encrypt_decrypt_sign_fun/1,
          rsa_sign_verify/0,
          rsa_sign_verify/1,
          rsa_pss_sign_verify/0,
          rsa_pss_sign_verify/1,
          dsa_sign_verify/0,
          dsa_sign_verify/1,
+         custom_sign_fun_verify/0,
+         custom_sign_fun_verify/1,
          pkix/0,
          pkix/1,
          pkix_countryname/0,
@@ -153,6 +157,7 @@ all() ->
      appup,
      {group, pem_decode_encode},
      encrypt_decrypt,
+     encrypt_decrypt_sign_fun,
      {group, sign_verify},
      pkix, 
      pkix_countryname, 
@@ -190,7 +195,7 @@ groups() ->
 			      ec_pem_encode_generated, gen_ec_param_prime_field,
 			      gen_ec_param_char_2_field]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
-                        eddsa_sign_verify_24_compat]}
+                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]}
     ].
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -655,6 +660,22 @@ encrypt_decrypt(Config) when is_list(Config) ->
     RsaEncrypted2 = public_key:encrypt_public(Msg, PublicKey),
     Msg = public_key:decrypt_private(RsaEncrypted2, PrivateKey),
     ok.
+
+%%--------------------------------------------------------------------
+encrypt_decrypt_sign_fun() ->
+    [{doc, "Test public_key:encrypt_private with user provided sign_fun"}].
+encrypt_decrypt_sign_fun(Config) when is_list(Config) ->
+    {PrivateKey, _DerKey} = erl_make_certs:gen_rsa(64),
+    #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateKey,
+    EncryptFun = fun (PlainText, Options) ->
+            public_key:encrypt_private(PlainText, PrivateKey, Options)
+        end,
+    CustomPrivKey = #{encrypt_fun => EncryptFun},
+    PublicKey = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
+    RsaEncrypted = public_key:encrypt_private(Msg, CustomPrivKey),
+    Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),
+    ok.
        
 %%--------------------------------------------------------------------
 rsa_sign_verify() ->
@@ -731,6 +752,28 @@ dsa_sign_verify(Config) when is_list(Config) ->
 			      {DSAPublicKey, DSAParams}), 
     false = public_key:verify(Digest, none, <<1:8, DigestSign/binary>>, 
 			      {DSAPublicKey, DSAParams}).
+%%--------------------------------------------------------------------
+
+custom_sign_fun_verify() ->
+    [{doc, "Checks that public_key:sign correctly calls the `sign_fun`"}].
+custom_sign_fun_verify(Config) when is_list(Config) ->
+    {_, CaKey} = erl_make_certs:make_cert([{key, rsa}]),
+    PrivateRSA = public_key:pem_entry_decode(CaKey),
+    #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateRSA,
+    PublicRSA = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
+    SignFun = fun (Msg, HashAlgo, Options) ->
+            public_key:sign(Msg, HashAlgo, PrivateRSA, Options)
+        end,
+    CustomKey = #{algorithm => rsa, sign_fun => SignFun},
+
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
+    RSASign = public_key:sign(Msg, sha, CustomKey),
+    true = public_key:verify(Msg, sha, RSASign, PublicRSA),
+    false = public_key:verify(<<1:8, Msg/binary>>, sha, RSASign, PublicRSA),
+    false = public_key:verify(Msg, sha, <<1:8, RSASign/binary>>, PublicRSA),
+
+    RSASign1 = public_key:sign(Msg, md5, CustomKey),
+    true = public_key:verify(Msg, md5, RSASign1, PublicRSA).
 
 %%--------------------------------------------------------------------
 pkix() ->
