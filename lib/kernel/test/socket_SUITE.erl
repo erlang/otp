@@ -21792,17 +21792,50 @@ api_opt_ip_recvtos_udp(InitState) ->
                            end
                    end},
 
+         #{desc => "enable recvtos on dst socket",
+           cmd  => fun(#{sock_dst := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("dst recvtos enabled"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed setting recvtos:"
+                                               "   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "extract the (expected) recvtos \"default\" value",
+           cmd  => fun(#{sock_dst := Sock, set := Set} = State) ->
+                           {ok, DefValue} = socket:getopt(Sock, ip, tos),
+                           ?SEV_IPRINT("(expected) recvtos def value: ~w",
+                                       [DefValue]),
+                           {ok, State#{dst_def_value => DefValue}}
+                   end},
+
          #{desc => "send req (to dst) (wo explicit tos)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
                            Send(Sock, ?BASIC_REQ, Dst, default)
                    end},
          #{desc => "recv req (from src) - w default tos",
-           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
+           cmd  => fun(#{sock_dst      := Sock,
+                         dst_def_value := DefValue,
+                         sa_src        := Src,
+                         recv          := Recv}) ->
+                           ExpCHdr1 = #{level => ip,
+                                        type  => tos,
+                                        value => DefValue,
+                                        data  => any},
+                           ExpCHdr2 = #{level => ip,
+                                        type  => recvtos,
+                                        value => DefValue,
+                                        data  => any},
                            case Recv(Sock) of
                                {ok, {Src, [#{level := ip,
                                              type  := TOS,
-                                             value := 0}], ?BASIC_REQ}}
-                                 when ((TOS =:= tos) orelse (TOS =:= recvtos)) ->
+                                             value := DefValue}], ?BASIC_REQ}}
+                                 when (TOS =:= tos) orelse
+                                      (TOS =:= recvtos) ->
                                    ?SEV_IPRINT("got default TOS (~w) "
                                                "control message header", [TOS]),
                                    ok;
@@ -21810,12 +21843,14 @@ api_opt_ip_recvtos_udp(InitState) ->
                                    ?SEV_EPRINT("Unexpected msg: "
                                                "~n   Expect Source: ~p"
                                                "~n   Recv Source:   ~p"
-                                               "~n   Expect CHdrs:  ~p"
+                                               "~n   Expect CHdrs:"
+                                               "~n     Alt 1:  ~p"
+                                               "~n     Alt 2:  ~p"
                                                "~n   Recv CHdrs:    ~p"
                                                "~n   Expect Msg:    ~p"
                                                "~n   Recv Msg:      ~p",
                                                [Src, BadSrc,
-                                                [], BadCHdrs,
+                                                ExpCHdr1, ExpCHdr2, BadCHdrs,
                                                 ?BASIC_REQ, BadReq]),
                                    {error, {unexpected_data, UnexpData}};
                                {ok, UnexpData} ->
