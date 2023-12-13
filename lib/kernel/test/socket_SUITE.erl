@@ -21806,7 +21806,7 @@ api_opt_ip_recvtos_udp(InitState) ->
                    end},
 
          #{desc => "extract the (expected) recvtos \"default\" value",
-           cmd  => fun(#{sock_dst := Sock, set := Set} = State) ->
+           cmd  => fun(#{sock_dst := Sock} = State) ->
                            {ok, DefValue} = socket:getopt(Sock, ip, tos),
                            ?SEV_IPRINT("(expected) recvtos def value: ~w",
                                        [DefValue]),
@@ -22474,10 +22474,28 @@ api_opt_ip_tos_udp(InitState) ->
                                {ok, 0 = Value} ->
                                    ?SEV_IPRINT("expected default tos: ~p", [Value]),
                                    ok;
-                               {ok, Unexpected} ->
-                                   ?SEV_EPRINT("Unexpected default tos: ~p",
-                                               [Unexpected]),
-                                   {error, {unexpected, Unexpected}};
+                               {ok, Value} ->
+                                   %% On FreeBSD 14 default value is not 0!
+                                   case os:type() of
+                                       {unix, freebsd} ->
+                                           case os:version() of
+                                               {14, _, _}
+                                                 when (Value =:= mincost) ->
+                                                   ok;
+                                               _ ->
+                                                   ?SEV_EPRINT("Unexpected "
+                                                               "default "
+                                                               "tos: ~p",
+                                                               [Value]),
+                                                   {error, {unexpected, Value}}
+                                           end;
+                                       _ ->
+                                           ?SEV_EPRINT("Unexpected "
+                                                       "default "
+                                                       "tos: ~p",
+                                                       [Value]),
+                                           {error, {unexpected, Value}}
+                                   end;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed getting (default) tos:"
                                                "   ~p", [Reason]),
