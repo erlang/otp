@@ -25,7 +25,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1,
-     ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
+         ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
+         ensure_loaded_bad_case/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
@@ -38,7 +39,7 @@
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
          on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
-	 on_load_deleted/1,
+	 on_load_deleted/1, on_load_deadlock/1,
 	 big_boot_embedded/1,
          module_status/1,
 	 get_mode/1, code_path_cache/1,
@@ -62,6 +63,7 @@ all() ->
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs,
      ensure_loaded, ensure_loaded_many, ensure_loaded_many_kill,
+     ensure_loaded_bad_case,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade, code_path_cache,
@@ -72,7 +74,7 @@ all() ->
      on_load_binary, on_load_embedded, on_load_errors,
      {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
-     on_load_deleted,
+     on_load_deleted, on_load_deadlock,
      module_status,
      big_boot_embedded, get_mode, normalized_paths,
      mult_embedded_flags].
@@ -414,6 +416,13 @@ load_abs(Config) when is_list(Config) ->
     code:stick_dir(TestDir),
     {error, sticky_directory} = code:load_abs(TestDir ++ "/code_b_test"),
     code:unstick_dir(TestDir),
+    ok.
+
+ensure_loaded_bad_case(Config) when is_list(Config) ->
+    %% Make sure loading an invalid .beam file does
+    %% not hold a permanent lock on the server.
+    {error, _} = code:ensure_loaded('STRING'),
+    {error, _} = code:ensure_loaded('STRING'),
     ok.
 
 ensure_loaded(Config) when is_list(Config) ->
@@ -1899,6 +1908,31 @@ on_load_deleted(_Config) ->
 	 end,
     delete_before_reload(Mod, R2),
 
+    ok.
+
+on_load_deadlock(Config) ->
+    Mod = ?FUNCTION_NAME,
+    register(Mod, self()),
+    Tree = ?Q(["-module('@Mod@').\n",
+               "-export([ext/0]).\n",
+               "-on_load(f/0).\n",
+               "f() ->\n",
+               "  timer:sleep(1000),\n",
+               "  '@Mod@':ext().\n",
+               "ext() -> ok.\n"]),
+    merl:print(Tree),
+    {ok,Mod,Code} = merl:compile(Tree),
+
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, atom_to_list(Mod) ++ ".beam"),
+    ok = file:write_file(File, Code),
+    code:add_path(Dir),
+
+    spawn(fun() -> code:ensure_loaded(Mod) end),
+    {error,Reason} = code:ensure_loaded(Mod),
+    true = (Reason =:= deadlock) or (Reason =:= on_load_failure),
+
+    code:del_path(Dir),
     ok.
 
 delete_before_reload(Mod, Reload) ->
