@@ -33,7 +33,59 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.0.2</title>
+  <section><title>Inets 9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replaced unintentional Erlang Public License 1.1 headers
+	    in some files with the intended Apache License 2.0
+	    header.</p>
+          <p>
+	    Own Id: OTP-18815 Aux Id: PR-7780 </p>
+        </item>
+        <item>
+          <p>
+	    Correct IP protocol handling so that redirects always
+	    uses correct IP-family options and not fails.</p>
+          <p>
+	    Own Id: OTP-18855</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>inets</c> app starts <c>ssl</c> by default</p>
+          <p>
+	    Own Id: OTP-18735 Aux Id: PR-7596, GH-7580 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid httpd returning 500 internal server error when
+	    unable to open a file. 404 or 503 will be returned
+	    instead.</p>
+          <p>
+	    Own Id: OTP-18882</p>
+        </item>
+        <item>
+          <p>
+	    Properly handle documented option mime_type, for
+	    backwards compatibility fallback to undocumented option
+	    default_type if mime_type is not set.</p>
+          <p>
+	    Own Id: OTP-18891 Aux Id: PR-7843, GH-7827 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

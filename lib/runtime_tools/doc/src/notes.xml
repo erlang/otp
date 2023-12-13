@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed issue with fetching port information for observer
+	    could crash if port had died.</p>
+          <p>
+	    Own Id: OTP-18868 Aux Id: GH-7735 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed some benign compile warnings on Windows.</p>
+          <p>
+	    Own Id: OTP-18895</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 2.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

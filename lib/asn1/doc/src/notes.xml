@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2022</year>
+      <year>2004</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix benign warning from gcc 11 about mismatching call to
+	    free().</p>
+          <p>
+	    Own Id: OTP-18844</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 5.2</title>
 

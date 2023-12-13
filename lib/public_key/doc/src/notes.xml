@@ -35,6 +35,58 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl application will validate id-kp-serverAuth and
+	    id-kp-clientAuth extended key usage only in end entity
+	    certificates. public_key application will disallow
+	    "anyExtendedKeyUsage" for CA certificates that includes
+	    the extended key usage extension and marks it critical.</p>
+          <p>
+	    Own Id: OTP-18739</p>
+        </item>
+        <item>
+          <p>
+	    Modernize ECC handling so that crypto FIPS support works
+	    as expected.</p>
+          <p>
+	    Own Id: OTP-18854</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support certificate policies in path_validation - as
+	    described by RFC 5280.</p>
+          <p>
+	    Own Id: OTP-17844 Aux Id: ERIERL-738 </p>
+        </item>
+        <item>
+          <p>
+	    Add more search paths for cacerts on Illumos.</p>
+          <p>
+	    Own Id: OTP-18814 Aux Id: PR-7435 </p>
+        </item>
+        <item>
+          <p>
+	    Make it possible to handle invalid date formats in the
+	    verify_fun for pkix_path_validation/3</p>
+          <p>
+	    Own Id: OTP-18867 Aux Id: GH-7515 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

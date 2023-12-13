@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Emit &lt;code&gt; instead of &lt;tt&gt;.</p>
+          <p>
+	    Own Id: OTP-18782 Aux Id: PR-7643 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

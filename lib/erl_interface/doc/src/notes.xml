@@ -31,6 +31,55 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed some benign compile warnings on Windows.</p>
+          <p>
+	    Own Id: OTP-18895</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support to encode maps with <c>ei_x_format</c>.</p>
+          <p>
+	    Own Id: OTP-18764 Aux Id: PR-7602 </p>
+        </item>
+        <item>
+          <p>
+	    Replaced old md5 implementation with an implementation
+	    from OpenSSL.</p>
+          <p>
+	    Own Id: OTP-18877</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The <c>ei</c> API for decoding/encoding terms is not
+	    fully 64-bit compatible since terms that have a
+	    representation on the external term format larger than 2
+	    GB cannot be handled.</p>
+          <p>
+	    Own Id: OTP-16607 Aux Id: OTP-16608 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 5.4</title>
 
     <section><title>Improvements and New Features</title>
