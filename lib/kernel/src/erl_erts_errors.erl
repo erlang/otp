@@ -683,9 +683,9 @@ format_erlang_error(open_port, [Name, Settings], Cause) ->
             must_be_tuple(Name)
     end;
 format_erlang_error(phash, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(phash2, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(posixtime_to_universaltime, [_], _) ->
     [not_integer];
 format_erlang_error(pid_to_list, [_], _) ->
