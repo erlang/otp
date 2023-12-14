@@ -379,9 +379,7 @@ fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2)
     ErlFunEntry* fe1 = &obj1->entry;
     ErlFunEntry* fe2 = &obj2->entry;
 
-    return !(fe1->old_index == fe2->old_index &&
-             fe1->old_uniq == fe2->old_uniq &&
-             fe1->module == fe2->module &&
+    return !(fe1->module == fe2->module &&
              fe1->index == fe2->index &&
              fe1->arity == fe2->arity &&
              !sys_memcmp(fe1->uniq, fe2->uniq, sizeof(fe1->uniq)));
