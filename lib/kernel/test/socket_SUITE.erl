@@ -43710,7 +43710,12 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
         {error, SReason} ->
             ?SEV_EPRINT("send (~w of ~w): ~p"
                         "~n   ~p", [N, Num, SReason, mq()]),
-            exit({send, SReason, N})
+            case SReason of
+                emsgsize ->
+                    exit({send, SReason, N, byte_size(Data)});
+                _ ->
+                    exit({send, SReason, N})
+            end
     end.
 
 tpp_tcp_client_sock_open(Domain, Proto, BufInit) ->
