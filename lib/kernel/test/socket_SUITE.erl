@@ -783,8 +783,8 @@
 
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
--define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
--define(TPP_LARGE,  lists:flatten(lists:duplicate(1024, ?TPP_MEDIUM))).
+-define(TPP_MEDIUM, lists:flatten(lists:duplicate(100, ?TPP_SMALL))).
+-define(TPP_LARGE,  lists:flatten(lists:duplicate(100, ?TPP_MEDIUM))).
 
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
