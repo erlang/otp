@@ -131,7 +131,8 @@ blockify([I|Is0]=IsAll, Acc) ->
 	error -> blockify(Is0, [I|Acc]);
 	Instr when is_tuple(Instr) ->
             {Block0,Is} = collect_block(IsAll),
-            Block = sort_moves(Block0),
+            Block1 = sort_moves(Block0),
+            Block = swap_opt_block(Block1, []),
 	    blockify(Is, [{block,Block}|Acc])
     end;
 blockify([], Acc) -> reverse(Acc).
@@ -170,6 +171,10 @@ collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect({fconv,S,D})         -> {set,[D],[S],fconv};
 collect({executable_line,Line}) -> {set,[],[],{executable_line,Line}};
+collect({swap,D1,D2})        ->
+    Regs = [D1,D2],
+    {set,Regs,Regs,swap};
+collect({make_fun3,F,I,U,D,{list,Ss}}) -> {set,[D],Ss,{make_fun3,F,I,U}};
 collect(_)                   -> error.
 
 %% embed_lines([Instruction]) -> [Instruction]
@@ -222,6 +227,51 @@ sort_on_yreg([{set,[Dst],[Src],move}|_]=Moves) ->
         {{x,_},{y,_}} ->
             keysort(3, Moves)
     end.
+
+%% Attempt to replace a swap instruction with a move instruction.
+swap_opt_block([{set,[D1,D2],_,swap}=I|Is], [{set,[Dst],Ss,Op}|Acc]=Acc0) ->
+    case Op of
+        {get_tuple_element,_} ->
+            %% Don't separate from other get_tuple_element instructions or
+            %% tuple testing instructions.
+            swap_opt_block(Is, [I|Acc0]);
+        {alloc,_,_} ->
+            %% Potentially unsafe.
+            swap_opt_block(Is, [I|Acc0]);
+        get_hd ->
+            %% Don't separate from get_tl.
+            swap_opt_block(Is, [I|Acc0]);
+        get_tl ->
+            %% Don't separate from get_hd.
+            swap_opt_block(Is, [I|Acc0]);
+        _ ->
+            case is_used(Dst, Ss) of
+                true ->
+                    swap_opt_block(Is, [I|Acc0]);
+                false ->
+                    OtherDst = case Dst of
+                                   D1 -> D2;
+                                   D2 -> D1;
+                                   _ -> none
+                               end,
+                    case OtherDst of
+                        none ->
+                            swap_opt_block(Is, [I|Acc0]);
+                        _ ->
+                            swap_opt_block(Is, [{set,[OtherDst],Ss,Op},
+                                                {set,[Dst],[OtherDst],move}|Acc])
+                    end
+            end
+    end;
+swap_opt_block([I|Is], Acc) ->
+    swap_opt_block(Is, [I|Acc]);
+swap_opt_block([], Acc) ->
+    reverse(Acc).
+
+is_used(D, [D|_]) -> true;
+is_used(D, [{tr,D,_}|_]) -> true;
+is_used(D, [_|As]) -> is_used(D, As);
+is_used(_, []) -> false.
 
 %%%
 %%% Coalesce adjacent get_map_elements and has_map_fields instructions.
