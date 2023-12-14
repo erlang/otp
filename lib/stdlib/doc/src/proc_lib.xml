@@ -160,7 +160,7 @@
     </func>
 
     <func>
-      <name name="get_label" arity="1" since="OTP 26.2"/>
+      <name name="get_label" arity="1" since="OTP 27.0"/>
       <fsummary>Returns the user-set process label.</fsummary>
       <desc>
         <p>Returns either <c>undefined</c> or the label for the process
@@ -341,7 +341,7 @@ init(Parent) ->
     </func>
 
     <func>
-      <name name="set_label" arity="1" since="OTP 26.2"/>
+      <name name="set_label" arity="1" since="OTP 27.0"/>
       <fsummary>Set process label.</fsummary>
       <desc>
         <p>Set a label for the current process.
