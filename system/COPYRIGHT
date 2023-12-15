@@ -230,6 +230,27 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 DEALINGS IN THE SOFTWARE.
 
 ---------------------------------------------------------------------------
+[OpenSSL MD5 implementation]
+
+* Info:
+  * SPDX-License-Identifier: Apache-2.0
+  * Library: OpenSSL
+  * Version: 3.1.4
+  * Git Repository: https://github.com/openssl/openssl
+  * Commit: 01d5e2318405362b4de5e670c90d9b40a351d053
+  * OTP Location: ./erts/emulator/openssl and
+                  ./lib/erl_interface/src/openssl
+
+/*
+ * Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
+
+---------------------------------------------------------------------------
 [dialyzer]
 
 %% Copyright 1997-2016 Tobias Lindahl, Stavros Aronis, Kostis Sagonas,
