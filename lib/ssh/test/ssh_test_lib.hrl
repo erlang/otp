@@ -49,3 +49,13 @@
 
 -define(wait_match(Pattern, FunctionCall),  ?wait_match(Pattern, FunctionCall, ok) ).
 
+%%-------------------------------------------------------------------------
+%% Write file into log
+%%-------------------------------------------------------------------------
+
+-define(ct_log_show_file(File),
+        (fun(File__) ->
+                {ok,Contents__} = file:read_file(File__),
+                ct:log("~p:~p Show file~n~s =~n~s~n",
+                       [?MODULE,?LINE,File__, Contents__])
+        end)(File)).
