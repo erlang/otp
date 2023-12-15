@@ -1,4 +1,4 @@
-ARG BASE=docker.pkg.github.com/erlang/otp/ubuntu-base
+ARG BASE=ghcr.io/erlang/otp/ubuntu-base
 FROM $BASE
 ## We do a SSA lint check here
 ENV ERL_COMPILER_OPTIONS=ssalint
@@ -9,7 +9,7 @@ ENV MAKEFLAGS=$MAKEFLAGS \
     ERL_TOP=/buildroot/otp \
     PATH=/otp/bin:/buildroot/otp/bin:$PATH
 
-RUN sudo apt-get install -y clang
+RUN sudo apt-get update && sudo apt-get install -y clang
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
