@@ -3730,9 +3730,6 @@ static std::vector<BsmSegment> opt_bsm_segments(
         case BsmSegment::action::GET_BITSTRING:
             if (seg.size > 64) {
                 read_action_pos = -1;
-            } else if (seg.action == BsmSegment::action::GET_BITSTRING &&
-                       seg.size % 8 != 0) {
-                read_action_pos = -1;
             } else {
                 if ((seg.flags & BSF_LITTLE) != 0 || read_action_pos < 0 ||
                     seg.size + segs.at(read_action_pos).size > 64) {
@@ -4122,16 +4119,25 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
         }
         case BsmSegment::action::GET_BITSTRING: {
             auto Live = seg.live;
+            ERTS_ASSERT(seg.size > 64);
             comment("get binary %ld", seg.size);
             auto ctx = load_source(Ctx, TMP1);
 
+            if (position_is_valid) {
+                a.mov(ARG5, bin_position);
+            } else {
+                a.ldur(ARG5, emit_boxed_val(ctx.reg, start_offset));
+            }
             lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
-            a.ldur(ARG2, emit_boxed_val(ctx.reg, orig_offset));
-            a.and_(ARG3, ARG2, imm(~TAG_PTR_MASK__));
-            a.and_(ARG2, ARG2, imm(TAG_PTR_MASK__));
+            if (seg.size <= ERL_ONHEAP_BITS_LIMIT) {
+                comment("skipped setting registers not used for heap binary");
+            } else {
+                a.ldur(ARG2, emit_boxed_val(ctx.reg, orig_offset));
+                a.and_(ARG3, ARG2, imm(~TAG_PTR_MASK__));
+                a.and_(ARG2, ARG2, imm(TAG_PTR_MASK__));
+            }
             a.ldur(ARG4, emit_boxed_val(ctx.reg, base_offset));
             a.and_(ARG4, ARG4, imm(~ERL_SUB_BITS_FLAG_MASK));
-            a.ldur(ARG5, emit_boxed_val(ctx.reg, start_offset));
             mov_imm(ARG6, seg.size);
             a.add(TMP2, ARG5, ARG6);
             a.stur(TMP2, emit_boxed_val(ctx.reg, start_offset));
