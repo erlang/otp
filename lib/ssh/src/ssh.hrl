@@ -416,6 +416,8 @@
           send_ext_info, %% May send ext-info to peer
           recv_ext_info, %% Expect ext-info from peer
 
+          kex_strict_negotiated = false,
+
 	  algorithms,   %% #alg{}
 	  
 	  send_mac = none, %% send MAC algorithm
@@ -487,7 +489,8 @@
 	  c_lng,
 	  s_lng,
           send_ext_info,
-          recv_ext_info
+          recv_ext_info,
+          kex_strict_negotiated = false
 	 }).
 
 -record(ssh_pty, {term = "", % e.g. "xterm"
