@@ -1944,8 +1944,7 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                 ERTS_GET_BITSTRING(term, data, offset, size);
 
                 IHASH_MIX_ALPHA(IHASH_TYPE_BINARY);
-                IHASH_MIX_BETA(offset);
-                IHASH_MIX_ALPHA(size);
+                IHASH_MIX_BETA(size);
 
                 if (size > 0) {
                     const byte *bytes = data;
