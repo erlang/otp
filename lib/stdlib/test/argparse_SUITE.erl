@@ -45,6 +45,7 @@
     usage/0, usage/1,
     usage_required_args/0, usage_required_args/1,
     usage_template/0, usage_template/1,
+    usage_args_ordering/0, usage_args_ordering/1,
     parser_error_usage/0, parser_error_usage/1,
     command_usage/0, command_usage/1,
     usage_width/0, usage_width/1,
@@ -52,7 +53,8 @@
     validator_exception/0, validator_exception/1,
     validator_exception_format/0, validator_exception_format/1,
 
-    run_handle/0, run_handle/1
+    run_handle/0, run_handle/1,
+    run_args_ordering/0, run_args_ordering/1
 ]).
 
 -include_lib("stdlib/include/assert.hrl").
@@ -70,14 +72,14 @@ groups() ->
             very_short, multi_short, proxy_arguments
         ]},
         {usage, [parallel], [
-            usage, usage_required_args, usage_template,
+            usage, usage_required_args, usage_template, usage_args_ordering,
             parser_error_usage, command_usage, usage_width
         ]},
         {validator, [parallel], [
             validator_exception, validator_exception_format
         ]},
         {run, [parallel], [
-            run_handle
+            run_handle, run_args_ordering
         ]}
     ].
 
@@ -743,10 +745,12 @@ usage() ->
 
 usage(Config) when is_list(Config) ->
     Cmd = ubiq_cmd(),
-    Usage = "Usage:\n  erl start {crawler|doze} [-lrfv] [-s <shard>...] [-z <z>] [-m <more>] [-b <bin>]\n"
-        "      [-g <g>] [-t <t>] ---maybe-req -y <y> --yyy <y> [-u <u>] [-c <choice>]\n"
-        "      [-q <fc>] [-w <ac>] [--unsafe <au>] [--safe <as>] [-foobar <long>] [--force]\n"
-        "      [-i <interval>] [--req <weird>] [--float <float>] <server> [<optpos>]\n\n"
+    Usage = "Usage:\n"
+        "  erl start {crawler|doze} [-rfvl] [--force] [-i <interval>] [--req <weird>]\n"
+        "      [--float <float>] [-s <shard>...] [-z <z>] [-m <more>] [-b <bin>] [-g <g>]\n"
+        "      [-t <t>] ---maybe-req -y <y> --yyy <y> [-u <u>] [-c <choice>] [-q <fc>]\n"
+        "      [-w <ac>] [--unsafe <au>] [--safe <as>] [-foobar <long>] <server> [<optpos>]\n"
+        "\n"
         "Subcommands:\n"
         "  crawler      controls crawler behaviour\n"
         "  doze         dozes a bit\n\n"
@@ -754,6 +758,12 @@ usage(Config) when is_list(Config) ->
         "  server       server to start\n"
         "  optpos       optional positional (int)\n\n"
         "Optional arguments:\n"
+        "  -r           recursive\n"
+        "  -f, --force  force\n"
+        "  -v           verbosity level\n"
+        "  -i           interval set (int >= 1)\n"
+        "  --req        required optional, right?\n"
+        "  --float      floating-point long form argument (float), default: 3.14\n"
         "  -s           initial shards (int)\n"
         "  -z           between (1 <= int <= 10)\n"
         "  -l           maybe lower (int <= 10)\n"
@@ -769,13 +779,7 @@ usage(Config) when is_list(Config) ->
         "  -w           atom choice (choice: one, two)\n"
         "  --unsafe     unsafe atom (atom)\n"
         "  --safe       safe atom (existing atom)\n"
-        "  -foobar      foobaring option\n"
-        "  -r           recursive\n"
-        "  -f, --force  force\n"
-        "  -v           verbosity level\n"
-        "  -i           interval set (int >= 1)\n"
-        "  --req        required optional, right?\n"
-        "  --float      floating-point long form argument (float), default: 3.14\n",
+        "  -foobar      foobaring option\n",
     ?assertEqual(Usage, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["start"]}))),
     FullCmd = "Usage:\n  erl"
@@ -793,13 +797,16 @@ usage(Config) when is_list(Config) ->
         "  --float     floating-point long form argument (float), default: 3.14\n",
     ?assertEqual(FullCmd, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => erl}))),
-    CrawlerStatus = "Usage:\n  erl status crawler [-rfv] [---extra <extra>] [--force] [-i <interval>]\n"
-        "      [--req <weird>] [--float <float>]\n\nOptional arguments:\n"
-        "  ---extra    extra option very deep\n  -r          recursive\n"
-        "  -f, --force force\n  -v          verbosity level\n"
+    CrawlerStatus = "Usage:\n  erl status crawler [-rfv] [--force] [-i <interval>] [--req <weird>]\n"
+        "      [--float <float>] [---extra <extra>]\n\n"
+        "Optional arguments:\n"
+        "  -r          recursive\n"
+        "  -f, --force force\n"
+        "  -v          verbosity level\n"
         "  -i          interval set (int >= 1)\n"
         "  --req       required optional, right?\n"
-        "  --float     floating-point long form argument (float), default: 3.14\n",
+        "  --float     floating-point long form argument (float), default: 3.14\n"
+        "  ---extra    extra option very deep\n",
     ?assertEqual(CrawlerStatus, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["status", "crawler"]}))),
     ok.
@@ -854,6 +861,30 @@ usage_template(Config) when is_list(Config) ->
     },
     ?assertEqual("Usage:\n  " ++ prog() ++ " [--range RNG]\n\nOptional arguments:\n  -r, --range date range, 2020-1-1..2020-6-22\n",
         unicode:characters_to_list(argparse:help(CmdISO, #{}))),
+    ok.
+
+usage_args_ordering() ->
+    [{doc, "Tests the ordering of arguments in usage text"}].
+
+usage_args_ordering(Config) when is_list(Config) ->
+    Cmd = #{arguments => [
+        #{name => first},
+        #{name => second}
+        ],
+        commands => #{
+            "cmd" => #{arguments => [
+                #{name => third},
+                #{name => fourth}
+            ]}}
+    },
+    ?assertEqual("Usage:\n  " ++ prog() ++ " cmd <first> <second> <third> <fourth>\n"
+        "\n"
+        "Arguments:\n"
+        "  first  first\n"
+        "  second second\n"
+        "  third  third\n"
+        "  fourth fourth\n",
+        unicode:characters_to_list(argparse:help(Cmd, #{command => ["cmd"]}))),
     ok.
 
 parser_error_usage() ->
@@ -1061,3 +1092,17 @@ run_handle(Config) when is_list(Config) ->
             handler => {maps, to_list},
             arguments => [#{name => arg}]}}},
             #{})).
+
+run_args_ordering() ->
+    [{doc, "Test that positional arguments are parsed in the correct order"}].
+
+run_args_ordering(Config) when is_list(Config) ->
+    ?assertEqual([{first,"1"},{second,"2"},{third,"3"},{fourth,"4"}],
+        argparse:run(["cmd", "1", "2", "3", "4"],
+            #{arguments => [#{name => first}, #{name => second}],
+            commands => #{
+                "cmd" => #{
+                    handler => {maps, to_list},
+                    arguments => [#{name => third}, #{name => fourth}]}
+            }},
+            #{progname => example})).

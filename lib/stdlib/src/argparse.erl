@@ -1114,11 +1114,11 @@ format_help({ProgName, Root}, Format) ->
 
 %% collects options on the Path, and returns found Command
 collect_options(CmdName, Command, [], Args) ->
-    {CmdName, Command, maps:get(arguments, Command, []) ++ Args};
+    {CmdName, Command, Args ++ maps:get(arguments, Command, [])};
 collect_options(CmdName, Command, [Cmd|Tail], Args) ->
     Sub = maps:get(commands, Command),
     SubCmd = maps:get(Cmd, Sub),
-    collect_options(CmdName ++ " " ++ Cmd, SubCmd, Tail, maps:get(arguments, Command, []) ++ Args).
+    collect_options(CmdName ++ " " ++ Cmd, SubCmd, Tail, Args ++ maps:get(arguments, Command, [])).
 
 %% conditionally adds text and empty lines
 maybe_add(_ToAdd, [], _Element, Template) ->

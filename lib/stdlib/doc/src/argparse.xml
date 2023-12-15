@@ -692,9 +692,10 @@ argparse:run(["2", "-p", "3"], Cmd, #{}).
       <desc>
         <p>Generates help/usage information text for the command
           supplied, or any nested command when <c>command</c>
-          option is specified. Does not provide localisaton.
-          Expects <c>progname</c> to be set, otherwise defaults to
-          return value of <c>init:get_argument(progname)</c>.</p>
+          option is specified. Arguments are displayed in the same order as
+          specified in <c>Command</c>.  Does not provide localisation.  Expects
+          <c>progname</c> to be set, otherwise defaults to return value of
+          <c>init:get_argument(progname)</c>.</p>
       </desc>
     </func>
 
@@ -736,4 +737,3 @@ argparse:run(["2", "-p", "3"], Cmd, #{}).
   </funcs>
 
 </erlref>
-
