@@ -1065,7 +1065,7 @@ save2(DbgInfo) ->
     Key = {'$$$_report', current_pos},
     P =
 	case ?ets_lookup_element(mnesia_gvar, Key, 2) of
-	    30 -> -1;
+            100 -> -1;
 	    I -> I
 	end,
     set({'$$$_report', current_pos}, P+1),
