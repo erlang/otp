@@ -399,34 +399,15 @@ alg(ConnectionHandler) ->
 %%====================================================================
 %% Intitialisation
 %%====================================================================
-
 init([Role, Socket, Opts]) when Role==client ; Role==server ->
-    case inet:peername(Socket) of
-        {ok, PeerAddr} ->
-            try
-                {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
-                D = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
-                          socket = Socket,
-                          transport_protocol = Protocol,
-                          transport_cb = Callback,
-                          transport_close_tag = CloseTag,
-                          ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
-                          connection_state = init_connection_record(Role, Socket, Opts)
-                         },
-                process_flag(trap_exit, true),
-                {ok, {hello,Role}, D}
-            catch
-                _:{error,Error} -> {stop, {error,Error}};
-                error:Error ->     {stop, {error,Error}}
-            end;
-
-        {error,Error} ->
-            {stop, {shutdown,Error}}
-    end.
+    process_flag(trap_exit, true),
+    %% ssh_params will be updated after receiving socket_control event
+    %% in wait_for_socket state;
+    D = #data{socket = Socket, ssh_params = #ssh{role = Role, opts = Opts}},
+    {ok, {wait_for_socket, Role}, D}.
 
 %%%----------------------------------------------------------------
 %%% Connection start and initialization helpers
-
 init_connection_record(Role, Socket, Opts) ->
     {WinSz, PktSz} = init_inet_buffers_window(Socket),
     C = #connection{channel_cache = ssh_client_channel:cache_create(),
@@ -576,15 +557,39 @@ renegotiation(_) -> false.
          {next_event,internal,{conn_msg,Msg}}]).
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
 callback_mode() ->
     [handle_event_function,
      state_enter].
 
-
 %%% ######## {hello, client|server} ####
-%% The very first event that is sent when the we are set as controlling process of Socket
-handle_event(cast, socket_control, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
+%% The very first event that is sent when ssh_connection_handler
+%% becomes owner process for Socket
+handle_event(cast, socket_control, {wait_for_socket, Role},
+             #data{socket = Socket, ssh_params = #ssh{opts = Opts}}) ->
+    case inet:peername(Socket) of
+        {ok, PeerAddr} ->
+            try
+                {Protocol, Callback, CloseTag} = ?GET_OPT(transport, Opts),
+                D = #data{starter = ?GET_INTERNAL_OPT(user_pid, Opts),
+                          socket = Socket,
+                          transport_protocol = Protocol,
+                          transport_cb = Callback,
+                          transport_close_tag = CloseTag,
+                          ssh_params = init_ssh_record(Role, Socket, PeerAddr, Opts),
+                          connection_state = init_connection_record(Role, Socket, Opts)
+                         },
+                NextEvent = {next_event, internal, socket_ready},
+                {next_state, {hello,Role}, D, NextEvent}
+            catch
+                _:{error,Error} -> {stop, {error,Error}};
+                error:Error ->     {stop, {error,Error}}
+            end;
+
+        {error,Error} ->
+            {stop, {shutdown,Error}}
+    end;
+
+handle_event(internal, socket_ready, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh0)),
     send_bytes(VsnMsg, D),
     case inet:getopts(Socket=D#data.socket, [recbuf]) of
@@ -1363,6 +1368,10 @@ handle_event(Type, Ev, StateName, D0) ->
 	       ) -> term().
 			
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+terminate(_, {wait_for_socket, _}, _) ->
+    %% No need to to anything - maybe we have not yet gotten
+    %% control over the socket
+    ok;
 
 terminate(normal, _StateName, D) ->
     close_transport(D);
