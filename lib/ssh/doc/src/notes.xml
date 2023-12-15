@@ -30,6 +30,43 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.13.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, connection handler does not execute
+	    socket operations until it becomes socket owner.
+	    Previously errors could occur if connection handler tried
+	    to work with socket whose owner exited.</p>
+          <p>
+	    Own Id: OTP-18869 Aux Id: PR-7849,GH-7571 </p>
+        </item>
+        <item>
+          <p>
+	    With this change (being response to CVE-2023-48795), ssh
+	    can negotiate "strict KEX" OpenSSH extension with peers
+	    supporting it; also 'chacha20-poly1305@openssh.com'
+	    algorithm becomes a less preferred cipher.</p>
+          <p>
+	    If strict KEX availability cannot be ensured on both
+	    connection sides, affected encryption modes(CHACHA and
+	    CBC) can be disabled with standard ssh configuration.
+	    This will provide protection against vulnerability, but
+	    at a cost of affecting interoperability. See <seeguide
+	    marker="configure_algos">Configuring algorithms in
+	    SSH</seeguide>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18897</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
