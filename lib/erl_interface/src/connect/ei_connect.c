@@ -65,7 +65,7 @@
 #include "ei_locking.h"
 #include "eisend.h"
 #include "eirecv.h"
-#include "eimd5.h"
+#include "erl_md5.h"
 #include "putget.h"
 #include "ei_resolve.h"
 #include "ei_epmd.h"
