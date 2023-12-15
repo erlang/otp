@@ -706,6 +706,16 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
+handle_event(internal, #ssh_msg_ignore{}, {_StateName, _Role, init},
+             #data{ssh_params = #ssh{kex_strict_negotiated = true,
+                                     send_sequence = SendSeq,
+                                     recv_sequence = RecvSeq}}) ->
+    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                io_lib:format("strict KEX violation: unexpected SSH_MSG_IGNORE "
+                              "send_sequence = ~p  recv_sequence = ~p",
+                              [SendSeq, RecvSeq])
+               );
+
 handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
     keep_state_and_data;
 
