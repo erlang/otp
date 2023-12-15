@@ -30,7 +30,7 @@ limitations under the License.
 * Info:
   * SPDX-License-Identifier: FSFUL
   * Tool: Autoconf
-  * Version: 2.69
+  * Version: 2.71
   * Website: https://www.gnu.org/software/autoconf/
   * OTP Location: ./make/configure and
                   ./erts/configure and
@@ -43,7 +43,7 @@ limitations under the License.
                   ./lib/common_test/test_server/configure and
                   ./lib/common_test/configure
 
-# Copyright (C) 1992-1996, 1998-2012 Free Software Foundation, Inc.
+# Copyright (C) 1992-1996, 1998-2012, 2020-2021 Free Software Foundation, Inc.
 #
 #
 # This configure script is free software; the Free Software Foundation
@@ -57,10 +57,8 @@ limitations under the License.
   * Tool: Autoconf
   * Version: 2.71
   * Website: https://www.gnu.org/software/autoconf/
-  * OTP Location: ./erts/autoconf/config.{guess,sub} and
-                  ./lib/erl_interface/src/auxdir/config.{guess,sub} and
-                  ./lib/wx/autoconf/config.{guess,sub} and
-                  ./lib/common_test/priv/auxdir/config.{guess,sub} and
+  * OTP Location: ./make/autoconf/config.{guess,sub} and
+                  ./erts/autoconf/config.{guess,sub} and
                   ./lib/common_test/test_server/config.{guess,sub}
 
 #   Copyright 1992-2021 Free Software Foundation, Inc.
@@ -100,10 +98,8 @@ limitations under the License.
   * Tool: Autoconf
   * Version: 2.71
   * Website: https://www.gnu.org/software/autoconf/
-  * OTP Location: ./erts/autoconf/install-sh and
-                  ./lib/erl_interface/src/auxdir/install-sh and
-                  ./lib/wx/autoconf/install-sh and
-                  ./lib/common_test/priv/auxdir/install-sh and
+  * OTP Location: ./make/autoconf/install-sh and
+                  ./erts/autoconf/install-sh and
                   ./lib/common_test/test_server/install-sh
 
 # Copyright (C) 1994 X Consortium
