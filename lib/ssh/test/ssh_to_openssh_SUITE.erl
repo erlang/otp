@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
 
 -export([
          suite/0,
@@ -38,7 +39,9 @@
 
 -export([
          erlang_server_openssh_client_renegotiate/1,
+         eserver_oclient_kex_strict/1,
          erlang_shell_client_openssh_server/1,
+         eclient_oserver_kex_strict/1,
          exec_direct_with_io_in_sshc/1,
          exec_with_io_in_sshc/1,
          tunnel_in_erlclient_erlserver/1,
@@ -73,12 +76,14 @@ groups() ->
     [{erlang_client, [], [tunnel_in_erlclient_erlserver,
                           tunnel_out_erlclient_erlserver,
                           {group, tunnel_distro_server},
-                          erlang_shell_client_openssh_server
+                          erlang_shell_client_openssh_server,
+                          eclient_oserver_kex_strict
 			 ]},
      {tunnel_distro_server, [], [tunnel_in_erlclient_openssh_server,
                                  tunnel_out_erlclient_openssh_server]},
      {erlang_server, [], [{group, tunnel_distro_client},
                           erlang_server_openssh_client_renegotiate,
+                          eserver_oclient_kex_strict,
                           exec_with_io_in_sshc,
                           exec_direct_with_io_in_sshc
                          ]
@@ -87,16 +92,15 @@ groups() ->
                                  tunnel_out_non_erlclient_erlserver]}
     ].
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
     ?CHECK_CRYPTO(
-       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []) of
+       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, [{active, false}]) of
 	   {error,econnrefused} ->
 	       {skip,"No openssh daemon (econnrefused)"};
-	   _ ->
+	   {ok, Sock} ->
                ssh_test_lib:openssh_sanity_check(
-                 [{ptty_supported, ssh_test_lib:ptty_supported()}
-                  | Config]
-                )
+                 [{ptty_supported, ssh_test_lib:ptty_supported()},
+                  {kex_strict, check_kex_strict(Sock)}| Config0])
        end
       ).
 
@@ -142,6 +146,25 @@ end_per_testcase(_TestCase, _Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
+    eclient_oserver_helper(Config).
+
+eclient_oserver_kex_strict(Config) when is_list(Config)->
+    case proplists:get_value(kex_strict, Config) of
+        true ->
+            {ok, HandlerPid} = ssh_test_lib:add_report_handler(),
+            #{level := Level} = logger:get_primary_config(),
+            logger:set_primary_config(level, notice),
+            Result = eclient_oserver_helper(Config),
+            {ok, Reports} = ssh_test_lib:get_reports(HandlerPid),
+            ct:pal("Reports = ~p", [Reports]),
+            true = ssh_test_lib:kex_strict_negotiated(client, Reports),
+            logger:set_primary_config(Level),
+            Result;
+        _ ->
+            {skip, "KEX strict not support by local OpenSSH"}
+    end.
+
+eclient_oserver_helper(Config) ->
     process_flag(trap_exit, true),
     IO = ssh_test_lib:start_io_server(),
     Prev = lists:usort(supervisor:which_children(sshc_sup)),
@@ -166,7 +189,6 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
                                  false
                          end)
     end.
-
 %%--------------------------------------------------------------------
 %% Test that the server could redirect stdin and stdout from/to an
 %% OpensSSH client when handling an exec request
@@ -231,6 +253,25 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Test that the Erlang/OTP server can renegotiate with openSSH
 erlang_server_openssh_client_renegotiate(Config) ->
+    eserver_oclient_renegotiate_helper(Config).
+
+eserver_oclient_kex_strict(Config) ->
+    case proplists:get_value(kex_strict, Config) of
+        true ->
+            {ok, HandlerPid} = ssh_test_lib:add_report_handler(),
+            #{level := Level} = logger:get_primary_config(),
+            logger:set_primary_config(level, notice),
+            Result = eserver_oclient_renegotiate_helper(Config),
+            {ok, Reports} = ssh_test_lib:get_reports(HandlerPid),
+            ct:log("Reports = ~p", [Reports]),
+            true = ssh_test_lib:kex_strict_negotiated(server, Reports),
+            logger:set_primary_config(Level),
+            Result;
+        _ ->
+            {skip, "KEX strict not support by local OpenSSH"}
+    end.
+
+eserver_oclient_renegotiate_helper(Config) ->
     _PubKeyAlg = ssh_rsa,
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -255,9 +296,9 @@ erlang_server_openssh_client_renegotiate(Config) ->
 
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd++" < "++DataFile}),
 
-    Expect = fun({data,R}) -> 
+    Expect = fun({data,R}) ->
 		     try
-			 NonAlphaChars = [C || C<-lists:seq(1,255), 
+			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
 					       not lists:member(C,lists:seq($A,$Z))
 					 ],
@@ -275,15 +316,14 @@ erlang_server_openssh_client_renegotiate(Config) ->
 		(_) ->
 		     false
 	     end,
-    
-    try 
-	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
+    try
+        ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
     of
-	_ ->
-	    %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
-	    ssh:stop_daemon(Pid)
+        _ ->
+            %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
+            ssh:stop_daemon(Pid)
     catch
-	throw:{skip,R} -> {skip,R}
+        throw:{skip,R} -> {skip,R}
     end.
 
 %%--------------------------------------------------------------------
@@ -569,3 +609,17 @@ no_forwarding(Config) ->
            "---- The function no_forwarding() returns ~p",
            [Cmnd,TheText, FailRegExp, Result]),
     Result.
+
+check_kex_strict(Sock) ->
+    %% Send some version, in order to receive KEXINIT from server
+    ok = gen_tcp:send(Sock, "SSH-2.0-OpenSSH_9.5\r\n"),
+    ct:sleep(100),
+    {ok, Packet} = gen_tcp:recv(Sock, 0),
+    case string:find(Packet, ?kex_strict_s) of
+        nomatch ->
+            ct:log("KEX strict NOT supported by local OpenSSH"),
+            false;
+        _ ->
+            ct:log("KEX strict supported by local OpenSSH"),
+            true
+    end.
