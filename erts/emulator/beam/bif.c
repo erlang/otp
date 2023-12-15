@@ -1703,9 +1703,7 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                     */
 
                    state = erts_atomic32_read_nob(&c_p->state);
-                   if (state & (ERTS_PSFLG_RUNNING_SYS
-                                | ERTS_PSFLG_DIRTY_RUNNING_SYS
-                                | ERTS_PSFLG_DIRTY_RUNNING)) {
+                   if (!(state & ERTS_PSFLG_RUNNING)) {
                        /*
                         * We are either processing signals before
                         * being executed or executing dirty. That
@@ -1714,7 +1712,6 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                        *redsp = 1;
                    }
                    else {
-                       ASSERT(state & ERTS_PSFLG_RUNNING);
 
                        /*
                         * F_DELAY_GC is currently only set when
