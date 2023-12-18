@@ -190,6 +190,22 @@
 
 </section>
 
+<section><title>Asn1 5.0.18.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix benign warning from gcc 11 about mismatching call to
+	    free().</p>
+          <p>
+	    Own Id: OTP-18844</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.18.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
