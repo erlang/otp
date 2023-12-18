@@ -2294,13 +2294,16 @@ true</pre>
 
     <func>
       <name name="update_element" arity="3" clause_i="1" since=""/>
+      <name name="update_element" arity="4" clause_i="1" since="OTP @OTP-18870@"/>
       <name name="update_element" arity="3" clause_i="2" since=""/>
+      <name name="update_element" arity="4" clause_i="2" since="OTP @OTP-18870@"/>
       <fsummary>Update the <c>Pos</c>:th element of the object with a
         specified key in an ETS table.</fsummary>
       <type variable="Table"/>
       <type variable="Key"/>
       <type variable="Value"/>
       <type variable="Pos"/>
+      <type variable="Default"/>
       <desc>
         <p>This function provides an efficient way to update one or more 
           elements within an object, without the trouble of having to look up, 
@@ -2324,12 +2327,19 @@ true</pre>
           <c>ordered_set</c> table (for details on the difference, see
           <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and 
           <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
+        <p>If a default object <c><anno>Default</anno></c> is specified,
+          it is used
+          as the object to be updated if the key is missing from the table. The
+          value in place of the key is ignored and replaced by the proper key
+          value.</p>
         <p>The function fails with reason <c>badarg</c> in the following
           situations:</p>
         <list type="bulleted">
           <item>The table type is not <c>set</c> or <c>ordered_set</c>.</item>
           <item><c><anno>Pos</anno></c> &lt; 1.</item>
           <item><c><anno>Pos</anno></c> &gt; object arity.</item>
+          <item>The default object arity is smaller than
+            <c><![CDATA[<keypos>]]></c>.</item>
           <item>The element to update is also the key.</item>
         </list>
       </desc>
