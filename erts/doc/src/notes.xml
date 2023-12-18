@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed unnecessary PCRE source tar-ball.</p>
+          <p>
+	    Own Id: OTP-18902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
