@@ -42,7 +42,7 @@
 	 key_exchange_init_msg/1,
 	 key_init/3, new_keys_message/1,
          ext_info_message/1,
-	 handle_kexinit_msg/3, handle_kexdh_init/2,
+	 handle_kexinit_msg/4, handle_kexdh_init/2,
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_init/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
 	 handle_kexdh_reply/2, 
@@ -236,7 +236,6 @@ supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
 	[
-         {'chacha20-poly1305@openssh.com', [{ciphers,chacha20}, {macs,poly1305}]},
          {'aes256-gcm@openssh.com', [{ciphers,aes_256_gcm}]},
          {'aes256-ctr',       [{ciphers,aes_256_ctr}]},
          {'aes192-ctr',       [{ciphers,aes_192_ctr}]},
@@ -244,6 +243,7 @@ supported_algorithms(cipher) ->
 	 {'aes128-ctr',       [{ciphers,aes_128_ctr}]},
 	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
+         {'chacha20-poly1305@openssh.com', [{ciphers,chacha20}, {macs,poly1305}]},
 	 {'aes256-cbc',       [{ciphers,aes_256_cbc}]},
 	 {'aes192-cbc',       [{ciphers,aes_192_cbc}]},
 	 {'aes128-cbc',       [{ciphers,aes_128_cbc}]},
@@ -359,7 +359,8 @@ kexinit_message(Role, Random, Algs, HostKeyAlgs, Opts) ->
     #ssh_msg_kexinit{
 		  cookie = Random,
 		  kex_algorithms = to_strings( get_algs(kex,Algs) )
-                                   ++ kex_ext_info(Role,Opts),
+                                   ++ kex_ext_info(Role,Opts)
+                                   ++ kex_strict_alg(Role),
 		  server_host_key_algorithms = HostKeyAlgs,
 		  encryption_algorithms_client_to_server = c2s(cipher,Algs),
 		  encryption_algorithms_server_to_client = s2c(cipher,Algs),
@@ -388,10 +389,12 @@ new_keys_message(Ssh0) ->
 
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
-                   #ssh{role = client} = Ssh) ->
+                   #ssh{role = client} = Ssh, ReNeg) ->
     try
-        {ok, Algorithms} = select_algorithm(client, Own, CounterPart, Ssh#ssh.opts),
+        {ok, Algorithms} =
+            select_algorithm(client, Own, CounterPart, Ssh, ReNeg),
         true = verify_algorithm(Algorithms),
+        true = verify_kexinit_is_first_msg(Algorithms, Ssh, ReNeg),
         Algorithms
     of
 	Algos ->
@@ -404,10 +407,12 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
         end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
-                   #ssh{role = server} = Ssh) ->
+                   #ssh{role = server} = Ssh, ReNeg) ->
     try
-        {ok, Algorithms} = select_algorithm(server, CounterPart, Own, Ssh#ssh.opts),
+        {ok, Algorithms} =
+            select_algorithm(server, CounterPart, Own, Ssh, ReNeg),
         true = verify_algorithm(Algorithms),
+        true = verify_kexinit_is_first_msg(Algorithms, Ssh, ReNeg),
         Algorithms
     of
 	Algos ->
@@ -487,6 +492,21 @@ verify_algorithm(#alg{kex = Kex}) ->
         true -> true;
         false -> {false, "kex"}
     end.
+
+verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = false}, _, _) ->
+    true;
+verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true}, _, renegotiate) ->
+    true;
+verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
+                            #ssh{send_sequence = 1, recv_sequence = 1},
+                            init) ->
+    true;
+verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
+                            #ssh{send_sequence = SendSequence,
+                                 recv_sequence = RecvSequence}, init) ->
+    error_logger:warning_report(
+      lists:concat(["KEX strict violation (", SendSequence, ", ", RecvSequence, ")."])),
+    {false, "kex_strict"}.
 
 %%%----------------------------------------------------------------
 %%%
@@ -867,6 +887,9 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
                        )
     end. 
 
+%%%----------------------------------------------------------------
+kex_strict_alg(client) -> [?kex_strict_c];
+kex_strict_alg(server) -> [?kex_strict_s].
 
 %%%----------------------------------------------------------------
 kex_ext_info(Role, Opts) ->
@@ -1057,7 +1080,35 @@ known_host_key(#ssh{opts = Opts, peer = {PeerName,{IP,Port}}} = Ssh,
 %%
 %%   The first algorithm in each list MUST be the preferred (guessed)
 %%   algorithm.  Each string MUST contain at least one algorithm name.
-select_algorithm(Role, Client, Server, Opts) ->
+select_algorithm(Role, Client, Server,
+                 #ssh{opts = Opts,
+                         kex_strict_negotiated = KexStrictNegotiated0},
+                 ReNeg) ->
+    KexStrictNegotiated =
+        case ReNeg of
+            %% KEX strict negotiated once per connection
+            init ->
+                Result =
+                    case Role of
+                        server ->
+                            lists:member(?kex_strict_c,
+                                         Client#ssh_msg_kexinit.kex_algorithms);
+                        client ->
+                            lists:member(?kex_strict_s,
+                                         Server#ssh_msg_kexinit.kex_algorithms)
+                    end,
+                case Result of
+                    true ->
+                        error_logger:info_report(
+                          lists:concat([Role, " will use strict KEX ordering"]));
+                    _ ->
+                        ok
+                end,
+                Result;
+            _ ->
+                KexStrictNegotiated0
+        end,
+
     {Encrypt0, Decrypt0} = select_encrypt_decrypt(Role, Client, Server),
     {SendMac0, RecvMac0} = select_send_recv_mac(Role, Client, Server),
 
@@ -1108,7 +1159,8 @@ select_algorithm(Role, Client, Server, Opts) ->
               c_lng = C_Lng,
               s_lng = S_Lng,
               send_ext_info = SendExtInfo,
-              recv_ext_info = RecvExtInfo
+              recv_ext_info = RecvExtInfo,
+              kex_strict_negotiated = KexStrictNegotiated
              }}.
 
 
@@ -1206,7 +1258,8 @@ alg_setup(snd, SSH) ->
 	    c_lng = ALG#alg.c_lng,
 	    s_lng = ALG#alg.s_lng,
             send_ext_info = ALG#alg.send_ext_info,
-            recv_ext_info = ALG#alg.recv_ext_info
+            recv_ext_info = ALG#alg.recv_ext_info,
+            kex_strict_negotiated = ALG#alg.kex_strict_negotiated
 	   };
 
 alg_setup(rcv, SSH) ->
@@ -1218,22 +1271,23 @@ alg_setup(rcv, SSH) ->
 	    c_lng = ALG#alg.c_lng,
 	    s_lng = ALG#alg.s_lng,
             send_ext_info = ALG#alg.send_ext_info,
-            recv_ext_info = ALG#alg.recv_ext_info
+            recv_ext_info = ALG#alg.recv_ext_info,
+            kex_strict_negotiated = ALG#alg.kex_strict_negotiated
 	   }.
 
-
-alg_init(snd, SSH0) ->
+alg_init(Dir = snd, SSH0) ->
     {ok,SSH1} = send_mac_init(SSH0),
     {ok,SSH2} = encrypt_init(SSH1),
     {ok,SSH3} = compress_init(SSH2),
-    SSH3;
+    {ok,SSH4} = maybe_reset_sequence(Dir, SSH3),
+    SSH4;
 
-alg_init(rcv, SSH0) ->
+alg_init(Dir = rcv, SSH0) ->
     {ok,SSH1} = recv_mac_init(SSH0),
     {ok,SSH2} = decrypt_init(SSH1),
     {ok,SSH3} = decompress_init(SSH2),
-    SSH3.
-
+    {ok,SSH4} = maybe_reset_sequence(Dir, SSH3),
+    SSH4.
 
 alg_final(snd, SSH0) ->
     {ok,SSH1} = send_mac_final(SSH0),
@@ -2198,6 +2252,14 @@ crypto_name_supported(Tag, CryptoName, Supported) ->
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 
+maybe_reset_sequence(snd, Ssh = #ssh{kex_strict_negotiated = true}) ->
+    {ok, Ssh#ssh{send_sequence = 0}};
+maybe_reset_sequence(rcv, Ssh = #ssh{kex_strict_negotiated = true}) ->
+    {ok, Ssh#ssh{recv_sequence = 0}};
+maybe_reset_sequence(_Dir, Ssh) ->
+    {ok, Ssh}.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Other utils
@@ -2224,14 +2286,14 @@ ssh_dbg_flags(raw_messages) -> ssh_dbg_flags(hello);
 ssh_dbg_flags(ssh_messages) -> ssh_dbg_flags(hello).
 
 
-ssh_dbg_on(alg) -> dbg:tpl(?MODULE,select_algorithm,4,x);
+ssh_dbg_on(alg) -> dbg:tpl(?MODULE,select_algorithm,5,x);
 ssh_dbg_on(hello) -> dbg:tp(?MODULE,hello_version_msg,1,x),
                      dbg:tp(?MODULE,handle_hello_version,1,x);
 ssh_dbg_on(raw_messages) -> ssh_dbg_on(hello);
 ssh_dbg_on(ssh_messages) -> ssh_dbg_on(hello).
 
 
-ssh_dbg_off(alg) -> dbg:ctpl(?MODULE,select_algorithm,4);
+ssh_dbg_off(alg) -> dbg:ctpl(?MODULE,select_algorithm,5);
 ssh_dbg_off(hello) -> dbg:ctpg(?MODULE,hello_version_msg,1),
                       dbg:ctpg(?MODULE,handle_hello_version,1);
 ssh_dbg_off(raw_messages) -> ssh_dbg_off(hello);
@@ -2254,9 +2316,9 @@ ssh_dbg_format(hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
 ssh_dbg_format(hello, {return_from,{?MODULE,handle_hello_version,1},_Ret}) ->
     skip;
 
-ssh_dbg_format(alg, {call,{?MODULE,select_algorithm,[_,_,_,_]}}) ->
+ssh_dbg_format(alg, {call,{?MODULE,select_algorithm,[_,_,_,_,_]}}) ->
     skip;
-ssh_dbg_format(alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
+ssh_dbg_format(alg, {return_from,{?MODULE,select_algorithm,5},{ok,Alg}}) ->
     ["Negotiated algorithms:\n",
      wr_record(Alg)
     ];
