@@ -1488,7 +1488,7 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
                            const unsigned char* data,
                            size_t data_sz,
                            ERL_NIF_TERM *term,
-                           ErlNifBinaryToTerm opts)
+                           unsigned int opts)
 {
     Sint size;
     ErtsHeapFactory factory;

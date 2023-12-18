@@ -2558,8 +2558,7 @@ static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     /* build dummy heap term first to provoke OTP-15080 */
     dummy = enif_make_list_cell(msg_env, atom_true, atom_false);
 
-    ret = enif_binary_to_term(msg_env, bin.data, bin.size, &term,
-			      (ErlNifBinaryToTerm)opts);
+    ret = enif_binary_to_term(msg_env, bin.data, bin.size, &term, opts);
     if (!ret)
 	return atom_false;
 
