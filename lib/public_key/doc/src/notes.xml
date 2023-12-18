@@ -129,6 +129,25 @@
 
 </section>
 
+<section><title>Public_Key 1.13.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl application will validate id-kp-serverAuth and
+	    id-kp-clientAuth extended key usage only in end entity
+	    certificates. public_key application will disallow
+	    "anyExtendedKeyUsage" for CA certificates that includes
+	    the extended key usage extension and marks it critical.</p>
+          <p>
+	    Own Id: OTP-18739</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.13.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

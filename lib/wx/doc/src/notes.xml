@@ -88,6 +88,21 @@
 
 </section>
 
+<section><title>Wx 2.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>wx</c> application would fail to build on macOS
+	    with Xcode 15.</p>
+          <p>
+	    Own Id: OTP-18768 Aux Id: PR-7670 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

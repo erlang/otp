@@ -113,6 +113,22 @@
 
 </section>
 
+  <section><title>Mnesia 4.21.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>mnesia:add_table_copy/3</c> no longer fails with
+	    reason system_limit when the node is starting.</p>
+          <p>
+	    Own Id: OTP-18850</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Mnesia 4.21.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
