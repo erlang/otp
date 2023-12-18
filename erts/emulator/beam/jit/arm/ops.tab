@@ -522,6 +522,10 @@ put_list Hd1=y Tl Dst | put_list Hd2=y Dst2 Dst3 |
   consecutive_words(Hd1, Hd2) =>
     put_list2 Hd1 Hd2 Tl Dst
 
+put_list Hd Tl Dst | deallocate N =>
+    put_list_deallocate Hd Tl Dst N
+
+put_list_deallocate s s d t
 put_list s s d
 put_list2 s s s d
 

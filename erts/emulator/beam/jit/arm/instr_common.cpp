@@ -713,6 +713,56 @@ void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
     flush_var(dst);
 }
 
+void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
+                                                   const ArgSource &Tl,
+                                                   const ArgRegister &Dst,
+                                                   const ArgWord &Deallocate) {
+    Sint dealloc = Deallocate.get() * sizeof(Eterm);
+    arm::Gp hd_reg, tl_reg;
+    auto dst = init_destination(Dst, TMP3);
+
+    ASSERT(dealloc <= 1023);
+
+    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
+        auto hd_index = Hd.as<ArgYRegister>().get();
+
+        if (hd_index == 0) {
+            arm::Mem mem = getArgRef(Hd);
+            mem = arm::Mem(E).post(dealloc);
+            hd_reg = TMP1;
+            a.ldr(hd_reg, mem);
+            tl_reg = load_source(Tl, TMP2).reg;
+            dealloc = 0;
+        }
+    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0) {
+        auto tl_index = Tl.as<ArgYRegister>().get();
+
+        if (tl_index == 0) {
+            arm::Mem mem = getArgRef(Tl);
+            mem = arm::Mem(E).post(dealloc);
+            tl_reg = TMP2;
+            a.ldr(tl_reg, mem);
+            hd_reg = load_source(Hd, TMP1).reg;
+            dealloc = 0;
+        }
+    }
+
+    if (!hd_reg.isValid()) {
+        auto [hd, tl] = load_sources(Hd, TMP1, Tl, TMP2);
+        hd_reg = hd.reg;
+        tl_reg = tl.reg;
+    }
+
+    a.stp(hd_reg, tl_reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+    a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+
+    flush_var(dst);
+
+    if (dealloc > 0) {
+        add(E, E, Deallocate.get() * sizeof(Eterm));
+    }
+}
+
 void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
                                          const ArgSource &Hd2,
                                          const ArgSource &Tl,
