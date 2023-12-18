@@ -660,6 +660,42 @@ get_line1({search,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     {more_chars,Ncont,_Nrs} = edlin:start(Pbs, {search,none}),
     put(search, new_search),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
+get_line1({help, Before, Cs0, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
+    send_drv_reqs(Drv, Rs),
+    {_,Word,_} = edlin:over_word(Before, [], 0),
+    {R,Docs} = case edlin_context:get_context(Before) of
+        {function, Mod} when Word =/= [] -> try
+                    {ok, [{atom,_,Module}], _} = erl_scan:string(Mod),
+                    {ok, [{atom,_,Word1}], _} = erl_scan:string(Word),
+                    {function, c:h1(Module, Word1)}
+                catch _:_ ->
+                    {ok, [{atom,_,Module1}], _} = erl_scan:string(Mod),
+                    {module, c:h1(Module1)}
+                end;
+        {function, Mod} ->
+            {ok, [{atom,_,Module}], _} = erl_scan:string(Mod),
+            {module, c:h1(Module)};
+        {function, Mod, Fun, _Args, _Unfinished, _Nesting} ->
+            {ok, [{atom,_,Module}], _} = erl_scan:string(Mod),
+            {ok, [{atom,_,Function}], _} = erl_scan:string(Fun),
+            {function, c:h1(Module, Function)};
+        {term, _, {atom, Word1}}->
+            {ok, [{atom,_,Module}], _} = erl_scan:string(Word1),
+            {module, c:h1(Module)};
+        _ -> {error, {error, no_help}}
+    end,
+    case {R, Docs} of
+        {_, {error, _}} -> send_drv(Drv, beep);
+        {module, _} ->
+                Docs1 = "  "++string:trim(lists:nthtail(3, Docs),both),
+                send_drv(Drv, {put_expand, unicode,
+                    [unicode:characters_to_binary(Docs1)], 7});
+        {function, _} ->
+                Docs1 = "  "++string:trim(Docs,both),
+                send_drv(Drv, {put_expand, unicode,
+                    [unicode:characters_to_binary(Docs1)], 7})
+    end,
+    get_line1(edlin:edit_line(Cs0, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when Expand =:= expand; Expand =:= expand_full ->
     send_drv_reqs(Drv, Rs),

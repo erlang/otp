@@ -1202,6 +1202,20 @@ shell_expand_location_above(Config) ->
         ok
     end.
 
+shell_help(Config) ->
+    Term = start_tty(Config),
+    try
+        send_stdin(Term, "lists"),
+        send_stdin(Term, "\^[h"),
+        check_content(Term, "List processing functions."),
+        send_stdin(Term, ":all"),
+        send_stdin(Term, "\^[h"),
+        check_content(Term, "-spec all(Pred, List) -> boolean()"),
+        ok
+    after
+        stop_tty(Term),
+        ok
+    end.
 %% Test the we can handle invalid ansi escape chars.
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->

@@ -142,6 +142,10 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
       <item>
         <p>Move forward one word.</p>
       </item>
+      <tag><c>help</c></tag>
+      <item>
+        <p>Display help for the module or function closest on the left of the cursor.</p>
+      </item>
       <tag><c>history_down</c></tag>
       <item>
         <p>Move to the next item in the history.</p>
@@ -157,6 +161,14 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
       <tag><c>kill_word</c></tag>
       <item>
         <p>Delete the word under the cursor and save it in the kill buffer.</p>
+      </item>
+      <tag><c>move_expand_down</c></tag>
+      <item>
+        <p>Move down one line in the expand area e.g. help or tab completion pager.</p>
+      </item>
+      <tag><c>move_expand_up</c></tag>
+      <item>
+        <p>Move up one line in the expand area e.g. help or tab completion pager.</p>
       </item>
       <tag><c>new_line_finish</c></tag>
       <item>
@@ -176,6 +188,14 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
       <item>
         <p>Redraw the current line.</p>
       </item>
+      <tag><c>scroll_expand_down</c></tag>
+      <item>
+        <p>Scroll down five lines in the expand area e.g. help or tab completion pager.</p>
+      </item>
+      <tag><c>scroll_expand_up</c></tag>
+      <item>
+        <p>Scroll up five lines in the expand area e.g. help or tab completion pager.</p>
+      </item>
       <tag><c>search_cancel</c></tag>
       <item>
         <p>Cancel the current search.</p>
@@ -192,11 +212,11 @@ $ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
       <item>
         <p>Enter search mode, search the history.</p>
       </item>
-      <tag><c>search_down</c></tag>
+      <tag><c>skip_down</c></tag>
       <item>
         <p>Skip to the next line in the history that matches the current search expression.</p>
       </item>
-      <tag><c>search_up</c></tag>
+      <tag><c>skip_up</c></tag>
       <item>
         <p>Skip to the previous line in the history that matches the current search expression.</p>
       </item>
