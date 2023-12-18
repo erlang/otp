@@ -186,7 +186,6 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 ERL_COMPILE_FLAGS += -Werror
 ERL_COMPILE_FLAGS += -I../include
-ERL_COMPILE_FLAGS += -pa ../ebin
 
 
 # ----------------------------------------------------

@@ -187,7 +187,7 @@ objfile_extension() ->
 load_file(Mod) when is_atom(Mod) ->
     case get_object_code(Mod) of
         error -> {error,nofile};
-        {Mod,Binary,File} -> load_module(Mod, File, Binary, false, false)
+        {Mod,Binary,File} -> load_module(Mod, File, Binary, false)
     end.
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
@@ -200,7 +200,13 @@ ensure_loaded(Mod) when is_atom(Mod) ->
             case call({get_object_code_for_loading, Mod}) of
                 {module, Mod} -> {module, Mod};
                 {error, What} -> {error, What};
-                {Mod,Binary,File,Ref} -> load_module(Mod, File, Binary, false, Ref)
+                {Binary,File,Ref} ->
+                    case erlang:prepare_loading(Mod, Binary) of
+                        {error,_}=Error ->
+                            call({load_error, Ref, Mod, Error});
+                        Prepared ->
+                            call({load_module, Prepared, Mod, File, false, Ref})
+                    end
             end
     end.
 
@@ -219,7 +225,7 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
             FileName = code_server:absname(FileName0),
             case erl_prim_loader:get_file(FileName) of
                 {ok,Bin,_} ->
-                    load_module(M, FileName, Bin, false, false);
+                    load_module(M, FileName, Bin, false);
                 error ->
                     {error, nofile}
             end;
@@ -237,16 +243,16 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
 load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
     case modp(File) of
-        true -> load_module(Mod, File, Bin, true, false);
+        true -> load_module(Mod, File, Bin, true);
         false -> {error,badarg}
     end.
 
-load_module(Mod, File, Bin, Purge, EnsureLoaded) ->
+load_module(Mod, File, Bin, Purge) ->
     case erlang:prepare_loading(Mod, Bin) of
         {error,_}=Error ->
             Error;
         Prepared ->
-            call({load_module, Prepared, Mod, File, Purge, EnsureLoaded})
+            call({load_module, Prepared, Mod, File, Purge, false})
     end.
 
 modp(Atom) when is_atom(Atom) -> true;
