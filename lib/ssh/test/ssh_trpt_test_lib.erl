@@ -74,7 +74,7 @@ exec(L, S) when is_list(L) -> lists:foldl(fun exec/2, S, L);
 exec(Op, S0=#s{}) ->
     S1 = init_op_traces(Op, S0),
     try seqnum_trace(
-	  op(Op, S1))
+	  op(Op, S1), S1)
     of
 	S = #s{} ->
 	    case proplists:get_value(silent,S#s.opts) of
@@ -332,12 +332,20 @@ send(S0, ssh_msg_kexinit) ->
     {Msg, _Bytes, _C0} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
     send(S0, Msg);
 
+send(S0, ssh_msg_ignore) ->
+    Msg = #ssh_msg_ignore{data = "unexpected_ignore_message"},
+    send(S0, Msg);
+
+send(S0, ssh_msg_unknown) ->
+    Msg = binary:encode_hex(<<"0000000C060900000000000000000000">>),
+    send(S0, Msg);
+
 send(S0=#s{alg_neg={undefined,PeerMsg}}, Msg=#ssh_msg_kexinit{}) ->
     S1 = opt(print_messages, S0,
 	     fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
     S2 = case PeerMsg of
 	     #ssh_msg_kexinit{} ->
-		 try ssh_transport:handle_kexinit_msg(PeerMsg, Msg, S1#s.ssh) of
+		 try ssh_transport:handle_kexinit_msg(PeerMsg, Msg, S1#s.ssh, init) of
 		     {ok,Cx} when ?role(S1) == server ->
 			 S1#s{alg = Cx#ssh.algorithms};
 		     {ok,_NextKexMsgBin,Cx} when ?role(S1) == client ->
@@ -359,7 +367,7 @@ send(S0=#s{alg_neg={undefined,PeerMsg}}, Msg=#ssh_msg_kexinit{}) ->
 send(S0, ssh_msg_kexdh_init) when ?role(S0) == client ->
     {OwnMsg, PeerMsg} = S0#s.alg_neg,
     {ok, NextKexMsgBin, C} = 
-	try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S0#s.ssh)
+	try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S0#s.ssh, init)
 	catch
 	    Class:Exc ->
 		fail("Algorithm negotiation failed!",
@@ -442,7 +450,7 @@ recv(S0 = #s{}) ->
 			    fail("2 kexint received!!", S);
 					
 			{OwnMsg, _} ->
-			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh) of
+			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh, init) of
 				{ok,C} when ?role(S) == server ->
 				    S#s{alg_neg = {OwnMsg, PeerMsg},
 					alg = C#ssh.algorithms,
@@ -726,23 +734,23 @@ report_trace(Class, Term, S) ->
 	  fun(true) -> {"~s ~p",[Class,Term]} end)
      ).
 
-seqnum_trace(S) ->
+seqnum_trace(S, S0) ->
     opt(print_seqnums, S,
-	fun(true) when S#s.ssh#ssh.send_sequence =/= S#s.ssh#ssh.send_sequence,
-		       S#s.ssh#ssh.recv_sequence =/= S#s.ssh#ssh.recv_sequence ->
+	fun(true) when S0#s.ssh#ssh.send_sequence =/= S#s.ssh#ssh.send_sequence,
+		       S0#s.ssh#ssh.recv_sequence =/= S#s.ssh#ssh.recv_sequence ->
 		{"~p seq num: send ~p->~p,  recv ~p->~p~n",
 		 [?role(S),
-		  S#s.ssh#ssh.send_sequence, S#s.ssh#ssh.send_sequence,
-		  S#s.ssh#ssh.recv_sequence, S#s.ssh#ssh.recv_sequence
+		  S0#s.ssh#ssh.send_sequence, S#s.ssh#ssh.send_sequence,
+		  S0#s.ssh#ssh.recv_sequence, S#s.ssh#ssh.recv_sequence
 		 ]};
-	   (true) when S#s.ssh#ssh.send_sequence =/=  S#s.ssh#ssh.send_sequence ->
+	   (true) when S0#s.ssh#ssh.send_sequence =/=  S#s.ssh#ssh.send_sequence ->
 		{"~p seq num: send ~p->~p~n",
 		 [?role(S),
-		  S#s.ssh#ssh.send_sequence, S#s.ssh#ssh.send_sequence]};
-	   (true) when S#s.ssh#ssh.recv_sequence =/=  S#s.ssh#ssh.recv_sequence ->
+		  S0#s.ssh#ssh.send_sequence, S#s.ssh#ssh.send_sequence]};
+	   (true) when S0#s.ssh#ssh.recv_sequence =/=  S#s.ssh#ssh.recv_sequence ->
 		{"~p seq num: recv ~p->~p~n",
 		 [?role(S),
-		  S#s.ssh#ssh.recv_sequence, S#s.ssh#ssh.recv_sequence]}
+		  S0#s.ssh#ssh.recv_sequence, S#s.ssh#ssh.recv_sequence]}
 	end).
 
 print_traces(S) when S#s.prints == [] -> S;
