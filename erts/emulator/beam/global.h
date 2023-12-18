@@ -273,7 +273,7 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 union erl_off_heap_ptr {
     struct erl_off_heap_header* hdr;
     BinRef *br;
-    struct erl_fun_thing* fun;
+    struct erl_fun_ref* fref;
     struct external_thing_* ext;
     ErtsMRefThing *mref;
     Eterm* ep;

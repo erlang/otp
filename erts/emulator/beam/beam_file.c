@@ -1531,7 +1531,8 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
 
         LoadAssert(beamreader_read_tagged(reader, &val));
         LoadAssert(val.tag == TAG_u);
-        LoadAssert(val.word_value <= ERTS_SINT32_MAX / FLOAT_SIZE_OBJECT);
+        LoadAssert(val.word_value <= ERTS_SINT32_MAX /
+                   MAX(FLOAT_SIZE_OBJECT, ERL_FUN_SIZE + 1));
         number = val.word_value;
 
         switch(kind) {
@@ -1544,8 +1545,11 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
             sum += FLOAT_SIZE_OBJECT * number;
             break;
         case 2:
-            LoadAssert(sum <= (ERTS_SINT32_MAX - ERL_FUN_SIZE * number));
-            sum += ERL_FUN_SIZE * number;
+            LoadAssert(sum <= (ERTS_SINT32_MAX - (ERL_FUN_SIZE + 1) * number));
+
+            /* This is always a local fun, so we need to add one word to
+             * reserve space for its `FunRef`. */
+            sum += (ERL_FUN_SIZE + 1) * number;
             break;
         default:
             LoadError("Invalid allocation tag");

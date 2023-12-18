@@ -1177,9 +1177,8 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
-	    case BIN_REF_SUBTAG:
-	    case HEAP_BITS_SUBTAG:
-	    case SUB_BITS_SUBTAG:
+            case HEAP_BITS_SUBTAG:
+            case SUB_BITS_SUBTAG:
                 {
                     Uint a_offset, a_size;
                     byte* a_base;
@@ -1203,6 +1202,38 @@ tailrecur_ne:
 
                     break; /* not equal */
                 }
+#ifdef DEBUG
+            /* When copying terms, the debug emulator may check that the copy
+             * is strictly equal to the source. As non-term heap objects may be
+             * copied under certain circumstances (e.g. naked fun references to
+             * a module literal area), we'll add a conservative implementation
+             * to cover direct equality checks of non-term heap objects.
+             *
+             * Note that we only need this to handle `eq(FunRef, FunRef)` and
+             * the like: we do not visit the FunRef or BinRef of any term we
+             * see while testing equality, so we should never land here under
+             * under normal circumstances. */
+            case BIN_REF_SUBTAG:
+                if (is_bin_ref(b)) {
+                    BinRef *r1 = (BinRef*)boxed_val(a);
+                    BinRef *r2 = (BinRef*)boxed_val(b);
+
+                    if (r1->val == r2->val) {
+                        goto pop_next;
+                    }
+                }
+                break; /* not equal */
+            case FUN_REF_SUBTAG:
+                if (is_fun_ref(b)) {
+                    FunRef *r1 = (FunRef*)boxed_val(a);
+                    FunRef *r2 = (FunRef*)boxed_val(b);
+
+                    if (r1->entry == r2->entry) {
+                        goto pop_next;
+                    }
+                }
+                break; /* not equal */
+#endif
             case FUN_SUBTAG:
                 {
                     ErlFunThing* f1;
@@ -1220,18 +1251,12 @@ tailrecur_ne:
                     }
 
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry *fe1, *fe2;
-
-                        fe1 = f1->entry.fun;
-                        fe2 = f2->entry.fun;
-
-                        if (fe1->module != fe2->module ||
-                            fe1->index != fe2->index ||
-                            fe1->old_uniq != fe2->old_uniq) {
+                        if (f1->entry.fun != f2->entry.fun) {
                             goto not_equal;
                         }
 
-                        if ((sz = fun_num_free(f1)) == 0) {
+                        sz = fun_num_free(f1);
+                        if (sz == 0) {
                             goto pop_next;
                         }
 
@@ -2036,7 +2061,6 @@ tailrecur_ne:
 		    goto mixed_types;
 		}
 		ON_CMP_GOTO(big_comp(a, b));
-
             case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
                 if (is_not_any_fun(b)) {
                     a_tag = FUN_DEF;
@@ -2051,20 +2075,22 @@ tailrecur_ne:
 
                         Sint diff;
 
-                        diff = erts_cmp_atoms(fe1->module, (fe2)->module);
+                        if (fe1 != fe2) {
+                            diff = erts_cmp_atoms(fe1->module, (fe2)->module);
 
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
-                        }
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
 
-                        diff = fe1->index - fe2->index;
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
-                        }
+                            diff = fe1->index - fe2->index;
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
 
-                        diff = fe1->old_uniq - fe2->old_uniq;
-                        if (diff != 0) {
-                            RETURN_NEQ(diff);
+                            diff = fe1->old_uniq - fe2->old_uniq;
+                            if (diff != 0) {
+                                RETURN_NEQ(diff);
+                            }
                         }
 
                         diff = fun_num_free(f1) - fun_num_free(f2);

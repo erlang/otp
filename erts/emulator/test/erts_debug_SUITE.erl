@@ -82,7 +82,10 @@ test_size(Config) when is_list(Config) ->
 
     %% Fun environment size = 0 (the smallest fun possible)
     SimplestFun = fun() -> ok end,
-    FunSz0 = 3,
+
+    %% 2 words for the fun, 1 word to point at the off-heap reference, and
+    %% 3 words for the off-heap reference itself. The actual on-heap size is 3.
+    FunSz0 = 6,
     FunSz0 = do_test_size(SimplestFun),
 
     %% Fun environment size = 1
@@ -95,8 +98,9 @@ test_size(Config) when is_list(Config) ->
 
     FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
 
-    %% External funs are the same size as local ones without environment
-    FunSz0 = do_test_size(fun lists:sort/1),
+    %% External funs are always 2 words (they're also always stored off-heap,
+    %% so the effective size is zero).
+    2 = do_test_size(fun lists:sort/1),
 
     Arch = 8 * erlang:system_info({wordsize, external}),
     case {Arch, do_test_size(mk_ext_pid({a@b, 1}, 17, 42))} of

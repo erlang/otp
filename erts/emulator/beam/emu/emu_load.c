@@ -93,10 +93,10 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
-    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                      stp->beam.lambdas.count * sizeof(SWord));
+    stp->fun_refs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                               stp->beam.lambdas.count * sizeof(SWord));
     for (i = 0; i < stp->beam.lambdas.count; i++) {
-        stp->lambda_literals[i] = ERTS_SWORD_MAX;
+        stp->fun_refs[i] = ERTS_SWORD_MAX;
     }
 
     stp->import_patches =
@@ -190,9 +190,9 @@ int beam_load_prepared_dtor(Binary* magic)
         stp->labels = NULL;
     }
 
-    if (stp->lambda_literals != NULL) {
-        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
-        stp->lambda_literals = NULL;
+    if (stp->fun_refs != NULL) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->fun_refs);
+        stp->fun_refs = NULL;
     }
 
     if (stp->import_patches != NULL) {
@@ -623,20 +623,19 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
      */
     if (stp->beam.lambdas.count) {
         BeamFile_LambdaTable *lambda_table;
-        ErtsLiteralArea *literal_area;
         ErlFunEntry **fun_entries;
-        LambdaPatch* lp;
-        int i;
+        LambdaPatch *lp;
 
         lambda_table = &stp->beam.lambdas;
+
         fun_entries = erts_alloc(ERTS_ALC_T_LOADER_TMP,
                                  sizeof(ErlFunEntry*) * lambda_table->count);
 
-        literal_area = (stp->code_hdr)->literal_area;
-
-        for (i = 0; i < lambda_table->count; i++) {
+        for (int i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
             ErlFunEntry *fun_entry;
+            FunRef *fun_refp;
+            Eterm fun_ref;
 
             lambda = &lambda_table->entries[i];
 
@@ -648,33 +647,31 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                             lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            if (erts_is_fun_loaded(fun_entry, staging_ix)) {
-                /* We've reloaded a module over itself and inherited the old
-                 * instance's fun entries, so we need to undo the reference
-                 * bump in `erts_put_fun_entry2` to make fun purging work. */
-                erts_refc_dectest(&fun_entry->refc, 1);
+            fun_ref = beamfile_get_literal(&stp->beam, stp->fun_refs[i]);
+
+            /* If there are no free variables, the literal refers to an
+             * ErlFunThing that needs to be fixed up before we process the
+             * FunRef. */
+            if (lambda->num_free == 0) {
+                ErlFunThing *funp = (ErlFunThing*)boxed_val(fun_ref);
+                ASSERT(funp->entry.fun == NULL);
+                funp->entry.fun = fun_entry;
+                fun_ref = funp->env[0];
             }
 
-            /* Finalize the literal we've created for this lambda, if any,
-             * converting it from an external fun to a local one with the newly
-             * created fun entry. */
-            if (stp->lambda_literals[i] != ERTS_SWORD_MAX) {
-                ErlFunThing *funp;
-                Eterm literal;
+            /* Patch up the fun reference literal. */
+            fun_refp = (FunRef*)boxed_val(fun_ref);
+            fun_refp->entry = fun_entry;
 
-                literal = beamfile_get_literal(&stp->beam,
-                                               stp->lambda_literals[i]);
-                funp = (ErlFunThing *)fun_val(literal);
-
-                funp->entry.fun = fun_entry;
-
-                funp->next = literal_area->off_heap;
-                literal_area->off_heap = (struct erl_off_heap_header *)funp;
-
-                ASSERT(funp->thing_word & (1 << FUN_HEADER_EXTERNAL_OFFS));
-                funp->thing_word &= ~(1 << FUN_HEADER_EXTERNAL_OFFS);
-
-                erts_refc_inc(&fun_entry->refc, 2);
+            /* Bump the reference count: this could not be done when copying
+             * the literal as we had no idea which entry it belonged to.
+             *
+             * We also need to parry an annoying wrinkle: when reloading a
+             * module over itself, we inherit the old instance's fun entries,
+             * and thus have to cancel the reference bump in
+             * `erts_put_fun_entry2` to make fun purging work. */
+            if (!erts_is_fun_loaded(fun_entry, staging_ix)) {
+                erts_refc_inctest(&fun_entry->refc, 1);
             }
 
             erts_set_fun_code(fun_entry,

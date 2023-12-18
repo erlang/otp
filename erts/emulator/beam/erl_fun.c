@@ -147,7 +147,8 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
     return &fc->entry;
 }
 
-const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe, ErtsCodeIndex ix) {
+const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe, ErtsCodeIndex ix)
+{
     ErtsCodePtr address = fe->dispatch.addresses[ix];
 
     if (address != beam_unloaded_fun) {
@@ -157,13 +158,15 @@ const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe, ErtsCodeIndex ix) {
     return NULL;
 }
 
-void erts_set_fun_code(ErlFunEntry *fe, ErtsCodeIndex ix, ErtsCodePtr address) {
+void erts_set_fun_code(ErlFunEntry *fe, ErtsCodeIndex ix, ErtsCodePtr address)
+{
     /* Fun entries MUST NOT be updated during a purge! */
     ASSERT(fe->pend_purge_address == NULL);
     fe->dispatch.addresses[ix] = address;
 }
 
-int erts_is_fun_loaded(const ErlFunEntry* fe, ErtsCodeIndex ix) {
+int erts_is_fun_loaded(const ErlFunEntry* fe, ErtsCodeIndex ix)
+{
     return fe->dispatch.addresses[ix] != beam_unloaded_fun;
 }
 
@@ -296,37 +299,6 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
-ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
-                                      int arity, int num_free)
-{
-    ErlFunThing *funp;
-
-    funp = (ErlFunThing*) p->htop;
-    p->htop += ERL_FUN_SIZE + num_free;
-    erts_refc_inc(&fe->refc, 2);
-
-    funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
-    funp->entry.fun = fe;
-
-    funp->next = MSO(p).first;
-    MSO(p).first = (struct erl_off_heap_header*) funp;
-
-#ifdef DEBUG
-    {
-        /* Note that `mfa` may be NULL if the fun is currently being purged. We
-         * ignore this since it's not an error and we only need `mfa` to
-         * sanity-check the arity at this point. If the fun is called while in
-         * this state, the `error_handler` module will take care of it. */
-        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
-        ASSERT(!mfa || fun_arity(funp) == mfa->arity - num_free);
-        ASSERT(arity == fe->arity);
-    }
-#endif
-
-    return funp;
-}
-
-
 struct dump_fun_foreach_args {
     fmtfn_t to;
     void *to_arg;
@@ -379,9 +351,7 @@ fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2)
     ErlFunEntry* fe1 = &obj1->entry;
     ErlFunEntry* fe2 = &obj2->entry;
 
-    return !(fe1->old_index == fe2->old_index &&
-             fe1->old_uniq == fe2->old_uniq &&
-             fe1->module == fe2->module &&
+    return !(fe1->module == fe2->module &&
              fe1->index == fe2->index &&
              fe1->arity == fe2->arity &&
              !sys_memcmp(fe1->uniq, fe2->uniq, sizeof(fe1->uniq)));

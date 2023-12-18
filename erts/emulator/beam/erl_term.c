@@ -118,6 +118,7 @@ erts_term_init(void)
                               POS_BIG_SUBTAG,
                               NEG_BIG_SUBTAG,
                               REF_SUBTAG,
+                              FUN_REF_SUBTAG,
                               FUN_SUBTAG,
                               FLOAT_SUBTAG,
                               HEAP_BITS_SUBTAG,

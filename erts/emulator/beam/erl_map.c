@@ -3361,7 +3361,6 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                         if (is_local_fun(funp)) {
                             BIF_RET(ERTS_MAKE_AM("fun"));
                         } else {
-                            ASSERT(is_external_fun(funp) && funp->next == NULL);
                             BIF_RET(ERTS_MAKE_AM("export"));
                         }
                     }

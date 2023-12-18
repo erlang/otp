@@ -3977,8 +3977,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                 } else {
                     Export *exp = funp->entry.exp;
 
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     *ep++ = EXPORT_EXT;
                     ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
                     ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
@@ -5002,7 +5000,8 @@ dec_term_atom_common:
 	    break;
 	case NEW_FUN_EXT:
 	    {
-		ErlFunThing* funp = (ErlFunThing *) hp;
+		ErlFunThing *funp;
+		FunRef *refp;
 		Uint arity;
 		Eterm module;
 		const byte* uniq;
@@ -5021,10 +5020,20 @@ dec_term_atom_common:
 		ep += 4;
 		num_free = get_int32(ep);
 		ep += 4;
-		hp += ERL_FUN_SIZE;
-		hp += num_free;
-		funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
-		*objp = make_fun(funp);
+
+                refp = (FunRef*)&hp[0];
+                funp = (ErlFunThing*)&hp[ERL_FUN_REF_SIZE];
+
+                refp->thing_word = HEADER_FUN_REF;
+                funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
+                *objp = make_fun(funp);
+
+                hp += ERL_FUN_REF_SIZE + ERL_FUN_SIZE;
+
+                /* Fun references are stored just past the end of the free
+                 * variables. */
+                funp->env[num_free] = make_boxed((Eterm*)refp);
+                hp += num_free + 1;
 
 		/* Module */
 		if ((ep = dec_atom(edep, ep, &module, 0)) == NULL) {
@@ -5058,17 +5067,17 @@ dec_term_atom_common:
                     goto error;
                 }
 
-		/*
-		 * It is safe to link the fun into the fun list only when
-		 * no more validity tests can fail.
-		 */
-		funp->next = factory->off_heap->first;
-		factory->off_heap->first = (struct erl_off_heap_header*)funp;
+                /* It is safe to link the fun into the fun list only when no
+                 * more validity tests can fail. */
+                refp->next = factory->off_heap->first;
+                factory->off_heap->first = (struct erl_off_heap_header*)refp;
 
                 funp->entry.fun = erts_put_fun_entry2(module, old_uniq,
                                                       old_index, uniq,
                                                       index, arity);
-		hp = factory->hp;
+                refp->entry = funp->entry.fun;
+
+                hp = factory->hp;
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
@@ -5693,8 +5702,6 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 } else {
                     Export* ep = funp->entry.exp;
 
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     result += 1;
                     result += encode_atom_size(acmp, ep->info.mfa.module, dflags);
                     result += encode_atom_size(acmp, ep->info.mfa.function, dflags);
@@ -6144,7 +6151,7 @@ init_done:
 		    goto error;
 		}
 		ADDTERMS(4 + num_free);
-		heap_size += ERL_FUN_SIZE + num_free;
+		heap_size += ERL_FUN_REF_SIZE + ERL_FUN_SIZE + num_free + 1;
 		break;
 	    }
 	case FUN_EXT:

@@ -3815,7 +3815,6 @@ fun_info_2(BIF_ALIST_2)
         fe = funp->entry.fun;
         mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
     } else {
-        ASSERT(is_external_fun(funp) && funp->next == NULL);
         mfa = &(funp->entry.exp)->info.mfa;
         fe = NULL;
     }
@@ -3855,13 +3854,12 @@ fun_info_2(BIF_ALIST_2)
         break;
     case am_env:
         {
-            Uint num_free = fun_num_free(funp);
-            int i;
+            int num_free = is_local_fun(funp) ? fun_num_free(funp) : 0;
 
             hp = HAlloc(p, 3 + 2 * num_free);
             val = NIL;
 
-            for (i = num_free - 1; i >= 0; i--) {
+            for (int i = num_free - 1; i >= 0; i--) {
                 val = CONS(hp, funp->env[i], val);
                 hp += 2;
             }
@@ -3919,7 +3917,6 @@ fun_info_mfa_1(BIF_ALIST_1)
                                make_small(fun_arity(funp))));
             }
         } else {
-            ASSERT(is_external_fun(funp) && funp->next == NULL);
             mfa = &(funp->entry.exp)->info.mfa;
         }
 

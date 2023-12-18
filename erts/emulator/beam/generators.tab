@@ -301,38 +301,75 @@ gen.skip_bits2(Fail, Ms, Size, Unit, Flags) {
 }
 
 // Creates an instruction that moves a literal lambda to a register.
-MakeLiteralLambda(Op, Index, DstType, DstVal) {
-    BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
+MakeLiteralFun(Op, Index, Arity, Dst) {
     SWord literal;
-
-    ASSERT(entry->num_free == 0);
 
     /* If we haven't already done so, we need to create a placeholder for the
      * lambda. */
-    if (S->lambda_literals[$Index] == ERTS_SWORD_MAX) {
-        Eterm tmp_hp[ERL_FUN_SIZE];
+    literal = S->fun_refs[$Index];
+    if (literal == ERTS_SWORD_MAX) {
+        Eterm tmp_hp[ERL_FUN_SIZE + ERL_FUN_REF_SIZE + 1];
         ErlFunThing *funp;
+        FunRef *refp;
 
-        /* The placeholder is an external fun with the export field set to
-         * NULL, preventing it from colliding with external fun literals
-         * created by the user. We also disable deduplication to prevent it
-         * from colliding with other placeholder lambdas of the same arity. */
+        /* +1 to skip funp->env[0] */
+        refp = (FunRef*)&tmp_hp[ERL_FUN_SIZE + 1];
+        refp->thing_word = HEADER_FUN_REF;
+        refp->entry = NULL;
+        refp->next = NULL;
+
         funp = (ErlFunThing*)tmp_hp;
-        funp->thing_word = MAKE_FUN_HEADER(entry->arity, 0, 1);
+        funp->thing_word = MAKE_FUN_HEADER($Arity, 0, 0);
         funp->entry.exp = NULL;
-        funp->next = NULL;
+        funp->env[0] = make_boxed((Eterm*)refp);
 
-        literal = beamfile_add_literal(&S->beam, make_fun(tmp_hp), 0);
-        S->lambda_literals[$Index] = literal;
-    } else {
-        literal = S->lambda_literals[$Index];
+        literal = beamfile_add_literal(&S->beam, make_fun((Eterm*)funp), 0);
+        S->fun_refs[$Index] = literal;
     }
 
     $BeamOpNameArity($Op, move, 2);
     ($Op)->a[0].type = TAG_q;
     ($Op)->a[0].val = literal;
-    ($Op)->a[1].type = $DstType;
-    ($Op)->a[1].val = $DstVal;
+    ($Op)->a[1] = $Dst;
+}
+
+MakeFun(Op, Index, Arity, NumFree, Env, Dst) {
+    SWord literal;
+
+    $BeamOpNameArity(op, i_make_fun3, 4);
+    $BeamOpArity(op, 5 + $NumFree);
+
+    op->a[0].type = TAG_u;
+    op->a[0].val = $Index;
+    op->a[1] = $Dst;
+    op->a[2].type = TAG_u;
+    op->a[2].val = $Arity - $NumFree;
+    op->a[3].type = TAG_u;
+    op->a[3].val = $NumFree;
+
+    for (int i = 0; i < $NumFree; i++) {
+        op->a[4 + i] = $Env[i];
+    }
+
+    /* Create a FunRef if we haven't already done so (may be shared with other
+     * make_fun3 instructions). */
+    literal = S->fun_refs[$Index];
+    if (literal == ERTS_SWORD_MAX) {
+        Eterm tmp_hp[ERL_FUN_REF_SIZE];
+        FunRef *refp = (FunRef*)tmp_hp;
+
+        refp->thing_word = HEADER_FUN_REF;
+        refp->entry = NULL;
+        refp->next = NULL;
+
+        literal = beamfile_add_literal(&S->beam, make_boxed((Eterm*)refp), 0);
+        S->fun_refs[$Index] = literal;
+    }
+
+    /* Add the FunRef as part of the environment, just past the free
+     * variables. */
+    op->a[4 + $NumFree].type = TAG_q;
+    op->a[4 + $NumFree].val = literal;
 }
 
 gen.make_fun3(Idx, Dst, NumFree, Env) {
@@ -344,25 +381,10 @@ gen.make_fun3(Idx, Dst, NumFree, Env) {
         BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
 
         if (NumFree.val == entry->num_free) {
-            int i;
-
-            if (NumFree.val == 0 && erts_init_process_id != ERTS_INVALID_PID) {
-                $MakeLiteralLambda(op, Idx.val, Dst.type, Dst.val);
+            if (entry->num_free == 0) {
+                $MakeLiteralFun(op, Idx.val, entry->arity, Dst);
             } else {
-                $BeamOpNameArity(op, i_make_fun3, 4);
-                $BeamOpArity(op, 4 + NumFree.val);
-
-                op->a[0].type = TAG_u;
-                op->a[0].val = Idx.val;
-                op->a[1] = Dst;
-                op->a[2].type = TAG_u;
-                op->a[2].val = entry->arity - entry->num_free;
-                op->a[3].type = TAG_u;
-                op->a[3].val = entry->num_free;
-
-                for (i = 0; i < NumFree.val; i++) {
-                    op->a[i+4] = Env[i];
-                }
+                $MakeFun(op, Idx.val, entry->arity, entry->num_free, Env, Dst);
             }
 
             return op;
