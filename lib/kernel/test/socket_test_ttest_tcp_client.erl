@@ -72,7 +72,7 @@
 -define(T(),            ?LIB:t()).
 -define(TDIFF(T1,T2),   ?LIB:tdiff(T1, T2)).
 
--type active()          :: once | boolean().
+-type active()          :: once | boolean() | 1..32767.
 -type msg_id()          :: 1..3.
 -type max_outstanding() :: pos_integer().
 -type runtime()         :: pos_integer().
@@ -177,7 +177,7 @@ do_start(Quiet,
        is_pid(Parent) andalso
        is_function(Notify) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
-       (is_boolean(Active) orelse (Active =:= once)) andalso
+       (is_boolean(Active) orelse (Active =:= once) orelse (is_integer(Active) andalso (Active > 0) andalso (Active =< 32767))) andalso
        (is_tuple(ServerInfo) orelse is_list(ServerInfo) orelse is_binary(ServerInfo)) andalso 
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
@@ -222,6 +222,7 @@ init(Quiet,
      Parent, Notify,
      Transport, Active, ServerInfo,
      MsgID, MaxOutstanding, RunTime) ->
+    put(activations, 0),
     if
 	not Quiet ->
 	    ?I("init with"
@@ -467,6 +468,10 @@ recv_reply(#{mod         := Mod,
 	ok ->
 	    State;
 
+	activate ->
+            activate(Mod, Sock, Active),
+	    State;
+
 	{error, stop} ->
 	    ?I("receive [~w] -> stop", [Active]),
 	    %% This will have the effect that no more requests are sent...
@@ -550,13 +555,21 @@ recv_reply_message3(_Mod, Sock, ID, Acc) ->
 
         {Tag, Sock, Msg} when (Tag =:= tcp) orelse
 			      (Tag =:= socket) ->
-            process_acc_data(ID, <<Acc/binary, Msg/binary>>)
+            process_acc_data(ID, <<Acc/binary, Msg/binary>>);
+
+        {TagPassive, Sock} when (TagPassive =:= tcp_passive) orelse
+                                (TagPassive =:= socket_passive) ->
+            ACnt = get(activations),
+            put(activations, ACnt+1),
+            activate
         
     after ?RECV_TIMEOUT ->
             ?I("timeout when"
                "~n   ID:        ~p"
-               "~n   size(Acc): ~p",
-               [ID, size(Acc)]),
+               "~n   size(Acc): ~p"
+               "~n   MQ:        ~p"
+               "~n   ACnt:      ~p",
+               [ID, size(Acc), mq(), get(activations)]),
             %% {error, timeout}
             recv_reply_message3(_Mod, Sock, ID, Acc)
     end.
@@ -602,6 +615,11 @@ handle_message(#{quiet  := Quiet,
             reply(Parent, Ref, ok),
             exit(normal);
 	
+        {TagPassive, Sock} when (TagPassive =:= tcp_passive) orelse
+                                (TagPassive =:= socket_passive) ->
+            activate(State),
+            State;
+
 	%% Only when active
         {TagClosed, Sock, Reason} when (TagClosed =:= tcp_closed) orelse
 				       (TagClosed =:= socket_closed) ->
@@ -621,14 +639,23 @@ handle_message(#{quiet  := Quiet,
 initial_activation(_Mod, _Sock, false = _Active) ->
     ok;
 initial_activation(Mod, Sock, Active) ->
-    Mod:active(Sock, Active).
+    activate(Mod, Sock, Active).
 
 
 maybe_activate(Mod, Sock, once = Active) ->
-    Mod:active(Sock, Active);
+    activate(Mod, Sock, Active);
 maybe_activate(_, _, _) ->
     ok.
                   
+
+activate(#{mod    := Mod,
+           sock   := Sock,
+           active := Active} = _State) ->
+    activate(Mod, Sock, Active).
+
+activate(Mod, Sock, Active) ->
+    ok = Mod:active(Sock, Active).
+
 
 %% ==========================================================================
 
@@ -660,6 +687,16 @@ next_id(_) ->
     1.
 
 
+%% ==========================================================================
+
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    {messages, MQ} = process_info(Pid, messages),
+    MQ.
+
+             
 %% ==========================================================================
 
 %% t() ->

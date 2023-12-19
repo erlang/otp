@@ -134,12 +134,25 @@ ITERATIONS="\
        gen  false $MSGID
        gen  true  $MSGID
        gen  once  $MSGID
+       gen  1     $MSGID
+       gen  5     $MSGID
+       gen  10    $MSGID
+       gen  20    $MSGID
        gs   false $MSGID
        gs   true  $MSGID
        gs   once  $MSGID
+       gs   1     $MSGID
+       gs   5     $MSGID
+       gs   10    $MSGID
+       gs   20    $MSGID
        sock false $MSGID --async
        sock true  $MSGID --async
-       sock once  $MSGID --async"
+       sock once  $MSGID --async
+       sock 1     $MSGID --async
+       sock 5     $MSGID --async
+       sock 10    $MSGID --async
+       sock 20    $MSGID --async"
+
 
 # For when we have figured out how to configure local for gen_tcp...
 

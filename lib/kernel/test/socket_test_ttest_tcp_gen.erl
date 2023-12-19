@@ -61,8 +61,10 @@ accept(Sock, Timeout) ->
     end.
 
 
-active(Sock, NewActive) 
-  when (is_boolean(NewActive) orelse (NewActive =:= once)) ->
+%% active(Sock, NewActive) 
+%%   when (is_boolean(NewActive) orelse (NewActive =:= once)) ->
+%%     inet:setopts(Sock, [{active, NewActive}]).
+active(Sock, NewActive) ->
     inet:setopts(Sock, [{active, NewActive}]).
 
 
