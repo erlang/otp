@@ -335,20 +335,41 @@ find_beam_1(Module) ->
 %% -will try to find and examine the beam file if not in memory
 %% -will not cause a module to become loaded by accident
 compile_info(Module, Beam) when is_atom(Module) ->
+
     case erlang:module_loaded(Module) of
         true ->
             %% getting the compile info for a loaded module should normally
             %% work, but return an empty info list if it fails
-            try erlang:get_module_info(Module, compile)
-            catch _:_ -> []
+            try compile_info_add_cwd(Beam, erlang:get_module_info(Module, compile))
+            catch _:_ -> compile_info_add_cwd(Beam, [])
             end;
         false ->
             case beam_lib:chunks(Beam, [compile_info]) of
                 {ok, {_Module, [{compile_info, Info}]}} ->
-                    Info;
+                    compile_info_add_cwd(Beam, Info);
                 Error ->
                     Error
             end
+    end.
+
+compile_info_add_cwd(Beam, Info) ->
+    CwdOpts =
+        case beam_lib:chunks(Beam, [debug_info]) of
+            {ok, {_,[{debug_info,{debug_info_v1,erl_abstract_code,{_AST,Meta}}}]}} ->
+                case proplists:get_value(cwd, Meta) of
+                    undefined ->
+                        [];
+                    Cwd ->
+                        [{i, Cwd}]
+                end;
+            _ ->
+                []
+        end,
+    case lists:keytake(options, 1, Info) of
+        false ->
+            [{options, CwdOpts}];
+        {value, {options, Options}, InfoNoOpts} ->
+            [{options, Options ++ CwdOpts} | InfoNoOpts]
     end.
 
 %% compile module, backing up any existing target file and restoring the
