@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@
 -include_lib("megaco/include/megaco.hrl").
 -include("megaco_message_internal.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").
+
 
 %% N.B. Update cancel/1 with '_' when a new field is added
 -record(request,

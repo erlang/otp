@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2020</year>
+      <year>2000</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,10 +38,153 @@
     <p>Interface module for the Megaco application</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="mid"/>
+      <desc>
+	<p>
+	  The Megaco Identifier.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="action_request"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="action_reply"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="error_desc"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction_reply"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="protocol_version"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="segment_no"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="conn_handle"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="megaco_timer"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="action_reqs"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="action_reps"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="send_option"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="send_handle"/>
+      <desc>
+	<p>
+	  Opaque send handle whose contents is internal for the send module.
+	  May be any term.
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
   <section>
     <title>DATA TYPES</title>
     <code type="none"><![CDATA[
-megaco_mid() = ip4Address() | ip6Address() | 
+mid()        = ip4Address() | ip6Address() | 
                domainName() | deviceName() | 
                mtpAddress() 
 ip4Address() = #'IP4Address'{}
@@ -1454,91 +1597,73 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">call(ConnHandle, Actions, Options) -> {ProtocolVersion, UserReply}</name>
+      <name name="call" arity="3" clause_i="1" since=""/>
       <fsummary>Sends one or more transaction request(s) and waits for the reply</fsummary>
-      <type>
-        <v>ConnHandle     = conn_handle()</v>
-        <v>Actions        = action_reqs() | [action_reqs()]</v>
-        <v>action_reqs()  = binary() | [action_request()]</v>
-        <v>Options        = [send_option()]</v>
-        <v>send_option()  = {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()} | {call_proxy_gc_timeout, call_proxy_gc_timeout()}</v>
-        <v>ProtocolVersion = integer()</v>
-        <v>UserReply       = user_reply() | [user_reply()]</v>
-        <v>user_reply()    = success() | failure()</v>
-        <v>success()       = {ok, result()} | {ok, result(), extra()}</v>
-        <v>result()        = message_result() | segment_result()</v>
-        <v>message_result() = action_reps()</v>
-        <v>segment_result() = segments_ok()</v>
-        <v>failure()        = {error, reason()} | {error, reason(), extra()}</v>
-        <v>reason()         = message_reason() | segment_reason() | user_cancel_reason() | send_reason() | other_reason()</v>
-        <v>message_reason() = error_desc()</v>
-        <v>segment_reason() = {segment, segments_ok(), segments_err()} | {segment_timeout, missing_segments(), segments_ok(), segments_err()}</v>
-        <v>segments_ok()   = [segment_ok()]</v>
-        <v>segment_ok()    = {segment_no(), action_reps()}</v>
-        <v>segments_err()  = [segment_err()]</v>
-        <v>segment_err()   = {segment_no(), error_desc()}</v>
-        <v>missing_segments() = [segment_no()]</v>
-        <v>user_cancel_reason() = {user_cancel, reason_for_user_cancel()}</v>
-        <v>reason_for_user_cancel() = term()</v>
-        <v>send_reason() = send_cancelled_reason() | send_failed_reason()</v>
-        <v>send_cancelled_reason() = {send_message_cancelled, reason_for_send_cancel()}</v>
-        <v>reason_for_send_cancel() = term()</v>
-        <v>send_failed_reason()    = {send_message_failed, reason_for_send_failure()}</v>
-        <v>reason_for_send_failure() = term()</v>
-        <v>other_reason()   = {wrong_mid, WrongMid, RightMid, TR} | term()</v>
-        <v>WrongMid = mid()</v>
-        <v>RightMid = mid()</v>
-        <v>TR = transaction_reply()</v>
-        <v>action_reps()    = [action_reply()]</v>
-        <v>call_proxy_gc_timeout() = integer() >= 0</v>
-        <v>extra()          = term()</v>
-      </type>
       <desc>
-        <p>Sends one or more transaction request(s) and waits for the 
-          reply.</p>
-        <p>When sending one transaction in a message, <c><![CDATA[Actions]]></c> should be 
-          <c><![CDATA[action_reqs()]]></c> (<c><![CDATA[UserReply]]></c> will then be 
-          <c><![CDATA[user_reply()]]></c>). When sending several transactions in a message,
-          <c><![CDATA[Actions]]></c> should be <c><![CDATA[[action_reqs()]]]></c> (<c><![CDATA[UserReply]]></c> 
-          will then be <c><![CDATA[[user_reply()]]]></c>). Each element of the list is 
-          part of one transaction.</p>
-        <p>For some of <em>our</em> codecs (not binary), it is also possible 
-          to pre-encode the actions, in which case <c><![CDATA[Actions]]></c> will be 
-          either a <c><![CDATA[binary()]]></c> or <c><![CDATA[[binary()]]]></c>.</p>
-        <p>The function returns when the reply arrives, when the
-          request timer eventually times out or when the outstanding
-          requests are explicitly cancelled.</p>
-        <p>The default values of the send options are obtained by
-          <c><![CDATA[megaco:conn_info(ConnHandle, Item)]]></c>. But the send options 
-          above, may explicitly be overridden.</p>
-        <p>The <c><![CDATA[ProtocolVersion]]></c> version is the version actually encoded
-          in the reply message.</p>
-        <p>At <c><![CDATA[success()]]></c>, the <c><![CDATA[UserReply]]></c> contains a list of 
-          'ActionReply' records possibly containing error indications.</p>
-        <p>A <c><![CDATA[message_error()]]></c>, indicates that the remote user has
-          replied with an explicit transactionError.</p>
-        <p>A <c><![CDATA[user_cancel_error()]]></c>, indicates that the request has been
-          canceled by the user. <c><![CDATA[reason_for_user_cancel()]]></c> is the reason
-          given in the call to the <seeerl marker="#cancel">cancel</seeerl>
-          function. </p>
-        <p>A <c><![CDATA[send_error()]]></c>, indicates that the send function of the 
-          megaco transport callback module failed to send the request. 
-          There are two separate cases: <c><![CDATA[send_cancelled_reason()]]></c> and 
-          <c><![CDATA[send_failed_reason()]]></c>. 
-          The first is the result of the send function returning 
-          <c><![CDATA[{cancel, Reason}]]></c> and the second is some other kind of 
-          erroneous return value. See the 
-          <seeerl marker="megaco_transport#send_message">send_message</seeerl>
-          function for more info. </p>
-        <p>An <c><![CDATA[other_error()]]></c>, indicates some other error such as 
-          timeout.</p>
+        <p>Sends one or more transaction request(s) and waits for the reply.</p>
 
-        <p>For more info about the <c>extra()</c> part of the 
-          result, see the 
-          <seeerl marker="megaco_user#extra_argument">note</seeerl>
-          in the user callback module documentation. </p>
+	<p>When sending one transaction in a message,
+	<c><![CDATA[ActionRequests]]></c> should be 
+	<c><![CDATA[action_reqs()]]></c> (the reply
+	will then be <c><![CDATA[UserReply]]></c>).
+	When sending several transactions in a message,
+	<c><![CDATA[ActionRequests]]></c> should be
+	<c><![CDATA[[action_reqs()]]]></c> (the reply
+	will then be <c><![CDATA[[UserReply]]]></c>).
+	Each element of the list is 
+	part of one transaction.</p>
 
+	<p>For some of <em>our</em> codecs (not binary), it is also possible 
+	to pre-encode the actions, in which case
+	<c><![CDATA[ActionRequests]]></c>
+	will be either a <c><![CDATA[binary()]]></c> or
+	<c><![CDATA[[binary()]]]></c>.</p>
 
+	<p>The function returns when the reply arrives, when the
+	request timer eventually times out or when the outstanding
+	requests are explicitly cancelled.</p>
+
+	<p>The default values of the send options are obtained by
+	<c><![CDATA[megaco:conn_info(ConnHandle, Item)]]></c>.
+	But the send options above, may explicitly be overridden.</p>
+
+	<p>The <c><![CDATA[ProtocolVersion]]></c> version is the version
+	actually encoded in the reply message.</p>
+
+	<p>At <c><![CDATA[Success]]></c>, the <c><![CDATA[UserReply]]></c>
+	contains a list of 'ActionReply' records possibly containing
+	error indications.</p>
+
+	<p>A <c><![CDATA[Failure]]></c>, indicates that the remote user has
+	replied with an explicit transactionError.</p>
+
+	<p>A <c><![CDATA[UserCancelReason]]></c>, indicates that the
+	request has been canceled by the user.
+	<c><![CDATA[ReasonForUserCancel]]></c> is the reason
+	given in the call to the <seeerl marker="#cancel">cancel</seeerl>
+	function. </p>
+
+	<p>A send error (<c><![CDATA[SendReason]]></c>),
+	indicates that the send function of the 
+	megaco transport callback module failed to send the request. 
+	There are two separate cases:
+	<c><![CDATA[SendCancelledReason]]></c> and 
+	<c><![CDATA[SendFailedReason]]></c>. 
+	The first is the result of the send function returning 
+	<c><![CDATA[{cancel, Reason}]]></c> and the second is some other
+	kind of erroneous return value.
+	See the 
+	<seeerl marker="megaco_transport#send_message">send_message</seeerl>
+	function for more info. </p>
+
+	<p>An <c><![CDATA[OtherReason]]></c>, indicates some other
+	error such as timeout.</p>
+
+	<p>For more info about the 'extra' part of the result
+	(<c><![CDATA[SuccessExtra]]></c> and <c><![CDATA[ErrorExtra]]></c>),
+	see the 
+	<seeerl marker="megaco_user#extra_argument">note</seeerl>
+	in the user callback module documentation. </p>
 
         <marker id="cast"></marker>
       </desc>

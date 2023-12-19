@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,10 +99,42 @@
         ]).
 
 -export_type([
-              void/0
+              void/0,
+
+              mid/0,
+              conn_handle/0,
+              action_request/0,
+              action_reply/0,
+              error_desc/0,
+              transaction_reply/0,
+              protocol_version/0
              ]).
 
 -type void() :: term().
+
+-type mid()               :: megaco_encoder:ip4Address() |
+                             megaco_encoder:ip6Address() |
+                             megaco_encoder:domainName() |
+                             megaco_encoder:deviceName() |
+                             megaco_encoder:mtpAddress().
+-type action_request()    :: megaco_encoder:action_request().
+-type action_reply()      :: megaco_encoder:action_reply().
+-type error_desc()        :: megaco_encoder:error_desc().
+-type transaction_reply() :: megaco_encoder:transaction_reply().
+-type protocol_version()  :: megaco_encoder:protocol_version().
+-type segment_no()        :: megaco_encoder:segment_no().
+-type conn_handle()       :: megaco_user:conn_handle().
+-type megaco_timer()      :: megaco_user:megaco_timer().
+
+-type action_reqs()       :: binary() | [action_request()].
+-type action_reps()       :: [action_reply()].
+-type send_option()       :: {request_timer,         megaco_timer()} |
+                             {long_request_timer,    megaco_timer()} |
+                             {send_handle,           send_handle()} |
+                             {protocol_version,      protocol_version()} |
+                             {call_proxy_gc_timeout, non_neg_integer()}.
+-type send_handle()       :: term().
+
 
 -include("megaco_internal.hrl").
 
@@ -281,6 +313,41 @@ disconnect(ConnHandle, Reason) ->
 %%-----------------------------------------------------------------
 %% Sends a transaction request and waits for a reply
 %%-----------------------------------------------------------------
+
+-spec call(ConnHandle, ActionRequests, Options) ->
+          {ProtocolVersion, UserReply | [UserReply]} when
+      ConnHandle          :: conn_handle(),
+      ActionRequests      :: action_reqs() | [action_reqs()],
+      Options             :: [send_option()],
+      ProtocolVersion     :: protocol_version(),
+      UserReply           :: Success | Failure,
+      Success             :: {ok, Result} | {ok, Result, SuccessExtra},
+      Result              :: MessageResult | SegmentResult,
+      MessageResult       :: action_reps(),
+      SegmentResult       :: SegmentsOk,
+      SegmentsOk          :: [{segment_no(), action_reps()}],
+      Failure             :: {error, Reason} | {error, Reason, ErrorExtra},
+      Reason              :: MessageReason | SegmentReason |
+                             UserCancelReason | SendReason | OtherReason,
+      MessageReason       :: error_desc(),
+      SegmentReason       :: {segment, SegmentsOk, SegmentsErr} |
+                             {segment_timeout,
+                              MissingSegments,
+                              SegmentsOk,
+                              SegmentsErr},
+      SegmentsErr         :: {segment_no(), error_desc()},
+      MissingSegments     :: [segment_no()],
+      UserCancelReason    :: {user_cancel, ReasonForUserCancel},
+      ReasonForUserCancel :: term(),
+      SendReason          :: SendCancelledReason | SendFailedReason,
+      SendCancelledReason :: {send_message_cancelled, term()},
+      SendFailedReason    :: {send_message_failed,    term()},
+      OtherReason         :: {wrong_mid,
+                              WrongMid :: mid(),
+                              RightMid :: mid(),
+                              transaction_reply()} | term(),
+      SuccessExtra        :: term(),
+      ErrorExtra          :: term().
 
 call(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:call(ConnHandle, ActionRequests, Options).
