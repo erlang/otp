@@ -63,7 +63,7 @@ usage() ->
               "~n     --async                      Asynchronous mode (Timeout = nowait)"
               "~n                                  This option is only valid for transport = sock."
               "~n                                  Also, its only used when active =/= false."
-              "~n     --active <active>            boolean() | once."
+              "~n     --active <active>            pos_integer() | boolean() | once."
               "~n                                  Valid for both client and server."
               "~n                                  Defaults to: false"
               "~n     --transport <transport>      Which transport to use: gen|sock[:plain|msg]"
@@ -182,11 +182,25 @@ process_client_args(["--profile"|Args], State) ->
 process_client_args(["--async"|Args], State) ->
     process_client_args(Args, State#{async => true});
 
-process_client_args(["--active", Active|Args], State) 
-  when (Active =:= "false") orelse
-       (Active =:= "once") orelse
-       (Active =:= "true") ->
-    process_client_args(Args, State#{active => list_to_atom(Active)});
+process_client_args(["--active", Active0|Args], State) ->
+    Active =
+        if
+            (Active0 =:= "false") orelse
+            (Active0 =:= "once") orelse
+            (Active0 =:= "true") ->
+                list_to_atom(Active0);
+            true ->
+                try list_to_integer(Active0) of
+                    N when (N > 0) andalso (N =< 32767) ->
+                        N;
+                    _  ->
+                        usage(f("Invalid Active: ~s", [Active0]))
+                catch
+                    _:_:_ ->
+                        usage(f("Invalid Active: ~s", [Active0]))
+                end
+        end,
+    process_client_args(Args, State#{active => Active});
 
 process_client_args(["--transport", "gen" | Args], State) ->
     process_client_args(Args, State#{transport => gen});
