@@ -693,6 +693,14 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
         true -> 1 %% No need to page expand rows
     end,
     handle_request(State#state{buffer_expand_row = ERow1}, redraw_prompt);
+handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
+                              lines_before = LinesBefore}, delete_line) ->
+    MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
+    {[MoveToBeg, State#state.delete_after_cursor],
+     State#state{buffer_before = [],
+                 buffer_after = [],
+                 lines_before = [],
+                 lines_after = []}};
 %% Clear the expand buffer after the cursor when we handle any request.
 handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
   when Expand =/= undefined ->
@@ -726,17 +734,6 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
 handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],
-                 lines_after = []}};
-handle_request(State = #state{buffer_before = [], buffer_after = [],
-                              lines_before = [], lines_after = []}, delete_line) ->
-    {[],State};
-handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
-                              lines_before = LinesBefore}, delete_line) ->
-    MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
-    {[MoveToBeg, State#state.delete_after_cursor],
-     State#state{buffer_before = [],
-                 buffer_after = [],
-                 lines_before = [],
                  lines_after = []}};
 handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N > 0 ->
     {_DelNum, DelCols, _, NewBA} = split(N, State#state.buffer_after, U),
