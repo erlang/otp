@@ -371,12 +371,19 @@ shell_attribute_test(Config) ->
     rtnode:run(
       [{putline, "foo(Bar) -> Bar."},
        {expect, "ok"},
-       {putline, "fl()."},
-       {expect, "\\Q{function,{shell_default,foo,1}}\\E"},
+       {putline, "lf()."},
+       {expect, ~S"foo\(Bar\) ->\s+Bar\."},
        {putline, "foo(1)."},
        {expect, "1"},
        {putline, "shell_default:foo(2)."},
-       {expect, "2"}
+       {expect, "2"},
+       {putline, "bar(Foo) -> Foo."},
+       {expect, "ok"},
+       {putline, "-spec bar(term()) -> term()."},
+       {putline, "lf()."},
+       {expect, ~S"\Q-spec bar(term()) -> term().\E"},
+       {expect, ~S"bar\(Foo\) ->\s+Foo\."},
+       {expect, ~S"foo\(Bar\) ->\s+Bar\."}
       ],[],"", ["-kernel","shell_history","enabled",
       "-kernel","shell_history_path","\"" ++ Path ++ "\"",
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -395,8 +402,9 @@ shell_attribute_test(Config) ->
     rtnode:run(
         [{putline, "-spec foo(Bar) -> Bar when Bar :: integer()."},
          {expect, "ok"},
-         {putline, "fl()."},
-         {expect, "\\Q{function_type,{shell_default,foo,1}}\\E"}
+         {putline, "lf()."},
+         {expect, "\\Q-spec foo(Bar) -> Bar when Bar :: integer().\\E"},
+         {expect, "\\Q%% foo/1 not implemented\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -404,8 +412,13 @@ shell_attribute_test(Config) ->
     rtnode:run(
         [{putline, "-type my_type() :: boolean() | integer()."},
          {expect, "ok"},
-         {putline, "fl()."},
-         {expect, "\\Q{type,my_type}\\E"}
+         {putline, "lt()."},
+         {expect, "\\Q-type my_type() :: boolean() | integer().\\E"},
+         {putline, "-type my_other_type() :: boolean() | integer()."},
+         {expect, "ok"},
+         {putline, "lt()."},
+         {expect, "\\Q-type my_other_type() :: boolean() | integer().\\E"},
+         {expect, "\\Q-type my_type() :: boolean() | integer().\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
