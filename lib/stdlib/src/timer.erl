@@ -479,7 +479,7 @@ start_link() ->
 -spec init([]) -> {'ok', ets:tid()}.
 init([]) ->
     process_flag(trap_exit, true),
-    Tab = ets:new(?MODULE, []),
+    Tab = ets:new(?MODULE, [private]),
     {ok, Tab}.
 
 %% server calls
