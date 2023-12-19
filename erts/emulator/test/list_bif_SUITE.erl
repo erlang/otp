@@ -60,10 +60,13 @@ t_list_to_integer(Config) when is_list(Config) ->
     {error,badarg} = string:to_integer($A),
 
     %% System limit.
-    Digits = lists:duplicate(11_000_000, $9),
+    Digits = lists:duplicate(3_000_000, $9),
     {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    _ = erlang:garbage_collect(),
     {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    _ = erlang:garbage_collect(),
     {error,system_limit} = string:to_integer(Digits),
+    _ = erlang:garbage_collect(),
 
     ok.
 
