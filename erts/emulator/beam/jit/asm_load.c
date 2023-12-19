@@ -222,6 +222,14 @@ int beam_load_prepared_dtor(Binary *magic) {
             erts_free(ERTS_ALC_T_PREPARED_CODE, hdr->are_nifs);
             hdr->are_nifs = NULL;
         }
+        if (hdr->coverage) {
+            erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->coverage);
+            hdr->coverage = NULL;
+        }
+        if (hdr->line_coverage_valid) {
+            erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->line_coverage_valid);
+            hdr->line_coverage_valid = NULL;
+        }
 
         erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
@@ -871,6 +879,12 @@ int beam_load_finish_emit(LoaderState *stp) {
                          (const char *)stp->beam.checksum,
                          sizeof(stp->beam.checksum));
 
+    /* Transfer ownership of the coverage tables to the prepared code. */
+    stp->load_hdr->coverage = stp->coverage;
+    stp->load_hdr->line_coverage_valid = stp->line_coverage_valid;
+    stp->coverage = NULL;
+    stp->line_coverage_valid = NULL;
+
     /* Move the code to its final location. */
     beamasm_codegen(stp->ba,
                     &stp->executable_region,
@@ -886,13 +900,6 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Save the updated code pointer and code size. */
     stp->code_hdr = code_hdr_ro;
     stp->loaded_size = module_size;
-
-    /* Transfer ownership of the coverage tables to the loaded code. */
-    code_hdr_rw->coverage = stp->coverage;
-    code_hdr_rw->line_coverage_valid = stp->line_coverage_valid;
-
-    stp->coverage = NULL;
-    stp->line_coverage_valid = NULL;
 
     /*
      * Place the literals in their own allocated heap (for fast range check)
@@ -1133,6 +1140,8 @@ void beam_load_finalize_code(LoaderState *stp,
     /* Prevent literals and code from being freed. */
     (stp->load_hdr)->literal_area = NULL;
     stp->load_hdr->are_nifs = NULL;
+    stp->load_hdr->coverage = NULL;
+    stp->load_hdr->line_coverage_valid = NULL;
     stp->executable_region = NULL;
     stp->writable_region = NULL;
     stp->code_hdr = NULL;
