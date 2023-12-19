@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 
+%%
+%% socket with a basic wrapper that (basically)
+%% provides active = false | true | once.
+%%
+
 -module(socket_test_ttest_tcp_socket).
 
 -export([
