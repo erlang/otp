@@ -953,12 +953,26 @@ shell_update_window(Config) ->
         send_tty(Term,"a"),
         check_location(Term, {0, -Col}),
         send_tty(Term,"BSpace"),
+        check_location(Term, {-1, width(Text)}),
         tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text)+Col]),
-        %% xnfix bug! at least in tmux... seems to work in iTerm as it does not
-        %% need xnfix when resizing
-        check_location(Term, {0, -Col}),
+        %% When resizing, tmux does not xnfix the cursor, so it will remain
+        %% at the previous locations
+        check_location(Term, {-1, width(Text)}),
+        send_tty(Term,"a"),
+        check_location(Term, {0, -Col + 1}),
+
+        %% When we do backspace here, tmux seems to place the cursor in an
+        %% incorrect position except when a terminal is attached.
+        send_tty(Term,"BSpace"),
+        %% This really should be {0, -Col}, but sometimes tmux sets it to
+        %% {-1, width(Text)} instead.
+        check_location(Term, [{0, -Col}, {-1, width(Text)}]),
+
         tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text) div 2 + Col]),
-        check_location(Term, {0, -Col + width(Text) div 2}),
+        %% Depending on what happened with the cursor above, the line will be
+        %% different here.
+        check_location(Term, [{0, -Col + width(Text) div 2},
+                              {-1, -Col + width(Text) div 2}]),
         ok
     after
         stop_tty(Term)
@@ -1823,17 +1837,21 @@ send_stdin(Term, Chars) ->
 
 check_location(Term, Where) ->
     check_location(Term, Where, 5).
+check_location(Term, Where, Attempt) when is_tuple(Where) ->
+    check_location(Term, [Where], Attempt);
 check_location(#tmux{ orig_location = {OrigRow, OrigCol} = Orig } = Term,
-               {AdjRow, AdjCol} = Where, Attempt) ->
+               Where, Attempt) ->
     NewLocation = get_location(Term),
-    case {OrigRow+AdjRow,OrigCol+AdjCol} of
-        NewLocation -> NewLocation;
-        _ when Attempt =:= 0 ->
+    case lists:any(fun({AdjRow, AdjCol}) ->
+                           {OrigRow+AdjRow,OrigCol+AdjCol} =:= NewLocation
+                   end, Where) of
+        true -> NewLocation;
+        false when Attempt =:= 0 ->
             {NewRow, NewCol} = NewLocation,
-            ct:fail({wrong_location, {expected,{AdjRow, AdjCol}},
+            ct:fail({wrong_location, {expected,Where},
                      {got,{NewRow - OrigRow, NewCol - OrigCol},
                       {NewLocation, Orig}}});
-        _ ->
+        false ->
             timer:sleep(50),
             check_location(Term, Where, Attempt -1)
     end.
