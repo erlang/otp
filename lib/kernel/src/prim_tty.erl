@@ -1068,14 +1068,22 @@ cols([SkipSeq | T], Unicode) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T, Unicode).
 
-cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
-    ColsPerLine + cols(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
-cols(_ColsPerLine, CurrCols, [], _Unicode) ->
+%% If we call cols with a CurrCols that is higher than ColsPerLine,
+%% we add that many cols to the total before calculating more cols.
+cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols >= ColsPerLine ->
+    ColsPerLine * ((CurrCols + 1) div ColsPerLine) +
+        cols(ColsPerLine, CurrCols rem ColsPerLine, Chars, Unicode);
+cols(ColsPerLine, CurrCols, Chars, Unicode) ->
+    cols_int(ColsPerLine, CurrCols, Chars, Unicode).
+
+cols_int(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
+    ColsPerLine + cols_int(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
+cols_int(_ColsPerLine, CurrCols, [], _Unicode) ->
     CurrCols;
-cols(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
-    CurrCols + (ColsPerLine - CurrCols) + cols(ColsPerLine, 0, T, Unicode);
-cols(ColsPerLine, CurrCols, [H | T], Unicode) ->
-    cols(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
+cols_int(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
+    CurrCols + (ColsPerLine - CurrCols) + cols_int(ColsPerLine, 0, T, Unicode);
+cols_int(ColsPerLine, CurrCols, [H | T], Unicode) ->
+    cols_int(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
 
 update_geometry(State) ->
     case tty_window_size(State#state.tty) of

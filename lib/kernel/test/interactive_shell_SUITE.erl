@@ -1121,9 +1121,10 @@ shell_expand_location_below(Config) ->
 
     Term = start_tty(Config),
 
-    {Rows, _} = get_location(Term),
+    {Rows, _} = get_window_size(Term),
+    {Row, Col} = get_location(Term),
 
-    NumFunctions = lists:seq(0, Rows*2),
+    NumFunctions = lists:seq(0, Row*2),
     FunctionName = "a_long_function_name",
 
     Module = lists:flatten(
@@ -1142,6 +1143,7 @@ shell_expand_location_below(Config) ->
 
     try
         tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+        Cols = 80,
 
         %% First check that basic completion works
         send_stdin(Term, "escript:"),
@@ -1219,14 +1221,43 @@ shell_expand_location_below(Config) ->
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
                                           [13, Rows1+12, Result])),
 
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
 
         %% We resize the terminal to make everything fit and test that
         %% expand below displays everything
-        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Rows+10)]),
+        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Row+10)]),
         timer:sleep(1000), %% Sleep to make sure window has resized
-        send_stdin(Term, "\t\t"),
+        send_tty(Term, "\t\t"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name99\\($"),
+
+        %% Check that doing an expansion when cursor is in xnfix position works
+        send_tty(Term, "BSpace"),
+        check_content(Term, "3> long_module:a_long_function_nam$"),
+        send_tty(Term, "Home"),
+        send_tty(Term, lists:duplicate(Cols - Col - width(", long_module:a_long_function_name"), "a")),
+        send_tty(Term, ", "),
+        send_tty(Term, "End"),
+        send_tty(Term, "\t"),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "\t"),
+        check_content(Term, "3> a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 2, -Col}),
+
+        send_tty(Term, "Home"),
+        send_tty(Term, lists:duplicate(Cols, "b")),
+        send_tty(Term, "End"),
+        send_tty(Term, "\t"),
+        check_content(Term, "3> b+\nb+a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_location(Term, {-Rows + 3, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 3, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 3, -Col}),
+
         ok
     after
         stop_tty(Term),
