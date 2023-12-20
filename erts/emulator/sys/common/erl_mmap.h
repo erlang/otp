@@ -88,15 +88,16 @@ typedef struct {
     int sco;    /* super carrier only? */
     UWord scrfsd; /* super carrier reserved free segment descriptors */
     int scrpm; /* super carrier reserve physical memory */
+    int lp; /* try to use large pages? */
 }ErtsMMapInit;
 
 #define ERTS_MMAP_INIT_DEFAULT_INITER \
-    {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1}
+    {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1, 0}
 
 #define ERTS_LITERAL_VIRTUAL_AREA_SIZE (UWORD_CONSTANT(1)*1024*1024*1024)
 
 #define ERTS_MMAP_INIT_LITERAL_INITER \
-    {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
+    {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0, 0}
 
 
 #define ERTS_SUPERALIGNED_SIZE \

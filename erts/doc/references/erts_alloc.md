@@ -259,6 +259,12 @@ The following letters are used for the allocators:
   exceeds the requested size with more than relative maximum cache bad fit
   percent of the requested size. Defaults to `20`.
 
+- **`+MMlp on|off`{: #MMlp }** - Enables the use of large pages, sometimes known
+  as huge pages or super pages, for mapping memory segment allocations. Large
+  pages improve performance by reducing TLB pressure but they can sometimes be
+  costly to allocate or can only be allocated on a best-effort basis.  Currently
+  only affects memory segments allocated in a super carrier. Defaults to `off`.
+
 - **`+MMsco true|false`{: #MMsco }** - Sets [super carrier](erts_alloc.md#MMscs)
   only flag. Defaults to `true`. When a super carrier is used and this flag is
   `true`, `mseg_alloc` only creates carriers in the super carrier. Notice that
