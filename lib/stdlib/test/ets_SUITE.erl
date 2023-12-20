@@ -281,14 +281,11 @@ end_per_group(benchmark, Config) ->
     EtsProcess = proplists:get_value(ets_benchmark_result_summary_tab_process, Config),
     Report = 
         fun(NOfBenchmarksCtr, TotThroughputCtr, Name) ->
-                Average =
-                    case {ets:lookup_element(T, TotThroughputCtr, 2),
-                          ets:lookup_element(T, NOfBenchmarksCtr, 2)} of
-                        {0.0, 0.0} ->
-                            0;
-                        {TotThrp, NBench} ->
-                            TotThrp / NBench
-                    end,
+                NBench = ets:lookup_element(T, NOfBenchmarksCtr, 2),
+                Average = if
+                    NBench == 0 -> 0;
+                    true -> ets:lookup_element(T, TotThroughputCtr, 2) / NBench
+                end,
                 io:format("~p ~p~n", [Name, Average]),
                 ct_event:notify(
                   #event{name = benchmark_data, 
@@ -4380,7 +4377,7 @@ lem_data() ->
 
 lem_crash(T) ->
     L = ets:lookup_element(T, 'eddie2@boromir', 3),
-    {erlang:phash(L, 256), L}.
+    {erlang:phash2(L, 256), L}.
 
 lem_crash_3(T) ->
     lem_crash(T),
