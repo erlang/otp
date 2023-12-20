@@ -758,11 +758,17 @@ cancel_monitor(MRef) ->
 
 %% -------------------------------------------------------------------------
 
+setopts(?MODULE_socket(Server, _Socket), [{active,Active}]) ->
+    if
+        Active =:= once ->
+            cast(Server, {setopt_active,Active});
+        true ->
+            call(Server, {setopt_active,Active})
+    end;
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    try
-        begin
-            call(Server, {setopts, internalize_setopts(Opts)})
-        end
+    try internalize_setopts(Opts) of
+        Opts_I ->
+            call(Server, {setopts, Opts_I})
     catch
         exit:badarg ->
             {error, einval}
@@ -772,10 +778,9 @@ setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
 %% -------------------------------------------------------------------------
 
 getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    try
-        begin
-            call(Server, {getopts, internalize_getopts(Opts)})
-        end
+    try internalize_getopts(Opts) of
+        Opts_I ->
+            call(Server, {getopts, Opts_I})
     catch
         exit:badarg ->
             {error, einval}
@@ -955,6 +960,7 @@ socket_recv_peek(Socket, Length) ->
     Result = socket:recv(Socket, Length, Options, nowait),
     %% ?DBG({Socket, Length, Options, Result}),
     Result.
+
 -compile({inline, [socket_recv/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, nowait),
@@ -964,7 +970,7 @@ socket_recv(Socket, Length) ->
 -compile({inline, [socket_close/1]}).
 socket_close(Socket) ->
     %% XXX Should we set the meta option to closed here,
-    %% for the send operation to detect without calling
+    %% for the send operation to detect closed without calling
     %% the NIF???
     case socket:close(Socket) of
         ok -> ok;
@@ -977,7 +983,6 @@ socket_cancel(Socket, SelectInfo) ->
         ok                 -> ok;
         {error, closed}    -> ok;
         {error, _} = ERROR -> ERROR
-
     end.
 
 %%% ========================================================================
@@ -1456,16 +1461,31 @@ start_server(ServerData, StartOpts) ->
     end.
 
 call(Server, Call) ->
-    try gen_statem:call(Server, Call)
+    req(Server, Call, ?FUNCTION_NAME).
+
+cast(Server, Call) ->
+    req(Server, Call, ?FUNCTION_NAME).
+
+req(Server, Msg, Req) ->
+    try
+        case Req of
+            call ->
+                gen_statem:call(Server, Msg);
+            cast ->
+                gen_statem:cast(Server, Msg)
+        end
     catch
-        exit:{noproc, {gen_statem, call, _Args}} -> {error, closed};
-        exit:{{shutdown, _}, _}                  -> {error, closed};
+        exit:{noproc, {gen_statem, Req, _Args}} ->
+            {error, closed};
+        exit:{{shutdown, _}, _} ->
+            {error, closed};
         C:E:S ->
-            error_msg("~w call failed: "
-                      "~n      Call:  ~p"
+            error_msg("~w ~w failed: "
+                      "~n      Msg:   ~p"
                       "~n      Class: ~p"
                       "~n      Error: ~p"
-                      "~n      Stack: ~p", [?MODULE, Call, C, E, S]),
+                      "~n      Stack: ~p",
+                      [?MODULE, Req, Msg, C, E, S]),
             erlang:raise(C, E, S)
     end.
 
@@ -1599,18 +1619,15 @@ terminate(State, {#params{socket = Socket} = P, D}) ->
     case State of
         'closed' -> ok;
         'closed_read' ->
-            _ = socket_close(Socket),
-            ok;
+            socket_close(Socket);
         'closed_read_write' ->
-            _ = socket_close(Socket),
-            ok;
+            socket_close(Socket);
         _ ->
             case State of
                 'accept' -> ok;
                 #accept{} -> ok;
                 _ ->
-                    _ = socket_close(Socket),
-                    ok
+                    socket_close(Socket)
             end,
             {_D_1, ActionsR} =
                 case State of
@@ -1737,19 +1754,22 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
     %% ?DBG({P#params.socket, State}),
     case State of
         'closed_read' ->
+            socket_close(P#params.socket),
             {next_state, 'closed', P_D,
-             [{reply, From, socket_close(P#params.socket)}]};
+             [{reply, From, ok}]};
         'closed_read_write' ->
+            socket_close(P#params.socket),
             {next_state, 'closed', P_D,
-             [{reply, From, socket_close(P#params.socket)}]};
+             [{reply, From, ok}]};
         'closed' ->
             {keep_state_and_data,
              [{reply, From, ok}]};
         _ ->
+            socket_close(P#params.socket),
             next_state(
               P, cleanup_close_read(P, D#{active := false}, State, closed),
               'closed',
-              [{reply, From, socket_close(P#params.socket)}])
+              [{reply, From, ok}])
     end;
 
 %% Call: getopts/1
@@ -1797,22 +1817,18 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
                 Result_1
         end,
     Reply = {reply, From, Result},
+    handle_active(P, D_1, State, [Reply]);
 
-    %% If the socket is deactivated; active: once | true | N > 0 -> false
-    %% we do not cancel any select! Data that arrive during the phase when
-    %% we are in state 'recv' but are inactive is simply stored in the buffer.
-    %% If activated: active: false -> once | true | N > 0
-    %% We need to check if there is something in our buffers, and maybe deliver
-    %% it to its owner. This is what we do here. This should only occur
-    %% if we are in state connected (state 'recv' and in-active when data
-    %% arrives => put data in buffer and then enter state 'connected', since
-    %% we are in-active).
-    case State of
-        'connected' ->
-            handle_connected(P, handle_buffered(P, D_1), [Reply]);
-        _ ->
-            {keep_state, {P, D_1}, [Reply]}
-    end;
+%% Call: setopt_active/1
+handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
+    {Result, D_1} = state_setopts_active(P, D, State, [], Active),
+    Reply = {reply, From, Result},
+    handle_active(P, D_1, State, [Reply]);
+
+%% Cast: setopt_active/1
+handle_event(cast, {setopt_active,once=Active}, State, {P, D}) ->
+    {ok, D_1} = state_setopts_active(P, D, State, [], Active),
+    handle_active(P, D_1, State, []);
 
 %% Call: getstat/2
 handle_event({call, From}, {getstat, What}, State, {P, D}) ->
@@ -2007,7 +2023,7 @@ handle_event(
   {#params{socket = Socket} = _P, _D} = P_D) ->
     %% ?DBG(['abort message',
     %% 	  {ref, SelectRef}, {reason, Reason}]),
-    _ = socket_close(Socket),
+    socket_close(Socket),
     {next_state, 'closed', P_D,
      [{reply, From, {error, Reason}}]};
 
@@ -2026,7 +2042,7 @@ handle_event(
   {#params{socket = Socket} = _P, _D} = P_D) ->
     %% ?DBG(['abort message',
     %% 	  {ref, CompletionRef}, {reason, Reason}]),
-    _ = socket_close(Socket),
+    socket_close(Socket),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
                         closed;
@@ -2047,7 +2063,7 @@ handle_event(
   #connect{info = SelectInfo, from = From},
   {#params{socket = Socket} = _P, _D} = P_D) ->
     _ = socket_cancel(Socket, SelectInfo),
-    _ = socket_close(Socket),
+    socket_close(Socket),
     {next_state, 'closed', P_D,
      [{reply, From, {error, timeout}}]};
 %%
@@ -2123,7 +2139,7 @@ handle_event(
     handle_connected(P, cleanup_recv_reply(P, D, [], NewReason));
 
 %%
-%% Timeout on recv in non-active mode
+%% Timeout on recv in passive mode
 handle_event(
   {timeout, recv}, recv, #recv{} = State, {P, D}) ->
     %%
@@ -2337,15 +2353,33 @@ handle_accept_success(P, D, From, ListenSocket, AccSocket) ->
       P#params{socket = AccSocket}, D#{type => accept},
       [{{timeout, accept}, cancel},
        {reply, From, {ok, AccSocket}}]).
-    
+
 handle_accept_failure(P, D, From, Error) ->
     %% ?DBG([{error, Error}]),
     {next_state,
      'accept', {P, D},
      [{{timeout, accept}, cancel},
       {reply, From, Error}]}.
-    
 
+
+handle_active(P, D, State, Actions) ->
+    %%
+    %% If the socket is deactivated; active: once | true | N > 0 -> false,
+    %% i.e ->passive, we do not cancel a select in progress!
+    %% Data that arrive while we are in state 'recv' but passive
+    %% is simply stored in the buffer.
+    %%
+    %% If activated; active: false -> once | true | N > 0,
+    %% i.e ->active, we need to check if there is something in the buffer,
+    %% and maybe deliver to owner.  This should only happen in
+    %% state connected (state 'recv'and passive when data arrives
+    %% => put data in buffer and enter state 'connected').
+    case State of
+        'connected' ->
+            handle_connected(P, handle_buffered(P, D), Actions);
+        _ ->
+            {keep_state, {P, D}, Actions}
+    end.
 
 
 handle_connected(P, {D, ActionsR}) ->
@@ -2880,7 +2914,7 @@ handle_recv_error(P, D, ActionsR, Reason) ->
             %% default exit_on_close behaviour...
             {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
         true ->
-            _ = socket_close(P#params.socket),
+            socket_close(P#params.socket),
             {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)}
     end.
 
@@ -2891,7 +2925,7 @@ next_state(P, {D, ActionsR}, State, Actions) ->
     {next_state, State, {P, D}, reverse(ActionsR, Actions)}.
 
 cleanup_close_read(P, D, State, Reason) ->
-    %% ?DBG({P#params.socket, State, Reason}),    
+    %% ?DBG({P#params.socket, State, Reason}),
     case State of
         #accept{
            info = SelectInfo, from = From, listen_socket = ListenSocket} ->
@@ -2907,7 +2941,7 @@ cleanup_close_read(P, D, State, Reason) ->
     end.
 
 cleanup_recv(P, D, State, Reason) ->
-    %% ?DBG({P#params.socket, State, Reason}),    
+    %% ?DBG({P#params.socket, State, Reason}),
     case State of
         #recv{info = Info} ->
             _ = socket_cancel(P#params.socket, Info),
@@ -3228,22 +3262,7 @@ state_setopts_server(P, D, State, Opts, Tag, Value) ->
         active ->
             state_setopts_active(P, D, State, Opts, Value);
         packet ->
-            case is_packet_option_value(Value) of
-                true ->
-                    case D of
-                        #{recv_httph := _} ->
-                            state_setopts(
-                              P,
-                              maps:remove(
-                                recv_httph, D#{packet => Value}),
-                              State, Opts);
-                                #{} ->
-                            state_setopts(
-                              P, D#{packet => Value}, State, Opts)
-                    end;
-                false ->
-                    {{error, einval}, D}
-            end;
+            state_setopts_packet(P, D, State, Opts, Value);
         _ ->
 	    %% ?DBG([{tag, Tag}, {value, Value}]),
             state_setopts(P, D#{Tag => Value}, State, Opts)
@@ -3281,6 +3300,15 @@ state_setopts_active(P, D, State, Opts, Active) ->
                     state_setopts(P, D#{active := N}, State, Opts)
             end;
         true ->
+            {{error, einval}, D}
+    end.
+
+state_setopts_packet(P, D, State, Opts, Value) ->
+    case is_packet_option_value(Value) of
+        true ->
+            D_1 = maps:remove(recv_httph, D#{packet => Value}),
+            state_setopts(P, D_1, State, Opts);
+        false ->
             {{error, einval}, D}
     end.
 
