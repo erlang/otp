@@ -55,7 +55,7 @@ chunks:
 HTML_DEPS?=$(wildcard $(APP_EBIN_DIR)/*.beam) $(wildcard *.md) $(wildcard */*.md) $(wildcard assets/*)
 
 $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs
-	ERL_FLAGS="-pz $(ERL_TOP)/erts/preloaded/ebin" \
+	$(gen_verbose)ERL_FLAGS="-pz $(ERL_TOP)/erts/ebin" \
 	  $(EX_DOC) -f html --homepage-url "$(INDEX_DIR)/index.html" "$(APPLICATION)" $(VSN) $(APP_EBIN_DIR) -o "$(HTMLDIR)" -c $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html

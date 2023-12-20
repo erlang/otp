@@ -52,7 +52,7 @@ ebin_directories(Top) ->
                       not lists:suffix("jinterface/ebin", Dir),
                       not lists:suffix("odbc/ebin", Dir)],
 
-    [filename:join(Top, "erts/preloaded/ebin")] ++ AppDirs.
+    [filename:join(Top, "erts/ebin")] ++ AppDirs.
 
 summarize(Top) ->
     Directories = ebin_directories(Top),

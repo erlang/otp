@@ -25,7 +25,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 include ../vsn.mk
 APPLICATION = erts
-APP_DIR = ../preloaded
 INDEX_DIR = ../../../doc
 RELSYSDIR = $(RELEASE_PATH)/$(APPLICATION)-$(VSN)
 

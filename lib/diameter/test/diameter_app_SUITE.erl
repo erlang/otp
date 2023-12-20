@@ -296,15 +296,7 @@ app(Mod) ->
     end.
 
 add_application(XRef, App) ->
-    add_application(XRef, App, code:lib_dir(App)).
-
-%% erts will not be in the lib directory before installation.
-add_application(XRef, erts, {error, _}) ->
-    Dir = filename:join([code:root_dir(), "erts", "preloaded", "ebin"]),
-    {ok, _} = xref:add_directory(XRef, Dir, []);
-add_application(XRef, App, Dir)
-  when is_list(Dir) ->
-    {ok, App} = xref:add_application(XRef, Dir, []).
+    {ok, App} = xref:add_application(XRef, code:lib_dir(App), []).
 
 make_name(Suf) ->
     list_to_atom("diameter_" ++ atom_to_list(Suf)).

@@ -88,6 +88,10 @@ erlc_verbose_0 = @echo " ERLC	"$@;
 erlc_verbose = $(erlc_verbose_$(V))
 V_ERLC = $(erlc_verbose)$(ERLC)
 
+erl_verbose_0 = @echo " ERL	"$@;
+erl_verbose = $(erl_verbose_$(V))
+V_ERL = $(erlc_verbose)$(ERL)
+
 gen_verbose_0 = @echo " GEN	"$@;
 gen_verbose = $(gen_verbose_$(V))
 

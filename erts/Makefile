@@ -47,7 +47,7 @@ $(TYPES) clean:
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
 		fi ; \
 	done
-	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
+	(cd preloaded/src && $(MAKE) ../../ebin/erts.app)
 
 
 .PHONY: test

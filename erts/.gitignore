@@ -1,6 +1,7 @@
 /Makefile
 /config.log
 /config.status
+/ebin
 
 /start_scripts/RELEASES.src
 /start_scripts/*.rel

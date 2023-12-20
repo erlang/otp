@@ -333,14 +333,14 @@ ifeq ($(BOOTSTRAP_ONLY),yes)
 all: bootstrap check_dev_rt_dep
 else
 # The normal case; not cross compiling, and not bootstrap only build.
-all: bootstrap libs local_setup check_dev_rt_dep
+all: bootstrap erts libs local_setup check_dev_rt_dep
 endif
 
 else
 # Cross compiling
 
 all: cross_check_erl depend erl_interface \
-     emulator libs start_scripts check_dev_rt_dep
+     emulator erts libs start_scripts check_dev_rt_dep
 
 endif
 
@@ -482,6 +482,16 @@ system_test:
 emulator: $(PROFILE_EMU_DEPS)
 	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	  $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=$(PROFILE)
+
+## Build the .beam files for erts/preloaded/src that contains docs and debug info
+.PHONY: erts
+ifneq ($(CROSS_COMPILING),yes)
+erts: bootstrap_setup
+endif
+erts:
+	$(make_verbose)cd erts/preloaded/src && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) opt ERL_COMPILE_WARNINGS_AS_ERRORS=yes
 
 libs:
 ifeq ($(OTP_SMALL_BUILD),true)

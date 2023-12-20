@@ -135,7 +135,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
-
 .erl.beam:
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
 

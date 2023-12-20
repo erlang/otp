@@ -1702,13 +1702,7 @@ get_doc(Mod, #{sources:=[Source|Sources]}=Options) ->
             case code:lib_dir(erts) of
                 {error, _} -> {error, missing};
                 ErtsDir ->
-                    ErtsEbinDir =
-                        case filelib:is_dir(filename:join([ErtsDir,"ebin"])) of
-                            true -> filename:join([ErtsDir,"ebin"]);
-                            false -> filename:join([ErtsDir,"preloaded","ebin"])
-                        end,
-                    Fn = filename:join([ErtsEbinDir, atom_to_list(Mod) ++ ".beam"]),
-                    GetDoc(Fn)
+                    GetDoc(filename:join([ErtsDir, "ebin", atom_to_list(Mod) ++ ".beam"]))
             end;
         Error when is_atom(Error) ->
             {error, Error};

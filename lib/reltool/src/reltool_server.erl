@@ -1772,16 +1772,10 @@ libs_to_dirs(RootDir, LibDirs) ->
                 [] ->
                     Fun = fun(Base) ->
                                   AppDir = filename:join([RootLibDir, Base]),
-                                  case filelib:is_dir(filename:join([AppDir,
-								     "ebin"]),
-						      erl_prim_loader) of
-                                      true ->
-                                          AppDir;
-                                      false ->
-                                          filename:join([RootDir,
-							 Base,
-							 "preloaded"])
-                                  end
+                                  true = filelib:is_dir(
+                                           filename:join([AppDir, "ebin"]),
+                                           erl_prim_loader),
+                                  AppDir
                           end,
                     ErtsFiles = [{erts, Fun(F)} || F <- RootFiles,
 						   lists:prefix("erts", F)],
@@ -2184,18 +2178,8 @@ find_dir(Dir, [Info | _], [Dir | _]) ->
 find_dir(Dir, [_ | MoreInfo], [_ | MoreDirs]) ->
     find_dir(Dir, MoreInfo, MoreDirs).
 
-get_base(Name, Dir) ->
-    case Name of
-        erts ->
-            case filename:basename(Dir) of
-                "preloaded" ->
-                    filename:basename(filename:dirname(Dir));
-                TmpBase ->
-                    TmpBase
-            end;
-        _ ->
-            filename:basename(Dir)
-    end.
+get_base(_Name, Dir) ->
+    filename:basename(Dir).
 
 sys_all_apps(#state{app_tab=AppTab, sys=Sys}) ->
     Sys#sys{apps = ets:match_object(AppTab,'_')}.

@@ -137,7 +137,7 @@ otp_14285(Config) ->
     ok = edoc:files([Un2], Opts2),
     ok.
 
-infer_module_app_test(Config) ->
+infer_module_app_test(_Config) ->
     Modules = lists:map(fun ({M, _, _}) ->
 				{list_to_atom(M), M ++ ".beam"}
 			end, code:all_available()),
@@ -151,14 +151,8 @@ infer_module_app_test_({M, Beam}) ->
 	    %% When `App' is actually returned, the corresponding
 	    %% BEAM file is expected to be found on disk in the app's
 	    %% ebin dir.
-	    %% `preloaded' modules should be found under `erts/ebin'
-	    %% or under `erts/preloaded/ebin' in case of running tests
-	    %% from the source tree.
-	    BeamPath1 = filename:join([code:lib_dir(App), "ebin", Beam]),
-	    BeamPath2 = filename:join([code:lib_dir(App), "preloaded", "ebin", Beam]),
-	    R1 = filelib:is_regular(BeamPath1),
-	    R2 = filelib:is_regular(BeamPath2),
-	    R1 orelse R2
+	    BeamPath = filename:join([code:lib_dir(App), "ebin", Beam]),
+            filelib:is_regular(BeamPath)
     end.
 
 module_with_feature(Config) ->
