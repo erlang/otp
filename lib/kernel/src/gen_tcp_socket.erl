@@ -1425,6 +1425,9 @@ server_opts() ->
 -compile({inline, [meta/1]}).
 meta(D) -> maps:with(maps:keys(server_write_opts()), D).
 
+-compile({inline, [meta_opts/0]}).
+meta_opts() -> maps:keys(server_write_opts()).
+
 
 %%% ========================================================================
 %%% State Machine
@@ -1789,19 +1792,29 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 %% Call: setopts/1
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
     %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
-    {Result_1, D_1} = state_setopts(P, D, State, Opts),
-    %% ?DBG([{result, Result_1}, {d1, D_1}]),
+    %%
+    %% Optimize option setting by finding out which options that changes
+    %%
+    %% Work on a minimal D map and see what changes
+    {Result_1, D_1} =
+        state_setopts(P, maps:with([active,recv_httph], D), State, Opts),
+    D_2 = maps:merge(maps:remove(recv_httph, D), D_1),
+    %% ?DBG([{result, Result_1}, {d1, D_2}]),
+    case is_map_keys(meta_opts(), D_1) of
+        true -> % Metadata option change - rewrite
+            ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_2));
+        false ->
+            ok
+    end,
     Result =
         case Result_1 of
             {error, enoprotoopt} ->
                 %% If we get this error, the options is not valid for
                 %% this (tcp) protocol.
-                _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
                 {error, einval};
 
             {error, {invalid, _}} ->
                 %% If we get this error, the options where crap.
-                _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
                 {error, einval};
 
             {error, einval} ->
@@ -1809,15 +1822,13 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
                 %% the socket is in a "bad state" (maybe its closed).
                 %% So, if that is the case we accept that we may not be
                 %% able to update the meta data.
-                _ = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
                 Result_1;
             _ ->
                 %% We should really handle this better. stop_and_reply?
-                ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1)),
                 Result_1
         end,
     Reply = {reply, From, Result},
-    handle_active(P, D_1, State, [Reply]);
+    handle_active(P, D_2, State, [Reply]);
 
 %% Call: setopt_active/1
 handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
@@ -3518,6 +3529,11 @@ reverse_improper([H | T], Acc) ->
     reverse_improper(T, [H | Acc]);
 reverse_improper([], Acc) -> Acc;
 reverse_improper(T, Acc) -> [T | Acc].
+
+
+is_map_keys([], #{}) -> false;
+is_map_keys([Key|Keys], Map) ->
+    is_map_key(Key, Map) orelse is_map_keys(Keys, Map).
 
 
 %% -------------------------------------------------------------------------
