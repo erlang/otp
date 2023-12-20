@@ -353,7 +353,15 @@ move S1 D1=y | move S2 D2=y | consecutive_words(D1, D2) =>
 move S1 D1=y | move S2 D2=y | consecutive_words(D2, D1) =>
     store_two_values S2 D2 S1 D1
 
+move S1=y D1 | move S2=y D2 | consecutive_words(S1, S2) | trim N u =>
+    move_two_trim S1 D1 S2 D2 N
+
+move S2=y D2 | move S1=y D1 | consecutive_words(S1, S2) | trim N u =>
+    move_two_trim S1 D1 S2 D2 N
+
 move Src Dst | trim N u => move_trim Src Dst N
+
+move_two_trim y d y d t
 
 move_trim s d t
 
@@ -514,6 +522,10 @@ put_list Hd1=y Tl Dst | put_list Hd2=y Dst2 Dst3 |
   consecutive_words(Hd1, Hd2) =>
     put_list2 Hd1 Hd2 Tl Dst
 
+put_list Hd Tl Dst | deallocate N =>
+    put_list_deallocate Hd Tl Dst N
+
+put_list_deallocate s s d t
 put_list s s d
 put_list2 s s s d
 
@@ -801,8 +813,8 @@ bif_is_lt s s d
 # Internal calls.
 #
 
-i_move S=y==0 Dst | call_last Ar P D => move_call_last S Dst P D
-i_move S=y==0 Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
+i_move S=y Dst | call_last Ar P D => move_call_last S Dst P D
+i_move S=y Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
 
 move_call_last y d f t
 move_call_ext_last y d e t

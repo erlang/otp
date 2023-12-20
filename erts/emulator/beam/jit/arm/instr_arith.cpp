@@ -35,6 +35,8 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
     if (is_small_result) {
         comment("skipped overflow test because the result is always small");
         emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
+    } else if (RHS.isLiteral()) {
+        /* Skipping test for small */
     } else {
         if (always_small(RHS)) {
             a.and_(TMP1, lhs_reg, imm(_TAG_IMMED1_MASK));
@@ -60,8 +62,11 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
                                               const ArgSource &RHS,
                                               const a64::Gp rhs_reg,
                                               const Label next) {
-    if (always_small(RHS) &&
-        always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS)) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (always_small(RHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS)) {
         comment("simplified test for small operand since other types are "
                 "boxed");
         emit_is_boxed(next, lhs_reg);
@@ -165,7 +170,9 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
 
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
-    if (rhs_is_arm_literal) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.adds(ARG1, lhs.reg, imm(cleared_tag));
     } else {
@@ -349,10 +356,11 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     }
 
     Label next = a.newLabel();
-
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
-    if (rhs_is_arm_literal) {
+    if (RHS.isLiteral()) {
+        comment("skipped test for small because one operand is never small");
+    } else if (rhs_is_arm_literal) {
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.subs(ARG1, lhs.reg, imm(cleared_tag));
     } else {
@@ -535,6 +543,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgRegister &Dst) {
     bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
     bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
+    bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
     bool is_increment_zero =
             Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
     Sint factor = 0;
@@ -585,7 +594,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                 emit_are_both_small(Src1, src1.reg, Src2, src2.reg, small);
             } else if (always_small(Src2)) {
                 emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
-            } else {
+            } else if (sometimes_small) {
                 ASSERT(!is_increment_zero);
                 ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
                 a.and_(TMP1, src1.reg, src2.reg);
@@ -602,6 +611,9 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
                     a.b_eq(small);
                 }
+            } else {
+                comment("skipped test for small because one operand is never "
+                        "small");
             }
 
             mov_var(ARG2, src1);
@@ -625,14 +637,18 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                 }
             }
 
-            a.b(store_result);
+            if (sometimes_small) {
+                a.b(store_result);
+            }
         }
 
         a.bind(small);
-        if (is_increment_zero) {
-            comment("multiply smalls");
-        } else {
-            comment("multiply and add smalls");
+        if (sometimes_small) {
+            if (is_increment_zero) {
+                comment("multiply smalls");
+            } else {
+                comment("multiply and add smalls");
+            }
         }
 
         if (is_product_small && is_sum_small) {
@@ -657,7 +673,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             }
 
             comment("skipped test for small result");
-        } else {
+        } else if (sometimes_small) {
             auto min_increment = std::get<0>(getClampedRange(Src4));
 
             a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
@@ -1181,22 +1197,29 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
     } else {
         Label next = a.newLabel();
 
-        /* TAG & TAG = TAG, so we don't need to tag it again. */
-        a.and_(ARG1, lhs.reg, rhs.reg);
-
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
-            always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
-            comment("simplified test for small operands since other types are "
-                    "boxed");
-            emit_is_boxed(next, ARG1);
+        if (RHS.isLiteral()) {
+            comment("skipped test for small because one operand is never "
+                    "small");
         } else {
-            /* All other term types has at least one zero in the low 4
-             * bits. Therefore, the result will be a small iff both
-             * operands are small. */
-            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
-            a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-            a.b_eq(next);
+            /* TAG & TAG = TAG, so we don't need to tag it again. */
+            a.and_(ARG1, lhs.reg, rhs.reg);
+
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        LHS) &&
+                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        RHS)) {
+                comment("simplified test for small operands since other types "
+                        "are boxed");
+                emit_is_boxed(next, ARG1);
+            } else {
+                /* All other term types has at least one zero in the low 4
+                 * bits. Therefore, the result will be a small iff both
+                 * operands are small. */
+                a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.b_eq(next);
+            }
         }
 
         mov_var(ARG2, lhs);

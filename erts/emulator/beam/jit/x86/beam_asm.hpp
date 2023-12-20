@@ -766,15 +766,41 @@ protected:
 #endif
     }
 
-    void emit_test_boxed(x86::Gp Src) {
+    void emit_test(x86::Gp Src, byte mask) {
         /* Use the shortest possible instruction depending on the source
          * register. */
         if (Src == x86::rax || Src == x86::rdi || Src == x86::rsi ||
             Src == x86::rcx || Src == x86::rdx) {
-            a.test(Src.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r8(), imm(mask));
         } else {
-            a.test(Src.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+            a.test(Src.r32(), imm(mask));
         }
+    }
+
+    void emit_test_cons(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_LIST);
+    }
+
+    void emit_is_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().jne(Fail);
+        } else {
+            a.jne(Fail);
+        }
+    }
+
+    void emit_is_not_cons(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        emit_test_cons(Src);
+        if (dist == dShort) {
+            a.short_().je(Fail);
+        } else {
+            a.je(Fail);
+        }
+    }
+
+    void emit_test_boxed(x86::Gp Src) {
+        emit_test(Src, _TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED);
     }
 
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
@@ -827,30 +853,6 @@ protected:
         } else {
             a.cmp(Reg, imm(THE_NON_VALUE));
         }
-    }
-
-    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based on their
-     * tags alone. (They may still be equal if both are immediates and all other
-     * bits are equal too.) */
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1, x86::Gp Reg2) {
-        ASSERT(Reg1 != RET && Reg2 != RET);
-        emit_is_unequal_based_on_tags(Reg1, Reg2, RET);
-    }
-
-    void emit_is_unequal_based_on_tags(x86::Gp Reg1,
-                                       x86::Gp Reg2,
-                                       const x86::Gp &spill) {
-        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
-        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
-                       TAG_PRIMARY_IMMED1);
-        a.mov(RETd, Reg1.r32());
-        a.or_(RETd, Reg2.r32());
-        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-
-        /* RET will be now be TAG_PRIMARY_IMMED1 if either one or both
-         * registers are immediates, or if one register is a list and the other
-         * a boxed. */
-        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
     }
 
     /*
@@ -1590,6 +1592,74 @@ protected:
         } else {
             mov_arg(getArgRef(to), from);
         }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
+     * on their tags alone. (They may still be equal if both are
+     * immediates and all other bits are equal too.)
+     *
+     * Clobbers RET.
+     */
+    void emit_is_unequal_based_on_tags(Label Unequal,
+                                       const ArgVal &Src1,
+                                       x86::Gp Reg1,
+                                       const ArgVal &Src2,
+                                       x86::Gp Reg2,
+                                       Distance dist = dLong) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2, dist);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2, dist);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1, dist);
+        } else {
+            a.mov(RETd, Reg1.r32());
+            a.or_(RETd, Reg2.r32());
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, RET, dist);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, RET, dist);
+            } else {
+                a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+
+                /* RET will now be TAG_PRIMARY_IMMED1 if either one or
+                 * both registers are immediates, or if one register
+                 * is a list and the other a boxed. */
+                a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+                if (dist == dShort) {
+                    a.short_().je(Unequal);
+                } else {
+                    a.je(Unequal);
+                }
+            }
+        }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
+    void emit_are_both_immediate(const ArgVal &Src1,
+                                 x86::Gp Reg1,
+                                 const ArgVal &Src2,
+                                 x86::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        if (always_immediate(Src1)) {
+            a.mov(RETd, Reg2.r32());
+        } else if (always_immediate(Src2)) {
+            a.mov(RETd, Reg1.r32());
+        } else {
+            a.mov(RETd, Reg1.r32());
+            a.and_(RETd, Reg2.r32());
+        }
+        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
     }
 };
 

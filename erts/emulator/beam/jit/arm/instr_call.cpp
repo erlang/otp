@@ -94,6 +94,13 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
         emit_i_call_only(CallTarget);
+    } else if (src_index + 1 == Deallocate.get()) {
+        auto dst = init_destination(Dst, TMP1);
+        safe_ldp(dst.reg, a64::x30, getArgRef(Src));
+        flush_var(dst);
+        add(E, E, (Deallocate.get() + 1) * sizeof(Eterm));
+        a.b(resolve_beam_label(CallTarget, disp128MB));
+        mark_unreachable();
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);
@@ -178,6 +185,15 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
         a.ldr(dst.reg, src_ref);
         flush_var(dst);
         emit_i_call_ext_only(Exp);
+    } else if (src_index + 1 == Deallocate.get()) {
+        auto dst = init_destination(Dst, TMP1);
+        mov_arg(ARG1, Exp);
+        arm::Mem target = emit_setup_dispatchable_call(ARG1);
+        safe_ldp(dst.reg, a64::x30, getArgRef(Src));
+        flush_var(dst);
+        add(E, E, (Deallocate.get() + 1) * sizeof(Eterm));
+        branch(target);
+        mark_unreachable();
     } else {
         mov_arg(Dst, Src);
         emit_deallocate(Deallocate);

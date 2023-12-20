@@ -3894,9 +3894,6 @@ static std::vector<BsmSegment> opt_bsm_segments(
 
             if (seg.size > 64) {
                 read_action_pos = -1;
-            } else if (seg.action == BsmSegment::action::GET_BITSTRING &&
-                       seg.size % 8 != 0) {
-                read_action_pos = -1;
             } else if ((seg.flags & BSF_LITTLE) != 0 && is_common_size) {
                 seg.action = BsmSegment::action::READ_INTEGER;
                 read_action_pos = -1;
@@ -4367,6 +4364,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             break;
         }
         case BsmSegment::action::GET_BITSTRING: {
+            ERTS_ASSERT(seg.size > 64);
             comment("get binary %ld", seg.size);
             if (is_ctx_valid) {
                 a.mov(RET, ctx);
@@ -4374,14 +4372,22 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 mov_arg(RET, Ctx);
             }
             emit_enter_runtime<Update::eHeapOnlyAlloc>();
+            if (is_position_valid) {
+                a.mov(ARG5, bin_position);
+            } else {
+                a.mov(ARG5, emit_boxed_val(RET, start_offset));
+            }
             a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
-            a.mov(ARG2, emit_boxed_val(RET, orig_offset));
-            a.mov(ARG3, ARG2);
-            a.and_(ARG2, imm(TAG_PTR_MASK__));
-            a.and_(ARG3, imm(~TAG_PTR_MASK__));
+            if (seg.size <= ERL_ONHEAP_BITS_LIMIT) {
+                comment("skipped setting registers not used for heap binary");
+            } else {
+                a.mov(ARG2, emit_boxed_val(RET, orig_offset));
+                a.mov(ARG3, ARG2);
+                a.and_(ARG2, imm(TAG_PTR_MASK__));
+                a.and_(ARG3, imm(~TAG_PTR_MASK__));
+            }
             a.mov(ARG4, emit_boxed_val(RET, base_offset));
             a.and_(ARG4, imm(~ERL_SUB_BITS_FLAG_MASK));
-            a.mov(ARG5, emit_boxed_val(RET, start_offset));
             mov_imm(ARG6, seg.size);
             a.add(emit_boxed_val(RET, start_offset), ARG6);
 

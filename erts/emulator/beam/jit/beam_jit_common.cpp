@@ -1357,3 +1357,32 @@ Export *beam_jit_handle_unloaded_fun(Process *c_p,
 
     return ep;
 }
+
+bool beam_jit_is_list_of_immediates(Eterm term) {
+    while (is_list(term)) {
+        Eterm *cons = list_val(term);
+        if (!is_immed(CAR(cons))) {
+            return false;
+        }
+        term = CDR(cons);
+    }
+    return is_nil(term);
+}
+
+bool beam_jit_is_shallow_boxed(Eterm term) {
+    if (is_tuple(term)) {
+        Eterm *tuple_ptr = tuple_val(term);
+        for (unsigned i = 1; i <= arityval(*tuple_ptr); i++) {
+            if (!is_immed(tuple_ptr[i])) {
+                return false;
+            }
+        }
+        return true;
+    } else if (is_big(term)) {
+        return true;
+    } else if (is_float(term)) {
+        return true;
+    } else {
+        return false;
+    }
+}

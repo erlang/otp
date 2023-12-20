@@ -247,6 +247,14 @@ struct ArgRegister : public ArgSource {
         return (int)(val >> 10);
     }
 
+    constexpr ArgVal trimmed(int n) const {
+        if (isYRegister()) {
+            return ArgVal(TYPE::YReg, UWord((val & REG_MASK) - n));
+        } else {
+            return *this;
+        }
+    }
+
     template<typename T>
     constexpr T copy(int n) const {
         return T(n | (val & ~REG_MASK));
