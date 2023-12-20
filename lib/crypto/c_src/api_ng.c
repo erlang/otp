@@ -985,28 +985,22 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 ERL_NIF_TERM ng_crypto_get_data_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) -> map */
     struct evp_cipher_ctx *ctx_res;
+    ERL_NIF_TERM keys[4] = {
+        atom_size, atom_padding_size, atom_padding_type, atom_encrypt
+    };
+    ERL_NIF_TERM values[4];
     ERL_NIF_TERM ret;
+    int ok;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG_N(env, 0, "Bad State");
 
-    ret = enif_make_new_map(env);
-
-    enif_make_map_put(env, ret, atom_size,
-                      enif_make_int(env, ctx_res->size),
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_padding_size,
-                      enif_make_int(env, ctx_res->padded_size),
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_padding_type,
-                      ctx_res->padding,
-                      &ret);
-
-    enif_make_map_put(env, ret, atom_encrypt,
-                      (ctx_res->encflag) ? atom_true : atom_false,
-                      &ret);
+    values[0] = enif_make_int(env, ctx_res->size);
+    values[1] = enif_make_int(env, ctx_res->padded_size);
+    values[2] = ctx_res->padding;
+    values[3] = (ctx_res->encflag) ? atom_true : atom_false;
+    ok = enif_make_map_from_arrays(env, keys, values, 4, &ret);
+    ASSERT(ok); (void)ok;
 
     return ret;
 }

@@ -632,7 +632,7 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
                                               type := integer()
                                              } .
 hash_info(Type) ->
-    notsup_to_error(hash_info_nif(Type)).
+    hash_info_nif(Type).
 
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
                                       Data :: iodata(),
@@ -674,7 +674,7 @@ hash_final(Context) ->
                                                    Length :: non_neg_integer(),
                                                    Digest :: binary().
 hash_final_xof(Context, Length) ->
-    notsup_to_error(hash_final_xof_nif(Context, Length)).
+    hash_final_xof_nif(Context, Length).
 
 %%%================================================================
 %%%
@@ -1733,9 +1733,8 @@ compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 					HostPubBin, Prime);
 		    [S] -> S
 		end,
-    notsup_to_error(
     srp_user_secret_nif(ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin,
-                          Multiplier, Generator, DerivedKey, Prime));
+                        Multiplier, Generator, DerivedKey, Prime);
 
 compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 	    {host,[Verifier, Prime, Version | ScramblerArg]}) when
@@ -1747,9 +1746,8 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 		    [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
 		    [S] -> S
 		end,
-    notsup_to_error(
     srp_host_secret_nif(Verifier, ensure_int_as_bin(HostPrivate), Scrambler,
-                          UserPubBin, Prime));
+                          UserPubBin, Prime);
 
 compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->
@@ -1838,7 +1836,7 @@ mod_pow(Base, Exponent, Prime) ->
 
 -spec engine_get_all_methods() -> Result when Result :: [engine_method_type()].
 engine_get_all_methods() ->
-     notsup_to_error(engine_get_all_methods_nif()).
+    engine_get_all_methods_nif().
 
 %%----------------------------------------------------------------------
 %% Function: engine_load/3
@@ -1851,8 +1849,8 @@ engine_get_all_methods() ->
 engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
                                               is_list(PostCmds) ->
     try
-        ok = notsup_to_error(engine_load_dynamic_nif()),
-        case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
+        ok = engine_load_dynamic_nif(),
+        case engine_by_id_nif(ensure_bin_chardata(EngineId)) of
             {ok, Engine} ->
                 engine_load_1(Engine, PreCmds, PostCmds);
             {error, Error1} ->
@@ -1930,7 +1928,7 @@ engine_unload(Engine, _EngineMethods) ->
                                             Result :: {ok, Engine::engine_ref()} | {error, Reason::term()} .
 engine_by_id(EngineId) ->
     try
-        notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)))
+        engine_by_id_nif(ensure_bin_chardata(EngineId))
     catch
        throw:Error ->
           Error
@@ -1942,7 +1940,7 @@ engine_by_id(EngineId) ->
 -spec engine_add(Engine) -> Result when Engine :: engine_ref(),
                                         Result ::  ok | {error, Reason::term()} .
 engine_add(Engine) ->
-    notsup_to_error(engine_add_nif(Engine)).
+    engine_add_nif(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_remove/1
@@ -1950,7 +1948,7 @@ engine_add(Engine) ->
 -spec engine_remove(Engine) -> Result when Engine :: engine_ref(),
                                            Result ::  ok | {error, Reason::term()} .
 engine_remove(Engine) ->
-    notsup_to_error(engine_remove_nif(Engine)).
+    engine_remove_nif(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_register/2
@@ -1988,7 +1986,7 @@ engine_unregister(Engine, EngineMethods) when is_list(EngineMethods) ->
 -spec engine_get_id(Engine) -> EngineId when Engine :: engine_ref(),
                                              EngineId :: unicode:chardata().
 engine_get_id(Engine) ->
-    notsup_to_error(engine_get_id_nif(Engine)).
+    engine_get_id_nif(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_name/1
@@ -1996,18 +1994,18 @@ engine_get_id(Engine) ->
 -spec engine_get_name(Engine) -> EngineName when Engine :: engine_ref(),
                                                  EngineName :: unicode:chardata().
 engine_get_name(Engine) ->
-    notsup_to_error(engine_get_name_nif(Engine)).
+    engine_get_name_nif(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_list/0
 %%----------------------------------------------------------------------
 -spec engine_list() -> Result when Result :: [EngineId::unicode:chardata()].
 engine_list() ->
-    case notsup_to_error(engine_get_first_nif()) of
+    case engine_get_first_nif() of
         {ok, <<>>} ->
             [];
         {ok, Engine} ->
-            case notsup_to_error(engine_get_id_nif(Engine)) of
+            case engine_get_id_nif(Engine) of
                 <<>> ->
                     engine_list(Engine, []);
                 EngineId ->
@@ -2016,11 +2014,11 @@ engine_list() ->
     end.
 
 engine_list(Engine0, IdList) ->
-    case notsup_to_error(engine_get_next_nif(Engine0)) of
+    case engine_get_next_nif(Engine0) of
         {ok, <<>>} ->
             lists:reverse(IdList);
         {ok, Engine1} ->
-            case notsup_to_error(engine_get_id_nif(Engine1)) of
+            case engine_get_id_nif(Engine1) of
                 <<>> ->
                     engine_list(Engine1, IdList);
                 EngineId ->
@@ -2054,8 +2052,6 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
                                      bool_to_int(Optional)) of
         ok ->
             ok;
-        notsup ->
-            erlang:error(notsup);
         {error, Error} ->
             {error, Error}
     end.
@@ -2069,8 +2065,8 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 						 Result :: {ok, Engine::engine_ref()} |
 	{error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
-    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
-                                                  ensure_bin_chardata(LibPath))) of
+    case ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
+                                  ensure_bin_chardata(LibPath)) of
         {ok, Engine} ->
             {ok, Engine};
         {error, Error1} ->
@@ -2190,11 +2186,6 @@ path2bin(Path) when is_list(Path) ->
 max_bytes() ->
     ?MAX_BYTES_TO_NIF.
 
-notsup_to_error(notsup) ->
-    erlang:error(notsup);
-notsup_to_error(Other) ->
-    Other.
-
 %% HASH --------------------------------------------------------------------
 hash(Hash, Data, Size, Max) when Size =< Max ->
     ?nif_call(hash_nif(Hash, Data));
@@ -2245,8 +2236,6 @@ host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
    case srp_value_B_nif(Multiplier, Verifier, Generator, Private, Prime) of
    error ->
        error;
-   notsup ->
-       erlang:error(notsup);
    Public ->
        {Public, Private}
    end.
@@ -2545,8 +2534,6 @@ ensure_engine_loaded_nif(_EngineId, _LibPath) -> ?nif_stub.
 %% Engine internals
 engine_nif_wrapper(ok) ->
     ok;
-engine_nif_wrapper(notsup) ->
-    erlang:error(notsup);
 engine_nif_wrapper({error, Error}) ->
     throw({error, Error}).
 

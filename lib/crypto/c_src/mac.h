@@ -23,7 +23,7 @@
 
 #include "common.h"
 
-int init_mac_ctx(ErlNifEnv *env);
+int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 void init_mac_types(ErlNifEnv* env);
 

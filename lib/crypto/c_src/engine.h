@@ -28,7 +28,7 @@ int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE *
 char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key);
 #endif /* HAS_ENGINE_SUPPORT */
 
-int init_engine_ctx(ErlNifEnv *env);
+int init_engine_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 int create_engine_mutex(ErlNifEnv *env);
 void destroy_engine_mutex(ErlNifEnv *env);
 

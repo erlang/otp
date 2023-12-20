@@ -19,6 +19,7 @@
  */
 
 #include "cipher.h"
+#include "info.h"
 
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
@@ -164,8 +165,9 @@ static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
 #endif
 }
 
-int init_cipher_ctx(ErlNifEnv *env) {
-    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
+int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
+    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL,
+                                                   resource_name("EVP_CIPHER_CTX", rt_buf),
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                    NULL);
@@ -244,6 +246,9 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM         ret, ret_mode;
     unsigned             type;
     unsigned long        mode;
+    ERL_NIF_TERM keys[6];
+    ERL_NIF_TERM vals[6];
+    int ok;
 
     if ((cipherp = get_cipher_type_no_key(argv[0])) == NULL)
         return enif_make_badarg(env);
@@ -253,26 +258,22 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
 
-    ret = enif_make_new_map(env);
-
     type = EVP_CIPHER_type(cipher);
-    enif_make_map_put(env, ret, atom_type,
-        type == NID_undef ? atom_undefined : enif_make_int(env, type),
-        &ret);
 
-    enif_make_map_put(env, ret, atom_key_length,
-        enif_make_int(env, EVP_CIPHER_key_length(cipher)), &ret);
-    enif_make_map_put(env, ret, atom_iv_length,
-        enif_make_int(env, EVP_CIPHER_iv_length(cipher)), &ret);
-    enif_make_map_put(env, ret, atom_block_size,
-        enif_make_int(env, EVP_CIPHER_block_size(cipher)), &ret);
-    enif_make_map_put(env, ret, atom_prop_aead, 
+    keys[0] = atom_type;
+    vals[0] = (type == NID_undef ? atom_undefined : enif_make_int(env, type));
+    keys[1] = atom_key_length;
+    vals[1] = enif_make_int(env, EVP_CIPHER_key_length(cipher));
+    keys[2] = atom_iv_length;
+    vals[2] = enif_make_int(env, EVP_CIPHER_iv_length(cipher));
+    keys[3] = atom_block_size;
+    vals[3] = enif_make_int(env, EVP_CIPHER_block_size(cipher));
+    keys[4] = atom_prop_aead;
 #if defined(HAVE_AEAD)
-            (((EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER) != 0) ? atom_true : atom_false), 
+    vals[4] = (((EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER) != 0) ? atom_true : atom_false);
 #else
-            atom_false,
+    vals[4] = atom_false;
 #endif
-            &ret);
 
     mode = EVP_CIPHER_mode(cipher);
     switch (mode) {
@@ -336,8 +337,11 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             ret_mode = atom_undefined;
             break;
     }
+    keys[5] = atom_mode;
+    vals[5] = ret_mode;
 
-    enif_make_map_put(env, ret, atom_mode, ret_mode, &ret);
+    ok = enif_make_map_from_arrays(env, keys, vals, 6, &ret);
+    ASSERT(ok); (void)ok;
 
     return ret;
 }

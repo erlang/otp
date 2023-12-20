@@ -87,44 +87,53 @@ void error_handler(void* null, const char* errstr)
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
+const char* resource_name(const char *name, ErlNifBinary* buf)
+{
+    /*
+     * Add full OpenSSL version string. This is a simlpe but conservative way
+     * to detect and reject resource takover between different versions
+     * of OpenSSL that might not be binary compatible.
+     */
+    size_t len;
+    for (;;) {
+        len = enif_snprintf((char*)buf->data, buf->size, "%s:%s",
+                            name, OpenSSL_version(OPENSSL_VERSION));
+        if (len < buf->size)
+            return (char*)buf->data;
+        enif_realloc_binary(buf, len + 1 + 20);
+    }
+}
+
 
 ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
+    ERL_NIF_TERM keys[5], vals[5];
     ERL_NIF_TERM  ret;
+    size_t cnt;
+    int ok;
 
-    ret = enif_make_new_map(env);
-    
-    enif_make_map_put(env, ret,
-                      enif_make_atom(env,"compile_type"),
-                      enif_make_atom(env, COMPILE_TYPE),
-                      &ret);
-
-    enif_make_map_put(env, ret,
-                      enif_make_atom(env, "link_type"),
-                      enif_make_atom(env, LINK_TYPE),
-                      &ret);
-
-    enif_make_map_put(env, ret,
-                      enif_make_atom(env, "cryptolib_version_compiled"),
+    keys[0] = enif_make_atom(env,"compile_type");
+    vals[0] = enif_make_atom(env, COMPILE_TYPE);
+    keys[1] = enif_make_atom(env, "link_type");
+    vals[1] = enif_make_atom(env, LINK_TYPE);
+    keys[2] = enif_make_atom(env, "cryptolib_version_compiled");
 #ifdef OPENSSL_VERSION_TEXT
-                      enif_make_string(env, OPENSSL_VERSION_TEXT, ERL_NIF_LATIN1),
+    vals[2] = enif_make_string(env, OPENSSL_VERSION_TEXT, ERL_NIF_LATIN1);
 #else
-                      /* Just to be really safe for versions/clones unknown to me lacking this macro */
-                      atom_undefined,
+    /* Just to be really safe for versions/clones unknown to me lacking this macro */
+    vals[2] = atom_undefined;
 #endif
-                      &ret);
-
-    enif_make_map_put(env, ret,
-                      enif_make_atom(env, "cryptolib_version_linked"),
-                      enif_make_string(env, OpenSSL_version(OPENSSL_VERSION), ERL_NIF_LATIN1),
-                      &ret);
-
+    keys[3] = enif_make_atom(env, "cryptolib_version_linked");
+    vals[3] = enif_make_string(env, OpenSSL_version(OPENSSL_VERSION), ERL_NIF_LATIN1);
 #ifdef HAS_3_0_API
-    enif_make_map_put(env, ret,
-                      enif_make_atom(env, "fips_provider_available"),
-                      OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false,
-                      &ret);
+    keys[4] = enif_make_atom(env, "fips_provider_available");
+    vals[4] = OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false;
+    cnt = 5;
+#else
+    cnt = 4;
 #endif
+    ok = enif_make_map_from_arrays(env, keys, vals, cnt, &ret);
+    ASSERT(ok); (void)ok;
 
     return ret;
 }

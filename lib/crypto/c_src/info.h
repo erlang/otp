@@ -30,6 +30,18 @@ int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newf
 void error_handler(void* null, const char* errstr);
 #endif
 
+/** @brief Construct a versioned name for resource types to try
+ *         avoid takeover of binary incompatible resources.
+ *  @param[in] name The base name of the resource type.
+ *  @param[out] buf Output buffer preallocated with enif_alloc_binary.
+ *
+ *  @return Pointer to versioned name at buf->data, potentially reallocated.
+ *
+ * </>>
+ * </>>
+ */
+const char* resource_name(const char *name, ErlNifBinary* buf);
+
 ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 ERL_NIF_TERM info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
