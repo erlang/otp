@@ -497,9 +497,7 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, LineCont0, Encoding) ->
                  true ->
                      get_line(Buf0, Pbs, LineCont0, Drv, Shell, Encoding);
                  false ->
-                     %% get_line_echo_off only deals with lists,
-                     %% so convert to list before calling it.
-                     get_line_echo_off(cast(Buf0, list), Encoding, Pbs, Drv, Shell)
+                     get_line_echo_off(Buf0, Encoding, Pbs, Drv, Shell)
              end,
     case Result of
         {done,LineCont1,Buf} ->
@@ -1102,6 +1100,8 @@ cast(eof, _, _) ->
     eof;
 cast(L, binary, ToEnc) ->
     unicode:characters_to_binary(L, utf8, ToEnc);
+cast(L, list, _ToEnc) when is_list(L) ->
+    L;
 cast(L, list, _ToEnc) ->
     unicode:characters_to_list(L, utf8).
 
@@ -1109,8 +1109,15 @@ append(eof, [], _) ->
     eof;
 append(eof, L, _) ->
     L;
+append(L, [], _) when is_list(L) ->
+    %% When doing ++ all of L needs to be traversed to check if it is
+    %% a proper list. Since we know it is a proper list we just return
+    %% the list without checking.
+    L;
+append(L, A, _) when is_list(L) ->
+    L ++ A; %% We know L is valid unicode, so we just append the two
 append(B, L, FromEnc) ->
-    unicode:characters_to_list(B, FromEnc) ++ L.
+    append(unicode:characters_to_list(B, FromEnc), L, FromEnc).
 
 check_encoding(eof, _) ->
     true;
@@ -1125,4 +1132,3 @@ is_latin1([]) ->
     true;
 is_latin1(_) ->
     false.
-
