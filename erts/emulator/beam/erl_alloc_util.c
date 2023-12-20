@@ -40,6 +40,7 @@
 #  include "config.h"
 #endif
 
+#include "sys.h"
 #include "global.h"
 #include "big.h"
 #include "erl_mmap.h"
@@ -91,8 +92,7 @@ static int initialized = 0;
 #define SYS_ALLOC_CARRIER_FLOOR(X)	((X) & SYS_ALLOC_CARRIER_MASK)
 #define SYS_ALLOC_CARRIER_CEILING(X) \
   SYS_ALLOC_CARRIER_FLOOR((X) + INV_SYS_ALLOC_CARRIER_MASK)
-#define SYS_PAGE_SIZE                   (sys_page_size)
-#define SYS_PAGE_SZ_MASK                ((UWord)(SYS_PAGE_SIZE - 1))
+#define SYS_PAGE_SZ_MASK                ((UWord)(sys_page_size - 1))
 
 #if 0
 /* Can be useful for debugging */
@@ -101,7 +101,6 @@ static int initialized = 0;
 
 /* alloc_util global parameters */
 static Uint sys_alloc_carrier_size;
-static Uint sys_page_size;
 
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
@@ -2580,7 +2579,7 @@ mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
     if (region->ptr >= neighbor_start) {
         char *region_start_page;
 
-        region_start_page = region->ptr - SYS_PAGE_SIZE;
+        region_start_page = region->ptr - sys_page_size;
         region_start_page = (char*)((UWord)region_start_page & ~SYS_PAGE_SZ_MASK);
 
         /* Expand if our first page begins within the previous free block's
@@ -2595,7 +2594,7 @@ mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
 
         ASSERT(region->ptr <= neighbor_start);
 
-        region_end_page = region->ptr + region->size + SYS_PAGE_SIZE;
+        region_end_page = region->ptr + region->size + sys_page_size;
         region_end_page = (char*)((UWord)region_end_page & ~SYS_PAGE_SZ_MASK);
 
         neighbor_size = BLK_SZ(neighbor) - FBLK_FTR_SZ;
@@ -2637,11 +2636,11 @@ mem_discard_finish(Allctr_t *allocator, Block_t *block,
     (void)block;
 #endif
 
-    if (region->size > SYS_PAGE_SIZE) {
+    if (region->size > sys_page_size) {
         UWord align_offset, size;
         char *ptr;
 
-        align_offset = SYS_PAGE_SIZE - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
+        align_offset = sys_page_size - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
 
         size = (region->size - align_offset) & ~SYS_PAGE_SZ_MASK;
         ptr = region->ptr + align_offset;
@@ -7001,8 +7000,6 @@ erts_alcu_init(AlcUInit_t *init)
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
     allow_sys_alloc_carriers = init->sac;
-
-    sys_page_size = erts_sys_get_page_size();
 
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);

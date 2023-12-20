@@ -2155,33 +2155,19 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
     static int is_first_call = 1;
     char *start = NULL, *end = NULL;
-    UWord pagesize;
     int virtual_map = 0;
 
     (void)virtual_map;
 
-#if defined(__WIN32__)
-    {
-        SYSTEM_INFO sysinfo;
-        GetSystemInfo(&sysinfo);
-        pagesize = (UWord) sysinfo.dwPageSize;
-    }
-#elif defined(_SC_PAGESIZE)
-    pagesize = (UWord) sysconf(_SC_PAGESIZE);
-#elif defined(HAVE_GETPAGESIZE)
-    pagesize = (UWord) getpagesize();
-#else
-#  error "Do not know how to get page size"
-#endif
 #if defined(HARD_DEBUG)  || 0
     erts_fprintf(stderr, "erts_mmap: scs = %bpu\n", init->scs);
     erts_fprintf(stderr, "erts_mmap: sco = %i\n", init->sco);
     erts_fprintf(stderr, "erts_mmap: scrfsd = %i\n", init->scrfsd);
 #endif
-    erts_page_inv_mask = pagesize - 1;
-    if (pagesize & erts_page_inv_mask)
-	erts_exit(1, "erts_mmap: Invalid pagesize: %bpu\n",
-		 pagesize);
+    erts_page_inv_mask = sys_page_size - 1;
+    if (sys_page_size & erts_page_inv_mask)
+	erts_exit(1, "erts_mmap: Invalid sys_page_size: %bpu\n",
+		 sys_page_size);
 
     ERTS_MMAP_OP_RINGBUF_INIT();
 

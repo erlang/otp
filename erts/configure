@@ -6402,11 +6402,11 @@ if test x$ac_prog_cxx_stdcxx = xno
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX option to enable C++11 features" >&5
 printf %s "checking for $CXX option to enable C++11 features... " >&6; }
-if test ${ac_cv_prog_cxx_11+y}
+if test ${ac_cv_prog_cxx_cxx11+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_cv_prog_cxx_11=no
+  ac_cv_prog_cxx_cxx11=no
 ac_save_CXX=$CXX
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -6448,11 +6448,11 @@ if test x$ac_prog_cxx_stdcxx = xno
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CXX option to enable C++98 features" >&5
 printf %s "checking for $CXX option to enable C++98 features... " >&6; }
-if test ${ac_cv_prog_cxx_98+y}
+if test ${ac_cv_prog_cxx_cxx98+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_cv_prog_cxx_98=no
+  ac_cv_prog_cxx_cxx98=no
 ac_save_CXX=$CXX
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -24733,7 +24733,126 @@ printf "%s\n" "no" >&6; }
 	;;
 esac
 
+case $OPSYS in #(
+  linux*) :
 
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether the Transparent Huge Pages interface is available" >&5
+printf %s "checking whether the Transparent Huge Pages interface is available... " >&6; }
+if test ${erts_cv_linux_thp+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+              #include <sys/mman.h>
+
+int
+main (void)
+{
+
+              madvise((void *)0, 0, MADV_HUGEPAGE);
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+
+          erts_cv_linux_thp=yes
+
+printf "%s\n" "#define HAVE_LINUX_THP 1" >>confdefs.h
+
+
+else $as_nop
+
+          erts_cv_linux_thp=no
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $erts_cv_linux_thp" >&5
+printf "%s\n" "$erts_cv_linux_thp" >&6; }
+   ;; #(
+  *) :
+     ;;
+esac
+
+if test "x$erts_cv_linux_thp" = "xyes"
+then :
+
+    saved_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -Werror -Wunused-command-line-argument"
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror -Wunused-command-argument to LDFLAGS" >&5
+printf %s "checking if we can add -Werror -Wunused-command-argument to LDFLAGS... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        unused_command_line_argument="-Wunused-command-line-argument"
+
+else $as_nop
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        unused_command_line_argument=""
+
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS
+    for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
+    do
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add $flag to LDFLAGS" >&5
+printf %s "checking if we can add $flag to LDFLAGS... " >&6; }
+      saved_LDFLAGS="$LDFLAGS"
+      LDFLAGS="$LDFLAGS $unused_command_line_argument $flag"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+
+           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+           LDFLAGS="$save_LDFLAGS $flag"
+
+else $as_nop
+
+           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+           LDFLAGS="$saved_LDFLAGS"
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    done
+
+fi
 
 
 JIT_ENABLED=
