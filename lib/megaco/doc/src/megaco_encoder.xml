@@ -68,9 +68,7 @@
       <desc>
 	<p>
 	  Alpha Numeric characters:
-	  <code>
-	    A..Z | a..z
-	  </code>
+	  <c><![CDATA[A..Z | a..z]]></c>
 	</p>
       </desc>
     </datatype>
@@ -80,9 +78,7 @@
       <desc>
 	<p>
 	  Decimal digits:
-	  <code>
-	    0..9
-	  </code>
+	  <c><![CDATA[0..9]]></c>
 	</p>
       </desc>
     </datatype>
@@ -164,18 +160,40 @@
 	<p>
 	  Here is the ABNF (copied from the megaco standard) to
 	  fill in the blanks:
-	  <code>
-	    # Total length of pathNAME must not exceed 64 chars. 
-	    pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )  
-                       ["@" pathDomainName ] 
-
-	   # ABNF allows two or more consecutive "."
-	   # although it is meaningless in a path domain name.  
-	   pathDomainName = (ALPHA / DIGIT / "*" )  
-                            *63(ALPHA / DIGIT / "-" / "*" / ".") 
-
-	   NAME = ALPHA *63(ALPHA / DIGIT / "_" ) 	    
-	  </code>
+	</p>
+	<!--
+	    These crap is because the dtd does not allow code here.
+	    If we put this stuff in a code chunk, we can actually
+	    generate (atleast) html doc, and it looks ok. But, xmlling
+	    complains...
+	-->
+	<p>
+	  <c><![CDATA[
+	  # Total length of pathNAME must not exceed 64 chars.
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )  
+	  ["@" pathDomainName ] 
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  # ABNF allows two or more consecutive "."
+	  # although it is meaningless in a path domain name.
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  pathDomainName = (ALPHA / DIGIT / "*" )  
+	  *63(ALPHA / DIGIT / "-" / "*" / ".") 
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  NAME = ALPHA *63(ALPHA / DIGIT / "_" ) 	    
+	  ]]></c>
 	</p>
       </desc>
     </datatype>
@@ -189,9 +207,7 @@
 	</p>
 	<p>
 	  A proper definition would be:
-	  <code>
-	    -type mtpAddress() :: octet_string(2..4).
-	  </code>
+	  <c><![CDATA[-type mtpAddress() :: octet_string(2..4).]]></c>
 	</p>
       </desc>
     </datatype>
