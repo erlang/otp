@@ -1760,13 +1760,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">cancel(ConnHandle, CancelReason) -> ok | {error, ErrReason}</name>
+      <name name="cancel" arity="2" clause_i="1" since=""/>
       <fsummary>Cancel all outstanding messages for this connection</fsummary>
-      <type>
-        <v>ConnHandle   = conn_handle()</v>
-        <v>CancelReason =  term()</v>
-        <v>ErrReason    =  term()</v>
-      </type>
       <desc>
         <p>Cancel all outstanding messages for this connection</p>
         <p>This causes outstanding megaco:call/3 requests to return.

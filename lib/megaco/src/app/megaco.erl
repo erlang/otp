@@ -407,6 +407,11 @@ reset_stats(SendHandle) ->
 %% Cancel all outstanding messages for this connection
 %%-----------------------------------------------------------------
 
+-spec cancel(ConnHandle, CancelReason) -> ok | {error, Reason} when
+      ConnHandle   :: conn_handle(),
+      CancelReason :: term(),
+      Reason       :: term().
+
 cancel(ConnHandle, Reason) ->
     megaco_messenger:cancel(ConnHandle, {user_cancel, Reason}).
 
