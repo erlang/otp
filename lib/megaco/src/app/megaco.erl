@@ -125,9 +125,46 @@
 -type segment_no()        :: megaco_encoder:segment_no().
 -type conn_handle()       :: megaco_user:conn_handle().
 -type megaco_timer()      :: megaco_user:megaco_timer().
+-type transaction_id()    :: pos_integer().
 
--type action_reqs()       :: binary() | [action_request()].
--type action_reps()       :: [action_reply()].
+-type action_reqs()    :: binary() | [action_request()].
+-type action_reps()    :: [action_reply()].
+-type conn_info_item() :: control_pid |
+                          send_handle |
+                          local_mid   |
+                          remote_mid  |
+                          receive_handle |
+                          trans_id       |
+                          max_trans_id   |
+                          request_timer  |
+                          long_request_timer         |
+                          request_keep_alive_timeout |
+                          long_request_resend        |
+                          reply_timer           |
+                          call_proxy_gc_timeout |
+                          auto_ack  |
+                          trans_ack |
+                          trans_ack_maxcount |
+                          trans_req          |
+                          trans_req_maxcount |
+                          trans_req_maxsize  |
+                          trans_timer        |
+                          pending_timer      |
+                          sent_pending_limit |
+                          recv_pending_limit |
+                          send_mod           |
+                          encoding_mod       |
+                          encoding_config    |
+                          protocol_version   |
+                          strict_version     |
+                          reply_data         |
+                          threaded           |
+                          resend_indication  |
+                          segment_reply_ind  |
+                          segment_recv_timer |
+                          segment_send       |
+                          max_pdu_size.
+
 -type send_handle()       :: term().
 
 
@@ -194,14 +231,44 @@ update_user_info(UserMid, Item, Value) ->
 %% Lookup information about an active connection
 %%-----------------------------------------------------------------
 
+-spec conn_info(ConnHandle) -> [{Item, Value}] when
+      ConnHandle :: conn_handle(),
+      Item       :: requests | replies | conn_info_item(),
+      Value      :: term().
+      
 conn_info(ConnHandle) ->
     [{requests, conn_info(ConnHandle, requests)},
      {replies,  conn_info(ConnHandle, replies)} | conn_info(ConnHandle, all)].
 
-conn_info(ConnHandle, requests) ->
+
+-spec conn_info(ConnHandle, all) -> [{conn_info_item(), term()}] when
+      ConnHandle :: conn_handle();
+
+               (ConnHandle, requests) -> [TransId] when
+      ConnHandle :: conn_handle(),
+      TransId    :: transaction_id();
+
+               (ConnHandle, replies) ->
+          [{TransId, ReplyState, Handler}] when
+      ConnHandle :: conn_handle(),
+      TransId    :: transaction_id(),
+      ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
+      Handler    :: undefined | pid();
+
+               (ConnHandle, Item) -> Value when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term().
+
+conn_info(ConnHandle, all = Item) ->
+    megaco_config:conn_info(ConnHandle, Item);
+
+conn_info(ConnHandle, requests = _Item) ->
     megaco_messenger:which_requests(ConnHandle);
+
 conn_info(ConnHandle, replies) ->
     megaco_messenger:which_replies(ConnHandle);
+
 conn_info(ConnHandle, Item) ->
     megaco_config:conn_info(ConnHandle, Item).
 

@@ -159,6 +159,28 @@
     </datatype>
 
     <datatype>
+      <name name="transaction_id"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="conn_info_item"/>
+      <desc>
+	<p>
+	  This type is a basic (atom) lookup key
+	  (for info on an active connection).
+	  The corresponding value can be of any type.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="send_handle"/>
       <desc>
 	<p>
@@ -849,25 +871,21 @@ megaco_incr_timer() = #megaco_incr_timer{}
           about which items and values that are valid.</p>
 
         <marker id="conn_info"></marker>
+        <marker id="conn_info_11"></marker>
+        <marker id="conn_info_24"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">conn_info(ConnHandle) -> [{Item, Value}]</name>
-      <name since="">conn_info(ConnHandle, Item) -> Value | exit(Reason)</name>
+      <name name="conn_info" arity="1" clause_i="1" since=""/>
+      <name name="conn_info" arity="2" clause_i="4" since=""/>
       <fsummary>Lookup information about an active connection</fsummary>
-      <type>
-        <v>ConnHandle = #megaco_conn_handle{}</v>
-        <v>Item       = conn_info_item()</v>
-        <v>Value      = conn_info_value()</v>
-        <v>Reason     = {no_such_connection, ConnHandle} | term()</v>
-      </type>
       <desc>
         <p>Lookup information about an active connection</p>
         <p>Requires that the connection is active.</p>
-        <marker id="ci_control_pid"></marker>
-        <taglist>
 
+	<marker id="ci_control_pid"></marker>
+        <taglist>
           <tag><c><![CDATA[control_pid]]></c></tag>
           <item>
             <p>The process identifier of the controlling process for a
@@ -926,7 +944,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>A positive integer or <c><![CDATA[infinity]]></c>, 
               defaults to <c><![CDATA[infinity]]></c>.</p>
 
-            <marker id="ci_request_time"></marker>
+            <marker id="ci_request_timer"></marker>
           </item>
 
           <tag><c><![CDATA[request_timer]]></c></tag>
@@ -1347,9 +1365,62 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>A positive integer or <c><![CDATA[infinity]]></c>,
               defaults to <c><![CDATA[infinity]]></c>. </p>
           </item>
-        </taglist>
 
-        <marker id="update_conn_info"></marker>
+	</taglist>
+
+	<p>Failure: <c>exit</c> if, for instance,
+	<c><anno>ConnHandle</anno></c> refers to a connection
+	that no longer exists.</p>
+
+	<marker id="conn_info_21"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="conn_info" arity="2" clause_i="1" since=""/>
+      <fsummary>Lookup information about an active connection</fsummary>
+      <desc>
+	<p>Lookup all connection information about an <em>active</em>
+	connection</p>
+
+	<p>See <seeerl marker="#conn_info_24">conn_info</seeerl> for
+	more info.</p>
+
+	<p>Failure: <c>exit</c> if, for instance,
+	<c><anno>ConnHandle</anno></c> refers to a connection
+	that no longer exists.</p>
+
+	<marker id="conn_info_22"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="conn_info" arity="2" clause_i="2" since=""/>
+      <fsummary>Lookup information about an active connection</fsummary>
+      <desc>
+	<p>Lookup information about currently active requests for an
+	<em>active</em> connection</p>
+
+	<p>Failure: <c>exit</c> if, for instance,
+	<c><anno>ConnHandle</anno></c> refers to a connection
+	that no longer exists.</p>
+
+	<marker id="conn_info_23"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="conn_info" arity="2" clause_i="3" since=""/>
+      <fsummary>Lookup information about an active connection</fsummary>
+      <desc>
+	<p>Lookup information about currently active replies for an
+	<em>active</em> connection</p>
+
+	<p>Failure: <c>exit</c> if, for instance,
+	<c><anno>ConnHandle</anno></c> refers to a connection
+	that no longer exists.</p>
+
+	<marker id="update_conn_info"></marker>
       </desc>
     </func>
 
