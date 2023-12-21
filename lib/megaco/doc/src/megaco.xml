@@ -1670,37 +1670,40 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">cast(ConnHandle, Actions, Options) -> ok | {error, Reason}</name>
+      <name name="cast" arity="3" clause_i="1" since=""/>
       <fsummary>Sends one or more transaction request(s) but does NOT wait for a reply</fsummary>
-      <type>
-        <v>ConnHandle     = conn_handle()</v>
-        <v>Actions        = action_reqs() | [action_reqs()]</v>
-        <v>action_reqs()  = binary() | [action_request()]</v>
-        <v>Options        = [send_option()]</v>
-        <v>send_option()  = {request_keep_alive_timeout, request_keep_alive_timeout()} | {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {reply_data, reply_data()} | {protocol_version, integer()}</v>
-        <v>request_keep_alive_timeout() = plain | integer() >= 0</v>
-        <v>Reason         =  term()</v>
-      </type>
       <desc>
-        <p>Sends one or more transaction request(s) but does NOT wait for a reply</p>
-        <p>When sending one transaction in a message, <c><![CDATA[Actions]]></c> should be 
-          <c><![CDATA[action_reqs()]]></c>. When sending several transactions in a message,
-          <c><![CDATA[Actions]]></c> should be <c><![CDATA[[action_reqs()]]]></c>. Each element of the 
-          list is part of one transaction.</p>
-        <p>For some of <em>our</em> codecs (not binary), it is also possible 
-          to pre-encode the actions, in which case <c><![CDATA[Actions]]></c> will be 
-          either a <c><![CDATA[binary()]]></c> or <c><![CDATA[[binary()]]]></c>.</p>
-        <p>The default values of the send options are obtained by
-          megaco:conn_info(ConnHandle, Item). But the send options above,
-          may explicitly be overridden.</p>
-        <p>The ProtocolVersion version is the version actually encoded
-          in the reply message.</p>
-        <p>The callback function UserMod:handle_trans_reply/4 is invoked
-          when the reply arrives, when the request timer eventually
-          times out or when the outstanding requests are explicitly
-          cancelled. See the megaco_user module for more info about
-          the callback arguments.</p>
-        <p>Given as UserData argument to UserMod:handle_trans_reply/4.</p>
+	<p>Sends one or more transaction request(s)
+	but does NOT wait for a reply</p>
+
+	<p>When sending one transaction in a message,
+	<c><![CDATA[ActionRequests]]></c> should be 
+	<c><![CDATA[action_reqs()]]></c>.
+	When sending several transactions in a message,
+	<c><![CDATA[ActionRequests]]></c> should be
+	<c><![CDATA[[action_reqs()]]]></c>. Each element of the 
+	list is part of one transaction.</p>
+
+	<p>For some of <em>our</em> codecs (not binary), it is also possible 
+	to pre-encode the actions, in which case <c><![CDATA[Actions]]></c>
+	will be 
+	either a <c><![CDATA[binary()]]></c> or
+	<c><![CDATA[[binary()]]]></c>.</p>
+
+	<p>The default values of the send options are obtained by
+	megaco:conn_info(ConnHandle, Item). But the send options above,
+	may explicitly be overridden.</p>
+
+	<p>The ProtocolVersion version is the version actually encoded
+	in the reply message.</p>
+
+	<p>The callback function UserMod:handle_trans_reply/4 is invoked
+	when the reply arrives, when the request timer eventually
+	times out or when the outstanding requests are explicitly
+	cancelled. See the megaco_user module for more info about
+	the callback arguments.</p>
+	<p>Given as <c><![CDATA[ReplyData]]></c> argument to
+	UserMod:handle_trans_reply/4.</p>
 
         <marker id="encode_actions"></marker>
       </desc>

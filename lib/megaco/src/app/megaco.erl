@@ -357,6 +357,22 @@ call(ConnHandle, ActionRequests, Options) ->
 %% Sends a transaction request but does NOT wait for a reply
 %%-----------------------------------------------------------------
 
+-spec cast(ConnHandle, ActionRequests, SendOptions) ->
+          ok | {error, Reason} when
+      ConnHandle      :: conn_handle(),
+      ActionRequests  :: action_reqs() | [action_reqs()],
+      SendOptions     :: [SendOption],
+      SendOption      :: {request_keep_alive_timeout, RequestKeepAliveTimer} |
+                         {request_timer,              megaco_timer()} |
+                         {long_request_timer,         megaco_timer()} |
+                         {send_handle,                send_handle()} |
+                         {reply_data,                 ReplyData} |
+                         {protocol_version,           ProtocolVersion},
+      RequestKeepAliveTimer :: plain | non_neg_integer(),
+      ReplyData       :: term(),
+      ProtocolVersion :: protocol_version(),
+      Reason          :: term().
+
 cast(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:cast(ConnHandle, ActionRequests, Options).
 
