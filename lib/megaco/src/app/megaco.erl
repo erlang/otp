@@ -128,11 +128,6 @@
 
 -type action_reqs()       :: binary() | [action_request()].
 -type action_reps()       :: [action_reply()].
--type send_option()       :: {request_timer,         megaco_timer()} |
-                             {long_request_timer,    megaco_timer()} |
-                             {send_handle,           send_handle()} |
-                             {protocol_version,      protocol_version()} |
-                             {call_proxy_gc_timeout, non_neg_integer()}.
 -type send_handle()       :: term().
 
 
@@ -314,11 +309,16 @@ disconnect(ConnHandle, Reason) ->
 %% Sends a transaction request and waits for a reply
 %%-----------------------------------------------------------------
 
--spec call(ConnHandle, ActionRequests, Options) ->
+-spec call(ConnHandle, ActionRequests, SendOptions) ->
           {ProtocolVersion, UserReply | [UserReply]} when
       ConnHandle          :: conn_handle(),
       ActionRequests      :: action_reqs() | [action_reqs()],
-      Options             :: [send_option()],
+      SendOptions         :: [SendOption],
+      SendOption          :: {request_timer,         megaco_timer()} |
+                             {long_request_timer,    megaco_timer()} |
+                             {send_handle,           send_handle()} |
+                             {protocol_version,      protocol_version()} |
+                             {call_proxy_gc_timeout, non_neg_integer()},
       ProtocolVersion     :: protocol_version(),
       UserReply           :: Success | Failure,
       Success             :: {ok, Result} | {ok, Result, SuccessExtra},

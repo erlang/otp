@@ -159,17 +159,6 @@
     </datatype>
 
     <datatype>
-      <name name="send_option"/>
-      <!--
-      <desc>
-	<p>
-	  TBD.
-	</p>
-      </desc>
-      -->
-    </datatype>
-
-    <datatype>
       <name name="send_handle"/>
       <desc>
 	<p>
