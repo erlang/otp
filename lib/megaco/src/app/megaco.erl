@@ -580,6 +580,18 @@ receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
 %% Encode the actions list for one or more transactions.
 %%-----------------------------------------------------------------
 
+-spec encode_actions(ConnHandle, ActionRequests, Options) ->
+          {ok, Result} | {error, Reason} when
+      ConnHandle     :: conn_handle(),
+      ActionRequests :: action_reqs() | [action_reqs()],
+      Options        :: [Option],
+      Option         :: {request_timer,      megaco_timer()} |
+                        {long_request_timer, megaco_timer()} |
+                        {send_handle,        send_handle()} |
+                        {protocol_version,   protocol_version()},
+      Result         :: binary() | [binary()],
+      Reason         :: term().
+
 encode_actions(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:encode_actions(ConnHandle, ActionRequests, Options).
 

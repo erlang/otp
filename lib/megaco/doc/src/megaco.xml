@@ -1873,8 +1873,10 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">encode_actions(ConnHandle, Actions, Options) -> {ok, BinOrBins} | {error, Reason}</name>
+      <name name="encode_actions" arity="3" clause_i="1" since=""/>
+      <!-- <name since="">encode_actions(ConnHandle, Actions, Options) -> {ok, BinOrBins} | {error, Reason}</name> -->
       <fsummary>Encode action requests for one or more transaction request(s)</fsummary>
+      <!--
       <type>
         <v>ConnHandle     = conn_handle()</v>
         <v>Actions        = action_reqs() | [action_reqs()]</v>
@@ -1884,6 +1886,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <v>BinOrBins      = binary() | [binary()]</v>
         <v>Reason         = term()</v>
       </type>
+      -->
       <desc>
         <p>Encodes lists of action requests for one or more transaction 
           request(s).</p>
