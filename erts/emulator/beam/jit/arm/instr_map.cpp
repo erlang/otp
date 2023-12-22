@@ -358,8 +358,10 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
                                                  const ArgRegister &Src,
                                                  const ArgRegister &Key,
                                                  const ArgRegister &Dst) {
-    mov_arg(ARG1, Src);
-    mov_arg(ARG2, Key);
+    auto [src, key] = load_sources(Src, ARG1, Key, ARG2);
+
+    mov_var(ARG1, src);
+    mov_var(ARG2, key);
 
     if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
         fragment_call(ga->get_i_get_map_element_shared());
