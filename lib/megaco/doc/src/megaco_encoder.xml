@@ -174,20 +174,17 @@
 	</p>
 	<p>
 	  <c><![CDATA[
-	  pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )  
-	  ["@" pathDomainName ] 
+	  pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" ) ["@" pathDomainName ] 
 	  ]]></c>
 	</p>
 	<p>
 	  <c><![CDATA[
-	  # ABNF allows two or more consecutive "."
-	  # although it is meaningless in a path domain name.
+	  # ABNF allows two or more consecutive "." although it is meaningless in a path domain name.
 	  ]]></c>
 	</p>
 	<p>
 	  <c><![CDATA[
-	  pathDomainName = (ALPHA / DIGIT / "*" )  
-	  *63(ALPHA / DIGIT / "-" / "*" / ".") 
+	  pathDomainName = (ALPHA / DIGIT / "*" ) *63(ALPHA / DIGIT / "-" / "*" / ".") 
 	  ]]></c>
 	</p>
 	<p>
