@@ -410,6 +410,11 @@ connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra)
 %% Tear down a "virtual" connection
 %%-----------------------------------------------------------------
 
+-spec disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason} when
+      ConnHandle  :: conn_handle(),
+      DiscoReason :: term(),
+      ErrReason   :: term().
+
 disconnect(ConnHandle, Reason) ->
     megaco_messenger:disconnect(ConnHandle, {user_disconnect, Reason}).
 

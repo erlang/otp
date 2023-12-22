@@ -1704,18 +1704,22 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason}</name>
+      <name name="disconnect" arity="2" clause_i="1" since=""/>
+      <!-- <name since="">disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason}</name> -->
       <fsummary>Tear down a "virtual" connection</fsummary>
+      <!--
       <type>
         <v>ConnHandle  = conn_handle()</v>
         <v>DiscoReason =  term()</v>
         <v>ErrReason   =  term()</v>
       </type>
+      -->
       <desc>
         <p>Tear down a "virtual" connection</p>
-        <p>Causes the UserMod:handle_disconnect/2 callback function to
-          be invoked. See the megaco_user module for more info about
-          the callback arguments.</p>
+	<p>Causes the <c><![CDATA[UserMod:handle_disconnect/2]]></c>
+	callback function to be invoked.
+	See the megaco_user module for more info about
+	the callback arguments.</p>
 
         <marker id="call"></marker> <!-- Belongs to NEXT function(s) -->
       </desc>
@@ -2280,7 +2284,6 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
     <func>
       <name name="disable_trace" arity="0" clause_i="1" since=""/>
-      <!-- <name since="">disable_trace() -> void()</name> -->
       <fsummary>Stop megaco tracing</fsummary>
       <desc>
         <p>This function is used to stop megaco tracing.</p>
