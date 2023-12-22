@@ -176,10 +176,13 @@
 
 -type send_handle()       :: term().
 
--type property_parm()     :: megaco_sdp:property_parm().
--type property_group()    :: megaco_sdp:property_group().
--type property_groups()   :: megaco_sdp:property_groups().
--type sdp()               :: megaco_sdp:sdp().
+-type property_parm()       :: megaco_sdp:property_parm().
+-type property_group()      :: megaco_sdp:property_group().
+-type property_groups()     :: megaco_sdp:property_groups().
+-type sdp()                 :: megaco_sdp:sdp().
+-type sdp_property_parm()   :: megaco_sdp:sdp_property_parm().
+-type sdp_property_group()  :: megaco_sdp:sdp_property_group().
+-type sdp_property_groups() :: megaco_sdp:sdp_property_groups().
 
 -type trace_level()       :: min | max | 0..100.
 -type trace_event()       :: term().
@@ -689,6 +692,17 @@ decode_binary_term_id(Config, TermId) ->
 %%
 %% Encode a SDP construct into a property parm construct
 %%-----------------------------------------------------------------
+
+-spec encode_sdp(SDP) -> {ok, PP} | {error, Reason} when
+      SDP   :: sdp_property_parm() |
+               sdp_property_group() |
+               sdp_property_groups() |
+               asn1_NOVALUE,
+      PP    :: property_parm() |
+               property_group() |
+               property_groups() |
+               asn1_NOVALUE,
+      Reason :: term().
 
 encode_sdp(SDP) ->
     megaco_sdp:encode(SDP).

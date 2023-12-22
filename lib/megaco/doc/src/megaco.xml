@@ -255,6 +255,39 @@
     </datatype>
 
     <datatype>
+      <name name="sdp_property_parm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_property_group"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_property_groups"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="trace_level"/>
       <desc>
 	<p>
@@ -1874,19 +1907,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
     <func>
       <name name="encode_actions" arity="3" clause_i="1" since=""/>
-      <!-- <name since="">encode_actions(ConnHandle, Actions, Options) -> {ok, BinOrBins} | {error, Reason}</name> -->
       <fsummary>Encode action requests for one or more transaction request(s)</fsummary>
-      <!--
-      <type>
-        <v>ConnHandle     = conn_handle()</v>
-        <v>Actions        = action_reqs() | [action_reqs()]</v>
-        <v>action_reqs()  = [#'ActionRequest'{}]</v>
-        <v>Options        = [send_option()]</v>
-        <v>send_option()  = {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()}</v>
-        <v>BinOrBins      = binary() | [binary()]</v>
-        <v>Reason         = term()</v>
-      </type>
-      -->
       <desc>
         <p>Encodes lists of action requests for one or more transaction 
           request(s).</p>
@@ -2189,13 +2210,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">encode_sdp(SDP) -> {ok, PP} | {error, Reason}</name>
+      <name name="encode_sdp" arity="1" clause_i="1" since=""/>
       <fsummary>Encode an SDP construct</fsummary>
-      <type>
-        <v>SDP = sdp_property_parm() | sdp_property_group() | sdp_property_groups() | asn1_NOVALUE</v>
-        <v>PP = property_parm() | property_group() | property_groups() | asn1_NOVALUE</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Encode (generate) an SDP construct.</p>
         <p>If a <c><![CDATA[property_parm()]]></c> is found as part of the input
