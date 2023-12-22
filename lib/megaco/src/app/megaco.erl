@@ -113,7 +113,9 @@
               property_parm/0,
               property_group/0,
               property_groups/0,
-              sdp/0
+              sdp/0,
+
+              trace_level/0
              ]).
 
 -type void() :: term().
@@ -178,6 +180,11 @@
 -type property_group()    :: megaco_sdp:property_group().
 -type property_groups()   :: megaco_sdp:property_groups().
 -type sdp()               :: megaco_sdp:sdp().
+
+-type trace_level()       :: min | max | 0..100.
+-type trace_event()       :: term().
+-type trace_data()        :: term().
+-type trace_handler()     :: fun((trace_event(), trace_data()) -> trace_data()).
 
 -include("megaco_internal.hrl").
 
@@ -1059,6 +1066,16 @@ find_file([], File) ->
 %% Severity withing Limit) will be written to stdout using io:format. 
 %% 
 %%-----------------------------------------------------------------
+
+-spec enable_trace(Level, Destination) -> void() when
+      Level       :: trace_level(),
+      Destination :: File | Port | HandlerSpec | io,
+      File        :: string(),
+      Port        :: integer(),
+      HandlerSpec :: {HandlerFun, InitialData},
+      HandlerFun  :: trace_handler(),
+      InitialData :: trace_data().
+
 enable_trace(Level, File) when is_list(File) ->
     case file:open(File, [write]) of
 	{ok, Fd} ->
