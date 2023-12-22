@@ -1081,6 +1081,9 @@ enable_trace(Level, {Fun, _Data} = HandleSpec) when is_function(Fun) ->
 %% Description:
 %% This function is used to stop tracing.
 %%-----------------------------------------------------------------
+
+-spec disable_trace() -> void().
+
 disable_trace() ->
     %% This is to make handle_trace/2 close the output file (if the
     %% event gets there before dbg closes)

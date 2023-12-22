@@ -40,6 +40,15 @@
 
   <datatypes>
     <datatype>
+      <name name="void"/>
+      <desc>
+	<p>
+	  The type is used when a functions return is to be ignored.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="mid"/>
       <desc>
 	<p>
@@ -2270,7 +2279,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">disable_trace() -> void()</name>
+      <name name="disable_trace" arity="0" clause_i="1" since=""/>
+      <!-- <name since="">disable_trace() -> void()</name> -->
       <fsummary>Stop megaco tracing</fsummary>
       <desc>
         <p>This function is used to stop megaco tracing.</p>
