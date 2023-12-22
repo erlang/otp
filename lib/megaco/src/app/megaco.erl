@@ -102,6 +102,7 @@
               void/0,
 
               mid/0,
+              receive_handle/0,
               conn_handle/0,
               action_request/0,
               action_reply/0,
@@ -123,6 +124,7 @@
 -type transaction_reply() :: megaco_encoder:transaction_reply().
 -type protocol_version()  :: megaco_encoder:protocol_version().
 -type segment_no()        :: megaco_encoder:segment_no().
+-type receive_handle()    :: megaco_user:receive_handle().
 -type conn_handle()       :: megaco_user:conn_handle().
 -type megaco_timer()      :: megaco_user:megaco_timer().
 -type transaction_id()    :: pos_integer().
@@ -355,8 +357,39 @@ system_info(Item) ->
 %% Establish a "virtual" connection
 %%-----------------------------------------------------------------
 
+-spec connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) ->
+          {ok, ConnHandle} | {error, Reason} when
+      ReceiveHandle       :: receive_handle(),
+      RemoteMid           :: preliminary_mid | mid(),
+      SendHandle          :: send_handle(),
+      ControlPid          :: pid(),
+      ConnHandle          :: conn_handle(),
+      Reason              :: ConnectReason | HandleConnectReason | term(),
+      ConnectReason       :: {no_such_user,      LocalMid} |
+                             {already_connected, ConnHandle} | term(),
+      LocalMid            :: mid(),
+      HandleConnectReason :: {connection_refused, ConnData, ErrorInfo} | term(),
+      ConnData            :: term(),
+      ErrorInfo           :: term().      
+
 connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) ->
     megaco_messenger:connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid).
+
+-spec connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) ->
+          {ok, ConnHandle} | {error, Reason} when
+      ReceiveHandle       :: receive_handle(),
+      RemoteMid           :: preliminary_mid | mid(),
+      SendHandle          :: send_handle(),
+      ControlPid          :: pid(),
+      Extra               :: term(),
+      ConnHandle          :: conn_handle(),
+      Reason              :: ConnectReason | HandleConnectReason | term(),
+      ConnectReason       :: {no_such_user,      LocalMid} |
+                             {already_connected, ConnHandle} | term(),
+      LocalMid            :: mid(),
+      HandleConnectReason :: {connection_refused, ConnData, ErrorInfo} | term(),
+      ConnData            :: term(),
+      ErrorInfo           :: term().      
 
 connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) 
   when (Extra =/= ?default_user_callback_extra) ->
