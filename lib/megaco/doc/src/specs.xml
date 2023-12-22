@@ -2,5 +2,6 @@
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="../specs/specs_megaco.xml"/>
   <xi:include href="../specs/specs_megaco_encoder.xml"/>
+  <xi:include href="../specs/specs_megaco_sdp.xml"/>
   <xi:include href="../specs/specs_megaco_user.xml"/>
 </specs>

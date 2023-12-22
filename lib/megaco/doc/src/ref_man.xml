@@ -45,5 +45,6 @@
   <xi:include href="megaco_codec_mstone1.xml"/>
   <xi:include href="megaco_codec_mstone2.xml"/>
   <xi:include href="megaco_codec_transform.xml"/>
+  <xi:include href="megaco_sdp.xml"/>
 </application>
 

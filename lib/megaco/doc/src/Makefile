@@ -47,6 +47,7 @@ XML_FILES = \
 SPECS_FILES = \
 	$(SPECDIR)/specs_megaco.xml \
 	$(SPECDIR)/specs_megaco_encoder.xml \
+	$(SPECDIR)/specs_megaco_sdp.xml \
 	$(SPECDIR)/specs_megaco_user.xml
 TOP_SPECS_FILE = specs.xml
 
@@ -130,3 +131,4 @@ $(HTMLDIR)/megaco_transport_mechanisms.html: megaco_transport_mechanisms.xml
 $(HTMLDIR)/megaco_transport.html: megaco_transport.xml
 $(HTMLDIR)/megaco_udp.html: megaco_udp.xml
 $(HTMLDIR)/megaco_user.html: megaco_user.xml
+$(HTMLDIR)/megaco_sdp.html: megaco_sdp.xml

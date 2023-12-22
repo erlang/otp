@@ -201,6 +201,50 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="property_parm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="property_group"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="property_groups"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -2124,17 +2168,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">decode_sdp(PP) -> {ok, SDP} | {error, Reason}</name>
+      <name name="decode_sdp" arity="1" clause_i="1" since=""/>
       <fsummary>Decode an property parameter construct</fsummary>
-      <type>
-	<v>PP = property_parm() | property_group() | property_groups() | asn1_NOVALUE</v>
-	<v>SDP = sdp() | decode_sdp_property_group() | decode_sdp_property_groups() | asn1_NOVALUE</v>
-	<v>decode_sdp() = sdp() | {property_parm(), DecodeError}</v>
-	<v>decode_sdp_property_group() = [decode_sdp()]</v>
-	<v>decode_sdp_property_groups() = [decode_sdp_property_group()]</v>
-	<v>DecodeError = term()</v>
-	<v>Reason = term()</v>
-      </type>
       <desc>
         <p>Decode (parse) a property parameter construct.</p>
         <p>When decoding <c><![CDATA[property_group()]]></c> or 

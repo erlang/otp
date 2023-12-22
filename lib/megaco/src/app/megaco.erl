@@ -108,7 +108,12 @@
               action_reply/0,
               error_desc/0,
               transaction_reply/0,
-              protocol_version/0
+              protocol_version/0,
+
+              property_parm/0,
+              property_group/0,
+              property_groups/0,
+              sdp/0
              ]).
 
 -type void() :: term().
@@ -169,6 +174,10 @@
 
 -type send_handle()       :: term().
 
+-type property_parm()     :: megaco_sdp:property_parm().
+-type property_group()    :: megaco_sdp:property_group().
+-type property_groups()   :: megaco_sdp:property_groups().
+-type sdp()               :: megaco_sdp:sdp().
 
 -include("megaco_internal.hrl").
 
@@ -668,6 +677,21 @@ encode_sdp(SDP) ->
 %%
 %% Decode a property parm construct into a SDP construct
 %%-----------------------------------------------------------------
+
+-spec decode_sdp(PP) -> {ok, SDP} | {error, Reason} when
+      PP                      :: property_parm() |
+                                 property_group() |
+                                 property_groups() |
+                                 asn1_NOVALUE,
+      SDP                     :: sdp() |
+                                 DecodeSdpPropertyGroup |
+                                 DecodeSdpPropertyGroups |
+                                 asn1_NOVALUE,
+      DecodeSdpPropertyGroup  :: [DecodeSDP],
+      DecodeSdpPropertyGroups :: [DecodeSdpPropertyGroup],
+      DecodeSDP               :: sdp() | {property_parm(), DecodeError},
+      DecodeError             :: term(),
+      Reason                  :: term().
 
 decode_sdp(PP) ->
     megaco_sdp:decode(PP).

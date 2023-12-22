@@ -33,7 +33,8 @@ XML_REF3_FILES = \
 	megaco_user.xml \
 	megaco_tcp.xml \
 	megaco_transport.xml \
-	megaco_udp.xml
+	megaco_udp.xml \
+	megaco_sdp.xml
 
 XML_PART_FILES =       \
 	part.xml
