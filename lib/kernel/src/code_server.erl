@@ -358,16 +358,6 @@ handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
 
-handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun},
-	    _From, S=#state{mode=Mode}) ->
-    case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo,
-					     ParserFun) of
-	{ok, Files} ->
-	    {reply, {ok, Mode, Files}, S};
-	{error, _Reason} = Error ->
-	    {reply, Error, S}
-    end;
-
 handle_call(get_mode, _From, S=#state{mode=Mode}) ->
     {reply, Mode, S};
 

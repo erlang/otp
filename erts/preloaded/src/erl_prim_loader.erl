@@ -49,7 +49,7 @@
 -export([prim_init/0, prim_get_file/2, prim_list_dir/2,
          prim_read_file_info/3, prim_get_cwd/2]).
 
-%% Used by escript and code
+%% Used by escript
 -export([set_primary_archive/4]).
 
 %% Used by test suites

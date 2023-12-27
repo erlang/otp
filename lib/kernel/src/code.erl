@@ -73,7 +73,6 @@
          get_doc/2,
 	 where_is_file/1,
 	 where_is_file/2,
-	 set_primary_archive/4,
 	 clash/0,
          module_status/0,
          module_status/1,
@@ -1028,28 +1027,6 @@ get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
       [unicode:characters_to_binary(Signature)], none, SpecMd}];
 get_function_docs_from_ast(_, _) ->
     [].
-
--spec set_primary_archive(ArchiveFile :: file:filename(),
-			  ArchiveBin :: binary(),
-			  FileInfo :: file:file_info(),
-			  ParserFun :: fun())
-			 -> 'ok' | {'error', atom()}.
-
-set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo,
-		    ParserFun)
-  when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
-    ArchiveFile = filename:absname(ArchiveFile0),
-    case call({set_primary_archive, ArchiveFile, ArchiveBin, FileInfo,
-	       ParserFun}) of
-	{ok, []} ->
-	    ok;
-	{ok, _Mode, Ebins} ->
-	    %% Prepend the code path with the ebins found in the archive
-	    Ebins2 = [filename:join([ArchiveFile, E]) || E <- Ebins],
-	    add_pathsa(Ebins2, cache); % Returns ok
-	{error, _Reason} = Error ->
-	    Error
-    end.
 
 %% Search the entire path system looking for name clashes
 
