@@ -333,7 +333,7 @@ boot_loop(Socket, PS) ->
 handle_command(S, PS, Msg) ->
     case catch binary_to_term(Msg) of
 	{get,File} ->
-	    {Res, PS2} = erl_prim_loader:prim_get_file(PS, File),
+	    {Res, PS2} = erl_prim_loader:prim_read_file(PS, File),
 	    send_file_result(S, get, Res),
 	    PS2;
 	{list_dir,Dir} ->

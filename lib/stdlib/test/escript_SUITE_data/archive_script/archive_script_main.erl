@@ -40,8 +40,8 @@ main(MainArgs) ->
     %% Access dict priv dir
     PrivDir = code:priv_dir(?DICT),
     PrivFile = filename:join([PrivDir, "archive_script_dict.txt"]),
-    case erl_prim_loader:get_file(PrivFile) of
-	{ok, Bin, _FullPath} ->
+    case erl_prim_loader:read_file(PrivFile) of
+	{ok, Bin} ->
 	    io:format("priv:~p\n", [{ok, Bin}]);
 	error ->
 	    io:format("priv:~p\n", [{error, PrivFile}])

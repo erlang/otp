@@ -314,10 +314,10 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 		lists:foldl(fun(Mod, {Bins, Vsns}) ->
 				    File = lists:concat([Mod, Ext]),
 				    FName = root_dir_relative_path(filename:join([LibDir, "ebin", File])),
-				    case erl_prim_loader:get_file(FName) of
-					{ok, Bin, FName2} ->
+				    case erl_prim_loader:read_file(FName) of
+					{ok, Bin} ->
 					    NVsns = add_vsns(Mod, Bin, Vsns),
-					    {[{Mod, Bin, FName2} | Bins],NVsns};
+					    {[{Mod, Bin, FName} | Bins],NVsns};
 					error ->
 					    throw({error, {no_such_file,FName}})
 				    end
@@ -774,14 +774,18 @@ replace_undefined(Vsn,_) -> Vsn.
 %% Returns: Vsn = term()
 %%-----------------------------------------------------------------
 get_current_vsn(Mod) ->
-    File = code:which(Mod),
-    case erl_prim_loader:get_file(File) of
-	{ok, Bin, _File2} ->
-	    get_vsn(Bin);
-	error ->
-	    %% This is the case when a new module is added, there will
-	    %% be no current version of it at the time of this call.
-	    undefined
+    case code:which(Mod) of
+        File when is_list(File) ->
+            case erl_prim_loader:read_file(File) of
+                {ok, Bin} ->
+                    get_vsn(Bin);
+                error ->
+                    undefined
+            end;
+        _ ->
+            %% This is the case when a new module is added, there will
+            %% be no current version of it at the time of this call.
+            undefined
     end.
 
 %%-----------------------------------------------------------------

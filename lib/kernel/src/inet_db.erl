@@ -1345,8 +1345,8 @@ handle_update_file(
             %% File updated - read content
             ets:insert(Db, {TagInfo, Finfo_1}),
             Bin =
-                case erl_prim_loader:get_file(File) of
-                    {ok, B, _} -> B;
+                case erl_prim_loader:read_file(File) of
+                    {ok, B} -> B;
                     _ -> <<>>
                 end,
             handle_set_file(ParseFun, File, Bin, From, State);
