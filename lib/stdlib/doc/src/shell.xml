@@ -1043,6 +1043,36 @@ q                 - quit erlang
     </func>
 
     <func>
+      <name name="format_shell_func" arity="1" since="OTP @OTP-18848@"/>
+      <fsummary>Set the formatting function for submitted shell commands.</fsummary>
+      <desc>
+        <p>Can be used to set the formatting of the Erlang shell output. This have an effect
+        on commands that have been submitted, and how it is saved in history. Or if the
+        formatting hotkey is pressed while editing an expression (Alt-f by default). You can specify a Mod:Func/1 that
+        expects the whole expression as a string and returns a formatted expressions as a string.
+        See <seeapp marker="STDLIB_app#format_shell_func"><c>stdlib app config</c></seeapp>
+        for how to set it before shell started.</p>
+        <p>If instead a string is provided, it will be used as a shell command.
+        Your command must include <c>${file}</c>
+        somewhere in the string, for the shell to know where the file goes in the command.
+        </p>
+        <code>shell:format_shell_func("\"emacs -batch \${file} -l ~/erlang-format/emacs-format-file -f emacs-format-function\"").</code>
+        <code>shell:format_shell_func({shell, erl_pp_format_func}).</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="erl_pp_format_func" arity="1" since="OTP @OTP-18848@"/>
+      <fsummary>A formatting function that makes use of erl_pp.</fsummary>
+      <desc>
+        <p>A formatting function that can be set with <seemfa marker="#format_shell_func/1"><c>format_shell_func/1</c></seemfa>
+        that will make expressions submitted to the shell prettier.
+        </p>
+        <note><p>This formatting function filter comments away from the expressions.</p></note>
+      </desc>
+    </func>
+
+    <func>
       <name name="results" arity="1" since=""/>
       <fsummary>Set the number of previous results to keep.</fsummary>
       <desc>

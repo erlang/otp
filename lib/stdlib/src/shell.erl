@@ -24,6 +24,7 @@
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
 -export([catch_exception/1, prompt_func/1, multiline_prompt_func/1, strings/1]).
+-export([format_shell_func/1, erl_pp_format_func/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
@@ -1866,6 +1867,37 @@ prompt_func(PromptFunc) ->
 
 multiline_prompt_func(PromptFunc) ->
     set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
+
+-spec format_shell_func(ShellFormatFunc) -> ShellFormatFunc2 when
+      ShellFormatFunc :: 'default' | {module(),function()} | string(),
+      ShellFormatFunc2 :: 'default' | {module(),function()} | string().
+format_shell_func(ShellFormatFunc) ->
+    set_env(stdlib, format_shell_func, ShellFormatFunc, default).
+
+-spec erl_pp_format_func(String) -> String2 when
+      String :: string(),
+      String2 :: string().
+erl_pp_format_func(String) ->
+    %% A simple pretty printer function of shell expressions.
+    %% 
+    %% Comments will be filtered.
+    %% If you add return_comments to the option list,
+    %% parsing will fail, and we will end up with the original string.
+    Options = [text,{reserved_word_fun,fun erl_scan:reserved_word/1}],
+    case erl_scan:tokens([], String, {1,1}, Options) of
+        {done, {ok, Toks, _}, _} ->
+            try
+                case erl_parse:parse_form(Toks) of
+                    {ok, Def} -> lists:flatten(erl_pp:form(Def))
+                end
+            catch
+                _:_ -> case erl_parse:parse_exprs(Toks) of
+                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1))++".";
+                          _ -> String
+                      end
+            end;
+        _ -> String
+    end.
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),

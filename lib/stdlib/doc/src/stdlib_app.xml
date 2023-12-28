@@ -72,6 +72,21 @@
       <item>
         <p>Can be used to override the default keymap configuration for the shell.</p>
       </item>
+      <tag><marker id="format_shell_func"/><c>format_shell_func = {Mod, Func} | string() | default</c></tag>
+      <item>
+        <p>Can be used to set the formatting of the Erlang shell output. This has an effect
+        on commands that have been submitted and how it is saved in history or if the
+        formatting hotkey is pressed while editing an expression (Alt-f by default). You can specify a Mod:Func/1 that
+        expects the whole expression as a string and returns a formatted expressions as a string.
+        See <seemfa marker="shell#format_shell_func/1"><c>shell:format_shell_func/1</c></seemfa>
+        for how to set it from inside the shell.</p>
+        <p>If instead a string is provided, it will be used as a shell command.
+        Your command must include <c>${file}</c>
+        somewhere in the string, for the shell to know where the file goes in the command.
+        </p>
+        <code>-stdlib format_shell_func "\"emacs -batch \${file} -l ~/erlang-format/emacs-format-file -f emacs-format-function\""</code>
+        <code>-stdlib format_shell_func "{shell, erl_pp_format_func}"</code>
+      </item>
       <tag><marker id="shell_prompt_func"/><c>shell_prompt_func = {Mod, Func} | default</c></tag>
       <item>
         <p>where</p>

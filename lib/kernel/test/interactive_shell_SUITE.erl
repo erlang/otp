@@ -59,6 +59,7 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
+         shell_format/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -129,7 +130,7 @@ groups() ->
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
       [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
-       shell_xnfix, shell_delete,
+       shell_xnfix, shell_delete, shell_format,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
@@ -475,6 +476,44 @@ shell_multiline_navigation(Config) ->
         ok
     after
         stop_tty(Term)
+    end.
+
+shell_format(Config) ->
+    Term1 = start_tty([{args,["-stdlib","format_shell_func","{shell,erl_pp_format_func}"]}|Config]),
+    DataDir = proplists:get_value(data_dir, Config),
+    EmacsFormat = "\""++DataDir ++ "emacs-format-file\"\n",
+    try
+        send_tty(Term1,"fun(X) ->\n  X\nend.\n"),
+        send_tty(Term1,"Up"),
+        %% Note, erl_pp puts 7 spaces before X
+        check_content(Term1, "fun\\(X\\) ->\\s*..        X\\s*.. end."),
+        send_tty(Term1, "Down"),
+        tmux(["resize-window -t ",tty_name(Term1)," -x ",200]),
+        timer:sleep(1000),
+        send_stdin(Term1, "shell:format_shell_func(\"emacs -batch \${file} -l \"\n"),
+        send_stdin(Term1, EmacsFormat),
+        send_stdin(Term1, "\" -f emacs-format-function\").\n"),
+        check_content(Term1, "{shell,erl_pp_format_func}"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "\n"),
+        timer:sleep(1000),
+        send_tty(Term1, "Up"),
+        %% Note, emacs-format puts 8 spaces before X
+        check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
+        send_tty(Term1, "Down"),
+        send_stdin(Term1, "shell:format_shell_func({bad,format}).\n"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "Up"),
+        send_tty(Term1, "\n"),
+        timer:sleep(1000),
+        check_content(Term1, "\\Q* Bad format function: {bad,format}\\E"),
+        send_tty(Term1, "Up"),
+        %% No modifications should be made, when default format function is used
+        check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
+        ok
+    after
+        stop_tty(Term1)
     end.
 
 shell_multiline_prompt(Config) ->
