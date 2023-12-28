@@ -32,7 +32,8 @@
 %	 same_time_yielding_with_cancel_other_accessor/1,
 	 auto_cancel_yielding/1,
          suspended_scheduler_timeout/1,
-         multizero_timeout_in_timeout/1]).
+         multizero_timeout_in_timeout/1,
+         huge_timeout/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -72,7 +73,8 @@ all() ->
 %     same_time_yielding_with_cancel_other_accessor,
      auto_cancel_yielding,
      suspended_scheduler_timeout,
-     multizero_timeout_in_timeout].
+     multizero_timeout_in_timeout,
+     huge_timeout].
 
 
 %% Basic start_timer/3 functionality
@@ -767,8 +769,51 @@ multizero_timeout_in_timeout(Config) when is_list(Config) ->
     io:format("Time=~p~n", [Time]),
     true = Time < Timeout + MaxTimeoutDiff,
     ok.
-            
-        
+
+huge_timeout(Config) when is_list(Config) ->
+    %% More than 2^31 seconds...
+    huge_timeout_test((1 bsl 31)*1000 + 1000),
+    %% More than 2^32 seconds...
+    huge_timeout_test((1 bsl 32)*1000 + 1000),
+    %% More than 2^31 milliseconds...
+    huge_timeout_test((1 bsl 31) + 1000),
+    %% More than 2^32 milliseconds...
+    huge_timeout_test((1 bsl 32) + 1000),
+    ok.
+
+huge_timeout_test(HugeTmo) ->
+    SOnln = erlang:system_info(schedulers_online),
+    process_flag(trap_exit, true),
+    %% Likely to hit the bug if we set a huge timeout in an
+    %% empty timer wheel, then set a small timeout
+    %% and let the small timeout trigger. The huge timeout
+    %% will then be found as the next timeout in the wheel.
+    %% Just setting a huge timeout wont trigger the bug
+    %% since an empty wheel have a fake timeout of one week.
+    Ps = lists:map(
+           fun (N) ->
+                   spawn_opt(
+                     fun () ->
+                             erlang:send_after(HugeTmo, self(), hej),
+                             erlang:send_after(2, self(), hej),
+                             receive after infinity -> ok end
+                     end, [{scheduler,N}, link])
+           end, lists:seq(1, erlang:system_info(schedulers))),
+    %% If we have schedulers offline, those timer wheels are likely
+    %% empty, so set them online increasing the chanse of hitting
+    %% a bug.
+    try
+        erlang:system_flag(schedulers_online, erlang:system_info(schedulers)),
+        receive after 1000 -> ok end
+    after
+        lists:foreach(fun (P) ->
+                              unlink(P),
+                              exit(P, kill),
+                              false = is_process_alive(P)
+                      end, Ps),
+        erlang:system_flag(schedulers_online, SOnln),
+        process_flag(trap_exit, false)
+    end.
 
 process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).

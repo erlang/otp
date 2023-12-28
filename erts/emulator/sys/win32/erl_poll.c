@@ -1015,6 +1015,8 @@ ErtsPollEvents erts_poll_control(ErtsPollSet *ps,
     return result;
 }
 
+#define MILLISECONDS_PER_WEEK__ (7*24*60*60*1000)
+
 int erts_poll_wait(ErtsPollSet *ps,
 		   ErtsPollResFd pr[],
 		   int *len,
@@ -1022,13 +1024,20 @@ int erts_poll_wait(ErtsPollSet *ps,
                    Sint64 timeout_in)
 {
     int no_fds;
-    DWORD timeout = timeout_in == -1 ? INFINITE : timeout_in;
+    DWORD timeout;
     EventData* ev;
     int res = 0;
     int num = 0;
     int n; 
     int i;
     int break_state;
+
+    if (timeout_in < 0)
+        timeout = INFINITE;
+    else if (timeout_in > MILLISECONDS_PER_WEEK__)
+        timeout = MILLISECONDS_PER_WEEK__;
+    else
+        timeout = (DWORD) timeout_in;
 
     HARDTRACEF(("In erts_poll_wait"));
     ERTS_POLLSET_LOCK(ps);
