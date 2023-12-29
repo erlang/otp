@@ -1926,6 +1926,7 @@ trace_port_session_receive(Port *t_p, ErtsTracerRef *ref,
 void
 trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
 {
+    const ErtsBpIndex bp_ix = erts_active_bp_ix();
     ErtsTracerRef *ref;
     ErtsTracerRef *next_ref;
     Eterm op = exists ? am_send : am_send_to_non_existing_process;
@@ -1937,7 +1938,8 @@ trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
         ErtsTracerNif *tnif = NULL;
 
         next_ref = ref->next;
-        if (IS_SESSION_TRACED_FL(ref, F_TRACE_SEND)
+        if (ref->session->send_tracing[bp_ix].on
+            && IS_SESSION_TRACED_FL(ref, F_TRACE_SEND)
             && is_tracer_ref_enabled(NULL, 0, &t_p->common, ref, &tnif,
                                      TRACE_FUN_E_SEND, op)) {
 
@@ -1950,6 +1952,7 @@ trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
 
 void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
 {
+    const ErtsBpIndex bp_ix = erts_active_bp_ix();
     ErtsTracerRef *ref;
     ErtsTracerRef *next_ref;
 
@@ -1961,7 +1964,8 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
         ErtsTracerNif *tnif = NULL;
 
         next_ref = ref->next;
-        if (IS_SESSION_TRACED_FL(ref, F_TRACE_SEND)
+        if (ref->session->send_tracing[bp_ix].on
+            && IS_SESSION_TRACED_FL(ref, F_TRACE_SEND)
             && is_tracer_ref_enabled(NULL, 0, &t_p->common, ref, &tnif,
                                      TRACE_FUN_E_SEND, am_send)) {
 
