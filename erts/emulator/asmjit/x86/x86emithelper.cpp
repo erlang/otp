@@ -70,8 +70,8 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
   // Detect memory operands and patch them to have the same size as the register. BaseCompiler always sets memory size
   // of allocs and spills, so it shouldn't be really necessary, however, after this function was separated from Compiler
   // it's better to make sure that the size is always specified, as we can use 'movzx' and 'movsx' that rely on it.
-  if (dst.isMem()) { memFlags |= kDstMem; dst.as<Mem>().setSize(src.size()); }
-  if (src.isMem()) { memFlags |= kSrcMem; src.as<Mem>().setSize(dst.size()); }
+  if (dst.isMem()) { memFlags |= kDstMem; dst.as<Mem>().setSize(src.as<Mem>().size()); }
+  if (src.isMem()) { memFlags |= kSrcMem; src.as<Mem>().setSize(dst.as<Mem>().size()); }
 
   switch (typeId) {
     case TypeId::kInt8:
@@ -425,6 +425,12 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
   Gp gpReg = zsp;            // General purpose register (temporary).
   Gp saReg = zsp;            // Stack-arguments base pointer.
 
+  // Emit: 'endbr32' or 'endbr64' (indirect branch protection).
+  if (frame.hasIndirectBranchProtection()) {
+    InstId instId = emitter->is32Bit() ? Inst::kIdEndbr32 : Inst::kIdEndbr64;
+    ASMJIT_PROPAGATE(emitter->emit(instId));
+  }
+
   // Emit: 'push zbp'
   //       'mov  zbp, zsp'.
   if (frame.hasPreservedFP()) {
@@ -610,7 +616,7 @@ void assignEmitterFuncs(BaseEmitter* emitter) {
 #endif
 
 #ifndef ASMJIT_NO_VALIDATION
-  emitter->_funcs.validate = InstInternal::validate;
+  emitter->_funcs.validate = emitter->is32Bit() ? InstInternal::validateX86 : InstInternal::validateX64;
 #endif
 }
 

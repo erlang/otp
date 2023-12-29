@@ -27,7 +27,7 @@ struct ZoneStringBase {
     };
   };
 
-  inline void reset() noexcept {
+  ASMJIT_INLINE_NODEBUG void reset() noexcept {
     _dummy = nullptr;
     _external = nullptr;
   }
@@ -83,8 +83,8 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneString() noexcept { reset(); }
-  inline void reset() noexcept { _base.reset(); }
+  ASMJIT_INLINE_NODEBUG ZoneString() noexcept { reset(); }
+  ASMJIT_INLINE_NODEBUG void reset() noexcept { _base.reset(); }
 
   //! \}
 
@@ -92,21 +92,21 @@ public:
   //! \{
 
   //! Tests whether the string is empty.
-  inline bool empty() const noexcept { return _base._size == 0; }
+  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _base._size == 0; }
 
   //! Returns the string data.
-  inline const char* data() const noexcept { return _base._size <= kMaxEmbeddedSize ? _base._embedded : _base._external; }
+  ASMJIT_INLINE_NODEBUG const char* data() const noexcept { return _base._size <= kMaxEmbeddedSize ? _base._embedded : _base._external; }
   //! Returns the string size.
-  inline uint32_t size() const noexcept { return _base._size; }
+  ASMJIT_INLINE_NODEBUG uint32_t size() const noexcept { return _base._size; }
 
   //! Tests whether the string is embedded (e.g. no dynamically allocated).
-  inline bool isEmbedded() const noexcept { return _base._size <= kMaxEmbeddedSize; }
+  ASMJIT_INLINE_NODEBUG bool isEmbedded() const noexcept { return _base._size <= kMaxEmbeddedSize; }
 
   //! Copies a new `data` of the given `size` to the string.
   //!
   //! If the `size` exceeds the internal buffer the given `zone` will be used to duplicate the data, otherwise
   //! the internal buffer will be used as a storage.
-  inline Error setData(Zone* zone, const char* data, size_t size) noexcept {
+  ASMJIT_INLINE_NODEBUG Error setData(Zone* zone, const char* data, size_t size) noexcept {
     return _base.setData(zone, kMaxEmbeddedSize, data, size);
   }
 

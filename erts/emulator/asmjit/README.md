@@ -45,11 +45,8 @@ Project Organization
 TODO
 ----
 
-  * [ ] Core:
-    * [ ] Add support for user external buffers in CodeBuffer / CodeHolder.
   * [ ] Ports:
     * [ ] 32-bit ARM/Thumb port.
-    * [ ] 64-bit ARM (AArch64) port.
     * [ ] RISC-V port.
 
 Support

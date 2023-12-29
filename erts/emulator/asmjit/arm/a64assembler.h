@@ -23,22 +23,11 @@ class ASMJIT_VIRTAPI Assembler
 public:
   typedef BaseAssembler Base;
 
-  //! \name Construction / Destruction
+  //! \name Construction & Destruction
   //! \{
 
   ASMJIT_API Assembler(CodeHolder* code = nullptr) noexcept;
-  ASMJIT_API virtual ~Assembler() noexcept;
-
-  //! \}
-
-  //! \name Accessors
-  //! \{
-
-  //! Gets whether the current ARM mode is THUMB (alternative to 32-bit ARM encoding).
-  inline bool isInThumbMode() const noexcept { return _environment.isArchThumb(); }
-
-  //! Gets the current code alignment of the current mode (ARM vs THUMB).
-  inline uint32_t codeAlignment() const noexcept { return isInThumbMode() ? 2 : 4; }
+  ASMJIT_API ~Assembler() noexcept override;
 
   //! \}
 

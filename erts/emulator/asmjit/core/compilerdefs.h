@@ -66,18 +66,16 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline VirtReg(OperandSignature signature, uint32_t id, uint32_t virtSize, uint32_t alignment, TypeId typeId) noexcept
+  ASMJIT_INLINE_NODEBUG VirtReg(OperandSignature signature, uint32_t id, uint32_t virtSize, uint32_t alignment, TypeId typeId) noexcept
     : _signature(signature),
       _id(id),
       _virtSize(virtSize),
       _alignment(uint8_t(alignment)),
       _typeId(typeId),
-      _isFixed(false),
-      _isStack(false),
-      _hasStackSlot(false),
-      _reservedBits(0),
-      _stackOffset(0),
-      _reservedU32(0) {}
+      _isFixed(0),
+      _isStack(0),
+      _hasStackSlot(0),
+      _reservedBits(0) {}
 
   //! \}
 
@@ -85,64 +83,64 @@ public:
   //! \{
 
   //! Returns the virtual register id.
-  inline uint32_t id() const noexcept { return _id; }
+  ASMJIT_INLINE_NODEBUG uint32_t id() const noexcept { return _id; }
 
   //! Returns the virtual register name.
-  inline const char* name() const noexcept { return _name.data(); }
+  ASMJIT_INLINE_NODEBUG const char* name() const noexcept { return _name.data(); }
   //! Returns the size of the virtual register name.
-  inline uint32_t nameSize() const noexcept { return _name.size(); }
+  ASMJIT_INLINE_NODEBUG uint32_t nameSize() const noexcept { return _name.size(); }
 
   //! Returns a register signature of this virtual register.
-  inline OperandSignature signature() const noexcept { return _signature; }
+  ASMJIT_INLINE_NODEBUG OperandSignature signature() const noexcept { return _signature; }
   //! Returns a virtual register type (maps to the physical register type as well).
-  inline RegType type() const noexcept { return _signature.regType(); }
+  ASMJIT_INLINE_NODEBUG RegType type() const noexcept { return _signature.regType(); }
   //! Returns a virtual register group (maps to the physical register group as well).
-  inline RegGroup group() const noexcept { return _signature.regGroup(); }
+  ASMJIT_INLINE_NODEBUG RegGroup group() const noexcept { return _signature.regGroup(); }
 
   //! Returns a real size of the register this virtual register maps to.
   //!
   //! For example if this is a 128-bit SIMD register used for a scalar single precision floating point value then
   //! its virtSize would be 4, however, the `regSize` would still say 16 (128-bits), because it's the smallest size
   //! of that register type.
-  inline uint32_t regSize() const noexcept { return _signature.size(); }
+  ASMJIT_INLINE_NODEBUG uint32_t regSize() const noexcept { return _signature.size(); }
 
   //! Returns the virtual register size.
   //!
   //! The virtual register size describes how many bytes the virtual register needs to store its content. It can be
   //! smaller than the physical register size, see `regSize()`.
-  inline uint32_t virtSize() const noexcept { return _virtSize; }
+  ASMJIT_INLINE_NODEBUG uint32_t virtSize() const noexcept { return _virtSize; }
 
   //! Returns the virtual register alignment.
-  inline uint32_t alignment() const noexcept { return _alignment; }
+  ASMJIT_INLINE_NODEBUG uint32_t alignment() const noexcept { return _alignment; }
 
   //! Returns the virtual register type id.
-  inline TypeId typeId() const noexcept { return _typeId; }
+  ASMJIT_INLINE_NODEBUG TypeId typeId() const noexcept { return _typeId; }
 
   //! Returns the virtual register weight - the register allocator can use it as explicit hint for alloc/spill
   //! decisions.
-  inline uint32_t weight() const noexcept { return _weight; }
+  ASMJIT_INLINE_NODEBUG uint32_t weight() const noexcept { return _weight; }
   //! Sets the virtual register weight (0 to 255) - the register allocator can use it as explicit hint for
   //! alloc/spill decisions and initial bin-packing.
-  inline void setWeight(uint32_t weight) noexcept { _weight = uint8_t(weight); }
+  ASMJIT_INLINE_NODEBUG void setWeight(uint32_t weight) noexcept { _weight = uint8_t(weight); }
 
   //! Returns whether the virtual register is always allocated to a fixed physical register (and never reallocated).
   //!
   //! \note This is only used for special purposes and it's mostly internal.
-  inline bool isFixed() const noexcept { return bool(_isFixed); }
+  ASMJIT_INLINE_NODEBUG bool isFixed() const noexcept { return bool(_isFixed); }
 
   //! Tests whether the virtual register is in fact a stack that only uses the virtual register id.
   //!
   //! \note It's an error if a stack is accessed as a register.
-  inline bool isStack() const noexcept { return bool(_isStack); }
+  ASMJIT_INLINE_NODEBUG bool isStack() const noexcept { return bool(_isStack); }
 
   //! Tests whether this virtual register (or stack) has assigned a stack offset.
   //!
   //! If this is a virtual register that was never allocated on stack, it would return false, otherwise if
   //! it's a virtual register that was spilled or explicitly allocated stack, the return value would be true.
-  inline bool hasStackSlot() const noexcept { return bool(_hasStackSlot); }
+  ASMJIT_INLINE_NODEBUG bool hasStackSlot() const noexcept { return bool(_hasStackSlot); }
 
   //! Assigns a stack offset of this virtual register to `stackOffset` and sets `_hasStackSlot` to true.
-  inline void assignStackSlot(int32_t stackOffset) noexcept {
+  ASMJIT_INLINE_NODEBUG void assignStackSlot(int32_t stackOffset) noexcept {
     _hasStackSlot = 1;
     _stackOffset = stackOffset;
   }
@@ -151,16 +149,16 @@ public:
   //!
   //! \note Always verify that the stack offset has been assigned by calling \ref hasStackSlot(). The return
   //! value will be zero when the stack offset was not assigned.
-  inline int32_t stackOffset() const noexcept { return _stackOffset; }
+  ASMJIT_INLINE_NODEBUG int32_t stackOffset() const noexcept { return _stackOffset; }
 
   //! Tests whether the virtual register has an associated `RAWorkReg` at the moment.
-  inline bool hasWorkReg() const noexcept { return _workReg != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool hasWorkReg() const noexcept { return _workReg != nullptr; }
   //! Returns an associated RAWorkReg with this virtual register (only valid during register allocation).
-  inline RAWorkReg* workReg() const noexcept { return _workReg; }
+  ASMJIT_INLINE_NODEBUG RAWorkReg* workReg() const noexcept { return _workReg; }
   //! Associates a RAWorkReg with this virtual register (used by register allocator).
-  inline void setWorkReg(RAWorkReg* workReg) noexcept { _workReg = workReg; }
+  ASMJIT_INLINE_NODEBUG void setWorkReg(RAWorkReg* workReg) noexcept { _workReg = workReg; }
   //! Reset the RAWorkReg association (used by register allocator).
-  inline void resetWorkReg() noexcept { _workReg = nullptr; }
+  ASMJIT_INLINE_NODEBUG void resetWorkReg() noexcept { _workReg = nullptr; }
 
   //! \}
 };

@@ -193,7 +193,7 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
     return result;
 }
 
-void BeamModuleAssembler::emit_linear_search(arm::Gp comparand,
+void BeamModuleAssembler::emit_linear_search(a64::Gp comparand,
                                              Label fail,
                                              const Span<ArgVal> &args) {
     int count = args.size() / 2;
@@ -260,7 +260,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, 0));
 
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
@@ -373,7 +373,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
  * Emit code for a binary search through an interval Left <= Right of
  * the i_select_val argument vector `args`.
  */
-void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
+void BeamModuleAssembler::emit_binsearch_nodes(a64::Gp reg,
                                                size_t Left,
                                                size_t Right,
                                                Label fail,
@@ -519,7 +519,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
  *
  * Return true if the optimization was possible.
  */
-void BeamModuleAssembler::emit_optimized_two_way_select(arm::Gp reg,
+void BeamModuleAssembler::emit_optimized_two_way_select(a64::Gp reg,
                                                         const ArgVal &value1,
                                                         const ArgVal &value2,
                                                         const ArgVal &label) {
@@ -530,7 +530,7 @@ void BeamModuleAssembler::emit_optimized_two_way_select(arm::Gp reg,
     uint64_t diff = x ^ y;
 
     /* Be sure to use a register not used by any caller. */
-    arm::Gp tmp = TMP6;
+    a64::Gp tmp = TMP6;
 
     if (x + 1 == y) {
         comment("(Src == %ld || Src == %ld) <=> (Src - %ld) < 2", x, y, x);

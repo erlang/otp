@@ -104,13 +104,13 @@ public:
   //! \{
 
   //! Allocator used to allocate internal data.
-  ZoneAllocator* _allocator;
+  ZoneAllocator* _allocator {};
   //! Count of bytes used by all slots.
-  uint32_t _bytesUsed;
+  uint32_t _bytesUsed {};
   //! Calculated stack size (can be a bit greater than `_bytesUsed`).
-  uint32_t _stackSize;
+  uint32_t _stackSize {};
   //! Minimum stack alignment.
-  uint32_t _alignment;
+  uint32_t _alignment = 1;
   //! Stack slots vector.
   RAStackSlots _slots;
 
@@ -119,14 +119,9 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline RAStackAllocator() noexcept
-    : _allocator(nullptr),
-      _bytesUsed(0),
-      _stackSize(0),
-      _alignment(1),
-      _slots() {}
+  ASMJIT_INLINE_NODEBUG RAStackAllocator() noexcept {}
 
-  inline void reset(ZoneAllocator* allocator) noexcept {
+  ASMJIT_INLINE_NODEBUG void reset(ZoneAllocator* allocator) noexcept {
     _allocator = allocator;
     _bytesUsed = 0;
     _stackSize = 0;
@@ -139,15 +134,15 @@ public:
   //! \name Accessors
   //! \{
 
-  inline ZoneAllocator* allocator() const noexcept { return _allocator; }
+  ASMJIT_INLINE_NODEBUG ZoneAllocator* allocator() const noexcept { return _allocator; }
 
-  inline uint32_t bytesUsed() const noexcept { return _bytesUsed; }
-  inline uint32_t stackSize() const noexcept { return _stackSize; }
-  inline uint32_t alignment() const noexcept { return _alignment; }
+  ASMJIT_INLINE_NODEBUG uint32_t bytesUsed() const noexcept { return _bytesUsed; }
+  ASMJIT_INLINE_NODEBUG uint32_t stackSize() const noexcept { return _stackSize; }
+  ASMJIT_INLINE_NODEBUG uint32_t alignment() const noexcept { return _alignment; }
 
-  inline RAStackSlots& slots() noexcept { return _slots; }
-  inline const RAStackSlots& slots() const noexcept { return _slots; }
-  inline uint32_t slotCount() const noexcept { return _slots.size(); }
+  ASMJIT_INLINE_NODEBUG RAStackSlots& slots() noexcept { return _slots; }
+  ASMJIT_INLINE_NODEBUG const RAStackSlots& slots() const noexcept { return _slots; }
+  ASMJIT_INLINE_NODEBUG uint32_t slotCount() const noexcept { return _slots.size(); }
 
   //! \}
 

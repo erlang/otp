@@ -652,7 +652,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         }
 
         if (is_product_small && is_sum_small) {
-            arm::Gp increment_reg;
+            a64::Gp increment_reg;
 
             a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
 
@@ -696,7 +696,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             if (is_increment_zero) {
                 a.add(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
             } else {
-                arm::Gp sign_reg;
+                a64::Gp sign_reg;
 
                 if (min_increment > 0) {
                     sign_reg = ZERO;
@@ -870,13 +870,13 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
 
 void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
                                                const ArgSource &Dividend,
-                                               arm::Gp dividend,
-                                               arm::Gp quotient,
-                                               arm::Gp remainder,
+                                               a64::Gp dividend,
+                                               a64::Gp quotient,
+                                               a64::Gp remainder,
                                                const Label &generic,
                                                bool need_div,
                                                bool need_rem) {
-    arm::Gp small_tag = TMP6;
+    a64::Gp small_tag = TMP6;
     bool small_dividend = !generic.isValid();
 
     ASSERT(divisor != (Sint)0);
@@ -888,7 +888,7 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
     }
 
     if (Support::isPowerOf2(divisor)) {
-        arm::Gp original_dividend = dividend;
+        a64::Gp original_dividend = dividend;
         int shift = Support::ctz<Eterm>(divisor);
 
         if (need_div && small_dividend) {
@@ -1508,7 +1508,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
         Sint shift = RHS.as<ArgSmall>().getSigned();
 
         if (shift >= 0) {
-            arm::Gp small_tag = TMP1;
+            a64::Gp small_tag = TMP1;
             if (always_small(LHS)) {
                 comment("skipped test for small left operand because it is "
                         "always small");

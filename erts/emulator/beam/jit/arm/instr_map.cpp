@@ -84,7 +84,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
 void BeamGlobalAssembler::emit_hashmap_get_element() {
     Label node_loop = a.newLabel();
 
-    arm::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = ARG4,
+    a64::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = ARG4,
             depth = TMP5, index = TMP6;
 
     const int header_shift =

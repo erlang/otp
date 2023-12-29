@@ -927,6 +927,10 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
         if (!tiedReg->isOut())
           continue;
 
+        RegMask avoidOut = avoidRegs;
+        if (tiedReg->isUnique())
+          avoidOut |= willUse;
+
         uint32_t workId = tiedReg->workId();
         uint32_t assignedId = _curAssignment.workToPhysId(group, workId);
 
@@ -935,7 +939,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
 
         uint32_t physId = tiedReg->outId();
         if (physId == RAAssignment::kPhysNone) {
-          RegMask allocableRegs = tiedReg->outRegMask() & ~(outRegs | avoidRegs);
+          RegMask allocableRegs = tiedReg->outRegMask() & ~(outRegs | avoidOut);
 
           if (!(allocableRegs & ~liveRegs)) {
             // There are no more registers, decide which one to spill.

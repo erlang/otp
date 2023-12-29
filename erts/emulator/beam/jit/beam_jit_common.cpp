@@ -104,9 +104,9 @@ void BeamAssemblerCommon::codegen(JitAllocator *allocator,
     }
 #endif
 
-    err = allocator->alloc(const_cast<void **>(executable_ptr),
-                           writable_ptr,
-                           code.codeSize() + 16);
+    JitAllocator::Span span;
+
+    err = allocator->alloc(span, code.codeSize() + 16);
 
     if (err == ErrorCode::kErrorTooManyHandles) {
         ERTS_ASSERT(!"Failed to allocate module code: "
@@ -114,6 +114,9 @@ void BeamAssemblerCommon::codegen(JitAllocator *allocator,
     } else if (err) {
         ERTS_ASSERT("Failed to allocate module code");
     }
+
+    *executable_ptr = span.rx();
+    *writable_ptr = span.rw();
 
     VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
 
