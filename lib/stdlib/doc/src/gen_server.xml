@@ -69,7 +69,9 @@ gen_server:abcast     -----> Module:handle_cast/2
 -                     -----> Module:code_change/3</pre>
 
     <p>If a callback function fails or returns a bad value, the
-      <c>gen_server</c> process terminates.</p>
+      <c>gen_server</c> process terminates. However, if a callback function
+      raises a class <c>throw</c> exception, the callback will be treated as
+      if it succeeded and returned the exception's exit reason.</p>
 
     <p>A <c>gen_server</c> process handles system messages as described in
       <seeerl marker="sys"><c>sys(3)</c></seeerl>. The <c>sys</c> module
