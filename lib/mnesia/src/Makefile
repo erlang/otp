@@ -64,7 +64,6 @@ MODULES= \
 	mnesia_log \
 	mnesia_monitor \
 	mnesia_recover \
-	mnesia_registry \
 	mnesia_rpc \
 	mnesia_schema\
 	mnesia_snmp_hook \
