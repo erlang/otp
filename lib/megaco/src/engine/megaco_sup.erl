@@ -29,7 +29,7 @@
 -behaviour(supervisor).
 
 %% public
--export([start/0, start/2, stop/1]).
+-export([start/0, start/2]).
 -export([start_sup_child/1, stop_sup_child/1]).
 
 %% internal
@@ -63,9 +63,6 @@ start() ->
     ?d("start -> entry", []),
     SupName = {local,?MODULE},
     supervisor:start_link(SupName, ?MODULE, []).
-
-stop(_StartArgs) ->
-    ok.
 
 init([]) -> % Supervisor
     init();

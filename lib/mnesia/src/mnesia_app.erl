@@ -22,7 +22,7 @@
 
 -behaviour(application).
 
--export([start/2, stop/1]).
+-export([start/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% application callback functions
@@ -36,6 +36,3 @@ start(normal, Args) ->
     end;
 start(_, _) ->
     {error, badarg}.
-
-stop(_StartArgs) ->
-    ok.

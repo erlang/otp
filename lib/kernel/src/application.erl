@@ -84,7 +84,7 @@
       PhaseArgs :: term(),
       Reason :: term().
 
--optional_callbacks([config_change/3, prep_stop/1, start_phase/3]).
+-optional_callbacks([config_change/3, prep_stop/1, start_phase/3, stop/1]).
 
 %%%-----------------------------------------------------------------
 %%% This module is API towards application_controller and
