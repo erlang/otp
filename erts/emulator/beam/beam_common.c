@@ -575,6 +575,7 @@ next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
     ErtsCodePtr return_to_trace_address = NULL;
     int have_return_to_trace = 0;
+    Eterm session_weak_id = NIL;
     Eterm *ptr, *prev;
     ErtsCodePtr handler;
 
@@ -604,7 +605,7 @@ next_catch(Process* c_p, Eterm *reg) {
                     mfa = (ErtsCodeMFA*)cp_val(frame[0]);
 
                     ASSERT_MFA(mfa);
-                    erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1]);
+                    erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1], frame[2]);
                 }
                 ASSERT(c_p->return_trace_frames > 0);
                 c_p->return_trace_frames--;
@@ -614,6 +615,7 @@ next_catch(Process* c_p, Eterm *reg) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
+                session_weak_id = frame[0];
                 return_to_trace_address = NULL;
 
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
@@ -641,13 +643,17 @@ next_catch(Process* c_p, Eterm *reg) {
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
 
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_address) {
-        /* The stackframe closest to the catch contained an
-         * return_to_trace entry, so since the execution now
-         * continues after the catch, a return_to trace message
-         * would be appropriate.
-         */
-        erts_trace_return_to(c_p, return_to_trace_address);
+    if (return_to_trace_address) {
+        ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
+                                                         session_weak_id);
+        if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+            /* The stackframe closest to the catch contained an
+             * return_to_trace entry, so since the execution now
+             * continues after the catch, a return_to trace message
+             * would be appropriate.
+             */
+            erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
+        }
     }
 
     /* Clear the try_tag or catch_tag in the stack frame so that we
