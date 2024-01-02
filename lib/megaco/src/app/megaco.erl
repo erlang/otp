@@ -197,6 +197,12 @@
 -type trace_data()        :: term().
 -type trace_handler()     :: fun((trace_event(), trace_data()) -> trace_data()).
 
+-type global_counter() :: medGwyGatewayNumErrors.
+-type counter()        :: medGwyGatewayNumTimerRecovery |
+                          medGwyGatewayNumErrors.
+-type counter_value()  :: non_neg_integer().
+
+
 -include("megaco_internal.hrl").
 
 
@@ -530,14 +536,36 @@ test_reply(ConnHandle, Version, EncodingMod, EncodingConfig,
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
+
+-spec get_stats() -> {ok, [TotalStats]} | {error, Reason} when
+      TotalStats :: {conn_handle(),    [Stats]} |
+                    {global_counter(), counter_value()},
+      Stats      :: {counter(),        counter_value()},
+      Reason     :: term().
+      
 get_stats() ->
     megaco_messenger:get_stats().
 
-get_stats(SendHandle) ->
-    megaco_messenger:get_stats(SendHandle).
+-spec get_stats(GCounter) -> {ok, Value} | {error, Reason} when
+      GCounter :: global_counter(),
+      Value    :: counter_value(),
+      Reason   :: term();
+               (ConnHandle) -> {ok, [Stats]} | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Stats      :: {counter(), counter_value()},
+      Reason     :: term().
 
-get_stats(SendHandle, Counter) ->
-    megaco_messenger:get_stats(SendHandle, Counter).
+get_stats(ConnHandleOrGCounter) ->
+    megaco_messenger:get_stats(ConnHandleOrGCounter).
+
+-spec get_stats(ConnHandle, Counter) -> {ok, Value} | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Counter    :: counter(),
+      Value      :: counter_value(),
+      Reason     :: term().
+
+get_stats(ConnHandle, Counter) ->
+    megaco_messenger:get_stats(ConnHandle, Counter).
 
 
 %%-----------------------------------------------------------------

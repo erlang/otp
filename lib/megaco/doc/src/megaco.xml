@@ -373,6 +373,39 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="counter"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="global_counter"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="counter_value"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -2376,34 +2409,54 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
         <marker id="stats"></marker>
         <marker id="get_stats"></marker>
+        <marker id="get_stats_0"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">get_stats() -> {ok, TotalStats} | {error, Reason}</name>
-      <name since="">get_stats(GlobalCounter) -> {ok, CounterStats} | {error, Reason}</name>
-      <name since="">get_stats(ConnHandle) -> {ok, ConnHandleStats} | {error, Reason}</name>
-      <name since="">get_stats(ConnHandle, Counter) -> {ok, integer()} | {error, Reason}</name>
+      <name name="get_stats" arity="0" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>TotalStats = [total_stats()]</v>
-        <v>total_stats() = {conn_handle(), [stats()]} | {global_counter(), integer()}</v>
-        <v>GlobalCounter = global_counter()</v>
-        <v>GlobalCounterStats = integer()</v>
-        <v>ConnHandle = conn_handle()</v>
-        <v>ConnHandleStats = [stats()]</v>
-        <v>stats() = {counter(), integer()}</v>
-        <v>Counter = counter()</v>
-        <v>counter() = medGwyGatewayNumTimerRecovery |  medGwyGatewayNumErrors</v>
-        <v>global_counter() = medGwyGatewayNumErrors</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Retreive the (SNMP) statistic counters maintained by the 
-          megaco application. The global
-          counters handle events that cannot be attributed to 
-          a single connection (e.g. protocol errors that occur 
-          before the connection has been properly setup).</p>
+        <p>Retreive all (SNMP) statistic counters maintained by the 
+	megaco application. </p>
+	<p>The global
+	counters handle events that cannot be attributed to 
+	a single connection (e.g. protocol errors that occur 
+	before the connection has been properly setup).</p>
+        <marker id="get_stats_1_1"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_stats" arity="1" clause_i="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Retreive a (SNMP) (global) statistic counter maintained by the 
+	megaco application. </p>
+	<p>The global
+	counters handle events that cannot be attributed to 
+	a single connection (e.g. protocol errors that occur 
+	before the connection has been properly setup).</p>
+	<marker id="get_stats_1_2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_stats" arity="1" clause_i="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Retreive all (SNMP) statistic counters maintained by the 
+          megaco application, for a specific connection.</p>
+        <marker id="get_stats_2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_stats" arity="2" clause_i="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Retreive a (SNMP) statistic counter maintained by the 
+          megaco application.</p>
         <marker id="reset_stats"></marker>
       </desc>
     </func>
