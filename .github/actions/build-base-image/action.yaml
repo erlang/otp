@@ -26,14 +26,14 @@ runs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Cache BASE image
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         if: inputs.TYPE == '64-bit' || inputs.TYPE == 'clang'
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}-${{ hashFiles('OTP_VERSION') }}
 
       - name: Docker login
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3.0.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -45,13 +45,13 @@ runs:
 
       - name: Cache pre-built src
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
       - name: Cache pre-built binaries
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v3.3.2
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
