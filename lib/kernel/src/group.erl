@@ -519,6 +519,8 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
                         false -> {State0, LineCont}
                     end,
     case catch M:F(State, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
+        {stop,eof,_} ->
+            {ok,eof,eof};
         {stop,Result,eof} ->
             {ok,Result,eof};
         {stop,Result,Rest} ->
@@ -552,6 +554,8 @@ get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
             {error,{error,{no_translation,unicode,Encoding}},[]};
         true ->
             try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+                {stop,eof,_} ->
+                    {ok, eof, eof};
                 {stop,Result,Rest} ->
                     {ok, Result, append(Rest,[],Encoding)};
                 State1 ->
