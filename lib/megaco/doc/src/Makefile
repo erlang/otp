@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2023. All Rights Reserved.
+# Copyright Ericsson AB 2000-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ $(SPECDIR)/specs_megaco_tcp.xml:
 		-o$(dir $@) -module megaco_tcp
 $(SPECDIR)/specs_megaco_transport.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-		-o$(dir $@) -module megaco_codec_transport
+		-o$(dir $@) -module megaco_transport
 $(SPECDIR)/specs_megaco_udp.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module megaco_udp
