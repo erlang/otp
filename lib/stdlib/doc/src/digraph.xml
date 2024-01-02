@@ -146,6 +146,7 @@
     </datatype>
     <datatype>
       <name>edge()</name>
+        <desc><p>Serves as the identifier or "name" of an edge. This is distinct from an edge "label" which attaches ancillary information to the edge rather than identifying the edge itself.</p></desc>
     </datatype>
     <datatype>
       <name name="label"/>
@@ -163,7 +164,7 @@
       <fsummary>Add an edge to a digraph.</fsummary>
       <type name="add_edge_err_rsn"/>
       <desc>
-        <p><c>add_edge/5</c> creates (or modifies) edge <c><anno>E</anno></c>
+        <p><c>add_edge/5</c> creates (or modifies) an edge with the identifier <c><anno>E</anno></c>
           of digraph <c><anno>G</anno></c>, using <c><anno>Label</anno></c> as
           the (new) <seeerl marker="#label">label</seeerl> of the edge. The
           edge is <seeerl marker="#emanate">emanating</seeerl> from
