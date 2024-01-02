@@ -21,10 +21,11 @@
 
 -export([start/0, start/1, start_and_wait/0, start_and_wait/1, stop/0]).
 
-
+-spec start() -> ok | {error, term()}.
 start() ->
     observer_wx:start().
 
+-spec start(node()|[node()]) -> ok | {error, term()}.
 start(Node) when is_atom(Node) ->
     start([Node]);
 start([Node]) ->
@@ -42,6 +43,7 @@ start([Node]) ->
             {error, failed_to_connect}
     end.
 
+-spec start_and_wait() -> ok.
 start_and_wait() ->
     ok = start(),
     MonitorRef = monitor(process, observer),
@@ -50,6 +52,7 @@ start_and_wait() ->
             ok
     end.
 
+-spec start_and_wait(node()|[node()]) -> ok.
 start_and_wait(Node) when is_atom(Node) ->
     start_and_wait([Node]);
 start_and_wait(List) when is_list(List) ->
@@ -60,6 +63,7 @@ start_and_wait(List) when is_list(List) ->
             ok
     end.
 
+-spec stop() -> ok.
 stop() ->
     observer_wx:stop().
 
