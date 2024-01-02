@@ -32,6 +32,7 @@
          file_read_line_stdin_unicode_translation_error_binary_mode/1,
          file_read_line_stdin_unicode_translation_error_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
+         io_get_until_stdin_binary_mode/1, io_get_until_stdin_list_mode/1,
          io_get_chars_file_read_stdin_binary_mode/1,
          file_read_stdin_latin1_binary_mode/1,
          file_read_stdin_latin1_list_mode/1,
@@ -47,6 +48,8 @@
 -export([uprompt/1, slogan/0, session_slogan/0]).
 
 -export([write_raw_to_stdout/0, read_raw_from_stdin/1]).
+
+-export([get_until_eof/2]).
 
 %%-define(debug, true).
 
@@ -73,6 +76,8 @@ all() ->
      file_read_line_stdin_unicode_translation_error_list_mode,
      io_get_chars_stdin_binary_mode,
      io_get_chars_stdin_list_mode,
+     io_get_until_stdin_binary_mode,
+     io_get_until_stdin_list_mode,
      io_get_chars_file_read_stdin_binary_mode,
      file_read_stdin_latin1_binary_mode,
      file_read_stdin_latin1_list_mode,
@@ -367,7 +372,7 @@ file_read_line_stdin_unicode_translation_error_list_mode(_Config) ->
 
     ok.
 
-%% Test that reading from stdin using file:read works when io is in binary mode
+%% Test that reading from stdin using io:get_chars works when io is in binary mode
 io_get_chars_stdin_binary_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
                          fun() ->
@@ -385,7 +390,75 @@ io_get_chars_stdin_binary_mode(_Config) ->
 
     ok.
 
-%% Test that reading from stdin using file:read works when io is in binary mode
+%% Test that reading from stdin using custom io_request works when io is in binary mode
+io_get_until_stdin_binary_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [binary]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: <<\"x\\n\">>\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [binary]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+%% Test that reading from stdin using custom io_request works when io is in list mode
+io_get_until_stdin_list_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [list]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: \"x\\n\"\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [list]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+get_until_eof([],eof) -> {done,eof,[]};
+get_until_eof(ThisFar,eof) -> {done,ThisFar,eof};
+get_until_eof(ThisFar,CharList) -> {more,ThisFar++CharList}.
+
+%% Test that reading from stdin using io:get_chars works when io is in list mode
 io_get_chars_stdin_list_mode(_Config) ->
     {ok, P, ErlPort} = start_stdin_node(
                          fun() -> case io:get_chars(standard_io, "", 1) of
