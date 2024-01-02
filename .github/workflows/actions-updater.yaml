@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4.1.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
-          ref: ${{ steps.latest-maint.BRANCH }}
+          ref: ${{ steps.latest-maint.outputs.BRANCH }}
 
       - name: Run GitHub Actions Version Updater
         uses: saadmk11/github-actions-version-updater@v0.8.1
