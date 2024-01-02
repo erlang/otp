@@ -821,9 +821,15 @@ get_sdp_record_from_PropertyGroup(Type, PG) ->
 
 %%-----------------------------------------------------------------
 
+-spec print_version_info() -> void().
+
 print_version_info() ->
     {ok, Versions} = megaco:versions1(),
     print_version_info(Versions).
+
+-spec print_version_info(Versions) -> void() when
+      Versions    :: [VersionInfo],
+      VersionInfo :: term().
 
 print_version_info(Versions) when is_list(Versions) ->
     print_sys_info(Versions),
