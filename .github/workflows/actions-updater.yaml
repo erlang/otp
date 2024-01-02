@@ -16,19 +16,12 @@ jobs:
         id: generate_token
         uses: actions/create-github-app-token@v1.6.2
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PEM }}
-
-      - name: Fetch latest maint branch
-        id: latest-maint
-        run: |
-            VERSION=$(curl -Ls https://raw.githubusercontent.com/erlang/otp/master/otp_versions.table | head -1 | tr '.' '-' | awk -F'-' '{print $2}')
-            echo "BRANCH=maint-$VERSION" >> "$GITHUB_OUTPUT"
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PEM }}
 
       - uses: actions/checkout@v4.1.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
-          ref: ${{ steps.latest-maint.outputs.BRANCH }}
 
       - name: Run GitHub Actions Version Updater
         uses: saadmk11/github-actions-version-updater@v0.8.1
