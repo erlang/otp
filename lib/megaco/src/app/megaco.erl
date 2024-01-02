@@ -627,9 +627,25 @@ process_received_message(ReceiveHandle,
 					      SendHandle, BinMsg, 
 					      Extra).
 
+
+-spec receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary().
+
 receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
     megaco_messenger:receive_message(ReceiveHandle, ControlPid, 
 				     SendHandle, BinMsg).
+
+-spec receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary(),
+      Extra         :: term().
 
 receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
     megaco_messenger:receive_message(ReceiveHandle, ControlPid, 

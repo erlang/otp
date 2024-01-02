@@ -2135,28 +2135,22 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
-      <name since="">receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
+      <name name="receive_message" arity="4" clause_i="1" since=""/>
+      <name name="receive_message" arity="5" clause_i="1" since=""/>
       <fsummary>Process a received message</fsummary>
-      <type>
-        <v>ReceiveHandle = #megaco_receive_handle{}</v>
-        <v>ControlPid    = pid()</v>
-        <v>SendHandle    = term()</v>
-        <v>BinMsg        = binary()</v>
-        <v>Extra         = term()</v>
-      </type>
       <desc>
         <p>Process a received message</p>
         <p>This is a callback function intended to be invoked by some
-          transport modules when get an incoming message. Which
-          transport that actually is used is up to the user to
-          choose.</p>
-        <p>In principle, this function calls the 
-          <c><![CDATA[process_received_message/4]]></c> function via a <c><![CDATA[spawn]]></c> to
-          perform the actual processing.</p>
+	transport modules when get an incoming message. Which
+	transport that actually is used is up to the user to
+	choose.</p>
+	<p>In principle, this function calls the 
+	<c><![CDATA[process_received_message/4,5]]></c>
+	function via a <c><![CDATA[spawn]]></c> to
+	perform the actual processing.</p>
         <p>For further information see the 
-          <seeerl marker="#process_received_message">process_received_message/4</seeerl> 
-          function.</p>
+	<seeerl marker="#process_received_message">process_received_message/4,5</seeerl> 
+	function.</p>
 
         <marker id="parse_digit_map"></marker>
       </desc>
