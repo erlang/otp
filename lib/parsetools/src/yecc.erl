@@ -2048,9 +2048,11 @@ rule_pos({Line, Column}) when is_integer(Line), is_integer(Column) ->
 output_prelude(Outport, Inport, St0) when St0#yecc.includefile =:= [] ->
     St5 = output_header(St0),
     #yecc{infile = Infile, module = Module} = St5,
-    St10 = fwrite(St5, <<"-module(~w).\n">>, [Module]),
+    St8 = output_file_directive(St5, Infile, 0),
+    St10 = fwrite(St8, <<"-module(~w).\n">>, [Module]),
+    St15 = output_file_directive(St10, St10#yecc.outfile, St10#yecc.line),
     St20 = 
-        fwrite(St10,
+        fwrite(St15,
                <<"-export([parse/1, parse_and_scan/1, format_error/1]).\n">>,
                []),
     {St25, N_lines_1, LastErlangCodeLine} = 

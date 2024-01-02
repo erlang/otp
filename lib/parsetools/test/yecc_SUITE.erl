@@ -346,8 +346,8 @@ syntax(Config) when is_list(Config) ->
                         {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -366,8 +366,8 @@ syntax(Config) when is_list(Config) ->
                         {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1697,8 +1697,8 @@ otp_7292(Config) when is_list(Config) ->
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 46 + SzYeccPre,
-            L2 = 55 + SzYeccPre
+            ?assertEqual(L1, 48 + SzYeccPre),
+            ?assertEqual(L2, 57 + SzYeccPre)
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1717,8 +1717,8 @@ otp_7292(Config) when is_list(Config) ->
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
                    [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 45 + SzYeccPre,
-            L2 = 54 + SzYeccPre
+            ?assertEqual(L1, 45 + SzYeccPre),
+            ?assertEqual(L2, 54 + SzYeccPre)
     end(),
 
     file:delete(YeccPre),
