@@ -667,6 +667,12 @@ token_tag2string(Tag, Mod, V) when is_atom(Tag) and is_atom(Mod) ->
 %% Parses a digit map body
 %%-----------------------------------------------------------------
 
+-spec parse_digit_map(DigitMapBody) ->
+          {ok, ParsedDigitMap} | {error, Reason} when
+      DigitMapBody   :: string(),
+      ParsedDigitMap :: term(),
+      Reason         :: term().
+
 parse_digit_map(DigitMapBody) ->
     megaco_digit_map:parse(DigitMapBody).
 

@@ -2167,19 +2167,13 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">parse_digit_map(DigitMapBody) -> {ok, ParsedDigitMap} | {error, Reason}</name>
+      <name name="parse_digit_map" arity="1" clause_i="1" since=""/>
       <fsummary>Parses a digit map body</fsummary>
-      <type>
-        <v>DigitMapBody       = string()</v>
-        <v>ParsedDigitMap     = parsed_digit_map()</v>
-        <v>parsed_digit_map() = term()</v>
-        <v>Reason             = term()</v>
-      </type>
       <desc>
         <p>Parses a digit map body</p>
         <p>Parses a digit map body, represented as a list of
-          characters, into a list of state transitions suited to
-          be evaluated by megaco:eval_digit_map/1,2.</p>
+	characters, into a list of state transitions suited to
+	be evaluated by megaco:eval_digit_map/1,2.</p>
 
         <marker id="eval_digit_map"></marker>
       </desc>
@@ -2254,7 +2248,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <v>pause()            = one_second() | ten_seconds()</v>
         <v>one_second()       = $s | $S</v>
         <v>ten_seconds()      = $l | $L</v>
-        <v>cancel    ()       = $z | $Z | cancel</v>
+        <v>cancel()           = $z | $Z | cancel</v>
         <v>Reason             = term()</v>
       </type>
       <desc>
