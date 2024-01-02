@@ -1759,6 +1759,7 @@ setup_tty(Config) ->
                                   "-kernel","prevent_overlapping_partitions","false",
                                   "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
                                  ] ++ Envs ++ ExtraArgs,
+                         wait_boot => 60_000,
                          detached => false
                        },
 
