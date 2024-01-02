@@ -14,17 +14,25 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1.6.1
+        uses: actions/create-github-app-token@v1.6.2
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PEM }}
 
+      - name: Fetch latest maint branch
+        id: latest-maint
+        run: |
+            VERSION=$(curl -Ls https://raw.githubusercontent.com/erlang/otp/master/otp_versions.table | head -1 | tr '.' '-' | awk -F'-' '{print $2}')
+            echo "BRANCH=maint-$VERSION" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4.1.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
+          ref: ${{ steps.latest-maint.BRANCH }}
 
       - name: Run GitHub Actions Version Updater
         uses: saadmk11/github-actions-version-updater@v0.8.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           pull_request_branch: "github/actions-update"
+          extra_workflow_locations: ".github/actions/build-base-image"
