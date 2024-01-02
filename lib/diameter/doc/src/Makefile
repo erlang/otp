@@ -39,7 +39,7 @@ XML_GEN_FILES = $(XMLDIR)/seehere.ent $(patsubst %.ent,$(XMLDIR)/%.ent,$(XML_EXT
 
 EXTRA_FILES=depend.mk $(XMLDIR)/seehere.ent
 
-NO_CHUNKS = diameter_app.xml diameter_transport.xml
+NO_CHUNKS = 
 
 # ----------------------------------------------------
 # Targets

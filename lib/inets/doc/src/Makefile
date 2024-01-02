@@ -68,7 +68,7 @@ XML_FILES = \
 SPEC_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = httpd_custom_api.xml
+NO_CHUNKS = 
 
 # Generate file specs for files with type specs.
 # These are needed because the standard script

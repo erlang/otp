@@ -29939,7 +29939,7 @@
               <p>The <c><![CDATA[refc]]></c> field in the <c><![CDATA[ErlDrvBinary]]></c> type
                 has been removed. The reference count can be accessed
                 via API functions. For more information see
-                the <c><![CDATA[erl_driver(1)]]></c> man page.</p>
+                the <c><![CDATA[erl_driver(3)]]></c> man page.</p>
             </item>
           </list>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>

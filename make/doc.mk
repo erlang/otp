@@ -28,9 +28,15 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 endif
 RELCHUNKSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
+ifeq ($(APPLICATION),erts)
+APP_DIR = $(ERL_TOP)/erts/preloaded
+APP_SRC_DIR = $(APP_DIR)/src
+APP_EBIN_DIR = $(APP_DIR)/ebin
+else
 APP_DIR = $(ERL_TOP)/lib/$(APPLICATION)
 APP_SRC_DIR = $(APP_DIR)/src
 APP_EBIN_DIR = $(APP_DIR)/ebin
+endif
 
 # ----------------------------------------------------
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \

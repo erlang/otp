@@ -90,7 +90,7 @@ callbacks(gen_event) ->
      {handle_info,2}, {terminate,2}, {code_change,3},
      {format_status,1}, {format_status,2}];
 callbacks(gen_statem) ->
-    [{init, 1}, {callback_mode, 0}, {state_name, 3},
+    [{init, 1}, {callback_mode, 0}, {'StateName', 3},
      {handle_event, 4}, {terminate, 3}, {code_change, 4},
      {format_status, 1}, {format_status, 2}];
 callbacks(supervisor_bridge) ->
@@ -107,7 +107,7 @@ optional_callbacks(gen_fsm) ->
 optional_callbacks(gen_event) ->
     [{handle_info, 2}, {terminate, 2}, {code_change, 3}, {format_status, 1}, {format_status, 2}];
 optional_callbacks(gen_statem) ->
-    [{state_name, 3}, {handle_event, 4},
+    [{'StateName', 3}, {handle_event, 4},
      {terminate, 3}, {code_change, 4}, {format_status, 1}, {format_status, 2}];
 optional_callbacks(supervisor_bridge) ->
     [];

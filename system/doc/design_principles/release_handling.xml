@@ -137,7 +137,7 @@
       information on how to do this, see Embedded System.</p>
     <p>For system reboots to work properly, it is also required that
       the system is started with heartbeat monitoring, see the
-      <c>erl(1)</c> manual page in ERTS and the <c>heart(3)</c>
+      <seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page in ERTS and the <c>heart(3)</c>
       manual page in Kernel</p>
     <p>Other requirements:</p>
     <list type="bulleted">
@@ -323,7 +323,7 @@
 	is needed for another reason, the <c>restart_emulator</c>
 	instruction is to be used instead.</p>
       <p>This instruction requires that the system is started with
-        heartbeat monitoring, see the <c>erl(1)</c> manual page in
+        heartbeat monitoring, see the <seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page in
 	ERTS and the <c>heart(3)</c> manual page in Kernel.</p>
       <p>The <c>restart_new_emulator</c> instruction must always be
         the first instruction in a relup. If the relup is

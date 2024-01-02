@@ -446,7 +446,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name since="">xm(ModSpec) -> void()</name>
+      <name since="">xm(ModSpec) -> term()</name>
       <fsummary>Cross-reference check a module.</fsummary>
       <type>
         <v>ModSpec = Module | Filename</v>
@@ -464,7 +464,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
       <name since="">y(File) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
-        <v>File = name()</v>
+        <v>File = <seeerl marker="filename"><c>filename:name()</c></seeerl></v>
         <v>YeccRet</v>
       </type>
       <desc>
@@ -483,7 +483,7 @@ yecc:file(File)</code>
       <name since="">y(File, Options) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
-        <v>File = name()</v>
+        <v>File = filename:name()</v>
         <v>Options, YeccRet</v>
       </type>
       <desc>

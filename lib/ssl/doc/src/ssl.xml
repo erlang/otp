@@ -276,13 +276,6 @@
       <name name="bloom_filter_bits"/>
      </datatype>
 
-     <datatype>
-      <name name="client_session_tickets"/>
-     </datatype>
-
-     <datatype>
-      <name name="server_session_tickets"/>
-     </datatype>
   </datatypes>
 
   <datatypes>

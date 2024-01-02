@@ -33,6 +33,10 @@
 
 -define(DEFAULT_PORT,21).
 
+-type connection() :: handle() | ct:target_name().
+-type handle() :: ct:handle().
+-export_type([connection/0, handle/0]).
+
 %%%=================================================================
 %%% API
 

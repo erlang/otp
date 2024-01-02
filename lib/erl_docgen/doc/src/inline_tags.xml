@@ -123,9 +123,9 @@
           within a module. Example:</p>
         <pre><![CDATA[
 <seeerl marker="stdlib:string">string(3)</seeerl>,
-<seeerl marker="stdlib:string#oldapi">Old API in string</seeerl>
+<seeerl marker="stdlib:string#obsolete-api-functions">Old API in string</seeerl>
 ]]></pre>
-        results in: <seeerl marker="stdlib:string">string(3)</seeerl>,<seeerl marker="stdlib:string#oldapi">Old API in string</seeerl>.
+        results in: <seeerl marker="stdlib:string">string(3)</seeerl>,<seeerl marker="stdlib:string#obsolete-api-functions">Old API in string</seeerl>.
       </item>
       <tag>&lt;seetype&gt;</tag>
       <item>

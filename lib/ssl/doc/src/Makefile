@@ -52,7 +52,7 @@ XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) $(XML_REF6_
 
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = ssl_crl_cache_api.xml ssl_session_cache_api.xml
+NO_CHUNKS = 
 
 # ----------------------------------------------------
 include $(ERL_TOP)/make/doc.mk

@@ -228,7 +228,7 @@
           <c>group_check</c>, <c>deprecated</c>, <c>description</c>,
           <c>verbosity</c>, <c>imports</c> and <c>module_identity</c>
           have to be specified to <c>erlc</c> using the syntax 
-          <c>+term</c>.  See <c>erlc(1)</c> for details.
+          <c>+term</c>. See <seecom marker="erts:erlc"><c>erlc(1)</c></seecom> for details.
           </p>
 
 	  <marker id="is_consistent"></marker>

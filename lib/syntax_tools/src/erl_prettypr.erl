@@ -52,7 +52,7 @@
 -define(NOHOOK, none).
 
 -type hook() :: 'none'
-              | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
+              | fun((syntaxTree(), _, _) -> prettypr:document()).
 -type clause_t() :: 'case_expr' | 'fun_expr'
                   | 'if_expr' | 'maybe_expr' | 'receive_expr' | 'try_expr'
                   | {'function', prettypr:document()}
@@ -193,19 +193,20 @@ set_ctxt_user(Ctxt, X) ->
 %% @spec format(Tree::syntaxTree()) -> string()
 %% @equiv format(Tree, [])
 
--spec format(erl_syntax:syntaxTree()) -> string().
+-spec format(syntaxTree()) -> string().
 
 format(Node) ->
     format(Node, []).
 
-
 %% =====================================================================
-%% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
-%%
 %% @type syntaxTree() = erl_syntax:syntaxTree().
 %%
 %% An abstract syntax tree. See the {@link erl_syntax} module for
 %% details.
+-type syntaxTree() :: erl_syntax:syntaxTree().
+
+%% =====================================================================
+%% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
 %%
 %% @type hook() = (syntaxTree(), context(), Continuation) ->
 %%                            prettypr:document()
@@ -280,7 +281,7 @@ format(Node) ->
 %% @see get_ctxt_user/1
 %% @see set_ctxt_user/2
 
--spec format(erl_syntax:syntaxTree(), [term()]) -> string().
+-spec format(syntaxTree(), [term()]) -> string().
 
 format(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
@@ -292,7 +293,7 @@ format(Node, Options) ->
 %% @spec best(Tree::syntaxTree()) -> empty | prettypr:document()
 %% @equiv best(Tree, [])
 
--spec best(erl_syntax:syntaxTree()) -> 'empty' | prettypr:document().
+-spec best(syntaxTree()) -> 'empty' | prettypr:document().
 
 best(Node) ->
     best(Node, []).
@@ -313,7 +314,7 @@ best(Node) ->
 %% @see format/2
 %% @see prettypr:best/3
 
--spec best(erl_syntax:syntaxTree(), [term()]) -> 'empty' | prettypr:document().
+-spec best(syntaxTree(), [term()]) -> 'empty' | prettypr:document().
 
 best(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
@@ -325,7 +326,7 @@ best(Node, Options) ->
 %% @spec layout(Tree::syntaxTree()) -> prettypr:document()
 %% @equiv layout(Tree, [])
 
--spec layout(erl_syntax:syntaxTree()) -> prettypr:document().
+-spec layout(syntaxTree()) -> prettypr:document().
 
 layout(Node) ->
     layout(Node, []).
@@ -350,7 +351,7 @@ layout(Node) ->
 %% @see format/2
 %% @see layout/1
 
--spec layout(erl_syntax:syntaxTree(), [term()]) -> prettypr:document().
+-spec layout(syntaxTree(), [term()]) -> prettypr:document().
 
 layout(Node, Options) ->
     lay(Node,

@@ -39,7 +39,6 @@
     <title>OTP 27</title>
 
     <section>
-      <marker id="fun_creator_pid"/>
       <title>Fun creator pid will always be local init process</title>
       <p>
         As of OTP 27, the functions

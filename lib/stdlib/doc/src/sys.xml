@@ -392,7 +392,7 @@
           <c>Class</c> and <c>Reason</c> indicate details of the exception.</p>
         <p>Function <c>system_get_state/1</c> is primarily useful for
           user-defined behaviors and modules that implement OTP
-          <seeerl marker="#special_process">special processes</seeerl>. 
+          <seeerl marker="#process-implementation-functions">special processes</seeerl>.
           The <c>gen_server</c>,
 	  <c>gen_statem</c>, and <c>gen_event</c> OTP
           behavior modules export this function, so callback modules for those
@@ -619,7 +619,7 @@
           <c>{callback_failed, StateFun, {Class, Reason}}</c>.</p>
         <p>Function <c>system_replace_state/2</c> is primarily useful for
           user-defined behaviors and modules that implement OTP
-          <seeerl marker="#special_process">special processes</seeerl>. The
+          <seeerl marker="#process-implementation-functions">special processes</seeerl>. The
           OTP behavior modules <c>gen_server</c>,
 	  <c>gen_statem</c>, and <c>gen_event</c>
 	  export this function, so callback modules for those
@@ -689,7 +689,6 @@
   <funcs>
     <fsdescription>
       <title>Process Implementation Functions</title>
-      <marker id="special_process"/>
       <p>The following functions are used when implementing a
         special process. This is an ordinary process, which does not use a
         standard behavior, but a process that understands the standard system

@@ -38,7 +38,7 @@
       for collecting information on a remote node, or for running a
       function with some specific side effects on the remote node.</p>
       <note><p>
-	<c>rpc:call()</c> and friends makes it quite hard to distinguish
+	<c>rpc:call/4</c> and friends makes it quite hard to distinguish
 	between successful results, raised exceptions, and other errors.
 	This cannot be changed due to compatibility reasons. As of OTP 23,
 	a new module <seeerl marker="erpc"><c>erpc</c></seeerl> was
@@ -161,13 +161,13 @@
 	    <seemfa marker="#call/5"><c>rpc:call(<anno>Node</anno>,
 	    <anno>Module</anno>, <anno>Function</anno>,
 	    <anno>Args</anno>, <anno>Timeout</anno>)</c></seemfa> with
-	    the exception that it also blocks other <c>rpc:block_call()</c>
+	    the exception that it also blocks other <c>rpc:block_call/5</c>
 	    operations from executing concurrently on the node
 	    <c><anno>Node</anno></c>.
 	  </p>
 	  <warning><p>
 	    Note that it also blocks other operations than just
-	    <c>rpc:block_call()</c> operations, so use it with care.
+	    <c>rpc:block_call/5</c> operations, so use it with care.
 	  </p></warning>
       </desc>
     </func>

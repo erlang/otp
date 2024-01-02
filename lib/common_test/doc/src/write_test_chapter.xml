@@ -672,7 +672,8 @@
       <c>init_per_suite</c> process. This group leader is the central I/O server
       process mentioned earlier. If, at a later time, <em>during parallel test case
       execution</em>, some event triggers process <c>P</c> to call
-      <c>io:format/1/2</c>, that call never returns (as the group leader
+      <seemfa marker="stdlib:io#format/1"><c>io:format/1/2</c></seemfa>,
+      that call never returns (as the group leader
       is in a non-responsive state) and causes <c>P</c> to hang.
     </p>
   </section>

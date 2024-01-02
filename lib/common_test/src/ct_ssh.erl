@@ -58,6 +58,8 @@
 -record(state, {ssh_ref, conn_type, target}).
 
 -type handle() :: pid().
+-type ssh_sftp_return() :: term().
+-type connection() :: handle() | ct:target_name().
 
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
@@ -311,6 +313,12 @@ aread(SSH, Handle, Len) ->
 aread(SSH, Server, Handle, Len) ->
     call(SSH, {aread,Server,Handle,Len}).
 
+-spec apread(SSH, Handle, Position, Length) -> Result when
+      SSH :: connection(),
+      Handle :: term(),
+      Position :: integer(),
+      Length :: integer(),
+      Result :: ssh_sftp_return().
 apread(SSH, Handle, Position, Length) ->
     call(SSH, {apread,sftp,Handle,Position,Length}).
 

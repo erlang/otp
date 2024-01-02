@@ -531,7 +531,7 @@ c_break(Bindings) ->
 	  Does not affect existing debugged processes.</p>
 	  <list type="bulleted">
 	    <item><p><em>Use range of +pc flag</em> - Uses the printable
-	      character range set by the <c>erl(1)</c> flag
+	      character range set by the <seecom marker="erts:erl"><c>erl(1)</c></seecom> flag
 	      <seecom marker="erts:erl#printable_character_range"><c>+pc</c></seecom>.</p>
 	    </item>
 	  </list>

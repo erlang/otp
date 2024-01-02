@@ -276,7 +276,7 @@ init(Parent) ->
             <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
             function should end in a value (that will be ignored)
             or an exception that will be handled by this module.
-            See <seeerl marker="#description">Description</seeerl>.
+            See <seeerl marker="proc_lib">Description</seeerl>.
           </p>
         </warning>
         <p>

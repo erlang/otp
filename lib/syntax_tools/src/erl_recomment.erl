@@ -37,6 +37,7 @@
 
 %% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
 %% tree. See the {@link erl_syntax} module for details.
+-type syntaxTree() :: erl_syntax:syntaxTree().
 
 %% =====================================================================
 %% @spec quick_recomment_forms(Forms, Comments::[Comment]) ->
@@ -54,7 +55,7 @@
 %% ("forms") are simply ignored.
 
 -spec quick_recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
-        erl_syntax:syntaxTree().
+        syntaxTree().
 
 quick_recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, false).
@@ -118,7 +119,7 @@ quick_recomment_forms(Tree, Cs) ->
 %% @see quick_recomment_forms/2
 
 -spec recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
-        erl_syntax:syntaxTree().
+        syntaxTree().
 
 recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, true).
@@ -341,8 +342,8 @@ check_file_attr_2(L) ->
 %%
 %% @see recomment_forms/2
 
--spec recomment_tree(erl_syntax:syntaxTree(), [erl_comment_scan:comment()]) ->
-        {erl_syntax:syntaxTree(), [erl_comment_scan:comment()]}.
+-spec recomment_tree(syntaxTree(), [erl_comment_scan:comment()]) ->
+        {syntaxTree(), [erl_comment_scan:comment()]}.
 
 recomment_tree(Tree, Cs) ->
     {Tree1, Cs1} = insert_comments(Cs, build_tree(Tree)),
@@ -612,7 +613,7 @@ anno(Location) ->
 	       max = 0           :: integer(),
 	       precomments  = [] :: [erl_comment_scan:comment()],
 	       postcomments = [] :: [erl_comment_scan:comment()],
-	       value             :: erl_syntax:syntaxTree()}).
+	       value             :: syntaxTree()}).
 
 -record(tree, {min = 0           :: integer(),
 	       max = 0           :: integer(),
@@ -625,7 +626,7 @@ anno(Location) ->
 
 -record(list, {min = 0           :: integer(),
 	       max = 0           :: integer(),
-	       subtrees = []     :: [erl_syntax:syntaxTree()]}).
+	       subtrees = []     :: [syntaxTree()]}).
 
 -type extendedSyntaxTree() :: #tree{} | #leaf{} | #list{}.
 

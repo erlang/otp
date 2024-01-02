@@ -34,6 +34,8 @@
 %% Other exports
 -export([format_status/2, parse_df/2]).
 
+-type time() :: pos_integer() | {TimeUnit :: erlang:time_unit(), Time :: pos_integer()}.
+
 -record(state, {threshold, timeout, os, diskdata = [],port}).
 
 %%----------------------------------------------------------------------
@@ -54,6 +56,8 @@ get_disk_info(Path) ->
 
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
+
+-spec set_check_interval(time()) -> ok.
 set_check_interval(Value) ->
     case param_type(disk_space_check_interval, Value) of
         true ->

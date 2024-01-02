@@ -197,7 +197,7 @@
 
           <tag><c>{debug_info, {Backend, Data}}</c></tag>
           <item>
-            <marker id="debug_info"></marker>
+            <marker id="debug_info_backend"></marker>
             <p>Includes custom debug information in the form of a
               <c>Backend</c> module with custom <c>Data</c> in the compiled beam module.
               The given module must implement a <c>debug_info/4</c> function

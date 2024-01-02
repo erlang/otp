@@ -506,7 +506,7 @@
     <xsl:variable name="title" select="."/>
     <xsl:call-template name="title_link">
       <xsl:with-param name="title"><xsl:apply-templates/></xsl:with-param>
-      <xsl:with-param name="link" select="$title"/>
+      <xsl:with-param name="link" select="erl:to-link($title)"/>
     </xsl:call-template>
   </xsl:template>
 
@@ -1198,8 +1198,9 @@
   <xsl:template match="erlref/section/section|cref/section/section|comref/section/section|fileref/section/section|appref/section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
+    <xsl:param name="link" select="erl:to-link(title)"/>
     <section>
-      <h4 id="{title}">
+      <h4 id="{link}">
         <xsl:value-of select="title"/>
       </h4>
       <div class="REFBODY rb-4">

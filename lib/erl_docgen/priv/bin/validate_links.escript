@@ -120,7 +120,8 @@ event({startElement, "datatype_title", []}, _Line, State, _) ->
     error = maps:find(characters,State),
     maps:put(characters,[],State);
 event({endElement, "datatype_title"}, _Line, State, _) ->
-    Id = lists:flatten(maps:get(characters,State)),
+    Id = string:lowercase(
+           re:replace(maps:get(characters,State),"[?: /()\"\r\n]","-",[global,{return,list}])),
     NewState = maps:put(markers, [Id|maps:get(markers, State, [])], State),
     maps:remove(characters,NewState);
 event({startElement, "description", _}, _Line, State, _) ->
