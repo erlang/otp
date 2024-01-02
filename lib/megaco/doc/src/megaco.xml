@@ -1708,11 +1708,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">info() -> Info</name>
+      <name name="info" arity="0" clause_i="1" since=""/>
       <fsummary>All the information of the application</fsummary>
-      <type>
-        <v>Info = [{Key, Value}]</v>
-      </type>
       <desc>
         <p>This function produces a list of information about the megaco 
           application. Such as users and their config, connections 

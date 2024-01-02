@@ -320,6 +320,11 @@ update_conn_info(ConnHandle, Item, Value) ->
 %% All information for the application
 %%-----------------------------------------------------------------
 
+-spec info() -> Info when
+      Info  :: [{Key, Value}],
+      Key   :: atom(),
+      Value :: term().
+
 info() ->
     Stats = 
 	case get_stats() of
