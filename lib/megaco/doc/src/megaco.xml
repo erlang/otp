@@ -2039,16 +2039,9 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
-      <name since="">process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
+      <name name="process_received_message" arity="4" clause_i="1" since=""/>
+      <name name="process_received_message" arity="5" clause_i="1" since=""/>
       <fsummary>Process a received message</fsummary>
-      <type>
-        <v>ReceiveHandle = #megaco_receive_handle{}</v>
-        <v>ControlPid    = pid()</v>
-        <v>SendHandle    = term()</v>
-        <v>BinMsg        = binary()</v>
-        <v>Extra         = term()</v>
-      </type>
       <desc>
         <p>Process a received message</p>
 
@@ -2064,18 +2057,21 @@ megaco_incr_timer() = #megaco_incr_timer{}
           callback functions will be invoked. See megaco_user for more
           info about the callback arguments.</p>
 
-        <p>The argument <c>Extra</c> is just an opaque data structure passed to the user 
+	  <p>The argument <c>Extra</c> is just an opaque data structure passed
+	  to the user 
           via the callback functions in the 
           <seeerl marker="megaco_user">user callback module</seeerl>. 
           Note however that if <c>Extra</c> has the value 
           <c>extra_undefined</c> the argument will be ignored (same as if 
           <c>process_received_message/4</c> had been called). 
           See the documentation for the behaviour of the callback module,
-          <seeerl marker="megaco_user">megaco_user</seeerl>, for more info. </p> 
-        <p>Note that all processing is done in the context of the calling 
+	  <seeerl marker="megaco_user">megaco_user</seeerl>,
+	  for more info. </p> 
+	  <p>Note that all processing is done in the context of the calling 
           process. A transport module could call this function via one of the
-          <c><![CDATA[spawn]]></c> functions (e.g. <c><![CDATA[spawn_opt]]></c>). See also 
-          <c><![CDATA[receive_message/4,5]]></c>.
+	  <c><![CDATA[spawn]]></c> functions
+	  (e.g. <c><![CDATA[spawn_opt]]></c>).
+	  See also <c><![CDATA[receive_message/4,5]]></c>.
           </p>
         <p>If the message cannot be decoded the following callback
           function will be invoked:</p>

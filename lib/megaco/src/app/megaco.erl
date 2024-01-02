@@ -601,11 +601,28 @@ cancel(ConnHandle, Reason) ->
 %% Process a received message
 %%-----------------------------------------------------------------
 
+-spec process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary().
+
 process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
     megaco_messenger:process_received_message(ReceiveHandle, ControlPid, 
 					      SendHandle, BinMsg).
 
-process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
+-spec process_received_message(ReceiveHandle,
+                               ControlPid, SendHandle, BinMsg, Extra) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary(),
+      Extra         :: term().
+
+process_received_message(ReceiveHandle,
+                         ControlPid, SendHandle, BinMsg, Extra) ->
     megaco_messenger:process_received_message(ReceiveHandle, ControlPid, 
 					      SendHandle, BinMsg, 
 					      Extra).
