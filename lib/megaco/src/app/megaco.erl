@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,6 +110,10 @@
               transaction_reply/0,
               protocol_version/0,
 
+              digit_map_value/0,
+              digit_map_kind/0,
+              digit_map_letter/0,
+
               property_parm/0,
               property_group/0,
               property_groups/0,
@@ -174,7 +178,11 @@
                           segment_send       |
                           max_pdu_size.
 
--type send_handle()       :: term().
+-type send_handle()         :: term().
+
+-type digit_map_value()     :: megaco_digit_map:digit_map_value().
+-type digit_map_kind()      :: megaco_digit_map:kind().
+-type digit_map_letter()    :: megaco_digit_map:letter().
 
 -type property_parm()       :: megaco_sdp:property_parm().
 -type property_group()      :: megaco_sdp:property_group().
@@ -634,8 +642,33 @@ parse_digit_map(DigitMapBody) ->
 %% Collect digit map letters according to the digit map
 %%-----------------------------------------------------------------
 
+-spec eval_digit_map(DigitMap) -> {ok, MatchResult} | {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      MatchResult    :: {Kind, Letters} | {Kind, Letters, Extra},
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Extra          :: digit_map_letter(),
+      Reason         :: term().
+
 eval_digit_map(DigitMap) ->
     megaco_digit_map:eval(DigitMap).
+
+-spec eval_digit_map(DigitMap, Timers) ->
+          {ok, MatchResult} | {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      Timers         :: Ignore | Reject,
+      Ignore         :: ignore |
+                        {ignore, digit_map_value()},
+      Reject         :: reject |
+                        {reject, digit_map_value()} |
+                        digit_map_value(),
+      MatchResult    :: {Kind, Letters} | {Kind, Letters, Extra},
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Extra          :: digit_map_letter(),
+      Reason         :: term().
 
 eval_digit_map(DigitMap, Timers) ->
     megaco_digit_map:eval(DigitMap, Timers).

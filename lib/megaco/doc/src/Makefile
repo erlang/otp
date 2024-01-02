@@ -47,6 +47,7 @@ XML_FILES = \
 SPECS_FILES = \
 	$(SPECDIR)/specs_megaco.xml \
 	$(SPECDIR)/specs_megaco_encoder.xml \
+	$(SPECDIR)/specs_megaco_digit_map.xml \
 	$(SPECDIR)/specs_megaco_sdp.xml \
 	$(SPECDIR)/specs_megaco_user.xml
 TOP_SPECS_FILE = specs.xml
@@ -113,10 +114,12 @@ $(SPECDIR)/specs_megaco_udp.xml:
 #	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 #		-o$(dir $@) -module megaco_user
 
+$(HTMLDIR)/megaco.html: megaco.xml
 $(HTMLDIR)/megaco_architecture.html: megaco_architecture.xml
 $(HTMLDIR)/megaco_codec_meas.html: megaco_codec_meas.xml
 $(HTMLDIR)/megaco_codec_transform.html: megaco_codec_transform.xml
 $(HTMLDIR)/megaco_debug.html: megaco_debug.xml
+$(HTMLDIR)/megaco_digit_map.html: megaco_digit_map.xml
 $(HTMLDIR)/megaco_encoder.html: megaco_encoder.xml
 $(HTMLDIR)/megaco_encode.html: megaco_encode.xml
 $(HTMLDIR)/megaco_examples.html: megaco_examples.xml
@@ -125,10 +128,9 @@ $(HTMLDIR)/megaco_intro.html: megaco_intro.xml
 $(HTMLDIR)/megaco_mib.html: megaco_mib.xml
 $(HTMLDIR)/megaco_performance.html: megaco_performance.xml
 $(HTMLDIR)/megaco_run.html: megaco_run.xml
-$(HTMLDIR)/megaco.html: megaco.xml
+$(HTMLDIR)/megaco_sdp.html: megaco_sdp.xml
 $(HTMLDIR)/megaco_tcp.html: megaco_tcp.xml
 $(HTMLDIR)/megaco_transport_mechanisms.html: megaco_transport_mechanisms.xml
 $(HTMLDIR)/megaco_transport.html: megaco_transport.xml
 $(HTMLDIR)/megaco_udp.html: megaco_udp.xml
 $(HTMLDIR)/megaco_user.html: megaco_user.xml
-$(HTMLDIR)/megaco_sdp.html: megaco_sdp.xml

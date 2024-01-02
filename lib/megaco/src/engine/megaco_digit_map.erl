@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,9 +60,19 @@
 -export([parse/1, eval/1, eval/2, report/2, test/2]). % Public
 -export([test_eval/2]).                               % Internal
 
+-export_type([
+              digit_map_value/0,
+              kind/0,
+              letter/0
+             ]).
+
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include("megaco_message_internal.hrl").
 -include_lib("megaco/src/text/megaco_text_tokens.hrl").
+
+-type digit_map_value() :: #'DigitMapValue'{}.
+-type kind()            :: full | unambiguous.
+-type letter()          :: $0..$9 | $a .. $k.
 
 -record(state_transition, {mode, next, cont}).
 

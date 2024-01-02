@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2023</year>
+      <year>2000</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -208,6 +208,50 @@
 	  May be any term.
 	</p>
       </desc>
+    </datatype>
+
+    <datatype>
+      <name name="digit_map_value"/>
+      <!--
+      <desc>
+	<p>
+	  TBD!
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="digit_map_value"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="digit_map_kind"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="digit_map_letter"/>
+      <!--
+      <desc>
+	<p>
+	  <c><![CDATA[$0..$9 | $a..$k]]></c>
+	</p>
+      </desc>
+      -->
     </datatype>
 
     <datatype>
@@ -2112,24 +2156,9 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">eval_digit_map(DigitMap) -> {ok, MatchResult} | {error, Reason}</name>
-      <name since="">eval_digit_map(DigitMap, Timers) -> {ok, MatchResult} | {error, Reason}</name>
+      <name name="eval_digit_map" arity="1" clause_i="1" since=""/>
+      <name name="eval_digit_map" arity="2" clause_i="1" since=""/>
       <fsummary>Collect digit map letters according to the digit map</fsummary>
-      <type>
-        <v>DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</v>
-        <v>parsed_digit_map() = term()</v>
-        <v>ParsedDigitMap     = term()</v>
-        <v>Timers             = ignore() | reject()</v>
-        <v>ignore()           = ignore | {ignore, digit_map_value()}</v>
-        <v>reject()           = reject | {reject, digit_map_value()} | digit_map_value()</v>
-        <v>MatchResult        = {Kind, Letters} | {Kind, Letters, Extra}</v>
-        <v>Kind               = kind()</v>
-        <v>kind()             = full | unambiguous</v>
-        <v>Letters            = [letter()]</v>
-        <v>letter()           = $0..$9 | $a .. $k</v>
-        <v>Extra              = letter()</v>
-        <v>Reason             = term()</v>
-      </type>
       <desc>
         <p>Collect digit map letters according to the digit map.</p>
         <p>When evaluating a digit map, a state machine waits for
