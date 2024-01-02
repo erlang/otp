@@ -406,7 +406,7 @@ peer:start(#{ name => peer:random_name(),
       <desc><p>Specifies start/start_link timeout in milliseconds. Can be set to
         <c>false</c>, allowing the peer to start asynchronously. If <c>{Pid, Tag}</c>
         is specified instead of a timeout, the peer will send <c>Tag</c> to the
-        requested process.</p></desc>
+        requested process. The default is <c>15_000</c> ms.</p></desc>
     </datatype>
     <datatype>
       <name name="disconnect_timeout"/>
