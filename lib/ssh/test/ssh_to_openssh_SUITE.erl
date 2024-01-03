@@ -23,7 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
--include_lib("ssh/src/ssh_transport.hrl").
+-include("ssh_transport.hrl").
 
 -export([
          suite/0,

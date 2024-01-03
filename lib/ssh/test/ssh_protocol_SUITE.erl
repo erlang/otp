@@ -834,7 +834,7 @@ kex_strict_negotiated(Config0) ->
     #{level := Level} = logger:get_primary_config(),
     logger:set_primary_config(level, notice),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
-    {algorithms, A} = ssh:connection_info(ConnRef, algorithms),
+    {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
     {ok, Reports} = ssh_test_lib:get_reports(Pid),
     ct:log("Reports = ~p", [Reports]),
