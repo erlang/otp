@@ -69,7 +69,6 @@
 %% Whole leading lines of whitespace are however skipped.
 
 -module(edoc_wiki).
--moduledoc false.
 
 -export([parse_xml/2, expand_text/2]).
 

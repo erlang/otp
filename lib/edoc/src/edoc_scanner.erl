@@ -25,7 +25,6 @@
 %% {@link //stdlib/erl_scan}.
 
 -module(edoc_scanner).
--moduledoc false.
 
 %% NOTE: the interface to this module is ancient and should be updated.
 %% Please do not regard these exported functions as stable. Their

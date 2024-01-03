@@ -29,7 +29,6 @@
 %% @doc Datatype representation for EDoc.
 
 -module(edoc_types).
--moduledoc false.
 
 -export([is_predefined/2, is_new_predefined/2,
          to_ref/1, to_xml/3, to_label/1, arg_names/1, set_arg_names/2,

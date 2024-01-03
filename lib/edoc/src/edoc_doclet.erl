@@ -35,11 +35,6 @@
 %% TODO: generate decent indexes over modules, methods, records, etc.
 
 -module(edoc_doclet).
--moduledoc """
-Standard doclet module for EDoc.
-
-_See also: _`m:edoc`.
-""".
 
 -export([run/2]).
 
@@ -65,29 +60,24 @@ _See also: _`m:edoc`.
 	      doclet_gen/0,
 	      doclet_toc/0]).
 
--doc "Doclet commands.".
 -type command() :: doclet_gen()
 		 | doclet_toc().
 %% Doclet commands.
 
--doc "Context for doclets.".
 -type context() :: #doclet_context{dir :: string(),
 				   env :: edoc:env(),
 				   opts :: [term()]}.
 %% Context for doclets.
 
--doc "Doclet command.".
 -type doclet_gen() :: #doclet_gen{sources :: [string()],
 				  app :: no_app | atom(),
 				  modules :: [module()]}.
 %% Doclet command.
 
--doc "Doclet command.".
 -type doclet_toc() :: #doclet_toc{paths :: [string()],
 				  indir :: string()}.
 %% Doclet command.
 
--doc "Doclet entrypoint.".
 -callback run(command(), context()) -> ok.
 %% Doclet entrypoint.
 
@@ -146,39 +136,6 @@ _See also: _`m:edoc`.
 %% INHERIT-OPTIONS: copy_stylesheet/2
 %% INHERIT-OPTIONS: stylesheet/1
 
--doc """
-Main doclet entry point. See the file [`edoc_doclet.hrl`](edoc_doclet.hrl) for
-the data structures used for passing parameters.
-
-Also see `edoc:layout/2` for layout-related options, and `edoc:get_doc/2` for
-options related to reading source files.
-
-Options:
-
-- **`{file_suffix, string()}`** - Specifies the suffix used for output files.
-  The default value is `".html"`.
-
-- **`{hidden, boolean()}`** - If the value is `true`, documentation of hidden
-  modules and functions will also be included. The default value is `false`.
-
-- **`{overview, `[`edoc:filename()`](`t:edoc:filename/0`)`}`** - Specifies the
-  name of the overview-file. By default, this doclet looks for a file
-  `"overview.edoc"` in the target directory.
-
-- **`{private, boolean()}`** - If the value is `true`, documentation of private
-  modules and functions will also be included. The default value is `false`.
-
-- **`{stylesheet, string()}`** - Specifies the URI used for referencing the
-  stylesheet. The default value is `"stylesheet.css"`. If an empty string is
-  specified, no stylesheet reference will be generated.
-
-- **`{stylesheet_file, `[`edoc:filename()`](`t:edoc:filename/0`)`}`** -
-  Specifies the name of the stylesheet file. By default, this doclet uses the
-  file `"stylesheet.css"` in the `priv` subdirectory of the EDoc installation
-  directory. The named file will be copied to the target directory.
-
-- **`{title, string()}`** - Specifies the title of the overview-page.
-""".
 -spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{}=Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
@@ -192,13 +149,6 @@ run(#doclet_toc{}=Cmd, Ctxt) ->
 %% `Modules' are sorted lists of atoms without duplicates. (They
 %% usually include the data from the edoc-info file in the target
 %% directory, if it exists.)
--doc """
-gen(Sources,App,Modules,Ctxt)
-
-`Sources` is the list of inputs in the order they were found. `Modules` are
-sorted lists of atoms without duplicates. (They usually include the data from
-the edoc-info file in the target directory, if it exists.)
-""".
 gen(Sources, App, Modules, Ctxt) ->
     Dir = Ctxt#doclet_context.dir,
     Env = Ctxt#doclet_context.env,

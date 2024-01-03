@@ -28,11 +28,6 @@
 %% @doc EDoc documentation extraction.
 
 -module(edoc_extract).
--moduledoc """
-EDoc documentation extraction.
-
-_See also: _`m:edoc`.
-""".
 
 -export([source/3, source/4, source/5,
 	 header/3, header/4, header/5,
@@ -55,12 +50,6 @@ _See also: _`m:edoc`.
 %% @see edoc:read_source/2
 %% @see source/4
 
--doc """
-Like `source/5`, but reads the syntax tree and the comments from the specified
-file.
-
-_See also: _`source/4`, `edoc:read_comments/2`, `edoc:read_source/2`.
-""".
 -spec source(File, Env, Opts) -> R when
       File :: filename(),
       Env :: edoc:env(),
@@ -82,14 +71,6 @@ source(File, Env, Opts) ->
 %% @see source/4
 %% @see //syntax_tools/erl_recomment
 
--doc """
-Like `source/4`, but first inserts the given comments in the syntax trees. The
-syntax trees must contain valid position information. (Cf.
-`edoc:read_comments/2`.)
-
-_See also: _[//syntax_tools/erl_recomment](`m:erl_recomment`), `source/3`,
-`source/4`, `edoc:read_comments/2`, `edoc:read_source/2`.
-""".
 -spec source(Forms, Comments, File, Env, Opts) -> R when
       Forms :: erl_syntax:forms(),
       Comments :: [edoc:comment()],
@@ -128,19 +109,6 @@ source(Forms, Comments, File, Env, Opts) ->
 %% INHERIT-OPTIONS: add_macro_defs/3
 %% INHERIT-OPTIONS: edoc_data:module/4
 
--doc """
-Extracts EDoc documentation from commented source code syntax trees. The given
-`Forms` must be a single syntax tree of type `form_list`, or a list of syntax
-trees representing "program forms" (cf. `edoc:read_source/2`. `Env` is an
-environment created by `edoc_lib:get_doc_env/3`. The `File` argument is used for
-error reporting and output file name generation only.
-
-See `edoc:get_doc/2` for descriptions of the `def`, `hidden`, `private`, and
-`todo` options.
-
-_See also: _[//syntax_tools/erl_recomment](`m:erl_recomment`), `source/5`,
-`edoc:read_comments/2`, `edoc:read_source/2`.
-""".
 -spec source(Forms, File, Env, Opts) -> R when
       Forms :: erl_syntax:forms(),
       File :: filename(),
@@ -181,12 +149,6 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
 %% @see edoc:read_source/2
 %% @see header/4
 
--doc """
-Similar to `header/5`, but reads the syntax tree and the comments from the
-specified file.
-
-_See also: _`header/4`, `edoc:read_comments/2`, `edoc:read_source/2`.
-""".
 -spec header(File, Env, Opts) -> edoc:entry_data() when
       File :: filename(),
       Env :: edoc:env(),
@@ -204,14 +166,6 @@ header(File, Env, Opts) ->
 %% @see header/4
 %% @see //syntax_tools/erl_recomment
 
--doc """
-Similar to `header/4`, but first inserts the given comments in the syntax trees.
-The syntax trees must contain valid position information. (Cf.
-`edoc:read_comments/2`.)
-
-_See also: _[//syntax_tools/erl_recomment](`m:erl_recomment`), `header/3`,
-`header/4`.
-""".
 -spec header(Forms, Comments, File, Env, Opts) -> edoc:entry_data() when
       Forms :: erl_syntax:forms(),
       Comments :: [edoc:comment()],
@@ -234,15 +188,6 @@ header(Forms, Comments, File, Env, Opts) ->
 %% @see header/5
 %% @see //syntax_tools/erl_recomment
 
--doc """
-Extracts EDoc documentation from commented header file syntax trees. Similar to
-`source/5`, but ignores any documentation that occurs before a module
-declaration or a function definition. (Warning messages are printed if content
-may be ignored.) `Env` is assumed to already be set up with a suitable module
-context.
-
-_See also: _[//syntax_tools/erl_recomment](`m:erl_recomment`), `header/5`.
-""".
 -spec header(Forms, File, Env, Opts) -> edoc:entry_data() when
       Forms :: erl_syntax:forms(),
       File :: filename(),
@@ -287,15 +232,6 @@ add_macro_defs(Defs0, Opts, Env) ->
 
 %% INHERIT-OPTIONS: text/4
 
--doc """
-Reads a text file and returns the list of tags in the file. Any lines of text
-before the first tag are ignored. `Env` is an environment created by
-`edoc_lib:get_doc_env/3`. Upon error, `Reason` is an atom returned from the call
-to [`//kernel/file:read_file/1`](`file:read_file/1`) or the atom
-'invalid_unicode'.
-
-See `text/4` for options.
-""".
 -spec file(File, Context, Env, Opts) -> {ok, Tags} | {error, Reason} when
       File :: filename(),
       Context :: context(),
@@ -327,12 +263,6 @@ file(File, Context, Env, Opts) ->
 %% INHERIT-OPTIONS: add_macro_defs/3
 %% DEFER-OPTIONS: source/4
 
--doc """
-Returns the list of tags in the text. Any lines of text before the first tag are
-ignored. `Env` is an environment created by `edoc_lib:get_doc_env/3`.
-
-See `source/4` for a description of the `def` option.
-""".
 -spec text(Text, Context, Env, Opts) -> Tags when
       Text :: string(),
       Context :: context(),
@@ -364,10 +294,6 @@ text(Text, Context, Env, Opts, Where) ->
 %% represented by the list of forms. Exports are guaranteed to exist in
 %% the set of defined names.
 
--doc """
-Initialises a module-info record with data about the module represented by the
-list of forms. Exports are guaranteed to exist in the set of defined names.
-""".
 -spec get_module_info(Forms, File) -> edoc:module_meta() when
       Forms :: erl_syntax:forms(),
       File :: filename().
@@ -417,10 +343,6 @@ get_list_keyval(Key, L) ->
 %% @doc Preprocessing: copies any precomments on forms to standalone
 %% comments, and removes "invisible" forms from the list.
 
--doc """
-Preprocessing: copies any precomments on forms to standalone comments, and
-removes "invisible" forms from the list.
-""".
 -spec preprocess_forms(Forms) -> Forms when
       Forms :: erl_syntax:forms().
 preprocess_forms(Tree) ->
@@ -596,11 +518,6 @@ spec_fun_arity(ModName, Form) ->
 %% foo" -> "\s\s\s foo"', but `"% % foo" -> "\s % foo"', since the
 %% second `%' is preceded by whitespace.
 
--doc """
-Replaces leading `%` characters by spaces. For example,
-`"%%% foo" -> "\s\s\s foo"`, but `"% % foo" -> "\s % foo"`, since the second `%`
-is preceded by whitespace.
-""".
 -spec remove_percent_chars(string()) -> string().
 remove_percent_chars([$% | Cs]) -> [$\s | remove_percent_chars(Cs)];
 remove_percent_chars(Cs) -> Cs.
@@ -781,11 +698,6 @@ check_tags_1(Ts, Tags, Where) ->
 %% `Specs', that is `-spec' attributes, take precedence before any `@spec' tags.
 %% @see selected_specs/2
 -define(function(_F, _A), {_F, _A}).
--doc """
-select_spec(Ts,Where,Specs)
-
-_See also: _`selected_specs/2`.
-""".
 select_spec(Ts, {_, ?function(_F, _A)}, Specs) ->
     case Specs of
 	[] ->
@@ -827,26 +739,6 @@ file_macros(_Context, Env) ->
 %% The same thing using -type:
 %%```-type t() :: t1(). % Some docs of t/0;
 %%   Further docs of t/0.'''
--doc """
-find_type_docs(Forms0,Comments,Env,File)
-
-Extracts what will be documentation of Erlang types. Returns a dict of \{Name,
-Doc\} where Name is \{TypeName, Arity\}.
-
-The idea is to mimic how the @type tag works. Using @type:
-
-```text
-    @type t() = t1(). Some docs of t/0;
-    Further docs of t/0.
-```
-
-The same thing using -type:
-
-```text
-    -type t() :: t1(). % Some docs of t/0;
-    Further docs of t/0.
-```
-""".
 find_type_docs(Forms0, Comments, Env, File) ->
     Tree = erl_recomment:recomment_forms(Forms0, Comments),
     Forms = preprocess_forms(Tree),

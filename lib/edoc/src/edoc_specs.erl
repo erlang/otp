@@ -16,11 +16,10 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-
+%% @private
 %% @doc EDoc interface to Erlang specifications and types.
 
 -module(edoc_specs).
--moduledoc false.
 
 -export([type/2, spec/1, dummy_spec/1, docs/2]).
 

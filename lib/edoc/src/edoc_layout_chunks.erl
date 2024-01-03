@@ -39,21 +39,6 @@
 %% @see edoc_doclet_chunks
 %% @end
 -module(edoc_layout_chunks).
--moduledoc """
-Convert EDoc module documentation to an
-[EEP-48](https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html)`docs_v1`
-chunk.
-
-This layout is only expected to work with `m:edoc_doclet_chunks`. Section
-[Using the EDoc API](chapter.html#Using_the_EDoc_API) in the EDoc User's Guide
-shows an example of using this module.
-
-This module breaks the convention stated in `edoc_doclet` to not rely on
-`edoc.hrl` in doclets and layouts. It uses `#entry{}` records directly to
-recover information that is not otherwise available to layouts.
-
-_See also: _`m:edoc_doclet_chunks`, [//stdlib/shell_docs](`m:shell_docs`).
-""".
 
 %-behaviour(edoc_layout).
 -export([module/2]).
@@ -73,7 +58,6 @@ _See also: _`m:edoc_doclet_chunks`, [//stdlib/shell_docs](`m:shell_docs`).
 -include_lib("kernel/include/eep48.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
--doc "The Docs v1 chunk according to EEP 48.".
 -type docs_v1() :: #docs_v1{anno :: erl_anno:anno(),
                             beam_language :: beam_language(),
                             format :: mime_type(),
@@ -82,10 +66,6 @@ _See also: _`m:edoc_doclet_chunks`, [//stdlib/shell_docs](`m:shell_docs`).
                             docs :: [docs_v1_entry()]}.
 %% The Docs v1 chunk according to EEP 48.
 
--doc """
-A tuple equivalent to the `#docs_v1_entry{}` record, but with the record name
-field skipped.
-""".
 -type docs_v1_entry() :: {_KindNameArity :: {atom(), atom(), arity()},
                           _Anno :: erl_anno:anno(),
                           _Signature :: signature(),
@@ -102,11 +82,6 @@ field skipped.
 -type metadata() :: map().
 -type signature() :: [binary()].
 
--doc """
-Subtype of [`xmerl_xpath:docNodes()`](`t:xmerl_xpath:docNodes/0`). It
-corresponds to `#xmlElement.content` as defined by `xmerl.hrl`, sans the
-`#xmlDecl{}`.
-""".
 -type xmerl_doc_node() :: #xmlComment{}
                         | #xmlElement{}
                         | #xmlPI{}
@@ -126,7 +101,6 @@ corresponds to `#xmlElement.content` as defined by `xmerl.hrl`, sans the
 %%
 
 %% @doc Convert EDoc module documentation to an EEP-48 style doc chunk.
--doc "Convert EDoc module documentation to an EEP-48 style doc chunk.".
 -spec module(edoc:edoc_module(), proplists:proplist()) -> binary().
 module(Doc, Options) ->
     %% Require `entries' or fail.
@@ -641,10 +615,6 @@ inconsistent_docgen_attrs(Attrs) ->
     erlang:error({inconsistent_docgen_attrs, Attrs}).
 
 %% @doc `Rel' is actually a stringified {@link edoc_refs:docgen_rel()}.
--doc """
-`Rel` is actually a stringified
-[`edoc_refs:docgen_rel()`](`t:edoc_refs:docgen_rel/0`).
-""".
 -spec expand_docgen_rel(Rel) -> string() when
       Rel :: string().
 expand_docgen_rel(Rel)

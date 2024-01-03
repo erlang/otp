@@ -30,7 +30,6 @@
 %% <a href="../priv/edoc.dtd">`edoc.dtd'</a> for details.
 
 -module(edoc_data).
--moduledoc false.
 
 -export([module/4, overview/4, type/3]).
 

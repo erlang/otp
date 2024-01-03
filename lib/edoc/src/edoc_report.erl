@@ -29,7 +29,6 @@
 %% @doc EDoc verbosity/error reporting.
 
 -module(edoc_report).
--moduledoc false.
 
 %% Avoid warning for local functions error/{1,2,3} clashing with autoimported BIF.
 -compile({no_auto_import, [error/1, error/2, error/3]}).

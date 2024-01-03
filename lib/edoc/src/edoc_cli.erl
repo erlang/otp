@@ -1,6 +1,6 @@
+%% @private
 %% @doc EDoc command line interface
 -module(edoc_cli).
--moduledoc false.
 -export([main/1]).
 
 %% TODO: accept `private'/`hidden' and forward accordingly
