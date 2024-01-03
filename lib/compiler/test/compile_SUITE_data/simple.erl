@@ -28,6 +28,7 @@
 test() ->
     passed.
 
+-doc {file, "unicode-0.md"}.
 unicode() ->
     {"это",'спутник'}.
 
@@ -37,6 +38,9 @@ unicode() ->
 -ifdef(need_foo).
 -include("simple.hrl").
 
+-ifdef(include_generated).
+-doc {file, "foo.md"}.
+-endif.
 foo() ->
     {?included_value, ?foo_value}.
 

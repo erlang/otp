@@ -20,6 +20,8 @@
 -module(beam_lib).
 -behaviour(gen_server).
 
+-include_lib("kernel/include/eep48.hrl").
+
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
@@ -71,18 +73,20 @@
 -type label()     :: integer().
 
 -type chunkid()   :: nonempty_string(). % approximation of the strings below
-%% "Abst" | "Dbgi" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom" | "AtU8".
+%% "Abst" | "Dbgi" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom" | "AtU8" | "Docs"
 -type chunkname() :: 'abstract_code' | 'debug_info'
                    | 'attributes' | 'compile_info'
                    | 'exports' | 'labeled_exports'
                    | 'imports' | 'indexed_imports'
                    | 'locals' | 'labeled_locals'
-                   | 'atoms'.
+                   | 'atoms' | 'documentation'.
 -type chunkref()  :: chunkname() | chunkid().
 
 -type attrib_entry()   :: {Attribute :: atom(), [AttributeValue :: term()]}.
 -type compinfo_entry() :: {InfoKey :: atom(), term()}.
 -type labeled_entry()  :: {Function :: atom(), arity(), label()}.
+
+-type docs() :: #docs_v1{}.
 
 -type chunkdata() :: {chunkid(), dataB()}
                    | {'abstract_code', abst_code()}
@@ -95,7 +99,8 @@
                    | {'indexed_imports', [{index(), module(), Function :: atom(), arity()}]}
                    | {'locals', [{atom(), arity()}]}
                    | {'labeled_locals', [labeled_entry()]}
-                   | {'atoms', [{integer(), atom()}]}.
+                   | {'atoms', [{integer(), atom()}]}
+                   | {'documentation', docs()}.
 
 %% Error reasons
 -type info_rsn()  :: {'chunk_too_big', file:filename(),
@@ -744,6 +749,18 @@ chunk_to_data(debug_info=Id, Chunk, File, _Cs, AtomTable, Mod) ->
                     {AtomTable, {Id, anno_from_term(Term)}}
 	    end
     end;
+chunk_to_data(documentation=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
+    try
+        case binary_to_term(Chunk) of
+            #docs_v1{} = Term ->
+                {AtomTable, {Id, Term}};
+            _ ->
+                error({invalid_chunk, File, chunk_name_to_id(Id, File)})
+        end
+    catch
+	error:badarg ->
+	    error({invalid_chunk, File, chunk_name_to_id(Id, File)})
+    end;
 chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
     %% Before Erlang/OTP 20.0.
     case Chunk of
@@ -793,6 +810,7 @@ chunk_name_to_id(attributes, _)      -> "Attr";
 chunk_name_to_id(abstract_code, _)   -> "Abst";
 chunk_name_to_id(debug_info, _)      -> "Dbgi";
 chunk_name_to_id(compile_info, _)    -> "CInf";
+chunk_name_to_id(documentation, _)   -> "Docs";
 chunk_name_to_id(Other, File) -> 
     error({unknown_chunk, File, Other}).
 

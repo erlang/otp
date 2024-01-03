@@ -408,15 +408,22 @@ makedep(Config) when is_list(Config) ->
 
     %% Generate dependencies and compile normally at the same time.
     GeneratedHrl = filename:join(PrivDir, "generated.hrl"),
-    ok = file:write_file(GeneratedHrl, ""),
-    {ok,simple} = compile:file(Simple, [report,makedep_side_effect,
-                                        {makedep_output,Target},
-                                        {i,PrivDir}|IncludeOptions]),
-    {ok,Mf9} = file:read_file(Target),
-    BasicMf3 = iolist_to_binary([string:trim(BasicMf2), " ", filename:join(PrivDir, "generated.hrl"), "\n"]),
-    BasicMf3 = makedep_canonicalize_result(Mf9, DataDir),
-    error = compile:file(Simple, [report,makedep_side_effect,
-                                  {makedep_output,PrivDir}|IncludeOptions]),
+    GeneratedDoc = filename:join(proplists:get_value(data_dir, Config), "foo.md"),
+    try
+        ok = file:write_file(GeneratedHrl, ""),
+        ok = file:write_file(GeneratedDoc, ""),
+        {ok,simple} = compile:file(Simple, [report,makedep_side_effect,
+                                            {makedep_output,Target},
+                                            {i,PrivDir}|IncludeOptions]),
+        {ok,Mf9} = file:read_file(Target),
+        BasicMf3 = iolist_to_binary([string:trim(BasicMf2), " $(srcdir)/foo.md ", filename:join(PrivDir, "generated.hrl"), "\n"]),
+        BasicMf3 = makedep_canonicalize_result(Mf9, DataDir),
+        error = compile:file(Simple, [report,makedep_side_effect,
+                                      {makedep_output,PrivDir}|IncludeOptions])
+    after
+        ok = file:delete(GeneratedHrl),
+        ok = file:delete(GeneratedDoc)
+    end,
 
     %% Cover generation of long lines that must be split.
     CompileModule = filename:join(code:lib_dir(compiler), "src/compile.erl"),
@@ -432,7 +439,6 @@ makedep(Config) when is_list(Config) ->
     error = compile:file(Simple, [report,makedep,{makedep_output,a_bad_output_device}]),
 
     ok = file:delete(Target),
-    ok = file:delete(GeneratedHrl),
     ok = file:del_dir(filename:dirname(Target)),
     ok.
 
@@ -707,7 +713,6 @@ encrypted_abstr_1(Simple, Target) ->
     erpc:call(
       Node,
       fun() ->
-              {ok,OldCwd} = file:get_cwd(),
               ok = file:set_cwd(TargetDir),
 
               error = compile:file(Simple, [encrypt_debug_info,report]),

@@ -94,6 +94,9 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 
+$(XMLDIR)/%.xml: %.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 

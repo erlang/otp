@@ -84,7 +84,7 @@ KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
-ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+ERL_COMPILE_FLAGS += +debug_info +no_docs -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 ifeq ($(ERL_DETERMINISTIC),yes)
 	ERL_COMPILE_FLAGS += deterministic

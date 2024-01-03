@@ -211,13 +211,12 @@ parse_mod2app(Filename) ->
 
 validate_links({Filename, Links}, CachedFiles) ->
     %% io:format("~s ~p~n",[Links]),
-    lists:foreach(
-      fun({LinkType, TypeLinks}) ->
-              lists:foreach(
-                fun({Line,Link}) ->
-                        validate_link(Filename, LinkType, Line, Link, CachedFiles)
-                end, TypeLinks)
-      end, maps:to_list(maps:filter(fun(Key,_) -> not is_atom(Key) end,Links))).
+    maps:foreach(fun(LinkType, TypeLinks) when not is_atom(LinkType) ->
+                       lists:foreach(fun({Line,Link}) ->
+                                             validate_link(Filename, LinkType, Line, Link, CachedFiles)
+                                     end, TypeLinks);
+                    (_, _) -> ok
+                 end, Links).
 validate_link(Filename, LinkType, Line, [{"marker",Marker}], CachedFiles) ->
     validate_link(Filename, LinkType, Line, Marker, CachedFiles);
 validate_link(Filename, "seemfa", Line, Link, CachedFiles) ->

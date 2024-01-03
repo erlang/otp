@@ -1418,6 +1418,47 @@ build_attribute({atom,Aa,file}, Val) ->
 	    {attribute,Aa,file,{Name,Line}};
         [Other|_] -> error_bad_decl(Other, file)
     end;
+build_attribute({atom,Aa,Attr}, Val) when Attr =:= doc; Attr =:= moduledoc ->
+    case Val of
+        [{atom,_,Value}] when is_boolean(Value) ->
+	    {attribute,Aa,Attr,Value};
+        [{atom,_,hidden=Value}]  ->
+	    {attribute,Aa,Attr,Value};
+	[{string,_,Value}] ->
+	    {attribute,Aa,Attr,Value};
+        [{bin,_, _} = Bin] ->
+            case term(Bin) of
+                Value when is_binary(Value) ->
+                    {attribute,Aa,Attr,Value};
+                _Else ->
+                    error_bad_decl(Bin, doc)
+            end;
+	[{map,_,Pairs} = Expr] ->
+            Value =
+                try
+                    maps:from_list(
+                      lists:map(
+                        fun({map_field_assoc,_,K,V}) ->
+                                case normalise(K) of
+                                    equiv when Attr =:= doc, element(1, V) =:= call ->
+                                        {equiv, V};
+                                    NormalK ->
+                                        {NormalK, normalise(attribute_farity(V))}
+                                end;
+                           (E) ->
+                                throw({badarg, E})
+                        end, Pairs))
+                catch {badarg,E} ->
+                        ret_abstr_err(E, "bad attribute");
+                      _:_ ->
+                        ret_abstr_err(Expr, "bad attribute")
+                end,
+            {attribute,Aa,Attr,Value};
+        [{tuple,_,[{atom,_,file},{string,_,Value}]}] ->
+            {attribute,Aa,Attr,{file,Value}};
+	[Other|_] ->
+            error_bad_decl(Other, doc)
+    end;
 build_attribute({atom,Aa,Attr}, Val) ->
     case Val of
 	[Expr0] ->

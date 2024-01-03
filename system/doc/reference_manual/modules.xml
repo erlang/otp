@@ -104,6 +104,18 @@ fact(0) ->           %  |
             functions from. <c>Functions</c> is a list similar as for
             <c>export</c>.</p>
         </item>
+        <tag><c>-moduledoc(Documentation).</c> or <c>-moduledoc Documentation.</c></tag>
+        <item>
+            <p>The user documentation for this module. The allowed values for
+              <c>Documentation</c> are the same as for
+              <seeguide marker="#documentation-attributes"><c>-doc</c></seeguide>.
+            </p>
+            <p>See the
+              <seeguide marker="documentation">Documentation</seeguide>
+              guide in the Erlang Reference Manual for more details about how
+              to use <c>-moduledoc</c>.
+            </p>
+        </item>
         <tag><c>-compile(Options).</c></tag>
         <item>
           <p>Compiler options. <c>Options</c> is a single option
@@ -247,6 +259,54 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	    which is not to be further updated.
 	</p>
     </section>
+
+    <section>
+        <title>Documentation attributes</title>
+        <p>The module attribute <c>-doc(Documentation)</c> is used to provide user
+          documentation for a function/type/callback: </p>
+        <pre>
+-doc("Example documentation").
+example() -> ok.
+        </pre>
+        <p>The attribute should be placed just before the entity it documents.The parenthesis are
+        optional around <c>Documentation</c>. The allowed values for <c>Documentation</c> are:</p>
+        <taglist>
+            <tag><seeguide marker="data_types#string">literal string</seeguide> or <seeguide marker="expressions#unicode-segments">utf-8 encoded binary string</seeguide></tag>
+            <item><p>The string documenting the entity. Any literal string is allowed,
+              so both <seeguide marker="data_types#tqstring">triple quoted strings</seeguide>
+              and <seeguide marker="data_types#sigil">sigils</seeguide> that translate to literal
+              strings can be used. The following examples are equivalent:</p>
+              <code>
+-doc("Example \"docs\"").
+-doc(&lt;&lt;"Example \"docs\""/utf8>>).
+-doc ~S/Example "docs"/.
+-doc """
+   Example "docs"
+   """
+-doc ~B|Example "docs"|.
+              </code>
+              <p>For clarity it is recommended to use either normal <c>"strings"</c> or
+                triple quoted strings for documentation attributes.</p>
+            </item>
+            <tag><c>{file, </c><seetype marker="kernel:file#filename"><c>file:filename()</c></seetype><c>}</c></tag>
+            <item>Read the contents of filename and use that as the documentation string.</item>
+            <tag><c>false</c></tag>
+            <item>Set the current entity as hidden, that is, it should not be listed as an
+              available function and has no documentation.</item>
+            <tag><c>Metadata :: </c><seetype marker="erts:erlang#map"><c>map()</c></seetype></tag>
+            <item>
+                <p>
+                    Metadata about the current entity. Some of the keys in the
+                    metadata have a special meaning. See <seeguide marker="system/reference_manual:documentation#moduledoc-metadata">Moduledoc metadata</seeguide> and <seeguide marker="system/reference_manual:documentation#doc-metadata">Doc metadata</seeguide> for more details.
+                </p>
+            </item>
+        </taglist>
+        <p>It is possible to have multiple Metadata doc attributes per entity, but only a single
+          documentation string entry is allowed.</p>
+        <p>See the <seeguide marker="documentation">Documentation</seeguide>
+          guide in the Erlang Reference Manual for more details.
+	</p>
+    </section>
   </section>
 
   <section>
@@ -364,12 +424,6 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  all NIF functions in the module.</p>
 	  </item>
 
-        <tag><c>native</c></tag>
-	  <item>
-	  <p>Return <c>true</c> if the module has native compiled code.
-          Return <c>false</c> otherwise. In a system compiled without HiPE
-          support, the result is always <c>false</c></p>
-	  </item>
       </taglist>
     </section>
   </section>

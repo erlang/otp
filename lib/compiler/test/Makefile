@@ -12,6 +12,7 @@ MODULES= \
 	beam_bounds_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
+	beam_doc_SUITE \
 	beam_except_SUITE \
 	beam_jump_SUITE \
 	beam_reorder_SUITE \

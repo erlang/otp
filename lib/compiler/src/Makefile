@@ -56,6 +56,7 @@ MODULES =  \
 	beam_dict \
 	beam_digraph \
 	beam_disasm \
+	beam_doc \
 	beam_flatten \
 	beam_jump \
 	beam_listing \
