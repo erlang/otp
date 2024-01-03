@@ -88,6 +88,7 @@ MODULES= \
 	naughty_child \
 	shell_SUITE \
 	shell_docs_SUITE \
+	shell_docs_markdown_SUITE \
 	sigils_SUITE \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \

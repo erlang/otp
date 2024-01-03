@@ -121,6 +121,7 @@ MODULES= \
 	shell \
 	shell_default \
 	shell_docs \
+	shell_docs_markdown \
 	slave \
 	sofs \
 	string \

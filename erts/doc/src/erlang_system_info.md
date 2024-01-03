@@ -270,7 +270,7 @@ Returns information about the default process heap settings:
   `garbage_collection` described below.
 
 - `garbage_collection`{: #system_info_garbage_collection } - Returns
-  `t:garbage_collection_defaults()` describing the default garbage collection settings.
+  `t:garbage_collection_defaults/0` describing the default garbage collection settings.
   A process spawned on the local node by a `spawn` or `spawn_link` uses these
   garbage collection settings. The default settings can be changed by using
   [`erlang:system_flag/2`](`erlang:system_flag/2`).

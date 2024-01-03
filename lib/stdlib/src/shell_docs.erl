@@ -69,7 +69,7 @@ be rendered as is.
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1, supported_tags/0]).
 
-%% Convinience functions
+%% Convenience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
 -export_type([chunk_elements/0, chunk_element_attr/0]).
@@ -81,7 +81,7 @@ be rendered as is.
                   columns
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,
+-define(ALL_ELEMENTS,[a,p,'div',blockquote,br,h1,h2,h3,h4,h5,h6,
                       i,b,em,strong,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
 -define(INLINE,[i,b,em,strong,code,a]).
@@ -89,7 +89,7 @@ be rendered as is.
                          orelse ((ELEM) =:= i) orelse ((ELEM) =:= em)
                          orelse ((ELEM) =:= b) orelse ((ELEM) =:= strong))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
+-define(BLOCK,[p,'div',pre,blockquote,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
@@ -130,7 +130,7 @@ The configuration of how the documentation should be rendered.
 -doc "The HTML tags allowed in `application/erlang+html`.".
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
 -type chunk_element_inline_type() :: a | code | em | strong | i | b.
--type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+-type chunk_element_block_type() :: p | 'div' | blockquote | br | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
 
@@ -155,7 +155,7 @@ This function can be used to do a basic validation of the doc content of
 validate(Module) when is_atom(Module) ->
     {ok, Doc} = code:get_doc(Module),
     validate(Doc);
-validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
+validate(#docs_v1{ format = ?NATIVE_FORMAT, module_doc = MDocs, docs = AllDocs }) ->
 
     %% Check some macro in-variants
     AE = lists:sort(?ALL_ELEMENTS),
@@ -437,7 +437,7 @@ normalize_paragraph(Elems) ->
 -doc false.
 -spec get_doc(Module :: module()) -> chunk_elements().
 get_doc(Module) ->
-    {ok, #docs_v1{ module_doc = ModuleDoc } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ module_doc = ModuleDoc } = D} = code:get_doc(Module),
     get_local_doc(Module, ModuleDoc, D).
 
 -doc false.
@@ -449,7 +449,7 @@ get_doc(Module) ->
       Signature :: [binary()],
       Metadata :: map().
 get_doc(Module, Function, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D}  = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function andalso A =:= Arity;
@@ -488,7 +488,7 @@ as `render(Module, Function, Docs)`.
       Function :: atom(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, #docs_v1{ module_doc = ModuleDoc } = D, Config)
+render(Module, #docs_v1{module_doc = ModuleDoc} = D, Config)
   when is_atom(Module), is_map(Config) ->
     render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
                             get_local_doc(Module, ModuleDoc, D), D, Config);
@@ -519,7 +519,7 @@ as `render(Module, Function, Arity, Docs)`.
       Arity :: arity(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, #docs_v1{docs = Docs} = D, Config)
   when is_atom(Module), is_atom(Function), is_map(Config) ->
     render_function(
       lists:filter(fun({{function, F, _},_Anno,_Sig,_Doc,_Meta}) ->
@@ -539,14 +539,14 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, Arity, #docs_v1{ docs = Docs }=DocV1, Config)
   when is_atom(Module), is_atom(Function), is_integer(Arity), is_map(Config) ->
     render_function(
       lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                            F =:= Function andalso A =:= Arity;
                         (_) ->
                              false
-                   end, Docs), D, Config).
+                   end, Docs), DocV1, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the type documentation
@@ -560,7 +560,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Signature :: [binary()],
       Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D} = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type andalso A =:= Arity;
@@ -658,7 +658,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
       Signature :: [binary()],
       Metadata :: map().
 get_callback_doc(Module, Callback, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D} = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Callback andalso A =:= Arity;
@@ -745,6 +745,9 @@ render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D, Config) -
                    end, Docs), D, Config).
 
 %% Get the docs in the correct locale if it exists.
+-spec get_local_doc(atom() | tuple() | binary(), Docs, D) -> term() when
+    Docs :: map() | none | hiddden,
+    D    :: docs_v1().
 get_local_doc(MissingMod, Docs, D) when is_atom(MissingMod) ->
     get_local_doc(atom_to_binary(MissingMod), Docs, D);
 get_local_doc({F,A}, Docs, D) ->
@@ -767,6 +770,8 @@ get_local_doc(Missing, None, _D) when None =:= none; None =:= #{} ->
 
 normalize_format(Docs, #docs_v1{ format = ?NATIVE_FORMAT }) ->
     normalize(Docs);
+normalize_format(Docs, #docs_v1{ format = <<"text/markdown">> }) when is_binary(Docs) ->
+    normalize(shell_docs_markdown:parse_md(Docs));
 normalize_format(Docs, #docs_v1{ format = <<"text/", _/binary>> }) when is_binary(Docs) ->
     [{pre, [], [Docs]}].
 
@@ -775,7 +780,7 @@ render_function([], _D, _Config) ->
     {error,function_missing};
 render_function(FDocs, D, Config) when is_map(Config) ->
     render_function(FDocs, D, init_config(D, Config));
-render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
+render_function(FDocs, #docs_v1{ docs = Docs } = DocV1, Config) ->
     Grouping =
         lists:foldl(
           fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func, Acc) ->
@@ -798,15 +803,15 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
                                 end, Members) of
                   {value, {_,_,_,Doc,_Meta}} ->
                       render_headers_and_docs(
-                        Signatures, get_local_doc(Group, Doc, D), D, Config);
+                        Signatures, get_local_doc(Group, Doc, DocV1), DocV1, Config);
                   false ->
                       case lists:keyfind(Group, 1, Docs) of
                           false ->
                               render_headers_and_docs(
-                                Signatures, get_local_doc(Group, none, D), D, Config);
+                                Signatures, get_local_doc(Group, none, DocV1), DocV1, Config);
                           {_,_,_,Doc,_} ->
                               render_headers_and_docs(
-                                Signatures, get_local_doc(Group, Doc, D), D, Config)
+                                Signatures, get_local_doc(Group, Doc, DocV1), DocV1, Config)
                       end
               end
       end, lists:reverse(Grouping)).
@@ -933,8 +938,7 @@ init_config(D, Config) ->
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
-%%%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
-                           render_docs(Elem,State,P,Ind,D)
+                          render_docs(Elem,State,P,Ind,D)
                    end,Pos,Elems);
 render_docs(Elem,State,Pos,Ind,D) ->
     render_element(Elem,State,Pos,Ind,D).
@@ -985,6 +989,8 @@ render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BL
 render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
     {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
+render_element({blockquote,_Attr,Content},State,_Pos,Ind,D) ->
+    trimnlnl(render_docs(Content, ['div'|State], 0, Ind+2, D));
 render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
     trimnlnl(render_docs(Content, [Tag|State], Pos, Ind, D));
 

@@ -1077,10 +1077,10 @@ fetch_doc_and_anno(#docs{docs = DocsMap}=State, {Attr, Anno0, F, A, _Args}) ->
         {_, {Doc1, Anno}} -> {Doc1, Anno}
     end.
 
--spec fun_to_varargs(tuple() | term()) -> list(term()).
+-spec fun_to_varargs(tuple() | term()) -> dynamic().
 fun_to_varargs({type, _, bounded_fun, [T|_]}) ->
    fun_to_varargs(T);
-fun_to_varargs({type, _, 'fun', [{type,_,product,Args}|_] }) ->
+fun_to_varargs({type, _, 'fun', [{type,_,product,Args}|_] }) when is_list(Args) ->
    map(fun fun_to_varargs/1, Args);
 fun_to_varargs({ann_type, _, [Name|_]}) ->
    Name;
