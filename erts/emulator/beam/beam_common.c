@@ -520,7 +520,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     c_p->fvalue = NIL;
 
     /* Find a handler or die */
-    if ((c_p->catches > 0 || IS_TRACED_FL(c_p, F_EXCEPTION_TRACE))
+    if ((c_p->catches > 0 || c_p->return_trace_frames > 0)
 	&& !(c_p->freason & EXF_PANIC)) {
 	ErtsCodePtr new_pc;
         /* The Beam handler code (catch_end or try_end) checks reg[0]
@@ -579,17 +579,7 @@ next_catch(Process* c_p, Eterm *reg) {
     ErtsCodePtr handler;
 
     ptr = prev = c_p->stop;
-    ASSERT(ptr <= STACK_START(c_p));
-
-    /* This function is only called if we have active catch tags or have
-     * previously called a function that was exception-traced. As the exception
-     * trace flag isn't cleared after the traced function returns (and the
-     * catch tag inserted by it is gone), it's possible to land here with an
-     * empty stack, and the process should simply die when that happens. */
-    if (ptr == STACK_START(c_p)) {
-        ASSERT(!active_catches && IS_TRACED_FL(c_p, F_EXCEPTION_TRACE));
-        return NULL;
-    }
+    ASSERT(ptr < STACK_START(c_p));
 
     while (ptr < STACK_START(c_p)) {
         Eterm val = ptr[0];
@@ -616,6 +606,9 @@ next_catch(Process* c_p, Eterm *reg) {
                     ASSERT_MFA(mfa);
                     erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1]);
                 }
+                ASSERT(c_p->return_trace_frames > 0);
+                c_p->return_trace_frames--;
+
                 ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
             } else if (BeamIsReturnCallAccTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
@@ -1676,6 +1669,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     }
 
     c_p->catches = 0;
+    c_p->return_trace_frames = 0;
     c_p->i = beam_run_process;
 
     /*

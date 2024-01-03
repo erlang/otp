@@ -1065,10 +1065,7 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
             ASSERT(IS_TRACER_VALID(tracer));
 
             c_p->stop = E;
-
-            erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-            ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
-            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+            c_p->return_trace_frames++;
         }
     }
 

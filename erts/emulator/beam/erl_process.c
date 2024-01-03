@@ -12424,6 +12424,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->abandoned_heap = NULL;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     p->catches = 0;
+    p->return_trace_frames = 0;
 
     p->bin_vheap_sz     = p->min_vheap_size;
     p->bin_old_vheap_sz = p->min_vheap_size;
@@ -13059,6 +13060,7 @@ void erts_init_empty_process(Process *p)
     p->u.initial.function = 0;
     p->u.initial.arity = 0;
     p->catches = 0;
+    p->return_trace_frames = 0;
     p->i = NULL;
     p->current = NULL;
 
@@ -13128,6 +13130,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
+    ASSERT(p->return_trace_frames == 0);
     ASSERT(p->i == NULL);
     ASSERT(p->current == NULL);
 

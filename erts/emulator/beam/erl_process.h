@@ -1052,6 +1052,7 @@ struct process {
 
     ErtsCodePtr i;              /* Program counter. */
     Sint catches;               /* Number of catches on stack */
+    Sint return_trace_frames;   /* Number of return trace frames on stack */
     Uint reds;                  /* No of reductions for this process  */
     Eterm group_leader;         /* Pid in charge (can be boxed) */
     Eterm ftrace;               /* Latest exception stack trace dump */
@@ -1668,7 +1669,6 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
 #define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
 #define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
-#define F_EXCEPTION_TRACE    F_TRACE_FLAG(15) /* May have exception trace on stack */
 
 /* port trace flags, currently the same as process trace flags */
 #define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
