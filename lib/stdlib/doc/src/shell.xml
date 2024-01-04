@@ -1046,10 +1046,11 @@ q                 - quit erlang
       <name name="format_shell_func" arity="1" since="OTP @OTP-18848@"/>
       <fsummary>Set the formatting function for submitted shell commands.</fsummary>
       <desc>
-        <p>Can be used to set the formatting of the Erlang shell output. This have an effect
+        <p>Can be used to set the formatting of the Erlang shell output. This has an effect
         on commands that have been submitted, and how it is saved in history. Or if the
-        formatting hotkey is pressed while editing an expression (Alt-f by default). You can specify a Mod:Func/1 that
-        expects the whole expression as a string and returns a formatted expressions as a string.
+        formatting hotkey is pressed while editing an expression (Alt-r by default). You
+        can specify a <c>Mod:Func/1</c> that expects the whole expression as a string and
+        returns a formatted expressions as a string.
         See <seeapp marker="STDLIB_app#format_shell_func"><c>stdlib app config</c></seeapp>
         for how to set it before shell started.</p>
         <p>If instead a string is provided, it will be used as a shell command.

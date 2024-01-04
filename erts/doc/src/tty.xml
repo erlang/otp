@@ -178,6 +178,10 @@ erl</pre>
           buffer</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">M-r</cell>
+        <cell align="left" valign="middle">Format current expression using <seemfa marker="stdlib:shell#format_shell_func/1">shell:format_shell_func/1</seemfa></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">C-r</cell>
         <cell align="left" valign="middle">Enter search mode and then search backward in the shell history</cell>
       </row>
