@@ -33,13 +33,28 @@
 %% API
 %%----------------------------------------------------------------------
 
+-spec start_link(Identifier, MFA) -> Result when Identifier :: string() | atom(),
+   MFA :: {Mod, Func, Args},
+    Mod :: atom(),
+   Func :: atom(),
+    Args :: [term()],
+   Result :: {ok, Pid} | {error, {already_started, Pid}},
+   Pid :: pid().
 start_link(Ident, MFA) ->
     gen_server:start_link({local, nteventlog}, nteventlog,
 			  [Ident, MFA], []).
 
+-spec start(Identifier, MFA) -> Result when Identifier :: string() | atom(),
+   MFA :: {Mod, Func, Args},
+    Mod :: atom(),
+   Func :: atom(),
+    Args :: [term()],
+   Result :: {ok, Pid} | {error, {already_started, Pid}},
+   Pid :: pid().
 start(Ident, MFA) ->
     gen_server:start({local, nteventlog}, nteventlog, [Ident, MFA], []).
 
+-spec stop() -> stopped.
 stop() ->
     gen_server:call(nteventlog, stop).
 
