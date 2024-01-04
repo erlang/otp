@@ -178,6 +178,41 @@
                           segment_recv_timer |
                           segment_send       |
                           max_pdu_size.
+-type user_info_item() :: connections    |
+                          receive_handle |
+                          trans_id       |
+                          min_trans_id   |
+                          max_trans_id   |
+                          request_timer  |
+                          long_request_timer  |
+                          long_request_resend |
+                          reply_timer    |
+                          request_keep_alive_timeout |
+                          call_proxy_gc_timeout      |
+                          auto_ack           |
+                          trans_ack          |
+                          trans_ack_maxcount |
+                          trans_req          |
+                          trans_req_maxcount |
+                          trans_req_maxsize  |
+                          trans_timer        |
+                          pending_timer      |
+                          sent_pending_limit |
+                          recv_pending_limit |
+                          send_mod           |
+                          encoding_mod       |
+                          encoding_config    |
+                          protocol_version   |
+                          strict_version     |
+                          reply_data         |
+                          user_mod           |
+                          user_args          |
+                          threaded           |
+                          resend_indication  |
+                          segment_reply_ind  |
+                          segment_recv_timer | 
+                          segment_send       |
+                          max_pdu_size.
 
 -type send_handle()          :: term().
 
@@ -231,6 +266,13 @@ stop() ->
 %%-----------------------------------------------------------------
 %% Initial configuration of a user
 %%-----------------------------------------------------------------
+
+-spec start_user(UserMid, Config) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Config  :: [{Item, Value}],
+      Item    :: user_info_item(),
+      Value   :: term(),
+      Reason  :: term().
 
 start_user(UserMid, Config) ->
     megaco_config:start_user(UserMid, Config).
