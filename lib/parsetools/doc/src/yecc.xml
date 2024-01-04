@@ -60,6 +60,7 @@
       <name name="file" arity="1" since=""/>
       <name name="file" arity="2" since=""/>
       <fsummary>Give information about resolved and unresolved parse action conflicts.</fsummary>
+      <type name="option"/>
       <type name="yecc_ret"/>
       <type name="ok_ret"/>
       <type name="error_ret"/>

@@ -41,7 +41,9 @@
 %% TODO: unroll calls to switch? it will probably get messy
 
 %% TODO: use Igor to make resulting code independent of merl at runtime?
-
+-spec parse_transform(InForms, Options :: term()) -> OutForms when
+      InForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      OutForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
 parse_transform(Forms, _Options) ->
     erl_syntax:revert_forms(expand(erl_syntax:form_list(Forms))).
 
