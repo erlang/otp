@@ -40,7 +40,7 @@
 
   <datatypes>
     <datatype>
-      <name name="digit_map_value"/>
+      <name name="value"/>
       <!--
       <desc>
 	<p>
@@ -62,10 +62,59 @@
     </datatype>
 
     <datatype>
+      <name name="event"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="letter"/>
       <desc>
 	<p>
-	  <c><![CDATA[$0..$9 | $a..$k]]></c>
+	  <c><![CDATA[$0..$9 | $a..$k | $A..$K]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pause"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="one_second"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$s | $S]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ten_seconds"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$l | $L]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="cancel"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$z | $Z | cancel]]></c>
 	</p>
       </desc>
     </datatype>

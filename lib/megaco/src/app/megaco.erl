@@ -112,6 +112,7 @@
 
               digit_map_value/0,
               digit_map_kind/0,
+              digit_map_event/0,
               digit_map_letter/0,
 
               property_parm/0,
@@ -178,11 +179,13 @@
                           segment_send       |
                           max_pdu_size.
 
--type send_handle()         :: term().
+-type send_handle()          :: term().
 
--type digit_map_value()     :: megaco_digit_map:digit_map_value().
--type digit_map_kind()      :: megaco_digit_map:kind().
--type digit_map_letter()    :: megaco_digit_map:letter().
+-type digit_map_value()      :: megaco_digit_map:value().
+-type digit_map_kind()       :: megaco_digit_map:kind().
+-type digit_map_event()      :: megaco_digit_map:event().
+-type digit_map_letter()     :: megaco_digit_map:letter().
+
 
 -type property_parm()       :: megaco_sdp:property_parm().
 -type property_group()      :: megaco_sdp:property_group().
@@ -749,6 +752,11 @@ eval_digit_map(DigitMap, Timers) ->
 %%-----------------------------------------------------------------
 %% Send one or more events to event collector process
 %%-----------------------------------------------------------------
+
+-spec report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason} when
+      DigitMapEvalPid :: pid(),
+      Events          :: digit_map_event() | [digit_map_event()],
+      Reason          :: term().
 
 report_digit_event(DigitMapEvalPid, Event) ->
     megaco_digit_map:report(DigitMapEvalPid, Event).

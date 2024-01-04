@@ -244,11 +244,22 @@
     </datatype>
 
     <datatype>
+      <name name="digit_map_event"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="digit_map_letter"/>
       <!--
       <desc>
 	<p>
-	  <c><![CDATA[$0..$9 | $a..$k]]></c>
+	  <c><![CDATA[$0..$9 | $a..$k | $A..$K]]></c>
 	</p>
       </desc>
       -->
@@ -2192,19 +2203,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason}</name>
+      <name name="report_digit_event" arity="2" clause_i="1" since=""/>
       <fsummary>Send one or more events to the event collector process</fsummary>
-      <type>
-        <v>DigitMapEvalPid = pid()</v>
-        <v>Events          = Event | [Event]</v>
-        <v>Event           = letter() | pause() | cancel()</v>
-        <v>letter()        = $0..$9 | $a .. $k | $A .. $K</v>
-        <v>pause()         = one_second() | ten_seconds()</v>
-        <v>one_second()    = $s | $S</v>
-        <v>ten_seconds()   = $l | $L</v>
-        <v>cancel()        = $z | $Z | cancel</v>
-        <v>Reason          = term()</v>
-      </type>
       <desc>
         <p>Send one or more events to the event collector process.</p>
         <p>Send one or more events to a process that is evaluating a

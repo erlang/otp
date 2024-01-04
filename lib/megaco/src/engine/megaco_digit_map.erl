@@ -61,18 +61,28 @@
 -export([test_eval/2]).                               % Internal
 
 -export_type([
-              digit_map_value/0,
+              value/0,
               kind/0,
-              letter/0
+              event/0,
+              letter/0,
+              pause/0,
+              one_second/0,
+              ten_seconds/0,
+              cancel/0
              ]).
 
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include("megaco_message_internal.hrl").
 -include_lib("megaco/src/text/megaco_text_tokens.hrl").
 
--type digit_map_value() :: #'DigitMapValue'{}.
+-type value()           :: #'DigitMapValue'{}.
 -type kind()            :: full | unambiguous.
--type letter()          :: $0..$9 | $a .. $k.
+-type event()           :: letter() | pause() | cancel().
+-type letter()          :: $0 .. $9 | $a .. $k | $A .. $K.
+-type pause()           :: one_second() | ten_seconds().
+-type one_second()      :: $s | $S.
+-type ten_seconds()     :: $l | $L.
+-type cancel()          :: $z | $Z | cancel.
 
 -record(state_transition, {mode, next, cont}).
 
