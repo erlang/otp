@@ -285,6 +285,10 @@ start_user(UserMid, Config) ->
 %% Delete the configuration of a user
 %%-----------------------------------------------------------------
 
+-spec stop_user(UserMid) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Reason  :: term().
+
 stop_user(UserMid) ->
     megaco_config:stop_user(UserMid).
 

@@ -1208,12 +1208,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">stop_user(UserMid) -> ok | {error, Reason}</name>
+      <name name="stop_user" arity="1" clause_i="1" since=""/>
       <fsummary>Delete the configuration of a user</fsummary>
-      <type>
-        <v>UserMid = megaco_mid()</v>
-        <v>Reason  = term()</v>
-      </type>
       <desc>
         <p>Delete the configuration of a user</p>
         <p>Requires that the user does not have any active connection.</p>
