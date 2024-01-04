@@ -939,7 +939,7 @@ format_expression(Cont, Drv) ->
     try
         case FormatingCommand of
             default ->
-                Buffer;
+                string:trim(Buffer, trailing, "\n");
             {M,F} when is_atom(M), is_atom(F) ->
                 M:F(Buffer);
             FormatingCommand1 when is_list(FormatingCommand1) ->
@@ -948,7 +948,7 @@ format_expression(Cont, Drv) ->
     catch _:_ ->
             send_drv_reqs(Drv, [{put_chars, unicode, io_lib:format("* Bad format function: ~tp~n", [FormatingCommand])}]),
             _ = shell:format_shell_func(default),
-            Buffer
+            string:trim(Buffer, trailing, "\n")
     end.
 format_expression1(Buffer, FormatingCommand) ->
     %% Write the current expression to a file, format it with a formatting tool
