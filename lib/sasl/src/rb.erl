@@ -33,6 +33,15 @@
 -export([init/1, terminate/2, handle_call/3,
 	 handle_cast/2, handle_info/2, code_change/3]).
 
+-type type() :: error | error_report | info_msg | info_report |
+                warning_msg | warning_report | crash_report |
+                supervisor_report | progress | all.
+-type option() :: {start_log, FileName :: string() | atom() | pid()} |
+                  {max, MaxNoOfReports :: integer() | all} |
+                  {report_dir, DirString :: string()} |
+                  {type, ReportType :: type() | [type()] | all } |
+                  {abort_on_error, boolean()}.
+
 %%%-----------------------------------------------------------------
 %%% Report Browser Tool.
 %%% Formats Error reports written by log_mf_h
@@ -44,7 +53,10 @@
 %% Interface functions.
 %% For available options; see print_options().
 %%-----------------------------------------------------------------
+-spec start() -> term().
 start() -> start([]).
+-spec start(Options) -> term() when
+      Options :: [option()].
 start(Options) ->
     supervisor:start_child(sasl_sup, 
 			   {rb_server, {rb, start_link, [Options]},
@@ -53,40 +65,69 @@ start(Options) ->
 start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
+-spec stop() -> term().
 stop() -> 
     supervisor:terminate_child(sasl_sup, rb_server).
 
+-spec rescan() -> term().
 rescan() -> rescan([]).
+-spec rescan(Options) -> term() when Options :: [option()].
 rescan(Options) ->
     call({rescan, Options}).
 
+-spec list() -> term().
 list() -> list(all).
+-spec list(Type :: type()) -> term().
 list(Type) -> call({list, Type}).
 
+-spec log_list() -> term().
 log_list() -> log_list(all).
+-spec log_list(Type :: type()) -> term().
 log_list(Type) -> call({log_list, Type}).
 
-show() -> 
+-spec show() -> term().
+show() ->
     call(show).
 
-show(Number) when is_integer(Number) -> 
+-spec show(Report) -> term() when Report :: integer() | type().
+show(Number) when is_integer(Number) ->
     call({show_number, Number});
 show(Type) when is_atom(Type) ->
     call({show_type, Type}).
 
+-type regexp() :: string() | {string(), Options :: [re:options()]} |
+                  re:mp() | {re:mp(), Options :: [re:compile_options()]}.
+
+-spec grep(RegExp :: regexp()) -> term().
 grep(RegExp) -> call({grep, RegExp}).
 
+-type filter() :: {Key :: term(), Value :: term()} |
+                  {Key :: term(), Value :: term(), no} |
+                  {Key :: term(), RegExp :: regexp(), re} |
+                  {Key :: term(), RegExp :: regexp(), re, no}.
+
+-spec filter(Filters) -> term() when
+      Filters :: [filter()].
 filter(Filters) when is_list(Filters) ->
     call({filter, Filters}).
 
+-spec filter(Filters, Dates) -> term() when
+      Filters :: [filter()],
+      Dates :: {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to},
+      DateFrom :: calendar:datetime(),
+      DateTo :: calendar:datetime().
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
     call({filter, {Filters, FDates}}).
 
+-spec start_log(FileName) -> term() when FileName :: string() | atom() | pid().
 start_log(FileName) -> call({start_log, FileName}).
 
+-spec stop_log() -> term().
 stop_log() -> call(stop_log).
 
+-spec h() -> term().
 h() -> help().
+-spec help() -> term().
 help() ->
     io:format("~nReport Browser Tool - usage~n"),
     io:format("===========================~n"),

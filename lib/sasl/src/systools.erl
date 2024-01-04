@@ -47,10 +47,29 @@
 %% local generates a script with references to the directories there
 %% the applications are found.
 %%-----------------------------------------------------------------
+-spec make_script(Name) -> Result when
+      Name :: string(),
+      Result :: ok | error | {ok,Module,Warnings} | {error,Module,Error},
+      Module :: atom(),
+      Warnings :: term(),
+      Error :: term().
 make_script([RelName|Opts]) when is_atom(RelName) ->
-    make_script([RelName], Opts);
+    systools_make:make_script([RelName], Opts);
 make_script(RelName) -> make_script(RelName, []).
 
+-spec make_script(Name, [Opt]) -> Result when
+      Name :: string(),
+      Opt :: src_tests | {path,[Dir]} | local | {variables,[Var]} | exref | {exref,[App]} |
+             silent | {outdir,Dir} | no_dot_erlang | no_warn_sasl | warnings_as_errors | {script_name, Name},
+      Dir :: string(),
+      Var :: {VarName,Prefix},
+      VarName :: string(),
+      Prefix :: string(),
+      App :: atom(),
+      Result :: ok | error | {ok,Module,Warnings} | {error,Module,Error},
+      Module :: atom(),
+      Warnings :: term(),
+      Error :: term().
 make_script(RelName, Opt) ->
     systools_make:make_script(RelName, Opt).
 
@@ -94,6 +113,7 @@ make_tar(RelName, Opt) ->
 %%-----------------------------------------------------------------
 %% Create a binary form of a boot script.
 %%-----------------------------------------------------------------
+-spec script2boot(File) -> ok | error when File :: string().
 script2boot(File) ->
     case systools_lib:file_term2binary(File ++ ".script", File ++ ".boot") of
 	{error,Error} ->
@@ -119,8 +139,35 @@ script2boot(File, Output0, _Opt) ->
 %% search path, silent suppresses error message printing on console,
 %% noexec suppresses writing the output "relup" file
 %%-----------------------------------------------------------------
+-spec make_relup(Name, UpFrom, DownTo) -> Result when Name :: string(),
+   UpFrom :: [Name | {Name,Descr}],
+   DownTo :: [Name | {Name,Descr}],
+    Descr :: term(),
+   Result :: ok | error | {ok,Relup :: term(),Module,Warnings} | {error,Module,Error},
+    Module :: atom(),
+    Warnings :: term(),
+   Error :: term().
 make_relup(ReleaseName, UpNameList, DownNameList) ->
     systools_relup:mk_relup(ReleaseName, UpNameList, DownNameList, []).
+-spec make_relup(Name, UpFrom, DownTo, [Opt]) -> Result
+                    when
+                        Name :: string(),
+                        UpFrom :: [Name | {Name, Descr}],
+                        DownTo :: [Name | {Name, Descr}],
+                        Descr :: term(),
+                        Opt ::
+                            {path, [Dir]} |
+                            restart_emulator | silent | noexec |
+                            {outdir, Dir} |
+                            warnings_as_errors,
+                        Dir :: string(),
+                        Result ::
+                            ok | error |
+                            {ok, Relup :: term(), Module, Warnings} |
+                            {error, Module, Error},
+                        Module :: atom(),
+                        Warnings :: term(),
+                        Error :: term().
 make_relup(ReleaseName, UpNameList, DownNameList, Opts) ->
     systools_relup:mk_relup(ReleaseName, UpNameList, DownNameList, Opts).
 

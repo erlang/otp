@@ -32,6 +32,9 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
+-type alarm_id() :: term().
+-type alarm() :: {alarm_id(), AlarmDescription :: term()}.
+
 start_link() ->
     case gen_event:start_link({local, alarm_handler}) of
 	{ok, Pid} ->
@@ -45,6 +48,8 @@ start_link() ->
 %% Args: Alarm ::= {AlarmId, term()}
 %%       where AlarmId ::= term()
 %%-----------------------------------------------------------------
+-spec set_alarm(alarm()) -> term().
+
 set_alarm(Alarm) ->
     gen_event:notify(alarm_handler, {set_alarm, Alarm}).
 
@@ -52,6 +57,7 @@ set_alarm(Alarm) ->
 %% Func: clear_alarm/1
 %% Args: AlarmId ::= term()
 %%-----------------------------------------------------------------
+-spec clear_alarm(alarm_id()) -> term().
 clear_alarm(AlarmId) ->
     gen_event:notify(alarm_handler, {clear_alarm, AlarmId}).
 
@@ -59,6 +65,7 @@ clear_alarm(AlarmId) ->
 %% Func: get_alarms/0
 %% Returns: [{AlarmId, AlarmDesc}]
 %%-----------------------------------------------------------------
+-spec get_alarms() -> [alarm()].
 get_alarms() ->
     gen_event:call(alarm_handler, alarm_handler, get_alarms).
 
