@@ -603,24 +603,30 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
 }
 
 void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
-                                                const ArgYRegister &Dst1,
+                                                const ArgRegister &Dst1,
                                                 const ArgSource &Src2,
-                                                const ArgYRegister &Dst2) {
+                                                const ArgRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst1 = init_destination(Dst1, src1.reg);
     auto dst2 = init_destination(Dst2, src2.reg);
 
+    ASSERT(!isRegisterBacked(Dst1));
+    ASSERT(!isRegisterBacked(Dst2));
+
     flush_vars(dst1, dst2);
 }
 
-void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
+void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
                                               const ArgXRegister &Dst1,
-                                              const ArgYRegister &Src2,
+                                              const ArgRegister &Src2,
                                               const ArgXRegister &Dst2) {
     ASSERT(ArgVal::memory_relation(Src1, Src2) ==
            ArgVal::Relation::consecutive);
     auto dst1 = init_destination(Dst1, TMP1);
     auto dst2 = init_destination(Dst2, TMP2);
+
+    ASSERT(!isRegisterBacked(Src1));
+    ASSERT(!isRegisterBacked(Src2));
 
     safe_ldp(dst1.reg, dst2.reg, Src1, Src2);
     flush_vars(dst1, dst2);
