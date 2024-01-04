@@ -213,6 +213,9 @@
 %% Starts the Megaco application
 %%-----------------------------------------------------------------
 
+-spec start() -> ok | {error, Reason} when
+      Reason :: term().
+
 start() ->
     application:start(?APPLICATION).
 

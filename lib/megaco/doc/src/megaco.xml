@@ -516,11 +516,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
   <funcs>
     <func>
-      <name since="">start() -> ok | {error, Reason}</name>
+      <name name="start" arity="0" clause_i="1" since=""/>
       <fsummary>Starts the Megaco application</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Starts the Megaco application</p>
         <p>Users may either explicitly be registered with
