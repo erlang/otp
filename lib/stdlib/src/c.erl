@@ -1177,20 +1177,19 @@ get_uptime() ->
 %%
 %% Cross Reference Check
 %% 
-%%-spec xm(module() | file:filename()) -> xref:m/1 return
+-spec xm(module() | file:filename()) -> XRefMRet :: term(). % xref:m/1 return
 xm(M) ->
     appcall(tools, xref, m, [M]).
 
 %%
 %% Call yecc 
 %% 
-%%-spec y(file:name()) -> yecc:file/2 return
+-spec y(file:name()) -> YeccFileRet :: term(). % yecc:file/2 return
 y(File) -> y(File, []).
 
-%%-spec y(file:name(), [yecc:option()]) -> yecc:file/2 return
+-spec y(file:name(), [yecc:option()]) -> YeccFileRet :: yecc:yecc_ret(). % yecc:file/2 return
 y(File, Opts) ->
     appcall(parsetools, yecc, file, [File, Opts]).
-
 
 %%
 %% Avoid creating strong components in xref and dialyzer by making calls

@@ -21,7 +21,7 @@ ALL_APPLICATIONS="erts $ALL_APPLICATIONS"
 echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
 
 BASE_PLT="compiler crypto erts kernel stdlib syntax_tools"
-APP_PLT="asn1 debugger edoc et ftp inets mnesia observer public_key sasl runtime_tools snmp ssl tftp wx xmerl tools"
+APP_PLT="asn1 debugger edoc et ftp inets mnesia observer parsetools public_key sasl runtime_tools snmp ssl tftp wx xmerl tools"
 NO_UNMATCHED="common_test eunit inets megaco mnesia snmp ssh ssl observer reltool"
 WARNINGS="diameter"
 

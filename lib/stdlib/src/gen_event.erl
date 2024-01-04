@@ -466,6 +466,7 @@ which_handlers(M) -> rpc(M, which_handlers).
 stop(M) ->
     gen:stop(M).
 
+-spec stop(emgr_ref(), term(), timeout()) -> 'ok'.
 stop(M, Reason, Timeout) ->
     gen:stop(M, Reason, Timeout).
 
