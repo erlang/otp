@@ -477,14 +477,14 @@ jobs:
             mv make_test_dir/${APP}_test "make_test_dir/${{ matrix.type }}_test"
           fi
       - name: Cleanup tests
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           rm -rf make_test_dir/otp || true
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
         uses: actions/upload-artifact@v4.0.0
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
           path: ${{ matrix.type }}_test_results.tar.gz
@@ -492,7 +492,7 @@ jobs:
   system-test:
     name: Test Erlang/OTP (system)
     runs-on: ubuntu-latest
-    if: always() # Run even if the need has failed
+    if: ${{ !cancelled() }} # Run even if the need has failed
     needs: test
     steps:
       - uses: actions/checkout@v4.1.1
@@ -519,7 +519,7 @@ jobs:
             -v $PWD/make_test_dir:/buildroot/otp/erts/make_test_dir otp \
             "make system_test"
       - name: Cleanup tests
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           rm -rf make_test_dir/otp || true
           tar czf test_results.tar.gz make_test_dir
@@ -531,12 +531,12 @@ jobs:
               make_test_dir/*_junit.xml
       - name: Upload test results
         uses: actions/upload-artifact@v4.0.0
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4.0.0
         with:
           name: Unit Test Results
