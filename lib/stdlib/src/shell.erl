@@ -1884,7 +1884,7 @@ erl_pp_format_func(String) ->
     %% If you add return_comments to the option list,
     %% parsing will fail, and we will end up with the original string.
     Options = [text,{reserved_word_fun,fun erl_scan:reserved_word/1}],
-    case erl_scan:tokens([], String, {1,1}, Options) of
+    case erl_scan:tokens([], string:trim(String) ++ "\n", {1,1}, Options) of
         {done, {ok, Toks, _}, _} ->
             try
                 case erl_parse:parse_form(Toks) of
