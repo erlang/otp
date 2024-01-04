@@ -259,6 +259,9 @@ start() ->
 %% Stops the Megaco application
 %%-----------------------------------------------------------------
 
+-spec stop() -> ok | {error, Reason} when
+      Reason :: term().
+
 stop() ->
     application:stop(?APPLICATION).
 

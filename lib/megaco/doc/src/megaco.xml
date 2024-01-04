@@ -1178,7 +1178,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">stop() -> ok | {error, Reason}</name>
+      <name name="stop" arity="0" clause_i="1" since=""/>
       <fsummary>Stops the Megaco application</fsummary>
       <type>
         <v>Reason = term()</v>
