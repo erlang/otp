@@ -2439,14 +2439,28 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">reset_stats() -> void()</name>
-      <name since="">reset_stats(ConnHandle) -> void()</name>
+      <name name="reset_stats" arity="0" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>ConnHandle = conn_handle()</v>
-      </type>
       <desc>
-        <p>Reset all related (SNMP) statistics counters.</p>
+        <p>Reset all (SNMP) statistics counters.</p>
+        <marker id="test_request"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reset_stats" arity="1" clause_i="1" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Reset the specified (SNMP) statistics counter.</p>
+        <marker id="test_request"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reset_stats" arity="1" clause_i="2" since=""/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Reset all (SNMP) statistics counters for a connection.</p>
         <marker id="test_request"></marker>
       </desc>
     </func>

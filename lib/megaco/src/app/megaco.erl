@@ -580,11 +580,19 @@ get_stats(ConnHandle, Counter) ->
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
+
+-spec reset_stats() -> void().
+
 reset_stats() ->
     megaco_messenger:reset_stats().
 
-reset_stats(SendHandle) ->
-    megaco_messenger:reset_stats(SendHandle).
+-spec reset_stats(GCounter) -> void() when
+      GCounter :: global_counter();
+               (ConnHandle) -> void() when
+      ConnHandle :: conn_handle().
+
+reset_stats(ConnHandleOrGCounter) ->
+    megaco_messenger:reset_stats(ConnHandleOrGCounter).
 
 
 %%-----------------------------------------------------------------
