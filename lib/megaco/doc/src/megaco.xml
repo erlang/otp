@@ -2373,12 +2373,10 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <marker id="set_trace"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">set_trace(Level) -> void()</name>
+      <name name="set_trace" arity="1" clause_i="1" since=""/>
       <fsummary>Change megaco trace level</fsummary>
-      <type>
-        <v>Level = max | min | 0 &lt;= integer() &lt;= 100</v>
-      </type>
       <desc>
         <p>This function is used to change the megaco trace level.</p>
         <p>It is assumed that tracing has already been enabled (see 

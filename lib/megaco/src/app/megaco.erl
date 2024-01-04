@@ -1276,9 +1276,25 @@ disable_trace() ->
 %% This function is used to change the trace level when tracing has
 %% already been started. 
 %%-----------------------------------------------------------------
+
+-spec set_trace(Level) -> void() when
+      Level :: trace_level().
+
 set_trace(Level) ->
     Pat = et_selector:make_pattern({?MODULE, Level}),
     et_selector:change_pattern(Pat).
+
+
+
+%%-----------------------------------------------------------------
+%% report_event(DetailLevel, FromTo, Label, Contents) -> void()
+%% report_event(DetailLevel, From, To, Label, Contents) -> void()
+%% 
+%% Description:
+%% This is the function tracing is done for.
+%% Trace macros used by the megaco app all call this function.
+%%-----------------------------------------------------------------
+
 
 report_event(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call
