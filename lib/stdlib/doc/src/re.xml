@@ -73,7 +73,13 @@
       <name name="nl_spec"/>
     </datatype>
     <datatype>
+      <name name="compile_options"/>
       <name name="compile_option"/>
+    </datatype>
+    <datatype>
+        <name name="options"/>
+        <name name="option"/>
+        <name name="capture"/>
     </datatype>
     <datatype>
       <name name="replace_fun"/>
@@ -454,6 +460,8 @@ re:replace("abcd", ".(.)", fun(Whole, [&lt;&lt;C&gt;&gt;]) -> &lt;&lt;$#, Whole/
         subpatterns.</fsummary>
       <type_desc variable="CompileOpt">See <seeerl marker="#compile_options">
         <c>compile/2</c></seeerl>.</type_desc>
+      <type name="option"/>
+      <type name="capture"/>
       <desc>
         <p>Executes a regular expression matching, and returns
           <c>match/{match, <anno>Captured</anno>}</c> or <c>nomatch</c>. The
