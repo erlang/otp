@@ -22,16 +22,6 @@
 #  include "config.h"
 #endif
 
-/* These need to be undef:ed to not break activation of
- * micro level process accounting on /proc/self 
- */
-#ifdef _LARGEFILE_SOURCE
-#  undef _LARGEFILE_SOURCE
-#endif
-#ifdef _FILE_OFFSET_BITS
-#  undef _FILE_OFFSET_BITS
-#endif
-
 #include <stdlib.h>
 #include "sys.h"
 #include "global.h"

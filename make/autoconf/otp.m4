@@ -2705,15 +2705,6 @@ dnl
 AC_MSG_CHECKING([if gethrvtime works and how to use it])
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 /* gethrvtime procfs ioctl test */
-/* These need to be undef:ed to not break activation of
- * micro level process accounting on /proc/self 
- */
-#ifdef _LARGEFILE_SOURCE
-#  undef _LARGEFILE_SOURCE
-#endif
-#ifdef _FILE_OFFSET_BITS
-#  undef _FILE_OFFSET_BITS
-#endif
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
