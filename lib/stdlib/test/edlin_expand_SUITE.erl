@@ -108,13 +108,14 @@ type_completion(_Config) ->
     ct:timetrap({minutes, 20}),
     {Time,_} = timer:tc(fun() -> do_expand("erl_pp:expr(") end),
     case Time of
-        Time when Time > 2600000 -> {skip, "Expansion too slow on this machine"};
+        Time when Time > 5000000 ->
+            {skip, lists:flatten(io_lib:format("Expansion too slow (~p) on this machine",[Time]))};
         _ ->
             parallelforeach(
             fun(Mod) ->
                     Exports = edlin_expand:get_exports(Mod),
                     [try
-                        Str = io_lib:write_atom(Mod) ++ ":" ++ atom_to_list(Func) ++ "(",
+                        Str = io_lib:write_atom(Mod) ++ ":" ++ io_lib:write_atom(Func) ++ "(",
                         do_expand(Str)
                     catch E:R:ST ->
                             erlang:raise(E, {R, Mod, Func}, ST)
@@ -616,7 +617,7 @@ unicode(Config) when is_list(Config) ->
     ok.
 
 do_expand(String) ->
-    erlang:display(String),
+    io:format(String),
     Bs = [
           {'Binding', 0},
           {'MapBinding', #{a_key=>0, b_key=>1, c_key=>2}},
