@@ -105,7 +105,8 @@
 %%        to previous line automatically.
 
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, handle_request/2, write/2, write/3, npwcwidth/1,
+         handle_signal/2, window_size/1, handle_request/2, write/2, write/3,
+         npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1]).
 
@@ -1108,7 +1109,9 @@ npwcwidth(Char, true) ->
         C -> C
     end;
 npwcwidth(Char, false) ->
-    byte_size(char_to_latin1(Char, true)).
+    byte_size(char_to_latin1(Char, true));
+npwcwidth(Char, Encoding) ->
+    npwcwidth(Char, Encoding =/= latin1).
 
 
 %% Return the xn fix for the current cursor position.

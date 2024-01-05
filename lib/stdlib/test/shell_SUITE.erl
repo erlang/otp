@@ -25,7 +25,7 @@
 	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
 	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
 	 bs_construct_SUITE/1,
-     prompt_width/1,local_definitions_save_to_module_and_forget/1,
+         prompt_width/1,local_definitions_save_to_module_and_forget/1,
 	 refman_bit_syntax/1,
 	 progex_bit_syntax/1, progex_records/1,
 	 progex_lc/1, progex_funs/1,
@@ -425,8 +425,22 @@ shell_attribute_test(Config) ->
     ok.
 
 prompt_width(Config) when is_list(Config) ->
-    5 = shell:prompt_width("\e[31molá> "),
-    5 = shell:prompt_width(<<"\e[31molá> "/utf8>>),
+    5 = shell:prompt_width("olá> ", unicode),
+    5 = shell:prompt_width("\e[31molá> ", unicode),
+    5 = shell:prompt_width(<<"\e[31molá> "/utf8>>, unicode),
+    8 = shell:prompt_width("olá> ", latin1),
+    4 = shell:prompt_width("😀> ", unicode),
+    11 = shell:prompt_width("😀> ", latin1),
+    case proplists:get_value(encoding, io:getopts(user)) of
+        unicode ->
+            5 = shell:prompt_width("olá> "),
+            5 = shell:prompt_width("\e[31molá> "),
+            5 = shell:prompt_width(<<"\e[31molá> "/utf8>>),
+            4 = shell:prompt_width("😀> ");
+        latin1 ->
+            8 = shell:prompt_width("olá> "),
+            11 = shell:prompt_width("😀> ")
+    end,
     ok.
 
 %% Test of the record support. OTP-5063.

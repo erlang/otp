@@ -1036,9 +1036,35 @@ q                 - quit erlang
       <name name="prompt_width" arity="1" since="OTP @OTP-18834@"/>
       <fsummary>Computes the width of a prompt.</fsummary>
       <desc>
+        <p>Equivalent to <seemfa marker="#prompt_width/2">prompt_width/2</seemfa> with
+        <c>Encoding</c> set to the encoding used by
+          <seetype marker="io#user"><c>io:user/0</c></seetype>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prompt_width" arity="2" since="OTP @OTP-18834@"/>
+      <fsummary>Computes the width of a prompt.</fsummary>
+      <desc>
         <p>It receives a prompt and computes its width,
           considering its Unicode characters and ANSI escapes.</p>
         <p>Useful for creating custom multiline prompts.</p>
+        <p>Example:</p>
+        <code type="erl">
+1> shell:prompt_width("olá> ", unicode).
+5
+%% "olá> " is printed as "ol\341> " on a latin1 systems
+2> shell:prompt_width("olá> ", latin1).
+8
+%% Ansi escapes are ignored
+3> shell:prompt_width("\e[32molá\e[0m> ", unicode).
+5
+%% Double width characters count as 2
+4> shell:prompt_width("😀> ", unicode).
+4
+%% "😀> " is printed as "\x{1F600}> " on latin1 systems
+5> shell:prompt_width("😀> ", latin1).
+11</code>
       </desc>
     </func>
 
