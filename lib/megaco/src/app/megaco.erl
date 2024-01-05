@@ -847,6 +847,15 @@ report_digit_event(DigitMapEvalPid, Event) ->
 %% Feed digit map collector with events and return the result
 %%-----------------------------------------------------------------
 
+-spec test_digit_event(DigitMap, Events) ->
+          {ok,  Kind,  Letters}  |  {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      Events         :: digit_map_event() | [digit_map_event()],
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Reason         :: term().
+
 test_digit_event(DigitMap, Events) ->
     megaco_digit_map:test(DigitMap, Events).
 

@@ -2913,34 +2913,14 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">test_digit_event(DigitMap, Events) -> {ok, Kind, Letters} | {error, Reason}</name>
+      <name name="test_digit_event" arity="2" clause_i="1" since=""/>
       <fsummary>Feed digit map collector with events and return the result</fsummary>
-      <type>
-        <v>DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</v>
-        <v>parsed_digit_map() = term()</v>
-        <v>ParsedDigitMap     = term()</v>
-        <v>Timers             = ignore() | reject()</v>
-        <v>ignore()           = ignore | {ignore, digit_map_value()}</v>
-        <v>reject()           = reject | {reject, digit_map_value()} | digit_map_value()</v>
-        <v>DigitMapEvalPid    = pid()</v>
-        <v>Events             = Event | [Event]</v>
-        <v>Event              = letter() | pause() | cancel()</v>
-        <v>Kind               = kind()</v>
-        <v>kind()             = full | unambiguous</v>
-        <v>Letters            = [letter()]</v>
-        <v>letter()           = $0..$9 | $a .. $k | $A .. $K</v>
-        <v>pause()            = one_second() | ten_seconds()</v>
-        <v>one_second()       = $s | $S</v>
-        <v>ten_seconds()      = $l | $L</v>
-        <v>cancel()           = $z | $Z | cancel</v>
-        <v>Reason             = term()</v>
-      </type>
       <desc>
         <p>Feed digit map collector with events and return the result</p>
         <p>This function starts the evaluation of a digit map with
-          megaco:eval_digit_map/1 and sends a sequence of events to it
-          megaco:report_digit_event/2 in order to simplify testing of
-          digit maps.</p>
+	megaco:eval_digit_map/1 and sends a sequence of events to it with
+	megaco:report_digit_event/2 in order to simplify testing of
+	digit maps.</p>
 
         <marker id="encode_sdp"></marker>
       </desc>
