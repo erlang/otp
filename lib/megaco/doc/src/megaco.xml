@@ -2712,28 +2712,19 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">token_tag2string(Tag) -> Result</name>
-      <name since="">token_tag2string(Tag, EncoderMod) -> Result</name>
-      <name since="">token_tag2string(Tag, EncoderMod, Version) -> Result</name>
+      <name name="token_tag2string" arity="1" clause_i="1" since=""/>
+      <name name="token_tag2string" arity="2" clause_i="1" since=""/>
+      <name name="token_tag2string" arity="3" clause_i="1" since=""/>
       <fsummary>Convert a token tag to a string</fsummary>
-      <type>
-        <v>Tag = atom()</v>
-        <v>EncoderMod = pretty | compact | encoder_module()</v>
-        <v>encoder_module() = megaco_pretty_text_encoder | megaco_compact_text_encoder | atom()</v>
-        <v>Version = int_version() | atom_version()</v>
-        <v>int_version() = 1 | 2 | 3</v>
-        <v>atom_version() = v1 | v2 | v3</v>
-        <v>Result = string() | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Convert a token tag to a string</p>
         <p>If no encoder module is given, the default is used 
-          (which is pretty).</p>
-        <p>If no or an unknown version is given, 
-          the <em>best</em> version is used (which is v3).</p>
-        <p>If no match is found for <c><![CDATA[Tag]]></c>, <c><![CDATA[Result]]></c> will be the 
-          empty string (<c><![CDATA[[]]]></c>).</p>
+	(which is pretty).</p>
+	<p>If no or an unknown version is given, 
+	the <em>best</em> version is used (which is v3).</p>
+	<p>If no match is found for
+	<c><![CDATA[Tag]]></c>, <c><![CDATA[Result]]></c> will be the 
+	empty string (<c><![CDATA[[]]]></c>).</p>
 
         <marker id="cancel"></marker>
       </desc>

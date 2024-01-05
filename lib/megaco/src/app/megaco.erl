@@ -792,8 +792,19 @@ encode_actions(ConnHandle, ActionRequests, Options) ->
 %% printable string.
 %%-----------------------------------------------------------------
 
+-spec token_tag2string(Tag) -> Result when
+      Tag    :: atom(),
+      Result :: string() | {error, Reason},
+      Reason :: term().
+
 token_tag2string(Tag) ->
     token_tag2string(Tag, pretty).
+
+-spec token_tag2string(Tag, EncodingMod) -> Result when
+      Tag         :: atom(),
+      EncodingMod :: pretty | compact | module(),
+      Result      :: string() | {error, Reason},
+      Reason      :: term().
 
 token_tag2string(Tag, pretty) ->
     token_tag2string(Tag, megaco_pretty_text_encoder);
@@ -802,12 +813,19 @@ token_tag2string(Tag, compact) ->
 token_tag2string(Tag, Mod) when is_atom(Tag) and is_atom(Mod) ->
     Mod:token_tag2string(Tag).
 
-token_tag2string(Tag, pretty, V) ->
-    token_tag2string(Tag, megaco_pretty_text_encoder, V);
-token_tag2string(Tag, compact, V) ->
-    token_tag2string(Tag, megaco_compact_text_encoder, V);
-token_tag2string(Tag, Mod, V) when is_atom(Tag) and is_atom(Mod) ->
-    Mod:token_tag2string(Tag, V).
+-spec token_tag2string(Tag, EncodingMod, Version) -> Result when
+      Tag         :: atom(),
+      EncodingMod :: pretty | compact | module(),
+      Version     :: protocol_version() | v1 | v2 | v3,
+      Result      :: string() | {error, Reason},
+      Reason      :: term().
+
+token_tag2string(Tag, pretty, Version) ->
+    token_tag2string(Tag, megaco_pretty_text_encoder, Version);
+token_tag2string(Tag, compact, Version) ->
+    token_tag2string(Tag, megaco_compact_text_encoder, Version);
+token_tag2string(Tag, Mod, Version) when is_atom(Tag) andalso is_atom(Mod) ->
+    Mod:token_tag2string(Tag, Version).
 
 
 %%-----------------------------------------------------------------
