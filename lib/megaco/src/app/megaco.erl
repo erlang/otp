@@ -377,6 +377,12 @@ conn_info(ConnHandle, Item) ->
 %% Update information about an active connection
 %%-----------------------------------------------------------------
 
+-spec update_conn_info(ConnHandle, Item, Value) -> ok | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_conn_info(ConnHandle, Item, Value) ->
     megaco_config:update_conn_info(ConnHandle, Item, Value).
 
