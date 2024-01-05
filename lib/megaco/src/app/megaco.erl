@@ -601,6 +601,19 @@ cast(ConnHandle, ActionRequests, Options) ->
 %% Test the validity of the actions
 %%-----------------------------------------------------------------
     
+-spec test_request(ConnHandle, Version,
+                   EncodingMod, EncodingConfig,
+                   ActionRequests) -> {MegaMsg, EncodeRes} when
+      ConnHandle     :: conn_handle(),
+      Version        :: protocol_version(),
+      EncodingMod    :: module(),
+      EncodingConfig :: list(),
+      ActionRequests :: action_reqs() | [action_reqs()],
+      MegaMsg        :: megaco_message(),
+      EncodeRes      :: {ok, Bin} | {error, Reason},
+      Bin            :: binary(),
+      Reason         :: term().
+
 test_request(ConnHandle, Version, EncodingMod, EncodingConfig, 
 	     ActionRequests) ->
     megaco_messenger:test_request(ConnHandle, ActionRequests, 

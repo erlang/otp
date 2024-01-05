@@ -3118,6 +3118,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <p>Retreive a (SNMP) statistic counter maintained by the 
           megaco application.</p>
         <marker id="reset_stats"></marker>
+        <marker id="reset_stats_0"></marker>
       </desc>
     </func>
 
@@ -3126,7 +3127,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
       <fsummary></fsummary>
       <desc>
         <p>Reset all (SNMP) statistics counters.</p>
-        <marker id="test_request"></marker>
+        <marker id="reset_stats_1_1"></marker>
       </desc>
     </func>
 
@@ -3135,7 +3136,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
       <fsummary></fsummary>
       <desc>
         <p>Reset the specified (SNMP) statistics counter.</p>
-        <marker id="test_request"></marker>
+        <marker id="reset_stats_1_2"></marker>
       </desc>
     </func>
 
@@ -3149,29 +3150,21 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">test_request(ConnHandle, Version, EncodingMod, EncodingConfig, Actions) -> {MegaMsg, EncodeRes}</name>
+      <name name="test_request" arity="5" clause_i="1" since=""/>
       <fsummary>Tests if the Actions argument is correct</fsummary>
-      <type>
-        <v>ConnHandle     = conn_handle()</v>
-        <v>Version        = integer()</v>
-        <v>EncodingMod    = atom()</v>
-        <v>EncodingConfig = Encoding configuration</v>
-        <v>Actions        = A list</v>
-        <v>MegaMsg        = #'MegacoMessage'{}</v>
-        <v>EncodeRes      = {ok, Bin} | {error, Reason}</v>
-        <v>Bin            = binary()</v>
-        <v>Reason         = term()</v>
-      </type>
       <desc>
         <p>Tests if the Actions argument is correctly composed.</p>
         <p>This function is only intended for testing purposes. It's
-          supposed to have a same kind of interface as the <seeerl marker="#call">call</seeerl> or <seeerl marker="#cast">cast</seeerl> functions (with the additions
-          of the <c><![CDATA[EncodingMod]]></c> and <c><![CDATA[EncodingConfig]]></c>
-          arguments). It composes a complete megaco message end
-          attempts to encode it. The return value, will be a tuple of
-          the composed megaco message and the encode result. </p>
+	supposed to have a same kind of interface as the
+	<seeerl marker="#call">call</seeerl> or
+	<seeerl marker="#cast">cast</seeerl> functions (with the additions
+	of the
+	<c><![CDATA[EncodingMod]]></c> and <c><![CDATA[EncodingConfig]]></c>
+	arguments). It composes a complete megaco message end
+	attempts to encode it. The return value, will be a tuple of
+	the composed megaco message and the encode result. </p>
 
-        <marker id="test_reply"></marker>
+	<marker id="test_reply"></marker>
       </desc>
     </func>
 
