@@ -240,6 +240,15 @@
                           medGwyGatewayNumErrors.
 -type counter_value()  :: non_neg_integer().
 
+-type system_info_item() :: text_config          |
+                            connections          |
+                            users                |
+                            n_active_requests    |
+                            n_active_replies     |
+                            n_active_connections |
+                            reply_counters       |
+                            pending_counters.
+
 
 -include("megaco_internal.hrl").
 
@@ -428,6 +437,9 @@ extend_users_info([User | Users], Acc) ->
 %% Lookup system information
 %%-----------------------------------------------------------------
 
+-spec system_info_items() -> [Item] when
+      Item :: system_info_item().
+
 system_info_items() ->
     [
      text_config, 
@@ -436,12 +448,21 @@ system_info_items() ->
      n_active_requests, 
      n_active_replies, 
      n_active_connections,
+     reply_counters,
      pending_counters
     ].
 
+-spec system_info() -> [{Item, Value}] when
+      Item  :: system_info_item(),
+      Value :: term().
+      
 system_info() ->
     [{Item, system_info(Item)} || Item <- system_info_items()].
 
+-spec system_info(Item) -> Value when
+      Item  :: system_info_item(),
+      Value :: term().
+      
 system_info(Item) ->
     megaco_config:system_info(Item).
 

@@ -1064,6 +1064,102 @@
       </desc>
     </datatype>
 
+
+    <datatype>
+      <name name="system_info_item"/>
+      <!-- <marker id="si_text_config"></marker> -->
+      <desc>
+        <taglist>
+          <tag><c><![CDATA[text_config]]></c></tag>
+          <item>
+            <p>The text encoding config.</p>
+	    <p>Value type:
+	    <seetype marker="erlang#term">term()</seetype></p>
+	    <!-- <marker id="si_connections"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[connections]]></c></tag>
+          <item>
+            <p>Lists all active connections. Returns a
+	    list of megaco_conn_handle records.</p>
+
+	    <p>Value type:
+	    [<seetype marker="#conn_handle">conn_handle()</seetype>]</p>
+	    <!-- <marker id="si_users"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[users]]></c></tag>
+          <item>
+            <p>Lists all active users.</p>
+
+	    <p>Value type:
+	    [<seetype marker="#mid">mid()</seetype>]</p>
+	    <!-- <marker id="si_active_requests"></marker> -->
+          </item>
+
+	  
+          <tag><c><![CDATA[n_active_requests]]></c></tag>
+          <item>
+	    <p>Returns number of requests that has originated from
+	    this Erlang node and still are active
+	    (and therefore consumes system resources).</p>
+
+	    <p>Value type:
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
+	    <!-- <marker id="si_active_replies"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[n_active_replies]]></c></tag>
+          <item>
+	    <p>Returns the number of replies that has originated
+	    from this Erlang node and still are active (and
+	    therefore consumes system resources).</p>
+
+	    <p>Value type:
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
+	    <!-- <marker id="si_active_connections"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[n_active_connections]]></c></tag>
+          <item>
+            <p>Returns the number of active connections.</p>
+
+	    <p>Value type:
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
+	    <!-- <marker id="si_reply_counters"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[reply_counters]]></c></tag>
+          <item>
+            <p>Returns a list of the reply counters.</p>
+
+	    <p>Value type:
+	    [{<seetype marker="#conn_handle">conn_handle()</seetype>,
+	      <seetype marker="#transaction_id">transaction_id()</seetype>,
+	      <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype>}]</p>
+	    <!-- <marker id="si_pending_counters"></marker> -->
+          </item>
+
+
+	  <tag><c><![CDATA[pending_counters]]></c></tag>
+          <item>
+            <p>Returns a list of the receive and sent pending counters.</p>
+
+	    <p>Value type:
+	    [{recv | sent,
+	    [{<seetype marker="#transaction_id">transaction_id()</seetype>,
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype>}]}]</p>
+          </item>
+
+	</taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -2306,50 +2402,13 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">system_info() -> [{Item, Value}] | exit(Reason)</name>
-      <name since="">system_info(Item) -> Value | exit(Reason)</name>
+      <name name="system_info" arity="0" clause_i="1" since=""/>
+      <name name="system_info" arity="1" clause_i="1" since=""/>
       <fsummary>Lookup system information</fsummary>
-      <type>
-        <v>Item = system_info_item()</v>
-      </type>
       <desc>
-        <p>Lookup system information</p>
-        <p>The following items are valid:</p>
-        <taglist>
-          <tag><c><![CDATA[text_config]]></c></tag>
-          <item>
-            <p>The text encoding config.</p>
-          </item>
-          <tag><c><![CDATA[connections]]></c></tag>
-          <item>
-            <p>Lists all active connections. Returns a list of
-              megaco_conn_handle records.</p>
-          </item>
-          <tag><c><![CDATA[users]]></c></tag>
-          <item>
-            <p>Lists all active users. Returns a list of
-              megaco_mid()'s.</p>
-          </item>
-          <tag><c><![CDATA[n_active_requests]]></c></tag>
-          <item>
-            <p>Returns an integer representing the number of requests
-              that has originated from this Erlang node and still are
-              active (and therefore consumes system resources).</p>
-          </item>
-          <tag><c><![CDATA[n_active_replies]]></c></tag>
-          <item>
-            <p>Returns an integer representing the number of replies
-              that has originated from this Erlang node and still are
-              active (and therefore consumes system resources).</p>
-          </item>
-          <tag><c><![CDATA[n_active_connections]]></c></tag>
-          <item>
-            <p>Returns an integer representing the number of active
-              connections.</p>
-          </item>
-        </taglist>
+        <p>Lookup system information. </p>
 
-        <marker id="info"></marker>
+	<marker id="info"></marker>
       </desc>
     </func>
 
