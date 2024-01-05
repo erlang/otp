@@ -89,6 +89,10 @@
 	 trace_me/5, phone_home/5, report_event/5
         ]).
 
+
+-type actor() :: term().
+-type level() :: 0..100.
+
 %%----------------------------------------------------------------------
 %% Reports an event, such as a message
 %%
@@ -126,26 +130,59 @@
 %% Other events (termed actions) may be undirected and only have one actor.
 %%----------------------------------------------------------------------
 
+-spec trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      FromTo :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 trace_me(DetailLevel, FromTo, Label, Contents)
   when is_integer(DetailLevel) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      From :: actor(),
+      To :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 trace_me(DetailLevel, _From, _To, _Label, _Contents)
   when is_integer(DetailLevel) ->
     hopefully_traced.
 
+-spec phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      FromTo :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 phone_home(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      From :: actor(),
+      To :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 phone_home(DetailLevel, From, To, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, From, To, Label, Contents).
 
+-spec report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      FromTo :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 report_event(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
+      DetailLevel :: level(),
+      From :: actor(),
+      To :: actor(),
+      Label :: atom() | string() | term(),
+      Contents :: [{Key::term(), Value::term()}] | term().
 report_event(DetailLevel, From, To, Label, Contents)
   when is_integer(DetailLevel) ->
     %% N.B External call
