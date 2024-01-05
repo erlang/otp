@@ -1396,7 +1396,8 @@ error_info(Reason, ST, Name, From, Msg, Mod, State, Debug) ->
                  state=>maps:get('EXIT',Status,maps:get('$status',Status,maps:get(state,Status))),
                  log=>format_log_state(Mod,maps:get(log,Status)),
                  reason=>ReportReason,
-                 client_info=>client_stacktrace(From)},
+                 client_info=>client_stacktrace(From),
+                 process_label=>proc_lib:get_label(self())},
                #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/2,
                  error_logger=>#{tag=>error,
@@ -1440,13 +1441,15 @@ limit_report(#{label:={gen_server,terminate},
                state:=State,
                log:=Log,
                reason:=Reason,
-               client_info:=Client}=Report,
+               client_info:=Client,
+               process_label:=ProcessLabel}=Report,
             Depth) ->
     Report#{last_message=>io_lib:limit_term(Msg,Depth),
             state=>io_lib:limit_term(State,Depth),
             log=>[io_lib:limit_term(L,Depth)||L<-Log],
             reason=>io_lib:limit_term(Reason,Depth),
-            client_info=>limit_client_report(Client,Depth)};
+            client_info=>limit_client_report(Client,Depth),
+            process_label=>io_lib:limit_term(ProcessLabel,Depth)};
 limit_report(#{label:={gen_server,no_handle_info},
                message:=Msg}=Report,Depth) ->
     Report#{message=>io_lib:limit_term(Msg,Depth)}.
@@ -1480,10 +1483,16 @@ format_log_single(#{label:={gen_server,terminate},
                     state:=State,
                     log:=Log,
                     reason:=Reason,
-                    client_info:=Client},
+                    client_info:=Client,
+                    process_label:=ProcessLabel},
                   #{single_line:=true,depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
-    Format1 = lists:append(["Generic server ",P," terminating. Reason: ",P,
+    Format1 = lists:append(["Generic server ",P," terminating",
+                            case ProcessLabel of
+                                undefined -> "";
+                                _ -> ". Label: "++P
+                            end,
+                            ". Reason: ",P,
                             ". Last message: ", P, ". State: ",P,"."]),
     {ServerLogFormat,ServerLogArgs} = format_server_log_single(Log,FormatOpts),
     {ClientLogFormat,ClientLogArgs} = format_client_log_single(Client,FormatOpts),
@@ -1491,9 +1500,19 @@ format_log_single(#{label:={gen_server,terminate},
     Args1 =
         case Depth of
             unlimited ->
-                [Name,fix_reason(Reason),Msg,State];
+                [Name] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel]
+                end ++
+                [fix_reason(Reason),Msg,State];
             _ ->
-                [Name,Depth,fix_reason(Reason),Depth,Msg,Depth,State,Depth]
+                [Name,Depth] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel,Depth]
+                end ++
+                [fix_reason(Reason),Depth,Msg,Depth,State,Depth]
         end,
     {Format1++ServerLogFormat++ClientLogFormat,
      Args1++ServerLogArgs++ClientLogArgs};
@@ -1521,15 +1540,20 @@ format_log_multi(#{label:={gen_server,terminate},
                    state:=State,
                    log:=Log,
                    reason:=Reason,
-                   client_info:=Client},
+                   client_info:=Client,
+                   process_label:=ProcessLabel},
                  #{depth:=Depth}=FormatOpts) ->
     Reason1 = fix_reason(Reason),
     {ClientFmt,ClientArgs} = format_client_log(Client,FormatOpts),
     P = p(FormatOpts),
     Format =
         lists:append(
-          ["** Generic server ",P," terminating \n"
-           "** Last message in was ",P,"~n"
+          ["** Generic server ",P," terminating \n"] ++
+          case ProcessLabel of
+              undefined -> [];
+              _ -> ["** Process label == ",P,"~n"]
+          end ++
+          ["** Last message in was ",P,"~n"
            "** When Server state == ",P,"~n"
            "** Reason for termination ==~n** ",P,"~n"] ++
                case Log of
@@ -1541,9 +1565,19 @@ format_log_multi(#{label:={gen_server,terminate},
     Args =
         case Depth of
             unlimited ->
-                [Name, Msg, State, Reason1] ++ Log ++ ClientArgs;
+                [Name] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel]
+                end ++
+                [Msg, State, Reason1] ++ Log ++ ClientArgs;
             _ ->
-                [Name, Depth, Msg, Depth, State, Depth, Reason1, Depth] ++
+                [Name, Depth] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel, Depth]
+                end ++
+                [Msg, Depth, State, Depth, Reason1, Depth] ++
                     case Log of
                         [] -> [];
                         _ -> lists:flatmap(fun(L) -> [L, Depth] end, Log)

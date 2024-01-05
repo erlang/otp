@@ -49,7 +49,7 @@
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
-         format_log_1/1, format_log_2/1,
+         format_log_1/1, format_log_2/1, format_log_with_process_label/1,
          reply_by_alias_with_payload/1
 	]).
 
@@ -99,7 +99,8 @@ all() ->
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
-     format_log_1, format_log_2, reply_by_alias_with_payload].
+     format_log_1, format_log_2, format_log_with_process_label,
+     reply_by_alias_with_payload].
 
 groups() -> 
     [{stop, [],
@@ -2509,7 +2510,8 @@ format_log_1(_Config) ->
                state=>Term,
                log=>[],
                reason=>Term,
-               client_info=>{self(),{clientname,[]}}},
+               client_info=>{self(),{clientname,[]}},
+               process_label=>undefined},
     {F1,A1} = gen_server:format_log(Report),
     FExpected1 = "** Generic server ~tp terminating \n"
         "** Last message in was ~tp~n"
@@ -2540,7 +2542,8 @@ format_log_1(_Config) ->
                                       state=>Term,
                                       log=>[],
                                       reason=>Term,
-                                      client_info=>{self(),{clientname,[]}}}),
+                                      client_info=>{self(),{clientname,[]}},
+                                      process_label=>undefined}),
     FExpected2 = "** Generic server ~tP terminating \n"
         "** Last message in was ~tP~n"
         "** When Server state == ~tP~n"
@@ -2578,7 +2581,8 @@ format_log_2(_Config) ->
                state=>Term,
                log=>[],
                reason=>Term,
-               client_info=>{self(),{clientname,[]}}},
+               client_info=>{self(),{clientname,[]}},
+               process_label=>undefined},
     FormatOpts1 = #{},
     Str1 = flatten_format_log(Report,FormatOpts1),
     L1 = length(Str1),
@@ -2694,6 +2698,82 @@ format_log_2(_Config) ->
     true = lists:prefix(WExpected6,WStr6),
     true = WL6<WL4,
 
+    ok.
+
+format_log_with_process_label(_Config) ->
+    %% Previous test cases test with process_label set to undefined,
+    %% so in this test case, test setting it, and test:
+    %% * multiple and single line line
+    %% * depth-limited and unlimited
+
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    ProcessLabel = {some_id, #{term => Term}},
+    LastMsg = dummy_msg,
+    Reason = dummy_reason,
+    State = dummy_state,
+    Report = #{label=>{gen_server,terminate},
+               name=>Name,
+               last_message=>LastMsg,
+               state=>State,
+               log=>[],
+               reason=>Reason,
+               client_info=>{self(),{clientname,[]}},
+               process_label=>ProcessLabel},
+
+    %% multiple and single line (unlimited depth)
+
+    {F1,A1} = gen_server:format_log(Report),
+    FExpected1 = "** Generic server ~tp terminating \n"
+        "** Process label == ~tp~n"
+        "** Last message in was ~tp~n"
+        "** When Server state == ~tp~n"
+        "** Reason for termination ==~n** ~tp~n"
+        "** Client ~tp stacktrace~n"
+        "** ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1=F1,
+    [Name,ProcessLabel,LastMsg,State,Reason,clientname,[]] = A1,
+
+    FormatOpts2 = #{single_line=>true},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    Expected2 = "Generic server "++NameStr++" terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}}. "
+        "Reason: dummy_reason. "
+        "Last message: dummy_msg. "
+        "State: dummy_state. "
+        "Client clientname stacktrace: [].",
+    ct:log("Str2: ~ts", [Str2]),
+    true = Expected2 =:= Str2,
+
+    %% multiple and single line (depth-limited)
+
+    Depth = 10,
+    FormatOpts3 = #{depth=>Depth},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    Expected3 = "** Generic server " ++ NameStr ++ " terminating \n"
+        "** Process label == {some_id,#{term => [1,2,3,4,5,6|...]}}\n"
+        "** Last message in was ",
+    ct:log("Str3: ~ts",[Str3]),
+    true = lists:prefix(Expected3,Str3),
+
+    FormatOpts4 = #{single_line=>true, depth=>Depth},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    Expected4 = "Generic server "++NameStr++" terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6|...]}}. "
+        "Reason: ",
+    ct:log("Str4: ~ts",[Str4]),
+    true = lists:prefix(Expected4,Str4),
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
     ok.
 
 flatten_format_log(Report, Format) ->

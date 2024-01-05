@@ -612,7 +612,8 @@ error_info(Reason, Name, From, Msg, StateName, StateData, Debug) ->
                  state_data=>StateData,
                  log=>Log,
                  reason=>Reason,
-                 client_info=>client_stacktrace(From)},
+                 client_info=>client_stacktrace(From),
+                 process_label=>proc_lib:get_label(self())},
                #{domain=>[otp],
                  report_cb=>fun gen_fsm:format_log/2,
                  error_logger=>#{tag=>error,
@@ -656,13 +657,15 @@ limit_report(#{label:={gen_fsm,terminate},
                state_data:=StateData,
                log:=Log,
                reason:=Reason,
-               client_info:=ClientInfo}=Report,
+               client_info:=ClientInfo,
+               process_label:=ProcessLabel}=Report,
             Depth) ->
     Report#{last_message=>io_lib:limit_term(Msg, Depth),
             state_data=>io_lib:limit_term(StateData, Depth),
             log=>[io_lib:limit_term(L, Depth) || L <- Log],
             reason=>io_lib:limit_term(Reason, Depth),
-            client_info=>limit_client_report(ClientInfo, Depth)};
+            client_info=>limit_client_report(ClientInfo, Depth),
+            process_label=>io_lib:limit_term(ProcessLabel, Depth)};
 limit_report(#{label:={gen_fsm,no_handle_info},
                message:=Msg}=Report, Depth) ->
     Report#{message=>io_lib:limit_term(Msg, Depth)}.
@@ -697,14 +700,20 @@ format_log_single(#{label:={gen_fsm,terminate},
                     state_data:=StateData,
                     log:=Log,
                     reason:=Reason,
-                    client_info:=ClientInfo},
+                    client_info:=ClientInfo,
+                    process_label:=ProcessLabel},
                   #{single_line:=true,depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
     FixedReason = fix_reason(Reason),
     {ClientFmt,ClientArgs} = format_client_log_single(ClientInfo, P, Depth),
     Format =
         lists:append(
-          ["State machine ",P," terminating. Reason: ",P,
+          ["State machine ",P," terminating",
+           case ProcessLabel of
+               undefined -> "";
+               _ -> ". Label: "++P
+           end,
+           ". Reason: ",P,
            ". Last event: ",P,
            ". State: ",P,
            ". Data: ",P,
@@ -714,7 +723,12 @@ format_log_single(#{label:={gen_fsm,terminate},
            end,
           "."]),
     Args0 =
-        [Name,FixedReason,get_msg(Msg),StateName,StateData] ++
+        [Name] ++
+        case ProcessLabel of
+            undefined -> [];
+            _ -> [ProcessLabel]
+        end ++
+        [FixedReason,get_msg(Msg),StateName,StateData] ++
         case Log of
             [] -> [];
             _ -> [Log]
@@ -751,14 +765,19 @@ format_log_multi(#{label:={gen_fsm,terminate},
                    state_data:=StateData,
                    log:=Log,
                    reason:=Reason,
-                   client_info:=ClientInfo},
+                   client_info:=ClientInfo,
+                   process_label:=ProcessLabel},
                  #{depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
     FixedReason = fix_reason(Reason),
     {ClientFmt,ClientArgs} = format_client_log(ClientInfo, P, Depth),
     Format =
         lists:append(
-          ["** State machine ",P," terminating \n"++
+          ["** State machine ",P," terminating \n",
+           case ProcessLabel of
+               undefined -> [];
+               _ -> "** Process label == "++P++"~n"
+           end,
            get_msg_str(Msg, P)++
            "** When State == ",P,"~n",
            "**      Data  == ",P,"~n",
@@ -768,7 +787,12 @@ format_log_multi(#{label:={gen_fsm,terminate},
                _ -> "** Log ==~n**"++P++"~n"
            end]),
     Args0 =
-        [Name|get_msg(Msg)] ++
+        [Name|
+         case ProcessLabel of
+             undefined -> [];
+             _ -> [ProcessLabel]
+         end] ++
+        get_msg(Msg) ++
         [StateName,StateData,FixedReason |
          case Log of
              [] -> [];
