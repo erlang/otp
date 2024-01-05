@@ -130,6 +130,7 @@
                              megaco_encoder:domainName() |
                              megaco_encoder:deviceName() |
                              megaco_encoder:mtpAddress().
+-type megaco_message()    :: megaco_encoder:megaco_message().
 -type action_request()    :: megaco_encoder:action_request().
 -type action_reply()      :: megaco_encoder:action_reply().
 -type error_desc()        :: megaco_encoder:error_desc().
@@ -605,13 +606,29 @@ test_request(ConnHandle, Version, EncodingMod, EncodingConfig,
     megaco_messenger:test_request(ConnHandle, ActionRequests, 
 				  Version, EncodingMod, EncodingConfig).
 
+
 %% This tests the actual_reply() type of return from the 
 %% handle_trans_request function.
-%% 
+%%
+
+-spec test_reply(ConnHandle, Version,
+                 EncodingMod, EncodingConfig,
+                 Reply) -> {MegaMsg, EncodeRes} when
+      ConnHandle     :: conn_handle(),
+      Version        :: protocol_version(),
+      EncodingMod    :: module(),
+      EncodingConfig :: list(),
+      Reply          :: error_desc() | [action_reply()],
+      MegaMsg        :: megaco_message(),
+      EncodeRes      :: {ok, Bin} | {error, Reason},
+      Bin            :: binary(),
+      Reason         :: term().
+
 test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, 
 	   Reply) ->
     megaco_messenger:test_reply(ConnHandle, Version, 
 				EncodingMod, EncodingConfig, Reply).
+
 
 %%-----------------------------------------------------------------
 %% Func: get_stats/0, get_stats/1, get_stats/2

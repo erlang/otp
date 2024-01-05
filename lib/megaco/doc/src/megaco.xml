@@ -58,6 +58,17 @@
     </datatype>
 
     <datatype>
+      <name name="megaco_message"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="action_request"/>
       <!--
       <desc>
@@ -3165,32 +3176,21 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, Reply) -> {MegaMsg, EncodeRes}</name>
+      <name name="test_reply" arity="5" clause_i="1" since=""/>
       <fsummary>Tests if the Reply argument is correct</fsummary>
-      <type>
-        <v>ConnHandle     = conn_handle()</v>
-        <v>Version        = integer()</v>
-        <v>EncodingMod    = atom()</v>
-        <v>EncodingConfig = A list</v>
-        <v>Reply          = actual_reply()</v>
-        <v>MegaMsg        = #'MegacoMessage'{}</v>
-        <v>EncodeRes      = {ok, Bin} | {error, Reason}</v>
-        <v>Bin            = binary()</v>
-        <v>Reason         = term()</v>
-      </type>
       <desc>
         <p>Tests if the Reply argument is correctly composed.</p>
         <p>This function is only intended for testing purposes. It's
-          supposed to test the <c><![CDATA[actual_reply()]]></c> return value of
-          the callback functions 
-          <seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl>
-          and 
-          <seeerl marker="megaco_user#trans_long_request">handle_trans_long_request</seeerl>
-          functions (with the additions of the <c><![CDATA[EncodingMod]]></c> and
-          <c><![CDATA[EncodingConfig]]></c> arguments). It composes a complete
-          megaco message end attempts to encode it. The return value,
-          will be a tuple of the composed megaco message and the
-          encode result.</p>
+	supposed to test the <c><![CDATA[actual_reply()]]></c> return value of
+	the callback functions 
+	<seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl>
+	and 
+	<seeerl marker="megaco_user#trans_long_request">handle_trans_long_request</seeerl>
+	functions (with the additions of the <c><![CDATA[EncodingMod]]></c> and
+	<c><![CDATA[EncodingConfig]]></c> arguments). It composes a complete
+	megaco message end attempts to encode it. The return value,
+	will be a tuple of the composed megaco message and the
+	encode result.</p>
       </desc>
     </func>
   </funcs>
