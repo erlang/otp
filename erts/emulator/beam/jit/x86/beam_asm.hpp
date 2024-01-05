@@ -1186,7 +1186,7 @@ public:
 
     void codegen(char *buff, size_t len);
 
-    void register_metadata(const BeamCodeHeader *header);
+    void *register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
     ErtsCodePtr getLambda(unsigned index);
@@ -1663,9 +1663,9 @@ protected:
     }
 };
 
-void beamasm_metadata_update(std::string module_name,
-                             ErtsCodePtr base_address,
-                             size_t code_size,
-                             const std::vector<AsmRange> &ranges);
+void *beamasm_metadata_insert(std::string module_name,
+                              ErtsCodePtr base_address,
+                              size_t code_size,
+                              const std::vector<AsmRange> &ranges);
 void beamasm_metadata_early_init();
 void beamasm_metadata_late_init();

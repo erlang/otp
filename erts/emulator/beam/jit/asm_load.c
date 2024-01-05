@@ -1133,7 +1133,7 @@ void beam_load_finalize_code(LoaderState *stp,
     }
 
     /* Register debug / profiling info with external tools. */
-    beamasm_register_metadata(stp->ba, stp->code_hdr);
+    inst_p->metadata = beamasm_register_metadata(stp->ba, stp->code_hdr);
 
     erts_seal_module(inst_p);
 

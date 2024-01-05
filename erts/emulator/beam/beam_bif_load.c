@@ -2066,6 +2066,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
                 __lsan_unregister_root_region(modp->old.code_hdr,
                                               modp->old.code_length);
 #   endif
+                beamasm_unregister_metadata(modp->old.metadata);
                 beamasm_purge_module(modp->old.executable_region,
                                      modp->old.writable_region,
                                      modp->old.code_length);
