@@ -1008,11 +1008,11 @@ eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
 	     _ -> Es0#es{prim_load=false}
 	 end,
     eval_script(T, Es);
-eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad}=Es)
+eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad,debug=Deb}=Es)
   when is_list(Mods) ->
     case PrimLoad of
 	true ->
-	    load_modules(Mods, Init);
+	    debug(Deb, {primLoad,Mods}, fun() -> load_modules(Mods, Init) end);
 	false ->
 	    %% Do not load now, code_server does that dynamically!
 	    ok
