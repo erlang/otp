@@ -152,7 +152,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
             comment("add small constant without overflow check");
             a.add(dst.reg, lhs.reg, imm(cleared_tag));
@@ -341,7 +341,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
             comment("subtract small constant without overflow check");
             a.sub(dst.reg, lhs.reg, imm(cleared_tag));
@@ -1175,7 +1175,7 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                          &ignore)) {
             comment("skipped test for small operands since they are always "
                     "small");
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             auto dst = init_destination(Dst, ARG1);
 
             /* TAG & TAG = TAG, so we don't need to tag it again. */
@@ -1269,7 +1269,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         if (a64::Utils::encodeLogicalImm(rhs, 64, &ignore)) {
             comment("skipped test for small operands since they are always "
                     "small");
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             auto dst = init_destination(Dst, ARG1);
 
             a.orr(dst.reg, lhs.reg, rhs);
@@ -1624,7 +1624,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
     if (is_bsl_small(LHS, RHS)) {
         comment("skipped tests because operands and result are always small");
         if (RHS.isSmall()) {
-            auto lhs = load_source(LHS, ARG2);
+            auto lhs = load_source(LHS);
             a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
             a.lsl(TMP1, TMP1, imm(RHS.as<ArgSmall>().getSigned()));
         } else {

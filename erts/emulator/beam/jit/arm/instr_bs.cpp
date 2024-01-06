@@ -632,7 +632,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
 void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
                                                  const ArgRegister &Dst) {
     const int start_offset = offsetof(ErlSubBits, start);
-    auto ctx_reg = load_source(Ctx, TMP1);
+    auto ctx_reg = load_source(Ctx);
     auto dst_reg = init_destination(Dst, TMP2);
 
     /* Match contexts can never be literals, so we can skip clearing literal

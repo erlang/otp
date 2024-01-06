@@ -256,7 +256,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
                                                     const ArgLabel &Fail,
                                                     const ArgWord &Size,
                                                     const Span<ArgVal> &args) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 

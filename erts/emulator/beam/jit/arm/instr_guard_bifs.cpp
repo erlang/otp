@@ -143,7 +143,7 @@ void BeamModuleAssembler::emit_cmp_immed_to_bool(arm::CondCode cc,
                                                  const ArgSource &RHS,
                                                  const ArgRegister &Dst) {
     if (RHS.isImmed()) {
-        auto lhs = load_source(LHS, TMP1);
+        auto lhs = load_source(LHS);
         cmp_arg(lhs.reg, RHS);
     } else {
         auto [lhs, rhs] = load_sources(LHS, TMP1, RHS, TMP2);

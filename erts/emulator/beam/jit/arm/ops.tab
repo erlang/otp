@@ -163,8 +163,7 @@ is_number f s
 jump f
 
 #
-# List matching instructions. The combination of test for a nonempty list
-# followed by get_{list/hd/tl} are common, so we will optimize that.
+# List matching instructions.
 #
 is_nonempty_list Fail nqia => jump Fail
 
