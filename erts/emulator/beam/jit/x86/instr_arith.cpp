@@ -192,13 +192,28 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
         mov_arg(RET, LHS);
 
         if (is_rhs_literal) {
-            a.add(RET, imm(rhs_untagged));
+            preserve_cache(
+                    [&]() {
+                        a.add(RET, imm(rhs_untagged));
+                    },
+                    RET);
         } else if (RHS.isSmall()) {
-            mov_imm(ARG2, RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK);
-            a.add(RET, ARG2);
+            preserve_cache(
+                    [&]() {
+                        mov_imm(ARG2,
+                                RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK);
+                        a.add(RET, ARG2);
+                    },
+                    RET,
+                    ARG2);
         } else {
             mov_arg(ARG2, RHS);
-            a.lea(RET, x86::qword_ptr(RET, ARG2, 0, -_TAG_IMMED1_SMALL));
+            preserve_cache(
+                    [&]() {
+                        a.lea(RET,
+                              x86::qword_ptr(RET, ARG2, 0, -_TAG_IMMED1_SMALL));
+                    },
+                    RET);
         }
 
         mov_arg(Dst, RET);
@@ -312,7 +327,11 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
         mov_arg(RET, LHS);
 
         if (is_rhs_literal) {
-            a.sub(RET, imm(rhs_untagged));
+            preserve_cache(
+                    [&]() {
+                        a.sub(RET, imm(rhs_untagged));
+                    },
+                    RET);
         } else if (RHS.isSmall()) {
             mov_imm(ARG2, RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK);
             a.sub(RET, ARG2);
@@ -1264,10 +1283,18 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
         if (RHS.isSmall() && Support::isInt32(RHS.as<ArgSmall>().get())) {
-            a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
+            preserve_cache(
+                    [&]() {
+                        a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
+                    },
+                    RET);
         } else if (RHS.isSmall() &&
                    Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
-            a.and_(RET, imm(RHS.as<ArgSmall>().get()));
+            preserve_cache(
+                    [&]() {
+                        a.and_(RET, imm(RHS.as<ArgSmall>().get()));
+                    },
+                    RET);
         } else {
             mov_arg(ARG2, RHS);
             a.and_(RET, ARG2);
@@ -1385,12 +1412,22 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
         if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
-            a.xor_(RET, imm(RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_SMALL));
+            preserve_cache(
+                    [&]() {
+                        a.xor_(RET,
+                               imm(RHS.as<ArgSmall>().get() &
+                                   ~_TAG_IMMED1_SMALL));
+                    },
+                    RET);
         } else {
-            /* TAG ^ TAG = 0, so we need to tag it again. */
             mov_arg(ARG2, RHS);
-            a.xor_(RET, ARG2);
-            a.or_(RET, imm(_TAG_IMMED1_SMALL));
+            preserve_cache(
+                    [&]() {
+                        /* TAG ^ TAG = 0, so we need to tag it again. */
+                        a.xor_(RET, ARG2);
+                        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+                    },
+                    RET);
         }
         mov_arg(Dst, RET);
         return;

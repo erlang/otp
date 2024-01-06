@@ -740,9 +740,13 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
     a.bind(good_map);
     {
         ERTS_CT_ASSERT(offsetof(flatmap_t, size) == sizeof(Eterm));
-        a.mov(RET, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-        a.shl(RET, imm(4));
-        a.or_(RETb, imm(_TAG_IMMED1_SMALL));
+        preserve_cache(
+                [&]() {
+                    a.mov(RET, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+                    a.shl(RET, imm(4));
+                    a.or_(RETb, imm(_TAG_IMMED1_SMALL));
+                },
+                RET);
         mov_arg(Dst, RET);
     }
 }
