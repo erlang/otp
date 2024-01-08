@@ -93,9 +93,7 @@ init(_Opts) ->
 	    {ok, #state{conf = {flex, PortOrPorts}}};
 	{error, Reason} ->
 	    %% {stop, {failed_starting_scanner, Reason, Opts}};
-	    {stop, {failed_starting_scanner, Reason, []}};
-	Else ->
-	    {stop, {failed_starting_scanner, Else}}
+	    {stop, {failed_starting_scanner, Reason, []}}
     end.
 
 

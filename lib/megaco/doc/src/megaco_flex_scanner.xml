@@ -84,12 +84,8 @@ megaco_version() = integer() >= 1
 
   <funcs>
     <func>
-      <name since="">start() -> {ok, PortOrPorts} | {error, Reason}</name>
+      <name name="start" arity="0" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>PortOrPorts = megaco_ports()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>This function is used to start the flex scanner. 
 	It locates the library and loads the linked in driver.</p>
@@ -158,22 +154,10 @@ megaco_version() = integer() >= 1
 
     <func>
       <name name="scan" arity="2" clause_i="1" since=""/>
-      <!--
-      <name since="">scan(Binary, PortOrPorts) -> {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine} </name>
-      -->
       <fsummary></fsummary>
-      <!--
-      <type>
-        <v>Binary = binary()</v>
-        <v>PortOrPorts = megaco_ports()</v>
-        <v>Tokens = list()</v>
-        <v>Version = megaco_version()</v>
-        <v>LatestLine = integer()</v>
-        <v>Reason = term()</v>
-      </type>
-      -->
       <desc>
-        <p>Scans a megaco message and generates a token list to be passed on the parser. </p>
+	<p>Scans a megaco message and generates a token list to
+	be passed on the parser. </p>
       </desc>
     </func>
 

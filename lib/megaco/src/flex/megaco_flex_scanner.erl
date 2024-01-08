@@ -106,6 +106,10 @@ is_own_port(Port, N, Ports) when (N > 0) ->
 %% Start the flex scanner
 %%----------------------------------------------------------------------
 
+-spec start() -> {ok, PortOrPorts} | {error, Reason} when
+      PortOrPorts :: megaco_ports(),
+      Reason      :: term().
+
 start() ->
     start(?SMP_SUPPORT_DEFAULT()).
 
