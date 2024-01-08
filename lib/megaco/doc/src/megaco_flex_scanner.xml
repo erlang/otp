@@ -105,14 +105,11 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name since="">stop(PortOrPorts) -> stopped</name>
+      <name name="stop" arity="1" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>PortOrPorts = megaco_ports()</v>
-      </type>
       <desc>
         <p>This function is used to stop the flex scanner. It also
-          unloads the driver.</p>
+	unloads the driver.</p>
 
         <marker id="is_reentrant_enabled"></marker>
       </desc>

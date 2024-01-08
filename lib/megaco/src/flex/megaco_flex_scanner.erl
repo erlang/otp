@@ -180,14 +180,17 @@ drv_name() ->
 %% Stop the flex scanner
 %%----------------------------------------------------------------------
 
+-spec stop(PortOrPorts) -> stopped when
+      PortOrPorts :: megaco_ports().
+
 stop(Port) when is_port(Port) ->
     erlang:port_close(Port), 
     _ = erl_ddll:unload_driver(drv_name()),
     stopped;
 stop(Ports) when is_tuple(Ports) ->
-    stop(tuple_to_list(Ports));
-stop(Ports) when is_list(Ports) ->
-    lists:foreach(fun(Port) ->  erlang:port_close(Port) end, Ports),
+    lists:foreach(fun(Port) ->
+                          erlang:port_close(Port)
+                  end, tuple_to_list(Ports)),
     _ = erl_ddll:unload_driver(drv_name()),
     stopped.
 
