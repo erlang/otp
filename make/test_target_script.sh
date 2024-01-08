@@ -99,12 +99,9 @@ print_on_error_note () {
         cat << EOM
 NOTE:
 
-Some test cases do not work correctly when run through "make test" as
-they are designed to be run through the method that is described in
-the "$ERL_TOP/HOWTO/TESTING.md" text file. You may want to check this
-text file if you encounter strange errors. Note also that you can
-rerun a specific test case by passing parameters to ct_run as in the
-example below:
+You may want to check "$ERL_TOP/HOWTO/TESTING.md" text file if you
+encounter strange errors. Note also that you can rerun a specific test
+case by passing parameters to ct_run as in the example below:
 
 make ARGS="-suite asn1_SUITE -case ticket_7407" test
 
