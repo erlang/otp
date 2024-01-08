@@ -1673,7 +1673,7 @@ select_hashsign(#certificate_request{
                                             hash_sign_algos = HashSigns},
                    certificate_types = Types},
                 Cert,
-                SupportedHashSigns,
+                SupportedHashSigns0,
 		?TLS_1_2) ->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
@@ -1681,6 +1681,7 @@ select_hashsign(#certificate_request{
     case is_acceptable_cert_type(PublicKeyAlgo, Types) andalso
         is_supported_sign(SignAlgo, HashSigns) of
 	true ->
+            SupportedHashSigns = ssl_cipher:signature_schemes_1_2(SupportedHashSigns0),
             do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns);
 	false ->
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)

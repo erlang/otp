@@ -54,6 +54,8 @@
          tls12_client_tls_server/1,
          legacy_tls12_client_tls_server/0,
          legacy_tls12_client_tls_server/1,
+         legacy_tls12_server_tls_client/0,
+         legacy_tls12_server_tls_client/1,
          middle_box_tls13_client/0,
          middle_box_tls13_client/1,
          middle_box_tls12_enabled_client/0,
@@ -93,6 +95,7 @@ tls_1_3_1_2_tests() ->
      tls_client_tls12_server,
      tls12_client_tls_server,
      legacy_tls12_client_tls_server,
+     legacy_tls12_server_tls_client,
      middle_box_tls13_client,
      middle_box_tls12_enabled_client,
      middle_box_client_tls_v2_session_reused,
@@ -303,6 +306,30 @@ legacy_tls12_client_tls_server(Config) when is_list(Config) ->
                    {signature_algs, ssl:signature_algs(default, 'tlsv1.3')},
                    {verify, verify_peer}, {fail_if_no_peer_cert, true}
                   | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+legacy_tls12_server_tls_client() ->
+    [{doc,"Test that a TLS 1.3 enabled client can connect to legacy TLS-1.2 server."}].
+
+legacy_tls12_server_tls_client(Config) when is_list(Config) ->
+    SHA = sha384,
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Alg = proplists:get_value(name, Prop),
+    #{client_config := ClientOpts0, 
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(Alg, [{server_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]},
+                                                                              {client_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]}
+                                                                             ]),
+
+    ClientOpts = [{versions, ['tlsv1.3', 'tlsv1.2']} | ClientOpts0],
+    ServerOpts =  [{versions, ['tlsv1.2']}, {verify, verify_peer}, {fail_if_no_peer_cert, true},
+                   {signature_algs, [{SHA, Alg}]}
+                  | ServerOpts0],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 middle_box_tls13_client() ->
