@@ -2440,18 +2440,11 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">update_user_info(UserMid, Item, Value) -> ok | {error, Reason}</name>
+      <name name="update_user_info" arity="3" clause_i="1" since=""/>
       <fsummary>Update information about a user</fsummary>
-      <type>
-        <v>UserMid = megaco_mid() </v>
-        <v>Item    = user_info_item()</v>
-        <v>Value   = user_info_value()</v>
-        <v>Reason  = term()</v>
-      </type>
       <desc>
         <p>Update information about a user</p>
-        <p>Requires that the user is started. See megaco:user_info/2
-          about which items and values that are valid.</p>
+        <p>Requires that the user is started. </p>
 
         <marker id="conn_info"></marker>
         <marker id="conn_info_11"></marker>

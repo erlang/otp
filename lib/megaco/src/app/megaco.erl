@@ -323,6 +323,12 @@ user_info(UserMid, Item) ->
 %% Update information about a user
 %%-----------------------------------------------------------------
 
+-spec update_user_info(UserMid, Item, Value) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Item    :: user_info_item(),
+      Value   :: term(),
+      Reason  :: term().
+
 update_user_info(UserMid, Item, Value) ->
     megaco_config:update_user_info(UserMid, Item, Value).
 
