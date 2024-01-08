@@ -192,6 +192,16 @@ stop(Ports) when is_list(Ports) ->
 %% Scan a message
 %%----------------------------------------------------------------------
 
+-spec scan(Binary, PortOrPorts) ->
+          {ok, Tokens, Version, LatestLine} |
+          {error, Reason, LatestLine} when
+      Binary      :: binary(),
+      PortOrPorts :: megaco_ports(),
+      Tokens      :: list(),
+      Version     :: megaco_encoder:protocol_version(),
+      LatestLine  :: non_neg_integer(),
+      Reason      :: term().
+
 scan(Binary, Port) when is_port(Port) ->
     do_scan(Binary, Port);
 scan(Binary, Ports) when is_tuple(Ports) ->
@@ -202,8 +212,8 @@ do_scan(Binary, Port) ->
 	[] ->
 	    receive
 		{tokens, Tokens, LatestLine} ->
-		    Vsn = version(Tokens),
-		    {ok, Tokens, Vsn, LatestLine} 
+		    Version = version(Tokens),
+		    {ok, Tokens, Version, LatestLine} 
 	    after 5000 ->
 		    {error, "Driver term send failure", 1}
 	    end;

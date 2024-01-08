@@ -157,8 +157,12 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
+      <name name="scan" arity="2" clause_i="1" since=""/>
+      <!--
       <name since="">scan(Binary, PortOrPorts) -> {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine} </name>
+      -->
       <fsummary></fsummary>
+      <!--
       <type>
         <v>Binary = binary()</v>
         <v>PortOrPorts = megaco_ports()</v>
@@ -167,6 +171,7 @@ megaco_version() = integer() >= 1
         <v>LatestLine = integer()</v>
         <v>Reason = term()</v>
       </type>
+      -->
       <desc>
         <p>Scans a megaco message and generates a token list to be passed on the parser. </p>
       </desc>
