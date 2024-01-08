@@ -105,7 +105,8 @@
 %%        to previous line automatically.
 
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, handle_request/2, write/2, write/3, npwcwidth/1,
+         handle_signal/2, window_size/1, handle_request/2, write/2, write/3,
+         npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1]).
 
@@ -693,6 +694,14 @@ handle_request(State = #state{ buffer_expand = Expand, buffer_expand_row = ERow,
         true -> 1 %% No need to page expand rows
     end,
     handle_request(State#state{buffer_expand_row = ERow1}, redraw_prompt);
+handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
+                              lines_before = LinesBefore}, delete_line) ->
+    MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
+    {[MoveToBeg, State#state.delete_after_cursor],
+     State#state{buffer_before = [],
+                 buffer_after = [],
+                 lines_before = [],
+                 lines_after = []}};
 %% Clear the expand buffer after the cursor when we handle any request.
 handle_request(State = #state{ buffer_expand = Expand, unicode = U}, Request)
   when Expand =/= undefined ->
@@ -726,17 +735,6 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
 handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],
-                 lines_after = []}};
-handle_request(State = #state{buffer_before = [], buffer_after = [],
-                              lines_before = [], lines_after = []}, delete_line) ->
-    {[],State};
-handle_request(State = #state{unicode = U, cols = W, buffer_before = Bef,
-                              lines_before = LinesBefore}, delete_line) ->
-    MoveToBeg = move_cursor(State, cols_multiline(Bef, LinesBefore, W, U), 0),
-    {[MoveToBeg, State#state.delete_after_cursor],
-     State#state{buffer_before = [],
-                 buffer_after = [],
-                 lines_before = [],
                  lines_after = []}};
 handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N > 0 ->
     {_DelNum, DelCols, _, NewBA} = split(N, State#state.buffer_after, U),
@@ -1071,14 +1069,22 @@ cols([SkipSeq | T], Unicode) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T, Unicode).
 
-cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
-    ColsPerLine + cols(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
-cols(_ColsPerLine, CurrCols, [], _Unicode) ->
+%% If we call cols with a CurrCols that is higher than ColsPerLine,
+%% we add that many cols to the total before calculating more cols.
+cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols >= ColsPerLine ->
+    ColsPerLine * ((CurrCols + 1) div ColsPerLine) +
+        cols(ColsPerLine, CurrCols rem ColsPerLine, Chars, Unicode);
+cols(ColsPerLine, CurrCols, Chars, Unicode) ->
+    cols_int(ColsPerLine, CurrCols, Chars, Unicode).
+
+cols_int(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
+    ColsPerLine + cols_int(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
+cols_int(_ColsPerLine, CurrCols, [], _Unicode) ->
     CurrCols;
-cols(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
-    CurrCols + (ColsPerLine - CurrCols) + cols(ColsPerLine, 0, T, Unicode);
-cols(ColsPerLine, CurrCols, [H | T], Unicode) ->
-    cols(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
+cols_int(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
+    CurrCols + (ColsPerLine - CurrCols) + cols_int(ColsPerLine, 0, T, Unicode);
+cols_int(ColsPerLine, CurrCols, [H | T], Unicode) ->
+    cols_int(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
 
 update_geometry(State) ->
     case tty_window_size(State#state.tty) of
@@ -1103,7 +1109,9 @@ npwcwidth(Char, true) ->
         C -> C
     end;
 npwcwidth(Char, false) ->
-    byte_size(char_to_latin1(Char, true)).
+    byte_size(char_to_latin1(Char, true));
+npwcwidth(Char, Encoding) ->
+    npwcwidth(Char, Encoding =/= latin1).
 
 
 %% Return the xn fix for the current cursor position.

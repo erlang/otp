@@ -1036,9 +1036,35 @@ q                 - quit erlang
       <name name="prompt_width" arity="1" since="OTP @OTP-18834@"/>
       <fsummary>Computes the width of a prompt.</fsummary>
       <desc>
+        <p>Equivalent to <seemfa marker="#prompt_width/2">prompt_width/2</seemfa> with
+        <c>Encoding</c> set to the encoding used by
+          <seetype marker="io#user"><c>io:user/0</c></seetype>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prompt_width" arity="2" since="OTP @OTP-18834@"/>
+      <fsummary>Computes the width of a prompt.</fsummary>
+      <desc>
         <p>It receives a prompt and computes its width,
           considering its Unicode characters and ANSI escapes.</p>
         <p>Useful for creating custom multiline prompts.</p>
+        <p>Example:</p>
+        <code type="erl">
+1> shell:prompt_width("olá> ", unicode).
+5
+%% "olá> " is printed as "ol\341> " on a latin1 systems
+2> shell:prompt_width("olá> ", latin1).
+8
+%% Ansi escapes are ignored
+3> shell:prompt_width("\e[32molá\e[0m> ", unicode).
+5
+%% Double width characters count as 2
+4> shell:prompt_width("😀> ", unicode).
+4
+%% "😀> " is printed as "\x{1F600}> " on latin1 systems
+5> shell:prompt_width("😀> ", latin1).
+11</code>
       </desc>
     </func>
 
@@ -1046,10 +1072,11 @@ q                 - quit erlang
       <name name="format_shell_func" arity="1" since="OTP @OTP-18848@"/>
       <fsummary>Set the formatting function for submitted shell commands.</fsummary>
       <desc>
-        <p>Can be used to set the formatting of the Erlang shell output. This have an effect
+        <p>Can be used to set the formatting of the Erlang shell output. This has an effect
         on commands that have been submitted, and how it is saved in history. Or if the
-        formatting hotkey is pressed while editing an expression (Alt-f by default). You can specify a Mod:Func/1 that
-        expects the whole expression as a string and returns a formatted expressions as a string.
+        formatting hotkey is pressed while editing an expression (Alt-r by default). You
+        can specify a <c>Mod:Func/1</c> that expects the whole expression as a string and
+        returns a formatted expressions as a string.
         See <seeapp marker="STDLIB_app#format_shell_func"><c>stdlib app config</c></seeapp>
         for how to set it before shell started.</p>
         <p>If instead a string is provided, it will be used as a shell command.

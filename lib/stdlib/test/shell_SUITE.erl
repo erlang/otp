@@ -25,7 +25,7 @@
 	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
 	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
 	 bs_construct_SUITE/1,
-     prompt_width/1,local_definitions_save_to_module_and_forget/1,
+         prompt_width/1,local_definitions_save_to_module_and_forget/1,
 	 refman_bit_syntax/1,
 	 progex_bit_syntax/1, progex_records/1,
 	 progex_lc/1, progex_funs/1,
@@ -371,12 +371,19 @@ shell_attribute_test(Config) ->
     rtnode:run(
       [{putline, "foo(Bar) -> Bar."},
        {expect, "ok"},
-       {putline, "fl()."},
-       {expect, "\\Q{function,{shell_default,foo,1}}\\E"},
+       {putline, "lf()."},
+       {expect, ~S"foo\(Bar\) ->\s+Bar\."},
        {putline, "foo(1)."},
        {expect, "1"},
        {putline, "shell_default:foo(2)."},
-       {expect, "2"}
+       {expect, "2"},
+       {putline, "bar(Foo) -> Foo."},
+       {expect, "ok"},
+       {putline, "-spec bar(term()) -> term()."},
+       {putline, "lf()."},
+       {expect, ~S"\Q-spec bar(term()) -> term().\E"},
+       {expect, ~S"bar\(Foo\) ->\s+Foo\."},
+       {expect, ~S"foo\(Bar\) ->\s+Bar\."}
       ],[],"", ["-kernel","shell_history","enabled",
       "-kernel","shell_history_path","\"" ++ Path ++ "\"",
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -395,8 +402,9 @@ shell_attribute_test(Config) ->
     rtnode:run(
         [{putline, "-spec foo(Bar) -> Bar when Bar :: integer()."},
          {expect, "ok"},
-         {putline, "fl()."},
-         {expect, "\\Q{function_type,{shell_default,foo,1}}\\E"}
+         {putline, "lf()."},
+         {expect, "\\Q-spec foo(Bar) -> Bar when Bar :: integer().\\E"},
+         {expect, "\\Q%% foo/1 not implemented\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -404,16 +412,35 @@ shell_attribute_test(Config) ->
     rtnode:run(
         [{putline, "-type my_type() :: boolean() | integer()."},
          {expect, "ok"},
-         {putline, "fl()."},
-         {expect, "\\Q{type,my_type}\\E"}
+         {putline, "lt()."},
+         {expect, "\\Q-type my_type() :: boolean() | integer().\\E"},
+         {putline, "-type my_other_type() :: boolean() | integer()."},
+         {expect, "ok"},
+         {putline, "lt()."},
+         {expect, "\\Q-type my_other_type() :: boolean() | integer().\\E"},
+         {expect, "\\Q-type my_type() :: boolean() | integer().\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
     ok.
 
 prompt_width(Config) when is_list(Config) ->
-    5 = shell:prompt_width("\e[31molá> "),
-    5 = shell:prompt_width(<<"\e[31molá> "/utf8>>),
+    5 = shell:prompt_width("olá> ", unicode),
+    5 = shell:prompt_width("\e[31molá> ", unicode),
+    5 = shell:prompt_width(<<"\e[31molá> "/utf8>>, unicode),
+    8 = shell:prompt_width("olá> ", latin1),
+    4 = shell:prompt_width("😀> ", unicode),
+    11 = shell:prompt_width("😀> ", latin1),
+    case proplists:get_value(encoding, io:getopts(user)) of
+        unicode ->
+            5 = shell:prompt_width("olá> "),
+            5 = shell:prompt_width("\e[31molá> "),
+            5 = shell:prompt_width(<<"\e[31molá> "/utf8>>),
+            4 = shell:prompt_width("😀> ");
+        latin1 ->
+            8 = shell:prompt_width("olá> "),
+            11 = shell:prompt_width("😀> ")
+    end,
     ok.
 
 %% Test of the record support. OTP-5063.

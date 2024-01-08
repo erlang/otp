@@ -28,7 +28,7 @@
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
--export([prompt_width/1]).
+-export([prompt_width/1, prompt_width/2]).
 -export([whereis/0]).
 
 -define(LINEMAX, 30).
@@ -1884,7 +1884,7 @@ erl_pp_format_func(String) ->
     %% If you add return_comments to the option list,
     %% parsing will fail, and we will end up with the original string.
     Options = [text,{reserved_word_fun,fun erl_scan:reserved_word/1}],
-    case erl_scan:tokens([], String, {1,1}, Options) of
+    case erl_scan:tokens([], string:trim(String) ++ "\n", {1,1}, Options) of
         {done, {ok, Toks, _}, _} ->
             try
                 case erl_parse:parse_form(Toks) of
@@ -1907,22 +1907,24 @@ strings(Strings) ->
     set_env(stdlib, shell_strings, Strings, ?DEF_STRINGS).
 
 -spec prompt_width(unicode:chardata()) -> non_neg_integer().
-
-prompt_width(String) when is_list(String) ->
-    prompt_width(unicode:characters_to_binary(String));
 prompt_width(String) ->
+    Encoding = proplists:get_value(encoding, io:getopts(user)),
+    prompt_width(String, Encoding).
+
+-spec prompt_width(unicode:chardata(), unicode | latin1) -> non_neg_integer().
+prompt_width(String, Encoding) ->
     case string:next_grapheme(String) of
         [] -> 0;
         [$\e | Rest] ->
             case re:run(String, prim_tty:ansi_regexp(), [unicode]) of
                 {match, [{0, N}]} ->
-                    <<_Ansi:N/binary, AnsiRest/binary>> = String,
-                    prompt_width(AnsiRest);
+                    <<_Ansi:N/binary, AnsiRest/binary>> = unicode:characters_to_binary(String),
+                    prompt_width(AnsiRest, Encoding);
                 _ ->
-                    prim_tty:npwcwidth($\e) + prompt_width(Rest)
+                    prim_tty:npwcwidth($\e, Encoding) + prompt_width(Rest, Encoding)
             end;
-        [H|Rest] when is_list(H)-> lists:sum([prim_tty:npwcwidth(A)||A<-H]) + prompt_width(Rest);
-        [H|Rest] -> prim_tty:npwcwidth(H) + prompt_width(Rest)
+        [H|Rest] when is_list(H)-> lists:sum([prim_tty:npwcwidth(A, Encoding)||A<-H]) + prompt_width(Rest, Encoding);
+        [H|Rest] -> prim_tty:npwcwidth(H, Encoding) + prompt_width(Rest, Encoding)
     end.
 
 -spec default_multiline_prompt(unicode:chardata()) ->

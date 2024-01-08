@@ -953,12 +953,26 @@ shell_update_window(Config) ->
         send_tty(Term,"a"),
         check_location(Term, {0, -Col}),
         send_tty(Term,"BSpace"),
+        check_location(Term, {-1, width(Text)}),
         tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text)+Col]),
-        %% xnfix bug! at least in tmux... seems to work in iTerm as it does not
-        %% need xnfix when resizing
-        check_location(Term, {0, -Col}),
+        %% When resizing, tmux does not xnfix the cursor, so it will remain
+        %% at the previous locations
+        check_location(Term, {-1, width(Text)}),
+        send_tty(Term,"a"),
+        check_location(Term, {0, -Col + 1}),
+
+        %% When we do backspace here, tmux seems to place the cursor in an
+        %% incorrect position except when a terminal is attached.
+        send_tty(Term,"BSpace"),
+        %% This really should be {0, -Col}, but sometimes tmux sets it to
+        %% {-1, width(Text)} instead.
+        check_location(Term, [{0, -Col}, {-1, width(Text)}]),
+
         tmux(["resize-window -t ",tty_name(Term)," -x ",width(Text) div 2 + Col]),
-        check_location(Term, {0, -Col + width(Text) div 2}),
+        %% Depending on what happened with the cursor above, the line will be
+        %% different here.
+        check_location(Term, [{0, -Col + width(Text) div 2},
+                              {-1, -Col + width(Text) div 2}]),
         ok
     after
         stop_tty(Term)
@@ -1107,9 +1121,10 @@ shell_expand_location_below(Config) ->
 
     Term = start_tty(Config),
 
-    {Rows, _} = get_location(Term),
+    {Rows, _} = get_window_size(Term),
+    {Row, Col} = get_location(Term),
 
-    NumFunctions = lists:seq(0, Rows*2),
+    NumFunctions = lists:seq(0, Row*2),
     FunctionName = "a_long_function_name",
 
     Module = lists:flatten(
@@ -1128,6 +1143,7 @@ shell_expand_location_below(Config) ->
 
     try
         tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+        Cols = 80,
 
         %% First check that basic completion works
         send_stdin(Term, "escript:"),
@@ -1205,14 +1221,43 @@ shell_expand_location_below(Config) ->
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
                                           [13, Rows1+12, Result])),
 
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
 
         %% We resize the terminal to make everything fit and test that
         %% expand below displays everything
-        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Rows+10)]),
+        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Row+10)]),
         timer:sleep(1000), %% Sleep to make sure window has resized
-        send_stdin(Term, "\t\t"),
+        send_tty(Term, "\t\t"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name99\\($"),
+
+        %% Check that doing an expansion when cursor is in xnfix position works
+        send_tty(Term, "BSpace"),
+        check_content(Term, "3> long_module:a_long_function_nam$"),
+        send_tty(Term, "Home"),
+        send_tty(Term, lists:duplicate(Cols - Col - width(", long_module:a_long_function_name"), "a")),
+        send_tty(Term, ", "),
+        send_tty(Term, "End"),
+        send_tty(Term, "\t"),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "\t"),
+        check_content(Term, "3> a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 2, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 2, -Col}),
+
+        send_tty(Term, "Home"),
+        send_tty(Term, lists:duplicate(Cols, "b")),
+        send_tty(Term, "End"),
+        send_tty(Term, "\t"),
+        check_content(Term, "3> b+\nb+a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_location(Term, {-Rows + 3, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 3, -Col}),
+        send_tty(Term, "Down"),
+        check_location(Term, {-Rows + 3, -Col}),
+
         ok
     after
         stop_tty(Term),
@@ -1714,6 +1759,7 @@ setup_tty(Config) ->
                                   "-kernel","prevent_overlapping_partitions","false",
                                   "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
                                  ] ++ Envs ++ ExtraArgs,
+                         wait_boot => 60_000,
                          detached => false
                        },
 
@@ -1823,17 +1869,21 @@ send_stdin(Term, Chars) ->
 
 check_location(Term, Where) ->
     check_location(Term, Where, 5).
+check_location(Term, Where, Attempt) when is_tuple(Where) ->
+    check_location(Term, [Where], Attempt);
 check_location(#tmux{ orig_location = {OrigRow, OrigCol} = Orig } = Term,
-               {AdjRow, AdjCol} = Where, Attempt) ->
+               Where, Attempt) ->
     NewLocation = get_location(Term),
-    case {OrigRow+AdjRow,OrigCol+AdjCol} of
-        NewLocation -> NewLocation;
-        _ when Attempt =:= 0 ->
+    case lists:any(fun({AdjRow, AdjCol}) ->
+                           {OrigRow+AdjRow,OrigCol+AdjCol} =:= NewLocation
+                   end, Where) of
+        true -> NewLocation;
+        false when Attempt =:= 0 ->
             {NewRow, NewCol} = NewLocation,
-            ct:fail({wrong_location, {expected,{AdjRow, AdjCol}},
+            ct:fail({wrong_location, {expected,Where},
                      {got,{NewRow - OrigRow, NewCol - OrigCol},
                       {NewLocation, Orig}}});
-        _ ->
+        false ->
             timer:sleep(50),
             check_location(Term, Where, Attempt -1)
     end.
