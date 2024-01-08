@@ -51,7 +51,7 @@
 %% It is because our current doc build
 %% script (specs file generation) has
 %% no way to pass this value in as the
-%% normal compilatrion (erlc) does.
+%% normal compilation (erlc) does.
 -define(ENABLE_MEGACO_FLEX_SCANNER, true).
 -endif.
 
@@ -60,7 +60,7 @@
 %% It is because our current doc build
 %% script (specs file generation) has
 %% no way to pass this value in as the
-%% normal compilatrion (erlc) does.
+%% normal compilation (erlc) does.
 -define(MEGACO_REENTRANT_FLEX_SCANNER, true).
 -endif.
 

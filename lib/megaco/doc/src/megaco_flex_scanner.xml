@@ -64,23 +64,11 @@
 	<p>
 	  Return value of a successful (flex) scanner start.
 	</p>
+
+	<marker id="start"></marker>
       </desc>
     </datatype>
   </datatypes>
-
-
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
-
-megaco_ports() = term()
-megaco_version() = integer() >= 1
- 
-    ]]></code>
-
-    <marker id="start"></marker>
-  </section>
-
 
   <funcs>
     <func>
