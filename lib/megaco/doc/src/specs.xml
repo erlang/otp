@@ -5,4 +5,5 @@
   <xi:include href="../specs/specs_megaco_encoder.xml"/>
   <xi:include href="../specs/specs_megaco_sdp.xml"/>
   <xi:include href="../specs/specs_megaco_user.xml"/>
+  <xi:include href="../specs/specs_megaco_flex_scanner.xml"/>
 </specs>

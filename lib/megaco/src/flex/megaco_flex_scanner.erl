@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,9 +27,42 @@
 -export([is_enabled/0, is_reentrant_enabled/0, is_scanner_port/2]).
 -export([start/0, start/1, stop/1, scan/2]).
 
+-export_type([
+              megaco_ports/0
+             ]).
+
+
+%%----------------------------------------------------------------------
+
+-opaque megaco_ports() :: port() | tuple().
+
+
+%%----------------------------------------------------------------------
+
 -define(NUM_SCHED(),           erlang:system_info(schedulers)).
 -define(SCHED_ID(),            erlang:system_info(scheduler_id)).
 -define(SMP_SUPPORT_DEFAULT(), erlang:system_info(smp_support)).
+
+
+%%----------------------------------------------------------------------
+
+-ifndef(ENABLE_MEGACO_FLEX_SCANNER).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilatrion (erlc) does.
+-define(ENABLE_MEGACO_FLEX_SCANNER, true).
+-endif.
+
+-ifndef(MEGACO_REENTRANT_FLEX_SCANNER).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilatrion (erlc) does.
+-define(MEGACO_REENTRANT_FLEX_SCANNER, true).
+-endif.
 
 -dialyzer({nowarn_function, is_enabled/0}).
 -spec is_enabled() -> boolean().
@@ -41,6 +74,13 @@ is_enabled() ->
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
+
+%%----------------------------------------------------------------------
+
+-spec is_scanner_port(Port, PortOrPorts) -> boolean() when
+      Port        :: port(),
+      PortOrPorts :: megaco_ports().
+          
 is_scanner_port(Port, Port) when is_port(Port) ->
     true;
 is_scanner_port(Port, Ports) when is_tuple(Ports) ->
@@ -155,35 +195,24 @@ stop(Ports) when is_list(Ports) ->
 scan(Binary, Port) when is_port(Port) ->
     do_scan(Binary, Port);
 scan(Binary, Ports) when is_tuple(Ports) ->
-%%     p("scan -> entry with"
-%%       "~n   Ports: ~p", [Ports]),
     do_scan(Binary, select_port(Ports)).
 
 do_scan(Binary, Port) ->
-%%     p("do_scan -> entry with"
-%%       "~n   Port: ~p", [Port]),
     case erlang:port_control(Port, $s, Binary) of
 	[] ->
 	    receive
 		{tokens, Tokens, LatestLine} ->
-%% 		    p("do_scan -> OK with:"
-%% 		      "~n   length(Tokens): ~p"
-%% 		      "~n   LatestLine:     ~p", [length(Tokens), LatestLine]),
 		    Vsn = version(Tokens),
 		    {ok, Tokens, Vsn, LatestLine} 
 	    after 5000 ->
-%%  		    p("do_scan -> ERROR", []),
 		    {error, "Driver term send failure", 1}
 	    end;
 	Reason ->
-%% 	    p("do_scan -> port control failed: "
-%% 	      "~n   Reason: ~p", [Reason]),
 	    {error, Reason, 1}
     end.
 
 select_port(Ports) ->
     SchedId = ?SCHED_ID(),
-    %% lists:nth(SchedId, Ports).
     element(SchedId, Ports).
 
 version([]) ->

@@ -49,7 +49,8 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_megaco_encoder.xml \
 	$(SPECDIR)/specs_megaco_digit_map.xml \
 	$(SPECDIR)/specs_megaco_sdp.xml \
-	$(SPECDIR)/specs_megaco_user.xml
+	$(SPECDIR)/specs_megaco_user.xml \
+	$(SPECDIR)/specs_megaco_flex_scanner.xml
 TOP_SPECS_FILE = specs.xml
 
 NO_CHUNKS = megaco_edist_compress.xml \
@@ -72,8 +73,8 @@ $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/app/%.erl $(TOP_SPECS_FILE)
 # 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/engine/%.erl $(TOP_SPECS_FILE)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-# $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/flex/%.erl $(TOP_SPECS_FILE)
-# 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/flex/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 # $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/tcp/%.erl $(TOP_SPECS_FILE)
 # 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 # $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/udp/%.erl $(TOP_SPECS_FILE)
@@ -98,9 +99,9 @@ $(SPECDIR)/specs_megaco_compress.xml:
 #$(SPECDIR)/specs_megaco_encoder.xml:
 #	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 #		-o$(dir $@) -module megaco_encoder
-$(SPECDIR)/specs_megaco_flex_scanner.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-		-o$(dir $@) -module megaco_flex_scanner
+# $(SPECDIR)/specs_megaco_flex_scanner.xml:
+# 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+# 		-o$(dir $@) -module megaco_flex_scanner
 $(SPECDIR)/specs_megaco_tcp.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module megaco_tcp
