@@ -208,7 +208,7 @@
 	  (for info on an active connection).
 	  The corresponding value can be of any type.
 
-	  <!-- <marker id="ci_control_pid"></marker> -->
+	  <marker id="ci_control_pid"></marker>
 	</p>
         <taglist>
           <tag><c><![CDATA[control_pid]]></c></tag>
@@ -218,7 +218,8 @@
 
 	    <p>Value type:
 	    <seetype marker="erlang#pid">pid()</seetype></p>
-	    <!-- <marker id="ci_send_handle"></marker> -->
+
+	    <marker id="ci_send_handle"></marker>
           </item>
 
           <tag><c><![CDATA[send_handle]]></c></tag>
@@ -228,7 +229,8 @@
 
 	    <p>Value type:
 	    <seetype marker="#send_handle">send_handle()</seetype></p>
-	    <!-- <marker id="ci_local_mid"></marker> -->
+
+	    <marker id="ci_local_mid"></marker>
           </item>
 
           <tag><c><![CDATA[local_mid]]></c></tag>
@@ -237,7 +239,8 @@
 
 	    <p>Value type:
 	    <seetype marker="#mid">mid()</seetype></p>
-	    <!-- <marker id="ci_remote_mid"></marker> -->
+
+	    <marker id="ci_remote_mid"></marker>
           </item>
 
           <tag><c><![CDATA[remote_mid]]></c></tag>
@@ -246,7 +249,8 @@
 
 	    <p>Value type:
 	    <seetype marker="#mid">mid()</seetype></p>
-	    <!-- <marker id="ci_receive_handle"></marker> -->
+
+	    <marker id="ci_receive_handle"></marker>
           </item>
 
           <tag><c><![CDATA[receive_handle]]></c></tag>
@@ -255,7 +259,8 @@
 
 	    <p>Value type:
 	    <seetype marker="#receive_handle">receive_handle()</seetype></p>
-	    <!-- <marker id="ci_trans_id"></marker> -->
+
+	    <marker id="ci_trans_id"></marker>
           </item>
 
           <tag><c><![CDATA[trans_id]]></c></tag>
@@ -270,7 +275,8 @@
 	    <p>Value type: 
 	    <seetype marker="#transaction_id">transaction_id()</seetype> |
 	    <c><![CDATA[undefined_serial]]></c></p>
-	    <!-- <marker id="ci_max_trans_id"></marker> -->
+
+	    <marker id="ci_max_trans_id"></marker>
           </item>
 
           <tag><c><![CDATA[max_trans_id]]></c></tag>
@@ -280,7 +286,8 @@
 	    <p>Value type: 
 	    <seetype marker="#transaction_id">transaction_id()</seetype> |
 	    <c><![CDATA[infinity]]></c> </p>
-	    <!-- <marker id="ci_request_timer"></marker> -->
+
+	    <marker id="ci_request_timer"></marker>
           </item>
 
           <tag><c><![CDATA[request_timer]]></c></tag>
@@ -307,7 +314,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
 	    <p>Defaults to <c><![CDATA[#megaco_incr_timer{}]]></c>.</p>
 
-	    <!-- <marker id="ci_long_request_timer"></marker> -->
+	    <marker id="ci_long_request_timer"></marker>
           </item>
 
           <tag><c><![CDATA[long_request_timer]]></c></tag>
@@ -325,7 +332,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[60 seconds]]></c>.</p>
 
-	    <!-- <marker id="ci_request_keep_alive_timeout"></marker> -->
+	    <marker id="ci_request_keep_alive_timeout"></marker>
           </item>
 
           <tag><c><![CDATA[request_keep_alive_timeout]]></c></tag>
@@ -351,7 +358,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[plain]]></c>.</p>
 
-	    <!-- <marker id="ci_long_request_resend"></marker> -->
+	    <marker id="ci_long_request_resend"></marker>
           </item>
 
           <tag><c><![CDATA[long_request_resend]]></c></tag>
@@ -374,7 +381,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-            <!-- <marker id="ci_reply_timer"></marker> -->
+	    <marker id="ci_reply_timer"></marker>
           </item>
 
           <tag><c><![CDATA[reply_timer]]></c></tag>
@@ -396,7 +403,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[30000]]></c>.</p>
 
-	    <!-- <marker id="ci_call_proxy_gc_timeout"></marker> -->
+	    <marker id="ci_call_proxy_gc_timeout"></marker>
 	  </item>
 
           <tag><c><![CDATA[call_proxy_gc_timeout]]></c></tag>
@@ -433,7 +440,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_ack"></marker> -->
+	    <marker id="ci_trans_ack"></marker>
           </item>
 
           <tag><c><![CDATA[trans_ack]]></c></tag>
@@ -458,7 +465,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_ack_maxcount"></marker> -->
+	    <marker id="ci_trans_ack_maxcount"></marker>
           </item>
 
           <tag><c><![CDATA[trans_ack_maxcount]]></c></tag>
@@ -474,7 +481,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[10]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_req"></marker> -->
+	    <marker id="ci_trans_req"></marker>
           </item>
 
           <tag><c><![CDATA[trans_req]]></c></tag>
@@ -498,7 +505,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_req_maxcount"></marker> -->
+	    <marker id="ci_trans_req_maxcount"></marker>
           </item>
 
           <tag><c><![CDATA[trans_req_maxcount]]></c></tag>
@@ -514,7 +521,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[10]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_req_maxsize"></marker> -->
+	    <marker id="ci_trans_req_maxsize"></marker>
           </item>
 
           <tag><c><![CDATA[trans_req_maxsize]]></c></tag>
@@ -530,7 +537,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[2048]]></c>.</p>
 
-	    <!-- <marker id="ci_trans_timer"></marker> -->
+	    <marker id="ci_trans_timer"></marker>
           </item>
 
           <tag><c><![CDATA[trans_timer]]></c></tag>
@@ -554,7 +561,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[0]]></c>.</p>
 
-	    <!-- <marker id="ci_pending_timer"></marker> -->
+	    <marker id="ci_pending_timer"></marker>
           </item>
 
           <tag><c><![CDATA[pending_timer]]></c></tag>
@@ -567,7 +574,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[30000]]></c> (= 30 seconds).</p>
 
-	    <!-- <marker id="ci_sent_pending_limit"></marker> -->
+	    <marker id="ci_sent_pending_limit"></marker>
           </item>
 
           <tag><c><![CDATA[sent_pending_limit]]></c></tag>
@@ -591,7 +598,7 @@
 	    <c><![CDATA[infinity]]></c> </p>
 	    <p>Defaults to <c><![CDATA[infinity]]></c>.</p>
 
-	    <!-- <marker id="ci_recv_pending_limit"></marker> -->
+	    <marker id="ci_recv_pending_limit"></marker>
           </item>
 
           <tag><c><![CDATA[recv_pending_limit]]></c></tag>
@@ -609,7 +616,7 @@
 	    <c><![CDATA[infinity]]></c> </p>
 	    <p>Defaults to <c><![CDATA[infinity]]></c>.</p>
 
-	    <!-- <marker id="ci_send_mod"></marker> -->
+	    <marker id="ci_send_mod"></marker>
           </item>
 
           <tag><c><![CDATA[send_mod]]></c></tag>
@@ -623,7 +630,7 @@
 	    <seetype marker="erlang#module">module()</seetype>. </p>
 	    <p>Defaults to <c><![CDATA[megaco_tcp]]></c>.</p>
 
-	    <!-- <marker id="ci_encoding_mod"></marker> -->
+	    <marker id="ci_encoding_mod"></marker>
           </item>
 
           <tag><c><![CDATA[encoding_mod]]></c></tag>
@@ -641,7 +648,7 @@
 	    <seetype marker="erlang#module">module()</seetype>. </p>
 	    <p>Defaults to <c><![CDATA[megaco_pretty_text_encoder]]></c>.</p>
 
-	    <!-- <marker id="ci_encoding_config"></marker> -->
+	    <marker id="ci_encoding_config"></marker>
           </item>
 
           <tag><c><![CDATA[encoding_config]]></c></tag>
@@ -652,7 +659,7 @@
 	    <seetype marker="erlang#list">loist()</seetype>. </p>
 	    <p>Defaults to <c><![CDATA[[]]]></c>.</p>
 
-	    <!-- <marker id="ci_protocol_version"></marker> -->
+	    <marker id="ci_protocol_version"></marker>
           </item>
 
           <tag><c><![CDATA[protocol_version]]></c></tag>
@@ -663,7 +670,7 @@
 	    <seetype marker="#protocol_version">protocol_version()</seetype></p>
 	    <p>Defaults to <c><![CDATA[1]]></c>.</p>
 
-	    <!-- <marker id="ci_strict_version"></marker> -->
+	    <marker id="ci_strict_version"></marker>
           </item>
 
 	  <tag><c><![CDATA[strict_version]]></c></tag>
@@ -675,7 +682,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[true]]></c>.</p>
 
-	    <!-- <marker id="ci_reply_data"></marker> -->
+	    <marker id="ci_reply_data"></marker>
           </item>
 
           <tag><c><![CDATA[reply_data]]></c></tag>
@@ -686,7 +693,7 @@
 	    <seetype marker="erlang#term">term()</seetype></p>
             <p>Defaults to <c><![CDATA[undefined]]></c>.</p>
 
-	    <!-- <marker id="ci_threaded"></marker> -->
+	    <marker id="ci_threaded"></marker>
           </item>
 
           <tag><c><![CDATA[threaded]]></c></tag>
@@ -702,7 +709,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_resend_indication"></marker> -->
+	    <marker id="ci_resend_indication"></marker>
           </item>
 
 	  <tag><c><![CDATA[resend_indication]]></c></tag>
@@ -728,7 +735,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_segment_reply_ind"></marker> -->
+	    <marker id="ci_segment_reply_ind"></marker>
           </item>
 
           <tag><c><![CDATA[segment_reply_ind]]></c></tag>
@@ -743,7 +750,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ci_segment_recv_timer"></marker> -->
+	    <marker id="ci_segment_recv_timer"></marker>
           </item>
 
           <tag><c><![CDATA[segment_recv_timer]]></c></tag>
@@ -802,7 +809,7 @@
             </taglist>
             <p>Defaults to <c><![CDATA[none]]></c>. </p>
 
-	    <!-- <marker id="ci_max_pdu_size"></marker> -->
+	    <marker id="ci_max_pdu_size"></marker>
           </item>
 
           <tag><c><![CDATA[max_pdu_size]]></c></tag>
@@ -1052,7 +1059,8 @@
 
 	    <p>Value type:
 	    [<seetype marker="#conn_handle">conn_handle()</seetype>]</p>
-	    <!-- <marker id="ui_receive_handle"></marker> -->
+
+	    <marker id="ui_receive_handle"></marker>
           </item>
 
 
@@ -1062,7 +1070,8 @@
 
 	    <p>Value type: 
 	    <seetype marker="#receive_handle">receive_handle()</seetype></p>
-	    <!-- <marker id="ui_trans_id"></marker> -->
+
+	    <marker id="ui_trans_id"></marker>
           </item>
 
 
@@ -1073,7 +1082,8 @@
 	    <p>Value type: 
 	    <seetype marker="#transaction_id">transaction_id()</seetype> |
 	    <c><![CDATA[undefined_serial]]></c></p>
-	    <!-- <marker id="ui_min_trans_id"></marker> -->
+
+	    <marker id="ui_min_trans_id"></marker>
           </item>
 
 
@@ -1083,9 +1093,9 @@
 
 	    <p>Value type: 
 	    <seetype marker="#transaction_id">transaction_id()</seetype></p>
-	    <p>Defaults to 1.</p>
+	    <p>Defaults to <c><![CDATA[1]]></c>.</p>
 
-	    <!-- <marker id="ui_max_trans_id"></marker> -->
+	    <marker id="ui_max_trans_id"></marker>
           </item>
 
 
@@ -1098,7 +1108,7 @@
 	    <c><![CDATA[infinity]]></c> </p>
 	    <p>Defaults to <c><![CDATA[infinity]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_id"></marker> -->
+	    <marker id="ui_trans_id"></marker>
           </item>
 
 
@@ -1125,7 +1135,8 @@
 	    <p>Value type: 
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
 	    <p>Defaults to <c><![CDATA[#megaco_incr_timer{}]]></c>.</p>
-	    <!-- <marker id="ui_long_request_timer"></marker> -->
+
+	    <marker id="ui_long_request_timer"></marker>
           </item>
 
 
@@ -1144,7 +1155,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[60000]]></c> (= 60 seconds).</p>
 
-	    <!-- <marker id="ui_long_request_resend"></marker> -->
+	    <marker id="ui_long_request_resend"></marker>
           </item>
 
 
@@ -1168,7 +1179,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ui_reply_timer"></marker> -->
+	    <marker id="ui_reply_timer"></marker>
           </item>
 
 
@@ -1191,7 +1202,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[30 seconds]]></c>.</p>
 
-	    <!-- <marker id="ui_request_keep_alive_timeout"></marker> -->
+	    <marker id="ui_request_keep_alive_timeout"></marker>
           </item>
 
 
@@ -1218,7 +1229,7 @@
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[plain]]></c>.</p>
 
-            <!-- <marker id="ui_call_proxy_gc_timeout"></marker> -->
+	    <marker id="ui_call_proxy_gc_timeout"></marker>
           </item>
 
 
@@ -1240,9 +1251,9 @@
 
 	    <p>Value type: 
 	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
-            <p>Defaults to <c><![CDATA[500]]></c> (= 5 seconds).</p>
+            <p>Defaults to <c><![CDATA[5000]]></c> (= 5 seconds).</p>
 
-            <!-- <marker id="ui_auto_ack"></marker>  -->
+	    <marker id="ui_auto_ack"></marker>
           </item>
 
 
@@ -1257,7 +1268,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_ack"></marker> -->
+	    <marker id="ui_trans_ack"></marker>
           </item>
 
 
@@ -1285,7 +1296,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_ack_maxcount"></marker> -->
+	    <marker id="ui_trans_ack_maxcount"></marker>
           </item>
 
 
@@ -1302,7 +1313,7 @@
 	    <seetype marker="erlang#integer">integer()</seetype></p>
             <p>Defaults to <c><![CDATA[10]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_req"></marker> -->
+	    <marker id="ui_trans_req"></marker>
           </item>
 
 
@@ -1326,7 +1337,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-            <!-- <marker id="ui_trans_req_maxcount"></marker> -->
+	    <marker id="ui_trans_req_maxcount"></marker>
           </item>
 
 
@@ -1343,7 +1354,7 @@
 	    <seetype marker="erlang#integer">integer()</seetype></p>
             <p>Defaults to <c><![CDATA[10]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_req_maxsize"></marker> -->
+	    <marker id="ui_trans_req_maxsize"></marker>
           </item>
 
 
@@ -1360,7 +1371,7 @@
 	    <seetype marker="erlang#integer">integer()</seetype></p>
             <p>Defaults to <c><![CDATA[2048]]></c>.</p>
 
-	    <!-- <marker id="ui_trans_timer"></marker> -->
+	    <marker id="ui_trans_timer"></marker>
           </item>
 
 
@@ -1384,7 +1395,7 @@
 	    <seetype marker="erlang#integer">integer()</seetype></p>
             <p>Defaults to <c><![CDATA[0]]></c>.</p>
 
-	    <!-- <marker id="ui_pending_timer"></marker> -->
+	    <marker id="ui_pending_timer"></marker>
           </item>
 
 
@@ -1398,7 +1409,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[30000]]></c>.</p>
 
-	    <!-- <marker id="ui_sent_pending_limit"></marker> -->
+	    <marker id="ui_sent_pending_limit"></marker>
           </item>
 
 
@@ -1423,7 +1434,7 @@
 	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[infinity]]></c>.</p>
 
-	    <!-- <marker id="ui_recv_pending_limit"></marker> -->
+	    <marker id="ui_recv_pending_limit"></marker>
           </item>
 
 
@@ -1442,7 +1453,7 @@
 	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
             <p>Defaults to <c><![CDATA[infinity]]></c>.</p>
 
-            <!-- <marker id="ui_send_mod"></marker> -->
+	    <marker id="ui_send_mod"></marker>
           </item>
 
 
@@ -1457,7 +1468,7 @@
 	    <seetype marker="erlang#module">module()</seetype></p>
             <p>Defaults to <c><![CDATA[megaco_tcp]]></c>.</p>
 
-	    <!-- <marker id="ui_encoding_mod"></marker> -->
+	    <marker id="ui_encoding_mod"></marker>
           </item>
 
 
@@ -1476,7 +1487,7 @@
 	    <seetype marker="erlang#module">module()</seetype></p>
             <p>Defaults to <c><![CDATA[megaco_pretty_text_encoder]]></c>.</p>
 
-	    <!-- <marker id="ui_encoding_config"></marker> -->
+	    <marker id="ui_encoding_config"></marker>
           </item>
 
 
@@ -1488,7 +1499,7 @@
 	    <seetype marker="erlang#list">list()</seetype></p>
             <p>Defaults to <c><![CDATA[[]]]></c>.</p>
 
-	    <!-- <marker id="ui_protocol_version"></marker> -->
+	    <marker id="ui_protocol_version"></marker>
           </item>
 
 
@@ -1500,7 +1511,7 @@
 	    <seetype marker="#protocol_version">protocol_version()</seetype></p>
             <p>Defaults to <c><![CDATA[1]]></c>.</p>
 
-	    <!-- <marker id="ui_strict_version"></marker> -->
+	    <marker id="ui_strict_version"></marker>
           </item>
 
 
@@ -1513,7 +1524,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[true]]></c>.</p>
 
-	    <!-- <marker id="ui_reply_data"></marker> -->
+	    <marker id="ui_reply_data"></marker>
           </item>
 
 
@@ -1525,7 +1536,7 @@
 	    <seetype marker="erlang#term">term()</seetype></p>
             <p>Defaults to <c><![CDATA[undefined]]></c>.</p>
 
-	    <!-- <marker id="ui_user_mod"></marker> -->
+	    <marker id="ui_user_mod"></marker>
           </item>
 
 
@@ -1538,7 +1549,7 @@
 	    <seetype marker="erlang#module">module()</seetype></p>
 	    <p>Has no default value since its an mandatory config option. </p>
 
-	    <!-- <marker id="ui_user_args"></marker> -->
+	    <marker id="ui_user_args"></marker>
           </item>
 
 
@@ -1551,7 +1562,7 @@
 	    <p>Value type: 
 	    <seetype marker="erlang#list">list()</seetype></p>
 	    
-            <!-- <marker id="ui_threaded"></marker> -->
+	    <marker id="ui_threaded"></marker>
           </item>
 
 
@@ -1594,7 +1605,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ui_segment_reply_ind"></marker> -->
+	    <marker id="ui_segment_reply_ind"></marker>
           </item>
 
 
@@ -1610,7 +1621,7 @@
 	    <seetype marker="erlang#boolean">boolean()</seetype></p>
             <p>Defaults to <c><![CDATA[false]]></c>.</p>
 
-	    <!-- <marker id="ui_segment_recv_timer"></marker> -->
+	    <marker id="ui_segment_recv_timer"></marker>
           </item>
 
 
@@ -1631,7 +1642,7 @@
 	    <seetype marker="#megaco_timer">megaco_timer()</seetype></p>
             <p>Defaults to <c><![CDATA[10000]]></c>.</p>
 
-	    <!-- <marker id="ui_segment_send"></marker> -->
+	    <marker id="ui_segment_send"></marker>
           </item>
 
 
@@ -1668,7 +1679,7 @@
             </taglist>
             <p>Defaults to <c><![CDATA[none]]></c>. </p>
 
-	    <!-- <marker id="ui_max_pdu_size"></marker> -->
+	    <marker id="ui_max_pdu_size"></marker>
           </item>
 
 
@@ -1692,15 +1703,16 @@
 
     <datatype>
       <name name="system_info_item"/>
-      <!-- <marker id="si_text_config"></marker> -->
       <desc>
+	<marker id="si_text_config"></marker>
         <taglist>
           <tag><c><![CDATA[text_config]]></c></tag>
           <item>
             <p>The text encoding config.</p>
 	    <p>Value type:
 	    <seetype marker="erlang#term">term()</seetype></p>
-	    <!-- <marker id="si_connections"></marker> -->
+
+	    <marker id="si_connections"></marker>
           </item>
 
 
@@ -1711,7 +1723,8 @@
 
 	    <p>Value type:
 	    [<seetype marker="#conn_handle">conn_handle()</seetype>]</p>
-	    <!-- <marker id="si_users"></marker> -->
+
+	    <marker id="si_users"></marker>
           </item>
 
 
@@ -1721,7 +1734,8 @@
 
 	    <p>Value type:
 	    [<seetype marker="#mid">mid()</seetype>]</p>
-	    <!-- <marker id="si_active_requests"></marker> -->
+
+	    <marker id="si_active_requests"></marker>
           </item>
 
 	  
@@ -1733,7 +1747,7 @@
 
 	    <p>Value type:
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
-	    <!-- <marker id="si_active_replies"></marker> -->
+	    <marker id="si_active_replies"></marker>
           </item>
 
 
@@ -1745,7 +1759,8 @@
 
 	    <p>Value type:
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
-	    <!-- <marker id="si_active_connections"></marker> -->
+
+	    <marker id="si_active_connections"></marker>
           </item>
 
 
@@ -1755,7 +1770,7 @@
 
 	    <p>Value type:
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
-	    <!-- <marker id="si_reply_counters"></marker> -->
+	    <marker id="si_reply_counters"></marker>
           </item>
 
 
@@ -1767,7 +1782,8 @@
 	    [{<seetype marker="#conn_handle">conn_handle()</seetype>,
 	      <seetype marker="#transaction_id">transaction_id()</seetype>,
 	      <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype>}]</p>
-	    <!-- <marker id="si_pending_counters"></marker> -->
+
+	    <marker id="si_pending_counters"></marker>
           </item>
 
 
@@ -1779,108 +1795,17 @@
 	    [{recv | sent,
 	    [{<seetype marker="#transaction_id">transaction_id()</seetype>,
 	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype>}]}]</p>
-          </item>
+
+	  </item>
 
 	</taglist>
+
+	<marker id="start"></marker>
       </desc>
     </datatype>
 
   </datatypes>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
-mid()        = ip4Address() | ip6Address() | 
-               domainName() | deviceName() | 
-               mtpAddress() 
-ip4Address() = #'IP4Address'{}
-ip6Address() = #'IP6Address'{}
-domainName() = #'DomainName'{}
-deviceName() = pathName() 
-pathName()   = ia5String(1..64)
-mtpAddress() = octetString(2..4)
-
-action_request() = #'ActionRequest'{}
-action_reply() = #'ActionReply'{}
-error_desc() = #'ErrorDescriptor'{}
-transaction_reply() = #'TransactionReply'{}
-segment_no() = integer()
-
-resend_indication() = flag | boolean()
-
-property_parm() = #'PropertyParm'{}
-property_group() = [property_parm()]
-property_groups() = [property_group()]
-
-sdp() = sdp_c() | sdp_o() | sdp_s() | sdp_i() | sdp_u() | 
-        sdp_e() | sdp_p() | sdp_b() | sdp_z() | sdp_k() | 
-        sdp_a() | sdp_a_rtpmap() | sdp_a_ptime() | 
-        sdp_t() | sdp_r() | sdp_m()
-sdp_v() = #megaco_sdp_v{} (Protocol version)
-sdp_o() = #megaco_sdp_o{} (Owner/creator and session identifier)
-sdp_s() = #megaco_sdp_s{} (Session name)
-sdp_i() = #megaco_sdp_i{} (Session information)
-sdp_u() = #megaco_sdp_u{} (URI of description)
-sdp_e() = #megaco_sdp_e{} (Email address)
-sdp_p() = #megaco_sdp_p{} (Phone number)
-sdp_c() = #megaco_sdp_c{} (Connection information)
-sdp_b() = #megaco_sdp_b{} (Bandwidth information)
-sdp_k() = #megaco_sdp_k{} (Encryption key)
-sdp_a() = #megaco_sdp_a{} (Session attribute)
-sdp_a_rtpmap() = #megaco_sdp_a_rtpmap{}
-sdp_a_ptime() = #megaco_sdp_a_ptime{}
-sdp_a_quality() = #megaco_sdp_a_quality{}
-sdp_a_fmtp() = #megaco_sdp_a_fmtp{}
-sdp_z() = #megaco_sdp_z{} (Time zone adjustment)
-sdp_t() = #megaco_sdp_t{} (Time the session is active)
-sdp_r() = #megaco_sdp_r{} (Repeat times)
-sdp_m() = #megaco_sdp_m{} (Media name and transport address)
-sdp_property_parm() = sdp() | property_parm()
-sdp_property_group() = [sdp_property_parm()]
-sdp_property_groups() = [sdp_property_group()]
-
-megaco_timer() = infinity | integer() >= 0 | megaco_incr_timer()
-megaco_incr_timer() = #megaco_incr_timer{}
-    ]]></code>
-    <p>The record <c><![CDATA[megaco_incr_timer]]></c> contains the following fields: </p>
-    <taglist>
-      <tag><c><![CDATA[wait_for = integer() >= 0]]></c></tag>
-      <item>
-        <p>The actual timer time.</p>
-      </item>
-      <tag><c><![CDATA[factor = integer() >= 0]]></c></tag>
-      <item>
-        <p>The factor when calculating the new timer time 
-          (<c><![CDATA[wait_for]]></c>).</p>
-      </item>
-      <tag><c><![CDATA[incr = integer()]]></c></tag>
-      <item>
-        <p>The increment value when calculating the new timer time 
-          (<c><![CDATA[wait_for]]></c>). Note that this value <em>can</em> be negative
-          and that a timer restart can therefor lead to a <c><![CDATA[wait_for]]></c>
-          value of zero! It is up to the user to be aware of the 
-          consequences of a <c><![CDATA[wait_for]]></c> value of zero. </p>
-      </item>
-      <tag><c><![CDATA[max_retries = infinity | infinity_restartable | integer() >= 0]]></c></tag>
-      <item>
-        <p>The maximum number of repetitions of the timer.</p>
-        <p>There is a special case for this field. When the 
-          <c><![CDATA[max_retries]]></c> has the value <c><![CDATA[infinity_restartable]]></c>, 
-          it means that the timer is restartable as long as some 
-          external event occurs (e.g. receipt of a pending 
-          message for instance). But the timer will never be
-          restarted "by itself", i.e. when the timer expires 
-          (whatever the timeout time), so does the timer. 
-          Whenever the timer is restarted, the timeout time will 
-          be calculated in the usual way! Also, as mentioned 
-          above, beware the consequences of setting the value to
-          <c><![CDATA[infinity]]></c> if <em>incr</em> has been set to an 
-          negative value.</p>
-      </item>
-    </taglist>
-
-    <marker id="start"></marker>
-  </section>
 
   <funcs>
     <func>
