@@ -1196,6 +1196,10 @@ key1search(Key, Vals, Def) ->
 
 %%-----------------------------------------------------------------
 
+-spec versions1() -> {ok, VersionInfo} | {error, Reason} when
+      VersionInfo :: list(),
+      Reason      :: term().
+
 versions1() ->
     case ms1() of
 	{ok, Mods} ->
@@ -1203,6 +1207,11 @@ versions1() ->
 	Error ->
 	    Error
     end.
+
+
+-spec versions2() -> {ok, VersionInfo} | {error, Reason} when
+      VersionInfo :: list(),
+      Reason      :: term().
 
 versions2() ->
     case ms2() of

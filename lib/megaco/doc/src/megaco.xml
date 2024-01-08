@@ -2629,28 +2629,25 @@ megaco_incr_timer() = #megaco_incr_timer{}
           </item>
         </list>
 
-	<marker id="get_sdp_record_from_PG"></marker>
+	<marker id="versions"></marker>
+	<marker id="versions1"></marker>
+	<marker id="versions2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">versions1() -> {ok, VersionInfo} | {error, Reason}</name>
-      <name since="">versions2() -> {ok, Info} | {error, Reason}</name>
+      <name name="versions1" arity="0" clause_i="1" since=""/>
+      <name name="versions2" arity="0" clause_i="1" since=""/>
       <fsummary>Retreive various system and application info</fsummary>
-      <type>
-        <v>VersionInfo = [version_info()]</v>
-        <v>version_info() = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Utility functions used to retrieve some system and
-          application info.</p>
+	application info.</p>
         <p>The difference between the two functions is in how they get
-          the modules to check. <c><![CDATA[versions1]]></c> uses the 
-          app-file and <c><![CDATA[versions2]]></c> uses the function 
-          <c><![CDATA[application:get_key]]></c>.</p>
+	the modules to check. <c><![CDATA[versions1]]></c> uses the 
+	app-file and <c><![CDATA[versions2]]></c> uses the function 
+	<c><![CDATA[application:get_key]]></c>.</p>
 
-        <marker id="print_version_info"></marker>
+	<marker id="print_version_info"></marker>
       </desc>
     </func>
 
