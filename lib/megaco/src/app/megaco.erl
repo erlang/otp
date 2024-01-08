@@ -307,9 +307,32 @@ stop_user(UserMid) ->
 %% Lookup user information
 %%-----------------------------------------------------------------
 
+-spec user_info(UserMid) -> [{Item, Value}] when
+      UserMid :: mid(),
+      Item    :: requests | replies | user_info_item(),
+      Value   :: term().
+
 user_info(UserMid) ->
     [{requests, user_info(UserMid, requests)},
      {replies,  user_info(UserMid, replies)} | user_info(UserMid, all)].
+
+-spec user_info(UserMid, requests) -> [{Conn, [TransId]}] when
+      UserMid :: mid(),
+      Conn    :: conn_handle(),
+      TransId :: transaction_id();
+
+               (UserMid, replies) ->
+          [{Conn, [{TransId, ReplyState, Handler}]}] when
+      UserMid    :: mid(),
+      Conn       :: conn_handle(),
+      TransId    :: transaction_id(),
+      ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
+      Handler    :: undefined | pid();
+
+               (UserMid, Item) -> Value when
+      UserMid :: mid(),
+      Item    :: user_info_item(),
+      Value   :: term().
 
 user_info(UserMid, requests) ->
     megaco_messenger:which_requests(UserMid);
@@ -347,8 +370,10 @@ conn_info(ConnHandle) ->
      {replies,  conn_info(ConnHandle, replies)} | conn_info(ConnHandle, all)].
 
 
--spec conn_info(ConnHandle, all) -> [{conn_info_item(), term()}] when
-      ConnHandle :: conn_handle();
+-spec conn_info(ConnHandle, all) -> [{Item, Value}] when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term();
 
                (ConnHandle, requests) -> [TransId] when
       ConnHandle :: conn_handle(),
