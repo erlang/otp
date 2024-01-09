@@ -25,8 +25,19 @@
 -define(VMODULE,"FRAMEWORK-MIB").
 -include("snmp_verbosity.hrl").
 
+
 -ifndef(default_verbosity).
--define(default_verbosity,silence).
+-define(default_verbosity, silence).
+-endif.
+
+
+-ifndef(version).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(version, "99.99").
 -endif.
 
 

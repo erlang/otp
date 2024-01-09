@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,6 +61,10 @@
 	 set_trace/2, set_trace/3]).
 
 -export_type([
+              bits/0,
+              octet/0,
+              octet_string/0,
+
 	      dir/0, 
 	      snmp_timer/0, 
 
@@ -113,6 +117,10 @@
 %%-----------------------------------------------------------------
 %% Types
 %%-----------------------------------------------------------------
+
+-type bits()         :: integer().
+-type octet()        :: 0..255.
+-type octet_string() :: [octet()].
 
 -type dir()           :: string().
 -type snmp_timer()    :: #snmp_incr_timer{}.
@@ -851,6 +859,10 @@ sys_up_time(manager) ->
 octet_string_to_bits(S) ->
     snmp_pdus:octet_str_to_bits(S).
 
+
+-spec bits_to_octet_string(B) -> octet_string() when
+      B :: bits().
+      
 bits_to_octet_string(B) ->
     snmp_pdus:bits_to_str(B).
 

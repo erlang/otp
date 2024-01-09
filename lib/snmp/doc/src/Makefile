@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,11 +47,18 @@ HTML_FILES = \
 	$(HTML_APP_FILES) \
 	$(HTML_PART_FILES)
 
-XML_ERRS = $(XML_FILES:%.xml=%.latex.xmls_errs) \
-            $(XML_FILES:%.xml=%.html.xmls_errs)
+XML_ERRS = \
+	$(XML_FILES:%.xml=%.latex.xmls_errs) \
+	$(XML_FILES:%.xml=%.html.xmls_errs)
 
-XML_OUTPUT = $(XML_FILES:%.xml=%.latex.xmls_output) \
-              $(XML_FILES:%.xml=%.html.xmls_output)
+XML_OUTPUT = \
+	$(XML_FILES:%.xml=%.latex.xmls_output) \
+	$(XML_FILES:%.xml=%.html.xmls_output)
+
+# SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+SPECS_FILES = \
+	$(SPECDIR)/specs_snmp.xml
+TOP_SPECS_FILE = specs.xml
 
 NO_CHUNKS = snmpa_discovery_handler.xml \
 	snmpa_error_report.xml \
@@ -64,6 +71,7 @@ NO_CHUNKS = snmpa_discovery_handler.xml \
 	snmpm_network_interface.xml \
 	snmpm_network_interface_filter.xml \
 	snmpm_user.xml
+
 
 # ----------------------------------------------------
 # Targets
@@ -84,8 +92,30 @@ $(MAN1DIR)/snmpc.1: snmpc_cmd.xml
 # ----------------------------------------------------
 
 include $(ERL_TOP)/make/doc.mk
+SPECS_FLAGS += \
+	-I../../src/app \
+	-I../../src/misc \
+	-I../../include \
+	-I../../../kernel/include
 
-info: info_xml info_man info_html
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/app/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/compile/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/misc/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/agent/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/manager/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+
+
+$(HTMLDIR)/snmp.html: snmp.xml
+
+# ----------------------------------------------------
+
+linfo: info_xml info_man info_html
+	@echo "SPECS_FILES = $(SPECS_FILES)"
 
 info_man:
 	@echo "man files:"

@@ -61,6 +61,15 @@
 -define(ETS_TAB,    snmpa_local_db2).
 -define(SERVER,     ?MODULE).
 
+-ifndef(default_verbosity).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(default_verbosity, silence).
+-endif.
+
 -record(state, {dets, ets, notify_clients = [], backup}).
 -record(dets,  {tab, shadow}).
 

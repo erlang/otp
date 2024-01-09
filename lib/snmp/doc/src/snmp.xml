@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,6 +38,51 @@
     <p>The module <c>snmp</c> contains interface functions to the 
       SNMP toolkit.</p>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="bits"/>
+      <desc>
+	<p>
+	  The Erlang representation of the SNMP BITS (pseudo) data type.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="octet"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+	-->
+    </datatype>
+
+    <datatype>
+      <name name="octet_string"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+	-->
+    </datatype>
+
+    <!--
+    <datatype>
+      <name name="void"/>
+      <desc>
+	<p>
+	  The type is used when a functions return is to be ignored.
+	</p>
+      </desc>
+    </datatype>
+    -->
+
+  </datatypes>
 
   <section>
     <title>Common Data Types</title>
@@ -312,14 +357,19 @@
     </func>
 
     <func>
+      <name name="bits_to_octet_string" arity="1" clause_i="1" since=""/>
+      <!--
       <name since="">bits_to_octet_string(B) -> Val</name>
+      -->
       <fsummary>Convert an OCTET-STRING to BITS</fsummary>
+      <!--
       <type>
         <v>Val = octet_string()</v>
       </type>
+      -->
       <desc>
         <p>Utility function for converting a value of type <c>BITS</c> 
-          to <c>OCTET-STRING</c>. </p>
+          to <c>OCTET-STRING</c>, according to RFC1906, section 8. </p>
 
         <marker id="read_mib"></marker>
       </desc>

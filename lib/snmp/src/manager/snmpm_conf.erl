@@ -57,6 +57,16 @@
 -define(AGENTS_CONF_FILE,    "agents.conf").
 -define(USM_USERS_CONF_FILE, "usm.conf").
 
+-ifndef(version).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(version, "99.99").
+-endif.
+
+
 %% 
 %% ------ manager.conf ------
 %% 
