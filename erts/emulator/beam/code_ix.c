@@ -62,8 +62,8 @@ struct code_permission {
     } *queue;
 };
 
-static struct code_permission code_mod_permission = {0};
-static struct code_permission code_stage_permission = {0};
+static struct code_permission code_mod_permission;
+static struct code_permission code_stage_permission;
 
 #ifdef DEBUG
 static erts_tsd_key_t needs_code_barrier;
