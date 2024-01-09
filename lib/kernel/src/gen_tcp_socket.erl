@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -759,12 +759,7 @@ cancel_monitor(MRef) ->
 %% -------------------------------------------------------------------------
 
 setopts(?MODULE_socket(Server, _Socket), [{active,Active}]) ->
-    if
-        Active =:= once ->
-            cast(Server, {setopt_active,Active});
-        true ->
-            call(Server, {setopt_active,Active})
-    end;
+    call(Server, {setopt_active,Active});
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     try internalize_setopts(Opts) of
         Opts_I ->
@@ -1463,32 +1458,21 @@ start_server(ServerData, StartOpts) ->
 	    Error
     end.
 
-call(Server, Call) ->
-    req(Server, Call, ?FUNCTION_NAME).
-
-cast(Server, Call) ->
-    req(Server, Call, ?FUNCTION_NAME).
-
-req(Server, Msg, Req) ->
+call(Server, Msg) ->
     try
-        case Req of
-            call ->
-                gen_statem:call(Server, Msg);
-            cast ->
-                gen_statem:cast(Server, Msg)
-        end
+        gen_statem:call(Server, Msg)
     catch
-        exit:{noproc, {gen_statem, Req, _Args}} ->
+        exit:{noproc, {gen_statem, call, _Args}} ->
             {error, closed};
         exit:{{shutdown, _}, _} ->
             {error, closed};
         C:E:S ->
-            error_msg("~w ~w failed: "
+            error_msg("~w call failed: "
                       "~n      Msg:   ~p"
                       "~n      Class: ~p"
                       "~n      Error: ~p"
                       "~n      Stack: ~p",
-                      [?MODULE, Req, Msg, C, E, S]),
+                      [?MODULE, Msg, C, E, S]),
             erlang:raise(C, E, S)
     end.
 
@@ -1835,11 +1819,6 @@ handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
     {Result, D_1} = state_setopts_active(P, D, State, [], Active),
     Reply = {reply, From, Result},
     handle_active(P, D_1, State, [Reply]);
-
-%% Cast: setopt_active/1
-handle_event(cast, {setopt_active,once=Active}, State, {P, D}) ->
-    {ok, D_1} = state_setopts_active(P, D, State, [], Active),
-    handle_active(P, D_1, State, []);
 
 %% Call: getstat/2
 handle_event({call, From}, {getstat, What}, State, {P, D}) ->
