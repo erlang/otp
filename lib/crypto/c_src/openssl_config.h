@@ -218,14 +218,14 @@
 
 #ifndef OPENSSL_NO_DES
 # define HAVE_DES
-#endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cfb
-#endif
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+#  define HAVE_DES_ede3_cfb
+# endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cbc
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+#  define HAVE_DES_ede3_cbc
+# endif
 #endif
 
 #ifndef OPENSSL_NO_DH
