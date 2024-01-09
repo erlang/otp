@@ -946,6 +946,12 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp_log:log_to_io(LogName, Block, LogFile, LogDir, Mibs, Start, Stop).
 
+
+-spec change_log_size(LogName, NewSize) -> ok | {error, Reason} when
+      LogName :: string(),
+      NewSize :: disk_log:dlog_size(),
+      Reason  :: term().
+
 change_log_size(LogName, NewSize) -> 
     snmp_log:change_size(LogName, NewSize).
 

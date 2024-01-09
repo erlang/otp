@@ -358,18 +358,10 @@
 
     <func>
       <name name="bits_to_octet_string" arity="1" clause_i="1" since=""/>
-      <!--
-      <name since="">bits_to_octet_string(B) -> Val</name>
-      -->
       <fsummary>Convert an OCTET-STRING to BITS</fsummary>
-      <!--
-      <type>
-        <v>Val = octet_string()</v>
-      </type>
-      -->
       <desc>
         <p>Utility function for converting a value of type <c>BITS</c> 
-          to <c>OCTET-STRING</c>, according to RFC1906, section 8. </p>
+	to <c>OCTET-STRING</c>, according to RFC1906, section 8. </p>
 
         <marker id="read_mib"></marker>
       </desc>
@@ -490,23 +482,17 @@
     </func>
 
     <func>
-      <name since="">change_log_size(LogName, NewSize) -> ok | {error, Reason}</name>
+      <name name="change_log_size" arity="2" clause_i="1" since=""/>
       <fsummary>Change the size of the Audit Trail Log</fsummary>
-      <type>
-        <v>LogName = string()</v>
-        <v>NewSize = {MaxBytes, MaxFiles}</v>
-        <v>MaxBytes = integer()</v>
-        <v>MaxFiles = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Changes the log size of the Audit Trail Log.  The
-          application must be configured to use the audit trail log
-          function. Please refer to disk_log(3) in Kernel Reference 
-          Manual for a description of how to change the log size.
-          </p>
-        <p>The change is permanent, as long as the log is not deleted. 
-          That means, the log size is remembered across reboots.</p>
+	application must be configured to use the audit trail log
+	function. Please refer to disk_log(3) in Kernel Reference 
+	Manual for a description of how to change the log size.
+	</p>
+
+	<p>The change is permanent, as long as the log is not deleted. 
+	That means, the log size is remembered across reboots.</p>
 
 	<marker id="print_version_info"></marker>
       </desc>
