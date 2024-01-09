@@ -101,24 +101,22 @@
 
   <funcs>
     <func>
-      <name since="">config() -> ok | {error, Reason}</name>
+      <name name="config" arity="0" clause_i="1" since=""/>
       <fsummary>Configure with a simple interactive tool</fsummary>
       <desc>
         <p>A simple interactive configuration tool. Simple
-          configuration files can be generated, but more complex
-          configurations still have to be edited manually.
-          </p>
+	configuration files can be generated, but more complex
+	configurations still have to be edited manually. </p>
         <p>The tool is a textual based tool that asks some questions
-          and generates <c>sys.config</c> and <c>*.conf</c> files.
-          </p>
+	and generates <c>sys.config</c> and <c>*.conf</c> files. </p>
         <p><em>Note</em> that if the application shall support version 3, 
-          then the crypto app must be started before running this function 
-          (password generation).</p>
-        <p><em>Note</em> also that some of the configuration files for the 
-          agent and manager share the same names. This means that 
-          they have to be stored in <em>different</em> directories!</p>
+	then the crypto app must be started before running this function 
+	(password generation). </p>
+	<p><em>Note</em> also that some of the configuration files for the 
+	agent and manager share the same names. This means that 
+	they have to be stored in <em>different</em> directories!</p>
 
-        <marker id="start"></marker>
+	<marker id="start"></marker>
       </desc>
     </func>
 

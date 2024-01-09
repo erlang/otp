@@ -207,6 +207,11 @@ start_manager(Type) ->
     snmp_app:start_manager(Type).
 
 
+%%-----------------------------------------------------------------
+
+-spec config() -> ok | {error, Reason} when
+      Reason :: term().
+
 config() -> snmp_config:config().
 
 
