@@ -64,6 +64,10 @@
               bits/0,
               octet/0,
               octet_string/0,
+              rfc1903_date_and_time/0,
+
+              date_and_time_validator_kind/0,
+              date_and_time_validator/0,
 
 	      dir/0, 
 	      snmp_timer/0, 
@@ -108,7 +112,7 @@
 %%    ]).
  
 
--define(APPLICATION, snmp).
+-define(APPLICATION,       snmp).
 -define(ATL_BLOCK_DEFAULT, true).
 
 -include_lib("snmp/include/snmp_types.hrl").
@@ -118,9 +122,18 @@
 %% Types
 %%-----------------------------------------------------------------
 
--type bits()         :: integer().
--type octet()        :: 0..255.
--type octet_string() :: [octet()].
+-type bits()                  :: integer().
+-type octet()                 :: 0..255.
+-type octet_string()          :: [octet()].
+-type rfc1903_date_and_time() :: octet_string().
+
+-type date_and_time_validator_kind() :: year | month | day |
+                                        hour | minute | seconds | deci_seconds |
+                                        diff | valid_date.
+
+-type date_and_time_validator() ::
+        fun((Kind :: date_and_time_validator_kind(),
+             Data :: term()) -> boolean()).
 
 -type dir()           :: string().
 -type snmp_timer()    :: #snmp_incr_timer{}.
@@ -670,7 +683,7 @@ ms2() ->
 %%-----------------------------------------------------------------
 
 -spec date_and_time() -> DateAndTime when
-      DateAndTime :: octet_string().
+      DateAndTime :: rfc1903_date_and_time().
 
 date_and_time() ->
     UTC   = calendar:universal_time(),
@@ -712,9 +725,19 @@ date_and_time_to_string2(DAT) ->
     Validate = fun(What, Data) -> kiribati_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
 
+
+-spec date_and_time_to_string(DAT) -> string() when
+      DAT :: rfc1903_date_and_time().
+
 date_and_time_to_string(DAT) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
+
+
+-spec date_and_time_to_string(DAT, Validate) -> string() when
+      DAT      :: rfc1903_date_and_time(),
+      Validate :: date_and_time_validator().
+
 date_and_time_to_string(DAT, Validate) when is_function(Validate) ->
     case validate_date_and_time(DAT, Validate) of
 	true ->

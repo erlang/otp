@@ -71,6 +71,46 @@
 	-->
     </datatype>
 
+    <datatype>
+      <name name="rfc1903_date_and_time"/>
+      <desc>
+	<p>
+	  The data type DateAndTime, an OCTET STRING, as specified in RFC1903.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="date_and_time_validator_kind"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+	-->
+    </datatype>
+
+    <datatype>
+      <name name="date_and_time_validator"/>
+      <desc>
+	<p>The input to the validator fun looks like this: </p>
+	<pre>
+	  Kind             Data
+	  --------------   ----------------------
+	  year             {Year1, Year2}
+	  month            Month
+	  day              Day
+	  hour             Hour
+	  minute           Minute
+	  seconds          Seconds
+	  deci_seconds     DeciSeconds
+	  diff             [Sign, Hour, Minute]
+	  valid_date       {Year, Month, Day}
+	</pre>
+      </desc>
+    </datatype>
+
     <!--
     <datatype>
       <name name="void"/>
@@ -208,27 +248,26 @@
           calendar(3). </p>
 
 	<marker id="dat2s"></marker>
+	<marker id="date_and_time_to_string"></marker>
+	<marker id="date_and_time_to_string1"></marker>
+	<marker id="date_and_time_to_string2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">date_and_time_to_string(DateAndTime) -> string()</name>
-      <name since="">date_and_time_to_string(DateAndTime, Validate) -> string()</name>
+      <name name="date_and_time_to_string" arity="1" clause_i="1" since=""/>
+      <name name="date_and_time_to_string" arity="2" clause_i="1" since=""/>
       <fsummary>Convert a DateAndTime value to a string</fsummary>
-      <type>
-        <v>DateAndTime = [int()]</v>
-	<v>Validate = fun(Kind, Data) -> boolean()</v>
-      </type>
       <desc>
-        <p>Converts a DateAndTime list to a printable string, according
-          to the DISPLAY-HINT definition in RFC2579.</p>
+	<p>Converts a DateAndTime list to a printable string, according
+	to the DISPLAY-HINT definition in RFC2579.</p>
 
         <p>The validation fun,  <c>Validate</c>, allows for a more "flexible" 
-          validation of the <c>DateAndTime</c> argument. Whenever the data 
-          is found to not follow RFC2579, the fun is called to allow a more
-          "lax" validation. 
-          See the <seeerl marker="#vdat">validate_date_and_time/2</seeerl> 
-          function for more info on the <c>Validate</c> fun. </p>
+	validation of the <c>DateAndTime</c> argument. Whenever the data 
+	is found to not follow RFC2579, the fun is called to allow a more
+	"lax" validation. 
+	See the <seeerl marker="#vdat">validate_date_and_time/2</seeerl> 
+	function for more info on the <c>Validate</c> fun. </p>
 
 	<marker id="dat2s2"></marker>
       </desc>
@@ -296,10 +335,10 @@
 
 
         <p>The validation fun,  <c>Validate</c>, allows for a more "flexible" 
-          validation of the <c>DateAndTime</c> argument. Whenever the data 
-          is found to not follow RFC2579, the fun is called to allow a more
-          "lax" validation. 
-          The input to the validation fun looks like this: </p>
+	validation of the <c>DateAndTime</c> argument. Whenever the data 
+	is found to not follow RFC2579, the fun is called to allow a more
+	"lax" validation. 
+	The input to the validation fun looks like this: </p>
 
         <pre>
           Kind             Data
