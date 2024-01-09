@@ -602,8 +602,11 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Tries to load a module in the same way as
           <seemfa marker="#load_file/1"><c>load_file/1</c></seemfa>,
-	  unless the module is already loaded.
-          However, in embedded mode it does not load a module that is not
+	  unless the module is already loaded. If called concurrently,
+          this function ensures only one process attempts to load said
+          module at a given time.</p>
+
+        <p>In embedded mode, it does not load a module that is not
           already loaded, but returns <c>{error, embedded}</c> instead.
 	  See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of other possible error reasons.</p>
       </desc>
@@ -614,7 +617,9 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Tries to load any modules not already loaded in the list
 	<c><anno>Modules</anno></c> in the same way as
-          <seemfa marker="#load_file/1">load_file/1</seemfa>.</p>
+          <seemfa marker="#load_file/1">load_file/1</seemfa>.
+          Unlike <seemfa marker="#ensure_loaded/1">ensure_loaded/1</seemfa>,
+          modules are loaded even in <c>embedded</c> mode.</p>
 	  <p>Returns <c>ok</c> if successful, or
 	  <c>{error,[{Module,Reason}]}</c> if loading of some modules fails.
 	  See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of other possible error reasons.</p>
