@@ -668,6 +668,10 @@ ms2() ->
 %%-----------------------------------------------------------------
 %% Returns: current time as a DateAndTime type (defined in rfc1903)
 %%-----------------------------------------------------------------
+
+-spec date_and_time() -> DateAndTime when
+      DateAndTime :: octet_string().
+
 date_and_time() ->
     UTC   = calendar:universal_time(),
     Local = calendar:universal_time_to_local_time(UTC),

@@ -180,18 +180,16 @@
         <p>The default value for <c>Type</c> is <c>normal</c>.</p>
 
         <marker id="dat"></marker>
+        <marker id="date_and_time"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">date_and_time() -> DateAndTime</name>
+      <name name="date_and_time" arity="0" clause_i="1" since=""/>
       <fsummary>Return the current date and time as an OCTET STRING</fsummary>
-      <type>
-        <v>DateAndTime = [int()]</v>
-      </type>
       <desc>
         <p>Returns current date and time as the data type DateAndTime,
-          as specified in RFC1903. This is an OCTET STRING.</p>
+	as specified in RFC1903. This is an OCTET STRING.</p>
 	  
 	<marker id="dat2ut_dst"></marker>
       </desc>
