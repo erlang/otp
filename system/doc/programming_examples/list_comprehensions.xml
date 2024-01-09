@@ -56,26 +56,47 @@
     <title>Quick Sort</title>
     <p>The well-known quick sort routine can be written as follows:</p>
     <code type="none"><![CDATA[
+sort([]) -> [];
+sort([_] = L) -> L;
 sort([Pivot|T]) ->
     sort([ X || X <- T, X < Pivot]) ++
     [Pivot] ++
-    sort([ X || X <- T, X >= Pivot]);
-sort([]) -> [].]]></code>
+    sort([ X || X <- T, X >= Pivot]).]]></code>
     <p>The expression <c><![CDATA[[X || X <- T, X < Pivot]]]></c> is the list of
       all elements in <c>T</c> that are less than <c>Pivot</c>.</p>
     <p><c><![CDATA[[X || X <- T, X >= Pivot]]]></c> is the list of all elements in
       <c>T</c> that are greater than or equal to <c>Pivot</c>.</p>
-      <p>A list sorted as follows:</p>
-      <list type="bulleted">
-       <item>The first element in the list is isolated
-       and the list is split into two sublists.</item>
-       <item>The first sublist contains
-      all elements that are smaller than the first element in
-      the list.</item>
-      <item>The second sublist contains all elements that are greater
-      than, or equal to, the first element in the list.</item>
-       <item>Then the sublists are sorted and the results are combined.</item>
-     </list>
+    <p>With the algorithm above, a list is sorted as follows:</p>
+    <list type="bulleted">
+      <item>A list with zero or one element is trivially sorted.</item>
+      <item>For lists with more than one element:
+        <list type="ordered">
+          <item>The first element in the list is isolated as the pivot element.</item>
+          <item>The remaining list is partitioned into two sublists, such that:
+            <list type="bulleted">
+              <item>The first sublist contains all elements that are smaller
+                than the pivot element.</item>
+              <item>The second sublist contains all elements that are greater
+                than or equal to the pivot element.</item>
+            </list>
+          </item>
+          <item>The sublists are recursively sorted by the same algorithm
+            and the results are combined, resulting in a list consisting of:
+            <list type="bulleted">
+              <item>All elements from the first sublist, that is all elements
+                smaller than the pivot element, in sorted order.</item>
+              <item>The pivot element.</item>
+              <item>All elements from the second sublist, that is all elements
+                greater than or equal to the pivot element, in sorted order.</item>
+            </list>
+          </item>
+        </list>
+      </item>
+    </list>
+    <note><p>While the sorting algorithm as shown above serves as a nice example to illustrate
+      list comprehensions with filters, for real world use cases the
+      <seeerl marker="stdlib:lists"><c>lists</c></seeerl> module contains sorting functions
+      that are implemented in a more efficient way.</p></note>
   </section>
 
   <section>
