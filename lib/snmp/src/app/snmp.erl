@@ -122,6 +122,15 @@
 %% Types
 %%-----------------------------------------------------------------
 
+%% This type, which is documented in disk_log,
+%% is not actually exported by disk_log.
+%% Instead is defined in an internal header file.
+%% So we have to create a "copy" of it here.
+%% Lets hope it never changes...
+-type log_size()              :: 'infinity' | pos_integer() |
+                                 {MaxNoBytes :: pos_integer(),
+                                  MaxNoFiles :: pos_integer()}.
+
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
 -type octet_string()          :: [octet()].
@@ -721,18 +730,12 @@ check_kiribati_diff(_) ->
     false.
 
 
-date_and_time_to_string2(DAT) ->
-    Validate = fun(What, Data) -> kiribati_validation(What, Data) end,
-    date_and_time_to_string(DAT, Validate).
-
-
 -spec date_and_time_to_string(DAT) -> string() when
       DAT :: rfc1903_date_and_time().
 
 date_and_time_to_string(DAT) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
-
 
 -spec date_and_time_to_string(DAT, Validate) -> string() when
       DAT      :: rfc1903_date_and_time(),
@@ -745,6 +748,16 @@ date_and_time_to_string(DAT, Validate) when is_function(Validate) ->
 	false ->
 	        exit({badarg, {?MODULE, date_and_time_to_string, [DAT]}})
     end.
+
+
+-spec date_and_time_to_string2(DAT) -> string() when
+      DAT :: rfc1903_date_and_time().
+
+date_and_time_to_string2(DAT) ->
+    Validate = fun(What, Data) -> kiribati_validation(What, Data) end,
+    date_and_time_to_string(DAT, Validate).
+
+
 
 dat2str([Y1,Y2, Mo, D, H, M, S, Ds | Diff]) ->
     lists:flatten(io_lib:format("~w-~w-~w,~w:~w:~w.~w",
@@ -981,7 +994,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
 
 -spec change_log_size(LogName, NewSize) -> ok | {error, Reason} when
       LogName :: string(),
-      NewSize :: disk_log:dlog_size(),
+      NewSize :: log_size(),
       Reason  :: term().
 
 change_log_size(LogName, NewSize) -> 

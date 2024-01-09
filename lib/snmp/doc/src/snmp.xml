@@ -111,6 +111,16 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="log_size"/>
+      <desc>
+	<p>
+	  This is basically a copy of the
+	  <seetype marker="disk_log#dlog_size">dlog_size()</seetype>.
+	</p>
+      </desc>
+    </datatype>
+
     <!--
     <datatype>
       <name name="void"/>
@@ -249,8 +259,8 @@
 
 	<marker id="dat2s"></marker>
 	<marker id="date_and_time_to_string"></marker>
-	<marker id="date_and_time_to_string1"></marker>
-	<marker id="date_and_time_to_string2"></marker>
+	<marker id="date_and_time_to_string_1"></marker>
+	<marker id="date_and_time_to_string_2"></marker>
       </desc>
     </func>
 
@@ -270,20 +280,18 @@
 	function for more info on the <c>Validate</c> fun. </p>
 
 	<marker id="dat2s2"></marker>
+	<marker id="date_and_time_to_string2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">date_and_time_to_string2(DateAndTime) -> string()</name>
+      <name name="date_and_time_to_string2" arity="1" clause_i="1" since=""/>
       <fsummary>Convert a DateAndTime value to a string</fsummary>
-      <type>
-        <v>DateAndTime = [int()]</v>
-      </type>
       <desc>
 	<p>Converts a DateAndTime list to a printable string, according
-	  to the DISPLAY-HINT definition in RFC2579, with the extension 
-          that it also allows the values "hours from UTC" = 14 together with 
-          "minutes from UTC" = 0. </p>
+	to the DISPLAY-HINT definition in RFC2579, with the extension 
+	that it also allows the values "hours from UTC" = 14 together with 
+	"minutes from UTC" = 0. </p>
 
 	<marker id="lt2dat_dst"></marker>
       </desc>
