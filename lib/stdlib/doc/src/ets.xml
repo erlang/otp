@@ -462,7 +462,7 @@ true
     </func>
 
     <func>
-      <name name="first_lookup" arity="1" since=""/>
+      <name name="first_lookup" arity="1" since="OTP @OTP-18923@"/>
       <fsummary>Return the first key and object(s) in an ETS table.</fsummary>
       <desc>
         <p>Similar to <seemfa marker="#first/1"><c>first/1</c></seemfa> except that
@@ -958,7 +958,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="last_lookup" arity="1" since=""/>
+      <name name="last_lookup" arity="1" since="OTP @OTP-18923@"/>
       <fsummary>Return the last key and object in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>
@@ -1519,7 +1519,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="next_lookup" arity="2" since=""/>
+      <name name="next_lookup" arity="2" since="OTP @OTP-18923@"/>
       <fsummary>Return the next key and object(s) in an ETS table.</fsummary>
       <desc>
         <p>Similar to <seemfa marker="#next/2"><c>next/2</c></seemfa> except that
@@ -1550,7 +1550,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="prev_lookup" arity="2" since=""/>
+      <name name="prev_lookup" arity="2" since="OTP @OTP-18923@"/>
       <fsummary>Return the previous key and object(s) in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>

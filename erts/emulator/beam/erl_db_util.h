@@ -407,7 +407,7 @@ Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 {
     Eterm key = GETKEY(tb, obj->tpl);
-    if IS_CONST(key) return key;
+    if is_immed(key) return key;
     else {
 	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);

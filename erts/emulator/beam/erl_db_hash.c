@@ -1090,7 +1090,7 @@ int db_create_hash(Process *p, DbTable *tbl)
 static ERTS_INLINE Eterm db_copy_key_hash(Process* p, DbTable* tbl, HashDbTerm* b)
 {
     Eterm key = GETKEY(&tbl->common, b->dbterm.tpl);
-    if IS_CONST(key) return key;
+    if is_immed(key) return key;
     else {
 	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);

@@ -574,7 +574,7 @@ int db_create_tree(Process *p, DbTable *tbl)
 Eterm db_copy_key_tree(Process* p, DbTable* tbl, TreeDbTerm* node)
 {
     Eterm key = GETKEY(&tbl->common, node->dbterm.tpl);
-    if IS_CONST(key) return key;
+    if is_immed(key) return key;
     else {
 	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);
