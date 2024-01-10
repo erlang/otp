@@ -440,9 +440,14 @@ format_timestamp({_N1, _N2, N3} = Now) ->
 %%-----------------------------------------------------------------
 %% {ok, Vs} = snmp:versions1(), snmp:print_versions(Vs).
 
+-spec print_version_info() -> void().
+
 print_version_info() ->
     {ok, Vs} = versions1(),
     print_versions(Vs).
+
+-spec print_version_info(Prefix) -> void() when
+      Prefix :: string() | non_neg_integer().
 
 print_version_info(Prefix) ->
     {ok, Vs} = versions1(),
