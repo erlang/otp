@@ -55,73 +55,92 @@
     </note>
   </description>
 
-  <section>
-    <title>COMMON DATA TYPES </title>
-    <p>Here follows type definitions that are used by more than one
-      function in the ODBC API. </p>
-    <note>
-      <p>The type <c>TimeOut</c> has the default value
-        <c>infinity</c>, so for instance:        <br></br>
+ <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
 
-        commit(Ref, CommitMode) is the same as
-        commit(Ref, CommitMode, infinity). If the
-        timeout expires the client will exit with the reason
-        timeout. </p>
-    </note>
-    <code type="none">
- connection_reference() - as returned by connect/2    </code>
-    <code type="none">
- time_out() = milliseconds() | infinity    </code>
-    <code type="none">
- milliseconds() = integer() >= 0     </code>
-    <code type="none">
- common_reason() = connection_closed | extended_error() | term() - some kind of
- explanation of what went wrong    </code>
-    <code type="none">
- extended_error() = {string(), integer(), Reason} - extended error type with ODBC
- and native database error codes, as well as the base reason that would have been
- returned had extended_errors not been enabled. </code>
-    <code type="none">
- string() = list of ASCII characters    </code>
-    <code type="none">
- col_name() = string() - Name of column in the result set    </code>
-    <code type="none">
- col_names() - [col_name()] - e.g. a list of the names of the
-           selected columns in the result set.     </code>
-    <code type="none">
- row() = {value()} - Tuple of column values e.g. one row of the
-           result set.     </code>
-    <code type="none">
- value() = null | term() - A column value.     </code>
-    <code type="none">
- rows() = [row()] - A list of rows from the result set.    </code>
-    <code type="none">
- result_tuple() =
-      {updated, n_rows()} | {selected, col_names(), rows()}    </code>
-    <code type="none">
- n_rows() = integer() - The number of affected rows for UPDATE,
-           INSERT, or DELETE queries. For other query types the value
-           is driver defined, and hence should be ignored.    </code>
-    <code type="none">
- odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
-      {sql_decimal, precision(), scale()} |
-      {sql_numeric, precision(), scale()} |
-      {sql_char, size()} |
-      {sql_wchar, size()} |
-      {sql_varchar, size()} |
-      {sql_wvarchar, size()}|
-      {sql_float, precision()} |
-      {sql_wlongvarchar, size()} |
-      {sql_float, precision()} |
-      sql_real | sql_double | sql_bit | atom()
-    </code>
-    <code type="none">
- precision() = integer()    </code>
-    <code type="none">
- scale() = integer()    </code>
-    <code type="none">
- size() = integer()    </code>
-  </section>
+  <datatypes>
+    <datatype_title>Types used in ODBC application</datatype_title>
+
+     <datatype> 
+       <name name="connection_reference"/>
+       <desc>
+	<p>Opaque reference to an ODBC connection as returnded by connect/2.</p>
+       </desc>
+     </datatype>
+
+      <datatype>
+      <name name="col_name"/>
+       <desc>
+	<p> Name of column in the result set.</p>
+      </desc>
+      </datatype>
+
+        <datatype>
+	  <name name="row"/>
+	  <desc>
+	    <p>A tuple, with the number of elements selected form columns in a database row, containg the values of the columns
+	    such as <c>{value(), value() ... value()} </c>.
+	   </p>
+	  </desc>
+	</datatype>
+
+	<datatype>
+          <name name="value"/>
+          <desc>
+            <p>Erlang data type that corresponds to the ODBC data type being handled.</p>
+          </desc>
+        </datatype>
+	
+	<datatype>
+	  <name name="selected"/>
+	  <desc>
+	    <p>Return value for queries that select data from database tabels.</p>
+	  </desc>
+	</datatype>
+	
+	    <datatype>
+	      <name name="updated"/>
+	      <desc>
+		<p>Return value for queries that update database tables.</p>
+	      </desc>
+	    </datatype>
+
+	    <datatype>
+	      <name name="n_rows"/>
+	        <desc>
+		  <p> The number of affected rows for UPDATE,
+		  INSERT, or DELETE queries. For other query types the value
+		  is driver defined, and hence should be ignored.   </p>
+		</desc>
+	    </datatype>
+
+	    <datatype>
+	      <name name="odbc_data_type"/>
+	      <desc>
+		<p> Data type used by ODBC, to learn which Erlang data type
+		corresponds to an ODBC data type see the Erlang to ODBC
+		data type <seeguide marker="databases#type">mapping</seeguide> in the User's Guide.</p>
+	      </desc>
+	    </datatype>
+
+	    <datatype>
+	      <name name="common_reason"/>
+	      <desc>
+		<p> An explanation of what went wrong. For common errors there will be atom decriptions.</p>
+	      </desc>
+	    </datatype>
+
+	    <datatype>
+	      <name name="extended_error"/>
+	      <desc>
+		<p>extended error type with ODBC and native database error codes, as well as the base reason that would have been
+		returned had extended_errors not been enabled.</p>
+	      </desc>
+	    </datatype>
+  </datatypes>
 
   <section>
     <title>ERROR HANDLING </title>
@@ -130,34 +149,17 @@
   </section>
   <funcs>
     <func>
-      <name since="">commit(Ref, CommitMode) -></name>
-      <name since="">commit(Ref, CommitMode, TimeOut) -> ok | {error, Reason} </name>
+      <name since="" name="commit" arity="2"></name>
+      <name since="" name="commit" arity="3"></name>
       <fsummary>Commits or rollbacks a transaction. </fsummary>
-      <type>
-        <v>Ref = connection_reference() </v>
-        <v>CommitMode = commit | rollback</v>
-        <v>TimeOut = time_out()</v>
-        <v>Reason = not_an_explicit_commit_connection | process_not_owner_of_odbc_connection | common_reason()</v>
-      </type>
       <desc>
         <p>Commits or rollbacks a transaction. Needed on connections
           where automatic commit is turned off.</p>
       </desc>
     </func>
     <func>
-      <name since="">connect(ConnectStr, Options) -> {ok, Ref} | {error, Reason} </name>
+      <name since="" name="connect" arity="2"></name>
       <fsummary>Opens a connection to the database. </fsummary>
-      <type>
-        <v>ConnectStr = string()</v>
-        <d>An example of a connection string: <c>"DSN=sql-server;UID=aladdin;PWD=sesame"</c> where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example <c>"DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame"</c> where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.</d>
-        <v>Options = [] | [option()]</v>
-        <d>All options has default values. </d>
-        <v>option() = {auto_commit, on | off} | {timeout, milliseconds()}
-	| {binary_strings, on | off} | {tuple_row, on | off} | {scrollable_cursors, on | off} |
-	{trace_driver, on | off} | {extended_errors, on | off} </v>
-        <v>Ref = connection_reference() - should be used to access the connection. </v>
-        <v>Reason = port_program_executable_not_found | common_reason()</v>
-      </type>
       <desc>
         <p>Opens a connection to the database. The connection is
           associated with the process that created it and can only be
@@ -175,7 +177,7 @@
 
 	  <p>The default timeout is infinity </p>
 	  
-	  <p> >If the option binary_strings is turned on all strings
+	  <p> If the option binary_strings is turned on all strings
 	  will be returned as binaries and strings inputted to
 	  param_query will be expected to be binaries. The user needs
 	  to ensure that the binary is in an encoding that the
@@ -208,20 +210,23 @@
             description of the function SQLDriverConnect in [1].</p>
         </note>
 
-		  <p>The <c>extended_errors</c> option enables extended ODBC error
-			  information when an operation fails. Rather than returning <c>{error, Reason}</c>,
-			  the failing function will return <c>{error, {ODBCErrorCode, NativeErrorCode, Reason}}</c>.
-			  Note that this information is probably of little use when writing database-independent code,
-			  but can be of assistance in providing more sophisticated error handling when dealing with
-			  a known underlying database.
-	           </p>
-			 <list type="bulleted">
-				  <item><c>ODBCErrorCode</c> is the ODBC error string returned by the ODBC driver.</item>
-				  <item><c>NativeErrorCode</c> is the numeric error code returned by the underlying database. The possible values
-					  and their meanings are dependent on the database being used.</item>
-				  <item><c>Reason</c> is as per the <c>Reason</c> field when extended errors are not enabled.</item>
-		  </list>
-
+	<p>The <c>extended_errors</c> option enables extended ODBC
+	error information when an operation fails. Rather than
+	returning <c>{error, Reason}</c>, the failing function will
+	return <c>{error, {ODBCErrorCode, NativeErrorCode,
+	Reason}}</c>.  Note that this information is probably of
+	little use when writing database-independent code, but can be
+	of assistance in providing more sophisticated error handling
+	when dealing with a known underlying database.
+	</p>
+	<list type="bulleted">
+	  <item><c>ODBCErrorCode</c> is the ODBC error string returned
+	  by the ODBC driver.</item>
+	  <item><c>NativeErrorCode</c> is the numeric error code returned by the underlying database. The possible values
+	  and their meanings are dependent on the database being used.</item>
+	  <item><c>Reason</c> is as per the <c>Reason</c> field when extended errors are not enabled.</item>
+	</list>
+	
         <note>
             <p>The current implementation spawns a port program
             written in C that utilizes the actual ODBC driver. There
@@ -236,83 +241,50 @@
       </desc>
     </func>
     <func>
-      <name since="">disconnect(Ref) -> ok | {error, Reason} </name>
+      <name since="" name="disconnect" arity="1"></name>
       <fsummary>Closes a connection to a database. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>Reason = process_not_owner_of_odbc_connection | extended_error()</v>
-      </type>
       <desc>
-        <p>Closes a connection to a database. This will also
-          terminate all processes that may have been spawned 
-          when the connection was opened. This call will always succeed.
-          If the connection cannot be disconnected gracefully it will
-          be brutally killed. However you may receive an error message
-          as result if you try to disconnect a connection started by another
-          process.
-                    <marker id="describe_table"></marker>
-</p>
+        <p>Closes a connection to a database. This will also terminate
+        all processes that may have been spawned when the connection
+        was opened. This call will always succeed.  If the connection
+        cannot be disconnected gracefully it will be brutally
+        killed. However you may receive an error message as result if
+        you try to disconnect a connection started by another process.
+        <marker id="describe_table"></marker>
+	</p>
       </desc>
     </func>
     <func>
-      <name since="">describe_table(Ref, Table) -> </name>
-      <name since="">describe_table(Ref, Table, Timeout) -> {ok, Description} | {error, Reason} </name>
+      <name since="" name="describe_table" arity="2"></name>
+      <name since="" name="describe_table" arity="3"></name>
       <fsummary>Queries the database to find out the data types of the columns of the table <c>Table</c>. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>Table = string() - Name of database table.</v>
-        <v>TimeOut = time_out()</v>
-        <v>Description = [{col_name(), odbc_data_type()}]</v>
-        <v>Reason = common_reason()</v>
-      </type>
       <desc>
         <p>Queries the database to find out the ODBC data types of the
           columns of the table <c>Table</c>. </p>
       </desc>
     </func>
     <func>
-      <name since="">first(Ref) -></name>
-      <name since="">first(Ref, Timeout) -> {selected, ColNames, Rows} | {error, Reason} </name>
+      <name since="" name="first" arity="1"></name>
+      <name since="" name="first" arity="2"></name>
       <fsummary>Returns the first row of the result set and positions a cursor at this row.</fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>TimeOut = time_out()</v>
-        <v>ColNames = col_names() </v>
-        <v>Rows = rows()</v>
-        <v>Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
       <desc>
         <p>Returns the first row of the result set and positions a
           cursor at this row.</p>
       </desc>
     </func>
     <func>
-      <name since="">last(Ref) -></name>
-      <name since="">last(Ref, TimeOut) -> {selected, ColNames, Rows} | {error, Reason} </name>
+      <name since="" name="last" arity="1"></name>
+      <name since="" name="last" arity="2"></name>
       <fsummary>Returns the last row of the result set and positions a cursor at this row. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>TimeOut = time_out()</v>
-        <v>ColNames = col_names() </v>
-        <v>Rows = rows()</v>
-        <v>Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
       <desc>
         <p>Returns the last row of the result set and positions a
           cursor at this row.</p>
       </desc>
     </func>
     <func>
-      <name since="">next(Ref) -> </name>
-      <name since="">next(Ref, TimeOut) -> {selected, ColNames, Rows} | {error, Reason} </name>
+      <name since="" name="next" arity="1"></name>
+      <name since="" name="next" arity="2"></name>
       <fsummary>Returns the next row of the result set relative the current cursor position and positions the cursor at this row. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>TimeOut = time_out()</v>
-        <v>ColNames = col_names() </v>
-        <v>Rows = rows()</v>
-        <v>Reason = result_set_does_not_exist | process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
       <desc>
         <p>Returns the next row of the result set relative the
           current cursor position and positions the cursor at this
@@ -321,22 +293,13 @@
           will be <c>{selected, ColNames,[]}</c> e.i. the list of row
           values is empty indicating that there is no more data to fetch.
                     <marker id="param_query"></marker>
-</p>
+	</p>
       </desc>
     </func>
     <func>
-      <name since="">param_query(Ref, SQLQuery, Params) -> </name>
-      <name since="">param_query(Ref, SQLQuery, Params, TimeOut) -> ResultTuple | {error, Reason} </name>
+      <name since="" name="param_query" arity="3"></name>
+      <name since="" name="param_query" arity="4"></name>
       <fsummary>Executes a parameterized SQL query.</fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>SQLQuery = string() - a SQL query with parameter markers/place holders in form of question marks.</v>
-        <v>Params = [{odbc_data_type(), [value()]}] |[{odbc_data_type(), in_or_out(), [value()]}]  </v>
-	<v>in_or_out = in | out | inout</v>
-	<d>Defines IN, OUT, and IN OUT Parameter Modes for stored procedures.</d>
-	<v>TimeOut = time_out()</v>
-        <v>Values = term() - Must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType</v>
-      </type>
       <desc>
         <p>Executes a parameterized SQL query. For an
           example see the <seeguide marker="getting_started#param_query">"Using the Erlang API"</seeguide> in the Erlang ODBC 
@@ -346,23 +309,18 @@
             ODBC data type that is expected for each column of that
             table. If a column has a data type that is described with
             capital letters, alas it is not currently supported by the
-            param_query function. Too know which Erlang data type
+            param_query function. To learn which Erlang data type
             corresponds to an ODBC data type see the Erlang to ODBC
             data type <seeguide marker="databases#type">mapping</seeguide> in the User's Guide.</p>
         </note>
       </desc>
     </func>
     <func>
-      <name since="">prev(Ref) -> </name>
-      <name since="">prev(ConnectionReference, TimeOut) -> {selected, ColNames, Rows} | {error, Reason} </name>
-      <fsummary>Returns the previous row of the result set relative the current cursor position and positions the cursor at this row. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>TimeOut = time_out()</v>
-        <v>ColNames = col_names() </v>
-        <v>Rows = rows()</v>
-        <v>Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
+      <name since="" name="prev" arity="1"></name>
+      <name since="" name="prev" arity="2"></name>
+      <fsummary>Returns the previous row of the result set relative
+      the current cursor position and positions the cursor at this
+      row. </fsummary>
       <desc>
         <p>Returns the previous row of the result set relative the
           current cursor position and positions the
@@ -371,15 +329,9 @@
     </func>
 
     <func>
-      <name since="">start() -> </name>
-      <name since="">start(Type) -> ok | {error, Reason}</name>
-      <fsummary>Starts the odb application. </fsummary>
-      
-      <type>
-	<v>Type =  permanent | transient | temporary
-	</v>
-      </type>
-      
+      <name since="" name="start" arity="0"></name>
+      <name since="" name="start" arity="1"></name>
+      <fsummary>Starts the odb application. </fsummary>      
       <desc>
 	<p> Starts the odbc application. Default type
 	  is temporary.
@@ -389,7 +341,7 @@
     </func>
 
     <func>
-      <name since="">stop() -> ok </name>
+      <name since="" name="stop" arity="0"></name>
       <fsummary> Stops the odbc application.</fsummary>
       
       <desc>
@@ -400,16 +352,14 @@
     </func>
     
     <func>
-      <name since="">sql_query(Ref, SQLQuery) -> </name>
-      <name since="">sql_query(Ref, SQLQuery, TimeOut) -> ResultTuple | [ResultTuple] |{error, Reason}</name>
-      <fsummary>Executes a SQL query or a batch of SQL queries. If it is a SELECT query the result set is returned, on the format<c>{selected, ColNames, Rows}</c>. For other query types the tuple <c>{updated, NRows}</c>is returned, and for batched queries, if the driver supports them, this function can also return a list of result tuples.</fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>SQLQuery = string() - The string may be composed by several SQL-queries separated by a ";", this is called a batch. </v>
-        <v>TimeOut = time_out()</v>
-        <v>ResultTuple = result_tuple() </v>
-        <v>Reason = process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
+      <name since="" name="sql_query" arity="2"></name>
+      <name since="" name="sql_query" arity="3"></name>
+      <fsummary>Executes a SQL query or a batch of SQL queries. If it
+      is a SELECT query the result set is returned, on the
+      format<c>{selected, ColNames, Rows}</c>. For other query types
+      the tuple <c>{updated, NRows}</c>is returned, and for batched
+      queries, if the driver supports them, this function can also
+      return a list of result tuples.</fsummary>
       <desc>
         <p>Executes a SQL query or a batch of SQL queries. If it
           is a SELECT query the result set is returned, on the format
@@ -429,17 +379,12 @@
       </desc>
     </func>
     <func>
-      <name since="">select_count(Ref, SelectQuery) -> </name>
-      <name since="">select_count(Ref, SelectQuery, TimeOut) -> {ok, NrRows} | {error, Reason} </name>
-      <fsummary>Executes a SQL SELECT query and associates the result set with the connection. A cursor is positioned before the first row in the result set and the tuple <c>{ok, NrRows}</c>is returned. </fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>SelectQuery = string()</v>
-        <d>SQL SELECT query.</d>
-        <v>TimeOut = time_out()</v>
-        <v>NrRows = n_rows()</v>
-        <v>Reason = process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
+      <name since="" name="select_count" arity="2"></name>
+      <name since="" name="select_count" arity="3"></name>
+      <fsummary>Executes a SQL SELECT query and associates the result
+      set with the connection. A cursor is positioned before the first
+      row in the result set and the tuple <c>{ok, NrRows}</c>is
+      returned. </fsummary>
       <desc>
         <p>Executes a SQL SELECT query and associates the result set
           with the connection. A cursor is positioned before the first
@@ -453,19 +398,9 @@
       </desc>
     </func>
     <func>
-      <name since="">select(Ref, Position, N) -></name>
-      <name since="">select(Ref, Position, N, TimeOut) -> {selected, ColNames, Rows} | {error, Reason} </name>
+      <name since="" name="select" arity="3"></name>
+      <name since="" name="select" arity="4"></name>
       <fsummary>Selects <c>N</c>consecutive rows of the result set.</fsummary>
-      <type>
-        <v>Ref = connection_reference()</v>
-        <v>Position = next | {relative, Pos} | {absolute, Pos} </v>
-        <d>Selection strategy, determines at which row in the result set to start the selection.</d>
-        <v>Pos = integer() </v>
-        <d>Should indicate a row number in the result set. When used together with the option <c>relative</c>it will be used as an offset from the current cursor position, when used together with the option <c>absolute</c>it will be interpreted as a row number.</d>
-        <v>N = integer() </v>
-        <v>TimeOut = time_out()</v>
-        <v>Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() </v>
-      </type>
       <desc>
         <p>Selects <c>N</c> consecutive rows of the result set. If
           <c>Position</c> is <c>next</c> it is semantically equivalent
