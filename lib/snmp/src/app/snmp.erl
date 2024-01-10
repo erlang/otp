@@ -284,6 +284,16 @@ reset_trace(Targets) when is_list(Targets) ->
     set_trace(Targets, disable).
 
 
+-spec set_trace(Targets, TraceOpts) -> void() when
+      Targets       :: module() | [module() | {module(), [TargetOpt]}],
+      TargetOpt     :: {return_trace, boolean()} | {scope, Scope},
+      Scope         :: all_functions | exported_functions |
+                       FunctionName | {FunctionName, FunctionArity},
+      FunctionName  :: atom(),
+      FunctionArity :: non_neg_integer(),
+      TraceOpts     :: disable | [TraceOpt],
+      TraceOpt      :: {timestamp, boolean()} | TargetOpt.
+
 set_trace(Module, disable) when is_atom(Module) ->
     dbg:ctp(Module);
 set_trace(Module, Opts) when is_atom(Module) andalso is_list(Opts) ->

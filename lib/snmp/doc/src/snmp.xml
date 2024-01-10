@@ -633,22 +633,8 @@
     </func>
 
     <func>
-      <name since="">set_trace(Targets, Opts) -> void()</name>
+      <name name="set_trace" arity="2" clause_i="1" since=""/>
       <fsummary>Set trace target</fsummary>
-      <type>
-        <v>Targets = target() | targets()</v>
-        <v>target() = module()</v>
-        <v>module() = atom()</v>
-        <v>targets() = [target() | {target(), target_options()}]</v>
-        <v>target_options() = [target_option()]</v>
-        <v>target_option() = {return_trace, boolean()} | {scope, scope()}</v>
-        <v>scope() = all_functions | exported_functions | function_name() | {function_name(), function_arity()}</v>
-        <v>function_name() = atom()</v>
-        <v>function_arity() = integer() >= 0</v>
-        <v>Opts = disable | trace_options()</v>
-        <v>trace_options() = [trace_option()]</v>
-        <v>trace_option() = {timestamp, boolean()} | target_option()</v>
-      </type>
       <desc>
         <p>This function is used to set up trace on function(s) for the given
 	  module or modules. </p>
