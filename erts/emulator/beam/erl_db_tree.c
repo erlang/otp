@@ -402,11 +402,20 @@ static BIF_RETTYPE ets_select_reverse(BIF_ALIST_3);
 /* Method interface functions */
 static int db_first_tree(Process *p, DbTable *tbl, 
 		  Eterm *ret);
+static int db_first_lookup_tree(Process *p, DbTable *tbl,
+		  Eterm *ret);
 static int db_next_tree(Process *p, DbTable *tbl, 
+			Eterm key, Eterm *ret);
+static int db_next_lookup_tree(Process *p, DbTable *tbl,
 			Eterm key, Eterm *ret);
 static int db_last_tree(Process *p, DbTable *tbl, 
 			Eterm *ret);
+static int db_last_lookup_tree(Process *p, DbTable *tbl,
+			Eterm *ret);
 static int db_prev_tree(Process *p, DbTable *tbl, 
+			Eterm key,
+			Eterm *ret);
+static int db_prev_lookup_tree(Process *p, DbTable *tbl,
 			Eterm key,
 			Eterm *ret);
 static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail, SWord *consumed_reds_p);
@@ -526,7 +535,11 @@ DbTableMethod db_tree =
     db_get_dbterm_key_tree_common,
     db_get_binary_info_tree,
     db_first_tree, /* raw_first same as first */
-    db_next_tree   /* raw_next same as next */
+    db_next_tree,   /* raw_next same as next */
+    db_first_lookup_tree,
+    db_next_lookup_tree,
+    db_last_lookup_tree,
+    db_prev_lookup_tree
 };
 
 
@@ -558,8 +571,40 @@ int db_create_tree(Process *p, DbTable *tbl)
     return DB_ERROR_NONE;
 }
 
+Eterm db_copy_key_tree(Process* p, DbTable* tbl, TreeDbTerm* node)
+{
+    Eterm key = GETKEY(&tbl->common, node->dbterm.tpl);
+    if is_immed(key) return key;
+    else {
+	Uint size = size_object(key);
+	Eterm* hp = HAlloc(p, size);
+	Eterm res = copy_struct(key, size, &hp, &MSO(p));
+	ASSERT(EQ(res,key));
+	return res;
+    }
+}
+
+Eterm db_copy_key_and_object_tree(Process* p, DbTable* tbl, TreeDbTerm* node) {
+    Eterm key = db_copy_key_tree(p, tbl, node);
+    Eterm *hp, *hend, copy, object, res;
+
+    // +2 for CONS and +3 for TUPLE2
+    int size = node->dbterm.size + 2 + 3;
+    hp = HAlloc(p, size);
+	hend = hp + size;
+	copy = db_copy_object_from_ets(&tbl->common, &node->dbterm, &hp, &MSO(p));
+    object = CONS(hp, copy, NIL);
+    hp += 2;
+	res = TUPLE2(hp, key, object);
+    hp += 3;
+    HRelease(p,hend,hp);
+
+    return res;
+}
+
 int db_first_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                         Eterm *ret, DbTableTree *stack_container)
+                         Eterm *ret, DbTableTree *stack_container,
+                         Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     DbTreeStack* stack;
     TreeDbTerm *this;
@@ -581,19 +626,26 @@ int db_first_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
 	stack->slot = 1;
 	release_stack(tbl,stack_container,stack);
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
 static int db_first_tree(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_first_tree_common(p, tbl, tb->root, ret, tb);
+    return db_first_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_tree);
+}
+
+static int db_first_lookup_tree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_first_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_and_object_tree);
 }
 
 int db_next_tree_common(Process *p, DbTable *tbl,
                         TreeDbTerm *root, Eterm key,
-                        Eterm *ret, DbTreeStack* stack)
+                        Eterm *ret, DbTreeStack* stack,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
 
@@ -604,7 +656,7 @@ int db_next_tree_common(Process *p, DbTable *tbl,
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
@@ -612,13 +664,23 @@ static int db_next_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     DbTreeStack* stack = get_any_stack(tbl, tb);
-    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack);
+    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_tree);
+    release_stack(tbl,tb,stack);
+    return ret_val;
+}
+
+static int db_next_lookup_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    DbTreeStack* stack = get_any_stack(tbl, tb);
+    int ret_val = db_next_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_and_object_tree);
     release_stack(tbl,tb,stack);
     return ret_val;
 }
 
 int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                        Eterm *ret, DbTableTree *stack_container)
+                        Eterm *ret, DbTableTree *stack_container,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
     DbTreeStack* stack;
@@ -641,18 +703,24 @@ int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
 	stack->slot = NITEMS_CENTRALIZED(tbl);
 	release_stack(tbl,stack_container,stack);
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
 static int db_last_tree(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_last_tree_common(p, tbl, tb->root, ret, tb);
+    return db_last_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_tree);
+}
+
+static int db_last_lookup_tree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_last_tree_common(p, tbl, tb->root, ret, tb, db_copy_key_and_object_tree);
 }
 
 int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
-                 Eterm *ret, DbTreeStack* stack)
+                 Eterm *ret, DbTreeStack* stack, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *this;
 
@@ -663,7 +731,7 @@ int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
-    *ret = db_copy_key(p, tbl, &this->dbterm);
+    *ret = (*func)(p, tbl, this);
     return DB_ERROR_NONE;
 }
 
@@ -671,7 +739,16 @@ static int db_prev_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     DbTreeStack* stack = get_any_stack(tbl, tb);
-    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack);
+    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_tree);
+    release_stack(tbl,tb,stack);
+    return res;
+}
+
+static int db_prev_lookup_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    DbTreeStack* stack = get_any_stack(tbl, tb);
+    int res = db_prev_tree_common(p, tbl, tb->root, key, ret, stack, db_copy_key_and_object_tree);
     release_stack(tbl,tb,stack);
     return res;
 }

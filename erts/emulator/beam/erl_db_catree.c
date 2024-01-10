@@ -98,11 +98,20 @@ static SWord do_delete_base_node_cont(DbTableCATree *tb,
 /* Method interface functions */
 static int db_first_catree(Process *p, DbTable *tbl,
                            Eterm *ret);
+static int db_first_lookup_catree(Process *p, DbTable *tbl,
+                           Eterm *ret);
 static int db_next_catree(Process *p, DbTable *tbl,
                           Eterm key, Eterm *ret);
+static int db_next_lookup_catree(Process *p, DbTable *tbl,
+                                 Eterm key, Eterm *ret);
 static int db_last_catree(Process *p, DbTable *tbl,
                           Eterm *ret);
+static int db_last_lookup_catree(Process *p, DbTable *tbl,
+                          Eterm *ret);
 static int db_prev_catree(Process *p, DbTable *tbl,
+                          Eterm key,
+                          Eterm *ret);
+static int db_prev_lookup_catree(Process *p, DbTable *tbl,
                           Eterm key,
                           Eterm *ret);
 static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail,
@@ -227,7 +236,11 @@ DbTableMethod db_catree =
     db_get_dbterm_key_tree_common,
     db_get_binary_info_catree,
     db_first_catree, /* raw_first same as first */
-    db_next_catree   /* raw_next same as next */
+    db_next_catree,   /* raw_next same as next */
+    db_first_lookup_catree,
+    db_next_lookup_catree,
+    db_last_lookup_catree,
+    db_prev_lookup_catree
 };
 
 /*
@@ -1567,7 +1580,7 @@ int db_create_catree(Process *p, DbTable *tbl)
     return DB_ERROR_NONE;
 }
 
-static int db_first_catree(Process *p, DbTable *tbl, Eterm *ret)
+static int db_first_catree_common(Process *p, DbTable *tbl, Eterm *ret, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *root;
     CATreeRootIterator iter;
@@ -1580,13 +1593,23 @@ static int db_first_catree(Process *p, DbTable *tbl, Eterm *ret)
         root = pp ? *pp : NULL;
     }
 
-    result = db_first_tree_common(p, tbl, root, ret, NULL);
+    result = db_first_tree_common(p, tbl, root, ret, NULL, func);
 
     destroy_root_iterator(&iter);
     return result;
 }
 
-static int db_next_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+static int db_first_catree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_first_catree_common(p, tbl, ret, db_copy_key_tree);
+}
+
+static int db_first_lookup_catree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_first_catree_common(p, tbl, ret, db_copy_key_and_object_tree);
+}
+
+static int db_next_catree_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     DbTreeStack stack;
     TreeDbTerm * stack_array[STACK_NEED];
@@ -1600,7 +1623,7 @@ static int db_next_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
     do {
         init_tree_stack(&stack, stack_array, 0);
-        result = db_next_tree_common(p, tbl, (rootp ? *rootp : NULL), key, ret, &stack);
+        result = db_next_tree_common(p, tbl, (rootp ? *rootp : NULL), key, ret, &stack, func);
         if (result != DB_ERROR_NONE || *ret != am_EOT)
             break;
 
@@ -1611,7 +1634,17 @@ static int db_next_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     return result;
 }
 
-static int db_last_catree(Process *p, DbTable *tbl, Eterm *ret)
+static int db_next_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_next_catree_common(p, tbl, key, ret, db_copy_key_tree);
+}
+
+static int db_next_lookup_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_next_catree_common(p, tbl, key, ret, db_copy_key_and_object_tree);
+}
+
+static int db_last_catree_common(Process *p, DbTable *tbl, Eterm *ret, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     TreeDbTerm *root;
     CATreeRootIterator iter;
@@ -1624,13 +1657,23 @@ static int db_last_catree(Process *p, DbTable *tbl, Eterm *ret)
         root = pp ? *pp : NULL;
     }
 
-    result = db_last_tree_common(p, tbl, root, ret, NULL);
+    result = db_last_tree_common(p, tbl, root, ret, NULL, func);
 
     destroy_root_iterator(&iter);
     return result;
 }
 
-static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+static int db_last_catree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_last_catree_common(p, tbl, ret, db_copy_key_tree);
+}
+
+static int db_last_lookup_catree(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_last_catree_common(p, tbl, ret, db_copy_key_and_object_tree);
+}
+
+static int db_prev_catree_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret, Eterm (*func)(Process *, DbTable *, TreeDbTerm *))
 {
     DbTreeStack stack;
     TreeDbTerm * stack_array[STACK_NEED];
@@ -1645,7 +1688,7 @@ static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     do {
         init_tree_stack(&stack, stack_array, 0);
         result = db_prev_tree_common(p, tbl, (rootp ? *rootp : NULL), key, ret,
-                                     &stack);
+                                     &stack, func);
         if (result != DB_ERROR_NONE || *ret != am_EOT)
             break;
         rootp = catree_find_prev_root(&iter, NULL);
@@ -1653,6 +1696,16 @@ static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
     destroy_root_iterator(&iter);
     return result;
+}
+
+static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_prev_catree_common(p, tbl, key, ret, db_copy_key_tree);
+}
+
+static int db_prev_lookup_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_prev_catree_common(p, tbl, key, ret, db_copy_key_and_object_tree);
 }
 
 static int db_put_dbterm_catree(DbTable* tbl,

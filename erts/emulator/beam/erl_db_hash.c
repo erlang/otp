@@ -643,6 +643,8 @@ static void shrink(DbTableHash* tb, int nitems);
 static void grow(DbTableHash* tb, int nitems);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 			   Uint sz, DbTableHash*);
+static Eterm get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
+              HashDbTerm *b1, HashDbTerm **bend);
 static int analyze_pattern(DbTableHash *tb, Eterm pattern,
                            ExtraMatchValidatorF*, /* Optional callback */
                            struct mp_info *mpi);
@@ -654,8 +656,17 @@ static int db_first_hash(Process *p,
 			 DbTable *tbl, 
 			 Eterm *ret);
 
+static int db_first_lookup_hash(Process *p,
+            DbTable *tbl,
+            Eterm *ret);
+
 static int db_next_hash(Process *p, 
 			DbTable *tbl, 
+			Eterm key,
+			Eterm *ret);
+
+static int db_next_lookup_hash(Process *p,
+			DbTable *tbl,
 			Eterm key,
 			Eterm *ret);
 
@@ -873,7 +884,11 @@ DbTableMethod db_hash =
     db_get_dbterm_key_hash,
     db_get_binary_info_hash,
     db_raw_first_hash,
-    db_raw_next_hash
+    db_raw_next_hash,
+    db_first_lookup_hash,
+    db_next_lookup_hash,
+    db_first_lookup_hash,   /* last == first  */
+    db_next_lookup_hash    /* prev == next   */
 };
 
 #ifdef DEBUG
@@ -1072,7 +1087,32 @@ int db_create_hash(Process *p, DbTable *tbl)
     return DB_ERROR_NONE;
 }
 
-static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
+static ERTS_INLINE Eterm db_copy_key_hash(Process* p, DbTable* tbl, HashDbTerm* b)
+{
+    Eterm key = GETKEY(&tbl->common, b->dbterm.tpl);
+    if is_immed(key) return key;
+    else {
+	Uint size = size_object(key);
+	Eterm* hp = HAlloc(p, size);
+	Eterm res = copy_struct(key, size, &hp, &MSO(p));
+	ASSERT(EQ(res,key));
+	return res;
+    }
+}
+
+static ERTS_INLINE Eterm db_copy_key_and_objects_hash(Process* p, DbTable* tbl, HashDbTerm* b) {
+    Eterm key = db_copy_key_hash(p, tbl, b);
+    HashValue hval = MAKE_HASH(key);
+    DbTableHash *tb = &tbl->hash;
+    Eterm objects = get_term_list(p, tb, key, hval, b, NULL);
+    Eterm *hp, res;
+    hp = HAlloc(p, 3);
+    res = TUPLE2(hp, key, objects);
+
+    return res;
+}
+
+static int db_first_hash_common(Process *p, DbTable *tbl, Eterm *ret, Eterm (*func)(Process *, DbTable *, HashDbTerm *))
 {
     DbTableHash *tb = &tbl->hash;
     Uint ix = 0;
@@ -1083,7 +1123,7 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
     list = next_live(tb, &ix, &lck, list);
 
     if (list != NULL) {
-	*ret = db_copy_key(p, tbl, &list->dbterm);
+    *ret = (*func)(p, tbl, list);
 	RUNLOCK_HASH(lck);
     }
     else {
@@ -1092,8 +1132,17 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
     return DB_ERROR_NONE;
 }
 
+static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_first_hash_common(p, tbl, ret, db_copy_key_hash);
+}
 
-static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+static int db_first_lookup_hash(Process *p, DbTable *tbl, Eterm *ret)
+{
+    return db_first_hash_common(p, tbl, ret, db_copy_key_and_objects_hash);
+}
+
+static int db_next_hash_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret, Eterm (*func)(Process *, DbTable *, HashDbTerm *))
 {
     DbTableHash *tb = &tbl->hash;
     HashValue hval;
@@ -1132,11 +1181,22 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }
     else {
         ASSERT(!is_pseudo_deleted(b));
-	*ret = db_copy_key(p, tbl, &b->dbterm);
+	*ret = (*func)(p, tbl, b);
 	RUNLOCK_HASH(lck);
     }    
     return DB_ERROR_NONE;
 }    
+
+static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_next_hash_common(p, tbl, key, ret, db_copy_key_hash);
+}
+
+
+static int db_next_lookup_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_next_hash_common(p, tbl, key, ret, db_copy_key_and_objects_hash);
+}
 
 struct tmp_uncomp_term {
     Eterm term;

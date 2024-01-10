@@ -197,6 +197,13 @@
 	<seemfa marker="#last/1"><c>last/1</c></seemfa> and
 	<seemfa marker="#prev/2"><c>prev/2</c></seemfa>.</p>
       </item>
+      <item><p><em>Single-step</em> traversal one key at at time, but using
+	<seemfa marker="#first_lookup/1"><c>first_lookup/1</c></seemfa>,
+	<seemfa marker="#next_lookup/2"><c>next_lookup/2</c></seemfa>,
+	<seemfa marker="#last_lookup/1"><c>last_lookup/1</c></seemfa> and
+	<seemfa marker="#prev_lookup/2"><c>prev_lookup/2</c></seemfa>. This is more
+      efficient when you also need to lookup the objects for the keys.</p>
+      </item>
       <item><p>Search with simple <em>match patterns</em>, using
 	<seemfa marker="#match/1"><c>match/1/2/3</c></seemfa>,
 	<seemfa marker="#match_delete/2"><c>match_delete/2</c></seemfa> and
@@ -451,6 +458,20 @@ true
           <c>'$end_of_table'</c> is returned.</p>
         <p>To find subsequent keys in the table, use
           <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="first_lookup" arity="1" since="OTP @OTP-18923@"/>
+      <fsummary>Return the first key and object(s) in an ETS table.</fsummary>
+      <desc>
+        <p>Similar to <seemfa marker="#first/1"><c>first/1</c></seemfa> except that
+          it returns the object(s) along with the key stored in the table. This is equivalent to doing
+          <seemfa marker="#first/1"><c>first/1</c></seemfa> followed by a <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.
+          If the table is empty, <c>'$end_of_table'</c> is returned.
+        </p>
+        <p>To find subsequent objects in the table, use
+          <seemfa marker="#next_lookup/2"><c>next_lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -933,6 +954,21 @@ Error: fun containing local Erlang function calls
           If the table is empty, <c>'$end_of_table'</c> is returned.</p>
         <p>To find preceding keys in the table, use
           <seemfa marker="#prev/2"><c>prev/2</c></seemfa>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="last_lookup" arity="1" since="OTP @OTP-18923@"/>
+      <fsummary>Return the last key and object in an ETS table of type
+        <c>ordered_set</c>.</fsummary>
+      <desc>
+        <p>Similar to <seemfa marker="#last/1"><c>last/1</c></seemfa> except that
+          it returns the object(s) along with the key  stored in the table. This is equivalent to doing
+          <seemfa marker="#last/1"><c>last/1</c></seemfa> followed by a <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.
+          If the table is empty, <c>'$end_of_table'</c> is returned.
+        </p>
+        <p>To find preceding objects in the table, use
+          <seemfa marker="#prev_lookup/2"><c>prev_lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1483,6 +1519,21 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
+      <name name="next_lookup" arity="2" since="OTP @OTP-18923@"/>
+      <fsummary>Return the next key and object(s) in an ETS table.</fsummary>
+      <desc>
+        <p>Similar to <seemfa marker="#next/2"><c>next/2</c></seemfa> except that
+         it returns the object(s) along with the key stored in the table. This is equivalent to doing
+         <seemfa marker="#next/2"><c>next/2</c></seemfa> followed by a <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.
+         If no next key exists, <c>'$end_of_table'</c> is returned.
+        </p>
+        <p>
+          It can be interleaved with <seemfa marker="#next/2"><c>next/2</c></seemfa> during traversal.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="prev" arity="2" since=""/>
       <fsummary>Return the previous key in an ETS table of type
         <c>ordered_set</c>.</fsummary>
@@ -1495,6 +1546,22 @@ ets:select(Table, MatchSpec),</code>
           If no previous key exists, <c>'$end_of_table'</c> is returned.</p>
         <p>To find the last key in an <c>ordered_set</c> table, use
           <seemfa marker="#last/1"><c>last/1</c></seemfa>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="prev_lookup" arity="2" since="OTP @OTP-18923@"/>
+      <fsummary>Return the previous key and object(s) in an ETS table of type
+        <c>ordered_set</c>.</fsummary>
+      <desc>
+        <p>Similar to <seemfa marker="#prev/2"><c>prev/2</c></seemfa> except that
+         it returns the object(s) along with the key stored in the table. This is equivalent to doing
+         <seemfa marker="#prev/2"><c>prev/2</c></seemfa> followed by a <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.
+         If no previous key exists, <c>'$end_of_table'</c> is returned.
+        </p>
+        <p>
+          It can be interleaved with <seemfa marker="#prev/2"><c>prev/2</c></seemfa> during traversal.
+        </p>
       </desc>
     </func>
 
@@ -2361,4 +2428,3 @@ true</pre>
     </func>
   </funcs>
 </erlref>
-

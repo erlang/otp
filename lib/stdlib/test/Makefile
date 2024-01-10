@@ -37,6 +37,7 @@ MODULES= \
 	error_info_lib \
 	error_logger_h_SUITE \
 	escript_SUITE \
+	ets_property_test_SUITE \
 	ets_SUITE \
 	ets_tough_SUITE \
 	filelib_SUITE \

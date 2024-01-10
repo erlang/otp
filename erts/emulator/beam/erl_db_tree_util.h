@@ -86,14 +86,18 @@ int tree_balance_left(TreeDbTerm **this);
 int tree_balance_right(TreeDbTerm **this);
 
 int db_first_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                         Eterm *ret, DbTableTree *stack_container);
+                         Eterm *ret, DbTableTree *stack_container,
+                         Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_next_tree_common(Process *p, DbTable *tbl,
                         TreeDbTerm *root, Eterm key,
-                        Eterm *ret, DbTreeStack* stack);
+                        Eterm *ret, DbTreeStack* stack,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
-                        Eterm *ret, DbTableTree *stack_container);
+                        Eterm *ret, DbTableTree *stack_container,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
-                        Eterm *ret, DbTreeStack* stack);
+                        Eterm *ret, DbTreeStack* stack,
+                        Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
                        int key_clash_fail, DbTableTree *stack_container);
 int db_get_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
@@ -183,5 +187,8 @@ Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 TreeDbTerm *db_find_tree_node_common(DbTableCommon*, TreeDbTerm *root,
                                      Eterm key);
 Eterm db_binary_info_tree_common(Process*, TreeDbTerm*);
+
+Eterm db_copy_key_tree(Process* p, DbTable* tbl, TreeDbTerm* node);
+Eterm db_copy_key_and_object_tree(Process* p, DbTable* tbl, TreeDbTerm* node);
 
 #endif /* _DB_TREE_UTIL_H */

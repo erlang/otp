@@ -1115,6 +1115,29 @@ BIF_RETTYPE ets_first_1(BIF_ALIST_1)
     BIF_RET(ret);
 }
 
+/*
+** Returns the first {key, object(s)} in a table
+*/
+BIF_RETTYPE ets_first_lookup_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_first_lookup_1);
+
+    cret = tb->common.meth->db_first_lookup(BIF_P, tb, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
 /* 
 ** The next BIF, given a key, return the "next" key 
 */
@@ -1129,6 +1152,30 @@ BIF_RETTYPE ets_next_2(BIF_ALIST_2)
     DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_next_2);
 
     cret = tb->common.meth->db_next(BIF_P, tb, BIF_ARG_2, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+
+/*
+** The next_lookup BIF, given a key, return the "next" {key, object(s)}
+*/
+BIF_RETTYPE ets_next_lookup_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_next_lookup_2);
+
+    cret = tb->common.meth->db_next_lookup(BIF_P, tb, BIF_ARG_2, &ret);
 
     db_unlock(tb, LCK_READ);
 
@@ -1161,6 +1208,29 @@ BIF_RETTYPE ets_last_1(BIF_ALIST_1)
     BIF_RET(ret);
 }
 
+/*
+** Returns the last {key, object(s)} in a table
+*/
+BIF_RETTYPE ets_last_lookup_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_last_lookup_1);
+
+    cret = tb->common.meth->db_last_lookup(BIF_P, tb, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
 /* 
 ** The prev BIF, given a key, return the "previous" key 
 */
@@ -1175,6 +1245,29 @@ BIF_RETTYPE ets_prev_2(BIF_ALIST_2)
     DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_prev_2);
 
     cret = tb->common.meth->db_prev(BIF_P,tb,BIF_ARG_2,&ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+/*
+** The prev_lookup BIF, given a key, return the "previous" {key, object(s)}
+*/
+BIF_RETTYPE ets_prev_lookup_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_prev_lookup_2);
+
+    cret = tb->common.meth->db_prev_lookup(BIF_P, tb, BIF_ARG_2, &ret);
 
     db_unlock(tb, LCK_READ);
 

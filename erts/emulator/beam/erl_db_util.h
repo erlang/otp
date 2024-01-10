@@ -256,6 +256,21 @@ typedef struct db_table_method
        Only internal use by ets:info(_,binary) */
     int (*db_raw_first)(Process*, DbTable*, Eterm* ret);
     int (*db_raw_next)(Process*, DbTable*, Eterm key, Eterm* ret);
+    /* Same as first/last/next/prev, but returns object(s) along with key */
+    int (*db_first_lookup)(Process* p,
+		    DbTable* tb, /* [in out] */
+		    Eterm* ret   /* [out] */);
+    int (*db_next_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm key,   /* [in] */
+		   Eterm* ret /* [out] */);
+    int (*db_last_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm* ret   /* [out] */);
+    int (*db_prev_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm key,
+		   Eterm* ret);
 } DbTableMethod;
 
 typedef struct db_fixation {
@@ -392,7 +407,7 @@ Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 {
     Eterm key = GETKEY(tb, obj->tpl);
-    if IS_CONST(key) return key;
+    if is_immed(key) return key;
     else {
 	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);
