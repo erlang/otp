@@ -240,6 +240,8 @@ config() -> snmp_config:config().
 
 %%-----------------------------------------------------------------
 
+-spec enable_trace() -> void().
+
 enable_trace() ->
     HandleSpec = {fun handle_trace_event/2, dummy},
     dbg:tracer(process, HandleSpec).
@@ -249,6 +251,7 @@ enable_trace() ->
 
 disable_trace() ->    
     dbg:stop().
+
 
 set_trace(Module) when is_atom(Module) ->
     set_trace([Module]);

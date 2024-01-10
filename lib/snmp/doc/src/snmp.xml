@@ -601,16 +601,11 @@
     </func>
 
     <func>
-      <name since="">enable_trace() -> void()</name>
+      <name name="enable_trace" arity="0" clause_i="1" since=""/>
       <fsummary>Starts a tracer</fsummary>
-      <!--
-      <type>
-        <v>Prefix = string() | integer()</v>
-      </type>
-      -->
       <desc>
         <p>Starts a dbg tracer that prints trace events to stdout (using
-          plain io:format after a minor formatting). </p>
+	plain io:format after a minor formatting). </p>
 
         <marker id="disable_trace"></marker>
       </desc>
