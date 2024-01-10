@@ -453,8 +453,17 @@ print_version_info(Prefix) ->
     {ok, Vs} = versions1(),
     print_versions(Prefix, Vs).
 
+-spec print_versions(Versions) -> void() when
+      Versions    :: [VersionInfo],
+      VersionInfo :: term().
+
 print_versions(Versions) ->
     print_versions("", Versions).
+
+-spec print_versions(Prefix, Versions) -> void() when
+      Prefix      :: string() | non_neg_integer(),
+      Versions    :: [VersionInfo],
+      VersionInfo :: term().
 
 print_versions(Prefix, Versions) 
   when is_list(Prefix) andalso is_list(Versions) ->
