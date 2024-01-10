@@ -61,6 +61,11 @@ esac
 TARGET=$host
 AC_SUBST(TARGET)
 
+# The resulting binary should be a library, not an executable. Therefore, the
+# various PIE flags are not needed.
+CFLAGS="$(echo $CFLAGS | sed -e 's!-fPIE!!g' -e 's!-fpie!!g')"
+LDFLAGS="$(echo $LDFLAGS | sed -e 's!-fPIE!!' -e 's!-fpie!!' -e 's!-pie!!')"
+
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_RANLIB
@@ -219,7 +224,10 @@ case $host_os in
 	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     *)
-	LDFLAGS="-shared -fPIC $LDFLAGS"
+        # When checking linkage we'd like to see that symbols are resolved.
+        # In order to notice errors, we must test without `-shared`.
+	LDFLAGS="-fPIC $LDFLAGS"
+	EXTRA_LDFLAGS=" -shared "
 	GL_LIBS="-lGL -lGLU"
 	;;
 esac
