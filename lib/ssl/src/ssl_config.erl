@@ -343,7 +343,7 @@ init_diffie_hellman(DbHandle, Opts, server) ->
         Bin when is_binary(Bin) ->
             public_key:der_decode('DHParameter', Bin);
         _ ->
-            case maps:get(dh, Opts, undefined) of
+            case maps:get(dhfile, Opts, undefined) of
                 undefined ->
                     ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
                 DHParamFile ->

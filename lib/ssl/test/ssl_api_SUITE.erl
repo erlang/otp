@@ -72,6 +72,8 @@
          active_n/1,
          dh_params/0,
          dh_params/1,
+         invalid_dhfile/0,
+         invalid_dhfile/1,
          prf/0,
          prf/1,
          hibernate_client/0,
@@ -278,6 +280,7 @@ simple_api_tests() ->
      invalid_keyfile,
      invalid_certfile,
      invalid_cacertfile,
+     invalid_dhfile,
      invalid_options,
      options_not_proplist,
      options_whitebox,
@@ -798,6 +801,49 @@ dh_params(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+invalid_dhfile() ->
+    [{doc,"Test to check invalid DH-params file in server."}].
+invalid_dhfile(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    DHParamFile = filename:join(DataDir, "dHParam-invalid.pem"),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                              {from, self()},
+                                              {mfa, {ssl_test_lib,
+                                                     send_recv_result_active,
+                                                     []}},
+                                               {options, [{dhfile, DHParamFile}
+                                                          | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, Hostname}, {from, self()},
+                                              {mfa, {ssl_test_lib,
+                                                     send_recv_result_active,
+                                                     []}},
+                                              {options, [{ciphers,
+                                                          [{dhe_rsa,
+                                                            aes_256_cbc, sha}]}
+                                                         | ClientOpts]}]),
+
+    %% assert server error
+    [{Server, {error, {options, {dhfile, DHParamFile,
+                                 {error, {asn1,
+                                          {{invalid_value, 0}, _Stack}}}}}}}] =
+        ssl_test_lib:get_result([Server]),
+
+    %% assert client error
+    ssl_test_lib:check_result(Client, {error, closed}),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 conf_signature_algs() ->
