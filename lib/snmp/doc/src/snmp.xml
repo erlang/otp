@@ -633,16 +633,11 @@
     </func>
 
     <func>
-      <name since="">reset_trace(Targets) -> void()</name>
+      <name name="reset_trace" arity="1" clause_i="1" since=""/>
       <fsummary>Reset trace target</fsummary>
-      <type>
-        <v>Targets = module() | modules()</v>
-        <v>modules() = [module()]</v>
-        <v>module() = atom()</v>
-      </type>
       <desc>
         <p>This function is used to reset (disable) trace for the 
-	  given module(s). </p>
+	given module(s). </p>
       
 	<marker id="set_trace2"></marker>
       </desc>

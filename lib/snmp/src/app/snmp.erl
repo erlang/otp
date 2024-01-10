@@ -266,10 +266,15 @@ set_trace(Modules) when is_list(Modules) ->
     Opts = [], % Use default values for all options
     set_trace(Modules, Opts).
 
-reset_trace(Module) when is_atom(Module) ->
-    set_trace(Module, disable);
-reset_trace(Modules) when is_list(Modules) ->
-    set_trace(Modules, disable).
+
+-spec reset_trace(Targets) -> void() when
+      Targets :: module() | [module()].
+
+reset_trace(Targets) when is_atom(Targets) ->
+    set_trace(Targets, disable);
+reset_trace(Targets) when is_list(Targets) ->
+    set_trace(Targets, disable).
+
 
 set_trace(Module, disable) when is_atom(Module) ->
     dbg:ctp(Module);
