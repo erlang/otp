@@ -377,8 +377,11 @@ processes:
 -type trace_pattern() :: {module(), Fun :: atom(), arity() | '_'}.
 
 %% Trace map: accumulated view of multiple trace patterns
--doc "Traced functions (with their arities) grouped by module name.".
--type trace_map() :: #{module() => [{Fun :: atom(), arity()}]}.
+-doc """
+Traced functions (with their arities) grouped by module name,
+or `all` if all code is traced.
+""".
+-type trace_map() :: #{module() => [{Fun :: atom(), arity()}]} | all.
 
 %% Single trace_info call with associated module/function/arity
 -doc "Raw data extracted from tracing BIFs.".
@@ -1058,54 +1061,79 @@ format_out(Device, Fmt, Args) ->
 enable_pattern('_', '_', '_', _Acc, Type) ->
     %% need to re-trace everything, probably some new modules were loaded
     %% discard any existing trace pattern
-    lists:foldl(
-        fun({Mod, _}, {Total, Acc}) ->
-            Plus = erlang:trace_pattern({Mod, '_', '_'}, true, [Type]),
-            {Total + Plus, Acc#{Mod => Mod:module_info(functions)}}
-        end, {0, #{}}, code:all_loaded());
+    erlang:trace_pattern(on_load, true, [Type]),
+    {erlang:trace_pattern({'_', '_', '_'}, true, [Type]), all};
 enable_pattern(Mod, '_', '_', Acc, Type) ->
     %% code may have been hot-loaded, redo the trace
     case erlang:trace_pattern({Mod, '_', '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, '_', '_'}}, Acc};
         Traced ->
-            {Traced, Acc#{Mod => Mod:module_info(functions)}}
+            {Traced, update_trace_map(Acc, fun() -> Acc#{Mod => Mod:module_info(functions)} end)}
     end;
 enable_pattern(Mod, Fun, '_', Acc, Type) ->
     case erlang:trace_pattern({Mod, Fun, '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, '_'}}, Acc};
         Traced ->
-            Added = [{F, A} || {F, A} <- Mod:module_info(functions), F =:= Fun],
-            NewMap = maps:update_with(Mod,
-                fun (FAs) ->
-                    Added ++ [{F, A} || {F, A} <- FAs, F =/= Fun]
-                end, Added, Acc),
-            {Traced, NewMap}
+            {Traced,
+             update_trace_map(
+               Acc,
+               fun() ->
+                       Added = [{F, A} || {F, A} <- Mod:module_info(functions), F =:= Fun],
+                       maps:update_with(
+                         Mod,
+                         fun (FAs) ->
+                                 Added ++ [{F, A} || {F, A} <- FAs, F =/= Fun]
+                         end, Added, Acc)
+               end)}
     end;
 enable_pattern(Mod, Fun, Arity, Acc, Type) ->
     case erlang:trace_pattern({Mod, Fun, Arity}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, Arity}}, Acc};
         1 ->
-            {1, maps:update_with(Mod,
-                fun (FAs) -> [{Fun, Arity} | FAs -- [{Fun, Arity}]] end, [{Fun, Arity}], Acc)}
+            {1, update_trace_map(
+                  Acc,
+                  fun() ->
+                          maps:update_with(
+                            Mod,
+                            fun(FAs) ->
+                                    [{Fun, Arity} | FAs -- [{Fun, Arity}]]
+                            end, [{Fun, Arity}], Acc)
+                  end)}
     end.
+
+update_trace_map(all, _) ->
+    all;
+update_trace_map(_Map, Fun) ->
+    Fun().
 
 %% pattern collapse code for un-tracing
 disable_pattern('_', '_', '_', _Acc, Type) ->
+    erlang:trace_pattern(on_load, false, [Type]),
     Traced = erlang:trace_pattern({'_', '_', '_'}, false, [Type]),
     {Traced, #{}};
-disable_pattern(Mod, '_', '_', Acc, Type) when is_map_key(Mod, Acc) ->
+disable_pattern(Mod, '_', '_', Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, '_', '_'}, false, [Type]),
-    {Traced, maps:remove(Mod, Acc)};
-disable_pattern(Mod, Fun, '_', Acc, Type) when is_map_key(Mod, Acc) ->
+    {Traced, update_trace_map(Acc, fun() -> maps:remove(Mod, Acc) end)};
+disable_pattern(Mod, Fun, '_', Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, Fun, '_'}, false, [Type]),
-    {Traced, maps:update_with(Mod,
-        fun (FAs) -> [{F, A} || {F, A} <- FAs, F =/= Fun] end, Acc)};
-disable_pattern(Mod, Fun, Arity, Acc, Type) when is_map_key(Mod, Acc) ->
+    {Traced, update_trace_map(
+               Acc,
+               fun() ->
+                       maps:update_with(
+                         Mod,
+                         fun (FAs) -> [{F, A} || {F, A} <- FAs, F =/= Fun] end,
+                         Acc)
+               end)};
+disable_pattern(Mod, Fun, Arity, Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, Fun, Arity}, false, [Type]),
-    {Traced, maps:update_with(Mod, fun (FAs) -> FAs -- [{Fun, Arity}] end, Acc)};
+    {Traced, update_trace_map(
+               Acc,
+               fun() ->
+                       maps:update_with(Mod, fun (FAs) -> FAs -- [{Fun, Arity}] end, Acc)
+               end)};
 disable_pattern(Mod, Fun, Arity, Acc, _Type) ->
     {{error, {not_traced, Mod, Fun, Arity}}, Acc}.
 
@@ -1147,12 +1175,15 @@ return_profile({Agg, Sort}, Profile, _Ret, Device) ->
     format_impl(Device, inspect(Profile, Agg, Sort)).
 
 %% @doc clears tracing for the entire trace map passed
--spec clear_pattern(trace_map(), trace_type()) -> ok.
+-spec clear_pattern(trace_map() | all, trace_type()) -> ok.
+clear_pattern(all, Type) ->
+    erlang:trace_pattern(on_load, false, [Type]),
+    erlang:trace_pattern({'_', '_', '_'}, false, [Type]);
 clear_pattern(Existing, Type) ->
     maps:foreach(
-        fun (Mod, FunArity) ->
-            [erlang:trace_pattern({Mod, F, A}, false, [Type]) || {F, A} <- FunArity]
-        end, Existing).
+      fun(Mod, FunArity) ->
+              [erlang:trace_pattern({Mod, F, A}, false, [Type]) || {F, A} <- FunArity]
+      end, Existing).
 
 trace_options(#{set_on_spawn := false}) ->
     [call, silent];
@@ -1229,6 +1260,10 @@ toggle_trace([Name | Tail], On, Flags, Success, Failure) when is_atom(Name) ->
 %% @doc Collects memory tracing data (usable for inspect()) for
 %%      all traced functions.
 -spec collect(trace_map(), trace_type()) -> {trace_type(), [trace_info()]}.
+collect(all, Type) ->
+    collect(
+      #{ Mod => Mod:module_info(functions) || {Mod, _} <- code:all_loaded() },
+      Type);
 collect(Pattern, Type) ->
     {Type, maps:fold(fun(K, V, Acc) -> collect_trace(K, V, Acc, Type) end, [], Pattern)}.
 
