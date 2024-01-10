@@ -148,7 +148,7 @@
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
 -type atl_type()      :: read | write | read_write.
--type verbosity()     :: info | log | debug | trace | silence.
+-type verbosity()     :: silence | info | log | debug | trace.
 
 -type engine_id()     :: string().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
@@ -173,7 +173,8 @@
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
 -type pdu_type()      :: 'get-request' | 'get-next-request' | 'get-response' |
-                         'set-request' | 'trap' | 'get-bulk-request' | 'inform-request' |
+                         'set-request' | 'trap' | 'get-bulk-request' | 
+                         'inform-request' |
                          'report'.
 
 %% We should really specify all of these, but they are so numerous...
@@ -796,6 +797,11 @@ local_time_to_date_and_time_dst(Local) ->
 	[UTC1, UTC2] ->
 	    [date_and_time(Local, UTC1), date_and_time(Local, UTC2)]
     end.
+
+
+-spec date_and_time_to_universal_time_dst(DAT) -> UTCs when
+      DAT  :: rfc1903_date_and_time(),
+      UTCs :: [calendar:datetime1970()].
 
 date_and_time_to_universal_time_dst([Y1, Y2, Mo, D, H, M, S, _Ds]) ->
     %% Local time specified, convert to UTC
