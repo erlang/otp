@@ -981,6 +981,11 @@ localize_key(Alg, Key, EngineID) ->
 %%% Read a mib
 %%%-----------------------------------------------------------------
 
+-spec read_mib(FileName) -> {ok, Mib} | {error, Reason} when
+      FileName :: string(),
+      Mib      :: mib(),
+      Reason   :: term().
+
 read_mib(FileName) ->
     snmp_misc:read_mib(FileName).
 

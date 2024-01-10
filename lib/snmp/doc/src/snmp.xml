@@ -152,6 +152,17 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="mib"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -416,13 +427,8 @@
     </func>
 
     <func>
-      <name since="">read_mib(FileName) -> {ok, mib()} | {error, Reason}</name>
+      <name name="read_mib" arity="1" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>FileName = string()</v>
-        <v>mib() = #mib{}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Read a compiled mib.</p>
 
