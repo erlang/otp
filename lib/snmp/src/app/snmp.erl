@@ -244,6 +244,9 @@ enable_trace() ->
     HandleSpec = {fun handle_trace_event/2, dummy},
     dbg:tracer(process, HandleSpec).
 
+
+-spec disable_trace() -> void().
+
 disable_trace() ->    
     dbg:stop().
 

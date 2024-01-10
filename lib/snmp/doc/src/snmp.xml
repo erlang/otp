@@ -121,7 +121,6 @@
       </desc>
     </datatype>
 
-    <!--
     <datatype>
       <name name="void"/>
       <desc>
@@ -130,7 +129,6 @@
 	</p>
       </desc>
     </datatype>
-    -->
 
   </datatypes>
 
@@ -619,13 +617,8 @@
     </func>
 
     <func>
-      <name since="">disable_trace() -> void()</name>
+      <name name="disable_trace" arity="0" clause_i="1" since=""/>
       <fsummary>Stop the tracer</fsummary>
-      <!--
-      <type>
-        <v>Prefix = string() | integer()</v>
-      </type>
-      -->
       <desc>
         <p>Stop the tracer. </p>
 
