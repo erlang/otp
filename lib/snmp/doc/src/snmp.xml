@@ -609,24 +609,13 @@
     </func>
 
     <func>
-      <name since="">set_trace(Targets) -> void()</name>
+      <name name="set_trace" arity="1" clause_i="1" since=""/>
       <fsummary>Set trace target</fsummary>
-      <type>
-        <v>Targets = target() | targets()</v>
-        <v>target() = module()</v>
-        <v>module() = atom()</v>
-        <v>targets() = [target() | {target(), target_options()}]</v>
-        <v>target_options() = [target_option()]</v>
-        <v>target_option() = {return_trace, boolean()} | {scope, scope()}</v>
-        <v>scope() = all_functions | exported_functions | function_name() | {function_name(), function_arity()}</v>
-        <v>function_name() = atom()</v>
-        <v>function_arity() = integer() >= 0</v>
-      </type>
       <desc>
         <p>This function is used to set up default trace on function(s) 
-          for the given module or modules. The scope of the trace will be 
-          all <em>exported</em> functions (both the call info and the return 
-	  value). Timestamp info will also be included. </p>
+	for the given module or modules. The scope of the trace will be 
+	all <em>exported</em> functions (both the call info and the return 
+	value). Timestamp info will also be included. </p>
 
         <marker id="reset_trace"></marker>
       </desc>

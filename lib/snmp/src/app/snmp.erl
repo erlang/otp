@@ -260,6 +260,14 @@ disable_trace() ->
     dbg:stop().
 
 
+-spec set_trace(Targets) -> void() when
+      Targets       :: module() | [module() | {module(), [TargetOpt]}],
+      TargetOpt     :: {return_trace, boolean()} | {scope, Scope},
+      Scope         :: all_functions | exported_functions |
+                       FunctionName | {FunctionName, FunctionArity},
+      FunctionName  :: atom(),
+      FunctionArity :: non_neg_integer().
+
 set_trace(Module) when is_atom(Module) ->
     set_trace([Module]);
 set_trace(Modules) when is_list(Modules) ->
