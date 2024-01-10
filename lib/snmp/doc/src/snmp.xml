@@ -141,6 +141,17 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="algorithm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -370,15 +381,8 @@
     </func>
 
     <func>
-      <name since="">passwd2localized_key(Alg, Passwd, EngineID) -> Key</name>
+      <name name="passwd2localized_key" arity="3" clause_i="1" since=""/>
       <fsummary>Generates an localized key</fsummary>
-      <type>
-        <v>Alg         = algorithm()</v>
-        <v>algorithm() = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
-        <v>Passwd      = string()</v>
-        <v>EngineID    = string()</v>
-        <v>Key         = list()</v>
-      </type>
       <desc>
         <p>Generates a key that can be used as an authentication
 	or privacy key using MD5, SHA, SHA224, SHA256, SHA384 or SHA512.

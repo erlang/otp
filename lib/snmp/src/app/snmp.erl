@@ -181,6 +181,9 @@
                          'inform-request' |
                          'report'.
 
+-type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
+
+
 %% We should really specify all of these, but they are so numerous...
 %% See the validate_err/1 function in the snmpa_agent.
 %% Here are a number of them:
@@ -940,9 +943,22 @@ bits_to_octet_string(B) ->
 %%% USM functions
 %%%-----------------------------------------------------------------
 
+-spec passwd2localized_key(Algorithm, Passwd, EngineID) -> Key when
+      Algorithm :: algorithm(),
+      Passwd    :: string(),
+      EngineID  :: string(),
+      Key       :: list().
+
 passwd2localized_key(Alg, Passwd, EngineID) ->
     snmp_usm:passwd2localized_key(Alg, Passwd, EngineID).
 
+
+-spec localize_key(Algorithm, Key, EngineID) -> LKey when
+      Algorithm :: algorithm(),
+      Key       :: binary(),
+      EngineID  :: string(),
+      LKey      :: list().
+      
 localize_key(Alg, Key, EngineID) ->
     snmp_usm:localize_key(Alg, Key, EngineID).
 
