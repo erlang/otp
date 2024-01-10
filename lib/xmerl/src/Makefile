@@ -77,6 +77,7 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_validate \
 	xmerl_xlate \
 	xmerl_xml \
+	xmerl_xml_indent \
 	xmerl_xpath_lib \
 	xmerl_xpath_parse \
 	xmerl_xpath_pred \
