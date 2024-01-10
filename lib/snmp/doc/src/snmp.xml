@@ -389,14 +389,12 @@
     </func>
 
     <func>
-      <name since="">octet_string_to_bits(S) -> Val</name>
+      <name name="octet_string_to_bits" arity="1" clause_i="1" since=""/>
       <fsummary>Convert an OCTET-STRING to BITS</fsummary>
-      <type>
-        <v>Val = bits()</v>
-      </type>
       <desc>
         <p>Utility function for converting a value of type 
-          <c>OCTET-STRING</c> to <c>BITS</c>. </p>
+	<c>OCTET-STRING</c> to <c>BITS</c>,
+	according to RFC1906, section 8. </p>
 
         <marker id="bits_to_octet_string"></marker>
       </desc>

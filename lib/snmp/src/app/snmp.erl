@@ -922,13 +922,16 @@ sys_up_time(manager) ->
 %% Utility functions for OCTET-STRING / BITS conversion.
 %%-----------------------------------------------------------------
 
+-spec octet_string_to_bits(S) -> bits() when
+      S :: octet_string().
+
 octet_string_to_bits(S) ->
     snmp_pdus:octet_str_to_bits(S).
 
 
 -spec bits_to_octet_string(B) -> octet_string() when
       B :: bits().
-      
+
 bits_to_octet_string(B) ->
     snmp_pdus:bits_to_str(B).
 
