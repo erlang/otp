@@ -233,7 +233,7 @@ done_startmenu:
 		"Publisher" "Ericsson AB"
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"UninstallString" "$INSTDIR\Uninstall.exe"
+		"UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   	WriteRegDWORD HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
@@ -263,7 +263,7 @@ done_startmenu:
 		"Publisher" "Ericsson AB"
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"UninstallString" "$INSTDIR\Uninstall.exe"
+		"UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   	WriteRegDWORD HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
