@@ -124,12 +124,16 @@
 
 %% This type, which is documented in disk_log,
 %% is not actually exported by disk_log.
-%% Instead is defined in an internal header file.
+%% Instead it is defined in an internal header file.
 %% So we have to create a "copy" of it here.
 %% Lets hope it never changes...
 -type log_size()              :: 'infinity' | pos_integer() |
                                  {MaxNoBytes :: pos_integer(),
                                   MaxNoFiles :: pos_integer()}.
+
+-type log_time()              :: calendar:datetime() |
+                                 {local_time, calendar:datetime()} |
+                                 {universal_time, calendar:datetime()}.
 
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
@@ -981,14 +985,49 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
 			Start, Stop).
 
 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     Start = null, 
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop);
@@ -997,6 +1036,31 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: 'null' | log_time(),
+      Stop    :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Stop  = null, 
@@ -1004,6 +1068,20 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: 'null' | log_time(),
+      Stop    :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
 
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp_log:log_to_io(LogName, Block, LogFile, LogDir, Mibs, Start, Stop).

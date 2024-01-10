@@ -122,6 +122,17 @@
     </datatype>
 
     <datatype>
+      <name name="log_time"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="void"/>
       <desc>
 	<p>
@@ -489,23 +500,13 @@
     </func>
 
     <func>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name name="log_to_io" arity="4" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="5" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="5" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="6" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="6" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="7" clause_i="1" since="OTP R16B03"/>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
-      <type>
-        <v>LogDir = string()</v>
-        <v>Mibs = [MibName]</v>
-        <v>MibName = string()</v>
-        <v>LogName = string()</v>
-        <v>LogFile = string()</v>
-        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
-        <v>Cnt = {NumOK, NumERR}</v>
-        <v>NumOK = non_neg_integer()</v>
-        <v>NumERR = pos_integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. See 
