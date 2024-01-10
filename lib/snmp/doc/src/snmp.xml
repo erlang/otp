@@ -289,20 +289,17 @@
 	"minutes from UTC" = 0. </p>
 
 	<marker id="lt2dat_dst"></marker>
+	<marker id="local_time_to_date_and_time_dst"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">local_time_to_date_and_time_dst(Local) -> [DateAndTime]</name>
+      <name name="local_time_to_date_and_time_dst" arity="1" clause_i="1" since=""/>
       <fsummary>Convert a Local time value to a list of possible DateAndTime(s)</fsummary>
-      <type>
-        <v>Local = {{Y,Mo,D},{H,M,S}}</v>
-        <v>DateAndTime = [int()]</v>
-      </type>
       <desc>
         <p>Converts a local time value to a list of possible DateAndTime 
-          list(s). The local time value on the same format as defined in 
-          calendar(3).</p>
+	list(s). The local time value on the same format as defined in 
+	calendar(3).</p>
 
 	<marker id="ut2dat"></marker>
       </desc>

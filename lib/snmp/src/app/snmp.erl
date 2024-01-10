@@ -794,6 +794,11 @@ diff(Secs) ->
 universal_time_to_date_and_time(UTC) ->
     short_time(UTC) ++ [$+, 0, 0].
 
+
+-spec local_time_to_date_and_time_dst(Local) -> DATs when
+      Local :: calendar:datetime1970(),
+      DATs  :: [rfc1903_date_and_time()].
+
 local_time_to_date_and_time_dst(Local) ->
     case calendar:local_time_to_universal_time_dst(Local) of
 	[] ->
