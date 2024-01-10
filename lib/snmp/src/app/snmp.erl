@@ -956,14 +956,52 @@ read_mib(FileName) ->
 %%% Audit Trail Log functions
 %%%-----------------------------------------------------------------
 
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) ->
     Start = null, 
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop);
@@ -972,6 +1010,34 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: 'null' | log_time(),
+      Stop    :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Stop  = null, 
@@ -979,6 +1045,21 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [mib_name()],
+      OutFile :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: 'null' | log_time(),
+      Stop    :: 'null' | log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
     snmp_log:log_to_txt(LogName, Block, LogFile, LogDir, Mibs, OutFile, 
