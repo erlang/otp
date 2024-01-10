@@ -202,15 +202,14 @@
     </func>
 
     <func>
-      <name since="">start() -> ok | {error, Reason}</name>
-      <name since="">start(Type) -> ok | {error, Reason}</name>
+      <name name="start" arity="0" clause_i="1" since=""/>
+      <name name="start" arity="1" clause_i="1" since=""/>
       <fsummary>Start the SNMP application</fsummary>
-      <type>
-        <v>Type = start_type()</v>
-      </type>
       <desc>
-        <p>Starts the SNMP application.</p>
-        <p>See <seeerl marker="kernel:application">application</seeerl> for more info.</p>
+	<p>Starts the SNMP application.</p>
+	<p></p>
+	<p>See <seeerl marker="kernel:application">application</seeerl>
+	for more info.</p>
 
         <marker id="start_agent"></marker>
       </desc>

@@ -208,11 +208,17 @@
 %% Application
 %%-----------------------------------------------------------------
 
+-spec start() -> ok | {error, Reason} when
+      Reason :: term().
+
 start() ->
     application:start(?APPLICATION).
 
-stop() ->
-    application:stop(?APPLICATION).
+-spec start(Type) -> ok | {error, Reason} when
+      Type   :: p  | permanent |
+                tr | transient |
+                te | temporary,
+      Reason :: term().
 
 start(p) ->
     start(permanent);
@@ -222,6 +228,11 @@ start(te) ->
     start(temporary);
 start(Type) ->
     application:start(?APPLICATION, Type).
+
+
+stop() ->
+    application:stop(?APPLICATION).
+
 
 
 start_agent() ->
