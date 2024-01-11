@@ -254,6 +254,11 @@ do_add_community(Community) ->
 	    {error, {C, E, S}}
     end.
 
+
+-spec delete_community(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 delete_community(Key) ->
     invalidate_cache(Key),
