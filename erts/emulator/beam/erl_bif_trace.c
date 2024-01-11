@@ -1653,8 +1653,12 @@ erts_finish_breakpointing(void)
 	    } else {
 		install_exp_breakpoints(&finish_bp.e);
 	    }
+            return 1;
 	}
-	return 1;
+        else {
+            /* Nothing to do here. Fall through to next stage. */
+            finish_bp.current++;
+        }
     case 1:
 	/*
 	 * Switch index for the breakpoint data, activating the staged
