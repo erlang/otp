@@ -216,24 +216,22 @@
     </func>
 
     <func>
-      <name since="">start_agent() -> ok | {error, Reason}</name>
-      <name since="">start_agent(Type) -> ok | {error, Reason}</name>
+      <name name="start_agent" arity="0" clause_i="1" since=""/>
+      <name name="start_agent" arity="1" clause_i="1" since=""/>
       <fsummary>Start the agent part of the SNMP application</fsummary>
-      <type>
-        <v>Type = start_type()</v>
-      </type>
       <desc>
         <p>The SNMP application consists of several entities, of which the
-          agent is one. This function starts the agent entity of the 
-          application. 
-          </p>
-        <p>Note that the only way to actually start the agent in this way is
-          to add the agent related config after starting the application (e.g
-          it cannot be part of the normal application config; sys.config).
-          This is done by calling: 
-          <c>application:set_env(snmp, agent, Conf)</c>.
-          </p>
-        <p>The default value for <c>Type</c> is <c>normal</c>.</p>
+	agent is one. This function starts the agent entity of the 
+	application. </p>
+
+	<p>Note that the only way to actually start the agent in this way is
+	to add the agent related config after starting the application (e.g
+	it cannot be part of the normal application config; sys.config).
+	This is done by calling: 
+	<c><![CDATA[application:set_env(snmp, agent, Conf)]]></c>. </p>
+
+	<p>The default value for <c><![CDATA[Type]]></c> is
+	<c><![CDATA[normal]]></c>. </p>
 	
 	<marker id="start_manager"></marker>
       </desc>

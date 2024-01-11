@@ -234,9 +234,15 @@ stop() ->
     application:stop(?APPLICATION).
 
 
+-spec start_agent() -> ok | {error, Reason} when
+      Reason :: term().
 
 start_agent() ->
     snmp_app:start_agent().
+
+-spec start_agent(Type) -> ok | {error, Reason} when
+      Type   :: application:start_type(),
+      Reason :: term().
 
 start_agent(Type) ->
     snmp_app:start_agent(Type).
