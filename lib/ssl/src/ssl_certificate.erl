@@ -553,33 +553,19 @@ other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
 	    end
     end.
 
-verify_hostname({fallback, Hostname}, Customize, Cert, UserState) when is_list(Hostname) ->
-    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of
-        true ->
-            {valid, UserState};
-        false ->
-            case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}], Customize) of
-                true ->
-                    {valid, UserState};
-                false ->
-                    {fail, {bad_cert, hostname_check_failed}}
-            end
-    end;
-
-verify_hostname({fallback, Hostname}, Customize, Cert, UserState) ->
+verify_hostname(Hostname, Customize, Cert, UserState) when is_tuple(Hostname) ->
     case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}], Customize) of
-        true ->
-            {valid, UserState};
-        false ->
-            {fail, {bad_cert, hostname_check_failed}}
+        true  -> {valid, UserState};
+        false -> {fail, {bad_cert, hostname_check_failed}}
     end;
-
 verify_hostname(Hostname, Customize, Cert, UserState) ->
-    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of
-        true ->
-            {valid, UserState};
-        false ->
-            {fail, {bad_cert, hostname_check_failed}}
+    HostId = case inet:parse_strict_address(Hostname) of
+                 {ok, IP} -> {ip, IP};
+                 _ -> {dns_id, Hostname}
+             end,
+    case public_key:pkix_verify_hostname(Cert, [HostId], Customize) of
+        true  -> {valid, UserState};
+        false -> {fail, {bad_cert, hostname_check_failed}}
     end.
 
 verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState) ->

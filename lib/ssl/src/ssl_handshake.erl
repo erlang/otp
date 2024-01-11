@@ -84,7 +84,6 @@
 
 -export([get_cert_params/1,
          select_own_cert/1,
-         server_name/3,
          path_validation/10,
          validation_fun_and_state/4,
          path_validation_alert/1]).
@@ -3558,11 +3557,15 @@ server_name(_, _, server) ->
     undefined; %% Not interesting to check your own name.
 server_name(SSLOpts, Host, client) ->
     case maps:get(server_name_indication, SSLOpts, undefined) of
-        undefined ->
-            {fallback, Host}; %% Fallback to Host argument to connect
-        SNI ->
-            SNI  %% If Server Name Indication is available
+        disable -> disable;
+        undefined -> convert_hostname(Host); %% Fallback to Host argument to connect
+        UserSNI -> convert_hostname(UserSNI)  %% If Server Name Indication is available
     end.
+
+convert_hostname(SNI) when is_atom(SNI) ->
+    atom_to_list(SNI);
+convert_hostname(SNI) ->
+    SNI.
 
 client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),

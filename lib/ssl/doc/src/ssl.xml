@@ -125,14 +125,6 @@
      </datatype>
 
      <datatype>
-      <name name="hostname"/>
-     </datatype>
-
-     <datatype>
-      <name name="ip_address"/>
-     </datatype>
-
-     <datatype>
        <name name="protocol_version"/>
      </datatype>
 

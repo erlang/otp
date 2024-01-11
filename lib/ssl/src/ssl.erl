@@ -160,9 +160,7 @@
                                                ClosedTag::atom(), ErrTag::atom()}} |  
                                     {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
--type host()                     :: hostname() | ip_address(). % exported
--type hostname()                 :: string().
--type ip_address()               :: inet:ip_address().
+-type host()                     :: inet:hostname() | inet:ip_address(). % exported
 -type session_id()               :: binary(). % exported
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
@@ -455,7 +453,7 @@
 -type client_psk_identity()             :: psk_identity().
 -type client_srp_identity()             :: srp_identity().
 -type customize_hostname_check() :: list().
--type sni()                      :: HostName :: hostname() | disable. 
+-type sni()                      :: inet:hostname() | disable. 
 -type max_fragment_length()      :: undefined | 512 | 1024 | 2048 | 4096.
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
@@ -500,7 +498,7 @@
 -type fail_if_no_peer_cert()     :: boolean().
 -type server_reuse_session()     :: fun().
 -type server_reuse_sessions()    :: boolean().
--type sni_hosts()                :: [{hostname(), [server_option() | common_option()]}].
+-type sni_hosts()                :: [{inet:hostname(), [server_option() | common_option()]}].
 -type sni_fun()                  :: fun((string()) -> [] | undefined).
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
@@ -518,7 +516,7 @@
                                   max_frag_enum  => 1..4,
                                   ec_point_formats  => [0..2],
                                   elliptic_curves => [public_key:oid()],
-                                  sni => hostname()}. % exported
+                                  sni => inet:hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
 -type connection_info() :: [common_info() | curve_info() | ssl_options_info() | security_info()].
 -type common_info() :: {protocol, protocol_version()} |

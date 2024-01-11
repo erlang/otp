@@ -226,7 +226,8 @@ dns_name(Config) ->
 ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
-    IPStr = tuple_to_list(IP),
+    IPList = tuple_to_list(IP),
+    IPStr  = lists:flatten(integer_to_list(hd(IPList)) ++ [io_lib:format(".~w", [I]) || I <- tl(IPList)]),
     #{server_config := ServerOpts0,
       client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
@@ -235,7 +236,7 @@ ip_fallback(Config) ->
                                           peer => [{extensions, [#'Extension'{extnID =
                                                                                   ?'id-ce-subjectAltName',
                                                                               extnValue = [{dNSName, Hostname},
-                                                                                           {iPAddress, IPStr}],
+                                                                                           {iPAddress, IPList}],
                                                                               critical = false}]},
                                                    {key, ssl_test_lib:hardcode_rsa_key(3)}]},
                                     client_chain =>
@@ -246,11 +247,15 @@ ip_fallback(Config) ->
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
+    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
+    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config),
+    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], list_to_atom(Hostname), Config).
 
 no_ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
+    IPList = tuple_to_list(IP),
+    IPStr  = lists:flatten(integer_to_list(hd(IPList)) ++ [io_lib:format(".~w", [I]) || I <- tl(IPList)]),
     #{server_config := ServerOpts0,
       client_config := ClientOpts0} =
         public_key:pkix_test_data(#{server_chain =>
@@ -270,7 +275,8 @@ no_ip_fallback(Config) ->
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
+    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
+    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config).
 
 dns_name_reuse(Config) ->
     SNIHostname = "OTP.test.server",
