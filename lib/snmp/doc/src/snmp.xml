@@ -347,15 +347,11 @@
     </func>
 
     <func>
-      <name since="">universal_time_to_date_and_time(UTC) -> DateAndTime</name>
+      <name name="universal_time_to_date_and_time" arity="1" clause_i="1" since=""/>
       <fsummary>Convert a UTC value to DateAndTime</fsummary>
-      <type>
-        <v>UTC = {{Y,Mo,D},{H,M,S}}</v>
-        <v>DateAndTime = [int()]</v>
-      </type>
       <desc>
         <p>Converts a universal time value to a DateAndTime list.  The
-          universal time value on the same format as defined in calendar(3).</p>
+	universal time value on the same format as defined in calendar(3).</p>
 
         <marker id="vdat"></marker>
       </desc>

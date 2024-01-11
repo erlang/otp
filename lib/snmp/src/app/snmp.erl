@@ -863,6 +863,11 @@ diff(Secs) ->
 	        [$-, H, M]
     end.
 
+
+-spec universal_time_to_date_and_time(UTC) -> DateAndTime when
+      UTC         :: calendar:datetime(),
+      DateAndTime :: rfc1903_date_and_time().
+
 universal_time_to_date_and_time(UTC) ->
     short_time(UTC) ++ [$+, 0, 0].
 
