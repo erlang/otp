@@ -211,6 +211,19 @@
 	<p>See <seeerl marker="kernel:application">application</seeerl>
 	for more info.</p>
 
+        <marker id="stop"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="stop" arity="0" clause_i="1" since=""/>
+      <fsummary>Stop the SNMP application</fsummary>
+      <desc>
+	<p>Stops the SNMP application.</p>
+	<p></p>
+	<p>See <seeerl marker="kernel:application">application</seeerl>
+	for more info.</p>
+
         <marker id="start_agent"></marker>
       </desc>
     </func>

@@ -230,6 +230,9 @@ start(Type) ->
     application:start(?APPLICATION, Type).
 
 
+-spec stop() -> ok | {error, Reason} when
+      Reason :: term().
+
 stop() ->
     application:stop(?APPLICATION).
 
