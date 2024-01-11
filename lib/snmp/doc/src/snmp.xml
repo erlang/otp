@@ -238,24 +238,22 @@
     </func>
 
     <func>
-      <name since="">start_manager() -> ok | {error, Reason}</name>
-      <name since="">start_manager(Type) -> ok | {error, Reason}</name>
+      <name name="start_manager" arity="0" clause_i="1" since=""/>
+      <name name="start_manager" arity="1" clause_i="1" since=""/>
       <fsummary>Start the manager part of the SNMP application</fsummary>
-      <type>
-        <v>Type = start_type()</v>
-      </type>
       <desc>
         <p>The SNMP application consists of several entities, of which the
-          manager is one. This function starts the manager entity of the 
-          application. 
-          </p>
-        <p>Note that the only way to actually start the manager in this way is
-          to add the manager related config after starting the application (e.g
-          it cannot be part of the normal application config; sys.config).
-          This is done by calling: 
-          <c>application:set_env(snmp, manager, Conf)</c>.
-          </p>
-        <p>The default value for <c>Type</c> is <c>normal</c>.</p>
+	manager is one. This function starts the manager entity of the 
+	application. </p>
+
+	<p>Note that the only way to actually start the manager in this way is
+	to add the manager related config after starting the application (e.g
+	it cannot be part of the normal application config; sys.config).
+	This is done by calling: 
+	<c><![CDATA[application:set_env(snmp, manager, Conf)]]></c>. </p>
+
+	<p>The default value for <c><![CDATA[Type]]></c> is
+	<c><![CDATA[normal]]></c>.</p>
 
         <marker id="dat"></marker>
         <marker id="date_and_time"></marker>

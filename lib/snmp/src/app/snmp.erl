@@ -247,8 +247,16 @@ start_agent() ->
 start_agent(Type) ->
     snmp_app:start_agent(Type).
 
+
+-spec start_manager() -> ok | {error, Reason} when
+      Reason :: term().
+
 start_manager() ->
     snmp_app:start_manager().
+
+-spec start_manager(Type) -> ok | {error, Reason} when
+      Type   :: application:start_type(),
+      Reason :: term().
 
 start_manager(Type) ->
     snmp_app:start_manager(Type).
