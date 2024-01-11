@@ -464,6 +464,11 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_context(Ctx) -> {ok, Key} | {error, Reason} when
+      Ctx    :: string(),
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 add_context(Ctx) ->
     case (catch check_context(Ctx)) of
