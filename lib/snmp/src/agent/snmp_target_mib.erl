@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,10 @@
 -export([check_target_addr/1, check_target_params/1]).
 -export([default_domain/0]).
 
+-export_type([
+              tag_value/0
+             ]).
+
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/snmp_tables.hrl").
 -include_lib("snmp/include/SNMP-TARGET-MIB.hrl").
@@ -43,6 +47,8 @@
 -define(VMODULE,"TARGET-MIB").
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
+
+-type tag_value() :: string().
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs

@@ -133,15 +133,6 @@
     </datatype>
 
     <datatype>
-      <name name="void"/>
-      <desc>
-	<p>
-	  The type is used when a functions return is to be ignored.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
       <name name="algorithm"/>
       <!--
       <desc>
@@ -163,22 +154,27 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="mib_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="void"/>
+      <desc>
+	<p>
+	  The type is used when a functions return is to be ignored.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
-
-  <section>
-    <title>Common Data Types</title>
-    <p>The following data-types are used in the functions below: </p>
-    <list type="bulleted">
-      <item>
-        <p><c>datetime() = {date(), time()}</c></p>
-        <p>See <seeerl marker="stdlib:calendar">calendar</seeerl> 
-          for more info.</p>
-      </item>
-
-    </list>
-    
-    <marker id="config"></marker>
-  </section>
 
   <funcs>
     <func>

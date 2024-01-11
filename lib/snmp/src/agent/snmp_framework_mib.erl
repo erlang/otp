@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +66,15 @@
 -export([which_trap_transport/1, which_req_transport/1, which_transport/2]).
 -export([add_context/1, delete_context/1]).
 -export([check_agent/2, check_context/1, order_agent/2]).
+
+-export_type([
+              admin_string/0,
+              engine_id/0
+             ]).
+
+
+-type admin_string() :: string().
+-type engine_id()    :: string().
 
 
 %%-----------------------------------------------------------------

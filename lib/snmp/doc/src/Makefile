@@ -57,10 +57,15 @@ XML_OUTPUT = \
 
 # SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 SPECS_FILES = \
-	$(SPECDIR)/specs_snmp.xml
+	$(SPECDIR)/specs_snmp.xml \
+	$(SPECDIR)/specs_snmp_community_mib.xml \
+	$(SPECDIR)/specs_snmp_framework_mib.xml \
+	$(SPECDIR)/specs_snmp_target_mib.xml
+
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = snmpa_discovery_handler.xml \
+NO_CHUNKS = \
+	snmpa_discovery_handler.xml \
 	snmpa_error_report.xml \
 	snmpa_mib_data.xml \
 	snmpa_mib_storage.xml \

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2020</year>
+      <year>1999</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,6 +42,30 @@
       </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
   </description>
+
+
+  <datatypes>
+    <datatype>
+      <name name="admin_string"/>
+      <desc>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE(0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="engine_id"/>
+      <desc>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE(5..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+  
   <funcs>
     <func>
       <name since="">configure(ConfDir) -> void()</name>

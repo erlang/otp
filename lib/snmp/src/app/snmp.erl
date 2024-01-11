@@ -154,13 +154,13 @@
 -type atl_type()      :: read | write | read_write.
 -type verbosity()     :: silence | info | log | debug | trace.
 
--type engine_id()     :: string().
+-type engine_id()     :: snmp_framework_mib:engine_id().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
--type community()     :: string().
+-type community()     :: snmp_community_mib:name().
 -type mms()           :: non_neg_integer().
 -type version()       :: v1 | v2 | v3.
 -type sec_model()     :: any | v1 | v2c | usm.
--type sec_name()      :: string().
+-type sec_name()      :: snmp_community_mib:security_name().
 -type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
 
 -type oid()           :: [non_neg_integer()].
