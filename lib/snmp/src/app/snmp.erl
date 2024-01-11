@@ -906,9 +906,16 @@ date_and_time_to_universal_time_dst([Y1, Y2, Mo, D, H, M, S, _Ds, Sign, Hd, Md])
     [calendar:gregorian_seconds_to_datetime(UTCSecs)].
 
 
+-spec validate_date_and_time(DateAndTime) -> boolean() when
+      DateAndTime :: rfc1903_date_and_time().
+
 validate_date_and_time(DateAndTime) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     validate_date_and_time(DateAndTime, Validate).
+
+-spec validate_date_and_time(DateAndTime, Validate) -> boolean() when
+      DateAndTime :: rfc1903_date_and_time(),
+      Validate    :: date_and_time_validator().
 
 validate_date_and_time(DateAndTime, Validate) when is_function(Validate) ->
     do_validate_date_and_time(DateAndTime, Validate).

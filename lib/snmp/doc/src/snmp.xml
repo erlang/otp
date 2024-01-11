@@ -358,38 +358,18 @@
     </func>
 
     <func>
-      <name since="">validate_date_and_time(DateAndTime) -> bool()</name>
-      <name since="">validate_date_and_time(DateAndTime, Validate) -> bool()</name>
+      <name name="validate_date_and_time" arity="1" clause_i="1" since=""/>
+      <name name="validate_date_and_time" arity="2" clause_i="1" since=""/>
       <fsummary>Check if a DateAndTime value is correct</fsummary>
-      <type>
-        <v>DateAndTime = term()</v>
-	<v>Validate = fun(Kind, Data) -> boolean()</v>
-      </type>
       <desc>
         <p>Checks if <c>DateAndTime</c> is a correct DateAndTime
-          value, as specified in RFC2579.  This function can be used in
-          instrumentation functions to validate a DateAndTime value.</p>
+	value, as specified in RFC2579.  This function can be used in
+	instrumentation functions to validate a DateAndTime value.</p>
 
-
-        <p>The validation fun,  <c>Validate</c>, allows for a more "flexible" 
+        <p>The validation fun, <c>Validate</c>, allows for a more "flexible" 
 	validation of the <c>DateAndTime</c> argument. Whenever the data 
 	is found to not follow RFC2579, the fun is called to allow a more
-	"lax" validation. 
-	The input to the validation fun looks like this: </p>
-
-        <pre>
-          Kind             Data
-          --------------   ----------------------
-          year             {Year1, Year2}
-          month            Month
-          day              Day
-          hour             Hour
-          minute           Minute
-          seconds          Seconds
-          deci_seconds     DeciSeconds
-          diff             [Sign, Hour, Minute]
-          valid_date       {Year, Month, Day}
-	</pre>
+	"lax" validation. </p>
 
         <marker id="passwd2localized_key"></marker>
       </desc>
