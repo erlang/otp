@@ -97,11 +97,8 @@
   
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>This function is called from the supervisor at system
           start-up.
@@ -162,7 +159,7 @@
     <func>
       <name name="add_community" arity="5" clause_i="1" since=""/>
       <name name="add_community" arity="6" clause_i="1" since="OTP R14B03"/>
-      <fsummary>Added one community</fsummary>
+      <fsummary>Add one community</fsummary>
       <desc>
         <p>Adds a community to the agent config. 
 	Equivalent to one line in the <c>community.conf</c> file.</p>

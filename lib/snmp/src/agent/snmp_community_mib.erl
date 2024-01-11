@@ -77,7 +77,11 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpCommunityTable) of
         {_, mnesia} ->
@@ -90,9 +94,10 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vlog("community table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
