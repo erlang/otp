@@ -77,22 +77,18 @@ encode_data(Frag, ConnectionStates) ->
     Data = tls_record:split_iovec(Frag, MaxLength),
     encode_iolist(?APPLICATION_DATA, Data, ConnectionStates).
 
-encode_plain_text(Type, Data0, #{current_write := Write0} =
-                      ConnectionStates) ->
+encode_plain_text(Type, Data, ConnectionStates) ->
     PadLen = 0, %% TODO where to specify PadLen?
-    Data = inner_plaintext(Type, Data0, PadLen),
-    CipherFragment = encode_plain_text(Data, Write0),
-    {CipherText, Write} = encode_tls_cipher_text(CipherFragment, Write0),
-    {CipherText, ConnectionStates#{current_write => Write}}.
+    encode_plain_text(Type, Data, PadLen, ConnectionStates).
 
-encode_iolist(Type, Data, ConnectionStates0) ->
-    {ConnectionStates, EncodedMsg} =
-        lists:foldl(fun(Text, {CS0, Encoded}) ->
-			    {Enc, CS1} =
-				encode_plain_text(Type, Text, CS0),
-			    {CS1, [Enc | Encoded]}
-		    end, {ConnectionStates0, []}, Data),
-    {lists:reverse(EncodedMsg), ConnectionStates}.
+encode_iolist(Type, Data, ConnectionStates) ->
+    encode_iolist(Type, Data, ConnectionStates, []).
+
+encode_iolist(Type, [Text|Rest], CS0, Encoded) ->
+    {Enc, CS1} = encode_plain_text(Type, Text, CS0),
+    encode_iolist(Type, Rest, CS1, [Enc|Encoded]);
+encode_iolist(_Type, [], CS, Encoded) ->
+    {lists:reverse(Encoded), CS}.
 
 %%====================================================================
 %% Decoding
@@ -250,47 +246,40 @@ process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
             end
     end.
 
-inner_plaintext(Type, Data, Length) ->
-    #inner_plaintext{
-       content = Data,
-       type = Type,
-       zeros = zero_padding(Length)
-      }.
-zero_padding(Length)->
-    binary:copy(<<?BYTE(0)>>, Length).
-
-encode_plain_text(#inner_plaintext{
-                     content = Data,
-                     type = Type,
-                     zeros = Zeros
-                    }, #{cipher_state := #cipher_state{key= Key,
-                                                       iv = IV,
-                                                       tag_len = TagLen},
-                         sequence_number := Seq,
-                         security_parameters :=
-                             #security_parameters{
-                                cipher_type = ?AEAD,
-                                bulk_cipher_algorithm = BulkCipherAlgo}
-                        }) ->
-    PlainText = [Data, Type, Zeros],
-    Encoded = cipher_aead(PlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
+encode_plain_text(Type, Data, 0,
+                  #{current_write :=
+                        #{cipher_state :=
+                              #cipher_state{key= Key,
+                                            iv = IV,
+                                            tag_len = TagLen},
+                          sequence_number := Seq,
+                          security_parameters :=
+                              #security_parameters{
+                                 cipher_type = ?AEAD,
+                                 bulk_cipher_algorithm = BulkCipherAlgo}
+                         } = Write} = CS) ->
+    %% Pad = <<0:(Length*8)>>,
+    TLSInnerPlainText = [Data, Type],  %% ++ Pad (currently always zero)
+    Encoded = cipher_aead(TLSInnerPlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
     %% 23 (application_data) for outward compatibility
-    #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,
-                     legacy_version = ?LEGACY_VERSION,
-                     encoded_record = Encoded};
-encode_plain_text(#inner_plaintext{
-                     content = Data,
-                     type = Type
-                    }, #{security_parameters :=
-                             #security_parameters{
-                                cipher_suite = ?TLS_NULL_WITH_NULL_NULL}
-                        }) ->
+    {
+     encode_tls_cipher_text(?OPAQUE_TYPE, ?LEGACY_VERSION, Encoded),
+     CS#{current_write := Write#{sequence_number := Seq+1}}
+    };
+encode_plain_text(Type, Data, 0,
+                  #{current_write :=
+                        #{sequence_number := Seq,
+                          security_parameters :=
+                              #security_parameters{
+                                 cipher_suite = ?TLS_NULL_WITH_NULL_NULL}
+                         } = Write} = CS) ->
     %% RFC8446 - 5.1.  Record Layer
     %% When record protection has not yet been engaged, TLSPlaintext
     %% structures are written directly onto the wire.
-    #tls_cipher_text{opaque_type = Type,
-                      legacy_version = ?TLS_1_2,
-                      encoded_record = Data}.
+    {
+     encode_tls_cipher_text(Type, ?TLS_1_2, Data),
+     CS#{current_write := Write#{sequence_number := Seq+1}}
+    }.
 
 additional_data(Length) ->
     <<?BYTE(?OPAQUE_TYPE), ?BYTE(3), ?BYTE(3),?UINT16(Length)>>.
@@ -317,14 +306,9 @@ cipher_aead(Fragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
         ssl_cipher:aead_encrypt(BulkCipherAlgo, Key, Nonce, Fragment, AAD, TagLen),
     <<Content/binary, CipherTag/binary>>.
 
-encode_tls_cipher_text(#tls_cipher_text{opaque_type = Type,
-                                        legacy_version = Version,
-                                        encoded_record = Encoded},
-                       #{sequence_number := Seq} = Write) ->
+encode_tls_cipher_text(Type, {MajVer,MinVer}, Encoded) ->
     Length = erlang:iolist_size(Encoded),
-    {MajVer,MinVer} = Version,
-    {[<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Encoded],
-     Write#{sequence_number => Seq +1}}.
+    [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Encoded].
 
 decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
     try
