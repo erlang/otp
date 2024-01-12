@@ -488,29 +488,90 @@ value() = term()
           (<c>mnesia:transaction/1</c> or <c>mnesia:dirty/1</c>).</p>
 	
 	<marker id="variable_func"></marker>
+	<marker id="variable_func2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">variable_func(Op1, NameDb)</name>
-      <name since="">variable_func(Op2, Val, NameDb) -> Ret</name>
+      <name name="variable_func" arity="2" clause_i="1" since=""/>
       <fsummary>Default instrumentation function for tables</fsummary>
-      <type>
-        <v>Op1 = new | delete | get</v>
-        <v>Op2 = is_set_ok | set | undo</v>
-        <v>NameDb = name_db()</v>
-        <v>Val = value()</v>
-        <v>Ret = term()</v>
-      </type>
       <desc>
         <p>This is the default instrumentation function for variables.</p>
-        <p>The <c>new</c> function creates a new variable in the
-          database with a default value as defined in the MIB, or a zero
-          value (depending on the type).  </p>
-        <p>The <c>delete</c> function does not delete the variable from 
-          the database. </p>
-        <p>The function returns according to the specification of an 
-          instrumentation function. </p>
+
+	<p>The <c>new</c> function creates a new variable in the
+	database with a default value as defined in the MIB, or a zero
+	value (depending on the type).  </p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func3"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="2" clause_i="2" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The <c>delete</c> function does not delete the variable from 
+	the database. </p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func3"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="2" clause_i="3" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func3"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="1" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_get"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="2" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_get"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="3" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
 	
 	<marker id="variable_get"></marker>
       </desc>

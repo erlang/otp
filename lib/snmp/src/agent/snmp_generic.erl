@@ -177,7 +177,18 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 %%------------------------------------------------------------------
 %% This is the default function for variables.
 %%------------------------------------------------------------------
- 
+
+-spec variable_func(Op :: new, NameDb) -> Result when
+      NameDb :: snmpa:name_db(),
+      Result :: ok | boolean();
+                   (Op :: delete, NameDb) -> Result when
+      NameDb :: snmpa:name_db(),
+      Result :: ok;
+                   (Op :: get, NameDb) -> Result when
+      NameDb :: snmpa:name_db(),
+      Result :: {value, Value} | genErr,
+      Value  :: term().
+      
 variable_func(new, NameDb) ->
     case variable_get(NameDb) of
 	{value, _} -> ok;
@@ -194,6 +205,20 @@ variable_func(get, NameDb) ->
 	{value, Val} -> {value, Val};
 	_ -> genErr
     end.
+
+
+-spec variable_func(Op :: is_set_ok, Value, NameDb) -> Result when
+      Value  :: term(),
+      NameDb :: snmpa:name_db(),
+      Result :: noError;
+                   (Op :: set, Value, NameDb) -> Result when
+      Value  :: term(),
+      NameDb :: snmpa:name_db(),
+      Result :: noError | commitFailed;
+                   (Op :: undo, Value, NameDb) -> Result when
+      Value  :: term(),
+      NameDb :: snmpa:name_db(),
+      Result :: noError.
 
 variable_func(is_set_ok, _Val, _NameDb) ->
     noError;
