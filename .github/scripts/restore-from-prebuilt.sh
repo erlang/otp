@@ -32,6 +32,7 @@ ARCHIVE="$3"
 if [ ! -f "${CACHE_SOURCE_DIR}/otp_src.tar.gz" ] || [ "${NO_CACHE}" = "true" ]; then
     cp "${ARCHIVE}" "${TARGET}"
     cp "${ARCHIVE}" "${CACHE_SOURCE_DIR}/otp_src.tar.gz"
+    rm -f "${CACHE_SOURCE_DIR}/otp_cache.tar.gz" || true
     exit 0
 fi
 
@@ -49,9 +50,12 @@ tar -C "${CACHE_DIR}/" -xzf "${CACHE_SOURCE_DIR}/otp_src.tar.gz"
 
 ## If we have a binary cache
 if [ -f "${CACHE_SOURCE_DIR}/otp_cache.tar.gz" ]; then
-    ## If configure scripts have NOT changed, we can restore configure and other C/java programs
+    ## If configure scripts or .in files have NOT changed, we can restore
+    ## makefiles and other C/java programs
     if [ -z "${CONFIGURE}" ] || [ "${CONFIGURE}" = "false" ]; then
         tar -C "${CACHE_DIR}/" -xzf "${CACHE_SOURCE_DIR}/otp_cache.tar.gz"
+    else
+        rm -f "${CACHE_SOURCE_DIR}/otp_cache.tar.gz"
     fi
 fi
 
