@@ -104,9 +104,21 @@ jobs:
                   - '**.ac'
                   - '**.in'
           list-files: shell
+      - name: "Check '@github-action disable-cache' in PR Comment"
+        id: issue_comment
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        shell: /usr/bin/bash {0}
+        run: |
+            ISSUE_COMMENTS=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments | jq ".[] | .body")
+            if echo "${ISSUE_COMMENTS}" | grep "@github-actions disable-cache"; then
+              echo "DISABLE_CACHE=true" >> $GITHUB_OUTPUT
+            else
+              echo "DISABLE_CACHE=false" >> $GITHUB_OUTPUT
+            fi
       - name: Restore from cache
         env:
-            NO_CACHE: ${{ steps.cache.outputs.no-cache || steps.cache.outputs.deleted_count > 20 }}
+            NO_CACHE: ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(steps.issue_comment.outputs.DISABLE_CACHE) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
             EVENT: ${{ github.event_name }}
