@@ -120,13 +120,8 @@
       </desc>
     </func>
     <func>
-      <name since="">delete_context(Key) -> Ret</name>
+      <name name="delete_context" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one context</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a context from the agent config.</p>
       </desc>

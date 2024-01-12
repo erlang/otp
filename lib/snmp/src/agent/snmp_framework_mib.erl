@@ -491,6 +491,11 @@ add_context(Ctx) ->
 	    {error, Error}
     end.
 
+
+-spec delete_context(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 delete_context(Key) ->
     case table_del_row(intContextTable, Key) of
