@@ -94,6 +94,32 @@
     </pre>
   </description>
 
+
+  <datatypes>
+    <datatype>
+      <name name="column"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="columns"/>
+      <desc>
+	<p>
+	  Is a list of column numbers in the case of a get operation,
+	  and a list of column numbers and values in the case of a
+	  set operation.
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+  
   <section>
     <marker id="data_types"></marker>
     <title>DATA TYPES</title>
@@ -127,21 +153,14 @@ value() = term()
 
   <funcs>
     <func>
-      <name since="">get_status_col(Name, Cols)</name>
-      <name since="">get_status_col(NameDb, Cols) -> {ok, StatusVal} | false</name>
+      <name name="get_status_col" arity="2" clause_i="1" since=""/>
       <fsummary>Get the value of the status column from <c>Cols</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-        <v>NameDb = name_db()</v>
-        <v>Cols = columns()</v>
-        <v>StatusVal = term()</v>
-      </type>
       <desc>
-        <p>Gets the value of the status column from <c>Cols</c>.
-          </p>
-        <p>This function can be used in instrumentation functions for
-          <c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
-          status column of a table is modified.</p>
+        <p>Gets the value of the status column from <c>Cols</c>. </p>
+
+	<p>This function can be used in instrumentation functions for
+	<c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
+	status column of a table is modified. </p>
 	  
 	  <marker id="get_index_types"></marker>
       </desc>

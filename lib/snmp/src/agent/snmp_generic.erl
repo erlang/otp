@@ -37,6 +37,11 @@
 	 handle_table_get/4, variable_inc/2,
 	 get_status_col/2, get_table_info/2, get_index_types/1]).
 
+-export_type([
+              column/0,
+              columns/0
+             ]).
+
 -include("STANDARD-MIB.hrl").
 -include("snmp_types.hrl").
 
@@ -46,6 +51,10 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-type column()  :: integer().
+-type columns() :: [column()] | [{column(), Value :: term()}].
 
 
 %%%-----------------------------------------------------------------
@@ -837,6 +846,12 @@ table_get_row(NameDb, RowIndex, _FOI) ->
 %% Used by user's instrum func to check if mstatus column is 
 %% modified.
 %%-----------------------------------------------------------------
+
+-spec get_status_col(Name, Cols) -> false | {value, StatusCol} when
+      Name      :: snmpa:name() | snmpa:name_db(),
+      Cols      :: columns(),
+      StatusCol :: term().
+
 get_status_col(Name, Cols) ->
     #table_info{status_col = StatusCol} = table_info(Name),
     case lists:keysearch(StatusCol, 1, Cols) of
