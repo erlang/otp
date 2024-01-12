@@ -96,14 +96,14 @@
       </desc>
     </func>
     <func>
-      <name since="">init() -> void()</name>
+      <name name="init" arity="0" clause_i="1" since=""/>
       <fsummary>Initialize the SNMP-FRAMEWORK-MIB</fsummary>
       <desc>
         <p>This function is called from the supervisor at system
-          start-up.
-          </p>
-        <p>Creates the necessary objects in the database if they do not
-          exist. It does not destroy any old values. </p>
+	start-up. </p>
+
+	<p>Creates the necessary objects in the database if they do not
+	exist. It does not destroy any old values. </p>
 
 	  <marker id="add_context"></marker>
       </desc>

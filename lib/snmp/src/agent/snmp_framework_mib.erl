@@ -84,6 +84,9 @@
 %%          Note that this function won't destroy any old values.
 %%          This function should be called only once.
 %%-----------------------------------------------------------------
+
+-spec init() -> snmp:void().
+
 init() ->
     maybe_create_table(intContextTable),
     init_engine().
