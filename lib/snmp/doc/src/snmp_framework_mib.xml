@@ -68,11 +68,8 @@
   
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-FRAMEWORK-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>This function is called from the supervisor at system
           start-up.

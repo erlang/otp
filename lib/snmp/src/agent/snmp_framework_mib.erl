@@ -102,13 +102,17 @@ init() ->
 %% Fails: exit(configuration_error)
 %% PRE: init/1 has been successfully called
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case snmpa_agent:get_agent_mib_storage() of
         mnesia ->
             ok;
         _ ->
-	    case (catch do_configure(Dir)) of
+	    case (catch do_configure(ConfDir)) of
 		ok ->
 		    ok;
 		{error, Reason} ->
