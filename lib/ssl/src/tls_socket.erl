@@ -318,6 +318,7 @@ start_link(Port, SockOpts, SslOpts) ->
 %%--------------------------------------------------------------------
 init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
+    proc_lib:set_label({tls_listen_tracker, Listen}),
     Monitor = inet:monitor(Listen),
     {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
                 listen_monitor = Monitor,

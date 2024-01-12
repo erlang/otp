@@ -135,25 +135,66 @@ start_link(Role, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInfo) ->
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([Role, _Sender, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+init([Role, _Sender, Host, Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
+
     case maps:get(erl_dist, TLSOpts, false) of
         true ->
             process_flag(priority, max);
         _ ->
             ok
-    end,
-    case {Role, TLSOpts} of
-        {?CLIENT_ROLE, #{versions := [?TLS_1_3]}} ->
-            tls_client_connection_1_3:init(InitArgs);
-        {?SERVER_ROLE, #{versions := [?TLS_1_3]}} ->
-            tls_server_connection_1_3:init(InitArgs);
-        {_,_} ->
-            tls_connection:init(InitArgs)
+    end,    
+    
+    init_label(Role, Host, Port, TLSOpts),
+
+    case Role of 
+        ?CLIENT_ROLE ->
+            case TLSOpts of
+                #{versions := [?TLS_1_3]} ->
+                    tls_client_connection_1_3:init(InitArgs);
+                _  ->
+                    tls_connection:init(InitArgs)
+            end;     
+        ?SERVER_ROLE ->
+            case TLSOpts of
+                #{versions := [?TLS_1_3]} ->
+                    tls_server_connection_1_3:init(InitArgs);
+                _ ->
+                    tls_connection:init(InitArgs)
+            end                                                       
     end;
-init([_Role, _Host, _Port, _Socket, _TLSOpts, _User, _CbInfo] = InitArgs) ->
+init([Role, Host, Port, _Socket, {DTLSOpts,_,_}, _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
+    case Role of 
+        ?CLIENT_ROLE ->
+            init_label(Role, Host, Port, DTLSOpts);
+        ?SERVER_ROLE ->
+            init_label(Role, Host, Port, DTLSOpts)
+    end,
     dtls_connection:init(InitArgs).
+
+init_label(?CLIENT_ROLE = Role, Host, _, Options) ->
+    Protocol = maps:get(protocol, Options),
+    SNIStr =
+        case maps:get(server_name_indication, Options, undefined) of
+            undefined ->
+                host_str(Host);
+            SNIOpt ->
+                host_str(SNIOpt)
+        end,
+    SNI = erlang:iolist_to_binary(SNIStr),
+    proc_lib:set_label({Protocol, Role, SNI});
+init_label(?SERVER_ROLE = Role, _, Port, Options) ->
+    Protocol = maps:get(protocol, Options),
+    proc_lib:set_label({Protocol, Role, Port}).
+
+host_str(Host) when is_list(Host) ->
+    Host;
+host_str(Host) when is_tuple(Host) ->
+    IPStrs = [erlang:integer_to_list(I) || I <- tuple_to_list(Host)],
+    lists:join(".", IPStrs);
+host_str(Host) when is_atom(Host) ->
+    atom_to_list(Host).
 
 %%====================================================================
 %% TLS connection setup
@@ -454,9 +495,12 @@ dist_handshake_complete(ConnectionPid, DHandle) ->
 
 handle_sni_extension(undefined, State) ->
     {ok, State};
-handle_sni_extension(#sni{hostname = Hostname}, State0) ->
+handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{port = Port},
+                                                       ssl_options = #{protocol := Protocol}} = State0) ->
     case check_hostname(Hostname) of
         ok ->
+
+            proc_lib:set_label({Protocol, ?SERVER_ROLE, erlang:iolist_to_binary(Hostname), Port}),
             {ok, handle_sni_hostname(Hostname, State0)};
         #alert{} = Alert ->
             {error, Alert}
