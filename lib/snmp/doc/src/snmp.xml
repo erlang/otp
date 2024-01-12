@@ -41,6 +41,26 @@
 
   <datatypes>
     <datatype>
+      <name name="oid"/>
+      <desc>
+	<p>
+	  Represent an ASN.1 OBJECT IDENTIFIER.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="row_index"/>
+      <desc>
+	<p>
+	  Denotes the last part of the OID which specifies the index of the
+	  row in the table (see RFC1212, 4.1.6 for more information about
+	  INDEX).
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="bits"/>
       <desc>
 	<p>

@@ -374,30 +374,39 @@ value() = term()
 	retrieve a given part of the table info.</p>
 	
 	<marker id="table_func"></marker>
+	<marker id="table_func2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">table_func(Op1, NameDb)</name>
-      <name since="">table_func(Op2, RowIndex, Cols, NameDb) -> Ret</name>
+      <name name="table_func" arity="2" clause_i="1" since=""/>
       <fsummary>Default instrumentation function for tables</fsummary>
-      <type>
-        <v>Op1 = new | delete </v>
-        <v>Op2 = get | next | is_set_ok | set | undo</v>
-        <v>NameDb = name_db()</v>
-        <v>RowIndex = row_index()</v>
-        <v>Cols = columns()</v>
-        <v>Ret = term()</v>
-      </type>
       <desc>
-        <p>This is the default instrumentation function for tables.
-          </p>
+        <p>This is the default instrumentation function for tables. </p>
         <list type="bulleted">
           <item>The <c>new</c> function creates the table if it does
            not exist, but only if the database is the SNMP internal db.</item>
           <item>The <c>delete</c> function does not delete the table
            from the database since unloading an MIB does not
            necessarily mean that the table should be destroyed.</item>
+        </list>
+        <p>If it is possible for a manager to create or delete rows in
+	the table, there must be a <c>RowStatus</c> column for
+	<c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly.
+	</p>
+        <p>The function returns according to the specification of an
+	instrumentation function. </p>
+	
+	<marker id="table_func4"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="table_func" arity="4" clause_i="1" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for tables. </p>
+        <list type="bulleted">
           <item>The <c>is_set_ok</c> function checks that a row which
            is to be modified or deleted exists, and that a row which
            is to be created does not exist.</item>
@@ -411,12 +420,10 @@ value() = term()
            handled within a transaction.</item>
         </list>
         <p>If it is possible for a manager to create or delete rows in
-          the table, there must be a <c>RowStatus</c> column for
-          <c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly.
-          </p>
+	the table, there must be a <c>RowStatus</c> column for
+	<c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly. </p>
         <p>The function returns according to the specification of an
-          instrumentation function.
-          </p>
+	instrumentation function. </p>
 	
 	<marker id="table_get_elements"></marker>
       </desc>

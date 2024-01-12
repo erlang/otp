@@ -53,7 +53,7 @@
 -endif.
 
 
--type column()          :: integer().
+-type column()          :: pos_integer().
 -type columns()         :: [column()] | [{column(), Value :: term()}].
 -type table_info_item() :: nbr_of_cols |
                            defvals |
@@ -195,6 +195,7 @@ variable_func(set, Val, NameDb) ->
 variable_func(undo, _Val, _NameDb) ->
     noError.
 
+
 %%------------------------------------------------------------------
 %% Tables
 %% Assumes the RowStatus is the last column in the
@@ -209,17 +210,32 @@ variable_func(undo, _Val, _NameDb) ->
 %%------------------------------------------------------------------
 %% Each database implements its own table_func
 %%------------------------------------------------------------------
+
+-spec table_func(Op, NameDb) -> Return when
+      Op     :: new | delete,
+      NameDb :: snmpa:name_db(),
+      Return :: term().
+
 table_func(Op, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, Name);
 
 table_func(Op, NameDb) ->
     snmpa_local_db:table_func(Op, NameDb).
 
+
+-spec table_func(Op, RowIndex, Cols, NameDb) -> Return when
+      Op       :: get | next | is_set_ok | set | undo,
+      RowIndex :: snmp:row_index(),
+      Cols     :: columns(),
+      NameDb   :: snmpa:name_db(),
+      Return   :: term().
+
 table_func(Op, RowIndex, Cols, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, RowIndex, Cols, Name);
 
 table_func(Op, RowIndex, Cols, NameDb) ->
     snmpa_local_db:table_func(Op, RowIndex, Cols, NameDb).
+
 
 %%----------------------------------------------------------------------
 %% DB independent.
@@ -238,8 +254,8 @@ validate_get([_Col | Cols], [Res | Ress]) ->
     NewVal = 
 	case Res of
 	    noinit -> {noValue, unSpecified};
-	    noacc -> {noAccess, unSpecified};
-	    Val -> {value, Val}
+	    noacc  -> {noAccess, unSpecified};
+	    Val    -> {value, Val}
 	end,
     [NewVal | validate_get(Cols, Ress)];
 validate_get([], []) -> [].

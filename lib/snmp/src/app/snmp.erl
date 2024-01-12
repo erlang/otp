@@ -85,6 +85,7 @@
 	      sec_level/0, 
 
 	      oid/0,
+	      row_index/0,
 	      varbind/0, 
 	      ivarbind/0, 
 	      asn1_type/0, 
@@ -105,12 +106,6 @@
 	      void/0
 	     ]).
 
-
-%% This is for XREF
-%% -deprecated(
-%%    [
-%%    ]).
- 
 
 -define(APPLICATION,       snmp).
 -define(ATL_BLOCK_DEFAULT, true).
@@ -138,6 +133,9 @@
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
 -type octet_string()          :: [octet()].
+-type oid()                   :: [non_neg_integer()].
+-type row_index()             :: oid().
+
 -type rfc1903_date_and_time() :: octet_string().
 
 -type date_and_time_validator_kind() :: year | month | day |
@@ -163,7 +161,6 @@
 -type sec_name()      :: snmp_community_mib:security_name().
 -type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
 
--type oid()           :: [non_neg_integer()].
 -type varbind()       :: #varbind{}.
 -type ivarbind()      :: #ivarbind{}.
 -type asn1_type()     :: #asn1_type{}.
