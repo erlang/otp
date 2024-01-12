@@ -53,8 +53,16 @@
 -endif.
 
 
--type column()  :: integer().
--type columns() :: [column()] | [{column(), Value :: term()}].
+-type column()          :: integer().
+-type columns()         :: [column()] | [{column(), Value :: term()}].
+-type table_info_item() :: nbr_of_cols |
+                           defvals |
+                           status_col |
+                           not_accessible |
+                           index_types |
+                           first_accessible |
+                           first_own_index.
+
 
 
 %%%-----------------------------------------------------------------
@@ -866,6 +874,42 @@ get_status_col(Name, Cols) ->
 %% or all of it. If all is selected then the result will be a tagged
 %% list of values.
 %%-----------------------------------------------------------------
+
+-spec get_table_info(Name, Item :: nbr_of_cols) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: nbr_of_cols,
+      Result :: pos_integer();
+                    (Name, Item :: defvals) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: defvals,
+      Result :: [{Col, DefVal}],
+      Col    :: pos_integer(),
+      DefVal :: term();
+                    (Name, Item :: status_col) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: status_col,
+      Result :: pos_integer();
+                    (Name, Item :: not_accessible) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: not_accessible,
+      Result :: [pos_integer()];
+                    (Name, Item :: index_types) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: index_types,
+      Result :: [snmp:asn1_type()];
+                    (Name, Item :: first_accessible) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: first_accessible,
+      Result :: pos_integer();
+                    (Name, Item :: first_own_index) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: first_own_index,
+      Result :: non_neg_integer();
+                    (Name, Item :: all) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: all,
+      Result :: [{table_info_item(), term()}].
+      
 get_table_info(Name, nbr_of_cols) ->
     get_nbr_of_cols(Name);
 get_table_info(Name, defvals) ->

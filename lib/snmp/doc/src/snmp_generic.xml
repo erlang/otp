@@ -118,6 +118,98 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="table_info_item"/>
+      <desc>
+	<p>For an ordinary table, the types will be the following: </p>
+        <taglist>
+          <tag><c><![CDATA[nbr_of_cols]]></c></tag>
+          <item>
+            <p>Number of columns.</p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+          </item>
+
+          <tag><c><![CDATA[defvals]]></c></tag>
+          <item>
+            <p>A list of default values, ordered by column.</p>
+	    <p>Value type:
+	    [{Col :: <seetype marker="erlang#pos_integer">pos_integer()</seetype>,
+	      DefVal :: <seetype marker="erlang#term">term()</seetype>}]</p>
+	  </item>
+
+          <tag><c><![CDATA[status_col]]></c></tag>
+          <item>
+            <p>Column number of the status column.</p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[not_accessible]]></c></tag>
+          <item>
+	    <p>A sorted list of columns (> first_accessible) that are
+	    'not-accessible'.</p>
+	    <p>Value type:
+	    [<seetype marker="erlang#pos_integer">pos_integer()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[index_types]]></c></tag>
+          <item>
+	    <p>A list of
+	    <seetype marker="snmp#asn1_type">asn1_type()</seetype>
+	    for the index columns, ordered by column number
+	    or an "augment"-tuple (see below). </p>
+	    <p>Value type:
+	    [<seetype marker="snmp#asn1_type">asn1_type()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[first_accessible]]></c></tag>
+          <item>
+	    <p>The first accessible column. </p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[first_own_index]]></c></tag>
+          <item>
+	    <p>Column number of the first own index.
+	    Will be <c><![CDATA[0]]></c> if there is no such index
+	    for this table. </p>
+	    <p>Value type:
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
+	  </item>
+
+	</taglist>
+
+	<p>For a augmented table, it will instead look like this: </p>
+        <taglist>
+          <tag><c><![CDATA[index_types]]></c></tag>
+          <item>
+	    <p>Value type: {augments, {<seetype marker="erlang#atom">atom()</seetype>, <seetype marker="snmp#asn1_type">asn1_type()</seetype>}}</p>
+	  </item>
+
+          <tag><c><![CDATA[nbr_of_cols]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+          </item>
+
+	  <tag><c><![CDATA[not_accessible]]></c></tag>
+          <item>
+	    <p>Value type:
+	    [<seetype marker="erlang#pos_integer">pos_integer()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[first_accessible]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+	</taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
   
   <section>
@@ -175,23 +267,106 @@ value() = term()
 	retrieve the index types part of the table info.</p>
 	
 	<marker id="get_table_info"></marker>
+	<marker id="get_table_info_1"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R15B01">get_table_info(Name, Item) -> table_info_result()</name>
+      <name name="get_table_info" arity="2" clause_i="1" since="OTP R15B01"/>
       <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-        <v>Item = table_item() | all</v>
-        <v>table_item() = nbr_of_cols | defvals | status_col | not_accessible | 
-	index_types | first_accessible | first_own_index</v>
-        <v>table_info_result() = Value | [{table_item(), Value}]</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
-        <p>Get a specific table info item or, if <c>Item</c> has the
-	value <c>all</c>, a two tuple list (property list) is instead 
+        <p>Get the specific table info item (nbr_of_cols). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="2" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (defvals). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_3"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="3" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (status_col). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_4"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="4" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (not_accessible). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_5"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="5" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (index_types). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_6"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="6" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (first_accessible). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_7"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="7" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (first_own_index). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_8"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="8" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+	<p>Get all table info item(s), a two tuple list (property list) is
 	returned with all the items and their respctive values of the 
 	given table. </p>
 
