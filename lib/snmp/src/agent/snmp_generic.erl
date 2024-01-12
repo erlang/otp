@@ -880,6 +880,11 @@ get_table_info(Name, all) ->
 %% Description:
 %% Used by user's instrum func to get the index types.
 %%-----------------------------------------------------------------
+
+-spec get_index_types(Name) -> IndexTypes when
+      Name       :: snmpa:name() | snmpa:name_db(),
+      IndexTypes :: [snmp:asn1_type()].
+
 get_index_types(Name) ->
     #table_info{index_types = IndexTypes} = table_info(Name),
     IndexTypes.

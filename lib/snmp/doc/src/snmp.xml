@@ -166,6 +166,17 @@
     </datatype>
 
     <datatype>
+      <name name="asn1_type"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="void"/>
       <desc>
 	<p>

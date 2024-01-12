@@ -4,4 +4,6 @@
   <xi:include href="../specs/specs_snmp_community_mib.xml"/>
   <xi:include href="../specs/specs_snmp_framework_mib.xml"/>
   <xi:include href="../specs/specs_snmp_target_mib.xml"/>
+  <xi:include href="../specs/specs_snmp_generic.xml"/>
+  <xi:include href="../specs/specs_snmpa.xml"/>
 </specs>

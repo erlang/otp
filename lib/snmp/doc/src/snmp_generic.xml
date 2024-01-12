@@ -148,11 +148,8 @@ value() = term()
     </func>
 
     <func>
-      <name since="">get_index_types(Name)</name>
+      <name name="get_index_types" arity="1" clause_i="1" since=""/>
       <fsummary>Get the index types of <c>Name</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-      </type>
       <desc>
         <p>Gets the index types of <c>Name</c></p>
         <p>This function can be used in instrumentation functions to
