@@ -41,36 +41,23 @@
       <datatype>
 	<name name="crl_src"/>
       </datatype>
-
-      <datatype>
-	<name name="uri"/>
-      </datatype>
-
     </datatypes>
   
     <funcs>
       <func>
 	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
-	<fsummary> </fsummary>
-	<type>
-	  <v> Entries =  <seetype marker="#crl_src">crl_src()</seetype>]}</v>
-	  <v> Reason = crl_reason()</v>
-	</type>
+	<fsummary> Delete CRLs from the ssl applications local cache.</fsummary>
 	<desc>
 	  <p>Delete CRLs from the ssl applications local cache. </p>
 	</desc>
       </func>     
       <func>
-	<name since="OTP 18.0">insert(CRLSrc) -> ok | {error, Reason}</name>
-	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
-	<fsummary> </fsummary>
-	<type>
-	  <v> CRLSrc = <seetype marker="#crl_src">crl_src()</seetype>]}</v>
-	  <v> URI = <seetype marker="#uri">uri()</seetype> </v>
-	  <v> Reason = term()</v>
-	</type>
+	<name since="OTP 18.0" name="insert" arity="1"></name>
+	<name since="OTP 18.0" name="insert" arity="2"></name>
+	<fsummary> Insert CRLs into the ssl applications local cache.</fsummary>
 	<desc>
-	 <p>Insert CRLs, available to fetch on DER format from <c>URI</c>, into the ssl applications local cache. </p>
+	  <p>Insert CRLs into the ssl applications local cache, with or without a distribution point
+	  reference URI</p>
 	</desc>
       </func>
     </funcs>
