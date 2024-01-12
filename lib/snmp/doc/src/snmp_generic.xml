@@ -430,17 +430,11 @@ value() = term()
     </func>
 
     <func>
-      <name since="">table_get_elements(NameDb, RowIndex, Cols) -> Values</name>
+      <name name="table_get_elements" arity="3" clause_i="1" since=""/>
       <fsummary>Get elements in a table row</fsummary>
-      <type>
-        <v>NameDb = name_db()</v>
-        <v>RowIndex = row_index()</v>
-        <v>Cols = columns()</v>
-        <v>Values = [value() | noinit]</v>
-      </type>
       <desc>
         <p>Returns a list with values for all columns in <c>Cols</c>.
-          If a column is undefined, its value is <c>noinit</c>.</p>
+	If a column is undefined, its value is <c>noinit</c>. </p>
 	
 	<marker id="table_next"></marker>
       </desc>

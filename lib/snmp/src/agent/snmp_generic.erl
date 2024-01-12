@@ -93,6 +93,7 @@ variable_inc(NameDb, N) ->              % ret true
 %%
 %% snmpa_local_db overloads (for performance reasons? (mbj?))
 %%-----------------------------------------------------------------
+
 table_get_element({Name, volatile}, RowIndex, Col) ->
     snmpa_local_db:table_get_element({Name, volatile}, RowIndex, Col);
 table_get_element({Name, persistent}, RowIndex, Col) ->
@@ -105,10 +106,19 @@ table_get_element(NameDb, RowIndex, Col) ->
 	_ -> undefined
     end.
 
+
+-spec table_get_elements(NameDb, RowIndex, Cols) -> Values when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Cols     :: columns(),
+      Values   :: [noinit | Value],
+      Value    :: term().
+
 table_get_elements(NameDb, RowIndex, Cols) ->
     TableInfo = snmp_generic:table_info(NameDb),
     table_get_elements(NameDb, RowIndex, Cols,
 		       TableInfo#table_info.first_own_index).
+
 
 %%----------------------------------------------------------------------
 %% Returns: list of vals | undefined
