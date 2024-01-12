@@ -155,7 +155,10 @@
       enabled, it was necessary to also enable the feature in the runtime.
       This was done using option <seecom
       marker="erts:erl#enable-feature"><c>-enable-feature</c></seecom> to
-      <c>erl</c>. This requirement was removed in Erlang/OTP 26.</p>
+      <c>erl</c>. This requirement was removed in Erlang/OTP 26.
+      However, if you want to use features directly in shell, you still
+      need to enable them in the runtime.
+      </p>
     </change>
   </section>
 
