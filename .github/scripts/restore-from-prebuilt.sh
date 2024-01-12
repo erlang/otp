@@ -147,6 +147,11 @@ if [ -n "${ARCHIVE}" ]; then
             fi
         done
 
+        ## The cache was deleted, so break and don't use it
+        if [ ! -d "${CACHE_DIR}" ]; then
+            break;
+        fi
+
         echo "::group::{Run ${i}: yecc}"
         ### if yecc has changed, need to recompile all .yrl files
         if grep "yecc.erl$" "${CHANGES}"; then
