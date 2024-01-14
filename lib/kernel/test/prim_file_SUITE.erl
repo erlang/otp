@@ -31,7 +31,7 @@
 	 file_write_read_file_info_opts/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1,
-	 read_file_rename_race/1]).
+	 read_file_rename_race/1, copy_file/1, copy_range/1]).
 -export([e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
 -export([make_link/1, read_link_info_for_non_link/1,
@@ -65,7 +65,7 @@ groups() ->
       [make_del_dir, cur_dir_0, cur_dir_1]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
-       truncate, sync, datasync, advise, large_write, allocate]},
+       truncate, sync, datasync, advise, large_write, allocate, copy_file, copy_range]},
      {open, [],
       [open1, modes, close, access, read_write, pread_write,
        append, exclusive, read_file_rename_race]},
@@ -623,6 +623,62 @@ rfrr_write_file(Name, Data) ->
     ok = prim_file:write_file(NameTmp, Data),
     ok = prim_file:rename(NameTmp, Name).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test copy_file/2 function that uses copy_file_range(2) unix syscall 
+%% TODO: write tests for windows
+
+copy_file(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+             {skip, "This test is Unix-specific. (for now)"};
+        _ ->
+            RootDir = proplists:get_value(priv_dir, Config),
+            %% Create a text file.
+            Source = filename:join(RootDir, atom_to_list(?MODULE)++"_cf_source"),
+            Destination = filename:join(RootDir, atom_to_list(?MODULE)++"_cf_destination"),
+            Slug = <<"The quick brown fox jumps over a lazy dog. 0123456789\n">>,
+            Data = << <<N:32/native, Slug/bits>> || N <- lists:seq(1, 1 bsl 16) >>,
+            ok = file:write_file(Source, Data),
+            ok = ?PRIM_FILE:copy_file(Source, Destination),
+            {ok, Data} = file:read_file(Destination),
+            ok
+    end.
+
+%% Test copy_range/3 function that uses copy_file_range(3) unix syscall 
+
+copy_range(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+             {skip, "This test is Unix-specific. (for now)"};
+        _ ->
+            RootDir = proplists:get_value(priv_dir, Config),
+            %% Create a text file.
+            Source = filename:join(RootDir, atom_to_list(?MODULE)++"_cf_source"),
+            Destination = filename:join(RootDir, atom_to_list(?MODULE)++"_cf_destination"),
+            Slug = <<"The quick brown fox jumps over a lazy dog. 0123456789\n">>,
+            Data = << <<N:32/native, Slug/bits>> || N <- lists:seq(1, 1 bsl 16) >>,
+            ok = file:write_file(Source, Data),
+            ok = ?PRIM_FILE:copy_range(Source, Destination, byte_size(Data)),
+            {ok, Data} = file:read_file(Destination),
+            ok
+    end.
+
+
+%% A simple loop construct.
+%%
+%% Calls 'Fun' with argument 'Start' first and then repeatedly with
+%% its returned value (state) until 'Fun' returns 'Stop'. Then
+%% the last state value that was not 'Stop' is returned.
+
+iterate(Start, Done, Fun) when is_function(Fun) ->
+    iterate(Start, Done, Fun, Start).
+
+iterate(Done, Done, _Fun, I) ->
+    I;
+iterate(I, Done, Fun, _) ->
+    iterate(Fun(I), Done, Fun, I).
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 

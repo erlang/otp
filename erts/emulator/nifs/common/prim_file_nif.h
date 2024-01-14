@@ -261,3 +261,12 @@ posix_errno_t efile_get_device_cwd(ErlNifEnv *env, int device_index, ERL_NIF_TER
 /** @brief A Windows-specific function for returning the 8.3-name of a given
  * file or directory. */
 posix_errno_t efile_altname(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_TERM *result);
+
+/** @brief This function an implementation of copy_file_range for Unix systems and CopyFileW for Windows,
+ *  providing the capability to copy data efficiently between file descriptors.
+ *  If the system supports the copy_file_range syscall, it performs a direct data transfer between file descriptors.
+ *  However, if the syscall isn't available, it may default to a standard read and write operation.
+ */
+posix_errno_t efile_copy_range_int(int fd_in, int fd_out, off64_t length);
+posix_errno_t efile_copy_file(const efile_path_t *file_path_in, const efile_path_t *file_path_out);
+posix_errno_t efile_copy_range(const efile_path_t *file_path_in, const efile_path_t *file_path_out, off64_t length);

@@ -1085,3 +1085,111 @@ posix_errno_t efile_altname(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_TE
 
     return ENOTSUP;
 }
+
+posix_errno_t efile_copy_range_int(int fd_in, int fd_out, off64_t length) {
+    off64_t ret;
+
+#ifdef HAVE_COPY_FILE_RANGE
+    ret = syscall(SYS_copy_file_range, fd_in, NULL, fd_out, NULL, length, 0);
+
+    if (ret < 0) {
+        return errno;
+    }
+#else 
+    char buffer[4096];
+    off64_t bytes_copied = 0;
+    ssize_t bytes_read, bytes_written; 
+
+    do {
+        bytes_read = read(fd_in, buffer, sizeof(buffer));
+        if (bytes_read > 0) {
+            ssize_t total_bytes_written = 0;
+
+            do {
+                bytes_written = write(fd_out, buffer + total_bytes_written, bytes_read - total_bytes_written);
+                if (bytes_written >= 0) {
+                    total_bytes_written += bytes_written;
+                    bytes_copied += bytes_written;
+                } else {
+                    if (errno != EINTR) {
+                        return errno;
+                    }
+                }
+            } while (total_bytes_written < bytes_read);
+
+        } else if (bytes_read < 0 && errno != EINTR) {
+            return errno;
+        }
+    } while (bytes_copied < length && bytes_read > 0);
+#endif   
+    return 0;
+}
+
+posix_errno_t efile_copy_file(const efile_path_t *file_path_in, const efile_path_t *file_path_out) {
+    int fd_in, fd_out;
+    struct stat file_stat;
+    off64_t length;
+    posix_errno_t result;
+
+#ifdef HAVE_FSTAT
+    do {
+        fd_in = open((const char*)file_path_in->data, O_RDONLY);
+    } while (fd_in == -1 && errno == EINTR);
+
+     if (fd_in == -1) {
+            result = errno;
+        } else {
+            do {
+                fd_out = open((const char*)file_path_out->data, O_CREAT | O_WRONLY | O_TRUNC, FILE_MODE);
+            } while (fd_out == -1 && errno == EINTR);
+
+            if (fd_out == -1) {
+                result = errno;
+            } else {
+                if (fstat(fd_in, &file_stat) < 0) {
+                    result = errno;
+                } else {
+                    length = file_stat.st_size;
+                    result = efile_copy_range_int(fd_in, fd_out, length);
+                }
+                
+                close(fd_out);
+            }
+
+            close(fd_in);
+        }
+
+    return result;
+#else
+    return ENOTSUP;
+#endif
+}
+
+posix_errno_t efile_copy_range(const efile_path_t *file_path_in, const efile_path_t *file_path_out, off64_t length) {
+    int fd_in, fd_out;
+    posix_errno_t result;
+
+    do {
+        fd_in = open((const char*)file_path_in->data, O_RDONLY);
+    } while (fd_in == -1 && errno == EINTR);
+
+    if (fd_in == -1) {
+        return errno;
+    }
+
+    do {
+        fd_out = open((const char*)file_path_out->data, O_CREAT | O_WRONLY | O_TRUNC, FILE_MODE);
+    } while (fd_out == -1 && errno == EINTR);
+
+    if (fd_out == -1) {
+        close(fd_in);
+        return errno;
+    }
+
+    result = efile_copy_range_int(fd_in, fd_out, length);
+
+    close(fd_in);
+    close(fd_out);
+
+    return result;
+}

@@ -102,6 +102,9 @@ static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM copy_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM copy_range_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
 static ERL_NIF_TERM file_desc_to_ref_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 /* Internal ops */
@@ -185,6 +188,8 @@ static ErlNifFunc nif_funcs[] = {
     {"allocate_nif", 3, allocate_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"advise_nif", 4, advise_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"read_handle_info_nif", 1, read_handle_info_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"copy_file_nif", 2, copy_file_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"copy_range_nif", 3, copy_range_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Filesystem ops */
     {"make_hard_link_nif", 2, make_hard_link_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -1398,4 +1403,55 @@ static ERL_NIF_TERM altname_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
     }
 
     return enif_make_tuple2(env, am_ok, result);
+}
+
+static ERL_NIF_TERM copy_file_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t posix_errno;
+    efile_path_t file_path_in, file_path_out;
+
+    ASSERT(argc == 2);
+
+    if ((posix_errno = efile_marshal_path(env, argv[0], &file_path_in))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    if ((posix_errno = efile_marshal_path(env, argv[1], &file_path_out))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    if ((posix_errno = efile_copy_file(&file_path_in, &file_path_out))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    return am_ok;
+}
+
+static ERL_NIF_TERM copy_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t posix_errno;
+    efile_path_t file_path_in, file_path_out;
+    off64_t length;
+
+    ASSERT(argc == 3);
+
+    if ((posix_errno = efile_marshal_path(env, argv[0], &file_path_in))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    if ((posix_errno = efile_marshal_path(env, argv[1], &file_path_out))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    if(!enif_is_number(env, argv[2])) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_int64(env, argv[2], &length) || length < 0) {
+        return posix_error_to_tuple(env, EINVAL);
+    }
+
+     if ((posix_errno = efile_copy_range(&file_path_in, &file_path_out, length))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    return am_ok;
 }

@@ -2250,6 +2250,12 @@ if test "$have_posix_memalign" = "yes"; then
 	     [Define to 1 if you have the `posix_memalign' function.])
 fi
 
+dnl copy_file_range syscall (Unix only)
+AC_CHECK_FUNC([copy_file_range], [
+  AC_DEFINE([HAVE_COPY_FILE_RANGE], [1], [Define if copy_file_range is available])
+], [
+  AC_MSG_NOTICE([copy_file_range is not available])
+])
 
 dnl writev on OS X snow leopard is broken for files > 4GB
 case $host_os in
