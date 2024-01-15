@@ -347,7 +347,7 @@ encode_decode(_Config) ->
           20 e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4
           64 9b 93 4c a4 95 99 1b 78 52 b8 55"),
 
-    Info = tls_v1:create_info(<<"derived">>, Hash,  ssl_cipher:hash_size(HKDFAlgo)),
+    Info = create_info(<<"derived">>, Hash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     Expanded =
         hexstr2bin("6f 26 15 a1 08 c7 02 c5 67 8f 54 fc 9d ba
@@ -412,7 +412,7 @@ encode_decode(_Config) ->
 
     CHSH =  <<ClientHello/binary,ServerHello/binary>>,
     CHSTHash = crypto:hash(HKDFAlgo, CHSH),
-    CHSTInfo =  tls_v1:create_info(<<"c hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
+    CHSTInfo =  create_info(<<"c hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     CHSTrafficSecret =
         tls_v1:client_handshake_traffic_secret(HKDFAlgo, {handshake_secret, HandshakeSecret}, CHSH),
@@ -443,7 +443,7 @@ encode_decode(_Config) ->
         hexstr2bin("b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d
           37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38"),
 
-    SHSTInfo =  tls_v1:create_info(<<"s hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
+    SHSTInfo =  create_info(<<"s hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     SHSTrafficSecret =
         tls_v1:server_handshake_traffic_secret(HKDFAlgo, {handshake_secret, HandshakeSecret}, CHSH),
@@ -548,9 +548,9 @@ encode_decode(_Config) ->
 
     Cipher = aes_128_gcm, %% TODO: get from ServerHello
 
-    WriteKeyInfo = tls_v1:create_info(<<"key">>, <<>>,  ssl_cipher:key_material(Cipher)),
+    WriteKeyInfo = create_info(<<"key">>, <<>>,  ssl_cipher:key_material(Cipher)),
     %% TODO: remove hardcoded IV size
-    WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
+    WriteIVInfo = create_info(<<"iv">>, <<>>,  12),
 
     KeyLength = ssl_cipher:key_material(Cipher),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SHSTrafficSecret),
@@ -662,7 +662,7 @@ encode_decode(_Config) ->
         hexstr2bin("9b 9b 14 1d 90 63 37 fb d2 cb dc e7 1d f4
           de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07 18"),
 
-    FInfo = tls_v1:create_info(<<"finished">>, <<>>,  ssl_cipher:hash_size(HKDFAlgo)),
+    FInfo = create_info(<<"finished">>, <<>>,  ssl_cipher:hash_size(HKDFAlgo)),
 
     FExpanded = tls_v1:finished_key(SHSTrafficSecret, HKDFAlgo),
 
@@ -727,7 +727,7 @@ encode_decode(_Config) ->
     CAPTHash = crypto:hash(HKDFAlgo, CHSF),
 
     CAPTInfo =
-        tls_v1:create_info(<<"c ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"c ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     CAPTrafficSecret =
         tls_v1:client_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -759,7 +759,7 @@ encode_decode(_Config) ->
           50 32 82 04 b4 f4 4b fb 6b 3a 4b 4f 1f 3f cb 63 16 43"),
 
     SAPTInfo =
-        tls_v1:create_info(<<"s ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"s ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     SAPTrafficSecret =
         tls_v1:server_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -805,7 +805,7 @@ encode_decode(_Config) ->
           92 c5 0c 9a 3f 89 45 2f 68 d8 ae 31 1b 43 09 d3 cf 50"),
 
     ExporterInfo =
-        tls_v1:create_info(<<"exp master">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"exp master">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     ExporterMasterSecret =
         tls_v1:exporter_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -984,7 +984,7 @@ encode_decode(_Config) ->
     CRMHash = crypto:hash(HKDFAlgo, CHCF),
 
     CRMInfo =
-        tls_v1:create_info(<<"res master">>, CRMHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"res master">>, CRMHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     ResumptionMasterSecret =
         tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, MessageHistory3),
@@ -1456,3 +1456,6 @@ hex2int(C) when $A =< C, C =< $F ->
     C - $A + 10;
 hex2int(C) when $a =< C, C =< $f ->
     C - $a + 10.
+
+create_info(Label, Context, Length) ->
+    tls_v1:create_info(Label, Context, Length, << "tls13 ">>).

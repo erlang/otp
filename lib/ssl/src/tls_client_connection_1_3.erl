@@ -176,7 +176,7 @@ user_hello({call, From}, cancel, State) ->
     gen_statem:reply(From, ok),
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED,
                                                user_canceled),
-                                     ?FUNCTION_NAME, State);
+                                    ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
@@ -460,12 +460,17 @@ wait_finished(internal,
         State6 = tls_handshake_1_3:calculate_traffic_secrets(State5),
         State7 =
             tls_handshake_1_3:maybe_calculate_resumption_master_secret(State6),
+        ExporterMasterSecret = tls_handshake_1_3:calculate_exporter_master_secret(State7),
         State8 = tls_handshake_1_3:forget_master_secret(State7),
         %% Configure traffic keys
         State9 = ssl_record:step_encryption_state(State8),
-        {Record, State} = ssl_gen_statem:prepare_connection(State9,
-                                                            tls_gen_connection),
-        tls_gen_connection:next_event(connection, Record, State,
+        {Record, #state{protocol_specific = PS} = State} =
+            ssl_gen_statem:prepare_connection(State9, tls_gen_connection),
+
+        tls_gen_connection:next_event(connection, Record,
+                                      State#state{protocol_specific =
+                                                      PS#{exporter_master_secret =>
+                                                              ExporterMasterSecret}},
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
@@ -505,6 +510,7 @@ handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello, State0) ->
 
 do_handle_exlusive_1_3_hello_or_hello_retry_request(
   #server_hello{cipher_suite = SelectedCipherSuite,
+                random = Random,
                 session_id = SessionId,
                 extensions = Extensions},
   #state{static_env = #static_env{host = Host,
@@ -575,7 +581,8 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                                  #{cipher => SelectedCipherSuite,
                                                    key_share => ClientKeyShare,
                                                    session_id => SessionId,
-                                                   group => SelectedGroup}),
+                                                   group => SelectedGroup,
+                                                   random => Random}),
 
         %% Replace ClientHello1 with a special synthetic handshake message
         State2 = tls_handshake_1_3:replace_ch1_with_message_hash(State1),
@@ -627,8 +634,9 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
     end.
 
 handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
-                         session_id = SessionId,
-                         extensions = Extensions} = ServerHello,
+                                  random = Random,
+                                  session_id = SessionId,
+                                  extensions = Extensions} = ServerHello,
            #state{key_share = ClientKeyShare,
                   ssl_options = #{ciphers := ClientCiphers,
                                   supported_groups := ClientGroups0,
@@ -664,7 +672,8 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                      key_share => ClientKeyShare,
                                      session_id => SessionId,
                                      group => SelectedGroup,
-                                     peer_public_key => ServerPublicKey}),
+                                     peer_public_key => ServerPublicKey,
+                                     random => Random}),
 
         #state{connection_states = ConnectionStates} = State2,
         #{security_parameters := SecParamsR} =

@@ -98,7 +98,6 @@ initial_state(Role, Sender, Host, Port, Socket,
                              active_n_toggle => true
                             }
       }.
-
 user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->
@@ -160,6 +159,25 @@ connection({call, From}, negotiated_protocol,
                State) ->
     ssl_gen_statem:hibernate_after(?FUNCTION_NAME, State,
                     [{reply, From, {ok, SelectedProtocol}}]);
+connection({call, From}, {export_key_materials, Labels, Contexts, WantedLengths, Last},
+           #state{connection_states = ConnectionStates,
+                  protocol_specific = PS} = State0) ->
+    #{security_parameters := #security_parameters{prf_algorithm = PRFAlgorithm}} =
+	ssl_record:current_connection_state(ConnectionStates, read),
+    case maps:get(exporter_master_secret, PS, undefined) of
+        undefined ->
+            {next_state, ?FUNCTION_NAME, State0, [{reply, From, {error, exporter_master_secret_already_consumed}}]};
+        ExporterMasterSecret ->
+            ExpSecrets = exporter_secrets(ExporterMasterSecret, Labels, PRFAlgorithm),
+            State = case Last of
+                        true  ->
+                            State0#state{protocol_specific = maps:without([exporter_master_secret], PS)};
+                        false ->
+                            State0
+                    end,
+            ExportKeyMaterials = export_key_materials(ExpSecrets, Contexts, WantedLengths, PRFAlgorithm),
+            {next_state, ?FUNCTION_NAME, State, [{reply, From, ExportKeyMaterials}]}
+    end;
 connection(Type, Event, State) ->
     ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
 
@@ -380,3 +398,36 @@ internal_active_n(_,_) ->
         _  ->
             ?INTERNAL_ACTIVE_N
     end.
+
+exporter_secrets(ExporterMasterSecret, Labels, PRFAlgorithm) ->
+    DeriveSecret =
+        fun(Label) ->
+                tls_v1:derive_secret(ExporterMasterSecret, Label, <<>>, PRFAlgorithm)
+        end,
+    [DeriveSecret(Label) || Label <- Labels].
+
+export_key_materials(Secrets, Contexts, Lengths, PRFAlgorithm) ->
+    try export_key_materials(Secrets, Contexts, Lengths, PRFAlgorithm, []) of
+        ExportKeyMaterials ->
+            {ok, ExportKeyMaterials}
+    catch _:_ ->
+            {error, bad_input}
+    end.
+
+export_key_materials([],[],[],_, Acc) ->
+    lists:reverse(Acc);
+export_key_materials([ExporterSecret | ExS], [Context0 | Contexts],
+          [WantedLength| Lengths], PRFAlgorithm, Acc) ->
+    ExporterKeyMaterial = exporter(ExporterSecret, Context0, WantedLength, PRFAlgorithm),
+    export_key_materials(ExS, Contexts, Lengths, PRFAlgorithm, [ExporterKeyMaterial | Acc]).
+
+exporter(ExporterSecret, Context0, WantedLength, PRFAlgorithm) ->
+    Context = case Context0 of
+                  no_context ->
+                      <<>>;
+                  _ ->
+                      Context0
+              end,
+    HashContext = tls_v1:transcript_hash(Context, PRFAlgorithm),
+    tls_v1:hkdf_expand_label(ExporterSecret, <<"exporter">>, HashContext,
+                             WantedLength, PRFAlgorithm).
