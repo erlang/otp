@@ -1445,28 +1445,30 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 
 -define(BEAM_TYPE_ATOM,          (1 bsl 0)).
 -define(BEAM_TYPE_BITSTRING,     (1 bsl 1)).
--define(BEAM_TYPE_BS_MATCHSTATE, (1 bsl 2)).
--define(BEAM_TYPE_CONS,          (1 bsl 3)).
--define(BEAM_TYPE_FLOAT,         (1 bsl 4)).
--define(BEAM_TYPE_FUN,           (1 bsl 5)).
--define(BEAM_TYPE_INTEGER,       (1 bsl 6)).
--define(BEAM_TYPE_MAP,           (1 bsl 7)).
--define(BEAM_TYPE_NIL,           (1 bsl 8)).
--define(BEAM_TYPE_PID,           (1 bsl 9)).
--define(BEAM_TYPE_PORT,          (1 bsl 10)).
--define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
--define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
+-define(BEAM_TYPE_CONS,          (1 bsl 2)).
+-define(BEAM_TYPE_FLOAT,         (1 bsl 3)).
+-define(BEAM_TYPE_FUN,           (1 bsl 4)).
+-define(BEAM_TYPE_INTEGER,       (1 bsl 5)).
+-define(BEAM_TYPE_MAP,           (1 bsl 6)).
+-define(BEAM_TYPE_NIL,           (1 bsl 7)).
+-define(BEAM_TYPE_PID,           (1 bsl 8)).
+-define(BEAM_TYPE_PORT,          (1 bsl 9)).
+-define(BEAM_TYPE_REFERENCE,     (1 bsl 10)).
+-define(BEAM_TYPE_TUPLE,         (1 bsl 11)).
 
--define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
--define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
--define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 12)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 14)).
 
--define(BEAM_TYPES_VERSION_26, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_27, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_26, 2).
 -define(BEAM_TYPES_VERSION_25, 1).
 
 -spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
-convert_ext(?BEAM_TYPES_VERSION, Types) ->
+convert_ext(?BEAM_TYPES_VERSION_27, Types) ->
     Types;
+convert_ext(?BEAM_TYPES_VERSION_26, Types) ->
+    convert_ext(?BEAM_TYPES_VERSION_27, convert_ext_26(Types, <<>>));
 convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
     NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
     Types = << case Min =< Max of
@@ -1483,10 +1485,29 @@ convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
 convert_ext(_Version, _Types) ->
     none.
 
+convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
+    true = TypeBits0 =/= 0,                      %Assertion.
+    %% OTP 27 removed #t_bs_context{} from the type information, which used to
+    %% occupy bit 2. As these are now considered to be a regular bitstring that
+    %% happens to be mutable, we'll combine it with the #t_bitstring{} type
+    %% bit.
+    TypeBits = (TypeBits0 band 3) bor ((TypeBits0 band (bnot 3)) bsr 1),
+
+    Res = foldl(fun({Id, Type}, Acc) ->
+                        decode_ext_bits(TypeBits, Id, Type, Acc)
+                end, none, ext_type_mapping()),
+    {[Min, Max, Unit], Rest} = decode_extra(TypeBits, More),
+    R = case {Min,Max} of
+            {'-inf','+inf'} -> any;
+            R0 -> R0
+        end,
+
+    Encoded = encode_ext(decode_fix(Res, R, Unit)),
+    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>).
+
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
-     {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
-     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_context{}},
+     {?BEAM_TYPE_BITSTRING,     #t_bs_matchable{}},
      {?BEAM_TYPE_CONS,          #t_cons{}},
      {?BEAM_TYPE_FLOAT,         #t_float{}},
      {?BEAM_TYPE_FUN,           #t_fun{}},
