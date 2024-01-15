@@ -960,8 +960,12 @@ get_until(Any,Data,Arg) ->
 
 %% Now we are aware of encoding...    
 get_until(start, Data, Encoding, XtraArg) ->
-    get_until([], Data, Encoding, XtraArg);
-get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
+    %% We use the type of the initial data as an indicator of what
+    %% the final result should be cast to. We cannot use the final
+    %% data as that might be eof and then we have no idea what to
+    %% convert to.
+    get_until({is_binary(Data), []}, Data, Encoding, XtraArg);
+get_until({IsDataBinary, Cont}, Data, Encoding, {Mod, Func, XtraArgs}) ->
     Chars = if is_binary(Data), Encoding =:= unicode ->
 		    unicode:characters_to_list(Data,utf8);
 	       is_binary(Data) ->
@@ -971,14 +975,14 @@ get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
 	    end,
     case apply(Mod, Func, [Cont,Chars|XtraArgs]) of
 	{done,Result,Buf} ->
-	    {stop,if is_binary(Data), 
+	    {stop,if IsDataBinary, 
 		     is_list(Result), 
 		     Encoding =:= unicode ->
 			  unicode:characters_to_binary(Result,unicode,unicode);
-		     is_binary(Data), 
+		     IsDataBinary, 
 		     is_list(Result) ->
 			  erlang:iolist_to_binary(Result);
-%%		     is_list(Data),
+%%		     IsDataBinary,
 %%		     is_list(Result),
 %% 		     Encoding =:= latin1 ->
 %% 			  % Should check for only latin1, but skip that for
@@ -990,7 +994,7 @@ get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
 		  end,
 	     Buf};
 	{more,NewCont} ->
-	    NewCont
+	    {IsDataBinary, NewCont}
     end.
 
 binrev(L) ->

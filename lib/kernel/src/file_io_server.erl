@@ -679,18 +679,22 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
 	error:ErrReason ->
 	   {stop,ErrReason,{error,err_func(Mod, Func, XtraArg)},State}
     end.
-	    
+
 %% A hack that tries to inform the caller about the position where the
 %% error occurred.
-invalid_unicode_error(Mod, Func, XtraArg, S) ->
+invalid_unicode_error(Mod = io_lib, Func = get_until,
+                      XtraArg = {erl_scan,tokens,_Args},
+                      {GetUntilState, S})
+  when is_boolean(GetUntilState) ->
     try
-        {erl_scan,tokens,_Args} = XtraArg,
         Location = erl_scan:continuation_location(S),
         {error,{Location, ?MODULE, invalid_unicode},Location}
     catch
         _:_ ->
             {error,err_func(Mod, Func, XtraArg)}
-    end.
+    end;
+invalid_unicode_error(Mod, Func, XtraArg, _S) ->
+    {error,err_func(Mod, Func, XtraArg)}.
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
