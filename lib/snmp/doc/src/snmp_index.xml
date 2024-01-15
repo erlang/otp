@@ -299,15 +299,11 @@ get_next_pid(Oid, SnmpIndex) ->
     </func>
 
     <func>
-      <name since="">new(KeyTypes) -> Index</name>
+      <name name="new" arity="1" clause_i="1" since=""/>
+      <name name="new" arity="2" clause_i="1" since=""/>
       <fsummary>Create a new snmp index structure</fsummary>
-      <type>
-        <v>KeyTypes = key_types()</v>
-        <v>Index = index()</v>
-      </type>
       <desc>
-        <p>Creates a new snmp index structure.  The <c>key_types()</c>
-          type is described above.</p>
+        <p>Creates a new snmp index structure. </p>
       </desc>
     </func>
   </funcs>

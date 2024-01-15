@@ -61,13 +61,23 @@
 %%-----------------------------------------------------------------
 %% Args: KeyTypes = key() | {key(), ...}
 %%       key() = integer | string | fix_string
-%% Returns: handle()
+%% Returns: index()
 %%-----------------------------------------------------------------
+
+-spec new(KeyTypes) -> Index when
+      KeyTypes :: key_types(),
+      Index    :: index().
 
 new(KeyTypes) ->
     ?vlog("new -> entry with"
 	  "~n   KeyTypes: ~p", [KeyTypes]),
     do_new(KeyTypes, ?MODULE, [public, ordered_set]).
+
+
+-spec new(KeyTypes, Name) -> Index when
+      KeyTypes :: key_types(),
+      Name     :: atom(),
+      Index    :: index().
 
 new(KeyTypes, Name) when is_atom(Name) ->
     ?vlog("new -> entry with"
