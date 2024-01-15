@@ -80,17 +80,25 @@
 
 variable_get({Name, mnesia}) ->
     snmp_generic_mnesia:variable_get(Name);
-variable_get(NameDb) ->                   % ret {value, Val} | undefined
-    snmpa_local_db:variable_get(NameDb).
+variable_get(Name) ->                   % ret {value, Val} | undefined
+    snmpa_local_db:variable_get(Name).
+
+
+-spec variable_set(Name, Value) -> boolean() when
+      Name  :: snmpa:name() | snmpa:name_db(),
+      Value :: term().
+
 variable_set({Name, mnesia}, Val) ->
     snmp_generic_mnesia:variable_set(Name, Val);
-variable_set(NameDb, Val) ->              % ret true
-    snmpa_local_db:variable_set(NameDb, Val).
+variable_set(Name, Val) ->              % ret true
+    snmpa_local_db:variable_set(Name, Val).
+
 
 variable_inc({Name, mnesia}, N) ->
     snmp_generic_mnesia:variable_inc(Name, N);
 variable_inc(NameDb, N) ->              % ret true
     snmpa_local_db:variable_inc(NameDb, N).
+
 
 %%-----------------------------------------------------------------
 %% Returns: {value, Val} | undefined

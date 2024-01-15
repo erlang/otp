@@ -590,18 +590,14 @@ value() = term()
     </func>
 
     <func>
-      <name since="">variable_set(NameDb, NewVal) -> true | false</name>
+      <name name="variable_set" arity="2" clause_i="1" since=""/>
       <fsummary>Set a value for a variable</fsummary>
-      <type>
-        <v>NameDb = name_db()</v>
-        <v>NewVal = value()</v>
-      </type>
       <desc>
         <p>Sets a new value to a variable.  The variable is created if
-          it does not exist.  No checks are made on the type of the
-          new value.  </p>
+	it does not exist.  No checks are made on the type of the
+	new value.  </p>
         <p>Returns <c>false</c> if the <c>NameDb</c> argument
-          is incorrectly specified, otherwise <c>true</c>.</p>
+	is incorrectly specified, otherwise <c>true</c>. </p>
       </desc>
     </func>
   </funcs>
