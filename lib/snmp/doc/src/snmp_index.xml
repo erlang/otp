@@ -130,17 +130,17 @@ get_next_pid(Oid, SnmpIndex) ->
     <datatype>
       <name name="key"/>
       <desc>
-	<p>
-	  This type correlates to the
-	  <seetype marker="#key_types">key_types()</seetype>
-	  type.
-	  If the
-	  <seetype marker="#key_types">key_types()</seetype>
-	  is a single atom, the corresponding <c>key()</c>
-	  is a single type as well, but if the
-	  <seetype marker="#key_types">key_types()</seetype>
-	  is a tuple, <c>key()</c> must be a tuple of the same size.
-	</p>
+	<p>This type correlates to the
+	<seetype marker="#key_types">key_types()</seetype>
+	type. If the <seetype marker="#key_types">key_types()</seetype>
+	is a single atom, the corresponding <c>key()</c>
+	is a single type as well, but if the
+	<seetype marker="#key_types">key_types()</seetype>
+	is a tuple, <c>key()</c> must be a tuple of the same size. </p>
+	<p>In the example above, valid <c>keys</c> could be
+	<c>{"hi", "mom"}</c> and <c>{"no", "thanks"}</c>, whereas <c>"hi"</c>,
+	<c>{"hi", 42}</c> and <c>{"hello", "there"}</c> would be invalid.</p>
+
 	<p>There is no way to propely describe this type in the erlang type
 	language, which is why <c>tuple()</c> was used above.
 	The proper definition looks like: </p>
@@ -162,7 +162,7 @@ get_next_pid(Oid, SnmpIndex) ->
         <p><c>oid() = [byte()]</c></p>
       </item>
       <item>
-        <p><c>key_types = type_spec()  |  {type_spec(), type_spec(), ...}</c></p>
+        <p><c>key_types = type_spec() | {type_spec(), type_spec(), ...}</c></p>
       </item>
       <item>
         <p><c>type_spec() = fix_string | string | integer</c></p>
@@ -263,17 +263,13 @@ get_next_pid(Oid, SnmpIndex) ->
     </func>
 
     <func>
-      <name since="">get_last(Index) -> {ok, {KeyOid, Value}} | undefined</name>
+      <name name="get_last" arity="1" clause_i="1" since=""/>
       <fsummary>Get the last item in the index structure</fsummary>
-      <type>
-        <v>Index = index()</v>
-        <v>KeyOid = oid()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>Gets the last item in the index structure.</p>
       </desc>
     </func>
+
     <func>
       <name since="">get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined</name>
       <fsummary>Get the next item</fsummary>
@@ -284,8 +280,8 @@ get_next_pid(Oid, SnmpIndex) ->
       </type>
       <desc>
         <p>Gets the next item in the SNMP lexicographic ordering,
-          after <c>KeyOid</c> in the index structure.  <c>KeyOid</c>
-          does not have to refer to an existing item in the index.</p>
+	after <c>KeyOid</c> in the index structure.  <c>KeyOid</c>
+	does not have to refer to an existing item in the index.</p>
       </desc>
     </func>
     <func>

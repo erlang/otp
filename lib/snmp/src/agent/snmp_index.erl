@@ -114,6 +114,22 @@ get(#tab{id = OrdSet}, KeyOid) ->
 
       
 
+-spec get_last(Index) -> {ok, {KeyOid, Value}} | undefined when
+      Index  :: index(),
+      KeyOid :: snmp:oid(),
+      Value  :: term().
+      
+get_last(#tab{id = OrdSet} = Index) ->
+    ?vlog("get_last -> entry with"
+	  "~n   OrdSet: ~p", [OrdSet]),
+    case ets:last(OrdSet) of
+	'$end_of_table' ->
+	    undefined;
+	Key ->
+	    get(Index, Key)
+    end.
+
+
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
@@ -125,15 +141,6 @@ get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
 	    get(Tab, Key)
     end.
 
-get_last(#tab{id = OrdSet} = Tab) ->
-    ?vlog("get_last -> entry with"
-	  "~n   Tab: ~p", [Tab]),
-    case ets:last(OrdSet) of
-	'$end_of_table' ->
-	    undefined;
-	Key ->
-	    get(Tab, Key)
-    end.
 
 insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
