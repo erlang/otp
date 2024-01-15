@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eo pipefail
+
 BASE_BRANCH="$1"
 
 case "${BASE_BRANCH}" in
