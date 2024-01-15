@@ -64,7 +64,6 @@
                            first_own_index.
 
 
-
 %%%-----------------------------------------------------------------
 %%% Generic functions for implementing software tables
 %%% and variables. 
@@ -74,6 +73,11 @@
 %%------------------------------------------------------------------
 %% Access functions to the database.
 %%------------------------------------------------------------------
+
+-spec variable_get(Name) -> {value, Value} | undefined when
+      Name  :: snmpa:name() | snmpa:name_db(),
+      Value :: term().
+
 variable_get({Name, mnesia}) ->
     snmp_generic_mnesia:variable_get(Name);
 variable_get(NameDb) ->                   % ret {value, Val} | undefined
@@ -178,56 +182,56 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 %% This is the default function for variables.
 %%------------------------------------------------------------------
 
--spec variable_func(Op :: new, NameDb) -> Result when
-      NameDb :: snmpa:name_db(),
+-spec variable_func(Op :: new, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: ok | boolean();
-                   (Op :: delete, NameDb) -> Result when
-      NameDb :: snmpa:name_db(),
+                   (Op :: delete, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: ok;
-                   (Op :: get, NameDb) -> Result when
-      NameDb :: snmpa:name_db(),
+                   (Op :: get, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: {value, Value} | genErr,
       Value  :: term().
       
-variable_func(new, NameDb) ->
-    case variable_get(NameDb) of
+variable_func(new, Name) ->
+    case variable_get(Name) of
 	{value, _} -> ok;
 	undefined ->
-	    #variable_info{defval = Defval} = variable_info(NameDb),
-	    variable_set(NameDb, Defval)
+	    #variable_info{defval = Defval} = variable_info(Name),
+	    variable_set(Name, Defval)
     end;
 
-variable_func(delete, _NameDb) ->
+variable_func(delete, _Name) ->
     ok;
 
-variable_func(get, NameDb) ->
-    case variable_get(NameDb) of
+variable_func(get, Name) ->
+    case variable_get(Name) of
 	{value, Val} -> {value, Val};
 	_ -> genErr
     end.
 
 
--spec variable_func(Op :: is_set_ok, Value, NameDb) -> Result when
+-spec variable_func(Op :: is_set_ok, Value, Name) -> Result when
       Value  :: term(),
-      NameDb :: snmpa:name_db(),
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: noError;
-                   (Op :: set, Value, NameDb) -> Result when
+                   (Op :: set, Value, Name) -> Result when
       Value  :: term(),
-      NameDb :: snmpa:name_db(),
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: noError | commitFailed;
-                   (Op :: undo, Value, NameDb) -> Result when
+                   (Op :: undo, Value, Name) -> Result when
       Value  :: term(),
-      NameDb :: snmpa:name_db(),
+      Name   :: snmpa:name() | snmpa:name_db(),
       Result :: noError.
 
-variable_func(is_set_ok, _Val, _NameDb) ->
+variable_func(is_set_ok, _Val, _Name) ->
     noError;
-variable_func(set, Val, NameDb) ->
-    case variable_set(NameDb, Val) of
+variable_func(set, Val, Name) ->
+    case variable_set(Name, Val) of
 	true -> noError;
 	false -> commitFailed
     end;
-variable_func(undo, _Val, _NameDb) ->
+variable_func(undo, _Val, _Name) ->
     noError.
 
 
