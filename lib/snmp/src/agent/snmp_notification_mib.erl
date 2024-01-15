@@ -28,6 +28,12 @@
 -export([add_notify/3, delete_notify/1]).
 -export([check_notify/1]).
 
+-export_type([
+              notify_name/0,
+              notify_tag/0,
+              notify_type/0
+             ]).
+
 -include("snmpa_internal.hrl").
 -include("SNMP-NOTIFICATION-MIB.hrl").
 -include("SNMPv2-TC.hrl").
@@ -39,6 +45,11 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-type notify_name() :: snmp_framework_mib:admin_string().
+-type notify_tag()  :: snmp_target_mib:tag_value().
+-type notify_type() :: trap | inform.
 
 
 %%-----------------------------------------------------------------
@@ -152,6 +163,13 @@ table_cre_row(Tab, Key, Row) ->
 table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
+
+-spec add_notify(Name, Tag, Type) -> {ok, Key} | {error, Reason} when
+      Name   :: notify_name(),
+      Tag    :: notify_tag(),
+      Type   :: notify_type(),
+      Key    :: term(),
+      Reason :: term().
 
 %% FIXME: does not work with mnesia
 add_notify(Name, Tag, Type) ->

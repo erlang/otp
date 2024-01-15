@@ -51,6 +51,10 @@
     <datatype>
       <name name="tag_value"/>
       <desc>
+	<note>
+	  <p>"An octet string containing a tag value.
+	  Tag values are preferably in human-readable form."</p>
+	</note>
 	<p>
 	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
 	</p>

@@ -60,6 +60,7 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmp.xml \
 	$(SPECDIR)/specs_snmp_community_mib.xml \
 	$(SPECDIR)/specs_snmp_framework_mib.xml \
+	$(SPECDIR)/specs_snmp_notification_mib.xml \
 	$(SPECDIR)/specs_snmp_target_mib.xml \
 	$(SPECDIR)/specs_snmp_generic.xml \
 	$(SPECDIR)/specs_snmp_index.xml \
