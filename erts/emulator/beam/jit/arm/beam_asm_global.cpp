@@ -79,10 +79,10 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
                           .name = code.labelEntry(labels[val.first])->name()});
     }
 
-    beamasm_metadata_update("global",
-                            (ErtsCodePtr)getBaseAddress(),
-                            code.codeSize(),
-                            ranges);
+    (void)beamasm_metadata_insert("global",
+                                  (ErtsCodePtr)getBaseAddress(),
+                                  code.codeSize(),
+                                  ranges);
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use
      * them instead of labels in global code. */

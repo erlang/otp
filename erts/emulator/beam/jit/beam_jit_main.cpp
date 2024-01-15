@@ -623,9 +623,10 @@ extern "C"
                     out_rw_hdr);
     }
 
-    void beamasm_register_metadata(void *instance, const BeamCodeHeader *hdr) {
+    void *beamasm_register_metadata(void *instance,
+                                    const BeamCodeHeader *header) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
-        ba->register_metadata(hdr);
+        return ba->register_metadata(header);
     }
 
     Uint beamasm_get_header(void *instance, const BeamCodeHeader **hdr) {

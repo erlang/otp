@@ -357,7 +357,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
     }
 }
 
-void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 #ifndef WIN32
     const BeamCodeLineTab *line_table = header->line_table;
 
@@ -472,10 +472,12 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
              .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
              .name = module_name + "::codeFooter"});
 
-    beamasm_metadata_update(module_name,
-                            (ErtsCodePtr)code.baseAddress(),
-                            code.codeSize(),
-                            ranges);
+    return beamasm_metadata_insert(module_name,
+                                   (ErtsCodePtr)code.baseAddress(),
+                                   code.codeSize(),
+                                   ranges);
+#else
+    return NULL;
 #endif
 }
 

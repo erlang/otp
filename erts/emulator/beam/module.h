@@ -34,6 +34,7 @@ struct erl_module_instance {
 
     const void *executable_region;
     void *writable_region;
+    void *metadata;
 
     /* Protected by code modification permission. */
     int unsealed;
