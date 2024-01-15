@@ -271,19 +271,15 @@ get_next_pid(Oid, SnmpIndex) ->
     </func>
 
     <func>
-      <name since="">get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined</name>
+      <name name="get_next" arity="2" clause_i="1" since=""/>
       <fsummary>Get the next item</fsummary>
-      <type>
-        <v>Index = index()</v>
-        <v>KeyOid = NextKeyOid = oid()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>Gets the next item in the SNMP lexicographic ordering,
 	after <c>KeyOid</c> in the index structure.  <c>KeyOid</c>
 	does not have to refer to an existing item in the index.</p>
       </desc>
     </func>
+
     <func>
       <name since="">insert(Index, Key, Value) -> NewIndex</name>
       <fsummary>Insert an item into the index</fsummary>

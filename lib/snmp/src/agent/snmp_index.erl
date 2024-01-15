@@ -130,6 +130,12 @@ get_last(#tab{id = OrdSet} = Index) ->
     end.
 
 
+-spec get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined when
+      Index      :: index(),
+      KeyOid     :: snmp:oid(),
+      NextKeyOid :: snmp:oid(),
+      Value      :: term().
+      
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
