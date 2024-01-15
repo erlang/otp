@@ -1811,7 +1811,17 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
 
 %% Call: setopt_active/1
 handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
-    {Result, D_1} = state_setopts_active(P, D, State, [], Active),
+    %% {active, _} is in server_read_opts(), so State needs to be checked
+    %% like in state_setopts/4.
+    {Result, D_1} =
+        if
+            State =:= 'closed';
+            State =:= 'closed_read';
+            State =:= 'closed_read_write' ->
+                {{error, einval}, D};
+            true ->
+                state_setopts_active(P, D, State, [], Active)
+        end,
     Reply = {reply, From, Result},
     handle_active(P, D_1, State, [Reply]);
 
@@ -1864,7 +1874,8 @@ handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
                     {keep_state_and_data,
                      [{reply, From, SRes}]};
                 {NextState, SRes} ->
-                    %% ?DBG({P#params.socket, 'shutdown result', SRes, NextState}),
+                    %% ?DBG({P#params.socket, 'shutdown result',
+                    %%       SRes, NextState}),
                     next_state(
                       P,
                       cleanup_close_read(P, D#{active := false}, State, closed),
@@ -2466,13 +2477,8 @@ handle_recv_error_packet(P, D, ActionsR, Reason) ->
               P, D#{buffer := Rest}, ActionsR, Reason, Decoded);
         {more, _} ->
             handle_recv_error(P, D, ActionsR, Reason);
-        {error, Reason} ->
-            handle_recv_error(
-              P, D, ActionsR,
-              case Reason of
-                  invalid -> emsgsize;
-                  _ -> Reason
-              end)
+        {error, _} ->
+            handle_recv_error(P, D, ActionsR, Reason)
     end.
 
 decode_packet(
@@ -2481,8 +2487,8 @@ decode_packet(
     packet_size    := PacketSize,
     buffer         := Buffer}) ->
     %%
-    erlang:decode_packet(
-      PacketType, condense_buffer(Buffer),
+    decode_packet(
+      PacketType, Buffer,
       [{packet_size,    PacketSize},
        {line_delimiter, LineDelimiter},
        {line_length,    PacketSize}]);
@@ -2492,23 +2498,23 @@ decode_packet(
     packet_size    := PacketSize,
     buffer         := Buffer}) ->
     %%
-    erlang:decode_packet(
-      httph, condense_buffer(Buffer), [{packet_size, PacketSize}]);
+    decode_packet(httph, Buffer, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := http_bin,
     recv_httph     := true,
     packet_size    := PacketSize,
     buffer         := Buffer}) ->
     %%
-    erlang:decode_packet(
-      httph_bin, condense_buffer(Buffer), [{packet_size, PacketSize}]);
+    decode_packet(httph_bin, Buffer, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := PacketType,
     packet_size    := PacketSize,
     buffer         := Buffer}) ->
     %%
-    erlang:decode_packet(
-      PacketType, condense_buffer(Buffer), [{packet_size, PacketSize}]).
+    decode_packet(PacketType, Buffer, [{packet_size, PacketSize}]).
+
+decode_packet(PacketType, Buffer, Options) ->
+    erlang:decode_packet(PacketType, condense_buffer(Buffer), Options).
 
 
 handle_recv_deliver(P, D, ActionsR, Data) ->
@@ -2541,6 +2547,9 @@ handle_recv_error(P, D, ActionsR, Reason) ->
 %% -------------------------------------------------------------------------
 %% Callback Helpers
 
+%% Helper function that merges the {D, ActionsR} tuple from a
+%% state helper functions with an Actions list you already have
+%%
 next_state(P, {D, ActionsR}, State, Actions) ->
     {next_state, State, {P, D}, reverse(ActionsR, Actions)}.
 
@@ -2639,12 +2648,12 @@ recv_data_deliver(
     %% 	  {header, Header}, {deliver, Deliver}, {packet, Packet}]), 
     DeliverData = deliver_data(Data, Mode, Header, Packet),
     case D of
-        #{recv_from := From} ->
+        #{recv_from := From} -> % Explicit recv/2 call
             {recv_stop(next_packet(D, Packet, Data)),
              [{reply, From, {ok, DeliverData}},
               {{timeout, recv}, cancel}
               | ActionsR]};
-        #{active := false} ->
+        #{active := false} -> % Cannot deliver - buffer instead
             D_1 = D#{buffer := buffer(Data, maps:get(buffer, D))},
             {recv_stop(next_packet(D_1, Packet, Data)),
              ActionsR};
@@ -2676,6 +2685,7 @@ recv_data_deliver(
             end
     end.
 
+%% Next packet type
 next_packet(D, Packet, Data) ->
     if
         Packet =:= http;
@@ -2693,6 +2703,7 @@ next_packet(D, Packet, Data) ->
         true -> D
     end.
 
+%% Duplicate of the above, and also sets active
 next_packet(D, Packet, Data, Active) ->
     if
         Packet =:= http;
@@ -2713,12 +2724,14 @@ next_packet(D, Packet, Data, Active) ->
             D#{active => Active}
     end.
 
+%% Buffer Data in Buffer
 -compile({inline, [buffer/2]}).
 buffer(Data, <<>>) ->
     Data;
 buffer(Data, Buffer) ->
     [Data | Buffer].
 
+%% Condense buffer into a Binary
 -compile({inline, [condense_buffer/1]}).
 condense_buffer(Bin) when is_binary(Bin) -> Bin;
 condense_buffer([Bin]) when is_binary(Bin) -> Bin;
@@ -2743,6 +2756,7 @@ deliver_data(Data, Mode, Header, Packet) ->
             deliver_data(Data, Mode, Header)
     end.
 
+%% Binary -> the data format inet_drv delivers depending on delivery mode
 deliver_data(Data, list, _N) -> binary_to_list(Data);
 deliver_data(Data, binary, 0) -> Data;
 deliver_data(Data, binary, N) ->
@@ -2754,6 +2768,7 @@ deliver_data(Data, binary, N) ->
             binary_to_list(Header) ++ Payload
     end.
 
+%% Packet type -> tuple tag in active mode delivery message
 tag(Packet) ->
     if
         Packet =:= http;
