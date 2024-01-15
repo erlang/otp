@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,13 @@
 	 get_last/1, 
 	 key_to_oid/2]).
 
+-export_type([
+              index/0,
+              key_types/0,
+              key_spec/0,
+              type_spec/0,
+              key/0
+             ]).
 
 -define(VMODULE,"IDX").
 -include("snmp_verbosity.hrl").
@@ -35,6 +42,12 @@
 -define(badarg(F, A), exit({badarg, {?MODULE, F, A}})).
 -define(bad_new(A),   ?badarg(new, A)).
 -define(bad_get(A),   ?badarg(get, A)).
+
+-opaque index()     :: #tab{}.
+-type   key_types() :: type_spec() | tuple().
+-type   key()       :: key_spec()  | tuple().
+-type   key_spec()  :: string() | integer().
+-type   type_spec() :: fix_string | string | integer.
 
 
 %%%-----------------------------------------------------------------
@@ -121,12 +134,23 @@ insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
     Tab.
 
+
+-spec delete(Index) -> true when
+      Index :: index().
+
+delete(#tab{id = OrdSet}) ->
+    ets:delete(OrdSet).
+
+
+-spec delete(Index, Key) -> NewIndex when
+      Index    :: index(),
+      Key      :: key(),
+      NewIndex :: index().
+
 delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
     ets:delete(OrdSet, key_to_oid_i(Key, KeyTypes)),
     Tab.
 
-delete(#tab{id = OrdSet}) ->
-    ets:delete(OrdSet).
 
 key_to_oid(#tab{keys = KeyTypes}, Key) ->
     key_to_oid_i(Key, KeyTypes).
