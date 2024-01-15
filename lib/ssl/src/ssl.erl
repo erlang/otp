@@ -90,6 +90,8 @@
          format_error/1, 
          renegotiate/1, 
          update_keys/2,
+         export_key_materials/4,
+         export_key_materials/5,
          prf/5, 
          negotiated_protocol/1, 
 	 connection_information/1, 
@@ -1453,21 +1455,69 @@ update_keys(_, Type) ->
     {error, {illegal_parameter, Type}}.
 
 %%--------------------------------------------------------------------
+-spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
+                 {ok, ExportKeyMaterials} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ExportKeyMaterials :: [binary()].
+%%--------------------------------------------------------------------
+export_key_materials(#sslsocket{pid = [Pid|_]}, Labels, Contexts, WantedLengths) when is_pid(Pid) ->
+    ssl_gen_statem:call(Pid, {export_key_materials, Labels, Contexts, WantedLengths, true});
+export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
+    {error, enotconn}.
+
+%%--------------------------------------------------------------------
+-spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
+                 {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
+      SslSocket :: sslsocket(),
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: [binary()].
+%%--------------------------------------------------------------------
+export_key_materials(#sslsocket{pid = [Pid|_]}, Labels, Contexts, WantedLengths, ConsumeSecret) when is_pid(Pid) ->
+    ssl_gen_statem:call(Pid, {export_key_materials, Labels, Contexts, WantedLengths, ConsumeSecret});
+export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
+    {error, enotconn}.
+
+%%--------------------------------------------------------------------
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
           {ok, binary()} | {error, reason()} when
       SslSocket :: sslsocket(),
       Secret :: binary() | 'master_secret',
-      Label::binary(),
+      Label :: binary(),
       Seed :: [binary() | prf_random()],
       WantedLength :: non_neg_integer().
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf(#sslsocket{pid = [Pid|_]},
-    Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
-    tls_dtls_connection:prf(Pid, Secret, Label, Seed, WantedLength);
+prf(#sslsocket{pid = [Pid|_]} = Socket,
+    master_secret, Label, [client_random, server_random], WantedLength) when is_pid(Pid) ->
+    case export_key_materials(Socket, [Label], [no_context], [WantedLength], true) of
+        {ok, [KeyMaterial]} ->
+            {ok, KeyMaterial};
+        Error ->
+            Error
+    end;
+prf(#sslsocket{pid = [Pid|_]} = Socket,
+    master_secret, Label, [client_random, server_random, Context], WantedLength) when is_pid(Pid),
+                                                                                      is_binary(Context) ->
+    case export_key_materials(Socket, [Label], [Context], [WantedLength], true) of
+        {ok, [KeyMaterial]} ->
+            {ok, KeyMaterial};
+        Error ->
+            Error
+    end;
 prf(#sslsocket{pid = {_Listen, #config{}}}, _,_,_,_) ->
-    {error, enotconn}.
+    {error, enotconn};
+%% Legacy backwards compatible clause. This makes no sense, was probably added for
+%% testing purposes by contributor, but these tests does not really test the correct thing.
+prf(Socket, Secret, Label, Context, WantedLength) ->
+    {ok, [{selected_cipher_suite, #{prf := PRFAlg}}]} = connection_information(Socket, [selected_cipher_suite]),
+    {ok, tls_v1:prf(PRFAlg, Secret, Label, erlang:iolist_to_binary(Context), WantedLength)}.
 
 %%--------------------------------------------------------------------
 -spec clear_pem_cache() -> ok.

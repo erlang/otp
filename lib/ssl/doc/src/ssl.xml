@@ -1913,7 +1913,33 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       </desc>
     </func>
 
-      <func>
+    <func>
+      <name since="OTP 26.3" name="export_key_materials" arity="4" />
+      <fsummary>Uses a session Pseudo-Random Function to generate key materials.</fsummary>
+      <desc>
+        <p> Equivalent to <c>export_key_materials(TLSSocket, Labels, Contexts, WantedLengths, true). </c> </p>
+
+	<note><p>For pre TLS-1.3 connection calling this
+      function as <c>export_key_materials(TLSSocket, [Label], [Context], [WantedLength])</c>
+      is equivalent  to legacy function <seemfa marker="#prf/5"><c>prf/5</c></seemfa>
+	as <c>prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)</c></p></note>
+      </desc>
+    </func>
+
+     <func>
+      <name since="OTP 26.3" name="export_key_materials" arity="5" />
+      <fsummary>Uses a session Pseudo-Random Function to generate key materials.</fsummary>
+      <desc>
+        <p>Uses the Pseudo-Random Function, PRF (pre TLS-1.3) or HKDF (TLS-1.3), for a TLS connection to generate
+	and export keying materials. In TLS-1.3 using <c>no_context</c> is equivalent  to specifying an empty context, that is an
+	empty binary, pre TLS-1.3 these will render different results. The last argument is relevant only in TLS-1.3 and
+	it causes the TLS-1.3 exporter_master_secret to be consumed that is it will no longer be available, to increase security,
+	and further attempts to call this function will fail.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP 20.3" name="filter_cipher_suites" arity="2" />
       <fsummary></fsummary>
       <desc><p>Removes cipher suites if any of the filter functions
@@ -2101,6 +2127,12 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  extra key material. It either takes user-generated values for
 	  <c>Secret</c> and <c>Seed</c> or atoms directing it to use a specific
 	  value from the session security parameters.</p>
+
+      <note><p>This function is replaced by <seemfa marker="#export_key_materials/4"><c>export_key_materials/4</c></seemfa>,
+      since OTP-26.3, which is equivalent  to
+      <c>prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)</c>
+      Other ways of calling this function was for testing purposes only and has no use case. Called
+      in TLS-1.3 context it will now behave as <c>export_key_materials(TLSSocket, [Label], [Context], [WantedLength])</c></p> </note>
       </desc>
     </func>
     

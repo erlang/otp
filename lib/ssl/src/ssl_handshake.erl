@@ -70,7 +70,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
-         cipher_suites/3, prf/6, select_session/8,
+         cipher_suites/3, select_session/8,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
@@ -1048,15 +1048,6 @@ cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
 cipher_suites(Suites, true) ->
     Suites.
-%%--------------------------------------------------------------------
--spec prf(ssl_record:ssl_version(), non_neg_integer(), binary(), binary(), [binary()], non_neg_integer()) ->
-		 {ok, binary()} | {error, undefined}.
-%%
-%% Description: use the TLS PRF to generate key material
-%%--------------------------------------------------------------------
-prf(Version, PRFAlgo, Secret, Label, Seed, WantedLength)
-  when ?TLS_1_X(Version)->
-    {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
 select_session(SuggestedSessionId, CipherSuites, HashSigns, SessIdTracker, Session0,
                Version, SslOpts, CertKeyAlts) ->

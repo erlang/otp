@@ -74,8 +74,6 @@
          dh_params/1,
          invalid_dhfile/0,
          invalid_dhfile/1,
-         prf/0,
-         prf/1,
          hibernate_client/0,
          hibernate_client/1,
          hibernate_server/0,
@@ -194,7 +192,13 @@
          cipher_listing/0,
          cipher_listing/1,
          format_error/0,
-         format_error/1
+         format_error/1,
+         export_key_materials/0,
+         export_key_materials/1,
+         exporter_master_secret_consumed/0,
+         exporter_master_secret_consumed/1,
+         legacy_prf/0,
+         legacy_prf/1
         ]).
 
 %% Apply export
@@ -204,7 +208,6 @@
          keylog_connection_info_result/2,
          check_srp_in_connection_information/3,
          check_connection_info/2,
-         prf_verify_value/4,
          try_recv_active/1,
          try_recv_active_once/1,
          controlling_process_result/3,
@@ -271,8 +274,7 @@ since_1_2() ->
 pre_1_3() ->
     [
      default_reject_anonymous,
-     connection_information_with_srp,
-     prf
+     connection_information_with_srp
     ].
 
 simple_api_tests() ->
@@ -329,7 +331,9 @@ gen_api_tests() ->
      log_alert,
      getstat,
      check_random_nonce,
-     cipher_listing
+     cipher_listing,
+     export_key_materials,
+     legacy_prf
     ].
 
 handshake_paus_tests() ->
@@ -367,7 +371,8 @@ tls13_group() ->
      server_options_negative_dependency_role,
      server_options_negative_stateless_tickets_seed,
      invalid_options_tls13,
-     cookie
+     cookie,
+     exporter_master_secret_consumed
     ].
 
 init_per_suite(Config0) ->
@@ -400,23 +405,6 @@ init_per_group(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
-init_per_testcase(prf, Config) ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 10}),
-    Version = ssl_test_lib:protocol_version(Config),
-    PRFS = [md5, sha, sha256, sha384, sha512],
-    %% All are the result of running tls_v1:prf(PrfAlgo, <<>>, <<>>, <<>>, 16)
-    %% with the specified PRF algorithm
-    ExpectedPrfResults =
-        [{md5, <<96,139,180,171,236,210,13,10,28,32,2,23,88,224,235,199>>},
-         {sha, <<95,3,183,114,33,169,197,187,231,243,19,242,220,228,70,151>>},
-         {sha256, <<166,249,145,171,43,95,158,232,6,60,17,90,183,180,0,155>>},
-         {sha384, <<153,182,217,96,186,130,105,85,65,103,123,247,146,91,47,106>>},
-         {sha512, <<145,8,98,38,243,96,42,94,163,33,53,49,241,4,127,28>>},
-         %% TLS 1.0 and 1.1 PRF:
-         {md5sha, <<63,136,3,217,205,123,200,177,251,211,17,229,132,4,173,80>>}],
-    TestPlan = prf_create_plan(Version, PRFS, ExpectedPrfResults),
-    [{prf_test_plan, TestPlan} | Config];
 init_per_testcase(handshake_continue_tls13_client, Config) ->
     case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
         true ->
@@ -758,19 +746,6 @@ keylog_connection_info(Config, KeepSecrets) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
-%%--------------------------------------------------------------------
-prf() ->
-    [{doc,"Test that ssl:prf/5 uses the negotiated PRF."}].
-prf(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    TestPlan = proplists:get_value(prf_test_plan, Config),
-    lists:foreach(fun(Test) ->
-                          C = proplists:get_value(ciphers, Test),
-                          E = proplists:get_value(expected, Test),
-                          P = proplists:get_value(prf, Test),
-                          prf_run_test(Config, Version, C, E, P)
-                  end, TestPlan).
 
 %%--------------------------------------------------------------------
 dh_params() ->
@@ -1357,7 +1332,10 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
-    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, [client_random], 256),
+    {error, enotconn} = ssl:export_key_materials(ListenSocket, [<<"Label">>], [<<"Context">>], 256),
+    %% Legacy test
+    {error, enotconn} = ssl:prf(ListenSocket, master_secret,
+                                <<"Label">>, [client_random, server_random], 256),
     case Protocol of
         tls ->
             {error, enotconn} = ssl:shutdown(ListenSocket, read_write);
@@ -3685,6 +3663,7 @@ cipher_listing(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config, tuple),
     length_exclusive(Version) == length_all(Version).
 
+%%--------------------------------------------------------------------
 format_error() ->
     "".
 format_error(Config) when is_list(Config) ->
@@ -3712,6 +3691,121 @@ format_error(Config) when is_list(Config) ->
     [Check(Err) || Err <- Errors],
     ok.
 
+%%--------------------------------------------------------------------
+
+export_key_materials() ->
+    [{doc, "Test export_key_materials/4,5"}].
+
+export_key_materials(Config) when is_list(Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+
+    Label = <<"EXPERIMENTAL-otp">>,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, {from, self()},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
+                                             {host, Hostname}, {from, self()},
+                                             {options, ClientOpts}]),
+    Server ! get_socket,
+    ServerS = receive
+                  {Server, {socket, S}} -> S
+              end,
+
+    case Version of
+        'tlsv1.3' ->
+            {ok, [ExportKeyMaterial]} = ssl:export_key_materials(ServerS, [Label], [<<>>], [32], false),
+            {ok, [ExportKeyMaterial]} = ssl:export_key_materials(ClientS, [Label], [<<>>], [32], false),
+            {ok, [ExportKeyMaterial]} = ssl:export_key_materials(ServerS, [Label], [no_context], [32]),
+            {ok, [ExportKeyMaterial]} = ssl:export_key_materials(ClientS, [Label], [no_context], [32]);
+        _ ->
+            {ok, ExportKeyMaterial1} = ssl:export_key_materials(ServerS, [Label], [<<>>], [20]),
+            {ok, ExportKeyMaterial1} = ssl:export_key_materials(ClientS, [Label], [<<>>], [20]),
+            {ok, ExportKeyMaterial2} = ssl:export_key_materials(ServerS, [Label], [no_context], [20]),
+            {ok, ExportKeyMaterial2} = ssl:export_key_materials(ClientS, [Label], [no_context], [20]),
+            true = ExportKeyMaterial1 =/= ExportKeyMaterial2
+    end.
+%%--------------------------------------------------------------------
+exporter_master_secret_consumed() ->
+    [{doc, "Test export_key_materials/4,5 TLS-1.3 functionality"}].
+
+exporter_master_secret_consumed(Config) when is_list(Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+
+    Label1 = <<"EXPERIMENTAL-otp1">>,
+    Label2 = <<"EXPERIMENTAL-otp2">>,
+    Label3 = <<"EXPERIMENTAL-otp3">>,
+    Label4 = <<"EXPERIMENTAL-otp4">>,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, {from, self()},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
+                                             {host, Hostname}, {from, self()},
+                                             {options, ClientOpts}]),
+    Server ! get_socket,
+    ServerS = receive
+                  {Server, {socket, S}} -> S
+              end,
+
+    {ok, ExportKeyMaterials} = ssl:export_key_materials(ServerS, [Label1, Label2], [<<>>, <<>>], [32, 32]),
+    {error, exporter_master_secret_already_consumed} = ssl:export_key_materials(ServerS, [Label3], [<<>>], [32]),
+    {ok, ExportKeyMaterials} = ssl:export_key_materials(ClientS, [Label1, Label2], [<<>>, <<>>], [32, 32], false),
+    {error, bad_input} = ssl:export_key_materials(ClientS, [Label3, Label4], [<<>>], [32]).
+
+%%--------------------------------------------------------------------
+
+legacy_prf() ->
+    [{doc, "Test prf/5"}].
+
+legacy_prf(Config) when is_list(Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+
+   {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+
+    Label = <<"EXPERIMENTAL-otp">>,
+
+    Server = ssl_test_lib:start_server(
+                    [return_socket,
+                     {node, ServerNode}, {port, 0}, {from, self()},
+                     {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {_, ClientS} = ssl_test_lib:start_client([return_socket, {node, ClientNode}, {port, Port},
+                                             {host, Hostname}, {from, self()},
+                                             {options, ClientOpts}]),
+
+    Server ! get_socket,
+    ServerS = receive
+                  {Server, {socket, S}} -> S
+              end,
+
+    case Version of
+        'tlsv1.3' ->
+            {ok, ExportKeyMaterials} = ssl:prf(ServerS, master_secret, Label, [client_random, server_random, <<>>], 32),
+            {ok, ExportKeyMaterials} = ssl:prf(ClientS, master_secret, Label, [client_random, server_random, <<>>], 32);
+        _ ->
+            {ok, ExportKeyMaterials1} = ssl:prf(ServerS, master_secret, Label, [client_random, server_random], 32),
+            {ok, ExportKeyMaterials1} = ssl:prf(ServerS, master_secret, Label, [client_random, server_random], 32),
+            {ok, ExportKeyMaterials2} = ssl:prf(ServerS, master_secret, Label, [client_random, server_random, <<>>], 32),
+            {ok, ExportKeyMaterials2} = ssl:prf(ClientS, master_secret, Label, [client_random, server_random, <<>>], 32),
+            true = ExportKeyMaterials1 =/= ExportKeyMaterials2
+    end.
 
 %%--------------------------------------------------------------------
 
@@ -3787,32 +3881,14 @@ check_srp_in_connection_information(Socket, Username, server) ->
 
 %% In TLS 1.3 the master_secret field is used to store multiple secrets from the key schedule and it is a tuple.
 %% client_random and server_random are not used in the TLS 1.3 key schedule.
-check_connection_info('tlsv1.3', [{client_random, ClientRand}, {master_secret, {master_secret, MasterSecret}}]) ->
-    is_binary(ClientRand) andalso is_binary(MasterSecret);
-check_connection_info('tlsv1.3', [{server_random, ServerRand}, {master_secret, {master_secret, MasterSecret}}]) ->
-    is_binary(ServerRand) andalso is_binary(MasterSecret);
+check_connection_info('tlsv1.3', [{client_random, ClientRand},{server_random, ServerRand},
+                                  {master_secret, {master_secret, MasterSecret}}]) ->
+    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret);
 check_connection_info(_, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]) ->
     is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret);
 check_connection_info(_, _) ->
     false.
 
-prf_verify_value(Socket, TlsVer, Expected, Algo) ->
-    Ret = ssl:prf(Socket, <<>>, <<>>, [<<>>], 16),
-    case TlsVer of
-        sslv3 ->
-            case Ret of
-                {error, undefined} -> ok;
-                _ ->
-                    {error, {expected, {error, undefined},
-                             got, Ret, tls_ver, TlsVer, prf_algorithm, Algo}}
-            end;
-        _ ->
-            case Ret of
-                {ok, Expected} -> ok;
-                {ok, Val} -> {error, {expected, Expected, got, Val, tls_ver, TlsVer,
-                                      prf_algorithm, Algo}}
-            end
-    end.
 try_recv_active(Socket) ->
     ssl:send(Socket, "Hello world"),
     {error, einval} = ssl:recv(Socket, 11),
@@ -3910,61 +3986,6 @@ connection_info_result(Socket) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-prf_create_plan(TlsVer, _PRFs, Results) when TlsVer == tlsv1
-                                             orelse TlsVer == 'tlsv1.1'
-                                             orelse TlsVer == 'dtlsv1' ->
-    Ciphers = prf_get_ciphers(TlsVer, default_prf),
-    {_, Expected} = lists:keyfind(md5sha, 1, Results),
-    [[{ciphers, Ciphers}, {expected, Expected}, {prf, md5sha}]];
-prf_create_plan(TlsVer, PRFs, Results) when TlsVer == 'tlsv1.2' orelse TlsVer == 'dtlsv1.2' ->
-    lists:foldl(
-      fun(PRF, Acc) ->
-              Ciphers = prf_get_ciphers(TlsVer, PRF),
-              case Ciphers of
-                  [] ->
-                      ?CT_LOG("No ciphers for PRF algorithm ~p. Skipping.", [PRF]),
-                      Acc;
-                  Ciphers ->
-                      {_, Expected} = lists:keyfind(PRF, 1, Results),
-                      [[{ciphers, Ciphers}, {expected, Expected}, {prf, PRF}] | Acc]
-              end
-      end, [], PRFs).
-
-prf_get_ciphers(TlsVer, PRF) ->
-    PrfFilter = fun(Value) -> Value =:= PRF end,
-    RSACertNoSpecialConf = fun(rsa) ->
-                                   true;
-                              (ecdhe_rsa) ->
-                                   lists:member(ecdh, crypto:supports(public_keys));
-                              (dhe_rsa) ->
-                                   true;
-                              (_) ->
-                                   false
-                           end,
-    ssl:filter_cipher_suites(ssl:cipher_suites(default, TlsVer), [{key_exchange, RSACertNoSpecialConf},
-                                                                  {prf, PrfFilter}]).
-
-prf_run_test(_, TlsVer, [], _, Prf) ->
-    ct:comment(lists:flatten(io_lib:format("cipher_list_empty Ver: ~p  PRF: ~p", [TlsVer, Prf])));
-prf_run_test(Config, TlsVer, Ciphers, Expected, Prf) ->
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}, {protocol, tls_or_dtls(TlsVer)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
-    Server = ssl_test_lib:start_server(
-               [{node, ServerNode}, {port, 0}, {from, self()},
-                {mfa, {?MODULE, prf_verify_value, [TlsVer, Expected, Prf]}},
-                {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client(
-               [{node, ClientNode}, {port, Port},
-                {host, Hostname}, {from, self()},
-                {mfa, {?MODULE, prf_verify_value, [TlsVer, Expected, Prf]}},
-                {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
 
 tls_or_dtls('dtlsv1') ->
     dtls;

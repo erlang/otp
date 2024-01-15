@@ -41,14 +41,15 @@
 -include("ssl_srp.hrl").
 
 %% TLS-1.0 to TLS-1.2 Specific User Events
--export([renegotiation/1, renegotiation/2, prf/5]).
+-export([renegotiation/1, renegotiation/2]).
 
 %% Data handling. Note renegotiation is replaced by sesion key update mechanism in TLS-1.3
 -export([internal_renegotiation/2]).
 
 %% Help functions for tls|dtls_connection.erl
 -export([handle_session/7,
-         handle_sni_extension/2]).
+         handle_sni_extension/2,
+         handle_call/4]).
 
 %% General state handlingfor TLS-1.0 to TLS-1.2 and gen_handshake that wraps
 %% handling of common state handling for handshake messages for error handling
@@ -89,16 +90,6 @@ renegotiation(ConnectionPid) ->
 
 renegotiation(Pid, WriteState) ->
     ssl_gen_statem:call(Pid, {user_renegotiate, WriteState}).
-
-%%--------------------------------------------------------------------
--spec prf(pid(), binary() | 'master_secret', binary(),
-	  [binary() | ssl:prf_random()], non_neg_integer()) ->
-		 {ok, binary()} | {error, reason()} | {'EXIT', term()}.
-%%
-%% Description: use a ssl sessions TLS PRF to generate key material
-%%--------------------------------------------------------------------
-prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
-    ssl_gen_statem:call(ConnectionPid, {prf, Secret, Label, Seed, WantedLength}).
 
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
@@ -664,7 +655,7 @@ connection({call, From}, negotiated_protocol,
                                                  negotiated_protocol = undefined}} = State) ->
     ssl_gen_statem:hibernate_after(?FUNCTION_NAME, State,
                                        [{reply, From, {ok, SelectedProtocol}}]);
-connection({call, From}, Msg, State) when element(1, Msg) =:= prf ->
+connection({call, From}, Msg, State) when element(1, Msg) =:= export_key_materials ->
     handle_call(Msg, From, ?FUNCTION_NAME, State);
 connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = tls_gen_connection},
                                                             handshake_env = HsEnv,
@@ -709,26 +700,25 @@ gen_handshake(StateName, Type, Event, State) ->
 handle_call(renegotiate, From, StateName, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
 
-handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
-	    #state{connection_states = ConnectionStates,
-		   connection_env = #connection_env{negotiated_version = Version}}) ->
+handle_call({export_key_materials, [Label], [Context0], [WantedLength], _}, From, _,
+	    #state{connection_states = ConnectionStates}) ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{master_secret = MasterSecret,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom,
 			 prf_algorithm = PRFAlgorithm} = SecParams,
+    Seed = case Context0 of
+               no_context ->
+                   <<ClientRandom/binary, ServerRandom/binary>>;
+               _ ->
+                   Size = erlang:byte_size(Context0),
+                   <<ClientRandom/binary, ServerRandom/binary,
+                     ?UINT16(Size), Context0/binary>>
+           end,
+
     Reply = try
-		SecretToUse = case Secret of
-				  _ when is_binary(Secret) -> Secret;
-				  master_secret -> MasterSecret
-			      end,
-		SeedToUse = lists:reverse(
-			      lists:foldl(fun(X, Acc) when is_binary(X) -> [X|Acc];
-					     (client_random, Acc) -> [ClientRandom|Acc];
-					     (server_random, Acc) -> [ServerRandom|Acc]
-					  end, [], Seed)),
-		ssl_handshake:prf(ssl:tls_version(Version), PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
+                {ok, tls_v1:prf(PRFAlgorithm, MasterSecret, Label, Seed, WantedLength)}
 	    catch
 		exit:Reason:ST ->
                     ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
@@ -738,6 +728,7 @@ handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
                     {error, Reason}
 	    end,
     {keep_state_and_data, [{reply, From, Reply}]};
+
 handle_call(Msg, From, StateName, State) ->
    ssl_gen_statem:handle_call(Msg, From, StateName, State).
 

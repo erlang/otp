@@ -312,15 +312,16 @@ wait_finished(internal,
 
         State1 = tls_handshake_1_3:calculate_traffic_secrets(State0),
         State2 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State1),
+        ExporterSecret = tls_handshake_1_3:calculate_exporter_master_secret(State2),
         State3 = tls_handshake_1_3:forget_master_secret(State2),
-
         %% Configure traffic keys
         State4 = ssl_record:step_encryption_state(State3),
 
         State5 = maybe_send_session_ticket(State4),
 
-        {Record, State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
-        tls_gen_connection:next_event(connection, Record, State,
+        {Record, #state{protocol_specific = PS} = State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
+        tls_gen_connection:next_event(connection, Record,
+                                      State#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
@@ -387,14 +388,15 @@ handle_client_hello(ClientHello, State0) ->
     end.
 
 do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
-                       session_id = SessionId,
-                       extensions = Extensions} = Hello,
-         #state{ssl_options = #{ciphers := ServerCiphers,
-                                signature_algs := ServerSignAlgs,
-                                supported_groups := ServerGroups0,
-                                alpn_preferred_protocols := ALPNPreferredProtocols,
-                                honor_cipher_order := HonorCipherOrder,
-                                early_data := EarlyDataEnabled} = Opts} = State0) ->
+                                     random = Random,
+                                     session_id = SessionId,
+                                     extensions = Extensions} = Hello,
+                       #state{ssl_options = #{ciphers := ServerCiphers,
+                                              signature_algs := ServerSignAlgs,
+                                              supported_groups := ServerGroups0,
+                                              alpn_preferred_protocols := ALPNPreferredProtocols,
+                                              honor_cipher_order := HonorCipherOrder,
+                                              early_data := EarlyDataEnabled} = Opts} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
@@ -480,7 +482,8 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                                                         group => Group,
                                                         sign_alg => SelectedSignAlg,
                                                         peer_public_key => ClientPubKey,
-                                                        alpn => ALPNProtocol}),
+                                                        alpn => ALPNProtocol,
+                                                        random => Random}),
 
         %% 4.1.4.  Hello Retry Request
         %%

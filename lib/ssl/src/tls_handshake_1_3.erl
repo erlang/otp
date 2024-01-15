@@ -58,6 +58,7 @@
 -export([process_certificate_request/2,
          process_certificate/2,
          calculate_handshake_secrets/5,
+         calculate_exporter_master_secret/1,
          verify_certificate_verify/2,
          validate_finished/2,
          maybe_calculate_resumption_master_secret/1,
@@ -1085,9 +1086,6 @@ calculate_traffic_secrets(#state{
                                      ReadKey, ReadIV, undefined,
                                      WriteKey, WriteIV, undefined).
 
-
-
-
 %% X25519, X448
 calculate_shared_secret(OthersKey, MyKey, Group)
   when is_binary(OthersKey) andalso is_binary(MyKey) andalso
@@ -1113,8 +1111,8 @@ maybe_calculate_resumption_master_secret(#state{
                              ssl_options = #{session_tickets := SessionTickets},
                              connection_states = ConnectionStates,
                              handshake_env =
-                                 #handshake_env{
-                                    tls_handshake_history = HHistory}} = State)
+                                                #handshake_env{
+                                                   tls_handshake_history = HHistory}} = State)
   when SessionTickets =/= disabled  ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, read),
@@ -1124,6 +1122,18 @@ maybe_calculate_resumption_master_secret(#state{
     RMS = tls_v1:resumption_master_secret(HKDFAlgo, MasterSecret, lists:reverse(Messages0)),
     update_resumption_master_secret(State, RMS).
 
+calculate_exporter_master_secret(#state{
+                             static_env = #static_env{role = Role},
+                             connection_states = ConnectionStates,
+                             handshake_env =
+                                 #handshake_env{
+                                    tls_handshake_history = HHistory}}) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         master_secret = MasterSecret} = SecParamsR,
+    Messages = get_handshake_context(Role, HHistory),
+    tls_v1:exporter_master_secret(HKDFAlgo, MasterSecret, lists:reverse(Messages)).
 
 forget_master_secret(#state{connection_states =
                                 #{pending_read := PendingRead,
@@ -1228,22 +1238,28 @@ update_start_state(State, Map) ->
     SelectedSignAlg = maps:get(sign_alg, Map, undefined),
     PeerPublicKey = maps:get(peer_public_key, Map, undefined),
     ALPNProtocol = maps:get(alpn, Map, undefined),
+    Random = maps:get(random, Map),
     update_start_state(State, Cipher, KeyShare, SessionId,
                        Group, SelectedSignAlg, PeerPublicKey,
-                       ALPNProtocol).
+                       ALPNProtocol, Random).
 %%
 update_start_state(#state{connection_states = ConnectionStates0,
                           handshake_env = #handshake_env{} = HsEnv,
+                          static_env = #static_env{role = Role},
                           connection_env = CEnv,
                           session = Session} = State,
                    Cipher, KeyShare, SessionId,
-                   Group, SelectedSignAlg, PeerPublicKey, ALPNProtocol) ->
+                   Group, SelectedSignAlg, PeerPublicKey, ALPNProtocol, Random) ->
     #{security_parameters := SecParamsR0} = PendingRead =
         maps:get(pending_read, ConnectionStates0),
     #{security_parameters := SecParamsW0} = PendingWrite =
         maps:get(pending_write, ConnectionStates0),
-    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, Cipher),
-    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, Cipher),
+    SecParamsR1 = ssl_cipher:security_parameters_1_3(SecParamsR0, Cipher),
+    SecParamsW1 = ssl_cipher:security_parameters_1_3(SecParamsW0, Cipher),
+
+    SecParamsR = update_random(Role, SecParamsR1, Random),
+    SecParamsW = update_random(Role, SecParamsW1, Random),
+
     ConnectionStates =
         ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
@@ -1257,6 +1273,10 @@ update_start_state(#state{connection_states = ConnectionStates0,
                                           cipher_suite = Cipher},
                 connection_env = CEnv#connection_env{negotiated_version = ?TLS_1_3}}.
 
+update_random(server, SParams, Random) ->
+    SParams#security_parameters{client_random = Random};
+update_random(client, SParams, Random) ->
+    SParams#security_parameters{server_random = Random}.
 
 update_resumption_master_secret(#state{connection_states = ConnectionStates0} = State,
                                 ResumptionMasterSecret) ->
