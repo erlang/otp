@@ -591,9 +591,13 @@ stop(Reason,State) ->
     BootPid = State#state.bootpid,
     {_,Progress} = State#state.status,
     State1 = State#state{status = {stopping, Progress}},
-    %% There is no need to unload code if the system is shutting down
-    clear_system(Reason=/=stop,BootPid,State1),
+    clear_system(should_unload(Reason),BootPid,State1),
     do_stop(Reason,State1).
+
+%% There is no need to unload code if the system is shutting down
+should_unload(stop) -> false;
+should_unload({stop, _}) -> false;
+should_unload(_) -> true.
 
 do_stop({restart,Mode},#state{start=Start, flags=Flags0, args=Args}) ->
     Flags = update_flag(mode, Flags0, atom_to_binary(Mode)),
@@ -620,7 +624,7 @@ clear_system(Unload,BootPid,State) ->
     shutdown_pids(Heart,Logger,BootPid,State),
     Unload andalso unload(Heart),
     kill_em([Logger]),
-    do_unload([logger_server]).
+    Unload andalso do_unload([logger_server]).
 
 flush() ->
     receive
@@ -779,9 +783,9 @@ kill_all_ports(_,_) ->
     ok.
 
 unload(false) ->
-    do_unload(sub([logger_server|erlang:pre_loaded()],erlang:loaded()));
+    do_unload(erlang:loaded() -- [logger_server|erlang:pre_loaded()]);
 unload(_) ->
-    do_unload(sub([heart,logger_server|erlang:pre_loaded()],erlang:loaded())).
+    do_unload(erlang:loaded() -- [heart,logger_server|erlang:pre_loaded()]).
 
 do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
@@ -790,13 +794,6 @@ do_unload([M|Mods]) ->
     do_unload(Mods);
 do_unload([]) ->
     ok.
-
-sub([H|T],L) -> sub(T,del(H,L));
-sub([],L)    -> L.
-    
-del(Item, [Item|T]) -> T;
-del(Item, [H|T])    -> [H|del(Item, T)];
-del(_Item, [])      -> [].
 
 %%% -------------------------------------------------
 %%% If the terminated Pid is one of the processes
