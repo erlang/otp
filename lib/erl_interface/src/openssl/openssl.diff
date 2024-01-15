@@ -46,7 +46,7 @@ diff -u original/crypto/md5/md5_local.h crypto/md5/md5_local.h
  #include <stdlib.h>
  #include <string.h>
 +#if defined(ERLANG_OPENSSL_INTEGRATION)
-+#include "openssl/md5.h"
++#include "openssl_local/md5.h"
 +#define md5_block_data_order MD5_BLOCK_DATA_ORDER_FUNCTION_NAME
 +#undef MD5_ASM
 +#else
@@ -116,7 +116,7 @@ diff -u original/include/crypto/md32_common.h include/crypto/md32_common.h
  # error "HASH_MAKE_STRING must be defined!"
 diff -u original/include/openssl/md5.h include/openssl/md5.h
 --- original/include/openssl/md5.h	2023-11-24 15:58:28.610171865 +0100
-+++ include/openssl/md5.h	2023-11-24 23:10:52.570854593 +0100
++++ include/openssl_local/md5.h	2023-11-24 23:10:52.570854593 +0100
 @@ -11,6 +11,15 @@
  # define OPENSSL_MD5_H
  # pragma once

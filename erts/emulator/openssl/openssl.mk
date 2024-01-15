@@ -50,4 +50,4 @@ $(OPENSSL_OBJDIR)/%.o: $(OPENSSL_DIR)/crypto/md5/%.c
 $(OPENSSL_OBJDIR)/md5_dgst.o: $(OPENSSL_DIR)/crypto/md5/md5_dgst.c \
 	$(OPENSSL_DIR)/crypto/md5/md5_local.h \
 	$(OPENSSL_DIR)/include/crypto/md32_common.h \
-	$(OPENSSL_DIR)/include/openssl/md5.h
+	$(OPENSSL_DIR)/include/openssl_local/md5.h

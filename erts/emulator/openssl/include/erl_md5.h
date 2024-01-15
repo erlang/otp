@@ -30,6 +30,6 @@
 #define MD5_TRANSFORM_FUNCTION_NAME             MD5Transform
 #define MD5_BLOCK_DATA_ORDER_FUNCTION_NAME      MD5BlockDataOrder
 
-#include "openssl/md5.h"
+#include "openssl_local/md5.h"
 
 #endif
