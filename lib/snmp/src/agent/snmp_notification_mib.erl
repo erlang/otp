@@ -95,9 +95,13 @@ configure(ConfDir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
