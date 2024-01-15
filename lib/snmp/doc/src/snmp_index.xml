@@ -289,18 +289,15 @@ get_next_pid(Oid, SnmpIndex) ->
 	overwrites the old value. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">key_to_oid(Index, Key) -> KeyOid</name>
+      <name name="key_to_oid" arity="2" clause_i="1" since=""/>
       <fsummary>Convert a key to an OBJECT IDENTIFIER</fsummary>
-      <type>
-        <v>Index = index()</v>
-        <v>Key = key()</v>
-        <v>KeyOid = NextKeyOid = oid()</v>
-      </type>
       <desc>
         <p>Converts <c>Key</c> to an OBJECT IDENTIFIER.</p>
       </desc>
     </func>
+
     <func>
       <name since="">new(KeyTypes) -> Index</name>
       <fsummary>Create a new snmp index structure</fsummary>

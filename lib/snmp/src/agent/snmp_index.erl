@@ -176,8 +176,14 @@ delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
     Tab.
 
 
+-spec key_to_oid(Index, Key) -> KeyOid when
+      Index  :: index(),
+      Key    :: key(),
+      KeyOid :: snmp:oid().
+
 key_to_oid(#tab{keys = KeyTypes}, Key) ->
     key_to_oid_i(Key, KeyTypes).
+
 
 to_list(Tuple) when is_tuple(Tuple) -> tuple_to_list(Tuple);
 to_list(X) -> [X].
