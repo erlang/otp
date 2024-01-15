@@ -142,13 +142,8 @@
     </func>
 
     <func>
-      <name since="">delete_notify(Key) -> Ret</name>
+      <name name="delete_notify" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one notify definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a notify definition from the agent config.</p>
       </desc>

@@ -193,6 +193,11 @@ add_notify(Name, Tag, Type) ->
 	    {error, Error}
     end.
 
+
+-spec delete_notify(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 delete_notify(Key) ->
     case table_del_row(snmpNotifyTable, Key) of
