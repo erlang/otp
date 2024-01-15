@@ -243,6 +243,7 @@ get_next_pid(Oid, SnmpIndex) ->
 	  See the <seeerl marker="#1">warning note</seeerl> above.</p>
       </desc>
     </func>
+
     <func>
       <name name="delete" arity="2" clause_i="1" since=""/>
       <fsummary>Delete an item from the index</fsummary>
@@ -251,19 +252,16 @@ get_next_pid(Oid, SnmpIndex) ->
 	Returns a new structure.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined</name>
+      <name name="get" arity="2" clause_i="1" since=""/>
       <fsummary>Get the item with <c>KeyOid</c></fsummary>
-      <type>
-        <v>Index = index()</v>
-        <v>KeyOid = oid()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>Gets the item with key <c>KeyOid</c>.  Could be used from
-          within an SNMP instrumentation function.</p>
+	within an SNMP instrumentation function.</p>
       </desc>
     </func>
+
     <func>
       <name since="">get_last(Index) -> {ok, {KeyOid, Value}} | undefined</name>
       <fsummary>Get the last item in the index structure</fsummary>

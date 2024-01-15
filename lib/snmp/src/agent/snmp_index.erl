@@ -96,6 +96,11 @@ do_new(KeyTypes, EtsName, EtsOpts) ->
     end.
 
 
+-spec get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined when
+      Index  :: index(),
+      KeyOid :: snmp:oid(),
+      Value  :: term().
+
 get(#tab{id = OrdSet}, KeyOid) ->
     ?vlog("get -> entry with"
 	  "~n   OrdSet: ~p"
