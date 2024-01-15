@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,11 +42,24 @@
 	 get_encoded_length/1,
 	 enc_value/2, dec_value/1]).
 
+-export_type([
+              message/0
+             ]).
+
+
+-type message() :: #message{}.
+
+
 %% -compile(export_all).
 
 %% Returns the number of octets required to encode Length.
 get_encoded_length(Length) ->
     length(elength(Length)).
+
+
+-spec dec_message(Bytes) -> Message when
+      Bytes   :: [byte()],
+      Message :: message().
 
 dec_message([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
