@@ -281,17 +281,12 @@ get_next_pid(Oid, SnmpIndex) ->
     </func>
 
     <func>
-      <name since="">insert(Index, Key, Value) -> NewIndex</name>
+      <name name="insert" arity="3" clause_i="1" since=""/>
       <fsummary>Insert an item into the index</fsummary>
-      <type>
-        <v>Index = NewIndex = index()</v>
-        <v>Key = key()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>Inserts a new key value tuple into the index structure.  If
-          an item with the same key already exists, the new <c>Value</c>
-          overwrites the old value.</p>
+	an item with the same key already exists, the new <c>Value</c>
+	overwrites the old value. </p>
       </desc>
     </func>
     <func>

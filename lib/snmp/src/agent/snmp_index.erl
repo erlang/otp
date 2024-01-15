@@ -135,7 +135,7 @@ get_last(#tab{id = OrdSet} = Index) ->
       KeyOid     :: snmp:oid(),
       NextKeyOid :: snmp:oid(),
       Value      :: term().
-      
+
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
@@ -147,6 +147,12 @@ get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
 	    get(Tab, Key)
     end.
 
+
+-spec insert(Index, Key, Value) -> NewIndex when
+      Index    :: index(),
+      Key      :: key(),
+      Value    :: term(),
+      NewIndex :: index().
 
 insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
