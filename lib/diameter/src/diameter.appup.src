@@ -70,7 +70,9 @@
   {"2.2.5",   [{restart_application, diameter}]},  %% 24.3
   {"2.2.6",   [{restart_application, diameter}]},  %% 25.0
   {"2.2.7",   [{restart_application, diameter}]},  %% 25.1
-  {"2.3",     [{restart_application, diameter}]}
+  {"2.3",     [{restart_application, diameter}]},
+  {"2.3.1",   [{restart_application, diameter}]},
+  {"2.4",     [{restart_application, diameter}]}
 ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -122,6 +124,8 @@
   {"2.2.5",   [{restart_application, diameter}]},
   {"2.2.6",   [{restart_application, diameter}]},
   {"2.2.7",   [{restart_application, diameter}]},
-  {"2.3",     [{restart_application, diameter}]}
+  {"2.3",     [{restart_application, diameter}]},
+  {"2.3.1",   [{restart_application, diameter}]},
+  {"2.4",     [{restart_application, diameter}]}
  ]
 }.
