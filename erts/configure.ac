@@ -390,7 +390,13 @@ AS_IF([test X"$with_spectre_mitigation" != X"no"],
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM([[]],[[return 0;]])],
         [AC_MSG_RESULT([yes])],
-        [AC_MSG_ERROR([no])])
+        [
+          CFLAGS="$CFLAGS -fcf-protection=none"
+          AC_COMPILE_IFELSE(
+            [AC_LANG_PROGRAM([[]],[[return 0;]])],
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_ERROR([no])])
+    ])
 
     AS_IF([test X"$with_spectre_mitigation" = X"incomplete"],
       [
