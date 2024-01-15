@@ -96,6 +96,7 @@ jobs:
           filters: |
               no-cache:
                   - '.github/**'
+                  - deleted: '**/*.h'
               deleted:
                   - deleted: '**'
               bootstrap:
