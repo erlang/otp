@@ -16,7 +16,7 @@ runs:
     using: composite
     steps:
       - name: Cleanup GH Runner
-        shell: bash -euxo pipefail {0}
+        shell: bash -euo pipefail {0}
         run: |
             ## Delete large files from runner to get more disk space
             ## See https://github.com/actions/runner-images/issues/2840
@@ -57,7 +57,7 @@ runs:
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
       - name: Build image
         if: inputs.BUILD_IMAGE == 'true'
-        shell: bash -euxo pipefail {0}
+        shell: bash -eo pipefail {0}
         run: |
           .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
           rm -f otp_{src,cache}.tar.gz
