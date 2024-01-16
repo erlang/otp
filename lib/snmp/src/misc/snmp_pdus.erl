@@ -45,14 +45,17 @@
 -export_type([
               message/0,
               trappdu/0,
-              pdu/0
+              pdu/0,
+              scoped_pdu/0,
+              usm_security_parameters/0
              ]).
 
 
--type message()    :: #message{}.
--type trappdu()    :: #trappdu{}.
--type pdu()        :: #pdu{}.
--type scoped_pdu() :: #scopedPdu{}.
+-type message()                 :: #message{}.
+-type trappdu()                 :: #trappdu{}.
+-type pdu()                     :: #pdu{}.
+-type scoped_pdu()              :: #scopedPdu{}.
+-type usm_security_parameters() :: #usmSecurityParameters{}.
 
 
 %% -compile(export_all).
@@ -264,6 +267,11 @@ dec_individual_VBs([48 | Bytes], OrgIndex, AccVBs) ->
 						      value = Value,
 						      org_index = OrgIndex}
 					     | AccVBs]).
+
+
+-spec dec_usm_security_parameters(Bytes) -> UsmSecParams when
+      Bytes        :: [byte()],
+      UsmSecParams :: usm_security_parameters().
 
 dec_usm_security_parameters([48 | Bytes1]) ->
     {_Len, Bytes2} = dec_len(Bytes1),

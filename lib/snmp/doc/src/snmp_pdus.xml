@@ -102,6 +102,17 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="usm_security_parameters"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -154,14 +165,12 @@
 	- if the scoped pdu was encrypted - to a list of bytes.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">dec_usm_security_parameters([byte()]) -> UsmSecParams</name>
+      <name name="dec_usm_security_parameters" arity="1" clause_i="1" since=""/>
       <fsummary>Decode SNMP UsmSecurityParameters</fsummary>
-      <type>
-        <v>UsmSecParams = #usmSecurityParameters</v>
-      </type>
       <desc>
-        <p>Decodes a list of bytes into an SNMP UsmSecurityParameters</p>
+        <p>Decodes a list of bytes into an SNMP UsmSecurityParameters. </p>
       </desc>
     </func>
     <func>
