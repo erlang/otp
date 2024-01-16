@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,11 @@
 	 handle_table_get/4, variable_inc/2,
 	 get_status_col/2, get_table_info/2, get_index_types/1]).
 
+-export_type([
+              column/0,
+              columns/0
+             ]).
+
 -include("STANDARD-MIB.hrl").
 -include("snmp_types.hrl").
 
@@ -48,6 +53,17 @@
 -endif.
 
 
+-type column()          :: pos_integer().
+-type columns()         :: [column()] | [{column(), Value :: term()}].
+-type table_info_item() :: nbr_of_cols |
+                           defvals |
+                           status_col |
+                           not_accessible |
+                           index_types |
+                           first_accessible |
+                           first_own_index.
+
+
 %%%-----------------------------------------------------------------
 %%% Generic functions for implementing software tables
 %%% and variables. 
@@ -57,25 +73,39 @@
 %%------------------------------------------------------------------
 %% Access functions to the database.
 %%------------------------------------------------------------------
+
+-spec variable_get(Name) -> {value, Value} | undefined when
+      Name  :: snmpa:name() | snmpa:name_db(),
+      Value :: term().
+
 variable_get({Name, mnesia}) ->
     snmp_generic_mnesia:variable_get(Name);
-variable_get(NameDb) ->                   % ret {value, Val} | undefined
-    snmpa_local_db:variable_get(NameDb).
+variable_get(Name) ->                   % ret {value, Val} | undefined
+    snmpa_local_db:variable_get(Name).
+
+
+-spec variable_set(Name, Value) -> boolean() when
+      Name  :: snmpa:name() | snmpa:name_db(),
+      Value :: term().
+
 variable_set({Name, mnesia}, Val) ->
     snmp_generic_mnesia:variable_set(Name, Val);
-variable_set(NameDb, Val) ->              % ret true
-    snmpa_local_db:variable_set(NameDb, Val).
+variable_set(Name, Val) ->              % ret true
+    snmpa_local_db:variable_set(Name, Val).
+
 
 variable_inc({Name, mnesia}, N) ->
     snmp_generic_mnesia:variable_inc(Name, N);
 variable_inc(NameDb, N) ->              % ret true
     snmpa_local_db:variable_inc(NameDb, N).
 
+
 %%-----------------------------------------------------------------
 %% Returns: {value, Val} | undefined
 %%
 %% snmpa_local_db overloads (for performance reasons? (mbj?))
 %%-----------------------------------------------------------------
+
 table_get_element({Name, volatile}, RowIndex, Col) ->
     snmpa_local_db:table_get_element({Name, volatile}, RowIndex, Col);
 table_get_element({Name, persistent}, RowIndex, Col) ->
@@ -88,10 +118,19 @@ table_get_element(NameDb, RowIndex, Col) ->
 	_ -> undefined
     end.
 
+
+-spec table_get_elements(NameDb, RowIndex, Cols) -> Values when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Cols     :: columns(),
+      Values   :: [noinit | Value],
+      Value    :: term().
+
 table_get_elements(NameDb, RowIndex, Cols) ->
     TableInfo = snmp_generic:table_info(NameDb),
     table_get_elements(NameDb, RowIndex, Cols,
 		       TableInfo#table_info.first_own_index).
+
 
 %%----------------------------------------------------------------------
 %% Returns: list of vals | undefined
@@ -150,33 +189,59 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 %%------------------------------------------------------------------
 %% This is the default function for variables.
 %%------------------------------------------------------------------
- 
-variable_func(new, NameDb) ->
-    case variable_get(NameDb) of
+
+-spec variable_func(Op :: new, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: ok | boolean();
+                   (Op :: delete, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: ok;
+                   (Op :: get, Name) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: {value, Value} | genErr,
+      Value  :: term().
+      
+variable_func(new, Name) ->
+    case variable_get(Name) of
 	{value, _} -> ok;
 	undefined ->
-	    #variable_info{defval = Defval} = variable_info(NameDb),
-	    variable_set(NameDb, Defval)
+	    #variable_info{defval = Defval} = variable_info(Name),
+	    variable_set(Name, Defval)
     end;
 
-variable_func(delete, _NameDb) ->
+variable_func(delete, _Name) ->
     ok;
 
-variable_func(get, NameDb) ->
-    case variable_get(NameDb) of
+variable_func(get, Name) ->
+    case variable_get(Name) of
 	{value, Val} -> {value, Val};
 	_ -> genErr
     end.
 
-variable_func(is_set_ok, _Val, _NameDb) ->
+
+-spec variable_func(Op :: is_set_ok, Value, Name) -> Result when
+      Value  :: term(),
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: noError;
+                   (Op :: set, Value, Name) -> Result when
+      Value  :: term(),
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: noError | commitFailed;
+                   (Op :: undo, Value, Name) -> Result when
+      Value  :: term(),
+      Name   :: snmpa:name() | snmpa:name_db(),
+      Result :: noError.
+
+variable_func(is_set_ok, _Val, _Name) ->
     noError;
-variable_func(set, Val, NameDb) ->
-    case variable_set(NameDb, Val) of
+variable_func(set, Val, Name) ->
+    case variable_set(Name, Val) of
 	true -> noError;
 	false -> commitFailed
     end;
-variable_func(undo, _Val, _NameDb) ->
+variable_func(undo, _Val, _Name) ->
     noError.
+
 
 %%------------------------------------------------------------------
 %% Tables
@@ -192,17 +257,32 @@ variable_func(undo, _Val, _NameDb) ->
 %%------------------------------------------------------------------
 %% Each database implements its own table_func
 %%------------------------------------------------------------------
+
+-spec table_func(Op, NameDb) -> Return when
+      Op     :: new | delete,
+      NameDb :: snmpa:name_db(),
+      Return :: term().
+
 table_func(Op, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, Name);
 
 table_func(Op, NameDb) ->
     snmpa_local_db:table_func(Op, NameDb).
 
+
+-spec table_func(Op, RowIndex, Cols, NameDb) -> Return when
+      Op       :: get | next | is_set_ok | set | undo,
+      RowIndex :: snmp:row_index(),
+      Cols     :: columns(),
+      NameDb   :: snmpa:name_db(),
+      Return   :: term().
+
 table_func(Op, RowIndex, Cols, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, RowIndex, Cols, Name);
 
 table_func(Op, RowIndex, Cols, NameDb) ->
     snmpa_local_db:table_func(Op, RowIndex, Cols, NameDb).
+
 
 %%----------------------------------------------------------------------
 %% DB independent.
@@ -221,8 +301,8 @@ validate_get([_Col | Cols], [Res | Ress]) ->
     NewVal = 
 	case Res of
 	    noinit -> {noValue, unSpecified};
-	    noacc -> {noAccess, unSpecified};
-	    Val -> {value, Val}
+	    noacc  -> {noAccess, unSpecified};
+	    Val    -> {value, Val}
 	end,
     [NewVal | validate_get(Cols, Ress)];
 validate_get([], []) -> [].
@@ -837,6 +917,12 @@ table_get_row(NameDb, RowIndex, _FOI) ->
 %% Used by user's instrum func to check if mstatus column is 
 %% modified.
 %%-----------------------------------------------------------------
+
+-spec get_status_col(Name, Cols) -> false | {value, StatusCol} when
+      Name      :: snmpa:name() | snmpa:name_db(),
+      Cols      :: columns(),
+      StatusCol :: term().
+
 get_status_col(Name, Cols) ->
     #table_info{status_col = StatusCol} = table_info(Name),
     case lists:keysearch(StatusCol, 1, Cols) of
@@ -851,6 +937,42 @@ get_status_col(Name, Cols) ->
 %% or all of it. If all is selected then the result will be a tagged
 %% list of values.
 %%-----------------------------------------------------------------
+
+-spec get_table_info(Name, Item :: nbr_of_cols) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: nbr_of_cols,
+      Result :: pos_integer();
+                    (Name, Item :: defvals) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: defvals,
+      Result :: [{Col, DefVal}],
+      Col    :: pos_integer(),
+      DefVal :: term();
+                    (Name, Item :: status_col) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: status_col,
+      Result :: pos_integer();
+                    (Name, Item :: not_accessible) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: not_accessible,
+      Result :: [pos_integer()];
+                    (Name, Item :: index_types) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: index_types,
+      Result :: [snmp:asn1_type()];
+                    (Name, Item :: first_accessible) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: first_accessible,
+      Result :: pos_integer();
+                    (Name, Item :: first_own_index) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: first_own_index,
+      Result :: non_neg_integer();
+                    (Name, Item :: all) -> Result when
+      Name   :: snmpa:name() | snmpa:name_db(),
+      %% Item   :: all,
+      Result :: [{table_info_item(), term()}].
+      
 get_table_info(Name, nbr_of_cols) ->
     get_nbr_of_cols(Name);
 get_table_info(Name, defvals) ->
@@ -880,6 +1002,11 @@ get_table_info(Name, all) ->
 %% Description:
 %% Used by user's instrum func to get the index types.
 %%-----------------------------------------------------------------
+
+-spec get_index_types(Name) -> IndexTypes when
+      Name       :: snmpa:name() | snmpa:name_db(),
+      IndexTypes :: [snmp:asn1_type()].
+
 get_index_types(Name) ->
     #table_info{index_types = IndexTypes} = table_info(Name),
     IndexTypes.

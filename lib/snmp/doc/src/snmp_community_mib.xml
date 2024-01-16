@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2020</year>
+      <year>1999</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,13 +43,62 @@
     <marker id="configure"></marker>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="index"/>
+      <desc>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="name"/>
+      <desc>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE(1..64))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="security_name"/>
+      <desc>
+	<p>
+	  <c><![CDATA[SnmpAdminString]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="context_name"/>
+      <desc>
+	<p>
+	  A human readable string.
+	</p>
+	<p>
+	  <c><![CDATA[SnmpAdminString]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transport_tag"/>
+      <desc>
+	<p>
+	  <c><![CDATA[SnmpTagValue]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+  
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>This function is called from the supervisor at system
           start-up.
@@ -77,51 +126,37 @@
     </func>
 
     <func>
-      <name since="">reconfigure(ConfDir) -> void()</name>
+      <name name="reconfigure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old data, including the rows with
-          StorageType <c>nonVolatile</c>.  The rows created from the
-          configuration file will have StorageType <c>nonVolatile</c>.
-          </p>
-        <p>Thus, the data in the SNMP-COMMUNITY-MIB, after this
-          function has been called, is from the configuration files.
-          </p>
-        <p>All <c>snmp</c> counters are set to zero.
-          </p>
-        <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error report 
-          module, and the function fails with reason 
-          <c>configuration_error</c>.
-          </p>
-        <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found.
-          </p>
-        <p>The configuration file read is: <c>community.conf</c>.</p>
+	database and destroys all old data, including the rows with
+	StorageType <c>nonVolatile</c>.  The rows created from the
+	configuration file will have StorageType <c>nonVolatile</c>. </p>
+
+	<p>Thus, the data in the SNMP-COMMUNITY-MIB, after this
+	function has been called, is from the configuration files. </p>
+
+	<p>All <c>snmp</c> counters are set to zero. </p>
+
+	<p>If an error is found in the configuration file, it is
+	reported using the function <c>config_err/2</c> of the error report 
+	module, and the function fails with reason 
+	<c>configuration_error</c>. </p>
+
+	<p><c>ConfDir</c> is a string which points to the directory
+	where the configuration files are found. </p>
+
+	<p>The configuration file read is: <c>community.conf</c>.</p>
 
         <marker id="add_community"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret</name>
-      <name since="OTP R14B03">add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
-      <fsummary>Added one community</fsummary>
-      <type>
-        <v>Idx = string()</v>
-        <v>CommName = string()</v>
-        <v>SecName = string()</v>
-	<v>EngineId = string()</v>
-        <v>CtxName = string()</v>
-        <v>TransportTag = string()</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-	<v>Reason = term()</v>
-      </type>
+      <name name="add_community" arity="5" clause_i="1" since=""/>
+      <name name="add_community" arity="6" clause_i="1" since="OTP R14B03"/>
+      <fsummary>Add one community</fsummary>
       <desc>
         <p>Adds a community to the agent config. 
 	Equivalent to one line in the <c>community.conf</c> file.</p>
@@ -132,13 +167,8 @@
     </func>
 
     <func>
-      <name since="">delete_community(Key) -> Ret</name>
+      <name name="delete_community" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one community</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a community from the agent config.</p>
       </desc>

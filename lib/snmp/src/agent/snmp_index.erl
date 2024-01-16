@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,13 @@
 	 get_last/1, 
 	 key_to_oid/2]).
 
+-export_type([
+              index/0,
+              key_types/0,
+              key_spec/0,
+              type_spec/0,
+              key/0
+             ]).
 
 -define(VMODULE,"IDX").
 -include("snmp_verbosity.hrl").
@@ -35,6 +42,12 @@
 -define(badarg(F, A), exit({badarg, {?MODULE, F, A}})).
 -define(bad_new(A),   ?badarg(new, A)).
 -define(bad_get(A),   ?badarg(get, A)).
+
+-opaque index()     :: #tab{}.
+-type   key_types() :: type_spec() | tuple().
+-type   key()       :: key_spec()  | tuple().
+-type   key_spec()  :: string() | integer().
+-type   type_spec() :: fix_string | string | integer.
 
 
 %%%-----------------------------------------------------------------
@@ -48,13 +61,23 @@
 %%-----------------------------------------------------------------
 %% Args: KeyTypes = key() | {key(), ...}
 %%       key() = integer | string | fix_string
-%% Returns: handle()
+%% Returns: index()
 %%-----------------------------------------------------------------
+
+-spec new(KeyTypes) -> Index when
+      KeyTypes :: key_types(),
+      Index    :: index().
 
 new(KeyTypes) ->
     ?vlog("new -> entry with"
 	  "~n   KeyTypes: ~p", [KeyTypes]),
     do_new(KeyTypes, ?MODULE, [public, ordered_set]).
+
+
+-spec new(KeyTypes, Name) -> Index when
+      KeyTypes :: key_types(),
+      Name     :: atom(),
+      Index    :: index().
 
 new(KeyTypes, Name) when is_atom(Name) ->
     ?vlog("new -> entry with"
@@ -83,6 +106,11 @@ do_new(KeyTypes, EtsName, EtsOpts) ->
     end.
 
 
+-spec get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined when
+      Index  :: index(),
+      KeyOid :: snmp:oid(),
+      Value  :: term().
+
 get(#tab{id = OrdSet}, KeyOid) ->
     ?vlog("get -> entry with"
 	  "~n   OrdSet: ~p"
@@ -96,6 +124,28 @@ get(#tab{id = OrdSet}, KeyOid) ->
 
       
 
+-spec get_last(Index) -> {ok, {KeyOid, Value}} | undefined when
+      Index  :: index(),
+      KeyOid :: snmp:oid(),
+      Value  :: term().
+      
+get_last(#tab{id = OrdSet} = Index) ->
+    ?vlog("get_last -> entry with"
+	  "~n   OrdSet: ~p", [OrdSet]),
+    case ets:last(OrdSet) of
+	'$end_of_table' ->
+	    undefined;
+	Key ->
+	    get(Index, Key)
+    end.
+
+
+-spec get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined when
+      Index      :: index(),
+      KeyOid     :: snmp:oid(),
+      NextKeyOid :: snmp:oid(),
+      Value      :: term().
+
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
@@ -107,29 +157,43 @@ get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
 	    get(Tab, Key)
     end.
 
-get_last(#tab{id = OrdSet} = Tab) ->
-    ?vlog("get_last -> entry with"
-	  "~n   Tab: ~p", [Tab]),
-    case ets:last(OrdSet) of
-	'$end_of_table' ->
-	    undefined;
-	Key ->
-	    get(Tab, Key)
-    end.
+
+-spec insert(Index, Key, Value) -> NewIndex when
+      Index    :: index(),
+      Key      :: key(),
+      Value    :: term(),
+      NewIndex :: index().
 
 insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
     Tab.
 
-delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
-    ets:delete(OrdSet, key_to_oid_i(Key, KeyTypes)),
-    Tab.
+
+-spec delete(Index) -> true when
+      Index :: index().
 
 delete(#tab{id = OrdSet}) ->
     ets:delete(OrdSet).
 
+
+-spec delete(Index, Key) -> NewIndex when
+      Index    :: index(),
+      Key      :: key(),
+      NewIndex :: index().
+
+delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
+    ets:delete(OrdSet, key_to_oid_i(Key, KeyTypes)),
+    Tab.
+
+
+-spec key_to_oid(Index, Key) -> KeyOid when
+      Index  :: index(),
+      Key    :: key(),
+      KeyOid :: snmp:oid().
+
 key_to_oid(#tab{keys = KeyTypes}, Key) ->
     key_to_oid_i(Key, KeyTypes).
+
 
 to_list(Tuple) when is_tuple(Tuple) -> tuple_to_list(Tuple);
 to_list(X) -> [X].

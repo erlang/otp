@@ -39,6 +39,7 @@
 	 int_to_enum/2, int_to_enum/3, 
 	 enum_to_int/2, enum_to_int/3,
 
+         name_db/1,
 	 info/0, info/1,
 	 load_mib/1, load_mib/2, 
 	 load_mibs/1, load_mibs/2, load_mibs/3, 
@@ -118,6 +119,12 @@
 -export_type([
               me/0,
 
+              table_name/0,
+              variable_name/0,
+              name/0,
+              db/0,
+              name_db/0,
+
               pdu_type/0,
 
 	      %% Agent config types
@@ -139,7 +146,7 @@
 %% Types
 %%-----------------------------------------------------------------
 
--type me() :: #me{}.
+-type me() :: snmp:me().
 
 %% Agent config types
 -type mib_storage() :: [mib_storage_opt()].
@@ -151,11 +158,25 @@
 %% Options specific to the above module
 -type mib_storage_options() :: list().
 
--type mib_module()    :: atom().
 -type table_name()    :: atom().
 -type variable_name() :: atom().
+-type name()          :: table_name() | variable_name().
+-type db()            :: volatile | persistent | mnesia.
+-type name_db()       :: {name(), db()}.
+-type mib_module()    :: atom().
 -type mib_info()      :: {mib_module(), [table_name()], [variable_name()]}.
 -type pdu_type()      :: snmp:pdu_type().
+
+
+%%-----------------------------------------------------------------
+
+-spec name_db(Name) -> NameDb when
+      Name   :: name(),
+      NameDb :: name_db().
+
+name_db(Name) ->
+    snmpa_agent:db(Name).
+
 
 %%-----------------------------------------------------------------
 %% This utility function is used to convert an old SNMP application

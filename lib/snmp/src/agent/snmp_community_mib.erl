@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,15 @@
 -export([add_community/5, add_community/6, delete_community/1]).
 -export([check_community/1]).
 
+-export_type([
+              index/0,
+              name/0,
+              security_name/0,
+              context_name/0,
+              transport_tag/0
+             ]).
+
+
 -include("snmpa_internal.hrl").
 -include("SNMP-COMMUNITY-MIB.hrl").
 -include("SNMP-TARGET-MIB.hrl").
@@ -42,6 +51,13 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
+
+-type index()         :: snmp_framework_mib:admin_string().
+-type name()          :: string().
+-type security_name() :: snmp_framework_mib:admin_string().
+-type context_name()  :: snmp_framework_mib:admin_string().
+-type transport_tag() :: snmp_target_mib:tag_value().
 
 
 %%%-----------------------------------------------------------------
@@ -61,7 +77,11 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpCommunityTable) of
         {_, mnesia} ->
@@ -74,9 +94,10 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vlog("community table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
@@ -89,9 +110,13 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -185,10 +210,31 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
+          {ok, Key} | {error, Reason} when
+      Idx          :: index(),
+      CommName     :: name(),
+      SecName      :: security_name(),
+      CtxName      :: context_name(),
+      TransportTag :: transport_tag(),
+      Key          :: term(),
+      Reason       :: term().
+
 %% FIXME: does not work with mnesia
 add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, CtxName, TransportTag},
     do_add_community(Community).
+
+-spec add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
+          {ok, Key} | {error, Reason} when
+      Idx          :: index(),
+      CommName     :: name(),
+      SecName      :: security_name(),
+      EngineId     :: snmp_framework_mib:engine_id(),
+      CtxName      :: context_name(),
+      TransportTag :: transport_tag(),
+      Key          :: term(),
+      Reason       :: term().
 
 add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, EngineId, CtxName, TransportTag},
@@ -211,6 +257,11 @@ do_add_community(Community) ->
 	C:E:S ->
 	    {error, {C, E, S}}
     end.
+
+
+-spec delete_community(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 %% FIXME: does not work with mnesia
 delete_community(Key) ->

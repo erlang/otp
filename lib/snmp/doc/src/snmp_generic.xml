@@ -94,6 +94,124 @@
     </pre>
   </description>
 
+
+  <datatypes>
+    <datatype>
+      <name name="column"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="columns"/>
+      <desc>
+	<p>
+	  Is a list of column numbers in the case of a get operation,
+	  and a list of column numbers and values in the case of a
+	  set operation.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="table_info_item"/>
+      <desc>
+	<p>For an ordinary table, the types will be the following: </p>
+        <taglist>
+          <tag><c><![CDATA[nbr_of_cols]]></c></tag>
+          <item>
+            <p>Number of columns.</p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+          </item>
+
+          <tag><c><![CDATA[defvals]]></c></tag>
+          <item>
+            <p>A list of default values, ordered by column.</p>
+	    <p>Value type:
+	    [{Col :: <seetype marker="erlang#pos_integer">pos_integer()</seetype>,
+	      DefVal :: <seetype marker="erlang#term">term()</seetype>}]</p>
+	  </item>
+
+          <tag><c><![CDATA[status_col]]></c></tag>
+          <item>
+            <p>Column number of the status column.</p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[not_accessible]]></c></tag>
+          <item>
+	    <p>A sorted list of columns (> first_accessible) that are
+	    'not-accessible'.</p>
+	    <p>Value type:
+	    [<seetype marker="erlang#pos_integer">pos_integer()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[index_types]]></c></tag>
+          <item>
+	    <p>A list of
+	    <seetype marker="snmp#asn1_type">asn1_type()</seetype>
+	    for the index columns, ordered by column number
+	    or an "augment"-tuple (see below). </p>
+	    <p>Value type:
+	    [<seetype marker="snmp#asn1_type">asn1_type()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[first_accessible]]></c></tag>
+          <item>
+	    <p>The first accessible column. </p>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[first_own_index]]></c></tag>
+          <item>
+	    <p>Column number of the first own index.
+	    Will be <c><![CDATA[0]]></c> if there is no such index
+	    for this table. </p>
+	    <p>Value type:
+	    <seetype marker="erlang#non_neg_integer">non_neg_integer()</seetype></p>
+	  </item>
+
+	</taglist>
+
+	<p>For a augmented table, it will instead look like this: </p>
+        <taglist>
+          <tag><c><![CDATA[index_types]]></c></tag>
+          <item>
+	    <p>Value type: {augments, {<seetype marker="erlang#atom">atom()</seetype>, <seetype marker="snmp#asn1_type">asn1_type()</seetype>}}</p>
+	  </item>
+
+          <tag><c><![CDATA[nbr_of_cols]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+          </item>
+
+	  <tag><c><![CDATA[not_accessible]]></c></tag>
+          <item>
+	    <p>Value type:
+	    [<seetype marker="erlang#pos_integer">pos_integer()</seetype>]</p>
+	  </item>
+
+          <tag><c><![CDATA[first_accessible]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="erlang#pos_integer">pos_integer()</seetype></p>
+	  </item>
+
+	</taglist>
+      </desc>
+    </datatype>
+
+  </datatypes>
+  
   <section>
     <marker id="data_types"></marker>
     <title>DATA TYPES</title>
@@ -127,55 +245,128 @@ value() = term()
 
   <funcs>
     <func>
-      <name since="">get_status_col(Name, Cols)</name>
-      <name since="">get_status_col(NameDb, Cols) -> {ok, StatusVal} | false</name>
+      <name name="get_status_col" arity="2" clause_i="1" since=""/>
       <fsummary>Get the value of the status column from <c>Cols</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-        <v>NameDb = name_db()</v>
-        <v>Cols = columns()</v>
-        <v>StatusVal = term()</v>
-      </type>
       <desc>
-        <p>Gets the value of the status column from <c>Cols</c>.
-          </p>
-        <p>This function can be used in instrumentation functions for
-          <c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
-          status column of a table is modified.</p>
+        <p>Gets the value of the status column from <c>Cols</c>. </p>
+
+	<p>This function can be used in instrumentation functions for
+	<c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
+	status column of a table is modified. </p>
 	  
 	  <marker id="get_index_types"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">get_index_types(Name)</name>
+      <name name="get_index_types" arity="1" clause_i="1" since=""/>
       <fsummary>Get the index types of <c>Name</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-      </type>
       <desc>
         <p>Gets the index types of <c>Name</c></p>
         <p>This function can be used in instrumentation functions to
 	retrieve the index types part of the table info.</p>
 	
 	<marker id="get_table_info"></marker>
+	<marker id="get_table_info_1"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R15B01">get_table_info(Name, Item) -> table_info_result()</name>
+      <name name="get_table_info" arity="2" clause_i="1" since="OTP R15B01"/>
       <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
-      <type>
-        <v>Name = name()</v>
-        <v>Item = table_item() | all</v>
-        <v>table_item() = nbr_of_cols | defvals | status_col | not_accessible | 
-	index_types | first_accessible | first_own_index</v>
-        <v>table_info_result() = Value | [{table_item(), Value}]</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
-        <p>Get a specific table info item or, if <c>Item</c> has the
-	value <c>all</c>, a two tuple list (property list) is instead 
+        <p>Get the specific table info item (nbr_of_cols). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="2" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (defvals). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_3"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="3" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (status_col). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_4"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="4" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (not_accessible). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_5"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="5" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (index_types). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_6"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="6" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (first_accessible). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_7"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="7" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+        <p>Get a specific table info item (first_own_index). </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="get_table_info_8"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_table_info" arity="2" clause_i="8" since="OTP R15B01"/>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <desc>
+	<p>Get all table info item(s), a two tuple list (property list) is
 	returned with all the items and their respctive values of the 
 	given table. </p>
 
@@ -183,30 +374,39 @@ value() = term()
 	retrieve a given part of the table info.</p>
 	
 	<marker id="table_func"></marker>
+	<marker id="table_func2"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">table_func(Op1, NameDb)</name>
-      <name since="">table_func(Op2, RowIndex, Cols, NameDb) -> Ret</name>
+      <name name="table_func" arity="2" clause_i="1" since=""/>
       <fsummary>Default instrumentation function for tables</fsummary>
-      <type>
-        <v>Op1 = new | delete </v>
-        <v>Op2 = get | next | is_set_ok | set | undo</v>
-        <v>NameDb = name_db()</v>
-        <v>RowIndex = row_index()</v>
-        <v>Cols = columns()</v>
-        <v>Ret = term()</v>
-      </type>
       <desc>
-        <p>This is the default instrumentation function for tables.
-          </p>
+        <p>This is the default instrumentation function for tables. </p>
         <list type="bulleted">
           <item>The <c>new</c> function creates the table if it does
            not exist, but only if the database is the SNMP internal db.</item>
           <item>The <c>delete</c> function does not delete the table
            from the database since unloading an MIB does not
            necessarily mean that the table should be destroyed.</item>
+        </list>
+        <p>If it is possible for a manager to create or delete rows in
+	the table, there must be a <c>RowStatus</c> column for
+	<c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly.
+	</p>
+        <p>The function returns according to the specification of an
+	instrumentation function. </p>
+	
+	<marker id="table_func4"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="table_func" arity="4" clause_i="1" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for tables. </p>
+        <list type="bulleted">
           <item>The <c>is_set_ok</c> function checks that a row which
            is to be modified or deleted exists, and that a row which
            is to be created does not exist.</item>
@@ -220,29 +420,21 @@ value() = term()
            handled within a transaction.</item>
         </list>
         <p>If it is possible for a manager to create or delete rows in
-          the table, there must be a <c>RowStatus</c> column for
-          <c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly.
-          </p>
+	the table, there must be a <c>RowStatus</c> column for
+	<c>is_set_ok</c>, <c>set</c> and <c>undo</c> to work properly. </p>
         <p>The function returns according to the specification of an
-          instrumentation function.
-          </p>
+	instrumentation function. </p>
 	
 	<marker id="table_get_elements"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">table_get_elements(NameDb, RowIndex, Cols) -> Values</name>
+      <name name="table_get_elements" arity="3" clause_i="1" since=""/>
       <fsummary>Get elements in a table row</fsummary>
-      <type>
-        <v>NameDb = name_db()</v>
-        <v>RowIndex = row_index()</v>
-        <v>Cols = columns()</v>
-        <v>Values = [value() | noinit]</v>
-      </type>
       <desc>
         <p>Returns a list with values for all columns in <c>Cols</c>.
-          If a column is undefined, its value is <c>noinit</c>.</p>
+	If a column is undefined, its value is <c>noinit</c>. </p>
 	
 	<marker id="table_next"></marker>
       </desc>
@@ -296,41 +488,100 @@ value() = term()
           (<c>mnesia:transaction/1</c> or <c>mnesia:dirty/1</c>).</p>
 	
 	<marker id="variable_func"></marker>
+	<marker id="variable_func2"></marker>
+	<marker id="variable_func21"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">variable_func(Op1, NameDb)</name>
-      <name since="">variable_func(Op2, Val, NameDb) -> Ret</name>
+      <name name="variable_func" arity="2" clause_i="1" since=""/>
       <fsummary>Default instrumentation function for tables</fsummary>
-      <type>
-        <v>Op1 = new | delete | get</v>
-        <v>Op2 = is_set_ok | set | undo</v>
-        <v>NameDb = name_db()</v>
-        <v>Val = value()</v>
-        <v>Ret = term()</v>
-      </type>
       <desc>
         <p>This is the default instrumentation function for variables.</p>
-        <p>The <c>new</c> function creates a new variable in the
-          database with a default value as defined in the MIB, or a zero
-          value (depending on the type).  </p>
-        <p>The <c>delete</c> function does not delete the variable from 
-          the database. </p>
-        <p>The function returns according to the specification of an 
-          instrumentation function. </p>
+
+	<p>The <c>new</c> function creates a new variable in the
+	database with a default value as defined in the MIB, or a zero
+	value (depending on the type).  </p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func22"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="2" clause_i="2" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The <c>delete</c> function does not delete the variable from 
+	the database. </p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func23"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="2" clause_i="3" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func3"></marker>
+	<marker id="variable_func31"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="1" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func32"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="2" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
+	
+	<marker id="variable_func33"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="variable_func" arity="3" clause_i="3" since=""/>
+      <fsummary>Default instrumentation function for tables</fsummary>
+      <desc>
+        <p>This is the default instrumentation function for variables.</p>
+
+	<p>The function returns according to the specification of an 
+	instrumentation function. </p>
 	
 	<marker id="variable_get"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">variable_get(NameDb) -> {value, Value} | undefined</name>
+      <name name="variable_get" arity="1" clause_i="1" since=""/>
       <fsummary>Get the value of a variable</fsummary>
-      <type>
-        <v>NameDb = name_db()</v>
-        <v>Value = value()</v>
-      </type>
       <desc>
         <p>Gets the value of a variable.</p>
 	
@@ -339,18 +590,14 @@ value() = term()
     </func>
 
     <func>
-      <name since="">variable_set(NameDb, NewVal) -> true | false</name>
+      <name name="variable_set" arity="2" clause_i="1" since=""/>
       <fsummary>Set a value for a variable</fsummary>
-      <type>
-        <v>NameDb = name_db()</v>
-        <v>NewVal = value()</v>
-      </type>
       <desc>
         <p>Sets a new value to a variable.  The variable is created if
-          it does not exist.  No checks are made on the type of the
-          new value.  </p>
+	it does not exist.  No checks are made on the type of the
+	new value.  </p>
         <p>Returns <c>false</c> if the <c>NameDb</c> argument
-          is incorrectly specified, otherwise <c>true</c>.</p>
+	is incorrectly specified, otherwise <c>true</c>. </p>
       </desc>
     </func>
   </funcs>

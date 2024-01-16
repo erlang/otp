@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,12 @@
 -export([add_notify/3, delete_notify/1]).
 -export([check_notify/1]).
 
+-export_type([
+              notify_name/0,
+              notify_tag/0,
+              notify_type/0
+             ]).
+
 -include("snmpa_internal.hrl").
 -include("SNMP-NOTIFICATION-MIB.hrl").
 -include("SNMPv2-TC.hrl").
@@ -41,6 +47,11 @@
 -endif.
 
 
+-type notify_name() :: snmp_framework_mib:admin_string().
+-type notify_tag()  :: snmp_target_mib:tag_value().
+-type notify_type() :: trap | inform.
+
+
 %%-----------------------------------------------------------------
 %% Func: configure/1
 %% Args: Dir is the directory where the configuration files are found.
@@ -52,7 +63,11 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpNotifyTable) of
         {_, mnesia} ->
@@ -65,7 +80,7 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vlog("notification table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
 
@@ -80,9 +95,13 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -153,6 +172,13 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_notify(Name, Tag, Type) -> {ok, Key} | {error, Reason} when
+      Name   :: notify_name(),
+      Tag    :: notify_tag(),
+      Type   :: notify_type(),
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 add_notify(Name, Tag, Type) ->
     Notif = {Name, Tag, Type},
@@ -170,6 +196,11 @@ add_notify(Name, Tag, Type) ->
 	Error ->
 	    {error, Error}
     end.
+
+
+-spec delete_notify(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 %% FIXME: does not work with mnesia
 delete_notify(Key) ->

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,11 +42,34 @@
 	 get_encoded_length/1,
 	 enc_value/2, dec_value/1]).
 
-%% -compile(export_all).
+-export_type([
+              message/0,
+              trappdu/0,
+              pdu/0,
+              scoped_pdu/0,
+              usm_security_parameters/0
+             ]).
+
+
+%%-----------------------------------------------------------------
+
+-type message()                 :: #message{}.
+-type trappdu()                 :: #trappdu{}.
+-type pdu()                     :: #pdu{}.
+-type scoped_pdu()              :: #scopedPdu{}.
+-type usm_security_parameters() :: #usmSecurityParameters{}.
+
+
+%%-----------------------------------------------------------------
 
 %% Returns the number of octets required to encode Length.
 get_encoded_length(Length) ->
     length(elength(Length)).
+
+
+-spec dec_message(Bytes) -> Message when
+      Bytes   :: [byte()],
+      Message :: message().
 
 dec_message([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
@@ -56,6 +79,11 @@ dec_message([48 | Bytes]) ->
 	{Vsn, Rest} -> % 1 or 2
 	    dec_rest_v1_v2_msg(Vsn, Rest)
     end.
+
+
+-spec dec_message_only(Bytes) -> Message when
+      Bytes   :: [byte()],
+      Message :: message().
 
 dec_message_only([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
@@ -133,6 +161,12 @@ dec_rest_v3_msg(Bytes) ->
     Data = Message#message.data,
     Message#message{data = dec_scoped_pdu_data(Data)}.
 
+
+-spec dec_scoped_pdu_data(Bytes) -> ScopedPduData when
+      Bytes         :: [byte()],
+      ScopedPduData :: scoped_pdu() | EncryptedPDU,
+      EncryptedPDU  :: [byte()].
+
 dec_scoped_pdu_data([48 | Bytes]) -> % plaintext
     {ScopedPdu, []} = dec_scoped_pdu_notag(Bytes),
     ScopedPdu;
@@ -140,7 +174,11 @@ dec_scoped_pdu_data([4 | Bytes]) -> % encryptedPDU
     {EncryptedPDU, []} = dec_oct_str_notag(Bytes),
     EncryptedPDU.
 
-    
+
+-spec dec_scoped_pdu(Bytes) -> ScopedPDU when
+      Bytes     :: [byte()],
+      ScopedPDU :: scoped_pdu().
+
 dec_scoped_pdu([48 | Bytes]) ->
     element(1, dec_scoped_pdu_notag(Bytes)).
 
@@ -171,6 +209,10 @@ dec_pdu_tag(167) ->
 dec_pdu_tag(168) ->
     report.
 
+
+-spec dec_pdu(Bytes) -> Pdu when
+      Bytes :: [byte()],
+      Pdu   :: trappdu() | pdu().
 
 dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
@@ -227,6 +269,11 @@ dec_individual_VBs([48 | Bytes], OrgIndex, AccVBs) ->
 						      value = Value,
 						      org_index = OrgIndex}
 					     | AccVBs]).
+
+
+-spec dec_usm_security_parameters(Bytes) -> UsmSecParams when
+      Bytes        :: [byte()],
+      UsmSecParams :: usm_security_parameters().
 
 dec_usm_security_parameters([48 | Bytes1]) ->
     {_Len, Bytes2} = dec_len(Bytes1),
@@ -489,11 +536,13 @@ dec_integer_len([A,B,C]) ->
 dec_integer_len([0 | T]) ->
     dec_integer_len(T).
 
+
 %%-----------------------------------------------------------------
 %% head(N, List) -> {List1, List2}
 %%   List == List1 ++ List2
 %%   length(List1) == N
 %%-----------------------------------------------------------------
+
 head(L,List) ->
     head(L,List,[]).
 
@@ -505,9 +554,14 @@ head(Int,[H|Tail],Res) ->
 head(Int, [], _Res) ->
     exit({asn1_error, {bad_length, Int}}).
 
+
 %%%----------------------------------------------------------------------
 %%% ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING 
 %%%----------------------------------------------------------------------
+
+-spec enc_message(Message) -> Bytes when
+      Message :: message(),
+      Bytes   :: [byte()].
 
 enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     VerBytes = enc_version(Ver),
@@ -525,6 +579,11 @@ enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     Bytes2 = VerBytes ++ Bytes,
     Len = elength(length(Bytes2)),
     [48 | Len] ++ Bytes2.
+
+
+-spec enc_message_only(Message) -> Bytes when
+      Message :: message(),
+      Bytes   :: [byte()].
 
 enc_message_only(#message{version = Ver, vsn_hdr = VsnHdr, data = DataBytes}) ->
     VerBytes = enc_version(Ver),
@@ -562,7 +621,12 @@ enc_v3_header(#v3_hdr{msgID = MsgID,
 			  enc_integer_tag(MsgSecurityModel)]),
     Len = elength(length(Bytes)),
     lists:append([[48 | Len], Bytes, enc_oct_str_tag(MsgSecurityParameters)]).
-    
+
+
+-spec enc_scoped_pdu(ScopedPdu) -> Bytes when
+      ScopedPdu :: scoped_pdu(),
+      Bytes     :: [byte()].
+
 enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
 			  contextName = ContextName,
 			  data = Data}) ->
@@ -572,6 +636,10 @@ enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
     Len = elength(length(Bytes)),
     [48 | Len] ++ Bytes.
 
+
+-spec enc_pdu(Pdu) -> Bytes when
+      Pdu   :: pdu(),
+      Bytes :: [byte()].
 
 enc_pdu(PDU) when PDU#pdu.type =:= 'get-request' ->
     enc_pdu(160, PDU);
@@ -606,6 +674,11 @@ enc_pdu2(#pdu{type = Type, request_id = ReqId, error_index = ErrIndex,
     ErrIndexBytes = enc_integer_tag(ErrIndex),
     VBsBytes = enc_VarBindList(VBs),
     lists:append([ReqBytes, ErrStatBytes, ErrIndexBytes, VBsBytes]).
+
+
+-spec enc_usm_security_parameters(UsmSecParams) -> Bytes when
+      UsmSecParams :: usm_security_parameters(),
+      Bytes        :: [byte()].
 
 enc_usm_security_parameters(
   #usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,

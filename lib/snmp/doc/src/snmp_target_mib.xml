@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2020</year>
+      <year>1998</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -47,6 +47,23 @@
     <marker id="types"></marker>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="tag_value"/>
+      <desc>
+	<note>
+	  <p>"An octet string containing a tag value.
+	  Tag values are preferably in human-readable form."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
+  
   <section>
     <title>DATA TYPES</title>
     <p>See the <seeerl marker="snmpa_conf#types">

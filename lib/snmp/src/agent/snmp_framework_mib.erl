@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,8 +25,19 @@
 -define(VMODULE,"FRAMEWORK-MIB").
 -include("snmp_verbosity.hrl").
 
+
 -ifndef(default_verbosity).
--define(default_verbosity,silence).
+-define(default_verbosity, silence).
+-endif.
+
+
+-ifndef(version).
+%% This crap is hopefully temporary!
+%% It is because our current doc build
+%% script (specs file generation) has
+%% no way to pass this value in as the
+%% normal compilation (erlc) does.
+-define(version, "99.99").
 -endif.
 
 
@@ -56,6 +67,15 @@
 -export([add_context/1, delete_context/1]).
 -export([check_agent/2, check_context/1, order_agent/2]).
 
+-export_type([
+              admin_string/0,
+              engine_id/0
+             ]).
+
+
+-type admin_string() :: string().
+-type engine_id()    :: string().
+
 
 %%-----------------------------------------------------------------
 %% Func: init/0
@@ -64,6 +84,9 @@
 %%          Note that this function won't destroy any old values.
 %%          This function should be called only once.
 %%-----------------------------------------------------------------
+
+-spec init() -> snmp:void().
+
 init() ->
     maybe_create_table(intContextTable),
     init_engine().
@@ -82,13 +105,17 @@ init() ->
 %% Fails: exit(configuration_error)
 %% PRE: init/1 has been successfully called
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case snmpa_agent:get_agent_mib_storage() of
         mnesia ->
             ok;
         _ ->
-	    case (catch do_configure(Dir)) of
+	    case (catch do_configure(ConfDir)) of
 		ok ->
 		    ok;
 		{error, Reason} ->
@@ -444,6 +471,11 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_context(Ctx) -> {ok, Key} | {error, Reason} when
+      Ctx    :: string(),
+      Key    :: term(),
+      Reason :: term().
+
 %% FIXME: does not work with mnesia
 add_context(Ctx) ->
     case (catch check_context(Ctx)) of
@@ -461,6 +493,11 @@ add_context(Ctx) ->
 	Error ->
 	    {error, Error}
     end.
+
+
+-spec delete_context(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 %% FIXME: does not work with mnesia
 delete_context(Key) ->
