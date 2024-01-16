@@ -181,18 +181,16 @@
         <p>Encodes a message record to a list of bytes.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">enc_message_only(Message) -> [byte()]</name>
+      <name name="enc_message_only" arity="1" clause_i="1" since=""/>
       <fsummary>Encode an SNMP Message, but not the data part</fsummary>
-      <type>
-        <v>Message = #message</v>
-      </type>
       <desc>
         <p><c>Message</c> is a record where the <c>data</c> field is
-          assumed to be encoded (a list of bytes).  If there is a v1 or v2
-          message, the <c>data</c> field is an encoded <c>PDU</c>, and if
-          there is a v3 message, <c>data</c> is an encoded and possibly
-          encrypted <c>scopedPDU</c>.</p>
+	assumed to be encoded (a list of bytes).  If there is a v1 or v2
+	message, the <c>data</c> field is an encoded <c>PDU</c>, and if
+	there is a v3 message, <c>data</c> is an encoded and possibly
+	encrypted <c>scopedPDU</c>. </p>
       </desc>
     </func>
     <func>

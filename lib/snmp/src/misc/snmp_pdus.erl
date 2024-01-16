@@ -578,6 +578,11 @@ enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     Len = elength(length(Bytes2)),
     [48 | Len] ++ Bytes2.
 
+
+-spec enc_message_only(Message) -> Bytes when
+      Message :: message(),
+      Bytes   :: [byte()].
+
 enc_message_only(#message{version = Ver, vsn_hdr = VsnHdr, data = DataBytes}) ->
     VerBytes = enc_version(Ver),
     Bytes = 
