@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,8 +67,11 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+# If TOP_SPECS_FILE is defined but SPECS_FILES is not, then set SPECS_FILES.
 ifneq ($(TOP_SPECS_FILE),)
+ifeq ($(SPECS_FILES),)
 SPECS_FILES = $(XML_ALL_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+endif
 endif
 
 ifneq ($(strip $(CHUNKSDIR)),)
@@ -133,7 +136,19 @@ info:
 	@echo "XML_REF7_FILES:        $(XML_REF7_FILES)"
 	@echo "XML_PART_FILES:        $(XML_PART_FILES)"
 	@echo "XML_CHAPTER_FILES:     $(XML_CHAPTER_FILES)"
+	@echo "HTML_REF_MAN_FILE:     $(HTML_REF_MAN_FILE)"
+	@echo "MAN1_FILES:            $(MAN1_FILES)"
+	@echo "MAN2_FILES:            $(MAN2_FILES)"
+	@echo "MAN3_FILES:            $(MAN3_FILES)"
+	@echo "MAN4_FILES:            $(MAN4_FILES)"
+	@echo "MAN5_FILES:            $(MAN5_FILES)"
+	@echo "MAN6_FILES:            $(MAN6_FILES)"
+	@echo "MAN7_FILES:            $(MAN7_FILES)"
 	@echo "BOOK_FILES:            $(BOOK_FILES)"
+	@echo "TOP_SPECS_FILE:        $(TOP_SPECS_FILE)"
+	@echo "ERL_CHUNK_FILES:       $(ERL_CHUNK_FILES)"
+	@echo "NO_CHUNKS:             $(NO_CHUNKS)"
+	@echo "SPECS_FILES:           $(SPECS_FILES)"
 
 $(TYPES):
 

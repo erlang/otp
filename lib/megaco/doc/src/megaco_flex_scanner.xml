@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2020</year>
+      <year>2001</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -57,51 +57,47 @@
 
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+  <datatypes>
+    <datatype>
+      <name name="megaco_ports"/>
+      <desc>
+	<p>
+	  Return value of a successful (flex) scanner start.
+	</p>
 
-megaco_ports() = term()
-megaco_version() = integer() >= 1
- 
-    ]]></code>
-
-    <marker id="start"></marker>
-  </section>
-
+	<marker id="start"></marker>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
-      <name since="">start() -> {ok, PortOrPorts} | {error, Reason}</name>
+      <name name="start" arity="0" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>PortOrPorts = megaco_ports()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>This function is used to start the flex scanner. 
-          It locates the library and loads the linked in driver.</p>
+	It locates the library and loads the linked in driver.</p>
 
-        <p>On a single core system or if it's a non-reentrant scanner,
-          a single port is created. On a multi-core system with a reentrant 
-          scanner, several ports will be created (one for each scheduler). </p>
+	<p>On a single core system or if it's a non-reentrant
+	scanner, a single port is created. On a multi-core
+	system with a reentrant scanner, several ports will
+	be created (one for each scheduler). </p>
 
-        <p>Note that the process that calls this function <em>must</em> 
-          be permanent. If it dies, the port(s) will exit and the driver unload.</p>
+	<p>Note that the process that calls this function
+	<em>must</em> be permanent.
+	If it dies, the port(s) will exit and the driver
+	unload.</p>
 
         <marker id="stop"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">stop(PortOrPorts) -> stopped</name>
+      <name name="stop" arity="1" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>PortOrPorts = megaco_ports()</v>
-      </type>
       <desc>
         <p>This function is used to stop the flex scanner. It also
-          unloads the driver.</p>
+	unloads the driver.</p>
 
         <marker id="is_reentrant_enabled"></marker>
       </desc>
@@ -121,13 +117,18 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
+      <name name="is_scanner_port" arity="2" clause_i="1" since=""/>
+      <!--
       <name since="">is_scanner_port(Port, PortOrPorts) -> Boolean</name>
+      -->
       <fsummary></fsummary>
+      <!--
       <type>
         <v>Port = port()</v>
         <v>PortOrPorts = megaco_ports()</v>
         <v>Boolean = boolean()</v>
       </type>
+      -->
       <desc>
         <p>Checks if a port is a flex scanner port or not (useful when
           if a port exits). </p>
@@ -137,18 +138,11 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name since="">scan(Binary, PortOrPorts) -> {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine} </name>
+      <name name="scan" arity="2" clause_i="1" since=""/>
       <fsummary></fsummary>
-      <type>
-        <v>Binary = binary()</v>
-        <v>PortOrPorts = megaco_ports()</v>
-        <v>Tokens = list()</v>
-        <v>Version = megaco_version()</v>
-        <v>LatestLine = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Scans a megaco message and generates a token list to be passed on the parser. </p>
+	<p>Scans a megaco message and generates a token list to
+	be passed on the parser. </p>
       </desc>
     </func>
 

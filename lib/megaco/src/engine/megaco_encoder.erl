@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,22 @@
 -module(megaco_encoder).
 
 -export_type([
+              octet/0,
+              octet_string/0,
+              alpha/0,
+              digit/0
+             ]).
+
+-export_type([
+              ip4Address/0,
+              ip6Address/0,
+              domainName/0,
+              deviceName/0,
+              pathName/0,
+              mtpAddress/0
+             ]).
+
+-export_type([
               protocol_version/0,
               segment_no/0,
               megaco_message/0,
@@ -45,8 +61,33 @@
 
 -include("megaco_message_internal.hrl").
 
--type protocol_version() :: integer().
--type segment_no()       :: integer().
+
+-type octet()        :: 16#00..16#FF.                % 0..255
+-type octet_string() :: [octet()].
+-type alpha()        :: 16#41..16#5A | 16#61..16#7A. % A..Z | a..z
+-type digit()        :: 16#30..16#39.                % 0..9
+
+-type ip4Address() :: #'IP4Address'{}.
+-type ip6Address() :: #'IP6Address'{}.
+-type domainName() :: #'DomainName'{}.
+-type deviceName() :: pathName().
+%% ia5String(1..64)
+%% Total length of pathNAME must not exceed 64 chars. 
+%% pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" )  
+%%            ["@" pathDomainName ] 
+%%
+%% ABNF allows two or more consecutive "." although it is meaningless  
+%% in a path domain name.  
+%% pathDomainName = (ALPHA / DIGIT / "*" )  
+%%                  *63(ALPHA / DIGIT / "-" / "*" / ".") 
+%%
+%% NAME = ALPHA *63(ALPHA / DIGIT / "_" ) 
+-type pathName()   :: [$* | alpha() | digit() | $_ | $/ | $$ | $@ | $- | $.].
+-type mtpAddress() :: octet_string(). % octet_string(2..4).
+
+-type protocol_version() :: pos_integer().
+-type segment_no()       :: 0..65535.
+
 -type megaco_message() :: #'MegacoMessage'{}.
 -type transaction()    :: {transactionRequest,     transaction_request()}      |
                           {transactionPending,     transaction_reply()}        |

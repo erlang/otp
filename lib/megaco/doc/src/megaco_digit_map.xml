@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2024</year><year>2024</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_digit_map</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2024-01-02</date>
+    <rev>%VSN%</rev>
+    <file>megaco_digit_map.xml</file>
+  </header>
+  <module since="">megaco_digit_map</module>
+  <modulesummary>Digit Map utility module.</modulesummary>
+  <description>
+    <p>This is a Digit Map utility module (types).</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="value"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="kind"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="event"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="letter"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$0..$9 | $a..$k | $A..$K]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pause"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="one_second"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$s | $S]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ten_seconds"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$l | $L]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="cancel"/>
+      <desc>
+	<p>
+	  <c><![CDATA[$z | $Z | cancel]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+  
+</erlref>
+

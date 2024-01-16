@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2021. All Rights Reserved.
+# Copyright Ericsson AB 2001-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,15 @@ XML_REF3_FILES = \
 	megaco_codec_mstone1.xml \
 	megaco_codec_mstone2.xml \
 	megaco_codec_transform.xml \
+	megaco_digit_map.xml \
 	megaco_edist_compress.xml \
 	megaco_encoder.xml \
 	megaco_flex_scanner.xml \
 	megaco_user.xml \
 	megaco_tcp.xml \
 	megaco_transport.xml \
-	megaco_udp.xml
+	megaco_udp.xml \
+	megaco_sdp.xml
 
 XML_PART_FILES =       \
 	part.xml

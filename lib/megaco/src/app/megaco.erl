@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,10 +99,157 @@
         ]).
 
 -export_type([
-              void/0
+              void/0,
+
+              mid/0,
+              receive_handle/0,
+              conn_handle/0,
+              action_request/0,
+              action_reply/0,
+              error_desc/0,
+              transaction_reply/0,
+              protocol_version/0,
+
+              digit_map_value/0,
+              digit_map_kind/0,
+              digit_map_event/0,
+              digit_map_letter/0,
+
+              property_parm/0,
+              property_group/0,
+              property_groups/0,
+              sdp/0,
+
+              trace_level/0
              ]).
 
 -type void() :: term().
+
+-type mid()               :: megaco_encoder:ip4Address() |
+                             megaco_encoder:ip6Address() |
+                             megaco_encoder:domainName() |
+                             megaco_encoder:deviceName() |
+                             megaco_encoder:mtpAddress().
+-type megaco_message()    :: megaco_encoder:megaco_message().
+-type action_request()    :: megaco_encoder:action_request().
+-type action_reply()      :: megaco_encoder:action_reply().
+-type error_desc()        :: megaco_encoder:error_desc().
+-type transaction_reply() :: megaco_encoder:transaction_reply().
+-type protocol_version()  :: megaco_encoder:protocol_version().
+-type segment_no()        :: megaco_encoder:segment_no().
+-type receive_handle()    :: megaco_user:receive_handle().
+-type conn_handle()       :: megaco_user:conn_handle().
+-type megaco_timer()      :: megaco_user:megaco_timer().
+-type transaction_id()    :: pos_integer().
+
+-type action_reqs()    :: binary() | [action_request()].
+-type action_reps()    :: [action_reply()].
+-type conn_info_item() :: control_pid |
+                          send_handle |
+                          local_mid   |
+                          remote_mid  |
+                          receive_handle |
+                          trans_id       |
+                          max_trans_id   |
+                          request_timer  |
+                          long_request_timer         |
+                          request_keep_alive_timeout |
+                          long_request_resend        |
+                          reply_timer           |
+                          call_proxy_gc_timeout |
+                          auto_ack  |
+                          trans_ack |
+                          trans_ack_maxcount |
+                          trans_req          |
+                          trans_req_maxcount |
+                          trans_req_maxsize  |
+                          trans_timer        |
+                          pending_timer      |
+                          sent_pending_limit |
+                          recv_pending_limit |
+                          send_mod           |
+                          encoding_mod       |
+                          encoding_config    |
+                          protocol_version   |
+                          strict_version     |
+                          reply_data         |
+                          threaded           |
+                          resend_indication  |
+                          segment_reply_ind  |
+                          segment_recv_timer |
+                          segment_send       |
+                          max_pdu_size.
+-type user_info_item() :: connections    |
+                          receive_handle |
+                          trans_id       |
+                          min_trans_id   |
+                          max_trans_id   |
+                          request_timer  |
+                          long_request_timer  |
+                          long_request_resend |
+                          reply_timer    |
+                          request_keep_alive_timeout |
+                          call_proxy_gc_timeout      |
+                          auto_ack           |
+                          trans_ack          |
+                          trans_ack_maxcount |
+                          trans_req          |
+                          trans_req_maxcount |
+                          trans_req_maxsize  |
+                          trans_timer        |
+                          pending_timer      |
+                          sent_pending_limit |
+                          recv_pending_limit |
+                          send_mod           |
+                          encoding_mod       |
+                          encoding_config    |
+                          protocol_version   |
+                          strict_version     |
+                          reply_data         |
+                          user_mod           |
+                          user_args          |
+                          threaded           |
+                          resend_indication  |
+                          segment_reply_ind  |
+                          segment_recv_timer | 
+                          segment_send       |
+                          max_pdu_size.
+
+-type send_handle()          :: term().
+
+-type digit_map_value()      :: megaco_digit_map:value().
+-type digit_map_kind()       :: megaco_digit_map:kind().
+-type digit_map_event()      :: megaco_digit_map:event().
+-type digit_map_letter()     :: megaco_digit_map:letter().
+
+
+-type property_parm()       :: megaco_sdp:property_parm().
+-type property_group()      :: megaco_sdp:property_group().
+-type property_groups()     :: megaco_sdp:property_groups().
+-type sdp()                 :: megaco_sdp:sdp().
+-type sdp_property_parm()   :: megaco_sdp:sdp_property_parm().
+-type sdp_property_group()  :: megaco_sdp:sdp_property_group().
+-type sdp_property_groups() :: megaco_sdp:sdp_property_groups().
+
+-type trace_level()       :: min | max | 0..100.
+-type trace_event()       :: term().
+-type trace_data()        :: term().
+-type trace_handler()     :: fun((trace_event(), trace_data()) -> trace_data()).
+
+-type global_counter() :: medGwyGatewayNumErrors.
+-type counter()        :: medGwyGatewayNumTimerRecovery |
+                          medGwyGatewayNumErrors.
+-type counter_value()  :: non_neg_integer().
+
+-type system_info_item() :: text_config          |
+                            connections          |
+                            users                |
+                            n_active_requests    |
+                            n_active_replies     |
+                            n_active_connections |
+                            reply_counters       |
+                            pending_counters.
+
 
 -include("megaco_internal.hrl").
 
@@ -110,6 +257,9 @@
 %%-----------------------------------------------------------------
 %% Starts the Megaco application
 %%-----------------------------------------------------------------
+
+-spec start() -> ok | {error, Reason} when
+      Reason :: term().
 
 start() ->
     application:start(?APPLICATION).
@@ -119,6 +269,9 @@ start() ->
 %% Stops the Megaco application
 %%-----------------------------------------------------------------
 
+-spec stop() -> ok | {error, Reason} when
+      Reason :: term().
+
 stop() ->
     application:stop(?APPLICATION).
 
@@ -126,6 +279,13 @@ stop() ->
 %%-----------------------------------------------------------------
 %% Initial configuration of a user
 %%-----------------------------------------------------------------
+
+-spec start_user(UserMid, Config) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Config  :: [{Item, Value}],
+      Item    :: user_info_item(),
+      Value   :: term(),
+      Reason  :: term().
 
 start_user(UserMid, Config) ->
     megaco_config:start_user(UserMid, Config).
@@ -135,6 +295,10 @@ start_user(UserMid, Config) ->
 %% Delete the configuration of a user
 %%-----------------------------------------------------------------
 
+-spec stop_user(UserMid) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Reason  :: term().
+
 stop_user(UserMid) ->
     megaco_config:stop_user(UserMid).
 
@@ -143,9 +307,32 @@ stop_user(UserMid) ->
 %% Lookup user information
 %%-----------------------------------------------------------------
 
+-spec user_info(UserMid) -> [{Item, Value}] when
+      UserMid :: mid(),
+      Item    :: requests | replies | user_info_item(),
+      Value   :: term().
+
 user_info(UserMid) ->
     [{requests, user_info(UserMid, requests)},
      {replies,  user_info(UserMid, replies)} | user_info(UserMid, all)].
+
+-spec user_info(UserMid, requests) -> [{Conn, [TransId]}] when
+      UserMid :: mid(),
+      Conn    :: conn_handle(),
+      TransId :: transaction_id();
+
+               (UserMid, replies) ->
+          [{Conn, [{TransId, ReplyState, Handler}]}] when
+      UserMid    :: mid(),
+      Conn       :: conn_handle(),
+      TransId    :: transaction_id(),
+      ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
+      Handler    :: undefined | pid();
+
+               (UserMid, Item) -> Value when
+      UserMid :: mid(),
+      Item    :: user_info_item(),
+      Value   :: term().
 
 user_info(UserMid, requests) ->
     megaco_messenger:which_requests(UserMid);
@@ -159,6 +346,12 @@ user_info(UserMid, Item) ->
 %% Update information about a user
 %%-----------------------------------------------------------------
 
+-spec update_user_info(UserMid, Item, Value) -> ok | {error, Reason} when
+      UserMid :: mid(),
+      Item    :: user_info_item(),
+      Value   :: term(),
+      Reason  :: term().
+
 update_user_info(UserMid, Item, Value) ->
     megaco_config:update_user_info(UserMid, Item, Value).
 
@@ -167,14 +360,46 @@ update_user_info(UserMid, Item, Value) ->
 %% Lookup information about an active connection
 %%-----------------------------------------------------------------
 
+-spec conn_info(ConnHandle) -> [{Item, Value}] when
+      ConnHandle :: conn_handle(),
+      Item       :: requests | replies | conn_info_item(),
+      Value      :: term().
+      
 conn_info(ConnHandle) ->
     [{requests, conn_info(ConnHandle, requests)},
      {replies,  conn_info(ConnHandle, replies)} | conn_info(ConnHandle, all)].
 
-conn_info(ConnHandle, requests) ->
+
+-spec conn_info(ConnHandle, all) -> [{Item, Value}] when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term();
+
+               (ConnHandle, requests) -> [TransId] when
+      ConnHandle :: conn_handle(),
+      TransId    :: transaction_id();
+
+               (ConnHandle, replies) ->
+          [{TransId, ReplyState, Handler}] when
+      ConnHandle :: conn_handle(),
+      TransId    :: transaction_id(),
+      ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
+      Handler    :: undefined | pid();
+
+               (ConnHandle, Item) -> Value when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term().
+
+conn_info(ConnHandle, all = Item) ->
+    megaco_config:conn_info(ConnHandle, Item);
+
+conn_info(ConnHandle, requests = _Item) ->
     megaco_messenger:which_requests(ConnHandle);
+
 conn_info(ConnHandle, replies) ->
     megaco_messenger:which_replies(ConnHandle);
+
 conn_info(ConnHandle, Item) ->
     megaco_config:conn_info(ConnHandle, Item).
 
@@ -183,6 +408,12 @@ conn_info(ConnHandle, Item) ->
 %% Update information about an active connection
 %%-----------------------------------------------------------------
 
+-spec update_conn_info(ConnHandle, Item, Value) -> ok | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Item       :: conn_info_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_conn_info(ConnHandle, Item, Value) ->
     megaco_config:update_conn_info(ConnHandle, Item, Value).
 
@@ -190,6 +421,11 @@ update_conn_info(ConnHandle, Item, Value) ->
 %%-----------------------------------------------------------------
 %% All information for the application
 %%-----------------------------------------------------------------
+
+-spec info() -> Info when
+      Info  :: [{Key, Value}],
+      Key   :: atom(),
+      Value :: term().
 
 info() ->
     Stats = 
@@ -239,6 +475,9 @@ extend_users_info([User | Users], Acc) ->
 %% Lookup system information
 %%-----------------------------------------------------------------
 
+-spec system_info_items() -> [Item] when
+      Item :: system_info_item().
+
 system_info_items() ->
     [
      text_config, 
@@ -247,12 +486,21 @@ system_info_items() ->
      n_active_requests, 
      n_active_replies, 
      n_active_connections,
+     reply_counters,
      pending_counters
     ].
 
+-spec system_info() -> [{Item, Value}] when
+      Item  :: system_info_item(),
+      Value :: term().
+      
 system_info() ->
     [{Item, system_info(Item)} || Item <- system_info_items()].
 
+-spec system_info(Item) -> Value when
+      Item  :: system_info_item(),
+      Value :: term().
+      
 system_info(Item) ->
     megaco_config:system_info(Item).
 
@@ -261,8 +509,39 @@ system_info(Item) ->
 %% Establish a "virtual" connection
 %%-----------------------------------------------------------------
 
+-spec connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) ->
+          {ok, ConnHandle} | {error, Reason} when
+      ReceiveHandle       :: receive_handle(),
+      RemoteMid           :: preliminary_mid | mid(),
+      SendHandle          :: send_handle(),
+      ControlPid          :: pid(),
+      ConnHandle          :: conn_handle(),
+      Reason              :: ConnectReason | HandleConnectReason | term(),
+      ConnectReason       :: {no_such_user,      LocalMid} |
+                             {already_connected, ConnHandle} | term(),
+      LocalMid            :: mid(),
+      HandleConnectReason :: {connection_refused, ConnData, ErrorInfo} | term(),
+      ConnData            :: term(),
+      ErrorInfo           :: term().      
+
 connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) ->
     megaco_messenger:connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid).
+
+-spec connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) ->
+          {ok, ConnHandle} | {error, Reason} when
+      ReceiveHandle       :: receive_handle(),
+      RemoteMid           :: preliminary_mid | mid(),
+      SendHandle          :: send_handle(),
+      ControlPid          :: pid(),
+      Extra               :: term(),
+      ConnHandle          :: conn_handle(),
+      Reason              :: ConnectReason | HandleConnectReason | term(),
+      ConnectReason       :: {no_such_user,      LocalMid} |
+                             {already_connected, ConnHandle} | term(),
+      LocalMid            :: mid(),
+      HandleConnectReason :: {connection_refused, ConnData, ErrorInfo} | term(),
+      ConnData            :: term(),
+      ErrorInfo           :: term().      
 
 connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) 
   when (Extra =/= ?default_user_callback_extra) ->
@@ -274,6 +553,11 @@ connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra)
 %% Tear down a "virtual" connection
 %%-----------------------------------------------------------------
 
+-spec disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason} when
+      ConnHandle  :: conn_handle(),
+      DiscoReason :: term(),
+      ErrReason   :: term().
+
 disconnect(ConnHandle, Reason) ->
     megaco_messenger:disconnect(ConnHandle, {user_disconnect, Reason}).
 
@@ -281,6 +565,46 @@ disconnect(ConnHandle, Reason) ->
 %%-----------------------------------------------------------------
 %% Sends a transaction request and waits for a reply
 %%-----------------------------------------------------------------
+
+-spec call(ConnHandle, ActionRequests, SendOptions) ->
+          {ProtocolVersion, UserReply | [UserReply]} when
+      ConnHandle          :: conn_handle(),
+      ActionRequests      :: action_reqs() | [action_reqs()],
+      SendOptions         :: [SendOption],
+      SendOption          :: {request_timer,         megaco_timer()} |
+                             {long_request_timer,    megaco_timer()} |
+                             {send_handle,           send_handle()} |
+                             {protocol_version,      protocol_version()} |
+                             {call_proxy_gc_timeout, non_neg_integer()},
+      ProtocolVersion     :: protocol_version(),
+      UserReply           :: Success | Failure,
+      Success             :: {ok, Result} | {ok, Result, SuccessExtra},
+      Result              :: MessageResult | SegmentResult,
+      MessageResult       :: action_reps(),
+      SegmentResult       :: SegmentsOk,
+      SegmentsOk          :: [{segment_no(), action_reps()}],
+      Failure             :: {error, Reason} | {error, Reason, ErrorExtra},
+      Reason              :: MessageReason | SegmentReason |
+                             UserCancelReason | SendReason | OtherReason,
+      MessageReason       :: error_desc(),
+      SegmentReason       :: {segment, SegmentsOk, SegmentsErr} |
+                             {segment_timeout,
+                              MissingSegments,
+                              SegmentsOk,
+                              SegmentsErr},
+      SegmentsErr         :: {segment_no(), error_desc()},
+      MissingSegments     :: [segment_no()],
+      UserCancelReason    :: {user_cancel, ReasonForUserCancel},
+      ReasonForUserCancel :: term(),
+      SendReason          :: SendCancelledReason | SendFailedReason,
+      SendCancelledReason :: {send_message_cancelled, term()},
+      SendFailedReason    :: {send_message_failed,    term()},
+      OtherReason         :: {wrong_mid,
+                              WrongMid :: mid(),
+                              RightMid :: mid(),
+                              transaction_reply()} | term(),
+      SuccessExtra        :: term(),
+      ErrorExtra          :: term().
 
 call(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:call(ConnHandle, ActionRequests, Options).
@@ -290,6 +614,22 @@ call(ConnHandle, ActionRequests, Options) ->
 %% Sends a transaction request but does NOT wait for a reply
 %%-----------------------------------------------------------------
 
+-spec cast(ConnHandle, ActionRequests, SendOptions) ->
+          ok | {error, Reason} when
+      ConnHandle      :: conn_handle(),
+      ActionRequests  :: action_reqs() | [action_reqs()],
+      SendOptions     :: [SendOption],
+      SendOption      :: {request_keep_alive_timeout, RequestKeepAliveTimer} |
+                         {request_timer,              megaco_timer()} |
+                         {long_request_timer,         megaco_timer()} |
+                         {send_handle,                send_handle()} |
+                         {reply_data,                 ReplyData} |
+                         {protocol_version,           ProtocolVersion},
+      RequestKeepAliveTimer :: plain | non_neg_integer(),
+      ReplyData       :: term(),
+      ProtocolVersion :: protocol_version(),
+      Reason          :: term().
+
 cast(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:cast(ConnHandle, ActionRequests, Options).
 
@@ -298,47 +638,111 @@ cast(ConnHandle, ActionRequests, Options) ->
 %% Test the validity of the actions
 %%-----------------------------------------------------------------
     
+-spec test_request(ConnHandle, Version,
+                   EncodingMod, EncodingConfig,
+                   ActionRequests) -> {MegaMsg, EncodeRes} when
+      ConnHandle     :: conn_handle(),
+      Version        :: protocol_version(),
+      EncodingMod    :: module(),
+      EncodingConfig :: list(),
+      ActionRequests :: action_reqs() | [action_reqs()],
+      MegaMsg        :: megaco_message(),
+      EncodeRes      :: {ok, Bin} | {error, Reason},
+      Bin            :: binary(),
+      Reason         :: term().
+
 test_request(ConnHandle, Version, EncodingMod, EncodingConfig, 
 	     ActionRequests) ->
     megaco_messenger:test_request(ConnHandle, ActionRequests, 
 				  Version, EncodingMod, EncodingConfig).
 
+
 %% This tests the actual_reply() type of return from the 
 %% handle_trans_request function.
-%% 
+%%
+
+-spec test_reply(ConnHandle, Version,
+                 EncodingMod, EncodingConfig,
+                 Reply) -> {MegaMsg, EncodeRes} when
+      ConnHandle     :: conn_handle(),
+      Version        :: protocol_version(),
+      EncodingMod    :: module(),
+      EncodingConfig :: list(),
+      Reply          :: error_desc() | [action_reply()],
+      MegaMsg        :: megaco_message(),
+      EncodeRes      :: {ok, Bin} | {error, Reason},
+      Bin            :: binary(),
+      Reason         :: term().
+
 test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, 
 	   Reply) ->
     megaco_messenger:test_reply(ConnHandle, Version, 
 				EncodingMod, EncodingConfig, Reply).
 
+
 %%-----------------------------------------------------------------
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
+
+-spec get_stats() -> {ok, [TotalStats]} | {error, Reason} when
+      TotalStats :: {conn_handle(),    [Stats]} |
+                    {global_counter(), counter_value()},
+      Stats      :: {counter(),        counter_value()},
+      Reason     :: term().
+      
 get_stats() ->
     megaco_messenger:get_stats().
 
-get_stats(SendHandle) ->
-    megaco_messenger:get_stats(SendHandle).
+-spec get_stats(GCounter) -> {ok, Value} | {error, Reason} when
+      GCounter :: global_counter(),
+      Value    :: counter_value(),
+      Reason   :: term();
+               (ConnHandle) -> {ok, [Stats]} | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Stats      :: {counter(), counter_value()},
+      Reason     :: term().
 
-get_stats(SendHandle, Counter) ->
-    megaco_messenger:get_stats(SendHandle, Counter).
+get_stats(ConnHandleOrGCounter) ->
+    megaco_messenger:get_stats(ConnHandleOrGCounter).
+
+-spec get_stats(ConnHandle, Counter) -> {ok, Value} | {error, Reason} when
+      ConnHandle :: conn_handle(),
+      Counter    :: counter(),
+      Value      :: counter_value(),
+      Reason     :: term().
+
+get_stats(ConnHandle, Counter) ->
+    megaco_messenger:get_stats(ConnHandle, Counter).
 
 
 %%-----------------------------------------------------------------
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
+
+-spec reset_stats() -> void().
+
 reset_stats() ->
     megaco_messenger:reset_stats().
 
-reset_stats(SendHandle) ->
-    megaco_messenger:reset_stats(SendHandle).
+-spec reset_stats(GCounter) -> void() when
+      GCounter :: global_counter();
+               (ConnHandle) -> void() when
+      ConnHandle :: conn_handle().
+
+reset_stats(ConnHandleOrGCounter) ->
+    megaco_messenger:reset_stats(ConnHandleOrGCounter).
 
 
 %%-----------------------------------------------------------------
 %% Cancel all outstanding messages for this connection
 %%-----------------------------------------------------------------
+
+-spec cancel(ConnHandle, CancelReason) -> ok | {error, Reason} when
+      ConnHandle   :: conn_handle(),
+      CancelReason :: term(),
+      Reason       :: term().
 
 cancel(ConnHandle, Reason) ->
     megaco_messenger:cancel(ConnHandle, {user_cancel, Reason}).
@@ -348,18 +752,51 @@ cancel(ConnHandle, Reason) ->
 %% Process a received message
 %%-----------------------------------------------------------------
 
+-spec process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary().
+
 process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
     megaco_messenger:process_received_message(ReceiveHandle, ControlPid, 
 					      SendHandle, BinMsg).
 
-process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
+-spec process_received_message(ReceiveHandle,
+                               ControlPid, SendHandle, BinMsg, Extra) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary(),
+      Extra         :: term().
+
+process_received_message(ReceiveHandle,
+                         ControlPid, SendHandle, BinMsg, Extra) ->
     megaco_messenger:process_received_message(ReceiveHandle, ControlPid, 
 					      SendHandle, BinMsg, 
 					      Extra).
 
+
+-spec receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary().
+
 receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) ->
     megaco_messenger:receive_message(ReceiveHandle, ControlPid, 
 				     SendHandle, BinMsg).
+
+-spec receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
+          ok when
+      ReceiveHandle :: receive_handle(),
+      ControlPid    :: pid(),
+      SendHandle    :: send_handle(),
+      BinMsg        :: binary(),
+      Extra         :: term().
 
 receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
     megaco_messenger:receive_message(ReceiveHandle, ControlPid, 
@@ -371,6 +808,18 @@ receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
 %% Encode the actions list for one or more transactions.
 %%-----------------------------------------------------------------
 
+-spec encode_actions(ConnHandle, ActionRequests, Options) ->
+          {ok, Result} | {error, Reason} when
+      ConnHandle     :: conn_handle(),
+      ActionRequests :: action_reqs() | [action_reqs()],
+      Options        :: [Option],
+      Option         :: {request_timer,      megaco_timer()} |
+                        {long_request_timer, megaco_timer()} |
+                        {send_handle,        send_handle()} |
+                        {protocol_version,   protocol_version()},
+      Result         :: binary() | [binary()],
+      Reason         :: term().
+
 encode_actions(ConnHandle, ActionRequests, Options) ->
     megaco_messenger:encode_actions(ConnHandle, ActionRequests, Options).
 
@@ -380,8 +829,19 @@ encode_actions(ConnHandle, ActionRequests, Options) ->
 %% printable string.
 %%-----------------------------------------------------------------
 
+-spec token_tag2string(Tag) -> Result when
+      Tag    :: atom(),
+      Result :: string() | {error, Reason},
+      Reason :: term().
+
 token_tag2string(Tag) ->
     token_tag2string(Tag, pretty).
+
+-spec token_tag2string(Tag, EncodingMod) -> Result when
+      Tag         :: atom(),
+      EncodingMod :: pretty | compact | module(),
+      Result      :: string() | {error, Reason},
+      Reason      :: term().
 
 token_tag2string(Tag, pretty) ->
     token_tag2string(Tag, megaco_pretty_text_encoder);
@@ -390,17 +850,30 @@ token_tag2string(Tag, compact) ->
 token_tag2string(Tag, Mod) when is_atom(Tag) and is_atom(Mod) ->
     Mod:token_tag2string(Tag).
 
-token_tag2string(Tag, pretty, V) ->
-    token_tag2string(Tag, megaco_pretty_text_encoder, V);
-token_tag2string(Tag, compact, V) ->
-    token_tag2string(Tag, megaco_compact_text_encoder, V);
-token_tag2string(Tag, Mod, V) when is_atom(Tag) and is_atom(Mod) ->
-    Mod:token_tag2string(Tag, V).
+-spec token_tag2string(Tag, EncodingMod, Version) -> Result when
+      Tag         :: atom(),
+      EncodingMod :: pretty | compact | module(),
+      Version     :: protocol_version() | v1 | v2 | v3,
+      Result      :: string() | {error, Reason},
+      Reason      :: term().
+
+token_tag2string(Tag, pretty, Version) ->
+    token_tag2string(Tag, megaco_pretty_text_encoder, Version);
+token_tag2string(Tag, compact, Version) ->
+    token_tag2string(Tag, megaco_compact_text_encoder, Version);
+token_tag2string(Tag, Mod, Version) when is_atom(Tag) andalso is_atom(Mod) ->
+    Mod:token_tag2string(Tag, Version).
 
 
 %%-----------------------------------------------------------------
 %% Parses a digit map body
 %%-----------------------------------------------------------------
+
+-spec parse_digit_map(DigitMapBody) ->
+          {ok, ParsedDigitMap} | {error, Reason} when
+      DigitMapBody   :: string(),
+      ParsedDigitMap :: term(),
+      Reason         :: term().
 
 parse_digit_map(DigitMapBody) ->
     megaco_digit_map:parse(DigitMapBody).
@@ -410,8 +883,33 @@ parse_digit_map(DigitMapBody) ->
 %% Collect digit map letters according to the digit map
 %%-----------------------------------------------------------------
 
+-spec eval_digit_map(DigitMap) -> {ok, MatchResult} | {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      MatchResult    :: {Kind, Letters} | {Kind, Letters, Extra},
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Extra          :: digit_map_letter(),
+      Reason         :: term().
+
 eval_digit_map(DigitMap) ->
     megaco_digit_map:eval(DigitMap).
+
+-spec eval_digit_map(DigitMap, Timers) ->
+          {ok, MatchResult} | {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      Timers         :: Ignore | Reject,
+      Ignore         :: ignore |
+                        {ignore, digit_map_value()},
+      Reject         :: reject |
+                        {reject, digit_map_value()} |
+                        digit_map_value(),
+      MatchResult    :: {Kind, Letters} | {Kind, Letters, Extra},
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Extra          :: digit_map_letter(),
+      Reason         :: term().
 
 eval_digit_map(DigitMap, Timers) ->
     megaco_digit_map:eval(DigitMap, Timers).
@@ -421,6 +919,11 @@ eval_digit_map(DigitMap, Timers) ->
 %% Send one or more events to event collector process
 %%-----------------------------------------------------------------
 
+-spec report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason} when
+      DigitMapEvalPid :: pid(),
+      Events          :: digit_map_event() | [digit_map_event()],
+      Reason          :: term().
+
 report_digit_event(DigitMapEvalPid, Event) ->
     megaco_digit_map:report(DigitMapEvalPid, Event).
 
@@ -428,6 +931,15 @@ report_digit_event(DigitMapEvalPid, Event) ->
 %%-----------------------------------------------------------------
 %% Feed digit map collector with events and return the result
 %%-----------------------------------------------------------------
+
+-spec test_digit_event(DigitMap, Events) ->
+          {ok,  Kind,  Letters}  |  {error, Reason} when
+      DigitMap       :: digit_map_value() | ParsedDigitMap,
+      ParsedDigitMap :: term(),
+      Events         :: digit_map_event() | [digit_map_event()],
+      Kind           :: digit_map_kind(),
+      Letters        :: [digit_map_letter()],
+      Reason         :: term().
 
 test_digit_event(DigitMap, Events) ->
     megaco_digit_map:test(DigitMap, Events).
@@ -469,6 +981,17 @@ decode_binary_term_id(Config, TermId) ->
 %% Encode a SDP construct into a property parm construct
 %%-----------------------------------------------------------------
 
+-spec encode_sdp(SDP) -> {ok, PP} | {error, Reason} when
+      SDP   :: sdp_property_parm() |
+               sdp_property_group() |
+               sdp_property_groups() |
+               asn1_NOVALUE,
+      PP    :: property_parm() |
+               property_group() |
+               property_groups() |
+               asn1_NOVALUE,
+      Reason :: term().
+
 encode_sdp(SDP) ->
     megaco_sdp:encode(SDP).
 
@@ -480,6 +1003,21 @@ encode_sdp(SDP) ->
 %%
 %% Decode a property parm construct into a SDP construct
 %%-----------------------------------------------------------------
+
+-spec decode_sdp(PP) -> {ok, SDP} | {error, Reason} when
+      PP                      :: property_parm() |
+                                 property_group() |
+                                 property_groups() |
+                                 asn1_NOVALUE,
+      SDP                     :: sdp() |
+                                 DecodeSdpPropertyGroup |
+                                 DecodeSdpPropertyGroups |
+                                 asn1_NOVALUE,
+      DecodeSdpPropertyGroup  :: [DecodeSDP],
+      DecodeSdpPropertyGroups :: [DecodeSdpPropertyGroup],
+      DecodeSDP               :: sdp() | {property_parm(), DecodeError},
+      DecodeError             :: term(),
+      Reason                  :: term().
 
 decode_sdp(PP) ->
     megaco_sdp:decode(PP).
@@ -499,9 +1037,15 @@ get_sdp_record_from_PropertyGroup(Type, PG) ->
 
 %%-----------------------------------------------------------------
 
+-spec print_version_info() -> void().
+
 print_version_info() ->
     {ok, Versions} = megaco:versions1(),
     print_version_info(Versions).
+
+-spec print_version_info(Versions) -> void() when
+      Versions    :: [VersionInfo],
+      VersionInfo :: term().
 
 print_version_info(Versions) when is_list(Versions) ->
     print_sys_info(Versions),
@@ -652,6 +1196,10 @@ key1search(Key, Vals, Def) ->
 
 %%-----------------------------------------------------------------
 
+-spec versions1() -> {ok, VersionInfo} | {error, Reason} when
+      VersionInfo :: list(),
+      Reason      :: term().
+
 versions1() ->
     case ms1() of
 	{ok, Mods} ->
@@ -659,6 +1207,11 @@ versions1() ->
 	Error ->
 	    Error
     end.
+
+
+-spec versions2() -> {ok, VersionInfo} | {error, Reason} when
+      VersionInfo :: list(),
+      Reason      :: term().
 
 versions2() ->
     case ms2() of
@@ -842,6 +1395,16 @@ find_file([], File) ->
 %% Severity withing Limit) will be written to stdout using io:format. 
 %% 
 %%-----------------------------------------------------------------
+
+-spec enable_trace(Level, Destination) -> void() when
+      Level       :: trace_level(),
+      Destination :: File | Port | HandlerSpec | io,
+      File        :: string(),
+      Port        :: integer(),
+      HandlerSpec :: {HandlerFun, InitialData},
+      HandlerFun  :: trace_handler(),
+      InitialData :: trace_data().
+
 enable_trace(Level, File) when is_list(File) ->
     case file:open(File, [write]) of
 	{ok, Fd} ->
@@ -869,6 +1432,9 @@ enable_trace(Level, {Fun, _Data} = HandleSpec) when is_function(Fun) ->
 %% Description:
 %% This function is used to stop tracing.
 %%-----------------------------------------------------------------
+
+-spec disable_trace() -> void().
+
 disable_trace() ->
     %% This is to make handle_trace/2 close the output file (if the
     %% event gets there before dbg closes)
@@ -886,9 +1452,25 @@ disable_trace() ->
 %% This function is used to change the trace level when tracing has
 %% already been started. 
 %%-----------------------------------------------------------------
+
+-spec set_trace(Level) -> void() when
+      Level :: trace_level().
+
 set_trace(Level) ->
     Pat = et_selector:make_pattern({?MODULE, Level}),
     et_selector:change_pattern(Pat).
+
+
+
+%%-----------------------------------------------------------------
+%% report_event(DetailLevel, FromTo, Label, Contents) -> void()
+%% report_event(DetailLevel, From, To, Label, Contents) -> void()
+%% 
+%% Description:
+%% This is the function tracing is done for.
+%% Trace macros used by the megaco app all call this function.
+%%-----------------------------------------------------------------
+
 
 report_event(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call

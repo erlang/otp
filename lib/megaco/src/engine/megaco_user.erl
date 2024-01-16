@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@
 %%-------------------------------------------------------------------------
 %% Purpose: Megaco user behaviour module
 %%
-%% This callback functions are the default! Its possible for the user to
-%% provide a arbitrary number of "extra" arguments via the user_args
-%% config option.
+%% These callback functions are the default!
+%% Its possible for the user to provide a arbitrary number of "extra"
+%% arguments via the user_args config option.
 %% So, for instance, the handle_connect/2 could instead become
 %% handle_connect/4 if the user sets the user_args option to [foo, bar].
 %% This means that its impossible to define a proper behaviour.

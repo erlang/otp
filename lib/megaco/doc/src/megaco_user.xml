@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2020</year>
+      <year>2000</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -119,6 +119,42 @@
     </note>
 
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="receive_handle"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="conn_handle"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="megaco_timer"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+  </datatypes>
 
   <section>
     <title>DATA TYPES</title>

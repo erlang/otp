@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2020</year>
+      <year>2003</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,6 +39,309 @@
       <c><![CDATA[megaco_encoder]]></c> callback module:</p>
 
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="octet"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="octet_string"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="alpha"/>
+      <desc>
+	<p>
+	  Alpha Numeric characters:
+	  <c><![CDATA[A..Z | a..z]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="digit"/>
+      <desc>
+	<p>
+	  Decimal digits:
+	  <c><![CDATA[0..9]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="protocol_version"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="segment_no"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="ip4Address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="ip6Address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="domainName"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="deviceName"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="pathName"/>
+      <desc>
+	<p>
+	  There is no way to properly express this type in the Erlang
+	  type system, so this is the best we can do.
+	  The minimum length is 1 and the maximum length is 64.
+	</p>
+	<p>
+	  Here is the ABNF (copied from the megaco standard) to
+	  fill in the blanks:
+	</p>
+	<!--
+	    These crap is because the dtd does not allow code here.
+	    If we put this stuff in a code chunk, we can actually
+	    generate (atleast) html doc, and it looks ok. But, xmlling
+	    complains...
+	-->
+	<p>
+	  <c><![CDATA[
+	  # Total length of pathNAME must not exceed 64 chars.
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  pathNAME = ["*"] NAME *("/" / "*"/ ALPHA / DIGIT /"_" / "$" ) ["@" pathDomainName ] 
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  # ABNF allows two or more consecutive "." although it is meaningless in a path domain name.
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  pathDomainName = (ALPHA / DIGIT / "*" ) *63(ALPHA / DIGIT / "-" / "*" / ".") 
+	  ]]></c>
+	</p>
+	<p>
+	  <c><![CDATA[
+	  NAME = ALPHA *63(ALPHA / DIGIT / "_" ) 	    
+	  ]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="mtpAddress"/>
+      <desc>
+	<p>
+	  There is no way to properly express this type in the Erlang
+	  type system, so this is the best we can do.
+	</p>
+	<p>
+	  A proper definition would be:
+	  <c><![CDATA[-type mtpAddress() :: octet_string(2..4).]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="megaco_message"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction_request"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction_pending"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction_reply"/>
+      <desc>
+	<p>
+	  The problem with TransactionReply is that its definition depend
+	  on which version of the protocol we are using. As of version 3,
+	  it has two more fields.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transaction_response_ack"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transaction_ack"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="segment_reply"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="action_request"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="action_reply"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="command_request"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="error_desc"/>
+      <!--
+      <desc>
+	<p>
+	  TBD.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+  </datatypes>
 
   <section>
     <title>DATA TYPES</title>

@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,7 @@
       applications on top of the Megaco/H.248 protocol. </p>
   </description>
   <xi:include href="megaco.xml"/>
+  <xi:include href="megaco_digit_map.xml"/>
   <xi:include href="megaco_edist_compress.xml"/>
   <xi:include href="megaco_encoder.xml"/>
   <xi:include href="megaco_transport.xml"/>
@@ -45,5 +46,6 @@
   <xi:include href="megaco_codec_mstone1.xml"/>
   <xi:include href="megaco_codec_mstone2.xml"/>
   <xi:include href="megaco_codec_transform.xml"/>
+  <xi:include href="megaco_sdp.xml"/>
 </application>
 
