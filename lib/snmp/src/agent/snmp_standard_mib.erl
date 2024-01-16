@@ -225,6 +225,9 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
+
+-spec reset() -> snmp:void().
+
 reset() ->
     snmpa_mpd:reset().
 

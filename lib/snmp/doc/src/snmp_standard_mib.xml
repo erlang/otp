@@ -96,7 +96,7 @@
     </func>
 
     <func>
-      <name since="">reset() -> void()</name>
+      <name name="reset" arity="0" clause_i="1" since=""/>
       <fsummary>Reset all <c>snmp</c>counters to 0</fsummary>
       <desc>
         <p>Resets all <c>snmp</c> counters to 0.</p>
