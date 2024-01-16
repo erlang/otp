@@ -69,18 +69,7 @@ SPECS_FILES = \
 
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = \
-	snmpa_discovery_handler.xml \
-	snmpa_error_report.xml \
-	snmpa_mib_data.xml \
-	snmpa_mib_storage.xml \
-	snmpa_network_interface.xml \
-	snmpa_network_interface_filter.xml \
-	snmpa_notification_delivery_info_receiver.xml \
-	snmpa_notification_filter.xml \
-	snmpm_network_interface.xml \
-	snmpm_network_interface_filter.xml \
-	snmpm_user.xml
+NO_CHUNKS = 
 
 
 # ----------------------------------------------------
