@@ -485,13 +485,18 @@ gen_counter(get, Counter) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
+
+-spec sys_up_time() -> Time when
+      Time :: integer().
+
+sys_up_time() ->
+    snmpa:sys_up_time().
+
+
 sysUpTime(print) ->
     sys_up_time(print);
 sysUpTime(get) ->
     sys_up_time(get).
-
-sys_up_time() ->
-    snmpa:sys_up_time().
 
 sys_up_time(print) ->
     VarAndValue = [{sysUpTime,  sys_up_time(get)}],

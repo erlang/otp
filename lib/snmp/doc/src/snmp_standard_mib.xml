@@ -102,12 +102,10 @@
         <p>Resets all <c>snmp</c> counters to 0.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">sys_up_time() -> Time</name>
+      <name name="sys_up_time" arity="0" clause_i="1" since=""/>
       <fsummary>Get the system up time</fsummary>
-      <type>
-        <v>Time = int()</v>
-      </type>
       <desc>
         <p>Gets the system up time in hundredth of a second.</p>
       </desc>
