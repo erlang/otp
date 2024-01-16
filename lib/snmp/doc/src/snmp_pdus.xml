@@ -193,16 +193,15 @@
 	encrypted <c>scopedPDU</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">enc_pdu(Pd) -> [byte()]</name>
+      <name name="enc_pdu" arity="1" clause_i="1" since=""/>
       <fsummary>Encode an SNMP Pdu</fsummary>
-      <type>
-        <v>Pdu = #pdu</v>
-      </type>
       <desc>
         <p>Encodes an SNMP Pdu into a list of bytes.</p>
       </desc>
     </func>
+
     <func>
       <name since="">enc_scoped_pdu(ScopedPdu) -> [byte()]</name>
       <fsummary>Encode an SNMP scopedPDU</fsummary>

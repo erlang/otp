@@ -630,6 +630,10 @@ enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
     [48 | Len] ++ Bytes.
 
 
+-spec enc_pdu(Pdu) -> Bytes when
+      Pdu   :: pdu(),
+      Bytes :: [byte()].
+
 enc_pdu(PDU) when PDU#pdu.type =:= 'get-request' ->
     enc_pdu(160, PDU);
 enc_pdu(PDU) when PDU#pdu.type =:= 'get-next-request' ->
