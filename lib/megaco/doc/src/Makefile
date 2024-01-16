@@ -53,11 +53,7 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_megaco_flex_scanner.xml
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = \
-	megaco_edist_compress.xml \
-	megaco_transport.xml megaco_tcp.xml megaco_udp.xml \
-	megaco_codec_meas.xml megaco_codec_mstone1.xml \
-	megaco_codec_mstone2.xml megaco_codec_transform.xml
+NO_CHUNKS = 
 
 STANDARD_DIR = ../standard
 STANDARDS = $(STANDARD_DIR)/rfc3525.txt \
