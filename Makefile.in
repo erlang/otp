@@ -523,12 +523,13 @@ endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
+APPS_BUILD=$(patsubst %, %_build,$(APPS))
 NO_DIALYZER_APPS=$(filter-out dialyzer, $(APPS)) ## The dialyzer make target should not build the app
 
 .PHONY: $(NO_DIALYZER_APPS)
 
-$(NO_DIALYZER_APPS):
-	$(make_verbose)cd lib/$@ && \
+$(APPS_BUILD):
+	$(make_verbose)cd lib/$(patsubst %_build,%,$@) && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE)
 
@@ -1018,5 +1019,6 @@ endif
 APPS_TEST=$(patsubst %, %_test,$(APPS))
 
 .SECONDEXPANSION:
-$(APPS_TEST): $$(patsubst %_test,%,$$@)
-	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$< test
+$(NO_DIALYZER_APPS): $$(patsubst %,%_build,$$@)
+$(APPS_TEST): $$(patsubst %_test,%_build,$$@)
+	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$(patsubst %_test,%,$@) test
