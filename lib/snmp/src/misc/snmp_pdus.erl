@@ -156,6 +156,12 @@ dec_rest_v3_msg(Bytes) ->
     Data = Message#message.data,
     Message#message{data = dec_scoped_pdu_data(Data)}.
 
+
+-spec dec_scoped_pdu_data(Bytes) -> ScopedPduData when
+      Bytes         :: [byte()],
+      ScopedPduData :: scoped_pdu() | EncryptedPDU,
+      EncryptedPDU  :: [byte()].
+
 dec_scoped_pdu_data([48 | Bytes]) -> % plaintext
     {ScopedPdu, []} = dec_scoped_pdu_notag(Bytes),
     ScopedPdu;

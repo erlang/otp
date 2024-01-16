@@ -145,16 +145,13 @@
         <p>Decodes a list of bytes into an SNMP ScopedPdu.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">dec_scoped_pdu_data([byte()]) -> ScopedPduData</name>
+      <name name="dec_scoped_pdu_data" arity="1" clause_i="1" since=""/>
       <fsummary>Decode an SNMP ScopedPduData</fsummary>
-      <type>
-        <v>ScopedPduData = #scoped_pdu | EncryptedPDU</v>
-        <v>EncryptedPDU = [byte()]</v>
-      </type>
       <desc>
         <p>Decodes a list of bytes into either a scoped pdu record, or
-          - if the scoped pdu was encrypted - to a list of bytes.</p>
+	- if the scoped pdu was encrypted - to a list of bytes.</p>
       </desc>
     </func>
     <func>
