@@ -999,6 +999,9 @@ validator_exception(Config) when is_list(Config) ->
         argparse:validate(#{arguments => [#{name => one, required => ok}]})),
     ?assertException(error, {argparse, argument, Prg, help, _},
         argparse:validate(#{arguments => [#{name => one, help => ok}]})),
+    %% tuple form of help must not have string as second argument
+    ?assertException(error, {argparse, argument, Prg, help, _},
+        argparse:validate(#{arguments => [#{name => one, help => {"one", "1"}}]})),
     %% broken commands
     try argparse:help(#{}, #{progname => 123}), ?assert(false)
     catch error:badarg:Stack ->

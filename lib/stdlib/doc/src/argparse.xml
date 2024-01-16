@@ -199,9 +199,10 @@ cli() ->
       <desc>
         <p>User-defined help template to print in the command usage. First element of
           a tuple must be a string. It is printed as a part of the usage header. Second
-          element of the tuple can be either a string printed as-is, a list
-          containing strings, <c>type</c> and <c>default</c> atoms, or a user-defined
-          function that must return a string.</p>
+          element of the tuple can be either a list containing strings, <c>type</c>
+          and <c>default</c> atoms, or a user-defined function that must return a
+          string. A plain string should be wrapped as a list such as
+          <c>["string is nested"]</c>.</p>
       </desc>
     </datatype>
 
