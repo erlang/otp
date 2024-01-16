@@ -534,11 +534,13 @@ dec_integer_len([A,B,C]) ->
 dec_integer_len([0 | T]) ->
     dec_integer_len(T).
 
+
 %%-----------------------------------------------------------------
 %% head(N, List) -> {List1, List2}
 %%   List == List1 ++ List2
 %%   length(List1) == N
 %%-----------------------------------------------------------------
+
 head(L,List) ->
     head(L,List,[]).
 
@@ -550,9 +552,14 @@ head(Int,[H|Tail],Res) ->
 head(Int, [], _Res) ->
     exit({asn1_error, {bad_length, Int}}).
 
+
 %%%----------------------------------------------------------------------
 %%% ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING 
 %%%----------------------------------------------------------------------
+
+-spec enc_message(Message) -> Bytes when
+      Message :: message(),
+      Bytes   :: [byte()].
 
 enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     VerBytes = enc_version(Ver),

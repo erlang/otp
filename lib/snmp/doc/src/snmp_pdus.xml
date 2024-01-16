@@ -173,12 +173,10 @@
         <p>Decodes a list of bytes into an SNMP UsmSecurityParameters. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">enc_message(Message) -> [byte()]</name>
+      <name name="enc_message" arity="1" clause_i="1" since=""/>
       <fsummary>Encode an SNMP Message</fsummary>
-      <type>
-        <v>Message = #message</v>
-      </type>
       <desc>
         <p>Encodes a message record to a list of bytes.</p>
       </desc>
