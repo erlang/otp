@@ -70,6 +70,11 @@ dec_message([48 | Bytes]) ->
 	    dec_rest_v1_v2_msg(Vsn, Rest)
     end.
 
+
+-spec dec_message_only(Bytes) -> Message when
+      Bytes   :: [byte()],
+      Message :: message().
+
 dec_message_only([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
     case dec_snmp_version(Bytes2) of

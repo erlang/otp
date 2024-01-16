@@ -87,16 +87,13 @@
     </func>
 
     <func>
-      <name since="">dec_message_only([byte()]) -> Message</name>
+      <name name="dec_message_only" arity="1" clause_i="1" since=""/>
       <fsummary>Decode an SNMP Message, but not the data part</fsummary>
-      <type>
-        <v>Message = #message</v>
-      </type>
       <desc>
         <p>Decodes a list of bytes into an SNMP Message, but does not
-          decode the data part of the Message. That means, data is still
-          a list of bytes, normally an encoded <c>PDU</c> (v1 and V2) or an
-          encoded and possibly encrypted <c>scopedPDU</c> (v3).</p>
+	decode the data part of the Message. That means, data is still
+	a list of bytes, normally an encoded <c>PDU</c> (v1 and V2) or an
+	encoded and possibly encrypted <c>scopedPDU</c> (v3). </p>
       </desc>
     </func>
     <func>
