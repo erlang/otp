@@ -69,6 +69,28 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="trappdu"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="pdu"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -96,12 +118,10 @@
 	encoded and possibly encrypted <c>scopedPDU</c> (v3). </p>
       </desc>
     </func>
+
     <func>
-      <name since="">dec_pdu([byte()]) -> Pdu</name>
+      <name name="dec_pdu" arity="1" clause_i="1" since=""/>
       <fsummary>Decode an SNMP Pdu</fsummary>
-      <type>
-        <v>Pdu = #pdu</v>
-      </type>
       <desc>
         <p>Decodes a list of bytes into an SNMP Pdu.</p>
       </desc>

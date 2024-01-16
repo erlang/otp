@@ -43,11 +43,15 @@
 	 enc_value/2, dec_value/1]).
 
 -export_type([
-              message/0
+              message/0,
+              trappdu/0,
+              pdu/0
              ]).
 
 
 -type message() :: #message{}.
+-type trappdu() :: #trappdu{}.
+-type pdu()     :: #pdu{}.
 
 
 %% -compile(export_all).
@@ -189,6 +193,10 @@ dec_pdu_tag(167) ->
 dec_pdu_tag(168) ->
     report.
 
+
+-spec dec_pdu(Bytes) -> Pdu when
+      Bytes :: [byte()],
+      Pdu   :: trappdu() | pdu().
 
 dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
