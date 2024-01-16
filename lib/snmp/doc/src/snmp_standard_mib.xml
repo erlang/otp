@@ -64,18 +64,15 @@
     </func>
 
     <func>
-      <name since="">inc(Name) -> void()</name>
-      <name since="">inc(Name, N) -> void()</name>
+      <name name="inc" arity="1" clause_i="1" since=""/>
+      <name name="inc" arity="2" clause_i="1" since=""/>
       <fsummary>Increment a variable in the MIB</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>N = integer()</v>
-      </type>
       <desc>
-        <p>Increments a variable in the MIB with <c>N</c>, or one if
-          <c>N</c> is not specified.</p>
+	<p>Increments a variable in the MIB with <c>N</c>, or one if
+	<c>N</c> is not specified.</p>
       </desc>
     </func>
+
     <func>
       <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>

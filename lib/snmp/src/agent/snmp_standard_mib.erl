@@ -245,7 +245,16 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+
+-spec inc(Name) -> snmp:void() when
+      Name :: atom().
+
 inc(Name) -> inc(Name, 1).
+
+-spec inc(Name, N) -> snmp:void() when
+      Name :: atom(),
+      N    :: integer().
+
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
