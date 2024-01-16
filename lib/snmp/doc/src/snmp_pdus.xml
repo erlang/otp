@@ -203,17 +203,14 @@
     </func>
 
     <func>
-      <name since="">enc_scoped_pdu(ScopedPdu) -> [byte()]</name>
+      <name name="enc_scoped_pdu" arity="1" clause_i="1" since=""/>
       <fsummary>Encode an SNMP scopedPDU</fsummary>
-      <type>
-        <v>ScopedPdu = #scoped_pdu</v>
-      </type>
       <desc>
         <p>Encodes an SNMP ScopedPdu into a list of bytes, which can be
-          encrypted, and after encryption, encoded with
-          a call to <c>enc_encrypted_scoped_pdu/1</c>; or it can be
-          used as the <c>data</c> field in a <c>message</c> record, which
-          then can be encoded with <c>enc_message_only/1</c>.</p>
+	encrypted, and after encryption, encoded with
+	a call to <c>enc_encrypted_scoped_pdu/1</c>; or it can be
+	used as the <c>data</c> field in a <c>message</c> record, which
+	then can be encoded with <c>enc_message_only/1</c>. </p>
       </desc>
     </func>
     <func>

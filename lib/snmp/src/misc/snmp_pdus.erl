@@ -619,7 +619,12 @@ enc_v3_header(#v3_hdr{msgID = MsgID,
 			  enc_integer_tag(MsgSecurityModel)]),
     Len = elength(length(Bytes)),
     lists:append([[48 | Len], Bytes, enc_oct_str_tag(MsgSecurityParameters)]).
-    
+
+
+-spec enc_scoped_pdu(ScopedPdu) -> Bytes when
+      ScopedPdu :: scoped_pdu(),
+      Bytes     :: [byte()].
+
 enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
 			  contextName = ContextName,
 			  data = Data}) ->
