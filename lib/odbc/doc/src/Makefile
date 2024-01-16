@@ -52,6 +52,10 @@ BOOK_FILES = book.xml
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 IMAGE_FILES = \
 	odbc_app_arc.gif
 
