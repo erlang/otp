@@ -213,12 +213,10 @@
 	then can be encoded with <c>enc_message_only/1</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">enc_usm_security_parameters(UsmSecParams) -> [byte()]</name>
+      <name name="enc_usm_security_parameters" arity="1" clause_i="1" since=""/>
       <fsummary>Encode SNMP UsmSecurityParameters</fsummary>
-      <type>
-        <v>UsmSecParams = #usmSecurityParameters</v>
-      </type>
       <desc>
         <p>Encodes SNMP UsmSecurityParameters into a list of bytes.</p>
       </desc>

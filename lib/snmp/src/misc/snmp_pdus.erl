@@ -51,6 +51,8 @@
              ]).
 
 
+%%-----------------------------------------------------------------
+
 -type message()                 :: #message{}.
 -type trappdu()                 :: #trappdu{}.
 -type pdu()                     :: #pdu{}.
@@ -58,7 +60,7 @@
 -type usm_security_parameters() :: #usmSecurityParameters{}.
 
 
-%% -compile(export_all).
+%%-----------------------------------------------------------------
 
 %% Returns the number of octets required to encode Length.
 get_encoded_length(Length) ->
@@ -672,6 +674,11 @@ enc_pdu2(#pdu{type = Type, request_id = ReqId, error_index = ErrIndex,
     ErrIndexBytes = enc_integer_tag(ErrIndex),
     VBsBytes = enc_VarBindList(VBs),
     lists:append([ReqBytes, ErrStatBytes, ErrIndexBytes, VBsBytes]).
+
+
+-spec enc_usm_security_parameters(UsmSecParams) -> Bytes when
+      UsmSecParams :: usm_security_parameters(),
+      Bytes        :: [byte()].
 
 enc_usm_security_parameters(
   #usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
