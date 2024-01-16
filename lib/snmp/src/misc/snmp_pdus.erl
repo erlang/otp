@@ -49,9 +49,10 @@
              ]).
 
 
--type message() :: #message{}.
--type trappdu() :: #trappdu{}.
--type pdu()     :: #pdu{}.
+-type message()    :: #message{}.
+-type trappdu()    :: #trappdu{}.
+-type pdu()        :: #pdu{}.
+-type scoped_pdu() :: #scopedPdu{}.
 
 
 %% -compile(export_all).
@@ -162,7 +163,11 @@ dec_scoped_pdu_data([4 | Bytes]) -> % encryptedPDU
     {EncryptedPDU, []} = dec_oct_str_notag(Bytes),
     EncryptedPDU.
 
-    
+
+-spec dec_scoped_pdu(Bytes) -> ScopedPDU when
+      Bytes     :: [byte()],
+      ScopedPDU :: scoped_pdu().
+
 dec_scoped_pdu([48 | Bytes]) ->
     element(1, dec_scoped_pdu_notag(Bytes)).
 

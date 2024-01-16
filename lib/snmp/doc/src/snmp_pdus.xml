@@ -91,6 +91,17 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="scoped_pdu"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -126,12 +137,10 @@
         <p>Decodes a list of bytes into an SNMP Pdu.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">dec_scoped_pdu([byte()]) -> ScopedPdu</name>
+      <name name="dec_scoped_pdu" arity="1" clause_i="1" since=""/>
       <fsummary>Decode an SNMP ScopedPdu</fsummary>
-      <type>
-        <v>ScopedPdu = #scoped_pdu</v>
-      </type>
       <desc>
         <p>Decodes a list of bytes into an SNMP ScopedPdu.</p>
       </desc>
