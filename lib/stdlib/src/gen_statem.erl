@@ -2671,7 +2671,8 @@ error_info(
                  timeouts=>{NumTimers,maps:get(timeouts,Status)},
                  log=>maps:get(log,Status),
                  reason=>{Class,maps:get(reason,Status),Stacktrace},
-                 client_info=>client_stacktrace(Q)},
+                 client_info=>client_stacktrace(Q),
+                 process_label=>proc_lib:get_label(self())},
                #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/2,
                  error_logger=>
@@ -2725,7 +2726,8 @@ limit_report(#{label:={gen_statem,terminate},
 	       timeouts:=Timeouts,
                log:=Log,
                reason:={Class,Reason,Stacktrace},
-               client_info:=ClientInfo}=Report,
+               client_info:=ClientInfo,
+               process_label:=ProcessLabel}=Report,
              Depth) ->
     Report#{queue =>
                 case Q of
@@ -2755,7 +2757,8 @@ limit_report(#{label:={gen_statem,terminate},
                 {Class,
                  io_lib:limit_term(Reason, Depth),
                  io_lib:limit_term(Stacktrace, Depth)},
-            client_info => limit_client_info(ClientInfo, Depth)}.
+            client_info => limit_client_info(ClientInfo, Depth),
+            process_label => io_lib:limit_term(ProcessLabel, Depth)}.
 
 
 limit_client_info({Pid,{Name,Stacktrace}}, Depth) ->
@@ -2791,14 +2794,20 @@ format_log_single(#{label:={gen_statem,terminate},
 		    %% timeouts
                     log:=Log,
                     reason:={Class,Reason,Stacktrace},
-                    client_info:=ClientInfo},
+                    client_info:=ClientInfo,
+                    process_label:=ProcessLabel},
                   #{single_line:=true,depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
     {FixedReason,FixedStacktrace} = fix_reason(Class, Reason, Stacktrace),
     {ClientFmt,ClientArgs} = format_client_log_single(ClientInfo, P, Depth),
     Format =
         lists:append(
-          ["State machine ",P," terminating. Reason: ",P,
+          ["State machine ",P," terminating",
+           case ProcessLabel of
+               undefined -> "";
+               _ -> ". Label: "++P
+           end,
+           ". Reason: ",P,
            case FixedStacktrace of
                [] -> "";
                _ -> ". Stack: "++P
@@ -2814,7 +2823,12 @@ format_log_single(#{label:={gen_statem,terminate},
            end,
           "."]),
     Args0 =
-        [Name,FixedReason] ++
+        [Name] ++
+        case ProcessLabel of
+            undefined -> [];
+            _ -> [ProcessLabel]
+        end ++
+        [FixedReason] ++
         case FixedStacktrace of
             [] -> [];
             _ -> [FixedStacktrace]
@@ -2849,7 +2863,8 @@ format_log_multi(#{label:={gen_statem,terminate},
 		   timeouts:=Timeouts,
                    log:=Log,
                    reason:={Class,Reason,Stacktrace},
-                   client_info:=ClientInfo},
+                   client_info:=ClientInfo,
+                   process_label:=ProcessLabel},
                  #{depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
     {FixedReason,FixedStacktrace} = fix_reason(Class, Reason, Stacktrace),
@@ -2864,6 +2879,10 @@ format_log_multi(#{label:={gen_statem,terminate},
     Format =
         lists:append(
           ["** State machine ",P," terminating~n",
+           case ProcessLabel of
+               undefined -> "";
+               _ -> "** Process label = "++P++"~n"
+           end,
            case Q of
                [] -> "";
                _ -> "** Last event = "++P++"~n"
@@ -2893,11 +2912,15 @@ format_log_multi(#{label:={gen_statem,terminate},
                _ -> "** Log =~n**  "++P++"~n"
            end]),
     Args0 =
-        [Name |
-         case Q of
-             [] -> [];
-             [Event|_] -> [Event]
-         end] ++
+        [Name] ++
+        case ProcessLabel of
+            undefined -> [];
+            _ -> [ProcessLabel]
+        end ++
+        case Q of
+            [] -> [];
+            [Event|_] -> [Event]
+        end ++
         [FmtData,
          Class,FixedReason,
          Modules,

@@ -1013,7 +1013,8 @@ report_error(Handler, Exit, State, LastIn, SName) ->
                  name=>SName,
                  last_message=>maps:get(message,Status),
                  state=>maps:get('$status',Status,maps:get(state,Status)),
-                 reason=>ReasonFun(maps:get(reason,Status))},
+                 reason=>ReasonFun(maps:get(reason,Status)),
+                 process_label=>proc_lib:get_label(self())},
                #{domain=>[otp],
                  report_cb=>fun gen_event:format_log/2,
                  error_logger=>#{tag=>error,
@@ -1037,11 +1038,13 @@ limit_report(Report, unlimited) ->
 limit_report(#{label:={gen_event,terminate},
                last_message:=LastIn,
                state:=State,
-               reason:=Reason}=Report,
+               reason:=Reason,
+               process_label:=ProcessLabel}=Report,
              Depth) ->
     Report#{last_message => io_lib:limit_term(LastIn, Depth),
             state => io_lib:limit_term(State, Depth),
-            reason => io_lib:limit_term(Reason, Depth)};
+            reason => io_lib:limit_term(Reason, Depth),
+            process_label => io_lib:limit_term(ProcessLabel, Depth)};
 limit_report(#{label:={gen_event,no_handle_info},
                message:=Msg}=Report,
              Depth) ->
@@ -1070,20 +1073,35 @@ format_log_single(#{label:={gen_event,terminate},
                     name:=SName,
                     last_message:=LastIn,
                     state:=State,
-                    reason:=Reason},
+                    reason:=Reason,
+                    process_label:=ProcessLabel},
                   #{single_line:=true, depth:=Depth}=FormatOpts) ->
     P = p(FormatOpts),
     Reason1 = fix_reason(Reason),
     Format1 = lists:append(["Generic event handler ",P," crashed. "
-                            "Installed: ",P,". Last event: ",P,
+                            "Installed: ",P,
+                            case ProcessLabel of
+                                undefined -> "";
+                                _ -> ". Label: "++P
+                            end,
+                            ". Last event: ",P,
                             ". State: ",P,". Reason: ",P,"."]),
     Args1 =
         case Depth of
             unlimited ->
-                [Handler,SName,LastIn,State,Reason1];
+                [Handler,SName] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel]
+                end ++
+                [LastIn,State,Reason1];
             _ ->
-                [Handler,Depth,SName,Depth,LastIn,Depth,
-                 State,Depth,Reason1,Depth]
+                [Handler,Depth,SName,Depth] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel,Depth]
+                end ++
+                [LastIn,Depth,State,Depth,Reason1,Depth]
         end,
     {Format1, Args1};
 format_log_single(#{label:={gen_event,no_handle_info},
@@ -1109,23 +1127,37 @@ format_log_multi(#{label:={gen_event,terminate},
                    name:=SName,
                    last_message:=LastIn,
                    state:=State,
-                   reason:=Reason},
+                   reason:=Reason,
+                   process_label:=ProcessLabel},
                  #{depth:=Depth}=FormatOpts) ->
     Reason1 = fix_reason(Reason),
     P = p(FormatOpts),
     Format =
         lists:append(["** gen_event handler ",P," crashed.\n",
                       "** Was installed in ",P,"\n",
+                      case ProcessLabel of
+                          undefined -> [];
+                          _ -> "** Process label == "++P++"\n"
+                      end,
                       "** Last event was: ",P,"\n",
                       "** When handler state == ",P,"\n",
                       "** Reason == ",P,"\n"]),
     Args =
         case Depth of
             unlimited ->
-                [Handler,SName,LastIn,State,Reason1];
+                [Handler, SName] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel]
+                end ++
+                [LastIn,State,Reason1];
             _ ->
-                [Handler,Depth,SName,Depth,LastIn,Depth,State,Depth,
-                 Reason1,Depth]
+                [Handler, Depth, SName, Depth] ++
+                case ProcessLabel of
+                    undefined -> [];
+                    _ -> [ProcessLabel, Depth]
+                end ++
+                [LastIn, Depth, State, Depth, Reason1, Depth]
         end,
     {Format,Args};
 format_log_multi(#{label:={gen_event,no_handle_info},

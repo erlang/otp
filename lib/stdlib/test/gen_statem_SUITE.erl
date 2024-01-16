@@ -77,7 +77,7 @@ tcs(undef_callbacks) ->
     [undef_code_change, undef_terminate1, undef_terminate2,
      pop_too_many];
 tcs(format_log) ->
-    [format_log_1, format_log_2].
+    [format_log_1, format_log_2, format_log_with_process_label].
 
 init_per_suite(Config) ->
     Config.
@@ -2328,6 +2328,77 @@ format_log_2_elaborate() ->
     end,
     ok.
 
+format_log_with_process_label(_Config) ->
+    %% Previous test cases test with process_label set to undefined,
+    %% so in this test case, test setting it, and test:
+    %% * multiple and single line line
+    %% * depth-limited and unlimited
+
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    ProcessLabel = {some_id, #{term => Term}},
+    Reason = dummy_reason,
+    State = dummy_state,
+    Report0 = simple_report(Name, State, Reason),
+    Report = Report0#{process_label=>ProcessLabel},
+
+    %% multiple and single line (unlimited depth)
+
+    {F1,A1} = gen_statem:format_log(Report),
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1 = "** State machine ~tp terminating~n"
+        "** Process label = ~tp~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
+        "** Callback mode = ~tp~n",
+    FExpected1 = F1,
+    [Name,ProcessLabel,State,error,Reason,[?MODULE],state_functions] = A1,
+
+    FormatOpts2 = #{single_line=>true},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    Expected2 = "State machine " ++ NameStr ++ " terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}}. "
+        "Reason: dummy_reason. "
+        "State: dummy_state.",
+    ct:log("Str2: ~ts", [Str2]),
+    true = Expected2 =:= Str2,
+
+    %% multiple and single line (depth-limited)
+
+    Depth = 10,
+    FormatOpts3 = #{depth=>Depth},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Process label = {some_id,#{term => [1,2,3,4,5,6|...]}}\n"
+        "** When server state  = dummy_state\n"
+        "** Reason for termination = "
+           "error:dummy_reason\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str3: ~ts", [Str3]),
+    true = Expected3 =:= Str3,
+
+    FormatOpts4 = #{single_line=>true, depth=>Depth},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6|...]}}. "
+        "Reason: dummy_reason. "
+        "State: dummy_state.",
+    ct:log("Str4: ~ts", [Str4]),
+    true = Expected4 =:= Str4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
 simple_report(Name, Term, Reason) ->
     #{label=>{gen_statem,terminate},
       name=>Name,
@@ -2340,7 +2411,8 @@ simple_report(Name, Term, Reason) ->
       timeouts=>{0,[]},
       log=>[],
       reason=>{error,Reason,[]},
-      client_info=>undefined}.
+      client_info=>undefined,
+      process_label=>undefined}.
 
 elaborate_report(Name, Term, Reason) ->
     #{label=>{gen_statem,terminate},
@@ -2354,7 +2426,8 @@ elaborate_report(Name, Term, Reason) ->
       timeouts=>{1,[{timeout,message}]},
       log=>[Term],
       reason=>{error,Reason,stacktrace()},
-      client_info=>{self(),{self(),[]}}}.
+      client_info=>{self(),{self(),[]}},
+      process_label=>undefined}.
 
 stacktrace() ->
     [{m,f,1,lists:seq(1, 15)}].
