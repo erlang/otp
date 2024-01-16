@@ -74,35 +74,27 @@
     </func>
 
     <func>
-      <name since="">reconfigure(ConfDir) -> void()</name>
+      <name name="reconfigure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old data, including the rows with
-          StorageType <c>nonVolatile</c>.  The rows created from the
-          configuration file will have StorageType <c>nonVolatile</c>.
-          </p>
+	database and destroys all old data, including the rows with
+	StorageType <c>nonVolatile</c>.  The rows created from the
+	configuration file will have StorageType <c>nonVolatile</c>. </p>
         <p>Thus, the data in the SNMP-STANDARD-MIB and SNMPv2-MIB,
-          after this function has been called, is from the
-          configuration files.
-          </p>
-        <p>All <c>snmp</c> counters are set to zero.
-          </p>
+	after this function has been called, is from the
+	configuration files. </p>
+	<p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>.
-          </p>
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found.
-          </p>
-        <p>The configuration file read is: <c>standard.conf</c>.
-          </p>
+	where the configuration files are found. </p>
+	<p>The configuration file read is: <c>standard.conf</c>. </p>
       </desc>
     </func>
+
     <func>
       <name since="">reset() -> void()</name>
       <fsummary>Reset all <c>snmp</c>counters to 0</fsummary>
