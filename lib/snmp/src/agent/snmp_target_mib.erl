@@ -754,11 +754,17 @@ get_target_engine_id(TargetAddrName) ->
 		    undefined
 	    end
     end.
-				    
+
+
+-spec set_target_engine_id(TargetAddrName, EngineId) -> boolean() when
+      TargetAddrName :: name(),
+      EngineId       :: snmp_framework_mib:engine_id().
+
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
 				    [{?snmpTargetAddrEngineId, EngineId}]).
+
 
 %%-----------------------------------------------------------------
 %% Instrumentation Functions

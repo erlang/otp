@@ -194,17 +194,13 @@
     </func>
 
     <func>
-      <name since="">set_target_engine_id(TargetAddrName, EngineId) -> boolean()</name>
+      <name name="set_target_engine_id" arity="2" clause_i="1" since=""/>
       <fsummary>Set the engine id for a targetAddr row.</fsummary>
-      <type>
-        <v>TargetAddrName = string()</v>
-        <v>EngineId = string()</v>
-      </type>
       <desc>
         <p>Changes the engine id for a target in the 
-          <c>snmpTargetAddrTable</c>.
-          If notifications are sent as Inform requests to a target, its
-          engine id must be set. </p>
+	<c>snmpTargetAddrTable</c>.
+	If notifications are sent as Inform requests to a target, its
+	engine id must be set. </p>
 
 	<marker id="add_addr"></marker>
       </desc>
