@@ -101,6 +101,9 @@
     <datatype>
       <name name="transportAddressIPv4WithPort"/>
       <desc>
+	<p>Because of limitations of the Erlang type language
+	we cannot define this type in detail. Instead, we describe it
+	here. </p>
 	<p>The list variant, 4 bytes for address + 2 bytes for port: </p>
 	<p><c><![CDATA[[byte() x 4, byte() x 2]]]></c></p>
       </desc>
@@ -109,6 +112,9 @@
     <datatype>
       <name name="transportAddressIPv4WithoutPort"/>
       <desc>
+	<p>Because of limitations of the Erlang type language
+	we cannot define this type in detail. Instead, we describe it
+	here. </p>
 	<p>The list variant, 4 bytes for address: </p>
 	<p><c><![CDATA[[byte() x 4]]]></c></p>
       </desc>
@@ -128,14 +134,9 @@
     <datatype>
       <name name="transportAddressIPv6WithPort"/>
       <desc>
-	<!--
-	<code type="none"><![CDATA[
-	{transportAddressIPv6WithoutPort(), inet:port_number()} |
-	[word() x 8, inet:port_number()] |
-	[word() x 8, byte() x 2] |
-	[byte() x 16, byte() x 2]
-	]]></code>
-	-->
+	<p>Because of limitations of the Erlang type language
+	we cannot define this type in detail. Instead, we describe it
+	here. </p>
 	<p>First list variant, 8 words for address + 1 word for port: </p>
 	<p><c><![CDATA[[word() x 8, inet:port_number()]]]></c></p>
 	<p>Second list variant, 8 words for address + 2 bytes for port: </p>
@@ -148,11 +149,9 @@
     <datatype>
       <name name="transportAddressIPv6WithoutPort"/>
       <desc>
-	<!--
-	<code type="none"><![CDATA[
-	inet:ip6_address() | [word() x 8] | [byte() x 16]
-	]]></code>
-	-->
+	<p>Because of limitations of the Erlang type language
+	we cannot define this type in detail. Instead, we describe it
+	here. </p>
 	<p>First list variant, 8 words for address: </p>
 	<p><c><![CDATA[[word() x 8]]]></c></p>
 	<p>Second list variant, 16 bytes for address: </p>

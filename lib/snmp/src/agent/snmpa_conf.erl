@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,38 +108,25 @@
 
 -type transportAddressIPv4WithPort() ::
    {transportAddressIPv4WithoutPort(), inet:port_number()} |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
-    PortA :: byte() |  PortB :: byte()].
+   [ byte() ].
 
 -type transportAddressIPv4WithoutPort() ::
    inet:ip4_address() |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte()].
+   [ byte() ].
 
 -type transportAddressIPv6() ::
     transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort().
 
 -type transportAddressIPv6WithPort() ::
    {transportAddressIPv6WithoutPort(), inet:port_number()} |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
-    inet:port_number()] |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
-    PortA :: byte() | PortB :: byte()] |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
-    IPE :: byte() | IPF :: byte() | IPG :: byte() | IPH :: byte() |
-    IPI :: byte() | IPJ :: byte() | IPK :: byte() | IPL :: byte() |
-    IPM :: byte() | IPN :: byte() | IPO :: byte() | IPP :: byte() |
-    PortA :: byte() | PortB :: byte()].
+   [ word() | inet:port_number()] |
+   [ word() | byte() ] |
+   [ byte() ].
 
 -type transportAddressIPv6WithoutPort() ::
    inet:ip6_address() |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word()] |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
-    IPE :: byte() | IPF :: byte() | IPG :: byte() | IPH :: byte() |
-    IPI :: byte() | IPJ :: byte() | IPK :: byte() | IPL :: byte() |
-    IPM :: byte() | IPN :: byte() | IPO :: byte() | IPP :: byte()].
+   [ word() ] |
+   [ byte() ].
 
 -type transportAddressMask() ::
     [] | transportAddressWithPort().
