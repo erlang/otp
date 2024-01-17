@@ -50,6 +50,7 @@
              beam_ssa_private_append,
              beam_ssa_recv,
              beam_ssa_share,
+             beam_ssa_ss,
              beam_ssa_throw,
              beam_ssa_type,
 	     beam_trim,
