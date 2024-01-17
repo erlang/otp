@@ -129,14 +129,12 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
                               BulkCipherAlgo, CipherFragment);
 	#alert{} = Alert ->
 	    Alert;
-        PlainFragment0 when EarlyDataAccepted =:= true andalso
-                            PendingMaxEarlyDataSize0 > 0 ->
-            PlainFragment = remove_padding(PlainFragment0),
+        PlainFragment when EarlyDataAccepted =:= true andalso
+                           PendingMaxEarlyDataSize0 > 0 ->
             process_early_data(ConnectionStates0, ReadState0,
                                PendingMaxEarlyDataSize0, Seq,
                                PlainFragment);
-	PlainFragment0 ->
-            PlainFragment = remove_padding(PlainFragment0),
+	PlainFragment ->
 	    ConnectionStates =
                 ConnectionStates0#{current_read =>
                                        ReadState0#{sequence_number => Seq + 1}},
@@ -221,14 +219,13 @@ process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
                    PlainFragment) ->
     %% First packet is deciphered anyway so we must check if more early data is received
     %% than the configured limit (max_early_data_size).
-    Record = decode_inner_plaintext(PlainFragment),
-    case {Record#ssl_tls.type, remove_padding(Record#ssl_tls.fragment)} of
-        {?HANDSHAKE, <<?END_OF_EARLY_DATA>>} ->
+    case Record = decode_inner_plaintext(PlainFragment) of
+        #ssl_tls{type = ?HANDSHAKE, fragment = <<?END_OF_EARLY_DATA, _IgnorePadding/binary>>} ->
             ConnectionStates =
                 ConnectionStates0#{current_read =>
                                ReadState0#{sequence_number => Seq + 1}},
             {Record, ConnectionStates};
-        {?APPLICATION_DATA, Data} ->
+        #ssl_tls{type=?APPLICATION_DATA, fragment=Data} ->
             PendingMaxEarlyDataSize =
                 pending_early_data_size(PendingMaxEarlyDataSize0, Data),
             if PendingMaxEarlyDataSize < 0 ->
@@ -296,8 +293,7 @@ additional_data(Length) ->
 %% The resulting quantity (of length iv_length) is used as the
 %% per-record nonce.
 nonce(Seq, IV) ->
-    Padding = binary:copy(<<0>>, byte_size(IV) - 8),
-    crypto:exor(<<Padding/binary,?UINT64(Seq)>>, IV).
+    crypto:exor(<<0:(bit_size(IV)-64),?UINT64(Seq)>>, IV).
 
 cipher_aead(Fragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
     AAD = additional_data(erlang:iolist_size(Fragment) + TagLen),
@@ -310,11 +306,14 @@ encode_tls_cipher_text(Type, {MajVer,MinVer}, Encoded) ->
     Length = erlang:iolist_size(Encoded),
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Encoded].
 
-decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
+decipher_aead(CipherFragment0, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
     try
-        AAD = additional_data(erlang:iolist_size(CipherFragment)),
+        CipherFragment = iolist_to_binary(CipherFragment0),
+        FragLen = byte_size(CipherFragment),
+        AAD = additional_data(FragLen),
         Nonce = nonce(Seq, IV),
-        {CipherText, CipherTag} = aead_ciphertext_split(CipherFragment, TagLen),
+        CipherLen = FragLen - TagLen,
+        <<CipherText:CipherLen/bytes, CipherTag:TagLen/bytes>> = CipherFragment,
 	case ssl_cipher:aead_decrypt(BulkCipherAlgo, Key, Nonce, CipherText, CipherTag, AAD) of
 	    Content when is_binary(Content) ->
 		Content;
@@ -329,42 +328,20 @@ decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
-
-aead_ciphertext_split(CipherTextFragment, TagLen)
-  when is_binary(CipherTextFragment) ->
-    CipherLen = erlang:byte_size(CipherTextFragment) - TagLen,
-    <<CipherText:CipherLen/bytes, CipherTag:TagLen/bytes>> = CipherTextFragment,
-    {CipherText, CipherTag};
-aead_ciphertext_split(CipherTextFragment, TagLen)
-  when is_list(CipherTextFragment) ->
-    CipherLen = erlang:iolist_size(CipherTextFragment) - TagLen,
-    <<CipherText:CipherLen/bytes, CipherTag:TagLen/bytes>> =
-        erlang:iolist_to_binary(CipherTextFragment),
-    {CipherText, CipherTag}.
-
 decode_inner_plaintext(PlainText) ->
-    case binary:last(PlainText) of
-        Type when Type =:= ?APPLICATION_DATA orelse
-                  Type =:= ?HANDSHAKE orelse
-                  Type =:= ?ALERT ->
+    Sz = byte_size(PlainText) - 1,
+    case PlainText of
+        <<Bin:Sz/binary, 0:8>> -> %% Remove padding
+            decode_inner_plaintext(Bin);
+        <<Bin:Sz/binary, Type:8>> when
+              Type =:= ?APPLICATION_DATA orelse
+              Type =:= ?HANDSHAKE orelse
+              Type =:= ?ALERT ->
             #ssl_tls{type = Type,
                      version = ?TLS_1_3, %% Internally use real version
-                     fragment = init_binary(PlainText)};
+                     fragment = Bin};
         _Else ->
             ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, empty_alert)
-    end.
-
-init_binary(B) ->
-    {Init, _} =
-        split_binary(B, byte_size(B) - 1),
-    Init.
-
-remove_padding(InnerPlainText) ->
-    case binary:last(InnerPlainText) of
-        0 ->
-            remove_padding(init_binary(InnerPlainText));
-        _ ->
-            InnerPlainText
     end.
 
 pending_early_data_size(PendingMaxEarlyDataSize, PlainFragment) ->

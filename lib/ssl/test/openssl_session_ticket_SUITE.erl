@@ -658,7 +658,7 @@ openssl_client_early_data_basic(Config) when is_list(Config) ->
     RequestFile = filename:join([proplists:get_value(priv_dir, Config), "request"]),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     %% Create request file to be used with early data
-    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n">>,
+    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n", 0, 0>>,
     create_request(RequestFile, EarlyData),
 
     %% Configure session tickets

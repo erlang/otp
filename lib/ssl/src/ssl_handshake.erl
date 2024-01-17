@@ -260,8 +260,8 @@ key_exchange(client, _Version, {srp, PublicKey}) ->
 key_exchange(server, Version, {dh, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
-    ServerDHParams = #server_dh_params{dh_p = int_to_bin(P),
-				       dh_g = int_to_bin(G), dh_y = PublicKey},
+    ServerDHParams = #server_dh_params{dh_p = binary:encode_unsigned(P),
+				       dh_g = binary:encode_unsigned(G), dh_y = PublicKey},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
@@ -283,8 +283,8 @@ key_exchange(server, Version, {dhe_psk, PskIdentityHint, {PublicKey, _},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     ServerEDHPSKParams = #server_dhe_psk_params{
       hint = PskIdentityHint,
-      dh_params = #server_dh_params{dh_p = int_to_bin(P),
-				    dh_g = int_to_bin(G), dh_y = PublicKey}
+      dh_params = #server_dh_params{dh_p = binary:encode_unsigned(P),
+				    dh_g = binary:encode_unsigned(G), dh_y = PublicKey}
      },
     enc_server_key_exchange(Version, ServerEDHPSKParams,
 			    HashSign, ClientRandom, ServerRandom, PrivateKey);
@@ -1972,10 +1972,6 @@ certificate_authorities(CertDbHandle, CertDbRef) ->
 %%--------------------------------------------------------------------
 %%------------- Create handshake messages ----------------------------
 
-int_to_bin(I) ->
-    L = (length(integer_to_list(I, 16)) + 1) div 2,
-    <<I:(L*8)>>.
-
 %% The end-entity certificate provided by the client MUST contain a
 %% key that is compatible with certificate_types.
 certificate_types(Version) when ?TLS_LTE(Version, ?TLS_1_2) ->
@@ -3298,7 +3294,7 @@ psk_secret(PSKIdentity, PSKLookup) ->
     case handle_psk_identity(PSKIdentity, PSKLookup) of
 	{ok, PSK} when is_binary(PSK) ->
 	    Len = erlang:byte_size(PSK),
-	    <<?UINT16(Len), 0:(Len*8), ?UINT16(Len), PSK/binary>>;
+	    <<?UINT16(Len), 0:Len/unit:8, ?UINT16(Len), PSK/binary>>;
 	#alert{} = Alert ->
 	    Alert;
 	_ ->
