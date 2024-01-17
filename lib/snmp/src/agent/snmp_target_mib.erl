@@ -33,7 +33,12 @@
 -export([default_domain/0]).
 
 -export_type([
-              tag_value/0
+              name/0,
+              tag_value/0,
+              tag_list/0,
+              params/0,
+              tmask/0,
+              max_message_size/0
              ]).
 
 -include_lib("snmp/include/snmp_types.hrl").
@@ -48,7 +53,12 @@
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
--type tag_value() :: string().
+-type name()             :: snmp_framework_mib:admin_string().
+-type tag_value()        :: string().
+-type tag_list()         :: string().
+-type params()           :: snmp_framework_mib:admin_string().
+-type tmask()            :: snmpa_conf:transportAddressMask().
+-type max_message_size() :: 484..65535.
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs
@@ -385,13 +395,65 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_addr(Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      TDomain  :: snmpa_conf:transportDomain(),
+      TAddr    :: snmpa_conf:transportAddress(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: max_message_size(),
+      Key      :: term(),
+      Reason   :: term();
+              (Name, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
-  Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+  Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+  EngineId, TMask, MMS) when is_atom(TDomain) ->
+    add_addr(
+      {Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+       EngineId, TMask, MMS});
+add_addr(
+  Name, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
     add_addr(
-      {Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+      {Name, Ip, Port, Timeout, Retry, TagList, Params,
        EngineId, TMask, MMS}).
 %%
+
+-spec add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Domain   :: snmpa_conf:transportDomain(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
   Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->

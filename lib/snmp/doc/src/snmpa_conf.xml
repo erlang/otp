@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2021</year>
+      <year>2006</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,6 +42,148 @@
     <marker id="types"></marker>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="transportDomain"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddress"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv4"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressWithPort"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressWithoutPort"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv4WithPort"/>
+      <desc>
+	<p>The list variant, 4 bytes for address + 2 bytes for port: </p>
+	<p><c><![CDATA[[byte() x 4, byte() x 2]]]></c></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv4WithoutPort"/>
+      <desc>
+	<p>The list variant, 4 bytes for address: </p>
+	<p><c><![CDATA[[byte() x 4]]]></c></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv6"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv6WithPort"/>
+      <desc>
+	<!--
+	<code type="none"><![CDATA[
+	{transportAddressIPv6WithoutPort(), inet:port_number()} |
+	[word() x 8, inet:port_number()] |
+	[word() x 8, byte() x 2] |
+	[byte() x 16, byte() x 2]
+	]]></code>
+	-->
+	<p>First list variant, 8 words for address + 1 word for port: </p>
+	<p><c><![CDATA[[word() x 8, inet:port_number()]]]></c></p>
+	<p>Second list variant, 8 words for address + 2 bytes for port: </p>
+	<p><c><![CDATA[[word() x 8, byte() x 2]]]></c></p>
+	<p>Third list variant, 16 bytes for address + 2 bytes for port: </p>
+	<p><c><![CDATA[[byte() x 16, byte() x 2]]]></c></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressIPv6WithoutPort"/>
+      <desc>
+	<!--
+	<code type="none"><![CDATA[
+	inet:ip6_address() | [word() x 8] | [byte() x 16]
+	]]></code>
+	-->
+	<p>First list variant, 8 words for address: </p>
+	<p><c><![CDATA[[word() x 8]]]></c></p>
+	<p>Second list variant, 16 bytes for address: </p>
+	<p><c><![CDATA[[byte() x 16]]]></c></p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="transportAddressMask"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="word"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+  </datatypes>
+
   <section>
     <title>DATA TYPES</title>
     <code type="none"><![CDATA[
@@ -70,7 +212,7 @@ transportAddressIPv6WithPort =
     {transportAddressIPv6WithoutPort(), inet:port_number()} |
     [word() x 8, inet:port_number()] |
     [word() x 8, byte() x 2] |
-    {byte() x 16, byte() x 2]
+    [byte() x 16, byte() x 2]
 transportAddressIPv6WithoutPort =
     inet:ip6_address() | [word() x 8] | [byte() x 16]
 

@@ -10,4 +10,5 @@
   <xi:include href="../specs/specs_snmp_index.xml"/>
   <xi:include href="../specs/specs_snmp_pdus.xml"/>
   <xi:include href="../specs/specs_snmpa.xml"/>
+  <xi:include href="../specs/specs_snmpa_conf.xml"/>
 </specs>

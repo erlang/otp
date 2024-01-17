@@ -112,7 +112,8 @@
     PortA :: byte() |  PortB :: byte()].
 
 -type transportAddressIPv4WithoutPort() ::
-   inet:ip4_address() | [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte()].
+   inet:ip4_address() |
+   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte()].
 
 -type transportAddressIPv6() ::
     transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort().
@@ -124,12 +125,13 @@
     inet:port_number()] |
    [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
     IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
-    PortA :: byte() |  PortB :: byte()] |
-   {IPA :: byte(),IPB :: byte(),IPC :: byte(),IPD :: byte(),
-    IPE :: byte(),IPF :: byte(),IPG :: byte(),IPH :: byte(),
-    IPI :: byte(),IPJ :: byte(),IPK :: byte(),IPL :: byte(),
-    IPM :: byte(),IPN :: byte(),IPO :: byte(),IPP :: byte(),
-    PortA :: byte(), PortB :: byte()}.
+    PortA :: byte() | PortB :: byte()] |
+   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
+    IPE :: byte() | IPF :: byte() | IPG :: byte() | IPH :: byte() |
+    IPI :: byte() | IPJ :: byte() | IPK :: byte() | IPL :: byte() |
+    IPM :: byte() | IPN :: byte() | IPO :: byte() | IPP :: byte() |
+    PortA :: byte() | PortB :: byte()].
+
 -type transportAddressIPv6WithoutPort() ::
    inet:ip6_address() |
    [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |

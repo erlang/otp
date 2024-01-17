@@ -66,7 +66,8 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmp_generic.xml \
 	$(SPECDIR)/specs_snmp_index.xml \
 	$(SPECDIR)/specs_snmp_pdus.xml \
-	$(SPECDIR)/specs_snmpa.xml
+	$(SPECDIR)/specs_snmpa.xml \
+	$(SPECDIR)/specs_snmpa_conf.xml
 
 TOP_SPECS_FILE = specs.xml
 

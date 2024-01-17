@@ -66,6 +66,8 @@
               octet_string/0,
               rfc1903_date_and_time/0,
 
+              time_interval/0,
+
               date_and_time_validator_kind/0,
               date_and_time_validator/0,
 
@@ -130,6 +132,8 @@
                                  {local_time, calendar:datetime()} |
                                  {universal_time, calendar:datetime()}.
 
+-type time_interval()         :: 0..2147483647.
+
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
 -type octet_string()          :: [octet()].
@@ -155,7 +159,7 @@
 -type engine_id()     :: snmp_framework_mib:engine_id().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
 -type community()     :: snmp_community_mib:name().
--type mms()           :: non_neg_integer().
+-type mms()           :: snmp_target_mib:max_message_size().
 -type version()       :: v1 | v2 | v3.
 -type sec_model()     :: any | v1 | v2c | usm.
 -type sec_name()      :: snmp_community_mib:security_name().

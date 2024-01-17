@@ -49,6 +49,19 @@
 
   <datatypes>
     <datatype>
+      <name name="name"/>
+      <desc>
+	<note>
+	  <p>"The locally arbitrary, but unique identifier associated
+	  with this snmpTargetAddrEntry."</p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="tag_value"/>
       <desc>
 	<note>
@@ -57,6 +70,64 @@
 	</note>
 	<p>
 	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="tag_list"/>
+      <desc>
+	<note>
+	  <p>"An octet string containing a list of tag values.
+	  Tag values are preferably in human-readable form."</p>
+	  <p>"To facilitate internationalization, this information
+	  is represented using the ISO/IEC IS 10646-1 character
+	  set, encoded as an octet string using the UTF-8
+	  character encoding scheme described in RFC 2279."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="params"/>
+      <desc>
+	<note>
+	  <p>"The value of this object identifies an entry in the
+	  snmpTargetParamsTable."</p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="tmask"/>
+      <desc>
+	<note>
+	  <p>"The mask value associated with an entry in the
+	  snmpTargetAddrTable. The value of this object must
+	  have the same length as the corresponding instance of
+	  snmpTargetAddrTAddress, or must have length 0."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="max_message_size"/>
+      <desc>
+	<note>
+	  <p>"The maximum message size value associated with an entry
+	  in the snmpTargetAddrTable."</p>
+	</note>
+	<p>
+	  <c><![CDATA[Integer32 (484..65535)]]></c>
 	</p>
       </desc>
     </datatype>
@@ -147,26 +218,11 @@
     </func>
 
     <func>
-      <name since="">add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
+      <name name="add_addr" arity="10" clause_i="1" since=""/>
       <fsummary>Add one target address definition</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Domain = transportDomain()</v>
-	<v>Addr = transportAddress()  % Default port is 162</v>
-        <v>Timeout = integer()</v>
-        <v>Retry = integer()</v>
-        <v>TagList = string()</v>
-        <v>ParamsName = string()</v>
-        <v>EngineId = string()</v>
-        <v>TMask = transportAddressMask()  % Depends on Domain</v>
-        <v>MMS = integer()</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a target address definition to the agent config. 
-          Equivalent to one line in the <c>target_addr.conf</c> file.</p>
+	Equivalent to one line in the <c>target_addr.conf</c> file.</p>
 
         <marker id="delete_addr"></marker>
       </desc>

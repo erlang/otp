@@ -153,6 +153,29 @@
     </datatype>
 
     <datatype>
+      <name name="tdomain"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="time_interval"/>
+      <desc>
+	<note>
+	  <p>"A period of time, measured in units of 0.01 seconds."</p>
+	</note>
+	<p>
+	  Defined by SNMPc2-TC.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="algorithm"/>
       <!--
       <desc>
