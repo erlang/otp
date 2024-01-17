@@ -42,8 +42,8 @@
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
          set_max_fragment_length/2,
-	 empty_connection_state/2,
-	 empty_connection_state/4,
+	 empty_connection_state/1,
+	 empty_connection_state/3,
          record_protocol_role/1,
          step_encryption_state/1,
          step_encryption_state_read/1,
@@ -101,29 +101,24 @@ activate_pending_connection_state(#{current_read := Current,
 				    pending_read := Pending} = States,
                                   read, Connection) ->
     #{secure_renegotiation := SecureRenegotation} = Current,
-    #{beast_mitigation := BeastMitigation,
-      security_parameters := SecParams} = Pending,
+    #{security_parameters := SecParams} = Pending,
     NewCurrent = Pending#{sequence_number => 0},
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
+    EmptyPending = Connection:empty_connection_state(ConnectionEnd),
     NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
     States#{current_read => NewCurrent,
-	    pending_read => NewPending
-	   };
-
+            pending_read => NewPending};
 activate_pending_connection_state(#{current_write := Current,
 				    pending_write := Pending} = States,
                                   write, Connection) ->
     NewCurrent = Pending#{sequence_number => 0},
     #{secure_renegotiation := SecureRenegotation} = Current,
-    #{beast_mitigation := BeastMitigation,
-      security_parameters := SecParams} = Pending,
+    #{security_parameters := SecParams} = Pending,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
+    EmptyPending = Connection:empty_connection_state(ConnectionEnd),
     NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
     States#{current_write => NewCurrent,
-	    pending_write => NewPending
-	   }.
+	    pending_write => NewPending}.
 
 %%--------------------------------------------------------------------
 -spec step_encryption_state(#state{}) -> #state{}.
@@ -431,16 +426,13 @@ nonce_seed(_,_, CipherState) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-empty_connection_state(ConnectionEnd, BeastMitigation) ->
+empty_connection_state(ConnectionEnd) ->
     MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
-    empty_connection_state(ConnectionEnd, _Version = undefined,
-                           BeastMitigation, MaxEarlyDataSize).
+    empty_connection_state(ConnectionEnd, _Version = undefined, MaxEarlyDataSize).
 %%
-empty_connection_state(ConnectionEnd, Version,
-                       BeastMitigation, MaxEarlyDataSize) ->
+empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize) ->
     SecParams = init_security_parameters(ConnectionEnd, Version),
     #{security_parameters => SecParams,
-      beast_mitigation => BeastMitigation,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,

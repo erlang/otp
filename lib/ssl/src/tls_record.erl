@@ -91,15 +91,14 @@ init_connection_states(Role, Version, BeastMitigation) ->
 
 init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
-    Pending = ssl_record:empty_connection_state(ConnectionEnd,
-                                                Version,
-                                                BeastMitigation,
-                                                MaxEarlyDataSize),
-    #{current_read  => Current,
-      pending_read  => Pending,
-      current_write => Current,
-      pending_write => Pending}.
+    Current = initial_connection_state(ConnectionEnd, MaxEarlyDataSize),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize),
+    CS = #{current_read  => Current,  pending_read  => Pending,
+           current_write => Current,  pending_write => Pending},
+    case BeastMitigation of
+        disabled -> CS;
+        _NotDisabled -> CS#{beast_mitigation => BeastMitigation}
+    end.
 
 %%--------------------------------------------------------------------
 -spec get_tls_records(
@@ -135,14 +134,13 @@ encode_handshake(Frag, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_handshake(Frag, ConnectionStates);
 encode_handshake(Frag, Version,
 		 #{current_write :=
-		       #{beast_mitigation := BeastMitigation,
-                         security_parameters :=
-			     #security_parameters{bulk_cipher_algorithm = BCA}}} =
-		     ConnectionStates) ->
+		       #{security_parameters := #security_parameters{bulk_cipher_algorithm = BCA}}
+                  } = ConnectionStates) ->
     MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
+    BeastM = maps:get(beast_mitigation, ConnectionStates, disabled),
     case iolist_size(Frag) of
 	N when N > MaxLength ->
-            Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation, MaxLength),
+            Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastM, MaxLength),
 	    encode_fragments(?HANDSHAKE, Version, Data, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
@@ -180,12 +178,11 @@ encode_data(Data, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Data, Version,
 	    #{current_write :=
-                  #{beast_mitigation := BeastMitigation,
-                    security_parameters :=
-                        #security_parameters{bulk_cipher_algorithm = BCA}}} =
-		ConnectionStates) ->
+                  #{security_parameters := #security_parameters{bulk_cipher_algorithm = BCA}}
+             } = ConnectionStates) ->
     MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
-    Fragments = split_iovec(Data, Version, BCA, BeastMitigation, MaxLength),
+    BeastM = maps:get(beast_mitigation, ConnectionStates, disabled),
+    Fragments = split_iovec(Data, Version, BCA, BeastM, MaxLength),
     encode_fragments(?APPLICATION_DATA, Version, Fragments, ConnectionStates).
 
 %%====================================================================
@@ -459,11 +456,9 @@ split_iovec(Data, MaximumFragmentLength) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
-    #{security_parameters =>
-	  ssl_record:initial_security_params(ConnectionEnd),
+initial_connection_state(ConnectionEnd, MaxEarlyDataSize) ->
+    #{security_parameters => ssl_record:initial_security_params(ConnectionEnd),
       sequence_number => 0,
-      beast_mitigation => BeastMitigation,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,

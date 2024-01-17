@@ -48,7 +48,7 @@
 	 reinit/1,
          reinit_handshake_data/1,
          select_sni_extension/1,
-         empty_connection_state/2,
+         empty_connection_state/1,
          gen_info/3,
          prepare_flight/1,
          next_flight/1,
@@ -585,8 +585,8 @@ select_sni_extension(#client_hello{extensions = #{sni := SNI}}) ->
 select_sni_extension(_) ->
     undefined.
 
-empty_connection_state(ConnectionEnd, BeastMitigation) ->
-    Empty = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
+empty_connection_state(ConnectionEnd) ->
+    Empty = ssl_record:empty_connection_state(ConnectionEnd),
     dtls_record:empty_connection_state(Empty).
 
 %%====================================================================

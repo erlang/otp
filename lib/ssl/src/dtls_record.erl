@@ -74,19 +74,20 @@
 %%--------------------------------------------------------------------
 init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
-    Initial = initial_connection_state(ConnectionEnd, BeastMitigation),
+    Initial = initial_connection_state(ConnectionEnd),
     Current = Initial#{epoch := 0},
     %% No need to pass Version to ssl_record:empty_connection_state since
     %% random nonce is generated with same algorithm for DTLS version
     %% Might require a change for DTLS-1.3
-    InitialPending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
+    InitialPending = ssl_record:empty_connection_state(ConnectionEnd),
     Pending = empty_connection_state(InitialPending),
-    #{saved_read  => Current,
-      current_read  => Current,
-      pending_read  => Pending,
-      saved_write => Current,
-      current_write => Current,
-      pending_write => Pending}.
+    CS = #{saved_read  => Current, current_read  => Current,
+           pending_read  => Pending, saved_write => Current,
+           current_write => Current, pending_write => Pending},
+    case BeastMitigation of
+        disabled -> CS;
+        _NotDisabled -> CS#{beast_mitigation => BeastMitigation}
+    end.
 
 empty_connection_state(Empty) ->    
     Empty#{epoch => undefined, replay_window => init_replay_window()}.
@@ -401,13 +402,11 @@ hello_version(Version, Versions) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-initial_connection_state(ConnectionEnd, BeastMitigation) ->
-    #{security_parameters =>
-	  ssl_record:initial_security_params(ConnectionEnd),
+initial_connection_state(ConnectionEnd) ->
+    #{security_parameters => ssl_record:initial_security_params(ConnectionEnd),
       epoch => undefined,
       sequence_number => 0,
       replay_window => init_replay_window(),
-      beast_mitigation => BeastMitigation,
       cipher_state  => undefined,
       mac_secret  => undefined,
       secure_renegotiation => undefined,

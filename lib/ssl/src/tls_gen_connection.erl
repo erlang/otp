@@ -49,7 +49,7 @@
 	 reinit/1,
          reinit_handshake_data/1,
          select_sni_extension/1,
-         empty_connection_state/2,
+         empty_connection_state/1,
          encode_handshake/4]).
 
 %% State transition handling	 
@@ -161,10 +161,11 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              key_update_at := KeyUpdateAt,
                                              log_level := LogLevel
                                             } = SSLOpts,
-                             connection_states = #{current_write := ConnectionWriteState},
+                             connection_states = #{current_write := ConnectionWriteState} = CS,
                              protocol_specific = #{sender := Sender}}) ->
     HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
     Init = #{current_write => ConnectionWriteState,
+             beast_mitigation => maps:get(beast_mitigation, CS, disabled),
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
@@ -244,8 +245,8 @@ select_sni_extension(#client_hello{extensions = #{sni := SNI}}) ->
 select_sni_extension(_) ->
     undefined.
 
-empty_connection_state(ConnectionEnd, BeastMitigation) ->
-    ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation).
+empty_connection_state(ConnectionEnd) ->
+    ssl_record:empty_connection_state(ConnectionEnd).
 
 %%====================================================================
 %% Data handling

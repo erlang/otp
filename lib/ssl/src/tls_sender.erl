@@ -225,6 +225,7 @@ init(_) ->
                   gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
 init({call, From}, {Pid, #{current_write := WriteState,
+                           beast_mitigation := BeastMitigation,
                            role := Role,
                            socket := Socket,
                            socket_options := SockOpts,
@@ -236,9 +237,16 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel,
                            hibernate_after := HibernateAfter}},
-     #data{connection_states = ConnectionStates, static = Static0} = StateData0) ->
-    StateData = 
-        StateData0#data{connection_states = ConnectionStates#{current_write => WriteState},
+     #data{connection_states = ConnectionStates0, static = Static0} = StateData0) ->
+    ConnectionStates = case BeastMitigation of
+                           disabled ->
+                               ConnectionStates0#{current_write => WriteState};
+                           _ ->
+                               ConnectionStates0#{current_write => WriteState,
+                                                  beast_mitigation => BeastMitigation}
+                       end,
+    StateData =
+        StateData0#data{connection_states = ConnectionStates,
                         static = Static0#static{connection_pid = Pid,
                                                 role = Role,
                                                 socket = Socket,
