@@ -481,6 +481,11 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
+
+-spec delete_addr(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->

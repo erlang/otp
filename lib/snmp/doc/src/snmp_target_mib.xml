@@ -225,13 +225,8 @@
     </func>
 
     <func>
-      <name since="">delete_addr(Key) -> Ret</name>
+      <name name="delete_addr" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one target address definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a target address definition from the agent config.</p>
 
