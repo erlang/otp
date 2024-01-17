@@ -628,7 +628,7 @@ directory to `$ERL_TOP/erts/emulator` and execute:
 
     $ (cd $ERL_TOP/erts/emulator && make debug)
 
-This will produce a  beam.smp.debug executable. The
+This will produce a `beam.debug.smp` executable. The
 file are installed along side with the normal (opt) version `beam.smp`.
 
 To start the debug enabled runtime system execute:
