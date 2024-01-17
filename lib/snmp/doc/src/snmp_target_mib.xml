@@ -145,28 +145,24 @@
 
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
-        <p>This function is called from the supervisor at system
-          start-up.
-          </p>
+	<p>This function is called from the supervisor at system
+	start-up. </p>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old rows with StorageType
-          <c>volatile</c>.  The rows created from the configuration file
-          will have StorageType <c>nonVolatile</c>. </p>
+	database and destroys all old rows with StorageType
+	<c>volatile</c>.  The rows created from the configuration file
+	will have StorageType <c>nonVolatile</c>. </p>
         <p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>. </p>
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found. </p>
+	where the configuration files are found. </p>
         <p>The configuration files read are: <c>target_addr.conf</c>
-          and <c>target_params.conf</c>. </p>
+	and <c>target_params.conf</c>. </p>
 
 	<marker id="reconfigure"></marker>
       </desc>

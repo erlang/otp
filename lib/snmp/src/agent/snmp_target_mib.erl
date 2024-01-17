@@ -91,7 +91,11 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
         {_, mnesia} ->
@@ -106,7 +110,7 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vdebug("no tables: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
 
