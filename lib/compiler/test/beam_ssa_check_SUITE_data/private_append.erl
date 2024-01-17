@@ -197,7 +197,10 @@ transformable4([H|T], Acc) ->
 transformable4([], Acc) ->
     Acc.
 
-%% Check that the alias analysis handles local functions.
+%% Check that when a variable is live across a call it is considered
+%% aliased. If the alias analysis is extended to track if an argument
+%% is captured by the callee, that information could be fed back to
+%% the caller. Until that is done, this test is expected to fail.
 transformable5(L) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
@@ -591,7 +594,6 @@ make_empty_binary_tuple_nested() ->
 %ssa% ret(D).
     {<<>>, {<<>>}, 47}.
 
-%% We can't handle this as we do not track alias status at the sub-term level.
 transformable24(L) ->
 %ssa% xfail (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),

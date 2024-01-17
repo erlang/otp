@@ -16,13 +16,12 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This module tests that beam_ssa_alias_opt:to_private_append/3
-%% rewrites plain appends in bs_create_bin to private_append when
-%% appropriate.
+%% TODO
 %%
 -module(tuple_inplace_checks).
 
--export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1]).
+-export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
+         update_record0/0, fc/0, track_update_record/1]).
 
 -record(r, {a=0,b=0,c=0,tot=0}).
 
@@ -117,3 +116,94 @@ ambiguous_inits(L) ->
     X = ambiguous(L, ambiguous_make(a)),
     Y = ambiguous(L, ambiguous_make(b)),
     {X,Y}.
+
+
+-record(r0, {not_aliased=0,aliased=[]}).
+
+update_record0() ->
+    update_record0(ex:f(), #r0{}).
+
+update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
+%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% _ = update_record(inplace, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+    R = Acc#r0{not_aliased=N+1,aliased=Val},
+    update_record0(Ls, R);
+update_record0([], Acc) ->
+    Acc.
+
+%% Check that the reuse hint for update_record isn't used when the
+%% result is used by a inplace update_record instruction.
+-record(fc_r, {anno=#{},
+	       is,
+	       last}).
+
+fc() ->
+    fc0(ex:f(), []).
+
+fc0([{L,#fc_r{}=Blk}|Bs], Acc0) ->
+%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% _ = update_record(copy, 4, _, 3, _),
+%ssa% _ = update_record(copy, 4, _, 3, _).
+    case ex:f() of
+        [Is] ->
+            Acc = fc0(Acc0),
+            fc0(Bs, [{L,Blk#fc_r{is=Is}}|Acc]);
+        Is ->
+            fc0(Bs, [{L,Blk#fc_r{is=Is}}|Acc0])
+    end.
+
+fc0([{L,Blk}|Acc]) ->
+%ssa% xfail (_) when post_ssa_opt ->
+%ssa% _ = update_record(inplace, 4, _, 3, _).
+    [{L,Blk#fc_r{is=x}}|Acc].
+
+-record(outer, {a,b}).
+-record(inner, {c,d,e}).
+
+track_update_record(#outer{a=A}=Outer) ->
+%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% switch(X, _, [{0,Zero},{1,One},{2,Two},{3,Three},{4,Four}]),
+%ssa% label Four,
+%ssa% LitInner4 = put_tuple(inner, undefined, undefined, undefined),
+%ssa% LitOuter40 = update_record(copy, 3, A0, 3, _, 2, LitInner4),
+%ssa% LitOuter41 = update_record(inplace, 3, LitOuter40, 3, _),
+%ssa% _ = call(fun track_update_record1/1, LitOuter41),
+%ssa% label Three,
+%ssa% LitInner0 = put_tuple(inner, undefined, undefined, undefined),
+%ssa% LitOuter0 = update_record(copy, 3, A0, 3, _, 2, LitInner0),
+%ssa% _ = call(fun track_update_record1/1, LitOuter0),
+%ssa% label Two,
+%ssa% LitInner1 = put_tuple(inner, c, undefined, undefined),
+%ssa% LitOuter1 = put_tuple(outer, LitInner1, b),
+%ssa% _ = call(fun track_update_record1/1, LitOuter1),
+%ssa% label One,
+%ssa% C = update_record(copy, 4, _, 2, _),
+%ssa% D = update_record(copy, 3, A0, 3, _, 2, C),
+%ssa% _ = call(fun track_update_record1/1, D),
+%ssa% label Zero,
+%ssa% A = update_record(copy, 4, _, 2, _),
+%ssa% B = update_record(copy, 3, A0, 2, A),
+%ssa% _ = call(fun track_update_record1/1, B).
+    C = e:f(),
+    case e:f() of
+	0 ->
+	    track_update_record1(Outer#outer{a=A#inner{c=C}});
+	1 ->
+	    track_update_record1(Outer#outer{a=A#inner{c=C}, b=e:f()});
+	2 ->
+	    track_update_record1(#outer{a=#inner{c=c}, b=b});
+	3 ->
+	    track_update_record1(Outer#outer{a=#inner{},b=e:f()});
+	4 ->
+	    Tmp0 = Outer#outer{a=#inner{},b=e:f()},
+	    Tmp = Tmp0#outer{b=e:f()},
+	    track_update_record1(Tmp)
+    end.
+
+track_update_record1(#outer{a=A}=Outer) ->
+%ssa% xfail (A) when post_ssa_opt ->
+%ssa% B = update_record(inplace, 4, _, 3, _),
+%ssa% R = update_record(inplace, 3, A, 2, B),
+%ssa% ret(R).
+    B = e:f(),
+    Outer#outer{a=A#inner{d=B}}.

@@ -98,7 +98,12 @@
 
          extract_tuple_element/0,
 
-         update_record0/1]).
+         update_record0/0,
+         update_record1/0,
+
+         live_past_call_triggers_aliasing/1,
+
+         fuzz0/0, fuzz0/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -197,8 +202,12 @@ transformable5(L) ->
     transformable5(L, <<>>).
 
 transformable5([H|T], Acc) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1,X] }.
+
+%% Although does_not_escape/1 does not let its argument escape, it is
+%% live across the call and thus aliased in does_not_escape.
+
     does_not_escape(Acc),
     transformable5(T, <<Acc/binary, H:8>>);
 transformable5([], Acc) ->
@@ -498,15 +507,18 @@ make_empty_binary_tuple_nested() ->
     {<<>>, {<<>>}, 47}.
 
 transformable24(L) ->
-    transformable24(L, {<<>>, ex:foo()}).
+    transformable24(L, {<<>>, ex:foo(),ex:foo()}).
 
-transformable24([H|T], {Acc,X}) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% A = get_tuple_element(Arg1, 0),
-%ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { aliased => [A], unique => [X], first_fragment_dies => true },
-%ssa% C = put_tuple(B, _),
-%ssa% _ = call(fun transformable24/2, _, C).
-    transformable24(T, {<<Acc/binary, (H+X):8>>, X});
+transformable24([H|T], {Acc,X,Y}) ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% X = get_tuple_element(Arg1, 1),
+%ssa% Acc = get_tuple_element(Arg1, 0),
+%ssa% A = bs_create_bin(append, _, Acc, _, _, _, Sum, _) { unique => [Sum,Acc], first_fragment_dies => true },
+%ssa% Y = get_tuple_element(Arg1, 2),
+%% X is unique as it is known to be a number.
+%ssa% B = put_tuple(A, X, Y) { aliased => [Y], unique => [A,X] },
+%ssa% _ = call(fun transformable24/2, C, B) { aliased => [C], unique => [B] }.
+    transformable24(T, {<<Acc/binary,(H+X):8>>,X,Y});
 transformable24([], {Acc,_}) ->
     Acc.
 
@@ -907,58 +919,113 @@ tuple_element_from_tuple_with_existing_child() ->
 
 %% Check that the same variable used twice in a put_tuple does not
 %% trigger aliasing when the variable's type isn't boxed, but that we
-%% do when the types are unknown.
-%% Numbers, no aliasing
+%% do when the types are unknown. These tests need their own private
+%% version of the identity function, as the type analysis will
+%% otherwise determine that the result type of id/1 (as it is shared
+%% between all tests) is {variables_in_put_tuple, any(), any()} and
+%% the more specific type information will be lost.
 -record(variables_in_put_tuple, {a=0,b=0}).
 
 variables_in_put_tuple_unique_0(A) when is_atom(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_1(A) when is_number(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_2(A) when is_integer(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_3(A) when is_float(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_4(A) when is_pid(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_5(A) when is_port(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
 variables_in_put_tuple_unique_6(A) when is_reference(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { unique => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { unique => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
 
-%% Unknown types, aliasing
+%% Unknown types, no aliasing of the tuple, but the elements should be
+%% aliased.
 variables_in_put_tuple_aliased(A) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% X = put_tuple(...),
-%ssa% ret(X) { aliased => [X] }.
-    #variables_in_put_tuple{a=A,b=A}.
+%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% T0 = put_tuple(_, A0, A0),
+%ssa% T = call(_, T0),
+%ssa% A = get_tuple_element(T, 1),
+%ssa% B = get_tuple_element(T, 2),
+%ssa% R = put_tuple(A, B) { aliased => [B,A] },
+%ssa% ret(R) { unique => [R] }.
+    Id = fun(X) -> X end,
+    #variables_in_put_tuple{a=X,b=Y} = Id(#variables_in_put_tuple{a=A,b=A}),
+    {X,Y}.
+
+id(X) ->
+    X.
 
 %% Check that we don't unnecessarily flag a tuple as aliased just
 %% because we extract a plain type from it.
@@ -980,20 +1047,58 @@ extract_tuple_element() ->
     {X,Y} = Z = make_tuple(),
     {X,Y,Z}.
 
--record(the_record,
-	{
-	 sum=0,
-	 last,
-	 extra
-	}).
+-record(r0, {not_aliased=0,aliased=[]}).
 
-update_record0(Xs) ->
-    update_record0(Xs, #the_record{}).
+update_record0() ->
+    update_record0(ex:f(), #r0{}).
 
-%% Unless there is a type annotation for update_record, there will be
-%% no type information for X and the record will end up as aliased.
-update_record0([X|Xs], #the_record{sum=C}=Acc) ->
-%ssa% (_, _) when post_ssa_opt ->
-%ssa% A = update_record(...),
-%ssa% _ = call(fun update_record0/2, _, A) {unique => [A]}.
-    update_record0(Xs, Acc#the_record{sum=C+X,last=X}).
+update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
+%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+    R = Acc#r0{not_aliased=N+1,aliased=Val},
+    update_record0(Ls, R);
+update_record0([], Acc) ->
+    Acc.
+
+-record(r1, {not_aliased0=0,not_aliased1=[]}).
+
+update_record1() ->
+    update_record1(ex:f(), #r1{}).
+
+update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
+%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
+    R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
+    update_record1(Ls, R);
+update_record1([], Acc) ->
+    Acc.
+
+live_past_call_triggers_aliasing(A) ->
+%%% As X lives past the call to id, X and Y alias each other.
+%ssa% xfail (A) when post_ssa_opt ->
+%ssa% X = put_tuple(A),
+%ssa% Y = call(fun id/1, X) { aliased => [X] },
+%ssa% R = put_tuple(X, Y) { aliased => [X,Y] },
+%ssa% ret(R) { unique => [R] }.
+    X = {A},
+    Y = id(X),
+    {X,Y}.
+
+%% Check that the alias analysis handles the case where the called
+%% function only has a known return status for a result type which is
+%% not present in the call. In the example the looked up type is a
+%% #t_union{} but a status is only known for 'nil'.
+fuzz0(_V0)  ->
+    maybe
+        [] ?= _V0
+    else
+        _  when ok ->
+            ok;
+        []  ->
+            ok;
+        _  ->
+            _V0
+    end.
+
+fuzz0()  ->
+    fuzz0(ok).
