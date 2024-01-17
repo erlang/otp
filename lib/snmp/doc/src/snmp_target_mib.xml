@@ -251,13 +251,8 @@
     </func>
 
     <func>
-      <name since="">delete_params(Key) -> Ret</name>
+      <name name="delete_params" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one target parameter definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a target parameter definition from the agent config.</p>
       </desc>

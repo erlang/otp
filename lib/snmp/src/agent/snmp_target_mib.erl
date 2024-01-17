@@ -517,6 +517,10 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	    {error, Error}
     end.
 
+-spec delete_params(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
 	true ->
