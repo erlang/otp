@@ -486,6 +486,16 @@ delete_addr(Key) ->
     end.
 
 
+-spec add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
+          {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      MPModel  :: snmp_framework_mib:message_processing_model(),
+      SecModel :: snmp_framework_mib:security_model(),
+      SecName  :: snmp_framework_mib:admin_string(),
+      SecLevel :: snmp_framework_mib:security_level(),
+      Key      :: term(),
+      Reason   :: term().
+
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
     case (catch check_target_params(Params)) of

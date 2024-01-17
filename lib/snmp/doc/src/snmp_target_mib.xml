@@ -244,25 +244,16 @@
     </func>
 
     <func>
-      <name since="">add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret</name>
+      <name name="add_params" arity="5" clause_i="1" since=""/>
       <fsummary>Add one target parameter definition</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>MPModel = v1 | v2c | v3</v>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a target parameter definition to the agent config. 
-          Equivalent to one line in the <c>target_params.conf</c> file.</p>
+	Equivalent to one line in the <c>target_params.conf</c> file.</p>
 
         <marker id="delete_params"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">delete_params(Key) -> Ret</name>
       <fsummary>Delete one target parameter definition</fsummary>

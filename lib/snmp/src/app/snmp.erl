@@ -161,9 +161,9 @@
 -type community()     :: snmp_community_mib:name().
 -type mms()           :: snmp_target_mib:max_message_size().
 -type version()       :: v1 | v2 | v3.
--type sec_model()     :: any | v1 | v2c | usm.
--type sec_name()      :: snmp_community_mib:security_name().
--type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
+-type sec_model()     :: snmp_framework_mib:security_model().
+-type sec_name()      :: snmp_framework_mib:admin_string().
+-type sec_level()     :: snmp_framework_mib:security_level().
 
 -type varbind()       :: #varbind{}.
 -type ivarbind()      :: #ivarbind{}.
