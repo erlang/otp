@@ -380,11 +380,21 @@ setup_connection(_, _, _) ->
     ok.
 
 payload(Loop, ssl, D = {Socket, Size}) when Loop > 0 ->
+    ssl:setopts(Socket, [{active, once}]),
     ok = ssl:send(Socket, msg()),
-    {ok, _} = ssl:recv(Socket, Size),
+    fetch_data(Socket, Size),
     payload(Loop-1, ssl, D);
 payload(_, _, {Socket, _}) ->
     ssl:close(Socket).
+
+fetch_data(Socket, Size) ->
+    receive
+        {ssl, Socket, Bin} ->
+            case Size - size(Bin) of
+                0 -> ok;
+                N -> fetch_data(Socket, N)
+            end
+    end.
 
 msg() ->
     <<"Hello", 
