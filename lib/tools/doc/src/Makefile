@@ -35,7 +35,7 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = \
 	cover.xml \
 	eprof.xml \
-	hprof.xml \
+	tprof.xml \
 	fprof.xml \
 	cprof.xml \
 	lcnt.xml \

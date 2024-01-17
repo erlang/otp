@@ -330,6 +330,16 @@ String Content
         warnings about all occurrences of <c>maybe</c> without quotes.
       </p>
     </section>
+
+    <section>
+      <title>cprof and eprof will be replaced by tprof</title>
+      <p>
+	As of OTP 29, the <c>cprof</c> and <c>eprof</c> will be
+	removed in favor of
+	<seeerl marker="tools:tprof"><c>tprof</c></seeerl> added
+	in OTP 27.
+      </p>
+    </section>
   </section>
 
 </chapter>

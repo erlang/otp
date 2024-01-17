@@ -41,21 +41,13 @@
     <p>Erlang/OTP contains several tools to help finding bottlenecks:</p>
 
     <list type="bulleted">
+      <item><p><seeerl marker="tools:tprof"><c>tprof</c></seeerl> is
+          a tracing profiler that can measure call count, call time, or
+          heap allocations per function call.</p></item>
+
       <item><p><seeerl marker="tools:fprof"><c>fprof</c></seeerl> provides
           the most detailed information about where the program time is spent,
           but it significantly slows down the program it profiles.</p></item>
-
-      <item><p><seeerl marker="tools:eprof"><c>eprof</c></seeerl> provides
-          time information of each function used in the program. No call graph is
-          produced, but <c>eprof</c> has considerably less impact on the program it
-          profiles.</p>
-        <p>If the program is too large to be profiled by <c>fprof</c> or
-          <c>eprof</c>, <c>cprof</c> can be used to locate code parts that
-          are to be more thoroughly profiled using <c>fprof</c> or <c>eprof</c>.</p></item>
-
-      <item><p><seeerl marker="tools:cprof"><c>cprof</c></seeerl> is the
-          most lightweight tool, but it only provides execution counts on a
-          function basis (for all processes, not per process).</p></item>
 
       <item><p><seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl> is the
           generic erlang tracing frontend. By using the <c>timestamp</c> or
@@ -67,7 +59,6 @@
           locking mechanisms. It is useful when looking for bottlenecks in
           interaction between process, port, ets tables and other entities
           that can be run in parallel.</p></item>
-
     </list>
 
     <p>The tools are further described in

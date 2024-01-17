@@ -18,14 +18,16 @@
 %%-------------------------------------------------------------------
 %%
 %% @author Maxim Fedorov <maximfca@gmail.com>
-%% Erlang Process Heap profiler.
+%% Erlang Process Tracing profiler.
 %%
--module(hprof).
+-module(tprof).
 
 %% API
 -export([
     start/0,
+    start/1,
     start_link/0,
+    start_link/1,
     stop/0,
     set_pattern/3,
     clear_pattern/3,
@@ -56,6 +58,12 @@
 
 %% typedefs for easier digestion
 
+%% Configures the type of profiling.
+-type start_options() :: #{type => trace_type()}.
+
+%% Trace type
+- type trace_type() :: call_count | call_time | call_memory.
+
 %% Trace spec: module() or '_', function or '_', arity or '_'
 -type trace_pattern() :: {module(), Fun :: atom(), arity() | '_'}.
 
@@ -64,17 +72,17 @@
 
 %% Single trace_info call with associated module/function/arity
 -type trace_info() :: {module(), Fun :: atom(), Arity :: non_neg_integer(),
-    [{pid(), Count :: pos_integer(), Words :: pos_integer()}]}.
+    [{pid(), Count :: pos_integer(), Measurement :: pos_integer()}]}.
 
 %% Combined report for a single function (one or all processes).
 -type profile_line() :: {module(), Function :: {atom(), arity()},
-    Count :: pos_integer(), Words :: pos_integer(), WordsPerCall :: non_neg_integer(), Percent :: float()}.
+    Count :: pos_integer(), Measurement :: pos_integer(), MeasurementPerCall :: non_neg_integer(), Percent :: float()}.
 
 %% Single profiling attempt result.
--type profile_result() :: {TotalWords :: non_neg_integer(), [profile_line()]}.
+-type profile_result() :: {trace_type(), TotalMeasurement :: non_neg_integer(), [profile_line()]}.
 
 %% Convenience type used to sort the profiling results.
--type column() :: module | function | calls | words | words_per_call | percent.
+-type column() :: module | function | calls | measurement | measurement_per_call | percent.
 
 %% Sort by
 -type sort_by() :: column() | {column(), ascending} | {column(), descending}.
@@ -91,6 +99,7 @@
     new_processes.
 
 -type profile_options() :: #{
+    type => trace_type(),                           %% the type of profiling
     timeout => timeout(),                           %% stop profiling after the timeout
     pattern => trace_pattern() | [trace_pattern()], %% list of patterns to trace
     set_on_spawn => boolean(),                      %% trace spawned processes or not (true by default)
@@ -104,12 +113,22 @@
 %% Server-aided API
 -spec start() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
 start() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+    start(#{}).
+
+-spec start(start_options()) -> {'ok', Pid} | {'error', Reason}
+        when Pid :: pid(), Reason :: {'already_started', Pid}.
+start(Config) when is_map(Config) ->
+    gen_server:start({local, ?MODULE}, ?MODULE, Config, []).
 
 %% @doc Starts the process and links it to the caller.
 -spec start_link() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    start_link(#{}).
+
+-spec start_link(start_options()) -> {'ok', Pid} | {'error', Reason}
+        when Pid :: pid(), Reason :: {'already_started', Pid}.
+start_link(Config) when is_map(Config) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, Config, []).
 
 -spec stop() -> ok.
 stop() ->
@@ -130,7 +149,7 @@ get_trace_map() ->
     gen_server:call(?MODULE, get_trace_map).
 
 %% @doc Returns statistics for current trace map.
--spec collect() -> [trace_info()].
+-spec collect() -> {trace_type(), [trace_info()]}.
 collect() ->
     gen_server:call(?MODULE, collect, infinity).
 
@@ -213,29 +232,30 @@ restart() ->
 %%--------------------------------------------------------------------
 %% Common API
 
-%% @doc Transforms raw collected data into shape suitable for analysis and printing.
--spec inspect([trace_info()]) -> #{pid() => profile_result()}.
+%% @doc Shortcut to transform raw collected data by process, sorted by percent.
+-spec inspect({trace_type(), [trace_info()]}) -> #{pid() | all => profile_result()}.
 inspect(Profile) ->
     inspect(Profile, process, percent).
 
--spec inspect([trace_info()], Report :: process, sort_by()) -> #{pid() => profile_result()};
-    ([trace_info()], Report :: total, sort_by()) -> profile_result().
-inspect(Profile, process, SortBy) ->
+%% @doc Transforms raw collected data into shape suitable for analysis and printing.
+-spec inspect({trace_type(), [trace_info()]}, process | total, sort_by()) ->
+    #{pid() | all => profile_result()}.
+inspect({Type, Profile}, process, SortBy) ->
     maps:map(
         fun (_Pid, {Total, Stats}) ->
-            {Total, inspect_sort(Stats, SortBy)}
+            {Type, Total, inspect_sort(Stats, SortBy)}
         end, inspect_processes(Profile, #{}));
-inspect(Profile, total, SortBy) ->
-    GrandTotal = lists:sum([Words || {_M, _F, _A, Mem} <- Profile, {_P, _C, Words} <- Mem]),
-    TotalStats = [inspect_total(M, F, A, GrandTotal, Mem) || {M, F, A, Mem} <- Profile],
-    {GrandTotal, inspect_sort(TotalStats, SortBy)}.
+inspect({Type, Profile}, total, SortBy) ->
+    GrandTotal = lists:sum([Mem || {_M, _F, _A, Mems} <- Profile, {_P, _C, Mem} <- Mems]),
+    TotalStats = [inspect_total(M, F, A, GrandTotal, Mems) || {M, F, A, Mems} <- Profile],
+    #{all => {Type, GrandTotal, inspect_sort(TotalStats, SortBy)}}.
 
 %% @doc Formats inspect()-ed totals and per-function data
--spec format(profile_result() | #{pid => profile_result()}) -> ok.
+-spec format(#{pid() | all => profile_result()}) -> ok.
 format(Inspected) ->
     format_impl([], Inspected).
 
--spec format(io:device(), profile_result() | #{pid => profile_result()}) -> ok.
+-spec format(io:device(), #{pid() | all => profile_result()}) -> ok.
 format(IoDevice, Inspected) ->
     format_impl(IoDevice, Inspected).
 
@@ -261,7 +281,8 @@ profile(Module, Function, Args, Options) when is_atom(Module), is_atom(Function)
 
 %%--------------------------------------------------------------------
 %% gen_server implementation
--record(hprof_state, {
+-record(tprof_state, {
+    type = call_count :: trace_type(),
     trace_map = #{} :: trace_map(),
     paused = false :: boolean(),
     ad_hoc = undefined :: undefined |
@@ -269,41 +290,42 @@ profile(Module, Function, Args, Options) when is_atom(Module), is_atom(Function)
             RootSet :: rootset(), ReplyTo :: gen_server:from()}
 }).
 
--type state() :: #hprof_state{}.
+-type state() :: #tprof_state{}.
 
--spec init([]) -> {ok, state()}.
-init([]) ->
+-spec init(start_options()) -> {ok, state()}.
+init(Config) ->
+    Type = maps:get(type, Config, call_count),
     false = erlang:process_flag(trap_exit, true), %% need this for reliable terminate/2 call
-    {ok, #hprof_state{}}.
+    {ok, #tprof_state{type=Type}}.
 
 -spec handle_call(term(), gen_server:from(), state()) -> {reply | noreply, term(), state()}.
-handle_call({set_pattern, M, F, A}, _From, #hprof_state{trace_map = Map} = State) ->
-    {Reply, NewMap} = enable_pattern(M, F, A, Map),
-    {reply, Reply, State#hprof_state{trace_map = NewMap}};
-handle_call({clear_pattern, M, F, A}, _From, #hprof_state{trace_map = Map} = State) ->
-    {Ret, NewMap} = disable_pattern(M, F, A, Map),
-    {reply, Ret, State#hprof_state{trace_map = NewMap}};
-handle_call(get_trace_map, _From, #hprof_state{trace_map = Map} = State) ->
+handle_call({set_pattern, M, F, A}, _From, #tprof_state{trace_map = Map, type = Type} = State) ->
+    {Reply, NewMap} = enable_pattern(M, F, A, Map, Type),
+    {reply, Reply, State#tprof_state{trace_map = NewMap}};
+handle_call({clear_pattern, M, F, A}, _From, #tprof_state{trace_map = Map, type = Type} = State) ->
+    {Ret, NewMap} = disable_pattern(M, F, A, Map, Type),
+    {reply, Ret, State#tprof_state{trace_map = NewMap}};
+handle_call(get_trace_map, _From, #tprof_state{trace_map = Map} = State) ->
     {reply, Map, State};
-handle_call(pause, _From, #hprof_state{paused = true} = State) ->
+handle_call(pause, _From, #tprof_state{paused = true} = State) ->
     {reply, not_running, State};
-handle_call(pause, _From, #hprof_state{trace_map = Map, paused = false} = State) ->
-    foreach(Map, pause),
-    {reply, ok, State#hprof_state{paused = true}};
-handle_call(continue, _From, #hprof_state{paused = false} = State) ->
+handle_call(pause, _From, #tprof_state{trace_map = Map, paused = false, type = Type} = State) ->
+    foreach(Map, pause, Type),
+    {reply, ok, State#tprof_state{paused = true}};
+handle_call(continue, _From, #tprof_state{paused = false} = State) ->
     {reply, running, State};
-handle_call(continue, _From, #hprof_state{trace_map = Map} = State) ->
-    foreach(Map, true),
-    {reply, ok, State#hprof_state{paused = false}};
-handle_call(restart, _From, #hprof_state{trace_map = Map} = State) ->
-    foreach(Map, restart),
-    {reply, ok, State#hprof_state{paused = false}};
-handle_call(collect, _From, #hprof_state{trace_map = Map} = State) ->
-    {reply, collect(Map), State};
-handle_call({profile, What, Options}, From, #hprof_state{ad_hoc = undefined, trace_map = Map} = State) ->
+handle_call(continue, _From, #tprof_state{trace_map = Map, type = Type} = State) ->
+    foreach(Map, true, Type),
+    {reply, ok, State#tprof_state{paused = false}};
+handle_call(restart, _From, #tprof_state{trace_map = Map, type = Type} = State) ->
+    foreach(Map, restart, Type),
+    {reply, ok, State#tprof_state{paused = false}};
+handle_call(collect, _From, #tprof_state{trace_map = Map, type = Type} = State) ->
+    {reply, collect(Map, Type), State};
+handle_call({profile, What, Options}, From, #tprof_state{ad_hoc = undefined, trace_map = Map, type = Type} = State) ->
     %% ad-hoc profile routed via gen_server to handle 'EXIT' signal
-    {Pid, Timer, Patterns, RootSet, NewMap} = ad_hoc_run(What, Options, Map),
-    {noreply, State#hprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From}, trace_map = NewMap}};
+    {Pid, Timer, Patterns, RootSet, NewMap} = ad_hoc_run(What, Options, Map, Type),
+    {noreply, State#tprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From}, trace_map = NewMap}};
 handle_call({profile, _What, _Options}, _From, State) ->
     {reply, {error, running}, State}.
 
@@ -312,24 +334,24 @@ handle_cast(_Req, _State) ->
     erlang:error(notsup).
 
 -spec handle_info(term(), state()) -> {noreply, state()}.
-handle_info({'EXIT', Pid, Reason}, #hprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From},
-    trace_map = Map} = State) ->
+handle_info({'EXIT', Pid, Reason}, #tprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From},
+    trace_map = Map, type = Type} = State) ->
     _ = disable_trace(RootSet),
-    Profile = collect(Map),
+    Profile = collect(Map, Type),
     gen:reply(From, {Reason, Profile}),
     Timer =/= false andalso erlang:cancel_timer(Timer),
-    {noreply, State#hprof_state{ad_hoc = undefined, trace_map = disable_patterns(Patterns, Map)}};
+    {noreply, State#tprof_state{ad_hoc = undefined, trace_map = disable_patterns(Patterns, Map, Type)}};
 
-handle_info({cancel, Pid}, #hprof_state{ad_hoc = {Pid, _Timer, Patterns, RootSet, From},
-    trace_map = Map} = State) ->
+handle_info({cancel, Pid}, #tprof_state{ad_hoc = {Pid, _Timer, Patterns, RootSet, From},
+    trace_map = Map, type = Type} = State) ->
     _ = disable_trace(RootSet),
-    Profile = collect(Map),
+    Profile = collect(Map, Type),
     gen:reply(From, {{'EXIT', timeout}, Profile}),
-    {noreply, State#hprof_state{ad_hoc = undefined, trace_map = disable_patterns(Patterns, Map)}}.
+    {noreply, State#tprof_state{ad_hoc = undefined, trace_map = disable_patterns(Patterns, Map, Type)}}.
 
 -spec terminate(term(), state()) -> ok.
-terminate(_Reason, #hprof_state{trace_map = Map}) ->
-    clear_pattern(Map),
+terminate(_Reason, #tprof_state{trace_map = Map, type = Type}) ->
+    clear_pattern(Map, Type),
     ok.
 
 %%--------------------------------------------------------------------
@@ -338,10 +360,10 @@ terminate(_Reason, #hprof_state{trace_map = Map}) ->
 -include_lib("kernel/include/logger.hrl").
 
 %% Add the trace of the specified module to the accumulator
-collect_trace(Mod, FunList, Acc) ->
+collect_trace(Mod, FunList, Acc, Type) ->
     {Fail, Ret} = lists:foldl(
         fun ({Fun, Arity}, {Fail, Prev}) ->
-            case combine_trace(erlang:trace_info({Mod, Fun, Arity}, call_memory)) of
+            case combine_trace(erlang:trace_info({Mod, Fun, Arity}, Type)) of
                 skip ->
                     {Fail, Prev};
                 fail ->
@@ -353,20 +375,26 @@ collect_trace(Mod, FunList, Acc) ->
     %% module may have been hot-code reloaded, or tracing was broken by something else
     Fail andalso begin
         ?LOG_WARNING(
-            "hprof encountered an error tracing module ~s, was it reloaded or untraced?",
+            "tprof encountered an error tracing module ~s, was it reloaded or untraced?",
             [Mod])
         end,
     Ret.
 
-combine_trace({call_memory, []}) ->
-    skip;
 %% It is possible that due to hot code reload event
 %% some function is no longer traced, while it was supposed to.
 %% Reinstating tracing automatically is wrong thing to do, because
 %% statistics won't be correct anyway. Hence the warning in the user
 %% guide, guarding against hot code reload while tracing.
-combine_trace({call_memory, false}) ->
-    fail;
+combine_trace({_, false}) -> fail;
+combine_trace({call_count, 0}) -> skip;
+combine_trace({call_count, Num}) -> [{all, Num, Num}];
+combine_trace({call_time, Times}) ->
+    case [{Pid, Calls, S * 1000000 + Us} || {Pid, Calls, S, Us} <- Times] of
+        [] ->
+            skip;
+        NonZero ->
+            NonZero
+    end;
 combine_trace({call_memory, Mem}) ->
     case [{Pid, Calls, Words} || {Pid, Calls, Words} <- Mem, Words > 0] of
         [] ->
@@ -376,35 +404,38 @@ combine_trace({call_memory, Mem}) ->
     end.
 
 %% Inspection: iterate over collected traces, return map of
-%%  #{Pid => [{M, {F, A}, Calls, TotalWords, WordsPerCall, Percentage}], unsorted.
+%%  #{Pid => [{M, {F, A}, Calls, Measurement, PerCall, Percentage}], unsorted.
 inspect_processes([], Acc) ->
     maps:map(
         fun (_Pid, {Total, Lines}) ->
-            {Total, [{M, {F, A}, Calls, Words, PerCall, Words * 100 / Total}
-                || {M, F, A, Calls, Words, PerCall} <- Lines]}
+            {Total, [{M, {F, A}, Calls, Measurement, PerCall, divide(Measurement * 100, Total)}
+                || {M, F, A, Calls, Measurement, PerCall} <- Lines]}
         end, Acc);
 inspect_processes([{_M, _F, _A, []} | Tail], Acc) ->
     inspect_processes(Tail, Acc);
-inspect_processes([{M, F, A, [{Pid, Calls, Words} | MemTail]} | Tail], Acc) ->
-    ProfLine = {M, F, A, Calls, Words, Words div Calls},
-    inspect_processes([{M, F, A, MemTail} | Tail],
-        maps:update_with(Pid, fun ({Grand, L}) -> {Grand + Words, [ProfLine | L]} end, {Words, [ProfLine]}, Acc)).
+inspect_processes([{M, F, A, [{Pid, Calls, Mem} | TripletTail]} | Tail], Acc) ->
+    ProfLine = {M, F, A, Calls, Mem, divide(Mem, Calls)},
+    inspect_processes([{M, F, A, TripletTail} | Tail],
+        maps:update_with(Pid, fun ({Grand, L}) -> {Grand + Mem, [ProfLine | L]} end, {Mem, [ProfLine]}, Acc)).
 
 %% Inspection: remove Pid information from the Profile, return list of
-%%  [{M, F, A, TotalCalls, TotalWords, WordsPerCall, Percentage}]
-inspect_total(M, F, A, GrandTotal, Mem) ->
-    {TC, TW} = lists:foldl(
-        fun ({_Pid, Calls, Words}, {TotalCalls, TotalWords}) ->
-            {TotalCalls + Calls, TotalWords + Words}
-        end, {0, 0}, Mem),
-    {M, {F, A}, TC, TW, TW div TC, TW * 100 / GrandTotal}.
+%%  [{M, F, A, TotalCalls, Measurement, PerCall, Percentage}]
+inspect_total(M, F, A, GrandTotal, Mems) ->
+    {TC, TM} = lists:foldl(
+        fun ({_Pid, Calls, Mem}, {TotalCalls, TotalMem}) ->
+            {TotalCalls + Calls, TotalMem + Mem}
+        end, {0, 0}, Mems),
+    {M, {F, A}, TC, TM, divide(TM, TC), divide(TM * 100, GrandTotal)}.
+
+divide(_,0) -> 0.0;
+divide(T,N) -> T/N.
 
 %% Returns "sort by" column index
 column(module) -> {1, ascending};
 column(function) -> {2, ascending};
 column(calls) -> {3, ascending};
-column(words) -> {4, ascending};
-column(words_per_call) -> {5, ascending};
+column(measurement) -> {4, ascending};
+column(measurement_per_call) -> {5, ascending};
 column(percent) -> {6, ascending}.
 
 %% Sorts by column name, ascending/descending
@@ -423,38 +454,67 @@ inspect_sort(Profile, Column) when is_atom(Column) ->
 %% Formats the inspected profile to the Device, which could be [] meaning
 %%  default output.
 format_impl(Device, Empty) when Empty =:= #{} ->
-    format_out(Device, "Memory trace is empty~n", []);
+    format_out(Device, "Trace is empty~n", []);
+format_impl(Device, #{all := {Type, Total, Inspected}}) ->
+    format_each(Device, Type, Total, Inspected);
 format_impl(Device, Inspected) when is_map(Inspected) ->
     %% grab the total-total words
-    GrandTotal = maps:fold(fun (_Pid, {Total, _Profile}, Acc) -> Acc + Total end, 0, Inspected),
+    GrandTotal = maps:fold(fun (_Pid, {_Type, Total, _Profile}, Acc) -> Acc + Total end, 0, Inspected),
     %% per-process printout
     maps:foreach(
-        fun(Pid, {Total, _} = Profile) ->
-            format_out(Device, "~n****** Process ~w    -- ~.2f % of total allocations *** ~n",
-                [Pid, 100 * Total / GrandTotal]),
-            format_impl(Device, Profile)
-        end, Inspected);
-format_impl(Device, {Total, Inspected}) when is_list(Inspected) ->
+        fun(Pid, {Type, Total, Each}) ->
+            format_out(Device, "~n****** Process ~w  --  ~.2f% of total *** ~n",
+                [Pid, divide(100 * Total, GrandTotal)]),
+            format_each(Device, Type, Total, Each)
+        end, Inspected).
+
+format_each(Device, call_count, _Total, Inspected) ->
     %% viewport size
     %% Viewport = case io:columns() of {ok, C} -> C; _ -> 80 end,
     %% layout: module and fun/arity columns are resizable, the rest are not
     %% convert all lines to strings
     {Widths, Lines} = lists:foldl(
-        fun ({Mod, {F, A}, Calls, Words, WPC, Percent}, {Widths, Ln}) ->
-            Line = [atom_to_list(Mod), lists:flatten(io_lib:format("~tw/~w", [F, A])),
-                integer_to_list(Calls), integer_to_list(Words), integer_to_list(WPC),
-                float_to_list(Percent, [{decimals, 2}])],
+        fun ({Mod, {F, A}, Calls, _Value, _VPC, Percent}, {Widths, Ln}) ->
+            Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
+                integer_to_list(Calls), float_to_list(Percent, [{decimals, 2}])],
             NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
             {NewWidths, [Line | Ln]}
-        end, {[0, 0, 5, 5, 8, 5], []}, Inspected),
+        end, {[0, 5, 5], []}, Inspected),
     %% figure our max column widths according to viewport (cut off module/funArity)
     FilteredWidths = Widths,
     %% figure out formatting line
-    Fmt = lists:flatten(io_lib:format("~~.~ws ~~.~wts  ~~~ws  ~~~ws  ~~~ws  [~~~ws]~~n", FilteredWidths)),
+    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  [~~~ws]~~n", FilteredWidths)),
     %% print using this format
-    format_out(Device, Fmt, ["MODULE", "FUN/ARITY", "CALLS", "WORDS", "PER CALL", "%"]),
+    format_out(Device, Fmt, ["FUNCTION", "CALLS", "%"]),
     [format_out(Device, Fmt, Line) || Line <- lists:reverse(Lines)],
-    format_out(Device, Fmt, [" ", " ", " ", integer_to_list(Total), " ", "100.0"]).
+    format_out(Device, Fmt, [" ", " ", "100.0"]);
+format_each(Device, call_time, Total, Inspected) ->
+    format_labelled(Device, "TIME (μs)", Total, Inspected);
+format_each(Device, call_memory, Total, Inspected) ->
+    format_labelled(Device, "WORDS", Total, Inspected).
+
+format_labelled(Device, Label, Total, Inspected) ->
+    %% viewport size
+    %% Viewport = case io:columns() of {ok, C} -> C; _ -> 80 end,
+    %% layout: module and fun/arity columns are resizable, the rest are not
+    %% convert all lines to strings
+    {Widths, Lines} = lists:foldl(
+        fun ({Mod, {F, A}, Calls, Value, VPC, Percent}, {Widths, Ln}) ->
+            Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
+                integer_to_list(Calls), integer_to_list(Value),
+                float_to_list(VPC, [{decimals, 2}]),
+                float_to_list(Percent, [{decimals, 2}])],
+            NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
+            {NewWidths, [Line | Ln]}
+        end, {[0, 5, length(Label), 8, 5], []}, Inspected),
+    %% figure our max column widths according to viewport (cut off module/funArity)
+    FilteredWidths = Widths,
+    %% figure out formatting line
+    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  ~~~wts  ~~~ws  [~~~ws]~~n", FilteredWidths)),
+    %% print using this format
+    format_out(Device, Fmt, ["FUNCTION", "CALLS", Label, "PER CALL", "%"]),
+    [format_out(Device, Fmt, Line) || Line <- lists:reverse(Lines)],
+    format_out(Device, Fmt, [" ", " ", integer_to_list(Total), " ", "100.0"]).
 
 %% format implementation that uses [] as a way to tell "default output"
 format_out([], Fmt, Args) ->
@@ -463,24 +523,24 @@ format_out(Device, Fmt, Args) ->
     io:format(Device, Fmt, Args).
 
 %% pattern collapse code
-enable_pattern('_', '_', '_', _Acc) ->
+enable_pattern('_', '_', '_', _Acc, Type) ->
     %% need to re-trace everything, probably some new modules were loaded
     %% discard any existing trace pattern
     lists:foldl(
         fun({Mod, _}, {Total, Acc}) ->
-            Plus = erlang:trace_pattern({Mod, '_', '_'}, true, [call_memory]),
+            Plus = erlang:trace_pattern({Mod, '_', '_'}, true, [Type]),
             {Total + Plus, Acc#{Mod => Mod:module_info(functions)}}
         end, {0, #{}}, code:all_loaded());
-enable_pattern(Mod, '_', '_', Acc) ->
+enable_pattern(Mod, '_', '_', Acc, Type) ->
     %% code may have been hot-loaded, redo the trace
-    case erlang:trace_pattern({Mod, '_', '_'}, true, [call_memory]) of
+    case erlang:trace_pattern({Mod, '_', '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, '_', '_'}}, Acc};
         Traced ->
             {Traced, Acc#{Mod => Mod:module_info(functions)}}
     end;
-enable_pattern(Mod, Fun, '_', Acc) ->
-    case erlang:trace_pattern({Mod, Fun, '_'}, true, [call_memory]) of
+enable_pattern(Mod, Fun, '_', Acc, Type) ->
+    case erlang:trace_pattern({Mod, Fun, '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, '_'}}, Acc};
         Traced ->
@@ -491,8 +551,8 @@ enable_pattern(Mod, Fun, '_', Acc) ->
                 end, Added, Acc),
             {Traced, NewMap}
     end;
-enable_pattern(Mod, Fun, Arity, Acc) ->
-    case erlang:trace_pattern({Mod, Fun, Arity}, true, [call_memory]) of
+enable_pattern(Mod, Fun, Arity, Acc, Type) ->
+    case erlang:trace_pattern({Mod, Fun, Arity}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, Arity}}, Acc};
         1 ->
@@ -501,29 +561,33 @@ enable_pattern(Mod, Fun, Arity, Acc) ->
     end.
 
 %% pattern collapse code for un-tracing
-disable_pattern('_', '_', '_', _Acc) ->
-    Traced = erlang:trace_pattern({'_', '_', '_'}, false, [call_memory]),
+disable_pattern('_', '_', '_', _Acc, Type) ->
+    Traced = erlang:trace_pattern({'_', '_', '_'}, false, [Type]),
     {Traced, #{}};
-disable_pattern(Mod, '_', '_', Acc) when is_map_key(Mod, Acc) ->
-    Traced = erlang:trace_pattern({Mod, '_', '_'}, false, [call_memory]),
+disable_pattern(Mod, '_', '_', Acc, Type) when is_map_key(Mod, Acc) ->
+    Traced = erlang:trace_pattern({Mod, '_', '_'}, false, [Type]),
     {Traced, maps:remove(Mod, Acc)};
-disable_pattern(Mod, Fun, '_', Acc) when is_map_key(Mod, Acc) ->
-    Traced = erlang:trace_pattern({Mod, Fun, '_'}, false, [call_memory]),
+disable_pattern(Mod, Fun, '_', Acc, Type) when is_map_key(Mod, Acc) ->
+    Traced = erlang:trace_pattern({Mod, Fun, '_'}, false, [Type]),
     {Traced, maps:update_with(Mod,
         fun (FAs) -> [{F, A} || {F, A} <- FAs, F =/= Fun] end, Acc)};
-disable_pattern(Mod, Fun, Arity, Acc) when is_map_key(Mod, Acc) ->
-    Traced = erlang:trace_pattern({Mod, Fun, Arity}, false, [call_memory]),
+disable_pattern(Mod, Fun, Arity, Acc, Type) when is_map_key(Mod, Acc) ->
+    Traced = erlang:trace_pattern({Mod, Fun, Arity}, false, [Type]),
     {Traced, maps:update_with(Mod, fun (FAs) -> FAs -- [{Fun, Arity}] end, Acc)};
-disable_pattern(Mod, Fun, Arity, Acc) ->
+disable_pattern(Mod, Fun, Arity, Acc, _Type) ->
     {{error, {not_traced, Mod, Fun, Arity}}, Acc}.
 
-disable_patterns(Patterns, Map) ->
-    lists:foldl(fun ({M, F, A}, Acc) -> {_, New} = disable_pattern(M, F, A, Acc), New end, Map, Patterns).
+disable_patterns(Patterns, Map, Type) ->
+    lists:foldl(
+        fun ({M, F, A}, Acc) -> {_, New} = disable_pattern(M, F, A, Acc, Type), New end,
+        Map,
+        Patterns
+    ).
 
 %% ad-hoc profiler implementation
 do_profile(What, Options) ->
-    %% start a new hprof server, potentially registered to a new name
-    Pid = start_result(start_internal(maps:get(registered, Options, {local, ?MODULE}))),
+    %% start a new tprof server, potentially registered to a new name
+    Pid = start_result(start_internal(Options)),
     try
         {Ret, Profile} = gen_server:call(Pid, {profile, What, Options}, infinity),
         return_profile(maps:get(report, Options, process), Profile, Ret,
@@ -532,10 +596,11 @@ do_profile(What, Options) ->
         gen_server:stop(Pid)
     end.
 
-start_internal(false) ->
-    gen_server:start_link(?MODULE, [], []);
-start_internal({local, Name}) ->
-    gen_server:start_link({local, Name}, ?MODULE, [], []).
+start_internal(Options) ->
+    case maps:get(registered, Options, {local, ?MODULE}) of
+        false -> gen_server:start_link(?MODULE, Options, []);
+        {local, Name} -> gen_server:start_link({local, Name}, ?MODULE, Options, [])
+    end.
 
 start_result({ok, Pid}) -> Pid;
 start_result({error, Reason}) -> erlang:error(Reason).
@@ -550,11 +615,11 @@ return_profile({Agg, Sort}, Profile, _Ret, Device) ->
     format_impl(Device, inspect(Profile, Agg, Sort)).
 
 %% @doc clears tracing for the entire trace map passed
--spec clear_pattern(trace_map()) -> ok.
-clear_pattern(Existing) ->
+-spec clear_pattern(trace_map(), trace_type()) -> ok.
+clear_pattern(Existing, Type) ->
     maps:foreach(
         fun (Mod, FunArity) ->
-            [erlang:trace_pattern({Mod, F, A}, false, [call_memory]) || {F, A} <- FunArity]
+            [erlang:trace_pattern({Mod, F, A}, false, [Type]) || {F, A} <- FunArity]
         end, Existing).
 
 trace_options(#{set_on_spawn := false}) ->
@@ -631,22 +696,22 @@ toggle_trace([Name | Tail], On, Flags, Success, Failure) when is_atom(Name) ->
 
 %% @doc Collects memory tracing data (usable for inspect()) for
 %%      all traced functions.
--spec collect(trace_map()) -> [trace_info()].
-collect(Pattern) ->
-    maps:fold(fun collect_trace/3, [], Pattern).
+-spec collect(trace_map(), trace_type()) -> {trace_type(), [trace_info()]}.
+collect(Pattern, Type) ->
+    {Type, maps:fold(fun(K, V, Acc) -> collect_trace(K, V, Acc, Type) end, [], Pattern)}.
 
-foreach(Map, Action) ->
+foreach(Map, Action, Type) ->
     maps:foreach(
         fun (Mod, Funs) ->
-            [erlang:trace_pattern({Mod, F, A}, Action, [call_memory]) || {F, A} <- Funs]
+            [erlang:trace_pattern({Mod, F, A}, Action, [Type]) || {F, A} <- Funs]
         end, Map).
 
-ad_hoc_run(What, Options, Map) ->
+ad_hoc_run(What, Options, Map, Type) ->
     %% add missing patterns
     Patterns = make_list(maps:get(pattern, Options, {'_', '_', '_'})),
     NewMap = lists:foldl(
         fun({M, F, A}, Acc) ->
-            {_, NewMap} = enable_pattern(M, F, A, Acc),
+            {_, NewMap} = enable_pattern(M, F, A, Acc, Type),
             NewMap
         end, Map, Patterns),
     %% check whether spawned processes are also traced

@@ -52,8 +52,8 @@
        Erlang programs. Uses trace to file to minimize runtime
        performance impact, and displays time for calling and called 
        functions.</item>
-       <tag><em>hprof</em></tag>
-      <item>A heap profiling tool; measures how much heap space is
+       <tag><em>tprof</em></tag>
+      <item>A tracing profiling tool; measures how much time or heap space is
        allocated by Erlang processes.</item>
 
       <tag><em>lcnt</em></tag>
@@ -74,7 +74,7 @@
   <xi:include href="eprof.xml"/>
   <xi:include href="erlang_mode.xml"/>
   <xi:include href="fprof.xml"/>
-  <xi:include href="hprof.xml"/>
+  <xi:include href="tprof.xml"/>
   <xi:include href="lcnt.xml"/>
   <xi:include href="make.xml"/>
   <xi:include href="tags.xml"/>
