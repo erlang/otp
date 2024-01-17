@@ -558,9 +558,12 @@ queue_change_cipher(ChangeCipher, #state{flight_buffer = Flight,
     State#state{flight_buffer = Flight#{change_cipher_spec => ChangeCipher},
 		connection_states = ConnectionStates}.
 
-reinit(State) ->
+reinit(State0) ->
     %% To be API compatible with TLS NOOP here
-    reinit_handshake_data(State).
+    State = reinit_handshake_data(State0),
+    garbage_collect(),
+    State.
+
 reinit_handshake_data(#state{static_env = #static_env{data_tag = DataTag},
                              protocol_buffers = Buffers,
                              protocol_specific = PS,

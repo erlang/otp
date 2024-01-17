@@ -222,9 +222,11 @@ queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_vers
 
 reinit(#state{protocol_specific = #{sender := Sender},
               connection_env = #connection_env{negotiated_version = Version},
-              connection_states = #{current_write := Write}} = State) -> 
+              connection_states = #{current_write := Write}} = State0) ->
     tls_sender:update_connection_state(Sender, Write, Version),
-    reinit_handshake_data(State).
+    State = reinit_handshake_data(State0),
+    garbage_collect(),
+    State.
 
 reinit_handshake_data(#state{handshake_env = HsEnv} =State) ->
     %% premaster_secret, public_key_info and tls_handshake_info 
