@@ -1175,8 +1175,13 @@ pkix_verify_hostname_options(Config) ->
     true = public_key:pkix_verify_hostname(Cert, [{dns_id,"abb.bar.example.com"}]),
     false = public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"},
                                                    {dns_id,"abb.bar.example.com"}],
-                                            [{fqdn_fun,fun(_)->undefined end}]).
-    
+                                            [{fqdn_fun,fun(_)->undefined end}]),
+    %% Test that a common name is matched fully, that is do not allow prefix matches
+    %% with less dots (".")
+    {ok, PrefixBin} = file:read_file(filename:join(DataDir,"prefix-dots.pem")),
+    PrefixCert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(PrefixBin))), otp),
+    true = public_key:pkix_verify_hostname(PrefixCert, [{dns_id,"..a"}]),
+    false = public_key:pkix_verify_hostname(PrefixCert, [{dns_id,".a"}]).
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
