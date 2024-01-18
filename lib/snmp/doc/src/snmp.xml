@@ -170,7 +170,27 @@
 	  <p>"A period of time, measured in units of 0.01 seconds."</p>
 	</note>
 	<p>
-	  Defined by SNMPc2-TC.
+	  <c><![CDATA[INTEGER (0..2147483647)]]></c>
+	</p>
+	<p>
+	  Defined by SNMPv2-TC.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="row_pointer"/>
+      <desc>
+	<note>
+	  <p>"Represents a pointer to a conceptual row.  The value is the
+              name of the instance of the first accessible columnar object
+              in the conceptual row."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OBJECT IDENTIFIER]]></c>
+	</p>
+	<p>
+	  Defined by SNMPv2-TC.
 	</p>
       </desc>
     </datatype>

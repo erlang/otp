@@ -67,6 +67,7 @@
               rfc1903_date_and_time/0,
 
               time_interval/0,
+              row_pointer/0,
 
               date_and_time_validator_kind/0,
               date_and_time_validator/0,
@@ -133,6 +134,7 @@
                                  {universal_time, calendar:datetime()}.
 
 -type time_interval()         :: 0..2147483647.
+-type row_pointer()           :: oid().
 
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.

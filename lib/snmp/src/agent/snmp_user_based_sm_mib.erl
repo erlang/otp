@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,18 @@
 	 usmStatsDecryptionErrors/1]).
 -export([add_user/1, add_user/13, delete_user/1]).
 
+-export_type([
+              name/0,
+              clone_from/0,
+              auth_protocol/0,
+              key_change/0,
+              priv_protocol/0,
+              public/0,
+              auth_key/0,
+              priv_key/0,
+              usm_entry/0
+             ]).
+
 %% Internal
 -export([check_usm/1]).
 
@@ -58,6 +70,40 @@
 -define(usmUserAuthKey, 14).
 -define(usmUserPrivKey, 15).
 -define(is_cloning,     16).
+
+
+-type name()             :: snmp_framework_mib:admin_string().
+-type clone_from()       :: zeroDotZero | snmp:row_pointer().
+-type auth_protocol()    :: usmNoAuthProtocol             |
+                            usmHMACMD5AuthProtocol        |
+                            usmHMACSHAAuthProtocol        |
+                            usmHMAC128SHA224AuthProtocol  |
+                            usmHMAC192SH256AuthProtocol   |
+                            usmHMAC256SHA384AuthProtocol  |
+                            usmHMAC384SHA512AuthProtocol.
+-type key_change()       :: snmp:octet_string().
+-type priv_protocol()    :: usmNoPrivProtocol    |
+                            usmDESPrivProtocol   |
+                            usmAesCfb128Protocol.
+-type public()           :: string().
+-type auth_key()         :: snmp:octet_string().
+-type priv_key()         :: snmp:octet_string().
+
+-type usm_entry() :: {
+                      EngineID    :: snmp_framework_mib:engine_id(),
+                      UserName    :: snmp_user_based_sm_mib:name(),
+                      SecName     :: snmp_framework_mib:admin_string(),
+                      Clone       :: snmp_user_based_sm_mib:clone_from(),
+                      AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
+                      AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
+                      OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
+                      PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
+                      PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
+                      OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
+                      Public      :: snmp_user_based_sm_mib:public(),
+                      AuthKey     :: snmp_user_based_sm_mib:auth_key(),
+                      PrivKey     :: snmp_user_based_sm_mib:priv_key()
+                     }.
 
 
 %%%-----------------------------------------------------------------
@@ -296,14 +342,38 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
+               PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
+          {ok, Key} | {error, Reason} when
+      EngineID    :: snmp_framework_mib:engine_id(),
+      Name        :: name(),
+      SecName     :: snmp_framework_mib:admin_string(),
+      Clone       :: clone_from(),
+      AuthP       :: auth_protocol(),
+      AuthKeyC    :: key_change(),
+      OwnAuthKeyC :: key_change(),
+      PrivP       :: priv_protocol(),
+      PrivKeyC    :: key_change(),
+      OwnPrivKeyC :: key_change(),
+      Public      :: public(),
+      AuthKey     :: auth_key(),
+      PrivKey     :: priv_key(),
+      Key         :: term(),
+      Reason      :: term().
+
 add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	 PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
     User = {EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	    PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey},
     add_user(User).
 
-add_user(User) ->
-    case (catch check_usm(User)) of
+-spec add_user(UsmEntry) -> {ok, Key} | {error, Reason} when
+      UsmEntry :: usm_entry(),
+      Key      :: term(),
+      Reason   :: term().
+      
+add_user(UsmEntry) ->
+    case (catch check_usm(UsmEntry)) of
 	{ok, Row} ->
 	    case (catch check_user(Row)) of
 		{'EXIT', Reason} ->

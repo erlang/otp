@@ -82,7 +82,6 @@
 	]).
 
 
-
 -export_type([
               usm_entry/0,
               transportDomain/0,
@@ -133,36 +132,7 @@
 
 -type word() :: 0..65535.
 
--type usm_entry() :: {
-                      EngineID    :: string(),
-                      UserName    :: string(),
-                      SecName     :: string(),
-                      Clone       :: zeroDotZero | [non_neg_integer()],
-                      AuthP       :: usmNoAuthProtocol |
-                                     usmHMACMD5AuthProtocol |
-                                     usmHMACSHAAuthProtocol |
-                                     usmHMAC128SHA224AuthProtocol |
-                                     usmHMAC192SHA256AuthProtocol |
-                                     usmHMAC256SHA384AuthProtocol |
-                                     usmHMAC384SHA512AuthProtocol,
-                      AuthKeyC    :: string(),
-                      OwnAuthKeyC :: string(),
-                      PrivP       :: usmNoPrivProtocol |
-                                     usmDESPrivProtocol |
-                                     usmAesCfb128Protocol,
-                      PrivKeyC    :: string(),
-                      OwnPrivKeyC :: string(),
-                      Public      :: string(),
-                      %% Size 16 for usmHMACMD5AuthProtocol
-                      %% Size 20 for usmHMACSHAAuthProtocol
-                      %% Size 28 for usmHMAC128SHA224AuthProtocol
-                      %% Size 32 for usmHMAC192SHA256AuthProtocol
-                      %% Size 48 for usmHMAC256SHA384AuthProtocol
-                      %% Size 64 for usmHMAC384SHA512AuthProtocol
-                      AuthKey     :: [non_neg_integer()],
-                      %% Size 16 for usmDESPrivProtocol | usmAesCfb128Protocol
-                      PrivKey     :: [non_neg_integer()]
-                     }.
+-type usm_entry() :: snmp_user_based_sm_mib:usm_entry().
 
 
 -ifndef(version).
