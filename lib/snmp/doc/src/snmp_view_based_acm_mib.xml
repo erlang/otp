@@ -43,6 +43,103 @@
     <marker id="configure"></marker>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="group_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The name of the group to which this entry (e.g., the
+             combination of securityModel and securityName)
+             belongs." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="context_prefix"/>
+      <desc>
+	<!--
+	<note>
+	  <p>
+	  </p>
+	</note>
+	-->
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(0..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="context_match"/>
+      <desc>
+	<!--
+	<note>
+	  <p>
+	  </p>
+	</note>
+	-->
+	<pre>
+	  exact  - exact match of prefix and contextName
+          prefix - Only match to the prefix
+	</pre>
+	<p>
+	  <c><![CDATA[INTEGER { exact (1), prefix (2) }]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="access_read_view_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The value of an instance of this object identifies
+             the MIB view of the SNMP context to which this
+             conceptual row authorizes read access." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(0..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="access_write_view_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The value of an instance of this object identifies
+             the MIB view of the SNMP context to which this
+             conceptual row authorizes write access." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(0..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="access_notify_view_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The value of an instance of this object identifies
+             the MIB view of the SNMP context to which this
+             conceptual row authorizes access for notifications." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(0..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
   <funcs>
     <func>
       <name since="">configure(ConfDir) -> void()</name>
@@ -139,21 +236,8 @@
     </func>
 
     <func>
-      <name since="">add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret</name>
+      <name name="add_access" arity="8" clause_i="1" since=""/>
       <fsummary>Add one access definition</fsummary>
-      <type>
-        <v>GroupName = string()</v>
-        <v>Prefix = string()</v>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecLevel = string()</v>
-        <v>Match = prefix | exact</v>
-        <v>RV = string()</v>
-        <v>WV = string()</v>
-        <v>NV = string()</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a access definition to the agent config. 
 	Equivalent to one vacmAccess-line in the <c>vacm.conf</c> file.</p>

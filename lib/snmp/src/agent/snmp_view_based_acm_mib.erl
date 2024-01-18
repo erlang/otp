@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,14 @@
 -export([emask2imask/1]).
 
 -export_type([
+              group_name/0,
               mibview/0,
+              context_prefix/0,
+              context_match/0,
+              access_read_view_name/0,
+              access_write_view_name/0,
+              access_notify_view_name/0,
+
               internal_view_mask/0,
               internal_view_mask_element/0,
               internal_view_type/0
@@ -58,6 +65,32 @@
 -define(default_verbosity,silence).
 -endif.
 
+%%-----------------------------------------------------------------
+%% Table: vacmSecurityToGroupTable
+%% Row:   vacmSecurityModel, vacmSecurityName, vacmGroupName
+%% Index: { vacmSecurityModel, vacmSecurityName }
+%%
+%% Table: vacmAccessTable
+%% Row:   vacmAccessContextPrefix, vacmAccessSecurityModel,
+%%        vacmAccessSecurityLevel, vacmAccessContextMatch,
+%%        vacmAccessReadViewName, vacmAccessWriteViewName,
+%%        vacmAccessNotifyViewName
+%% Index: { vacmGroupName, vacmAccessContextPrefix,
+%%          vacmAccessSecurityModel, vacmAccessSecurityLevel }
+%%
+%% Table: vacmViewTreeFamilyTable
+%% Row:   vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree,
+%%        vacmViewTreeFamilyMask, vacmViewTreeFamilyType
+%% Index: { vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree }
+%%-----------------------------------------------------------------
+
+
+-type group_name()                 :: snmp_framework_mib:admin_string().
+-type context_prefix()             :: snmp_framework_mib:admin_string().
+-type context_match()              :: exact | prefix.
+-type access_read_view_name()      :: snmp_framework_mib:admin_string().
+-type access_write_view_name()     :: snmp_framework_mib:admin_string().
+-type access_notify_view_name()    :: snmp_framework_mib:admin_string().
 
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
 -type internal_view_mask_element() :: ?view_wildcard |
@@ -68,9 +101,7 @@
                      Mask    :: internal_view_mask(),
                      Type    :: internal_view_type()}].
 
--type external_view_mask() :: octet_string(). % At most length of 16 octet
--type octet_string()       :: [octet()].
--type octet()              :: byte().
+-type external_view_mask() :: snmp:octet_string(). % At most length of 16 octet
 
 
 %%-----------------------------------------------------------------
@@ -284,7 +315,21 @@ delete_sec2group(Key) ->
 	false ->
 	    {error, delete_failed}
     end.
-    
+
+
+-spec add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
+          {ok, Key} | {error, Reason} when
+      GroupName :: group_name(),
+      Prefix    :: context_prefix(),
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecLevel  :: snmp_framework_mib:security_level(),
+      Match     :: context_match(),
+      RV        :: access_read_view_name(),
+      WV        :: access_write_view_name(),
+      NV        :: access_notify_view_name(),
+      Key       :: term(),
+      Reason    :: term().
+
 %% NOTE: This function must be used in conjunction with
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
