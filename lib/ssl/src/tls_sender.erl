@@ -69,15 +69,16 @@
          negotiated_version,
          renegotiate_at,
          key_update_at,  %% TLS 1.3
-         bytes_sent,     %% TLS 1.3
          dist_handle,
          log_level,
          hibernate_after
         }).
 
 -record(data,
-        {static = #static{},
-         connection_states = #{}
+        {
+         static = #static{},
+         connection_states = #{},
+         bytes_sent     %% TLS 1.3
         }).
 
 %%%===================================================================
@@ -247,6 +248,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                        end,
     StateData =
         StateData0#data{connection_states = ConnectionStates,
+                        bytes_sent = 0,
                         static = Static0#static{connection_pid = Pid,
                                                 role = Role,
                                                 socket = Socket,
@@ -257,7 +259,6 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt,
                                                 key_update_at = KeyUpdateAt,
-                                                bytes_sent = 0,
                                                 log_level = LogLevel,
                                                 hibernate_after = HibernateAfter}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
@@ -510,8 +511,8 @@ send_application_data(Data, From, StateName,
                                               transport_cb = Transport,
                                               renegotiate_at = RenegotiateAt,
                                               key_update_at = KeyUpdateAt,
-                                              bytes_sent = BytesSent,
                                               log_level = LogLevel},
+                             bytes_sent = BytesSent,
                              connection_states = ConnectionStates0} = StateData0) ->
     case time_to_rekey(Version, Data, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
         key_update ->
@@ -576,12 +577,10 @@ send_post_handshake_data(Handshake, From, StateName,
             {next_state, StateName, StateData1,  [{reply, From, Result}]}
     end.
 
-maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
-                              static = Static0} = StateData, #key_update{}) ->
+maybe_update_cipher_key(#data{connection_states = ConnectionStates0}= StateData, #key_update{}) ->
     ConnectionStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
-    Static = Static0#static{bytes_sent = 0},
     StateData#data{connection_states = ConnectionStates,
-                   static = Static};
+                   bytes_sent = 0};
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
@@ -590,8 +589,8 @@ update_bytes_sent(Version, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
 %% Count bytes sent in TLS 1.3 for AES-GCM
 update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
     StateData;  %% Chacha20-Poly1305
-update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = StateData, Data) ->
-    StateData#data{static = Static#static{bytes_sent = Sent + iolist_size(Data)}}.  %% AES-GCM
+update_bytes_sent(_, #data{bytes_sent = Sent} = StateData, Data) ->
+    StateData#data{bytes_sent = Sent + iolist_size(Data)}.  %% AES-GCM
 
 %% For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be
 %% encrypted on a given connection while keeping a safety margin of
@@ -711,15 +710,15 @@ dist_data(DHandle, CurBytes) ->
 
 %% Empty the inbox from distribution ticks - do not let them accumulate
 consume_ticks() ->
-    receive tick -> 
+    receive tick ->
             consume_ticks()
-    after 0 -> 
+    after 0 ->
             ok
     end.
 
 hibernate_after(connection = StateName,
 		#data{static=#static{hibernate_after = HibernateAfter}} = State,
-		Actions) ->
+		Actions) when HibernateAfter =/= infinity ->
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
