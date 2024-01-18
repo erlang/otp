@@ -398,6 +398,11 @@ add_user(UsmEntry) ->
 	    {error, Error}
     end.
 
+
+-spec delete_user(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_user(Key) ->
     case table_del_row(usmUserTable, Key) of
 	true ->

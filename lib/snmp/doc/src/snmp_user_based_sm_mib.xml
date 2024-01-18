@@ -242,14 +242,10 @@
 	<marker id="delete_user"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">delete_user(Key) -> Ret</name>
+      <name name="delete_user" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one user</fsummary>
-      <type>
-	<v>Key = term()</v>
-	<v>Ret = ok | {error, Reason}</v>
-	<v>Reason = term()</v>
-      </type>
       <desc>
 	<p>Delete a USM security data (user) from the agent config.</p>
       </desc>
