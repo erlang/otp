@@ -138,6 +138,20 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="security_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The securityName for the principal, represented in a
+             Security Model independent format." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -201,20 +215,12 @@
     </func>
 
     <func>
-      <name since="">add_sec2group(SecModel, SecName, GroupName) -> Ret</name>
+      <name name="add_sec2group" arity="3" clause_i="1" since=""/>
       <fsummary>Add one security to group definition</fsummary>
-      <type>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>GroupName = string()</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a security to group definition to the agent config. 
 	Equivalent to one vacmSecurityToGroup-line in the 
-	<c>vacm.conf</c> file.</p>
+	<c>vacm.conf</c> file. </p>
 
         <marker id="delete_sec2group"></marker>
       </desc>

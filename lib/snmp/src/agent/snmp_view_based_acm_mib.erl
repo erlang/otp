@@ -45,6 +45,7 @@
               access_read_view_name/0,
               access_write_view_name/0,
               access_notify_view_name/0,
+              security_name/0,
 
               internal_view_mask/0,
               internal_view_mask_element/0,
@@ -64,6 +65,7 @@
 -ifndef(default_verbosity).
 -define(default_verbosity,silence).
 -endif.
+
 
 %%-----------------------------------------------------------------
 %% Table: vacmSecurityToGroupTable
@@ -91,6 +93,7 @@
 -type access_read_view_name()      :: snmp_framework_mib:admin_string().
 -type access_write_view_name()     :: snmp_framework_mib:admin_string().
 -type access_notify_view_name()    :: snmp_framework_mib:admin_string().
+-type security_name()              :: snmp_framework_mib:admin_string().
 
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
 -type internal_view_mask_element() :: ?view_wildcard |
@@ -282,6 +285,14 @@ table_cre_row(Tab, Key, Row) ->
 table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
+
+-spec add_sec2group(SecModel, SecName, GroupName) ->
+          {ok, Key} | {error, Reason} when
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecName   :: security_name(),
+      GroupName :: group_name(),
+      Key       :: term(),
+      Reason    :: term().
 
 %% add_sec2group(SecModel, SecName, GroupName) -> Result
 %% Result -> {ok, Key} | {error, Reason}
