@@ -97,8 +97,10 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     %%link(Manager), 
     %% At this point the function httpd_request_handler:start/2 will return.
     proc_lib:init_ack({ok, self()}),
-    
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
+    ServerName = erlang:iolist_to_binary(httpd_util:lookup(ConfigDB, server_name)),
+    Protocol = protocol(SocketType),
+    proc_lib:set_label({Protocol, ServerName}),
     
     Peername = http_transport:peername(SocketType, Socket),
     Sockname = http_transport:sockname(SocketType, Socket),
@@ -773,3 +775,8 @@ setopts(Socket, SocketType, Options) ->
         {error, _} -> %% inet can return einval instead of closed
             self() ! {http_transport:close_tag(SocketType), Socket}
     end.
+
+protocol({ssl,_}) ->
+    https;
+protocol(_) ->
+    http.
