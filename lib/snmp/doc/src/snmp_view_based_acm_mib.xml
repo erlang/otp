@@ -152,6 +152,51 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="view_name"/>
+      <desc>
+	<note>
+	  <p>
+	    "The human readable name for a family of view subtrees." </p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="view_type"/>
+      <desc>
+	<p>
+	  Does the corresponding instances of subtree and mask
+	  define a family of view subtrees which are included in
+	  or excluded from the MIB view. </p>
+	<p>
+	  <c><![CDATA[INTEGER { included(1), excluded(2) }]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="view_mask"/>
+      <desc>
+	<p>The bit mask which, in combination with the
+	corresponding instance of vacmViewTreeFamilySubtree,
+	defines a family of view subtrees. </p>
+	<p>A '1' indicates that an exact match must occur,
+	a '0' indicates 'wild card' (any sub-identifier value matches). </p>
+	<note>
+	  <p>Note that in the "external" format, each bit of each octet
+	  is represented by a "bit" in this list. That is, each octet
+	  "contains" 8 bits; so at most 8*16 = 128 bits in total. </p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..16))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -268,17 +313,8 @@
     </func>
 
     <func>
-      <name since="">add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret</name>
+      <name name="add_view_tree_fam" arity="4" clause_i="1" since=""/>
       <fsummary>Add one view tree family definition</fsummary>
-      <type>
-        <v>ViewIndex = integer()</v>
-        <v>SubTree = oid()</v>
-        <v>Status = included | excluded</v>
-        <v>Mask = null | [integer()], where all values are either 0 or 1</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
 	<p>Adds a view tree family definition to the agent config. 
 	Equivalent to one vacmViewTreeFamily-line in the 

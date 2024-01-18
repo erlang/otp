@@ -46,6 +46,9 @@
               access_write_view_name/0,
               access_notify_view_name/0,
               security_name/0,
+              view_name/0,
+              view_type/0,
+              view_mask/0,
 
               internal_view_mask/0,
               internal_view_mask_element/0,
@@ -89,11 +92,14 @@
 
 -type group_name()                 :: snmp_framework_mib:admin_string().
 -type context_prefix()             :: snmp_framework_mib:admin_string().
--type context_match()              :: exact | prefix.
+-type context_match()              :: 'exact' | 'prefix'.
 -type access_read_view_name()      :: snmp_framework_mib:admin_string().
 -type access_write_view_name()     :: snmp_framework_mib:admin_string().
 -type access_notify_view_name()    :: snmp_framework_mib:admin_string().
 -type security_name()              :: snmp_framework_mib:admin_string().
+-type view_name()                  :: snmp_framework_mib:admin_string().
+-type view_type()                  :: 'included' | 'excluded'.
+-type view_mask()                  :: [?view_wildcard | ?view_exact].
 
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
 -type internal_view_mask_element() :: ?view_wildcard |
@@ -365,8 +371,17 @@ delete_access(Key) ->
     snmpa_vacm:delete(Key).
 
 
-add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
-    VTF = {vacmViewTreeFamily, ViewIndex, SubTree, Status, Mask},
+-spec add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+          {ok, Key} | {error, Reason} when
+      ViewName :: view_name(),
+      SubTree  :: snmp:oid(),
+      Status   :: view_type(),
+      Mask     :: 'null' | view_mask(),
+      Key      :: term(),
+      Reason   :: term().
+
+add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+    VTF = {vacmViewTreeFamily, ViewName, SubTree, Status, Mask},
     case (catch check_vacm(VTF)) of
 	{ok, {vacmViewTreeFamily, Row}} ->
 	    Key1 = element(1, Row),
