@@ -634,9 +634,10 @@ next_tls_record(Data, StateName,
                 #state{protocol_buffers =
                            #protocol_buffers{tls_record_buffer = Buf0,
                                              tls_cipher_texts = CT0} = Buffers,
-                       connection_env = #connection_env{
-                                           downgrade = Downgrade},
-                       ssl_options = SslOpts0} = State0) ->
+                       connection_env =
+                           #connection_env{downgrade = Downgrade,
+                                           negotiated_version = Vsns0}
+                      } = State0) ->
     Versions =
         %% TLSPlaintext.legacy_record_version is ignored in TLS 1.3 and thus all
         %% record version are accepted when receiving initial ClientHello and
@@ -647,21 +648,18 @@ next_tls_record(Data, StateName,
         %% Note: TLS record version {3,4} is used internally in TLS 1.3 and at this
         %% point it is the same as the negotiated protocol version. TLS-1.3
         %% uses TLS-1.2 as record version.
-        case StateName of
-            State when State =:= hello orelse
-                       State =:= start ->
+        if StateName =:= hello orelse StateName =:= start ->
                 %% Allow any {03,XX} TLS record version for the hello message
                 %% for maximum interopability and compliance with TLS-1.2 spec.
                 %% This does not allow SSL-3.0 connections, that we do not support
                 %% or interfere with TLS-1.3 extensions to handle version negotiation.
                 AllHelloVersions = [ 'sslv3' | ?ALL_AVAILABLE_VERSIONS],
                 [tls_record:protocol_version_name(Vsn) || Vsn <- AllHelloVersions];
-            _ ->
-                State0#state.connection_env#connection_env.negotiated_version
+           true ->
+                Vsns0
         end,
     MaxFragLen = maps:get(max_fragment_length, State0#state.connection_states, undefined),
-    SslOpts = maps:put(downgrade, Downgrade, SslOpts0),
-    case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, SslOpts) of
+    case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, Downgrade) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(StateName, State0#state{protocol_buffers =

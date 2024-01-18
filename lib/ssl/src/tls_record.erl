@@ -106,7 +106,7 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
         [tls_version()] | tls_version(),
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
         tls_max_frag_len(),
-        ssl_options()) ->
+        Downgrade :: {NewController::pid(), From::gen_statem:from()} | 'undefined') ->
           {Records :: [#ssl_tls{}],
            Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
           #alert{}.
@@ -115,10 +115,10 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer, MaxFragLen, SslOpts) when is_binary(Buffer) ->
-    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, SslOpts, undefined);
-get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) ->
-    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, SslOpts, Hdr).
+get_tls_records(Data, Versions, Buffer, MaxFragLen, Downgrade) when is_binary(Buffer) ->
+    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, Downgrade, undefined);
+get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, Downgrade) ->
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, Downgrade, Hdr).
 
 %%====================================================================
 %% Encoding
@@ -476,95 +476,94 @@ build_tls_record(#ssl_tls{type = Type, version = Version, fragment = Fragment}) 
     <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),?UINT16(Length), Fragment/binary>>.
 
 
-parse_tls_records(Versions, Q, MaxFragLen, SslOpts, undefined) ->
-    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], undefined, undefined, undefined);
-parse_tls_records(Versions, Q, MaxFragLen, SslOpts, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
-    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], Type, Version, Length).
+parse_tls_records(Versions, Q, MaxFragLen, Downgrade, undefined) ->
+    decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [], undefined, undefined, undefined);
+parse_tls_records(Versions, Q, MaxFragLen, Downgrade, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
+    decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [], Type, Version, Length).
 
 %% Generic code path
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, undefined, _Version, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, undefined, _Version, _Length) ->
     if
         5 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(5, Q0),
             %% TODO: convert the MajVer and MinVer to corresponding macro
             Version = {MajVer,MinVer},
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         3 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(3, Q0),
             Version = {MajVer,MinVer},
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, undefined);
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, undefined);
         1 =< Size ->
             {<<?BYTE(Type)>>, Q} = binary_from_front(1, Q0),
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, undefined, undefined);
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, undefined, undefined);
         true ->
-            validate_tls_records_type(Versions, Q0, MaxFragLen, SslOpts, Acc, undefined, undefined, undefined)
+            validate_tls_records_type(Versions, Q0, MaxFragLen, Downgrade, Acc, undefined, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, undefined, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, Type, undefined, _Length) ->
     if
         4 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(4, Q0),
             Version = {MajVer,MinVer},
-            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         2 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(2, Q0),
             Version = {MajVer,MinVer},
-            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, undefined);
+            validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, undefined);
         true ->
-            validate_tls_record_version(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, undefined, undefined)
+            validate_tls_record_version(Versions, Q0, MaxFragLen, Downgrade, Acc, Type, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, Type, Version, undefined) ->
     if
         2 =< Size ->
             {<<?UINT16(Length)>>, Q} = binary_from_front(2, Q0),
-            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         true ->
-            validate_tls_record_length(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined)
+            validate_tls_record_length(Versions, Q0, MaxFragLen, Downgrade, Acc, Type, Version, undefined)
     end;
-decode_tls_records(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
-    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length).
+decode_tls_records(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
+    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length).
 
 
 %% TODO: separate validation logic from modification of the record
-validate_tls_records_type(_Versions, Q, _MaxFragLen, _SslOpts, Acc, undefined, _Version, _Length) ->
+validate_tls_records_type(_Versions, Q, _MaxFragLen, _Downgrade, Acc, undefined, _Version, _Length) ->
     {lists:reverse(Acc),
      {undefined, Q}};
-validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) when ?KNOWN_RECORD_TYPE(Type) ->
-    validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-validate_tls_records_type(_Versions, _Q, _MaxFragLen, _SslOpts, _Acc, Type, _Version, _Length) ->
+validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) when ?KNOWN_RECORD_TYPE(Type) ->
+    validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_records_type(_Versions, _Q, _MaxFragLen, _Downgrade, _Acc, Type, _Version, _Length) ->
     %% Not ?KNOWN_RECORD_TYPE(Type)
     ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type}).
 
 
-validate_tls_record_version(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, undefined, _Length) ->
+validate_tls_record_version(_Versions, Q, _MaxFragLen, _Downgrade, Acc, Type, undefined, _Length) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = undefined, fragment = undefined}, Q}};
-validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) when is_list(Versions) ->
+validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) when is_list(Versions) ->
     case is_acceptable_version(Version, Versions) of
         true ->
-            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         false ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end;
-validate_tls_record_version(?TLS_1_3=Versions, Q, MaxFragLen, SslOpts, Acc, Type, ?TLS_1_2=Version, Length) ->
-    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-validate_tls_record_version(Version, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
+validate_tls_record_version(?TLS_1_3=Versions, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2=Version, Length) ->
+    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
     %% Exact version match
-    validate_tls_record_length(Version, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-validate_tls_record_version(_Versions, _Q, _MaxFragLen, _SslOpts, _Acc, _Type, Version, _Length) ->
+    validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(_Versions, _Q, _MaxFragLen, _Downgrade, _Acc, _Type, Version, _Length) ->
     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version}).
 
 
-validate_tls_record_length(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, Version, undefined) ->
+validate_tls_record_length(_Versions, Q, _MaxFragLen, _Downgrade, Acc, Type, Version, undefined) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
 validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
-                           #{log_level := LogLevel, downgrade := Downgrade} = SslOpts,
-                           Acc, Type, Version, Length) ->
+                           Downgrade, Acc, Type, Version, Length) ->
     Max = if is_integer(MaxFragLen) ->
-                        MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
-                   true ->
-                        max_len(Versions)
-                end,
+                  MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
+             true ->
+                  max_len(Versions)
+          end,
     if
         Length =< Max ->
             if
@@ -572,13 +571,13 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
                     %% Complete record
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
-                    ssl_logger:debug(LogLevel, inbound, 'record', Record),
+                    ssl_logger:debug(get(log_level), inbound, 'record', Record),
                     case Downgrade of
                         {_Pid, _From} ->
                             %% parse only single record for downgrade scenario, buffer remaining data
                             {[Record], {undefined, Q}};
                         _ ->
-                            decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [Record|Acc], undefined, undefined, undefined)
+                            decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [Record|Acc], undefined, undefined, undefined)
                     end;
                 true ->
                     {lists:reverse(Acc),
