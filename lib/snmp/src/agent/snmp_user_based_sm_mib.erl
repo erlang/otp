@@ -126,7 +126,11 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(usmUserTable) of
         {_, mnesia} ->
@@ -141,9 +145,10 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vdebug("usm user table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
