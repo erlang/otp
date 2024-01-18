@@ -1974,6 +1974,37 @@ set_socket_opts(ConnectionCb, Transport, Socket, [], SockOpts, Other) ->
 	    {{error, {options, {socket_options, Other, Error}}}, SockOpts}
     end;
 
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other)
+  when Active == once; Active == true; Active == false ->
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+		    SockOpts#socket_options{active = Active}, Other);
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
+                SockOpts=#socket_options{active = Active0}, Other)
+  when Active1 >= -32768, Active1 =< 32767 ->
+    Active = if
+                 is_integer(Active0), Active0 + Active1 < -32768 ->
+                     error;
+                 is_integer(Active0), Active0 + Active1 =< 0 ->
+                     false;
+                 is_integer(Active0), Active0 + Active1 > 32767 ->
+                     error;
+                 Active1 =< 0 ->
+                     false;
+                 is_integer(Active0) ->
+                     Active0 + Active1;
+                 true ->
+                     Active1
+             end,
+    case Active of
+        error ->
+            {{error, {options, {socket_options, Opt}} }, SockOpts};
+        _ ->
+            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+                            SockOpts#socket_options{active = Active}, Other)
+    end;
+set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
+    {{error, {options, {socket_options, Opt}} }, SockOpts};
+
 set_socket_opts(ConnectionCb, Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other)
   when Mode == list; Mode == binary ->
     set_socket_opts(ConnectionCb, Transport, Socket, Opts,
@@ -2006,38 +2037,6 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{header, Header}| Opts], SockO
 		    SockOpts#socket_options{header = Header}, Other);
 set_socket_opts(_, _, _, [{header, _} = Opt| _], SockOpts, _) ->
     {{error,{options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other)
-  when Active == once;
-       Active == true;
-       Active == false ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-		    SockOpts#socket_options{active = Active}, Other);
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
-                SockOpts=#socket_options{active = Active0}, Other)
-  when Active1 >= -32768, Active1 =< 32767 ->
-    Active = if
-        is_integer(Active0), Active0 + Active1 < -32768 ->
-            error;
-        is_integer(Active0), Active0 + Active1 =< 0 ->
-            false;
-        is_integer(Active0), Active0 + Active1 > 32767 ->
-            error;
-        Active1 =< 0 ->
-            false;
-        is_integer(Active0) ->
-            Active0 + Active1;
-        true ->
-            Active1
-    end,
-    case Active of
-        error ->
-            {{error, {options, {socket_options, Opt}} }, SockOpts};
-        _ ->
-            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-                            SockOpts#socket_options{active = Active}, Other)
-    end;
-set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
-    {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(ConnectionCb, Transport,Socket, [{packet_size, Size}| Opts], SockOpts, Other) when is_integer(Size) -> 
       set_socket_opts(ConnectionCb, Transport, Socket, Opts,
                       SockOpts#socket_options{packet_size = Size}, Other);
