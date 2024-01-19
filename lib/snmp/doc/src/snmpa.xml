@@ -410,32 +410,69 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <desc>
         <p>Get the full path to the (compiled) mib-file. </p>
 
-        <marker id="current_request_id"></marker>
-        <marker id="current_context"></marker>
-        <marker id="current_community"></marker>
         <marker id="current_address"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">current_request_id() -> {value, RequestId} | false</name>
-      <name since="">current_context() -> {value, Context} | false</name>
-      <name since="">current_community() -> {value, Community} | false</name>
-      <name since="">current_address() -> {value, Address} | false</name>
-      <fsummary>Get the request-id, context, community and address of the current request</fsummary>
-      <type>
-        <v>RequestId = integer()</v>
-        <v>Context = string()</v>
-        <v>Community = string()</v>
-        <v>Address = term()</v>
-      </type>
+      <name name="current_address" arity="0" clause_i="1" since=""/>
+      <fsummary>Get the address of the current request</fsummary>
       <desc>
-        <p>Get the request-id, context, community and address of the 
-          request currently being processed by the agent. </p>
-        <p>Note that these functions is intended to be called by the 
-          instrumentation functions and <em>only</em> if they are 
-          executed in the context of the agent process (e.g. it does 
-          not work if called from a spawned process).</p>
+	<p>Get the address of the request currently being processed
+	by the agent. </p>
+
+	<p>Note that this function is intended to be called by the 
+	instrumentation functions and <em>only</em> if it is
+	executed in the context of the agent process (e.g. it <em>does 
+	not work</em> if called from a spawned process).</p>
+
+        <marker id="current_community"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="current_community" arity="0" clause_i="1" since=""/>
+      <fsummary>Get the community of the current request</fsummary>
+      <desc>
+        <p>Get the community of the 
+	request currently being processed by the agent. </p>
+
+	<p>Note that this function is intended to be called by the 
+	instrumentation functions and <em>only</em> if it is
+	executed in the context of the agent process (e.g. it <em>does 
+	not work</em> if called from a spawned process).</p>
+
+	<marker id="current_context"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="current_context" arity="0" clause_i="1" since=""/>
+      <fsummary>Get the context of the current request</fsummary>
+      <desc>
+        <p>Get the context of the 
+	request currently being processed by the agent. </p>
+
+	<p>Note that this function is intended to be called by the 
+	instrumentation functions and <em>only</em> if it is
+	executed in the context of the agent process (e.g. it <em>does 
+	not work</em> if called from a spawned process).</p>
+
+        <marker id="current_request_id"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="current_request_id" arity="0" clause_i="1" since=""/>
+      <fsummary>Get the request-id of the current request</fsummary>
+      <desc>
+        <p>Get the request-id of the 
+	request currently being processed by the agent. </p>
+
+	<p>Note that this function is intended to be called by the 
+	instrumentation functions and <em>only</em> if it is
+	executed in the context of the agent process (e.g. it <em>does 
+	not work</em> if called from a spawned process).</p>
 
         <marker id="enum_to_int"></marker>
       </desc>

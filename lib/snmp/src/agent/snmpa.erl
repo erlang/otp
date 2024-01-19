@@ -284,10 +284,27 @@ int_to_enum(Db, Name, Int) ->
 %% These functions must only be called in the process context
 %% where the instrumentation functions are called!
 %%-----------------------------------------------------------------
-current_request_id()  -> current_get(snmp_request_id).
-current_context()     -> current_get(snmp_context).
-current_community()   -> current_get(snmp_community).
+
+-spec current_address() -> {value, Address} | false when
+      Address :: term().
+
 current_address()     -> current_get(snmp_address).
+
+-spec current_community() -> {value, Community} | false when
+      Community :: snmp_community_mib:name().
+
+current_community()   -> current_get(snmp_community).
+
+-spec current_context() -> {value, Context} | false when
+      Context :: snmp_community_mib:context_name().
+
+current_context()     -> current_get(snmp_context).
+
+-spec current_request_id() -> {value, RequestId} | false when
+      RequestId :: integer().
+
+current_request_id()  -> current_get(snmp_request_id).
+
 current_net_if_data() -> current_get(net_if_data).
 
 current_get(Tag) ->
