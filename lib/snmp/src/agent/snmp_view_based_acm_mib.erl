@@ -371,6 +371,11 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
             {error, Error}
     end.
 
+
+-spec delete_access(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_access(Key) ->
     snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).

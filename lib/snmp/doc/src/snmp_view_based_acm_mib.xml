@@ -294,13 +294,8 @@
     </func>
 
     <func>
-      <name since="">delete_access(Key) -> Ret</name>
+      <name name="delete_access" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one access definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
 	<p>Delete a access definition from the agent config.</p>
 
