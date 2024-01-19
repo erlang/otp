@@ -150,17 +150,14 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">del_agent_caps(SysORIndex) -> void()</name>
+      <name name="del_agent_caps" arity="1" clause_i="1" since=""/>
       <fsummary>Delete an AGENT-CAPABILITY definition from the agent</fsummary>
-      <type>
-        <v>SysORIndex = integer()</v>
-      </type>
       <desc>
         <p>This function can be used to delete an AGENT-CAPABILITY
-          statement to the sysORTable in the agent.  This table is
-          defined in the SNMPv2-MIB. </p>
+	statement to the sysORTable in the agent.  This table is
+	defined in the SNMPv2-MIB. </p>
 
-          <marker id="get_agent_caps"></marker>
+	<marker id="get_agent_caps"></marker>
       </desc>
     </func>
 

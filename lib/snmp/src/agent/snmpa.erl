@@ -922,13 +922,16 @@ localize_key(Alg, Key, EngineID) ->
 %%% Agent Capabilities functions
 %%%-----------------------------------------------------------------
 
--spec add_agent_caps(SysORID, SysORDescr) -> SysORIndex when
-      SysORID    :: snmp:oid(),
-      SysORDescr :: string(),
-      SysORIndex :: integer().
+-spec add_agent_caps(Oid, Descr) -> Index when
+      Oid   :: snmp:oid(),
+      Descr :: string(),
+      Index :: integer().
 
 add_agent_caps(Oid, Descr) ->
     snmp_standard_mib:add_agent_caps(Oid, Descr).
+
+-spec del_agent_caps(Index) -> snmp:void() when
+      Index :: integer().
 
 del_agent_caps(Index) ->
     snmp_standard_mib:del_agent_caps(Index).
