@@ -98,6 +98,17 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="discovery_handler"/>
+      <desc>
+	<p>
+	  Module implementing the
+	  <seeerl marker="snmpa_discovery_handler#">snmpa_discovery_handler</seeerl>
+	  behaviour.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
 
@@ -1420,32 +1431,14 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
-      <name since="">discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, ContextName, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, ExtraInfo) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name name="discovery" arity="2" clause_i="1" since=""/>
+      <name name="discovery" arity="3" clause_i="1" since=""/>
+      <name name="discovery" arity="3" clause_i="2" since=""/>
+      <name name="discovery" arity="4" clause_i="1" since=""/>
+      <name name="discovery" arity="4" clause_i="2" since=""/>
+      <name name="discovery" arity="5" clause_i="1" since=""/>
+      <name name="discovery" arity="6" clause_i="1" since=""/>
       <fsummary>Initiate the discovery process with a manager</fsummary>
-      <type>
-        <v>TargetName = string()</v>
-        <v>Notification = atom()</v>
-        <v>ContextName = string() (defaults to "")</v>
-        <v>Varbinds = varbinds()</v>
-        <v>varbinds() = [varbind()]</v>
-        <v>DiscoHandler = snmpa_discovery_handler()</v>
-        <v>ExtraInfo = term()</v>
-        <v>snmpa_discovery_handler() = Module implementing the snmpa_discovery_handler behaviour</v>
-        <v>ManagerEngineID = string()</v>
-        <v>varbind() = {Variable, Value} | {Column, RowIndex, Value} | {OID, Value}</v>
-        <v>Variable = atom()</v>
-        <v>Column = atom()</v>
-        <v>OID = oid()</v>
-        <v>Value = term()</v>
-        <v>RowIndex = [int()]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Initiate the discovery process with the manager identified by
           <c>TargetName</c> using the notification <c>Notification</c>. </p>

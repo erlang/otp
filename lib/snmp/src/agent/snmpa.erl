@@ -127,6 +127,8 @@
 
               pdu_type/0,
 
+              discovery_handler/0,
+
 	      %% Agent config types
 	      mib_storage/0, 
 	      mib_storage_opt/0, 
@@ -148,8 +150,10 @@
 
 -type me() :: snmp:me().
 
+-type discovery_handler() :: module().
+
 %% Agent config types
--type mib_storage() :: [mib_storage_opt()].
+-type mib_storage()     :: [mib_storage_opt()].
 -type mib_storage_opt() :: {module,  mib_storage_module()} | 
                            {options, mib_storage_options()}.
 
@@ -831,9 +835,39 @@ send_trap(Agent, Trap, Community, Varbinds) ->
 
 %%%-----------------------------------------------------------------
 
+-spec discovery(TargetName, Notification) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+      TargetName      :: string(),
+      Notification    :: atom(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
+      Reason          :: term().
+
 discovery(TargetName, Notification) ->
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds).
+
+-spec discovery(TargetName, Notification, Varbinds) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+      TargetName      :: string(),
+      Notification    :: atom(),
+      Varbinds        :: [Varbind],
+      Varbind         :: {Variable, Value} |
+                         {Column, RowIndex, Value} |
+                         {OID, Value},
+      Variable        :: atom(),
+      Column          :: atom(),
+      RowIndex        :: snmp:row_index(),
+      OID             :: snmp:oid(),
+      Value           :: term(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
+      Reason          :: term();
+               (TargetName, Notification, ContextName) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+          TargetName      :: string(),
+          Notification    :: atom(),
+          ContextName     :: snmp_community_mib:context_name(),
+          ManagerEngineID :: snmp_framework_mib:engine_id(),
+          Reason          :: term().
 
 discovery(TargetName, Notification, Varbinds) when is_list(Varbinds) ->
     ContextName = "",
@@ -842,6 +876,39 @@ discovery(TargetName, Notification, DiscoHandler)
   when is_atom(DiscoHandler) ->
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds, DiscoHandler).
+
+-spec discovery(TargetName, Notification, ContextName, Varbinds) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+      TargetName      :: string(),
+      Notification    :: atom(),
+      ContextName     :: snmp_community_mib:context_name(),
+      Varbinds        :: [Varbind],
+      Varbind         :: {Variable, Value} |
+                         {Column, RowIndex, Value} |
+                         {OID, Value},
+      Variable        :: atom(),
+      Column          :: atom(),
+      RowIndex        :: snmp:row_index(),
+      OID             :: snmp:oid(),
+      Value           :: term(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
+      Reason          :: term();
+               (TargetName, Notification, Varbinds, DiscoHandler) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+          TargetName      :: string(),
+          Notification    :: atom(),
+          Varbinds        :: [Varbind],
+          Varbind         :: {Variable, Value} |
+                             {Column, RowIndex, Value} |
+                             {OID, Value},
+          Variable        :: atom(),
+          Column          :: atom(),
+          RowIndex        :: snmp:row_index(),
+          OID             :: snmp:oid(),
+          Value           :: term(),
+          DiscoHandler    :: discovery_handler(),
+          ManagerEngineID :: snmp_framework_mib:engine_id(),
+          Reason          :: term().
 
 discovery(TargetName, Notification, ContextName, Varbinds) 
   when is_list(Varbinds) ->
@@ -853,10 +920,50 @@ discovery(TargetName, Notification, Varbinds, DiscoHandler)
     ContextName = "",
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler).
 
+-spec discovery(TargetName, Notification,
+                ContextName, Varbinds, DiscoHandler) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+      TargetName      :: string(),
+      Notification    :: atom(),
+      ContextName     :: snmp_community_mib:context_name(),
+      Varbinds        :: [Varbind],
+      Varbind         :: {Variable, Value} |
+                         {Column, RowIndex, Value} |
+                         {OID, Value},
+      Variable        :: atom(),
+      Column          :: atom(),
+      RowIndex        :: snmp:row_index(),
+      OID             :: snmp:oid(),
+      Value           :: term(),
+      DiscoHandler    :: discovery_handler(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
+      Reason          :: term().
+
 discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) ->
     ExtraInfo = ?DISCO_EXTRA_INFO,
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, 
 	      ExtraInfo).
+
+-spec discovery(TargetName, Notification,
+                ContextName, Varbinds, DiscoHandler, 
+                ExtraInfo) ->
+          {ok, ManagerEngineID} | {error, Reason} when
+      TargetName      :: string(),
+      Notification    :: atom(),
+      ContextName     :: snmp_community_mib:context_name(),
+      Varbinds        :: [Varbind],
+      Varbind         :: {Variable, Value} |
+                         {Column, RowIndex, Value} |
+                         {OID, Value},
+      Variable        :: atom(),
+      Column          :: atom(),
+      RowIndex        :: snmp:row_index(),
+      OID             :: snmp:oid(),
+      Value           :: term(),
+      DiscoHandler    :: discovery_handler(),
+      ExtraInfo       :: term(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
+      Reason          :: term().
 
 discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, 
 	  ExtraInfo) 
