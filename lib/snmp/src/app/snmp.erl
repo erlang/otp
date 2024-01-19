@@ -108,7 +108,9 @@
  
 	      void/0
 	     ]).
-
+-export_type([
+              log_size/0
+             ]).
 
 -define(APPLICATION,       snmp).
 -define(ATL_BLOCK_DEFAULT, true).

@@ -1128,6 +1128,10 @@ log_info() ->
     snmp_log:info(LogName).
 
 
+-spec change_log_size(NewSize) -> ok | {error, Reason} when
+      NewSize :: snmp:log_size(),
+      Reason  :: term().
+
 change_log_size(NewSize) -> 
     LogName = ?audit_trail_log_name, % The old (agent) default
     snmp:change_log_size(LogName, NewSize).

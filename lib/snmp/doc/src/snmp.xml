@@ -133,6 +133,13 @@
 
     <datatype>
       <name name="log_size"/>
+      <!--
+	  This type, which is documented in disk_log,
+	  is not actually exported by disk_log.
+	  Instead it is defined in an internal header file.
+	  So we have to create a "copy" of it here.
+	  Lets hope it never changes...
+      -->
       <desc>
 	<p>
 	  This is basically a copy of the
