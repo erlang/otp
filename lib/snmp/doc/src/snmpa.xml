@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2021</year>
+      <year>2004</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -138,18 +138,14 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
   <funcs>
     <func>
-      <name since="">add_agent_caps(SysORID, SysORDescr) -> SysORIndex</name>
+      <name name="add_agent_caps" arity="2" clause_i="1" since=""/>
       <fsummary>Add an AGENT-CAPABILITY definition to the agent</fsummary>
-      <type>
-        <v>SysORID = oid()</v>
-        <v>SysORDescr = string()</v>
-        <v>SysORIndex = integer()</v>
-      </type>
       <desc>
         <p>This function can be used to add an AGENT-CAPABILITY
-          statement to the sysORTable in the agent.  The table is
-          defined in the SNMPv2-MIB.</p>
-        <marker id="del_agent_caps"></marker>
+	statement to the sysORTable in the agent.  The table is
+	defined in the SNMPv2-MIB.</p>
+
+	<marker id="del_agent_caps"></marker>
       </desc>
     </func>
 

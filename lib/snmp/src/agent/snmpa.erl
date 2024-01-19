@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -890,6 +890,12 @@ localize_key(Alg, Key, EngineID) ->
 %%%-----------------------------------------------------------------
 %%% Agent Capabilities functions
 %%%-----------------------------------------------------------------
+
+-spec add_agent_caps(SysORID, SysORDescr) -> SysORIndex when
+      SysORID    :: snmp:oid(),
+      SysORDescr :: string(),
+      SysORIndex :: integer().
+
 add_agent_caps(Oid, Descr) ->
     snmp_standard_mib:add_agent_caps(Oid, Descr).
 
