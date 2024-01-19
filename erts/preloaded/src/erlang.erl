@@ -3185,9 +3185,11 @@ halt(HaltType) ->
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
 -type halt_options() ::
-        [{flush, boolean()}].
+        [{flush, boolean()}
+         | {flush_timeout, Timeout :: 0..2147483647 | infinity}].
 
 -doc """
+Halt the runtime system.
 
 - ```erlang
   halt(Status :: non_neg_integer(), Options :: halt_options())
@@ -3224,6 +3226,23 @@ halt(HaltType) ->
     > Runtime systems prior to OTP 26.0 called all installed `atexit`/`on_exit`
     > callbacks also when `flush` was disabled, but as of OTP 26.0 this is no
     > longer the case.
+
+  - **`{flush_timeout, Timeout :: 0..2147483647 | infinity}`{: #halt_flush_timeout }** -
+    Sets a limit on the time allowed for [flushing](#halt_flush) prior to
+    termination of the runtime system. `Timeout` is in milliseconds. The default
+    value is determined by the the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft)
+    command line flag.
+
+    If flushing has been ongoing for `Timeout` milliseconds, flushing operations
+    will be interrupted and the runtime system will immediately be terminated
+    with the exit code `255`. If flushing is not enabled, the timeout will have
+    no effect on the system.
+
+    See also the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+    Note that the shortest timeout set by the command line flag and the
+    `flush_timeout` option will be the actual timeout value in effect.
+
+    Since: OTP @OTP-18938@
 
 - ```erlang
   halt(Abort :: abort, Options :: halt_options())
@@ -10503,7 +10522,8 @@ the `CpuTopology` type to change.
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
-         (async_dist) -> boolean().
+         (async_dist) -> boolean();
+         (halt_flush_timeout) -> non_neg_integer() | infinity.
 -doc {file,"../../doc/src/erlang_system_info.md"}.
 system_info(_Item) ->
     erlang:nif_error(undefined).

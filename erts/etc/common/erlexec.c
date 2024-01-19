@@ -171,6 +171,7 @@ static char *plusz_val_switches[] = {
     "dntgc",
     "ebwt",
     "osrl",
+    "hft",
     NULL
 };
 
