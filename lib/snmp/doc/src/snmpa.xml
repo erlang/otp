@@ -249,19 +249,15 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
 -->
+
     <func>
-      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
-      <name since="">backup(Agent, BackupDir) -> ok | {error, Reason}</name>
+      <name name="backup" arity="1" clause_i="1" since=""/>
+      <name name="backup" arity="2" clause_i="1" since=""/>
       <fsummary>Backup agent data</fsummary>
-      <type>
-        <v>BackupDir = string()</v>
-        <v>Agent = pid() | atom()</v>
-        <v>Reason = backup_in_progress | term()</v>
-      </type>
       <desc>
         <p>Backup persistent/permanent data handled by the agent
-          (such as local-db, mib-data and vacm). </p>
-        <p>Data stored by mnesia is not handled. </p>
+	(such as local-db, mib-data and vacm). </p>
+	<p>Data stored by mnesia is not handled. </p>
         <p>BackupDir cannot be identical to DbDir. </p>
         <p>Simultaneous backup calls are <em>not</em> allowed. 
 	That is, two different processes cannot simultaneously 

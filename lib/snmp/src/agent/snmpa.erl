@@ -308,8 +308,18 @@ info(Agent) -> snmpa_agent:info(Agent).
 
 %% -
 
+-spec backup(BackupDir) -> ok | {error, Reason} when
+      BackupDir :: string(),
+      Reason    :: backup_in_progress | term().
+
 backup(BackupDir) ->
     backup(snmp_master_agent, BackupDir).
+
+-spec backup(Agent, BackupDir) -> ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      BackupDir :: string(),
+      Reason    :: backup_in_progress | term().
 
 backup(Agent, BackupDir) ->
     snmpa_agent:backup(Agent, BackupDir).
