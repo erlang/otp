@@ -315,7 +315,7 @@ add_sec2group(SecModel, SecName, GroupName) ->
 	{ok, {vacmSecurityToGroup, Row}} ->
 	    Key1 = element(1, Row),
 	    Key2 = element(2, Row),
-	    Key = [Key1, length(Key2) | Key2],
+	    Key  = [Key1, length(Key2) | Key2],
 	    case table_cre_row(vacmSecurityToGroupTable, Key, Row) of
 		true ->
 		    snmpa_agent:invalidate_ca_cache(),
@@ -328,6 +328,11 @@ add_sec2group(SecModel, SecName, GroupName) ->
         Error ->
             {error, Error}
     end.
+
+
+-spec delete_sec2group(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of

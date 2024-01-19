@@ -268,13 +268,8 @@
     </func>
 
     <func>
-      <name since="">delete_sec2group(Key) -> Ret</name>
+      <name name="delete_sec2group" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one security to group definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a security to group definition from the agent config.</p>
 
