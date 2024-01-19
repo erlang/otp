@@ -644,8 +644,14 @@ enable_mibs_cache(Agent) ->
     snmpa_agent:enable_mibs_cache(Agent).
 
 
+-spec disable_mibs_cache() -> snmp:void().
+
 disable_mibs_cache() ->
     disable_mibs_cache(snmp_master_agent).
+
+-spec disable_mibs_cache(Agent) -> snmp:void() when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom().
 
 disable_mibs_cache(Agent) ->
     snmpa_agent:disable_mibs_cache(Agent).

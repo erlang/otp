@@ -832,12 +832,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">disable_mibs_cache() -> void()</name>
-      <name since="">disable_mibs_cache(Agent) -> void()</name>
+      <name name="disable_mibs_cache" arity="0" clause_i="1" since=""/>
+      <name name="disable_mibs_cache" arity="1" clause_i="1" since=""/>
       <fsummary>Disable the mib server cache</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Disable the mib server cache. </p>
 
