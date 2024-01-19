@@ -857,27 +857,20 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">gc_mibs_cache() -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name since="">gc_mibs_cache(Agent) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name since="">gc_mibs_cache(Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name since="">gc_mibs_cache(Agent, Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name since="">gc_mibs_cache(Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name since="">gc_mibs_cache(Agent, Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name name="gc_mibs_cache" arity="0" clause_i="1" since=""/>
+      <name name="gc_mibs_cache" arity="1" clause_i="1" since=""/>
+      <name name="gc_mibs_cache" arity="1" clause_i="2" since=""/>
+      <name name="gc_mibs_cache" arity="2" clause_i="1" since=""/>
+      <name name="gc_mibs_cache" arity="2" clause_i="2" since=""/>
+      <name name="gc_mibs_cache" arity="3" clause_i="1" since=""/>
       <fsummary>Perform mib server cache gc</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Age = integer() > 0</v>
-        <v>GcLimit = integer() > 0 | infinity</v>
-        <v>NumElementsGCed = integer() >= 0</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Perform mib server cache gc. </p>
         <p>Manually performs a mib server cache gc. 
-          This can be done regardless of the value of the 
-          <c>autogc</c> option. 
-          The <c>NumElementsGCed</c> value indicates how many 
-          elements where actually removed from the cache. </p>
+	This can be done regardless of the value of the 
+	<c>autogc</c> option. 
+	The <c>NumElementsGCed</c> value indicates how many 
+	elements where actually removed from the cache. </p>
 
         <marker id="enable_mibs_cache_autogc"></marker>
       </desc>

@@ -680,18 +680,58 @@ disable_mibs_cache(Agent) ->
     snmpa_agent:disable_mibs_cache(Agent).
 
 
+-spec gc_mibs_cache() ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term().
+
 gc_mibs_cache() ->
     gc_mibs_cache(snmp_master_agent).
+
+-spec gc_mibs_cache(Agent) ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      Agent           :: pid() | AgentName,
+      AgentName       :: atom(),
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term();
+                   (Age) ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      Age             :: pos_integer(),
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term().
 
 gc_mibs_cache(Agent) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent);
 gc_mibs_cache(Age) ->
     gc_mibs_cache(snmp_master_agent, Age).
 
+-spec gc_mibs_cache(Agent, Age) ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      Agent           :: pid() | AgentName,
+      AgentName       :: atom(),
+      Age             :: pos_integer(),
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term();
+                   (Age, GcLimit) ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      Age             :: pos_integer(),
+      GcLimit         :: pos_integer() | infinity,
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term().
+
 gc_mibs_cache(Agent, Age) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent, Age);
 gc_mibs_cache(Age, GcLimit) ->
     gc_mibs_cache(snmp_master_agent, Age, GcLimit).
+
+-spec gc_mibs_cache(Agent, Age, GcLimit) ->
+          {ok, NumElementsGCed} | {error, Reason} when
+      Agent           :: pid() | AgentName,
+      AgentName       :: atom(),
+      Age             :: pos_integer(),
+      GcLimit         :: pos_integer() | infinity,
+      NumElementsGCed :: non_neg_integer(),
+      Reason          :: term().
 
 gc_mibs_cache(Agent, Age, GcLimit) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent, Age, GcLimit).
