@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2020</year>
+      <year>1999</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,7 +40,6 @@
       </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
 
-    <marker id="configure"></marker>
   </description>
 
   <datatypes>
@@ -201,11 +200,8 @@
 
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>This function is called from the supervisor at system
 	start-up. </p>
