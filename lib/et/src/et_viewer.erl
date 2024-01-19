@@ -40,6 +40,24 @@
 
 -define(unknown, "UNKNOWN").
 
+-type actors() :: [term()].
+-type first_key() :: term().
+-type option() ::
+        {title, string()} |
+        {detail_level, 0..100} |
+        {is_suspended, boolean()} |
+        {scale, integer()} |
+        {width, integer()} |
+        {height, integer()}|
+        {collector_pid, pid() | undefined} |
+        {active_filter, atom()} |
+        {max_events, integer() | undefined} |
+        {max_actors, integer() | undefined} |
+        {actors, actors()} |
+        {first_event, first_key()} |
+        {hide_unknown, boolean()} |
+        {hide_actions, boolean()} |
+        {display_mode, all | {search_actors, forward | reverse, first_key(), actors()}}.
 
 %%%----------------------------------------------------------------------
 %%% Client side
@@ -55,7 +73,7 @@
 %% ViewerPid = pid()
 %% Reason = term()
 %%----------------------------------------------------------------------
-
+-spec file(FileName::file:filename()) -> {ok, pid()} | {error, term()}.
 file(FileName) ->
     start_link([{trace_client, {file, FileName}}], default).
 
@@ -70,17 +88,24 @@ file(FileName) ->
 %% processes are unlinked from the calling process.
 %%----------------------------------------------------------------------
 
+-spec start() -> {ok, pid()} | {error, term()}.
 start() ->
     start([{trace_global, true}], default).
 
 %%----------------------------------------------------------------------
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
-
+-spec start(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
+      GUIorOptions :: wx | default | Options,
+      Options :: [option() | et_collector:option()].
 start(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start(Options) ->
     start_link([{parent_pid, undefined} | Options], default).
+
+-spec start(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
+      GUI :: wx | default,
+      Options :: [option() | et_collector:option()].
 
 start(Options, GUI) ->
     start_link([{parent_pid, undefined} | Options], GUI).
@@ -139,12 +164,17 @@ start(Options, GUI) ->
 %% A filter_fun() takes an event record as sole argument
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
-
+-spec start_link(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
+      GUIorOptions :: wx | default | Options,
+      Options :: [option() | et_collector:option()].
 start_link(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start_link(Options) ->
     start_link(Options, default).
 
+-spec start_link(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
+      GUI :: wx | default,
+      Options :: [option() | et_collector:option()].
 start_link(Options, GUI) -> 
     case GUI of
 	wx ->
@@ -155,6 +185,7 @@ start_link(Options, GUI) ->
 
 which_gui() -> wx.
 
+-spec get_collector_pid(ViewerPid::pid()) -> pid().
 get_collector_pid(ViewerPid) ->
     call(ViewerPid, get_collector_pid).
 
@@ -165,7 +196,7 @@ get_collector_pid(ViewerPid) ->
 %% 
 %% ViewerPid = pid()
 %%----------------------------------------------------------------------
-
+-spec stop(ViewerPid::pid()) -> ok.
 stop(ViewerPid) ->
     call(ViewerPid, stop).
 

@@ -143,13 +143,14 @@ start_dump(Tab, LinkTo) ->
 start_restore(Tab, LinkTo) ->
     start(restore, Tab, LinkTo).
 
-
+-spec create_table(Tab :: atom()) -> 'ok'.
 %% Optionally creates the Mnesia table Tab with suitable default values.
 %% Returns ok or EXIT's
 create_table(Tab) ->
     Storage = mnesia:table_info(schema, storage_type),
     create_table(Tab, [{Storage, [node()]}]).
 
+-spec create_table(Tab :: atom(), Opt :: [{atom(), term()}]) -> ok.
 create_table(Tab, TabDef) ->
     Attrs = record_info(fields, registry_entry),
     case mnesia:create_table(Tab, [{attributes, Attrs} | TabDef]) of

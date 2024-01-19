@@ -47,7 +47,10 @@
 	 function}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+-spec init_state(Tab, State) -> NewState when
+      Tab :: atom(),
+      State :: term(),
+      NewState :: term().
 init_state(_Tab, State) when State == undefined ->
     #hash_state{n_fragments     = 1,
 		next_n_to_split = 1,
@@ -62,6 +65,10 @@ convert_old_state({hash_state, N, P, L}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec add_frag(State :: term()) -> {NewState, IterFrags, AdditionalLockFrags} when
+      NewState :: term(),
+      IterFrags :: [integer()],
+      AdditionalLockFrags :: [integer()].
 add_frag(#hash_state{next_n_to_split = SplitN, n_doubles = L, n_fragments = N} = State) ->
     P = SplitN + 1,
     NewN = N + 1,
@@ -81,6 +88,10 @@ add_frag(OldState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-spec del_frag(State :: term()) -> {NewState, IterFrags, AdditionalLockFrags} when
+      NewState :: term(),
+      IterFrags :: [integer()],
+      AdditionalLockFrags :: [integer()].
 del_frag(#hash_state{next_n_to_split = SplitN, n_doubles = L, n_fragments = N} = State) ->
     P = SplitN - 1,
     if
@@ -102,7 +113,10 @@ del_frag(OldState) ->
     del_frag(State).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+-spec key_to_frag_number(State, Key) -> Fragnum when
+      State :: term(),
+      Key :: term(),
+      Fragnum :: integer().
 key_to_frag_number(#hash_state{function = phash, n_fragments = N, n_doubles = L}, Key) ->
     A = erlang:phash(Key, power2(L + 1)),
     if
@@ -124,7 +138,10 @@ key_to_frag_number(OldState, Key) ->
     key_to_frag_number(State, Key).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+-spec match_spec_to_frag_numbers(State, MatchSpec) -> Fragnums when
+      State :: term(),
+      MatchSpec :: ets:match_spec(),
+      Fragnums :: [integer()].
 match_spec_to_frag_numbers(#hash_state{n_fragments = N} = State, MatchSpec) ->
     case MatchSpec of
 	[{HeadPat, _, _}] when is_tuple(HeadPat), tuple_size(HeadPat) > 2 ->
