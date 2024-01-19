@@ -684,8 +684,14 @@ gc_mibs_cache(Agent, Age, GcLimit) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent, Age, GcLimit).
 
 
+-spec enable_mibs_cache_autogc() -> snmp:void().
+
 enable_mibs_cache_autogc() ->
     enable_mibs_cache_autogc(snmp_master_agent).
+
+-spec enable_mibs_cache_autogc(Agent) -> snmp:void() when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom().
 
 enable_mibs_cache_autogc(Agent) ->
     snmpa_agent:enable_mibs_cache_autogc(Agent).

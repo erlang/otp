@@ -892,12 +892,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">enable_mibs_cache_autogc() -> void()</name>
-      <name since="">enable_mibs_cache_autogc(Agent) -> void()</name>
+      <name name="enable_mibs_cache_autogc" arity="0" clause_i="1" since=""/>
+      <name name="enable_mibs_cache_autogc" arity="1" clause_i="1" since=""/>
       <fsummary>Enable automatic gc of the mib server cache</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Enable automatic gc of the mib server cache. </p>
 
