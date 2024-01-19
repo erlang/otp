@@ -487,26 +487,18 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">enum_to_int(Name, Enum) -> {value, Int} | false</name>
-      <name since="">enum_to_int(Db, Name, Enum) -> {value, Int} | false</name>
+      <name name="enum_to_int" arity="2" clause_i="1" since=""/>
+      <name name="enum_to_int" arity="3" clause_i="1" since=""/>
       <fsummary>Convert an enum value to an integer</fsummary>
-      <type>
-        <v>Db   = term()</v>
-        <v>Name = atom()</v>
-        <v>Enum = atom()</v>
-        <v>Int  = int()</v>
-      </type>
       <desc>
         <p>Converts the symbolic value <c>Enum</c> to the
-          corresponding integer of the enumerated object or type
-          <c>Name</c> in a MIB.  The MIB must be loaded. 
-          </p>
-        <p><c>false</c> is returned if the object or type is not
-          defined in any loaded MIB, or if it does not define the
-          symbolic value as enumerated.
-          </p>
+	corresponding integer of the enumerated object or type
+	<c>Name</c> in a MIB.  The MIB must be loaded. </p>
+	<p><c>false</c> is returned if the object or type is not
+	defined in any loaded MIB, or if it does not define the
+	symbolic value as enumerated. </p>
         <p><c>Db</c> is a reference to the symbolic store database 
-          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+	(retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
 
         <marker id="int_to_enum"></marker>
       </desc>

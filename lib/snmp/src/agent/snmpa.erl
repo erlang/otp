@@ -271,11 +271,24 @@ oid_to_name(OID) ->
 oid_to_name(Db, OID) ->
     snmpa_symbolic_store:oid_to_aliasname(Db, OID).
 
+
+-spec enum_to_int(Name, Enum) -> {value, Int} | false when
+      Name :: atom(),
+      Enum :: atom(),
+      Int  :: integer().
+
 enum_to_int(Name, Enum) ->
     snmpa_symbolic_store:enum_to_int(Name, Enum).
 
+-spec enum_to_int(Db, Name, Enum) -> {value, Int} | false when
+      Db   :: term(),
+      Name :: atom(),
+      Enum :: atom(),
+      Int  :: integer().
+
 enum_to_int(Db, Name, Enum) ->
     snmpa_symbolic_store:enum_to_int(Db, Name, Enum).
+
 
 int_to_enum(Name, Int) ->
     snmpa_symbolic_store:int_to_enum(Name, Int).
