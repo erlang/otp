@@ -306,18 +306,13 @@
 	Equivalent to one vacmViewTreeFamily-line in the 
 	<c>vacm.conf</c> file.</p>
 	  
-	  <marker id="delete_view_tree_fam"></marker>
+	<marker id="delete_view_tree_fam"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">delete_view_tree_fam(Key) -> Ret</name>
+      <name name="delete_view_tree_fam" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one view tree family definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a view tree family definition from the agent config.</p>
       </desc>

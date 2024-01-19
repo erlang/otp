@@ -415,6 +415,11 @@ add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
             {error, Error}
     end.
 
+
+-spec delete_view_tree_fam(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
 	true ->
