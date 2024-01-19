@@ -190,6 +190,10 @@ name_db(Name) ->
 %%                       {manager, manager_config()}
 %%-----------------------------------------------------------------
 
+-spec convert_config(OldConfig) -> NewConfig when
+      OldConfig :: list(),
+      NewConfig :: list().
+
 convert_config(Opts) ->
     snmpa_app:convert_config(Opts).
 

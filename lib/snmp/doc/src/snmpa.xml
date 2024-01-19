@@ -1447,22 +1447,18 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="">convert_config(OldConfig) -> AgentConfig</name>
+      <name name="convert_config" arity="1" clause_i="1" since=""/>
       <fsummary>Convert old snmp config to new agent config</fsummary>
-      <type>
-        <v>OldConfig = list()</v>
-        <v>AgentConfig = list()</v>
-      </type>
       <desc>
         <p>This off-line utility function can be used to convert
-          the old snmp application config (pre snmp-4.0) to the 
-          new snmp agent config (as of snmp-4.0).</p>
+	the old snmp application config (pre snmp-4.0) to the 
+	new snmp agent config (as of snmp-4.0).</p>
         <p>For information about the old config (<c>OldConfig</c>) 
-          see the OTP R9C documentation.</p>
+	see the OTP R9C documentation.</p>
         <p>For information about the current agent config 
-          (<c>AgentConfig</c>), see the 
-          <seeguide marker="snmp_config#configuration_params">Configuring the application</seeguide> 
-          chapter of the SNMP user's guide.</p>
+	(<c>AgentConfig</c>), see the 
+	<seeguide marker="snmp_config#configuration_params">Configuring the application</seeguide> 
+	chapter of the SNMP user's guide.</p>
 
         <marker id="restart_worker"></marker>
       </desc>
