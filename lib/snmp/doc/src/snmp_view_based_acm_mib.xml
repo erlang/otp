@@ -223,11 +223,8 @@
     </func>
 
     <func>
-      <name since="">reconfigure(ConfDir) -> void()</name>
+      <name name="reconfigure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>Inserts all data in the configuration files into the
           database and destroys all old data, including the rows with
