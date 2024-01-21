@@ -967,13 +967,16 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 %% Hibernation
 %%====================================================================
 
-hibernate_after(connection = StateName,
+hibernate_after(StateName,
 		#state{ssl_options= SslOpts} = State,
 		Actions) ->
     HibernateAfter = maps:get(hibernate_after, SslOpts, infinity),
-    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
-hibernate_after(StateName, State, Actions) ->
-    {next_state, StateName, State, Actions}.
+    case HibernateAfter == infinity orelse StateName =/= connection of
+        true -> {next_state, StateName, State, Actions};
+        false ->
+            {next_state, StateName, State,
+             [{timeout, HibernateAfter, hibernate} | Actions]}
+    end.
 
 %%====================================================================
 %% Alert and close handling

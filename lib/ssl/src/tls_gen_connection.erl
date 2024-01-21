@@ -291,21 +291,20 @@ handle_info({Protocol, _, Data}, StateName,
 	#alert{} = Alert ->
 	    ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
     end;
-handle_info({PassiveTag, Socket},  StateName, 
-            #state{static_env = #static_env{socket = Socket,
-                                            passive_tag = PassiveTag},
+handle_info({PassiveTag, Socket},  StateName,
+            #state{static_env = #static_env{socket = Socket, passive_tag = PassiveTag} = StatEnv,
                    start_or_recv_from = From,
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
                    protocol_specific = PS
                   } = State0) ->
     case (From =/= undefined) andalso (CTs == []) of
         true ->
-            {Record, State} = activate_socket(State0#state{protocol_specific =
-                                                               PS#{active_n_toggle => true}}),
-            next_event(StateName, Record, State);
+            do_activate_socket(PS, StatEnv),
+            State = State0#state{protocol_specific = PS#{active_n_toggle => false}},
+            next_event(StateName, no_record, State);
         false ->
-            next_event(StateName, no_record, 
-                       State0#state{protocol_specific = PS#{active_n_toggle => true}})
+            State = State0#state{protocol_specific = PS#{active_n_toggle => true}},
+            next_event(StateName, no_record, State)
     end;
 handle_info({CloseTag, Socket}, StateName,
             #state{static_env = #static_env{
@@ -637,7 +636,7 @@ next_tls_record(Data, StateName,
                        connection_env =
                            #connection_env{downgrade = Downgrade,
                                            negotiated_version = Vsns0}
-                      } = State0) ->
+                      } = State) ->
     Versions =
         %% TLSPlaintext.legacy_record_version is ignored in TLS 1.3 and thus all
         %% record version are accepted when receiving initial ClientHello and
@@ -658,175 +657,190 @@ next_tls_record(Data, StateName,
            true ->
                 Vsns0
         end,
-    MaxFragLen = maps:get(max_fragment_length, State0#state.connection_states, undefined),
+    MaxFragLen = maps:get(max_fragment_length, State#state.connection_states, undefined),
     case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, Downgrade) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
-	    next_record(StateName, State0#state{protocol_buffers =
-					 Buffers#protocol_buffers{tls_record_buffer = Buf1,
-								  tls_cipher_texts = CT1}});
+	    next_record(StateName, Buffers#protocol_buffers{tls_record_buffer = Buf1,
+                                                            tls_cipher_texts = CT1}, State);
 	#alert{} = Alert ->
-	    handle_record_alert(Alert, State0)
+	    handle_record_alert(Alert, State)
     end.
 
-next_record(_, #state{handshake_env = 
-                       #handshake_env{unprocessed_handshake_events = N} = HsEnv} 
+next_record(StateName, #state{protocol_buffers = PBuffers} = State) ->
+    next_record(StateName, PBuffers, State).
+
+next_record(_, PBuffers, #state{handshake_env = 
+                                    #handshake_env{unprocessed_handshake_events = N} = HsEnv}
             = State) when N > 0 ->
-    {no_record, State#state{handshake_env = 
-                                HsEnv#handshake_env{unprocessed_handshake_events = N-1}}};
-next_record(_, #state{protocol_buffers =
-                          #protocol_buffers{tls_cipher_texts = [_|_] = CipherTexts},
-                      connection_states = ConnectionStates,
-                      ssl_options = SslOpts} = State) ->
+    {no_record, State#state{handshake_env = HsEnv#handshake_env{unprocessed_handshake_events = N-1},
+                            protocol_buffers = PBuffers}};
+next_record(_,
+            #protocol_buffers{tls_cipher_texts = [_|_] = CipherTexts} = PBuffers,
+            #state{connection_states = ConnectionStates, ssl_options = SslOpts} = State) ->
     %% Do not match this option as it is relevant for TLS-1.0 only
     %% and will not be present otherwise that is we regard it to always be true
     Check = maps:get(padding_check, SslOpts, true),
-    next_record(State, CipherTexts, ConnectionStates, Check);
-next_record(connection, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
-                               protocol_specific = #{active_n_toggle := true}
-                              } = State) ->
+    next_record(State, CipherTexts, ConnectionStates, PBuffers, Check);
+next_record(connection, #protocol_buffers{tls_cipher_texts = []} = PBuffers,
+            #state{protocol_specific = #{active_n_toggle := true}} = State) ->
     %% If ssl application user is not reading data wait to activate socket
-    flow_ctrl(State); 
-  
-next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
-                      protocol_specific = #{active_n_toggle := true}
-                     } = State) ->
-    activate_socket(State);
-next_record(_, State) ->
-    {no_record, State}.
+    flow_ctrl(State, PBuffers);
 
-flow_ctrl(#state{ssl_options = #{ktls := true}} = State) ->
-    {no_record, State};
+next_record(_, #protocol_buffers{tls_cipher_texts = []} = PBuffers,
+            #state{protocol_specific = #{active_n_toggle := true}} = State) ->
+    activate_socket(State, PBuffers);
+next_record(_, PBuffers, State) ->
+    {no_record, State#state{protocol_buffers = PBuffers}}.
+
+flow_ctrl(#state{ssl_options = #{ktls := true}} = State, PBuffers) ->
+    {no_record, State#state{protocol_buffers = PBuffers}};
 %%% bytes_to_read equals the integer Length arg of ssl:recv
 %%% the actual value is only relevant for packet = raw | 0
 %%% bytes_to_read = undefined means no recv call is ongoing
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = undefined} = State)  when Size =/= 0 ->
+                 bytes_to_read = undefined} = State,
+         PBuffers)
+  when Size =/= 0 ->
     %% Passive mode wait for new recv request or socket activation
     %% that is preserve some tcp back pressure by waiting to activate
     %% socket
-    {no_record, State};
+    {no_record, State#state{protocol_buffers = PBuffers}};
 %%%%%%%%%% A packet mode is set and socket is passive %%%%%%%%%%
 flow_ctrl(#state{socket_options = #socket_options{active = false,
-                                                  packet = Packet}} = State) 
+                                                  packet = Packet}} = State,
+         PBuffers)
   when ((Packet =/= 0) andalso (Packet =/= raw)) ->
     %% We need more data to complete the packet.
-    activate_socket(State);
+    activate_socket(State, PBuffers);
 %%%%%%%%% No packet mode set and socket is passive %%%%%%%%%%%%
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = 0} = State)  when Size == 0 ->
-    %% Passive mode no available bytes, get some 
-    activate_socket(State);
+                 bytes_to_read = 0} = State,
+          PBuffers)
+  when Size == 0 ->
+    %% Passive mode no available bytes, get some
+    activate_socket(State, PBuffers);
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = 0} = State)  when Size =/= 0 ->           
+                 bytes_to_read = 0} = State,
+          PBuffers)
+  when Size =/= 0 ->
     %% There is data in the buffer to deliver
-    {no_record, State};
+    {no_record, State#state{protocol_buffers = PBuffers}};
 flow_ctrl(#state{user_data_buffer = {_,Size,_}, 
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = BytesToRead} = State) when (BytesToRead > 0) ->
+                 bytes_to_read = BytesToRead} = State,
+         PBuffers)
+  when (BytesToRead > 0) ->
     case (Size >= BytesToRead) of
         true -> %% There is enough data bufferd
-            {no_record, State};
+            {no_record, State#state{protocol_buffers = PBuffers}};
         false -> %% We need more data to complete the delivery of <BytesToRead> size
-            activate_socket(State)
+            activate_socket(State, PBuffers)
     end;
 %%%%%%%%%%% Active mode or more data needed %%%%%%%%%%
-flow_ctrl(State) ->
-    activate_socket(State).
+flow_ctrl(State, PBuffers) ->
+    activate_socket(State, PBuffers).
 
 
-activate_socket(#state{protocol_specific =
-                           #{active_n_toggle := true, active_n := N} = ProtocolSpec,
-                       static_env = #static_env{socket = Socket,
-                                                close_tag = CloseTag,
-                                                transport_cb = Transport}  
-                      } = State) ->
+activate_socket(#state{protocol_specific = #{active_n_toggle := true} = ProtocolSpec,
+                       static_env = StatEnv
+                      } = State,
+                PBuffers) ->
+    do_activate_socket(ProtocolSpec, StatEnv),
+    {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false},
+                            protocol_buffers = PBuffers}}.
+
+do_activate_socket(#{active_n := N},
+                   #static_env{socket = Socket, close_tag = CloseTag, transport_cb = Transport}) ->
     case tls_socket:setopts(Transport, Socket, [{active, N}]) of
-        ok ->
-            {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false}}}; 
-        _ ->
-            self() ! {CloseTag, Socket},
-            {no_record, State}
+        ok -> ok;
+        _ -> self() ! {CloseTag, Socket}
     end.
 
 %% Decipher next record and concatenate consecutive ?APPLICATION_DATA records into one
 %%
-next_record(State, CipherTexts, ConnectionStates, Check) ->
-    next_record(State, CipherTexts, ConnectionStates, Check, [], false).
+next_record(State, CipherTexts, ConnectionStates, PBuffers, Check) ->
+    next_record(State, CipherTexts, ConnectionStates, Check, PBuffers, false, []).
 %%
-next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3 = Version}} =
-                State, [CT|CipherTexts], ConnectionStates0, Check, Acc, IsEarlyData) ->
-    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
-        {Record = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment}, ConnectionStates} ->
+next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3 = Vsn}} = State,
+            [CT|CipherTexts], ConnectionStates0, Check, PBuffers0, IsEarlyData, Acc) ->
+    case tls_record:decode_cipher_text(Vsn, CT, ConnectionStates0, Check) of
+        {Record0 = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment0}, ConnectionStates} ->
             case CipherTexts of
                 [] ->
                     %% End of cipher texts - build and deliver an ?APPLICATION_DATA record
                     %% from the accumulated fragments
-                    NewFragment = iolist_to_binary(lists:reverse(Acc, [Fragment])),
-                    next_record_done(State, [], ConnectionStates,
-                                     Record#ssl_tls{type = ?APPLICATION_DATA,
-                                                    fragment = NewFragment});
+                    PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = []},
+                    Fragment = iolist_to_binary(lists:reverse(Acc, [Fragment0])),
+                    Record = Record0#ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment},
+                    next_record_done(State, PBuffers, ConnectionStates, Record);
                 [_|_] ->
-                    next_record(State, CipherTexts, ConnectionStates,
-                                Check, [Fragment|Acc], Record#ssl_tls.early_data)
+                    next_record(State, CipherTexts, ConnectionStates, Check, PBuffers0,
+                                Record0#ssl_tls.early_data, [Fragment0|Acc])
             end;
         {no_record, ConnectionStates} ->
             case CipherTexts of
                 [] ->
                     Record = accumulated_app_record(Acc, IsEarlyData),
-                    next_record_done(State, [], ConnectionStates, Record);
+                    PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = []},
+                    next_record_done(State, PBuffers, ConnectionStates, Record);
                 [_|_] ->
-                    next_record(State, CipherTexts, ConnectionStates, Check, Acc, IsEarlyData)
+                    next_record(State, CipherTexts, ConnectionStates, Check,
+                                PBuffers0, IsEarlyData, Acc)
             end;
         {Record, ConnectionStates} when Acc =:= [] ->
             %% Singleton non-?APPLICATION_DATA record - deliver
-            next_record_done(State, CipherTexts, ConnectionStates, Record);
+            PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = CipherTexts},
+            next_record_done(State, PBuffers, ConnectionStates, Record);
         {_Record, _ConnectionStates_to_forget} ->
             %% Not ?APPLICATION_DATA but we have accumulated fragments
             %% -> build an ?APPLICATION_DATA record with concatenated fragments
             %%    and forget about decrypting this record - we'll decrypt it again next time
             %% Will not work for stream ciphers
-            next_record_done(State, [CT|CipherTexts], ConnectionStates0,
-                             #ssl_tls{type = ?APPLICATION_DATA, 
-                                      early_data = IsEarlyData,
-                                      fragment = iolist_to_binary(lists:reverse(Acc))});
+            PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = [CT|CipherTexts]},
+            Fragment = iolist_to_binary(lists:reverse(Acc)),
+            Record = #ssl_tls{type = ?APPLICATION_DATA,
+                              early_data = IsEarlyData,
+                              fragment = Fragment},
+            next_record_done(State, PBuffers, ConnectionStates0, Record);
         #alert{} = Alert ->
             Alert
     end;
 next_record(#state{connection_env = #connection_env{negotiated_version = Version}} = State,
-            [#ssl_tls{type = ?APPLICATION_DATA} = CT |CipherTexts], ConnectionStates0,
-            Check, Acc, NotRelevant) ->
+            [#ssl_tls{type = ?APPLICATION_DATA} = CT |CipherTexts],
+            ConnectionStates0, Check, PBuffers0, NotRelevant, Acc) ->
     case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
-        {Record = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment}, ConnectionStates} ->
+        {Record0 = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment0}, ConnectionStates} ->
             case CipherTexts of
                 [] ->
                     %% End of cipher texts - build and deliver an ?APPLICATION_DATA record
                     %% from the accumulated fragments
-                    NewFragment = iolist_to_binary(lists:reverse(Acc, [Fragment])),
-                    next_record_done(State, [], ConnectionStates,
-                                     Record#ssl_tls{type = ?APPLICATION_DATA,
-                                                    fragment = NewFragment});
+                    PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = []},
+                    Fragment = iolist_to_binary(lists:reverse(Acc, [Fragment0])),
+                    Record = Record0#ssl_tls{type = ?APPLICATION_DATA,fragment = Fragment},
+                    next_record_done(State, PBuffers, ConnectionStates, Record);
                 [_|_] ->
-                    next_record(State, CipherTexts, ConnectionStates, Check, [Fragment|Acc],
-                                NotRelevant)
+                    next_record(State, CipherTexts, ConnectionStates, Check,
+                                PBuffers0, NotRelevant, [Fragment0|Acc])
             end;
         #alert{} = Alert ->
             Alert
     end;
-next_record(State, CipherTexts, ConnectionStates, _, [_|_] = Acc, IsEarlyData) ->
-    next_record_done(State, CipherTexts, ConnectionStates,
-                     #ssl_tls{type = ?APPLICATION_DATA,
-                              early_data = IsEarlyData,
-                              fragment = iolist_to_binary(lists:reverse(Acc))});
+next_record(State, CipherTexts, ConnectionStates, _, PBuffers0, IsEarlyData, [_|_] = Acc) ->
+    PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = CipherTexts},
+    Fragment = iolist_to_binary(lists:reverse(Acc)),
+    Record = #ssl_tls{type = ?APPLICATION_DATA, early_data = IsEarlyData, fragment = Fragment},
+    next_record_done(State, PBuffers, ConnectionStates, Record);
 next_record(#state{connection_env = #connection_env{negotiated_version = Version}} = State,
-            [CT|CipherTexts], ConnectionStates0, Check, [], _) ->
-    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of      
+            [CT|CipherTexts], ConnectionStates0, Check, PBuffers0, _, []) ->
+    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
         {Record, ConnectionStates} ->
             %% Singleton non-?APPLICATION_DATA record - deliver
-            next_record_done(State, CipherTexts, ConnectionStates, Record);
+            PBuffers = PBuffers0#protocol_buffers{tls_cipher_texts = CipherTexts},
+            next_record_done(State, PBuffers, ConnectionStates, Record);
         #alert{} = Alert ->
             Alert
     end.
@@ -838,11 +852,8 @@ accumulated_app_record([_|_] = Acc, IsEarlyData) ->
              early_data = IsEarlyData,
              fragment = iolist_to_binary(lists:reverse(Acc))}.
 
-next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts,
-                 ConnectionStates, Record) ->
-    {Record,
-     State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
-                 connection_states = ConnectionStates}}.
+next_record_done(State, #protocol_buffers{} = PBuffers, ConnectionStates, Record) ->
+    {Record, State#state{protocol_buffers = PBuffers, connection_states = ConnectionStates}}.
 
 
 %% Pre TLS-1.3, on the client side, the connection state variable
