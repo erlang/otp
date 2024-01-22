@@ -290,8 +290,19 @@ enum_to_int(Db, Name, Enum) ->
     snmpa_symbolic_store:enum_to_int(Db, Name, Enum).
 
 
+-spec int_to_enum(Name, Int) -> {value, Enum} | false when
+      Name :: atom(),
+      Int  :: integer(),
+      Enum :: atom().
+
 int_to_enum(Name, Int) ->
     snmpa_symbolic_store:int_to_enum(Name, Int).
+
+-spec int_to_enum(Db, Name, Int) -> {value, Enum} | false when
+      Db   :: term(),
+      Name :: atom(),
+      Int  :: integer(),
+      Enum :: atom().
 
 int_to_enum(Db, Name, Int) ->
     snmpa_symbolic_store:int_to_enum(Db, Name, Int).
