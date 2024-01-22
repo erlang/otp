@@ -259,11 +259,22 @@ which_notifications() ->
 %%-----------------------------------------------------------------
 %% These 8 functions returns {value, Val} | false
 %%-----------------------------------------------------------------
+
+-spec name_to_oid(Name) -> {value, Oid} | false when
+      Name :: atom(),
+      Oid  :: snmp:oid().
+
 name_to_oid(Name) ->
     snmpa_symbolic_store:aliasname_to_oid(Name).
 
+-spec name_to_oid(Db, Name) -> {value, Oid} | false when
+      Db   :: term(),
+      Name :: atom(),
+      Oid  :: snmp:oid().
+
 name_to_oid(Db, Name) ->
     snmpa_symbolic_store:aliasname_to_oid(Db, Name).
+
 
 oid_to_name(OID) ->
     snmpa_symbolic_store:oid_to_aliasname(OID).
