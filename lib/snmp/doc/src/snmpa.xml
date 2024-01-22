@@ -183,34 +183,27 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       </type>
       <desc>
         <p>Returns all AGENT-CAPABILITY statements in the sysORTable
-          in the agent.  This table is defined in the SNMPv2-MIB. </p>
+	in the agent.  This table is defined in the SNMPv2-MIB. </p>
 
         <marker id="get"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">get(Agent, Vars) -> Values | {error, Reason}</name>
-      <name since="">get(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <name name="get" arity="2" clause_i="1" since=""/>
+      <name name="get" arity="3" clause_i="1" since=""/>
       <fsummary>Perform a get operation on the agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Vars = [oid()]</v>
-        <v>Context = string()</v>
-        <v>Values = [term()]</v>
-        <v>Reason = {atom(), oid()}</v>
-      </type>
       <desc>
         <p>Performs a GET operation on the agent.  All loaded MIB
-          objects are visible in this operation.  The agent calls the
-          corresponding instrumentation functions just as if it was a
-          GET request coming from a manager. </p>
+	objects are visible in this operation.  The agent calls the
+	corresponding instrumentation functions just as if it was a
+	GET request coming from a manager. </p>
         <p>Note that the request specific parameters (such as 
-          <seeerl marker="#current_request_id">current_request_id</seeerl>) 
-          are not accessible for the instrumentation functions if this 
-          function is used. </p>
+	<seeerl marker="#current_request_id">current_request_id</seeerl>) 
+	are not accessible for the instrumentation functions if this 
+	function is used. </p>
 
-          <marker id="get_next"></marker>
+	<marker id="get_next"></marker>
       </desc>
     </func>
 
