@@ -43,7 +43,7 @@ struct emulator_info {
     const void *normal_exit;
 };
 
-struct module_info {
+struct erlang_module_info {
     uint64_t base_address;
     uint32_t range_count;
     uint32_t code_size;
@@ -80,7 +80,7 @@ struct debug_info {
     enum debug_info_header header;
     union {
         struct emulator_info emu;
-        struct module_info mod;
+        struct erlang_module_info mod;
     } payload;
 };
 
@@ -101,7 +101,7 @@ typedef struct priv {
 
 static enum gdb_status read_module_info(struct gdb_reader_funcs *self,
                                         struct gdb_symbol_callbacks *cb,
-                                        struct module_info *module_info) {
+                                        struct erlang_module_info *module_info) {
     struct gdb_object *obj = cb->object_open(cb);
     GDB_CORE_ADDR mod_start, mod_end;
     char *symfile = (char*)module_info;
