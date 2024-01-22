@@ -504,17 +504,18 @@ send_tls_alert(#alert{} = Alert,
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
-		       #data{static = #static{connection_pid = Pid,
-                                              socket = Socket,
-                                              dist_handle = DistHandle,
-                                              negotiated_version = Version,
-                                              transport_cb = Transport,
-                                              renegotiate_at = RenegotiateAt,
-                                              key_update_at = KeyUpdateAt,
-                                              log_level = LogLevel},
-                             bytes_sent = BytesSent,
-                             connection_states = ConnectionStates0} = StateData0) ->
-    case time_to_rekey(Version, Data, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
+                      #data{static = #static{connection_pid = Pid,
+                                             socket = Socket,
+                                             dist_handle = DistHandle,
+                                             negotiated_version = Version,
+                                             transport_cb = Transport,
+                                             renegotiate_at = RenegotiateAt,
+                                             key_update_at = KeyUpdateAt,
+                                             log_level = LogLevel},
+                            bytes_sent = BytesSent,
+                            connection_states = ConnectionStates0} = StateData0) ->
+    DataSz = iolist_size(Data),
+    case time_to_rekey(Version, DataSz, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
         key_update ->
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
             {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
@@ -532,20 +533,23 @@ send_application_data(Data, From, StateName,
                                    {next_event, internal, {application_packets, From, Rest}}]};
 	false ->
 	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
-            StateData = StateData0#data{connection_states = ConnectionStates},
 	    case tls_socket:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    StateData1 = update_bytes_sent(Version, StateData, Data),
+                    StateData1 = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
                     hibernate_after(StateName, StateData1, []);
                 Reason when DistHandle =/= undefined ->
+                    StateData = StateData0#data{connection_states = ConnectionStates},
                     death_row_shutdown(Reason, StateData);
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    StateData1 = update_bytes_sent(Version, StateData, Data),
-                    hibernate_after(StateName, StateData1, [{reply, From, ok}]);
+                    StateData = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
+                    gen_statem:reply(From, ok),
+                    hibernate_after(StateName, StateData, []);
                 Result ->
-                    hibernate_after(StateName, StateData, [{reply, From, Result}])
+                    gen_statem:reply(From, Result),
+                    StateData = StateData0#data{connection_states = ConnectionStates},
+                    hibernate_after(StateName, StateData, [])
             end
     end.
 
@@ -584,13 +588,14 @@ maybe_update_cipher_key(#data{connection_states = ConnectionStates0}= StateData,
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
-update_bytes_sent(Version, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
-    StateData;
+update_bytes_sent(Version, CS, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
+    StateData#data{connection_states = CS};
 %% Count bytes sent in TLS 1.3 for AES-GCM
-update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
-    StateData;  %% Chacha20-Poly1305
-update_bytes_sent(_, #data{bytes_sent = Sent} = StateData, Data) ->
-    StateData#data{bytes_sent = Sent + iolist_size(Data)}.  %% AES-GCM
+update_bytes_sent(_, CS, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
+    StateData#data{connection_states = CS};  %% Chacha20-Poly1305
+update_bytes_sent(_, CS, #data{bytes_sent = Sent} = StateData, DataSz) ->
+    StateData#data{connection_states = CS,
+                   bytes_sent = Sent + DataSz}.  %% AES-GCM
 
 %% For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be
 %% encrypted on a given connection while keeping a safety margin of
@@ -623,14 +628,13 @@ encode_packet(Packet, Data) ->
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.
 
-time_to_rekey(Version, _Data,
+time_to_rekey(Version, _DataSz,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
               _, _, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     key_update;
-time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
+time_to_rekey(Version, _DataSz, _, _, seq_num_wrap, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
     false;
-time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    DataSize = iolist_size(Data),
+time_to_rekey(Version, DataSize, _, _, KeyUpdateAt, BytesSent) when ?TLS_GTE(Version, ?TLS_1_3) ->
     case (BytesSent + DataSize) > KeyUpdateAt of
         true ->
             %% Handle special case that causes an invite loop of key updates.
@@ -720,6 +724,8 @@ hibernate_after(connection = StateName,
 		#data{static=#static{hibernate_after = HibernateAfter}} = State,
 		Actions) when HibernateAfter =/= infinity ->
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, []) ->
+    {next_state, StateName, State};
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
 

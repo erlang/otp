@@ -406,8 +406,12 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State1} ->
-            {next_state, StateName, State, Actions} = next_event(StateName0, Record, State1), 
-            ssl_gen_statem:hibernate_after(StateName, State, Actions)
+            case next_event(StateName0, Record, State1) of
+                {next_state, StateName, State} ->
+                    ssl_gen_statem:hibernate_after(StateName, State, []);
+                {next_state, StateName, State, Actions} ->
+                    ssl_gen_statem:hibernate_after(StateName, State, Actions)
+            end
     end;
 %%% DTLS record protocol level handshake messages 
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, epoch = Epoch, fragment = Data},
@@ -510,15 +514,18 @@ new_timeout(_) ->
     60000.
 
 handle_state_timeout(flight_retransmission_timeout, StateName,
-                     #state{protocol_specific =
-                                #{flight_state := {retransmit, CurrentTimeout}}} = State0) ->
-    {State1, Actions0} = send_handshake_flight(State0,
-                                               retransmit_epoch(StateName, State0)),
-    {next_state, StateName, #state{protocol_specific = PS} = State2, Actions} =
-        next_event(StateName, no_record, State1, Actions0),
-    State = State2#state{protocol_specific = PS#{flight_state => {retransmit, new_timeout(CurrentTimeout)}}},
-    %% This will reset the retransmission timer by repeating the enter state event
-    {repeat_state, State, Actions}.
+                     #state{protocol_specific = #{flight_state := {retransmit, CurrentTimeout}}}
+                     = State0) ->
+    {State1, Actions0} = send_handshake_flight(State0, retransmit_epoch(StateName, State0)),
+    case next_event(StateName, no_record, State1, Actions0) of
+        %% This will reset the retransmission timer by repeating the enter state event
+        {next_state, StateName, #state{protocol_specific = PS0} = State, Actions} ->
+            PS = PS0#{flight_state => {retransmit, new_timeout(CurrentTimeout)}},
+            {repeat_state, State#state{protocol_specific = PS}, Actions};
+        {next_state, StateName, #state{protocol_specific = PS0} = State} ->
+            PS = PS0#{flight_state => {retransmit, new_timeout(CurrentTimeout)}},
+            {repeat_state, State#state{protocol_specific = PS}}
+    end.
 
 send_handshake(Handshake, #state{connection_states = ConnectionStates} = State) ->
     #{epoch := Epoch} = ssl_record:current_connection_state(ConnectionStates, write),

@@ -940,6 +940,7 @@ read_application_data(Data,
                        user_data_buffer = {Front,BufferSize,Rear}}}
             end
     end.
+
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
                        %% Assert! Erl distribution uses active sockets
                        connection_env = #connection_env{erl_dist_handle = undefined}}
@@ -967,16 +968,15 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 %% Hibernation
 %%====================================================================
 
-hibernate_after(StateName,
-		#state{ssl_options= SslOpts} = State,
-		Actions) ->
-    HibernateAfter = maps:get(hibernate_after, SslOpts, infinity),
-    case HibernateAfter == infinity orelse StateName =/= connection of
-        true -> {next_state, StateName, State, Actions};
-        false ->
-            {next_state, StateName, State,
-             [{timeout, HibernateAfter, hibernate} | Actions]}
-    end.
+hibernate_after(connection = StateName,
+		#state{ssl_options= #{hibernate_after := HibernateAfter}} = State,
+                Actions) when HibernateAfter =/= infinity ->
+    {next_state, StateName, State,
+     [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, []) ->
+    {next_state, StateName, State};
+hibernate_after(StateName, State, Actions) ->
+    {next_state, StateName, State, Actions}.
 
 %%====================================================================
 %% Alert and close handling
@@ -1371,7 +1371,8 @@ no_records(Extensions) ->
              end, Extensions).
 
 handle_active_option(false, connection = StateName, To, Reply, State) ->
-    hibernate_after(StateName, State, [{reply, To, Reply}]);
+    gen_statem:reply(To, Reply),
+    hibernate_after(StateName, State, []);
 
 handle_active_option(_, connection = StateName, To, Reply,
                      #state{static_env = #static_env{role = Role},
@@ -1384,15 +1385,18 @@ handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = 
                                                                    user_data_buffer = {_,0,_}} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of
 	{next_state, StateName, State} ->
-	    hibernate_after(StateName, State, [{reply, To, Reply}]);
+            gen_statem:reply(To, Reply),
+	    hibernate_after(StateName, State, []);
 	{next_state, StateName, State, Actions} ->
-	    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+            gen_statem:reply(To, Reply),
+	    hibernate_after(StateName, State, Actions);
 	{stop, _, _} = Stop ->
 	    Stop
     end;
 handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = {_,0,_}} = State) ->
     %% Active once already set
-    {next_state, StateName, State, [{reply, To, Reply}]};
+    gen_statem:reply(To, Reply),
+    {next_state, StateName, State};
 
 %% user_data_buffer nonempty
 handle_active_option(_, StateName0, To, Reply,
@@ -1404,9 +1408,11 @@ handle_active_option(_, StateName0, To, Reply,
 	    %% Note: Renogotiation may cause StateName0 =/= StateName
 	    case Connection:next_event(StateName0, Record, State1) of
 		{next_state, StateName, State} ->
-		    hibernate_after(StateName, State, [{reply, To, Reply}]);
+                    gen_statem:reply(To, Reply),
+		    hibernate_after(StateName, State, []);
 		{next_state, StateName, State, Actions} ->
-		    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+                    gen_statem:reply(To, Reply),
+		    hibernate_after(StateName, State, Actions);
 		{stop, _, _} = Stop ->
 		    Stop
 	    end
