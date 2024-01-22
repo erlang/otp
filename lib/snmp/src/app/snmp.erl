@@ -109,7 +109,8 @@
 	      void/0
 	     ]).
 -export_type([
-              log_size/0
+              log_size/0,
+              log_time/0
              ]).
 
 -define(APPLICATION,       snmp).

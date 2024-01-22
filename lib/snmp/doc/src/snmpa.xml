@@ -608,6 +608,22 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
+      <name name="log_to_txt" arity="1" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_txt" arity="2" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="2" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="3" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="3" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="4" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="4" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="5" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="5" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="6" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="6" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="7" clause_i="1" since=""/>
+      <name name="log_to_txt" arity="7" clause_i="2" since=""/>
+      <name name="log_to_txt" arity="8" clause_i="1" since="OTP R16B03"/>
+
+      <!--
       <name since="OTP R15B01">log_to_txt(LogDir)</name>
       <name since="">log_to_txt(LogDir, Block | Mibs)</name>
       <name since="">log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
@@ -617,7 +633,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      -->
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <!--
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
@@ -634,6 +652,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
       </type>
+      -->
       <desc>
         <p>Converts an Audit Trail Log to a readable text file. 
 	<c>OutFile</c> defaults to "./snmpa_log.txt". 

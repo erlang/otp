@@ -1235,111 +1235,117 @@ get_agent_caps() ->
 %%% Audit Trail Log functions 
 %%%-----------------------------------------------------------------
 
--spec log_to_txt(LogDir :: snmp:dir()) ->
-    snmp:void().
+-spec log_to_txt(LogDir) -> snmp:void() when
+      LogDir :: snmp:dir().
 
-log_to_txt(LogDir) -> 
+log_to_txt(LogDir) ->
     log_to_txt(LogDir, []).
 
--spec log_to_txt(LogDir :: snmp:dir(), 
-		 Block  :: boolean()) ->
-    snmp:void();
-                (LogDir :: snmp:dir(), 
-		 Mibs   :: [snmp:mib_name()]) ->
-    snmp:void().
 
-log_to_txt(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
-    Mibs    = [], 
-    OutFile = "snmpa_log.txt",       
-    LogName = ?audit_trail_log_name, 
-    LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+-spec log_to_txt(LogDir, Block) -> snmp:void() when
+      LogDir :: snmp:dir(),
+      Block  :: boolean();
+                (LogDir, Mibs) -> snmp:void() when
+      LogDir :: snmp:dir(),
+      Mibs   :: [snmp:mib_name()].
 
-log_to_txt(LogDir, Mibs) -> 
-    Block   = ?ATL_BLOCK_DEFAULT, 
-    OutFile = "snmpa_log.txt",       
-    LogName = ?audit_trail_log_name, 
-    LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
-
--spec log_to_txt(LogDir :: snmp:dir(), 
-		 Mibs   :: [snmp:mib_name()], 
-		 Block  :: boolean()) ->
-    snmp:void();
-                (LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename()) ->
-    snmp:void().
-
-log_to_txt(LogDir, Mibs, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+log_to_txt(LogDir, Block)
+  when is_boolean(Block) ->
+    Mibs    = [],
     OutFile = "snmpa_log.txt", 
-    LogName = ?audit_trail_log_name, 
-    LogFile = ?audit_trail_log_file, 
+    LogName = ?audit_trail_log_name,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
-log_to_txt(LogDir, Mibs, OutFile) -> 
-    Block   = ?ATL_BLOCK_DEFAULT, 
-    LogName = ?audit_trail_log_name, 
-    LogFile = ?audit_trail_log_file, 
+log_to_txt(LogDir, Mibs) ->
+    Block   = ?ATL_BLOCK_DEFAULT,
+    OutFile = "snmpa_log.txt", 
+    LogName = ?audit_trail_log_name,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
--spec log_to_txt(LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 Block   :: boolean()) ->
-    snmp:void();
-                (LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string()) ->
-    snmp:void().
 
-log_to_txt(LogDir, Mibs, OutFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
-    LogName = ?audit_trail_log_name, 
-    LogFile = ?audit_trail_log_file, 
+-spec log_to_txt(LogDir, Mibs, Block) -> snmp:void() when
+      LogDir :: snmp:dir(),
+      Mibs   :: [snmp:mib_name()],
+      Block  :: boolean();
+                (LogDir, Mibs, OutFile) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename().
+
+log_to_txt(LogDir, Mibs, Block)
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    OutFile = "snmpa_log.txt",
+    LogName = ?audit_trail_log_name,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
-log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
-    Block   = ?ATL_BLOCK_DEFAULT, 
-    LogFile = ?audit_trail_log_file, 
+log_to_txt(LogDir, Mibs, OutFile) ->
+    Block   = ?ATL_BLOCK_DEFAULT,
+    LogName = ?audit_trail_log_name,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
--spec log_to_txt(LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 Block   :: boolean()) ->
-    snmp:void();
-                (LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string()) ->
-    snmp:void().
 
-log_to_txt(LogDir, Mibs, OutFile, LogName, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
-    LogFile = ?audit_trail_log_file, 
+-spec log_to_txt(LogDir, Mibs, OutFile, Block) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      Block   :: boolean();
+                (LogDir, Mibs, OutFile, LogName) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string().
+
+log_to_txt(LogDir, Mibs, OutFile, Block)
+  when is_boolean(Block) ->
+    LogName = ?audit_trail_log_name,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
-log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    Block = ?ATL_BLOCK_DEFAULT, 
+log_to_txt(LogDir, Mibs, OutFile, LogName) ->
+    Block   = ?ATL_BLOCK_DEFAULT,
+    LogFile = ?audit_trail_log_file,
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
--spec log_to_txt(LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string(), 
-		 Block   :: boolean()) ->
-    snmp:void();
-                (LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time()) ->
-    snmp:void().
+
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, Block) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      Block   :: boolean();
+                (LogDir, Mibs, OutFile, LogName, LogFile) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, Block)
+  when is_boolean(Block) ->
+    LogFile = ?audit_trail_log_file,
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
+    Block = ?ATL_BLOCK_DEFAULT,
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
+          snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean();
+                (LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
+          snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
@@ -1348,43 +1354,60 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
 
--spec log_to_txt(LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string(), 
-		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time()) ->
-    snmp:void();
-                (LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
-    snmp:void().
+
+-spec log_to_txt(LogDir, Mibs,
+                 OutFile, LogName, LogFile,
+		 Block,
+		 Start) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time();
+                (LogDir, Mibs,
+		 OutFile, LogName, LogFile,
+		 Start, Stop) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
-
+    snmp:log_to_txt(LogDir, Mibs,
+                    OutFile, LogName, LogFile,
+                    Block,
+                    Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+    snmp:log_to_txt(LogDir, Mibs,
+                    OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
--spec log_to_txt(LogDir  :: snmp:dir(), 
-		 Mibs    :: [snmp:mib_name()], 
-		 OutFile :: file:filename(), 
-		 LogName :: string(), 
-		 LogFile :: string(), 
-		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
-    snmp:void().
+-spec log_to_txt(LogDir, Mibs,
+		 OutFile, LogName, LogFile,
+		 Block,
+		 Start, Stop) -> snmp:void() when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      OutFile :: file:filename(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+    snmp:log_to_txt(LogDir, Mibs,
+                    OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
 
 -spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when
@@ -1406,8 +1429,7 @@ log_to_io(LogDir) ->
       Reason :: term();
                (LogDir, Mibs) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
       NumERR  :: pos_integer(),
@@ -1427,8 +1449,7 @@ log_to_io(LogDir, Mibs) ->
 
 -spec log_to_io(LogDir, Mibs, Block) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       Block   :: boolean(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
@@ -1436,8 +1457,7 @@ log_to_io(LogDir, Mibs) ->
       Reason  :: term();
                (LogDir, Mibs, LogName) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
@@ -1457,8 +1477,7 @@ log_to_io(LogDir, Mibs, LogName) ->
 -spec log_to_io(LogDir, Mibs, LogName, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       Block   :: boolean(),
       Cnt     :: {NumOK, NumERR},
@@ -1468,8 +1487,7 @@ log_to_io(LogDir, Mibs, LogName) ->
                (LogDir, Mibs, LogName, LogFile) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
       Cnt     :: {NumOK, NumERR},
@@ -1488,8 +1506,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
@@ -1500,14 +1517,10 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
                (LogDir, Mibs, LogName, LogFile, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
-      Start   :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
+      Start   :: null | snmp:log_time(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
       NumERR  :: pos_integer(),
@@ -1523,15 +1536,11 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
-      Start   :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
+      Start   :: null | snmp:log_time(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
       NumERR  :: pos_integer(),
@@ -1539,18 +1548,11 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
                (LogDir, Mibs, LogName, LogFile, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
-      Start   :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
-      Stop    :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
       NumERR  :: pos_integer(),
@@ -1566,19 +1568,12 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
-      Mibs    :: [MibName],
-      MibName :: string(),
+      Mibs    :: [snmp:mib_name()],
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
-      Start   :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
-      Stop    :: null |
-                 calendar:datetime() |
-                 {local_time, calendar:datetime()} |
-                 {universal_time, calendar:datetime()},
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
       Cnt     :: {NumOK, NumERR},
       NumOK   :: non_neg_integer(),
       NumERR  :: pos_integer(),
