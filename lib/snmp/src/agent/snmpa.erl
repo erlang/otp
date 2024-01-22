@@ -1387,11 +1387,34 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+-spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: string(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term().
+
 log_to_io(LogDir) -> 
     log_to_io(LogDir, []).
 
+-spec log_to_io(LogDir, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: string(),
+      Block  :: boolean(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term();
+               (LogDir, Mibs) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     Mibs    = [], 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
@@ -1402,8 +1425,27 @@ log_to_io(LogDir, Mibs) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+-spec log_to_io(LogDir, Mibs, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
@@ -1412,29 +1454,138 @@ log_to_io(LogDir, Mibs, LogName) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+-spec log_to_io(LogDir, Mibs, LogName, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
-log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block)
+  when is_boolean(Block) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
-log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
+log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
-log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Stop    :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)
+  when is_boolean(Block) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start);
-log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
+log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
-log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: string(),
+      Mibs    :: [MibName],
+      MibName :: string(),
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Stop    :: null |
+                 calendar:datetime() |
+                 {local_time, calendar:datetime()} |
+                 {universal_time, calendar:datetime()},
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)
+  when is_boolean(Block) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 
