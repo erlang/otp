@@ -449,21 +449,48 @@ load_mib(Agent, Mib) ->
 	    Else
     end.
 
+
+-spec load_mibs(Mibs) -> 
+          ok | {error, Reason} when
+      Mibs           :: [MibName],
+      MibName        :: string(),
+      Reason         :: {'load aborted at', MibName, InternalReason},
+      InternalReason :: already_loaded | term().
+
 load_mibs(Mibs) ->
     load_mibs(snmp_master_agent, Mibs, false).
+
+-spec load_mibs(Agent, Mibs) -> ok | {error, Reason} when
+      Agent          :: pid() | AgentName,
+      AgentName      :: atom(),
+      Mibs           :: [MibName],
+      MibName        :: string(),
+      Reason         :: {'load aborted at', MibName, InternalReason},
+      InternalReason :: already_loaded | term();
+               (Mibs, Force) -> ok | {error, Reason} when
+      Mibs           :: [MibName],
+      MibName        :: string(),
+      Force          :: boolean(),
+      Reason         :: {'load aborted at', MibName, InternalReason},
+      InternalReason :: already_loaded | term().
+
 load_mibs(Agent, Mibs) when is_list(Mibs) -> 
     snmpa_agent:load_mibs(Agent, Mibs, false);
 load_mibs(Mibs, Force) 
-  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+  when is_list(Mibs) andalso is_boolean(Force) ->
     load_mibs(snmp_master_agent, Mibs, Force).
 
--spec load_mibs(Agent :: pid() | atom(), 
-		Mibs  :: [MibName :: string()], 
-		Force :: boolean()) ->
-    ok | {error, {'load aborted at', MibName :: string(), InternalReason :: already_loaded | term()}}.
+-spec load_mibs(Agent, Mibs, Force) -> ok | {error, Reason} when
+      Agent          :: pid() | AgentName,
+      AgentName      :: atom(),
+      Mibs           :: [MibName],
+      MibName        :: string(),
+      Force          :: boolean(),
+      Reason         :: {'load aborted at', MibName, InternalReason},
+      InternalReason :: already_loaded | term().
 
 load_mibs(Agent, Mibs, Force) 
-  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) -> 
+  when is_list(Mibs) andalso is_boolean(Force) -> 
     snmpa_agent:load_mibs(Agent, Mibs, Force).
 
 

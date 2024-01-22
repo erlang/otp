@@ -293,19 +293,11 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">load_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name since="">load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
-      <name since="">load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name since="OTP R16B02">load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name name="load_mibs" arity="1" clause_i="1" since="OTP R16B02"/>
+      <name name="load_mibs" arity="2" clause_i="1" since="OTP R16B02"/>
+      <name name="load_mibs" arity="2" clause_i="2" since="OTP R16B02"/>
+      <name name="load_mibs" arity="3" clause_i="1" since="OTP R16B02"/>
       <fsummary>Load MIBs into the agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Mibs = [MibName]</v>
-        <v>Force = boolean()</v>
-        <v>MibName = string()</v>
-        <v>Reason = {'load aborted at', MibName, InternalReason}</v>
-        <v>InternalReason = already_loaded | term()</v>
-      </type>
       <desc>
         <p>Load <c>Mibs</c> into an agent.  If the agent cannot load all 
 	MIBs (the default value of the <c>Force</c> argument is <c>false</c>), 
