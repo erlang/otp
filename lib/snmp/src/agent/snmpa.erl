@@ -726,8 +726,21 @@ mib_of(Oid) ->
 mib_of(Agent, Oid) ->
     snmpa_agent:mib_of(Agent, Oid).
 
+
+-spec me_of(Oid) -> {ok, Me} | {error, Reason} when
+      Oid    :: snmp:oid(),
+      Me     :: snmp:me(),
+      Reason :: term().
+
 me_of(Oid) ->
     snmpa_agent:me_of(Oid).
+
+-spec me_of(Agent, Oid) -> {ok, Me} | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Oid       :: snmp:oid(),
+      Me        :: snmp:me(),
+      Reason    :: term().
 
 me_of(Agent, Oid) ->
     snmpa_agent:me_of(Agent, Oid).
