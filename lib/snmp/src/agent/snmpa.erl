@@ -353,7 +353,23 @@ get(Agent, Vars) -> snmpa_agent:get(Agent, Vars).
 get(Agent, Vars, Context) -> snmpa_agent:get(Agent, Vars, Context).
 
 
+-spec get_next(Agent, Vars) -> Values | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Vars      :: [snmp:oid()],
+      Values    :: [{snmp:oid(), term()}],
+      Reason    :: term().
+
 get_next(Agent, Vars) -> snmpa_agent:get_next(Agent, Vars).
+
+-spec get_next(Agent, Vars, Context) -> Values | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Vars      :: [snmp:oid()],
+      Context   :: snmp_community_mib:context_name(),
+      Values    :: [{snmp:oid(), term()}],
+      Reason    :: {atom(), snmp:oid()}.
+
 get_next(Agent, Vars, Context) -> snmpa_agent:get_next(Agent, Vars, Context).
 
 

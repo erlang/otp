@@ -207,24 +207,17 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">get_next(Agent, Vars) -> Values | {error, Reason}</name>
-      <name since="">get_next(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <name name="get_next" arity="2" clause_i="1" since=""/>
+      <name name="get_next" arity="3" clause_i="1" since=""/>
       <fsummary>Perform a get-next operation on the agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Vars = [oid()]</v>
-        <v>Context = string()</v>
-        <v>Values = [{oid(), term()}]</v>
-        <v>Reason = {atom(), oid()}</v>
-      </type>
       <desc>
         <p>Performs a GET-NEXT operation on the agent.  All loaded MIB
-          objects are visible in this operation.  The agent calls the
-          corresponding instrumentation functions just as if it was a
-          GET request coming from a manager. </p>
+	objects are visible in this operation.  The agent calls the
+	corresponding instrumentation functions just as if it was a
+	GET request coming from a manager. </p>
         <p>Note that the request specific parameters (such as 
-          <c>snmpa:current_request_id/0</c> are not accessible for the 
-          instrumentation functions if this function is used. </p>
+	<c>snmpa:current_request_id/0</c> are not accessible for the 
+	instrumentation functions if this function is used. </p>
 
         <marker id="backup"></marker>
         <!-- <marker id="get_symbolic_store_db"></marker> -->
