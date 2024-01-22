@@ -156,6 +156,7 @@
              Data :: term()) -> boolean()).
 
 -type dir()           :: string().
+
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
 -type atl_type()      :: read | write | read_write.

@@ -258,6 +258,15 @@
     </datatype>
 
     <datatype>
+      <name name="dir"/>
+      <desc>
+	<p>
+	  A string, that is a file path to a directory.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="void"/>
       <desc>
 	<p>
