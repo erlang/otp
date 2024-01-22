@@ -511,21 +511,16 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">oid_to_name(OID) -> {value, Name} | false</name>
-      <name since="">oid_to_name(Db, OID) -> {value, Name} | false</name>
+      <name name="oid_to_name" arity="1" clause_i="1" since=""/>
+      <name name="oid_to_name" arity="2" clause_i="1" since=""/>
       <fsummary>Convert an OID to a symbolic name</fsummary>
-      <type>
-        <v>Db   = term()</v>
-        <v>OID  = oid()</v>
-        <v>Name = atom()</v>
-      </type>
       <desc>
         <p>Looks up the symbolic name of a MIB object, given OBJECT
-          IDENTIFIER. </p>
+	IDENTIFIER. </p>
         <p><c>false</c> is returned if the object is not defined in any
-          loaded MIB. </p>
+	loaded MIB. </p>
         <p><c>Db</c> is a reference to the symbolic store database 
-          (retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
+	(retrieved by a call to <c>get_symbolic_store_db/0</c>). </p>
 
         <marker id="which_aliasnames"></marker>
       </desc>
