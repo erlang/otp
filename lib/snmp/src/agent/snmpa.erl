@@ -426,11 +426,20 @@ dump_mibs()     -> snmpa_agent:dump_mibs(snmp_master_agent).
 dump_mibs(File) -> snmpa_agent:dump_mibs(snmp_master_agent, File).
 
 
+-spec load_mib(Mib) -> 
+          ok | {error, Reason} when
+      Mib    :: string(),
+      Reason :: already_loaded | term().
+
 load_mib(Mib) ->
     load_mib(snmp_master_agent, Mib).
 
--spec load_mib(Agent :: pid() | atom(), Mib :: string()) ->
-    ok | {error, Reason :: already_loaded | term()}.
+-spec load_mib(Agent, Mib) ->
+          ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Mib       :: string(),
+      Reason    :: already_loaded | term().
 
 load_mib(Agent, Mib) ->
     case load_mibs(Agent, [Mib]) of
