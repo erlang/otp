@@ -261,18 +261,17 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <marker id="info"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">info() -> [{Key, Value}]</name>
-      <name since="">info(Agent) -> [{Key, Value}]</name>
+      <name name="info" arity="0" clause_i="1" since=""/>
+      <name name="info" arity="1" clause_i="1" since=""/>
       <fsummary>Return information about the agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Returns a list (a dictionary) containing information about
 	the agent. Information includes loaded MIBs, registered
 	sub-agents, some information about the memory allocation. </p>
-        <marker id="load_mib"></marker>
+
+	<marker id="load_mib"></marker>
       </desc>
     </func>
 

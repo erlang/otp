@@ -373,7 +373,20 @@ get_next(Agent, Vars) -> snmpa_agent:get_next(Agent, Vars).
 get_next(Agent, Vars, Context) -> snmpa_agent:get_next(Agent, Vars, Context).
 
 
+-spec info() -> Info when
+      Info  :: [{Key, Value}],
+      Key   :: term(),
+      Value :: term().
+
 info()      -> info(snmp_master_agent).
+
+-spec info(Agent) -> Info when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Info      :: [{Key, Value}],
+      Key       :: term(),
+      Value     :: term().
+
 info(Agent) -> snmpa_agent:info(Agent).
 
 
