@@ -697,8 +697,14 @@ me_of(Agent, Oid) ->
     snmpa_agent:me_of(Agent, Oid).
 
 
+-spec invalidate_mibs_cache() -> snmp:void().
+
 invalidate_mibs_cache() ->
     invalidate_mibs_cache(snmp_master_agent).
+
+-spec invalidate_mibs_cache(Agent) -> snmp:void() when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom().
 
 invalidate_mibs_cache(Agent) ->
     snmpa_agent:invalidate_mibs_cache(Agent).

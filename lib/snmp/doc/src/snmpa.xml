@@ -782,12 +782,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">invalidate_mibs_cache() -> void()</name>
-      <name since="">invalidate_mibs_cache(Agent) -> void()</name>
+      <name name="invalidate_mibs_cache" arity="0" clause_i="1" since=""/>
+      <name name="invalidate_mibs_cache" arity="1" clause_i="1" since=""/>
       <fsummary>Invalidate the mib server cache</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Invalidate the mib server cache. </p>
         <p>The entire contents of the cache will be deleted. </p>
