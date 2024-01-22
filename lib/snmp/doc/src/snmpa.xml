@@ -173,17 +173,16 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">get_agent_caps() -> [[SysORIndex, SysORID, SysORDescr, SysORUpTime]]</name>
+      <name name="get_agent_caps" arity="0" clause_i="1" since=""/>
       <fsummary>Return all AGENT-CAPABILITY definitions in the agent</fsummary>
-      <type>
-        <v>SysORIndex = integer()</v>
-        <v>SysORId = oid()</v>
-        <v>SysORDescr = string()</v>
-        <v>SysORUpTime = integer()</v>
-      </type>
       <desc>
         <p>Returns all AGENT-CAPABILITY statements in the sysORTable
 	in the agent.  This table is defined in the SNMPv2-MIB. </p>
+
+	<p>Note that the Erlang type language do not permit us to
+	properly describe what this function returns.
+	The <em>exact</em> return is:</p>
+	<p><c><![CDATA[ [[SysORIndex, SysORID, SysORDescr, SysORUpTime]] ]]></c></p>
 
         <marker id="get"></marker>
       </desc>

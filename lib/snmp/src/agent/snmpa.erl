@@ -1137,6 +1137,14 @@ add_agent_caps(Oid, Descr) ->
 del_agent_caps(Index) ->
     snmp_standard_mib:del_agent_caps(Index).
 
+-spec get_agent_caps() -> Caps when
+      Caps        :: [[Cap]],
+      Cap         :: SysORIndex | SysORID | SysORDescr | SysORUpTime,
+      SysORIndex  :: integer(),
+      SysORID     :: snmp:oid(),
+      SysORDescr  :: string(),
+      SysORUpTime :: integer().
+
 get_agent_caps() ->
     snmp_standard_mib:get_agent_caps().
 
