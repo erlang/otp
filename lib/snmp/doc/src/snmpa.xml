@@ -707,20 +707,14 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">mib_of(Oid) -> {ok, MibName} | {error, Reason}</name>
-      <name since="">mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}</name>
+      <name name="mib_of" arity="1" clause_i="1" since=""/>
+      <name name="mib_of" arity="2" clause_i="1" since=""/>
       <fsummary>Which mib an Oid belongs to</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Oid = oid()</v>
-        <v>MibName = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Finds the mib corresponding to the <c>Oid</c>. If it is a
-          variable, the Oid must be 
-          &lt;Oid for var&gt;.0 and if it is a table, Oid must be 
-          &lt;table&gt;.&lt;entry&gt;.&lt;col&gt;.&lt;any&gt;</p>
+	variable, the Oid must be 
+	&lt;Oid for var&gt;.0 and if it is a table, Oid must be 
+	&lt;table&gt;.&lt;entry&gt;.&lt;col&gt;.&lt;any&gt;</p>
 
         <marker id="me_of"></marker>
       </desc>

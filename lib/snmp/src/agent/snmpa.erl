@@ -720,8 +720,20 @@ make_pretty_mib(Mod) ->
 
 %% -
 
+-spec mib_of(Oid) -> {ok, MibName} | {error, Reason} when
+      Oid     :: snmp:oid(),
+      MibName :: atom(),
+      Reason  :: term().
+
 mib_of(Oid) ->
     snmpa_agent:mib_of(Oid).
+
+-spec mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Oid       :: snmp:oid(),
+      MibName   :: atom(),
+      Reason    :: term().
 
 mib_of(Agent, Oid) ->
     snmpa_agent:mib_of(Agent, Oid).
