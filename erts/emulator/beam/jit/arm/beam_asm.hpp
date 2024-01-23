@@ -1736,8 +1736,24 @@ protected:
         a.cmp(gp, tmp.reg);
     }
 
+    void safe_str(a64::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGpX());
+
+        if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            a.str(gp, mem);
+        } else {
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
+            a.str(gp, a64::Mem(SUPER_TMP));
+        }
+    }
+
     void safe_stp(a64::Gp gp1,
                   a64::Gp gp2,
+
                   const ArgVal &Dst1,
                   const ArgVal &Dst2) {
         ASSERT(ArgVal::memory_relation(Dst1, Dst2) ==

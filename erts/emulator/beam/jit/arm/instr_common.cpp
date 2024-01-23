@@ -991,6 +991,88 @@ void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
     flush_var(destination);
 }
 
+void BeamModuleAssembler::emit_update_record_in_place(
+        const ArgWord &TupleSize,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<ArgVal> &updates) {
+    bool all_safe = true;
+    ArgSource maybe_immediate = ArgNil();
+    const size_t size_on_heap = TupleSize.get() + 1;
+
+    ASSERT(UpdateCount.get() == updates.size());
+    ASSERT((UpdateCount.get() % 2) == 0);
+
+    ASSERT(size_on_heap > 2);
+
+    auto destination = init_destination(Dst, ARG1);
+    auto src = load_source(Src, ARG2);
+
+    a64::Gp untagged_src = ARG3;
+    emit_untag_ptr(untagged_src, src.reg);
+
+    for (size_t i = 0; i < updates.size(); i += 2) {
+        const auto &value = updates[i + 1].as<ArgSource>();
+        if (!(always_immediate(value) || value.isLiteral())) {
+            all_safe = false;
+            if (maybe_immediate.isNil() &&
+                always_one_of<BeamTypeId::MaybeImmediate>(value)) {
+                maybe_immediate = value;
+            } else {
+                maybe_immediate = ArgNil();
+                break;
+            }
+        }
+    }
+
+    if (all_safe) {
+        comment("skipped copy fallback because all new values are safe");
+    } else {
+        Label update = a.newLabel();
+
+        if (!maybe_immediate.isNil()) {
+            auto value = load_source(maybe_immediate, ARG5);
+            emit_is_not_boxed(update, value.reg);
+        }
+
+        a.ldr(ARG4, arm::Mem(c_p, offsetof(Process, high_water)));
+        a.cmp(untagged_src, HTOP);
+        a.ccmp(untagged_src, ARG4, imm(NZCV::kNone), imm(arm::CondCode::kLO));
+        a.b_hs(update);
+
+        emit_copy_words_increment(untagged_src, HTOP, size_on_heap);
+        sub(untagged_src, HTOP, size_on_heap * sizeof(Eterm));
+
+        a.bind(update);
+    }
+
+    for (size_t i = 0; i < updates.size(); i += 2) {
+        const auto next_index = updates[i].as<ArgWord>().get();
+        const auto &next_value = updates[i + 1].as<ArgSource>();
+        arm::Mem mem(untagged_src, next_index * sizeof(Eterm));
+
+        if (i + 2 < updates.size()) {
+            const auto adjacent_index = updates[i + 2].as<ArgWord>().get();
+            const auto &adjacent_value = updates[i + 3].as<ArgSource>();
+
+            if (adjacent_index == next_index + 1) {
+                auto [first, second] =
+                        load_sources(next_value, TMP1, adjacent_value, TMP2);
+                safe_stp(first.reg, second.reg, mem);
+                i += 2;
+                continue;
+            }
+        }
+
+        auto value = load_source(next_value, TMP1);
+        safe_str(value.reg, mem);
+    }
+
+    a.add(destination.reg, untagged_src, TAG_PRIMARY_BOXED);
+    flush_var(destination);
+}
+
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
                                                  const ArgRegister &Tuple,
                                                  const ArgWord &Offset) {

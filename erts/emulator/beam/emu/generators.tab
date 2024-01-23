@@ -1026,15 +1026,20 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
     return op;
 }
 
-gen.update_record(Size, Src, Dst, N, Updates) {
+gen.update_record(Hint, Size, Src, Dst, N, Updates) {
     BeamOp *begin, *prev;
     Sint count, i;
 
+    ASSERT(Hint.type == TAG_a);
     ASSERT(Size.type == TAG_u && Size.val < SCRATCH_X_REG);
     ASSERT(N.type == TAG_u && !(N.val % 2) && (N.val / 2) <= Size.val);
 
     $NewBeamOp(S, begin);
-    $BeamOpNameArity(begin, i_update_record, 5);
+    if (Hint.val == am_inplace) {
+        $BeamOpNameArity(begin, i_update_record_in_place, 5);
+    } else {
+        $BeamOpNameArity(begin, i_update_record_copy, 5);
+    }
 
     begin->a[0] = Size;
     begin->a[1] = Src;
@@ -1080,6 +1085,16 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         prev->next = next;
 
         prev = next;
+    }
+
+    if (Hint.val == am_inplace) {
+        BeamOp *next;
+
+        $NewBeamOp(S, next);
+        $BeamOpNameArity(next, i_update_record_in_place_done, 0);
+
+        next->next = NULL;
+        prev->next = next;
     }
 
     return begin;

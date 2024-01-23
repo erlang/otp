@@ -782,7 +782,7 @@ self(Dst) {
     $Dst = c_p->common.id;
 }
 
-i_update_record(Size, Src, Dst, Offset, Element) {
+i_update_record_copy(Size, Src, Dst, Offset, Element) {
     Eterm *untagged_source = tuple_val($Src);
     Uint size_on_heap = $Size + 1;
 
@@ -801,9 +801,45 @@ i_update_record(Size, Src, Dst, Offset, Element) {
     HTOP += size_on_heap;
 }
 
+i_update_record_in_place(Size, Src, Dst, Offset, Element) {
+    Eterm *untagged_source = tuple_val($Src);
+    Uint size_on_heap = $Size + 1;
+
+    if (c_p->high_water <= untagged_source && untagged_source < HTOP) {
+        /* It is safe to overwrite the old record. */
+        LIGHT_SWAPOUT;
+
+        untagged_source[$Offset] = $Element;
+
+        /* We stash the contents of the destination register in SCRATCH_X_REG in
+         * case it's used in subsequent `i_update_record_continue` instructions.
+         * The updates have been rewritten accordingly. */
+        reg[SCRATCH_X_REG] = $Dst;
+        $Dst = $Src;
+
+        HTOP = untagged_source + size_on_heap;
+    } else {
+        /* It would be unsafe to to overwrite the old record, because
+         * that could cause a term on the old generation to point to
+         * the young generation. */
+        sys_memcpy(HTOP, untagged_source, size_on_heap * sizeof(Eterm));
+        HTOP[$Offset] = $Element;
+
+        reg[SCRATCH_X_REG] = $Dst;
+        $Dst = make_tuple(HTOP);
+
+        HTOP += size_on_heap;
+        LIGHT_SWAPOUT;
+    }
+}
+
 i_update_record_continue(OffsetFromEnd, Element) {
     Sint offset = -(Sint)$OffsetFromEnd;
     HTOP[offset] = $Element;
+}
+
+i_update_record_in_place_done() {
+    LIGHT_SWAPIN;
 }
 
 set_tuple_element(Element, Tuple, Offset) {

@@ -1484,4 +1484,8 @@ i_lambda_trampoline F f W W
 # OTP 26
 #
 
+update_record a==am_inplace Size Src=d Dst N Updates=* =>
+    update_record_in_place Size Src Dst N Updates
+
 update_record a I s d I *
+update_record_in_place I s d I *
