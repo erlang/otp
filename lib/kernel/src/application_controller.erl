@@ -372,42 +372,47 @@ get_pid_key(Master, Key) ->
 	_ -> undefined
     end.
 
-get_key(AppName, Key) ->
-    case ets:lookup(ac_tab, {loaded, AppName}) of
-	[{_, Appl}] ->
-	    case Key of 
-		description ->
-		    {ok, Appl#appl.descr};
-		id ->
-		    {ok, Appl#appl.id};
-		vsn ->
-		    {ok, Appl#appl.vsn};
-		modules ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mods};
-		maxP ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxP};
-		maxT ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxT};
-		registered ->
-		    {ok, (Appl#appl.appl_data)#appl_data.regs};
-		included_applications ->
-		    {ok, Appl#appl.inc_apps};
-                optional_applications ->
-                    {ok, Appl#appl.opt_apps};
-		applications ->
-		    {ok, Appl#appl.apps};
-		env ->
-		    {ok, get_all_env(AppName)};
-		mod ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mod};
-		start_phases ->
-		    {ok, (Appl#appl.appl_data)#appl_data.phases};
-		_ -> undefined
-	    end;
-	_ ->
-	    undefined
+get_key(AppName, description) ->
+    get_key_direct(AppName, #appl{descr = '$1', _ = '_'});
+get_key(AppName, id) ->
+    get_key_direct(AppName, #appl{id = '$1', _ = '_'});
+get_key(AppName, vsn) ->
+    get_key_direct(AppName, #appl{vsn = '$1', _ = '_'});
+get_key(AppName, modules) ->
+    get_key_data(AppName, #appl_data{mods = '$1', _ = '_'});
+get_key(AppName, maxP) ->
+    get_key_data(AppName, #appl_data{maxP = '$1', _ = '_'});
+get_key(AppName, maxT) ->
+    get_key_data(AppName, #appl_data{maxT = '$1', _ = '_'});
+get_key(AppName, registered) ->
+    get_key_data(AppName, #appl_data{regs = '$1', _ = '_'});
+get_key(AppName, included_applications) ->
+    get_key_direct(AppName, #appl{inc_apps = '$1', _ = '_'});
+get_key(AppName, optional_applications) ->
+    get_key_direct(AppName, #appl{opt_apps = '$1', _ = '_'});
+get_key(AppName, applications) ->
+    get_key_direct(AppName, #appl{apps = '$1', _ = '_'});
+get_key(AppName, env) ->
+    case ets:member(ac_tab, {loaded, AppName}) of
+        true -> {ok, get_all_env(AppName)};
+        false -> undefined
+    end;
+get_key(AppName, mod) ->
+    get_key_data(AppName, #appl_data{mod = '$1', _ = '_'});
+get_key(AppName, start_phases) ->
+    get_key_data(AppName, #appl_data{phases = '$1', _ = '_'});
+get_key(_, _) ->
+    undefined.
+
+get_key_direct(AppName, Match) ->
+    case ets:match(ac_tab, {{loaded, AppName}, Match}) of
+        [[Value]] -> {ok, Value};
+        [] -> undefined
     end.
-	    
+
+get_key_data(AppName, Match) ->
+	get_key_direct(AppName, #appl{appl_data = Match, _ = '_'}).
+
 get_pid_all_key(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_all_key(AppName);
