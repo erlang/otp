@@ -55,6 +55,12 @@
 -define(FUNCTIONS_TITLE, "Function Details").
 -define(FUNCTIONS_LABEL, "functions").
 
+-type options() :: [{index_columns, integer()} |
+                    {pretty_printer, atom()} |
+                    {stylesheet, string()} |
+                    {sort_functions, boolean()} |
+                    {xml_export, module()}].
+
 %% @doc The layout function.
 %%
 %% Options to the standard layout:
@@ -94,7 +100,9 @@
 %% @see edoc:layout/2
 
 %% NEW-OPTIONS: xml_export, index_columns, stylesheet
-
+-spec module(Element, Options) -> term() when
+      Element :: edoc:edoc_module(),
+      Options :: options().
 module(Element, Options) ->
     XML = layout_module(Element, init_opts(Element, Options)),
     Export = proplists:get_value(xml_export, Options,
@@ -1034,6 +1042,7 @@ xhtml(Title, CSS, Body, Encoding) ->
 
 %% ---------------------------------------------------------------------
 
+-spec type(Element :: term()) -> term().
 type(E) ->
     Opts = init_opts(E, []),
     type(E, [], Opts).
@@ -1042,6 +1051,7 @@ type(E, Ds, Opts) ->
     xmerl:export_simple_content(t_utype_elem(E, Opts) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
 
+-spec overview(Element :: term(), Options :: options()) -> term().
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
     Title = [get_text(title, Es)],

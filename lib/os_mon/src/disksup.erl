@@ -45,15 +45,33 @@
 start_link() ->
     gen_server:start_link({local, disksup}, disksup, [], []).
 
+-spec get_disk_data() -> [DiskData] when
+      DiskData :: {Id, TotalKiB, Capacity},
+      Id :: string(),
+      TotalKiB :: integer(),
+      Capacity :: integer().
 get_disk_data() ->
     os_mon:call(disksup, get_disk_data, infinity).
 
+-spec get_disk_info() -> [DiskData] when
+      DiskData :: {Id, TotalKiB, AvailableKiB, Capacity},
+      Id :: string(),
+      TotalKiB :: integer(),
+      AvailableKiB :: integer(),
+      Capacity :: integer().
 get_disk_info() ->
     os_mon:call(disksup, get_disk_info, infinity).
 
+-spec get_disk_info(Path :: string()) -> [DiskData] when
+      DiskData :: {Id, TotalKiB, AvailableKiB, Capacity},
+      Id :: string(),
+      TotalKiB :: integer(),
+      AvailableKiB :: integer(),
+      Capacity :: integer().
 get_disk_info(Path) ->
     os_mon:call(disksup, {get_disk_info, Path}, infinity).
 
+-spec get_check_interval() -> Milliseconds :: integer().
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
 
@@ -66,8 +84,10 @@ set_check_interval(Value) ->
             erlang:error(badarg)
     end.
 
+-spec get_almost_full_threshold() -> Percent :: integer().
 get_almost_full_threshold() ->
     os_mon:call(disksup, get_almost_full_threshold, infinity).
+-spec set_almost_full_threshold(Float :: float()) -> ok.
 set_almost_full_threshold(Float) ->
     case param_type(disk_almost_full_threshold, Float) of
 	true ->

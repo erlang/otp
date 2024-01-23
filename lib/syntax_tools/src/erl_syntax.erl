@@ -2105,6 +2105,8 @@ atom_literal(Node) ->
 %% @see atom_literal/1
 %% @see string/1
 
+-spec atom_literal(syntaxTree(), utf8 | unicode | latin1) -> string().
+
 atom_literal(Node, utf8) ->
     io_lib:write_atom(atom_value(Node));
 atom_literal(Node, unicode) ->
@@ -5251,6 +5253,8 @@ constrained_function_type_argument(Node) ->
 %% =====================================================================
 %% @equiv function_type(any_arity, Type)
 
+-spec function_type(syntaxTree()) -> syntaxTree().
+
 function_type(Type) ->
     function_type(any_arity, Type).
 
@@ -5535,6 +5539,8 @@ map_type_exact_value(Node) ->
 %% =====================================================================
 %% @equiv map_type(any_size)
 
+-spec map_type() -> syntaxTree().
+
 map_type() ->
     map_type(any_size).
 
@@ -5797,6 +5803,8 @@ record_type_field_type(Node) ->
 
 %% =====================================================================
 %% @equiv tuple_type(any_size)
+
+-spec tuple_type() -> syntaxTree().
 
 tuple_type() ->
     tuple_type(any_size).
@@ -6608,6 +6616,8 @@ case_expr_clauses(Node) ->
 %% @see maybe_expr/2
 %% @see else_expr_clauses/1
 %% @see clause/3
+
+-spec else_expr([syntaxTree()]) -> syntaxTree().
 
 else_expr(Clauses) ->
     tree(else_expr, Clauses).

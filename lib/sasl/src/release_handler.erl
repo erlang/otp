@@ -161,6 +161,9 @@ start_link() ->
 %%                   {file_missing, FileName} |  (in the tar package)
 %%                   exit_reason()
 %%-----------------------------------------------------------------
+-spec unpack_release(Name) -> {ok, Vsn} | {error, Reason} when Name :: string(),
+   Vsn :: string(),
+   Reason :: client_node | term().
 unpack_release(ReleaseName) ->
     call({unpack_release, ReleaseName}).
     
@@ -179,9 +182,19 @@ unpack_release(ReleaseName) ->
 %%                   {no_such_from_vsn, Vsn} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
+-spec check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason} when Vsn :: string(),
+   OtherVsn :: string(),
+   Descr :: term(),
+   Reason :: term().
 check_install_release(Vsn) ->
     check_install_release(Vsn, []).
 
+-spec check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason} when Vsn :: string(),
+   OtherVsn :: string(),
+   Opts :: [Opt],
+   Opt :: purge,
+   Descr :: term(),
+   Reason :: term().
 check_install_release(Vsn, Opts) ->
     case check_check_install_options(Opts, false) of
 	{ok,Purge} ->
@@ -213,10 +226,35 @@ check_check_install_options([],Purge) ->
 %%                   {illegal_option, Opt}} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
+-spec install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason} when
+      Vsn :: string(),
+      OtherVsn :: string(),
+      Descr :: term(),
+      Reason :: {already_installed, Vsn} |
+                {change_appl_data, term()} |
+                {missing_base_app, OtherVsn, App} |
+                {could_not_create_hybrid_boot, term()} |
+                term(),
+      App :: atom().
 install_release(Vsn) ->
     call({install_release, Vsn, restart, []}).
 
 
+-spec install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason} when
+      Vsn :: string(),
+      OtherVsn :: string(),
+      Opt :: {error_action, Action} | {code_change_timeout, Timeout} | {suspend_timeout, Timeout} | {update_paths, Bool},
+      Action :: restart | reboot,
+      Timeout :: default | infinity | pos_integer(),
+      Bool :: boolean(),
+      Descr :: term(),
+      Reason :: {illegal_option, Opt} |
+                {already_installed, Vsn} |
+                {change_appl_data, term()} |
+                {missing_base_app, OtherVsn, App} |
+                {could_not_create_hybrid_boot, term()} |
+                term(),
+      App :: atom().
 install_release(Vsn, Opt) ->
     case check_install_options(Opt, restart, []) of
 	{ok, ErrorAction, InstallOpt} ->
@@ -275,12 +313,23 @@ new_emulator_upgrade(Vsn, Opts) ->
 %%                   {no_such_release, Vsn} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
+-spec make_permanent(Vsn) -> ok | {error, Reason}
+                        when
+                            Vsn :: string(),
+                            Reason ::
+                                {bad_status, Status :: term()} | term().
 make_permanent(Vsn) ->
     call({make_permanent, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Reboots the system from an old release.
 %%-----------------------------------------------------------------
+-spec reboot_old_release(Vsn) -> ok | {error, Reason}
+                            when
+                                Vsn :: string(),
+                                Reason ::
+                                    {bad_status, Status :: term()} |
+                                    term().
 reboot_old_release(Vsn) ->
     call({reboot_old_release, Vsn}).
 
@@ -291,6 +340,8 @@ reboot_old_release(Vsn) ->
 %% Returns: ok | {error, Reason}
 %%          Reason = {permanent, Vsn} |
 %%-----------------------------------------------------------------
+-spec remove_release(Vsn) -> ok | {error, Reason} when Vsn :: string(),
+   Reason :: {permanent, Vsn} | client_node | term().
 remove_release(Vsn) ->
     call({remove_release, Vsn}).
 
@@ -310,6 +361,12 @@ remove_release(Vsn) ->
 %%          them).
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
+-spec set_unpacked(RelFile, AppDirs) -> {ok, Vsn} | {error, Reason} when RelFile :: string(),
+   AppDirs :: [{App, Vsn, Dir}],
+    App :: atom(),
+    Vsn :: string(),
+   Dir :: string(),
+   Reason :: term().
 set_unpacked(RelFile, LibDirs) ->
     call({set_unpacked, RelFile, LibDirs}).
 
@@ -320,6 +377,8 @@ set_unpacked(RelFile, LibDirs) ->
 %%          This function won't delete any files at all.
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
+-spec set_removed(Vsn) -> ok | {error, Reason} when Vsn :: string(),
+   Reason :: {permanent, Vsn} | term().
 set_removed(Vsn) ->
     call({set_removed, Vsn}).
 
@@ -331,6 +390,9 @@ set_removed(Vsn) ->
 %%          is called.
 %% Returns: ok | {error, {no_such_release, Vsn}}
 %%-----------------------------------------------------------------
+-spec install_file(Vsn, File) -> ok | {error, Reason} when Vsn :: string(),
+   File :: string(),
+   Reason :: term().
 install_file(Vsn, File) when is_list(File) ->
     call({install_file, File, Vsn}).
 
@@ -338,6 +400,10 @@ install_file(Vsn, File) when is_list(File) ->
 %% Returns: [{Name, Vsn, [LibName], Status}]
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
+-spec which_releases() -> [{Name, Vsn, Apps, Status}] when Name :: string(),
+   Vsn :: string(),
+   Apps :: [AppVsn :: string()],
+   Status :: unpacked | current | permanent | old.
 which_releases() ->
     call(which_releases).
 
@@ -345,6 +411,10 @@ which_releases() ->
 %% Returns: [{Name, Vsn, [LibName], Status}]
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
+-spec which_releases(Status) -> [{Name, Vsn, Apps, Status}] when Name :: string(),
+   Vsn :: string(),
+   Apps :: [AppVsn :: string()],
+   Status :: unpacked | current | permanent | old.
 which_releases(Status) ->
     Releases = which_releases(),
     get_releases_with_status(Releases, Status, []).
@@ -384,8 +454,24 @@ create_RELEASES([Root, RelFile | LibDirs]) ->
 create_RELEASES(Root, RelFile) ->
     create_RELEASES(Root, filename:join(Root, "releases"), RelFile, []).
 
+-spec create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason} when
+      RelDir :: string(),
+      RelFile :: string(),
+      AppDirs :: [{App, Vsn, Dir}],
+      App :: atom(),
+      Vsn :: string(),
+      Dir :: string(),
+      Reason :: term().
 create_RELEASES(RelDir, RelFile, LibDirs) ->
     create_RELEASES("", RelDir, RelFile, LibDirs).
+-spec create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason} when Root :: string(),
+   RelDir :: string(),
+   RelFile :: string(),
+   AppDirs :: [{App, Vsn, Dir}],
+    App :: atom(),
+    Vsn :: string(),
+   Dir :: string(),
+   Reason :: term().
 create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
     case catch check_rel(Root, RelFile, LibDirs, false) of
 	{error, Reason } ->
@@ -405,6 +491,11 @@ create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
 %%         located under Dir/ebin
 %% Purpose: Upgrade to the version in Dir according to an appup file
 %%-----------------------------------------------------------------
+-spec upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason} when App :: atom(),
+   Dir :: string(),
+   Unpurged :: [Module],
+    Module :: atom(),
+   Reason :: term().
 upgrade_app(App, NewDir1) ->
     NewDir = root_dir_relative_path(NewDir1),
     try upgrade_script(App, NewDir) of
@@ -428,6 +519,12 @@ upgrade_app(App, NewDir1) ->
 %% Purpose: Downgrade from the version in Dir according to an appup file
 %%          located in the ebin dir of the _current_ version
 %%-----------------------------------------------------------------
+-spec downgrade_app(App, Dir) ->  {ok, Unpurged} | restart_emulator | {error, Reason} when
+      App :: atom(),
+      Dir :: string(),
+      Unpurged :: [Module],
+      Module :: atom(),
+      Reason :: term().
 downgrade_app(App, OldDir) ->
     case string:lexemes(filename:basename(OldDir), "-") of
 	[_AppS, OldVsn] ->
@@ -435,6 +532,12 @@ downgrade_app(App, OldDir) ->
 	_ ->
 	    {error, {unknown_version, App}}
     end.
+-spec downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason} when App :: atom(),
+   Dir :: string(),
+   OldVsn :: string(),
+   Unpurged :: [Module],
+    Module :: atom(),
+   Reason :: term().
 downgrade_app(App, OldVsn, OldDir) ->
     try downgrade_script(App, OldVsn, OldDir) of
 	{ok, Script} ->
@@ -444,6 +547,12 @@ downgrade_app(App, OldVsn, OldDir) ->
 	    {error, Reason}
     end.
 
+-spec upgrade_script(App, Dir) -> {ok, NewVsn, Script}
+                        when
+                            App :: atom(),
+                            Dir :: string(),
+                            NewVsn :: string(),
+                            Script :: Instructions :: term().
 upgrade_script(App, NewDir1) ->
     NewDir = root_dir_relative_path(NewDir1),
     OldVsn = ensure_running(App),
@@ -459,6 +568,12 @@ upgrade_script(App, NewDir1) ->
 	    throw(Reason)
     end.
 
+-spec downgrade_script(App, OldVsn, Dir) -> {ok, Script}
+                          when
+                              App :: atom(),
+                              OldVsn :: string(),
+                              Dir :: string(),
+                              Script :: Instructions :: term().
 downgrade_script(App, OldVsn, OldDir) ->
     NewVsn = ensure_running(App),
     NewDir = code:lib_dir(App),
@@ -473,6 +588,17 @@ downgrade_script(App, OldVsn, OldDir) ->
 	    throw(Reason)
     end.
 
+-spec eval_appup_script(App, ToVsn, ToDir, Script :: term()) ->
+                           {ok, Unpurged} |
+                           restart_emulator |
+                           {error, Reason}
+                           when
+                               App :: atom(),
+                               ToVsn :: string(),
+                               ToDir :: string(),
+                               Unpurged :: [Module],
+                               Module :: atom(),
+                               Reason :: term().
 eval_appup_script(App, ToVsn, ToDir, Script) ->
     EnvBefore = application_controller:prep_config_change(),
     AppSpecL = read_appspec(App, ToDir),

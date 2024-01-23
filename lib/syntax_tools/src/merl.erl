@@ -317,6 +317,9 @@
 %% Compiling and loading code directly to memory
 
 %% @equiv compile(Code, [])
+
+-spec compile(tree_or_trees()) -> compile:comp_ret().
+
 compile(Code) ->
     compile(Code, []).
 
@@ -324,6 +327,9 @@ compile(Code) ->
 %% into a binary BEAM object.
 %% @see compile_and_load/2
 %% @see compile/1
+
+-spec compile(tree_or_trees(), [compile:option()]) -> compile:comp_ret().
+
 compile(Code, Options) when not is_list(Code)->
     case type(Code) of
         form_list -> compile(erl_syntax:form_list_elements(Code));
@@ -336,6 +342,8 @@ compile(Code, Options0) when is_list(Options0) ->
 
 
 %% @equiv compile_and_load(Code, [])
+-spec compile_and_load(tree_or_trees()) ->
+          {ok, binary()} | error | {error, Errors :: list(), Warnings :: list()}.
 compile_and_load(Code) ->
     compile_and_load(Code, []).
 
@@ -343,6 +351,8 @@ compile_and_load(Code) ->
 %% and load the resulting module into memory.
 %% @see compile/2
 %% @see compile_and_load/1
+-spec compile_and_load(tree_or_trees(), [compile:option()]) ->
+          {ok, binary()} | error | {error, Errors :: list(), Warnings :: list()}.
 compile_and_load(Code, Options) ->
     case compile(Code, Options) of
         {ok, ModuleName, Binary} ->
@@ -375,6 +385,7 @@ term(Term) ->
 %% @doc Pretty-print a syntax tree or template to the standard output. This
 %% is a utility function for development and debugging.
 
+-spec print(tree_or_trees()) -> ok.
 print(Ts) when is_list(Ts) ->
     lists:foreach(fun print/1, Ts);
 print(T) ->
@@ -384,6 +395,7 @@ print(T) ->
 %% @doc Print the structure of a syntax tree or template to the standard
 %% output. This is a utility function for development and debugging.
 
+-spec show(tree_or_trees()) -> ok.
 show(Ts) when is_list(Ts) ->
     lists:foreach(fun show/1, Ts);
 show(T) ->

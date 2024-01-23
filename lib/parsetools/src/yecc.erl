@@ -26,6 +26,8 @@
 
 -export([compile/3, file/1, file/2, format_error/1]).
 
+-export_type([option/0, yecc_ret/0]).
+
 %% Kept for compatibility with R10B.
 -export([yecc/2, yecc/3, yecc/4]).
 
@@ -245,6 +247,21 @@ format_error(cannot_parse) ->
 -type error_ret() :: 'error'
                   | {'error', Errors :: errors(), Warnings :: warnings()}.
 -type yecc_ret() :: ok_ret() | error_ret().
+-type option() :: {'error_location', 'column' | 'line'}
+                | {'includefile', Includefile :: file:filename()}
+                | {'report_errors', boolean()}
+                | {'report_warnings', boolean()}
+                | {'report', boolean()}
+                | {'return_errors', boolean()}
+                | {'return_warnings', boolean()}
+                | {'return', boolean()}
+                | {'parserfile', Parserfile :: file:filename()}
+                | {'verbose', boolean()}
+                | {'warnings_as_errors', boolean()}
+                | {'deterministic', boolean()}
+                | 'report_errors' | 'report_warnings' | 'report'
+                | 'return_errors' | 'return_warnings' | 'return'
+                | 'verbose' | 'warnings_as_errors'.
 
 -spec file(FileName) -> yecc_ret() when
       FileName :: file:filename().
@@ -255,21 +272,7 @@ file(GrammarFile) ->
 -spec file(Grammarfile, Options) -> yecc_ret() when
       Grammarfile :: file:filename(),
       Options :: Option | [Option],
-      Option :: {'error_location', 'column' | 'line'}
-              | {'includefile', Includefile :: file:filename()}
-              | {'report_errors', boolean()}
-              | {'report_warnings', boolean()}
-              | {'report', boolean()}
-              | {'return_errors', boolean()}
-              | {'return_warnings', boolean()}
-              | {'return', boolean()}
-              | {'parserfile', Parserfile :: file:filename()}
-              | {'verbose', boolean()}
-              | {'warnings_as_errors', boolean()}
-              | {'deterministic', boolean()}
-              | 'report_errors' | 'report_warnings' | 'report'
-              | 'return_errors' | 'return_warnings' | 'return'
-              | 'verbose' | 'warnings_as_errors'.
+      Option :: option().
 
 file(File, Options0) when is_list(Options0) ->
     case is_filename(File) of

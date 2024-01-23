@@ -52,6 +52,7 @@
 
 
 %% Start a list of pseudo servers on the local node
+-spec pseudo([Master :: node() | ServerList :: [atom()]]) -> ok.
 pseudo([Master | ServerList]) ->
     pseudo(Master , ServerList);
 pseudo(_) ->

@@ -53,13 +53,25 @@ stop() ->
 error_report(LogData, Tag) ->
     error_logger:error_report(Tag, LogData).
 
+-spec enable() -> ok | {error, Res} when
+      Res :: string().
 enable() ->
     command(enable).
+-spec enable(Dir, Conf) -> ok | {error, Res} when
+      Dir :: string(),
+      Conf :: string(),
+      Res :: string().
 enable(Path, Conf) ->
     command(enable, Path, Conf).
 
+-spec disable() -> ok | {error, Res} when
+      Res :: string().
 disable() ->
     command(disable).
+-spec disable(Dir, Conf) -> ok | {error, Res} when
+      Dir :: string(),
+      Conf :: string(),
+      Res :: string().
 disable(Path, Conf) ->
     command(disable, Path, Conf).
 

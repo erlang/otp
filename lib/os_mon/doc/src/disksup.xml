@@ -222,8 +222,8 @@
         <v>Float = float(), 0=&lt;Float=&lt;1</v>
       </type>
       <desc>
-        <p>Changes the threshold, given as a float, for disk space
-          utilization.</p>
+        <p>Changes the threshold, given as a float (0.0 =&lt; Float =&lt; 1.0),
+          for disk space utilization.</p>
         <p>The change will take effect during the next disk space check
           and is non-persist. That is, in case of a process restart,
           this value is forgotten and the default value will be used.
