@@ -924,21 +924,16 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
    <func>
-      <name since="">set_request_limit(NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
-      <name since="">set_request_limit(Agent, NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
+      <name name="set_request_limit" arity="1" clause_i="1" since=""/>
+      <name name="set_request_limit" arity="2" clause_i="1" since=""/>
       <fsummary>Change the request limit</fsummary>
-      <type>
-        <v>NewLimit = OldLimit = infinity | integer() >= 0</v>
-        <v>Agent = pid() | atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Changes the request limit. </p>
         <p>Note that this has no effect on the application configuration as
-          defined by configuration files, so a node restart will revert the 
-          config to whatever is in those files. </p>
+	defined by configuration files, so a node restart will revert the 
+	config to whatever is in those files. </p>
         <p>This function is primarily useful in load regulation 
-          scenarios. </p>
+	scenarios. </p>
 
         <marker id="register_subagent"></marker>
       </desc>

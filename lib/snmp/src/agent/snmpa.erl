@@ -1008,8 +1008,24 @@ get_request_limit() ->
 get_request_limit(Agent) -> 
     snmpa_agent:get_request_limit(Agent).
 
+
+-spec set_request_limit(NewLimit) ->
+          {ok, OldLimit} | {error, Reason} when
+      NewLimit :: infinity | non_neg_integer(),
+      OldLimit :: infinity | non_neg_integer(),
+      Reason   :: term().
+
 set_request_limit(NewLimit) -> 
     set_request_limit(snmp_master_agent, NewLimit).
+
+-spec set_request_limit(Agent, NewLimit) ->
+          {ok, OldLimit} | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      NewLimit  :: infinity | non_neg_integer(),
+      OldLimit  :: infinity | non_neg_integer(),
+      Reason    :: term().
+
 set_request_limit(Agent, NewLimit) -> 
     snmpa_agent:set_request_limit(Agent, NewLimit).
 
