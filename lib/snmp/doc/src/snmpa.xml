@@ -109,6 +109,28 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="nfilter_id"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="nfilter_position"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
 
@@ -849,28 +871,17 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
 
     <func>
-      <name since="">register_notification_filter(Id, Mod, Data) -> ok | {error, Reason}</name>
-      <name since="">register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}</name>
-      <name since="">register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}</name>
-      <name since="">register_notification_filter(Agent, Id, Mod, Data, Where) -> ok | {error, Reason}</name>
+      <name name="register_notification_filter" arity="3" clause_i="1" since=""/>
+      <name name="register_notification_filter" arity="4" clause_i="1" since=""/>
+      <name name="register_notification_filter" arity="4" clause_i="2" since=""/>
+      <name name="register_notification_filter" arity="5" clause_i="1" since=""/>
       <fsummary>Register a notification filter</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Id = filter_id()</v>
-        <v>filter_id() = term()</v>
-        <v>Mod = atom()</v>
-        <v>Data = term()</v>
-        <v>Where = filter_position()</v>
-        <v>Reason = term()</v>
-        <v>filter_position() = first | last | {insert_before, filter_id()} | {insert_after, filter_id()} </v>
-      </type>
       <desc>
-        <p>Registers a notification filter.
-          </p>
+        <p>Registers a notification filter. </p>
         <p><c>Mod</c> is a module implementing the 
-          <c>snmpa_notification_filter</c> behaviour.</p>
+	<c>snmpa_notification_filter</c> behaviour.</p>
         <p><c>Data</c> will be passed on to the filter when calling the
-          functions of the behaviour.</p>
+	functions of the behaviour.</p>
 
         <marker id="unregister_notification_filter"></marker>
       </desc>

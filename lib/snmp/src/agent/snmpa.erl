@@ -133,7 +133,10 @@
 	      mib_storage/0, 
 	      mib_storage_opt/0, 
 	      mib_storage_module/0, 
-	      mib_storage_options/0
+	      mib_storage_options/0,
+
+              nfilter_id/0,
+              nfilter_position/0
              ]).
 
 -include("snmpa_atl.hrl").
@@ -171,6 +174,10 @@
 -type mib_info()      :: {mib_module(), [table_name()], [variable_name()]}.
 -type pdu_type()      :: snmp:pdu_type().
 
+-type nfilter_id()       :: term().
+-type nfilter_position() :: first | last |
+                            {insert_before, nfilter_id()} |
+                            {insert_after,  nfilter_id()}.
 
 %%-----------------------------------------------------------------
 
@@ -932,18 +939,48 @@ update_mibs_cache_gclimit(Agent, GcLimit) ->
 
 %% - message filter / load regulation
 
+-spec register_notification_filter(Id, Mod, Data) ->
+          ok | {error, Reason} when
+      Id     :: nfilter_id(),
+      Mod    :: module(),
+      Data   :: term(),
+      Reason :: term().
+
 register_notification_filter(Id, Mod, Data) when is_atom(Mod) ->
     register_notification_filter(snmp_master_agent, Id, Mod, Data, last).
  
+-spec register_notification_filter(Agent, Id, Mod, Data) ->
+          ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Id        :: nfilter_id(),
+      Mod       :: module(),
+      Data      :: term(),
+      Reason    :: term();
+                                  (Id, Mod, Data, Where) ->
+          ok | {error, Reason} when
+      Id     :: nfilter_id(),
+      Mod    :: module(),
+      Data   :: term(),
+      Where  :: nfilter_position(),
+      Reason :: term().
+
 register_notification_filter(Agent, Id, Mod, Data)
-  when is_atom(Agent) andalso is_atom(Mod) ->
-    register_notification_filter(Agent, Id, Mod, Data, last);
-register_notification_filter(Agent, Id, Mod, Data)
-  when is_pid(Agent) andalso is_atom(Mod) ->
+  when (is_pid(Agent) orelse is_atom(Agent)) andalso is_atom(Mod) ->
     register_notification_filter(Agent, Id, Mod, Data, last);
 register_notification_filter(Id, Mod, Data, Where) when is_atom(Mod) ->
     register_notification_filter(snmp_master_agent, Id, Mod, Data, Where).
  
+-spec register_notification_filter(Agent, Id, Mod, Data, Where) ->
+          ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Id        :: nfilter_id(),
+      Mod       :: module(),
+      Data      :: term(),
+      Where     :: nfilter_position(),
+      Reason    :: term().
+
 register_notification_filter(Agent, Id, Mod, Data, Where) ->
     snmpa_agent:register_notification_filter(Agent, Id, Mod, Data, Where).
  
