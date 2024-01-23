@@ -987,8 +987,12 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
+      <name name="send_notification2" arity="3" clause_i="1" since="OTP R14B03"/>
+      <!--
       <name since="OTP R14B03">send_notification2(Agent, Notification, SendOpts) -> void()</name>
+      -->
       <fsummary>Send notification</fsummary>
+      <!--
       <type>
         <v>Agent = pid() | atom()</v>
         <v>Notification = atom()</v>
@@ -1020,6 +1024,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>row_index() = [int()]</v>
         <v>extra_info() = term()</v>
       </type>
+      -->
       <desc>
         <p>Send the notification <c>Notification</c> to the management 
 	targets defined for notify-name (<c>name</c>) in the 

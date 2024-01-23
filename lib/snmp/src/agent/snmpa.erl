@@ -1016,6 +1016,35 @@ set_request_limit(Agent, NewLimit) ->
 
 %% -
 
+-spec send_notification2(Agent, Notification, SendOpts) -> snmp:void() when
+      Agent        :: pid() | AgentName,
+      AgentName    :: atom(),
+      Notification :: atom(),
+      SendOpts     :: [SendOpt],
+      SendOpt      :: {receiver,        Receiver}                       | 
+                      {name,     snmp_notification_mib:notify_name()}   |
+                      {context,  snmp_community_mib:context_name()}     |
+                      {varbinds,        [Varbind]}                      |
+                      {local_engine_id, snmp_framework_mib:engine_id()} |
+                      {extra,           term()},
+      Receiver     :: no_receiver |
+                      {Tag, Recv} |
+                      notification_delivery_info(),
+      Tag          :: term(),
+      Recv         :: pid() | atom() | MFA,
+      MFA          :: {Mod, Func, Args},
+      Mod          :: module(),
+      Func         :: atom(),
+      Args         :: list(),
+      Varbind      :: {Variable, Value} |
+                      {Column, RowIndex, Value} |
+                      {Oid, Value},
+      Variable     :: atom(),
+      Column       :: atom(),
+      RowIndex     :: snmp:row_index(),
+      Oid          :: snmp:oid(),
+      Value        :: term().
+      
 send_notification2(Agent, Notification, SendOpts) ->
     snmpa_agent:send_notification(Agent, Notification, SendOpts).
 
@@ -1058,6 +1087,7 @@ send_notification(Agent, Notification, Receiver) ->
       MFA          :: {Mod, Func, Args},
       Mod          :: module(),
       Func         :: atom(),
+      Args         :: list(),
       Varbinds     :: [Varbind],
       Varbind      :: {Variable, Value} |
                       {Column, RowIndex, Value} |
@@ -1066,8 +1096,7 @@ send_notification(Agent, Notification, Receiver) ->
       Column       :: atom(),
       RowIndex     :: snmp:row_index(),
       Oid          :: snmp:oid(),
-      Value        :: term(),
-      Args         :: list().
+      Value        :: term().
 
 send_notification(Agent, Notification, Receiver, Varbinds) ->
     SendOpts = 
@@ -1093,6 +1122,7 @@ send_notification(Agent, Notification, Receiver, Varbinds) ->
       MFA          :: {Mod, Func, Args},
       Mod          :: module(),
       Func         :: atom(),
+      Args         :: list(),
       NotifyName   :: snmp_notification_mib:notify_name(),
       Varbinds     :: [Varbind],
       Varbind      :: {Variable, Value} |
@@ -1102,8 +1132,7 @@ send_notification(Agent, Notification, Receiver, Varbinds) ->
       Column       :: atom(),
       RowIndex     :: snmp:row_index(),
       Oid          :: snmp:oid(),
-      Value        :: term(),
-      Args         :: list().
+      Value        :: term().
 
 send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
     SendOpts = 
@@ -1130,6 +1159,7 @@ send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
       MFA          :: {Mod, Func, Args},
       Mod          :: module(),
       Func         :: atom(),
+      Args         :: list(),
       NotifyName   :: snmp_notification_mib:notify_name(),
       ContextName  :: snmp_community_mib:context_name(),
       Varbinds     :: [Varbind],
@@ -1140,8 +1170,7 @@ send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
       Column       :: atom(),
       RowIndex     :: snmp:row_index(),
       Oid          :: snmp:oid(),
-      Value        :: term(),
-      Args         :: list().
+      Value        :: term().
 
 send_notification(Agent, Notification, Receiver, NotifyName, 
 		  ContextName, Varbinds) 
@@ -1173,6 +1202,7 @@ send_notification(Agent, Notification, Receiver, NotifyName,
       MFA           :: {Mod, Func, Args},
       Mod           :: module(),
       Func          :: atom(),
+      Args          :: list(),
       NotifyName    :: snmp_notification_mib:notify_name(),
       ContextName   :: snmp_community_mib:context_name(),
       Varbinds      :: [Varbind],
@@ -1184,8 +1214,7 @@ send_notification(Agent, Notification, Receiver, NotifyName,
       RowIndex      :: snmp:row_index(),
       Oid           :: snmp:oid(),
       Value         :: term(),
-      LocalEngineID :: snmp_framework_mib:engine_id(),
-      Args          :: list().
+      LocalEngineID :: snmp_framework_mib:engine_id().
 
 send_notification(Agent, Notification, Receiver, 
 		  NotifyName, ContextName, Varbinds, LocalEngineID) 
