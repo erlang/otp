@@ -1414,7 +1414,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="OTP R14B02">print_mib_info() -> void()</name>
+      <name name="print_mib_info" arity="0" clause_i="1" since="OTP R14B02"/>
       <fsummary>Print mib info</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables and variables 
@@ -1425,7 +1425,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="OTP R14B02">print_mib_tables() -> void()</name>
+      <name name="print_mib_tables" arity="0" clause_i="1" since="OTP R14B02"/>
       <fsummary>Print mib tables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables 
@@ -1436,7 +1436,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="OTP R14B02">print_mib_variables() -> void()</name>
+      <name name="print_mib_variables" arity="0" clause_i="1" since="OTP R14B02"/>
       <fsummary>Print mib variables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) variables 

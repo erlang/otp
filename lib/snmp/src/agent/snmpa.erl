@@ -658,6 +658,9 @@ mibs_info() ->
      }
     ].
 
+
+-spec print_mib_info() -> snmp:void().
+
 print_mib_info() ->
     MibsInfo = mibs_info(),
     print_mib_info(MibsInfo).
@@ -672,6 +675,8 @@ print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
     io:format("~n", []),
     print_mib_info(MibsInfo).
 
+
+-spec print_mib_tables() -> snmp:void().
 
 print_mib_tables() ->
     Tables = [{Mod, Tabs} || {Mod, Tabs, _Vars} <- mibs_info()],
@@ -696,6 +701,8 @@ print_mib_tables(Mod, Tables) ->
 print_mib_tables2(Mod, Tables) ->
     [(catch Mod:Table(print)) || Table <- Tables].
 
+
+-spec print_mib_variables() -> snmp:void().
 
 print_mib_variables() ->
     Variables = [{Mod, Vars} || {Mod, _Tabs, Vars} <- mibs_info()],
