@@ -1280,8 +1280,14 @@ restart_worker(Agent) ->
     snmpa_agent:restart_worker(Agent).
 
 
+-spec restart_set_worker() -> snmp:void().
+
 restart_set_worker() ->
     restart_set_worker(snmp_master_agent).
+
+-spec restart_set_worker(Agent) -> snmp:void() when
+      Agent     :: pid | AgentName,
+      AgentName :: atom().
 
 restart_set_worker(Agent) ->
     snmpa_agent:restart_set_worker(Agent).
