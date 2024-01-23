@@ -36,7 +36,7 @@
 
 %% Internal exports
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-	 code_change/3, init_starter/2, get_loaded/1]).
+	 code_change/3, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -1391,26 +1391,12 @@ spawn_starter(Appl, S, Type) ->
             Reply = {info, {not_running, NotRunning}},
             gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
         false ->
-            spawn_link(?MODULE, init_starter, [Appl#appl.appl_data, Type])
+            application_master:start_link(Appl#appl.appl_data, Type)
     end.
-
-init_starter(ApplData, Type) ->
-    process_flag(trap_exit, true),
-    AppName = ApplData#appl_data.name,
-    gen_server:cast(?AC, {application_started, AppName,
-			  catch start_appl(ApplData, Type)}).
 
 reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
-
-start_appl(ApplData, Type) ->
-    case application_master:start_link(ApplData, Type) of
-        {ok, _Pid} = Ok ->
-            Ok;
-        {error, _Reason} = Error ->
-            throw(Error)
-    end.
 
 find_missing_dependency(Appl, Applications) ->
     Pred = fun(AppName) -> not lists:keymember(AppName, 1, Applications) end,
