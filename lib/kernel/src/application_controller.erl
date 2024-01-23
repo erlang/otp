@@ -1345,14 +1345,10 @@ check_start_cond(AppName, RestartType, Started, Running) ->
 		true ->
 		    {error, {already_started, AppName}};
 		false ->
-		    foreach(
-			fun(AppName2) ->
-			    case lists:keymember(AppName2, 1, Started) orelse
-				     lists:member(AppName2, Appl#appl.opt_apps) of
-				true -> ok;
-				false -> throw({error, {not_started, AppName2}})
-			    end
-		    end, Appl#appl.apps),
+                    case find_missing_dependency(Appl, Started) of
+                        {value, NotStarted} -> throw({error, {not_started, NotStarted}});
+                        false -> ok
+                    end,
 		    {ok, Appl}
 	    end;
 	false ->
@@ -1405,14 +1401,10 @@ reply(From, Reply) -> gen_server:reply(From, Reply).
 start_appl(Appl, Running, Type) ->
     ApplData = Appl#appl.appl_data,
     %% Name = ApplData#appl_data.name,
-    foreach(
-        fun(AppName) ->
-            case lists:keymember(AppName, 1, Running) orelse
-                        lists:member(AppName, Appl#appl.opt_apps) of
-                true -> ok;
-                false -> throw({info, {not_running, AppName}})
-            end
-        end, Appl#appl.apps),
+    case find_missing_dependency(Appl, Running) of
+        {value, NotRunning} -> throw({info, {not_running, NotRunning}});
+        false -> ok
+    end,
     case application_master:start_link(ApplData, Type) of
         {ok, _Pid} = Ok ->
             Ok;
@@ -1420,6 +1412,9 @@ start_appl(Appl, Running, Type) ->
             throw(Error)
     end.
 
+find_missing_dependency(Appl, Applications) ->
+    Pred = fun(AppName) -> not lists:keymember(AppName, 1, Applications) end,
+    lists:search(Pred, Appl#appl.apps -- Appl#appl.opt_apps).
 
 %%-----------------------------------------------------------------
 %% Stop application locally.
