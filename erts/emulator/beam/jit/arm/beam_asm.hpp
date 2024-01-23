@@ -1618,7 +1618,7 @@ protected:
         }
     }
 
-    void mov_arg(const ArgVal &To, const ArgVal &From) {
+    void mov_arg(const ArgRegister &To, const ArgVal &From) {
         if (isRegisterBacked(To)) {
             auto to = init_destination(To, SUPER_TMP);
             auto from = load_source(From, to.reg);
@@ -1632,7 +1632,7 @@ protected:
         }
     }
 
-    void mov_arg(const ArgVal &To, arm::Mem From) {
+    void mov_arg(const ArgRegister &To, arm::Mem From) {
         auto to = init_destination(To, SUPER_TMP);
         a.ldr(to.reg, From);
         flush_var(to);

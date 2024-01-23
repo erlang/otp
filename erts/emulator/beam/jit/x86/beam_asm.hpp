@@ -1564,19 +1564,19 @@ protected:
         }
     }
 
-    void mov_arg(const ArgVal &to, x86::Gp from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, x86::Gp from, const x86::Gp &spill) {
         (void)spill;
 
         auto mem = getArgRef(to);
         store_cache(from, mem);
     }
 
-    void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, x86::Mem from, const x86::Gp &spill) {
         a.mov(spill, from);
         a.mov(getArgRef(to), spill);
     }
 
-    void mov_arg(const ArgVal &to, BeamInstr from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, BeamInstr from, const x86::Gp &spill) {
         if (Support::isInt32((Sint)from)) {
             a.mov(getArgRef(to), imm(from));
         } else {
@@ -1585,7 +1585,7 @@ protected:
         }
     }
 
-    void mov_arg(const ArgVal &to, const ArgVal &from, const x86::Gp &spill) {
+    void mov_arg(const ArgRegister &to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isRegister()) {
             mov_arg(spill, from);
             mov_arg(to, spill);
