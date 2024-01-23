@@ -66,7 +66,7 @@ public:
     //! PhysReg to WorkReg mapping.
     uint32_t workIds[1 /* ... */];
 
-    static inline size_t sizeOf(size_t count) noexcept {
+    static ASMJIT_INLINE_NODEBUG size_t sizeOf(size_t count) noexcept {
       return sizeof(PhysToWorkMap) - sizeof(uint32_t) + count * sizeof(uint32_t);
     }
 
@@ -163,16 +163,16 @@ public:
   //! \name Accessors
   //! \{
 
-  inline PhysToWorkMap* physToWorkMap() const noexcept { return _physToWorkMap; }
-  inline WorkToPhysMap* workToPhysMap() const noexcept { return _workToPhysMap; }
+  ASMJIT_INLINE_NODEBUG PhysToWorkMap* physToWorkMap() const noexcept { return _physToWorkMap; }
+  ASMJIT_INLINE_NODEBUG WorkToPhysMap* workToPhysMap() const noexcept { return _workToPhysMap; }
 
-  inline RARegMask& assigned() noexcept { return _physToWorkMap->assigned; }
-  inline const RARegMask& assigned() const noexcept { return _physToWorkMap->assigned; }
-  inline uint32_t assigned(RegGroup group) const noexcept { return _physToWorkMap->assigned[group]; }
+  ASMJIT_INLINE_NODEBUG RARegMask& assigned() noexcept { return _physToWorkMap->assigned; }
+  ASMJIT_INLINE_NODEBUG const RARegMask& assigned() const noexcept { return _physToWorkMap->assigned; }
+  ASMJIT_INLINE_NODEBUG uint32_t assigned(RegGroup group) const noexcept { return _physToWorkMap->assigned[group]; }
 
-  inline RARegMask& dirty() noexcept { return _physToWorkMap->dirty; }
-  inline const RARegMask& dirty() const noexcept { return _physToWorkMap->dirty; }
-  inline RegMask dirty(RegGroup group) const noexcept { return _physToWorkMap->dirty[group]; }
+  ASMJIT_INLINE_NODEBUG RARegMask& dirty() noexcept { return _physToWorkMap->dirty; }
+  ASMJIT_INLINE_NODEBUG const RARegMask& dirty() const noexcept { return _physToWorkMap->dirty; }
+  ASMJIT_INLINE_NODEBUG RegMask dirty(RegGroup group) const noexcept { return _physToWorkMap->dirty[group]; }
 
   inline uint32_t workToPhysId(RegGroup group, uint32_t workId) const noexcept {
     DebugUtils::unused(group);

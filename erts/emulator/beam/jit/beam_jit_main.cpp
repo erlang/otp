@@ -149,21 +149,21 @@ static void install_bifs(void) {
 }
 
 static auto create_allocator(const JitAllocator::CreateParams &params) {
-    void *test_ro, *test_rw;
+    JitAllocator::Span test_span;
     bool single_mapped;
     Error err;
 
     auto *allocator = new JitAllocator(&params);
 
-    err = allocator->alloc(&test_ro, &test_rw, 1);
+    err = allocator->alloc(test_span, 1);
 
     if (err == ErrorCode::kErrorOk) {
         /* We can get dual-mapped memory when asking for single-mapped memory
          * if the latter is not possible: return whether that happened. */
-        single_mapped = (test_ro == test_rw);
+        single_mapped = (test_span.rx() == test_span.rw());
     }
 
-    allocator->release(test_ro);
+    allocator->release(test_span.rx());
 
     if (err == ErrorCode::kErrorOk) {
         return std::make_pair(allocator, single_mapped);

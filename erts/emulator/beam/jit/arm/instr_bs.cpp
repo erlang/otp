@@ -35,7 +35,7 @@ extern "C"
 int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
                                                 int unit,
                                                 Label fail,
-                                                const arm::Gp &out) {
+                                                const a64::Gp &out) {
     if (Size.isImmed()) {
         if (Size.isSmall()) {
             Sint sval = Size.as<ArgSmall>().getSigned();
@@ -1045,10 +1045,10 @@ void BeamModuleAssembler::emit_i_bs_put_utf8(const ArgLabel &Fail,
 void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
     const int start_offset = offsetof(ErlSubBits, start);
 
-    const arm::Gp match_context = ARG1;
-    const arm::Gp bitdata = ARG2;
-    const arm::Gp bin_position = ARG3;
-    const arm::Gp bin_base = ARG4;
+    const a64::Gp match_context = ARG1;
+    const a64::Gp bitdata = ARG2;
+    const a64::Gp bin_position = ARG3;
+    const a64::Gp bin_base = ARG4;
 
     Label two = a.newLabel();
     Label three_or_more = a.newLabel();
@@ -1136,15 +1136,15 @@ void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
 void BeamGlobalAssembler::emit_bs_get_utf8_shared() {
     const int start_offset = offsetof(ErlSubBits, start);
 
-    const arm::Gp match_context = ARG1;
-    const arm::Gp bitdata = ARG2;
-    const arm::Gp bin_position = ARG3;
+    const a64::Gp match_context = ARG1;
+    const a64::Gp bitdata = ARG2;
+    const a64::Gp bin_position = ARG3;
 
-    const arm::Gp byte_count = ARG4;
+    const a64::Gp byte_count = ARG4;
 
-    const arm::Gp shift = TMP4;
-    const arm::Gp control_mask = TMP5;
-    const arm::Gp error_mask = TMP6;
+    const a64::Gp shift = TMP4;
+    const a64::Gp control_mask = TMP5;
+    const a64::Gp error_mask = TMP6;
 
     /* UTF-8 has the following layout, where 'x' are data bits:
      *
@@ -1262,11 +1262,11 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
     const int base_offset = offsetof(ErlSubBits, base_flags);
     const int start_offset = offsetof(ErlSubBits, start);
 
-    const arm::Gp match_context = ARG1;
-    const arm::Gp bitdata = ARG2;
-    const arm::Gp bin_position = ARG3;
-    const arm::Gp bin_base = ARG4;
-    const arm::Gp bin_size = ARG5;
+    const a64::Gp match_context = ARG1;
+    const a64::Gp bitdata = ARG2;
+    const a64::Gp bin_position = ARG3;
+    const a64::Gp bin_base = ARG4;
+    const a64::Gp bin_size = ARG5;
 
     auto ctx = load_source(Ctx, ARG6);
 
@@ -1399,7 +1399,7 @@ void BeamModuleAssembler::emit_i_bs_skip_utf16(const ArgRegister &Ctx,
 
 void BeamModuleAssembler::emit_validate_unicode(Label next,
                                                 Label fail,
-                                                arm::Gp value) {
+                                                a64::Gp value) {
     ASSERT(value != TMP2);
 
     a.and_(TMP2, value, imm(_TAG_IMMED1_MASK));
@@ -1705,7 +1705,7 @@ void BeamGlobalAssembler::emit_get_sint64_shared() {
     Label fail = a.newLabel();
 
     emit_is_boxed(fail, ARG1);
-    arm::Gp boxed_ptr = emit_ptr_val(TMP3, ARG1);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP3, ARG1);
     a.ldr(TMP1, emit_boxed_val(boxed_ptr));
     a.ldr(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
@@ -1867,10 +1867,10 @@ static std::vector<BscSegment> bs_combine_segments(
  *
  *    Preserves all other ARG* registers.
  */
-void BeamModuleAssembler::update_bin_state(arm::Gp bin_offset,
+void BeamModuleAssembler::update_bin_state(a64::Gp bin_offset,
                                            Sint bit_offset,
                                            Sint size,
-                                           arm::Gp size_reg) {
+                                           a64::Gp size_reg) {
     int cur_bin_offset = offsetof(ErtsSchedulerRegisters,
                                   aux_regs.d.erl_bits_state.erts_current_bin_);
     arm::Mem mem_bin_base = arm::Mem(scheduler_registers, cur_bin_offset);
@@ -2014,8 +2014,8 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
 void BeamGlobalAssembler::emit_construct_utf8_shared() {
     Label more_than_two_bytes = a.newLabel();
     Label four_bytes = a.newLabel();
-    const arm::Gp value = ARG1;
-    const arm::Gp num_bits = ARG4;
+    const a64::Gp value = ARG1;
+    const a64::Gp num_bits = ARG4;
 
     a.cmp(value, imm(0x800));
     a.b_hs(more_than_two_bytes);
@@ -2077,7 +2077,7 @@ void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
     fragment_call(ga->get_construct_utf8_shared());
 
     a.bind(prepare_store);
-    arm::Gp bin_offset = ARG3;
+    a64::Gp bin_offset = ARG3;
     update_bin_state(bin_offset, bit_offset, -1, ARG4);
 
     if (!is_byte_aligned) {
@@ -2156,10 +2156,10 @@ void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
 void BeamGlobalAssembler::emit_store_unaligned() {
     Label loop = a.newLabel();
     Label done = a.newLabel();
-    const arm::Gp left_bit_offset = ARG3;
-    const arm::Gp right_bit_offset = TMP6;
-    const arm::Gp num_bits = ARG4;
-    const arm::Gp bitdata = ARG8;
+    const a64::Gp left_bit_offset = ARG3;
+    const a64::Gp right_bit_offset = TMP6;
+    const a64::Gp num_bits = ARG4;
+    const a64::Gp bitdata = ARG8;
 
     a.ldrb(TMP5.w(), arm::Mem(TMP1));
 
@@ -2204,7 +2204,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     std::vector<BscSegment> segments;
     Label error; /* Intentionally uninitialized */
     ArgWord Live = Live0;
-    arm::Gp sizeReg;
+    a64::Gp sizeReg;
     Sint allocated_size = -1;
     bool need_error_handler = false;
 
@@ -2995,13 +2995,13 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     }
                 }
 
-                arm::Gp bin_offset = ARG3;
-                arm::Gp bin_data = ARG8;
+                a64::Gp bin_offset = ARG3;
+                a64::Gp bin_data = ARG8;
 
                 update_bin_state(bin_offset,
                                  bit_offset,
                                  seg.effectiveSize,
-                                 arm::Gp());
+                                 a64::Gp());
 
                 if (!is_byte_aligned) {
                     if (bit_offset < 0) {
@@ -3274,9 +3274,9 @@ struct BsmSegment {
 };
 
 void BeamModuleAssembler::emit_read_bits(Uint bits,
-                                         const arm::Gp bin_base,
-                                         const arm::Gp bin_offset,
-                                         const arm::Gp bitdata) {
+                                         const a64::Gp bin_base,
+                                         const a64::Gp bin_offset,
+                                         const a64::Gp bitdata) {
     Label handle_partial = a.newLabel();
     Label rev64 = a.newLabel();
     Label shift = a.newLabel();
@@ -3284,9 +3284,9 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
 
     bool need_rev64 = false;
 
-    const arm::Gp bin_byte_ptr = TMP2;
-    const arm::Gp bit_offset = TMP4;
-    const arm::Gp tmp = TMP5;
+    const a64::Gp bin_byte_ptr = TMP2;
+    const a64::Gp bit_offset = TMP4;
+    const a64::Gp tmp = TMP5;
 
     auto num_partial = bits % 8;
 
@@ -3519,13 +3519,13 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
     a.bind(read_done);
 }
 
-void BeamModuleAssembler::emit_extract_integer(const arm::Gp &bitdata,
-                                               const arm::Gp &small_tag,
+void BeamModuleAssembler::emit_extract_integer(const a64::Gp &bitdata,
+                                               const a64::Gp &small_tag,
                                                Uint flags,
                                                Uint position,
                                                Uint bits,
                                                const ArgRegister &Dst) {
-    arm::Gp data_reg = bitdata;
+    a64::Gp data_reg = bitdata;
     auto dst = init_destination(Dst, TMP1);
 
     if (bits <= 8) {
@@ -3650,7 +3650,7 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp &bitdata,
     flush_var(dst);
 }
 
-void BeamModuleAssembler::emit_extract_bitstring(const arm::Gp bitdata,
+void BeamModuleAssembler::emit_extract_bitstring(const a64::Gp bitdata,
                                                  Uint position,
                                                  Uint bits,
                                                  const ArgRegister &Dst) {
@@ -3940,11 +3940,11 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
     segments = opt_bsm_segments(segments, Need, Live);
 
-    const arm::Gp bin_base = ARG2;
-    const arm::Gp bin_position = ARG3;
-    const arm::Gp bin_size = ARG4;
-    const arm::Gp small_tag = ARG5;
-    const arm::Gp bitdata = ARG8;
+    const a64::Gp bin_base = ARG2;
+    const a64::Gp bin_position = ARG3;
+    const a64::Gp bin_size = ARG4;
+    const a64::Gp small_tag = ARG5;
+    const a64::Gp bitdata = ARG8;
     bool position_is_valid = false;
     bool small_tag_valid = false;
     Uint offset_in_bitdata = 0;
@@ -4004,7 +4004,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             break;
         }
         case BsmSegment::action::EQ: {
-            arm::Gp cmp_reg = TMP1;
+            a64::Gp cmp_reg = TMP1;
             comment("=:= %ld %ld", seg.size, seg.unit);
 
             offset_in_bitdata -= seg.size;

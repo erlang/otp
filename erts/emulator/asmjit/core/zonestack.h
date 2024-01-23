@@ -44,31 +44,31 @@ public:
     //! Pointer to the end of the array.
     void* _end;
 
-    inline bool empty() const noexcept { return _start == _end; }
-    inline Block* prev() const noexcept { return _link[kBlockIndexPrev]; }
-    inline Block* next() const noexcept { return _link[kBlockIndexNext]; }
+    ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _start == _end; }
+    ASMJIT_INLINE_NODEBUG Block* prev() const noexcept { return _link[kBlockIndexPrev]; }
+    ASMJIT_INLINE_NODEBUG Block* next() const noexcept { return _link[kBlockIndexNext]; }
 
-    inline void setPrev(Block* block) noexcept { _link[kBlockIndexPrev] = block; }
-    inline void setNext(Block* block) noexcept { _link[kBlockIndexNext] = block; }
-
-    template<typename T>
-    inline T* start() const noexcept { return static_cast<T*>(_start); }
-    template<typename T>
-    inline void setStart(T* start) noexcept { _start = static_cast<void*>(start); }
+    ASMJIT_INLINE_NODEBUG void setPrev(Block* block) noexcept { _link[kBlockIndexPrev] = block; }
+    ASMJIT_INLINE_NODEBUG void setNext(Block* block) noexcept { _link[kBlockIndexNext] = block; }
 
     template<typename T>
-    inline T* end() const noexcept { return (T*)_end; }
+    ASMJIT_INLINE_NODEBUG T* start() const noexcept { return static_cast<T*>(_start); }
     template<typename T>
-    inline void setEnd(T* end) noexcept { _end = (void*)end; }
+    ASMJIT_INLINE_NODEBUG void setStart(T* start) noexcept { _start = static_cast<void*>(start); }
 
     template<typename T>
-    inline T* data() const noexcept { return (T*)((uint8_t*)(this) + sizeof(Block)); }
+    ASMJIT_INLINE_NODEBUG T* end() const noexcept { return (T*)_end; }
+    template<typename T>
+    ASMJIT_INLINE_NODEBUG void setEnd(T* end) noexcept { _end = (void*)end; }
 
     template<typename T>
-    inline bool canPrepend() const noexcept { return _start > data<void>(); }
+    ASMJIT_INLINE_NODEBUG T* data() const noexcept { return (T*)((uint8_t*)(this) + sizeof(Block)); }
 
     template<typename T>
-    inline bool canAppend() const noexcept {
+    ASMJIT_INLINE_NODEBUG bool canPrepend() const noexcept { return _start > data<void>(); }
+
+    template<typename T>
+    ASMJIT_INLINE_NODEBUG bool canAppend() const noexcept {
       size_t kNumBlockItems = (kBlockSize - sizeof(Block)) / sizeof(T);
       size_t kStartBlockIndex = sizeof(Block);
       size_t kEndBlockIndex = kStartBlockIndex + kNumBlockItems * sizeof(T);
@@ -83,25 +83,21 @@ public:
   //! \{
 
   //! Allocator used to allocate data.
-  ZoneAllocator* _allocator;
+  ZoneAllocator* _allocator {};
   //! First and last blocks.
-  Block* _block[2];
+  Block* _block[2] {};
 
   //! \}
 
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneStackBase() noexcept {
-    _allocator = nullptr;
-    _block[0] = nullptr;
-    _block[1] = nullptr;
-  }
-  inline ~ZoneStackBase() noexcept { reset(); }
+  ASMJIT_INLINE_NODEBUG ZoneStackBase() noexcept {}
+  ASMJIT_INLINE_NODEBUG ~ZoneStackBase() noexcept { reset(); }
 
-  inline bool isInitialized() const noexcept { return _allocator != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool isInitialized() const noexcept { return _allocator != nullptr; }
   ASMJIT_API Error _init(ZoneAllocator* allocator, size_t middleIndex) noexcept;
-  inline Error reset() noexcept { return _init(nullptr, 0); }
+  ASMJIT_INLINE_NODEBUG Error reset() noexcept { return _init(nullptr, 0); }
 
   //! \}
 
@@ -109,7 +105,7 @@ public:
   //! \{
 
   //! Returns `ZoneAllocator` attached to this container.
-  inline ZoneAllocator* allocator() const noexcept { return _allocator; }
+  ASMJIT_INLINE_NODEBUG ZoneAllocator* allocator() const noexcept { return _allocator; }
 
   inline bool empty() const noexcept {
     ASMJIT_ASSERT(isInitialized());

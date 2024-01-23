@@ -18,8 +18,6 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 Compiler::Compiler(CodeHolder* code) noexcept : BaseCompiler() {
   _archMask = uint64_t(1) << uint32_t(Arch::kAArch64);
-  assignEmitterFuncs(this);
-
   if (code)
     code->attach(this);
 }
@@ -36,6 +34,9 @@ Error Compiler::onAttach(CodeHolder* code) noexcept {
     onDetach(code);
     return err;
   }
+
+  _instructionAlignment = uint8_t(4);
+  assignEmitterFuncs(this);
 
   return kErrorOk;
 }

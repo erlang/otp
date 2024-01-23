@@ -177,7 +177,7 @@ namespace asmjit {
 //! ### AsmJit Backends
 //!
 //! AsmJit currently supports only X86/X64 backend, but the plan is to add more backends in the future. By default
-//! AsmJit builds only the host backend, which is autodetected at compile-time, but this can be overridden.
+//! AsmJit builds only the host backend, which is auto-detected at compile-time, but this can be overridden.
 //!
 //!   - \ref ASMJIT_NO_X86 - Disable X86/X64 backends.
 //!   - \ref ASMJIT_NO_FOREIGN - Disables the support for foreign architectures.
@@ -238,6 +238,65 @@ namespace asmjit {
 //!     it's not possible to decorate everything like classes, which are used by deprecated functions as well,
 //!     because some compilers would warn about that. If your project compiles fine with `ASMJIT_NO_DEPRECATED`
 //!     it's not using anything, which was deprecated.
+//!
+//! ### Changes committed at 2023-12-27
+//!
+//! Core changes:
+//!
+//!   - Renamed `a64::Vec::ElementType` to `a64::VecElementType` and made it a typed enum. This enum was used mostly
+//!     internally, but there is a public API using it, so it's a breaking change.
+//!
+//!   - Refactored `FuncSignature`, `FuncSignatureT`, and `FuncSignatureBuilder`. There is only `FuncSignature` now,
+//!     which acts as a function signature holder and builder. Replace `FuncSignatureBuilder` with `FuncSignature`
+//!     and use `FuncSignature::build<args>` instead of `FuncSignatureT<args>`. The old API has been deprecated.
+//!
+//!   - The maximum number of function arguments was raised from 16 to 32.
+//!
+//! ### Changes committed at 2023-12-26
+//!
+//! Core changes:
+//!
+//!   - Reworked InstNode and InstExNode to be friendlier to static analysis and to not cause undefined behavior.
+//!     InstNode has no operands visually embedded within the struct so there is no _opArray (which was internal).
+//!     This means that sizeof(InstNode) changed, but since it's allocated by AsmJit this should be fine. Moreover,
+//!     there is no longer InstExNode as that was more a hack, instead there is now InstNodeWithOperands, which is
+//!     a template and specifies the number of operands embedded (InstNode accesses these). All nodes that inherited
+//!     InstExNode now just inherit InstNodeWithOperands<InstNode::kBaseOpCapacity>, which would provide the same
+//!     number of nodes as InstNode.
+//!
+//!   - Moved GP and Vec registers from asmjit::arm namespace to asmjit::a64 namespace. At this time there was
+//!     no prior deprecation as having arm::Vec would collide with a64::Vec as arm namespace is used within a64
+//!     namespace. Just change `arm::Gp` to `a64::Gp` and `arm::Vec` to `a64::Vec`.
+//!
+//! ### Changes committed at 2023-09-10
+//!
+//! Core changes:
+//!
+//!   - Changed allocation API to work with spans (JitAllocator).
+//!
+//!     - This change is required to support more hardened platforms in the future that make it very difficult
+//!       to write JIT compilers.
+//!     - `JitAllocator::Span` now represents a memory that the user can access. It abstracts both regular and
+//!       dual mappings.
+//!     - The `Span` is mostly designed to make it possible to write into it, so in general the read+execute
+//!       pointer is what user is intended to keep. Use `span.rx()` to access RX pointer. `Span` is not needed
+//!       after the memory it references has been modified, only remember `span.rx()` pointer, which is then
+//!       used to deallocate or change the memory the span references.
+//!     - Use a new `JitAllocator::alloc()` to allocate a `Span`, then pass the populated Span to `JitAllocator`
+//!       write API such as `JitAllocator::write()` - note that JitAllocator can also establish a scope, so you
+//!       can use a lambda function that would perform the write, but since it's going through JitAllocator it's
+//!       able to ensure that the memory is actually writable.
+//!     - If you need to repopulate a `Span` from rx pointer, use `JitAllocator::query(<span-out>, rx)` to get it.
+//!     - Study what JitRuntime is doing to better understand how this new API works in detail.
+//!     - Users of JitRuntime do not have to do anything as JitRuntime properly abstracts the allocation.
+//!
+//!   - Renamed some X86 CPU features to make them compatible with architecture manuals:
+//!
+//!     - Changed `AVX512_CDI` to `AVX512_CD`.
+//!     - Changed `AVX512_ERI` to `AVX512_ER`.
+//!     - Changed `AVX512_PFI` to `AVX512_PF`.
+//!
+//!     - Old names were deprecated.
 //!
 //! ### Changes committed at 2021-12-13
 //!
@@ -306,7 +365,7 @@ namespace asmjit {
 //!     However, `gpCount()` was removed - at the moment `ArchTraits` can be used to access such properties.
 //!
 //!     Some other functions were renamed, like `ArchInfo::isX86Family()` is now `Environment::isFamilyX86()`, etc.
-//!     The reason for changing the order was support for more propertries and all the accessors now start with the
+//!     The reason for changing the order was support for more properties and all the accessors now start with the
 //!     type of the property, like `Environment::isPlatformWindows()`.
 //!
 //!     This function causes many other classes to provide `environment()` getter instead of `archInfo()` getter.
@@ -389,7 +448,7 @@ namespace asmjit {
 //! // Calling a function (Compiler) changed - use invoke() instead of call().
 //! void functionInvocation(x86::Compiler& cc) {
 //!   InvokeNode* invokeNode;
-//!   cc.invoke(&invokeNode, targetOperand, FuncSignatureT<...>(...));
+//!   cc.invoke(&invokeNode, targetOperand, FuncSignature::build<...>(...));
 //! }
 //! ```
 
@@ -757,7 +816,7 @@ namespace asmjit {
 //!
 //! There is no function that would return the number of unbound labels as this is completely unimportant from
 //! CodeHolder's perspective. If a label is not used then it doesn't matter whether it's bound or not, only actually
-//! used labels matter. After a Label is bound it's possible to query its offset offset relative to the start of the
+//! used labels matter. After a Label is bound it's possible to query its offset relative to the start of the
 //! section where it was bound:
 //!
 //! ```
@@ -870,7 +929,7 @@ namespace asmjit {
 //!
 //!   if (code.hasUnresolvedLinks()) {
 //!     // This would mean either unbound label or some other issue.
-//!     printf("The code has %zu unbound labels\n", code.unresovedLinkCount());
+//!     printf("The code has %zu unbound labels\n", code.unresolvedLinkCount());
 //!     exit(1);
 //!   }
 //! }
@@ -999,7 +1058,7 @@ namespace asmjit {
 //!
 //!   // Type-unsafe, but possible.
 //!   a.emit(x86::Inst::kIdMov, dst, m);
-//!   // Also possible, `emit()` is typeless and can be used with raw Operand.
+//!   // Also possible, `emit()` is type-less and can be used with raw Operand.
 //!   a.emit(x86::Inst::kIdMov, dst, op);
 //! }
 //! ```
@@ -1093,7 +1152,7 @@ namespace asmjit {
 //!   mem.size();                       // 4.
 //!   mem.offset();                     // 12.
 //!
-//!   mem.setSize(0);                   // Sets the size to 0 (makes it sizeless).
+//!   mem.setSize(0);                   // Sets the size to 0 (makes it size-less).
 //!   mem.addOffset(-1);                // Adds -1 to the offset and makes it 11.
 //!   mem.setOffset(0);                 // Sets the offset to 0.
 //!   mem.setBase(rcx);                 // Changes BASE to RCX.
@@ -1524,7 +1583,7 @@ namespace asmjit {
 //! override \ref ErrorHandler::handleError() to throw, in that case no error will be returned and exception will be
 //! thrown instead. All functions where this can happen are not marked `noexcept`.
 //!
-//! Errors should never be ignored, however, checking errors after each AsmJit API call would simply overcomplicate
+//! Errors should never be ignored, however, checking errors after each AsmJit API call would simply over-complicate
 //! the whole code generation experience. \ref ErrorHandler exists to make the use of AsmJit API simpler as it allows
 //! to customize how errors can be handled:
 //!
@@ -1594,7 +1653,7 @@ namespace asmjit {
 //!
 //! Each instruction can be then queried for the following information:
 //!
-//!   - \ref InstRWInfo - Read/write information of instruction and its oprands (includes \ref OpRWInfo).
+//!   - \ref InstRWInfo - Read/write information of instruction and its operands (includes \ref OpRWInfo).
 //!
 //!   - \ref CpuFeatures - CPU features required to execute the instruction.
 //!
@@ -1633,14 +1692,57 @@ namespace asmjit {
 //!
 //! ### Overview
 //!
-//! AsmJit's virtual memory management is divided into two main categories:
+//! AsmJit's virtual memory management is divided into three main categories:
 //!
-//!   - Low level API that provides cross-platform abstractions for virtual memory allocation. Implemented in
-//!     \ref VirtMem namespace.
+//!   - Low level interface that provides cross-platform abstractions for virtual memory allocation. Implemented in
+//!     \ref VirtMem namespace. This API is a thin wrapper around operating system specific calls such as
+//!     `VirtualAlloc()` and `mmap()` and it's intended to be used by AsmJit's higher level API. Low-level virtual
+//!     memory functions can be used to allocate virtual memory, change its permissions, and to release it.
+//!     Additionally, an API that allows to create dual mapping (to support hardened environments) is provided.
 //!
-//!   - High level API that makes it very easy to store generated code for execution. See \ref JitRuntime, which is
-//!     used by many examples for its simplicity and easy integration with \ref CodeHolder. There is also \ref
-//!     JitAllocator, which lays somewhere between RAW memory allocation and \ref JitRuntime.
+//!   - Middle level API that is provided by \ref JitAllocator, which uses \ref VirtMem internally and offers nicer
+//!     API that can be used by users to allocate executable memory conveniently. \ref JitAllocator tries to be smart,
+//!     for example automatically using dual mapping or `MAP_JIT` on hardened environments.
+//!
+//!   - High level API that is provided by \ref JitRuntime, which implements \ref Target interface and uses \ref
+//!     JitAllocator under the hood. Since \ref JitRuntime inherits from \ref Target it makes it easy to use with
+//!     \ref CodeHolder. Many AsmJit examples use \ref JitRuntime for its simplicity and easy integration.
+//!
+//! The main difference between \ref VirtMem and \ref JitAllocator is that \ref VirtMem can only be used to allocate
+//! whole pages, whereas \ref JitAllocator has `malloc()` like API that allows to allocate smaller quantities that
+//! usually represent the size of an assembled function or a chunk of functions that can represent a module, for
+//! example. \ref JitAllocator then tracks used space of each page it maintains. Internally, \ref JitAllocator uses
+//! two bit arrays to track occupied regions in each allocated block of pages.
+//!
+//! ### Hardened Environments
+//!
+//! In the past, allocating virtual memory with Read+Write+Execute (RWX) access permissions was easy. However, modern
+//! operating systems and runtime environments often use hardening, which typically prohibits mapping pages with both
+//! Write and Execute permissions (known as the W^X policy). This presents a challenge for JIT compilers because
+//! generated code for a single function is unlikely to fit in exactly N pages without leaving some space empty. To
+//! accommodate this, the execution environment may need to temporarily change the permissions of existing pages to
+//! read+write (RW) to insert new code into them, however, sometimes it's not possible to ensure that no thread is
+//! executing code in such affected pages in a multithreaded environment, in which multiple threads may be executing
+//! generated code.
+//!
+//! Such restrictions leave a lot of complexity on the application, so AsmJit implements a dual mapping technique to
+//! make the life of AsmJit users easier. In this technique, a region of memory is mapped to two different virtual
+//! addresses with different access permissions. One virtual address is mapped with read and write (RW) access, which
+//! is used by the JIT compiler to write generated code. The other virtual address is mapped with read and execute (RX)
+//! access, which is used by the application to execute the generated code.
+//!
+//! However, implementing dual mapping can be challenging because it typically requires obtaining an anonymous file
+//! descriptor on most Unix-like operating systems. This file descriptor is then passed to mmap() twice to create
+//! the two mappings. AsmJit handles this challenge by using system-specific techniques such as `memfd_create()` on
+//! Linux, `shm_open(SHM_ANON)` on BSD, and `MAP_REMAPDUP` with `mremap()` on NetBSD. The latter approach does not
+//! require a file descriptor. If none of these options are available, AsmJit uses a plain `open()` call followed by
+//! `unlink()`.
+//!
+//! The most challenging part is actually obtaining a file descriptor that can be passed to `mmap()` with `PROT_EXEC`.
+//! This is still something that may fail, for example the environment could be hardened in a way that this would
+//! not be possible at all, and thus dual mapping would not work.
+//!
+//! Dual mapping is provided by both \ref VirtMem and \ref JitAllocator.
 
 
 //! \defgroup asmjit_zone Zone Memory

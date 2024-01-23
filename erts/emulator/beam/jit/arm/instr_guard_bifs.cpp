@@ -514,7 +514,7 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
 void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     /* Ensure that ARG2 contains a tuple. */
     emit_is_boxed(fail, ARG2);
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG2);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG2);
     lea(TMP1, emit_boxed_val(boxed_ptr));
     a.ldr(TMP2, arm::Mem(TMP1));
     ERTS_CT_ASSERT(make_arityval_zero() == 0);
@@ -598,7 +598,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
             comment("skipped tuple test since source is always a literal "
                     "tuple");
-            arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+            a64::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
             lea(TMP1, emit_boxed_val(boxed_ptr));
 
             a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
@@ -656,7 +656,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         auto tuple = load_source(Tuple, ARG2);
         auto dst = init_destination(Dst, ARG1);
         Uint position = Pos.as<ArgSmall>().getUnsigned();
-        arm::Gp boxed_ptr;
+        a64::Gp boxed_ptr;
         Label fail = a.newLabel();
 
         if (exact_type<BeamTypeId::Tuple>(Tuple)) {
@@ -702,7 +702,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
     } else if (exact_type<BeamTypeId::Tuple>(Tuple) && Fail.get() == 0) {
         auto [pos, tuple] = load_sources(Pos, ARG1, Tuple, ARG2);
         auto dst = init_destination(Dst, ARG1);
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
         Label fail = a.newLabel();
         Label good = a.newLabel();
 
@@ -784,7 +784,7 @@ void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
 
     a.bind(good_cons);
     {
-        arm::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(hd.reg, getCARRef(cons_ptr));
         flush_var(hd);
     }
@@ -880,7 +880,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
                 a.b(good_map);
             }
         } else {
-            arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+            a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
             a.ldur(TMP1, emit_boxed_val(boxed_ptr));
             a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
             a.cmp(TMP1, imm(_TAG_HEADER_MAP));
@@ -956,7 +956,7 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
     }
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);
 
     if (exact_type<BeamTypeId::Map>(Src)) {
         comment("skipped type check because the argument is always a map");
@@ -1103,7 +1103,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
 
     emit_is_boxed(test_internal, Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
     if (!always_one_of<BeamTypeId::Pid, BeamTypeId::Port>(Src)) {
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
@@ -1277,7 +1277,7 @@ void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
 
     a.bind(good_cons);
     {
-        arm::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(tl.reg, getCDRRef(cons_ptr));
         flush_var(tl);
     }
@@ -1289,7 +1289,7 @@ void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
  */
 
 void BeamGlobalAssembler::emit_bif_tuple_size_helper(Label fail) {
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
 
     emit_is_boxed(fail, boxed_ptr);
 
@@ -1340,7 +1340,7 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
     if (exact_type<BeamTypeId::Tuple>(Src)) {
         comment("simplifed tuple_size/1 because the argument is always a "
                 "tuple");
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);

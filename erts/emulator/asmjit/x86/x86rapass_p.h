@@ -36,7 +36,7 @@ public:
   //! \{
 
   X86RAPass() noexcept;
-  virtual ~X86RAPass() noexcept;
+  ~X86RAPass() noexcept override;
 
   //! \}
 
@@ -44,20 +44,20 @@ public:
   //! \{
 
   //! Returns the compiler casted to `x86::Compiler`.
-  inline Compiler* cc() const noexcept { return static_cast<Compiler*>(_cb); }
+  ASMJIT_INLINE_NODEBUG Compiler* cc() const noexcept { return static_cast<Compiler*>(_cb); }
 
   //! Returns emit helper.
-  inline EmitHelper* emitHelper() noexcept { return &_emitHelper; }
+  ASMJIT_INLINE_NODEBUG EmitHelper* emitHelper() noexcept { return &_emitHelper; }
 
-  inline bool avxEnabled() const noexcept { return _emitHelper._avxEnabled; }
-  inline bool avx512Enabled() const noexcept { return _emitHelper._avx512Enabled; }
+  ASMJIT_INLINE_NODEBUG bool avxEnabled() const noexcept { return _emitHelper._avxEnabled; }
+  ASMJIT_INLINE_NODEBUG bool avx512Enabled() const noexcept { return _emitHelper._avx512Enabled; }
 
   //! \}
 
   //! \name Utilities
   //! \{
 
-  inline uint32_t choose(uint32_t sseInstId, uint32_t avxInstId) noexcept {
+  ASMJIT_INLINE_NODEBUG InstId choose(InstId sseInstId, InstId avxInstId) noexcept {
     return avxEnabled() ? avxInstId : sseInstId;
   }
 

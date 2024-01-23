@@ -70,7 +70,7 @@ void BeamModuleAssembler::emit_fload(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, a64::d0);
-    arm::Gp float_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp float_ptr = emit_ptr_val(TMP1, src.reg);
 
     a.ldur(dst.reg, emit_boxed_val(float_ptr, sizeof(Eterm)));
     flush_var(dst);

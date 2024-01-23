@@ -88,13 +88,13 @@ void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
                                                 const ArgSource &Preserve,
-                                                arm::Gp preserve_reg) {
+                                                a64::Gp preserve_reg) {
     const int32_t bytes_needed = (Need.get() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
 
 #ifdef DEBUG
     comment("(debug: fill dead X registers with garbage)");
-    const arm::Gp garbage_reg = preserve_reg == ARG4 ? ARG3 : ARG4;
+    const a64::Gp garbage_reg = preserve_reg == ARG4 ? ARG3 : ARG4;
     mov_imm(garbage_reg, ERTS_HOLE_MARKER);
     if (!(Preserve.isXRegister() &&
           Preserve.as<ArgXRegister>().get() >= Live.get())) {
@@ -275,7 +275,7 @@ void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
     auto src = load_source(Src, TMP1);
     auto hd = init_destination(Hd, TMP2);
     auto tl = init_destination(Tl, TMP3);
-    arm::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
 
     /* The `ldp` instruction does not accept a negative offset, so we
      * will need subtract the LIST tag beforehand. (This also nicely
@@ -296,7 +296,7 @@ void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
                                       const ArgRegister &Hd) {
     auto src = load_source(Src, TMP1);
     auto hd = init_destination(Hd, TMP2);
-    arm::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
 
     a.ldur(hd.reg, getCARRef(cons_ptr));
     flush_var(hd);
@@ -306,7 +306,7 @@ void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
                                       const ArgRegister &Tl) {
     auto src = load_source(Src, TMP1);
     auto tl = init_destination(Tl, TMP2);
-    arm::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
 
     a.ldur(tl.reg, getCDRRef(cons_ptr));
     flush_var(tl);
@@ -352,7 +352,7 @@ void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
 /* Emit an assertion to ensure that tuple_reg points into the same
  * tuple as Src. */
 void BeamModuleAssembler::emit_tuple_assertion(const ArgSource &Src,
-                                               arm::Gp tuple_reg) {
+                                               a64::Gp tuple_reg) {
     Label ok = a.newLabel(), fatal = a.newLabel();
     ASSERT(tuple_reg != TMP1);
     mov_arg(TMP1, Src);
@@ -718,7 +718,7 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
                                                    const ArgRegister &Dst,
                                                    const ArgWord &Deallocate) {
     Sint dealloc = Deallocate.get() * sizeof(Eterm);
-    arm::Gp hd_reg, tl_reg;
+    a64::Gp hd_reg, tl_reg;
     auto dst = init_destination(Dst, TMP3);
 
     ASSERT(dealloc <= 1023);
@@ -836,8 +836,8 @@ void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
     mov_arg(Dst, arm::Mem(c_p, offsetof(Process, common.id)));
 }
 
-void BeamModuleAssembler::emit_copy_words_increment(arm::Gp from,
-                                                    arm::Gp to,
+void BeamModuleAssembler::emit_copy_words_increment(a64::Gp from,
+                                                    a64::Gp to,
                                                     size_t count) {
     check_pending_stubs();
 
@@ -898,7 +898,7 @@ void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
     auto destination = init_destination(Dst, ARG1);
     auto src = load_source(Src, ARG2);
 
-    arm::Gp untagged_src = ARG3;
+    a64::Gp untagged_src = ARG3;
     emit_untag_ptr(untagged_src, src.reg);
 
     /* Setting a field to the same value is pretty common, so we'll check for
@@ -992,7 +992,7 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
                                                  const ArgWord &Offset) {
     auto tuple = load_source(Tuple, TMP1);
     auto element = load_source(Element, TMP2);
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
     arm::Mem boxed_val = emit_boxed_val(boxed_ptr, Offset.get());
 
     stur(element.reg, boxed_val);
@@ -1041,7 +1041,7 @@ void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
         comment("skipped header test since we know it's a bitstring when "
                 "boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
         /* The header mask with the binary sub tag bits removed (0b110011)
@@ -1111,7 +1111,7 @@ void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Float) {
         comment("skipped header test since we know it's a float when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
         a.cmp(TMP1, imm(HEADER_FLONUM));
@@ -1128,7 +1128,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
         comment("skipped header test since we know it's a fun when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldurb(TMP1.w(), emit_boxed_val(boxed_ptr));
         a.cmp(TMP1, imm(FUN_SUBTAG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
@@ -1171,7 +1171,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
     a.ldurh(TMP2.w(), emit_boxed_val(boxed_ptr));
     cmp(TMP2, MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF);
@@ -1208,7 +1208,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         comment("skipped header test since we know it's a bignum when "
                 "boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
         /* The header mask with the sign bit removed (0b111011) is not
@@ -1250,7 +1250,7 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
         comment("skipped header test since we know it's a map when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_MAP));
@@ -1289,7 +1289,7 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Number) {
         comment("skipped header test since we know it's a number when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
         /* The header mask with the sign bit removed (0b111011) is not
@@ -1333,7 +1333,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Pid) {
         comment("skipped header test since we know it's a pid when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
         a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
         a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PID));
@@ -1363,7 +1363,7 @@ void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Port) {
         comment("skipped header test since we know it's a port when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
         a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
         a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PORT));
@@ -1382,7 +1382,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Reference) {
         comment("skipped header test since we know it's a ref when boxed");
     } else {
-        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
@@ -1630,7 +1630,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             is_nil(CDR(list_val(literal)))) {
             /* Inline the equality test if the RHS argument is a list
              * of one immediate value such as `[42]` or `[a]`. */
-            arm::Gp cons_ptr;
+            a64::Gp cons_ptr;
 
             comment("inlined equality test with %T", literal);
             if (!exact_type<BeamTypeId::Cons>(X)) {
@@ -1775,7 +1775,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         bool imm_list = beam_jit_is_list_of_immediates(literal);
 
         if (imm_list && erts_list_length(literal) == 1) {
-            arm::Gp cons_ptr;
+            a64::Gp cons_ptr;
             Label next = a.newLabel();
 
             /* Inline the equality test if the RHS argument is a list
@@ -1982,9 +1982,9 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.orr(TMP1, ARG1, ARG2);
     emit_is_boxed(atom_compare, TMP1);
 
-    arm::Gp boxed_ptr1 = emit_ptr_val(TMP1, ARG1);
+    a64::Gp boxed_ptr1 = emit_ptr_val(TMP1, ARG1);
     a.ldur(TMP3, emit_boxed_val(boxed_ptr1));
-    arm::Gp boxed_ptr2 = emit_ptr_val(TMP2, ARG2);
+    a64::Gp boxed_ptr2 = emit_ptr_val(TMP2, ARG2);
     a.ldur(TMP4, emit_boxed_val(boxed_ptr2));
 
     mov_imm(TMP5, HEADER_FLONUM);
@@ -2215,7 +2215,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
         a.bind(big);
         {
-            arm::Gp boxed_ptr = emit_ptr_val(TMP1, lhs.reg);
+            a64::Gp boxed_ptr = emit_ptr_val(TMP1, lhs.reg);
             const int bitNumber = 2;
             const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
             a.ldur(TMP1, emit_boxed_val(boxed_ptr));
@@ -2234,7 +2234,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
         a.bind(big);
         {
-            arm::Gp boxed_ptr = emit_ptr_val(TMP1, rhs.reg);
+            a64::Gp boxed_ptr = emit_ptr_val(TMP1, rhs.reg);
             const int bitNumber = 2;
             const int bitValue = NEG_BIG_SUBTAG - POS_BIG_SUBTAG;
             a.ldur(TMP1, emit_boxed_val(boxed_ptr));
@@ -2326,7 +2326,7 @@ void BeamGlobalAssembler::emit_is_in_range_shared() {
     /* Is the source a float? */
     emit_is_boxed(immediate, ARG1);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
     a.ldur(TMP2, emit_boxed_val(boxed_ptr));
 
     mov_imm(TMP3, HEADER_FLONUM);
@@ -2650,7 +2650,7 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
     a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));

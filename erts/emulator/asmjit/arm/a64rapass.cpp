@@ -131,7 +131,7 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstB
     InstId instId = inst->id();
     uint32_t opCount = inst->opCount();
     const Operand* opArray = inst->operands();
-    ASMJIT_PROPAGATE(InstInternal::queryRWInfo(_arch, inst->baseInst(), opArray, opCount, &rwInfo));
+    ASMJIT_PROPAGATE(InstInternal::queryRWInfo(inst->baseInst(), opArray, opCount, &rwInfo));
 
     const InstDB::InstInfo& instInfo = InstDB::infoById(instId);
     uint32_t singleRegOps = 0;
@@ -230,7 +230,7 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstB
             if (reg.as<Vec>().hasElementIndex()) {
               // Only the first 0..15 registers can be used if the register uses
               // element accessor that accesses half-words (h[0..7] elements).
-              if (instInfo.hasFlag(InstDB::kInstFlagVH0_15) && reg.as<Vec>().elementType() == Vec::kElementTypeH) {
+              if (instInfo.hasFlag(InstDB::kInstFlagVH0_15) && reg.as<Vec>().elementType() == VecElementType::kH) {
                 if (Support::test(flags, RATiedFlags::kUse))
                   useId &= 0x0000FFFFu;
                 else

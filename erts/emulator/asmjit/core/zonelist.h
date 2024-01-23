@@ -39,10 +39,10 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneListNode() noexcept
+  ASMJIT_INLINE_NODEBUG ZoneListNode() noexcept
     : _listNodes { nullptr, nullptr } {}
 
-  inline ZoneListNode(ZoneListNode&& other) noexcept
+  ASMJIT_INLINE_NODEBUG ZoneListNode(ZoneListNode&& other) noexcept
     : _listNodes { other._listNodes[0], other._listNodes[1] } {}
 
   //! \}
@@ -50,11 +50,11 @@ public:
   //! \name Accessors
   //! \{
 
-  inline bool hasPrev() const noexcept { return _listNodes[kNodeIndexPrev] != nullptr; }
-  inline bool hasNext() const noexcept { return _listNodes[kNodeIndexNext] != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool hasPrev() const noexcept { return _listNodes[kNodeIndexPrev] != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool hasNext() const noexcept { return _listNodes[kNodeIndexNext] != nullptr; }
 
-  inline NodeT* prev() const noexcept { return _listNodes[kNodeIndexPrev]; }
-  inline NodeT* next() const noexcept { return _listNodes[kNodeIndexNext]; }
+  ASMJIT_INLINE_NODEBUG NodeT* prev() const noexcept { return _listNodes[kNodeIndexPrev]; }
+  ASMJIT_INLINE_NODEBUG NodeT* next() const noexcept { return _listNodes[kNodeIndexNext]; }
 
   //! \}
 };
@@ -78,20 +78,19 @@ public:
   //! \name Members
   //! \{
 
-  NodeT* _nodes[2];
+  NodeT* _nodes[2] {};
 
   //! \}
 
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneList() noexcept
-    : _nodes { nullptr, nullptr } {}
+  ASMJIT_INLINE_NODEBUG ZoneList() noexcept {}
 
-  inline ZoneList(ZoneList&& other) noexcept
+  ASMJIT_INLINE_NODEBUG ZoneList(ZoneList&& other) noexcept
     : _nodes { other._nodes[0], other._nodes[1] } {}
 
-  inline void reset() noexcept {
+  ASMJIT_INLINE_NODEBUG void reset() noexcept {
     _nodes[0] = nullptr;
     _nodes[1] = nullptr;
   }
@@ -101,16 +100,16 @@ public:
   //! \name Accessors
   //! \{
 
-  inline bool empty() const noexcept { return _nodes[0] == nullptr; }
-  inline NodeT* first() const noexcept { return _nodes[kNodeIndexFirst]; }
-  inline NodeT* last() const noexcept { return _nodes[kNodeIndexLast]; }
+  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _nodes[0] == nullptr; }
+  ASMJIT_INLINE_NODEBUG NodeT* first() const noexcept { return _nodes[kNodeIndexFirst]; }
+  ASMJIT_INLINE_NODEBUG NodeT* last() const noexcept { return _nodes[kNodeIndexLast]; }
 
   //! \}
 
   //! \name Utilities
   //! \{
 
-  inline void swap(ZoneList& other) noexcept {
+  ASMJIT_INLINE_NODEBUG void swap(ZoneList& other) noexcept {
     std::swap(_nodes[0], other._nodes[0]);
     std::swap(_nodes[1], other._nodes[1]);
   }
@@ -144,11 +143,11 @@ public:
     node->_listNodes[ dir] = next;
   }
 
-  inline void append(NodeT* node) noexcept { _addNode(node, kNodeIndexLast); }
-  inline void prepend(NodeT* node) noexcept { _addNode(node, kNodeIndexFirst); }
+  ASMJIT_INLINE_NODEBUG void append(NodeT* node) noexcept { _addNode(node, kNodeIndexLast); }
+  ASMJIT_INLINE_NODEBUG void prepend(NodeT* node) noexcept { _addNode(node, kNodeIndexFirst); }
 
-  inline void insertAfter(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexNext); }
-  inline void insertBefore(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexPrev); }
+  ASMJIT_INLINE_NODEBUG void insertAfter(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexNext); }
+  ASMJIT_INLINE_NODEBUG void insertBefore(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexPrev); }
 
   inline NodeT* unlink(NodeT* node) noexcept {
     NodeT* prev = node->prev();

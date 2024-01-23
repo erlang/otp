@@ -176,14 +176,14 @@ public:
 
   FuncArgsContext() noexcept;
 
-  inline const ArchTraits& archTraits() const noexcept { return *_archTraits; }
-  inline Arch arch() const noexcept { return _arch; }
+  ASMJIT_INLINE_NODEBUG const ArchTraits& archTraits() const noexcept { return *_archTraits; }
+  ASMJIT_INLINE_NODEBUG Arch arch() const noexcept { return _arch; }
 
-  inline uint32_t varCount() const noexcept { return _varCount; }
-  inline size_t indexOf(const Var* var) const noexcept { return (size_t)(var - _vars); }
+  ASMJIT_INLINE_NODEBUG uint32_t varCount() const noexcept { return _varCount; }
+  ASMJIT_INLINE_NODEBUG size_t indexOf(const Var* var) const noexcept { return (size_t)(var - _vars); }
 
-  inline Var& var(size_t varId) noexcept { return _vars[varId]; }
-  inline const Var& var(size_t varId) const noexcept { return _vars[varId]; }
+  ASMJIT_INLINE_NODEBUG Var& var(size_t varId) noexcept { return _vars[varId]; }
+  ASMJIT_INLINE_NODEBUG const Var& var(size_t varId) const noexcept { return _vars[varId]; }
 
   Error initWorkData(const FuncFrame& frame, const FuncArgsAssignment& args, const RAConstraints* constraints) noexcept;
   Error markScratchRegs(FuncFrame& frame) noexcept;

@@ -35,9 +35,9 @@ public:
   //! Creates a `JitRuntime` instance.
   ASMJIT_API explicit JitRuntime(const JitAllocator::CreateParams* params = nullptr) noexcept;
   //! Destroys the `JitRuntime` instance.
-  ASMJIT_API virtual ~JitRuntime() noexcept;
+  ASMJIT_API ~JitRuntime() noexcept override;
 
-  inline void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
+  ASMJIT_INLINE_NODEBUG void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
     _allocator.reset(resetPolicy);
   }
 
@@ -47,7 +47,7 @@ public:
   //! \{
 
   //! Returns the associated `JitAllocator`.
-  inline JitAllocator* allocator() const noexcept { return const_cast<JitAllocator*>(&_allocator); }
+  ASMJIT_INLINE_NODEBUG JitAllocator* allocator() const noexcept { return const_cast<JitAllocator*>(&_allocator); }
 
   //! \}
 
@@ -62,13 +62,13 @@ public:
   //! The beginning of the memory allocated for the function is returned in `dst`. If failed `Error` code is returned
   //! and `dst` is explicitly set to `nullptr`  (this means that you don't have to set it to null before calling `add()`).
   template<typename Func>
-  inline Error add(Func* dst, CodeHolder* code) noexcept {
+  ASMJIT_INLINE_NODEBUG Error add(Func* dst, CodeHolder* code) noexcept {
     return _add(Support::ptr_cast_impl<void**, Func*>(dst), code);
   }
 
   //! Releases `p` which was obtained by calling `add()`.
   template<typename Func>
-  inline Error release(Func p) noexcept {
+  ASMJIT_INLINE_NODEBUG Error release(Func p) noexcept {
     return _release(Support::ptr_cast_impl<void*, Func>(p));
   }
 

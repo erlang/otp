@@ -6,6 +6,7 @@
 #include "../core/api-build_p.h"
 #include "../core/codeholder.h"
 #include "../core/codewriter_p.h"
+#include "../arm/armutils.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -19,9 +20,20 @@ bool CodeWriterUtils::encodeOffset32(uint32_t* dst, int64_t offset64, const Offs
     return false;
 
   uint32_t value;
+  uint32_t u = 0;
+  bool unsignedLogic = format.type() == OffsetType::kUnsignedOffset;
+
+  // First handle all offsets that use additional field for their sign and the offset is encoded as its
+  // absolute value.
+  if (format.hasSignBit()) {
+    u = uint32_t(offset64 >= 0);
+    if (u == 0)
+      offset64 = -offset64;
+    unsignedLogic = true;
+  }
 
   // First handle all unsigned offset types.
-  if (format.type() == OffsetType::kUnsignedOffset) {
+  if (unsignedLogic) {
     if (discardLsb) {
       ASMJIT_ASSERT(discardLsb <= 32);
       if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
@@ -54,6 +66,97 @@ bool CodeWriterUtils::encodeOffset32(uint32_t* dst, int64_t offset64, const Offs
     case OffsetType::kSignedOffset:
     case OffsetType::kUnsignedOffset: {
       *dst = (value & Support::lsbMask<uint32_t>(bitCount)) << bitShift;
+      return true;
+    }
+
+    // Opcode: {.....|imm:1|..N.N|......|imm:3|....|imm:8}
+    case OffsetType::kThumb32_ADR: {
+      // Sanity checks.
+      if (format.valueSize() != 4 || bitCount != 12 || bitShift != 0)
+        return false;
+
+      uint32_t imm8 = (value & 0x00FFu);
+      uint32_t imm3 = (value & 0x0700u) << (12 - 8);
+      uint32_t imm1 = (value & 0x0800u) << (26 - 11);
+      uint32_t n = u ^ 1u;
+
+      *dst = imm8 | imm3 | imm1 | (n << 21) | (n << 23);
+      return true;
+    }
+
+    // Opcode: {....|.|imm[22]|imm[19:10]|..|ja|.|jb|imm[9:0]|.}
+    case OffsetType::kThumb32_BLX:
+      // The calculation is the same as `B`, but the first LSB bit must be zero, so account for that.
+      value <<= 1;
+      ASMJIT_FALLTHROUGH;
+
+    // Opcode: {....|.|imm[23]|imm[20:11]|..|ja|.|jb|imm[10:0]}
+    case OffsetType::kThumb32_B: {
+      // Sanity checks.
+      if (format.valueSize() != 4)
+        return false;
+
+      uint32_t ia = (value & 0x0007FFu);
+      uint32_t ib = (value & 0x1FF800u) << (16 - 11);
+      uint32_t ic = (value & 0x800000u) << (26 - 23);
+      uint32_t ja = ((~value >> 23) ^ (value >> 22)) & 1u;
+      uint32_t jb = ((~value >> 23) ^ (value >> 21)) & 1u;
+
+      *dst = ia | ib | ic | (ja << 14) | (jb << 11);
+      return true;
+    }
+
+    // Opcode: {....|.|imm[19]|....|imm[16:11]|..|ja|.|jb|imm[10:0]}
+    case OffsetType::kThumb32_BCond: {
+      // Sanity checks.
+      if (format.valueSize() != 4 || bitCount != 20 || bitShift != 0)
+        return false;
+
+      uint32_t ia = (value & 0x0007FFu);
+      uint32_t ib = (value & 0x01F800u) << (16 - 11);
+      uint32_t ic = (value & 0x080000u) << (26 - 19);
+      uint32_t ja = ((~value >> 19) ^ (value >> 22)) & 1u;
+      uint32_t jb = ((~value >> 19) ^ (value >> 21)) & 1u;
+
+      *dst = ia | ib | ic | (ja << 14) | (jb << 11);
+      return true;
+    }
+
+    case OffsetType::kAArch32_ADR: {
+      uint32_t encodedImm;
+      if (!arm::Utils::encodeAArch32Imm(value, &encodedImm))
+        return false;
+
+      *dst = (Support::bitMask(22) << u) | (encodedImm << bitShift);
+      return true;
+    }
+
+    case OffsetType::kAArch32_U23_SignedOffset: {
+      *dst = (value << bitShift) | (u << 23);
+      return true;
+    }
+
+    case OffsetType::kAArch32_U23_0To3At0_4To7At8: {
+      // Sanity checks.
+      if (format.valueSize() != 4 || bitCount != 8 || bitShift != 0)
+        return false;
+
+      uint32_t immLo = (value & 0x0Fu);
+      uint32_t immHi = (value & 0xF0u) << (8 - 4);
+
+      *dst = immLo | immHi | (u << 23);
+      return true;
+    }
+
+    case OffsetType::kAArch32_1To24At0_0At24: {
+      // Sanity checks.
+      if (format.valueSize() != 4 || bitCount != 25 || bitShift != 0)
+        return false;
+
+      uint32_t immLo = (value & 0x0000001u) << 24;
+      uint32_t immHi = (value & 0x1FFFFFEu) >> 1;
+
+      *dst = immLo | immHi;
       return true;
     }
 

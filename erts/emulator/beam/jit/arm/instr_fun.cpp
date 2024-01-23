@@ -73,7 +73,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
 
     emit_is_boxed(bad_fun, ARG4);
 
-    arm::Gp fun_thing = emit_ptr_val(TMP1, ARG4);
+    a64::Gp fun_thing = emit_ptr_val(TMP1, ARG4);
     a.ldurb(TMP1.w(), emit_boxed_val(fun_thing));
     a.cmp(TMP1, imm(FUN_SUBTAG));
     a.b_eq(bad_arity);
@@ -338,7 +338,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 /* Assumes that:
  *   ARG3 = lower 16 bits of expected header, containing FUN_SUBTAG and arity
  *   ARG4 = fun thing */
-arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
+a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     const bool can_fail = !(skip_box_test && skip_header_test);
     Label next = a.newLabel();
@@ -378,7 +378,7 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         a.ldp(TMP2, ARG1, arm::Mem(TMP2));
 
         /* Combined fun type and arity test. */
-        a.cmp(ARG3, TMP2, arm::uxth(0));
+        a.cmp(ARG3, TMP2, a64::uxth(0));
         a.b_ne(next);
     }
 

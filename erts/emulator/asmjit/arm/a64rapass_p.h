@@ -37,7 +37,7 @@ public:
   //! \{
 
   ARMRAPass() noexcept;
-  virtual ~ARMRAPass() noexcept;
+  ~ARMRAPass() noexcept override;
 
   //! \}
 
@@ -45,10 +45,10 @@ public:
   //! \{
 
   //! Returns the compiler casted to `arm::Compiler`.
-  inline Compiler* cc() const noexcept { return static_cast<Compiler*>(_cb); }
+  ASMJIT_INLINE_NODEBUG Compiler* cc() const noexcept { return static_cast<Compiler*>(_cb); }
 
   //! Returns emit helper.
-  inline EmitHelper* emitHelper() noexcept { return &_emitHelper; }
+  ASMJIT_INLINE_NODEBUG EmitHelper* emitHelper() noexcept { return &_emitHelper; }
 
   //! \}
 
