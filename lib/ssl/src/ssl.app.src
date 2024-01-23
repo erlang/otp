@@ -89,5 +89,5 @@
     {env, []},
     {mod, {ssl_app, []}},
     {runtime_dependencies, ["stdlib-4.1","public_key-@OTP-18876@","kernel-9.0",
-                            "erts-14.0","crypto-5.0", "inets-5.10.7",
+                            "erts-@OTP-18941@","crypto-5.0", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.
