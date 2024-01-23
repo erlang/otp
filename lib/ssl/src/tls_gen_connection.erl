@@ -186,9 +186,9 @@ send_handshake(Handshake, State) ->
     send_handshake_flight(queue_handshake(Handshake, State)).
 
 queue_handshake(Handshake, #state{handshake_env =
-                                      #handshake_env{tls_handshake_history = Hist0} = HsEnv,
+                                      #handshake_env{tls_handshake_history = Hist0,
+                                                     flight_buffer = Flight0} = HsEnv0,
 				  connection_env = #connection_env{negotiated_version = Version},
-                                  flight_buffer = Flight0,
                                   ssl_options = #{log_level := LogLevel},
 				  connection_states = ConnectionStates0} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
@@ -196,9 +196,9 @@ queue_handshake(Handshake, #state{handshake_env =
     ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake),
     ssl_logger:debug(LogLevel, outbound, 'record', BinHandshake),
 
-    State0#state{connection_states = ConnectionStates,
-                 handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
-		 flight_buffer = Flight0 ++ [BinHandshake]}.
+    HsEnv = HsEnv0#handshake_env{tls_handshake_history = Hist,
+                                 flight_buffer = [Flight0, BinHandshake]},
+    State0#state{connection_states = ConnectionStates, handshake_env = HsEnv}.
 
 -spec send_handshake_flight(StateIn) -> {StateOut, FlightBuffer} when
       StateIn :: #state{},
@@ -206,20 +206,21 @@ queue_handshake(Handshake, #state{handshake_env =
       FlightBuffer :: list().
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
-			     flight_buffer = Flight} = State0) ->
+			     handshake_env = #handshake_env{flight_buffer = Flight} = HsEnv}
+                      = State0) ->
     tls_socket:send(Transport, Socket, Flight),
-    {State0#state{flight_buffer = []}, []}.
+    {State0#state{handshake_env = HsEnv#handshake_env{flight_buffer = []}}, []}.
 
 
 queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_version = Version},
-                                flight_buffer = Flight0,
+                                handshake_env = #handshake_env{flight_buffer = Flight0} = HsEnv0,
                                 ssl_options = #{log_level := LogLevel},
                                 connection_states = ConnectionStates0} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
     ssl_logger:debug(LogLevel, outbound, 'record', BinChangeCipher),
-    State0#state{connection_states = ConnectionStates,
-		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
+    HsEnv = HsEnv0#handshake_env{flight_buffer = [Flight0, BinChangeCipher]},
+    State0#state{connection_states = ConnectionStates, handshake_env = HsEnv}.
 
 reinit(#state{protocol_specific = #{sender := Sender},
               connection_env = #connection_env{negotiated_version = Version},

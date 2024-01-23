@@ -226,7 +226,6 @@ hello(internal, #client_hello{cookie = <<>>,
 			      client_version = Version} = Hello,
       #state{static_env = #static_env{transport_cb = Transport,
                                       socket = Socket},
-             handshake_env = HsEnv,
              connection_env = CEnv,
              protocol_specific = #{current_cookie_secret := Secret}} = State0) ->
     try tls_dtls_server_connection:handle_sni_extension(State0, Hello) of
@@ -245,6 +244,7 @@ hello(internal, #client_hello{cookie = <<>>,
                        State1#state{connection_env =
                                         CEnv#connection_env{negotiated_version = Version}}),
             {State, Actions} = dtls_gen_connection:send_handshake(VerifyRequest, State2),
+            #state{handshake_env = HsEnv} = State,
             NewHSEnv = HsEnv#handshake_env{tls_handshake_history =
                                                ssl_handshake:init_handshake_history()},
             dtls_gen_connection:next_event(hello, no_record,

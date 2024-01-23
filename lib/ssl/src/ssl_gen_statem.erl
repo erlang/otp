@@ -1243,8 +1243,7 @@ format_status(terminate, [_, StateName, State]) ->
 					       handshake_env =  ?SECRET_PRINTOUT,
                                                connection_env = ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions,
-					       flight_buffer =  ?SECRET_PRINTOUT}
+					       ssl_options = NewOptions}
 		       }}]}].
 %%--------------------------------------------------------------------
 %%% Internal functions

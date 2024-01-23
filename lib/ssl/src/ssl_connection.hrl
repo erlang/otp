@@ -89,8 +89,15 @@
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
                                                  | 'undefined',
                         client_certificate_status = not_requested :: not_requested | requested |
-                                                                     empty | needs_verifying |
-                                                                     verified,
+                                                                     empty | needs_verifying | verified,
+                        %% Buffer of TLS/DTLS records, used during the TLS
+                        %% handshake to when possible pack more than one TLS
+                        %% record into the underlying packet
+                        %% format. Introduced by DTLS - RFC 4347.  The
+                        %% mechanism is also useful in TLS although we do not
+                        %% need to worry about packet loss in TLS. In DTLS we
+                        %% need to track DTLS handshake seqnr
+                        flight_buffer = []   :: list() | map(),
                         stapling_state = #{configured => false,
                                            status => not_negotiated}
                        }).
@@ -118,14 +125,6 @@
 
                 %% Handshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 handshake_env         :: #handshake_env{} | secret_printout(),
-                %% Buffer of TLS/DTLS records, used during the TLS
-                %% handshake to when possible pack more than one TLS
-                %% record into the underlying packet
-                %% format. Introduced by DTLS - RFC 4347.  The
-                %% mechanism is also useful in TLS although we do not
-                %% need to worry about packet loss in TLS. In DTLS we
-                %% need to track DTLS handshake seqnr
-                flight_buffer = []   :: list() | map(),
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
                 key_share,

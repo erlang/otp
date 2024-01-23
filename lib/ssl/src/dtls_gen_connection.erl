@@ -119,7 +119,8 @@ initial_state(Role, Host, Port, Socket,
            handshake_env = #handshake_env{
                               tls_handshake_history = ssl_handshake:init_handshake_history(),
                               renegotiation = {false, first},
-                              allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
+                              allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined),
+                              flight_buffer = new_flight()
                              },
            connection_env = #connection_env{user_application = {Monitor, User}},
            socket_options = SocketOptions,
@@ -129,7 +130,6 @@ initial_state(Role, Host, Port, Socket,
 	   protocol_buffers = #protocol_buffers{},
 	   user_data_buffer = {[],0,[]},
 	   start_or_recv_from = undefined,
-	   flight_buffer = new_flight(),
            protocol_specific = #{active_n => InternalActiveN,
                                  active_n_toggle => true,
                                  flight_state => initial_flight_state(DataTag),
@@ -315,8 +315,9 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport,
                                                       data_tag = DataTag}, 
                              connection_env = #connection_env{negotiated_version = Version},
-                             flight_buffer = #{handshakes := Flight,
-					       change_cipher_spec := undefined},
+                             handshake_env = #handshake_env{
+                                                flight_buffer = #{handshakes := Flight,
+                                                                  change_cipher_spec := undefined}},
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
@@ -332,9 +333,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport,
                                                       data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
-			     flight_buffer = #{handshakes := [_|_] = Flight0,
-					       change_cipher_spec := ChangeCipher,
-					       handshakes_after_change_cipher_spec := []},
+                             handshake_env = #handshake_env{
+                                                flight_buffer =
+                                                    #{handshakes := [_|_] = Flight0,
+                                                      change_cipher_spec := ChangeCipher,
+                                                      handshakes_after_change_cipher_spec := []}},
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
@@ -352,9 +355,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport,
                                                      data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
-			     flight_buffer = #{handshakes := [_|_] = Flight0,
-					       change_cipher_spec := ChangeCipher,
-					       handshakes_after_change_cipher_spec := Flight1},
+                             handshake_env = #handshake_env{
+                                                flight_buffer =
+                                                    #{handshakes := [_|_] = Flight0,
+                                                      change_cipher_spec := ChangeCipher,
+                                                      handshakes_after_change_cipher_spec := Flight1}},
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
@@ -376,9 +381,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport,
                                                       data_tag = DataTag},
                              connection_env = #connection_env{negotiated_version = Version},
-			     flight_buffer = #{handshakes := [],
-					       change_cipher_spec := ChangeCipher,
-					       handshakes_after_change_cipher_spec := Flight1},
+                             handshake_env = #handshake_env{
+                                                flight_buffer =
+                                                    #{handshakes := [],
+                                                      change_cipher_spec := ChangeCipher,
+                                                      handshakes_after_change_cipher_spec := Flight1}},
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
@@ -473,12 +480,12 @@ gen_info(Event, StateName, State) ->
             alert_or_reset_connection(Alert, StateName, State)
     end.
 
-prepare_flight(#state{flight_buffer = Flight,
+prepare_flight(#state{handshake_env = #handshake_env{flight_buffer = Flight} = HsEnv,
 		      connection_states = ConnectionStates0,
 		      protocol_buffers =
 			  #protocol_buffers{} = Buffers} = State) ->
     ConnectionStates = dtls_record:save_current_connection_state(ConnectionStates0, write),
-    State#state{flight_buffer = next_flight(Flight),
+    State#state{handshake_env = HsEnv#handshake_env{flight_buffer = next_flight(Flight)},
 		connection_states = ConnectionStates,
 		protocol_buffers = Buffers#protocol_buffers{
 				     dtls_handshake_next_fragments = [],
@@ -531,39 +538,46 @@ send_handshake(Handshake, #state{connection_states = ConnectionStates} = State) 
     #{epoch := Epoch} = ssl_record:current_connection_state(ConnectionStates, write),
     send_handshake_flight(queue_handshake(Handshake, State), Epoch).
 
-queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv, 
+queue_handshake(Handshake0, #state{handshake_env =
+                                       #handshake_env{tls_handshake_history = Hist0,
+                                                      flight_buffer =
+                                                          #{handshakes := HsBuffer0,
+                                                            change_cipher_spec := undefined,
+                                                            next_sequence := Seq} = Flight0
+                                                     } = HsEnv0, 
                                    connection_env = #connection_env{negotiated_version = Version},
-				   flight_buffer = #{handshakes := HsBuffer0,
-						     change_cipher_spec := undefined,
-						     next_sequence := Seq} = Flight0,
                                    ssl_options = #{log_level := LogLevel}} = State) ->
     Handshake = dtls_handshake:encode_handshake(Handshake0, Version, Seq),
     Hist = update_handshake_history(Handshake0, Handshake, Hist0),
     ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake0),
 
-    State#state{flight_buffer = Flight0#{handshakes => [Handshake | HsBuffer0],
-					 next_sequence => Seq +1},
-	handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}};
+    Flight = Flight0#{handshakes => [Handshake | HsBuffer0], next_sequence => Seq +1},
+    HsEnv = HsEnv0#handshake_env{tls_handshake_history = Hist, flight_buffer = Flight},
+    State#state{handshake_env = HsEnv};
 
-queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv, 
+queue_handshake(Handshake0, #state{handshake_env =
+                                       #handshake_env{
+                                          tls_handshake_history = Hist0,
+                                          flight_buffer =
+                                              #{handshakes_after_change_cipher_spec := Buffer0,
+                                                next_sequence := Seq} = Flight0} = HsEnv0,
                                    connection_env = #connection_env{negotiated_version = Version},
-				   flight_buffer = #{handshakes_after_change_cipher_spec := Buffer0,
-						     next_sequence := Seq} = Flight0,
                                    ssl_options = #{log_level := LogLevel}} = State) ->
     Handshake = dtls_handshake:encode_handshake(Handshake0, Version, Seq),
     Hist = update_handshake_history(Handshake0, Handshake, Hist0),
     ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake0),
 
-    State#state{flight_buffer = Flight0#{handshakes_after_change_cipher_spec => [Handshake | Buffer0],
-					 next_sequence => Seq +1},
-                handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}}.
+    Flight = Flight0#{handshakes_after_change_cipher_spec => [Handshake | Buffer0],
+                      next_sequence => Seq +1},
+    HsEnv = HsEnv0#handshake_env{tls_handshake_history = Hist, flight_buffer = Flight},
+    State#state{handshake_env = HsEnv}.
 
-queue_change_cipher(ChangeCipher, #state{flight_buffer = Flight,
-					 connection_states = ConnectionStates0} = State) -> 
-    ConnectionStates = 
-	dtls_record:next_epoch(ConnectionStates0, write),
-    State#state{flight_buffer = Flight#{change_cipher_spec => ChangeCipher},
-		connection_states = ConnectionStates}.
+queue_change_cipher(ChangeCipher, #state{handshake_env =
+                                             #handshake_env{flight_buffer = Flight} = HsEnv0,
+					 connection_states = ConnectionStates0} = State) ->
+    ConnectionStates = dtls_record:next_epoch(ConnectionStates0, write),
+    HsEnv = HsEnv0#handshake_env{flight_buffer = Flight#{change_cipher_spec => ChangeCipher}},
+    State#state{handshake_env = HsEnv, connection_states = ConnectionStates}.
 
 reinit(State0) ->
     %% To be API compatible with TLS NOOP here
@@ -577,9 +591,9 @@ reinit_handshake_data(#state{static_env = #static_env{data_tag = DataTag},
                              handshake_env = HsEnv} = State) ->
     State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history(),
                                                     public_key_info = undefined,
-                                                    premaster_secret = undefined},
+                                                    premaster_secret = undefined,
+                                                    flight_buffer = new_flight()},
                 protocol_specific = PS#{flight_state => initial_flight_state(DataTag)},
-		flight_buffer = new_flight(),
                 protocol_buffers =
 		    Buffers#protocol_buffers{
                       dtls_handshake_next_seq = 0,
