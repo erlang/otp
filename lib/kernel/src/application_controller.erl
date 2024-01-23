@@ -1387,6 +1387,8 @@ do_start(AppName, RT, Type, From, S) ->
 	    S
     end.
 
+spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
+    gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
 spawn_starter(Appl, S, Type) ->
     spawn_link(?MODULE, init_starter, [Appl, S#state.running, Type]).
 
@@ -1396,34 +1398,29 @@ init_starter(Appl, Running, Type) ->
     gen_server:cast(?AC, {application_started, AppName,
 			  catch start_appl(Appl, Running, Type)}).
 
-reply(undefined, _Reply) -> 
+reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
 start_appl(Appl, Running, Type) ->
     ApplData = Appl#appl.appl_data,
-    case ApplData#appl_data.mod of
-	[] ->
-	    {ok, undefined};
-	_ ->
-	    %% Name = ApplData#appl_data.name,
-	    foreach(
-		fun(AppName) ->
-		    case lists:keymember(AppName, 1, Running) orelse
-			     lists:member(AppName, Appl#appl.opt_apps) of
-			true -> ok;
-			false -> throw({info, {not_running, AppName}})
-		    end
-		end, Appl#appl.apps),
-	    case application_master:start_link(ApplData, Type) of
-		{ok, _Pid} = Ok ->
-		    Ok;
-		{error, _Reason} = Error ->
-		    throw(Error)
-	    end
+    %% Name = ApplData#appl_data.name,
+    foreach(
+        fun(AppName) ->
+            case lists:keymember(AppName, 1, Running) orelse
+                        lists:member(AppName, Appl#appl.opt_apps) of
+                true -> ok;
+                false -> throw({info, {not_running, AppName}})
+            end
+        end, Appl#appl.apps),
+    case application_master:start_link(ApplData, Type) of
+        {ok, _Pid} = Ok ->
+            Ok;
+        {error, _Reason} = Error ->
+            throw(Error)
     end.
 
-    
+
 %%-----------------------------------------------------------------
 %% Stop application locally.
 %%-----------------------------------------------------------------
