@@ -53,6 +53,7 @@ MODULES= \
 	id_transform_SUITE \
 	io_SUITE \
 	io_proto_SUITE \
+	json_SUITE \
 	lists_SUITE \
 	lists_property_test_SUITE \
 	log_mf_h_SUITE \
