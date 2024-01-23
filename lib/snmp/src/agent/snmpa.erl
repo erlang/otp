@@ -136,7 +136,9 @@
 	      mib_storage_options/0,
 
               nfilter_id/0,
-              nfilter_position/0
+              nfilter_position/0,
+
+              notification_delivery_info/0
              ]).
 
 -include("snmpa_atl.hrl").
@@ -178,6 +180,10 @@
 -type nfilter_position() :: first | last |
                             {insert_before, nfilter_id()} |
                             {insert_after,  nfilter_id()}.
+
+-type notification_delivery_info() ::
+        snmpa_notification_delivery_info_receiver:notification_delivery_info().
+
 
 %%-----------------------------------------------------------------
 
@@ -1013,10 +1019,25 @@ set_request_limit(Agent, NewLimit) ->
 send_notification2(Agent, Notification, SendOpts) ->
     snmpa_agent:send_notification(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification, Recv) ->
+
+-spec send_notification(Agent, Notification, Receiver) -> snmp:void() when
+      Agent        :: pid() | AgentName,
+      AgentName    :: atom(),
+      Notification :: atom(),
+      Receiver     :: no_receiver |
+                      {Tag, Recv} |
+                      notification_delivery_info(),
+      Tag          :: term(),
+      Recv         :: pid() | atom() | MFA,
+      MFA          :: {Mod, Func, Args},
+      Mod          :: module(),
+      Func         :: atom(),
+      Args         :: list().
+
+send_notification(Agent, Notification, Receiver) ->
     SendOpts = 
 	[
-	 {receiver, Recv},
+	 {receiver, Receiver},
 	 {varbinds, []}, 
 	 {name,     ""},
 	 {context,  ""}, 
@@ -1024,10 +1045,34 @@ send_notification(Agent, Notification, Recv) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification, Recv, Varbinds) ->
+-spec send_notification(Agent, Notification, Receiver,
+                        Varbinds) -> snmp:void() when
+      Agent        :: pid() | AgentName,
+      AgentName    :: atom(),
+      Notification :: atom(),
+      Receiver     :: no_receiver |
+                      {Tag, Recv} |
+                      notification_delivery_info(),
+      Tag          :: term(),
+      Recv         :: pid() | atom() | MFA,
+      MFA          :: {Mod, Func, Args},
+      Mod          :: module(),
+      Func         :: atom(),
+      Varbinds     :: [Varbind],
+      Varbind      :: {Variable, Value} |
+                      {Column, RowIndex, Value} |
+                      {Oid, Value},
+      Variable     :: atom(),
+      Column       :: atom(),
+      RowIndex     :: snmp:row_index(),
+      Oid          :: snmp:oid(),
+      Value        :: term(),
+      Args         :: list().
+
+send_notification(Agent, Notification, Receiver, Varbinds) ->
     SendOpts = 
 	[
-	 {receiver, Recv},
+	 {receiver, Receiver},
 	 {varbinds, Varbinds}, 
 	 {name,     ""},
 	 {context,  ""}, 
@@ -1035,10 +1080,35 @@ send_notification(Agent, Notification, Recv, Varbinds) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
+-spec send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
+          snmp:void() when
+      Agent        :: pid() | AgentName,
+      AgentName    :: atom(),
+      Notification :: atom(),
+      Receiver     :: no_receiver |
+                      {Tag, Recv} |
+                      notification_delivery_info(),
+      Tag          :: term(),
+      Recv         :: pid() | atom() | MFA,
+      MFA          :: {Mod, Func, Args},
+      Mod          :: module(),
+      Func         :: atom(),
+      NotifyName   :: snmp_notification_mib:notify_name(),
+      Varbinds     :: [Varbind],
+      Varbind      :: {Variable, Value} |
+                      {Column, RowIndex, Value} |
+                      {Oid, Value},
+      Variable     :: atom(),
+      Column       :: atom(),
+      RowIndex     :: snmp:row_index(),
+      Oid          :: snmp:oid(),
+      Value        :: term(),
+      Args         :: list().
+
+send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
     SendOpts = 
 	[
-	 {receiver, Recv},
+	 {receiver, Receiver},
 	 {varbinds, Varbinds}, 
 	 {name,     NotifyName},
 	 {context,  ""}, 
@@ -1046,14 +1116,41 @@ send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification, Recv, NotifyName, 
+-spec send_notification(Agent, Notification, Receiver,
+                        NotifyName, ContextName, Varbinds) ->
+          snmp:void() when
+      Agent        :: pid() | AgentName,
+      AgentName    :: atom(),
+      Notification :: atom(),
+      Receiver     :: no_receiver |
+                      {Tag, Recv} |
+                      notification_delivery_info(),
+      Tag          :: term(),
+      Recv         :: pid() | atom() | MFA,
+      MFA          :: {Mod, Func, Args},
+      Mod          :: module(),
+      Func         :: atom(),
+      NotifyName   :: snmp_notification_mib:notify_name(),
+      ContextName  :: snmp_community_mib:context_name(),
+      Varbinds     :: [Varbind],
+      Varbind      :: {Variable, Value} |
+                      {Column, RowIndex, Value} |
+                      {Oid, Value},
+      Variable     :: atom(),
+      Column       :: atom(),
+      RowIndex     :: snmp:row_index(),
+      Oid          :: snmp:oid(),
+      Value        :: term(),
+      Args         :: list().
+
+send_notification(Agent, Notification, Receiver, NotifyName, 
 		  ContextName, Varbinds) 
   when (is_list(NotifyName)  andalso 
 	is_list(ContextName) andalso 
 	is_list(Varbinds)) ->
     SendOpts = 
 	[
-	 {receiver, Recv},
+	 {receiver, Receiver},
 	 {varbinds, Varbinds}, 
 	 {name,     NotifyName},
 	 {context,  ContextName}, 
@@ -1061,7 +1158,36 @@ send_notification(Agent, Notification, Recv, NotifyName,
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification, Recv, 
+-spec send_notification(Agent, Notification, Receiver,
+                        NotifyName, ContextName, Varbinds,
+                        LocalEngineID) ->
+          snmp:void() when
+      Agent         :: pid() | AgentName,
+      AgentName     :: atom(),
+      Notification  :: atom(),
+      Receiver      :: no_receiver |
+                       {Tag, Recv} |
+                       notification_delivery_info(),
+      Tag           :: term(),
+      Recv          :: pid() | atom() | MFA,
+      MFA           :: {Mod, Func, Args},
+      Mod           :: module(),
+      Func          :: atom(),
+      NotifyName    :: snmp_notification_mib:notify_name(),
+      ContextName   :: snmp_community_mib:context_name(),
+      Varbinds      :: [Varbind],
+      Varbind       :: {Variable, Value} |
+                       {Column, RowIndex, Value} |
+                       {Oid, Value},
+      Variable      :: atom(),
+      Column        :: atom(),
+      RowIndex      :: snmp:row_index(),
+      Oid           :: snmp:oid(),
+      Value         :: term(),
+      LocalEngineID :: snmp_framework_mib:engine_id(),
+      Args          :: list().
+
+send_notification(Agent, Notification, Receiver, 
 		  NotifyName, ContextName, Varbinds, LocalEngineID) 
   when (is_list(NotifyName)  andalso 
 	is_list(ContextName) andalso 
@@ -1069,13 +1195,13 @@ send_notification(Agent, Notification, Recv,
 	is_list(LocalEngineID)) ->
     SendOpts = 
 	[
-	 {receiver,        Recv},
+	 {receiver,        Receiver},
 	 {varbinds,        Varbinds}, 
 	 {name,            NotifyName},
 	 {context,         ContextName}, 
 	 {extra,           ?DEFAULT_NOTIF_EXTRA_INFO}, 
 	 {local_engine_id, LocalEngineID}
-	], 
+	],
     send_notification2(Agent, Notification, SendOpts).
 
 %% Kept for backwards compatibility

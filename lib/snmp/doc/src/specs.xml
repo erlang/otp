@@ -13,4 +13,5 @@
   <xi:include href="../specs/specs_snmp_pdus.xml"/>
   <xi:include href="../specs/specs_snmpa.xml"/>
   <xi:include href="../specs/specs_snmpa_conf.xml"/>
+  <xi:include href="../specs/specs_snmpa_notification_delivery_info_receiver.xml"/>
 </specs>

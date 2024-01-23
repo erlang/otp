@@ -131,6 +131,15 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="notification_delivery_info"/>
+      <desc>
+	<p>
+	  How shall (notification) delivery info be reported.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
 
@@ -1128,12 +1137,20 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
+      <name name="send_notification" arity="3" clause_i="1" since=""/>
+      <name name="send_notification" arity="4" clause_i="1" since=""/>
+      <name name="send_notification" arity="5" clause_i="1" since=""/>
+      <name name="send_notification" arity="6" clause_i="1" since=""/>
+      <name name="send_notification" arity="7" clause_i="1" since="OTP R14B"/>
+      <!--
       <name since="">send_notification(Agent, Notification, Receiver)</name>
       <name since="">send_notification(Agent, Notification, Receiver, Varbinds)</name>
       <name since="">send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
       <name since="">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
       <name since="OTP R14B">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
+      -->
       <fsummary>Send a notification</fsummary>
+      <!--
       <type>
         <v>Agent = pid() | atom()</v>
         <v>Notification = atom()</v>
@@ -1156,6 +1173,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>RowIndex = [int()]</v>
         <v>LocalEngineID = string()</v>
       </type>
+      -->
       <desc>
         <p>Sends the notification <c>Notification</c> to the
 	management targets defined for <c>NotifyName</c> in the
@@ -1194,7 +1212,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
         <p>If <c>Receiver</c> has the value <c>{Tag, Recv}</c>, the delivery is
-          done according to <c>Recv</c>: </p>
+	done according to <c>Recv</c>: </p>
 
         <list>
           <item>

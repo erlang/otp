@@ -69,7 +69,8 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmp_index.xml \
 	$(SPECDIR)/specs_snmp_pdus.xml \
 	$(SPECDIR)/specs_snmpa.xml \
-	$(SPECDIR)/specs_snmpa_conf.xml
+	$(SPECDIR)/specs_snmpa_conf.xml \
+	$(SPECDIR)/specs_snmpa_notification_delivery_info_receiver.xml
 
 TOP_SPECS_FILE = specs.xml
 
@@ -80,11 +81,11 @@ NO_CHUNKS = \
 	snmpa_mib_storage.xml \
 	snmpa_network_interface.xml \
 	snmpa_network_interface_filter.xml \
-	snmpa_notification_delivery_info_receiver.xml \
 	snmpa_notification_filter.xml \
 	snmpm_network_interface.xml \
 	snmpm_network_interface_filter.xml \
 	snmpm_user.xml
+#	snmpa_notification_delivery_info_receiver.xml
 
 
 # ----------------------------------------------------
