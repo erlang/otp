@@ -941,25 +941,20 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">register_subagent(Agent, SubTreeOid, Subagent) -> ok | {error, Reason}</name>
+      <name name="register_subagent" arity="3" clause_i="1" since=""/>
       <fsummary>Register a sub-agent under a sub-tree</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>SubTreeOid = oid()</v>
-        <v>SubAgent = pid()</v>
-      </type>
       <desc>
         <p>Registers a sub-agent under a sub-tree of another agent. </p>
         <p>It is easy to make mistakes when registering sub-agents and
-          this activity should be done carefully.  For example, a
-          strange behaviour would result from the following
-          configuration:</p>
+	this activity should be done carefully.  For example, a
+	strange behaviour would result from the following
+	configuration:</p>
         <pre>
 snmp_agent:register_subagent(MAPid,[1,2,3,4],SA1),
 snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         </pre>
         <p><c>SA2</c> will not get requests starting with object
-          identifier <c>[1,2,3]</c> since <c>SA1</c> does not. </p>
+	identifier <c>[1,2,3]</c> since <c>SA1</c> does not. </p>
 
         <marker id="unregister_subagent"></marker>
       </desc>

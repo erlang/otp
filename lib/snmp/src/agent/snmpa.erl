@@ -1236,6 +1236,13 @@ discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler,
 
 %%%-----------------------------------------------------------------
 
+-spec register_subagent(Agent, SubTree, SubAgent) -> ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      SubTree   :: snmp:oid(),
+      SubAgent  :: pid(),
+      Reason    :: term().
+
 register_subagent(Agent, SubTree, SubAgent) ->
     snmpa_agent:register_subagent(Agent, SubTree, SubAgent).
 
