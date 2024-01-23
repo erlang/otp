@@ -36,7 +36,7 @@
 
 %% Internal exports
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-	 code_change/3, init_starter/3, get_loaded/1]).
+	 code_change/3, init_starter/2, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -1386,25 +1386,25 @@ do_start(AppName, RT, Type, From, S) ->
 spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
     gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
 spawn_starter(Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [Appl, S#state.running, Type]).
+    case find_missing_dependency(Appl, S#state.running) of
+        {value, NotRunning} ->
+            Reply = {info, {not_running, NotRunning}},
+            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
+        false ->
+            spawn_link(?MODULE, init_starter, [Appl#appl.appl_data, Type])
+    end.
 
-init_starter(Appl, Running, Type) ->
+init_starter(ApplData, Type) ->
     process_flag(trap_exit, true),
-    AppName = Appl#appl.name,
+    AppName = ApplData#appl_data.name,
     gen_server:cast(?AC, {application_started, AppName,
-			  catch start_appl(Appl, Running, Type)}).
+			  catch start_appl(ApplData, Type)}).
 
 reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
-start_appl(Appl, Running, Type) ->
-    ApplData = Appl#appl.appl_data,
-    %% Name = ApplData#appl_data.name,
-    case find_missing_dependency(Appl, Running) of
-        {value, NotRunning} -> throw({info, {not_running, NotRunning}});
-        false -> ok
-    end,
+start_appl(ApplData, Type) ->
     case application_master:start_link(ApplData, Type) of
         {ok, _Pid} = Ok ->
             Ok;
