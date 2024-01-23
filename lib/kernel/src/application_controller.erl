@@ -35,8 +35,8 @@
 	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
 
 %% Internal exports
--export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
-	 code_change/3, init_starter/4, get_loaded/1]).
+-export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	 code_change/3, init_starter/3, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -690,14 +690,14 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, undefined} ->
-			    spawn_starter(From, Appl, S, normal),
+			    spawn_starter(Appl, S, normal),
 			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, {ok, Perms}} ->
 			    case lists:member({AppName, false}, Perms) of
 				false ->
-				    spawn_starter(From, Appl, S, normal),
+				    spawn_starter(Appl, S, normal),
 				    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 								  Starting],
 						      start_req = [{AppName, From} | Start_req]}};
@@ -775,16 +775,16 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, false, {value, Tuple}, false, false} ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
 		%% started but not running
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -1059,7 +1059,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 	    case Res of
 		start_it ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Type),
+		    spawn_starter(Appl, S, Type),
 		    {noreply, S};
 		{started, Node} ->
 		    handle_application_started(AppName, 
@@ -1075,7 +1075,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 			     start_req = Start_reqN}};
 		{takeover, _Node} = Takeover ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Takeover),
+		    spawn_starter(Appl, S, Takeover),
 		    NewStarting1 = keydelete(AppName, 1, Starting),
 		    NewStarting = [{AppName, RestartType, Takeover, From} | NewStarting1],
 		    {noreply, S#state{starting = NewStarting}};
@@ -1372,7 +1372,7 @@ do_start(AppName, RT, Type, From, S) ->
 	false ->
 	    {true, Appl} = get_loaded(AppName),
 	    Start_req = S#state.start_req,
-	    spawn_starter(undefined, Appl, S, Type),
+	    spawn_starter(Appl, S, Type),
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
@@ -1386,11 +1386,11 @@ do_start(AppName, RT, Type, From, S) ->
 	true -> % otherwise we're already starting the app...
 	    S
     end.
-    
-spawn_starter(From, Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [From, Appl, S#state.running, Type]).
 
-init_starter(_From, Appl, Running, Type) ->
+spawn_starter(Appl, S, Type) ->
+    spawn_link(?MODULE, init_starter, [Appl, S#state.running, Type]).
+
+init_starter(Appl, Running, Type) ->
     process_flag(trap_exit, true),
     AppName = Appl#appl.name,
     gen_server:cast(?AC, {application_started, AppName,
