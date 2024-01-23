@@ -88,6 +88,9 @@
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
                                                  | 'undefined',
+                        client_certificate_status = not_requested :: not_requested | requested |
+                                                                     empty | needs_verifying |
+                                                                     verified,
                         stapling_state = #{configured => false,
                                            status => not_negotiated}
                        }).
@@ -122,8 +125,7 @@
                 %% mechanism is also useful in TLS although we do not
                 %% need to worry about packet loss in TLS. In DTLS we
                 %% need to track DTLS handshake seqnr
-                flight_buffer = []   :: list() | map(),  
-                client_certificate_status = not_requested :: not_requested | requested  | empty | needs_verifying | verified,
+                flight_buffer = []   :: list() | map(),
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
                 key_share,

@@ -408,6 +408,7 @@ process_certificate_request(#certificate_request_1_3{
                                    connection_env = #connection_env{cert_key_alts = CertKeyAlts,
                                                                     negotiated_version = Version},
                                    static_env = #static_env{cert_db = CertDbHandle, cert_db_ref = CertDbRef},
+                                   handshake_env = HsEnv,
                                    session = Session0} =
                                 State) ->
     ServerSignAlgs = get_signature_scheme_list(
@@ -420,7 +421,8 @@ process_certificate_request(#certificate_request_1_3{
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                           CertDbHandle, CertDbRef, CertAuths, undefined),
-    {ok, {State#state{client_certificate_status = requested, session = Session}, wait_cert}}.
+    {ok, {State#state{handshake_env = HsEnv#handshake_env{client_certificate_status = requested},
+                      session = Session}, wait_cert}}.
 
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,

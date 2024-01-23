@@ -933,7 +933,7 @@ cipher_hash_algos(Ciphers) ->
           end,
     lists:map(Fun, Ciphers).
 
-maybe_queue_cert_cert_cv(#state{client_certificate_status = not_requested}
+maybe_queue_cert_cert_cv(#state{handshake_env = #handshake_env{client_certificate_status = not_requested}}
                          = State) ->
     {ok, State};
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,

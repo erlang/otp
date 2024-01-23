@@ -258,10 +258,10 @@ wait_cert_verify(info, Event, State) ->
 wait_cert_verify(internal, #certificate_verify{signature = Signature,
                                                hashsign_algorithm = CertHashSign},
                  #state{static_env = #static_env{protocol_cb = Connection},
-                        client_certificate_status = needs_verifying,
                         handshake_env = #handshake_env{tls_handshake_history = Hist,
                                                        kex_algorithm = KexAlg,
-                                             public_key_info = PubKeyInfo},
+                                                       client_certificate_status = needs_verifying,
+                                                       public_key_info = PubKeyInfo} = HsEnv0,
                         connection_env = #connection_env{negotiated_version = Version},
                         session = #session{master_secret = MasterSecret} = Session0
                        } = State) ->
@@ -273,8 +273,9 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
     case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
 					  TLSVersion, HashSign, MasterSecret, Hist) of
 	valid ->
+            HsEnv = HsEnv0#handshake_env{client_certificate_status = verified},
 	    Connection:next_event(cipher, no_record,
-				  State#state{client_certificate_status = verified,
+				  State#state{handshake_env = HsEnv,
                                               session = Session0#session{sign_alg = HashSign}});
 	#alert{} = Alert ->
             throw(Alert)
