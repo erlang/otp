@@ -1273,8 +1273,14 @@ which_transports() ->
 
 %%%-----------------------------------------------------------------
 
+-spec restart_worker() -> snmp:void().
+
 restart_worker() ->
     restart_worker(snmp_master_agent).
+
+-spec restart_worker(Agent) -> snmp:void() when
+      Agent     :: pid | AgentName,
+      AgentName :: atom().
 
 restart_worker(Agent) ->
     snmpa_agent:restart_worker(Agent).

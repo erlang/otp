@@ -1388,16 +1388,13 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="">restart_worker() -> void()</name>
-      <name since="">restart_worker(Agent) -> void()</name>
+      <name name="restart_worker" arity="0" clause_i="1" since=""/>
+      <name name="restart_worker" arity="1" clause_i="1" since=""/>
       <fsummary>Restart the worker process of a multi-threaded agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Restart the worker process of a multi-threaded agent.</p>
         <p>This is a utility function, that can be useful when
-          e.g. debugging instrumentation functions.</p>
+	e.g. debugging instrumentation functions.</p>
 
         <marker id="restart_set_worker"></marker>
       </desc>
