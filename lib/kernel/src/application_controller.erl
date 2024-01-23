@@ -159,7 +159,7 @@
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
 
--record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, opt_apps, apps}).
+-record(appl, {name, appl_data, descr, id, vsn, inc_apps, opt_apps, apps}).
 
 %%-----------------------------------------------------------------
 %% Func: start/1
