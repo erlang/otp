@@ -95,6 +95,7 @@ typedef struct {
        EFILE_MODE_FROM_ALREADY_OPEN_FD when that is the case. It is
        needed because we can't close using handle in that case. */
     int fd;
+    enum efile_lock_t lock;
 } efile_win_t;
 
 static int windows_to_posix_errno(DWORD last_error);
@@ -496,6 +497,7 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
 
         w = (efile_win_t*)enif_alloc_resource(nif_type, sizeof(efile_win_t));
         w->handle = handle;
+        w->lock = 0;
 
         EFILE_INIT_RESOURCE(&w->common, modes);
         (*d) = &w->common;
@@ -585,6 +587,105 @@ int efile_close(efile_data_t *d, posix_errno_t *error) {
         *error = windows_to_posix_errno(GetLastError());
         return 0;
     }
+
+    return 1;
+}
+
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
+    efile_win_t *w = (efile_win_t*)d;
+    HANDLE handle;
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(w->handle != INVALID_HANDLE_VALUE);
+
+    handle = w->handle;
+
+    // set offset to 0
+    // do not set hEvent
+    OVERLAPPED overlapped = { 0 };
+
+    DWORD flags = 0;
+
+    if (modes & EFILE_LOCK_SH) {
+        if (w->lock == EFILE_LOCK_SH)
+            return 1;
+    }
+
+    if (modes & EFILE_LOCK_EX) {
+        if (w->lock == EFILE_LOCK_EX)
+            return 1;
+
+        flags |= LOCKFILE_EXCLUSIVE_LOCK;
+    }
+
+    if (modes & EFILE_LOCK_SH && w->lock == EFILE_LOCK_EX ||
+        modes & EFILE_LOCK_EX && w->lock == EFILE_LOCK_SH) {
+        if(!UnlockFileEx(handle,
+            0, // reserved
+            MAXDWORD, // low 32 bits of range to lock
+            MAXDWORD, // high 32 bits of renge to lock
+            &overlapped
+        )) {
+            *error = windows_to_posix_errno(GetLastError());
+            return 0;
+        }
+    }
+
+    if (modes & EFILE_LOCK_NB) {
+        flags |= LOCKFILE_FAIL_IMMEDIATELY;
+    }
+
+    // using range above file length is allowed
+    // lock entire file
+    if(!LockFileEx(handle,
+        flags,
+        0, // reserved
+        MAXDWORD, // low 32 bits of range to lock
+        MAXDWORD, // high 32 bits of renge to lock
+        &overlapped
+        )) {
+        *error = windows_to_posix_errno(GetLastError());
+        return 0;
+    }
+
+    if (modes & EFILE_LOCK_SH)
+        w->lock = EFILE_LOCK_SH;
+
+    if (modes & EFILE_LOCK_EX)
+        w->lock = EFILE_LOCK_EX;
+
+    return 1;
+}
+
+int efile_unlock(efile_data_t *d, posix_errno_t *error) {
+    efile_win_t *w = (efile_win_t*)d;
+    HANDLE handle;
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(w->handle != INVALID_HANDLE_VALUE);
+
+    handle = w->handle;
+
+    // set offset to 0
+    // do not set hEvent
+    OVERLAPPED overlapped = { 0 };
+
+    if (w->lock == 0)
+        return 1;
+
+    // using range above file length is allowed
+    // unlock entire file
+    if(!UnlockFileEx(handle,
+        0, // reserved
+        MAXDWORD, // low 32 bits of range to lock
+        MAXDWORD, // high 32 bits of renge to lock
+        &overlapped
+    )) {
+        *error = windows_to_posix_errno(GetLastError());
+        return 0;
+    }
+
+    w->lock = 0;
 
     return 1;
 }

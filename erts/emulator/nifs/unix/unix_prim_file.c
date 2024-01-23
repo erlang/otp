@@ -32,12 +32,16 @@
 #define __DARWIN__ 1
 #endif
 
-#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
+#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <fcntl.h>
 #endif
 
 #ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
+#endif
+
+#if defined(__linux__) || defined(__DARWIN__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun) || defined(__sun__)
+#include <sys/file.h>
 #endif
 
 #include <utime.h>
@@ -262,6 +266,65 @@ int efile_close(efile_data_t *d, posix_errno_t *error) {
     }
 
     return 1;
+}
+
+static int get_flock_flags(enum efile_lock_t modes) {
+    int flags = 0;
+
+    if(modes & EFILE_LOCK_SH) {
+        flags |= LOCK_SH;
+    }
+
+    if(modes & EFILE_LOCK_EX) {
+        flags |= LOCK_EX;
+    }
+
+    if(modes & EFILE_LOCK_NB) {
+        flags |= LOCK_NB;
+    }
+
+    return flags;
+}
+
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+    int flags = get_flock_flags(modes);
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(u->fd != -1);
+
+    fd = u->fd;
+
+    do {
+        if(flock(fd, flags) == 0) {
+            return 1;
+        }
+    } while(errno == EINTR);
+
+    *error = errno;
+
+    return 0;
+}
+
+int efile_unlock(efile_data_t *d, posix_errno_t *error) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(u->fd != -1);
+
+    fd = u->fd;
+
+    do {
+        if(flock(fd, LOCK_UN) == 0) {
+            return 1;
+        }
+    } while(errno == EINTR);
+
+    *error = errno;
+
+    return 0;
 }
 
 static void shift_iov(SysIOVec **iov, int *iovlen, ssize_t shift) {

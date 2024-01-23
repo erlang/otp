@@ -58,6 +58,12 @@ enum efile_filetype_t {
     EFILE_FILETYPE_OTHER
 };
 
+enum efile_lock_t {
+    EFILE_LOCK_SH = (1 << 0),
+    EFILE_LOCK_EX = (1 << 1),
+    EFILE_LOCK_NB = (1 << 2)
+};
+
 enum efile_advise_t {
     EFILE_ADVISE_NORMAL,
     EFILE_ADVISE_RANDOM,
@@ -183,6 +189,19 @@ posix_errno_t efile_from_fd(int fd,
  * Note that the file is completely invalid after this point, so the error code
  * is provided in \c error rather than d->posix_errno. */
 int efile_close(efile_data_t *d, posix_errno_t *error);
+
+/** @brief Locks a file for shared or exclusive access. On Unix flock(2)
+ * system call is used. On Windows LockFileEx win32 API call
+ * is used over the entire range of file.
+ * 
+ * Note that upgrading a shared to an exclusive lock is not atomic.
+ * */
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error);
+
+/** @brief Unlocks a locked file. On Unix flock(2) system call is used. 
+ * On Windows UnlockFileEx win32 API call is used over the entire range of file.
+ * */
+int efile_unlock(efile_data_t *d, posix_errno_t *error);
 
 /* **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** */
 

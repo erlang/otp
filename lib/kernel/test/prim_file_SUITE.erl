@@ -32,6 +32,7 @@
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1,
 	 read_file_rename_race/1]).
+-export([lock_unlock/1]).
 -export([e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
 -export([make_link/1, read_link_info_for_non_link/1,
@@ -65,7 +66,7 @@ groups() ->
       [make_del_dir, cur_dir_0, cur_dir_1]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
-       truncate, sync, datasync, advise, large_write, allocate]},
+       truncate, sync, datasync, advise, large_write, allocate, lock_unlock]},
      {open, [],
       [open1, modes, close, access, read_write, pread_write,
        append, exclusive, read_file_rename_race]},
@@ -625,6 +626,44 @@ rfrr_write_file(Name, Data) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests ?PRIM_FILE:lock/2 and ?PRIM_FILE:unlock/1.
+
+lock_unlock(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+    NewDir = filename:join(RootDir,
+			   atom_to_list(?MODULE)
+			   ++"_lock_unlock"),
+    ok = ?PRIM_FILE:make_dir(NewDir),
+
+    %% Raw file.
+    Name = filename:join(NewDir, "raw.fil"),
+    {ok, Fd} = ?PRIM_FILE:open(Name, [read, write]),
+    lock_unlock_test(Fd),
+
+    ok.
+
+lock_unlock_test(File) ->
+    ok = ?PRIM_FILE:lock(File, [exclusive]),
+    % locking is a noop when already locked
+    ok = ?PRIM_FILE:lock(File, [exclusive]),
+
+    ok = ?PRIM_FILE:unlock(File),
+    % unlocking is a noop when already locked
+    ok = ?PRIM_FILE:unlock(File),
+
+    ok = ?PRIM_FILE:lock(File, [shared]),
+    ok = ?PRIM_FILE:unlock(File),
+
+    ok = ?PRIM_FILE:lock(File, [shared, non_blocking]),
+    ok = ?PRIM_FILE:unlock(File),
+
+    ok = ?PRIM_FILE:lock(File, [exclusive, non_blocking]),
+    ok = ?PRIM_FILE:unlock(File),
+
+    ok = ?PRIM_FILE:close(File),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 
 pos1(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
