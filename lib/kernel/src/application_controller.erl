@@ -1388,26 +1388,25 @@ do_start(AppName, RT, Type, From, S) ->
     end.
     
 spawn_starter(From, Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [From, Appl, S, Type]).
+    spawn_link(?MODULE, init_starter, [From, Appl, S#state.running, Type]).
 
-init_starter(_From, Appl, S, Type) ->
+init_starter(_From, Appl, Running, Type) ->
     process_flag(trap_exit, true),
     AppName = Appl#appl.name,
-    gen_server:cast(?AC, {application_started, AppName, 
-			  catch start_appl(Appl, S, Type)}).
+    gen_server:cast(?AC, {application_started, AppName,
+			  catch start_appl(Appl, Running, Type)}).
 
 reply(undefined, _Reply) -> 
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
-start_appl(Appl, S, Type) ->
+start_appl(Appl, Running, Type) ->
     ApplData = Appl#appl.appl_data,
     case ApplData#appl_data.mod of
 	[] ->
 	    {ok, undefined};
 	_ ->
 	    %% Name = ApplData#appl_data.name,
-	    Running = S#state.running,
 	    foreach(
 		fun(AppName) ->
 		    case lists:keymember(AppName, 1, Running) orelse
