@@ -1047,6 +1047,7 @@ gen.update_record(Size, Src, Dst, N, Updates) {
 
     for (i = 2; i < count; i += 2) {
         BeamOp *next;
+        int same_reg;
 
         $NewBeamOp(S, next);
         $BeamOpNameArity(next, i_update_record_continue, 2);
@@ -1056,10 +1057,19 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         next->a[0].type = TAG_u;
         next->a[0].val = (Size.val + 1) - Updates[i].val;
 
+        if (Updates[i + 1].type != Dst.type) {
+            same_reg = 0;
+        } else if (Dst.type == TAG_x || Dst.type == TAG_y) {
+            /* We must not compare the type indices (if any). */
+            same_reg = (Updates[i + 1].val & REG_MASK) == (Dst.val & REG_MASK);
+        } else {
+            same_reg = 1;
+        }
+
         /* The first instruction overwrites the destination register after
          * stashing its contents to SCRATCH_X_REG, so all updates must be
          * rewritten accordingly. */
-        if (Updates[i + 1].type == Dst.type && Updates[i + 1].val == Dst.val) {
+        if (same_reg) {
             next->a[1].type = TAG_x;
             next->a[1].val = SCRATCH_X_REG;
         } else {

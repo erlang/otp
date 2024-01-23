@@ -1503,7 +1503,9 @@ pmt_1([Key0, Value0 | List], Vst, Acc0) ->
 pmt_1([], _Vst, Acc) ->
     Acc.
 
-verify_update_record(Size, Src, Dst, List, Vst0) ->
+verify_update_record(Size, Src0, Dst, List0, Vst0) ->
+    Src = unpack_typed_arg(Src0, Vst0),
+    List = [unpack_typed_arg(Arg, Vst0) || Arg <- List0],
     assert_type(#t_tuple{exact=true,size=Size}, Src, Vst0),
     verify_y_init(Vst0),
 
