@@ -707,21 +707,16 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
-      <name since="">set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name name="set_log_type" arity="1" clause_i="1" since=""/>
+      <name name="set_log_type" arity="2" clause_i="1" since=""/>
       <fsummary>Change the type of the Audit Trail Log</fsummary>
-      <type>
-        <v>NewType = OldType = atl_type()</v>
-        <v>Agent = pid() | atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Changes the run-time Audit Trail log type. </p>
         <p>Note that this has no effect on the application configuration as
-          defined by configuration files, so a node restart will revert the 
-          config to whatever is in those files. </p>
+	defined by configuration files, so a node restart will revert the 
+	config to whatever is in those files. </p>
         <p>This function is primarily useful in testing/debugging 
-          scenarios. </p>
+	scenarios. </p>
 
         <marker id="mib_of"></marker>
       </desc>

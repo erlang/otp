@@ -160,6 +160,17 @@
     </datatype>
 
     <datatype>
+      <name name="atl_type"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="tdomain"/>
       <!--
       <desc>

@@ -1874,8 +1874,21 @@ change_log_type(NewType) ->
 change_log_type(Agent, NewType) ->
     set_log_type(Agent, NewType).
 
+
+-spec set_log_type(NewType) -> {ok, OldType} | {error, Reason} when
+      NewType :: snmp:atl_type(),
+      OldType :: snmp:atl_type(),
+      Reason  :: term().
+
 set_log_type(NewType) ->
     set_log_type(snmp_master_agent, NewType).
+
+-spec set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      NewType   :: snmp:atl_type(),
+      OldType   :: snmp:atl_type(),
+      Reason    :: term().
 
 set_log_type(Agent, NewType) ->
     snmpa_agent:set_log_type(Agent, NewType).

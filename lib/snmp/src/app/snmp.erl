@@ -75,7 +75,6 @@
 	      dir/0, 
 	      snmp_timer/0, 
 
-              atl_type/0,
               verbosity/0,
 
 	      engine_id/0, 
@@ -110,7 +109,8 @@
 	     ]).
 -export_type([
               log_size/0,
-              log_time/0
+              log_time/0,
+              atl_type/0
              ]).
 
 -define(APPLICATION,       snmp).
@@ -131,10 +131,10 @@
 -type log_size()              :: 'infinity' | pos_integer() |
                                  {MaxNoBytes :: pos_integer(),
                                   MaxNoFiles :: pos_integer()}.
-
 -type log_time()              :: calendar:datetime() |
                                  {local_time, calendar:datetime()} |
                                  {universal_time, calendar:datetime()}.
+-type atl_type()              :: read | write | read_write.
 
 -type time_interval()         :: 0..2147483647.
 -type row_pointer()           :: oid().
@@ -159,7 +159,6 @@
 
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
--type atl_type()      :: read | write | read_write.
 -type verbosity()     :: silence | info | log | debug | trace.
 
 -type engine_id()     :: snmp_framework_mib:engine_id().
