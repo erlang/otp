@@ -20,7 +20,7 @@
 -module(application).
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
 	 start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1, 
+	 start_boot/1, start_boot/2, stop/1, ensure_all_stopped/1, ensure_all_stopped/2,
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
@@ -58,6 +58,15 @@
                              AppSpecKeys :: [application_opt()]}.
 
 -type(tuple_of(_T) :: tuple()).
+
+-type graph() :: #{
+    children := #{atom() => #{atom() => boolean()}},
+    parents := #{atom() => #{atom() => []}}
+   }.
+
+-type mode() :: serial | concurrent.
+
+-type action() :: {start, start_type()} | stop.
 
 %%------------------------------------------------------------------
 
@@ -160,135 +169,9 @@ ensure_all_started(Application, Type) ->
 ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
     ensure_all_started([Application], Type, Mode);
 ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
-    Opts = #{type => Type, mode => Mode},
-
-    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
-        {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
-            ReqIDs = gen_server:reqids_new(),
-            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
-        {ok, DAG, _Pending, Started} when Mode =:= serial ->
-            0 = map_size(DAG),
-            {ok, lists:reverse(Started)};
-        {error, AppReason, Started} ->
-            _ = [stop(Name) || Name <- Started],
-            {error, AppReason}
-    end.
-
-enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts)
-  when is_map_key(App, DAG) ->
-    %% We already traversed the application, so only add it as pending
-    enqueue_or_start(Apps, Optional, DAG, [App | Pending], Started, Opts);
-
-enqueue_or_start([App | Apps], Optional, DAG, Pending, Started, Opts) when is_atom(App) ->
-    %% In case the app is already running, we just skip it instead
-    %% of attempting to start all of its children - which would
-    %% have already been loaded and started anyway.
-    case application_controller:is_running(App) of
-        false ->
-            case ensure_loaded(App) of
-                {ok, Name} ->
-                    case enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) of
-                        {ok, NewDAG, NewPending, NewStarted} ->
-                            enqueue_or_start(Apps, Optional, NewDAG, NewPending, NewStarted, Opts);
-                        ErrorAppReasonStarted ->
-                            ErrorAppReasonStarted
-                    end;
-                {error, {"no such file or directory", _} = Reason} ->
-                    case lists:member(App, Optional) of
-                        true ->
-                            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts);
-                        false ->
-                            {error, {App, Reason}, Started}
-                    end;
-                {error, Reason} ->
-                    {error, {App, Reason}, Started}
-            end;
-        true ->
-            enqueue_or_start(Apps, Optional, DAG, Pending, Started, Opts)
-    end;
-enqueue_or_start([], _Optional, DAG, Pending, Started, _Opts) ->
-    {ok, DAG, Pending, Started}.
-
-enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
-    #{type := Type, mode := Mode} = Opts,
-    {ok, ChildApps} = get_key(Name, applications),
-    {ok, OptionalApps} = get_key(Name, optional_applications),
-    {ok, Mod} = get_key(Name, mod),
-
-    %% If the application has no dependencies and we are either
-    %% on serial mode or the app does not have a module callback,
-    %% we start it immediately. At the end of serial mode, the DAG
-    %% is always empty.
-    case enqueue_or_start(ChildApps, OptionalApps, DAG, [], Started, Opts) of
-        {ok, NewDAG, NewPending, NewStarted}
-        when NewPending =:= [], (Mode =:= serial) or (Mod =:= []) ->
-            case application_controller:start_application(App, Type) of
-                ok ->
-                    {ok, NewDAG, Pending, [App | NewStarted]};
-                {error, {already_started, App}} ->
-                    {ok, NewDAG, Pending, NewStarted};
-                {error, Reason} ->
-                    {error, {App, Reason}, NewStarted}
-            end;
-        {ok, NewDAG, NewPending, NewStarted} ->
-            {ok, NewDAG#{App => NewPending}, [App | Pending], NewStarted};
-        ErrorAppReasonStarted ->
-            ErrorAppReasonStarted
-    end.
-
-concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
-    wait_all_enqueued(ReqIDs, Started, false);
-concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Type) ->
-    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type),
-
-    case wait_one_enqueued(ReqIDs1, Started0) of
-        {ok, App, ReqIDs2, Started1} ->
-            concurrent_dag_start(Pending1, ReqIDs2, [App], Started1, Type);
-        {error, AppReason, ReqIDs2} ->
-            wait_all_enqueued(ReqIDs2, Started0, AppReason)
-    end.
-
-enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type) ->
-    case Children -- Done of
-        [] ->
-            Req = application_controller:start_application_request(App, Type),
-            NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
-            enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type);
-        NewChildren ->
-            NewAcc = [{App, NewChildren} | Acc],
-            enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type)
-    end;
-enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type) ->
-    {Acc, ReqIDs}.
-
-wait_one_enqueued(ReqIDs0, Started) ->
-    case gen_server:wait_response(ReqIDs0, infinity, true) of
-        {{reply, ok}, App, ReqIDs1} ->
-            {ok, App, ReqIDs1, [App | Started]};
-        {{reply, {error, {already_started, App}}}, App, ReqIDs1} ->
-            {ok, App, ReqIDs1, Started};
-        {{reply, {error, Reason}}, App, ReqIDs1} ->
-            {error, {App, Reason}, ReqIDs1};
-        {{error, {Reason, _Ref}}, _App, _ReqIDs1} ->
-            exit(Reason);
-        no_request ->
-            exit(deadlock)
-    end.
-
-wait_all_enqueued(ReqIDs0, Started0, LastAppReason) ->
-    case gen_server:reqids_size(ReqIDs0) of
-        0 when LastAppReason =:= false ->
-            {ok, lists:reverse(Started0)};
-        0 ->
-            _ = [stop(App) || App <- Started0],
-            {error, LastAppReason};
-        _ ->
-            case wait_one_enqueued(ReqIDs0, Started0) of
-                {ok, _App, ReqIDs1, Started1} ->
-                    wait_all_enqueued(ReqIDs1, Started1, LastAppReason);
-                {error, NewAppReason, ReqIDs1} ->
-                    wait_all_enqueued(ReqIDs1, Started0, NewAppReason)
-            end
+    case build_dependency_graph(Applications, all) of
+        {ok, Graph} -> traverse({start, Type}, Mode, Graph);
+        {error, _} = Error -> Error
     end.
 
 -spec start(Application) -> 'ok' | {'error', Reason} when
@@ -388,6 +271,24 @@ permit(Application, Bool) ->
 
 stop(Application) ->
     application_controller:stop_application(Application).
+
+-spec ensure_all_stopped(Applications) -> {'ok', Applications} | {'error', Reason} when
+    Applications :: [atom()],
+    Reason :: term().
+    
+ensure_all_stopped(Applications) ->
+    ensure_all_stopped(Applications, serial).
+
+-spec ensure_all_stopped(Applications, Mode) -> {'ok', Applications} | {'error', Reason} when
+    Applications :: [atom()],
+    Mode :: serial | concurrent,
+    Reason :: term().
+    
+ensure_all_stopped(Applications, Mode) ->
+    case build_dependency_graph(Applications, restricted) of
+        {ok, Graph} -> traverse(stop, Mode, Graph);
+        {error, _} = Error -> Error
+    end.
 
 -spec which_applications() -> [{Application, Description, Vsn}] when
       Application :: atom(),
@@ -589,3 +490,223 @@ start_type() ->
 %% Internal
 get_appl_name(Name) when is_atom(Name) -> Name;
 get_appl_name({application, Name, _}) when is_atom(Name) -> Name.
+
+-spec build_dependency_graph([atom()], all | restricted) -> {ok, graph()} | {error, term()}.
+
+build_dependency_graph(Apps, Mode) ->
+    AllowedApps =
+        case Mode of
+            all -> all;
+            restricted -> #{App => [] || App <- Apps}
+        end,
+    build_dependency_graph(
+        [{App, true} || App <- Apps], 
+        AllowedApps, 
+        #{}, 
+        _Parents = #{}, 
+        _Children = #{}).
+
+-spec build_dependency_graph(
+        [{atom(), boolean()}], 
+        all | #{atom() => []}, 
+        #{atom() => boolean()}, #{atom() => #{atom() => []}}, 
+        #{atom() => #{atom() => boolean()}}) -> {ok, graph()} | {error, term()}.
+build_dependency_graph([], _, _Seen, Parents, Children) ->
+    {ok, #{parents => Parents, children => Children}};
+build_dependency_graph([{App, _} | NextApps], AllowedApps, Seen, Parents, Children) 
+  when erlang:is_map_key(App, Seen) ->
+    build_dependency_graph(NextApps, AllowedApps, Seen, Parents, Children);
+build_dependency_graph([{App, Required} | NextApps0], AllowedApps, Seen, Parents0, Children0) ->
+    case ensure_loaded(App) of
+        {ok, Name} ->
+            {ok, ChildApps0} = get_key(Name, applications),
+            {ok, OptionalApps0} = get_key(Name, optional_applications),
+            ChildApps1 = [ChildApp || ChildApp <- ChildApps0, is_allowed(ChildApp, AllowedApps)],
+            OptionalApps1 = [OptionalApp || OptionalApp <- OptionalApps0, is_allowed(OptionalApp, AllowedApps)],
+            ChildApps2 =
+                #{
+                  ChildApp => true
+                  || ChildApp <- ChildApps1,
+                     not maps:is_key(ChildApp, Seen) orelse not maps:get(ChildApp, Seen)
+                 },
+            OptionalApps2 =
+                #{
+                  ChildApp => true
+                  || ChildApp <- OptionalApps1,
+                     not maps:is_key(ChildApp, Seen)
+                 },
+            NextApps1 = maps:to_list(maps:merge(OptionalApps2, ChildApps2)) ++ NextApps0,
+            %% update graph
+            AllChildren = maps:merge(
+                            #{OptionalApp => false || OptionalApp <- OptionalApps1},
+                            #{ChildApp => true || ChildApp <- ChildApps1}
+                           ),
+            Children1 = Children0#{App => AllChildren},
+            Parents1 = maps:merge(
+                         Parents0,
+                         #{
+                           ChildApp => (maps:get(ChildApp, Parents0, #{}))#{App => []}
+                           || ChildApp := _ <- AllChildren
+                          }
+                        ),
+            Parents2 = Parents1#{App => maps:get(App, Parents1, #{})},
+            build_dependency_graph(
+                NextApps1,
+                AllowedApps,
+                Seen#{App => Required},
+                Parents2,
+                Children1);
+        {error, {"no such file or directory", _}} when not Required ->
+            build_dependency_graph(
+                NextApps0,
+                AllowedApps,
+                Seen,
+                Parents0,
+                Children0);
+        {error, Reason} ->
+            {error, {App, Reason}}
+    end.
+
+-spec is_allowed(atom(), all | #{atom() => []}) -> boolean().
+is_allowed(_App, all) -> true;
+is_allowed(App, AllowedApps) -> maps:is_key(App, AllowedApps).
+
+-spec traverse(action(), mode(), graph()) ->
+          {ok, [atom()]} | {error, term()}.
+traverse(Action = {start, _}, Mode, #{children := Children}) ->
+    traverse(Action, Mode, Children, gen_server:reqids_new(), _Started = []);
+traverse(stop, Mode, #{parents := Parents}) ->
+    traverse(stop, Mode, Parents, gen_server:reqids_new(), _Stopped = []).
+
+-spec traverse(
+        action(),
+        mode(),
+        #{atom() => #{atom() => _}},
+        gen_server:request_id_collection(),
+        [atom()]
+       ) ->
+          {ok, [atom()]} | {error, term()}.
+traverse(Action, Mode, Graph0, ReqIDs0, Done0) ->
+    case maps:size(Graph0) of
+        0 ->
+            case wait_all_enqueued(ReqIDs0, Done0, false) of
+                {ok, Processed} ->
+                    {ok, lists:reverse(Processed)};
+                {error, {Reason, Processed}} ->
+                    application_action_cleanup(Action, Processed, ReqIDs0, Mode),
+                    {error, Reason}
+            end;
+        _ ->
+            case [App || App := Children <- Graph0, maps:size(Children) == 0] of
+                [] ->
+                    case wait_one_enqueued(ReqIDs0, Done0) of
+                        {ok, ReadyApp, ReqIDs1, Done1} ->
+                            Graph1 = #{App => maps:without([ReadyApp], Children) || App := Children <- Graph0},
+                            traverse(Action, Mode, Graph1, ReqIDs1, Done1);
+                        {error, Reason, ReqIDs1} ->
+                            application_action_cleanup(Action, Done0, ReqIDs1, Mode),
+                            {error, Reason}
+                    end;
+                NextApps ->
+                    case application_action_do(Action, Mode, NextApps, [], ReqIDs0) of
+                        {ok, {ReqIDs1, Processed}} ->
+                            Graph1 =
+                                #{
+                                  App => maps:without([ProcessedApp || {ProcessedApp, _} <- Processed], Children)
+                                  || App := Children <- Graph0
+                                 },
+                            Graph2 = maps:without(NextApps, Graph1),
+                            traverse(
+                              Action,
+                              Mode,
+                              Graph2,
+                              ReqIDs1,
+                              [ProcessedApp || {ProcessedApp, StartedOrStopped} <- Processed, StartedOrStopped] ++
+                                  Done0
+                             );
+                        {error, {Reason, Processed0}} ->
+                            Processed1 = [
+                                          ProcessedApp
+                                          || {ProcessedApp, StartedOrStopped} <- Processed0, StartedOrStopped
+                                         ],
+                            application_action_cleanup(Action, Processed1 ++ Done0, ReqIDs0, Mode),
+                            {error, Reason}
+                    end
+            end
+    end.
+
+-spec application_action_cleanup(action(), [atom()], gen_server:request_id_collection(), mode()) -> ok.
+application_action_cleanup({start, _}, Applications0, ReqIDs, Mode) ->
+    _ = case wait_all_enqueued(ReqIDs, Applications0, false) of
+        {ok, Applications1} -> ensure_all_stopped(Applications1, Mode);
+        {error, {_LastAppReason, Applications1}} -> ensure_all_stopped(Applications1, Mode)
+    end,
+    ok;
+application_action_cleanup(stop, _, ReqIDs, _) ->
+    _ = wait_all_enqueued(ReqIDs, [], false),
+    ok.
+
+-spec application_action_do(action(), mode(), [atom()], [{atom(), boolean()}], gen_server:request_id_collection()) ->
+          {ok, {gen_server:request_id_collection(), [{atom(), boolean()}]}}
+              | {error, {term(), [{atom(), boolean()}]}}.
+application_action_do(_, _, [], Processed, ReqIDs) ->
+    {ok, {ReqIDs, Processed}};
+application_action_do({start, RestartType}, serial, [App | Rest], Started, ReqIDs) ->
+    case application_controller:start_application(App, RestartType) of
+        ok ->
+            application_action_do({start, RestartType}, serial, Rest, [{App, true} | Started], ReqIDs);
+        {error, {already_started, App}} ->
+            application_action_do({start, RestartType}, serial, Rest, [{App, false} | Started], ReqIDs);
+        {error, Reason} ->
+            {error, {{App, Reason}, Started}}
+    end;
+application_action_do({start, RestartType}, concurrent, [App | Rest], Started, ReqIDs0) ->
+    ReqId = application_controller:start_application_request(App, RestartType),
+    ReqIDs1 = gen_server:reqids_add(ReqId, App, ReqIDs0),
+    application_action_do({start, RestartType}, concurrent, Rest, Started, ReqIDs1);
+application_action_do(stop, serial, [App | Rest], Stopped, ReqIDs) ->
+    case application_controller:stop_application(App) of
+        ok -> application_action_do(stop, serial, Rest, [{App, true} | Stopped], ReqIDs);
+        {error, {not_started, App}} -> application_action_do(stop, serial, Rest, [{App, false} | Stopped], ReqIDs);
+        {error, Reason} -> {error, {{App, Reason}, Stopped}}
+    end;
+application_action_do(stop, concurrent, [App | Rest], Stopped, ReqIDs0) ->
+    ReqId = application_controller:stop_application_request(App),
+    ReqIDs1 = gen_server:reqids_add(ReqId, App, ReqIDs0),
+    application_action_do(stop, concurrent, Rest, Stopped, ReqIDs1).
+
+-spec wait_one_enqueued(gen_server:request_id_collection(), [atom()]) ->
+          {ok, atom(), gen_server:request_id_collection(), [atom()]}
+              | {error, {atom(), term()}, gen_server:request_id_collection()}.
+wait_one_enqueued(ReqIDs0, Processed) ->
+    case gen_server:wait_response(ReqIDs0, infinity, true) of
+        {{reply, ok}, App, ReqIDs1} when is_atom(App) ->
+            {ok, App, ReqIDs1, [App | Processed]};
+        {{reply, {error, {already_started, App}}}, App, ReqIDs1} when is_atom(App) ->
+            {ok, App, ReqIDs1, Processed};
+        {{reply, {error, {not_started, App}}}, App, ReqIDs1} when is_atom(App) ->
+            {ok, App, ReqIDs1, Processed};
+        {{reply, {error, Reason}}, App, ReqIDs1} when is_atom(App) ->
+            {error, {App, Reason}, ReqIDs1};
+        {{error, {Reason, _Ref}}, _App, _ReqIDs1} ->
+            exit(Reason);
+        no_request ->
+            exit(deadlock)
+    end.
+
+-spec wait_all_enqueued(gen_server:request_id_collection(), [atom()], false | term()) ->
+          {ok, [atom()]} | {error, {term(), [atom()]}}.
+wait_all_enqueued(ReqIDs0, Processed0, LastAppReason) ->
+    case gen_server:reqids_size(ReqIDs0) of
+        0 when LastAppReason =:= false ->
+            {ok, Processed0};
+        0 ->
+            {error, {LastAppReason, Processed0}};
+        _ ->
+            case wait_one_enqueued(ReqIDs0, Processed0) of
+                {ok, _App, ReqIDs1, Processed1} ->
+                    wait_all_enqueued(ReqIDs1, Processed1, LastAppReason);
+                {error, NewAppReason, ReqIDs1} ->
+                    wait_all_enqueued(ReqIDs1, Processed0, NewAppReason)
+            end
+    end.
