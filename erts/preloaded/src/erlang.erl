@@ -8053,25 +8053,10 @@ unreachable destination `Dest` (of correct type).
 """.
 -doc #{ group => processes }.
 -spec erlang:send(Dest, Msg) -> Msg when
-      Dest :: send_destination() | [pid()],
+      Dest :: send_destination(),
       Msg :: term().
-send([], Msg) ->
-    Msg;
-send([Dest], Msg) ->
-    send(Dest, Msg);
-send(Dest, Msg) when erlang:is_list(Dest) ->
-    Groups = maps:groups_from_list(fun erlang:node/1, Dest),
-    maps:foreach(fun(N, Ps) when N =:= erlang:node() -> lists:foreach(fun(P) -> P ! Msg end, Ps);
-                    (_N, Ps) -> case erts_internal:multisend(Ps, Msg) of
-                                    nomultisend ->
-                                        lists:foreach(fun(P) -> P ! Msg end, Ps);
-                                    _ -> nil
-                                end
-                 end,
-                 Groups),
-    Msg;
-send(Dest, Msg) ->
-    erts_internal:send(Dest, Msg).
+send(_Dest,_Msg) ->
+    erlang:nif_error(undefined).
 
 -doc """
 Either sends a message and returns `ok`, or does not send the message but
@@ -8104,8 +8089,8 @@ Options:
       Msg :: term(),
       Options :: [nosuspend | noconnect],
       Res :: ok | nosuspend | noconnect.
-send(Dest, Msg, Options) ->
-    erts_internal:send(Dest, Msg, Options).
+send(_Dest,_Msg,_Options) ->
+    erlang:nif_error(undefined).
 
 %% Not documented
 -doc false.

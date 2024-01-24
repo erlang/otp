@@ -30,8 +30,6 @@
 -module(erts_internal).
 -moduledoc false.
 
--export([send/2, send/3, multisend/2]).
-
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
 -export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
@@ -1151,13 +1149,4 @@ term_to_string(T) ->
     Limit :: undefined | pos_integer().
 
 term_to_string(_T, _Limit) ->
-    erlang:nif_error(undefined).
-
-send(_Dest, _Msg) ->
-    erlang:nif_error(undefined).
-
-send(_Dest, _Msg, _Options) ->
-    erlang:nif_error(undefined).
-
-multisend(_Pids, _Msg) ->
     erlang:nif_error(undefined).

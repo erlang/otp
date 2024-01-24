@@ -602,8 +602,8 @@ void BeamModuleAssembler::emit_send() {
      * do it in the loader. */
     a.bind(entry);
 
-    a.ldr(ARG4, embed_constant(BIF_TRAP_EXPORT(BIF_erts_internal_send_2), disp32K));
-    a.ldr(ARG8, embed_constant(erts_internal_send_2, disp32K));
+    a.ldr(ARG4, embed_constant(BIF_TRAP_EXPORT(BIF_send_2), disp32K));
+    a.ldr(ARG8, embed_constant(send_2, disp32K));
     a.adr(ARG3, entry);
 
     fragment_call(ga->get_call_light_bif_shared());
