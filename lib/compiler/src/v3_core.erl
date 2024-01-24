@@ -648,16 +648,18 @@ exprs([], St) -> {[],St}.
 %% exprs([Expr], State) -> {[Cexpr],State}.
 %%  Flatten top-level exprs while handling maybe_match operators.
 
-maybe_match_exprs([{maybe_match,L,P0,E0}|Es0], Fail, St0) ->
+maybe_match_exprs([{maybe_match,L,P,E}|Es], Fail, St) ->
+    maybe_match_exprs([{maybe_match,L,P,[],E}|Es], Fail, St);
+maybe_match_exprs([{maybe_match,L,P0,G,E0}|Es0], Fail, St0) ->
     {Es1,St1} = maybe_match_exprs(Es0, Fail, St0),
     {C,St2} =
         case Es1 of
             [] ->
                 {AllName,StInt} = new_var_name(St1),
                 All = {var,L,AllName},
-                clause({clause,L,[{match,L,P0,All}],[],[All]}, StInt);
+                clause({clause,L,[{match,L,P0,All}],G,[All]}, StInt);
             [_|_] ->
-                {C0,StInt} = clause({clause,L,[P0],[],[{nil,0}]}, St1),
+                {C0,StInt} = clause({clause,L,[P0],G,[{nil,0}]}, St1),
                 {C0#iclause{body=Es1},StInt}
         end,
     {E1,Eps,St3} = novars(E0, St2),

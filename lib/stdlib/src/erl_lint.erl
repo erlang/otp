@@ -2614,8 +2614,10 @@ expr({match,_Anno,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Pnew,St} = pattern(P, vtupdate(Evt, Vt), St1),
     {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
-expr({maybe_match,Anno,P,E}, Vt, St0) ->
-    expr({match,Anno,P,E}, Vt, St0);
+expr({maybe_match,Anno,P,G,E}, Vt, St0) ->
+    {Evt, St1} = expr({match,Anno,P,E}, Vt, St0),
+    {Gvt,St2} = guard(G, Evt, St1),
+    {vtupdate(Gvt, Evt), St2};
 expr({'maybe',Anno,Es}, Vt, St) ->
     %% No variables are exported.
     {Evt0, St1} = exprs(Es, Vt, St),

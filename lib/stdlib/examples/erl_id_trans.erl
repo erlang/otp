@@ -513,10 +513,11 @@ expr({'maybe',MaybeAnno,Es0,{'else',ElseAnno,Cs0}}) ->
     Es = exprs(Es0),
     Cs = clauses(Cs0),
     {'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}};
-expr({maybe_match,Anno,P0,E0}) ->
+expr({maybe_match,Anno,P0,G0,E0}) ->
     E = expr(E0),
+    G = guard(G0),
     P = pattern(P0),
-    {maybe_match,Anno,P,E};
+    {maybe_match,Anno,P,G,E};
 expr({match,Anno,P0,E0}) ->
     E1 = expr(E0),
     P1 = pattern(P0),

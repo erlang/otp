@@ -142,7 +142,7 @@ exprs([E|Es], Bs0, Lf, Ef, RBs, FUVs) ->
 %%	 {failure,Value}
 %%  or raises an exception.
 
-maybe_match_exprs([{maybe_match,Anno,Lhs,Rhs0}|Es], Bs0, Lf, Ef) ->
+maybe_match_exprs([{maybe_match,Anno,Lhs,_G,Rhs0}|Es], Bs0, Lf, Ef) ->
     {value,Rhs,Bs1} = expr(Rhs0, Bs0, Lf, Ef, none),
     case match(Lhs, Rhs, Anno, Bs1, Bs1, Ef) of
 	{match,Bs} ->
