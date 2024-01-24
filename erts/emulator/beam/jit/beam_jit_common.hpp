@@ -51,6 +51,7 @@ extern "C"
 
 #include "beam_jit_args.hpp"
 #include "beam_jit_types.hpp"
+#include "beam_jit_register_cache.hpp"
 
 using namespace asmjit;
 
