@@ -851,14 +851,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_notification_filter() -> Filters</name>
-      <name since="">which_notification_filter(Agent) -> Filters</name>
+      <name name="which_notification_filter" arity="0" clause_i="1" since=""/>
+      <name name="which_notification_filter" arity="1" clause_i="1" since=""/>
       <fsummary>Which notification filter</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Filters = [filter_id()]</v>
-        <v>filter_id() = term()</v>
-      </type>
       <desc>
         <p>List all notification filters in an agent.</p>
 

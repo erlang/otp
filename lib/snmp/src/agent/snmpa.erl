@@ -1155,9 +1155,19 @@ unregister_notification_filter(Agent, Id) ->
     snmpa_agent:unregister_notification_filter(Agent, Id).
 
  
+-spec which_notification_filter() -> Filters when
+      Filters  :: [FilterId],
+      FilterId :: nfilter_id().
+
 which_notification_filter() ->
     which_notification_filter(snmp_master_agent).
  
+-spec which_notification_filter(Agent) -> Filters when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Filters   :: [FilterId],
+      FilterId  :: nfilter_id().
+
 which_notification_filter(Agent) ->
     snmpa_agent:which_notification_filter(Agent).
  
