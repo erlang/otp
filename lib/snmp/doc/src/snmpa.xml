@@ -377,18 +377,12 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_mibs() -> Mibs</name>
-      <name since="">which_mibs(Agent) -> Mibs</name>
+      <name name="which_mibs" arity="0" clause_i="1" since=""/>
+      <name name="which_mibs" arity="1" clause_i="1" since=""/>
       <fsummary>Get a list of all the loaded mibs</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Mibs = [{MibName, MibFile}]</v>
-        <v>MibName = atom()</v>
-        <v>MibFile = string()</v>
-      </type>
       <desc>
         <p>Retrieve the list of all the mibs loaded into this agent. Default 
-          is the master agent. </p>
+	is the master agent. </p>
                     
         <marker id="whereis_mib"></marker>
       </desc>

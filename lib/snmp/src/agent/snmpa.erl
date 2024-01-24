@@ -648,7 +648,20 @@ unload_mibs(Agent, Mibs, Force)
     snmpa_agent:unload_mibs(Agent, Mibs, Force).
 
 
+-spec which_mibs() -> Mibs when
+      Mibs    :: [{MibName, MibFile}],
+      MibName :: atom(),
+      MibFile :: string().
+
 which_mibs()      -> which_mibs(snmp_master_agent).
+
+-spec which_mibs(Agent) -> Mibs when
+      Agent     :: pid() | AgentName, 
+      AgentName :: atom(),
+      Mibs      :: [{MibName, MibFile}],
+      MibName   :: atom(),
+      MibFile   :: string().
+
 which_mibs(Agent) -> snmpa_agent:which_mibs(Agent).
 
 
