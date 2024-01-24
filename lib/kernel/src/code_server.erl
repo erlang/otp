@@ -1132,11 +1132,11 @@ try_finish_module(File, Mod, PC, EnsureLoaded, From, St) ->
             fun(_, S0) ->
                 case erlang:module_loaded(Mod) of
                     true ->
-                        reply_loading(EnsureLoaded, Mod, {module, Mod}, St);
+                        reply_loading(EnsureLoaded, Mod, {module, Mod}, S0);
                     false when S0#state.mode =:= interactive ->
                         try_finish_module_1(File, Mod, PC, From, EnsureLoaded, S0);
                     false ->
-                        reply_loading(EnsureLoaded, Mod, {error, embedded}, St)
+                        reply_loading(EnsureLoaded, Mod, {error, embedded}, S0)
                 end
             end
     end,
