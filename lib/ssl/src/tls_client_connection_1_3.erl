@@ -712,11 +712,10 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
 
         State = State3#state{
                   connection_states = ConnectionStates,
-                  session = Session0#session{session_id =
-                                                 Hello#client_hello.session_id},
-                  handshake_env =
-                      HsEnv#handshake_env{tls_handshake_history = HHistory},
-                  key_share = ClientKeyShare},
+                  session = Session0#session{session_id = Hello#client_hello.session_id},
+                  handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory,
+                                                      key_share = ClientKeyShare}
+                  },
 
         %% If it is a hello_retry and middlebox mode is
         %% used assert the change_cipher_spec  message
@@ -738,11 +737,11 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                   random = Random,
                                   session_id = SessionId,
                                   extensions = Extensions} = ServerHello,
-           #state{key_share = ClientKeyShare,
-                  ssl_options = #{ciphers := ClientCiphers,
-                                  supported_groups := ClientGroups0,
-                                  session_tickets := SessionTickets,
-                                  use_ticket := UseTicket}} = State0) ->
+                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare},
+                           ssl_options = #{ciphers := ClientCiphers,
+                                           supported_groups := ClientGroups0,
+                                           session_tickets := SessionTickets,
+                                           use_ticket := UseTicket}} = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ClientGroups =
@@ -941,7 +940,6 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
                                                    own_certificates = OwnCerts},
                                 ssl_options = #{} = _SslOpts,
-                                key_share = _KeyShare,
                                 handshake_env =
                                     #handshake_env{tls_handshake_history =
                                                        _HHistory0},

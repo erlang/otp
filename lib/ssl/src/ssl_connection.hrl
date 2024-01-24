@@ -90,6 +90,7 @@
                                                  | 'undefined',
                         client_certificate_status = not_requested :: not_requested | requested |
                                                                      empty | needs_verifying | verified,
+                        key_share,
                         %% Buffer of TLS/DTLS records, used during the TLS
                         %% handshake to when possible pack more than one TLS
                         %% record into the underlying packet
@@ -132,7 +133,6 @@
                 handshake_env         :: #handshake_env{} | secret_printout(),
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
-                key_share,
                 %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 recv = #recv{}        :: #recv{},
                 connection_states     :: ssl_record:connection_states() | secret_printout(),

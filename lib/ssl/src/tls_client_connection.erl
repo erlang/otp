@@ -242,11 +242,12 @@ initial_hello({call, From}, {start, Timeout},
                   session = Session,
                   handshake_env =
                       HsEnv1#handshake_env{
+                        key_share = KeyShare,
                         stapling_state =
                             StaplingState0#{ocsp_nonce => OcspNonce,
                                             configured => StaplingKeyPresent}},
                   recv = State5#state.recv#recv{from = From}
-                  key_share = KeyShare},
+                 },
         NextState = next_statem_state(Versions),
         Connection:next_event(NextState, no_record, State,
                               [{{timeout, handshake}, Timeout, close}])

@@ -511,13 +511,14 @@ send_hello_flight({start_handshake, PSK0},
                            #state{connection_states = ConnectionStates0,
                                   handshake_env =
                                       #handshake_env{
+                                         key_share = KeyShare,
                                          early_data_accepted = EarlyDataAccepted},
                                   static_env = #static_env{protocol_cb = Connection},
                                   session = #session{session_id = SessionId,
                                                      ecc = SelectedGroup,
                                                      dh_public_value = ClientPublicKey},
-                                  ssl_options = #{} = SslOpts,
-                                  key_share = KeyShare} = State0) ->
+                                  ssl_options = #{} = SslOpts
+                                 } = State0) ->
     ServerPrivateKey = select_server_private_key(KeyShare),
 
     #{security_parameters := SecParamsR} =
