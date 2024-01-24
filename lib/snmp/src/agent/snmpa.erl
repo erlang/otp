@@ -634,10 +634,23 @@ which_mibs()      -> which_mibs(snmp_master_agent).
 which_mibs(Agent) -> snmpa_agent:which_mibs(Agent).
 
 
+-spec whereis_mib(MibName) -> {ok, MibFile} | {error, Reason} when
+      MibName :: atom(),
+      MibFile :: string(),
+      Reason  :: term().
+
 whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
-whereis_mib(Agent, Mib) when is_atom(Mib) ->
-    snmpa_agent:whereis_mib(Agent, Mib).
+
+-spec whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason} when
+      Agent     :: pid() | AgentName, 
+      AgentName :: atom(),
+      MibName   :: atom(),
+      MibFile   :: string(),
+      Reason    :: term().
+
+whereis_mib(Agent, MibName) when is_atom(MibName) ->
+    snmpa_agent:whereis_mib(Agent, MibName).
 
 
 %% -

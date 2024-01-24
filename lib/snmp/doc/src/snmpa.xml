@@ -395,15 +395,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">whereis_mib(MibName) -> {ok, MibFile} | {error, Reason}</name>
-      <name since="">whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason}</name>
+      <name name="whereis_mib" arity="1" clause_i="1" since=""/>
+      <name name="whereis_mib" arity="2" clause_i="1" since=""/>
       <fsummary>Get the path to the mib file</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>MibName = atom()</v>
-        <v>MibFile = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Get the full path to the (compiled) mib-file. </p>
 
