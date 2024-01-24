@@ -942,61 +942,20 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="">unregister_subagent(Agent, SubagentOidOrPid) -> ok | {ok, SubAgentPid} | {error, Reason}</name>
+      <name name="unregister_subagent" arity="2" clause_i="1" since=""/>
       <fsummary>Unregister a sub-agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>SubTreeOidorPid = oid() | pid()</v>
-      </type>
       <desc>
         <p>Unregister a sub-agent.  If the second argument is a pid,
-          then that sub-agent will be unregistered from all trees in
-          <c>Agent</c>. </p>
+	then that sub-agent will be unregistered from all trees in
+	<c>Agent</c>. </p>
 
-          <marker id="send_notification2"></marker>
+	<marker id="send_notification2"></marker>
       </desc>
     </func>
 
-
     <func>
       <name name="send_notification2" arity="3" clause_i="1" since="OTP R14B03"/>
-      <!--
-      <name since="OTP R14B03">send_notification2(Agent, Notification, SendOpts) -> void()</name>
-      -->
       <fsummary>Send notification</fsummary>
-      <!--
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Notification = atom()</v>
-        <v>SendOpts = [send_option()]</v>
-	<v>send_option() = {receiver, receiver()} |
-	                   {name, notify_name()} |
-			   {context, context_name()} |
-			   {varbinds, varbinds()} |
-			   {local_engine_id, string()} |
-	                   {extra, extra_info()}</v>
-        <v>receiver() = no_receiver | {tag(), tag_receiver()} | notification_delivery_info()</v>
-        <v>tag() = term(()</v>
-        <v>tag_receiver() = pid() | registered_name() | {Mod, Func, Args}</v>
-        <v>registered_name() = atom()</v>
-        <v>Mod = atom()</v>
-        <v>Func = atom()</v>
-        <v>Args = list()</v>
-        <v>notify_name() = string()</v>
-        <v>context_name() = string()</v>
-        <v>varbinds() = [varbind()]</v>
-	<v>varbind() = {variable(), value()} |
-	               {{process_oid(), variable()}, value()} |
-	               {column(), row_index(), value()} |</v>
-        <v>variable() = aliasname() | oid()</v>
-        <v>aliasname() = atom()</v>
-        <v>process_oid() = keep (default) | truncate</v>
-        <v>value() = term()</v>
-        <v>column() = atom()</v>
-        <v>row_index() = [int()]</v>
-        <v>extra_info() = term()</v>
-      </type>
-      -->
       <desc>
         <p>Send the notification <c>Notification</c> to the management 
 	targets defined for notify-name (<c>name</c>) in the 

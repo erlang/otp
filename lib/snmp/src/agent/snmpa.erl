@@ -1470,8 +1470,16 @@ discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler,
 register_subagent(Agent, SubTree, SubAgent) ->
     snmpa_agent:register_subagent(Agent, SubTree, SubAgent).
 
+
+-spec unregister_subagent(Agent, SubAgentOidOrPid) -> ok | {error, Reason} when
+      Agent            :: pid() | AgentName,
+      AgentName        :: atom(),
+      SubAgentOidOrPid :: snmp:oid() | pid(),
+      Reason           :: term().
+
 unregister_subagent(Agent, SubOidOrPid) ->
     snmpa_agent:unregister_subagent(Agent, SubOidOrPid).
+
 
 system_start_time() ->
     [{_, Time}] = ets:lookup(snmp_agent_table, system_start_time),
