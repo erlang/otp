@@ -527,11 +527,20 @@ load_mibs(Agent, Mibs, Force)
     snmpa_agent:load_mibs(Agent, Mibs, Force).
 
 
+-spec unload_mib(Mib) ->
+          ok | {error, Reason} when
+      Mib    :: string(),
+      Reason :: not_loaded | term().
+
 unload_mib(Mib) ->
     unload_mib(snmp_master_agent, Mib).
 
--spec unload_mib(Agent :: pid() | atom(), Mib :: string()) ->
-    ok | {error, Reason :: not_loaded | term()}.
+-spec unload_mib(Agent, Mib) ->
+          ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Mib       :: string(),
+      Reason    :: not_loaded | term().
 
 unload_mib(Agent, Mib) ->
     case unload_mibs(Agent, [Mib]) of
