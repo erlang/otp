@@ -75,6 +75,7 @@
 -export_type([
               admin_string/0,
               engine_id/0,
+              max_message_size/0,
               message_processing_model/0,
               security_model/0,
               security_level/0
@@ -83,6 +84,7 @@
 
 -type admin_string()             :: string().
 -type engine_id()                :: string().
+-type max_message_size()         :: 484 .. 2147483647.
 -type message_processing_model() :: v1 | v2c | v3.
 -type security_model()           :: any | v1 | v2c | usm.
 -type security_level()           :: noAuthNoPriv |

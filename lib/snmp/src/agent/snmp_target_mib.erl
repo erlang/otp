@@ -38,7 +38,7 @@
               tag_list/0,
               params/0,
               tmask/0,
-              max_message_size/0
+              mms/0
              ]).
 
 -include_lib("snmp/include/snmp_types.hrl").
@@ -58,7 +58,7 @@
 -type tag_list()         :: string().
 -type params()           :: snmp_framework_mib:admin_string().
 -type tmask()            :: snmpa_conf:transportAddressMask().
--type max_message_size() :: 484..65535.
+-type mms()              :: 484..65535.
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs
@@ -414,7 +414,7 @@ table_del_row(Tab, Key) ->
       Params   :: params(),
       EngineId :: snmp_framework_mib:engine_id(),
       TMask    :: tmask(),
-      MMS      :: max_message_size(),
+      MMS      :: snmp_framework_mib:max_message_size(),
       Key      :: term(),
       Reason   :: term();
               (Name, Ip, Port, Timeout, Retry, TagList, Params,
@@ -428,7 +428,7 @@ table_del_row(Tab, Key) ->
       Params   :: params(),
       EngineId :: snmp_framework_mib:engine_id(),
       TMask    :: tmask(),
-      MMS      :: max_message_size(),
+      MMS      :: snmp_framework_mib:max_message_size(),
       Key      :: term(),
       Reason   :: term().
       
@@ -458,7 +458,7 @@ add_addr(
       Params   :: params(),
       EngineId :: snmp_framework_mib:engine_id(),
       TMask    :: tmask(),
-      MMS      :: max_message_size(),
+      MMS      :: snmp_framework_mib:max_message_size(),
       Key      :: term(),
       Reason   :: term().
       

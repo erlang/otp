@@ -64,6 +64,22 @@
     </datatype>
 
     <datatype>
+      <name name="max_message_size"/>
+      <desc>
+	<note>
+	  <p>"The maximum length in octets of an SNMP message
+	      which this SNMP engine can send or receive and
+	      process, determined as the minimum of the maximum
+              message size values supported among all of the
+              transports available to and supported by the engine."</p>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER (484..2147483647)]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="message_processing_model"/>
       <desc>
 	<note>

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,17 +122,18 @@
 %%-----------------------------------------------------------------
 
 -type register_timeout() :: pos_integer() | snmp:snmp_timer().
--type agent_config() :: {engine_id,        snmp:engine_id()}   | % Mandatory
-			{address,          inet:ip_address()}  | % Mandatory
-			{port,             inet:port_number()} | % Optional
-			{tdomain,          snmp:tdomain()}     | % Optional
-			{community,        snmp:community()}   | % Optional
-			{timeout,          register_timeout()} | % Optional
-			{max_message_size, snmp:mms()}         | % Optional
-			{version,          snmp:version()}     | % Optional
-			{sec_moduel,       snmp:sec_model()}   | % Optional
-			{sec_name,         snmp:sec_name()}    | % Optional
-			{sec_level,        snmp:sec_level()}.    % Optional
+-type agent_config() ::
+        {engine_id,        snmp:engine_id()}   | % Mandatory
+        {address,          inet:ip_address()}  | % Mandatory
+        {port,             inet:port_number()} | % Optional
+        {tdomain,          snmp:tdomain()}     | % Optional
+        {community,        snmp:community()}   | % Optional
+        {timeout,          register_timeout()} | % Optional
+        {max_message_size, snmp:mms()}         | % Optional
+        {version,          snmp:version()}     | % Optional
+        {sec_moduel,       snmp:sec_model()}   | % Optional
+        {sec_name,         snmp:sec_name()}    | % Optional
+        {sec_level,        snmp:sec_level()}.    % Optional
 -type target_name() :: string().
 -type pdu_type() :: snmp:pdu_type() | 'trappdu'.
 

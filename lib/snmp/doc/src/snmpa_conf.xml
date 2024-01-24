@@ -181,6 +181,114 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="agent_entry"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="range"/>
+      <desc>
+	<p>
+	  <c>Min &lt; Max</c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ranges"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="port_info"/>
+      <desc>
+	<p>
+	  Port number <c>0</c> (zero) cannot be specified directly
+	  (its used internally). Instead the atom <c>'system'</c>
+	  should be used.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="ip_address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="snmp_ip_address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transport_address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="extended_transport_address"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="transport_opts"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="intAgentTransport"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -233,19 +341,41 @@ word() = 0..65535
 
   <funcs>
     <func>
-      <name since="">agent_entry(Tag, Val) -> agent_entry()</name>
+      <name name="agent_entry" arity="2" clause_i="1" since=""/>
       <fsummary>Create an agent entry</fsummary>
-      <type>
-        <v>Tag = intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</v>
-        <v>Val = term()</v>
-        <v>agent_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the agent config file, <c>agent.conf</c>. </p>
-        <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
-          see 
+        <p>The type of <c>Val</c> depends on the value of <c>Tag</c>: </p>
+
+	<taglist>
+	  <tag><marker id="intAgentTransports"></marker>
+	  <c><![CDATA[intAgentTransports: ]]></c> <seetype marker="snmp:snmpa_conf#intAgentTransport"><c><![CDATA[snmpa_conf:intAgentTransport()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item></item>
+
+	  <tag><marker id="intAgentUDPPort"></marker>
+	  <c><![CDATA[intAgentUDPPort: ]]></c> <seetype marker="kernel:inet#port_number"><c><![CDATA[inet:port_number()]]></c></seetype> <c><![CDATA[ <optional>]]></c></tag>
+	  <item></item>
+
+	  <!--
+	      Backward Compatibility
+	  <tag><marker id="intAgentMaxPacketSize"></marker>
+	  <c><![CDATA[intAgentMaxPacketSize: ]]></c> <seetype marker="snmp:snmp_framework_mib#max_message_size"><c><![CDATA[snmp_framework_mib:max_message_size()]]></c></seetype> <c><![CDATA[ <optional>]]></c></tag>
+	  <item></item>
+	  -->
+
+	  <tag><marker id="snmpEngineMaxMessageSize"></marker>
+	  <c><![CDATA[snmpEngineMaxMessageSize: ]]></c> <seetype marker="snmp:snmp_framework_mib#max_message_size"><c><![CDATA[snmp_framework_mib:max_message_size()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item></item>
+
+	  <tag><marker id="snmpEngineID"></marker>
+	  <c><![CDATA[snmpEngineID: ]]></c> <seetype marker="snmp:snmp_framework_mib#engine_id"><c><![CDATA[snmp_framework_mib:engine_id()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item></item>
+
+	</taglist>
+
+        <p>See 
           <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
-          for more info. </p>
+	for more info. </p>
 
         <marker id="write_agent_config"></marker>
       </desc>

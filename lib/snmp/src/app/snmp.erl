@@ -76,9 +76,9 @@
 	      snmp_timer/0, 
 
 	      engine_id/0, 
+              mms/0,
 	      tdomain/0, 
 	      community/0, 
-	      mms/0, 
 	      version/0, 
 	      sec_model/0, 
 	      sec_name/0, 
@@ -160,9 +160,9 @@
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
 -type engine_id()     :: snmp_framework_mib:engine_id().
+-type mms()           :: snmp_framework_mib:max_message_size().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
 -type community()     :: snmp_community_mib:name().
--type mms()           :: snmp_target_mib:max_message_size().
 -type version()       :: v1 | v2 | v3.
 -type sec_model()     :: snmp_framework_mib:security_model().
 -type sec_name()      :: snmp_framework_mib:admin_string().

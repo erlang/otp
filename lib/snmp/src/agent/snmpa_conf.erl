@@ -88,7 +88,15 @@
               transportAddress/0,
               transportAddressWithPort/0,
               transportAddressWithoutPort/0,
-              transportAddressMask/0
+              transportAddressMask/0,
+
+              agent_entry/0,
+              range/0,
+              ranges/0,
+              port_info/0,
+              transport_address/0,
+              extended_transport_address/0,
+              intAgentTransport/0
              ]).
 
 -type transportDomain() :: snmp:tdomain().
@@ -134,6 +142,28 @@
 
 -type usm_entry() :: snmp_user_based_sm_mib:usm_entry().
 
+%% -type agent_entry() :: tuple().
+-opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
+
+-type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
+-type ranges()    :: [inet:port_number() | range()].
+-type port_info() :: inet:port_number() | 'system' | range() | ranges().
+
+-type snmp_ip_address()            :: [non_neg_integer()].
+-type ip_address()                 :: inet:ip_address() |
+                                      snmp_ip_address().
+-type transport_address()          :: {ip_address(), inet:port_number()} |
+                                      ip_address().
+-type extended_transport_address() :: {inet:ip_address(), port_info()}.
+-type transport_opts()             :: list().
+
+-type intAgentTransport() ::
+        {transportDomain(), transport_address()} |
+        {transportDomain(), extended_transport_address(), snmpa:transport_kind()} |
+        {transportDomain(), extended_transport_address(), transport_opts()} |
+        {transportDomain(), extended_transport_address(), snmpa:transport_kind(), transport_opts()}.
+
+
 
 -ifndef(version).
 %% This crap is hopefully temporary!
@@ -148,6 +178,14 @@
 %%
 %% ------ agent.conf ------
 %%
+
+-spec agent_entry(Tag, Val) -> AgentEntry when
+      Tag        :: intAgentTransports |
+                    intAgentUDPPort |
+                    snmpEngineMaxMessageSize |
+                    snmpEngineID,
+      Val        :: term(),
+      AgentEntry :: agent_entry().
 
 agent_entry(Tag, Val) ->
     {Tag, Val}.

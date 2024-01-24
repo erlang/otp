@@ -120,11 +120,11 @@
     </datatype>
 
     <datatype>
-      <name name="max_message_size"/>
+      <name name="mms"/>
       <desc>
 	<note>
 	  <p>"The maximum message size value associated with an entry
-	  in the snmpTargetAddrTable."</p>
+	  in the snmpTargetAddrTable.".</p>
 	</note>
 	<p>
 	  <c><![CDATA[Integer32 (484..65535)]]></c>
