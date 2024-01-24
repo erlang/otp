@@ -154,41 +154,6 @@
   </datatypes>
 
 
-
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
-oid() = [byte()] 
-atl_type() = read | write | read_write
-notification_delivery_info() = #snmpa_notification_delivery_info{}
-    ]]></code>
-
-    <p>The <c>oid()</c> type is used to represent an ASN.1 OBJECT IDENTIFIER. </p>
-
-    <p>The record <c><![CDATA[snmpa_notification_delivery_info]]></c> contains the following fields: </p>
-    <taglist>
-      <tag><c><![CDATA[tag = term()]]></c></tag>
-      <item>
-        <p>A user defined identity representing this notification send 
-          operation.</p>
-      </item>
-      <tag><c><![CDATA[mod = module()]]></c></tag>
-      <item>
-        <p>A module implementing the 
-          <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
-          behaviour. The info functions of this module will be called at 
-          various stages of delivery. </p>
-      </item>
-      <tag><c><![CDATA[extra = term()]]></c></tag>
-      <item>
-        <p>This is any extra info the user wants to have supplied 
-          when the functions in the callback module is called. </p>
-      </item>
-    </taglist>
-    
-    <marker id="add_agent_caps"></marker>
-  </section>
-
   <funcs>
     <func>
       <name name="add_agent_caps" arity="2" clause_i="1" since=""/>
