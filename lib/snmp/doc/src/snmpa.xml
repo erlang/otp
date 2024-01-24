@@ -879,14 +879,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">unregister_notification_filter(Id) -> ok | {error, Reason}</name>
-      <name since="">unregister_notification_filter(Agent, Id) -> ok | {error, Reason}</name>
+      <name name="unregister_notification_filter" arity="1" clause_i="1" since=""/>
+      <name name="unregister_notification_filter" arity="2" clause_i="1" since=""/>
       <fsummary>Unregister a notification filter</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Id = filter_id()</v>
-        <v>filter_id() = term()</v>
-      </type>
       <desc>
         <p>Unregister a notification filter. </p>
 

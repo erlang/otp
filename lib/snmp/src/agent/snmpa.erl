@@ -1028,12 +1028,26 @@ register_notification_filter(Id, Mod, Data, Where) when is_atom(Mod) ->
 
 register_notification_filter(Agent, Id, Mod, Data, Where) ->
     snmpa_agent:register_notification_filter(Agent, Id, Mod, Data, Where).
- 
+
+
+-spec unregister_notification_filter(Id) ->
+          ok | {error, Reason} when
+      Id     :: nfilter_id(),
+      Reason :: term().
+
 unregister_notification_filter(Id) ->
     unregister_notification_filter(snmp_master_agent, Id).
- 
+
+-spec unregister_notification_filter(Agent, Id) ->
+          ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Id        :: nfilter_id(),
+      Reason    :: term().
+
 unregister_notification_filter(Agent, Id) ->
     snmpa_agent:unregister_notification_filter(Agent, Id).
+
  
 which_notification_filter() ->
     which_notification_filter(snmp_master_agent).
