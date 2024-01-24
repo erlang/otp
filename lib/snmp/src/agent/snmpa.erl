@@ -288,14 +288,32 @@ get_symbolic_store_db() ->
     snmpa_symbolic_store:get_db().
 
 
+-spec which_aliasnames() -> AliasNames when
+      AliasNames :: [AliasName],
+      AliasName  :: atom().
+
 which_aliasnames() ->
     snmpa_symbolic_store:which_aliasnames().
+
+-spec which_tables() -> Tables when
+      Tables :: [Table],
+      Table  :: atom().
 
 which_tables() ->
     snmpa_symbolic_store:which_tables().
 
+-spec which_variables() -> Variables when
+      Variables :: [Variable],
+      Variable  :: atom().
+
 which_variables() ->
     snmpa_symbolic_store:which_variables().
+
+-spec which_notifications() -> Notifications when
+      Notifications :: [{Name, MibName, Info}],
+      Name          :: atom(),
+      MibName       :: atom(),
+      Info          :: term().
 
 which_notifications() ->
     snmpa_symbolic_store:which_notifications().

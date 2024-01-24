@@ -539,23 +539,18 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_aliasnames() -> Result</name>
+      <name name="which_aliasnames" arity="0" clause_i="1" since=""/>
       <fsummary>Get all alias-names known to the agent</fsummary>
-      <type>
-        <v>Result = [atom()]</v>
-      </type>
       <desc>
         <p>Retrieve all alias-names known to the agent.</p>
-        <marker id="which_tables"></marker>
+
+	<marker id="which_tables"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">which_tables() -> Result</name>
+      <name name="which_tables" arity="0" clause_i="1" since=""/>
       <fsummary>Get all tables known to the agent</fsummary>
-      <type>
-        <v>Result = [atom()]</v>
-      </type>
       <desc>
         <p>Retrieve all tables known to the agent.</p>
 
@@ -582,11 +577,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_variables() -> Result</name>
+      <name name="which_variables" arity="0" clause_i="1" since=""/>
       <fsummary>Get all variables known to the agent</fsummary>
-      <type>
-        <v>Result = [atom()]</v>
-      </type>
       <desc>
         <p>Retrieve all variables known to the agent.</p>
 
@@ -595,14 +587,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">which_notifications() -> Result</name>
+      <name name="which_notifications" arity="0" clause_i="1" since=""/>
       <fsummary>Get all notifications known to the agent</fsummary>
-      <type>
-        <v>Result = [{Name, MibName, Info}]</v>
-        <v>Name = atom()</v>
-        <v>MibName = atom()</v>
-        <v>Info = term()</v>
-      </type>
       <desc>
         <p>Retrieve all notifications (and traps) known to the agent.</p>
 
