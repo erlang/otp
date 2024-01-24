@@ -220,30 +220,62 @@ convert_config(Opts) ->
 %% (properly) for the master agent.
 %%-----------------------------------------------------------------
 
-verbosity(all,Verbosity) -> 
-    catch snmpa_agent:verbosity(sub_agents,Verbosity),
-    catch snmpa_agent:verbosity(master_agent,Verbosity),
-    catch snmpa_agent:verbosity(net_if,Verbosity),
-    catch snmpa_agent:verbosity(mib_server,Verbosity),
-    catch snmpa_agent:verbosity(note_store,Verbosity),
+-spec verbosity(Target, Verbosity) -> snmp:void() when
+      Target    :: all,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: net_if,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: note_store,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: mib_server,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: symbolic_store,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: local_db,
+      Verbosity :: snmp:verbosity();
+               (Target, Verbosity) -> snmp:void() when
+      Target    :: master_agent | Agent,
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Verbosity :: {subagents, snmp:verbosity()};
+               (Agent, Verbosity) -> snmp:void() when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Verbosity :: snmp:verbosity().
+
+verbosity(all = _Target, Verbosity) when is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(sub_agents,   Verbosity),
+    catch snmpa_agent:verbosity(master_agent, Verbosity),
+    catch snmpa_agent:verbosity(net_if,       Verbosity),
+    catch snmpa_agent:verbosity(mib_server,   Verbosity),
+    catch snmpa_agent:verbosity(note_store,   Verbosity),
     catch snmpa_symbolic_store:verbosity(Verbosity),
     catch snmpa_local_db:verbosity(Verbosity);
-verbosity(master_agent,Verbosity) -> 
-    catch snmpa_agent:verbosity(master_agent,Verbosity);
-verbosity(net_if,Verbosity) -> 
-    catch snmpa_agent:verbosity(net_if,Verbosity);
-verbosity(note_store,Verbosity) -> 
-    catch snmpa_agent:verbosity(note_store, Verbosity);
-verbosity(mib_server,Verbosity) -> 
-    catch snmpa_agent:verbosity(mib_server,Verbosity);
-verbosity(symbolic_store,Verbosity) -> 
+verbosity(net_if = Target, Verbosity) when is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(Target, Verbosity);
+verbosity(note_store = Target, Verbosity) when is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(Target, Verbosity);
+verbosity(mib_server = Target, Verbosity) when is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(Target,Verbosity);
+verbosity(symbolic_store = _Target, Verbosity) when is_atom(Verbosity) ->
     catch snmpa_symbolic_store:verbosity(Verbosity);
-verbosity(local_db,Verbosity) -> 
+verbosity(local_db = _Target, Verbosity) when is_atom(Verbosity) ->
     catch snmpa_local_db:verbosity(Verbosity);
-verbosity(Agent,{subagents,Verbosity}) -> 
-    catch snmpa_agent:verbosity(Agent,{sub_agents,Verbosity});
-verbosity(Agent,Verbosity) -> 
-    catch snmpa_agent:verbosity(Agent,Verbosity).
+verbosity(Target, {subagents, Verbosity})
+  when ((Target =:= master_agent) orelse
+        is_pid(Target) orelse
+        is_atom(Target)) andalso
+       is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(Target, {sub_agents, Verbosity});
+verbosity(Target, Verbosity)
+  when (is_pid(Target) orelse is_atom(Target)) andalso
+       is_atom(Verbosity) ->
+    catch snmpa_agent:verbosity(Target, Verbosity).
 
 
 %%-----------------------------------------------------------------

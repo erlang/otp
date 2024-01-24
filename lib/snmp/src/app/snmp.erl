@@ -75,8 +75,6 @@
 	      dir/0, 
 	      snmp_timer/0, 
 
-              verbosity/0,
-
 	      engine_id/0, 
 	      tdomain/0, 
 	      community/0, 
@@ -105,6 +103,8 @@
               error_status/0,
               error_index/0,
  
+              verbosity/0,
+
 	      void/0
 	     ]).
 -export_type([
@@ -159,8 +159,6 @@
 
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
--type verbosity()     :: silence | info | log | debug | trace.
-
 -type engine_id()     :: snmp_framework_mib:engine_id().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
 -type community()     :: snmp_community_mib:name().
@@ -206,6 +204,8 @@
 
 -type error_status()  :: atom().
 -type error_index()   :: pos_integer().
+
+-type verbosity()     :: silence | info | log | debug | trace.
 
 -type void()          :: term().
 

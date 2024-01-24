@@ -1391,19 +1391,71 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name since="">verbosity(Ref,Verbosity) -> void()</name>
-      <fsummary>Assign a new verbosity for the process</fsummary>
-      <type>
-        <v>Ref = pid() | sub_agents | master_agent | net_if | mib_server | symbolic_store | note_store | local_db</v>
-        <v>Verbosity = verbosity() | {subagents, verbosity()}</v>
-        <v>verbosity() = silence | info | log | debug | trace </v>
-      </type>
+      <name name="verbosity" arity="2" clause_i="1" since=""/>
+      <fsummary>Assign a new verbosity for all agent processes</fsummary>
       <desc>
-        <p>Sets verbosity for the designated process. For the lowest 
-          verbosity <c>silence</c>, nothing is printed. The higher the
-          verbosity, the more is printed. </p>
+	<p>Sets verbosity for all the agent processes; net_if, note_store,
+	mib_server, symbolic_store, local_db and master_agent. </p>
       </desc>
     </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="2" since=""/>
+      <fsummary>Assign a new verbosity for net-if process</fsummary>
+      <desc>
+	<p>Sets verbosity for the net-if process. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="3" since=""/>
+      <fsummary>Assign a new verbosity for note store process</fsummary>
+      <desc>
+	<p>Sets verbosity for the note store process. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="4" since=""/>
+      <fsummary>Assign a new verbosity for mib server process</fsummary>
+      <desc>
+	<p>Sets verbosity for the mib server process. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="5" since=""/>
+      <fsummary>Assign a new verbosity for symbolic store process</fsummary>
+      <desc>
+	<p>Sets verbosity for the symbolic store process. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="6" since=""/>
+      <fsummary>Assign a new verbosity for local-dbthe process</fsummary>
+      <desc>
+	<p>Sets verbosity for the local-db process. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="7" since=""/>
+      <fsummary>Assign a new verbosity for all sub-agents</fsummary>
+      <desc>
+	<p>Sets verbosity for all sub-agent(s) controlled by
+	the this (master) agent. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="verbosity" arity="2" clause_i="8" since=""/>
+      <fsummary>Assign a new verbosity for agent process</fsummary>
+      <desc>
+	<p>Sets verbosity for the agent process. </p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
