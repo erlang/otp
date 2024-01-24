@@ -550,18 +550,48 @@ unload_mib(Agent, Mib) ->
 	    Else
     end.
 
+
+-spec unload_mibs(Mibs) ->
+          ok | {error, Reason} when
+      Mibs           :: [MibName], 
+      MibName        :: string(),
+      Reason         :: {'unload aborted at', MibName, InternalReason},
+      InternalReason :: not_loaded | term().
+
 unload_mibs(Mibs) ->
     unload_mibs(snmp_master_agent, Mibs).
+
+-spec unload_mibs(Agent, Mibs) ->
+          ok | {error, Reason} when
+      Agent          :: pid() | AgentName, 
+      AgentName      :: atom(),
+      Mibs           :: [MibName], 
+      MibName        :: string(),
+      Reason         :: {'unload aborted at', MibName, InternalReason},
+      InternalReason :: not_loaded | term();
+                 (Mibs, Force) ->
+          ok | {error, Reason} when
+      Mibs           :: [MibName], 
+      MibName        :: string(),
+      Force          :: boolean(),
+      Reason         :: {'unload aborted at', MibName, InternalReason},
+      InternalReason :: not_loaded | term().
+
 unload_mibs(Agent, Mibs) when is_list(Mibs) -> 
     unload_mibs(Agent, Mibs, false);
 unload_mibs(Mibs, Force) 
   when is_list(Mibs) andalso is_boolean(Force) ->
     unload_mibs(snmp_master_agent, Mibs, Force).
 
--spec unload_mibs(Agent :: pid() | atom(), 
-		  Mibs  :: [MibName :: string()], 
-		  Force :: boolean()) ->
-    ok | {error, {'unload aborted at', MibName :: string(), InternalReason :: not_loaded | term()}}.
+-spec unload_mibs(Agent, Mibs, Force) ->
+          ok | {error, Reason} when
+      Agent          :: pid() | AgentName, 
+      AgentName      :: atom(),
+      Mibs           :: [MibName], 
+      MibName        :: string(),
+      Force          :: boolean(),
+      Reason         :: {'unload aborted at', MibName, InternalReason},
+      InternalReason :: not_loaded | term().
 
 unload_mibs(Agent, Mibs, Force) 
   when is_list(Mibs) andalso is_boolean(Force) ->

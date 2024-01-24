@@ -359,19 +359,11 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">unload_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name since="">unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
-      <name since="">unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name since="OTP R16B02">unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name name="unload_mibs" arity="1" clause_i="1" since=""/>
+      <name name="unload_mibs" arity="2" clause_i="1" since=""/>
+      <name name="unload_mibs" arity="2" clause_i="2" since=""/>
+      <name name="unload_mibs" arity="3" clause_i="1" since="OTP R16B02"/>
       <fsummary>Unload MIBs from the agent</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>Mibs = [MibName]</v>
-        <v>Force = boolean()</v>
-        <v>MibName = string()</v>
-        <v>Reason = {'unload aborted at', MibName, InternalReason}</v>
-        <v>InternalReason = not_loaded | term()</v>
-      </type>
       <desc>
         <p>Unload <c>Mibs</c> from an agent. If it cannot unload all MIBs
 	(the default value of the <c>Force</c> argument is <c>false</c>),
