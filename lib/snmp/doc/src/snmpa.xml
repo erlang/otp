@@ -829,14 +829,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">update_mibs_cache_age(NewAge) -> ok | {error, Reason}</name>
-      <name since="">update_mibs_cache_age(Agent, NewAge) -> ok | {error, Reason}</name>
+      <name name="update_mibs_cache_age" arity="1" clause_i="1" since=""/>
+      <name name="update_mibs_cache_age" arity="2" clause_i="1" since=""/>
       <fsummary>Change the mib server cache age property</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>NewAge = integer() > 0</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Change the mib server cache <c>age</c> property. </p>
 
@@ -845,14 +840,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="">update_mibs_cache_gclimit(NewGcLimit) -> ok | {error, Reason}</name>
-      <name since="">update_mibs_cache_gclimit(Agent, NewGCLimit) -> ok | {error, Reason}</name>
+      <name name="update_mibs_cache_gclimit" arity="1" clause_i="1" since=""/>
+      <name name="update_mibs_cache_gclimit" arity="2" clause_i="1" since=""/>
       <fsummary>Change the mib server cache gclimit property</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-        <v>NewGcLimit = integer() > 0 | infinity</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Change the mib server cache <c>gclimit</c> property. </p>
 

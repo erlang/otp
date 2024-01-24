@@ -966,15 +966,35 @@ disable_mibs_cache_autogc(Agent) ->
     snmpa_agent:disable_mibs_cache_autogc(Agent).
 
 
+-spec update_mibs_cache_age(Age) -> ok | {error, Reason} when
+      Age    :: pos_integer(),
+      Reason :: term().
+
 update_mibs_cache_age(Age) ->
     update_mibs_cache_age(snmp_master_agent, Age).
+
+-spec update_mibs_cache_age(Agent, Age) -> ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Age       :: pos_integer(),
+      Reason    :: term().
 
 update_mibs_cache_age(Agent, Age) ->
     snmpa_agent:update_mibs_cache_age(Agent, Age).
 
 
+-spec update_mibs_cache_gclimit(GcLimit) -> ok | {error, Reason} when
+      GcLimit :: pos_integer(),
+      Reason  :: term().
+
 update_mibs_cache_gclimit(GcLimit) ->
     update_mibs_cache_gclimit(snmp_master_agent, GcLimit).
+
+-spec update_mibs_cache_gclimit(Agent, GcLimit) -> ok | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      GcLimit   :: pos_integer(),
+      Reason    :: term().
 
 update_mibs_cache_gclimit(Agent, GcLimit) ->
     snmpa_agent:update_mibs_cache_gclimit(Agent, GcLimit).
