@@ -747,12 +747,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="OTP R14B">which_mibs_cache_size() -> void()</name>
-      <name since="OTP R14B">which_mibs_cache_size(Agent) -> void()</name>
+      <name name="which_mibs_cache_size" arity="0" clause_i="1" since="OTP R14B"/>
+      <name name="which_mibs_cache_size" arity="1" clause_i="1" since="OTP R14B"/>
       <fsummary>The size of the mib server cache</fsummary>
-      <type>
-        <v>Agent = pid() | atom()</v>
-      </type>
       <desc>
         <p>Retrieve the size of the mib server cache. </p>
 

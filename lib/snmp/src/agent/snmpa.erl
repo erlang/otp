@@ -926,8 +926,18 @@ invalidate_mibs_cache(Agent) ->
     snmpa_agent:invalidate_mibs_cache(Agent).
 
 
+-spec which_mibs_cache_size() -> {ok, Size} | {error, Reason} when
+      Size   :: non_neg_integer(),
+      Reason :: term().
+
 which_mibs_cache_size() ->
     which_mibs_cache_size(snmp_master_agent).
+
+-spec which_mibs_cache_size(Agent) -> {ok, Size} | {error, Reason} when
+      Agent     :: pid() | AgentName,
+      AgentName :: atom(),
+      Size      :: non_neg_integer(),
+      Reason    :: term().
 
 which_mibs_cache_size(Agent) ->
     snmpa_agent:which_mibs_cache_size(Agent).
