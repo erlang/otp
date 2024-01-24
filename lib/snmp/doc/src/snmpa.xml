@@ -140,6 +140,17 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="transport_kind"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
 
@@ -553,16 +564,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name since="OTP 23.3">which_transports() -> Result</name>
+      <name name="which_transports" arity="0" clause_i="1" since="OTP 23.3"/>
       <fsummary>Get all configured transports</fsummary>
-      <type>
-        <v>Result = [{TDomain, TAddress} | {TDomain, TAddress, Kind}]</v>
-        <v>TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-        <v>TAddress = {IpAddr, IpPort}</v>
-        <v>IpAddr = inet:ip_address()</v>
-        <v>IpPort = pos_integer()</v>
-        <v>Kind = req_responder | trap_sender</v>
-      </type>
       <desc>
         <p>Retrieve all configured transports.</p>
 

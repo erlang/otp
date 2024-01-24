@@ -138,7 +138,8 @@
               nfilter_id/0,
               nfilter_position/0,
 
-              notification_delivery_info/0
+              notification_delivery_info/0,
+              transport_kind/0
              ]).
 
 -include("snmpa_atl.hrl").
@@ -183,6 +184,8 @@
 
 -type notification_delivery_info() ::
         snmpa_notification_delivery_info_receiver:notification_delivery_info().
+
+-type transport_kind() :: req_responder | trap_sender.
 
 
 %%-----------------------------------------------------------------
@@ -1608,6 +1611,16 @@ sys_up_time() ->
 
 
 %%%-----------------------------------------------------------------
+
+-spec which_transports() -> Transports when
+      Transports :: [Transport],
+      Transport  :: {TDomain, TAddress} |
+                    {TDomain, TAddress, Kind},
+      TDomain    :: snmp:tdomain(),
+      TAddress   :: {IpAddr, IpPort},
+      IpAddr     :: inet:ip_address(),
+      IpPort     :: inet:port_number(),
+      Kind       :: transport_kind().
 
 which_transports() ->
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
