@@ -117,6 +117,11 @@
                                                           } | secret_printout() | 'undefined'
                         }).
 
+-record(recv, {
+               from                   :: term(),                %% start or recv from
+               bytes_to_read          :: undefined | integer()  %% bytes to read in passive mode
+              }).
+
 -record(state, {
                 static_env            :: #static_env{},
                 connection_env        :: #connection_env{} | secret_printout(),
@@ -129,12 +134,10 @@
                 session               :: #session{} | secret_printout(),
                 key_share,
                 %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                recv = #recv{}        :: #recv{},
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
-                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout(),
-                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
-                %% recv and start handling
-                start_or_recv_from   :: term()
+                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout()
                }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

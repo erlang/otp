@@ -178,7 +178,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
     try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
         Options ->
             State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
-            {next_state, wait_sh, State#state{start_or_recv_from = From,
+            {next_state, wait_sh, State#state{recv = State#state.recv#recv{from = From},
                                               handshake_env =
                                                   HSEnv#handshake_env{continue_status
                                                                       = continue}
@@ -225,13 +225,13 @@ start(internal, #server_hello{extensions =
                                            selected_version = Version}}
                               = Extensions},
       #state{ssl_options = #{versions := SupportedVersions},
-             start_or_recv_from = From,
+             recv = #recv{from = From} = Recv,
              handshake_env = #handshake_env{continue_status = pause}}
       = State) ->
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
         true ->
             {next_state, user_hello,
-             State#state{start_or_recv_from = undefined},
+             State#state{recv=Recv#recv{from = undefined}},
              [{postpone, true},
               {reply, From, {ok, Extensions}}]};
         false ->
@@ -265,9 +265,10 @@ wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
                                                     ?STATE(wait_sh), State);
 wait_sh(internal, #server_hello{extensions = Extensions},
         #state{handshake_env = #handshake_env{continue_status = pause},
-               start_or_recv_from = From} = State) ->
+               recv = #recv{from = From} = Recv
+              } = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined},
+     State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true},{reply, From, {ok, Extensions}}]};
 wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
         #state{session = #session{session_id = ?EMPTY_ID},

@@ -159,9 +159,10 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
 initial_hello({call, From}, {start, Timeout},
               #state{static_env = #static_env{
                                      protocol_cb = Connection},
-                     ssl_options = #{versions := Versions}} = State0) ->
+                     ssl_options = #{versions := Versions},
+                     recv = Recv} = State0) ->
     NextState = next_statem_state(Versions),
-    Connection:next_event(NextState, no_record, State0#state{start_or_recv_from = From},
+    Connection:next_event(NextState, no_record, State0#state{recv = Recv#recv{from = From}},
                           [{{timeout, handshake}, Timeout, close}]);
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
@@ -195,8 +196,8 @@ config_error(Type, Event, State) ->
 %%--------------------------------------------------------------------
 hello(internal, #client_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+             recv = #recv{from = From} = Recv} = State) ->
+    {next_state, user_hello, State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true}, {reply, From, {ok, Extensions}}]};
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_env = CEnv} = State0) ->

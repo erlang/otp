@@ -294,7 +294,7 @@ handle_info({Protocol, _, Data}, StateName,
     end;
 handle_info({PassiveTag, Socket},  StateName,
             #state{static_env = #static_env{socket = Socket, passive_tag = PassiveTag} = StatEnv,
-                   start_or_recv_from = From,
+                   recv = #recv{from = From},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
                    protocol_specific = PS
                   } = State0) ->
@@ -325,10 +325,9 @@ handle_info({CloseTag, Socket}, StateName,
                                    role = Role,
                                    socket = Socket,
                                    close_tag = CloseTag},
-                   start_or_recv_from = From,
+                   recv = #recv{from = From},
                    socket_options = #socket_options{active = Active},
                    protocol_specific = PS} = State) ->
-
     %% Note that as of TLS 1.1,
     %% failure to properly close a connection no longer requires that a
     %% session not be resumed.  This is a change from TLS 1.0 to conform
@@ -426,20 +425,17 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
                        application_data_before_handshake_or_intervened_in_post_handshake_auth),
     ssl_gen_statem:handle_own_alert(Alert, StateName, State);
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
-                       #state{start_or_recv_from = From,
-                              socket_options = #socket_options{active = false}}
-                       = State0) when From =/= undefined ->
+                       #state{recv = #recv{from = From},
+                              socket_options = #socket_options{active = false}} = State0)
+  when From =/= undefined ->
     case ssl_gen_statem:read_application_data(Data, State0) of
        {stop, _, _} = Stop->
             Stop;
-        {Record, #state{start_or_recv_from = Caller} = State} ->
-            TimerAction = case Caller of
-                              undefined -> %% Passive recv complete cancel timer
-                                  [{{timeout, recv}, infinity, timeout}];
-                              _ ->
-                                  []
-                          end,
-            next_event(StateName, Record, State, TimerAction)
+        {Record, #state{recv = #recv{from = undefined}} = State} ->
+            TimerAction = [{{timeout, recv}, infinity, timeout}],
+            next_event(StateName, Record, State, TimerAction);
+        {Record, State} ->
+            next_event(StateName, Record, State, [])
     end;
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_gen_statem:read_application_data(Data, State0) of
@@ -701,7 +697,7 @@ flow_ctrl(#state{ssl_options = #{ktls := true}} = State, PBuffers) ->
 %%% bytes_to_read = undefined means no recv call is ongoing
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = undefined} = State,
+                 recv = #recv{bytes_to_read = undefined}} = State,
          PBuffers)
   when Size =/= 0 ->
     %% Passive mode wait for new recv request or socket activation
@@ -718,27 +714,18 @@ flow_ctrl(#state{socket_options = #socket_options{active = false,
 %%%%%%%%% No packet mode set and socket is passive %%%%%%%%%%%%
 flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
-                 bytes_to_read = 0} = State,
-          PBuffers)
-  when Size == 0 ->
-    %% Passive mode no available bytes, get some
-    activate_socket(State, PBuffers);
-flow_ctrl(#state{user_data_buffer = {_,Size,_},
-                 socket_options = #socket_options{active = false},
-                 bytes_to_read = 0} = State,
-          PBuffers)
-  when Size =/= 0 ->
-    %% There is data in the buffer to deliver
-    {no_record, State#state{protocol_buffers = PBuffers}};
-flow_ctrl(#state{user_data_buffer = {_,Size,_}, 
-                 socket_options = #socket_options{active = false},
-                 bytes_to_read = BytesToRead} = State,
-         PBuffers)
-  when (BytesToRead > 0) ->
-    case (Size >= BytesToRead) of
-        true -> %% There is enough data bufferd
+                 recv = #recv{bytes_to_read = BytesToRead}} = State,
+          PBuffers) ->
+    if BytesToRead =:= 0, Size =:= 0 ->
+            %% Passive mode no available bytes, get some
+            activate_socket(State, PBuffers);
+       BytesToRead =:= 0, Size =/= 0 ->
+            %% There is data in the buffer to deliver
             {no_record, State#state{protocol_buffers = PBuffers}};
-        false -> %% We need more data to complete the delivery of <BytesToRead> size
+       Size >= BytesToRead ->
+            %% There is enough data bufferd
+            {no_record, State#state{protocol_buffers = PBuffers}};
+        true -> %% We need more data to complete the delivery of <BytesToRead> size
             activate_socket(State, PBuffers)
     end;
 %%%%%%%%%%% Active mode or more data needed %%%%%%%%%%
@@ -924,9 +911,9 @@ handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts],
               {next_state, connection = StateName,
                #state{connection_env = CEnv,
                       socket_options = #socket_options{active = false},
-                      start_or_recv_from = From} = State}) when From == undefined ->
-    {next_state, StateName, State#state{connection_env =
-                                            CEnv#connection_env{socket_tls_closed = true}}};
+                      recv = #recv{from = From}} = State}) when From == undefined ->
+    {next_state, StateName,
+     State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->

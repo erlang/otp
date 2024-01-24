@@ -94,7 +94,7 @@ initial_state(Role, Sender, Host, Port, Socket,
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
-       start_or_recv_from = undefined,
+       recv = #recv{from = undefined},
        protocol_specific = #{sender => Sender,
                              active_n => internal_active_n(SSLOptions, Socket),
                              active_n_toggle => true

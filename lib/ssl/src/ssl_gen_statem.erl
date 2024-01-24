@@ -386,7 +386,7 @@ socket_control(dtls_gen_connection, {PeerAddrPort, Socket},
     end.
 
 prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegotiate},
-			  start_or_recv_from = RecvFrom} = State0, Connection)
+                          recv = #recv{from = RecvFrom}} = State0, Connection)
   when Renegotiate =/= {false, first},
        RecvFrom =/= undefined ->
     State = Connection:reinit(State0),
@@ -558,10 +558,12 @@ config_error(_Type, _Event, _State) ->
 %%--------------------------------------------------------------------
 connection({call, RecvFrom}, {recv, N, Timeout},
 	   #state{static_env = #static_env{protocol_cb = Connection},
-                  socket_options =
-                      #socket_options{active = false}} = State0) ->
-    passive_receive(State0#state{bytes_to_read = N,
-                                 start_or_recv_from = RecvFrom}, connection, Connection,
+                  recv = Recv,
+                  socket_options = #socket_options{active = false}
+                 } = State0) ->
+    passive_receive(State0#state{recv = Recv#recv{from = RecvFrom,
+                                                  bytes_to_read = N}},
+                    ?STATE(connection), Connection,
                     [{{timeout, recv}, Timeout, timeout}]);
 connection({call, From}, peer_certificate,
 	   #state{session = #session{peer_certificate = Cert}} = State) ->
@@ -664,19 +666,22 @@ connection(cast, {dist_handshake_complete, DHandle},
            #state{ssl_options = #{erl_dist := true},
                   static_env = #static_env{protocol_cb = Connection},
                   connection_env = CEnv,
+                  recv = Recv,
                   socket_options = SockOpts} = State0) ->
     process_flag(priority, normal),
     State1 =
         State0#state{
           socket_options = SockOpts#socket_options{active = true},
           connection_env = CEnv#connection_env{erl_dist_handle = DHandle},
-          bytes_to_read = undefined},
+          recv = Recv#recv{bytes_to_read = undefined}
+         },
     {Record, State} = read_application_data(<<>>, State1),
     Connection:next_event(?STATE(connection), Record, State);
 connection(info, Msg, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:handle_info(Msg, ?STATE(connection), State);
-connection(internal, {recv, RecvFrom}, #state{start_or_recv_from = RecvFrom,
-                                              static_env = #static_env{protocol_cb = Connection}} = State) ->
+connection(internal, {recv, RecvFrom},
+           #state{recv = #recv{from=RecvFrom},
+                  static_env = #static_env{protocol_cb = Connection}} = State) ->
     passive_receive(State, ?STATE(connection), Connection, []);
 connection(Type, Msg, State) ->
     handle_common_event(Type, Msg, ?STATE(connection), State).
@@ -734,15 +739,19 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State) ->
+handle_common_event({timeout, handshake}, close, _StateName,
+                    #state{recv = #recv{from = StartFrom} = Recv} = State) ->
     {stop_and_reply,
      {shutdown, user_timeout},
-     {reply, StartFrom, {error, timeout}}, State#state{start_or_recv_from = undefined}};
-handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State) ->
-    {next_state, StateName, State#state{start_or_recv_from = undefined,
-                                        bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
-handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}) when
-      StateName =/= connection ->
+     {reply, StartFrom, {error, timeout}}, State#state{recv = Recv#recv{from = undefined}}};
+handle_common_event({timeout, recv}, timeout, StateName,
+                    #state{recv = #recv{from = RecvFrom} = Recv} = State) ->
+    {next_state, StateName,
+     State#state{recv = Recv#recv{from = undefined, bytes_to_read = undefined}},
+     [{reply, RecvFrom, {error, timeout}}]};
+handle_common_event(internal, {recv, RecvFrom}, StateName,
+                    #state{recv = #recv{from = RecvFrom}})
+  when StateName =/= connection ->
     {keep_state_and_data, [postpone]};
 handle_common_event(internal, new_connection, StateName, State) ->
     {next_state, StateName, State};
@@ -796,10 +805,10 @@ handle_call({recv, _N, _Timeout}, From, _,
 		  #state{socket_options =
 			     #socket_options{active = Active}}) when Active =/= false ->
     {keep_state_and_data, [{reply, From, {error, einval}}]};
-handle_call({recv, N, Timeout}, RecvFrom, StateName, State) ->
+handle_call({recv, N, Timeout}, RecvFrom, StateName, #state{recv = Recv} = State) ->
     %% Doing renegotiate wait with handling request until renegotiate is
     %% finished.
-    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
+    {next_state, StateName, State#state{recv = Recv#recv{from=RecvFrom, bytes_to_read = N}},
      [{next_event, internal, {recv, RecvFrom}} , {{timeout, recv}, Timeout, timeout}]};
 handle_call({new_user, User}, From, StateName,
             State = #state{connection_env = #connection_env{user_application = {OldMon, _}} = CEnv}) ->
@@ -854,9 +863,8 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
                    handshake_env = #handshake_env{renegotiation = Type},
                    connection_env = #connection_env{negotiated_version = Version},
                    session = Session,
-                   start_or_recv_from = StartFrom
+                   recv = #recv{from = StartFrom}
                   } = State)  when StateName =/= connection ->
-
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers,Socket,
@@ -952,15 +960,11 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 	    case read_application_data(State0, Front, BufferSize, Rear) of
                 {stop, _, _} = ShutdownError ->
                     ShutdownError;
+                {Record, #state{recv = #recv{from = undefined}} = State} ->
+                    Connection:next_event(StateName, Record, State,
+                                          [{{timeout, recv}, infinity, timeout}]);
                 {Record, State} ->
-                    case State#state.start_or_recv_from of
-                        undefined ->
-                            %% Cancel recv timeout as data has been delivered
-                            Connection:next_event(StateName, Record, State,
-                                                  [{{timeout, recv}, infinity, timeout}]);
-                        _ ->
-                            Connection:next_event(StateName, Record, State, StartTimerAction)
-                    end
+                    Connection:next_event(StateName, Record, State, StartTimerAction)
             end
     end.
 
@@ -1010,7 +1014,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                                          protocol_cb = Connection,
                                                                          trackers = Trackers},
                                                 handshake_env = #handshake_env{renegotiation = {false, first}},
-                                                start_or_recv_from = StartFrom} = State) ->
+                                                recv = #recv{from = StartFrom}
+                                               } = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, StartFrom, Alert, Role, StateName, Connection);
 
@@ -1022,7 +1027,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 connection_env  = #connection_env{user_application = {_Mon, Pid}},
                                                 handshake_env = #handshake_env{renegotiation = Type},
                                                 socket_options = Opts,
-						start_or_recv_from = RecvFrom} = State) ->
+                                                recv = #recv{from = RecvFrom}
+                                               } = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
@@ -1131,7 +1137,7 @@ handle_fatal_alert(Alert0, StateName,
                                                    protocol_cb = Connection},
                           connection_env  = #connection_env{user_application = {_Mon, Pid}},
                           ssl_options = #{log_level := LogLevel},
-                          start_or_recv_from = From,
+                          recv = #recv{from = From},
                           session = Session,
                           socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
@@ -1357,10 +1363,11 @@ ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, From
     gen_statem:reply(From, ok),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}};
 ack_connection(#state{handshake_env = #handshake_env{renegotiation = {false, first}} = HsEnv,
-		      start_or_recv_from = StartFrom} = State) when StartFrom =/= undefined ->
+                      recv = #recv{from = StartFrom} = Recv} = State)
+  when StartFrom =/= undefined ->
     gen_statem:reply(StartFrom, connected),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined},
-		start_or_recv_from = undefined};
+                recv = Recv#recv{from = undefined}};
 ack_connection(State) ->
     State.
 
@@ -1417,10 +1424,10 @@ handle_active_option(_, StateName0, To, Reply,
 	    end
     end.
 
-read_application_data(#state{
-                         socket_options = SocketOpts,
-                         bytes_to_read = BytesToRead,
-                         start_or_recv_from = RecvFrom} = State, Front, BufferSize, Rear) ->
+read_application_data(#state{socket_options = SocketOpts,
+                             recv = #recv{from = RecvFrom,
+                                          bytes_to_read = BytesToRead}} = State,
+                      Front, BufferSize, Rear) ->
     read_application_data(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead).
 
 %% Pick binary from queue front, if empty wait for more data
@@ -1429,8 +1436,9 @@ read_application_data(State, [Bin|Front], BufferSize, Rear, SocketOpts, RecvFrom
 read_application_data(State, [] = Front, BufferSize, [] = Rear, SocketOpts, RecvFrom, BytesToRead) ->
     0 = BufferSize, % Assert
     {no_record, State#state{socket_options = SocketOpts,
-                            bytes_to_read = BytesToRead,
-                            start_or_recv_from = RecvFrom,
+                            recv = State#state.recv#recv{from = RecvFrom,
+                                                         bytes_to_read = BytesToRead
+                                                        },
                             user_data_buffer = {Front,BufferSize,Rear}}};
 read_application_data(State, [], BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead) ->
     [Bin|Front] = lists:reverse(Rear),
@@ -1457,8 +1465,8 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
                 true ->
                     %% All data is in the first binary, no use to retry - wait for more
                     {no_record, State#state{socket_options = SocketOpts0,
-                                            bytes_to_read = BytesToRead,
-                                            start_or_recv_from = RecvFrom,
+                                            recv = State#state.recv#recv{from = RecvFrom,
+                                                                         bytes_to_read = BytesToRead},
                                             user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}}
             end;
         {more, Size} when Size =< BufferSize0 ->
@@ -1470,13 +1478,13 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
         {more, _Size} ->
             %% We do not have a packet in the buffer - wait for more
             {no_record, State#state{socket_options = SocketOpts0,
-                                    bytes_to_read = BytesToRead,
-                                    start_or_recv_from = RecvFrom,
+                                    recv = State#state.recv#recv{from = RecvFrom,
+                                                                bytes_to_read = BytesToRead},
                                     user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
         passive ->
             {no_record, State#state{socket_options = SocketOpts0,
-                                    bytes_to_read = BytesToRead,
-                                    start_or_recv_from = RecvFrom,
+                                    recv = State#state.recv#recv{from = RecvFrom,
+                                                                 bytes_to_read = BytesToRead},
                                     user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
 	{error,_Reason} ->
             %% Invalid packet in packet mode
@@ -1493,10 +1501,11 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
 	    deliver_packet_error(
               Connection:pids(State), Transport, Socket, SocketOpts0,
               Buffer, Pid, RecvFrom, Trackers, Connection),
-            {stop, {shutdown, normal}, State#state{socket_options = SocketOpts0,
-                                                   bytes_to_read = BytesToRead,
-                                                   start_or_recv_from = RecvFrom,
-                                                   user_data_buffer = {[Buffer],BufferSize0,[]}}}
+            {stop, {shutdown, normal},
+             State#state{socket_options = SocketOpts0,
+                         recv = State#state.recv#recv{from = RecvFrom,
+                                                      bytes_to_read = BytesToRead},
+                         user_data_buffer = {[Buffer],BufferSize0,[]}}}
     end.
 
 read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvFrom, Data) ->
@@ -1518,8 +1527,7 @@ read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvF
             {no_record,
              State#state{
                user_data_buffer = {Front,BufferSize,Rear},
-               start_or_recv_from = undefined,
-               bytes_to_read = undefined,
+               recv = State#state.recv#recv{from = undefined, bytes_to_read = undefined},
                socket_options = SocketOpts
               }};
         true -> %% Try to deliver more data

@@ -179,12 +179,13 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
 %%--------------------------------------------------------------------
 initial_hello(enter, _, State) ->
     {keep_state, State};
-initial_hello({call, From}, {start, Timeout}, #state{protocol_specific = PS0} = State) ->
+initial_hello({call, From}, {start, Timeout},
+              #state{protocol_specific = PS0, recv = Recv} = State) ->
     PS = PS0#{current_cookie_secret => dtls_v1:cookie_secret(),
               previous_cookie_secret => <<>>},
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     dtls_gen_connection:next_event(hello, no_record,
-                                   State#state{start_or_recv_from = From,
+                                   State#state{recv = Recv#recv{from = From},
                                                protocol_specific = PS},
                                    [{{timeout, handshake}, Timeout, close}]);
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
@@ -254,10 +255,10 @@ hello(internal, #client_hello{cookie = <<>>,
     end;
 hello(internal, #client_hello{extensions = Extensions} = Hello,
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State0) ->
+             recv = #recv{from = From}} = State0) ->
     try tls_dtls_server_connection:handle_sni_extension(State0, Hello) of
-        #state{} = State ->
-            {next_state, user_hello, State#state{start_or_recv_from = undefined},
+        #state{recv = Recv} = State ->
+            {next_state, user_hello, State#state{recv = Recv#recv{from = undefined}},
              [{postpone, true}, {reply, From, {ok, Extensions}}]}
     catch throw:#alert{} = Alert ->
             dtls_gen_connection:alert_or_reset_connection(Alert, hello, State0)

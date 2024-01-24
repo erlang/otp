@@ -163,25 +163,22 @@ user_hello({call, From}, cancel, State) ->
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
                                     user_hello, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
-           #state{handshake_env =
-                      #handshake_env{continue_status = {pause, ClientVersions}} = HSEnv,
+           #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
     try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
         Options = #{versions := Versions} ->
-            State = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
+            State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
+            #state{handshake_env = HsEnv0} = State1,
+            HsEnv = HsEnv0#handshake_env{continue_status = continue},
+            State = State1#state{recv = State1#state.recv#recv{from = From}, handshake_env = HsEnv},
             case ssl_handshake:select_supported_version(ClientVersions, Versions) of
                 ?TLS_1_3 ->
-                    {next_state, start,
-                     State#state{start_or_recv_from = From,
-                                 handshake_env = HSEnv#handshake_env{continue_status = continue}},
-                     [{{timeout, handshake}, Timeout, close}]};
+                    {next_state, start, State, [{{timeout, handshake}, Timeout, close}]};
                 undefined ->
                     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION),
                                                     ?STATE(user_hello), State);
                 _Else ->
-                    {next_state, hello,
-                     State#state{start_or_recv_from = From,
-                                 handshake_env = HSEnv#handshake_env{continue_status = continue}},
+                    {next_state, hello, State,
                      [{change_callback_module, tls_server_connection},
                       {{timeout, handshake}, Timeout, close}]}
             end
@@ -226,10 +223,10 @@ start(internal, #client_hello{extensions = #{client_hello_versions :=
 start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                   #client_hello_versions{versions = ClientVersions}
                                             }= Extensions},
-      #state{start_or_recv_from = From,
+      #state{recv = #recv{from = From} = Recv,
              handshake_env = #handshake_env{continue_status = pause} = HSEnv} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined,
+     State#state{recv = Recv#recv{from = undefined},
                  handshake_env = HSEnv#handshake_env{continue_status = {pause, ClientVersions}}},
      [{postpone, true}, {reply, From, {ok, Extensions}}]};
 start(internal, #client_hello{} = Hello,
