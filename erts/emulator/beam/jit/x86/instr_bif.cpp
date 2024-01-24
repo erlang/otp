@@ -651,8 +651,8 @@ void BeamModuleAssembler::emit_send() {
     align_erlang_cp();
     a.bind(entry);
 
-    a.mov(ARG4, imm(BIF_TRAP_EXPORT(BIF_erts_internal_send_2)));
-    a.mov(RET, imm(erts_internal_send_2));
+    a.mov(ARG4, imm(BIF_TRAP_EXPORT(BIF_send_2)));
+    a.mov(RET, imm(send_2));
     a.lea(ARG3, x86::qword_ptr(entry));
 
     fragment_call(ga->get_call_light_bif_shared());
