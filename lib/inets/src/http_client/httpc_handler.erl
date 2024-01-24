@@ -221,6 +221,8 @@ init([Parent, Request, Options, ProfileName]) ->
 
     %% Do not let initial tcp-connection block the manager-process
     proc_lib:init_ack(Parent, self()),
+    {Host, Port} = Request#request.address,
+    proc_lib:set_label({Request#request.scheme, erlang:iolist_to_binary(Host), Port}),
     handle_verbose(Options#options.verbose),
     ProxyOptions = handle_proxy_options(Request#request.scheme, Options),
     Address = handle_proxy(Request#request.address, ProxyOptions),
