@@ -536,6 +536,7 @@ load_file(Mod) when is_atom(Mod) ->
         {Mod,Binary,File} -> load_module(Mod, File, Binary, false)
     end.
 
+-dialyzer({no_opaque_union, [ensure_loaded/1]}).
 -doc """
 Tries to load a module in the same way as `load_file/1`, unless the module is
 already loaded.
@@ -574,6 +575,7 @@ ensure_loaded(Mod) when is_atom(Mod) ->
             end
     end.
 
+-dialyzer({no_opaque_union, [ensure_prepare_loading/3]}).
 ensure_prepare_loading(Mod, missing, File) ->
     case erl_prim_loader:read_file(File) of
         {ok, Binary} -> erlang:prepare_loading(Mod, Binary);

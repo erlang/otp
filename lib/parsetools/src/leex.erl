@@ -289,7 +289,7 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
       Token :: term(),
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       EndLoc :: erl_anno:location().
-string(_String) -> error(undef).
+string(_String) -> erlang:nif_error(undef).
 -doc """
 Scans `String` and returns either all the tokens in it or an `error` tuple.
 
@@ -310,7 +310,7 @@ or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-string(_String, _StartLoc) -> error(undef).
+string(_String, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => token(Cont, Chars, 1)}.
 -doc(#{title => <<"Generated Scanner Exports">>}).
@@ -326,7 +326,7 @@ string(_String, _StartLoc) -> error(undef).
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       Token :: term(),
       EndLoc :: erl_anno:location().
-token(_Cont, _Chars) -> error(undef).
+token(_Cont, _Chars) -> erlang:nif_error(undef).
 
 -doc """
 This is a re-entrant call to try and scan a single token from `Chars`.
@@ -361,7 +361,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
       Token :: term(),
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-token(_Cont, _Chars, _StartLoc) -> error(undef).
+token(_Cont, _Chars, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => tokens(Cont, Chars, 1)}.
 -doc(#{title => <<"Generated Scanner Exports">>}).
@@ -378,7 +378,7 @@ token(_Cont, _Chars, _StartLoc) -> error(undef).
       Token :: term(),
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       EndLoc :: erl_anno:location().
-tokens(_Cont, _Chars) -> error(undef).
+tokens(_Cont, _Chars) -> erlang:nif_error(undef).
 -doc """
 This is a re-entrant call to try and scan tokens from `Chars`.
 
@@ -419,7 +419,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
       ErrorInfo :: {error, error_info(), erl_anno:location()},
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
-tokens(_Cont, _Chars, _StartLoc) -> error(undef).
+tokens(_Cont, _Chars, _StartLoc) -> erlang:nif_error(undef).
 
 %%%
 %%% Exported functions

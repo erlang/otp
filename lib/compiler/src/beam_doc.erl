@@ -61,7 +61,7 @@
                deprecated = #{}    :: map(),
 
                docformat = ?DEFAULT_FORMAT :: binary(),
-               moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
+               moduledoc = {erl_anno:new(?DEFAULT_MODULE_DOC_LOC), none} :: {erl_anno:anno(), none | map() | hidden},
                moduledoc_meta = none :: none | #{ _ := _ },
 
                behaviours = []     :: list(module()),
@@ -110,7 +110,7 @@
                %% populates all function / types, callbacks. it is updated on an ongoing basis
                %% since a doc attribute `doc ...` is not known in a first pass to be attached
                %% to a function / type / callback.
-               docs = #{} :: #{{Attribute :: function | type | opaque | callback,
+               docs = #{} :: #{{Attribute :: function | type | opaque | nominal | callback,
                                 FunName :: atom(),
                                 Arity :: non_neg_integer()}
                                =>
@@ -145,7 +145,7 @@
                %% -doc #{author => "X"}.
                %% -doc foo() -> ok.
                %%
-               %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, callback),
+               %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, nominal, callback),
                %% the intermediate state saved in the fields below needs to be
                %% saved in the `docs` field.
 
@@ -459,7 +459,7 @@ track_documentation(_, State) ->
 upsert_documentation_from_terminal_item({function, Anno, F, Arity, _}, State) ->
    upsert_documentation(function, F, Arity, Anno, State);
 upsert_documentation_from_terminal_item({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}},State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Arity = length(fun_to_varargs(TypeArgs)),
    upsert_documentation(type, TypeName, Arity, Anno, State);
 upsert_documentation_from_terminal_item({attribute, Anno, callback, {{CB, Arity}, _Form}}, State) ->
@@ -470,6 +470,7 @@ upsert_documentation_from_terminal_item(_, State) ->
 upsert_documentation(Tag, Name, Arity, Anno, State) when Tag =:= function;
                                                          Tag =:= type;
                                                          Tag =:= opaque;
+                                                         Tag =:= nominal;
                                                          Tag =:= callback ->
    Docs = State#docs.docs,
    State1 = case maps:get({Tag, Name, Arity}, Docs, none) of
@@ -579,7 +580,7 @@ extract_hidden_types0({attribute, _Anno, doc, _}, State) ->
 extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}},
                       #docs{hidden_status = hidden,
                             hidden_types = HiddenTypes}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    State#docs{hidden_status = none,
               hidden_types = sets:add_element({Name, length(Args)}, HiddenTypes)};
 extract_hidden_types0(_, State) ->
@@ -593,7 +594,7 @@ extract_hidden_types0(_, State) ->
 %% #{{TypeName, length(Args)} => Anno}.
 %%
 extract_type_defs0({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}}, #docs{type_defs = TypeDefs}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Args = fun_to_varargs(TypeArgs),
    Type = {TypeName, length(Args)},
    State#docs{type_defs = TypeDefs#{Type => Anno}};
@@ -660,7 +661,7 @@ update_docstatus(State, V) ->
 
 update_ast(function, #docs{ast_fns=AST}=State, Fn) ->
     State#docs{ast_fns = [Fn | AST]};
-update_ast(Type,#docs{ast_types=AST}=State, Fn) when Type =:= type; Type =:= opaque->
+update_ast(Type,#docs{ast_types=AST}=State, Fn) when Type =:= type; Type =:= opaque; Type =:= nominal->
     State#docs{ast_types = [Fn | AST]};
 update_ast(callback, #docs{ast_callbacks = AST}=State, Fn) ->
     State#docs{ast_callbacks = [Fn | AST]}.
@@ -873,7 +874,7 @@ extract_documentation0({function, _Anno, F, A, _Body}=AST, State) ->
     State1 = remove_exported_type_info({function, F, A}, State),
     extract_documentation_from_funs(AST, State1);
 extract_documentation0({attribute, _Anno, TypeOrOpaque, _}=AST,State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
     extract_documentation_from_type(AST, State);
 extract_documentation0({attribute, _Anno, callback, {{CB, A}, _Form}}=AST, State) ->
     State1 = remove_exported_type_info({callback, CB, A}, State),
@@ -956,7 +957,7 @@ extract_user_types(_Else, Acc) ->
 
 extract_documentation_from_type({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}=Types},
                       #docs{docs = Docs, exported_types=ExpTypes}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Args = fun_to_varargs(TypeArgs),
    Key =  {type, TypeName, length(TypeArgs)},
 
@@ -979,9 +980,9 @@ add_last_read_user_type(_Anno, {_TypeName, TypeDef, TypeArgs}, State) ->
    Types = extract_user_types([TypeArgs, TypeDef], State),
    set_last_read_user_types(State, Types).
 
-%% NOTE: Terminal elements for the documentation, such as `-type`, `-opaque`, `-callback`,
-%%       and functions always need to reset the state when they finish, so that new
-%%       new AST items start with a clean slate.
+%% NOTE: Terminal elements for the documentation, such as `-type`, `-opaque`,
+%% `-nominal`, `-callback`, and functions always need to reset the state when
+%% they finish, so that new AST items start with a clean slate.
 extract_documentation_from_funs({function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]},
                       #docs{exported_functions = ExpFuns}=State) ->
     case (sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all) of

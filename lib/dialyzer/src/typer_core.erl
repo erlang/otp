@@ -433,7 +433,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records, Analysis) ->
       {{F, A}, {Range, Arg}};
     {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
-      case dialyzer_contracts:check_contract(Contract, Sig) of
+      case dialyzer_contracts:check_contract(Contract, Sig, M) of
         ok -> {{F, A}, {contract, Contract}};
         {range_warnings, _} ->
           {{F, A}, {contract, Contract}};

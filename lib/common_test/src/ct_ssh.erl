@@ -1362,6 +1362,7 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 			      target=KeyOrName}}
     end.
 
+-dialyzer({no_opaque_union, [handle_msg/2]}).
 -doc false.
 handle_msg(sftp_connect, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,

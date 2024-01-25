@@ -3,9 +3,11 @@
 
 -export([]).
 
--export_type([opaque_type/0]).
+-export_type([opaque_type/0,nominal_type/0]).
 
 -opaque opaque_type() :: atom().
+
+-nominal nominal_type() :: atom().
 
 -spec f_spec_type_without_name(atom()) -> ok.
 f_spec_type_without_name(Arg) -> ok.

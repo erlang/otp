@@ -163,11 +163,13 @@ check(TestCase, Opts, Dir, OutDir) ->
 			Other -> erlang:error(Other)
 		    end
 	    end,
-	    case file_utils:diff(NewResFile, OldResFile) of
-		'same' -> file:delete(NewResFile),
-			  'same';
-        {'differ', List} -> escape_strings({'differ', TestCase, List})
-	    end
+            case compare_results(TestCase, NewResFile, OldResFile) of
+              same ->
+                file:delete(NewResFile),
+                same;
+              {differ, _, _}=Diff ->
+                Diff
+            end
     catch
 	Kind:Error:Stacktrace -> {'dialyzer crashed', Kind, Error, Stacktrace}
     end.
@@ -208,9 +210,18 @@ create_all_suites() ->
     Suites = get_suites(Cwd),
     lists:foreach(fun create_suite/1, Suites).
 
-escape_strings({differ, TestCase, List}) ->
-    Escaped = [{T, L, xmerl_lib:export_text(S)} || {T, L, S} <- List],
-    {differ, TestCase, lists:keysort(2, Escaped)}.
+compare_results(TestCase, NewResFile, OldResFile) ->
+  maybe
+    {'differ', List} ?= file_utils:diff(NewResFile, OldResFile),
+    [_|_] ?= Escaped = [{T, L, xmerl_lib:export_text(S)}
+                        || {T, L, S} <- List,
+                           not lists:prefix("%", S),
+                           S =/= "\n"],
+    {differ, TestCase, lists:keysort(2, Escaped)}
+  else
+    same -> same;
+    [] -> same
+  end.
 
 -spec get_suites(file:filename()) -> [string()].
 

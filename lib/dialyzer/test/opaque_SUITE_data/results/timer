@@ -1,4 +1,5 @@
 
 timer_use.erl:16:5: The pattern 'gazonk' can never match the type {'error',_} | {'ok',timer:tref()}
-timer_use.erl:17:5: The attempt to match a term of type {'error',_} | {'ok',timer:tref()} against the pattern {'ok', 42} breaks the opacity of timer:tref()
-timer_use.erl:18:5: The attempt to match a term of type {'error',_} | {'ok',timer:tref()} against the pattern {Tag, 'gazonk'} breaks the opacity of timer:tref()
+timer_use.erl:17:5: The pattern {'ok', 42} can never match the type {'error',_} | {'ok',timer:tref()}
+timer_use.erl:18:10: The attempt to match a term of type timer:tref() against the pattern {_, _} breaks the opacity of the term
+timer_use.erl:19:24: Guard test Tag::'error' =/= 'error' can never succeed

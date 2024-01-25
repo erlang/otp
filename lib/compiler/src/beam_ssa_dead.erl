@@ -240,7 +240,7 @@ shortcut_3(L, From, Bs0, UnsetVars0, St) ->
                             %% because it refers to a variable defined
                             %% in this block.
                             shortcut_unsafe_br(Br, L, Bs, UnsetVars0, St);
-                        UnsetVars ->
+                        {safe, UnsetVars} ->
                             %% Continue checking whether this br is
                             %% suitable.
                             shortcut_test_br(Br, L, Bs, UnsetVars, St)
@@ -381,16 +381,16 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
                             %% to the UnsetVars set would not change
                             %% the outcome of the tests in
                             %% is_br_safe/2.
-                            UnsetVars
+                            {safe, UnsetVars}
                     end;
                 #b_br{} ->
-                    UnsetVars
+                    {safe, UnsetVars}
             end;
         false ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
             SetInThisBlock = [V || #b_set{dst=V} <:- Is],
-            list_set_union(SetInThisBlock, UnsetVars)
+            {safe, list_set_union(SetInThisBlock, UnsetVars)}
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->

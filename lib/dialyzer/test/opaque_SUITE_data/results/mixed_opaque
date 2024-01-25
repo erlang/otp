@@ -1,2 +1,4 @@
 
-mixed_opaque_use.erl:31:16: The call mixed_opaque_rec_adt:get_a(Q::mixed_opaque_queue_adt:my_queue()) does not have an opaque term of type mixed_opaque_rec_adt:rec() as 1st argument
+mixed_opaque_use.erl:15:2: Body yields the opaque type mixed_opaque_queue_adt:my_queue() whose opacity is broken by the other clauses.
+mixed_opaque_use.erl:16:2: Body yields the opaque type mixed_opaque_rec_adt:rec() whose opacity is broken by the other clauses.
+mixed_opaque_use.erl:31:16: The call mixed_opaque_rec_adt:get_a(Q::mixed_opaque_queue_adt:my_queue()) will never return since the success typing is ({'rec',atom(),integer()}) -> atom() and the contract is (rec()) -> atom()

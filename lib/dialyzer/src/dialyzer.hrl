@@ -51,6 +51,7 @@
 -define(WARN_NON_PROPER_LIST, warn_non_proper_list).
 -define(WARN_NOT_CALLED, warn_not_called).
 -define(WARN_OPAQUE, warn_opaque).
+-define(WARN_OPAQUE_UNION, warn_opaque_union).
 -define(WARN_OVERLAPPING_CONTRACT, warn_overlapping_contract).
 -define(WARN_RETURN_NO_RETURN, warn_return_no_exit).
 -define(WARN_RETURN_ONLY_EXIT, warn_return_only_exit).

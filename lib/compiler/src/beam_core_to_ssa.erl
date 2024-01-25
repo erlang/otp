@@ -1566,7 +1566,7 @@ partition_intersection([U|_]=Us, [_,_|_]=Cs0, St0) ->
     case find_key_intersection(Ps) of
         none ->
             {Us,Cs0,St0};
-        Ks ->
+        {ok, Ks} ->
             Cs1 = map(fun(#iclause{pats=[Arg|Args]}=C) ->
                               {Arg1,Arg2} = partition_keys(Arg, Ks),
                               C#iclause{pats=[Arg1,Arg2|Args]}
@@ -1601,7 +1601,7 @@ find_key_intersection(Ps) ->
                     %% the keys could only make the code worse.
                     none;
                 false ->
-                    Intersection
+                    {ok, Intersection}
             end
     end.
 

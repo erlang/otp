@@ -2267,8 +2267,7 @@ solve_subtype(Type, Inf, Map) ->
 %% Similar to enter_type/3 over a list, but refines known types rather than
 %% replaces them.
 refine_bindings([{Key, Val} | Tail], Map, U0) ->
-  ?debug("Unifying ~ts :: ~ts\n",
-         [format_type(t_var(Key)), format_type(Val)]),
+  ?debug("Unifying ~p :: ~ts\n", [Key, format_type(Val)]),
   %% It's important to keep opaque types whose internal structure is any(),
   %% hence the equality check on t_any() rather than t_is_any/1.
   case t_is_equal(Val, t_any()) of
@@ -3168,7 +3167,7 @@ pp_constrs_scc(SCC, State) ->
   [pp_constrs(Fun, state__get_cs(Fun, State), State) || Fun <- SCC].
 
 pp_constrs(Fun, Cs, State) ->
-  io:format("Constraints for fun: ~tw", [debug_lookup_name(Fun)]),
+  io:format("Constraints for fun: ~tw~n", [debug_lookup_name(Fun)]),
   MaxDepth = pp_constraints(Cs, State),
   io:format("Depth: ~w\n", [MaxDepth]).
 

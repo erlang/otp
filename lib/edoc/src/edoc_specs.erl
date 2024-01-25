@@ -243,6 +243,7 @@ get_all_tags(Es) ->
 %% Turns an opaque type into an abstract datatype.
 %% Note: top level annotation is ignored.
 opaque2abstr(opaque, _T) -> undefined;
+opaque2abstr(nominal, T) -> T;
 opaque2abstr(record, T) -> T;
 opaque2abstr(type, T) -> T.
 
@@ -667,6 +668,7 @@ analyze_type_attribute(Form) ->
 -spec is_tag(Tag :: tag_kind() | term()) -> boolean().
 
 is_tag(callback) -> true;
+is_tag(nominal) -> true;
 is_tag(opaque) -> true;
 is_tag(spec) -> true;
 is_tag(type) -> true;
@@ -678,6 +680,7 @@ is_tag(_) -> false.
 -spec tag(Tag :: atom()) -> tag_kind() | unknown.
 
 tag(callback) -> callback;
+tag(nominal) -> type;
 tag(opaque) -> type;
 tag(spec) -> spec;
 tag(type) -> type;

@@ -20,12 +20,10 @@ opaque_key_adt.erl:59:2: Invalid type specification for function opaque_key_adt:
  But the spec is opaque_key_adt:smt2() -> smt(1)
  The return types do not overlap
 opaque_key_use.erl:13:5: The test opaque_key_use:t() =:= opaque_key_use:t(_) can never evaluate to 'true'
-opaque_key_use.erl:24:5: Attempt to test for equality between a term of type opaque_key_adt:t(_) and a term of opaque type opaque_key_adt:t()
-opaque_key_use.erl:37:1: Function adt_mm1/0 has no local return
+opaque_key_use.erl:24:5: The test opaque_key_adt:t() =:= opaque_key_adt:t(_) can never evaluate to 'true'
 opaque_key_use.erl:40:5: The attempt to match a term of type opaque_key_adt:m() against the pattern #{A:=R} breaks the opacity of the term
-opaque_key_use.erl:48:1: Function adt_mu1/0 has no local return
 opaque_key_use.erl:51:5: Guard test is_map(M::opaque_key_adt:m()) breaks the opacity of its argument
-opaque_key_use.erl:53:1: Function adt_mu2/0 has no local return
+opaque_key_use.erl:51:5: The attempt to match the term against the variable M breaks the opacity of the term
 opaque_key_use.erl:56:5: Guard test is_map(M::opaque_key_adt:m()) breaks the opacity of its argument
-opaque_key_use.erl:58:1: Function adt_mu3/0 has no local return
+opaque_key_use.erl:56:5: The attempt to match the term against the variable M breaks the opacity of the term
 opaque_key_use.erl:60:5: Guard test is_map(M::opaque_key_adt:m()) breaks the opacity of its argument

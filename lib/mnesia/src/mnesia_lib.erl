@@ -1305,6 +1305,7 @@ db_erase_tab(disc_only_copies, _Tab) -> ignore;
 db_erase_tab({ext, _Alias, _Mod}, _Tab) -> ignore.
 
 %% assuming that Tab is a valid ets-table
+-dialyzer({no_opaque_union, [dets_to_ets/6]}).
 dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
     {Open, Close} = mkfuns(Lock),
     case Open(Tabname, [{file, File}, {type, disk_type(Tab, Type)},
@@ -1317,6 +1318,7 @@ dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
 	    Other
     end.
 
+-dialyzer({no_opaque_union, [trav_ret/2]}).
 trav_ret(Tabname, Tabname) -> loaded;
 trav_ret(Other, _Tabname) -> Other.
 

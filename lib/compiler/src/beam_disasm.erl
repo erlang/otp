@@ -41,8 +41,8 @@
 %%-----------------------------------------------------------------------
 
 -type index()        :: non_neg_integer().
--type literals()     :: 'none' | gb_trees:tree(index(), term()).
--type types()        :: 'none' | gb_trees:tree(index(), term()).
+-type literals()     :: gb_trees:tree(index(), term()).
+-type types()        :: gb_trees:tree(index(), term()).
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -254,7 +254,7 @@ disasm_lambdas(<<>>, _, _) -> [].
 -spec beam_disasm_types('none' | binary()) -> types().
 
 beam_disasm_types(none) ->
-    none;
+    gb_trees:empty();
 beam_disasm_types(<<Version:32,Count:32,Table0/binary>>) ->
     case beam_types:convert_ext(Version, Table0) of
         none ->
@@ -265,7 +265,7 @@ beam_disasm_types(<<Version:32,Count:32,Table0/binary>>) ->
             Res
     end;
 beam_disasm_types(<<_/binary>>) ->
-    none.
+    gb_trees:empty().
 
 disasm_types(Types0, Index) ->
     case beam_types:decode_ext(Types0) of

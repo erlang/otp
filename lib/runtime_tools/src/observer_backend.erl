@@ -416,17 +416,19 @@ sockaddr_to_list(#{family := inet6, addr := Addr, port := Port,
 	" , " ++ erlang:integer_to_list(SID);
 sockaddr_to_list(Addr) ->
     f("~p", [Addr]).
-    
+
+-dialyzer({no_opaque_union, [get_ets_tab_id/1]}).
+get_ets_tab_id(Id) ->
+    case ets:info(Id, named_table) of
+        true -> ignore;
+        false -> Id
+    end.
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
     HideSys = proplists:get_value(sys_hidden, Opts, true),
     Info = fun(Id, Acc) ->
 		   try
-		       TabId = case ets:info(Id, named_table) of
-				   true -> ignore;
-				   false -> Id
-			       end,
 		       Name = ets:info(Id, name),
 		       Protection = ets:info(Id, protection),
 		       ignore(HideUnread andalso Protection == private, unreadable),
@@ -442,7 +444,7 @@ get_table_list(ets, Opts) ->
 			      andalso is_atom((catch mnesia:table_info(Name, where_to_read))), mnesia_tab),
 		       Memory = ets:info(Id, memory) * erlang:system_info(wordsize),
 		       Tab = [{name,Name},
-			      {id,TabId},
+			      {id,get_ets_tab_id(Id)},
 			      {protection,Protection},
 			      {owner,Owner},
 			      {size,ets:info(Id, size)},

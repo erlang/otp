@@ -946,6 +946,7 @@ do_gc_cache(Cache, [Key|Keys]) ->
     ets:delete(Cache, Key),
     do_gc_cache(Cache, Keys).
 
+-dialyzer({no_opaque_union, [maybe_invalidate_cache/1]}).
 maybe_invalidate_cache(?NO_CACHE) ->
     ?NO_CACHE;
 maybe_invalidate_cache(Cache) ->

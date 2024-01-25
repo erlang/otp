@@ -414,6 +414,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                       record -> SpecialCase(rd);
                                       spec -> SpecialCase(ft);
                                       type -> SpecialCase(td);
+                                      nominal -> SpecialCase(td);
                                       _ -> erl_eval:extended_parse_exprs(Toks)
                                   end;
                               [{atom, _, FunName}, {'(', _}|_] ->
@@ -1383,6 +1384,10 @@ local_func(td, [{string, _, TypeDef}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
         {done, {ok, Toks, _}, _} ->
             case erl_parse:parse_form(Toks) of
                 {ok, {attribute,_,type,{TypeName, _, _}}=AttrForm} ->
+                    true = ets:insert(FT, [{{type, TypeName}, AttrForm}]),
+                    true = ets:insert(FT, [{{type_def, TypeName}, TypeDef}]),
+                    {value, ok, Bs};
+                {ok, {attribute,_,nominal,{TypeName, _, _}}=AttrForm} ->
                     true = ets:insert(FT, [{{type, TypeName}, AttrForm}]),
                     true = ets:insert(FT, [{{type_def, TypeName}, TypeDef}]),
                     {value, ok, Bs};
