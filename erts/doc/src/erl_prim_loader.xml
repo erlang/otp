@@ -50,6 +50,8 @@
       <name name="get_file" arity="1" since=""/>
       <fsummary>Get a file.</fsummary>
       <desc>
+        <p><em>Use of this function is deprecated
+          in favor of <c>read_file/1</c>.</em></p>
         <p>Fetches a file using the low-level loader.
           <c><anno>Filename</anno></c> is either an absolute filename or only
           the name of the file, for example, <c>"lists.beam"</c>. If an internal
@@ -68,6 +70,8 @@
       <name name="get_path" arity="0" since=""/>
       <fsummary>Get the path set in the loader.</fsummary>
       <desc>
+        <p><em>Use of this function is deprecated
+          in favor of <c>code:get_path/1</c>.</em></p>
         <p>Gets the path set in the loader. The path is
           set by the <seeerl marker="init"><c>init(3)</c></seeerl>
           process according to information found in the start script.</p>
@@ -86,6 +90,22 @@
         <p><c><anno>Dir</anno></c> can also be a directory in an archive,
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
+          For information about archive files, see
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="read_file" arity="1" since="OTP 27.0.0"/>
+      <fsummary>Reads a file.</fsummary>
+      <desc>
+        <p>Reads a file using the low-level loader. Returns
+          <c>{ok, <anno>Bin</anno>}</c> if successful, otherwise
+          <c>error</c>. <c><anno>Bin</anno></c> is the contents
+          of the file as a binary.</p>
+        <p><c><anno>Filename</anno></c> can also be a file in an archive,
+          for example,
+          <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           For information about archive files, see
           <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>

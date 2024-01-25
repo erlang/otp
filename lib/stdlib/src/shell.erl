@@ -1560,9 +1560,9 @@ find_file(Mod) when is_atom(Mod) ->
             %%   but code:which/1 finds all loaded modules
             %% - File can also be a file in an archive,
             %%   beam_lib:chunks/2 cannot handle such paths but
-            %%   erl_prim_loader:get_file/1 can
-            case erl_prim_loader:get_file(File) of
-                {ok, Beam, _} ->
+            %%   erl_prim_loader:read_file/1 can
+            case erl_prim_loader:read_file(File) of
+                {ok, Beam} ->
                     {beam, Beam, File};
                 error ->
                     {error, nofile}

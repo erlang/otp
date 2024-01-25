@@ -88,8 +88,8 @@ ssl_connection_sup() ->
      }.
 
 consult(File) ->
-    case erl_prim_loader:get_file(File) of
-        {ok, Binary, _FullName} ->
+    case erl_prim_loader:read_file(File) of
+        {ok, Binary} ->
             Encoding =
                 case epp:read_encoding_from_binary(Binary) of
                     none -> latin1;

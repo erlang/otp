@@ -120,8 +120,8 @@ prim_consult(Bin) when is_binary(Bin) ->
 	    {error, Module:format_error(Reason)}
     end;
 prim_consult(FullName) when is_list(FullName) ->
-    case erl_prim_loader:get_file(FullName) of
-        {ok, Bin, _} ->
+    case erl_prim_loader:read_file(FullName) of
+        {ok, Bin} ->
 	    prim_consult(Bin);
         error ->
             {error, file:format_error(enoent)}
@@ -575,8 +575,8 @@ recursive_copy_file(From, To) ->
     end.
 
 copy_file(From, To) ->
-    case erl_prim_loader:get_file(From) of
-	{ok, Bin, _} ->
+    case erl_prim_loader:read_file(From) of
+	{ok, Bin} ->
 	    case file:write_file(To, Bin) of
 		ok ->
 		    FromInfo = read_file_info(From),

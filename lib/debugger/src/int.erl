@@ -650,8 +650,8 @@ load({Mod, Src, Beam, BeamBin, Exp, Abst}, Dist) ->
 		       erts_debug:breakpoint({Mod,'_','_'}, false),
 		       {module,Mod} = code:load_binary(Mod, Beam, BeamBin)
 		   end),
-    case erl_prim_loader:get_file(filename:absname(Src)) of
-	{ok, SrcBin, _} ->
+    case erl_prim_loader:read_file(filename:absname(Src)) of
+	{ok, SrcBin} ->
 	    MD5 = code:module_md5(BeamBin),
             SrcBin1 = unicode:characters_to_binary(SrcBin, enc(SrcBin)),
             true = is_binary(SrcBin1),
@@ -790,7 +790,7 @@ check_beam(BeamBin) when is_binary(BeamBin) ->
 	    error
     end;
 check_beam(Beam) when is_list(Beam) ->
-    {ok, Bin, _FullPath} = erl_prim_loader:get_file(filename:absname(Beam)),
+    {ok, Bin} = erl_prim_loader:read_file(filename:absname(Beam)),
     check_beam(Bin).
 
 is_file(Name) ->
@@ -806,8 +806,7 @@ everywhere(local, Fun) ->
 
 scan_module_name(File) ->
     try
-        {ok, Bin, _FullPath} =
-            erl_prim_loader:get_file(filename:absname(File)),
+        {ok, Bin} = erl_prim_loader:read_file(filename:absname(File)),
         scan_module_name_1([], <<>>, Bin, enc(Bin))
     catch
         _:_ ->

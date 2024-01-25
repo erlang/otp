@@ -88,6 +88,15 @@ main([RelArchiveFile]) ->
     {ok,Bin,RelBeam} = erl_prim_loader:get_file(RelBeam),
     {ok,Bin,DotSlashBeam} = erl_prim_loader:get_file(DotSlashBeam),
 
+    error = erl_prim_loader:read_file(AbsArchiveFile),
+    error = erl_prim_loader:read_file(RelArchiveFile),
+    error = erl_prim_loader:read_file(DotSlashArchiveFile),
+    error = erl_prim_loader:read_file(AbsArchiveFile ++ "/"),
+    error = erl_prim_loader:read_file(AbsArchiveFile ++ "/."),
+    {ok,Bin} = erl_prim_loader:read_file(AbsBeam),
+    {ok,Bin} = erl_prim_loader:read_file(RelBeam),
+    {ok,Bin} = erl_prim_loader:read_file(DotSlashBeam),
+
     {ok,#file_info{type=directory}=DFI} =
 	erl_prim_loader:read_file_info(AbsArchiveFile),
     {ok,DFI} = erl_prim_loader:read_file_info(RelArchiveFile),
@@ -101,6 +110,7 @@ main([RelArchiveFile]) ->
     F = AbsArchiveFile ++ ".extension",
     error = erl_prim_loader:list_dir(F),
     {ok,_,_} = erl_prim_loader:get_file(F),
+    {ok,_} = erl_prim_loader:read_file(F),
     {ok,#file_info{type=regular}} = erl_prim_loader:read_file_info(F),
 
     ok.

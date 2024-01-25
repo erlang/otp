@@ -200,7 +200,7 @@ ensure_loaded(Mod) when is_atom(Mod) ->
                 {module, Mod} -> {module, Mod};
                 {error, What} -> {error, What};
                 {Binary,File,Ref} ->
-                    case erlang:prepare_loading(Mod, Binary) of
+                    case ensure_prepare_loading(Mod, Binary, File) of
                         {error,_}=Error ->
                             call({load_error, Ref, Mod, Error});
                         Prepared ->
@@ -208,6 +208,14 @@ ensure_loaded(Mod) when is_atom(Mod) ->
                     end
             end
     end.
+
+ensure_prepare_loading(Mod, missing, File) ->
+    case erl_prim_loader:read_file(File) of
+        {ok, Binary} -> erlang:prepare_loading(Mod, Binary);
+        error -> {error, nofile}
+    end;
+ensure_prepare_loading(Mod, Binary, _File) ->
+    erlang:prepare_loading(Mod, Binary).
 
 %% XXX File as an atom is allowed only for backwards compatibility.
 -spec load_abs(Filename) -> load_ret() when
@@ -222,8 +230,8 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
         true ->
             FileName0 = lists:concat([File, objfile_extension()]),
             FileName = code_server:absname(FileName0),
-            case erl_prim_loader:get_file(FileName) of
-                {ok,Bin,_} ->
+            case erl_prim_loader:read_file(FileName) of
+                {ok,Bin} ->
                     load_module(M, FileName, Bin, false);
                 error ->
                     {error, nofile}
@@ -284,7 +292,16 @@ is_loaded(Mod) when is_atom(Mod) ->
       Module :: module(),
       Binary :: binary(),
       Filename :: file:filename().
-get_object_code(Mod) when is_atom(Mod) -> call({get_object_code, Mod}).
+get_object_code(Mod) when is_atom(Mod) ->
+    case call({get_object_code, Mod}) of
+        {Module, missing, File} ->
+            case erl_prim_loader:read_file(File) of
+                {ok, Binary} -> {Module, Binary, File};
+                error -> error
+            end;
+        {_, _, _} = MBF -> MBF;
+        error -> error
+    end.
 
 -spec all_loaded() -> [{Module, Loaded}] when
       Module :: module(),
@@ -392,7 +409,26 @@ set_path(PathList) -> set_path(PathList, nocache).
 -spec set_path(Path, cache()) -> set_path_ret() when
       Path :: [Dir :: file:filename()].
 set_path(PathList, Cache) when is_list(PathList), ?is_cache(Cache) ->
-    call({set_path,PathList,Cache}).
+    case normalize_paths(PathList, [], ok) of
+        {ok, Normalized} ->
+            call({set_path,Normalized,Cache});
+        {error, _} ->
+            {error, bad_directory}
+    end.
+
+%% Atoms are supported only for backwards compatibility purposes.
+%% They are not part of the typespec.
+normalize_paths([P|Path], Acc, Status) when is_atom(P) ->
+    normalize_paths(Path, [atom_to_list(P)|Acc], Status);
+normalize_paths([P|Path], Acc, Status) when is_list(P) ->
+    case int_list(P) of
+        true  -> normalize_paths(Path, [filename:join([P]) | Acc], Status);
+        false -> normalize_paths(Path, Acc, error)
+    end;
+normalize_paths([_|Path], Acc, _Status) ->
+    normalize_paths(Path, Acc, error);
+normalize_paths([], Acc, Status) ->
+    {Status, lists:reverse(Acc)}.
 
 -spec get_path() -> Path when
       Path :: [Dir :: file:filename()].
@@ -405,7 +441,7 @@ add_path(Dir) -> add_path(Dir, nocache).
 
 -spec add_path(Dir, cache()) -> add_path_ret() when
       Dir :: file:filename().
-add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
+add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> add_pathz(Dir, Cache).
 
 -spec add_pathz(Dir) -> add_path_ret() when
       Dir :: file:filename().
@@ -413,7 +449,9 @@ add_pathz(Dir) -> add_pathz(Dir, nocache).
 
 -spec add_pathz(Dir, cache()) -> add_path_ret() when
       Dir :: file:filename().
-add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
+add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
+    {_, [Normalized]} = normalize_paths([Dir], [], ok),
+    call({add_path,last,Normalized,Cache}).
 
 -spec add_patha(Dir) -> add_path_ret() when
       Dir :: file:filename().
@@ -421,7 +459,9 @@ add_patha(Dir) -> add_patha(Dir, nocache).
 
 -spec add_patha(Dir, cache()) -> add_path_ret() when
       Dir :: file:filename().
-add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,first,Dir,Cache}).
+add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
+    {_, [Normalized]} = normalize_paths([Dir], [], ok),
+    call({add_path,first,Normalized,Cache}).
 
 -spec add_paths(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
@@ -429,7 +469,7 @@ add_paths(Dirs) -> add_paths(Dirs, nocache).
 
 -spec add_paths(Dirs, cache()) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
+add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> add_pathsz(Dirs, Cache).
 
 -spec add_pathsz(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
@@ -437,7 +477,9 @@ add_pathsz(Dirs) -> add_pathsz(Dirs, nocache).
 
 -spec add_pathsz(Dirs, cache()) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
+add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
+    {_, Normalized} = normalize_paths(Dirs, [], ok),
+    call({add_paths,last,Normalized,Cache}).
 
 -spec add_pathsa(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
@@ -445,7 +487,9 @@ add_pathsa(Dirs) -> add_pathsa(Dirs, nocache).
 
 -spec add_pathsa(Dirs, cache()) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsa(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,first,Dirs,Cache}).
+add_pathsa(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
+    {_, Normalized} = normalize_paths(Dirs, [], ok),
+    call({add_paths,first,Normalized,Cache}).
 
 -spec del_path(NameOrDir) -> boolean() | {'error', What} when
       NameOrDir :: Name | Dir,

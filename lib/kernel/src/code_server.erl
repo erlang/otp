@@ -718,24 +718,16 @@ do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
 %%
 %% Add new path(s).
 %%
-add_path(Where,Dir,Path,Cache,NameDb) when is_atom(Dir) ->
-    add_path(Where,atom_to_list(Dir),Path,Cache,NameDb);
 add_path(Where,Dir0,Path,Cache,NameDb) when is_list(Dir0) ->
-    case int_list(Dir0) of
-	true ->
-	    Dir = filename:join([Dir0]), % Normalize
-	    case check_path([Dir]) of
-		{ok, [NewDir]} ->
-		    {true, do_add(Where,NewDir,Path,Cache,NameDb)};
-		Error ->
-		    {Error, Path}
-	    end;
-	false ->
-	    {{error, bad_directory}, Path}
+    Dir = filename:join([Dir0]), % Normalize
+    case check_path([Dir]) of
+	{ok, [NewDir]} ->
+	    {true, do_add(Where,NewDir,Path,Cache,NameDb)};
+	Error ->
+	    {Error, Path}
     end;
 add_path(_,_,Path,_,_) ->
     {{error, bad_directory}, Path}.
-
 
 %%
 %% If the new directory is added first or if the directory didn't exist
@@ -767,8 +759,7 @@ update(Dir, NameDb) ->
 %%
 %% Set a completely new path.
 %%
-set_path(NewPath0, OldPath, Cache, NameDb, Root) ->
-    NewPath = normalize(NewPath0),
+set_path(NewPath, OldPath, Cache, NameDb, Root) ->
     case check_path(NewPath) of
 	{ok, NewPath2} ->
 	    ets:delete(NameDb),
@@ -778,25 +769,6 @@ set_path(NewPath0, OldPath, Cache, NameDb, Root) ->
 	Error ->
 	    {Error, OldPath, NameDb}
     end.
-
-%%
-%% Normalize the given path.
-%% The check_path function catches erroneous path,
-%% thus it is ignored here.
-%%
-normalize([P|Path]) when is_atom(P) ->
-    normalize([atom_to_list(P)|Path]);
-normalize([P|Path]) when is_list(P) ->
-    case int_list(P) of
-	true  -> [filename:join([P])|normalize(Path)];
-	false -> [P|normalize(Path)]
-    end;
-normalize([P|Path]) ->
-    [P|normalize(Path)];
-normalize([]) ->
-    [];
-normalize(Other) ->
-    Other.
 
 %% Handle a table of name-directory pairs.
 %% The priv_dir/1 and lib_dir/1 functions will have
@@ -1158,10 +1130,6 @@ try_finish_module_2(File, Mod, PC, From, EnsureLoaded, St0) ->
     end,
     handle_on_load(Res, Action, Mod, From, St0).
 
-int_list([H|T]) when is_integer(H) -> int_list(T);
-int_list([_|_])                    -> false;
-int_list([])                       -> true.
-
 get_object_code(#state{path=Path} = St, Mod) when is_atom(Mod) ->
     ModStr = atom_to_list(Mod),
     case erl_prim_loader:is_basename(ModStr) of
@@ -1231,23 +1199,23 @@ loader_down(#state{loading = Loading0} = St, {Mod, Bin, FName}) ->
             St
     end.
 
+mod_to_bin([{Dir, nocache}|Tail], ModFile, Acc) ->
+    File = filename:append(Dir, ModFile),
+
+    case erl_prim_loader:read_file(File) of
+        error ->
+            mod_to_bin(Tail, ModFile, [{Dir, nocache} | Acc]);
+
+        {ok,Bin} ->
+            Path = lists:reverse(Acc, [{Dir, nocache} | Tail]),
+            {Bin, absname_when_relative(File), Path}
+    end;
 mod_to_bin([{Dir, Cache0}|Tail], ModFile, Acc) ->
     case with_cache(Cache0, Dir, ModFile) of
         {true, Cache1} ->
             File = filename:append(Dir, ModFile),
-
-            case erl_prim_loader:get_file(File) of
-                error ->
-                    mod_to_bin(Tail, ModFile, [{Dir, Cache1} | Acc]);
-
-                {ok,Bin,_} ->
-                    Path = lists:reverse(Acc, [{Dir, Cache1} | Tail]),
-
-                    case filename:pathtype(File) of
-                        absolute -> {Bin, File, Path};
-                        _ -> {Bin, absname(File), Path}
-                    end
-            end;
+            Path = lists:reverse(Acc, [{Dir, Cache1} | Tail]),
+            {missing, absname_when_relative(File), Path};
         {false, Cache1} ->
             mod_to_bin(Tail, ModFile, [{Dir, Cache1} | Acc])
     end;
@@ -1260,8 +1228,6 @@ mod_to_bin([], ModFile, Acc) ->
             {Bin, absname(FName), lists:reverse(Acc)}
     end.
 
-with_cache(nocache, _Dir, _ModFile) ->
-    {true, nocache};
 with_cache(cache, Dir, ModFile) ->
     case erl_prim_loader:list_dir(Dir) of
         {ok, Entries} -> with_cache(maps:from_keys(Entries, []), Dir, ModFile);
@@ -1269,6 +1235,12 @@ with_cache(cache, Dir, ModFile) ->
     end;
 with_cache(Cache, _Dir, ModFile) when is_map(Cache) ->
     {is_map_key(ModFile, Cache), Cache}.
+
+absname_when_relative(File) ->
+    case filename:pathtype(File) of
+        absolute -> File;
+        _ -> absname(File)
+    end.
 
 absname(File) ->
     case erl_prim_loader:get_cwd() of

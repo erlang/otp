@@ -1494,8 +1494,8 @@ make_appl(Application) ->
     {ok, make_appl_i(Application)}.
 
 prim_consult(FullName) ->
-    case erl_prim_loader:get_file(FullName) of
-	{ok, Bin, _} ->
+    case erl_prim_loader:read_file(FullName) of
+	{ok, Bin} ->
             case file_binary_to_list(Bin) of
                 {ok, String} ->
                     case erl_scan:string(String) of
@@ -1969,8 +1969,8 @@ check_conf_sys([], SysEnv, Errors, _) ->
 
 load_file(File) ->
     %% We can't use file:consult/1 here. Too bad.
-    case erl_prim_loader:get_file(File) of
-	{ok, Bin, _FileName} ->
+    case erl_prim_loader:read_file(File) of
+	{ok, Bin} ->
 	    %% Make sure that there is some whitespace at the end of the string
 	    %% (so that reading a file with no NL following the "." will work).
             case file_binary_to_list(Bin) of
