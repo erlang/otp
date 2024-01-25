@@ -157,6 +157,7 @@
 	 t_module/0,
 	 t_nil/0,
 	 t_node/0,
+   t_nominal/2,
 	 t_none/0,
 	 t_nonempty_binary/0,
 	 t_nonempty_bitstring/0,
@@ -256,6 +257,7 @@
 -define(binary_tag,     binary).
 -define(function_tag,   function).
 -define(identifier_tag, identifier).
+-define(nominal_tag,    nominal).
 -define(list_tag,       list).
 -define(map_tag,        map).
 -define(nil_tag,        nil).
@@ -268,7 +270,7 @@
 -define(var_tag,        var).
 
 -type tag()  :: ?atom_tag | ?binary_tag | ?function_tag | ?identifier_tag
-              | ?list_tag | ?map_tag | ?nil_tag | ?number_tag
+              | ?list_tag | ?map_tag | ?nil_tag | ?number_tag | ?nominal_tag
               | ?opaque_tag | ?product_tag
               | ?tuple_tag | ?tuple_set_tag | ?union_tag | ?var_tag.
 
@@ -319,6 +321,7 @@
 -define(integer(Types),            ?number(Types, ?integer_qual)).
 -define(int_range(From, To),       ?integer(#int_rng{from=From, to=To})).
 -define(int_set(Set),              ?integer(#int_set{set=Set})).
+-define(nominal(Name, Types),      #c{tag=?nominal_tag, elements={Name,Types}}).
 -define(list(Types, Term, Size),   #c{tag=?list_tag, elements={Types,Term},
 				      qualifier=Size}).
 -define(nil,                       #c{tag=?nil_tag}).
@@ -1358,6 +1361,15 @@ t_is_nil(Type, Opaques) ->
 
 is_nil(?nil) -> true;
 is_nil(_) -> false.
+
+-spec t_nominal(erl_type(), erl_type()) -> erl_type().
+
+t_nominal(Name, Types) -> ?nominal(Name, Types).
+
+%-spec t_is_nominal(erl_type()) -> boolean().
+
+%t_is_nominal(?nominal(_Contents, ?nil)) -> true;
+%t_is_nominal(_) -> false. 
 
 -spec t_list() -> erl_type().
 
@@ -2554,6 +2566,10 @@ t_sup(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B) ->
 	 (K, _,     V1, _,     V2) -> {K, ?opt,  t_sup(V1, V2)}
       end, A, B),
   t_map(Pairs, t_sup(ADefK, BDefK), t_sup(ADefV, BDefV));
+%% Union of 1 or more nominal types
+t_sup(?nominal(Name,S1), ?nominal(Name,S2)) -> ?nominal(Name,t_sup(S1, S2));
+t_sup(?nominal(_,S1), S2) -> t_sup(S1, S2);
+t_sup(S1, ?nominal(_,S2)) -> t_sup(S1, S2);
 t_sup(T1, T2) ->
   ?union(U1) = force_union(T1),
   ?union(U2) = force_union(T2),
@@ -2817,6 +2833,11 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
 	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
       end, A, B),
   t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV));
+%% Intersection of 1 or more nominal types
+t_inf(?nominal(N, S1), ?nominal(N, S2), _) -> ?nominal(N, t_inf(S1,S2));
+t_inf(?nominal(_, _), ?nominal(_, _), _) -> t_none();
+t_inf(?nominal(_, S1), S2, _) -> t_inf(S1, S2);
+t_inf(S1, ?nominal(_, S2), _) -> t_inf(S1, S2);
 t_inf(?nil, ?nil, _Opaques) -> ?nil;
 t_inf(?nil, ?nonempty_list(_, _), _Opaques) ->
   ?none;
@@ -4465,6 +4486,9 @@ from_form({type, _Anno, no_return, []}, _S, _D, L, C) ->
   {t_unit(), L, C};
 from_form({type, _Anno, node, []}, _S, _D, L, C) ->
   {t_node(), L, C};
+from_form({type, _Anno, nominal, [{atom, _Anno1, Name},Type]}, S, D, L, C) -> 
+  {T, L1, C1} = from_form(Type, S, D, L, C),
+  {t_nominal(Name, T), L1, C1};
 from_form({type, _Anno, none, []}, _S, _D, L, C) ->
   {t_none(), L, C};
 from_form({type, _Anno, nonempty_binary, []}, S, D, L, C) ->
