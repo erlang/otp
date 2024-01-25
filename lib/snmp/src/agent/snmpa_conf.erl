@@ -93,6 +93,7 @@
               agent_entry/0,
               community_entry/0,
               context_entry/0,
+              notify_entry/0,
 
               range/0,
               ranges/0,
@@ -160,6 +161,14 @@
 
 %% -type context_entry() :: term().
 -opaque context_entry() :: snmp_community_mib:context_name().
+
+%% -type notify_entry() :: term().
+-opaque notify_entry() ::
+          {
+           Name :: snmp_notification_mib:notify_name(),
+           Tag  :: snmp_notification_mib:notify_tag(),
+           Type :: snmp_notification_mib:notify_type()
+          }.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -765,6 +774,11 @@ write_notify_config(Dir, Hdr, Conf)
     Check = fun check_notify/2,
     Write = fun (Fd, Entries) -> write_notify_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
+
+
+-spec append_notify_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [notify_entry()].
 
 append_notify_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
