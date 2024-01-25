@@ -92,6 +92,7 @@
 
               agent_entry/0,
               community_entry/0,
+              context_entry/0,
 
               range/0,
               ranges/0,
@@ -144,10 +145,10 @@
 
 -type usm_entry() :: snmp_user_based_sm_mib:usm_entry().
 
-%% -type agent_entry() :: tuple().
+%% -type agent_entry() :: term().
 -opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
 
-%% -type community_entry() :: tuple().
+%% -type community_entry() :: term().
 -opaque community_entry() ::
           {
            CommIndex    :: snmp_community_mib:index(),
@@ -156,6 +157,9 @@
            CtxName      :: snmp_community_mib:context_name(),
            TransportTag :: snmp_community_mib:transport_tag()
           }.
+
+%% -type context_entry() :: term().
+-opaque context_entry() :: snmp_community_mib:context_name().
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -306,6 +310,11 @@ write_context_config(Dir, Hdr, Conf)
     Check = fun check_context/2,
     Write = fun (Fd, Entries) -> write_context_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "context.conf", Order, Check, Write, Conf).
+
+
+-spec append_context_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [context_entry()].
 
 append_context_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
