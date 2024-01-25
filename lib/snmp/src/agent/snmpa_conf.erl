@@ -91,6 +91,8 @@
               transportAddressMask/0,
 
               agent_entry/0,
+              community_entry/0,
+
               range/0,
               ranges/0,
               port_info/0,
@@ -144,6 +146,16 @@
 
 %% -type agent_entry() :: tuple().
 -opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
+
+%% -type community_entry() :: tuple().
+-opaque community_entry() ::
+          {
+           CommIndex    :: snmp_community_mib:index(),
+           CommName     :: snmp_community_mib:name(),
+           SecName      :: snmp_community_mib:security_name(),
+           CtxName      :: snmp_community_mib:context_name(),
+           TransportTag :: snmp_community_mib:transport_tag()
+          }.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -369,6 +381,11 @@ write_community_config(Dir, Hdr, Conf)
     Check = fun check_community/2,
     Write = fun (Fd, Entries) -> write_community_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "community.conf", Order, Check, Write, Conf).
+
+
+-spec append_community_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [community_entry()].
 
 append_community_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
