@@ -2105,22 +2105,17 @@ the traversal.
 
 foldl(F, Accu, T) ->
     ets:safe_fixtable(T, true),
-    First = ets:first(T),
+    First = ets:first_lookup(T),
     try
         do_foldl(F, Accu, First, T)
     after
 	ets:safe_fixtable(T, false)
     end.
 
-do_foldl(F, Accu0, Key, T) ->
-    case Key of
-	'$end_of_table' ->
-	    Accu0;
-	_ ->
-	    do_foldl(F,
-		     lists:foldl(F, Accu0, ets:lookup(T, Key)),
-		     ets:next(T, Key), T)
-    end.
+do_foldl(_F, Accu, '$end_of_table', _T) -> Accu;
+do_foldl(F, Accu0, {Key, Objects}, T) ->
+    Accu = lists:foldl(F, Accu0, Objects),
+    do_foldl(F, Accu, ets:next_lookup(T, Key), T).
 
 -doc """
 `Acc0` is returned if the table is empty. This function is similar to
@@ -2141,22 +2136,17 @@ the traversal.
 
 foldr(F, Accu, T) ->
     ets:safe_fixtable(T, true),
-    Last = ets:last(T),
+    Last = ets:last_lookup(T),
     try
         do_foldr(F, Accu, Last, T)
-    after 
+    after
         ets:safe_fixtable(T, false)
     end.
 
-do_foldr(F, Accu0, Key, T) ->
-    case Key of
-	'$end_of_table' ->
-	    Accu0;
-	_ ->
-	    do_foldr(F,
-		     lists:foldr(F, Accu0, ets:lookup(T, Key)),
-		     ets:prev(T, Key), T)
-    end.
+do_foldr(_F, Accu, '$end_of_table', _T) -> Accu;
+do_foldr(F, Accu0, {Key, Objects}, T) ->
+    Accu = lists:foldr(F, Accu0, Objects),
+    do_foldr(F, Accu, ets:prev_lookup(T, Key), T).
 
 -doc """
 Fills an already created ETS table with the objects in the already opened Dets
