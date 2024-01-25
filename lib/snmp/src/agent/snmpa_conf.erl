@@ -95,6 +95,7 @@
               context_entry/0,
               notify_entry/0,
               standard_entry/0,
+              target_addr_entry/0,
 
               range/0,
               ranges/0,
@@ -173,6 +174,19 @@
 
 %% -type standard_entry() :: term().
 -opaque standard_entry() :: {Tag :: atom(), Value :: term()}.
+
+%% -type target_addr_entry() :: term().
+-opaque target_addr_entry() ::
+          {
+           Name       :: snmp_target_mib:name(),
+           Domain     :: transportDomain(),
+           Addr       :: transportAddress(),
+           TagList    :: snmp_target_mib:tag_list(),
+           ParamsName :: snmp_target_mib:params(),
+           EngineId   :: snmp_framework_mib:engine_id(),
+           TMask      :: snmp_target_mib:tmask(),
+           MMS        :: snmp_target_mib:mms()
+          }.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -607,6 +621,11 @@ write_target_addr_config(Dir, Hdr, Conf)
     Check = fun check_target_addr/2,
     Write = fun (Fd, Entries) -> write_target_addr_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
+
+
+-spec append_target_addr_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_addr_entry()].
 
 append_target_addr_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
