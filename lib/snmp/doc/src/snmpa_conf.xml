@@ -405,19 +405,16 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">append_agent_config(Dir, Conf) -> ok</name>
+      <name name="append_agent_config" arity="2" clause_i="1" since=""/>
       <fsummary>Append the agent config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [agent_entry()]</v>
-      </type>
       <desc>
         <p>Append the config to the current agent config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
-        <p>See 
-          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
-          for more info. </p>
+	config file. </p>
+
+	<p>See 
+	<seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
+	for more info. </p>
 
         <marker id="read_agent_config"></marker>
       </desc>

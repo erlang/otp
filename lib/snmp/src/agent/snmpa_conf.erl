@@ -216,6 +216,11 @@ write_agent_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agent_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
+
+-spec append_agent_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
+
 append_agent_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_framework_mib:order_agent/2,
