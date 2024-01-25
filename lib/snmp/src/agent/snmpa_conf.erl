@@ -96,6 +96,7 @@
               notify_entry/0,
               standard_entry/0,
               target_addr_entry/0,
+              target_params_entry/0,
 
               range/0,
               ranges/0,
@@ -186,6 +187,16 @@
            EngineId   :: snmp_framework_mib:engine_id(),
            TMask      :: snmp_target_mib:tmask(),
            MMS        :: snmp_target_mib:mms()
+          }.
+
+%% -type target_params_entry() :: term().
+-opaque target_params_entry() ::
+          {
+           Name     :: snmp_target_mib:name(),
+           MPModel  :: snmp_framework_mib:message_processing_model(),
+           SecModel :: snmp_framework_mib:security_model(),
+           SecName  :: snmp_framework_mib:admin_string(),
+           SecLevel :: snmp_framework_mib:security_level()
           }.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
@@ -737,6 +748,11 @@ write_target_params_config(Dir, Hdr, Conf)
     Check = fun check_target_params/2,
     Write = fun (Fd, Entries) -> write_target_params_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
+
+
+-spec append_target_params_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_params_entry()].
 
 append_target_params_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
