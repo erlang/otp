@@ -113,6 +113,7 @@ getstat(PacketSocket, Opts) ->
 init([Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
     InternalActiveN = get_internal_active_n(),
     {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
+    proc_lib:set_label({dtls_server_packet_demultiplexer, Port0}),
     {ok, #state{active_n = InternalActiveN,
                 port = Port0,
                 first = true,

@@ -165,7 +165,6 @@
 %% Setup
 %%====================================================================
 init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
-    process_flag(trap_exit, true),
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
