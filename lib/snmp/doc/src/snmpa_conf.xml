@@ -226,6 +226,16 @@
     </datatype>
 
     <datatype>
+      <name name="standard_entry"/>
+      <desc>
+	<p>
+	An opaque term that represents an entry in the 'standard'
+	(agent) config.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="range"/>
       <desc>
 	<p>
@@ -517,20 +527,16 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">append_standard_config(Dir, Conf) -> ok</name>
+      <name name="append_standard_config" arity="2" clause_i="1" since=""/>
       <fsummary>Append the agent standard config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [standard_entry()]</v>
-      </type>
       <desc>
         <p>Append the standard config to the current agent standard 
-          config file. </p>
+	config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
+	for more info. </p>
 
         <marker id="read_standard_config"></marker>
       </desc>

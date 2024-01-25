@@ -94,6 +94,7 @@
               community_entry/0,
               context_entry/0,
               notify_entry/0,
+              standard_entry/0,
 
               range/0,
               ranges/0,
@@ -169,6 +170,9 @@
            Tag  :: snmp_notification_mib:notify_tag(),
            Type :: snmp_notification_mib:notify_type()
           }.
+
+%% -type standard_entry() :: term().
+-opaque standard_entry() :: {Tag :: atom(), Value :: term()}.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -472,6 +476,11 @@ write_standard_config(Dir, Hdr, Conf)
     Check = fun check_standard/2,
     Write = fun (Fd, Entries) -> write_standard_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
+
+
+-spec append_standard_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [standard_entry()].
 
 append_standard_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
