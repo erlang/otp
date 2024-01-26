@@ -529,19 +529,15 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">read_agent_config(Dir) -> Conf</name>
+      <name name="read_agent_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the agent config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [agent_entry()]</v>
-      </type>
       <desc>
         <p>Read the current agent config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
+	for more info. </p>
 
         <marker id="standard_entry"></marker>
       </desc>

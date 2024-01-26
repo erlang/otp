@@ -333,6 +333,12 @@ append_agent_config(Dir, Conf)
     Write = fun write_agent_conf/2,
     append_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
+
+-spec read_agent_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [agent_entry()],
+      Reason :: term().
+
 read_agent_config(Dir) ->
     Order = fun snmp_framework_mib:order_agent/2,
     Check = fun snmp_framework_mib:check_agent/2,
