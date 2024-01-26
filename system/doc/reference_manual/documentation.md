@@ -229,9 +229,9 @@ There are four reserved metadata keys for `-doc`:
   or not. This value is automatically set by the compiler and should not be set
   by the user.
 
-### Doc slogans
+### Doc signatures
 
-The doc slogan is a short text shown to describe the function and its arguments.
+The doc signature is a short text shown to describe the function and its arguments.
 By default it is determined by looking at the names of the arguments in the
 `-spec` or function. For example:
 
@@ -242,31 +242,31 @@ add(One, Two) -> One + Two.
 sub(X, Y) -> X - Y.
 ```
 
-will have a slogan of `add(One, Two)` and `sub(One, Two)`.
+will have a signature of `add(One, Two)` and `sub(One, Two)`.
 
-For types or callbacks, the slogan is derived from the type or callback
+For types or callbacks, the signature is derived from the type or callback
 specification. For example:
 
 ```erlang
 -type number(Value) :: {number, Value}.
-%% slogan will be `number(Value)`
+%% signature will be `number(Value)`
 
 -opaque number() :: {number, number()}.
-%% slogan will be `number()`
+%% signature will be `number()`
 
 -callback increment(In :: number()) -> Out.
-%% slogan will be `increment(In)`
+%% signature will be `increment(In)`
 
 -callback increment(In) -> Out when
    In :: number().
-%% slogan will be `increment(In)`
+%% signature will be `increment(In)`
 ```
 
-If it is not possible to "easily" figure out a nice slogan from the code, the
+If it is not possible to "easily" figure out a nice signature from the code, the
 MFA syntax is used instead. For example: `add/2`, `number/1`, `increment/1`
 
-It is possible to supply a custom slogan by placing it as the first line of the
-`-doc` attribute. The provided slogan must be in the form of a function
+It is possible to supply a custom signature by placing it as the first line of the
+`-doc` attribute. The provided signature must be in the form of a function
 declaration up until the `->`. For example:
 
 ```erlang
@@ -278,7 +278,7 @@ Adds two numbers.
 add(A, B) -> A + B.
 ```
 
-Will create the slogan `add(One, Two)`. The slogan will be removed from the
+Will create the signature `add(One, Two)`. The signature will be removed from the
 documentation string, so in the example above only the text `"Adds two numbers"`
 will be part of the documentation. This works for functions, types, and
 callbacks.
