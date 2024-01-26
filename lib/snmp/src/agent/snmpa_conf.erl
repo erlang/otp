@@ -219,7 +219,6 @@
            PrivKey     :: snmp_user_based_sm_mib:priv_key()
           }.
 
-%% -type vacm_entry() :: term().
 -type vacm_entry() :: vacm_s2g_entry() |
                       vacm_acc_entry() |
                       vacm_vtf_entry().
@@ -442,18 +441,31 @@ write_context_conf(_Fd, X) ->
 %% ------ community.conf ------
 %%
 
-community_entry(CommIndex) when CommIndex == "public" ->
+-spec community_entry(CommIndex) -> CommunityEntry when
+      CommIndex      :: snmp_framework_mib:admin_string(),
+      CommunityEntry :: community_entry().
+
+community_entry(CommIndex) when CommIndex =:= "public" ->
     CommName     = CommIndex,
     SecName      = "initial",
     CtxName      = "",
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag);
-community_entry(CommIndex) when CommIndex == "all-rights" ->
+community_entry(CommIndex) when CommIndex =:= "all-rights" ->
     CommName     = CommIndex,
     SecName      = CommIndex,
     CtxName      = "",
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag).
+
+-spec community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
+          CommunityEntry when
+      CommIndex      :: snmp_community_mib:index(),
+      CommName       :: snmp_community_mib:name(),
+      SecName        :: snmp_community_mib:security_name(),
+      CtxName        :: snmp_community_mib:context_name(),
+      TransportTag   :: snmp_community_mib:transport_tag(),
+      CommunityEntry :: community_entry().
 
 community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
     {CommIndex, CommName, SecName, CtxName, TransportTag}.

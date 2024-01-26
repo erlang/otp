@@ -709,28 +709,47 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">community_entry(CommunityIndex) -> community_entry()</name>
-      <name since="">community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry()</name>
+      <name name="community_entry" arity="1" clause_i="1" since=""/>
       <fsummary>Create an community entry</fsummary>
-      <type>
-        <v>CommunityIndex = string()</v>
-        <v>CommunityName = string()</v>
-        <v>SecName = string()</v>
-        <v>CtxName = string()</v>
-        <v>TransportTag = string()</v>
-        <v>community_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the agent community config file, 
-          <c>community.conf</c>. </p>
-        <p><c>CommunityIndex</c> must be a <em>non-empty</em> string. </p>
-        <p><c>community_entry("public")</c> translates to the following call:
-          <c>community_entry(CommunityIndex, CommunityIndex, "initial", "", "")</c>. </p>
-        <p><c>community_entry("all-rights")</c> translates to the following 
-          call: <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>. </p>
-        <p>See 
-          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
-          for more info. </p>
+	<c>community.conf</c>. </p>
+	<p><c>CommunityIndex</c> must be a <em>non-empty</em> string. </p>
+
+	<p>This function only accepts values of <c><![CDATA[CommIndex]]></c>
+	of the following values: </p>
+	<taglist>
+	  <tag><marker id="community_index_public"></marker><c><![CDATA[ "public" ]]></c></tag>
+	  <item>
+	    <p>Translates to the following call:
+	    <c>community_entry(CommunityIndex, CommunityIndex, "initial", "", "")</c>.</p>
+	  </item>
+
+	  <tag><marker id="community_index_all_rights"></marker><c><![CDATA[ "all-rights" ]]></c></tag>
+	  <item>
+	    <p><c>community_entry("all-rights")</c> translates to the following 
+	call: <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>.</p>
+	  </item>
+	</taglist>
+
+	<p>See 
+	<seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
+	for more info. </p>
+
+        <marker id="write_community_config"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="community_entry" arity="5" clause_i="1" since=""/>
+      <fsummary>Create an community entry</fsummary>
+      <desc>
+        <p>Create an entry for the agent community config file, 
+	<c>community.conf</c>. </p>
+	<p><c>CommunityIndex</c> must be a <em>non-empty</em> string. </p>
+	<p>See 
+	<seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
+	for more info. </p>
 
         <marker id="write_community_config"></marker>
       </desc>
