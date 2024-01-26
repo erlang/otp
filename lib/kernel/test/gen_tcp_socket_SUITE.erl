@@ -34,8 +34,8 @@ groups() ->
      %%
      {dev,          [{group,dev_direct},
                      {group,dev_inet}, {group,dev_socket}]},
-     {dev_inet,     [active_raw, active_false, active_once]},
-     {dev_socket,   [active_raw, active_false, active_once]},
+     {dev_inet,     [active_raw, active_true, active_false, active_once]},
+     {dev_socket,   [active_raw, active_true, active_false, active_once]},
      {dev_direct,   testcases(direct)},
      %%
      {small,        backend_groups()},
@@ -81,7 +81,7 @@ init_per_group(Nm, Config) ->
         smoketest   -> [{burden,0} | Config];
         benchmark   -> [{burden,2} | Config];
         %%
-        dev         -> init_per_group(huge, [{burden,2} | Config]);
+        dev         -> init_per_group(small, [{burden,3} | Config]);
         dev_inet    -> [{backend,inet}   | Config];
         dev_socket  -> [{backend,socket} | Config];
         dev_direct  -> [{backend,direct} | Config];
@@ -250,9 +250,8 @@ run_xfer(
 
 connect(direct, Sockaddr, _) ->
     {ok, S} = socket:open(?DOMAIN, stream),
-    ok = socket:setopt(S, {socket,sndbuf}, ?BUFSIZE),
     ok = socket:setopt(S, {socket,rcvbuf}, ?BUFSIZE),
-    ok = socket:setopt(S, {otp,rcvbuf},    ?BUFSIZE bsl 1),
+    ok = socket:setopt(S, {otp,rcvbuf},    ?BUFSIZE),
     io:format("socket:connect [~p].~n", [Sockaddr]),
     case socket:connect(S, Sockaddr) of
         ok ->
@@ -263,15 +262,13 @@ connect(direct, Sockaddr, _) ->
 connect(Backend, Sockaddr, active_raw) -> % {active,true}, {packet,raw}
     Opts =
         [{inet_backend,Backend}, binary, {active,true},
-         ?DOMAIN,
-         {sndbuf,?BUFSIZE}, {recbuf,?BUFSIZE}, {buffer, ?BUFSIZE}],
+         ?DOMAIN, {recbuf,?BUFSIZE}],
     io:format("gen_tcp:connect(~p, ~p).~n", [Sockaddr, Opts]),
     gen_tcp:connect(Sockaddr, Opts);
 connect(Backend, Sockaddr, TC) ->
     Opts =
         [{inet_backend,Backend}, binary, {active,tc2active(TC)}, {packet,4},
-         ?DOMAIN,
-         {sndbuf,?BUFSIZE}, {recbuf,?BUFSIZE}, {buffer, ?BUFSIZE}],
+         ?DOMAIN, {recbuf,?BUFSIZE}],
     io:format("gen_tcp:connect(~p, ~p).~n", [Sockaddr, Opts]),
     gen_tcp:connect(Sockaddr, Opts).
 
