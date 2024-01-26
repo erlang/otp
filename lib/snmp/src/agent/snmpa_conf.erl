@@ -60,19 +60,19 @@
 	 append_target_params_config/2, 
 	 read_target_params_config/1, 
 
-	 %% xyz.conf
+	 %% notify.conf
 	 notify_entry/3, 
 	 write_notify_config/2, write_notify_config/3, 
 	 append_notify_config/2, 
 	 read_notify_config/1, 
 
-	 %% xyz.conf
+	 %% usm.conf
 	 usm_entry/1, usm_entry/13, 
 	 write_usm_config/2, write_usm_config/3, 
 	 append_usm_config/2, 
 	 read_usm_config/1, 
 
-	 %% xyz.conf
+	 %% vacm.conf
 	 vacm_s2g_entry/3, 
 	 vacm_acc_entry/8, 
 	 vacm_vtf_entry/2, vacm_vtf_entry/4, 
@@ -599,6 +599,12 @@ append_standard_config(Dir, Conf)
     Check = fun check_standard/2,
     Write = fun write_standard_conf/2,
     append_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
+
+
+-spec read_standard_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [standard_entry()],
+      Reason :: term().
 
 read_standard_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
