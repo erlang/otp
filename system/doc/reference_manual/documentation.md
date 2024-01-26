@@ -191,7 +191,7 @@ There are four reserved metadata keys for `-doc`:
     The entry into the [EEP-48][] doc chunk metadata is the value converted to a string.
 
 - `exported => boolean()` - A [boolean/0][] signifying if the entry is `exported`
-  or not. For any `-type` attribute this value is automatically set by the compiler
+  or not. This value is automatically set by the compiler
   and should not be set by the user.
 
 [boolean/0]: seetype/erts:erlang#boolean
