@@ -923,6 +923,12 @@ append_notify_config(Dir, Conf)
     Write = fun write_notify_conf/2,
     append_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
+
+-spec read_notify_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [notify_entry()],
+      Reason :: term().
+
 read_notify_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_notify/2,

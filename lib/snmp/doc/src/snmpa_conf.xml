@@ -1235,20 +1235,17 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">read_notify_config(Dir) -> Conf</name>
+      <name name="read_notify_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the agent notify config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [community_entry()]</v>
-      </type>
       <desc>
         <p>Read the current agent notify config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
-          for more info. </p>
-        <marker id="end"></marker>
+	<seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
+	for more info. </p>
+
+	<marker id="end"></marker>
       </desc>
     </func>
   </funcs>
