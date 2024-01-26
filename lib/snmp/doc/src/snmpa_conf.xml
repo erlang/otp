@@ -183,35 +183,31 @@
 
     <datatype>
       <name name="agent_entry"/>
-      <!--
       <desc>
 	<p>
-	  TBD
+	  An opaque term that represents an entry in the 'agent' config.
 	</p>
       </desc>
-      -->
     </datatype>
 
     <datatype>
       <name name="community_entry"/>
-      <!--
       <desc>
 	<p>
-	  TBD
+	  An opaque term that represents an entry in the 'community'
+	  (agent) config.
 	</p>
       </desc>
-      -->
     </datatype>
 
     <datatype>
       <name name="context_entry"/>
-      <!--
       <desc>
 	<p>
-	  TBD
+	  An opaque term that represents an entry in the 'context'
+	  (agent) config.
 	</p>
       </desc>
-      -->
     </datatype>
 
     <datatype>
@@ -632,20 +628,16 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">context_entry(Context) -> context_entry()</name>
+      <name name="context_entry" arity="1" clause_i="1" since=""/>
       <fsummary>Create an context entry</fsummary>
-      <type>
-        <v>Context = string()</v>
-        <v>context_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the agent context config file, 
-          <c>context.conf</c>. </p>
+	<c>context.conf</c>. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
+	for more info. </p>
 
-        <marker id="write_context_config"></marker>
+	<marker id="write_context_config"></marker>
       </desc>
     </func>
 
@@ -721,14 +713,18 @@ word() = 0..65535
 	<taglist>
 	  <tag><marker id="community_index_public"></marker><c><![CDATA[ "public" ]]></c></tag>
 	  <item>
-	    <p>Translates to the following call:
-	    <c>community_entry(CommunityIndex, CommunityIndex, "initial", "", "")</c>.</p>
+	    <p>Translates to the following call:</p>
+	    <p>
+	      <c>community_entry(CommunityIndex, CommunityIndex, "initial", "", "")</c>.
+	    </p>
 	  </item>
 
 	  <tag><marker id="community_index_all_rights"></marker><c><![CDATA[ "all-rights" ]]></c></tag>
 	  <item>
-	    <p><c>community_entry("all-rights")</c> translates to the following 
-	call: <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>.</p>
+	    <p>Translates to the following call: </p>
+	    <p>
+	      <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>.
+	    </p>
 	  </item>
 	</taglist>
 

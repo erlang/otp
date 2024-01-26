@@ -373,6 +373,10 @@ do_write_agent_conf(_Fd, Crap) ->
 %% ------ context.conf ------
 %%
 
+-spec context_entry(Ctx) -> ContextEntry when
+      Ctx          :: snmp_community_mib:context_name(),
+      ContextEntry :: context_entry().
+
 context_entry(Ctx) ->
     Ctx.
 
