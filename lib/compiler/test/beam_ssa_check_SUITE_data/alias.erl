@@ -366,7 +366,7 @@ transformable16(L) ->
     transformable16(L, {X, Y}).
 
 transformable16([A,B|T], {{Acc0}, Acc1}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = get_tuple_element(A, 0),
 %ssa% C = bs_create_bin(append, _, B, _, _, _, X, _) { aliased => [X], unique => [B], first_fragment_dies => true },
@@ -398,7 +398,7 @@ transformable18(L, X) when is_integer(X), X < 256 ->
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X,A], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
@@ -419,7 +419,7 @@ transformable19(L) ->
     transformable19b(L, {<<>>, X}).
 
 transformable19b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
@@ -510,7 +510,7 @@ transformable24(L) ->
     transformable24(L, {<<>>, ex:foo(),ex:foo()}).
 
 transformable24([H|T], {Acc,X,Y}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% X = get_tuple_element(Arg1, 1),
 %ssa% Acc = get_tuple_element(Arg1, 0),
 %ssa% A = bs_create_bin(append, _, Acc, _, _, _, Sum, _) { unique => [Sum,Acc], first_fragment_dies => true },
@@ -927,7 +927,7 @@ tuple_element_from_tuple_with_existing_child() ->
 -record(variables_in_put_tuple, {a=0,b=0}).
 
 variables_in_put_tuple_unique_0(A) when is_atom(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -939,7 +939,7 @@ variables_in_put_tuple_unique_0(A) when is_atom(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_1(A) when is_number(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -951,7 +951,7 @@ variables_in_put_tuple_unique_1(A) when is_number(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_2(A) when is_integer(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -963,7 +963,7 @@ variables_in_put_tuple_unique_2(A) when is_integer(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_3(A) when is_float(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -975,7 +975,7 @@ variables_in_put_tuple_unique_3(A) when is_float(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_4(A) when is_pid(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -987,7 +987,7 @@ variables_in_put_tuple_unique_4(A) when is_pid(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_5(A) when is_port(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -999,7 +999,7 @@ variables_in_put_tuple_unique_5(A) when is_port(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_6(A) when is_reference(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -1013,7 +1013,7 @@ variables_in_put_tuple_unique_6(A) when is_reference(A) ->
 %% Unknown types, no aliasing of the tuple, but the elements should be
 %% aliased.
 variables_in_put_tuple_aliased(A) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -1053,7 +1053,7 @@ update_record0() ->
     update_record0(ex:f(), #r0{}).
 
 update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
-%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% (_, Rec) when post_ssa_opt ->
 %ssa% _ = update_record(reuse, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
     R = Acc#r0{not_aliased=N+1,aliased=Val},
     update_record0(Ls, R);
@@ -1075,7 +1075,7 @@ update_record1([], Acc) ->
 
 live_past_call_triggers_aliasing(A) ->
 %%% As X lives past the call to id, X and Y alias each other.
-%ssa% xfail (A) when post_ssa_opt ->
+%ssa% (A) when post_ssa_opt ->
 %ssa% X = put_tuple(A),
 %ssa% Y = call(fun id/1, X) { aliased => [X] },
 %ssa% R = put_tuple(X, Y) { aliased => [X,Y] },

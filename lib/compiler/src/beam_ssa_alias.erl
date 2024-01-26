@@ -469,7 +469,8 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             put_tuple ->
                 Types = aa_map_arg_to_type(Args,
                                            maps:get(arg_types, Anno0, #{})),
-                {aa_construct_term(Dst, Args, Types, SS1, AAS0), AAS0};
+                Values = lists:enumerate(0, Args),
+                {aa_construct_tuple(Dst, Values, Types, SS1, AAS0), AAS0};
             update_tuple ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             update_record ->
@@ -482,7 +483,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 Types = aa_map_arg_to_type(Args, RecordType),
                 ?DP("updates: ~p~n", [Updates]),
                 ?DP("type-mapping: ~p~n", [Types]),
-                {aa_construct_term(Dst, Values, Types, SS1, AAS0), AAS0};
+                {aa_construct_tuple(Dst, Values, Types, SS1, AAS0), AAS0};
 
             %% Instructions which don't change the alias status
             {float,_} ->
@@ -628,13 +629,8 @@ aa_derive_from(Dst, Parent, Types, State0) ->
 aa_derive_from1(#b_var{}, #b_literal{}, _, State) ->
     State;
 aa_derive_from1(Dst, Parent, Types, State) ->
-    case aa_is_plain_value(Parent, Types) of
-        true ->
-            ?DP("Deriving ~p from plain value ~p, no change.~n", [Dst,Parent]),
-            State;
-        false ->
-            beam_ssa_ss:derive_from(#b_var{}=Dst, #b_var{}=Parent, State)
-    end.
+    false = aa_is_plain_value(Parent, Types), %% Assertion
+    beam_ssa_ss:derive_from(#b_var{}=Dst, #b_var{}=Parent, State).
 
 aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
@@ -873,18 +869,13 @@ aa_all_vars_unique(Args, Types, SS) ->
 aa_all_vars_unique([#b_literal{}|Args], Seen, Types, SS) ->
     aa_all_vars_unique(Args, Seen, Types, SS);
 aa_all_vars_unique([#b_var{}=V|Args], Seen, Types, SS) ->
-    case aa_is_plain_value(V, Types) of
-        true ->
-            aa_all_vars_unique(Args, Seen, Types, SS);
-        false ->
-            aa_get_status(V, SS) =:= unique andalso
-                case Seen of
-                    #{ V := _ } ->
-                        false;
-                    #{} ->
-                        aa_all_vars_unique(Args, Seen#{V => true }, Types, SS)
-                end
-    end;
+    aa_get_status(V, SS) =:= unique andalso
+        case Seen of
+            #{ V := _ } ->
+                false;
+            #{} ->
+                aa_all_vars_unique(Args, Seen#{V => true }, Types, SS)
+        end;
 aa_all_vars_unique([], _, _, _) ->
     true.
 
@@ -950,6 +941,17 @@ aa_construct_term(Dst, Values, Types, SS, AAS) ->
             aa_set_aliased(Alias, SS)
     end.
 
+aa_construct_tuple(Dst, IdxValues, Types,
+                   SS, #aas{caller=Caller,kills=Kills}) ->
+    KillSet = map_get(Dst, map_get(Caller, Kills)),
+    ?DP("Constructing tuple in ~p~n from: ~p~n",
+        [Dst, [#{idx=>Idx,v=>V,status=>aa_get_status(V, SS, Types),
+                 killed=>aa_dies(V, Types, KillSet),
+                 plain=>aa_is_plain_value(V, Types)}
+               || {Idx,V} <- IdxValues]]),
+    ?DP("~p~n", [SS]),
+    aa_build_tuple_or_pair(Dst, IdxValues, Types, KillSet, SS, []).
+
 aa_build_tuple_or_pair(Dst, [{Idx,#b_literal{val=Lit}}|IdxValues], Types,
                        KillSet, SS0, Sources)
   when is_atom(Lit); is_number(Lit); is_map(Lit);
@@ -985,8 +987,8 @@ aa_construct_pair(Dst, Args0, Types, SS, #aas{caller=Caller,kills=Kills}) ->
     Args = [{hd,Hd},{tl,Tl}],
     aa_build_tuple_or_pair(Dst, Args, Types, KillSet, SS, []).
 
-aa_update_record_get_vars([#b_literal{}, Value|Updates]) ->
-    [Value|aa_update_record_get_vars(Updates)];
+aa_update_record_get_vars([#b_literal{val=I}, Value|Updates]) ->
+    [{I-1,Value}|aa_update_record_get_vars(Updates)];
 aa_update_record_get_vars([]) ->
     [].
 

@@ -430,7 +430,7 @@ transformable16(L) ->
     transformable16(L, {X, Y}).
 
 transformable16([A,B|T], {{Acc0}, Acc1}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = get_tuple_element(A, 0),
 %ssa% C = bs_create_bin(private_append, _, B, ...),
@@ -446,14 +446,14 @@ transformable16([], {{Acc0}, Acc1}) ->
 %% Check that type information is used to figure out that {<<>>, X} is
 %% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
-%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% (_, _) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable18b/2, _, B).
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -465,7 +465,7 @@ transformable18b([], {Acc,_}) ->
 %% Check that the conversion works when the binary isn't embedded in a
 %% tuple literal.
 transformable19(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable19b/2, _, B).
@@ -478,7 +478,7 @@ transformable19(L) ->
     transformable19b(L, {<<>>, X}).
 
 transformable19b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -595,14 +595,14 @@ make_empty_binary_tuple_nested() ->
     {<<>>, {<<>>}, 47}.
 
 transformable24(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable24/2, _, B).
     transformable24(L, {<<>>, ex:foo()}).
 
 transformable24([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),

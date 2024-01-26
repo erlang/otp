@@ -124,7 +124,7 @@ update_record0() ->
     update_record0(ex:f(), #r0{}).
 
 update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
-%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% (_, Rec) when post_ssa_opt ->
 %ssa% _ = update_record(inplace, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
     R = Acc#r0{not_aliased=N+1,aliased=Val},
     update_record0(Ls, R);
@@ -141,7 +141,7 @@ fc() ->
     fc0(ex:f(), []).
 
 fc0([{L,#fc_r{}=Blk}|Bs], Acc0) ->
-%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% (_, _) when post_ssa_opt ->
 %ssa% _ = update_record(copy, 4, _, 3, _),
 %ssa% _ = update_record(copy, 4, _, 3, _).
     case ex:f() of
@@ -153,7 +153,7 @@ fc0([{L,#fc_r{}=Blk}|Bs], Acc0) ->
     end.
 
 fc0([{L,Blk}|Acc]) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% _ = update_record(inplace, 4, _, 3, _).
     [{L,Blk#fc_r{is=x}}|Acc].
 
@@ -161,7 +161,7 @@ fc0([{L,Blk}|Acc]) ->
 -record(inner, {c,d,e}).
 
 track_update_record(#outer{a=A}=Outer) ->
-%ssa% xfail (A0) when post_ssa_opt ->
+%ssa% (A0) when post_ssa_opt ->
 %ssa% switch(X, _, [{0,Zero},{1,One},{2,Two},{3,Three},{4,Four}]),
 %ssa% label Four,
 %ssa% LitInner4 = put_tuple(inner, undefined, undefined, undefined),
@@ -201,7 +201,7 @@ track_update_record(#outer{a=A}=Outer) ->
     end.
 
 track_update_record1(#outer{a=A}=Outer) ->
-%ssa% xfail (A) when post_ssa_opt ->
+%ssa% (A) when post_ssa_opt ->
 %ssa% B = update_record(inplace, 4, _, 3, _),
 %ssa% R = update_record(inplace, 3, A, 2, B),
 %ssa% ret(R).
