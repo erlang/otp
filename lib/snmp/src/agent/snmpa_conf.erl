@@ -515,6 +515,12 @@ append_community_config(Dir, Conf)
     Write = fun write_community_conf/2,
     append_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
+
+-spec read_community_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [community_entry()],
+      Reason :: term().
+
 read_community_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_community/2,

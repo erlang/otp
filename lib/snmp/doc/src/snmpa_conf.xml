@@ -787,19 +787,15 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">read_community_config(Dir) -> Conf</name>
+      <name name="read_community_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the agent community config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [community_entry()]</v>
-      </type>
       <desc>
         <p>Read the current agent community config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#community">Communities</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#community">Communities</seeguide> 
+	for more info. </p>
 
         <marker id="target_addr_entry"></marker>
       </desc>
