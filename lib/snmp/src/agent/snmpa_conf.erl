@@ -861,6 +861,12 @@ do_write_target_params_conf(_Fd, Crap) ->
 %% ------ notify.conf ------
 %%
 
+-spec notify_entry(Name, Tag, Type) -> NotifyEntry when
+      Name        :: snmp_notification_mib:notify_name(),
+      Tag         :: snmp_notification_mib:notify_tag(),
+      Type        :: snmp_notification_mib:notify_type(),
+      NotifyEntry :: notify_entry().
+
 notify_entry(Name, Tag, Type) ->
     {Name, Tag, Type}.
 

@@ -212,13 +212,12 @@
 
     <datatype>
       <name name="notify_entry"/>
-      <!--
       <desc>
 	<p>
-	  TBD
+	  An opaque term that represents an entry in the 'notify' (agent)
+	  config.
 	</p>
       </desc>
-      -->
     </datatype>
 
     <datatype>
@@ -1193,21 +1192,15 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">notify_entry(Name, Tag, Type) -> notify_entry()</name>
+      <name name="notify_entry" arity="3" clause_i="1" since=""/>
       <fsummary>Create an notify entry</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Tag = string()</v>
-        <v>Type = trap | inform</v>
-        <v>community_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the agent notify config file, 
-          <c>notify.conf</c>. </p>
+	<c>notify.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
+	for more info. </p>
 
         <marker id="write_notify_config"></marker>
       </desc>
