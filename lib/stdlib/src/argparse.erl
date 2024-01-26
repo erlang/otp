@@ -763,7 +763,7 @@ convert_type({atom, Choices}, Arg, Opt, Eos) ->
 convert_type({custom, Fun}, Arg, Opt, Eos) ->
     try Fun(Arg)
     catch error:badarg ->
-        throw({Eos#eos.commands, Opt, Arg, <<"failed faildation">>})
+        throw({Eos#eos.commands, Opt, Arg, <<"failed validation">>})
     end.
 
 %% Given Var, and list of {min, X}, {max, Y}, ensure that
