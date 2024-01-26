@@ -83,7 +83,6 @@
 
 
 -export_type([
-              usm_entry/0,
               transportDomain/0,
               transportAddress/0,
               transportAddressWithPort/0,
@@ -97,6 +96,7 @@
               standard_entry/0,
               target_addr_entry/0,
               target_params_entry/0,
+              usm_entry/0,
 
               range/0,
               ranges/0,
@@ -147,8 +147,6 @@
 
 -type word() :: 0..65535.
 
--type usm_entry() :: snmp_user_based_sm_mib:usm_entry().
-
 %% -type agent_entry() :: term().
 -opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
 
@@ -198,6 +196,25 @@
            SecName  :: snmp_framework_mib:admin_string(),
            SecLevel :: snmp_framework_mib:security_level()
           }.
+
+%% -type usm_entry() :: term().
+-opaque usm_entry() ::
+          {
+           EngineID    :: snmp_framework_mib:engine_id(),
+           UserName    :: snmp_user_based_sm_mib:name(),
+           SecName     :: snmp_framework_mib:admin_string(),
+           Clone       :: snmp_user_based_sm_mib:clone_from(), 
+           AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
+           AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
+           OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
+           PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
+           PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
+           OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
+           Public      :: snmp_user_based_sm_mib:public(),
+           AuthKey     :: snmp_user_based_sm_mib:auth_key(),
+           PrivKey     :: snmp_user_based_sm_mib:priv_key()
+          }.
+
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -912,6 +929,11 @@ write_usm_config(Dir, Hdr, Conf)
     Check = fun check_usm/2,
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
+
+
+-spec append_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [usm_entry()].
 
 append_usm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->

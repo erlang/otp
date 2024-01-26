@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@
 
 -callback stage1_finish(TargetName, ManagerEngineID, ExtraInfo) ->
     ignore |
-    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()]} |
-    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()], NewExtraInfo} when
-      TargetName      :: string(),
-      ManagerEngineID :: string(),
+    {ok, UsmEntry | [UsmEntry]} |
+    {ok, UsmEntry | [UsmEntry], NewExtraInfo} when
+      TargetName      :: snmp_target_mib:name(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
       ExtraInfo       :: term(),
+      UsmEntry        :: snmp_user_based_sm_mib:usm_entry(),
       NewExtraInfo    :: term().
       
 verify(Mod) ->

@@ -91,18 +91,18 @@
 
 -type usm_entry() :: {
                       EngineID    :: snmp_framework_mib:engine_id(),
-                      UserName    :: snmp_user_based_sm_mib:name(),
+                      UserName    :: name(),
                       SecName     :: snmp_framework_mib:admin_string(),
-                      Clone       :: snmp_user_based_sm_mib:clone_from(),
-                      AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
-                      AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
-                      OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
-                      PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
-                      PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
-                      OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
-                      Public      :: snmp_user_based_sm_mib:public(),
-                      AuthKey     :: snmp_user_based_sm_mib:auth_key(),
-                      PrivKey     :: snmp_user_based_sm_mib:priv_key()
+                      Clone       :: clone_from(),
+                      AuthP       :: auth_protocol(),
+                      AuthKeyC    :: key_change(),
+                      OwnAuthKeyC :: key_change(),
+                      PrivP       :: priv_protocol(),
+                      PrivKeyC    :: key_change(),
+                      OwnPrivKeyC :: key_change(),
+                      Public      :: public(),
+                      AuthKey     :: auth_key(),
+                      PrivKey     :: priv_key()
                      }.
 
 

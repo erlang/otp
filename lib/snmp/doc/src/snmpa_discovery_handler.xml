@@ -54,10 +54,10 @@
       <name since="">Module:stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
       <fsummary>Discovery stage 1 finish</fsummary>
       <type>
-        <v>TargetName = string()</v>
-        <v>ManagerEngineID = string()</v>
+        <v>TargetName = snmp_target_mib:name()</v>
+        <v>ManagerEngineID = snmp_framework_mib:engine_id()</v>
         <v>ExtraInfo = term()</v>
-        <v>usm_entry() = tuple() compatible with usm.conf</v>
+        <v>usm_entry() = snmp_user_based_sm_mib:usm_entry()</v>
         <v>NewExtraInfo = term()</v>
       </type>
       <desc>
