@@ -490,7 +490,7 @@ transformable19b([], {Acc,_}) ->
 %% Check that the conversion works when the binary isn't embedded in a
 %% list literal.
 transformable20(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_list(A, _),
 %ssa% _ = call(fun transformable20b/2, _, B).
@@ -503,7 +503,7 @@ transformable20(L) ->
     transformable20b(L, [<<>>|X]). % XXXX
 
 transformable20b([H|T], [Acc|X]) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_list(B, _),
@@ -761,7 +761,7 @@ transformable32(_) ->
 %% Check that we don't crash (Github issue #6999) while attempting to
 %% patch the empty list, but also that Dest is created with private_append.
 transformable33() ->
-%ssa% xfail () when post_ssa_opt ->
+%ssa% () when post_ssa_opt ->
 %ssa% _ = bs_create_bin(private_append, ...).
     [F01] = [transformable33_inner(<<"0">>) || _ <- [1]],
     Dest = <<F01/binary>>,

@@ -32,6 +32,7 @@
 
 -export([add_var/3,
          derive_from/3,
+         embed_in/3,
          extract/4,
          get_status/2,
          initialize_in_args/1,
@@ -145,6 +146,56 @@ derive_from(Dst, Src, State) ->
                     %% in a term, record that it now is.
                     ?assert_state(add_edge(State, Src, Dst, embed))
             end
+    end.
+
+-spec embed_in(beam_ssa:b_var(), [{element(),beam_ssa:b_var()}],
+               sharing_state()) -> sharing_state().
+embed_in(Dst, Elements, State0) ->
+    ?DP("Embedding ~p into ~p~nSS:~p~n", [Elements,Dst,State0]),
+    ?assert_state(State0),
+    ?ASSERT(assert_variable_exists(Dst, State0)),
+    ?ASSERT([assert_variable_exists(Src, State0)
+             || {#b_var{},Src} <- Elements]),
+    foldl(fun({Element,Src}, Acc) ->
+                  add_embedding(Dst, Src, Element, Acc)
+          end, State0, Elements).
+
+add_embedding(Dst, Src, Element, State0) ->
+    ?DP("add_embedding(~p, ~p, ~p, ...)~n", [Dst,Src,Element]),
+
+    %% Create a node for literals as it isn't in the graph.
+    State1 = case Src of
+                 plain ->
+                     beam_digraph:add_vertex(State0, Src, unique);
+                 #b_literal{} ->
+                     beam_digraph:add_vertex(State0, Src, unique);
+                 _ ->
+                     State0
+             end,
+
+    %% Create the edge, this is done regardless of the aliasing status
+    %% as it is how the status of an element can be looked up.
+    ?ASSERT(case Element of
+                hd -> ok;
+                tl -> ok;
+                E when is_integer(E), E >= 0 -> ok
+            end),
+    State = ?assert_state(add_edge(State1, Src, Dst, {embed,Element})),
+
+    %% If the variable being embedded ends up with more than one
+    %% out-edge, the source will be aliased, unless it is a plain value.
+    case beam_digraph:out_edges(State, Src) of
+        [_] ->
+            State;
+        _ when Src =/= plain ->
+            case Src of
+                #b_literal{} ->
+                    State;
+                _ ->
+                    set_status(Src, aliased, State)
+            end;
+        _ when Src =:= plain ->
+            State
     end.
 
 -spec extract(beam_ssa:b_var(), beam_ssa:b_var(), element(),
@@ -279,6 +330,10 @@ merge(Dest0, _Source, [], Edges, Forced) ->
     merge1(Dest0, _Source, sets:to_list(Edges),
            sets:new([{version,2}]), Forced).
 
+merge1(Dest0, Source, [{plain,To,Lbl}|Edges], Fixups, Forced) ->
+    ?DP("  Adding edge ~p -> ~p, lbl: ~p~n", [plain,To,Lbl]),
+    Dest = add_edge(Dest0, plain, To, Lbl),
+    merge1(Dest, Source, Edges, Fixups, Forced);
 merge1(Dest0, Source, [{From,To,Lbl}=Edge|Edges], Fixups, Forced) ->
     ?DP("  Adding edge ~p -> ~p, lbl: ~p~n", [From,To,Lbl]),
     OutEdges = beam_digraph:out_edges(Dest0, From),
@@ -518,6 +573,8 @@ merge_in_args([], [], _State) ->
 
 merge_in_arg(_, aliased, _, _State) ->
     aliased;
+merge_in_arg(plain, _, _, _State) ->
+    unique;
 merge_in_arg(#b_var{}=V, _Status, 0, State) ->
     %% We will not traverse this argument further, this means that no
     %% element-level aliasing info will be kept for this element.

@@ -461,9 +461,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             phi ->
                 {aa_phi(Dst, Args, SS1), AAS0};
             put_list ->
-                Types = aa_map_arg_to_type(Args,
-                                           maps:get(arg_types, Anno0, #{})),
-                {aa_construct_term(Dst, Args, Types, SS1, AAS0), AAS0};
+                Types =
+                    aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
+                {aa_construct_pair(Dst, Args, Types, SS1, AAS0), AAS0};
             put_map ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             put_tuple ->
@@ -949,6 +949,41 @@ aa_construct_term(Dst, Values, Types, SS, AAS) ->
             ?DP("  aliasing ~p~n", [Alias]),
             aa_set_aliased(Alias, SS)
     end.
+
+aa_build_tuple_or_pair(Dst, [{Idx,#b_literal{val=Lit}}|IdxValues], Types,
+                       KillSet, SS0, Sources)
+  when is_atom(Lit); is_number(Lit); is_map(Lit);
+       is_bitstring(Lit); is_function(Lit); Lit =:= [] ->
+    aa_build_tuple_or_pair(Dst, IdxValues, Types, KillSet,
+                           SS0, [{Idx,plain}|Sources]);
+aa_build_tuple_or_pair(Dst, [{Idx,V}=IdxVar|IdxValues], Types,
+                       KillSet, SS0, Sources) ->
+    case aa_is_plain_value(V, Types) of
+        true ->
+            %% Does not need to be tracked.
+            aa_build_tuple_or_pair(Dst, IdxValues, Types,
+                                   KillSet, SS0, [{Idx,plain}|Sources]);
+        false ->
+            SS = case aa_dies(V, Types, KillSet) of
+                     true ->
+                         SS0;
+                     false ->
+                         aa_set_aliased(V, SS0)
+                 end,
+            aa_build_tuple_or_pair(Dst, IdxValues, Types,
+                                   KillSet, SS, [IdxVar|Sources])
+    end;
+aa_build_tuple_or_pair(Dst, [], _Types, _KillSet, SS, Sources) ->
+    ?DP("  embedding ~p~n", [Sources]),
+    R = beam_ssa_ss:embed_in(Dst, Sources, SS),
+    R.
+
+aa_construct_pair(Dst, Args0, Types, SS, #aas{caller=Caller,kills=Kills}) ->
+    KillSet = map_get(Dst, map_get(Caller, Kills)),
+    [Hd,Tl] = Args0,
+    ?DP("Constructing pair in ~p~n from ~p and ~p~n~p~n", [Dst,Hd,Tl,SS]),
+    Args = [{hd,Hd},{tl,Tl}],
+    aa_build_tuple_or_pair(Dst, Args, Types, KillSet, SS, []).
 
 aa_update_record_get_vars([#b_literal{}, Value|Updates]) ->
     [Value|aa_update_record_get_vars(Updates)];

@@ -441,7 +441,7 @@ transformable20(L) ->
     transformable20b(L, [<<>>|X]).
 
 transformable20b([H|T], [Acc|X]) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
 %ssa% C = put_list(B, _),
@@ -1066,7 +1066,7 @@ update_record1() ->
     update_record1(ex:f(), #r1{}).
 
 update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
-%ssa% xfail (_, Rec) when post_ssa_opt ->
+%ssa% (_, Rec) when post_ssa_opt ->
 %ssa% _ = update_record(reuse, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
     R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
     update_record1(Ls, R);
