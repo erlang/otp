@@ -97,6 +97,10 @@
               target_addr_entry/0,
               target_params_entry/0,
               usm_entry/0,
+              vacm_entry/0,
+              vacm_s2g_entry/0,
+              vacm_acc_entry/0,
+              vacm_vtf_entry/0,
 
               range/0,
               ranges/0,
@@ -215,6 +219,37 @@
            PrivKey     :: snmp_user_based_sm_mib:priv_key()
           }.
 
+%% -type vacm_entry() :: term().
+-type vacm_entry() :: vacm_s2g_entry() |
+                      vacm_acc_entry() |
+                      vacm_vtf_entry().
+-opaque vacm_s2g_entry() ::
+          {
+           vacmSecurityToGroup,
+           SecModel  :: snmp_framework_mib:security_model(),
+           SecName   :: snmp_view_based_acm_mib:security_name(),
+           GroupName :: snmp_framework_mib:admin_string()
+          }.
+-opaque vacm_acc_entry() ::
+          {
+           vacmAccess,
+           GroupName :: snmp_framework_mib:admin_string(),
+           Prefix    :: snmp_view_based_acm_mib:context_prefix(),
+           SecModel  :: snmp_framework_mib:security_model(),
+           SecLevel  :: snmp_framework_mib:security_level(),
+           Match     :: snmp_view_based_acm_mib:context_match(),
+           RV        :: snmp_framework_mib:admin_string(),
+           WV        :: snmp_framework_mib:admin_string(),
+           NV        :: snmp_framework_mib:admin_string()
+          }.
+-opaque vacm_vtf_entry() ::
+          {
+           vacmViewTreeFamily,
+           ViewIndex   :: integer(),
+           ViewSubtree :: snmp:oid(),
+           ViewStatus  :: snmp_view_based_acm_mib:view_type(),
+           ViewMask    :: null | snmp_view_based_acm_mib:view_mask()
+          }.
 
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
@@ -1037,6 +1072,11 @@ write_vacm_config(Dir, Hdr, Conf)
     Check = fun check_vacm/2,
     Write = fun (Fd, Entries) -> write_vacm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
+
+
+-spec append_vacm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [vacm_entry()].
 
 append_vacm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
