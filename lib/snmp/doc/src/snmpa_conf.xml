@@ -677,19 +677,15 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">read_context_config(Dir) -> Conf</name>
+      <name name="read_context_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the agent context config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [context_entry()]</v>
-      </type>
       <desc>
         <p>Read the current agent context config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
+	for more info. </p>
 
         <marker id="community_entry"></marker>
       </desc>
