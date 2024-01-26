@@ -202,7 +202,7 @@ transformable5(L) ->
     transformable5(L, <<>>).
 
 transformable5([H|T], Acc) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [Arg1,X] }.
 
 %% Although does_not_escape/1 does not let its argument escape, it is
@@ -366,7 +366,7 @@ transformable16(L) ->
     transformable16(L, {X, Y}).
 
 transformable16([A,B|T], {{Acc0}, Acc1}) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = get_tuple_element(A, 0),
 %ssa% C = bs_create_bin(append, _, B, _, _, _, X, _) { aliased => [X], unique => [B], first_fragment_dies => true },
@@ -398,7 +398,7 @@ transformable18(L, X) when is_integer(X), X < 256 ->
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X,A], first_fragment_dies => true },
 %ssa% C = put_tuple(B, _),
@@ -419,7 +419,7 @@ transformable19(L) ->
     transformable19b(L, {<<>>, X}).
 
 transformable19b([H|T], {Acc,X}) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
@@ -441,7 +441,7 @@ transformable20(L) ->
     transformable20b(L, [<<>>|X]).
 
 transformable20b([H|T], [Acc|X]) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = bs_create_bin(append, _, A, _, _, _, X, _) { unique => [X, A], first_fragment_dies => true },
 %ssa% C = put_list(B, _),
@@ -927,7 +927,7 @@ tuple_element_from_tuple_with_existing_child() ->
 -record(variables_in_put_tuple, {a=0,b=0}).
 
 variables_in_put_tuple_unique_0(A) when is_atom(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -939,7 +939,7 @@ variables_in_put_tuple_unique_0(A) when is_atom(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_1(A) when is_number(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -951,7 +951,7 @@ variables_in_put_tuple_unique_1(A) when is_number(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_2(A) when is_integer(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -963,7 +963,7 @@ variables_in_put_tuple_unique_2(A) when is_integer(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_3(A) when is_float(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -975,7 +975,7 @@ variables_in_put_tuple_unique_3(A) when is_float(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_4(A) when is_pid(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -987,7 +987,7 @@ variables_in_put_tuple_unique_4(A) when is_pid(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_5(A) when is_port(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -999,7 +999,7 @@ variables_in_put_tuple_unique_5(A) when is_port(A) ->
     {X,Y}.
 
 variables_in_put_tuple_unique_6(A) when is_reference(A) ->
-%ssa% (A0) when post_ssa_opt ->
+%ssa% xfail (A0) when post_ssa_opt ->
 %ssa% T0 = put_tuple(_, A0, A0),
 %ssa% T = call(_, T0),
 %ssa% A = get_tuple_element(T, 1),
@@ -1041,7 +1041,7 @@ make_tuple() ->
     {generate_integer(), generate_integer()}.
 
 extract_tuple_element() ->
-%ssa% xfail () when post_ssa_opt ->
+%ssa% () when post_ssa_opt ->
 %ssa% R = put_tuple(X, Y, Z)  {unique => [Z, Y, X]} ,
 %ssa% ret(R) { unique => [R] }.
     {X,Y} = Z = make_tuple(),

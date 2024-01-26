@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% Copyright Ericsson AB 2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -export([opt/2]).
 
--import(lists, [foldl/3, reverse/1, zip/2]).
+-import(lists, [foldl/3, reverse/1]).
 
 %% The maximum number of iterations when calculating alias
 %% information.
@@ -40,50 +40,25 @@
 -ifdef(DEBUG).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
+-define(DBG(STMT), STMT).
 -else.
 -define(DP(FMT, ARGS), skip).
 -define(DP(FMT), skip).
+-define(DBG(STMT), skip).
 -endif.
-
-%% Uncomment the following to get trace printouts when states are
-%% merged.
-
-%% -define(TRACE_MERGE, true).
-
--ifdef(TRACE_MERGE).
--define(TM_DP(FMT, ARGS), io:format(FMT, ARGS)).
--define(TM_DP(FMT), io:format(FMT)).
--else.
--define(TM_DP(FMT, ARGS), skip).
--define(TM_DP(FMT), skip).
--endif.
-
-%% Uncomment the following to check that all invariants for the state
-%% hold when a state are and has been updated. These checks are
-%% expensive and not enabled by default.
-
-%% -define(EXTRA_ASSERTS, true).
-
--ifdef(EXTRA_ASSERTS).
--define(aa_assert_ss(SS), aa_assert_ss(SS)).
--define(ASSERT(Assert), Assert).
--else.
--define(aa_assert_ss(SS), SS).
--define(ASSERT(Assert), skip).
--endif.
-
--type call_args_status_map() :: #{ #b_local{} => ['aliased' | 'unique'] }.
 
 %% Alias analysis state
 -record(aas, {
               caller :: func_id() | 'undefined',
-              call_args = #{} :: call_args_status_map(),
+              call_args = #{},
               alias_map = #{} :: alias_map(),
               func_db :: func_info_db(),
               kills :: kills_map(),
               st_map :: st_map(),
               orig_st_map :: st_map(),
-              repeats = sets:new([{version,2}]) :: sets:set(func_id())
+              repeats = sets:new([{version,2}]) :: sets:set(func_id()),
+              %% The next unused variable name in caller
+              cnt = 0 :: non_neg_integer()
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -102,20 +77,7 @@
 
 -type lbl2ss() :: #{ beam_ssa:label() => sharing_state() }.
 
-%% The sharing state for a variable.
--record(vas, {
-              status :: 'unique' | 'aliased' | 'as_parent',
-              parents = [] :: ordsets:ordset(#b_var{}),
-              child = none :: #b_var{} | 'none',
-              extracted = [] :: ordsets:ordset(#b_var{}),
-              tuple_elems = [] :: ordsets:ordset({non_neg_integer(),#b_var{}}),
-              pair_elems = none :: 'none'
-                                 | {'hd',#b_var{}}
-                                 | {'tl',#b_var{}}
-                                 | {'both',#b_var{},#b_var{}}
-             }).
-
--type sharing_state() :: #{ #b_var{} => #vas{} }.
+-type sharing_state() :: any(). % A beam_digraph graph.
 
 -type type_db() :: #{ beam_ssa:b_var() := type() }.
 
@@ -315,17 +277,18 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
     %% Set up the argument info to make all incoming arguments to
     %% exported functions aliased and all non-exported functions
     %% unique.
-    ArgsInfo =
+    ArgsInfoIn =
         foldl(
           fun(F=#b_local{}, Acc) ->
                   #func_info{exported=E,arg_types=AT} = map_get(F, FuncDb),
                   S = case E of
                           true -> aliased;
-                          false -> unique
+                          false -> no_info
                       end,
-                  Acc#{F=>[S || _ <- AT]}
+                  Acc#{F=>beam_ssa_ss:initialize_in_args([S || _ <- AT])}
           end, #{}, Funs),
-    AAS = #aas{call_args=ArgsInfo,func_db=FuncDb,kills=KillsMap,
+    AAS = #aas{call_args=ArgsInfoIn,
+               func_db=FuncDb,kills=KillsMap,
                st_map=StMap, orig_st_map=StMap},
     aa_fixpoint(Funs, AAS).
 
@@ -361,7 +324,9 @@ aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
     #b_local{name=#b_literal{val=_N},arity=_A} = F,
     AAS1 = AAS0#aas{caller=F},
     ?DP("-= ~p/~p =-~n", [_N, _A]),
-    AAS = aa_fun(F, map_get(F, StMap), AAS1),
+    St = #opt_st{ssa=_Is} = map_get(F, StMap),
+    AAS = aa_fun(F, St, AAS1),
+    ?DP("Done ~p/~p~ncode ~p.~n", [_N, _A, _Is]),
     aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
 aa_fixpoint([], Order, OldAliasMap, OldCallArgs,
             #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
@@ -388,16 +353,10 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
     %% assumed to be aliased.
-    ArgsStatus = aa_get_call_args_status(Args, F, AAS0),
-    SS0 = foldl(fun({Var, Status}, Acc) ->
-                        aa_new_ssa_var(Var, Status, Acc)
-                end, #{}, ArgsStatus),
-    ?DP("Args: ~p~n", [ArgsStatus]),
+    {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
     #{F:=Kills} = KillsMap,
     {SS,#aas{call_args=CallArgs}=AAS} =
-        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0),
-    ?DP("SS:~n~p~n~n", [SS]),
-
+        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
     AliasMap = AliasMap0#{ F => SS },
     PrevSS = maps:get(F, AliasMap0, #{}),
     Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
@@ -419,10 +378,11 @@ aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
     aa_blocks(Bs, Kills, Lbl2SS, AAS);
 aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
+    ?DP("Block: ~p~nSS: ~p~n", [L, SS0]),
     {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
     #{{live_outs,L}:=LiveOut} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
-    PrunedSS = aa_prune_ss(FullSS, LiveOut),
+    PrunedSS = beam_ssa_ss:prune(LiveOut, FullSS),
     Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
     Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
     aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
@@ -430,7 +390,8 @@ aa_blocks([], _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
 aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
-    SS1 = aa_new_ssa_var(Dst, unique, SS0),
+    ?DP("I: ~p~n", [I]),
+    SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
             %% Instructions changing the alias status.
@@ -567,6 +528,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
+    ?DP("Post I: ~p.~p~n", [I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -577,18 +539,18 @@ aa_terminator(#b_br{succ=S,fail=F}, _SS, Lbl2SS) ->
     {Lbl2SS,[S,F]};
 aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, Lbl2SS0) ->
     Type = maps:get(result_type, Anno0, any),
-    Status0 = aa_get_status(Arg, SS, #{Arg=>Type}),
-    ?DP("Returned ~p:~p:~p~n", [Arg, Status0, Type]),
     Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
-    Status = case Type2Status0 of
-                 #{ Type := OtherStatus } ->
-                     aa_meet(Status0, OtherStatus);
-                 #{ } ->
-                     Status0
-             end,
+    Status0 = case Type2Status0 of
+                  #{ Type := OtherStatus } ->
+                      OtherStatus;
+                  #{ } ->
+                      no_info
+              end,
+    [Status] = beam_ssa_ss:merge_in_args([Arg], [Status0], SS),
     Type2Status = Type2Status0#{ Type => Status },
+    ?DP("Returned ~p:~p:~p~n", [Arg, Status, Type]),
     ?DP("New status map: ~p~n", [Type2Status]),
-    Lbl2SS = Lbl2SS0#{ returns => Type2Status},
+    Lbl2SS = Lbl2SS0#{ returns => Type2Status },
     {Lbl2SS, []};
 aa_terminator(#b_switch{fail=F,list=Ls}, _SS, Lbl2SS) ->
     {Lbl2SS,[F|[L || {_,L} <- Ls]]}.
@@ -608,226 +570,22 @@ aa_add_block_entry_ss([], _, Lbl2SS) ->
 
 %% Merge two sharing states when traversing the execution graph
 %% reverse post order.
-aa_merge_ss(BlockLbl, NewSS, Lbl2SS)
-  when is_map_key(BlockLbl, Lbl2SS) ->
-    #{BlockLbl:=OrigSS} = Lbl2SS,
-    NewSize = maps:size(NewSS),
-    OrigSize = maps:size(OrigSS),
-    _ = ?aa_assert_ss(OrigSS),
-    _ = ?aa_assert_ss(NewSS),
-
-    %% Always merge the smaller state into the larger.
-    Tmp = if NewSize < OrigSize ->
-                  ?TM_DP("merging block ~p~n~p.~n~p.~n",
-                         [BlockLbl, OrigSS, NewSS]),
-                  aa_merge_continue(OrigSS, NewSS, maps:keys(NewSS), [], []);
-             true ->
-                  ?TM_DP("merging block ~p~n~p.~n~p.~n",
-                         [BlockLbl, NewSS, OrigSS]),
-                  aa_merge_continue(NewSS, OrigSS, maps:keys(OrigSS), [], [])
-          end,
-    Lbl2SS#{BlockLbl=>Tmp};
+aa_merge_ss(BlockLbl, NewSS, Lbl2SS) when is_map_key(BlockLbl, Lbl2SS) ->
+    Lbl2SS#{BlockLbl=>beam_ssa_ss:merge(NewSS, map_get(BlockLbl, Lbl2SS))};
 aa_merge_ss(BlockLbl, NewSS, Lbl2SS) ->
     Lbl2SS#{BlockLbl=>NewSS}.
-
-aa_merge_continue(A, B, [V|Vars], ParentFixups, AliasFixups) ->
-    #{V:=BVas} = B,
-    case A of
-        #{V:=AVas} ->
-            ?TM_DP("merge ~p~n", [V]),
-            aa_merge_1(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups);
-        #{} ->
-            ?TM_DP("not in dest ~p~n", [V]),
-            %% V isn't in A, nothing to merge, add it.
-            aa_merge_continue(A#{V=>BVas}, B, Vars, ParentFixups, AliasFixups)
-    end;
-aa_merge_continue(A0, _, [], ParentFixups, AliasFixups) ->
-    A = aa_merge_parent_fixups(A0, ParentFixups),
-    ?aa_assert_ss(aa_merge_alias_fixups(A, AliasFixups)).
-
-aa_merge_1(_V, Vas, Vas, A, B, Vars, ParentFixups, AliasFixups) ->
-    %% They are both the same, no change.
-    ?TM_DP("same~n"),
-    aa_merge_continue(A, B, Vars, ParentFixups, AliasFixups);
-aa_merge_1(_V, #vas{status=aliased}, BVas, A, B, Vars,
-           ParentFixups, AliasFixups) ->
-    %% V is aliased in A, anything related to B becomes aliased.
-    ?TM_DP("force aliasB of ~p~n", [aa_related(BVas)]),
-    aa_merge_continue(A, B, Vars, ParentFixups,
-                      aa_related(BVas)++AliasFixups);
-aa_merge_1(V, AVas, #vas{status=aliased}, A, B, Vars,
-           ParentFixups, AliasFixups) ->
-    %% V is aliased in B, anything related to A becomes aliased.
-    ?TM_DP("force aliasA of ~p~n", [aa_related(AVas)]),
-    aa_merge_continue(A#{V=>#vas{status=aliased}}, B, Vars,
-                      ParentFixups,
-                      aa_related(AVas)++AliasFixups);
-aa_merge_1(V, #vas{status=S}=AVas, #vas{status=S}=BVas, A, B, Vars,
-           ParentFixups, AliasFixups)
-  when S == unique ; S == as_parent ->
-    aa_merge_child(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups).
-
-aa_merge_child(V, #vas{child=Child}=AVas, #vas{child=Child}=BVas,
-               A, B, Vars, ParentFixups, AliasFixups) ->
-    ?TM_DP("child ~p, same~n", [Child]),
-    aa_merge_tuple(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups);
-aa_merge_child(V, #vas{child=none}=AVas, #vas{child=Child}=BVas,
-               A, B, Vars, ParentFixups, AliasFixups) ->
-    %% BVas has aquired a derivation from a Phi, no conflict, but the
-    %% A side has to be updated with new parent information.
-    ?TM_DP("new child in B, ~p~n", [Child]),
-    aa_merge_tuple(V, AVas#vas{child=Child}, BVas, A#{V=>BVas},
-                   B, Vars, [{Child,V}|ParentFixups], AliasFixups);
-aa_merge_child(V, AVas, #vas{child=none}=BVas, A, B, Vars,
-               ParentFixups, AliasFixups) ->
-    %% AVas has aquired a derivation from a Phi, no conflict, no
-    %% update of the state necessary.
-    ?TM_DP("no child in B~n"),
-    aa_merge_tuple(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups);
-aa_merge_child(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups) ->
-    %% Different children, this leads to aliasing.
-    ?TM_DP("different children, force alias of ~p~n",
-           [aa_related(AVas)++aa_related(BVas)]),
-    aa_merge_continue(
-      A#{V=>#vas{status=aliased}}, B, Vars,
-      ParentFixups,
-      aa_related(AVas)++aa_related(BVas)++AliasFixups).
-
-aa_merge_tuple(V, #vas{tuple_elems=Es}=AVas, #vas{tuple_elems=Es}=BVas,
-               A, B, Vars, ParentFixups, AliasFixups) ->
-    %% The same tuple elements are extracted, no conflict.
-    ?TM_DP("same tuple elements~n"),
-    aa_merge_pair(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups);
-aa_merge_tuple(V, #vas{tuple_elems=AEs}=AVas, #vas{tuple_elems=BEs}=BVas,
-               A, B, Vars, ParentFixups, AliasFixups) ->
-    %% This won't lead to aliasing if all elements are unique.
-    case aa_non_aliasing_tuple_elements(AEs++BEs) of
-        true ->
-            %% No aliasing, the elements are unique
-            ?TM_DP("different tuple elements, no aliasing~n"),
-            Elements = ordsets:union(AEs, BEs),
-            Vas = AVas#vas{tuple_elems=Elements},
-            aa_merge_pair(V, Vas, BVas, A#{V=>Vas}, B, Vars,
-                          ParentFixups, AliasFixups);
-        false ->
-            %% Aliasing occurred.
-            ?TM_DP("aliasing tuple elements, force ~p~n",
-                   aa_related(AVas)++aa_related(BVas)),
-            aa_merge_continue(A#{V=>#vas{status=aliased}}, B, Vars,
-                              ParentFixups,
-                              aa_related(AVas)++aa_related(BVas)++AliasFixups)
-    end.
-
-aa_merge_pair(V, #vas{pair_elems=Es}=AVas, #vas{pair_elems=Es}=BVas,
-              A, B, Vars, ParentFixups, AliasFixups) ->
-    %% The same pair elements are extracted, no conflict.
-    ?TM_DP("same pairs~n"),
-    aa_merge_extracted(V, AVas, BVas, A, B, Vars, ParentFixups, AliasFixups);
-aa_merge_pair(V, #vas{pair_elems=AEs}=AVas, #vas{pair_elems=BEs}=BVas,
-              A, B, Vars, ParentFixups, AliasFixups) ->
-    R = case {AEs,BEs} of
-            {{hd,H},{tl,T}} ->
-                {both,H,T};
-            {{tl,T},{hd,H}} ->
-                {both,H,T};
-            {E,none} ->
-                E;
-            {none,E} ->
-                E;
-            _ ->
-                alias
-        end,
-    case R of
-        alias ->
-            ?TM_DP("aliasing pair elements: ~p~n", [R]),
-            aa_merge_continue(A#{V=>#vas{status=aliased}}, B, Vars,
-                              ParentFixups,
-                              aa_related(AVas)++aa_related(BVas)++AliasFixups);
-        Pair ->
-            ?TM_DP("different pair elements, no aliasing~n"),
-            Vas = AVas#vas{pair_elems=Pair},
-            aa_merge_extracted(V, Vas, BVas, A#{V=>Vas},
-                               B, Vars, ParentFixups, AliasFixups)
-    end.
-
-aa_merge_extracted(V, #vas{extracted=AEs}=AVas, #vas{extracted=BEs},
-                   A, B, Vars, ParentFixups, AliasFixups) ->
-    Extracted = ordsets:union(AEs, BEs),
-    aa_merge_continue(A#{V=>AVas#vas{extracted=Extracted}}, B, Vars,
-                      ParentFixups, AliasFixups).
-
-aa_related(#vas{parents=Ps,child=Child,extracted=Ex}) ->
-    case Child of none ->
-            [];
-        Child ->
-            [Child]
-    end ++ Ps ++ Ex.
-
-aa_non_aliasing_tuple_elements(Elems) ->
-    aa_non_aliasing_tuple_elements(Elems, #{}).
-
-aa_non_aliasing_tuple_elements([{I,V}|Es], Seen) ->
-    case Seen of
-        #{I:=X} when X =/= V ->
-            false;
-        #{} ->
-            aa_non_aliasing_tuple_elements(Es, Seen#{I=>V})
-    end;
-aa_non_aliasing_tuple_elements([], _) ->
-    true.
-
-aa_merge_alias_fixups(SS, Fixups) ->
-    ?TM_DP("fixup: Forcing aliasing ~p~n", [Fixups]),
-    aa_set_status_1(Fixups, none, SS).
-
-aa_merge_parent_fixups(SS0, [{Child,Parent}|Fixups]) ->
-    ?TM_DP("fixup: Forcing parents ~p->~p~n", [Child,Parent]),
-    #{Child:=#vas{parents=Parents}=Vas} = SS0,
-    SS = SS0#{Child=>Vas#vas{parents=ordsets:add_element(Parent, Parents)}},
-    aa_merge_parent_fixups(SS, Fixups);
-aa_merge_parent_fixups(SS, []) ->
-    ?TM_DP("Parent fixups executed~n"),
-    SS.
 
 %% Merge two sharing states when traversing the execution graph post
 %% order. The only thing the successor merging needs to to is to check
 %% if variables in the original SS have become aliased.
 aa_merge_ss_successor(BlockLbl, NewSS, Lbl2SS) ->
     #{BlockLbl:=OrigSS} = Lbl2SS,
-    Lbl2SS#{BlockLbl=>aa_merge_ss_successor(OrigSS, NewSS)}.
-
-aa_merge_ss_successor(Orig, New) ->
-    maps:fold(fun(V, Vas, Acc) ->
-                      case New of
-                          #{V:=Vas} ->
-                              %% Nothing has changed for V.
-                              Acc;
-                          #{V:=#vas{status=aliased}} ->
-                              aa_set_aliased(V, Acc);
-                          #{} ->
-                              %% V did not exist in New.
-                              Acc
-                      end
-              end, Orig, Orig).
-
-%% Add a new ssa variable to the sharing state and set its status.
-aa_new_ssa_var(Var, Status, State) ->
-    ?ASSERT(false = maps:get(Var, State, false)),
-    State#{Var=>#vas{status=Status}}.
+    Lbl2SS#{BlockLbl=>beam_ssa_ss:merge(OrigSS, NewSS)}.
 
 aa_get_status(V=#b_var{}, State) ->
-    case State of
-        #{V:=#vas{status=as_parent,parents=Ps}} ->
-            aa_get_status(Ps, State);
-        #{V:=#vas{status=Status}} ->
-            Status
-    end;
+    beam_ssa_ss:get_status(V, State);
 aa_get_status(#b_literal{}, _State) ->
-    unique;
-aa_get_status([V=#b_var{}], State) ->
-    aa_get_status(V, State);
-aa_get_status([V=#b_var{}|Parents], State) ->
-    aa_meet(aa_get_status(V, State), aa_get_status(Parents, State)).
+    unique.
 
 aa_get_status(V, State, Types) ->
     case aa_is_plain_value(V, Types) of
@@ -840,65 +598,20 @@ aa_get_status(V, State, Types) ->
 %% aa_get_status but for instructions extracting values from pairs and
 %% tuples.
 aa_get_element_extraction_status(V=#b_var{}, State) ->
-    case State of
-        #{V:=#vas{status=aliased}} ->
-            aliased;
-        #{V:=#vas{tuple_elems=Elems}} when Elems =/= [] ->
-            unique;
-        #{V:=#vas{pair_elems=Elems}} when Elems =/= none ->
-            unique;
-        #{V:=#vas{status=unique}} ->
-            unique;
-        _ ->
-            aa_get_status(V, State)
-    end;
+    aa_get_status(V, State);
 aa_get_element_extraction_status(#b_literal{}, _State) ->
     unique.
 
-aa_set_status(V=#b_var{}, aliased, State) ->
-    ?DP("Setting ~p to aliased.~n", [V]),
-    case State of
-        #{V:=#vas{status=unique,parents=[]}} ->
-            %% This is the initial value.
-            aa_set_status_1(V, none, State);
-        #{V:=#vas{status=aliased}} ->
-            %% No change
-            State;
-        #{V:=#vas{parents=Parents}} ->
-            %% V is derived from another value, so the status has to
-            %% be propagated to the parent(s).
-            aa_set_status(Parents, aliased, State)
-    end;
-aa_set_status(_V=#b_var{}, unique, State) ->
-    ?ASSERT(true = case State of
-                       #{_V:=#vas{status=unique}} -> true;
-                       #{_V:=#vas{parents=Parents}} ->
-                           [unique = aa_get_status(P, State) || P <- Parents],
-                           true
-                   end),
-    State;
+aa_set_status(V=#b_var{}, Status, State) ->
+    ?DP("Setting ~p to ~p.~n", [V, Status]),
+    beam_ssa_ss:set_status(V, Status, State);
 aa_set_status(#b_literal{}, _Status, State) ->
+    State;
+aa_set_status(plain, _Status, State) ->
     State;
 aa_set_status([X|T], Status, State) ->
     aa_set_status(X, Status, aa_set_status(T, Status, State));
 aa_set_status([], _, State) ->
-    State.
-
-%% Propagate the aliased status to the children.
-aa_set_status_1(#b_var{}=V, Parent, State0) ->
-    ?DP("aa_set_status_1: ~p, parent:~p~n~p.~n", [V,Parent,State0]),
-    #{V:=#vas{child=Child,extracted=Extracted,parents=Parents}} = State0,
-    State = State0#{V=>#vas{status=aliased}},
-    Work = case Child of
-               none ->
-                   [];
-               _ ->
-                   [Child]
-           end ++ ordsets:del_element(Parent, Parents) ++ Extracted,
-    aa_set_status_1(Work, V, State);
-aa_set_status_1([#b_var{}=V|Rest], Parent, State) ->
-    aa_set_status_1(Rest, Parent, aa_set_status_1(V, Parent, State));
-aa_set_status_1([], _Parent, State) ->
     State.
 
 aa_derive_from(Dst, Parents, State0) ->
@@ -918,102 +631,17 @@ aa_derive_from1(Dst, Parent, Types, State) ->
     case aa_is_plain_value(Parent, Types) of
         true ->
             ?DP("Deriving ~p from plain value ~p, no change.~n", [Dst,Parent]),
-            ?aa_assert_ss(State);
+            State;
         false ->
-            aa_derive_from2(#b_var{}=Dst, #b_var{}=Parent, State)
+            beam_ssa_ss:derive_from(#b_var{}=Dst, #b_var{}=Parent, State)
     end.
-
-aa_derive_from2(#b_var{}=Dst, #b_var{}=Parent, State) ->
-    ?DP("Deriving ~p from ~p~n~p.~n", [Dst,Parent,State]),
-    case State of
-        #{Dst:=#vas{status=aliased}} ->
-            %% Nothing to do, already aliased. This can happen when
-            %% handling Phis, no propagation to the parent should be
-            %% done.
-            ?aa_assert_ss(State);
-        #{Parent:=#vas{status=aliased}} ->
-            %% The parent is aliased, the child will become aliased.
-            ?aa_assert_ss(aa_set_aliased(Dst, State));
-        #{Parent:=#vas{child=Child}} when Child =/= none ->
-            %% There already is a child, this will alias both Dst and Parent.
-            ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
-        #{Parent:=#vas{child=none,tuple_elems=Elems}} when Elems =/= [] ->
-            %% There already is a child, this will alias both Dst and Parent.
-            ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
-        #{Parent:=#vas{child=none,pair_elems=Elems}} when Elems =/= none ->
-            %% There already is a child, this will alias both Dst and Parent.
-            ?aa_assert_ss(aa_set_aliased([Dst,Parent], State));
-        #{Dst:=#vas{parents=Parents}=ChildVas0,
-          Parent:=#vas{child=none}=ParentVas0} ->
-            %% Inherit the status of the parent.
-            ChildVas =
-                ChildVas0#vas{parents=ordsets:add_element(Parent, Parents),
-                              status=as_parent},
-            ParentVas = ParentVas0#vas{child=Dst},
-            ?aa_assert_ss(State#{Dst=>ChildVas,Parent=>ParentVas})
-    end.
-
-aa_prune_ss(SS, Live) ->
-    aa_prune_ss(SS, sets:to_list(Live), Live, #{}).
-aa_prune_ss(SS, [V|Wanted], Live, Pruned) ->
-    case is_map_key(V, Pruned) of
-        false ->
-            %% This variable has to be kept, copy it, add it to the
-            %% set of live nodes and add the parents to the work list.
-            #{V:=#vas{parents=Ps}=Vas} = SS,
-            aa_prune_ss(SS, Ps++Wanted,
-                        sets:add_element(V, Live),
-                        Pruned#{V=>Vas});
-        true ->
-            %% This variable is alread added.
-            aa_prune_ss(SS, Wanted, Live, Pruned)
-    end;
-aa_prune_ss(_SS, [], Live, Pruned) ->
-    %% Now strip all references to variables not in the live set.
-    PruneRefs = fun(#vas{parents=Ps0,child=Child0,extracted=Es0,
-                         tuple_elems=Ts0,pair_elems=Pes0}=Vas) ->
-                        Ps = [P || P <- Ps0, sets:is_element(P, Live)],
-                        Child = case sets:is_element(Child0, Live) of
-                                    true ->
-                                        Child0;
-                                    false ->
-                                        none
-                                end,
-                        Es = [E || E <- Es0, sets:is_element(E, Live)],
-                        Ts = [E
-                              || {_,Var}=E <- Ts0, sets:is_element(Var, Live)],
-                        Pes = case Pes0 of
-                                  {_,X}=P ->
-                                      case sets:is_element(X, Live) of
-                                          true ->
-                                              P;
-                                          _ ->
-                                              none
-                                      end;
-                                  {both,X,Y}=P ->
-                                      case {sets:is_element(X, Live),
-                                            sets:is_element(Y, Live)} of
-                                          {true,true} ->
-                                              P;
-                                          {true,false} ->
-                                              {hd,X};
-                                          {false,true} ->
-                                              {tl,Y};
-                                          _ ->
-                                              none
-                                      end;
-                                  none ->
-                                      none
-                              end,
-                        Vas#vas{parents=Ps,child=Child,extracted=Es,
-                                tuple_elems=Ts,pair_elems=Pes}
-                end,
-    #{V=>PruneRefs(Vas) || V:=Vas <- Pruned}.
 
 aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
                   #{F:=Lbl2SS0} = AliasMapAcc,
                   #{F:=OptSt0} = StMapAcc,
+                  #b_local{name=#b_literal{val=_N},arity=_A} = F,
+                  ?DP("Updating annotations for ~p/~p~n", [_N,_A]),
                   {OptSt,Lbl2SS} =
                       aa_update_fun_annotation(OptSt0, Lbl2SS0,
                                                AAS#aas{caller=F}),
@@ -1032,6 +660,7 @@ aa_update_annotation_blocks([{?EXCEPTION_BLOCK,_}=Block|Blocks],
     aa_update_annotation_blocks(Blocks, [Block|Acc], Lbl2SS, AAS);
 aa_update_annotation_blocks([{Lbl, Block0}|Blocks], Acc, Lbl2SS0, AAS) ->
     Successors = beam_ssa:successors(Block0),
+    ?DP("Block ~p, successors: ~p.~n", [Lbl, Successors]),
     Lbl2SS = foldl(fun(?EXCEPTION_BLOCK, Lbl2SSAcc) ->
                            %% What happens in the exception block
                            %% can't influence anything in any of the
@@ -1043,6 +672,7 @@ aa_update_annotation_blocks([{Lbl, Block0}|Blocks], Acc, Lbl2SS0, AAS) ->
                    end, Lbl2SS0, Successors),
     #{Lbl:=SS} = Lbl2SS,
     Block = aa_update_annotation_block(Block0, SS, AAS),
+    ?DP("Block ~p done.~n", [Lbl]),
     aa_update_annotation_blocks(Blocks, [{Lbl,Block}|Acc], Lbl2SS, AAS);
 aa_update_annotation_blocks([], Acc, Lbl2SS, _AAS) ->
     {Acc,Lbl2SS}.
@@ -1072,11 +702,12 @@ aa_update_annotation(I=#b_set{args=[Pair],op={bif,hd}}, SS, AAS) ->
 aa_update_annotation(I=#b_set{args=[Pair],op={bif,tl}}, SS, AAS) ->
     Args = [{Pair,aa_get_element_extraction_status(Pair, SS)}],
     aa_update_annotation1(Args, I, AAS);
-aa_update_annotation(I=#b_set{args=Args0,anno=Anno}, SS, AAS) ->
+aa_update_annotation(I=#b_set{args=Args0,anno=Anno,dst=_Dst}, SS, AAS) ->
     Types = maps:get(arg_types, Anno, #{}),
     Arg2Type = #{V=>maps:get(Idx, Types, any)
                  || {Idx,#b_var{}=V} <- lists:enumerate(0, 1, Args0)},
     Args = [{V,aa_get_status(V, SS, Arg2Type)} || #b_var{}=V <- Args0],
+    ?DP("Args with status for ~p: ~p~n", [_Dst, Args]),
     aa_update_annotation1(Args, I, AAS);
 aa_update_annotation(I=#b_ret{arg=#b_var{}=V}, SS, AAS) ->
     aa_update_annotation1(aa_get_status(V, SS), I, AAS);
@@ -1151,48 +782,47 @@ aa_set_aliased(Args, SS) ->
     aa_set_status(Args, aliased, SS).
 
 aa_alias_all(SS) ->
-    aa_set_aliased(maps:keys(SS), SS).
-
-aa_register_extracted(Extracted, Aggregate, State) ->
-    ?DP("REGISTER ~p: ~p~n", [Aggregate,Extracted]),
-    #{Aggregate:=#vas{extracted=ExVars}=AggVas0,
-      Extracted:=#vas{parents=Parents}=ExVas0} = State,
-    AggVas = AggVas0#vas{extracted=ordsets:add_element(Extracted, ExVars)},
-    ExVas = ExVas0#vas{status=as_parent,
-                       parents=ordsets:add_element(Aggregate, Parents)},
-    State#{Aggregate=>AggVas, Extracted=>ExVas}.
-
-aa_meet(#b_var{}=Var, OtherStatus, State) ->
-    Status = aa_get_status(Var, State),
-    aa_set_status(Var, aa_meet(OtherStatus, Status), State);
-aa_meet(#b_literal{}, _SetStatus, State) ->
-    State;
-aa_meet([Var|Vars], [Status|Statuses], State) ->
-    aa_meet(Vars, Statuses, aa_meet(Var, Status, State));
-aa_meet([], [], State) ->
-    State.
-
-aa_meet(StatusA, StatusB) ->
-    case {StatusA, StatusB} of
-        {_,aliased} -> aliased;
-        {aliased, _} -> aliased;
-        {unique, unique} -> unique
-    end.
-
-aa_meet([H|T]) ->
-    aa_meet(H, aa_meet(T));
-aa_meet([]) ->
-    unique.
+    aa_set_aliased(beam_ssa_ss:variables(SS), SS).
 
 %%
 %% Type is always less specific or exactly the same as one of the
 %% types in StatusByType, so we need to meet all possible statuses for
 %% the call site.
 %%
+aa_get_status_by_type(none, _StatusByType) ->
+    %% The function did not return, conservatively report the status
+    %% as aliased.
+    aliased;
 aa_get_status_by_type(Type, StatusByType) ->
     Statuses = [Status || Candidate := Status <- StatusByType,
                           beam_types:meet(Type, Candidate) =/= none],
-    aa_meet(Statuses).
+    case Statuses of
+        [] ->
+            %% No matching type was found, this can happen when the
+            %% returned type, for example, is a #t_union{}. For now,
+            %% conservatively return a status of aliased.
+            aliased;
+        _ ->
+            beam_ssa_ss:meet_in_args(Statuses)
+    end.
+
+aa_alias_surviving_args(Args, Call, SS,
+                        Anno, #aas{caller=Caller,kills=Kills}) ->
+    KillMap = map_get(Caller, Kills),
+    KillSet = map_get(Call, KillMap),
+    ArgTypes = maps:get(arg_types, Anno, #{}),
+    aa_alias_surviving_args1(Args, 0, SS, ArgTypes, KillSet).
+
+aa_alias_surviving_args1([A|Args], Idx, SS0, ArgTypes, KillSet) ->
+    SS = case sets:is_element(A, KillSet) of
+             true ->
+                 SS0;
+             false ->
+                 aa_set_status(A, aliased, SS0)
+         end,
+    aa_alias_surviving_args1(Args, Idx+1, SS, ArgTypes, KillSet);
+aa_alias_surviving_args1([], _Idx, SS, _ArgTypes, _KillSet) ->
+    SS.
 
 %% Predicate to check if all variables in `Vars` dies at `Where`.
 -spec aa_all_dies([#b_var{}], kill_loc(), type_db(), #aas{}) -> boolean().
@@ -1208,19 +838,17 @@ aa_all_dies(Vars, Where, AAS) ->
 aa_all_dies1([#b_literal{}|Vars], Types, KillSet) ->
     aa_all_dies1(Vars, Types, KillSet);
 aa_all_dies1([#b_var{}=V|Vars], Types, KillSet) ->
-    case sets:is_element(V, KillSet) of
+    case aa_dies(V, Types, KillSet) of
         true ->
             aa_all_dies1(Vars, Types, KillSet);
         false ->
-            case aa_is_plain_value(V, Types) of
-                false ->
-                    false;
-                true ->
-                    aa_all_dies1(Vars, Types, KillSet)
-            end
+            false
     end;
 aa_all_dies1([], _, _) ->
     true.
+
+aa_dies(V, Types, KillSet) ->
+    sets:is_element(V, KillSet) orelse aa_is_plain_value(V, Types).
 
 aa_alias_if_args_dont_die(Args, Where, SS, AAS) ->
     case aa_all_dies(Args, Where, AAS) of
@@ -1314,9 +942,12 @@ aa_construct_term(Dst, Values, Types, SS, AAS) ->
     case aa_all_vars_unique(Values, Types, SS)
         andalso aa_all_dies(Values, Dst, Types, AAS) of
         true ->
+            ?DP("  deriving ~p from ~p~n", [Dst, Values]),
             aa_derive_from(Dst, Values, Types, SS);
         false ->
-            aa_set_aliased([Dst|Values], SS)
+            Alias = [V || V <- [Dst|Values], not aa_is_plain_value(V, Types)],
+            ?DP("  aliasing ~p~n", [Alias]),
+            aa_set_aliased(Alias, SS)
     end.
 
 aa_update_record_get_vars([#b_literal{}, Value|Updates]) ->
@@ -1331,7 +962,7 @@ aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
     %% argument is a known to be a tuple. Therefore this code is only
     %% reached when the type of is unknown, thus there is no point in
     %% trying to provide aa_tuple_extraction/5 with type information.
-    aa_tuple_extraction(Dst, Tuple, Idx, #{}, SS);
+    aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, #{}, SS);
 aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
     %% This BIF will fail, but in order to avoid any later transforms
     %% making use of uniqueness, conservatively alias.
@@ -1377,32 +1008,26 @@ aa_phi(Dst, Args0, SS) ->
     aa_derive_from(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
-        #aas{alias_map=AliasMap,st_map=StMap}=AAS0) ->
+        #aas{alias_map=AliasMap,st_map=StMap,cnt=Cnt0}=AAS0) ->
     #b_local{name=#b_literal{val=_N},arity=_A} = Callee,
     ?DP("A Call~n  callee: ~p/~p~n  args: ~p~n", [_N, _A, Args]),
-    case AliasMap of
-        #{Callee:=#{0:=CalleeSS}=Lbl2SS} ->
+    case is_map_key(Callee, AliasMap) of
+        true ->
             ?DP("  The callee is known~n"),
-            #opt_st{args=CalleeArgs} = map_get(Callee, StMap),
-            ?DP("  callee args: ~p~n", [CalleeArgs]),
+            #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
+            ?DP("  callee args: ~p~n", [_CalleeArgs]),
             ?DP("  caller args: ~p~n", [Args]),
-            ?DP("  args in caller: ~p~n",
-                [[{Arg, aa_get_status(Arg, SS0)} || Arg <- Args]]),
-            ArgStates = [ aa_get_status(Arg, CalleeSS) || Arg <- CalleeArgs],
-            ?DP("  callee arg states: ~p~n", [ArgStates]),
-            AAS = aa_add_call_info(Callee, Args, SS0, AAS0),
-            SS = aa_meet(Args, ArgStates, SS0),
-            ?DP("  meet: ~p~n",
-                [[{Arg, aa_get_status(Arg, SS)} || Arg <- Args]]),
-            ?DP("  callee-ss ~p~n", [CalleeSS]),
+            SS1 = aa_alias_surviving_args(Args, Dst, SS0, Anno, AAS0),
+            ?DP("  caller ss before call:~n  ~p.~n", [SS1]),
+            #aas{alias_map=AliasMap} = AAS =
+                aa_add_call_info(Callee, Args, SS1, AAS0),
+            #{Callee:=#{0:=_CalleeSS}=Lbl2SS} = AliasMap,
+            ?DP("  callee ss: ~p~n", [_CalleeSS]),
+            ?DP("  caller ss after call: ~p~n", [SS1]),
+
             ReturnStatusByType = maps:get(returns, Lbl2SS, #{}),
             ?DP("  status by type: ~p~n", [ReturnStatusByType]),
-            ReturnedType = case Anno of
-                               #{ result_type := ResultType } ->
-                                   ResultType;
-                               #{} ->
-                                   any
-                           end,
+            ReturnedType = maps:get(result_type, Anno, any),
             %% ReturnedType is always less specific or exactly the
             %% same as one of the types in ReturnStatusByType.
             ?DP("  returned type: ~s~n",
@@ -1410,8 +1035,11 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ResultStatus = aa_get_status_by_type(ReturnedType,
                                                  ReturnStatusByType),
             ?DP("  result status: ~p~n", [ResultStatus]),
-            {aa_set_status(Dst, ResultStatus, SS), AAS};
-        #{} ->
+            {SS,Cnt} =
+                beam_ssa_ss:set_call_result(Dst, ResultStatus, SS1, Cnt0),
+            ?DP("~p~n", [SS]),
+            {SS, AAS#aas{cnt=Cnt}};
+        false ->
             %% We don't know anything about the function, don't change
             %% the status of any variables
             {SS0, AAS0}
@@ -1429,16 +1057,25 @@ aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
 
 %% Incorporate aliasing information for the arguments to a call when
 %% analysing the body of a function into the global state.
-aa_add_call_info(Callee, Args, SS0, #aas{call_args=Info0}=AAS) ->
-    ArgStats = [aa_get_status(Arg, SS0) || Arg <- Args],
-    #{Callee := Stats} = Info0,
-    NewStats = [aa_meet(A, B) || {A,B} <- zip(Stats, ArgStats)],
-    Info = Info0#{Callee => NewStats},
-    AAS#aas{call_args=Info}.
+aa_add_call_info(Callee, Args, SS0,
+                 #aas{call_args=InInfo0,caller=_Caller}=AAS) ->
+    #{Callee := InStatus0} = InInfo0,
+    ?DBG(#b_local{name=#b_literal{val=_CN},arity=_CA} = _Caller),
+    ?DBG(#b_local{name=#b_literal{val=_N},arity=_A} = Callee),
+    ?DP("Adding call info for ~p/~p when called by ~p/~p~n"
+        "  args: ~p.~n  ss:~p.~n", [_N,_A,_CN,_CA,Args,SS0]),
+    InStatus = beam_ssa_ss:merge_in_args(Args, InStatus0, SS0),
+    ?DP("  orig in-info: ~p.~n", [InStatus0]),
+    ?DP("  updated in-info for ~p/~p:~n    ~p.~n", [_N,_A,InStatus]),
+    InInfo = InInfo0#{Callee => InStatus},
+    AAS#aas{call_args=InInfo}.
 
-aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
-    #{ Callee := Status } = Info,
-    zip(Args, Status).
+aa_init_fun_ss(Args, FunId, #aas{call_args=Info,st_map=StMap}) ->
+    #{FunId:=ArgsStatus} = Info,
+    #{FunId:=#opt_st{cnt=Cnt}} = StMap,
+    ?DP("aa_init_fun_ss: ~p~n  args: ~p~n  status: ~p~n  cnt: ~p~n",
+        [FunId,Args,ArgsStatus,Cnt]),
+    beam_ssa_ss:new(Args, ArgsStatus, Cnt).
 
 %% Pair extraction.
 aa_pair_extraction(Dst, Pair, Element, SS) ->
@@ -1456,33 +1093,13 @@ aa_pair_extraction(Dst, #b_var{}=Pair, Element, Type, SS) ->
                            %% value.
                            false
                    end,
-    case SS of
-        _ when IsPlainValue ->
+    case IsPlainValue of
+        true ->
             %% A plain value was extracted, it doesn't change the
             %% alias status of Dst nor the pair.
             SS;
-        #{Pair:=#vas{status=aliased}} ->
-            %% The pair is aliased, so what is extracted will be aliased.
-            aa_set_aliased(Dst, SS);
-        #{Pair:=#vas{pair_elems={both,_,_}}} ->
-            %% Both elements have already been extracted.
-            aa_set_aliased([Dst,Pair], SS);
-        #{Pair:=#vas{pair_elems=none}=Vas} ->
-            %% Nothing has been extracted from this pair yet.
-            aa_register_extracted(
-              Dst, Pair,
-              SS#{Pair=>Vas#vas{pair_elems={Element,Dst}}});
-        #{Pair:=#vas{pair_elems={Element,_}}} ->
-            %% This element has already been extracted.
-            aa_set_aliased([Dst,Pair], SS);
-        #{Pair:=#vas{pair_elems={tl,T}}=Vas} when Element =:= hd ->
-            %% Both elements have now been extracted, but no aliasing.
-            aa_register_extracted(Dst, Pair,
-                                  SS#{Pair=>Vas#vas{pair_elems={both,Dst,T}}});
-        #{Pair:=#vas{pair_elems={hd,H}}=Vas} when Element =:= tl ->
-            %% Both elements have now been extracted, but no aliasing.
-            aa_register_extracted(Dst, Pair,
-                                  SS#{Pair=>Vas#vas{pair_elems={both,H,Dst}}})
+        false ->
+            beam_ssa_ss:extract(Dst, Pair, Element, SS)
     end;
 aa_pair_extraction(_Dst, #b_literal{}, _Element, _, SS) ->
     SS.
@@ -1495,8 +1112,9 @@ aa_map_extraction(Dst, Map, SS, AAS) ->
 %% Extracting elements from a tuple.
 aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
     TupleType = maps:get(0, Types, any),
+    TypeIdx = I+1, %% In types tuple indices starting at zero.
     IsPlainValue = case TupleType of
-                       #t_tuple{elements=#{I:=T}} ->
+                       #t_tuple{elements=#{TypeIdx:=T}} ->
                            aa_is_plain_type(T);
                        _ ->
                            %% There is no type information,
@@ -1504,41 +1122,18 @@ aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
                            %% value.
                            false
                    end,
-    ?DP("tuple-extraction dst:~p, tuple: ~p, idx: ~p,"
-        " type: ~p, plain: ~p~n",
+    ?DP("tuple-extraction dst:~p, tuple: ~p, idx: ~p,~n"
+        "  type: ~p,~n  plain: ~p~n",
         [Dst, Tuple, I, TupleType, IsPlainValue]),
-    case SS of
-        _ when IsPlainValue ->
+    if IsPlainValue ->
             %% A plain value was extracted, it doesn't change the
             %% alias status of Dst nor the tuple.
             SS;
-        #{Tuple:=#vas{status=aliased}} ->
-            %% The tuple is aliased, so what is extracted will be
-            %% aliased.
-            aa_set_aliased(Dst, SS);
-        #{Tuple:=#vas{child=Child}} when Child =/= none ->
-            %% Something has already been derived from the tuple.
-            aa_set_aliased([Dst,Tuple], SS);
-        #{Tuple:=#vas{tuple_elems=[]}=TupleVas} ->
-            %% Nothing has been extracted from this tuple yet.
-            aa_register_extracted(
-              Dst, Tuple, SS#{Tuple=>TupleVas#vas{tuple_elems=[{I,Dst}]}});
-        #{Tuple:=#vas{tuple_elems=Elems0}=TupleVas} ->
-            case [ Idx || {Idx,_} <- Elems0, I =:= Idx] of
-                [] ->
-                    %% This element has not been extracted.
-                    Elems = ordsets:add_element({I,Dst}, Elems0),
-                    aa_register_extracted(
-                      Dst, Tuple, SS#{Tuple=>TupleVas#vas{tuple_elems=Elems}});
-                _ ->
-                    %% This element is already extracted -> aliasing
-                    aa_set_aliased([Dst,Tuple], SS)
-            end
+       true ->
+            beam_ssa_ss:extract(Dst, Tuple, I, SS)
     end;
 aa_tuple_extraction(_, #b_literal{}, _, _, SS) ->
-    SS;
-aa_tuple_extraction(Dst, Var, I, Types, SS) when is_integer(I) ->
-    aa_tuple_extraction(Dst, Var, #b_literal{val=I}, Types, SS).
+    SS.
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
             Env0, SS0,
@@ -1657,7 +1252,7 @@ eru_args2([Idx|Remaining], Extracts, Args0, ArgIdx, First,
                end,
     %% built in reverse to make argument indexes end up in the right
     %% order after the final reverse.
-    Args = [Dst,#b_literal{val=Idx-1}|Args0],
+    Args = [Dst,#b_literal{val=Idx}|Args0],
     eru_args2(Remaining, [I|Extracts], Args,
               ArgIdx+2, First+1, Src, TupleType, ArgTypes);
 eru_args2([], Extracts, Args, _, First, _, _, ArgTypes) ->
@@ -1714,142 +1309,3 @@ rur_args([Idx,V|Updates], Limit) ->
     [Idx,V|rur_args(Updates, Limit)];
 rur_args([], _) ->
     [].
-
--ifdef(EXTRA_ASSERTS).
-
--spec aa_assert_ss(sharing_state()) -> sharing_state().
-
-aa_assert_ss(SS) ->
-    try
-        maps:foreach(
-          fun(_V, #vas{status=aliased}=Vas) ->
-                  %% An aliased variable should not have extra info.
-                  [] = Vas#vas.parents,
-                  none = Vas#vas.child,
-                  [] = Vas#vas.extracted,
-                  [] = Vas#vas.tuple_elems,
-                  none = Vas#vas.pair_elems,
-                  ok;
-             (V, #vas{status=unique,child=Child,extracted=Es,
-                      tuple_elems=Ts,pair_elems=Pair}=Vas) ->
-                  [] = Vas#vas.parents,
-                  aa_assert_extracted(Es, Ts, Pair, V),
-                  aa_assert_parent_of(V, Child, SS),
-                  aa_assert_parent_of(V, Es, SS),
-                  aa_assert_pair(Pair, V, SS),
-                  aa_assert_tuple_elems(Ts, V, SS);
-             (V, #vas{status=as_parent,parents=Ps,child=Child,extracted=Es,
-                      tuple_elems=Ts,pair_elems=Pair}) ->
-                  aa_assert_not_aliased(
-                    Ps, SS,
-                    io_lib:format("as parent of ~p should not be aliased.",
-                                  [V])),
-                  aa_assert_extracted(Es, Ts, Pair, V),
-                  aa_assert_parent_of(Ps, V, SS),
-                  aa_assert_parent_of(V, Child, SS),
-                  aa_assert_parent_of(V, Es, SS),
-                  aa_assert_pair(Pair, V, SS),
-                  aa_assert_tuple_elems(Ts, V, SS)
-          end, SS)
-    of
-        _ -> SS
-    catch {assertion_failure, V, Desc} ->
-            io:format("Malformed SS~n~p~n~p ~s~n", [SS, V, Desc]),
-            exit(assertion_failure)
-    end.
-
-%% Check that V is a parent of Child
-aa_assert_parent_of(_V, none, _SS) ->
-    ok;
-aa_assert_parent_of(#b_var{}=V, #b_var{}=Child, SS) ->
-    case SS of
-        #{Child:=#vas{status=as_parent,parents=Ps}} ->
-            case ordsets:is_element(V, Ps) of
-                true ->
-                    ok;
-                false ->
-                    throw({assertion_failure, V,
-                           io_lib:format(
-                             "child ~p does not have ~p as parent",
-                             [Child, V])})
-            end;
-        #{} ->
-            throw({assertion_failure, V,
-                   io_lib:format(
-                     "child ~p does not have status as_parent", [Child])})
-    end;
-aa_assert_parent_of(#b_var{}=V, [P|Ps], SS) ->
-    aa_assert_parent_of(V, P, SS),
-    aa_assert_parent_of(V, Ps, SS);
-aa_assert_parent_of([V|Vs], Child, SS) ->
-    aa_assert_parent_of(V, Child, SS),
-    aa_assert_parent_of(Vs, Child, SS);
-aa_assert_parent_of(_, [], _) ->
-    true;
-aa_assert_parent_of([], _, _) ->
-    true.
-
-aa_assert_pair(none, _V, _SS) ->
-    ok;
-aa_assert_pair({Elem,X}, V, SS) when Elem =:= hd; Elem =:= tl ->
-    case SS of
-        #{X:=#vas{status=as_parent}} ->
-            aa_assert_parent_of(V, X, SS);
-        #{} ->
-            throw({assertion_failure, V,
-                   io_lib:format("extracted pair and ~p does not"
-                                 " have status as_parent", [X])})
-    end;
-aa_assert_pair({both,X,Y}, V, SS) ->
-    case SS of
-        #{X:=#vas{status=as_parent},
-          Y:=#vas{status=as_parent}} ->
-            aa_assert_parent_of(V, X, SS),
-            aa_assert_parent_of(V, Y, SS);
-        #{} ->
-            throw({assertion_failure, V,
-                   io_lib:format("extracted pairs ~p and ~p do not"
-                                 " have status as_parent", [X, Y])})
-    end.
-
-aa_assert_tuple_elems([{_,X}|Ts], V, SS) ->
-    case SS of
-        #{X:=#vas{status=as_parent}} ->
-            aa_assert_parent_of(V, X, SS),
-            aa_assert_tuple_elems(Ts, V, SS);
-        #{} ->
-            throw({assertion_failure, V,
-                   io_lib:format(
-                     "child ~p does not have status as_parent", [X])})
-    end;
-aa_assert_tuple_elems([], _, _) ->
-    ok.
-
-aa_assert_extracted(Es, Ts, Pair, Var) ->
-    Actual = ordsets:union(ordsets:from_list([V || {_,V} <- Ts]),
-                           ordsets:from_list(case Pair of
-                                                 none -> [];
-                                                 {_, X} -> [X];
-                                                 {both,X,Y} -> [X,Y]
-                                             end)),
-    case Es of
-        Actual ->
-            true;
-        _ ->
-            throw({assertion_failure, Var,
-                   "has inconsistent extracted set"})
-    end.
-
-aa_assert_not_aliased([V|Vs], SS, Desc) ->
-    #{V:=#vas{status=S}} = SS,
-
-    case S of
-        unique -> ok;
-        as_parent -> ok;
-        _ ->
-            throw({assertion_failure, V, Desc})
-    end,
-    aa_assert_not_aliased(Vs, SS, Desc);
-aa_assert_not_aliased([], _SS, _) ->
-    true.
--endif.
