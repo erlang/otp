@@ -21,7 +21,6 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_typesig).
--feature(maybe_expr, enable).
 -moduledoc false.
 
 -export([analyze_scc/7]).
