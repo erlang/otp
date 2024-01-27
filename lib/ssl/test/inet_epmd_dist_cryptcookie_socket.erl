@@ -22,7 +22,6 @@
 %% Module for dist_cryptcookie over socket
 %%
 -module(inet_epmd_dist_cryptcookie_socket).
--feature(maybe_expr, enable).
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,

@@ -24,7 +24,6 @@
 %% and the crypto application, over a Stream
 %%
 -module(dist_cryptcookie).
--feature(maybe_expr, enable).
 
 %% inet_epmd_* API
 -export([protocol/0,

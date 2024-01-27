@@ -20,7 +20,6 @@
 
 %%
 -module(inet_tls_dist).
--feature(maybe_expr, enable).
 -moduledoc false.
 
 -export([childspecs/0]).
