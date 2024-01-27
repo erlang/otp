@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(inet_tcp_dist).
--feature(maybe_expr, enable).
 -moduledoc false.
 
 %% Handles the connection setup phase with other Erlang nodes.

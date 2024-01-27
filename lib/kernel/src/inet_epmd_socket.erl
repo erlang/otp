@@ -19,7 +19,6 @@
 %%
 
 -module(inet_epmd_socket).
--feature(maybe_expr, enable).
 -moduledoc false.
 
 %% DistMod API
