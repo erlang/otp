@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
--feature(maybe_expr, enable).
 -moduledoc """
 Feature support.
 
