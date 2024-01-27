@@ -22,8 +22,6 @@
 %%
 -module(private_append).
 
--feature(maybe_expr, enable).
-
 -export([transformable0/1,
 	 transformable1/1,
 	 transformable1b/1,
