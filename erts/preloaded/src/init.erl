@@ -48,7 +48,6 @@
 %%        -code_path_choice : strict | relaxed
 
 -module(init).
--feature(maybe_expr, enable).
 -moduledoc """
 Coordination of system startup.
 
