@@ -520,10 +520,8 @@ is_valid_signal(Signal) ->
 
 > #### Change {: .info }
 >
-> `maybe` is an experimental [feature](`e:system:features.md#features`)
-> introduced in Erlang/OTP 25. By default, it is disabled. To enable `maybe`,
-> either use the `-feature(maybe_expr,enable)` directive (from within source
-> code), or the compiler option `{feature,maybe_expr,enable}`.
+> The `maybe` [feature](`e:system:features.md#features`) was introduced
+> in Erlang/OTP 25. Starting from Erlang/OTP 27 is is enabled by default.
 
 ```
 maybe
