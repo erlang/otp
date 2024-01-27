@@ -1899,8 +1899,8 @@ eep49(Config) ->
 
     File = "t.erl",
     Test = <<"-module(t).
-              -feature(maybe_expr,enable).
               -export([t/0]).
+
 
               t() ->
                   t1(),                         %6
