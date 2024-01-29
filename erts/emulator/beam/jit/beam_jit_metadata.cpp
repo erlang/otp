@@ -71,7 +71,7 @@ struct emulator_info {
     const void *normal_exit;
 };
 
-struct module_info {
+struct erlang_module_info {
     uint64_t base_address;
     uint32_t range_count;
     uint32_t code_size;
@@ -106,7 +106,7 @@ struct debug_info {
     enum debug_info_header header;
     union {
         struct emulator_info emu;
-        struct module_info mod;
+        struct erlang_module_info mod;
     } payload;
 };
 
