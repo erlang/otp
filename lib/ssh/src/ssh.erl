@@ -810,10 +810,6 @@ stop_listener(Address, Port, Profile) ->
                                                     port=Port,
                                                     profile=Profile})).
 
-%%--------------------------------------------------------------------
-%% Description: Stops the listener and all connections started by
-%% the listener.
-%%--------------------------------------------------------------------
 -doc(#{equiv => stop_daemon/3}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
