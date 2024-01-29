@@ -737,6 +737,12 @@ append_target_addr_config(Dir, Conf)
     Write = fun write_target_addr_conf/2,
     append_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
+
+-spec read_target_addr_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [target_addr_entry()],
+      Reason :: term().
+
 read_target_addr_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_addr/2,
