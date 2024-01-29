@@ -1041,6 +1041,12 @@ append_usm_config(Dir, Conf)
     Write = fun write_usm_conf/2,
     append_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
+
+-spec read_usm_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [usm_entry()],
+      Reason :: term().
+
 read_usm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_usm/2,
