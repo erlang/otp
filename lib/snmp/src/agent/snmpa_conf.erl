@@ -859,6 +859,12 @@ append_target_params_config(Dir, Conf)
     Write = fun write_target_params_conf/2,
     append_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
+
+-spec read_target_params_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [target_params_entry()],
+      Reason :: term().
+
 read_target_params_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_params/2,
