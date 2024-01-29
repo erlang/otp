@@ -365,7 +365,7 @@ invalid_arguments(Config) when is_list(Config) ->
     ?assertEqual({error, {Prog, FloatChoices, "1.3", <<"is not one of the choices">>}},
         parse_opts("1.3", [FloatChoices])),
     %% unsuccessful user-defined conversion
-    ?assertMatch({error, {Prog, _, "REV", <<"failed faildation">>}},
+    ?assertMatch({error, {Prog, _, "REV", <<"failed validation">>}},
         parse_opts("REV", [#{name => user, type => {custom, fun (Str) -> integer_to_binary(Str) end}}])).
 
 complex_command() ->
