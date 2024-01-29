@@ -1155,6 +1155,12 @@ append_vacm_config(Dir, Conf)
     Write = fun write_vacm_conf/2,
     append_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
+
+-spec read_vacm_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [vacm_entry()],
+      Reason :: term().
+
 read_vacm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_vacm/2,

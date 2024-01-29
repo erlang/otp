@@ -1057,19 +1057,15 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">read_vacm_config(Dir) -> Conf</name>
+      <name name="read_vacm_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the agent vacm config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [vacm_entry()]</v>
-      </type>
       <desc>
         <p>Read the current agent vacm config file. </p>
-        <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	<p><c>Dir</c> is the path to the directory where to store the 
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
+	for more info. </p>
 
         <marker id="usm_entry"></marker>
       </desc>
