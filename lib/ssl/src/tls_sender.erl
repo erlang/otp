@@ -527,10 +527,10 @@ send_application_data(Data, From, StateName,
         chunk_and_key_update ->
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
             %% Prevent infinite loop of key updates
-            {Chunk, Rest} = chunk_data(Data, KeyUpdateAt),
+            {Chunk, Rest} = split_binary(iolist_to_binary(Data), KeyUpdateAt),
             {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {application_packets, From, Chunk}},
-                                   {next_event, internal, {application_packets, From, Rest}}]};
+                                   {next_event, internal, {application_packets, From, [Chunk]}},
+                                   {next_event, internal, {application_packets, From, [Rest]}}]};
 	false ->
 	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
 	    case tls_socket:send(Transport, Socket, Msgs) of
@@ -656,10 +656,6 @@ time_to_rekey(_, _Data,
     %% ?MAX_PLAIN_TEXT_LENGTH) + 1, RenegotiateAt), but we chose to
     %% have a some what lower renegotiateAt and a much cheaper test
     is_time_to_renegotiate(Num, RenegotiateAt).
-
-chunk_data(Data, Size) ->
-    {Chunk, Rest} = split_binary(iolist_to_binary(Data), Size),
-    {[Chunk], [Rest]}.
 
 is_time_to_renegotiate(N, M) when N < M->
     false;

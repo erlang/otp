@@ -471,11 +471,9 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
 
     case ssl_session:is_new(Session, NewId) of
 	true ->
-	    handle_new_session(NewId, CipherSuite,
-			       State#state{connection_states = ConnectionStates});
+	    handle_new_session(NewId, CipherSuite, State);
 	false ->
-	    handle_resumed_session(NewId,
-				   State#state{connection_states = ConnectionStates})
+	    handle_resumed_session(NewId, State)
     end.
 
 
