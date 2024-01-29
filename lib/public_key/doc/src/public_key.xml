@@ -772,6 +772,31 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>
+    <name name="pkix_ocsp_validate" arity="5" since="OTP 27.0"/>
+    <fsummary>Validate OCSP response.</fsummary>
+    <desc>
+      <p>Perform OCSP response validation according to RFC
+      6960. Returns 'ok' when OCSP response is successfully
+      validated and {error, {bad_cert, Reason}} otherwise.</p>
+
+      <p>Available options:</p>
+      <taglist>
+	<tag>{is_trusted_responder_fun, fun()}</tag>
+	<item>
+	  <p>The fun has the following type specification:</p>
+	  <code> fun(#cert{}) ->
+	  boolean()</code>
+	  <p>The fun returns the <c>true</c> if certificate in the
+	  argument is trusted. If this fun is not specified, Public
+	  Key uses the default implementation:
+	  </p>
+	  <code> fun(_) -> false end</code>
+	</item>
+      </taglist>
+    </desc>
+  </func>
+
+  <func>
     <name name="pkix_sign" arity="2" since="OTP R14B"/>
     <fsummary>Signs certificate.</fsummary>
     <desc> 

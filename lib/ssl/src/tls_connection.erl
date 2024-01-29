@@ -71,8 +71,8 @@
 %%                                             | Send/Recv Flight 2 or Abbrev Flight 1 - Abbrev Flight 2 part 1 
 %%                                             |
 %%                                New session  | Resumed session
-%%  WAIT_OCSP_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
-%%  WAIT_CERT_VERIFY   
+%%       WAIT_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
+%%       WAIT_CERT_VERIFY
 %%  <- Possibly Receive  --  |                                              |
 %% OCSP Staple/CertVerify -> |  Flight 3 part 1                             |
 %%                           |                                              |
@@ -123,7 +123,7 @@
          downgrade/3,
 	 hello/3,
          user_hello/3,
-         wait_ocsp_stapling/3,
+         wait_stapling/3,
          certify/3,
          wait_cert_verify/3,
          cipher/3,
@@ -248,27 +248,27 @@ hello(internal, #server_hello{} = Hello,
              connection_env = CEnv,
 	     static_env = #static_env{role = client},
              handshake_env = #handshake_env{
-                                ocsp_stapling_state = OcspState0,
+                                stapling_state = StaplingState0,
                                 renegotiation = {Renegotiation, _}} = HsEnv,
              session = #session{session_id = OldId},
 	     ssl_options = SslOptions} = State) ->
     try
         case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
             %% Legacy TLS 1.2 and older
-            {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
+            {Version, NewId, ConnectionStates, ProtoExt, Protocol, StaplingState} ->
                 tls_dtls_connection:handle_session(
                   Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
                   State#state{
                     handshake_env =
                         HsEnv#handshake_env{
-                          ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+                          stapling_state = maps:merge(StaplingState0,StaplingState)}});
             %% TLS 1.3
-            {next_state, wait_sh, SelectedVersion, OcspState} ->
+            {next_state, wait_sh, SelectedVersion, StaplingState} ->
                 %% Continue in TLS 1.3 'wait_sh' state
                 {next_state, wait_sh,
                  State#state{handshake_env =
-                                 HsEnv#handshake_env{ocsp_stapling_state =
-                                                         maps:merge(OcspState0, OcspState)},
+                                 HsEnv#handshake_env{stapling_state =
+                                                         maps:merge(StaplingState0, StaplingState)},
                              connection_env =
                                  CEnv#connection_env{negotiated_version = SelectedVersion}},
                  [{change_callback_module, tls_client_connection_1_3},
@@ -304,12 +304,12 @@ abbreviated(Type, Event, State) ->
     end.
 
 %%--------------------------------------------------------------------
--spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
-		     gen_statem:state_function_result().
+-spec wait_stapling(gen_statem:event_type(), term(), #state{}) ->
+          gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-wait_ocsp_stapling(info, Event, State) ->
+wait_stapling(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
-wait_ocsp_stapling(Type, Event, State) ->
+wait_stapling(Type, Event, State) ->
     try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
@@ -373,7 +373,7 @@ connection(internal, #hello_request{},
                                            session_cache_cb = CacheCb},
                   handshake_env = #handshake_env{
                                      renegotiation = {Renegotiation, peer},
-                                     ocsp_stapling_state = OcspState},
+                                     stapling_state = StaplingState},
                   connection_env = #connection_env{cert_key_alts = CertKeyAlts},
 		  session = Session0,
 		  ssl_options = SslOpts, 
@@ -386,7 +386,7 @@ connection(internal, #hello_request{},
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                                Session#session.session_id,
                                                Renegotiation, undefined,
-                                               undefined, maps:get(ocsp_nonce, OcspState, undefined),
+                                               undefined, maps:get(ocsp_nonce, StaplingState, undefined),
                                                CertDbHandle, CertDbRef),
             {State, Actions} = tls_gen_connection:send_handshake(Hello, 
                                                                  State0#state{connection_states = 
@@ -407,12 +407,12 @@ connection(internal, #hello_request{},
                                           },
                   handshake_env = #handshake_env{
                       renegotiation = {Renegotiation, _},
-                      ocsp_stapling_state = OcspState},
+                      stapling_state = StaplingState},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                        <<>>, Renegotiation, undefined,
-                                       undefined, maps:get(ocsp_nonce, OcspState, undefined),
+                                       undefined, maps:get(ocsp_nonce, StaplingState, undefined),
                                       CertDbHandle, CertDbRef),
 
     {State, Actions} = tls_gen_connection:send_handshake(Hello, State0),
@@ -610,6 +610,6 @@ choose_tls_fsm(_, _) ->
 %%%# Tracing
 %%%#
 handle_trace(csp,
-             {call, {?MODULE, wait_ocsp_stapling,
+             {call, {?MODULE, wait_stapling,
                      [Type, Event|_]}}, Stack) ->
     {io_lib:format("Type = ~w Event = ~W", [Type, Event, 10]), Stack}.

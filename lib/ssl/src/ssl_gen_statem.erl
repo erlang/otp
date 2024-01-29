@@ -523,7 +523,7 @@ initial_hello({call, From}, {start, Timeout},
                                               cert_db_ref = CertDbRef,
                                               protocol_cb = Connection},
                      handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
-                                                    ocsp_stapling_state = OcspState0},
+                                                    stapling_state = StaplingState0},
                      connection_env = CEnv,
                      ssl_options = #{%% Use highest version in initial ClientHello.
                                      %% Versions is a descending list of supported versions.
@@ -582,16 +582,16 @@ initial_hello({call, From}, {start, Timeout},
         {#state{handshake_env = HsEnv1} = State5, _} =
             Connection:send_handshake_flight(State4),
 
-        OcspStaplingKeyPresent = maps:is_key(ocsp_stapling, SslOpts),
+        StaplingKeyPresent = maps:is_key(stapling, SslOpts),
         State = State5#state{
                   connection_env = CEnv#connection_env{
                                      negotiated_version = RequestedVersion},
                   session = Session,
                   handshake_env =
                       HsEnv1#handshake_env{
-                        ocsp_stapling_state =
-                            OcspState0#{ocsp_nonce => OcspNonce,
-                                        ocsp_stapling => OcspStaplingKeyPresent}},
+                        stapling_state =
+                            StaplingState0#{ocsp_nonce => OcspNonce,
+                                            configured => StaplingKeyPresent}},
                   start_or_recv_from = From,
                   key_share = KeyShare},
         NextState = next_statem_state(Versions, Role),

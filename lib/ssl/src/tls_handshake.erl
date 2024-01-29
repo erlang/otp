@@ -161,7 +161,6 @@ hello(#server_hello{server_version = LegacyVersion,
                                  selected_version = Version}} = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
-    Stapling = maps:get(ocsp_stapling, SslOpt, ?DEFAULT_OCSP_STAPLING),
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
@@ -181,10 +180,12 @@ hello(#server_hello{server_version = LegacyVersion,
                                                            HelloExt, SslOpt,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
-                            %% TLS 1.3
+                            %% TLS 1.3 status_request and OCSP
+                            %% responses provided in Certificate
+                            %% messages
                             {next_state, wait_sh, SelectedVersion,
-                             #{ocsp_stapling => Stapling,
-                               ocsp_expect => ocsp_expect(Stapling)}}
+                             #{configured => maps:is_key(stapling, SslOpt),
+                               status => not_negotiated}}
                     end;
                 false ->
                     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
@@ -310,7 +311,7 @@ get_tls_handshakes(Version, Data, Buffer, Options) ->
 %% Description: Get an OCSP nonce
 %%--------------------------------------------------------------------
 ocsp_nonce(SslOpts) ->
-    case maps:get(ocsp_stapling, SslOpts, disabled) of
+    case maps:get(stapling, SslOpts, disabled) of
         #{ocsp_nonce := true} ->
             public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
         _ ->
@@ -386,12 +387,12 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
                                HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
-    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+    {ConnectionStates, ProtoExt, Protocol, StaplingState} =
         ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
                                                      HelloExt, Version,
                                                      SslOpt, ConnectionStates0,
                                                      Renegotiation, IsNew),
-    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, StaplingState}.
 
 do_hello(undefined, _Versions, _CipherSuites, _Hello, _SslOpts, _Info, _Renegotiation) ->
     throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION));
@@ -474,12 +475,6 @@ decode_handshake(?TLS_1_3, Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
-
-
-ocsp_expect(true) ->
-    staple;
-ocsp_expect(_) ->
-    no_staple.
 
 get_signature_ext(Ext, HelloExt, ?TLS_1_2) ->
     case maps:get(Ext, HelloExt, undefined) of

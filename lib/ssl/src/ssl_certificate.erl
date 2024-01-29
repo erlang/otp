@@ -78,7 +78,6 @@
          select_extension/2,
          extensions_list/1,
          public_key_type/1,
-         foldl_db/3,
          find_cross_sign_root_paths/4,
          handle_cert_auths/4,
          available_cert_key_pairs/1,
@@ -571,22 +570,45 @@ verify_hostname(Hostname, Customize, Cert, UserState) ->
 verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState) ->
     Id = public_key:pkix_subject_id(Cert),
     Extensions = maps:get(Id, CertExts, []),
-    verify_cert_extensions(Cert, UserState, Extensions, #{}).
+    verify_cert_extensions(Cert, UserState, Extensions,
+                           #{certificate_valid => false}).
 
+verify_cert_extensions(_Cert, _UserState = #{stapling_state := #{configured := true},
+                                            path_len := 0}, [],
+                       _Context = #{certificate_valid := false}) ->
+    {fail, missing_certificate_status};
 verify_cert_extensions(Cert, UserState, [], _) ->
     {valid, UserState#{issuer => Cert}};
-verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
-                               ocsp_state := OscpState,
-                               issuer := Issuer} = UserState,
-                       [#certificate_status{response = OcspResponsDer} | Exts],
+verify_cert_extensions(_, #{stapling_state := #{configured := false}},
+                       [#certificate_status{} | _], _) ->
+    {fail, unexpected_certificate_status};
+verify_cert_extensions(Cert, #{stapling_state := StaplingState,
+                               issuer := Issuer,
+                               certdb := CertDbHandle,
+                               certdb_ref := CertDbRef} = UserState,
+                       [#certificate_status{response = OcspResponseDer} | Exts],
                        Context) ->
-    #{ocsp_nonce := Nonce} = OscpState,
-    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponsDer,
-                                       ResponderCerts, Nonce) of
-        valid ->
-            verify_cert_extensions(Cert, UserState, Exts, Context);
-        {bad_cert, _} = Status ->
-            {fail, Status}
+    #{ocsp_nonce := Nonce} = StaplingState,
+    IsTrustedResponderFun =
+        fun(#cert{der = DerResponderCert, otp = OtpCert}) ->
+                OtpTbsCert = OtpCert#'OTPCertificate'.tbsCertificate,
+                #'OTPTBSCertificate'{
+                   issuer = IssuerId, serialNumber = SerialNr} = OtpTbsCert,
+                case ssl_manager:lookup_trusted_cert(
+                       CertDbHandle, CertDbRef, SerialNr, IssuerId) of
+                    {ok, #cert{der = DerResponderCert}} ->
+                        true;
+                    _ ->
+                        false
+                end
+        end,
+    case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponseDer, Nonce,
+                                       [{is_trusted_responder_fun, IsTrustedResponderFun}]) of
+        ok ->
+            verify_cert_extensions(Cert, UserState, Exts,
+                                   Context#{certificate_valid => true});
+        {error, {bad_cert, _} = Reason} ->
+            {fail, Reason}
     end;
 verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
     %% Skip unknown extensions!
@@ -841,16 +863,15 @@ handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
     %% {io_lib:format(" no more extensions (~s)", [ssl_test_lib:format_cert(Cert)]), Stack};
 handle_trace(crt, {call, {?MODULE, verify_cert_extensions,
                           [Cert,
-                           #{ocsp_responder_certs := _ResponderCerts,
-                             ocsp_state := OcspState,
+                           #{stapling_state := StaplingState,
                              issuer := Issuer} = _UserState,
                            [#certificate_status{response = OcspResponsDer} |
                             _Exts], _Context]}}, Stack) ->
-    {io_lib:format("#2 OcspState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
-                   [OcspState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
+    {io_lib:format("#2 StaplingState = ~W Issuer = [~W] OcspResponsDer = ~W [~W]",
+                   [StaplingState, 10, Issuer, 3, OcspResponsDer, 2, Cert, 3]),
      Stack};
-    %% {io_lib:format("#2 OcspState = ~W Issuer = (~s) OcspResponsDer = ~W (~s)",
-    %%                [OcspState, 10, ssl_test_lib:format_cert(Issuer),
+    %% {io_lib:format("#2 StaplingState = ~W Issuer = (~s) OcspResponsDer = ~W (~s)",
+    %%                [StaplingState, 10, ssl_test_lib:format_cert(Issuer),
     %%                 OcspResponsDer, 2, ssl_test_lib:format_cert(Cert)]),
 handle_trace(crt, {return_from,
                    {ssl_certificate, verify_cert_extensions, 4},

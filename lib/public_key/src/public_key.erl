@@ -21,7 +21,7 @@
 %%
 
 -module(public_key).
-
+-feature(maybe_expr,enable).
 -include("public_key.hrl").
 
 -export([pem_decode/1, pem_encode/1, 
@@ -62,7 +62,6 @@
          pkix_test_data/1,
          pkix_test_root_cert/2,
          pkix_ocsp_validate/5,
-         ocsp_responder_id/1,
          ocsp_extensions/1,
          cacerts_get/0,
          cacerts_load/0,
@@ -174,8 +173,11 @@
 -type oid()                  :: tuple().
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path |
-                                {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} | {revoked, crl_reason()} | invalid_validity_dates | atom().
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
+                                missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path |
+                                {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} |
+                                {revoked, crl_reason()} | invalid_validity_dates |
+                                {revocation_status_undetermined, term()} | atom().
 
 -type combined_cert()        :: #cert{}.
 -type cert()                 :: der_cert() | otp_cert().
@@ -1387,52 +1389,47 @@ pkix_test_data(#{} = Chain) ->
 
 pkix_test_root_cert(Name, Opts) ->
     pubkey_cert:root_cert(Name, Opts).
-      
-%%--------------------------------------------------------------------
--spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, 
-                         ResponderCerts, NonceExt) -> valid | {bad_cert, Reason}
-              when Cert:: cert(),
-                   IssuerCert:: cert(),
-                   OcspRespDer::der_encoded(),
-                   ResponderCerts::[der_cert()],
-                   NonceExt::undefined | binary(),
-                   Reason::term().
 
-%% Description: Validate OCSP staple response
 %%--------------------------------------------------------------------
-pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+-spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options) ->
+          ok | {error, {bad_cert, Reason}}
+              when Cert::cert(),
+                   IssuerCert::cert(),
+                   OcspRespDer::der_encoded(),
+                   NonceExt::undefined | binary(),
+                   Options::[{is_trusted_responder_fun,
+                              fun((combined_cert()) -> boolean)}],
+                   Reason::bad_cert_reason().
+%% Description: Validate OCSP response
+%%--------------------------------------------------------------------
+pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, NonceExt, Options)
   when is_binary(DerCert) ->
-    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer,
-                       ResponderCerts, NonceExt);
-pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+    pkix_ocsp_validate(
+      pkix_decode_cert(DerCert, otp), IssuerCert, OcspRespDer, NonceExt, Options);
+pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, NonceExt, Options)
   when is_binary(DerIssuerCert) ->
-    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
-                       ResponderCerts, NonceExt);
-pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
-    OcspResponse = pubkey_ocsp:decode_ocsp_response(OcspRespDer),
-    OcspCertResponses =
-        case OcspResponse of
-            {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ->
-                OcspResponseCerts = [otp_cert(C) || C <- Certs],
-                UserResponderCerts =
-                    [otp_cert(pkix_decode_cert(C, plain)) || C <- ResponderCerts],
-                pubkey_ocsp:verify_ocsp_response(
-                  BasicOcspResponse, OcspResponseCerts ++ UserResponderCerts,
-                  NonceExt);
-            {error, _} = Error ->
-                Error
-        end,
-    case OcspCertResponses of
-        {ok, Responses} ->
-            case pubkey_ocsp:find_single_response(
-                   otp_cert(Cert), otp_cert(IssuerCert), Responses) of
-                {ok, #'SingleResponse'{certStatus = CertStatus}} ->
-                    pubkey_ocsp:ocsp_status(CertStatus);
-                {error, no_matched_response = Reason} ->
-                    {bad_cert, {revocation_status_undetermined, Reason}}
-            end;
+    pkix_ocsp_validate(
+      Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer, NonceExt, Options);
+pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options)
+  when is_record(Cert, 'OTPCertificate'),
+       is_record(IssuerCert, 'OTPCertificate') ->
+    IsTrustedResponderFun =
+	proplists:get_value(is_trusted_responder_fun, Options,
+                            fun(_) -> false end),
+    maybe
+        {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ?=
+            pubkey_ocsp:decode_response(OcspRespDer),
+        OcspResponseCerts = [combined_cert(C) || C <- Certs],
+        {ok, Responses} ?=
+            pubkey_ocsp:verify_response(
+              BasicOcspResponse, OcspResponseCerts, NonceExt, IssuerCert,
+              IsTrustedResponderFun),
+        {ok, #'SingleResponse'{certStatus = CertStatus}} ?=
+            pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses),
+        pubkey_ocsp:status(CertStatus)
+    else
         {error, Reason} ->
-            {bad_cert, {revocation_status_undetermined, Reason}}
+            {error, {bad_cert, {revocation_status_undetermined, Reason}}}
     end.
 
 %%--------------------------------------------------------------------
@@ -1443,14 +1440,6 @@ ocsp_extensions(Nonce) ->
     [Extn || Extn <- [pubkey_ocsp:get_nonce_extn(Nonce),
                       pubkey_ocsp:get_acceptable_response_types_extn()],
              erlang:is_record(Extn, 'Extension')].
-
-%%--------------------------------------------------------------------
--spec ocsp_responder_id(binary()) -> binary().
-%%
-%% Description: Get the OCSP responder ID der
-%%--------------------------------------------------------------------
-ocsp_responder_id(CertDer) ->
-    pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(CertDer, plain)).
 
 %%--------------------------------------------------------------------
 -spec cacerts_get() -> [combined_cert()].
@@ -1700,9 +1689,12 @@ otp_cert(Der) when is_binary(Der) ->
 otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
-    OtpCert;
-otp_cert(#'Certificate'{} = Cert) ->
-    pkix_decode_cert(der_encode('Certificate', Cert), otp).
+    OtpCert.
+
+combined_cert(#'Certificate'{} = Cert) ->
+    Der = der_encode('Certificate', Cert),
+    Otp = pkix_decode_cert(Der, otp),
+    #cert{der = Der, otp = Otp}.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
@@ -2119,15 +2111,6 @@ subject_public_key_info(Alg, PubKey) ->
 %%%#
 %%%# Tracing
 %%%#
-handle_trace(csp,
-             {call, {?MODULE, ocsp_responder_id, [Cert]}}, Stack) ->
-    {io_lib:format("pkix_decode_cert(Cert, plain) = ~W", [Cert, 5]),
-    %% {io_lib:format("pkix_decode_cert(Cert, plain) = ~s", [ssl_test_lib:format_cert(Cert)]),
-     Stack};
-handle_trace(csp,
-             {return_from, {?MODULE, ocsp_responder_id, 1}, Return},
-             Stack) ->
-    {io_lib:format("OCSP Responder ID = ~P", [Return, 10]), Stack};
 handle_trace(crt,
              {call, {?MODULE, pkix_decode_cert, [Cert, _Type]}}, Stack) ->
     {io_lib:format("Cert = ~W", [Cert, 5]), Stack};

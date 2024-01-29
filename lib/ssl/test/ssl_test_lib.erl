@@ -424,6 +424,8 @@ openssl_ocsp_support(Config) ->
     case proplists:get_value(openssl_version, Config) of
         "OpenSSL 1.1.1" ++ _Rest ->
             true;
+        "OpenSSL 3" ++ _Rest ->
+            true;
         _ ->
             false
     end.

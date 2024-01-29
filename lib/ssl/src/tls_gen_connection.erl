@@ -399,7 +399,7 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
                                              StateName == hello;
                                              StateName == certify;
                                              StateName == wait_cert_verify;
-                                             StateName == wait_ocsp_stapling;
+                                             StateName == wait_stapling;
                                              StateName == abbreviated;
                                              StateName == cipher
                                              ->

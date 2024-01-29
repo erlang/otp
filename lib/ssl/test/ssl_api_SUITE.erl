@@ -2386,7 +2386,7 @@ options_whitebox(Config) when is_list(Config) ->
     options_renegotiate(Config),
     options_middlebox(Config),
     options_frag_len(Config),
-    options_oscp(Config),
+    options_stapling(Config),
     options_padding(Config),
     options_identity(Config),
     options_reuse_session(Config),
@@ -2940,31 +2940,25 @@ options_frag_len(_Config) -> %% max_fragment_length
     ?ERR({max_fragment_length,2000}, [{max_fragment_length, 2000}], client),
     ok.
 
-options_oscp(Config) ->
-    Cert = proplists:get_value(
-             cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    NoOcspOption = [ocsp_stapling, ocsp_nonce, ocsp_responder_certs],
+options_stapling(_Config) ->
+    ?OK(#{}, [], client, [stapling]),
+    ?OK(#{}, [{stapling, no_staple}], client, [stapling]),
 
-    ?OK(#{}, [], client, NoOcspOption),
-    ?OK(#{}, [{ocsp_stapling, false}], client, NoOcspOption),
-    ?OK(#{ocsp_stapling := #{ocsp_nonce := true, ocsp_responder_certs := []}},
-        [{ocsp_stapling, true}], client, [ocsp_nonce, ocsp_responder_certs]),
-    ?OK(#{ocsp_stapling :=
-              #{ocsp_nonce := false, ocsp_responder_certs := [_, _]}},
-        [{ocsp_stapling, true}, {ocsp_nonce, false},
-         {ocsp_responder_certs, [Cert,Cert]}],
-        client, [ocsp_nonce, ocsp_responder_certs]),
+    ?OK(#{stapling := #{ocsp_nonce := true}},
+        [{stapling, staple}], client),
+    ?OK(#{stapling := #{ocsp_nonce := true}},
+        [{stapling, #{}}], client),
+    ?OK(#{stapling := #{ocsp_nonce := true}},
+        [{stapling, #{ocsp_nonce => true}}], client),
+
+    ?OK(#{stapling := #{ocsp_nonce := false}},
+        [{stapling, #{ocsp_nonce => false}}], client),
+
     %% Errors
-    ?ERR({ocsp_stapling, foo}, [{ocsp_stapling, 'foo'}], client),
-    ?ERR({ocsp_nonce, foo}, [{ocsp_nonce, 'foo'}], client),
-    ?ERR({ocsp_responder_certs, foo}, [{ocsp_responder_certs, 'foo'}], client),
-    ?ERR({options, incompatible, [{ocsp_nonce, false}, {ocsp_stapling, false}]},
-         [{ocsp_nonce, false}], client),
-    ?ERR({options, incompatible, [ocsp_responder_certs, {ocsp_stapling, false}]},
-         [{ocsp_responder_certs, [Cert]}], server),
-    ?ERR({ocsp_responder_certs, [_]},
-         [{ocsp_stapling, true}, {ocsp_responder_certs, ['NOT A BINARY']}],
-         client),
+    ?ERR({stapling, foo}, [{stapling, 'foo'}], client),
+    ?ERR({option, client_only, stapling}, [{stapling, true}], server),
+    ?ERR({option, client_only, stapling}, [{stapling, false}], server),
+    ?ERR({option, client_only, stapling}, [{stapling, #{}}], server),
     ok.
 
 options_padding(_Config) ->

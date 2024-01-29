@@ -337,7 +337,7 @@ next_protocol(SelectedProtocol) ->
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         #{partial_chain := PartialChain} = SSlOptions,
-        CRLDbHandle, Role, Host, Version, CertExt) ->
+        CRLDbHandle, Role, Host, Version, ExtInfo) ->
     ServerName = server_name(SSlOptions, Host, Role),
     [PeerCert | _ChainCerts ] = ASN1Certs,
     try
@@ -346,7 +346,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                                                    PartialChain),
         
 	case path_validate(PathsAndAnchors, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                           Version, SSlOptions, CertExt) of
+                           Version, SSlOptions, ExtInfo) of
 	    {ok, {PublicKeyInfo, _}} ->
                 {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
@@ -1293,13 +1293,10 @@ maybe_add_tls13_extensions(?TLS_1_3,
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
     HelloExtensions.
 
-maybe_add_certificate_status_request(_Version, #{ocsp_stapling := OcspStapling},
+maybe_add_certificate_status_request(_Version, #{stapling := _Stapling},
                                      OcspNonce, HelloExtensions) ->
-    OcspResponderCerts = maps:get(ocsp_responder_certs, OcspStapling),
-    OcspResponderList = get_ocsp_responder_list(OcspResponderCerts),
     OcspRequestExtns = public_key:ocsp_extensions(OcspNonce),
-    Req = #ocsp_status_request{responder_id_list  = OcspResponderList,
-                               request_extensions = OcspRequestExtns},
+    Req = #ocsp_status_request{request_extensions = OcspRequestExtns},
     CertStatusReqExtn = #certificate_status_request{
         status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
         request = Req
@@ -1308,9 +1305,6 @@ maybe_add_certificate_status_request(_Version, #{ocsp_stapling := OcspStapling},
 maybe_add_certificate_status_request(_Version, _SslOpts, _OcspNonce,
                                      HelloExtensions) ->
     HelloExtensions.
-
-get_ocsp_responder_list(ResponderCerts) ->
-    lists:map(fun public_key:ocsp_responder_id/1, ResponderCerts).
 
 %% TODO: Add support for PSK key establishment
 
@@ -1523,10 +1517,10 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
             ok
     end,
 
-    case handle_ocsp_extension(SslOpts, Exts) of
+    case handle_cert_status_extension(SslOpts, Exts) of
         #alert{} = Alert ->
             Alert;
-        OcspState ->
+        StaplingState ->
             %% If we receive an ALPN extension then this is the protocol selected,
             %% otherwise handle the NPN extension.
             ALPN = maps:get(alpn, Exts, undefined),
@@ -1534,14 +1528,14 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
                 %% ServerHello contains exactly one protocol: the one selected.
                 %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
                 [Protocol] when not Renegotiation ->
-                    {ConnectionStates, alpn, Protocol, OcspState};
+                    {ConnectionStates, alpn, Protocol, StaplingState};
                 [_] when Renegotiation ->
-                    {ConnectionStates, alpn, undefined, OcspState};
+                    {ConnectionStates, alpn, undefined, StaplingState};
                 undefined ->
                     NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
                     NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
                     Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtocolSelector, Renegotiation),
-                    {ConnectionStates, npn, Protocol, OcspState};
+                    {ConnectionStates, npn, Protocol, StaplingState};
                 {error, Reason} ->
                     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
                 [] ->
@@ -1947,22 +1941,22 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#cookie{cookie = Cookie}) ->
     Cookie.
 
-handle_ocsp_extension(#{ocsp_stapling := _OcspStapling}, Extensions) ->
+handle_cert_status_extension(#{stapling := _Stapling}, Extensions) ->
     case maps:get(status_request, Extensions, false) of
-        undefined -> %% status_request in server hello is empty
-            #{ocsp_stapling => true,
-              ocsp_expect => staple};
-        false -> %% status_request is missing (not negotiated)
-            #{ocsp_stapling => true,
-              ocsp_expect => no_staple};
+        undefined -> %% status_request received in server hello
+            #{configured => true,
+              status => negotiated};
+        false ->
+            #{configured => true,
+              status => not_negotiated};
         _Else ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty)
     end;
-handle_ocsp_extension(_SslOpts, Extensions) ->
+handle_cert_status_extension(_SslOpts, Extensions) ->
     case maps:get(status_request, Extensions, false) of
-        false -> %% status_request is missing (not negotiated)
-            #{ocsp_stapling => false,
-              ocsp_expect => no_staple};
+        false ->
+            #{configured => false,
+              status => not_negotiated};
         _Else -> %% unsolicited status_request
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
     end.
@@ -2010,11 +2004,11 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 
 %%-------------Handle handshake messages --------------------------------
 path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt) ->
+              Version, SslOptions, ExtInfo) ->
     InitialPotentialError = {error, {bad_cert, unknown_ca}},
     InitialInvalidated = [],
     path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                  Version, SslOptions, CertExt, InitialInvalidated, InitialPotentialError).
+                  Version, SslOptions, ExtInfo, InitialInvalidated, InitialPotentialError).
 
 validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
@@ -2199,25 +2193,21 @@ bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
 cert_status_check(_,
-                  #{ocsp_state := #{ocsp_stapling := true,
-                                    ocsp_expect := stapled}},
+                  #{stapling_state := #{configured := true,
+                                        status := received_staple}},
                   _VerifyResult, _, _) ->
-    %% OCSP staple will now be checked by
+    %% OCSP staple(s) will now be checked by
     %% ssl_certificate:verify_cert_extensions/2 in ssl_certificate:validate
     valid;
 cert_status_check(OtpCert,
-                  #{ocsp_state := #{ocsp_stapling := false}} = SslState,
+                  #{stapling_state := #{configured := false}} = SslState,
                   VerifyResult, CertPath, LogLevel) ->
     maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
 cert_status_check(_OtpCert,
-                  #{ocsp_state := #{ocsp_stapling := true,
-                                    ocsp_expect := undetermined}},
-                  _VerifyResult, _CertPath, _LogLevel) ->
-    {bad_cert, {revocation_status_undetermined, not_stapled}};
-cert_status_check(_OtpCert,
-                  #{ocsp_state := #{ocsp_stapling := true,
-                                    ocsp_expect := no_staple}},
-                  _VerifyResult, _CertPath, _LogLevel) ->
+                  #{stapling_state := #{configured := true,
+                                        status := StaplingStatus}},
+                  _VerifyResult, _CertPath, _LogLevel)
+  when StaplingStatus == not_negotiated; StaplingStatus == not_received ->
     {bad_cert, {revocation_status_undetermined, not_stapled}}.
 
 maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
@@ -3799,23 +3789,28 @@ path_validate([], _, _, _, _, _, _, _, _, _, {error, {bad_cert, root_cert_expire
 path_validate([], _, _, _, _, _, _, _, _, _, Error) ->
     Error;
 path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt, InvalidatedList, Error) ->
+              Version, SslOptions, ExtInfo, InvalidatedList, Error) ->
     CB = path_validation_cb(Version),
     case CB:path_validation(trusted_unwrap(TrustedCert), Path, ServerName,
                             Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                            Version, SslOptions, CertExt) of
+                            Version, SslOptions, ExtInfo) of
         {error, {bad_cert, root_cert_expired}} = NewError ->
             NewInvalidatedList = [TrustedCert | InvalidatedList],
-            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, NewInvalidatedList),
-            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                          Version, SslOptions, CertExt, NewInvalidatedList, NewError);
+            Alt = ssl_certificate:find_cross_sign_root_paths(
+                    Path, CertDbHandle,CertDbRef, NewInvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle,
+                          CertDbRef, CRLDbHandle, Version, SslOptions,
+                          ExtInfo, NewInvalidatedList, NewError);
         {error, {bad_cert, unknown_ca}} = NewError ->
-            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, InvalidatedList),
-            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                          Version, SslOptions, CertExt, InvalidatedList,  error_to_propagate(Error, NewError));
+            Alt = ssl_certificate:find_cross_sign_root_paths(
+                    Path, CertDbHandle, CertDbRef, InvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle,
+                          CertDbRef, CRLDbHandle, Version, SslOptions,
+                          ExtInfo, InvalidatedList,
+                          error_to_propagate(Error, NewError));
         {error, _} when Rest =/= []->
             path_validate(Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                          Version, SslOptions, CertExt, InvalidatedList, Error);
+                          Version, SslOptions, ExtInfo, InvalidatedList, Error);
         Result ->
             Result
     end.
@@ -3834,11 +3829,10 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   crl_check := CrlCheck,
                   log_level := Level} = Opts,
                 #{cert_ext := CertExt,
-                  ocsp_responder_certs := OcspResponderCerts,
-                  ocsp_state := OcspState}) ->
+                  stapling_state := StaplingState}) ->
     SignAlgos = maps:get(signature_algs, Opts, undefined),
     SignAlgosCert = maps:get(signature_algs_cert, Opts, undefined),
-    ValidationFunAndState = 
+    ValidationFunAndState =
         validation_fun_and_state(VerifyFun, #{role => Role,
                                               certdb => CertDbHandle,
                                               certdb_ref => CertDbRef,
@@ -3852,8 +3846,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               crl_db => CRLDbHandle,
                                               cert_ext => CertExt,
                                               issuer => TrustedCert,
-                                              ocsp_responder_certs => OcspResponderCerts,
-                                              ocsp_state => OcspState,
+                                              stapling_state => StaplingState,
                                               path_len => length(Path)
                                              },
                                  Path, Level),
@@ -3880,6 +3873,6 @@ handle_trace(csp,
                      [_Version, SslOpts,
                       _OcspNonce, _HelloExtensions]}},
              Stack) ->
-    OcspStapling = maps:get(ocsp_stapling, SslOpts, false),
-    {io_lib:format("#1 ADD crt status request / OcspStapling option = ~W",
-                   [OcspStapling, 10]), Stack}.
+    Stapling = maps:get(stapling, SslOpts, false),
+    {io_lib:format("#1 ADD crt status request / Stapling option = ~W",
+                   [Stapling, 10]), Stack}.
