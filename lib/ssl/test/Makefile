@@ -102,7 +102,7 @@ MODULES = \
 	inet_epmd_dist_cryptcookie_inet \
 	inet_epmd_dist_cryptcookie_socket \
 	inet_epmd_cryptcookie_socket_ktls \
-	openssl_ocsp_SUITE \
+	openssl_stapling_SUITE \
 	tls_server_session_ticket_SUITE \
 	tls_client_ticket_store_SUITE
 

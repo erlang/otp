@@ -521,7 +521,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                   transport_cb = Transport,
                                   socket = Socket},
          handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
-                                        ocsp_stapling_state = OcspState},
+                                        stapling_state = StaplingState},
          connection_env = #connection_env{negotiated_version =
                                               NegotiatedVersion},
          protocol_specific = PS,
@@ -565,7 +565,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         TicketData =
             tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
-        OcspNonce = maps:get(ocsp_nonce, OcspState, undefined),
+        OcspNonce = maps:get(ocsp_nonce, StaplingState, undefined),
         Hello0 = tls_handshake:client_hello(Host, Port,
                                             ConnectionStates0, SslOpts,
                                             SessionId, Renegotiation,

@@ -309,8 +309,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">status_request (RFC6066)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>27.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1473,8 +1473,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">status_request (RFC6066)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">27.0</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1509,8 +1509,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>27.0</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

@@ -27,7 +27,7 @@
 %% %%----------------------------------------------------------------------
 
 -module(ssl_alert).
-
+-feature(maybe_expr, enable).
 -include("ssl_alert.hrl").
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
@@ -113,9 +113,20 @@ own_alert_format_depth(#alert{reason = Reason} = Alert) ->
             {" ~s\n ~P", [Txt, Reason, ?DEPTH]}
     end.
 
-own_alert_txt(#alert{level = Level, description = Description, where = #{line := Line, file := Mod}, role = Role}) ->
-    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
-        level_txt(Level) ++ description_txt(Description).
+own_alert_txt(#alert{level = Level, description = Description,
+                     where = #{line := Line, file := Mod} = Where,
+                     role = Role}) ->
+    DefaultLeft = "at " ++ Mod ++ ":" ++ integer_to_list(Line),
+    DefaultRight = " generated " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
+        level_txt(Level) ++ description_txt(Description),
+    maybe
+        debug ?= get(log_level),
+        {current_stacktrace, Stacktrace} ?= maps:get(st, Where, undefined),
+        DefaultLeft ++ io_lib:format("~n~p~n", [Stacktrace]) ++ DefaultRight
+    else
+        _ ->
+            DefaultLeft ++ DefaultRight
+    end.
 
 alert_format(Alert) ->
     Txt = alert_txt(Alert),

@@ -58,7 +58,7 @@
          abbreviated/3,
          certify/3,
          wait_cert_verify/3,
-         wait_ocsp_stapling/3,
+         wait_stapling/3,
          cipher/3,
          connection/3,
          downgrade/3,
@@ -261,30 +261,31 @@ abbreviated(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
 
 %%--------------------------------------------------------------------
--spec wait_ocsp_stapling(gen_statem:event_type(),
-                         #certificate{} |  #certificate_status{} | term(),
-	                     #state{}) ->
-		gen_statem:state_function_result().
+-spec wait_stapling(gen_statem:event_type(),
+                    #certificate{} |  #certificate_status{} | term(),
+                    #state{}) ->
+          gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-wait_ocsp_stapling(internal, #certificate{},
+wait_stapling(internal, #certificate{},
                    #state{static_env = #static_env{protocol_cb = _Connection}} = State) ->
     %% Postpone message, should be handled in certify after receiving staple message
     {next_state, ?FUNCTION_NAME, State, [{postpone, true}]};
 %% Receive OCSP staple message
-wait_ocsp_stapling(internal, #certificate_status{} = CertStatus,
+wait_stapling(internal, #certificate_status{} = CertStatus,
                    #state{static_env = #static_env{protocol_cb = _Connection},
                           handshake_env =
-                              #handshake_env{ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+                              #handshake_env{stapling_state = StaplingState} = HsEnv} = State) ->
     {next_state, certify,
      State#state{handshake_env =
-                     HsEnv#handshake_env{ocsp_stapling_state =
-                                             OcspState#{ocsp_expect => stapled,
-                                                        ocsp_response => CertStatus}}}};
+                     HsEnv#handshake_env{
+                       stapling_state =
+                           StaplingState#{status => received_staple,
+                                          staple => CertStatus}}}};
 %% Server did not send OCSP staple message
-wait_ocsp_stapling(internal, Msg,
+wait_stapling(internal, Msg,
                    #state{static_env = #static_env{protocol_cb = _Connection},
                           handshake_env = #handshake_env{
-                                             ocsp_stapling_state = OcspState} = HsEnv} = State)
+                                             stapling_state = StaplingState} = HsEnv} = State)
   when is_record(Msg, server_key_exchange) orelse
        is_record(Msg, hello_request) orelse
        is_record(Msg, certificate_request) orelse
@@ -292,12 +293,12 @@ wait_ocsp_stapling(internal, Msg,
        is_record(Msg, client_key_exchange) ->
     {next_state, certify,
      State#state{handshake_env =
-                     HsEnv#handshake_env{ocsp_stapling_state =
-                                             OcspState#{ocsp_expect => undetermined}}},
+                     HsEnv#handshake_env{stapling_state =
+                                             StaplingState#{status => not_received}}},
      [{postpone, true}]};
-wait_ocsp_stapling(internal, #hello_request{}, _) ->
+wait_stapling(internal, #hello_request{}, _) ->
     keep_state_and_data;
-wait_ocsp_stapling(Type, Event, State) ->
+wait_stapling(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
 
 %%--------------------------------------------------------------------
@@ -329,8 +330,8 @@ certify(internal, #certificate{},
 certify(internal, #certificate{},
         #state{static_env = #static_env{protocol_cb = Connection},
                handshake_env = #handshake_env{
-                              ocsp_stapling_state = #{ocsp_expect := staple}}} = State) ->
-    Connection:next_event(wait_ocsp_stapling, no_record, State, [{postpone, true}]);
+                                  stapling_state = #{status := negotiated}}} = State) ->
+    Connection:next_event(wait_stapling, no_record, State, [{postpone, true}]);
 certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
         #state{static_env = #static_env{
                                role = Role,
@@ -340,14 +341,18 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
                                cert_db_ref = CertDbRef,
                                crl_db = CRLDbInfo},
                handshake_env = #handshake_env{
-                                  ocsp_stapling_state = #{ocsp_expect := Status} = OcspState},
+                                  stapling_state = #{status := StaplingStatus} =
+                                      StaplingState},
                connection_env = #connection_env{
                                    negotiated_version = Version},
-               ssl_options = Opts} = State0) when Status =/= staple ->
-    OcspInfo = ocsp_info(OcspState, Opts, Peer),
+               ssl_options = Opts} = State0)
+  when StaplingStatus == not_negotiated; StaplingStatus == received_staple ->
+    %% this clause handles also scenario with stapling disabled, so
+    %% 'not_negotiated' appears in guard
+    ExtInfo = ext_info(StaplingState, Peer),
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
                                Opts, CRLDbInfo, Role, Host,
-                               ensure_tls(Version), OcspInfo) of
+                               ensure_tls(Version), ExtInfo) of
         {PeerCert, PublicKeyInfo} ->
             State = case Role of
                         server ->
@@ -1667,16 +1672,13 @@ ensure_tls(Version) when ?DTLS_1_X(Version) ->
 ensure_tls(Version) -> 
     Version.
 
-ocsp_info(#{ocsp_expect := stapled, ocsp_response := CertStatus} = OcspState,
-          #{ocsp_stapling := OcspStapling} = _SslOpts, PeerCert) ->
-    #{ocsp_responder_certs := OcspResponderCerts} = OcspStapling,
+ext_info(#{status := received_staple, staple := CertStatus} = StaplingState,
+         PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
-      ocsp_responder_certs => OcspResponderCerts,
-      ocsp_state => OcspState};
-ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
+      stapling_state => StaplingState};
+ext_info(#{status := not_negotiated} = StaplingState, PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
-      ocsp_responder_certs => [],
-      ocsp_state => OcspState}.
+      stapling_state => StaplingState}.
 
 select_client_cert_key_pair(Session0,_,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],
@@ -1727,5 +1729,5 @@ default_cert_key_pair_return(Default, _) ->
 %%%# Tracing
 %%%#
 handle_trace(csp,
-             {call, {?MODULE, wait_ocsp_stapling, [Type, Msg | _]}}, Stack) ->
+             {call, {?MODULE, wait_stapling, [Type, Msg | _]}}, Stack) ->
     {io_lib:format("Type = ~w Msg = ~W", [Type, Msg, 10]), Stack}.

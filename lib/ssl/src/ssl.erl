@@ -434,10 +434,8 @@
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
                                 {early_data, client_early_data()} |
-                                {use_srtp, use_srtp()}.
-%% {ocsp_stapling, ocsp_stapling()} |
-%% {ocsp_responder_certs, ocsp_responder_certs()} |
-%% {ocsp_nonce, ocsp_nonce()}.
+                                {use_srtp, use_srtp()} |
+                                {stapling, stapling()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id() | {session_id(), SessionData::binary()}.
@@ -459,9 +457,7 @@
 -type max_fragment_length()      :: undefined | 512 | 1024 | 2048 | 4096.
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
-%% -type ocsp_stapling()            :: boolean().
-%% -type ocsp_responder_certs()     :: [public_key:der_encoded()].
-%% -type ocsp_nonce()               :: boolean().
+-type stapling()                 :: staple | no_staple | map().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -1645,7 +1641,7 @@ ssl_options() ->
      middlebox_comp_mode,
      max_fragment_length,
      next_protocol_selector,  next_protocols_advertised,
-     ocsp_stapling, ocsp_responder_certs, ocsp_nonce,
+     stapling,
      padding_check,
      partial_chain,
      password,
@@ -1687,7 +1683,7 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts2  = opt_verification(UserSslOptsMap, SslOpts1, Env),
     SslOpts3  = opt_certs(UserSslOptsMap, SslOpts2, Env),
     SslOpts4  = opt_tickets(UserSslOptsMap, SslOpts3, Env),
-    SslOpts5  = opt_ocsp(UserSslOptsMap, SslOpts4, Env),
+    SslOpts5  = opt_stapling(UserSslOptsMap, SslOpts4, Env),
     SslOpts6  = opt_sni(UserSslOptsMap, SslOpts5, Env),
     SslOpts7  = opt_signature_algs(UserSslOptsMap, SslOpts6, Env),
     SslOpts8  = opt_alpn(UserSslOptsMap, SslOpts7, Env),
@@ -2073,33 +2069,30 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     Opts#{session_tickets => SessionTickets, early_data => EarlyData,
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
 
-opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
-    {Stapling, SMap} =
-        case get_opt(ocsp_stapling, ?DEFAULT_OCSP_STAPLING, UserOpts, Opts) of
-            {old, Map} when is_map(Map) -> {true, Map};
-            {_, Bool} when is_boolean(Bool) -> {Bool, #{}};
-            {_, Value} -> option_error(ocsp_stapling, Value)
+opt_stapling(UserOpts, #{versions := _Versions} = Opts, #{role := client}) ->
+    {Stapling, Nonce} =
+        case get_opt(stapling, ?DEFAULT_STAPLING_OPT, UserOpts, Opts) of
+            {old, StaplingMap} when is_map(StaplingMap) ->
+                {true, maps:get(ocsp_nonce, StaplingMap, ?DEFAULT_OCSP_NONCE_OPT)};
+            {_, staple} ->
+                {true, ?DEFAULT_OCSP_NONCE_OPT};
+            {_, no_staple} ->
+                {false, ignore};
+            {_, Map} when is_map(Map) ->
+                {true, maps:get(ocsp_nonce, Map, ?DEFAULT_OCSP_NONCE_OPT)};
+            {_, Value} ->
+                option_error(stapling, Value)
         end,
-    assert_client_only(Role, Stapling, ocsp_stapling),
-    {_, Nonce} = get_opt_bool(ocsp_nonce, ?DEFAULT_OCSP_NONCE, UserOpts, SMap),
-    option_incompatible(Stapling =:= false andalso Nonce =:= false,
-                        [{ocsp_nonce, false}, {ocsp_stapling, false}]),
-    {_, ORC} = get_opt_list(ocsp_responder_certs, ?DEFAULT_OCSP_RESPONDER_CERTS,
-                            UserOpts, SMap),
-    CheckBinary = fun(Cert) when is_binary(Cert) -> ok;
-                     (_Cert) -> option_error(ocsp_responder_certs, ORC)
-                  end,
-    [CheckBinary(C) || C <- ORC],
-    option_incompatible(Stapling =:= false andalso ORC =/= [],
-                        [ocsp_responder_certs, {ocsp_stapling, false}]),
     case Stapling of
         true ->
-            Opts#{ocsp_stapling =>
-                      #{ocsp_nonce => Nonce,
-                        ocsp_responder_certs => ORC}};
+            Opts#{stapling =>
+                      #{ocsp_nonce => Nonce}};
         false ->
             Opts
-    end.
+    end;
+opt_stapling(UserOpts, Opts, #{role := server}) ->
+    assert_client_only(stapling, UserOpts),
+    Opts.
 
 opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
     {_, SniHosts} = get_opt_list(sni_hosts, [], UserOpts, Opts),
@@ -2609,10 +2602,6 @@ assert_server_only(client, Bool, Option) ->
     role_error(Bool, server_only, Option);
 assert_server_only(_, _, _) ->
     ok.
-assert_client_only(server, Bool, Option) ->
-    role_error(Bool, client_only, Option);
-assert_client_only(_, _, _) ->
-    ok.
 
 role_error(false, _ErrorDesc, _Option) ->
     ok;
@@ -3054,9 +3043,9 @@ unambiguous_path(Value) ->
 %%%#
 %%%# Tracing
 %%%#
-handle_trace(csp, {call, {?MODULE, opt_ocsp, [UserOpts | _]}}, Stack) ->
+handle_trace(csp, {call, {?MODULE, opt_stapling, [UserOpts | _]}}, Stack) ->
     {format_ocsp_params(UserOpts), Stack};
-handle_trace(csp, {return_from, {?MODULE, opt_ocsp, 3}, Return}, Stack) ->
+handle_trace(csp, {return_from, {?MODULE, opt_stapling, 3}, Return}, Stack) ->
     {format_ocsp_params(Return), Stack};
 handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
     Role = server,
@@ -3066,8 +3055,6 @@ handle_trace(rle, {call, {?MODULE, connect, Args}}, Stack0) ->
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]}.
 
 format_ocsp_params(Map) ->
-    Stapling = maps:get(ocsp_stapling, Map, '?'),
+    Stapling = maps:get(stapling, Map, '?'),
     Nonce = maps:get(ocsp_nonce, Map, '?'),
-    Certs = maps:get(ocsp_responder_certs, Map, '?'),
-    io_lib:format("Stapling = ~W Nonce = ~W Certs = ~W",
-                  [Stapling, 5, Nonce, 5, Certs, 5]).
+    io_lib:format("Stapling = ~W Nonce = ~W", [Stapling, 5, Nonce, 5]).

@@ -226,12 +226,12 @@ handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 			       HelloExt, SslOpt, ConnectionStates0,
                                Renegotiation, IsNew) ->
-    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+    {ConnectionStates, ProtoExt, Protocol, StaplingState} =
         ssl_handshake:handle_server_hello_extensions(
           dtls_record, Random, CipherSuite, HelloExt,
           dtls_v1:corresponding_tls_version(Version), SslOpt, ConnectionStates0,
           Renegotiation, IsNew),
-    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, StaplingState}.
 
 %%--------------------------------------------------------------------
 
