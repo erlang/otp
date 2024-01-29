@@ -398,6 +398,9 @@ verify_node_src_addr() ->
     {ok,Socket} = gen_udp:open(0, [{active,false}]),
     {ok,Port} = inet:port(Socket),
     ok = gen_udp:send(Socket, DstAddr, Port, Msg),
+    %% Ubuntu has got 127.0.1.1 in /etc/hosts, but that IP address is
+    %% not assigned to the interface.
+    %% `ip addr add 127.0.1.1 dev lo` as root solves that problem
     case gen_udp:recv(Socket, length(Msg) + 1, 1000) of
         {ok,{DstAddr,Port,Msg}} ->
             ok;
@@ -541,7 +544,7 @@ set_cpu_affinity(Index) when is_integer(Index) ->
             Log = taskset(element(Index, split_cpus(CpuTopology))),
             %% Update Schedulers
             _ = erlang:system_info(update_cpu_info),
-            Schedulers = erlang:system_info(logical_processors_available),
+            Schedulers = erlang:system_info(schedulers_online),
             {Log,
              erlang:system_flag(schedulers_online, Schedulers),
              Schedulers}
