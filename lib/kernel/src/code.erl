@@ -196,16 +196,21 @@ ensure_loaded(Mod) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {module, Mod};
         false ->
-            case call({get_object_code_for_loading, Mod}) of
-                {module, Mod} -> {module, Mod};
-                {error, What} -> {error, What};
-                {Binary,File,Ref} ->
-                    case ensure_prepare_loading(Mod, Binary, File) of
-                        {error,_}=Error ->
-                            call({load_error, Ref, Mod, Error});
-                        Prepared ->
-                            call({load_module, Prepared, Mod, File, false, Ref})
-                    end
+            case get_mode() of
+                interactive ->
+                    case call({get_object_code_for_loading, Mod}) of
+                        {module, Mod} -> {module, Mod};
+                        {error, What} -> {error, What};
+                        {Binary,File,Ref} ->
+                            case ensure_prepare_loading(Mod, Binary, File) of
+                                {error,_}=Error ->
+                                    call({load_error, Ref, Mod, Error});
+                                Prepared ->
+                                    call({load_module, Prepared, Mod, File, false, Ref})
+                            end
+                    end;
+                embedded ->
+                    {error, embedded}
             end
     end.
 
@@ -313,7 +318,7 @@ all_loaded() -> call(all_loaded).
       Filename :: loaded_filename(),
       Loaded :: boolean().
 all_available() ->
-    case code:get_mode() of
+    case get_mode() of
         interactive ->
             all_available(get_path(), #{});
         embedded ->
@@ -520,7 +525,7 @@ replace_path(Name, Dir, Cache) when (is_atom(Name) orelse is_list(Name)),
     call({replace_path,Name,Dir,Cache}).
 
 -spec get_mode() -> 'embedded' | 'interactive'.
-get_mode() -> call(get_mode).
+get_mode() -> code_server:get_mode().
 
 -spec clear_cache() -> ok.
 clear_cache() -> call(clear_cache).

@@ -22,7 +22,7 @@
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,
-	 call/1, absname/1,
+	 call/1, absname/1, get_mode/0,
 	 is_loaded/1, is_sticky/1,
 	 system_code_change/4,
 	 error_msg/2, info_msg/2
@@ -46,7 +46,6 @@
 		path :: [{file:name_all(), cache | nocache}],
 		moddb :: ets:table(),
 		namedb :: ets:table(),
-		mode = interactive :: 'interactive' | 'embedded',
 		on_load = [] :: [on_load_item()],
                 loading = #{} :: #{module() => [pid()]}}).
 -type state() :: #state{}.
@@ -69,6 +68,9 @@ is_loaded(Mod) ->
 
 is_sticky(Mod) ->
     is_sticky(Mod, ?moddb).
+
+get_mode() ->
+    persistent_term:get(?MODULE).
 
 %% -----------------------------------------------------------
 %% Init the code_server process.
@@ -104,9 +106,9 @@ init(Ref, Parent, [Root,Mode]) ->
 		   root = Root,
 		   path = Path,
 		   moddb = Db,
-		   namedb = create_namedb(Path, Root),
-		   mode = Mode},
+		   namedb = create_namedb(Path, Root)},
 
+    persistent_term:put(?MODULE, Mode),
     Parent ! {Ref,{ok,self()}},
     loop(State).
 
@@ -342,7 +344,7 @@ handle_call({get_object_code,Mod}, _From, St0) when is_atom(Mod) ->
 handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {reply, {module, Mod}, St0};
-        false when St0#state.mode =:= interactive ->
+        false ->
             %% Handles pending on_load events first. If the code is being
             %% loaded, finish before adding more entries to the queue.
             Action = fun(_, St1) ->
@@ -351,15 +353,11 @@ handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
                     false -> get_object_code_for_loading(St1, Mod, From)
                 end
             end,
-            handle_pending_on_load(Action, Mod, From, St0);
-        false -> {reply, {error,embedded}, St0}
+            handle_pending_on_load(Action, Mod, From, St0)
     end;
 
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
-
-handle_call(get_mode, _From, S=#state{mode=Mode}) ->
-    {reply, Mode, S};
 
 handle_call({finish_loading,Prepared,EnsureLoaded}, _From, S) ->
     {reply,finish_loading(Prepared, EnsureLoaded, S),S};
@@ -1087,20 +1085,13 @@ del_paths(_,Path,_) ->
     {ok,Path}.
 
 try_finish_module(File, Mod, PC, EnsureLoaded, From, St) ->
-    Action = case EnsureLoaded of
-        false ->
-            fun(_, S) -> try_finish_module_1(File, Mod, PC, From, false, S) end;
-        _ ->
-            fun(_, S0) ->
-                case erlang:module_loaded(Mod) of
-                    true ->
-                        reply_loading(EnsureLoaded, Mod, {module, Mod}, St);
-                    false when S0#state.mode =:= interactive ->
-                        try_finish_module_1(File, Mod, PC, From, EnsureLoaded, S0);
-                    false ->
-                        reply_loading(EnsureLoaded, Mod, {error, embedded}, St)
-                end
-            end
+    Action =  fun(_, S) ->
+        case (EnsureLoaded =/= false) andalso erlang:module_loaded(Mod) of
+            true ->
+                reply_loading(EnsureLoaded, Mod, {module, Mod}, S);
+            false ->
+                try_finish_module_1(File, Mod, PC, From, EnsureLoaded, S)
+        end
     end,
     handle_pending_on_load(Action, Mod, From, St).
 
