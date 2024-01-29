@@ -181,6 +181,12 @@
 # define HAVE_SHA512
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SHA512)
+# define HAVE_SHA512_224
+# define HAVE_SHA512_256
+#endif
+
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
 // An error in beta releases of 1.1.1 fixed in production release

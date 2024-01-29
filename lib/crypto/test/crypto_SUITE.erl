@@ -252,6 +252,8 @@ groups() ->
                      {group, sha3_384},
                      {group, sha3_512},
                      {group, sha512},
+                     {group, sha512_224},
+                     {group, sha512_256},
                      {group, shake128},
                      {group, shake256},
                      {group, sha},
@@ -375,6 +377,8 @@ groups() ->
      {sha256,               [], [hash, hmac, hmac_update]},
      {sha384,               [], [hash, hmac, hmac_update]},
      {sha512,               [], [hash, hmac, hmac_update]},
+     {sha512_224,           [], [hash]},
+     {sha512_256,           [], [hash]},
      {sha3_224,             [], [hash, hmac, hmac_update]},
      {sha3_256,             [], [hash, hmac, hmac_update]},
      {sha3_384,             [], [hash, hmac, hmac_update]},
@@ -2236,6 +2240,14 @@ group_config(sha512 = Type, Config) ->
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha512_digests() ++ [long_sha512_digest()],
     [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_224 = Type, Config) ->
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2()],
+    Digests = sha512_224_digests(),
+    [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_256 = Type, Config) ->
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2()],
+    Digests = sha512_256_digests(),
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_224 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];
@@ -2899,6 +2911,12 @@ rfc_4634_sha512_digests() ->
 		"0A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD"
 		"454D4423643CE80E2A9AC94FA54CA49F"),
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
+sha512_224_digests() ->
+    [hexstr2bin("4634270F707B6A54DAAE7530460842E20E37ED265CEEE9A43E8924AA"),
+     hexstr2bin("23FEC5BB94D60B23308192640B0C453335D664734FE40E7268674AF9")].
+sha512_256_digests() ->
+    [hexstr2bin("53048E2681941EF99B2E29B76B4C7DABE4C2D0C634FC6D46E0E2F13107E7AF23"),
+     hexstr2bin("3928E184FB8690F840DA3988121D31BE65CB9D3EF83EE6146FEAC861E19B563A")].
 
 long_msg() ->
     fun() -> lists:duplicate(1000000, $a) end.
