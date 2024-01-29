@@ -35,6 +35,7 @@
 -export_type([
               name/0,
               tag_value/0,
+              retry_count/0,
               tag_list/0,
               params/0,
               tmask/0,
@@ -55,10 +56,11 @@
 
 -type name()             :: snmp_framework_mib:admin_string().
 -type tag_value()        :: string().
+-type retry_count()      :: 0 .. 255.
 -type tag_list()         :: string().
 -type params()           :: snmp_framework_mib:admin_string().
 -type tmask()            :: snmpa_conf:transportAddressMask().
--type mms()              :: 484..65535.
+-type mms()              :: 484 .. 65535. % Actually defined in COMMUNITY-MIB
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs

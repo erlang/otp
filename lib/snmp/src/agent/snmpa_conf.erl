@@ -184,6 +184,8 @@
            Name       :: snmp_target_mib:name(),
            Domain     :: transportDomain(),
            Addr       :: transportAddress(),
+           Timeout    :: snmp:time_interval(),
+           RetryCount :: snmp_target_mib:retry_count(), 
            TagList    :: snmp_target_mib:tag_list(),
            ParamsName :: snmp_target_mib:params(),
            EngineId   :: snmp_framework_mib:engine_id(),
@@ -268,6 +270,30 @@
         {transportDomain(), extended_transport_address(), transport_opts()} |
         {transportDomain(), extended_transport_address(), snmpa:transport_kind(), transport_opts()}.
 
+
+%% Nicked from the inet_int.hrl (kernel internal) include file:
+
+%% macro for guards only that checks IP address {A,B,C,D}
+%% that returns true for an IP address, but returns false
+%% or crashes for other terms
+-define(ip4(A,B,C,D),
+        (((A) bor (B) bor (C) bor (D)) band (bnot 16#ff)) =:= 0).
+%% d:o for IP address as one term
+-define(ip4(Addr),
+        (tuple_size(Addr) =:= 4 andalso
+         ?ip4(element(1, (Addr)), element(2, (Addr)),
+              element(3, (Addr)), element(4, (Addr))))).
+%% d:o IPv6 address
+-define(ip6(A,B,C,D,E,F,G,H), 
+        (((A) bor (B) bor (C) bor (D) bor (E) bor (F) bor (G) bor (H)) 
+         band (bnot 16#ffff)) =:= 0).
+-define(ip6(Addr),
+        (tuple_size(Addr) =:= 8 andalso
+         ?ip6(element(1, (Addr)), element(2, (Addr)),
+              element(3, (Addr)), element(4, (Addr)),
+              element(5, (Addr)), element(6, (Addr)),
+              element(7, (Addr)), element(8, (Addr))))).
+-define(port(P), (((P) band bnot 16#ffff) =:= 0)).
 
 
 -ifndef(version).
@@ -659,10 +685,39 @@ do_write_standard_conf(_Fd, Tag, Val) ->
 %% ------ target_addr.conf ------
 %%
 
-target_addr_entry(
-  Name, Ip, TagList, ParamsName, EngineId) ->
-    target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, []).
+-spec target_addr_entry(Name, IP, TagList, ParamsName, EngineId) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TargetAddrEntry :: target_addr_entry().
 
+target_addr_entry(
+  Name, IP, TagList, ParamsName, EngineId) ->
+    target_addr_entry(Name, IP, TagList, ParamsName, EngineId, []).
+
+
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId) -> TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TargetAddrEntry :: target_addr_entry();
+                     (Name, IP, TagList, ParamsName,
+                      EngineId, TMask) ->  TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry().
+           
 target_addr_entry(
   Name, Domain, Addr, TagList,
   ParamsName, EngineId) when is_atom(Domain) ->
@@ -670,37 +725,138 @@ target_addr_entry(
       Name, Domain, Addr, TagList,
       ParamsName, EngineId, []);
 target_addr_entry(
-  Name, Ip, TagList, ParamsName,
-  EngineId, TMask) ->
+  Name, IP, TagList, ParamsName,
+  EngineId, TMask) when (?ip4(IP) orelse ?ip6(IP)) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, 162),
     target_addr_entry(
-      Name, Ip, 162, TagList, ParamsName,
+      Name, Domain, Addr, TagList, ParamsName,
       EngineId, TMask, 2048).
 
+
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId, TMask) -> TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry();
+                     (Name, IP, Port, TagList, ParamsName,
+                      EngineId, TMask) ->  TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      Port            :: inet:port_number(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry().
+
 target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, TagList,
-  ParamsName, EngineId, TMask) ->
+  Name, Domain, Addr, TagList,
+  ParamsName, EngineId, TMask) when is_atom(Domain) ->
     target_addr_entry(
-      Name, Domain_or_Ip, Addr_or_Port, TagList,
+      Name, Domain, Addr, TagList,
+      ParamsName, EngineId, TMask, 2048);
+target_addr_entry(
+  Name, IP, Port, TagList,
+  ParamsName, EngineId, TMask)
+  when (?ip4(IP) orelse ?ip6(IP)) andalso ?port(Port) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, Port),
+    target_addr_entry(
+      Name, Domain, Addr, TagList,
       ParamsName, EngineId, TMask, 2048).
 
-target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, TagList,
-  ParamsName, EngineId, TMask, MaxMessageSize) ->
-    target_addr_entry(
-      Name, Domain_or_Ip, Addr_or_Port, 1500, 3, TagList,
-      ParamsName, EngineId, TMask, MaxMessageSize).
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry();
+                       (Name, IP, Port, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) -> 
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      Port            :: inet:port_number(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry().
 
 target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
-  ParamsName, EngineId, TMask, MaxMessageSize) ->
-    {Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
+  Name, Domain, Addr, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) when is_atom(Domain) ->
+    target_addr_entry(
+      Name, Domain, Addr, 1500, 3, TagList,
+      ParamsName, EngineId, TMask, MaxMessageSize);
+target_addr_entry(
+  Name, IP, Port, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize)
+  when (?ip4(IP) orelse ?ip6(IP)) andalso ?port(Port) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, Port),
+    target_addr_entry(
+      Name, Domain, Addr, 1500, 3, TagList,
+      ParamsName, EngineId, TMask, MaxMessageSize).
+
+-spec target_addr_entry(Name,
+                        Domain, Addr,
+                        Timeout, RetryCount, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      Timeout         :: snmp:time_interval(),
+      RetryCount      :: snmp_target_mib:retry_count(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_framework_mib:admin_string(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry().
+
+target_addr_entry(
+  Name, Domain, Addr, Timeout, RetryCount, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) when is_atom(Domain) ->
+    {Name, Domain, Addr, Timeout, RetryCount, TagList,
      ParamsName, EngineId, TMask, MaxMessageSize}.
+
 
 target_addr_entry(
   Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
-  ParamsName, EngineId,TMask, MaxMessageSize) ->
+  ParamsName, EngineId, TMask, MaxMessageSize) ->
     {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
      ParamsName, EngineId, TMask, MaxMessageSize}.
+
+
+-spec ip_and_port_to_taddr(IP, Port) -> {TDomain, TAddr} when
+      IP      :: inet:ip_address(),
+      Port    :: inet:port_number(),
+      TDomain :: transportDomain(),
+      TAddr   :: transportAddress().
+
+ip_and_port_to_taddr(IP, Port)
+  when ?ip4(IP) andalso ?port(Port) ->
+    TAddr   = {IP, Port},
+    TDomain = transportDomainUdpIpv4,
+    {TDomain, TAddr};
+ip_and_port_to_taddr(IP, Port)
+  when ?ip6(IP) andalso ?port(Port) ->
+    TAddr   = {IP, Port},
+    TDomain = transportDomainUdpIpv6,
+    {TDomain, TAddr}.
+
 
 
 write_target_addr_config(Dir, Conf) ->

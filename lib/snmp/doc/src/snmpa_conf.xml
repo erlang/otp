@@ -840,41 +840,49 @@ word() = 0..65535
 	for more info. </p>
 
         <marker id="target_addr_entry"></marker>
+        <marker id="target_addr_entry_1"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
-      <name since="OTP 17.3">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
-      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
-      <name since="">target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name name="target_addr_entry" arity="6" clause_i="1" since=""/>
+      <name name="target_addr_entry" arity="7" clause_i="1" since="OTP 17.3"/>
+      <name name="target_addr_entry" arity="8" clause_i="1" since=""/>
+      <name name="target_addr_entry" arity="10" clause_i="1" since=""/>
       <fsummary>Create an target_addr entry</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Domain = transportDomain()</v>
-        <v>Ip = transportAddress() (depends on Domain)</v>
-        <v>Timeout = integer()</v>
-        <v>RetryCount = integer()</v>
-        <v>TagList = string()</v>
-        <v>ParamsName = string()</v>
-        <v>EngineId = string()</v>
-        <v>TMask = transportAddressMask() (depends on Domain)</v>
-        <v>MaxMessageSize = integer()</v>
-        <v>target_addr_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the agent target_addr config file, 
-          <c>target_addr.conf</c>. </p>
+	<c>target_addr.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
         <p><c>target_addr_entry/6</c> translates to the following call:
-          <c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])</c>. </p>
+	<c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])</c>. </p>
         <p><c>target_addr_entry/7</c> translates to the following call:
-          <c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)</c>. </p>
+	<c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)</c>. </p>
         <p><c>target_addr_entry/8</c> translates to the following call:
-          <c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
+	<c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
+	for more info. </p>
+
+        <marker id="target_addr_entry_2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="target_addr_entry" arity="7" clause_i="2" since="OTP 17.3"/>
+      <name name="target_addr_entry" arity="8" clause_i="2" since=""/>
+      <fsummary>Create an target_addr entry</fsummary>
+      <desc>
+        <p>Create an entry for the agent target_addr config file, 
+	<c>target_addr.conf</c>. </p>
+        <p><c>Name</c> must be a <em>non-empty</em> string. </p>
+        <p><c>target_addr_entry/7</c> translates to the following call:
+	<c>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)</c>. </p>
+        <p><c>target_addr_entry/8</c> translates to the following call:
+	<c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
+        <p>See 
+	<seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
+	for more info. </p>
 
         <marker id="write_target_addr_config"></marker>
       </desc>
