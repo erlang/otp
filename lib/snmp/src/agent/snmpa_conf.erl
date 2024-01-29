@@ -560,6 +560,17 @@ write_community_conf(Fd, Conf) ->
 %% ------ standard.conf ------
 %%
 
+-spec standard_entry(Tag, Val) -> StandardEntry when
+      Tag           :: sysDescr    |
+                       sysObjectID |
+                       sysContact  |
+                       sysName     |
+                       sysLocation |
+                       sysServices |
+                       snmpEnableAuthenTraps,
+      Val           :: term(),
+      StandardEntry :: standard_entry().
+
 standard_entry(Tag, Val) ->
     {Tag, Val}.
 

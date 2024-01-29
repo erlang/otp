@@ -544,20 +544,70 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">standard_entry(Tag, Val) -> standard_entry()</name>
+      <name name="standard_entry" arity="2" clause_i="1" since=""/>
       <fsummary>Create an standard entry</fsummary>
+      <!--
       <type>
         <v>Tag = sysDescr | sysObjectID | sysContact | sysName | sysLocation | sysServices | snmpEnableAuthenTraps</v>
         <v>Val = term()</v>
         <v>standard_entry() = term()</v>
       </type>
+      -->
       <desc>
-        <p>Create an entry for the agent standard config file, 
-          <c>standard.conf</c>. </p>
-        <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
-          see 
-          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
-          for more info. </p>
+	<p>Create an entry for the agent standard config file,
+	<c>standard.conf</c>. </p>
+        <p>The type of <c>Val</c> depends on the value of <c>Tag</c>: </p>
+
+	<taglist>
+	  <tag><marker id="sysDescr"></marker>
+	  <c><![CDATA[sysDescr: ]]></c> <seetype marker="erlang#string"><c><![CDATA[string()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[DisplayString (SIZE(0..255))]]></c></p>
+	  </item>
+
+	  <tag><marker id="sysObjectID"></marker>
+	  <c><![CDATA[sysObjectID: ]]></c> <seetype marker="snmp:snmp#oid"><c><![CDATA[snmp:oid()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[OBJECT IDENTIFIER]]></c></p>
+	  </item>
+
+	  <tag><marker id="sysContact"></marker>
+	  <c><![CDATA[sysContact: ]]></c> <seetype marker="erlang#string"><c><![CDATA[string()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[DisplayString (SIZE(0..255))]]></c></p>
+	  </item>
+
+	  <tag><marker id="sysName"></marker>
+	  <c><![CDATA[sysName: ]]></c> <seetype marker="erlang#string"><c><![CDATA[string()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[DisplayString (SIZE(0..255))]]></c></p>
+	  </item>
+
+	  <tag><marker id="sysLocation"></marker>
+	  <c><![CDATA[sysLocation: ]]></c> <seetype marker="erlang#string"><c><![CDATA[string()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[DisplayString (SIZE(0..255))]]></c></p>
+	  </item>
+
+	  <tag><marker id="sysLocation"></marker>
+	  <c><![CDATA[sysLocation: ]]></c> <seetype marker="erlang#non_neg_integer"><c><![CDATA[non_neg_integer()]]></c></seetype> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p>"A value which indicates the set of services that
+	    this entity primarily offers."</p>
+	    <p><c><![CDATA[INTEGER (0..127)]]></c></p>
+	  </item>
+
+	  <tag><marker id="snmpEnableAuthenTraps"></marker>
+	  <c><![CDATA[snmpEnableAuthenTraps: ]]></c> <c><![CDATA[enabled | disabled]]></c> <c><![CDATA[ <mandatory>]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[INTEGER { enabled(1), disabled(2) }]]></c></p>
+	  </item>
+
+	</taglist>
+
+	<p>See 
+	<seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
+	for more info. </p>
 
         <marker id="write_standard_config"></marker>
       </desc>
