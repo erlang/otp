@@ -21,7 +21,7 @@
  *  Purpose : Asynchronous I/O functions.
  * ----------------------------------------------------------------------
  *
- * essio = ESock Asynchronous I/O
+ * esaio = ESock Asynchronous I/O
  *
  */
 
