@@ -20,6 +20,7 @@
 %% Purpose: Maintain atom, import, export, and other tables for assembler.
 
 -module(beam_dict).
+-moduledoc false.
 
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,

@@ -24,6 +24,7 @@
 %% over SSH
 
 -module(ssh_daemon_channel).
+-moduledoc false.
 
 %% API to server side channel that can be plugged into the erlang ssh daemeon
 -callback init(Args :: term()) ->

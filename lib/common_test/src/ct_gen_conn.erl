@@ -23,6 +23,7 @@
 %%
 
 -module(ct_gen_conn).
+-moduledoc false.
 
 -behaviour(gen_server).
 

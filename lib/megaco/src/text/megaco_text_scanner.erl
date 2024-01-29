@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module('megaco_text_scanner').
+-moduledoc false.
 
 -export([scan/1, skip_sep_chars/2]).
 

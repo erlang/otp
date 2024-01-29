@@ -23,6 +23,7 @@
 %% Purpose: Supervisor
 %%-----------------------------------------------------------------
 -module(megaco_tcp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

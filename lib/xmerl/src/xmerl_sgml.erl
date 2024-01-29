@@ -21,6 +21,7 @@
  %% Description  : Callback module for exporting XML to SGML.
 
 -module(xmerl_sgml).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

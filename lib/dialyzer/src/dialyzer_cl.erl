@@ -22,6 +22,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_cl).
+-moduledoc false.
 
 -export([start/1,
          start_report_modules_analyzed/1,

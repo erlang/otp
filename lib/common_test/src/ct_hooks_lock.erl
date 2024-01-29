@@ -19,6 +19,7 @@
 %%
 
 -module(ct_hooks_lock).
+-moduledoc false.
 
 -behaviour(gen_server).
 

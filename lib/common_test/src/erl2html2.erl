@@ -23,6 +23,7 @@
 %%%------------------------------------------------------------------
 
 -module(erl2html2).
+-moduledoc false.
 -export([convert/3, convert/4]).
 
 convert([], _Dest, _InclPath) ->   % Fake clause.

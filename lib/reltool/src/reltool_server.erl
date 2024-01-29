@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_server).
+-moduledoc false.
 
 %% Public
 -export([

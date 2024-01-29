@@ -18,6 +18,23 @@
 %% %CopyrightEnd%
 %%
 -module(binary).
+-moduledoc """
+Library for handling binary data.
+
+This module contains functions for manipulating byte-oriented binaries. Although
+the majority of functions could be provided using bit-syntax, the functions in
+this library are highly optimized and are expected to either execute faster or
+consume less memory, or both, than a counterpart written in pure Erlang.
+
+The module is provided according to Erlang Enhancement Proposal (EEP) 31.
+
+> #### Note {: .info }
+>
+> The library handles byte-oriented data. For bitstrings that are not binaries
+> (does not contain whole octets of bits) a `badarg` exception is thrown from
+> any of the functions in this module.
+""".
+-moduledoc(#{since => "OTP R14B"}).
 %%
 %% Implemented in this module:
 -export([replace/3, replace/4,
@@ -25,7 +42,21 @@
 
 -export_type([cp/0]).
 
+-doc """
+Opaque data type representing a compiled search pattern. Guaranteed to be a
+`t:tuple/0` to allow programs to distinguish it from non-precompiled search
+patterns.
+""".
 -opaque cp() :: {'am' | 'bm', reference()}.
+-doc """
+A representation of a part (or range) in a binary. `Start` is a zero-based
+offset into a `t:binary/0` and `Length` is the length of that part. As input to
+functions in this module, a reverse part specification is allowed, constructed
+with a negative `Length`, so that the part of the binary begins at `Start` \+
+`Length` and is -`Length` long. This is useful for referencing the last `N`
+bytes of a binary as `{size(Binary), -N}`. The functions in this module always
+return `t:part/0`s with positive `Length`.
+""".
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 -export_type([part/0]).
 
@@ -44,6 +75,12 @@
 -compile({inline, [badarg_with_cause/2, badarg_with_info/1,
                    error_with_info/2]}).
 
+-doc """
+Returns the byte at position `Pos` (zero-based) in binary `Subject` as an
+integer. If `Pos` >= [`byte_size(Subject)`](`byte_size/1`), a `badarg` exception
+is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec at(Subject, Pos) -> byte() when
       Subject :: binary(),
       Pos :: non_neg_integer().
@@ -51,6 +88,8 @@
 at(_, _) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => bin_to_list/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject) -> [byte()] when
       Subject :: binary().
 
@@ -62,6 +101,8 @@ bin_to_list(Subject) ->
             error_with_info(Reason, [Subject])
     end.
 
+-doc(#{equiv => bin_to_list/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject, PosLen) -> [byte()] when
       Subject :: binary(),
       PosLen :: part().
@@ -76,6 +117,24 @@ bin_to_list(Subject, {Pos, Len}) ->
 bin_to_list(Subject, BadPosLen) ->
     badarg_with_info([Subject, BadPosLen]).
 
+-doc """
+Converts `Subject` to a list of `t:byte/0`s, each representing the value of one
+byte. `PosLen` or alternatively `Pos` and `Len` denote which part of the
+`Subject` binary to convert. By default, the entire `Subject` binary is
+converted.
+
+_Example:_
+
+```erlang
+1> binary:bin_to_list(<<"erlang">>, {1,3}).
+"rla"
+%% or [114,108,97] in list notation.
+```
+
+If `PosLen` or alternatively `Pos` and `Len` in any way reference outside the
+binary, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject, Pos, Len) -> [byte()] when
       Subject :: binary(),
       Pos :: non_neg_integer(),
@@ -108,6 +167,26 @@ bin_to_list(Subject, Pos, Len) when Len > 0 ->
 bin_to_list(Subject, Pos, Len) ->
     badarg_with_info([Subject, Pos, Len]).
 
+-doc """
+Builds an internal structure representing a compilation of a search pattern,
+later to be used in functions `match/3`, `matches/3`, `split/3`, or `replace/4`.
+The `t:cp/0` returned is guaranteed to be a `t:tuple/0` to allow programs to
+distinguish it from non-precompiled search patterns.
+
+When a list of binaries is specified, it denotes a set of alternative binaries
+to search for. For example, if `[<<"functional">>,<<"programming">>]` is
+specified as `Pattern`, this means either `<<"functional">>` or
+`<<"programming">>`". The pattern is a set of alternatives; when only a single
+binary is specified, the set has only one element. The order of alternatives in
+a pattern is not significant.
+
+The list of binaries used for search alternatives must be flat, proper and
+non-empty.
+
+If `Pattern` is not a binary or a flat proper non-empty list of binaries with
+length > 0, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec compile_pattern(Pattern) -> cp() when
       Pattern :: PatternBinary | [PatternBinary,...],
       PatternBinary :: nonempty_binary().
@@ -115,12 +194,32 @@ bin_to_list(Subject, Pos, Len) ->
 compile_pattern(_) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => copy/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec copy(Subject) -> binary() when
       Subject :: binary().
 
 copy(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Creates a binary with the content of `Subject` duplicated `N` times. The default
+for `N` is `1`.
+
+This function always creates a new binary, even if `N = 1`. By using `copy/1` on
+a binary referencing a larger binary, one can free up the larger binary for
+garbage collection.
+
+> #### Note {: .info }
+>
+> By deliberately copying a single binary to avoid referencing a larger binary,
+> one can, instead of freeing up the larger binary for later garbage collection,
+> create much more binary data than needed. Sharing binary data is usually good.
+> Only in special cases, when small parts reference large binaries and the large
+> binaries are no longer used in any process, deliberate copying can be a good
+> idea.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec copy(Subject, N) -> binary() when
       Subject :: binary(),
       N :: non_neg_integer().
@@ -128,6 +227,8 @@ copy(_) ->
 copy(_, _) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => decode_unsigned/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec decode_unsigned(Subject) -> Unsigned when
       Subject :: binary(),
       Unsigned :: non_neg_integer().
@@ -135,6 +236,19 @@ copy(_, _) ->
 decode_unsigned(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Converts the binary digit representation, in big endian or little endian, of a
+positive integer in `Subject` to an Erlang `t:integer/0`. The default
+`Endianness` is `big`.
+
+_Example:_
+
+```text
+1> binary:decode_unsigned(<<169,138,199>>,big).
+11111111
+```
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec decode_unsigned(Subject, Endianness) -> Unsigned when
       Subject :: binary(),
       Endianness :: big | little,
@@ -143,12 +257,27 @@ decode_unsigned(_) ->
 decode_unsigned(_, _) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => encode_unsigned/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec encode_unsigned(Unsigned) -> binary() when
       Unsigned :: non_neg_integer().
 
 encode_unsigned(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Converts a positive integer to the smallest possible representation in a binary
+digit representation, either big endian or little endian. The default
+`Endianness` is `big`.
+
+_Example:_
+
+```text
+1> binary:encode_unsigned(11111111, big).
+<<169,138,199>>
+```
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec encode_unsigned(Unsigned, Endianness) -> binary() when
       Unsigned :: non_neg_integer(),
       Endianness :: big | little.
@@ -156,36 +285,84 @@ encode_unsigned(_) ->
 encode_unsigned(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns the first byte of binary `Subject` as an integer. If the size of
+`Subject` is zero, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec first(Subject) -> byte() when
       Subject :: binary().
 
 first(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns the last byte of binary `Subject` as an integer. If the size of
+`Subject` is zero, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec last(Subject) -> byte() when
       Subject :: binary().
 
 last(_) ->
     erlang:nif_error(undef).
 
+-doc "Works exactly as `erlang:list_to_binary/1`, added for completeness.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec list_to_bin(ByteList) -> binary() when
       ByteList :: iolist().
 
 list_to_bin(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns the length of the longest common prefix of the binaries in list
+`Binaries`.
+
+_Example:_
+
+```erlang
+1> binary:longest_common_prefix([<<"erlang">>, <<"ergonomy">>]).
+2
+2> binary:longest_common_prefix([<<"erlang">>, <<"perl">>]).
+0
+```
+
+If `Binaries` is not a flat non-empty list of binaries, a `badarg` exception is
+raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec longest_common_prefix(Binaries) -> non_neg_integer() when
       Binaries :: [binary(),...].
 
 longest_common_prefix(_) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns the length of the longest common suffix of the binaries in list
+`Binaries`.
+
+_Example:_
+
+```erlang
+1> binary:longest_common_suffix([<<"erlang">>, <<"fang">>]).
+3
+2> binary:longest_common_suffix([<<"erlang">>, <<"perl">>]).
+0
+```
+
+If `Binaries` is not a flat non-empty list of binaries, a `badarg` exception is
+raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec longest_common_suffix(Binaries) -> non_neg_integer() when
       Binaries :: [binary(),...].
 
 longest_common_suffix(_) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => match/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern) -> Found | nomatch when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -195,6 +372,39 @@ longest_common_suffix(_) ->
 match(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Searches for the first occurrence of `Pattern` in `Subject` and returns the
+position and length.
+
+The function returns `{Pos, Length}` for the binary in `Pattern`, starting at
+the lowest position in `Subject`.
+
+_Example:_
+
+```text
+1> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>],[]).
+{1,4}
+```
+
+Even though `<<"cd">>` ends before `<<"bcde">>`, `<<"bcde">>` begins first and
+is therefore the first match. If two overlapping matches begin at the same
+position, the longest is returned.
+
+Summary of the options:
+
+- **\{scope, \{Start, Length\}\}** - Only the specified part is searched. Return
+  values still have offsets from the beginning of `Subject`. A negative `Length`
+  is allowed as described in section Data Types in this manual.
+
+If none of the strings in `Pattern` is found, the atom `nomatch` is returned.
+
+For a description of `Pattern`, see function `compile_pattern/1`.
+
+If `{scope, {Start,Length}}` is specified in the options such that `Start` >
+size of `Subject`, `Start` \+ `Length` < 0 or `Start` \+ `Length` > size of
+`Subject`, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern, Options) -> Found | nomatch when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -206,6 +416,8 @@ match(_, _) ->
 match(_, _, _) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => matches/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern) -> Found when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -215,6 +427,35 @@ match(_, _, _) ->
 matches(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+As `match/2`, but `Subject` is searched until exhausted and a list of all
+non-overlapping parts matching `Pattern` is returned (in order).
+
+The first and longest match is preferred to a shorter, which is illustrated by
+the following example:
+
+```erlang
+1> binary:matches(<<"abcde">>,
+                  [<<"bcde">>,<<"bc">>,<<"de">>],[]).
+[{1,4}]
+```
+
+The result shows that <<"bcde">> is selected instead of the shorter match
+<<"bc">> (which would have given raise to one more match, <<"de">>). This
+corresponds to the behavior of POSIX regular expressions (and programs like
+awk), but is not consistent with alternative matches in `re` (and Perl), where
+instead lexical ordering in the search pattern selects which string matches.
+
+If none of the strings in a pattern is found, an empty list is returned.
+
+For a description of `Pattern`, see `compile_pattern/1`. For a description of
+available options, see `match/3`.
+
+If `{scope, {Start,Length}}` is specified in the options such that `Start` >
+size of `Subject`, `Start + Length` < 0 or `Start + Length` is > size of
+`Subject`, a `badarg` exception is raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern, Options) -> Found when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -226,6 +467,8 @@ matches(_, _) ->
 matches(_, _, _) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => part/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec part(Subject, PosLen) -> binary() when
       Subject :: binary(),
       PosLen :: part().
@@ -233,6 +476,27 @@ matches(_, _, _) ->
 part(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Extracts the part of binary `Subject` described by `PosLen`.
+
+A negative length can be used to extract bytes at the end of a binary:
+
+```erlang
+1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
+2> binary:part(Bin, {byte_size(Bin), -5}).
+<<6,7,8,9,10>>
+```
+
+> #### Note {: .info }
+>
+> `part/2` and `part/3` are also available in the `m:erlang` module under the
+> names [`binary_part/2`](`binary_part/2`) and
+> [`binary_part/3`](`binary_part/3`). Those BIFs are allowed in guard tests.
+
+If `PosLen` in any way references outside the binary, a `badarg` exception is
+raised.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec part(Subject, Pos, Len) -> binary() when
       Subject :: binary(),
       Pos :: non_neg_integer(),
@@ -241,12 +505,75 @@ part(_, _) ->
 part(_, _, _) ->
     erlang:nif_error(undef).
 
+-doc """
+If a binary references a larger binary (often described as being a subbinary),
+it can be useful to get the size of the referenced binary. This function can be
+used in a program to trigger the use of `copy/1`. By copying a binary, one can
+dereference the original, possibly large, binary that a smaller binary is a
+reference to.
+
+_Example:_
+
+```erlang
+store(Binary, GBSet) ->
+  NewBin =
+      case binary:referenced_byte_size(Binary) of
+          Large when Large > 2 * byte_size(Binary) ->
+             binary:copy(Binary);
+          _ ->
+             Binary
+      end,
+  gb_sets:insert(NewBin,GBSet).
+```
+
+In this example, we chose to copy the binary content before inserting it in
+[`gb_sets:set()`](`t:gb_sets:set/0`) if it references a binary more than twice
+the data size we want to keep. Of course, different rules apply when copying to
+different programs.
+
+Binary sharing occurs whenever binaries are taken apart. This is the fundamental
+reason why binaries are fast, decomposition can always be done with O(1)
+complexity. In rare circumstances this data sharing is however undesirable, why
+this function together with [`copy/1`](`copy/1`) can be useful when optimizing
+for memory use.
+
+Example of binary sharing:
+
+```erlang
+1> A = binary:copy(<<1>>, 100).
+<<1,1,1,1,1 ...
+2> byte_size(A).
+100
+3> binary:referenced_byte_size(A).
+100
+4> <<B:10/binary, C:90/binary>> = A.
+<<1,1,1,1,1 ...
+5> {byte_size(B), binary:referenced_byte_size(B)}.
+{10,10}
+6> {byte_size(C), binary:referenced_byte_size(C)}.
+{90,100}
+```
+
+In the above example, the small binary `B` was copied while the larger binary
+`C` references binary `A`.
+
+> #### Note {: .info }
+>
+> Binary data is shared among processes. If another process still references the
+> larger binary, copying the part this process uses only consumes more memory
+> and does not free up the larger binary for garbage collection. Use this kind
+> of intrusive functions with extreme care and only if a real problem is
+> detected.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec referenced_byte_size(Binary) -> non_neg_integer() when
       Binary :: binary().
 
 referenced_byte_size(_) ->
     erlang:nif_error(undef).
 
+-doc(#{equiv => split/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern) -> Parts when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -256,6 +583,56 @@ referenced_byte_size(_) ->
 split(_, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Splits `Subject` into a list of binaries based on `Pattern`. If option `global`
+is not specified, only the first occurrence of `Pattern` in `Subject` gives rise
+to a split.
+
+The parts of `Pattern` found in `Subject` are not included in the result.
+
+_Example:_
+
+```erlang
+1> binary:split(<<1,255,4,0,0,0,2,3>>, [<<0,0,0>>,<<2>>],[]).
+[<<1,255,4>>, <<2,3>>]
+2> binary:split(<<0,1,0,0,4,255,255,9>>, [<<0,0>>, <<255,255>>],[global]).
+[<<0,1>>,<<4>>,<<9>>]
+```
+
+Summary of options:
+
+- **\{scope, part()\}** - Works as in `match/3` and `matches/3`. Notice that
+  this only defines the scope of the search for matching strings, it does not
+  cut the binary before splitting. The bytes before and after the scope are kept
+  in the result. See the example below.
+
+- **trim** - Removes trailing empty parts of the result (as does `trim` in
+  `re:split/3`.
+
+- **trim_all** - Removes all empty parts of the result.
+
+- **global** - Repeats the split until `Subject` is exhausted. Conceptually
+  option `global` makes split work on the positions returned by `matches/3`,
+  while it normally works on the position returned by `match/3`.
+
+Example of the difference between a scope and taking the binary apart before
+splitting:
+
+```erlang
+1> binary:split(<<"banana">>, [<<"a">>],[{scope,{2,3}}]).
+[<<"ban">>,<<"na">>]
+2> binary:split(binary:part(<<"banana">>,{2,3}), [<<"a">>],[]).
+[<<"n">>,<<"n">>]
+```
+
+The return type is always a list of binaries that are all referencing `Subject`.
+This means that the data in `Subject` is not copied to new binaries, and that
+`Subject` cannot be garbage collected until the results of the split are no
+longer referenced.
+
+For a description of `Pattern`, see `compile_pattern/1`.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern, Options) -> Parts when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -273,6 +650,8 @@ split(_, _, _) ->
 %% replace
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc(#{equiv => replace/4}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec replace(Subject, Pattern, Replacement) -> Result when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -288,6 +667,54 @@ replace(H,N,R) ->
             error_with_info(Reason, [H,N,R])
     end.
 
+-doc """
+Constructs a new binary by replacing the parts in `Subject` matching `Pattern`
+with `Replacement` if given as a literal `t:binary/0` or with the result of
+applying `Replacement` to a matching subpart if given as a `fun`.
+
+If `Replacement` is given as a `t:binary/0` and the matching subpart of
+`Subject` giving raise to the replacement is to be inserted in the result,
+option `{insert_replaced, InsPos}` inserts the matching part into `Replacement`
+at the specified position (or positions) before inserting `Replacement` into
+`Subject`. If `Replacement` is given as a `fun` instead, this option is ignored.
+
+If any position specified in `InsPos` > size of the replacement binary, a
+`badarg` exception is raised.
+
+Options `global` and `{scope, part()}` work as for `split/3`. The return type is
+always a `t:binary/0`.
+
+For a description of `Pattern`, see `compile_pattern/1`.
+
+_Examples:_
+
+```erlang
+1> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, []).
+<<"aXcde">>
+
+2> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, [global]).
+<<"aXcXe">>
+
+3> binary:replace(<<"abcde">>, <<"b">>, <<"[]">>, [{insert_replaced, 1}]).
+<<"a[b]cde">>
+
+4> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, 1}]).
+<<"a[b]c[d]e">>
+
+5> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, [1, 1]}]).
+<<"a[bb]c[dd]e">>
+
+6> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[-]">>, [global, {insert_replaced, [1, 2]}]).
+<<"a[b-b]c[d-d]e">>
+
+7> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, []).
+<<"a[b]cde">>
+
+8> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, [global]).
+<<"a[b]c[d]e">>
+```
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec replace(Subject, Pattern, Replacement, Options) -> Result when
       Subject :: binary(),
       Pattern :: PatternBinary | [PatternBinary,...] | cp(),
@@ -368,6 +795,8 @@ get_opts_replace(_,_) ->
 %% Hex encoding functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -compile({inline, [hex/2]}).
+-doc(#{equiv => encode_hex/2}).
+-doc(#{since => <<"OTP 24.0,OTP 26.0">>}).
 -spec encode_hex(Bin) -> Bin2 when
       Bin :: binary(),
       Bin2 :: <<_:_*16>>.
@@ -376,6 +805,26 @@ encode_hex(Bin) when is_binary(Bin) ->
 encode_hex(Bin) ->
     error_with_info(badarg, [Bin]).
 
+-doc """
+Encodes a binary into a hex encoded binary using the specified case for the
+hexadecimal digits "a" to "f".
+
+The default case is `uppercase`.
+
+_Example:_
+
+```erlang
+1> binary:encode_hex(<<"f">>).
+<<"66">>
+2> binary:encode_hex(<<"/">>).
+<<"2F">>
+3> binary:encode_hex(<<"/">>, lowercase).
+<<"2f">>
+4> binary:encode_hex(<<"/">>, uppercase).
+<<"2F">>
+```
+""".
+-doc(#{since => <<"OTP 24.0,OTP 26.0">>}).
 -spec encode_hex(Bin, Case) -> Bin2 when
       Bin :: binary(),
       Case :: lowercase | uppercase,
@@ -438,6 +887,17 @@ hex(X, Offset) ->
                    16#6630, 16#6631, 16#6632, 16#6633, 16#6634, 16#6635, 16#6636, 16#6637, 16#6638, 16#6639, 16#6661, 16#6662, 16#6663, 16#6664, 16#6665, 16#6666}).
 
 -compile({inline, [unhex/1]}).
+-doc """
+Decodes a hex encoded binary into a binary.
+
+_Example_
+
+```erlang
+1> binary:decode_hex(<<"66">>).
+<<"f">>
+```
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec decode_hex(Bin) -> Bin2 when
       Bin :: <<_:_*16>>,
       Bin2 :: binary().

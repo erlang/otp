@@ -26,6 +26,7 @@
 %%%----------------------------------------------------------------------
 
 -module(file_server).
+-moduledoc false.
 
 -behaviour(gen_server).
 

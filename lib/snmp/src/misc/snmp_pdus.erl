@@ -19,6 +19,27 @@
 %% 
 
 -module(snmp_pdus).
+-moduledoc """
+Encode and Decode Functions for SNMP PDUs
+
+RFC1157, RFC1905 and/or RFC2272 should be studied carefully before using this
+module, `snmp_pdus`.
+
+The module `snmp_pdus` contains functions for encoding and decoding of SNMP
+protocol data units (PDUs). In short, this module converts a list of bytes to
+Erlang record representations and vice versa. The record definitions can be
+found in the file `snmp/include/snmp_types.hrl`. If snmpv3 is used, the module
+that includes `snmp_types.hrl` must define the constant `SNMP_USE_V3` before the
+header file is included. Example:
+
+```erlang
+-define(SNMP_USE_V3, true).
+-include_lib("snmp/include/snmp_types.hrl").
+```
+
+Encoding and decoding must be done explicitly when writing your own Net if
+process.
+""".
 
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
@@ -53,6 +74,11 @@
 
 %%-----------------------------------------------------------------
 
+-doc """
+The message is version dependent. 'vsn_hdr' is either a community string (v1 and
+v2) or a 'v3_hdr' record (v3). 'data' is either a PDU (v1 and v2c) or a
+(possibly encrypted) 'scopedPdu'.
+""".
 -type message()                 :: #message{}.
 -type trappdu()                 :: #trappdu{}.
 -type pdu()                     :: #pdu{}.
@@ -63,10 +89,19 @@
 %%-----------------------------------------------------------------
 
 %% Returns the number of octets required to encode Length.
+-doc false.
 get_encoded_length(Length) ->
     length(elength(Length)).
 
 
+-doc """
+Decodes a list of bytes into an SNMP Message. Note, if there is a v3 message,
+the `msgSecurityParameters` are not decoded. They must be explicitly decoded by
+a call to a security model specific decoding function, e.g.
+[`dec_usm_security_parameters/1`](`dec_usm_security_parameters/1`). Also note,
+if the `scopedPDU` is encrypted, the OCTET STRING encoded `encryptedPDU` will be
+present in the `data` field.
+""".
 -spec dec_message(Bytes) -> Message when
       Bytes   :: [byte()],
       Message :: message().
@@ -81,6 +116,11 @@ dec_message([48 | Bytes]) ->
     end.
 
 
+-doc """
+Decodes a list of bytes into an SNMP Message, but does not decode the data part
+of the Message. That means, data is still a list of bytes, normally an encoded
+`PDU` (v1 and V2) or an encoded and possibly encrypted `scopedPDU` (v3).
+""".
 -spec dec_message_only(Bytes) -> Message when
       Bytes   :: [byte()],
       Message :: message().
@@ -162,6 +202,10 @@ dec_rest_v3_msg(Bytes) ->
     Message#message{data = dec_scoped_pdu_data(Data)}.
 
 
+-doc """
+Decodes a list of bytes into either a scoped pdu record, or - if the scoped pdu
+was encrypted - to a list of bytes.
+""".
 -spec dec_scoped_pdu_data(Bytes) -> ScopedPduData when
       Bytes         :: [byte()],
       ScopedPduData :: scoped_pdu() | EncryptedPDU,
@@ -175,6 +219,7 @@ dec_scoped_pdu_data([4 | Bytes]) -> % encryptedPDU
     EncryptedPDU.
 
 
+-doc "Decodes a list of bytes into an SNMP ScopedPdu.".
 -spec dec_scoped_pdu(Bytes) -> ScopedPDU when
       Bytes     :: [byte()],
       ScopedPDU :: scoped_pdu().
@@ -210,6 +255,7 @@ dec_pdu_tag(168) ->
     report.
 
 
+-doc "Decodes a list of bytes into an SNMP Pdu.".
 -spec dec_pdu(Bytes) -> Pdu when
       Bytes :: [byte()],
       Pdu   :: trappdu() | pdu().
@@ -271,6 +317,7 @@ dec_individual_VBs([48 | Bytes], OrgIndex, AccVBs) ->
 					     | AccVBs]).
 
 
+-doc "Decodes a list of bytes into an SNMP UsmSecurityParameters.".
 -spec dec_usm_security_parameters(Bytes) -> UsmSecParams when
       Bytes        :: [byte()],
       UsmSecParams :: usm_security_parameters().
@@ -290,6 +337,7 @@ dec_usm_security_parameters([48 | Bytes1]) ->
 			   msgAuthenticationParameters = MsgAuthParams,
 			   msgPrivacyParameters = MsgPrivParams}.
 
+-doc false.
 strip_encrypted_scoped_pdu_data([48 | Bytes]) ->
     {Size, Tail} = dec_len(Bytes),
     [48 | elength(Size)] ++ strip(Size, Tail).
@@ -304,6 +352,7 @@ strip(0, _Tail) ->
 %%----------------------------------------------------------------------
 
 %% OBJECT IDENTIFIER
+-doc false.
 dec_value([6 | Bytes]) ->
     {Value, Rest} = dec_oid_notag(Bytes),
     {{'OBJECT IDENTIFIER', Value}, Rest};
@@ -559,6 +608,7 @@ head(Int, [], _Res) ->
 %%% ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING 
 %%%----------------------------------------------------------------------
 
+-doc "Encodes a message record to a list of bytes.".
 -spec enc_message(Message) -> Bytes when
       Message :: message(),
       Bytes   :: [byte()].
@@ -581,6 +631,12 @@ enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     [48 | Len] ++ Bytes2.
 
 
+-doc """
+`Message` is a record where the `data` field is assumed to be encoded (a list of
+bytes). If there is a v1 or v2 message, the `data` field is an encoded `PDU`,
+and if there is a v3 message, `data` is an encoded and possibly encrypted
+`scopedPDU`.
+""".
 -spec enc_message_only(Message) -> Bytes when
       Message :: message(),
       Bytes   :: [byte()].
@@ -623,6 +679,12 @@ enc_v3_header(#v3_hdr{msgID = MsgID,
     lists:append([[48 | Len], Bytes, enc_oct_str_tag(MsgSecurityParameters)]).
 
 
+-doc """
+Encodes an SNMP ScopedPdu into a list of bytes, which can be encrypted, and
+after encryption, encoded with a call to `enc_encrypted_scoped_pdu/1`; or it can
+be used as the `data` field in a `message` record, which then can be encoded
+with [`enc_message_only/1`](`enc_message_only/1`).
+""".
 -spec enc_scoped_pdu(ScopedPdu) -> Bytes when
       ScopedPdu :: scoped_pdu(),
       Bytes     :: [byte()].
@@ -637,6 +699,7 @@ enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
     [48 | Len] ++ Bytes.
 
 
+-doc "Encodes an SNMP Pdu into a list of bytes.".
 -spec enc_pdu(Pdu) -> Bytes when
       Pdu   :: pdu(),
       Bytes :: [byte()].
@@ -676,6 +739,7 @@ enc_pdu2(#pdu{type = Type, request_id = ReqId, error_index = ErrIndex,
     lists:append([ReqBytes, ErrStatBytes, ErrIndexBytes, VBsBytes]).
 
 
+-doc "Encodes SNMP UsmSecurityParameters into a list of bytes.".
 -spec enc_usm_security_parameters(UsmSecParams) -> Bytes when
       UsmSecParams :: usm_security_parameters(),
       Bytes        :: [byte()].
@@ -719,6 +783,7 @@ enc_VarBindList(VBs) ->
     Len1 = elength(length(Bytes1)),
     lists:append([48 | Len1],Bytes1).
 
+-doc false.
 enc_varbind(Varbind) ->
     Bytes1 = enc_VarBind_attributes(Varbind),
     Len1 = elength(length(Bytes1)),
@@ -730,6 +795,7 @@ enc_VarBind_attributes(#varbind{oid = Oid, variabletype = Type,value = Val}) ->
     ValueBytes = enc_value(Type, Val),
     lists:append(OidBytes, ValueBytes).
 
+-doc false.
 enc_value('INTEGER', Val) ->
     enc_integer_tag(Val);
 enc_value('OCTET STRING', Val) ->
@@ -811,6 +877,7 @@ enc_value('Counter64', Val) ->
 %% For example: the number 1010 0000 (=160)   0100 0001 (=65) is represented as
 %% the octet string: 1000 0010, 0000 0101 (=[130,5])
 %%----------------------------------------------------------------------
+-doc false.
 bits_to_str(0) -> "";
 bits_to_str(Int) ->
     [rev_int8(Int band 255) | bits_to_str(Int div 256)].
@@ -824,6 +891,7 @@ rev_int(Val,Res,OldBit,NewBit) when Val band OldBit =/= 0 ->
 rev_int(Val,Res,OldBit,NewBit) ->
     rev_int(Val,Res,OldBit*2,NewBit div 2).
 
+-doc false.
 octet_str_to_bits(Str) ->
     octet_str_to_bits(Str,1).
 
@@ -899,6 +967,7 @@ enint(-1, [B1|T]) when B1 > 127 ->
 enint(N, Acc) ->
     enint(N bsr 8, [N band 16#ff|Acc]).
  
+-doc false.
 enc_oct_str_tag(OStr) when is_list(OStr) ->
     lists:append([4|elength(length(OStr))],OStr);
 enc_oct_str_tag(OBin) when is_binary(OBin) ->

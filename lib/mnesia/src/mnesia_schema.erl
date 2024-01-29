@@ -27,6 +27,7 @@
 %% used by mnesia:start() to initialize the entire schema.
 
 -module(mnesia_schema).
+-moduledoc false.
 
 -export([
          add_backend_type/2,

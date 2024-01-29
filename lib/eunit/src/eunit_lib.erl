@@ -27,6 +27,7 @@
 %% @doc Utility functions for eunit
 
 -module(eunit_lib).
+-moduledoc false.
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").

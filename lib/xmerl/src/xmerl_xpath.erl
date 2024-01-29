@@ -42,6 +42,30 @@
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
 %% </pre>
 -module(xmerl_xpath).
+-moduledoc """
+The xmerl_xpath module handles the entire XPath 1.0 spec. XPath expressions
+typically occur in XML attributes and are used to address parts of an XML
+document. The grammar is defined in `xmerl_xpath_parse.yrl`. The core functions
+are defined in `xmerl_xpath_pred.erl`.
+
+Some useful shell commands for debugging the XPath parser
+
+```text
+ c(xmerl_xpath_scan).
+ yecc:yecc("xmerl_xpath_parse.yrl", "xmerl_xpath_parse", true, []).
+ c(xmerl_xpath_parse).
+
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("position() > -1")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6 div 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 + 6 mod 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("-----6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
+
+```
+""".
 
 
 %% main API
@@ -131,12 +155,22 @@
 
 %% @spec string(Str, Doc) -> [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [])
+-doc """
+string(Str,Doc)
+
+Equivalent to [string(Str, Doc, [])](`string/3`).
+""".
 string(Str, Doc) ->
     string(Str, Doc, []).
 
 %% @spec string(Str,Doc,Options) -> 
 %%      [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [],Doc,Options)
+-doc """
+string(Str,Doc,Options)
+
+Equivalent to [string(Str, Doc, [], Doc, Options)](`string/5`).
+""".
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 
@@ -151,6 +185,10 @@ string(Str, Doc, Options) ->
 %% @doc Extracts the nodes from the parsed XML tree according to XPath.
 %%   xmlObj is a record with fields type and value,
 %%   where type is boolean | number | string
+-doc """
+Extracts the nodes from the parsed XML tree according to XPath. xmlObj is a
+record with fields type and value, where type is boolean | number | string
+""".
 -spec string(Str,Node,Parents,Doc,Options) ->
           docEntity() | Scalar when
       Str :: xPathString(),
@@ -327,6 +365,7 @@ eval_pred(Predicate, S = #state{context = C =
 %% write_node(Node::xmlNode()) -> {Type,Pos,Name,Parents}
 %% Helper function to access essential information from the xmlNode record.
 %% @hidden
+-doc false.
 write_node(#xmlNode{pos = Pos,
 		    node = #xmlAttribute{name = Name,
 					 parents = Ps}}) ->
@@ -357,6 +396,7 @@ write_node(_) ->
 %% eval_path(Type,Arg,S::state()) -> state()
 %% Eval path
 %% @hidden
+-doc false.
 eval_path(union, {PathExpr1, PathExpr2}, C = #xmlContext{}) ->
     S = #state{context = C},
     S1 = match_expr(PathExpr1, S),
@@ -392,6 +432,7 @@ eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
 %% axis(Axis,NodeTest,Context::xmlContext()) -> xmlContext()
 %% axis(Axis,NodeTest,Context,[])
 %% @hidden
+-doc false.
 axis(Axis, NodeTest, Context) ->
     axis(Axis, NodeTest, Context, []).
 
@@ -401,6 +442,7 @@ axis(Axis, NodeTest, Context) ->
 %% An axis specifies the tree relationship between the nodes selected by
 %% the location step and the context node.
 %% @hidden
+-doc false.
 axis(Axis, NodeTest, Context = #xmlContext{nodeset = NS0}, Acc) ->
     NewNodeSet=lists:foldr(
 		 fun(N, AccX) ->

@@ -22,6 +22,7 @@
 %%% SSL/TLS/DTLS handshake protocol
 %%----------------------------------------------------------------------
 -module(dtls_handshake).
+-moduledoc false.
 
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").

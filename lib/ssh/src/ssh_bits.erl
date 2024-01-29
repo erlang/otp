@@ -23,6 +23,7 @@
 %%% Description : SSH 1/2 pdu elements encode/decode
 
 -module(ssh_bits).
+-moduledoc false.
 
 -include("ssh.hrl").
 

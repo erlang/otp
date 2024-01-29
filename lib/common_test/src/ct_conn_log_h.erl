@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ct_conn_log_h).
+-moduledoc false.
 
 %%%
 %%% A handler that can be connected to the error_logger event

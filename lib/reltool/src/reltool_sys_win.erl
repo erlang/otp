@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_sys_win).
+-moduledoc false.
 
 %% Public
 -export([start_link/1, get_server/1, set_app/2, open_app/2]).

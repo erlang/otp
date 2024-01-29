@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_tcp).
+-moduledoc false.
 
 %% Socket server for TCP/IP
 

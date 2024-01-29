@@ -24,6 +24,7 @@
 %%
 
 -module(diameter_etcp).
+-moduledoc false.
 
 -behaviour(gen_server).
 

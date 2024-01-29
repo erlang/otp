@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_server_session_cache).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include_lib("kernel/include/logger.hrl").

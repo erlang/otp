@@ -22,6 +22,7 @@
 %%%               analyses.
 %%%-------------------------------------------------------------------
 -module(dialyzer_iplt).
+-moduledoc false.
 
 -export([check_incremental_plt/3,
          included_modules/1,

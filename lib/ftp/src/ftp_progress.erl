@@ -26,6 +26,7 @@
 %% in the user defined callback function. 
 
 -module(ftp_progress).
+-moduledoc false.
 
 %% Internal API
 -export([start_link/1, report/2, stop/1]).

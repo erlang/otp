@@ -29,6 +29,7 @@
 %% @doc EDoc macro expansion
 
 -module(edoc_macros).
+-moduledoc false.
 
 -export([expand_tags/3, std_macros/1, check_defs/1]).
 

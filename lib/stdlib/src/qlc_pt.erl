@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(qlc_pt).
+-moduledoc false.
 
 %%% Purpose: Implements the qlc Parse Transform.
 

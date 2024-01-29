@@ -28,6 +28,7 @@
 
 -module(beam_doc).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 -export([main/4, format_error/1]).
 

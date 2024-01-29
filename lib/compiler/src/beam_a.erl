@@ -22,6 +22,7 @@
 %%          (Mandatory.)
 
 -module(beam_a).
+-moduledoc false.
 
 -export([module/2]).
 

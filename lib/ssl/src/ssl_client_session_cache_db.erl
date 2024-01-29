@@ -20,6 +20,7 @@
 
 %%
 -module(ssl_client_session_cache_db).
+-moduledoc false.
 
 -behaviour(ssl_session_cache_api).
 

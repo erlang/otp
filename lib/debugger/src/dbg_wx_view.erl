@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_view).
+-moduledoc false.
 
 %% External exports
 -export([start/2]).

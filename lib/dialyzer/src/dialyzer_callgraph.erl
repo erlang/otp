@@ -20,6 +20,7 @@
 %%% Created : 30 Mar 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_callgraph).
+-moduledoc false.
 
 -export([add_edges/2,
 	 add_edges/3,

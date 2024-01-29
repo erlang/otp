@@ -20,6 +20,7 @@
 %%
 
 -module(mod_auth_server).
+-moduledoc false.
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").

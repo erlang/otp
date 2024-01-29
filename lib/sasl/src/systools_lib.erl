@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_lib).
+-moduledoc false.
 
 %% Purpose : Internal stuff called by systools.erl
 %%         : Some of this stuff is quite useful and should *eventually* 

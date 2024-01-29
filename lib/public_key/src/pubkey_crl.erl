@@ -19,6 +19,7 @@
 %%
 
 -module(pubkey_crl).
+-moduledoc false.
 
 -include("public_key.hrl").
 

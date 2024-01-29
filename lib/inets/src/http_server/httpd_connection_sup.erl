@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(httpd_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

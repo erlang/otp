@@ -25,6 +25,7 @@
 %%
 
 -module(diameter_traffic).
+-moduledoc false.
 
 -dialyzer(no_improper_lists).
 

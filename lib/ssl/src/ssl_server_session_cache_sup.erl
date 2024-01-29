@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for a listen options tracker
 %%----------------------------------------------------------------------
 -module(ssl_server_session_cache_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

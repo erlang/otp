@@ -22,6 +22,7 @@
 %% 
 
 -module(snmpa_usm).
+-moduledoc false.
 
 %% Avoid warning for local functions error/1,2,3 clashing
 %% with autoimported BIFs.

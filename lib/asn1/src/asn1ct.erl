@@ -21,6 +21,42 @@
 %%
 -module(asn1ct).
 -feature(maybe_expr, enable).
+-moduledoc """
+ASN.1 compiler and compile-time support functions
+
+The ASN.1 compiler takes an ASN.1 module as input and generates a corresponding
+Erlang module, which can encode and decode the specified data types.
+Alternatively, the compiler takes a specification module specifying all input
+modules, and generates a module with encode/decode functions. In addition, some
+generic functions can be used during development of applications that handles
+ASN.1 data (encoded as `BER` or `PER`).
+
+> #### Note {: .info }
+>
+> By default in OTP 17, the representation of the `BIT STRING` and
+> `OCTET STRING` types as Erlang terms were changed. `BIT STRING` values are now
+> Erlang bit strings and `OCTET STRING` values are binaries. Also, an undecoded
+> open type is now wrapped in an `asn1_OPENTYPE` tuple. For details, see
+> [BIT STRING](asn1_getting_started.md#BIT-STRING),
+> [OCTET STRING](asn1_getting_started.md#OCTET-STRING), and
+> [ASN.1 Information Objects](asn1_getting_started.md#Information-Object) in the
+> User's Guide.
+>
+> To revert to the old representation of the types, use option
+> `legacy_erlang_types`.
+
+> #### Note {: .info }
+>
+> In OTP R16, the options were simplified. The back end is chosen using one of
+> the options `ber`, `per`, `uper` or `jer`. Options `optimize`, `nif`, and
+> `driver` options are no longer necessary (and the ASN.1 compiler generates a
+> warning if they are used). Options `ber_bin`, `per_bin`, and `uper_bin`
+> options still work, but generates a warning.
+>
+> Another change in OTP R16 is that the generated function `encode/2` always
+> returns a binary. Function `encode/2` for the `BER` back end used to return an
+> iolist.
+""".
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
 
@@ -66,12 +102,207 @@
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 
+-doc(#{equiv => compile/2}).
 -spec compile(Asn1module) -> ok | {error, Reason} when
       Asn1module :: atom() | string(),
       Reason :: term().
 compile(File) ->
     compile(File,[]).
 
+-doc """
+Compiles the `ASN.1` module `Asn1module` and generates an Erlang module
+`Asn1module.erl` with encode and decode functions for the types defined in
+`Asn1module`. For each ASN.1 value defined in the module, an Erlang function
+that returns the value in Erlang representation is generated.
+
+If `Asn1module` is a filename without extension, first `".asn1"` is assumed,
+then `".asn"`, and finally `".py"` (to be compatible with the old ASN.1
+compiler). `Asn1module` can be a full pathname (relative or absolute) including
+filename with (or without) extension.[](){: #asn1set }
+
+If it is needed to compile a set of `ASN.1` modules into an Erlang file with
+encode/decode functions, ensure to list all involved files in a configuration
+file. This configuration file must have a double extension `".set.asn"`
+(`".asn"` can alternatively be `".asn1"` or `".py"`). List the input file names
+within quotation marks (""), one at each row in the file. If the input files are
+`File1.asn`, `File2.asn`, and `File3.asn`, the configuration file must look as
+follows:
+
+```text
+File1.asn
+File2.asn
+File3.asn
+```
+
+The output files in this case get their names from the configuration file. If
+the configuration file is named `SetOfFiles.set.asn`, the names of the output
+files are `SetOfFiles.hrl, SetOfFiles.erl, and SetOfFiles.asn1db`.
+
+Sometimes in a system of `ASN.1` modules, different default tag modes, for
+example, `AUTOMATIC`, `IMPLICIT`, or `EXPLICIT`. The multi-file compilation
+resolves the default tagging as if the modules were compiled separately.
+
+Name collisions is another unwanted effect that can occur in multi
+file-compilation. The compiler solves this problem in one of two ways:
+
+- If the definitions are identical, the output module keeps only one definition
+  with the original name.
+- If the definitions have the same name and differs in the definition, they are
+  renamed. The new names are the definition name and the original module name
+  concatenated.
+
+If a name collision occurs, the compiler reports a `"NOTICE: ..."` message that
+tells if a definition was renamed, and the new name that must be used to
+encode/decode data.
+
+`Options` is a list with options specific for the `ASN.1` compiler and options
+that are applied to the Erlang compiler. The latter are not recognized as
+`ASN.1` specific. The available options are as follows:
+
+- **`ber | per | uper | jer`** - The encoding rule to be used. The supported
+  encoding rules are Basic Encoding Rules (`ber`), Packed Encoding Rules (`per`)
+  aligned, PER unaligned (`uper`) and JSON Encoding Rules (`jer`). The `jer`
+  option can be used by itself to generate a module that only supports
+  encoding/decoding to JER or it can be used as a supplementary option to ber,
+  per and uper. In the latter case a module with for both the main encoding
+  rules and JER will be generated. The exported functions for JER will then be
+  `jer_encode(Type, Value)` and `jer_decode(Type, Bytes)`.
+
+  The `jer` encoding rules (ITU-T X.697) are experimental in OTP 22. There is
+  support for a subset of the X.697 standard, for example there is no support
+  for:
+
+  - JER encoding instructions
+  - the REAL type
+
+  Also note that when using the `jer` encoding rules the generated module will
+  get a dependency to an external json component. The generated code is
+  currently tested together with:
+
+  - `jsx` which currently is the default.
+  - `jsone` can be chosen instead of `jsx` by providing the option `{d,jsone}`.
+
+  If the encoding rule option is omitted, `ber` is the default.
+
+  The generated Erlang module always gets the same name as the `ASN.1` module.
+  Therefore, only one encoding rule per `ASN.1` module can be used at runtime.
+
+- **`der`** - With this option the Distinguished Encoding Rules (`der`) is
+  chosen. DER is regarded as a specialized variant of the BER encoding rule.
+  Therefore, this option only makes sense together with option `ber`. This
+  option sometimes adds sorting and value checks when encoding, which implies a
+  slower encoding. The decoding routines are the same as for `ber`.
+
+- **`maps`** - This option changes the representation of the types `SEQUENCE`
+  and `SET` to use maps (instead of records). This option also suppresses the
+  generation of `.hrl` files.
+
+  For details, see Section
+  [Map representation for SEQUENCE and SET](asn1_getting_started.md#MAP_SEQ_SET)
+  in the User's Guide.
+
+- **`compact_bit_string`** - The `BIT STRING` type is decoded to "compact
+  notation". _This option is not recommended for new code._ This option cannot
+  be combined with the option `maps`.
+
+  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) in
+  the User's Guide.
+
+  This option implies option `legacy_erlang_types`.
+
+- **`legacy_bit_string`** - The `BIT STRING` type is decoded to the legacy
+  format, that is, a list of zeroes and ones. _This option is not recommended
+  for new code._ This option cannot be combined with the option `maps`.
+
+  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) in
+  the User's Guide
+
+  This option implies option `legacy_erlang_types`.
+
+- **`legacy_erlang_types`** - Use the same Erlang types to represent
+  `BIT STRING` and `OCTET STRING` as in OTP R16.
+
+  For details, see Section [BIT STRING](asn1_getting_started.md#BIT-STRING) and
+  Section [OCTET STRING](asn1_getting_started.md#OCTET-STRING) in the User's
+  Guide.
+
+  _This option is not recommended for new code._ This option cannot be combined
+  with the option `maps`.
+
+- **`{n2n, EnumTypeName}`** - Tells the compiler to generate functions for
+  conversion between names (as atoms) and numbers and conversely for the
+  specified `EnumTypeName`. There can be multiple occurrences of this option to
+  specify several type names. The type names must be declared as `ENUMERATIONS`
+  in the ASN.1 specification.
+
+  If `EnumTypeName` does not exist in the ASN.1 specification, the compilation
+  stops with an error code.
+
+  The generated conversion functions are named `name2num_EnumTypeName/1` and
+  `num2name_EnumTypeName/1`.
+
+- **`noobj`** - Do not compile (that is, do not produce object code) the
+  generated `.erl` file. If this option is omitted, the generated Erlang module
+  is compiled.
+
+- **`{i, IncludeDir}`** - Adds `IncludeDir` to the search-path for `.asn1db` and
+  `ASN.1` source files. The compiler tries to open an `.asn1db` file when a
+  module imports definitions from another `ASN.1` module. If no `.asn1db` file
+  is found, the `ASN.1` source file is parsed. Several `{i, IncludeDir}` can be
+  given.
+
+- **`{outdir, Dir}`** - Specifies directory `Dir` where all generated files are
+  to be placed. If this option is omitted, the files are placed in the current
+  directory.
+
+- **`asn1config`** - When using one of the specialized decodes, exclusive or
+  selective decode, instructions must be given in a configuration file. Option
+  `asn1config` enables specialized decodes and takes the configuration file in
+  concern. The configuration file has the same name as the ASN.1 specification,
+  but with extension `.asn1config`.
+
+  For instructions for exclusive decode, see Section
+  [Exclusive Decode](asn1_spec.md#Exclusive-Instruction) in the User's Guide.
+
+  For instructions for selective decode, see Section
+  [Selective Decode](asn1_spec.md#Selective-Instruction) in the User's Guide.
+
+- **`undec_rest`** - A buffer that holds a message, being decoded it can also
+  have some following bytes. Those following bytes can now be returned together
+  with the decoded value. If an ASN.1 specification is compiled with this
+  option, a tuple `{ok, Value, Rest}` is returned. `Rest` can be a list or a
+  binary. Earlier versions of the compiler ignored those following bytes.
+
+- **`no_ok_wrapper`** - With this option, the generated `encode/2` and
+  `decode/2` functions do not wrap a successful return value in an `{ok,...}`
+  tuple. If any error occurs, an exception will be raised.
+
+- **`{macro_name_prefix, Prefix}`** - All macro names generated by the compiler
+  are prefixed with `Prefix`. This is useful when multiple protocols that
+  contain macros with identical names are included in a single module.
+
+- **`{record_name_prefix, Prefix}`** - All record names generated by the
+  compiler are prefixed with `Prefix`. This is useful when multiple protocols
+  that contain records with identical names are included in a single module.
+
+- **`verbose`** - Causes more verbose information from the compiler describing
+  what it is doing.
+
+- **`warnings_as_errors`** - Causes warnings to be treated as errors.
+
+- **`deterministic`** - Causes all non-deterministic options to be stripped from
+  the -asn1_info() attribute.
+
+Any more option that is applied is passed to the final step when the generated
+`.erl` file is compiled.
+
+The compiler generates the following files:
+
+- `Asn1module.hrl` (if any `SET` or `SEQUENCE` is defined)
+- `Asn1module.erl` \- Erlang module with encode, decode, and value functions
+- `Asn1module.asn1db` \- Intermediate format used by the compiler when modules
+  `IMPORT` definitions from each other.
+""".
 -spec compile(Asn1module, Options) -> ok | {error, Reason} when
       Asn1module :: atom() | string(),
       Options :: [Option | OldOption],
@@ -533,6 +764,7 @@ compare_defs2(D,D) ->
 compare_defs2(_,_) ->
     not_equal.
 
+-doc false.
 unset_pos_mod(Def) when is_record(Def,typedef) ->
     Def#typedef{pos=undefined};
 unset_pos_mod(Def) when is_record(Def,classdef) ->
@@ -553,6 +785,7 @@ unset_pos_mod(#'ComponentType'{} = Def) ->
     Def#'ComponentType'{pos=undefined};
 unset_pos_mod(Def) -> Def.
 
+-doc false.
 get_pos_of_def(#typedef{pos=Pos}) ->
     Pos;
 get_pos_of_def(#classdef{pos=Pos}) ->
@@ -577,6 +810,7 @@ get_pos_of_def(_) ->
     undefined.
     
     
+-doc false.
 get_name_of_def(#typedef{name=Name}) ->
     Name;
 get_name_of_def(#classdef{name=Name}) ->
@@ -912,6 +1146,7 @@ legacy_forced_info(Opt) ->
     io:format("Info: The option 'legacy_erlang_types' "
 	      "is implied by the '~s' option.\n", [Opt]).
 
+-doc false.
 use_legacy_types() ->
     get(use_legacy_erlang_types).
 
@@ -931,6 +1166,7 @@ setup_bit_string_format(Opts) ->
 cleanup_bit_string_format() ->
     erase(bit_string_format).
 
+-doc false.
 get_bit_string_format() ->
     get(bit_string_format).
 
@@ -958,6 +1194,7 @@ check_maps_option(#gen{}) ->
 %% parse_and_save parses an asn1 spec and saves the unchecked parse
 %% tree in a data base file.
 %% Does not support multifile compilation files
+-doc false.
 parse_and_save(Module,S) ->
     Options = S#state.options,
     SourceDir = S#state.sourcedir,
@@ -1197,15 +1434,19 @@ strip_includes(Includes) ->
 %% compile(AbsFileName, Options)
 %%   Compile entry point for erl_compile.
 
+-doc false.
 compile_asn(File,OutFile,Options) ->
     compile(lists:concat([File,".asn"]),OutFile,Options).
 
+-doc false.
 compile_asn1(File,OutFile,Options) ->
     compile(lists:concat([File,".asn1"]),OutFile,Options).
 
+-doc false.
 compile_py(File,OutFile,Options) ->
     compile(lists:concat([File,".py"]),OutFile,Options).
 
+-doc false.
 compile(File, _OutFile, Options) ->
     case compile(File, make_erl_options(Options)) of
 	{error,_Reason} ->
@@ -1300,11 +1541,13 @@ pretty2(Module,AbsFile) ->
 start(Includes) when is_list(Includes) ->
     asn1_db:dbstart(Includes).
 
+-doc(#{equiv => test/3}).
 -spec test(Module) -> ok | {error, Reason} when
       Module :: module(),
       Reason :: term().
 test(Module)                             -> test_module(Module, []).
 
+-doc(#{equiv => test/3}).
 -spec test(Module, Type | Options) -> ok | {error, Reason} when
       Module :: module(),
       Type :: atom(),
@@ -1314,6 +1557,37 @@ test(Module, [] = Options)               -> test_module(Module, Options);
 test(Module, [{i, _}|_] = Options)       -> test_module(Module, Options);
 test(Module, Type)                       -> test_type(Module, Type, []).
 
+-doc """
+Performs a test of encode and decode of types in `Module`. The generated
+functions are called by this function. This function is useful during test to
+secure that the generated encode and decode functions as well as the general
+runtime support work as expected.
+
+> #### Note {: .info }
+>
+> Currently, the `test` functions have many limitations. Essentially, they will
+> mostly work for old specifications based on the 1997 standard for ASN.1, but
+> not for most modern-style applications. Another limitation is that the `test`
+> functions may not work if options that change code generations strategies such
+> as the options `macro_name_prefix` and `record_name_prefix` have been used.
+
+- [`test/1`](`test/1`) iterates over all types in `Module`.
+- [`test/2`](`test/2`) tests type `Type` with a random value.
+- [`test/3`](`test/3`) tests type `Type` with `Value`.
+
+Schematically, the following occurs for each type in the module:
+
+```erlang
+{ok, Value} = asn1ct:value(Module, Type),
+{ok, Bytes} = Module:encode(Type, Value),
+{ok, Value} = Module:decode(Type, Bytes).
+```
+
+The `test` functions use the `*.asn1db` files for all included modules. If they
+are located in a different directory than the current working directory, use the
+`include` option to add paths. This is only needed when automatically generating
+values. For static values using `Value` no options are needed.
+""".
 -spec test(Module, Type, Value | Options) -> ok | {error, Reason} when
       Module :: module(),
       Type :: atom(),
@@ -1393,6 +1667,19 @@ test_value_decode(Module, Type, Value, Bytes) ->
                        {Module, Type, Value}, Error}}}}
     end.
 
+-doc """
+Returns an Erlang term that is an example of a valid Erlang representation of a
+value of the `ASN.1` type `Type`. The value is a random value and subsequent
+calls to this function will for most types return different values.
+
+> #### Note {: .info }
+>
+> Currently, the `value` function has many limitations. Essentially, it will
+> mostly work for old specifications based on the 1997 standard for ASN.1, but
+> not for most modern-style applications. Another limitation is that the `value`
+> function may not work if options that change code generations strategies such
+> as the options `macro_name_prefix` and `record_name_prefix` have been used.
+""".
 -spec value(Module, Type) -> {ok, Value} | {error, Reason} when
       Module :: module(),
       Type :: atom(),
@@ -1400,6 +1687,7 @@ test_value_decode(Module, Type, Value, Bytes) ->
       Reason :: term().
 value(Module, Type) -> value(Module, Type, []).
 
+-doc false.
 value(Module, Type, Includes) ->
     in_process(fun() ->
                    start(strip_includes(Includes)),
@@ -1434,6 +1722,7 @@ check(Module, Includes) ->
 prepare_bytes(Bytes) when is_binary(Bytes) -> Bytes;
 prepare_bytes(Bytes) -> list_to_binary(Bytes).
 
+-doc false.
 vsn() ->
     ?vsn.
 
@@ -1458,6 +1747,7 @@ specialized_decode_prepare(#gen{erule=ber,options=Options}=Gen, #module{name=Mod
 specialized_decode_prepare(_, _) ->
     ok.
 
+-doc false.
 partial_inc_dec_toptype([T|_]) when is_atom(T) ->
     T;
 partial_inc_dec_toptype([{T,_}|_]) when is_atom(T) ->
@@ -1513,10 +1803,12 @@ get_config_info(CfgList,InfoType) ->
 %% save_config/2 saves the Info with the key Key
 %% Before saving anything check if a table exists
 %% The record gen_state is saved with the key {asn1_config,gen_state}
+-doc false.
 save_config(Key,Info) ->
     asn1ct_table:new_reuse(asn1_general),
     asn1ct_table:insert(asn1_general, {{asn1_config, Key}, Info}).
 
+-doc false.
 read_config_data(Key) ->
     case asn1ct_table:exists(asn1_general) of
 	false -> undefined;
@@ -1536,6 +1828,7 @@ read_config_data(Key) ->
 %%
 
 %% saves input data in a new gen_state record
+-doc false.
 save_gen_state(exclusive_decode,{_,ConfList},PartIncTlvTagList) ->
     State =
 	case get_gen_state() of
@@ -1551,6 +1844,7 @@ save_gen_state(_,_,_) ->
 	_ -> save_config(gen_state,#gen_state{})
     end.
 
+-doc false.
 save_gen_state(selective_decode,{_,Type_component_name_list}) ->
     State =
 	case get_gen_state() of
@@ -1568,6 +1862,7 @@ save_gen_state(GenState) when is_record(GenState,gen_state) ->
 
 %% get_gen_state_field returns undefined if no gen_state exists or if
 %% Field is undefined or the data at the field.
+-doc false.
 get_gen_state_field(Field) ->
     case read_config_data(gen_state) of
 	undefined ->
@@ -1610,6 +1905,7 @@ get_gen_state() ->
     read_config_data(gen_state).
 
 
+-doc false.
 update_gen_state(Field,Data) ->
     case get_gen_state() of
 	State when is_record(State,gen_state) ->
@@ -1645,6 +1941,7 @@ update_gen_state(suffix_index,State,Data) ->
 update_gen_state(current_suffix_index,State,Data) ->
     save_gen_state(State#gen_state{current_suffix_index=Data}).
 
+-doc false.
 update_namelist(Name) ->
     case get_gen_state_field(namelist) of
 	[Name,Rest] -> update_gen_state(namelist,Rest);
@@ -1655,6 +1952,7 @@ update_namelist(Name) ->
     end.
 
 %% removes a bracket from the namelist
+-doc false.
 step_in_constructed() ->
     case get_gen_state_field(namelist) of
 	[L] when is_list(L) ->
@@ -1662,6 +1960,7 @@ step_in_constructed() ->
 	_ -> ok
     end.
 			
+-doc false.
 is_function_generated(Name) ->
     case get_gen_state_field(gen_refed_funcs) of
 	L when is_list(L) ->
@@ -1670,6 +1969,7 @@ is_function_generated(Name) ->
 	    false
     end.
 			       
+-doc false.
 get_tobe_refed_func(Name) ->
     case get_gen_state_field(tobe_refed_funcs) of
 	L when is_list(L) ->
@@ -1686,6 +1986,7 @@ get_tobe_refed_func(Name) ->
 %% add_tobe_refed_func saves Data that is a three or four element
 %% tuple.  Do not save if it exists in generated_functions, because
 %% then it will be or already is generated.
+-doc false.
 add_tobe_refed_func(Data) ->
     {Name,SI,Pattern} = 
 	fun({N,Si,P,_}) -> {N,Si,P};
@@ -1729,6 +2030,7 @@ add_once_tobe_refed_func(Data) ->
 
 
 %% Moves Name from the to be list to the generated list.
+-doc false.
 generated_refed_func(Name) ->
     L = get_gen_state_field(tobe_refed_funcs),
     NewL = lists:keydelete(Name,1,L),
@@ -1737,6 +2039,7 @@ generated_refed_func(Name) ->
     update_gen_state(gen_refed_funcs,[Name|L2]).
 
 %% Adds Data to gen_refed_funcs field in gen_state.
+-doc false.
 add_generated_refed_func(Data) ->
     case is_function_generated(Data) of
 	true ->
@@ -1746,6 +2049,7 @@ add_generated_refed_func(Data) ->
 	    update_gen_state(gen_refed_funcs,[Data|L])
     end.
 
+-doc false.
 next_refed_func() ->
     case get_gen_state_field(tobe_refed_funcs) of
 	[] ->
@@ -1755,6 +2059,7 @@ next_refed_func() ->
 	    H
     end.
 
+-doc false.
 reset_gen_state() ->
     save_gen_state(#gen_state{}).
 
@@ -1766,6 +2071,7 @@ add_generated_function(Data) ->
 
 %% Each type has its own index starting from 0. If index is 0 there is
 %% no renaming.
+-doc false.
 maybe_rename_function(Mode,Name,Pattern) ->
     case get_gen_state_field(generated_functions) of
 	[] when Mode==inc_disp -> add_generated_function({Name,0,Pattern}),
@@ -1861,6 +2167,7 @@ generated_functions_filter(M,#'Externaltypereference'{module=M,type=Name},L)->
     generated_functions_filter(M,Name,L2).
 
 
+-doc false.
 maybe_saved_sindex(Name,Pattern) ->
     case get_gen_state_field(generated_functions) of
 	[] -> false;
@@ -1877,9 +2184,11 @@ maybe_saved_sindex(Name,Pattern) ->
 	    end
     end.
     
+-doc false.
 current_sindex() ->
     get_gen_state_field(current_suffix_index).
 
+-doc false.
 set_current_sindex(Index) ->
     update_gen_state(current_suffix_index,Index).
 
@@ -1914,6 +2223,7 @@ type_check(#'Externaltypereference'{}) ->
 %% Warning messages are controlled with the 'warnings' compiler option
 %% Verbose messages are controlled with the 'verbose' compiler option
 
+-doc false.
 error(Format, Args, S) ->
     case is_error(S) of
 	true ->
@@ -1922,6 +2232,7 @@ error(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 warning(Format, Args, S) ->
     case is_warning(S) of
 	true ->
@@ -1930,6 +2241,7 @@ warning(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 warning(Format, Args, S, Reason) ->
     case {is_werr(S), is_error(S), is_warning(S)} of
 	{true, true, _} ->
@@ -1941,6 +2253,7 @@ warning(Format, Args, S, Reason) ->
 	    ok
     end.
 
+-doc false.
 verbose(Format, Args, S) ->
     case is_verbose(S) of
 	true ->
@@ -1949,6 +2262,7 @@ verbose(Format, Args, S) ->
 	    ok
     end.
 
+-doc false.
 format_error({write_error,File,Reason}) ->
     io_lib:format(<<"writing output file ~ts failed: ~s">>,
 		  [File,file:format_error(Reason)]).

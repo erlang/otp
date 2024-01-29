@@ -25,6 +25,7 @@
 %% @doc Interpretation of symbolic test representation
 
 -module(eunit_data).
+-moduledoc false.
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").

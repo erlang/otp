@@ -18,6 +18,32 @@
 %% %CopyrightEnd%
 %%
 -module(net_adm).
+-moduledoc """
+Various Erlang net administration routines.
+
+This module contains various network utility functions.
+
+## Files
+
+[](){: #files }
+
+File `.hosts.erlang` consists of a number of host names written as Erlang terms.
+It is looked for in the current work directory, the user's home directory, and
+`$OTPROOT` (the root directory of Erlang/OTP), in that order.
+
+The format of file `.hosts.erlang` must be one host name per line. The host
+names must be within quotes.
+
+_Example:_
+
+```text
+'super.eua.ericsson.se'.
+'renat.eua.ericsson.se'.
+'grouse.eua.ericsson.se'.
+'gauffin1.eua.ericsson.se'.
+^ (new line)
+```
+""".
 -export([host_file/0,
 	 localhost/0,
 	 names/0, names/1,
@@ -36,6 +62,11 @@
 %% Try to read .hosts.erlang file in 
 %% 1. cwd , 2. $HOME 3. init:root_dir() 
 
+-doc """
+Reads file `.hosts.erlang`, see section [Files](`m:net_adm#files`). Returns the
+hosts in this file as a list. Returns `{error, Reason}` if the file cannot be
+read or the Erlang terms on the file cannot be interpreted.
+""".
 -spec host_file() -> Hosts | {error, Reason} when
       Hosts :: [Host :: atom()],
       %% Copied from file:path_consult/2:
@@ -55,6 +86,10 @@ host_file() ->
 %% Check whether a node is up or down
 %%  side effect: set up a connection to Node if there not yet is one.
 
+-doc """
+Sets up a connection to `Node`. Returns `pong` if it is successful, otherwise
+`pang`.
+""".
 -spec ping(Node) -> pong | pang when
       Node :: atom().
 
@@ -69,6 +104,10 @@ ping(Node) when is_atom(Node) ->
 	    pang
     end.
 
+-doc """
+Returns the name of the local host. If Erlang was started with command-line flag
+`-name`, `Name` is the fully qualified name.
+""".
 -spec localhost() -> Name when
       Name :: string().
 
@@ -80,6 +119,7 @@ localhost() ->
     end.
 
 
+-doc(#{equiv => names/1}).
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
       Name :: string(),
       Port :: non_neg_integer(),
@@ -89,6 +129,19 @@ names() ->
     names(localhost()).
 
 
+-doc """
+Similar to `epmd -names`, see [`erts:epmd(1)`](`e:erts:epmd_cmd.md`). `Host`
+defaults to the local host. Returns the names and associated port numbers of the
+Erlang nodes that `epmd` registered at the specified host. Returns
+`{error, address}` if `epmd` is not operational.
+
+_Example:_
+
+```erlang
+(arne@dunn)1> net_adm:names().
+{ok,[{"arne",40262}]}
+```
+""".
 -spec names(Host) -> {ok, [{Name, Port}]} | {error, Reason} when
       Host :: atom() | string() | inet:ip_address(),
       Name :: string(),
@@ -99,6 +152,10 @@ names(Hostname) ->
     ErlEpmd = net_kernel:epmd_module(),
     ErlEpmd:names(Hostname).
 
+-doc """
+Returns the official name of `Host`, or `{error, Host}` if no such name is
+found. See also `m:inet`.
+""".
 -spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
       Host :: atom() | string(),
       Name :: string().
@@ -127,6 +184,7 @@ dns_hostname(Hostname) ->
 %% nodes simultaneously and without *any* other already 
 %% running nodes execute this code. :-(
 
+-doc false.
 -spec ping_list([atom()]) -> [atom()].
 
 ping_list(Nodelist) ->
@@ -171,11 +229,26 @@ collect_new(Sofar, Nodelist) ->
 %% e.g. 
 %% net_adm:world_list(['elrond.du.etx.ericsson.se', 'thorin.du.etx.ericsson.se']). 
 
+-doc(#{equiv => world/1}).
 -spec world() -> [node()].
 
 world() ->
     world(silent).
 
+-doc """
+Calls [`names(Host)`](`names/1`) for all hosts that are specified in the Erlang
+host file `.hosts.erlang`, collects the replies, and then evaluates
+[`ping(Node)`](`ping/1`) on all those nodes. Returns the list of all nodes that
+are successfully pinged.
+
+`Arg` defaults to `silent`. If `Arg == verbose`, the function writes information
+about which nodes it is pinging to `stdout`.
+
+This function can be useful when a node is started, and the names of the other
+network nodes are not initially known.
+
+Returns `{error, Reason}` if `host_file/0` returns `{error, Reason}`.
+""".
 -spec world(Arg) -> [node()] when
       Arg :: verbosity().
 
@@ -185,12 +258,17 @@ world(Verbose) ->
         Hosts -> expand_hosts(Hosts, Verbose)
     end.
 
+-doc(#{equiv => world_list/2}).
 -spec world_list(Hosts) -> [node()] when
       Hosts :: [atom()].
 
 world_list(Hosts) when is_list(Hosts) ->
     expand_hosts(Hosts, silent).
 
+-doc """
+Same as [`world/0,1`](`world/1`), but the hosts are specified as argument
+instead of being read from `.hosts.erlang`.
+""".
 -spec world_list(Hosts, Arg) -> [node()] when
       Hosts :: [atom()],
       Arg :: verbosity().

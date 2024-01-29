@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_istk).
+-moduledoc false.
 -export([init/0,delayed_to_external/0,from_external/1,
 	 push/3,pop/0,pop/1,stack_level/0,
 	 delayed_stacktrace/0,delayed_stacktrace/2,

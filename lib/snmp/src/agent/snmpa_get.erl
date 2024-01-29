@@ -19,6 +19,7 @@
 %%
 
 -module(snmpa_get).
+-moduledoc false.
 
 -behaviour(snmpa_get_mechanism).
 

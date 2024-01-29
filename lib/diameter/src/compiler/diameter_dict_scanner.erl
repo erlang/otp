@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_dict_scanner).
+-moduledoc false.
 
 %%
 %% A scanner for dictionary files of the form expected by yecc.

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_discovery_handler_default).
+-moduledoc false.
 
 -behaviour(snmpa_discovery_handler).
 

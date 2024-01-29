@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(format_lib_supp).
+-moduledoc false.
 
 %%%---------------------------------------------------------------------
 %%% Description:

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(local_udp).
+-moduledoc false.
 
 -export([open/1, open/2, close/1]).
 -export([send/2, send/4, recv/2, recv/3, connect/3]).

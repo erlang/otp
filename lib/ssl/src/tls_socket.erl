@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(tls_socket).
+-moduledoc false.
 
 -behaviour(gen_server).
 

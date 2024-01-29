@@ -18,6 +18,17 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_user_based_sm_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-USER-BASED-SM-MIB
+
+The module `snmp_user_based_sm_mib` implements the instrumentation functions for
+the SNMP-USER-BASED-SM-MIB, and functions for configuring the database.
+
+Note that authentication has been extended according to RFC 7860
+(SNMP-USM-HMAC-SHA2-MIB).
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -80,6 +91,26 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+configure(ConfDir) -> void()
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `usm.conf`.
+""".
 configure(Dir) ->
     set_sname(),
     case db(usmUserTable) of
@@ -111,6 +142,27 @@ configure(Dir) ->
 %% Fails: exit(configuration_error) |
 %%        exit({unsupported_crypto, Function})
 %%-----------------------------------------------------------------
+-doc """
+reconfigure(ConfDir) -> void()
+
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-USER-BASED-SM-MIB, after this function has been
+called, is the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `usm.conf`.[](){: #add_user }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -156,6 +208,7 @@ generate_usm(Dir, _Reason) ->
     [].
 
 
+-doc false.
 check_usm({EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
            PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey}) ->
     snmp_conf:check_string(EngineID),
@@ -296,12 +349,22 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP,
+PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret
+
+Adds a USM security data (user) to the agent config. Equivalent to one line in
+the `usm.conf` file.
+
+[](){: #delete_user }
+""".
 add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	 PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
     User = {EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	    PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey},
     add_user(User).
 
+-doc false.
 add_user(User) ->
     case (catch check_usm(User)) of
 	{ok, Row} ->
@@ -323,6 +386,11 @@ add_user(User) ->
 	    {error, Error}
     end.
 
+-doc """
+delete_user(Key) -> Ret
+
+Delete a USM security data (user) from the agent config.
+""".
 delete_user(Key) ->
     case table_del_row(usmUserTable, Key) of
 	true ->
@@ -344,6 +412,7 @@ gc_tabs() ->
 %% Counter functions
 %%-----------------------------------------------------------------
 
+-doc false.
 usmStatsUnsupportedSecLevels(print) ->
     VarAndValue = [{usmStatsUnsupportedSecLevels, 
 		    usmStatsUnsupportedSecLevels(get)}],
@@ -351,30 +420,35 @@ usmStatsUnsupportedSecLevels(print) ->
 usmStatsUnsupportedSecLevels(get) ->
     get_counter(usmStatsUnsupportedSecLevels).
 
+-doc false.
 usmStatsNotInTimeWindows(print) ->
     VarAndValue = [{usmStatsNotInTimeWindows, usmStatsNotInTimeWindows(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 usmStatsNotInTimeWindows(get) ->
     get_counter(usmStatsNotInTimeWindows).
 
+-doc false.
 usmStatsUnknownUserNames(print) ->
     VarAndValue = [{usmStatsUnknownUserNames, usmStatsUnknownUserNames(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 usmStatsUnknownUserNames(get) ->
     get_counter(usmStatsUnknownUserNames).
 
+-doc false.
 usmStatsUnknownEngineIDs(print) ->
     VarAndValue = [{usmStatsUnknownEngineIDs, usmStatsUnknownEngineIDs(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 usmStatsUnknownEngineIDs(get) ->
     get_counter(usmStatsUnknownEngineIDs).
 
+-doc false.
 usmStatsWrongDigests(print) ->
     VarAndValue = [{usmStatsWrongDigests, usmStatsWrongDigests(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 usmStatsWrongDigests(get) ->
     get_counter(usmStatsWrongDigests).
 
+-doc false.
 usmStatsDecryptionErrors(print) ->
     VarAndValue = [{usmStatsDecryptionErrors, usmStatsDecryptionErrors(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -415,6 +489,7 @@ vars() ->
 %%-----------------------------------------------------------------
 %% API functions
 %%-----------------------------------------------------------------
+-doc false.
 is_engine_id_known(EngineID) ->
     EngineKey = [length(EngineID) | EngineID],
     ?vtrace("is_engine_id_known -> EngineKey: ~w", [EngineKey]),
@@ -425,10 +500,12 @@ is_engine_id_known(EngineID) ->
 	    lists:prefix(EngineKey, Key)
     end.
 
+-doc false.
 get_user(EngineID, UserName) ->
     Key = [length(EngineID) | EngineID] ++ [length(UserName) | UserName],
     snmp_generic:table_get_row(db(usmUserTable), Key, foi(usmUserTable)).
 
+-doc false.
 get_user_from_security_name(EngineID, SecName) ->
     %% Since the normal mapping between UserName and SecName is the
     %% identityfunction, we first try to use the SecName as UserName,
@@ -464,6 +541,7 @@ get_user_from_security_name(EngineID, SecName) ->
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
 
+-doc false.
 usmUserSpinLock(print) ->
     VarAndValue = [{usmUserSpinLock, usmUserSpinLock(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -484,6 +562,7 @@ usmUserSpinLock(delete) ->
 usmUserSpinLock(get) ->
     snmp_generic:variable_func(get, {usmUserSpinLock, volatile}).
 
+-doc false.
 usmUserSpinLock(is_set_ok, NewVal) ->
     case snmp_generic:variable_func(get, {usmUserSpinLock, volatile}) of
 	{value, NewVal} -> noError;
@@ -495,6 +574,7 @@ usmUserSpinLock(set, NewVal) ->
 
 
 %% Op = print - Used for debugging purposes
+-doc false.
 usmUserTable(print) ->
     Table = usmUserTable, 
     DB    = db(Table),
@@ -577,6 +657,7 @@ usmUserTable(Op) ->
     snmp_generic:table_func(Op, db(usmUserTable)).
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 usmUserTable(get, RowIndex, Cols) ->
     get_patch(Cols, get(usmUserTable, RowIndex, Cols));
 usmUserTable(get_next, RowIndex, Cols) ->
@@ -1225,6 +1306,7 @@ next(Name, RowIndex, Cols) ->
     snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
                                    fa(Name), foi(Name), noc(Name)).
 
+-doc false.
 table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
 
@@ -1239,6 +1321,7 @@ get(Name, RowIndex, Cols) ->
 %% both have fixed length requirements on the length of the key;
 %% thus the implementation can be (and is) simplified.
 %%-----------------------------------------------------------------
+-doc false.
 mk_key_change(Hash, OldKey, NewKey) ->
     KeyLen = length(NewKey),
     Alg = case Hash of
@@ -1260,6 +1343,7 @@ mk_key_change(Hash, OldKey, NewKey) ->
 
 %% This function is only exported for test purposes.  There is a test
 %% case in the standard where Random is pre-defined.
+-doc false.
 mk_key_change(Alg, OldKey, NewKey, KeyLen, Random) ->
     %% OldKey and Random is of length KeyLen...
     Digest = lists:sublist(binary_to_list(crypto:hash(Alg, OldKey++Random)), KeyLen),
@@ -1268,6 +1352,7 @@ mk_key_change(Alg, OldKey, NewKey, KeyLen, Random) ->
     Random ++ Delta.
 
 %% Extracts a new Key from a KeyChange value, sent by a manager.
+-doc false.
 extract_new_key(?usmNoAuthProtocol, OldKey, _KeyChange) ->
     OldKey;
 extract_new_key(Hash, OldKey, KeyChange) ->
@@ -1294,6 +1379,7 @@ extract_new_key(Hash, OldKey, KeyChange) ->
 -define(i16(Int), (Int bsr 8) band 255, Int band 255).
 -define(i8(Int), Int band 255).
 
+-doc false.
 mk_random(Len) when Len =< 20 ->
     binary_to_list(crypto:strong_rand_bytes(Len)).
     

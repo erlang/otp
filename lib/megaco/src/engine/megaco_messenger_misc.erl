@@ -26,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_messenger_misc).
+-moduledoc false.
 
 %% Application internal export
 -export([encode_body/3,

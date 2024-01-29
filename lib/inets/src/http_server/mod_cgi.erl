@@ -21,6 +21,7 @@
 %% Implements  The WWW Common Gateway Interface Version 1.1
 
 -module(mod_cgi).
+-moduledoc false.
 
 -export([env/3]).
 

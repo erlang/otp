@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_cipher).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").

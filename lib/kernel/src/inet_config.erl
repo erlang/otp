@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_config).
+-moduledoc false.
 
 -include("inet_config.hrl").
 -include("inet.hrl").

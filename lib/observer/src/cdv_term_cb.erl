@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_term_cb).
+-moduledoc false.
 
 -export([get_details/2,
 	 detail_pages/0]).

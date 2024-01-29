@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dets_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

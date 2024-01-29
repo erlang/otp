@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_wx).
+-moduledoc false.
 
 -behaviour(wx_object).
 

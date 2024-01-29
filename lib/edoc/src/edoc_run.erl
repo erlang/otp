@@ -44,6 +44,27 @@
 %% functions.
 
 -module(edoc_run).
+-moduledoc """
+Interface for calling EDoc from Erlang startup options.
+
+The following is an example of typical usage in a Makefile:
+
+```text
+     docs:
+             erl -noshell -run edoc_run application "'$(APP_NAME)'" \
+               '"."' '[{def,{vsn,"$(VSN)"}}]'
+```
+
+(note the single-quotes to avoid shell expansion, and the double-quotes
+enclosing the strings).
+
+**New feature in version 0.6.9**: It is no longer necessary to write
+`-s init stop` last on the command line in order to make the execution
+terminate. The termination (signalling success or failure to the operating
+system) is now built into these functions.
+
+_See also: _`m:edoc`.
+""".
 
 -export([file/1, application/1, files/1, toc/1]).
 
@@ -63,6 +84,17 @@
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:application/3` with the corresponding arguments. The strings in the
+list are parsed as Erlang constant terms. The list can be either `[App]`,
+`[App, Options]` or `[App, Dir, Options]`. In the first case
+`edoc:application/1` is called instead; in the second case, `edoc:application/2`
+is called.
+
+The function call never returns; instead, the emulator is automatically
+terminated when the call has completed, signalling success or failure to the
+operating system.
+""".
 -spec application(args()) -> no_return().
 application(Args) ->
     F = fun () ->
@@ -85,6 +117,15 @@ application(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:files/2` with the corresponding arguments. The strings in the list
+are parsed as Erlang constant terms. The list can be either `[Files]` or
+`[Files, Options]`. In the first case, `edoc:files/1` is called instead.
+
+The function call never returns; instead, the emulator is automatically
+terminated when the call has completed, signalling success or failure to the
+operating system.
+""".
 -spec files(args()) -> no_return().
 files(Args) ->
     F = fun () ->
@@ -98,6 +139,7 @@ files(Args) ->
     run(F).
 
 %% @hidden Not official yet
+-doc false.
 -spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->
@@ -130,6 +172,24 @@ toc(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:file/2` with the corresponding arguments. The strings in the list
+are parsed as Erlang constant terms. The list can be either `[File]` or
+`[File, Options]`. In the first case, an empty list of options is passed to
+`edoc:file/2`.
+
+The following is an example of typical usage in a Makefile:
+
+```text
+     $(DOCDIR)/%.html:%.erl
+             erl -noshell -run edoc_run file '"$<"' '[{dir,"$(DOCDIR)"}]' \
+               -s init stop
+```
+
+The function call never returns; instead, the emulator is automatically
+terminated when the call has completed, signalling success or failure to the
+operating system.
+""".
 -spec file(args()) -> no_return().
 file(Args) ->
     F = fun () ->

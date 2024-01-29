@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(disk_log_server).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([start_link/0, start/0, open/1, close/1, 

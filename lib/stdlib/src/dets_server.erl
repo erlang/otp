@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dets_server).
+-moduledoc false.
 
 %% Disk based linear hashing lookup dictionary. Server part.
 

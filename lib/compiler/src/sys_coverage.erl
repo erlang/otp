@@ -20,6 +20,7 @@
 %% Purpose: Instrument abstract code for coverage.
 
 -module(sys_coverage).
+-moduledoc false.
 -export([module/2,cover_transform/2]).
 -import(lists, [member/2,reverse/1,reverse/2]).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(group).
+-moduledoc false.
 
 %% A group leader process for user io.
 %% This process receives input data from user_drv in this format

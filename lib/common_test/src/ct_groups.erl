@@ -23,6 +23,7 @@
 %%% tests.
 
 -module(ct_groups).
+-moduledoc false.
 
 -export([find_groups/4]).
 -export([make_all_conf/3, make_all_conf/4, make_conf/5]).

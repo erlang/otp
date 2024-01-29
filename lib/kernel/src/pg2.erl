@@ -19,5 +19,6 @@
 %%
 
 -module(pg2).
+-moduledoc false.
 -removed([{'_','_',
            "this module was removed in OTP 24. Use 'pg' instead"}]).

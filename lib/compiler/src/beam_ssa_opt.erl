@@ -35,6 +35,7 @@
 %%%
 
 -module(beam_ssa_opt).
+-moduledoc false.
 -export([module/2]).
 
 -include("beam_ssa_opt.hrl").

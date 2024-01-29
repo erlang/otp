@@ -24,4 +24,5 @@
 %%
 
 -module(os_mon_mib).
+-moduledoc false.
 -removed([{'_','_', "this module was removed in OTP 22.0"}]).

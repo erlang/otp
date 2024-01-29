@@ -19,6 +19,14 @@
 %% 
 
 -module(snmpm_conf).
+-moduledoc """
+Utility functions for handling the manager config files.
+
+The module `snmpm_conf` contains various utility functions to used for
+manipulating (write/append/read) the config files of the SNMP manager.
+
+[](){: #manager_entry }
+""".
 
 -include_lib("kernel/include/file.hrl").
 
@@ -71,10 +79,22 @@
 %% ------ manager.conf ------
 %% 
 
+-doc """
+manager_entry(Tag, Val) -> manager_entry()
+
+Create an entry for the manager config file, `manager.conf`.
+
+The type of `Val` depends on the value of `Tag`, see
+[Manager Information](snmp_manager_config_files.md#manager_information) for more
+info.
+
+[](){: #write_manager_config }
+""".
 manager_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-doc(#{equiv => write_manager_config/3}).
 write_manager_config(Dir, Conf) -> 
     Comment = 
 "%% This file defines the Manager local configuration info\n"
@@ -89,6 +109,21 @@ write_manager_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_manager_config(Dir, Hdr, Conf).
 
+-doc """
+write_manager_config(Dir, Hdr, Conf) -> ok
+
+Write the manager config to the manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #append_manager_config }
+""".
 write_manager_config(Dir, Hdr, Conf)
   when is_list(Dir), is_list(Hdr), is_list(Conf) ->
     Order = fun snmpm_config:order_manager_config/2,
@@ -96,6 +131,18 @@ write_manager_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_manager_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+append_manager_config(Dir, Conf) -> ok
+
+Append the config to the current manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #read_manager_config }
+""".
 append_manager_config(Dir, Conf) 
   when is_list(Dir), is_list(Conf) ->
     Order = fun snmpm_config:order_manager_config/2,
@@ -103,6 +150,18 @@ append_manager_config(Dir, Conf)
     Write = fun write_manager_conf/2,
     append_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+read_manager_config(Dir) -> Conf
+
+Read the current manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #users_entry }
+""".
 read_manager_config(Dir) when is_list(Dir) ->
     Order = fun snmpm_config:order_manager_config/2,
     Check = fun snmpm_config:check_manager_config/2,
@@ -139,12 +198,29 @@ do_write_manager_conf(_Fd, Crap) ->
 %% ------ users.conf ------
 %% 
 
+-doc(#{equiv => users_entry/3}).
 users_entry(UserId) ->
     users_entry(UserId, snmpm_user_default).
 
+-doc(#{equiv => users_entry/3}).
 users_entry(UserId, UserMod) ->
     users_entry(UserId, UserMod, undefined).
 
+-doc """
+users_entry(UserId, UserMod, UserData) -> users_entry()
+
+Create an entry for the manager users config file, `users.conf`.
+
+[`users_entry(UserId)`](`users_entry/1`) translates to the following call:
+[`users_entry(UserId, snmpm_user_default)`](`users_entry/2`).
+
+[`users_entry(UserId, UserMod)`](`users_entry/2`) translates to the following
+call: [`users_entry(UserId, UserMod, undefined)`](`users_entry/3`).
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #write_users_config }
+""".
 users_entry(UserId, UserMod, UserData) ->
     users_entry(UserId, UserMod, UserData, []).
 
@@ -152,6 +228,7 @@ users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
     {UserId, UserMod, UserData, DefaultAgentConfig}.
 
 
+-doc(#{equiv => write_users_config/3}).
 write_users_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the users the manager handles\n"
@@ -163,6 +240,20 @@ write_users_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_users_config(Dir, Hdr, Conf).
 
+-doc """
+write_users_config(Dir, Hdr, Conf) -> ok
+
+Write the manager users config to the manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #append_users_config }
+""".
 write_users_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -170,6 +261,17 @@ write_users_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_users_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+append_users_config(Dir, Conf) -> ok
+
+Append the users config to the current manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #read_users_config }
+""".
 append_users_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -177,6 +279,17 @@ append_users_config(Dir, Conf)
     Write = fun write_users_conf/2,
     append_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+read_users_config(Dir) -> Conf
+
+Read the current manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #agents_entry }
+""".
 read_users_config(Dir) when is_list(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_user_config/2,
@@ -211,6 +324,16 @@ do_write_users_conf(_Fd, Crap) ->
 %% ------ agents.conf ------
 %% 
 
+-doc """
+agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout,
+MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()
+
+Create an entry for the manager agents config file, `agents.conf`.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #write_agents_config }
+""".
 agents_entry(
   UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
   MaxMessageSize, Version, SecModel, SecName, SecLevel) ->
@@ -218,6 +341,7 @@ agents_entry(
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
 
+-doc(#{equiv => write_agents_config/3}).
 write_agents_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the agents the manager handles\n"
@@ -229,6 +353,20 @@ write_agents_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agents_config(Dir, Hdr, Conf).
 
+-doc """
+write_agents_config(Dir, Hdr, Conf) -> ok
+
+Write the manager agents config to the manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #append_agents_config }
+""".
 write_agents_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -236,6 +374,17 @@ write_agents_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agents_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+append_agents_config(Dir, Conf) -> ok
+
+Append the agents config to the current manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #read_agents_config }
+""".
 append_agents_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -243,6 +392,17 @@ append_agents_config(Dir, Conf)
     Write = fun write_agents_conf/2,
     append_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+read_agents_config(Dir) -> Conf
+
+Read the current manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #usm_entry }
+""".
 read_agents_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_agent_config/2,
@@ -282,13 +442,25 @@ do_write_agents_conf(_Fd, Crap) ->
 %% ------ usm.conf -----
 %% 
 
+-doc(#{equiv => usm_entry/7}).
 usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.
 
+-doc """
+usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
+usm_entry()
+
+Create an entry for the agent community config file, `community.conf`.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #write_usm_config }
+""".
 usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.
 
 
+-doc(#{equiv => write_usm_config/3}).
 write_usm_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the usm users the manager handles\n"
@@ -299,6 +471,20 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+-doc """
+write_usm_config(Dir, Hdr, Conf) -> ok
+
+Write the manager usm config to the manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #append_usm_config }
+""".
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -306,6 +492,17 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+append_usm_config(Dir, Conf) -> ok
+
+Append the usm config to the current manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #read_usm_config }
+""".
 append_usm_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -313,6 +510,17 @@ append_usm_config(Dir, Conf)
     Write = fun write_usm_conf/2,
     append_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+read_usm_config(Dir) -> Conf
+
+Read the current manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #end }
+""".
 read_usm_config(Dir) 
   when is_list(Dir) ->
     Order = fun snmp_conf:no_order/2,

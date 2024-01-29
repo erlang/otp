@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_monitor).
+-moduledoc false.
 
 -behaviour(gen_server).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(sasl_report_tty_h).
+-moduledoc false.
 
 %%%
 %%% A handler that can be connected to the error_logger

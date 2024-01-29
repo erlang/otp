@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(io_lib_format).
+-moduledoc false.
 
 %% Formatting functions of io library.
 

@@ -20,6 +20,7 @@
 
 %%
 -module(odbc_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

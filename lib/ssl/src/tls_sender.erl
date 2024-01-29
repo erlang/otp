@@ -19,6 +19,7 @@
 %%
 
 -module(tls_sender).
+-moduledoc false.
 
 -behaviour(gen_statem).
 

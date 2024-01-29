@@ -21,6 +21,7 @@
 %% Description  : Helper module to xmerl_xpath: XPATH predicates.
 
 -module(xmerl_xpath_pred).
+-moduledoc false.
 
 %% API
 -export([eval/2]).

@@ -21,6 +21,151 @@
 %% Purpose : Main Crypto API module.
 
 -module(crypto).
+-moduledoc """
+Crypto Functions
+
+This module provides a set of cryptographic functions.
+
+- **Hash functions** - \* **SHA1, SHA2** - [Secure Hash Standard \[FIPS PUB
+  180-4]](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf)
+
+  - **SHA3** - [SHA-3 Standard: Permutation-Based Hash and Extendable-Output
+    Functions \[FIPS PUB
+    202]](https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061)
+
+  - **BLAKE2** - [BLAKE2 — fast secure hashing](https://blake2.net/)
+
+  - **MD5** - [The MD5 Message Digest Algorithm \[RFC
+    1321]](http://www.ietf.org/rfc/rfc1321.txt)
+
+  - **MD4** - [The MD4 Message Digest Algorithm \[RFC
+    1320]](http://www.ietf.org/rfc/rfc1320.txt)
+
+- **MACs - Message Authentication Codes** - \* **Hmac functions** -
+  [Keyed-Hashing for Message Authentication \[RFC
+  2104]](http://www.ietf.org/rfc/rfc2104.txt)
+
+  - **Cmac functions** - [The AES-CMAC Algorithm \[RFC
+    4493]](http://www.ietf.org/rfc/rfc4493.txt)
+
+  - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
+    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+
+- **Symmetric Ciphers** - \* **DES, 3DES and AES** - [Block Cipher Techniques
+  \[NIST]](https://csrc.nist.gov/projects/block-cipher-techniques)
+
+  - **Blowfish** -
+    [Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204.](https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html)
+
+  - **Chacha20** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
+    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+
+  - **Chacha20_poly1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
+    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+
+- **Modes** - \* **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
+  Cipher Modes of Operation: Methods and Techniques \[NIST SP
+  800-38A]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
+
+  - **GCM** - [Recommendation for Block Cipher Modes of Operation:
+    Galois/Counter Mode (GCM) and GMAC \[NIST SP
+    800-38D]](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
+
+  - **CCM** - [Recommendation for Block Cipher Modes of Operation: The CCM Mode
+    for Authentication and Confidentiality \[NIST SP
+    800-38C]](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf)
+
+- **Asymmetric Ciphers - Public Key Techniques** - \* **RSA** - [PKCS #1: RSA
+  Cryptography Specifications \[RFC 3447]](http://www.ietf.org/rfc/rfc3447.txt)
+
+  - **DSS** - [Digital Signature Standard (DSS) \[FIPS
+    186-4]](https://csrc.nist.gov/publications/detail/fips/186/4/final)
+
+  - **ECDSA** - [Elliptic Curve Digital Signature Algorithm
+    \[ECDSA]](http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf)
+
+  - **SRP** - [The SRP Authentication and Key Exchange System \[RFC
+    2945]](http://www.ietf.org/rfc/rfc2945.txt)
+
+> #### Note {: .info }
+>
+> The actual supported algorithms and features depends on their availability in
+> the actual libcrypto used. See the [crypto (App)](crypto_app.md) about
+> dependencies.
+>
+> Enabling FIPS mode will also disable algorithms and features.
+
+The [CRYPTO User's Guide](index.html) has more information on FIPS, Engines and
+Algorithm Details like key lengths.
+
+## Exceptions
+
+[](){: #error_old }
+
+### Atoms - the older style
+
+The exception `error:badarg` signifies that one or more arguments are of wrong
+data type, or are otherwise badly formed.
+
+The exception `error:notsup` signifies that the algorithm is known but is not
+supported by current underlying libcrypto or explicitly disabled when building
+that.
+
+For a list of supported algorithms, see [supports(ciphers)](`supports/1`).
+
+[](){: #error_3tup }
+
+### 3-tuples - the new style
+
+The exception is:
+
+```text
+error:{Tag, C_FileInfo, Description}
+
+Tag = badarg | notsup | error
+C_FileInfo = term()    % Usually only useful for the OTP maintainer
+Description = string() % Clear text, sometimes only useful for the OTP maintainer
+```
+
+The exception tags are:
+
+- **`badarg`** - Signifies that one or more arguments are of wrong data type or
+  are otherwise badly formed.
+
+- **`notsup`** - Signifies that the algorithm is known but is not supported by
+  current underlying libcrypto or explicitly disabled when building that one.
+
+- **`error`** - An error condition that should not occur, for example a memory
+  allocation failed or the underlying cryptolib returned an error code, for
+  example `"Can't initialize context, step 1"`. Those text usually needs
+  searching the C-code to be understood.
+
+Usually there are more information in the call stack about which argument caused
+the exception and what the values where.
+
+To catch the exception, use for example:
+
+```text
+try crypto:crypto_init(Ciph, Key, IV, true)
+    catch
+        error:{Tag, _C_FileInfo, Description} ->
+            do_something(......)
+         .....
+end
+```
+""".
+-moduledoc(#{titles =>
+                 [{function,<<"Engine API">>},
+                  {type,<<"Ciphers">>},
+                  {type,<<"Digests and hash">>},
+                  {type,<<"Elliptic Curves">>},
+                  {type,<<"Keys">>},
+                  {type,<<"Public/Private Keys">>},
+                  {type,<<"Public Key Ciphers">>},
+                  {type,<<"Public Key Sign and Verify">>},
+                  {type,<<"Diffie-Hellman Keys and parameters">>},
+                  {type,<<"Types for Engines">>},
+                  {type,<<"Internal data types">>}]}).
 
 -export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
@@ -201,44 +346,131 @@
 %%% ===== BEGIN NEW TYPING ====
 
 %%% Basic
+-doc "Always `t:binary/0` when used as return value".
+-doc(#{title => <<"Keys">>}).
 -type key_integer() :: integer() | binary(). % Always binary() when used as return value
 
 %%% Keys
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,rsa_params,0}}).
 -type rsa_public() :: [key_integer()] . % [E, N]
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,rsa_params,0}}).
 -type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
+-doc """
+```text
+rsa_public() = [E, N]
+```
+
+```erlang
+rsa_private() = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
+```
+
+Where E is the public exponent, N is public modulus and D is the private
+exponent. The longer key format contains redundant information that will make
+the calculation faster. P1 and P2 are first and second prime factors. E1 and E2
+are first and second exponents. C is the CRT coefficient. The terminology is
+taken from [RFC 3447](http://www.ietf.org/rfc/rfc3447.txt).
+""".
+-doc(#{title => <<"Public/Private Keys">>}).
 -type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,dss_private,0}}).
 -type dss_public() :: [key_integer()] . % [P, Q, G, Y]
+-doc """
+```text
+dss_public() = [P, Q, G, Y]
+```
+
+Where P, Q and G are the dss parameters and Y is the public key.
+
+```text
+dss_private() = [P, Q, G, X]
+```
+
+Where P, Q and G are the dss parameters and X is the private key.
+""".
+-doc(#{title => <<"Public/Private Keys">>}).
 -type dss_private() :: [key_integer()] . % [P, Q, G, X]
 
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,ecdsa_params,0}}).
 -type ecdsa_public()  :: key_integer() .
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,ecdsa_params,0}}).
 -type ecdsa_private() :: key_integer() .
+-doc(#{title => <<"Public/Private Keys">>}).
 -type ecdsa_params()  :: ec_named_curve() | ec_explicit_curve() .
 
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,eddsa_params,0}}).
 -type eddsa_public()  :: key_integer() .
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,eddsa_params,0}}).
 -type eddsa_private() :: key_integer() .
+-doc(#{title => <<"Public/Private Keys">>}).
 -type eddsa_params()  :: edwards_curve_ed() .
 
+-doc(#{title => <<"Public/Private Keys">>,equiv => {type,srp_private,0}}).
 -type srp_public() :: key_integer() .
+-doc """
+```text
+srp_public() = key_integer()
+```
+
+Where is `A` or `B` from [SRP design](http://srp.stanford.edu/design.html)
+
+```text
+srp_private() = key_integer()
+```
+
+Where is `a` or `b` from [SRP design](http://srp.stanford.edu/design.html)
+""".
+-doc(#{title => <<"Public/Private Keys">>}).
 -type srp_private() :: key_integer() .
+-doc(#{title => <<"Public/Private Keys">>,
+       equiv => {type,srp_host_comp_params,0}}).
 -type srp_gen_params()  :: {user,srp_user_gen_params()}  | {host,srp_host_gen_params()}.
+-doc(#{title => <<"Public/Private Keys">>,
+       equiv => {type,srp_host_comp_params,0}}).
 -type srp_comp_params() :: {user,srp_user_comp_params()} | {host,srp_host_comp_params()}.
+-doc(#{title => <<"Public/Private Keys">>,
+       equiv => {type,srp_host_comp_params,0}}).
 -type srp_user_gen_params() :: list(binary() | atom() | list()) .
+-doc(#{title => <<"Public/Private Keys">>,
+       equiv => {type,srp_host_comp_params,0}}).
 -type srp_host_gen_params() :: list(binary() | atom() | list()) .
+-doc(#{title => <<"Public/Private Keys">>,
+       equiv => {type,srp_host_comp_params,0}}).
 -type srp_user_comp_params() :: list(binary() | atom()) .
+-doc """
+Where Verifier is `v`, Generator is `g` and Prime is` N`, DerivedKey is `X`, and
+Scrambler is `u` (optional will be generated if not provided) from
+[SRP design](http://srp.stanford.edu/design.html) Version = '3' | '6' | '6a'
+""".
+-doc(#{title => <<"Public/Private Keys">>}).
 -type srp_host_comp_params() :: list(binary() | atom()) .
 
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+       equiv => {type,dh_private,0}}).
 -type dh_public() :: key_integer() .
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
 -type dh_private() :: key_integer() .
+-doc """
+```text
+dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
+```
+""".
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
 -type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
 
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+       equiv => {type,ecdh_params,0}}).
 -type ecdh_public()  :: key_integer() .
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
+       equiv => {type,ecdh_params,0}}).
 -type ecdh_private() :: key_integer() .
+-doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
 -type ecdh_params()  :: ec_named_curve() | edwards_curve_dh() | ec_explicit_curve() .
 
 
 %%% Curves
 
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_curve,0}}).
 -type ec_explicit_curve() :: {Field :: ec_field(),
                               Curve :: ec_curve(),
                               BasePoint :: binary(),
@@ -247,20 +479,28 @@
                                           binary()
                              } .
 
+-doc "Parametric curve definition.".
+-doc(#{title => <<"Elliptic Curves">>}).
 -type ec_curve() :: {A :: binary(),
                      B :: binary(),
                      Seed :: none | binary()
                     } .
 
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_curve,0}}).
 -type ec_field() ::  ec_prime_field() | ec_characteristic_two_field() .
 
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_basis,0}}).
 -type ec_prime_field()              :: {prime_field, Prime :: integer()} .
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_basis,0}}).
 -type ec_characteristic_two_field() :: {characteristic_two_field, M :: integer(), Basis :: ec_basis()} .
 
+-doc "Curve definition details.".
+-doc(#{title => <<"Elliptic Curves">>}).
 -type ec_basis() :: {tpbasis, K :: non_neg_integer()}
                   | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()}
                   |  onbasis .
 
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,edwards_curve_ed,0}}).
 -type ec_named_curve() :: brainpoolP160r1
                         | brainpoolP160t1
                         | brainpoolP192r1
@@ -346,17 +586,22 @@
                         | wtls9
                           .
 
+-doc(#{title => <<"Elliptic Curves">>,equiv => {type,edwards_curve_ed,0}}).
 -type edwards_curve_dh() :: x25519 | x448 .
 
+-doc "Note that some curves are disabled if FIPS is enabled.".
+-doc(#{title => <<"Elliptic Curves">>}).
 -type edwards_curve_ed() :: ed25519 | ed448 .
 
 %%%----------------------------------------------------------------
 %%% New cipher schema
 %%%
+-doc(#{title => <<"Ciphers">>}).
 -type cipher() :: cipher_no_iv()
                 | cipher_iv()
                 | cipher_aead() .
 
+-doc(#{title => <<"Ciphers">>}).
 -type cipher_no_iv() :: aes_128_ecb
                       | aes_192_ecb
                       | aes_256_ecb
@@ -366,6 +611,7 @@
                       | des_ecb
                       | rc4 .
 
+-doc(#{title => <<"Ciphers">>}).
 -type cipher_iv() :: aes_128_cbc
                    | aes_192_cbc
                    | aes_256_cbc
@@ -402,6 +648,13 @@
                    | rc2_cbc .
 
 
+-doc """
+Ciphers known by the CRYPTO application.
+
+Note that this list might be reduced if the underlying libcrypto does not
+support all of them.
+""".
+-doc(#{title => <<"Ciphers">>}).
 -type cipher_aead() :: aes_128_ccm
                      | aes_192_ccm
                      | aes_256_ccm
@@ -417,16 +670,29 @@
 
 %%%----------------------------------------------------------------
 
+-doc(#{title => <<"Digests and hash">>}).
 -type rsa_digest_type()   :: sha1() | sha2() | md5 | ripemd160 .
+-doc(#{title => <<"Digests and hash">>}).
 -type dss_digest_type()   :: sha1() | sha2() .
+-doc(#{title => <<"Digests and hash">>}).
 -type ecdsa_digest_type() :: sha1() | sha2() .
 
+-doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
 -type sha1() :: sha .
+-doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
 -type sha2() :: sha224 | sha256 | sha384 | sha512 .
+-doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
+-doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
 -type sha3_xof() :: shake128 | shake256 .
+-doc(#{title => <<"Digests and hash">>}).
 -type blake2() :: blake2b | blake2s .
 
+-doc """
+The `t:compatibility_only_hash/0` algorithms are recommended only for
+compatibility with existing applications.
+""".
+-doc(#{title => <<"Digests and hash">>}).
 -type compatibility_only_hash() :: md5 | md4 .
 
 -type crypto_integer() :: binary() | integer().
@@ -495,9 +761,11 @@ nif_stub_error(Line) ->
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
+-doc false.
 version() ->
     ?CRYPTO_VSN.
 
+-doc false.
 format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when Ex == badarg ;
                                                                                  Ex == notsup ->
     case proplists:get_value(error_info, Opts) of
@@ -514,14 +782,17 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
     end.
 
 
+-doc "Equivalent to application:start(crypto).".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
+-doc "Equivalent to application:stop(crypto).".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
     application:stop(crypto).
 
+-doc false.
 -spec supports() -> [Support]
                         when Support :: {hashs,   Hashs}
                                       | {ciphers, Ciphers}
@@ -546,6 +817,14 @@ supports() ->
      ].
 
 
+-doc """
+Can be used to determine which crypto algorithms that are supported by the
+underlying libcrypto library
+
+See `hash_info/1` and `cipher_info/1` for information about the hash and cipher
+algorithms.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec supports(Type) -> Support
                         when Type :: hashs
 			           | ciphers
@@ -576,11 +855,48 @@ supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
 
 
+-doc """
+Provides the name and version of the libraries used by crypto.
+
+`Name` is the name of the library. `VerNum` is the numeric version according to
+the library's own versioning scheme. `VerStr` contains a text variant of the
+version.
+
+```erlang
+> info_lib().
+[{<<"OpenSSL">>,269484095,<<"OpenSSL 1.1.0c  10 Nov 2016"">>}]
+```
+
+> #### Note {: .info }
+>
+> From OTP R16 the _numeric version_ represents the version of the OpenSSL
+> _header files_ (`openssl/opensslv.h`) used when crypto was compiled. The text
+> variant represents the libcrypto library used at runtime. In earlier OTP
+> versions both numeric and text was taken from the library.
+""".
 -spec info_lib() -> [{Name,VerNum,VerStr}] when Name :: binary(),
                                                 VerNum :: integer(),
                                                 VerStr :: binary() .
 info_lib() -> ?nif_stub.
 
+-doc """
+Provides a map with information about the compilation and linking of crypto.
+
+Example:
+
+```erlang
+1> crypto:info().
+#{compile_type => normal,
+  cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
+  cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
+  link_type => dynamic,
+  otp_crypto_version => "5.0.2"}
+2>
+```
+
+More association types than documented may be present in the map.
+""".
+-doc(#{since => <<"OTP 24.2">>}).
 -spec info() -> #{compile_type := normal | debug | valgrind | asan,
                  cryptolib_version_compiled => string() | undefined,
                   cryptolib_version_linked := string(),
@@ -593,10 +909,35 @@ info() ->
 info_nif() -> ?nif_stub.
 
 
+-doc """
+Provides information about the FIPS operating status of crypto and the
+underlying libcrypto library. If crypto was built with FIPS support this can be
+either `enabled` (when running in FIPS mode) or `not_enabled`. For other builds
+this value is always `not_supported`.
+
+See `enable_fips_mode/1` about how to enable FIPS mode.
+
+> #### Warning {: .warning }
+>
+> In FIPS mode all non-FIPS compliant algorithms are disabled and raise
+> exception `error:notsup`. Check [supports(ciphers)](`supports/1`) that in FIPS
+> mode returns the restricted list of available algorithms.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec info_fips() -> not_supported | not_enabled | enabled.
 
 info_fips() -> ?nif_stub.
 
+-doc """
+Enables (`Enable = true`) or disables (`Enable = false`) FIPS mode. Returns
+`true` if the operation was successful or `false` otherwise.
+
+Note that to enable FIPS mode successfully, OTP must be built with the configure
+option `--enable-fips`, and the underlying libcrypto must also support FIPS.
+
+See also `info_fips/0`.
+""".
+-doc(#{since => <<"OTP 21.1">>}).
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
 enable_fips_mode(Enable) ->
@@ -604,6 +945,13 @@ enable_fips_mode(Enable) ->
 
 enable_fips_mode_nif(_) -> ?nif_stub.
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+PKCS #5 PBKDF2 (Password-Based Key Derivation Function 2) in combination with
+HMAC.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 24.2">>}).
 -spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
           when Digest :: sha | sha224 | sha256 | sha384 | sha512,
                Pass :: binary(),
@@ -622,9 +970,18 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%
 %%%================================================================
 
+-doc(#{title => <<"Digests and hash">>}).
 -type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
+-doc(#{title => <<"Digests and hash">>}).
 -type hash_xof_algorithm() :: sha3_xof() .
 
+-doc """
+Provides a map with information about block_size, size and possibly other
+properties of the hash algorithm in question.
+
+For a list of supported hash algorithms, see [supports(hashs)](`supports/1`).
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
                                   Result :: #{size := integer(),
@@ -634,6 +991,12 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 hash_info(Type) ->
     hash_info_nif(Type).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Computes a message digest of type `Type` from `Data`.
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
                                       Data :: iodata(),
                                       Digest :: binary().
@@ -642,6 +1005,16 @@ hash(Type, Data) ->
     MaxBytes = max_bytes(),
     hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Computes a message digest of type `Type` from `Data` of `Length` for the chosen
+`xof_algorithm`.
+
+May raise exception `error:notsup` in case the chosen `Type` is not supported by
+the underlying libcrypto implementation.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec hash_xof(Type, Data, Length) -> Digest when Type :: hash_xof_algorithm(),
                                                Data :: iodata(),
                                                Length :: non_neg_integer(),
@@ -650,13 +1023,31 @@ hash_xof(Type, Data, Length) ->
   Data1 = iolist_to_binary(Data),
   hash_xof(Type, Data1, erlang:byte_size(Data1), Length).
 
+-doc(#{title => <<"Internal data types">>,equiv => {type,mac_state,0}}).
 -opaque hash_state() :: reference().
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Initializes the context for streaming hash operations. `Type` determines which
+digest to use. The returned context should be used as argument to
+[hash_update](`hash_update/2`).
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
 hash_init(Type) ->
     ?nif_call(hash_init_nif(Type)).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Updates the digest represented by `Context` using the given `Data`. `Context`
+must have been generated using [hash_init](`hash_init/1`) or a previous call to
+this function. `Data` can be any length. `NewContext` must be passed into the
+next call to `hash_update` or [hash_final](`hash_final/1`).
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
                                                 Data :: iodata() .
@@ -665,11 +1056,20 @@ hash_update(Context, Data) ->
     MaxBytes = max_bytes(),
     hash_update(Context, Data1, erlang:byte_size(Data1), MaxBytes).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Finalizes the hash operation referenced by `Context` returned from a previous
+call to [hash_update](`hash_update/2`). The size of `Digest` is determined by
+the type of hash function used to generate it.
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hash_final(State) -> Digest when  State :: hash_state(),
                                         Digest :: binary().
 hash_final(Context) ->
     ?nif_call(hash_final_nif(Context)).
 
+-doc false.
 -spec hash_final_xof(State, Length) -> Digest when State :: hash_state(),
                                                    Length :: non_neg_integer(),
                                                    Digest :: binary().
@@ -682,8 +1082,10 @@ hash_final_xof(Context, Length) ->
 %%%
 %%%================================================================
 
+-doc(#{title => <<"Digests and hash">>}).
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
+-doc(#{title => <<"Digests and hash">>}).
 -type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
                                | blowfish_cbc
                                | des_cbc | des_ede3_cbc
@@ -693,6 +1095,12 @@ hash_final_xof(Context, Length) ->
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Short for [mac(Type, undefined, Key, Data)](`mac/4`).
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac(Type :: poly1305, Key, Data) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
@@ -701,6 +1109,33 @@ hash_final_xof(Context, Length) ->
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Computes a MAC (Message Authentication Code) of type `Type` from `Data`.
+
+`SubType` depends on the MAC `Type`:
+
+- For `hmac` it is a hash algorithm, see
+  [Algorithm Details](algorithm_details.md#hmac) in the User's Guide.
+- For `cmac` it is a cipher suitable for cmac, see
+  [Algorithm Details](algorithm_details.md#cmac) in the User's Guide.
+- For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
+  function could be used instead, see
+  [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+
+`Key` is the authentication key with a length according to the `Type` and
+`SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
+`cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+Note that the cryptographic quality of the key is not checked.
+
+The `Mac` result will have a default length depending on the `Type` and
+`SubType`. To set a shorter length, use `macN/4` or `macN/5` instead. The
+default length is documented in
+[Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
+the User's Guide.
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac(Type, SubType, Key, Data) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -713,6 +1148,12 @@ mac(Type, SubType, Key0, Data) ->
     ?nif_call(mac_nif(Type, alias(SubType,Key), Key, Data)).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Short for [macN(Type, undefined, Key, Data, MacLength)](`macN/5`).
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
@@ -723,6 +1164,18 @@ macN(Type, Key, Data, MacLength) ->
     macN(Type, undefined, Key, Data, MacLength).
 
 
+-doc """
+Computes a MAC (Message Authentication Code) as `mac/3` and `mac/4` but
+`MacLength` will limit the size of the resultant `Mac` to at most `MacLength`
+bytes. Note that if `MacLength` is greater than the actual number of bytes
+returned from the underlying hash, the returned hash will have that shorter
+length instead.
+
+The max `MacLength` is documented in
+[Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
+the User's Guide.
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec macN(Type, SubType, Key, Data, MacLength) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -738,8 +1191,19 @@ macN(Type, SubType, Key, Data, MacLength) ->
 %%%----------------------------------------------------------------
 %%% Calculate the MAC by uppdating by pieces of the text
 
+-doc """
+Contexts with an internal state that should not be manipulated but passed
+between function calls.
+""".
+-doc(#{title => <<"Internal data types">>}).
 -opaque mac_state() :: reference() .
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Short for [mac_init(Type, undefined, Key)](`mac_init/3`).
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac_init(Type :: poly1305, Key) -> State
                           when Key :: iodata(),
                                State :: mac_state() .
@@ -747,6 +1211,36 @@ mac_init(poly1305, Key) ->
     ?nif_call(mac_init_nif(poly1305, undefined, Key)).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Initializes the context for streaming MAC operations.
+
+`Type` determines which mac algorithm to use in the MAC operation.
+
+`SubType` depends on the MAC `Type`:
+
+- For `hmac` it is a hash algorithm, see
+  [Algorithm Details](algorithm_details.md#hmac) in the User's Guide.
+- For `cmac` it is a cipher suitable for cmac, see
+  [Algorithm Details](algorithm_details.md#cmac) in the User's Guide.
+- For `poly1305` it should be set to `undefined` or the [mac/2](`mac_init/2`)
+  function could be used instead, see
+  [Algorithm Details](algorithm_details.md#poly1305) in the User's Guide.
+
+`Key` is the authentication key with a length according to the `Type` and
+`SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
+`cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
+Note that the cryptographic quality of the key is not checked.
+
+The returned `State` should be used in one or more subsequent calls to
+`mac_update/2`. The MAC value is finally returned by calling `mac_final/1` or
+`mac_finalN/2`.
+
+See
+[examples in the User's Guide.](new_api.md#example-of-mac_init-mac_update-and-mac_final)
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac_init(Type, SubType, Key) -> State
                           when Type :: hmac | cmac | poly1305,
                                SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -757,6 +1251,18 @@ mac_init(Type, SubType, Key0) ->
     ?nif_call(mac_init_nif(Type, alias(SubType,Key), Key)).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Updates the MAC represented by `State0` using the given `Data` which could be of
+any length.
+
+The `State0` is the State value originally from a MAC init function, that is
+`mac_init/2`, `mac_init/3` or a previous call of
+[`mac_update/2`](`mac_update/2`). The value `State0` is returned unchanged by
+the function as `State`.
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac_update(State0, Data) -> State
                      when Data :: iodata(),
                           State0 :: mac_state(),
@@ -766,6 +1272,17 @@ mac_update(Ref, Data) ->
 
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Finalizes the MAC operation referenced by `State`. The `Mac` result will have a
+default length depending on the `Type` and `SubType` in the
+[mac_init/2,3](`mac_init/3`) call. To set a shorter length, use `mac_finalN/2`
+instead. The default length is documented in
+[Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
+the User's Guide.
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac_final(State) -> Mac
                               when State :: mac_state(),
                                    Mac :: binary().
@@ -773,6 +1290,20 @@ mac_final(Ref) ->
     ?nif_call(mac_final_nif(Ref)).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Finalizes the MAC operation referenced by `State`.
+
+`Mac` will be a binary with at most `MacLength` bytes. Note that if `MacLength`
+is greater than the actual number of bytes returned from the underlying hash,
+the returned hash will have that shorter length instead.
+
+The max `MacLength` is documented in
+[Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
+the User's Guide.
+""".
+-doc(#{since => <<"OTP 22.1">>}).
 -spec mac_finalN(State, MacLength) -> Mac
                               when State :: mac_state(),
                                    MacLength :: pos_integer(),
@@ -801,6 +1332,24 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 
 %%%---- Cipher info
+-doc """
+Provides a map with information about block_size, key_length, iv_length, aead
+support and possibly other properties of the cipher algorithm in question.
+
+> #### Note {: .info }
+>
+> The ciphers `aes_cbc`, `aes_cfb8`, `aes_cfb128`, `aes_ctr`, `aes_ecb`,
+> `aes_gcm` and `aes_ccm` has no keylength in the `Type` as opposed to for
+> example `aes_128_ctr`. They adapt to the length of the key provided in the
+> encrypt and decrypt function. Therefore it is impossible to return a valid
+> keylength in the map.
+>
+> Always use a `Type` with an explicit key length,
+
+For a list of supported cipher algorithms, see
+[supports(ciphers)](`supports/1`).
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec cipher_info(Type) -> Result
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
@@ -854,14 +1403,33 @@ cipher_info(Type) ->
 %%%
 %%%================================================================
 
+-doc(#{title => <<"Internal data types">>,equiv => {type,mac_state,0}}).
 -opaque crypto_state() :: reference() .
 
+-doc(#{title => <<"Ciphers">>,equiv => {type,crypto_opt,0}}).
 -type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
+-doc "Selects encryption (`{encrypt,true}`) or decryption (`{encrypt,false}`).".
+-doc(#{title => <<"Ciphers">>}).
 -type crypto_opt() :: {encrypt,boolean()}
                     | {padding, padding()} .
+-doc """
+This option handles padding in the last block. If not set, no padding is done
+and any bytes in the last unfilled block is silently discarded.
+""".
+-doc(#{title => <<"Ciphers">>}).
 -type padding() :: cryptolib_padding() | otp_padding().
+-doc """
+The `cryptolib_padding` are paddings that may be present in the underlying
+cryptolib linked to the Erlang/OTP crypto app.
+
+For OpenSSL, see the [OpenSSL documentation](https://openssl.org). and find
+`EVP_CIPHER_CTX_set_padding()` in cryptolib for your linked version.
+""".
+-doc(#{title => <<"Ciphers">>}).
 -type cryptolib_padding() :: none | pkcs_padding .
+-doc "Erlang/OTP adds a either padding of zeroes or padding with random bytes.".
+-doc(#{title => <<"Ciphers">>}).
 -type otp_padding() :: zero | random .
 
 
@@ -870,6 +1438,14 @@ cipher_info(Type) ->
 %%% Create and initialize a new state for encryption or decryption
 %%%
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Equivalent to the call
+[`crypto_init(Cipher, Key, <<>>, FlagOrOptions)`](`crypto_init/4`). It is
+intended for ciphers without an IV (nounce).
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, FlagOrOptions) -> State
                                                    when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
@@ -880,6 +1456,49 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
               {1,2,-1,3}
              ).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Initializes a series of encryptions or decryptions and creates an internal state
+with a reference that is returned.
+
+If `IV = <<>>`, no IV is used. This is intended for ciphers without an IV
+(nounce). See `crypto_init/3`.
+
+If `IV = undefined`, the IV must be added by calls to `crypto_dyn_iv_update/3`.
+This is intended for cases where the IV (nounce) need to be changed for each
+encryption and decryption. See `crypto_dyn_iv_init/3`.
+
+The actual encryption or decryption is done by `crypto_update/2` (or
+`crypto_dyn_iv_update/3` ).
+
+For encryption, set the `FlagOrOptions` to `true` or `[{encrypt,true}]`. For
+decryption, set it to `false` or `[{encrypt,false}]`.
+
+Padding could be enabled with the option [\{padding,Padding\}](`t:padding/0`).
+The [cryptolib_padding](`t:cryptolib_padding/0`) enables `pkcs_padding` or no
+padding (`none`). The paddings `zero` or `random` fills the last part of the
+last block with zeroes or random bytes. If the last block is already full,
+nothing is added.
+
+In decryption, the [cryptolib_padding](`t:cryptolib_padding/0`) removes such
+padding, if present. The [otp_padding](`t:otp_padding/0`) is not removed - it
+has to be done elsewhere.
+
+If padding is `{padding,none}` or not specified and the total data from all
+subsequent [crypto_updates](`crypto_update/2`) does not fill the last block
+fully, that last data is lost. In case of `{padding,none}` there will be an
+error in this case. If padding is not specified, the bytes of the unfilled block
+is silently discarded.
+
+The actual padding is performed by `crypto_final/1`.
+
+For blocksizes call `cipher_info/1`.
+
+See
+[examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State
                                                        when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
@@ -890,6 +1509,16 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, IV, FlagOrOptions)).
 
 %%%----------------------------------------------------------------
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Initializes a series of encryptions or decryptions where the IV is provided
+later. The actual encryption or decryption is done by `crypto_dyn_iv_update/3`.
+
+The function is equivalent to
+[`crypto_init(Cipher, Key, undefined, FlagOrOptions)`](`crypto_init/4`).
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
@@ -909,6 +1538,19 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
 %%% blocksize.
 %%%
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+It does an actual crypto operation on a part of the full text. If the part is
+less than a number of full blocks, only the full blocks (possibly none) are
+encrypted or decrypted and the remaining bytes are saved to the next
+`crypto_update` operation. The `State` should be created with `crypto_init/3` or
+`crypto_init/4`.
+
+See
+[examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_update(State, Data) -> Result
                             when State :: crypto_state(),
                                  Data :: iodata(),
@@ -917,6 +1559,13 @@ crypto_update(State, Data) ->
     ?nif_call(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Do an actual crypto operation on a part of the full text and the IV is supplied
+for each part. The `State` should be created with `crypto_dyn_iv_init/3`.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_dyn_iv_update(State, Data, IV) -> Result
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
@@ -931,6 +1580,14 @@ crypto_dyn_iv_update(State, Data, IV) ->
 %%% to crypto_uptate was not an integer number of blocks, the rest
 %%% is returned from this function.
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Finalizes a series of encryptions or decryptions and delivers the final bytes of
+the final block. The data returned from this function may be empty if no padding
+was enabled in [crypto_init/3,4](`crypto_init/3`) or `crypto_dyn_iv_init/3`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec crypto_final(State) -> FinalResult
                             when State :: crypto_state(),
                                  FinalResult :: binary() .
@@ -941,6 +1598,23 @@ crypto_final(State) ->
 %%%
 %%% Get result of padding etc
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Returns information about the State in the argument. The information is the form
+of a map, which currently contains at least:
+
+- **`size`** - The number of bytes encrypted or decrypted so far.
+
+- **`padding_size`** - After a call to `crypto_final/1` it contains the number
+  of bytes padded. Otherwise 0.
+
+- **`padding_type`** - The type of the padding as provided in the call to
+  [crypto_init/3,4](`crypto_init/3`).
+
+- **`encrypt`** - Is `true` if encryption is performed. It is `false` otherwise.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec crypto_get_data(State) -> Result
                             when State :: crypto_state(),
                                  Result :: map() .
@@ -953,6 +1627,12 @@ crypto_get_data(State) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%%
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+As `crypto_one_time/5` but for ciphers without IVs.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                              Result
                                  when Cipher :: cipher_no_iv(),
@@ -968,6 +1648,17 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
              ).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Do a complete encrypt or decrypt of the full text in the argument `Data`.
+
+For encryption, set the `FlagOrOptions` to `true`. For decryption, set it to
+`false`. For setting other options, see `crypto_init/4`.
+
+See [examples in the User's Guide.](new_api.md#example-of-crypto_one_time-5)
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                              Result
                                  when Cipher :: cipher_iv(),
@@ -983,6 +1674,8 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
               {}).
 
 %%%----------------------------------------------------------------
+-doc(#{equiv => crypto_one_time_aead/7}).
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
                              Result
                                  when Cipher :: cipher_aead(),
@@ -1001,6 +1694,29 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
              ).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Do a complete encrypt or decrypt with an AEAD cipher of the full text.
+
+For encryption, set the `EncryptFlag` to `true` and set the `TagOrTagLength` to
+the wanted size (in bytes) of the tag, that is, the tag length. If the default
+length is wanted, the `crypto_aead/6` form may be used.
+
+For decryption, set the `EncryptFlag` to `false` and put the tag to be checked
+in the argument `TagOrTagLength`.
+
+Additional Authentication Data (AAD) is plaintext data that will not be
+encrypted, but will be covered by authenticity protection. It should be provided
+through the `AAD` argument, but can be an empty binary as well (`<<>>`) if not
+needed. In that case, a plain AE (Authenticated Encryption) is performed instead
+of AEAD (Authenticated Encryption with Associated Data). This function only
+supports ciphers that can be used both with and without AAD.
+
+See
+[examples in the User's Guide.](new_api.md#example-of-crypto_one_time_aead-6)
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
                              Result
                                  when Cipher :: cipher_aead(),
@@ -1149,6 +1865,16 @@ alias1_rev(C) -> C.
 -type rand_cache_seed() ::
         nonempty_improper_list(non_neg_integer(), binary()).
 
+-doc """
+Generates N bytes randomly uniform 0..255, and returns the result in a binary.
+Uses a cryptographically secure prng seeded and periodically mixed with
+operating system provided entropy. By default this is the `RAND_bytes` method
+from OpenSSL.
+
+May raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+""".
+-doc(#{since => <<"OTP R14B03">>}).
 -spec strong_rand_bytes(N::non_neg_integer()) -> binary().
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
@@ -1158,20 +1884,98 @@ strong_rand_bytes(Bytes) ->
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
+-doc """
+Creates state object for [random number generation](`m:rand`), in order to
+generate cryptographically strong random numbers (based on OpenSSL's
+`BN_rand_range`), and saves it in the process dictionary before returning it as
+well. See also `rand:seed/1` and `rand_seed_s/0`.
+
+When using the state object from this function the `m:rand` functions using it
+may raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+
+_Example_
+
+```erlang
+_ = crypto:rand_seed(),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec rand_seed() -> rand:state().
 rand_seed() ->
     rand:seed(rand_seed_s()).
 
+-doc """
+Creates state object for [random number generation](`m:rand`), in order to
+generate cryptographically strongly random numbers (based on OpenSSL's
+`BN_rand_range`). See also `rand:seed_s/1`.
+
+When using the state object from this function the `m:rand` functions using it
+may raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+
+> #### Note {: .info }
+>
+> The state returned from this function cannot be used to get a reproducible
+> random sequence as from the other `m:rand` functions, since reproducibility
+> does not match cryptographically safe.
+>
+> The only supported usage is to generate one distinct random sequence from this
+> start state.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec rand_seed_s() -> rand:state().
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
+-doc """
+rand_seed_alg(Alg) -> rand:state()
+
+Creates state object for [random number generation](`m:rand`), in order to
+generate cryptographically strong random numbers, and saves it in the process
+dictionary before returning it as well. See also `rand:seed/1` and
+`rand_seed_alg_s/1`.
+
+When using the state object from this function the `m:rand` functions using it
+may raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+
+_Example_
+
+```erlang
+_ = crypto:rand_seed_alg(crypto_cache),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[
+```
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec rand_seed_alg(Alg :: atom()) ->
                            {rand:alg_handler(),
                             atom() | rand_cache_seed()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
+-doc """
+rand_seed_alg(Alg, Seed) -> rand:state()
+
+Creates a state object for [random number generation](`m:rand`), in order to
+generate cryptographically unpredictable random numbers, and saves it in the
+process dictionary before returning it as well. See also `rand_seed_alg_s/2`.
+
+_Example_
+
+```erlang
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % [1; 42]
+FloatValue = rand:uniform(),     % [0.0; 1.0[
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % Same values
+FloatValue = rand:uniform().     % again
+```
+""".
+-doc(#{since => <<"OTP-22.0">>}).
 -spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
                            {rand:alg_handler(),
                             atom() | rand_cache_seed()}.
@@ -1181,6 +1985,42 @@ rand_seed_alg(Alg, Seed) ->
 -define(CRYPTO_CACHE_BITS, 56).
 -define(CRYPTO_AES_BITS, 58).
 
+-doc """
+rand_seed_alg_s(Alg) -> rand:state()
+
+Creates state object for [random number generation](`m:rand`), in order to
+generate cryptographically strongly random numbers. See also `rand:seed_s/1`.
+
+If `Alg` is `crypto` this function behaves exactly like `rand_seed_s/0`.
+
+If `Alg` is `crypto_cache` this function fetches random data with OpenSSL's
+`RAND_bytes` and caches it for speed using an internal word size of 56 bits that
+makes calculations fast on 64 bit machines.
+
+When using the state object from this function the `m:rand` functions using it
+may raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+
+The cache size can be changed from its default value using the
+[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+
+When using the state object from this function the `m:rand` functions using it
+may throw exception `low_entropy` in case the random generator failed due to
+lack of secure "randomness".
+
+> #### Note {: .info }
+>
+> The state returned from this function cannot be used to get a reproducible
+> random sequence as from the other `m:rand` functions, since reproducibility
+> does not match cryptographically safe.
+>
+> In fact since random data is cached some numbers may get reproduced if you
+> try, but this is unpredictable.
+>
+> The only supported usage is to generate one distinct random sequence from this
+> start state.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec rand_seed_alg_s(Alg :: atom()) ->
                              {rand:alg_handler(),
                               atom() | rand_cache_seed()}.
@@ -1191,6 +2031,36 @@ rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
  rand_seed_alg_s(Alg) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state(Alg)}.
 %%
+-doc """
+rand_seed_alg_s(Alg, Seed) -> rand:state()
+
+Creates a state object for [random number generation](`m:rand`), in order to
+generate cryptographically unpredictable random numbers. See also
+`rand_seed_alg/1`.
+
+To get a long period the Xoroshiro928 generator from the `m:rand` module is used
+as a counter (with period 2^928 - 1) and the generator states are scrambled
+through AES to create 58-bit pseudo random values.
+
+The result should be statistically completely unpredictable random values, since
+the scrambling is cryptographically strong and the period is ridiculously long.
+But the generated numbers are not to be regarded as cryptographically strong
+since there is no re-keying schedule.
+
+- If you need cryptographically strong random numbers use `rand_seed_alg_s/1`
+  with `Alg =:= crypto` or `Alg =:= crypto_cache`.
+- If you need to be able to repeat the sequence use this function.
+- If you do not need the statistical quality of this function, there are faster
+  algorithms in the `m:rand` module.
+
+Thanks to the used generator the state object supports the
+[`rand:jump/0,1`](`rand:jump/0`) function with distance 2^512.
+
+Numbers are generated in batches and cached for speed reasons. The cache size
+can be changed from its default value using the
+[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
                              {rand:alg_handler(),
                               atom() | rand_cache_seed()}.
@@ -1240,16 +2110,20 @@ rand_cache_size() ->
             DefaultCacheSize
     end.
 
+-doc false.
 rand_plugin_next(Seed) ->
     {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
 
+-doc false.
 rand_plugin_uniform(State) ->
     {strong_rand_float(), State}.
 
+-doc false.
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
 
+-doc false.
 rand_cache_plugin_next({CacheBits, GenBytes, <<>>}) ->
     rand_cache_plugin_next(
       {CacheBits, GenBytes, strong_rand_bytes(GenBytes)});
@@ -1266,6 +2140,7 @@ rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
 %% at the time and cache them.
 %%
 -dialyzer({no_improper_lists, rand_plugin_aes_next/1}).
+-doc false.
 rand_plugin_aes_next([V|Cache]) ->
     {V,Cache};
 rand_plugin_aes_next({Key,GenWords,F,Count}) ->
@@ -1300,6 +2175,7 @@ block_encrypt(Key, Data) ->
 %% is applied to the jump base and then the number of used
 %% numbers from the cache has to be wasted for the jump to be correct
 %%
+-doc false.
 rand_plugin_aes_jump({#{type := crypto_aes} = Alg, Cache}) ->
     {Alg,rand_plugin_aes_jump(fun longcount_jump/1, 0, Cache)}.
 %% Count cached words and subtract their number from jump
@@ -1315,6 +2191,7 @@ rand_plugin_aes_jump(Jump, Skip, Key, GenWords, F, JumpBase) ->
     Count = longcount_next_count(Skip, Jump(JumpBase)),
     {Key,GenWords,F,Count}.
 
+-doc false.
 rand_plugin_aes_jump_2pow20(Cache) ->
     rand_plugin_aes_jump(fun longcount_jump_2pow20/1, 0, Cache).
 
@@ -1374,6 +2251,12 @@ strong_rand_float() ->
     WholeRange = strong_rand_range(1 bsl 53),
     ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
+-doc """
+rand_uniform(Lo, Hi) -> N
+
+Generate a random number `N, Lo =< N < Hi.` Uses the `crypto` library
+pseudo-random number generator. `Hi` must be larger than `Lo`.
+""".
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 rand_uniform(From, To) when is_binary(From), is_binary(To) ->
@@ -1405,6 +2288,13 @@ rand_uniform_pos(_,_) ->
 rand_uniform_nif(_From,_To) -> ?nif_stub.
 
 
+-doc """
+Set the seed for PRNG to the given binary. This calls the RAND_seed function
+from openssl. Only use this if the system you are running on does not have
+enough "randomness" built in. Normally this is when `strong_rand_bytes/1` raises
+`error:low_entropy`
+""".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec rand_seed(binary()) -> ok.
 rand_seed(Seed) when is_binary(Seed) ->
     rand_seed_nif(Seed).
@@ -1416,14 +2306,31 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%% Sign/verify
 %%%
 %%%================================================================
+-doc "Algorithms for sign and verify.".
+-doc(#{title => <<"Public Key Sign and Verify">>}).
 -type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa .
 
+-doc(#{title => <<"Public Key Sign and Verify">>,
+       equiv => {type,rsa_sign_verify_padding,0}}).
 -type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
 
+-doc(#{title => <<"Public Key Sign and Verify">>,
+       equiv => {type,rsa_sign_verify_padding,0}}).
 -type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
                              | {rsa_pss_saltlen, integer()}
                              | {rsa_mgf1_md, sha2()}.
 
+-doc """
+Options for sign and verify.
+
+> #### Warning {: .warning }
+>
+> The RSA options are experimental.
+>
+> The exact set of options and there syntax _may_ be changed without prior
+> notice.
+""".
+-doc(#{title => <<"Public Key Sign and Verify">>}).
 -type rsa_sign_verify_padding() :: rsa_pkcs1_padding | rsa_pkcs1_pss_padding
                                  | rsa_x931_padding | rsa_no_padding
                                    .
@@ -1432,6 +2339,8 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%%----------------------------------------------------------------
 %%% Sign
 
+-doc(#{equiv => sign/5}).
+-doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
 -spec sign(Algorithm, DigestType, Msg, Key)
           -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
@@ -1451,6 +2360,19 @@ sign(Algorithm, Type, Data, Key) ->
     sign(Algorithm, Type, Data, Key, []).
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Creates a digital signature.
+
+The msg is either the binary "cleartext" data to be signed or it is the hashed
+value of "cleartext" i.e. the digest (plaintext).
+
+Algorithm `dss` can only be used together with digest type `sha`.
+
+See also `public_key:sign/3`.
+""".
+-doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
           -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
@@ -1478,6 +2400,8 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 %%%----------------------------------------------------------------
 %%% Verify
 
+-doc(#{equiv => verify/6}).
+-doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
@@ -1497,6 +2421,19 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 verify(Algorithm, Type, Data, Signature, Key) ->
     verify(Algorithm, Type, Data, Signature, Key, []).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Verifies a digital signature
+
+The msg is either the binary "cleartext" data to be signed or it is the hashed
+value of "cleartext" i.e. the digest (plaintext).
+
+Algorithm `dss` can only be used together with digest type `sha`.
+
+See also `public_key:verify/4`.
+""".
+-doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
@@ -1534,19 +2471,39 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
 %%%
 %%% Only rsa works so far (although ecdsa | dss should do it)
 %%%================================================================
+-doc "Algorithms for public key encrypt/decrypt. Only RSA is supported.".
+-doc(#{title => <<"Public Key Ciphers">>}).
 -type pk_encrypt_decrypt_algs() :: rsa .
 
+-doc(#{title => <<"Public Key Ciphers">>,equiv => {type,rsa_padding,0}}).
 -type pk_encrypt_decrypt_opts() ::  [rsa_opt()] | rsa_compat_opts().
 
+-doc """
+Those option forms are kept only for compatibility and should not be used in new
+code.
+""".
+-doc(#{title => <<"Public Key Ciphers">>}).
 -type rsa_compat_opts() :: [{rsa_pad, rsa_padding()}]
                          | rsa_padding() .
 
+-doc """
+Options for public key encrypt/decrypt. Only RSA is supported.
+
+> #### Warning {: .warning }
+>
+> The RSA options are experimental.
+>
+> The exact set of options and there syntax _may_ be changed without prior
+> notice.
+""".
+-doc(#{title => <<"Public Key Ciphers">>}).
 -type rsa_padding() :: rsa_pkcs1_padding
                      | rsa_pkcs1_oaep_padding
                      | rsa_sslv23_padding
                      | rsa_x931_padding
                      | rsa_no_padding.
 
+-doc(#{title => <<"Public Key Ciphers">>,equiv => {type,rsa_padding,0}}).
 -type rsa_opt() :: {rsa_padding, rsa_padding()}
                  | {signature_md, atom()}
                  | {rsa_mgf1_md, sha}
@@ -1555,6 +2512,15 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
 
 %%%---- Encrypt with public key
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Encrypts the `PlainText` (message digest) using the `PublicKey` and returns the
+`CipherText`. This is a low level signature operation used for instance by older
+versions of the SSL protocol. See also
+[public_key:encrypt_public/\[2,3]](`public_key:encrypt_public/2`)
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -1566,6 +2532,16 @@ public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
 
 %%%---- Decrypt with private key
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Decrypts the `CipherText`, encrypted with `public_encrypt/4` (or equivalent
+function) using the `PrivateKey`, and returns the plaintext (message digest).
+This is a low level signature verification operation used for instance by older
+versions of the SSL protocol. See also
+[public_key:decrypt_private/\[2,3]](`public_key:decrypt_private/2`)
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             CipherText :: binary(),
@@ -1577,6 +2553,15 @@ private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
 
 %%%---- Encrypt with private key
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Encrypts the `PlainText` using the `PrivateKey` and returns the ciphertext. This
+is a low level signature operation used for instance by older versions of the
+SSL protocol. See also
+[public_key:encrypt_private/\[2,3]](`public_key:encrypt_private/2`)
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -1588,6 +2573,16 @@ private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
 
 %%%---- Decrypt with public key
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Decrypts the `CipherText`, encrypted with `private_encrypt/4`(or equivalent
+function) using the `PrivateKey`, and returns the plaintext (message digest).
+This is a low level signature verification operation used for instance by older
+versions of the SSL protocol. See also
+[public_key:decrypt_public/\[2,3]](`public_key:decrypt_public/2`)
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             CipherText :: binary(),
@@ -1614,6 +2609,8 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%
 %%%================================================================
 
+-doc(#{equiv => generate_key/3}).
+-doc(#{since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
@@ -1624,6 +2621,31 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Generates a public key of type `Type`. See also `public_key:generate_key/1`.
+
+> #### Note {: .info }
+>
+> If the linked version of cryptolib is OpenSSL 3.0
+>
+> - and the `Type` is `dh` (diffie-hellman)
+> - and the parameter `P` (in `t:dh_params/0`) is one of the MODP groups (see
+>   [RFC 3526](https://tools.ietf.org/html/rfc3526))
+> - and the optional `PrivateKeyBitLength` parameter (in `t:dh_params/0`) is
+>   present,
+>
+> then the optional key length parameter must be at least 224, 256, 302, 352 and
+> 400 for group sizes of 2048, 3072, 4096, 6144 and 8192, respectively.
+
+> #### Note {: .info }
+>
+> RSA key generation is only available if the runtime was built with dirty
+> scheduler support. Otherwise, attempting to generate an RSA key will raise the
+> exception `error:notsup`.
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
@@ -1705,6 +2727,13 @@ generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
 
+-doc """
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Computes the shared secret from the private key and the other party's public
+key. See also `public_key:compute_key/2`
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
                  -> SharedSecret
                         when Type :: dh | ecdh | eddh |  srp,
@@ -1779,6 +2808,7 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 %%%
 %%%================================================================
 
+-doc "Performs bit-wise XOR (exclusive or) on the data supplied.".
 -spec exor(iodata(), iodata()) -> binary().
 
 exor(Bin1, Bin2) ->
@@ -1794,6 +2824,8 @@ exor(Bin1, Bin2) ->
 %%%
 %%%================================================================
 
+-doc "Computes the function `N^P mod M`.".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
                                       P :: binary() | integer(),
                                       M :: binary() | integer(),
@@ -1811,9 +2843,17 @@ mod_pow(Base, Exponent, Prime) ->
 %%%======================================================================
 
 %%%---- Referring to keys stored in an engine:
+-doc """
+Identifies the key to be used. The format depends on the loaded engine. It is
+passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
+""".
+-doc(#{title => <<"Types for Engines">>}).
 -type key_id()   :: string() | binary() .
+-doc "The password of the key stored in an engine.".
+-doc(#{title => <<"Types for Engines">>}).
 -type password() :: string() | binary() .
 
+-doc(#{title => <<"Types for Engines">>,equiv => {type,engine_ref,0}}).
 -type engine_key_ref() :: #{engine :=   engine_ref(),
                             key_id :=   key_id(),
                             password => password(),
@@ -1821,19 +2861,34 @@ mod_pow(Base, Exponent, Prime) ->
                            }.
 
 %%%---- Commands:
+-doc "Pre and Post commands for [engine_load/3 and /4](`engine_load/3`).".
+-doc(#{title => <<"Types for Engines">>}).
 -type engine_cmnd() :: {unicode:chardata(), unicode:chardata()}.
 
 %%----------------------------------------------------------------------
 %% Function: engine_get_all_methods/0
 %%----------------------------------------------------------------------
+-doc(#{title => <<"Types for Engines">>}).
 -type engine_method_type() :: engine_method_rsa | engine_method_dsa | engine_method_dh |
                               engine_method_rand | engine_method_ecdh | engine_method_ecdsa |
                               engine_method_ciphers | engine_method_digests | engine_method_store |
                               engine_method_pkey_meths | engine_method_pkey_asn1_meths |
                               engine_method_ec.
 
+-doc "The result of a call to `engine_load/3`.".
+-doc(#{title => <<"Types for Engines">>}).
 -type engine_ref() :: term().
 
+-doc """
+Returns a list of all possible engine methods.
+
+May raise exception `error:notsup` in case there is no engine support in the
+underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_get_all_methods() -> Result when Result :: [engine_method_type()].
 engine_get_all_methods() ->
     engine_get_all_methods_nif().
@@ -1841,6 +2896,19 @@ engine_get_all_methods() ->
 %%----------------------------------------------------------------------
 %% Function: engine_load/3
 %%----------------------------------------------------------------------
+-doc """
+Loads the OpenSSL engine given by `EngineId` if it is available and intialize
+it. Returns ok and an engine handle, if the engine can't be loaded an error
+tuple is returned.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_load(EngineId, PreCmds, PostCmds) ->
                          Result when EngineId::unicode:chardata(),
                                      PreCmds::[engine_cmnd()],
@@ -1861,6 +2929,7 @@ engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
             Error2
     end.
 
+-doc false.
 -spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
                          Result when EngineId::unicode:chardata(),
                                      PreCmds::[engine_cmnd()],
@@ -1904,6 +2973,18 @@ engine_load_2(Engine, PostCmds) ->
 %%----------------------------------------------------------------------
 %% Function: engine_unload/1
 %%----------------------------------------------------------------------
+-doc """
+Unloads the OpenSSL engine given by `Engine`. An error tuple is returned if the
+engine can't be unloaded.
+
+The function raises a `error:badarg` if the parameter is in wrong format. It may
+also raise the exception `error:notsup` in case there is no engine support in
+the underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
                                            Result :: ok | {error, Reason::term()}.
 engine_unload(Engine) ->
@@ -1915,6 +2996,7 @@ engine_unload(Engine) ->
             Error
     end.
 
+-doc false.
 -spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
 					      EngineMethods :: [engine_method_type()],
 					      Result :: ok | {error, Reason::term()}.
@@ -1924,6 +3006,18 @@ engine_unload(Engine, _EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: engine_by_id/1
 %%----------------------------------------------------------------------
+-doc """
+Get a reference to an already loaded engine with `EngineId`. An error tuple is
+returned if the engine can't be unloaded.
+
+The function raises a `error:badarg` if the parameter is in wrong format. It may
+also raise the exception `error:notsup` in case there is no engine support in
+the underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_by_id(EngineId) -> Result when EngineId :: unicode:chardata(),
                                             Result :: {ok, Engine::engine_ref()} | {error, Reason::term()} .
 engine_by_id(EngineId) ->
@@ -1937,6 +3031,14 @@ engine_by_id(EngineId) ->
 %%----------------------------------------------------------------------
 %% Function: engine_add/1
 %%----------------------------------------------------------------------
+-doc """
+Add the engine to OpenSSL's internal list.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_add(Engine) -> Result when Engine :: engine_ref(),
                                         Result ::  ok | {error, Reason::term()} .
 engine_add(Engine) ->
@@ -1945,6 +3047,14 @@ engine_add(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: engine_remove/1
 %%----------------------------------------------------------------------
+-doc """
+Remove the engine from OpenSSL's internal list.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_remove(Engine) -> Result when Engine :: engine_ref(),
                                            Result ::  ok | {error, Reason::term()} .
 engine_remove(Engine) ->
@@ -1953,6 +3063,15 @@ engine_remove(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: engine_register/2
 %%----------------------------------------------------------------------
+-doc """
+Register engine to handle some type of methods, for example
+engine_method_digests.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 25.1">>}).
 -spec engine_register(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
 					       EngineMethods::[engine_method_type()],
 					       Result ::  ok | {error, Reason::term()} .
@@ -1968,6 +3087,14 @@ engine_register(Engine, EngineMethods) when is_list(EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: engine_unregister/2
 %%----------------------------------------------------------------------
+-doc """
+Unregister engine so it don't handle some type of methods.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 25.1">>}).
 -spec engine_unregister(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
 						 EngineMethods::[engine_method_type()],
 						 Result ::  ok | {error, Reason::term()} .
@@ -1983,6 +3110,14 @@ engine_unregister(Engine, EngineMethods) when is_list(EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: engine_get_id/1
 %%----------------------------------------------------------------------
+-doc """
+Return the ID for the engine, or an empty binary if there is no id set.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_get_id(Engine) -> EngineId when Engine :: engine_ref(),
                                              EngineId :: unicode:chardata().
 engine_get_id(Engine) ->
@@ -1991,6 +3126,15 @@ engine_get_id(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: engine_get_name/1
 %%----------------------------------------------------------------------
+-doc """
+Return the name (eg a description) for the engine, or an empty binary if there
+is no name set.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec engine_get_name(Engine) -> EngineName when Engine :: engine_ref(),
                                                  EngineName :: unicode:chardata().
 engine_get_name(Engine) ->
@@ -1999,6 +3143,19 @@ engine_get_name(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: engine_list/0
 %%----------------------------------------------------------------------
+-doc """
+List the id's of all engines in OpenSSL's internal list.
+
+It may also raise the exception `error:notsup` in case there is no engine
+support in the underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+
+May raise exception `error:notsup` in case engine functionality is not supported
+by the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_list() -> Result when Result :: [EngineId::unicode:chardata()].
 engine_list() ->
     case engine_get_first_nif() of
@@ -2029,6 +3186,16 @@ engine_list(Engine0, IdList) ->
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/3
 %%----------------------------------------------------------------------
+-doc """
+Sends ctrl commands to the OpenSSL engine given by `Engine`. This function is
+the same as calling [`engine_ctrl_cmd_string/4`](`engine_ctrl_cmd_string/4`)
+with `Optional` set to `false`.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
                                     Result when Engine::term(),
                                                 CmdName::unicode:chardata(),
@@ -2040,6 +3207,20 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
 %%----------------------------------------------------------------------
 %% Function: engine_ctrl_cmd_string/4
 %%----------------------------------------------------------------------
+-doc """
+Sends ctrl commands to the OpenSSL engine given by `Engine`. `Optional` is a
+boolean argument that can relax the semantics of the function. If set to `true`
+it will only return failure if the ENGINE supported the given command name but
+failed while executing it, if the ENGINE doesn't support the command name it
+will simply return success without doing anything. In this case we assume the
+user is only supplying commands specific to the given ENGINE so we set this to
+`false`.
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
                                     Result when Engine::term(),
                                                 CmdName::unicode:chardata(),
@@ -2060,6 +3241,31 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Function: ensure_engine_loaded/2
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
+-doc """
+Loads an engine given by `EngineId` and the path to the dynamic library
+implementing the engine. An error tuple is returned if the engine can't be
+loaded.
+
+This function differs from the normal engine_load in the sense that it also add
+the engine id to OpenSSL's internal engine list. The difference between the
+first call and the following is that the first loads the engine with the
+dynamical engine and the following calls fetch it from the OpenSSL's engine
+list. All references that is returned are equal.
+
+Use [`engine_unload/1`](`engine_unload/1`) function to remove the references.
+But remember that [`engine_unload/1`](`engine_unload/1`) just removes the
+references to the engine and not the tag in OpenSSL's engine list. That has to
+be done with the [`engine_remove/1`](`engine_remove/1`) function when needed
+(just called once, from any of the references you got).
+
+The function raises a `error:badarg` if the parameters are in wrong format. It
+may also raise the exception `error:notsup` in case there is no engine support
+in the underlying OpenSSL implementation.
+
+See also the chapter [Engine Load](engine_load.md#engine_load) in the User's
+Guide.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 21.0.6">>}).
 -spec ensure_engine_loaded(EngineId, LibPath) -> Result when EngineId :: unicode:chardata(),
 						 LibPath :: unicode:chardata(),
 						 Result :: {ok, Engine::engine_ref()} |
@@ -2077,6 +3283,7 @@ ensure_engine_loaded(EngineId, LibPath) ->
 %% Function: ensure_engine_loaded/3
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
+-doc false.
 -spec ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
@@ -2089,6 +3296,7 @@ ensure_engine_loaded(EngineId, LibPath, _EngineMethods) ->
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
+-doc false.
 -spec ensure_engine_unloaded(Engine) -> Result when Engine :: engine_ref(),
                                                     Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine) ->
@@ -2097,6 +3305,7 @@ ensure_engine_unloaded(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
 %%----------------------------------------------------------------------
+-doc false.
 -spec ensure_engine_unloaded(Engine, EngineMethods) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
@@ -2301,6 +3510,8 @@ ec_generate_key_nif(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
+-doc "Can be used to determine which named elliptic curves are supported.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
                                                          | edwards_curve_dh()
                                                          | edwards_curve_ed() .
@@ -2308,12 +3519,19 @@ ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 ec_curves() ->
     crypto_ec_curves:curves().
 
+-doc "Return the defining parameters of a elliptic curve.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ec_curve(CurveName) -> ExplicitCurve when CurveName :: ec_named_curve(),
                                                 ExplicitCurve :: ec_explicit_curve() .
 ec_curve(X) ->
     crypto_ec_curves:curve(X).
 
 
+-doc """
+Fetches the corresponding public key from a private key stored in an Engine. The
+key must be of the type indicated by the Type parameter.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when Type :: rsa | dss,
                                                                      EnginePrivateKeyRef :: engine_key_ref(),
                                                                      PublicKey ::  rsa_public() | dss_public() .
@@ -2385,6 +3603,15 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
 
 do_exor(_A, _B) -> ?nif_stub.
 
+-doc """
+Constant time memory comparison for fixed length binaries, such as results of
+HMAC computations.
+
+Returns true if the binaries are identical, false if they are of the same length
+but not identical. The function raises an `error:badarg` exception if the
+binaries are of different size.
+""".
+-doc(#{title => <<"Engine API">>,since => <<"OTP 25.0">>}).
 -spec hash_equals(BinA, BinB) -> Result
           when BinA :: binary(),
                BinB :: binary(),
@@ -2415,6 +3642,8 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
+-doc "Convert binary representation, of an integer, to an Erlang integer.".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec bytes_to_integer(binary()) -> integer() .
 bytes_to_integer(Bin) ->
     bin_to_int(Bin).
@@ -2506,6 +3735,7 @@ mod_exp_nif(_Base,_Exp,_Mod,_bin_hdr) -> ?nif_stub.
 %% 268435615 == V(1,0,0,i).
 %% 268439663 == V(1,0,1,f).
 
+-doc false.
 packed_openssl_version(MAJ, MIN, FIX, P0) ->
     %% crypto.c
     P1 = atom_to_list(P0),
@@ -2552,6 +3782,7 @@ ensure_bin_cmds([{Key, Value} |CMDs], Acc) ->
 ensure_bin_cmds([Key | CMDs], Acc) ->
     ensure_bin_cmds(CMDs, [{ensure_bin_chardata(Key), <<"">>} | Acc]).
 
+-doc false.
 engine_methods_convert_to_bitmask([], BitMask) ->
     BitMask;
 engine_methods_convert_to_bitmask(engine_method_all, _BitMask) ->
@@ -2579,6 +3810,7 @@ engine_method_atom_to_int(engine_method_ec) -> 16#0800;
 engine_method_atom_to_int(X) ->
     erlang:error(badarg, [X]).
 
+-doc false.
 get_test_engine() ->
     Type = erlang:system_info(system_architecture),
     LibDir = filename:join([code:priv_dir(crypto), "lib"]),

@@ -1,4 +1,5 @@
 -module(ssl_srp_primes).
+-moduledoc false.
 
 -export([get_srp_params/1, check_srp_params/2]).
 

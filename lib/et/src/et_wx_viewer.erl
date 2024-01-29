@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_wx_viewer).
+-moduledoc false.
 
 -behaviour(gen_server).
 

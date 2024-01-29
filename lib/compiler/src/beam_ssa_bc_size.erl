@@ -36,6 +36,7 @@
 %%
 
 -module(beam_ssa_bc_size).
+-moduledoc false.
 -export([opt/1]).
 
 -import(lists, [any/2,member/2,reverse/1,sort/1]).

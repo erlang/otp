@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_acceptor).
+-moduledoc false.
 
 -include("httpd.hrl").
 -include_lib("kernel/include/logger.hrl").

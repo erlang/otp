@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(docgen_xmerl_xml_cb).
+-moduledoc false.
 
 %% This is the callback module for exporting XHTML to an
 %% erlref or chapter document in XML format.

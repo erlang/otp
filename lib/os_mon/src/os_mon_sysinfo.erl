@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(os_mon_sysinfo).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% API

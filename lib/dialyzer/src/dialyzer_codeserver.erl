@@ -20,6 +20,7 @@
 %%% Created :  4 Apr 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_codeserver).
+-moduledoc false.
 
 -export([delete/1,
          store_temp_contracts/4,

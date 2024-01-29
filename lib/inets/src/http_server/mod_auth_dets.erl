@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_auth_dets).
+-moduledoc false.
 
 %% dets authentication storage
 

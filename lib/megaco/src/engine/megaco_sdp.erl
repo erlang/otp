@@ -24,6 +24,11 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_sdp).
+-moduledoc """
+SDP utility module.
+
+This module contains various things related to SDP.
+""".
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -82,24 +87,38 @@
                sdp_a_rtpmap() | sdp_a_ptime() |
                sdp_z() | sdp_t() | sdp_r() | sdp_m().
 
+-doc "Protocol version.".
 -type sdp_v()         :: #megaco_sdp_v{}. % Protocol version
+-doc "Owner/creator and session identifier.".
 -type sdp_o()         :: #megaco_sdp_o{}. % Owner/creator and session identifier
+-doc "Session name.".
 -type sdp_s()         :: #megaco_sdp_s{}. % Session name
+-doc "Session information.".
 -type sdp_i()         :: #megaco_sdp_i{}. % Session information
+-doc "URI of description.".
 -type sdp_u()         :: #megaco_sdp_u{}. % URI of description
+-doc "Email address.".
 -type sdp_e()         :: #megaco_sdp_e{}. % Email address
+-doc "Phone number.".
 -type sdp_p()         :: #megaco_sdp_p{}. % Phone number
+-doc "Connection information.".
 -type sdp_c()         :: #megaco_sdp_c{}. % Connection information
+-doc "Bandwidth information.".
 -type sdp_b()         :: #megaco_sdp_b{}. % Bandwidth information
+-doc "Encryption key.".
 -type sdp_k()         :: #megaco_sdp_k{}. % Encryption key
+-doc "Session attribute.".
 -type sdp_a()         :: #megaco_sdp_a{}. % Session attribute
 -type sdp_a_rtpmap()  :: #megaco_sdp_a_rtpmap{}.
 -type sdp_a_ptime()   :: #megaco_sdp_a_ptime{}.
 -type sdp_a_quality() :: #megaco_sdp_a_quality{}.
 -type sdp_a_fmtp()    :: #megaco_sdp_a_fmtp{}.
+-doc "Time zone adjustment.".
 -type sdp_z()         :: #megaco_sdp_z{}. % Time zone adjustment
 -type sdp_t()         :: #megaco_sdp_t{}. % Time the session is active
+-doc "Repeat times.".
 -type sdp_r()         :: #megaco_sdp_r{}. % Repeat times
+-doc "Media name and transport address.".
 -type sdp_m()         :: #megaco_sdp_m{}. % Media name and transport address
 -type sdp_property_parm()   :: sdp() | property_parm().
 -type sdp_property_group()  :: [sdp_property_parm()].
@@ -130,6 +149,7 @@
 %% 
 %% ---------------------------------------------------------------------
 
+-doc false.
 decode(SDP) ->
     case (catch do_decode(SDP)) of
 	{ok, _} = OK ->
@@ -164,6 +184,7 @@ do_decode(Bad) ->
 %% 
 %% ---------------------------------------------------------------------
 
+-doc false.
 encode(SDP) ->
     case (catch do_encode(SDP)) of
 	{ok, _} = OK ->
@@ -517,6 +538,7 @@ encode_PropertyParm(SDP) ->
 %%              property group
 %%-----------------------------------------------------------------
 
+-doc false.
 get_sdp_record_from_PropertyGroup(Type, PG) 
   when is_atom(Type) and is_list(PG) ->
     F = fun(R) -> not is_pg_record(Type, R) end,

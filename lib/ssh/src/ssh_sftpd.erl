@@ -23,6 +23,11 @@
 %%% Description: SFTP server daemon
 
 -module(ssh_sftpd).
+-moduledoc """
+Specifies the channel process to handle an SFTP subsystem.
+
+Specifies a channel process to handle an SFTP subsystem.
+""".
 
 -behaviour(ssh_server_channel).
 
@@ -61,6 +66,34 @@
 %%====================================================================
 %% API
 %%====================================================================
+-doc """
+Is to be used together with `ssh:daemon/[1,2,3]`
+
+The `Name` is `"sftp"` and `CbMod` is the name of the Erlang module implementing
+the subsystem using the `m:ssh_server_channel` (replaces ssh_daemon_channel)
+behaviour.
+
+Options:
+
+- **`cwd`** - Sets the initial current working directory for the server.
+
+- **`file_handler`** - Determines which module to call for accessing the file
+  server. The default value is `ssh_sftpd_file`, which uses the `m:file` and
+  `m:filelib` APIs to access the standard OTP file server. This option can be
+  used to plug in other file servers.
+
+- **`max_files`** - The default value is `0`, which means that there is no upper
+  limit. If supplied, the number of filenames returned to the SFTP client per
+  `READDIR` request is limited to at most the given value.
+
+- **`root`** - Sets the SFTP root directory. Then the user cannot see any files
+  above this root. If, for example, the root directory is set to `/tmp`, then
+  the user sees this directory as `/`. If the user then writes `cd /etc`, the
+  user moves to `/tmp/etc`.
+
+- **`sftpd_vsn`** - Sets the SFTP version to use. Defaults to 5. Version 6 is
+  under development and limited.
+""".
 -spec subsystem_spec(Options) -> Spec when
       Options :: [ {cwd, string()} |
                    {file_handler, CbMod | {CbMod, FileState}} |
@@ -86,6 +119,7 @@ subsystem_spec(Options) ->
 %% Function: init(Args) -> {ok, State}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
+-doc false.
 init(Options) ->
     {FileMod, FS0} = case proplists:get_value(file_handler, Options, 
 					      {ssh_sftpd_file,[]}) of
@@ -127,6 +161,7 @@ init(Options) ->
 %%                        
 %% Description: Handles channel messages
 %%--------------------------------------------------------------------
+-doc false.
 handle_ssh_msg({ssh_cm, _ConnectionManager,
 		{data, _ChannelId, Type, Data}}, State) ->
     State1 = handle_data(Type, Data, State),
@@ -160,6 +195,7 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
 %%                        
 %% Description: Handles other messages
 %%--------------------------------------------------------------------
+-doc false.
 handle_msg({ssh_channel_up, ChannelId,  ConnectionManager}, 
 	   #state{xf = Xf,
 		 options = Options} = State) ->
@@ -174,6 +210,7 @@ handle_msg({ssh_channel_up, ChannelId,  ConnectionManager},
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
+-doc false.
 terminate(_, #state{handles=Handles, file_handler=FileMod, file_state=FS}) ->
     CloseFun = fun({_, file, {_, Fd}}, FS0) ->
 		       {_Res, FS1} = FileMod:close(Fd, FS0),
@@ -1010,14 +1047,19 @@ maybe_increase_recv_window(ConnectionManager, ChannelId, Options) ->
 %%%# Tracing
 %%%#
 
+-doc false.
 ssh_dbg_trace_points() -> [terminate].
 
+-doc false.
 ssh_dbg_flags(terminate) -> [c].
 
+-doc false.
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x).
 
+-doc false.
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
 
+-doc false.
 ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["SftpD Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])

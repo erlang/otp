@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_recover).
+-moduledoc false.
 
 -behaviour(gen_server).
 

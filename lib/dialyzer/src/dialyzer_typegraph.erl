@@ -1,5 +1,6 @@
 %% -*- erlang-indent-level: 2 -*-
 -module(dialyzer_typegraph).
+-moduledoc false.
 
 -export([module_type_deps/3]).
 

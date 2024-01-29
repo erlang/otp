@@ -19,6 +19,7 @@
 %%
 
 -module(prim_net).
+-moduledoc false.
 
 -compile(no_native).
 

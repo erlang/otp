@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(global_search).
+-moduledoc false.
 
 %% Search for globally registered names in the global groups.
 %% This is a help module to the global_group.erl

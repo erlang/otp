@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_pretty_text_encoder_v1).
+-moduledoc false.
 
 -export([encode_message/2,
 	 encode_transaction/2,

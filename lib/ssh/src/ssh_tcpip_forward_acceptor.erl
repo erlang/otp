@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_tcpip_forward_acceptor).
+-moduledoc false.
 
 -export([supervised_start/6,
          start_link/6]).

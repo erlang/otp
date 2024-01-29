@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_pem_cache).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Internal application API

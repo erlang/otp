@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dtls_socket).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").

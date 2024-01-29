@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_gen_cb).
+-moduledoc false.
 
 -export([get_info/0]).
 

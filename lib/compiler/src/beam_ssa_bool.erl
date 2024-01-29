@@ -115,6 +115,7 @@
 %%
 
 -module(beam_ssa_bool).
+-moduledoc false.
 -export([module/2]).
 
 -import(lists, [all/2,any/2,foldl/3,keyfind/3,last/1,partition/2,

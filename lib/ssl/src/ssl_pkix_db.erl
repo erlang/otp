@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_pkix_db).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").

@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_handshake_1_3).
+-moduledoc false.
 
 -include("tls_handshake_1_3.hrl").
 -include("ssl_alert.hrl").

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_agent_sup).
+-moduledoc false.
 
 -include("snmp_debug.hrl").
 

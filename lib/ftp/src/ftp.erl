@@ -20,6 +20,100 @@
 %%
 
 -module(ftp).
+-moduledoc """
+A File Transfer Protocol client.
+
+This module implements a client for file transfer according to a subset of the
+File Transfer Protocol (FTP), see [RFC 959](http://www.ietf.org/rfc/rfc959.txt).
+
+The FTP client always tries to use passive FTP mode and only resort to active
+FTP mode if this fails. This default behavior can be changed by start option
+[mode](`m:ftp#mode`).
+
+For a simple example of an FTP session, see [FTP User's Guide](ftp_client.md).
+
+In addition to the ordinary functions for receiving and sending files (see
+[`recv/2`](`recv/2`), [`recv/3`](`recv/3`), [`send/2`](`send/2`), and
+[`send/3`](`send/3`)) there are functions for receiving remote files as binaries
+(see [`recv_bin/2`](`recv_bin/2`)) and for sending binaries to be stored as
+remote files (see [`send_bin/3`](`send_bin/3`)).
+
+A set of functions is provided for sending and receiving contiguous parts of a
+file to be stored in a remote file. For send, see
+[`send_chunk_start/2`](`send_chunk_start/2`), [`send_chunk/2`](`send_chunk/2`),
+and [`send_chunk_end/1`](`send_chunk_end/1`). For receive, see
+[`recv_chunk_start/2`](`recv_chunk_start/2`) and `recv_chunk/`).
+
+The return values of the following functions depend much on the implementation
+of the FTP server at the remote host. In particular, the results from `ls` and
+`nlist` varies. Often real errors are not reported as errors by `ls`, even if,
+for example, a file or directory does not exist. `nlist` is usually more strict,
+but some implementations have the peculiar behaviour of responding with an error
+if the request is a listing of the contents of a directory that exists but is
+empty.
+
+[](){: #service_start }
+
+## FTP CLIENT START/STOP
+
+The FTP client can be started and stopped dynamically in runtime by calling the
+`ftp` application API `ftp:open(Host, Options)` and `ftp:close(Client)`.
+
+## Data Types
+
+The following type definitions are used by more than one function in the FTP
+client API:
+
+`t:pid/0` = identifier of an FTP connection
+
+`t:string/0` = list of ASCII characters
+
+[](){: #account }
+
+## ERRORS
+
+The possible error reasons and the corresponding diagnostic strings returned by
+[`formaterror/1`](`formaterror/1`) are as follows:
+
+- **`echunk`** - Synchronization error during chunk sending according to one of
+  the following:
+
+  - A call is made to [`send_chunk/2`](`send_chunk/2`) or
+    [`send_chunk_end/1`](`send_chunk_end/1`) before a call to
+    [`send_chunk_start/2`](`send_chunk_start/2`).
+  - A call has been made to another transfer function during chunk sending, that
+    is, before a call to [`send_chunk_end/1`](`send_chunk_end/1`).
+
+- **`eclosed`** - The session is closed.
+
+- **`econn`** - Connection to the remote server is prematurely closed.
+
+- **`ehost`** - Host is not found, FTP server is not found, or connection is
+  rejected by FTP server.
+
+- **`elogin`** - User is not logged in.
+
+- **`enotbinary`** - Term is not a binary.
+
+- **`epath`** - No such file or directory, or directory already exists, or
+  permission denied.
+
+- **`etype`** - No such type.
+
+- **`euser`** - Invalid username or password.
+
+- **`etnospc`** - Insufficient storage space in system \[452].
+
+- **`epnospc`** - Exceeded storage allocation (for current directory or dataset)
+  \[552].
+
+- **`efnamena`** - Filename not allowed \[553].
+
+## SEE ALSO
+
+`m:file` `m:filename` and J. Postel and J. Reynolds: File Transfer Protocol
+([RFC 959](http://www.ietf.org/rfc/rfc959.txt)).
+""".
 
 -removed([{start_service, 1, "use ftp:open/2 instead"},
           {stop_service, 1,  "use ftp:close/1 instead"}]).
@@ -50,9 +144,11 @@
 %%%  API
 %%%=========================================================================
 
+-doc false.
 start() ->
     application:start(ftp).
 
+-doc false.
 stop() ->
     application:stop(ftp).
 
@@ -65,6 +161,7 @@ stop() ->
 %% Description:  Start an ftp client and connect to a host.
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => open/2}).
 -spec open(Host :: string() | inet:ip_address()) ->
     {'ok', Pid :: pid()} | {'error', Reason :: term()}.
 
@@ -77,6 +174,146 @@ open(Host) ->
   ftp_internal:open(Host).
 
 
+-doc """
+Starts a FTP client process and opens a session with the FTP server at `Host`.
+
+A session opened in this way is closed using function [close](`m:ftp#close`).
+
+The available configuration options are as follows:
+
+- **\{host, Host\}** - [](){: #host } Host = `string() | ip_address()`
+
+- **\{port, Port\}** - [](){: #port } Default is `0` which aliases to `21` or
+  `990` when used with [`{tls_sec_method,ftps}`](`m:ftp#open`)).
+
+- **\{mode, Mode\}** - [](){: #mode } Default is `passive`.
+
+- **\{verbose, Verbose\}** - [](){: #verbose } Determines if the FTP
+  communication is to be verbose or not.
+
+  Default is `false`.
+
+- **\{debug, Debug\}** - [](){: #debug } Debugging using the dbg toolkit.
+
+  Default is `disable`.
+
+- **\{ipfamily, IpFamily\}** - [](){: #ipfamily } With `inet6fb4` the client
+  behaves as before, that is, tries to use IPv6, and only if that does not work
+  it uses IPv4).
+
+  Default is `inet` (IPv4).
+
+- **\{timeout, Timeout\}** - [](){: #timeout } Connection time-out.
+
+  Default is `60000` (milliseconds).
+
+- **\{dtimeout, DTimeout\}** - [](){: #dtimeout } Data connect time-out. The
+  time the client waits for the server to connect to the data socket.
+
+  Default is `infinity`.
+
+- **\{tls, TLSOptions\}** - [](){: #tls_options } The FTP session is transported
+  over `tls` (`ftps`, see [RFC 4217](http://www.ietf.org/rfc/rfc4217.txt)). The
+  list `TLSOptions` can be empty. The function `ssl:connect/3` is used for
+  securing both the control connection and the data sessions.
+
+- **\{tls_sec_method, TLSSecMethod\}** - [](){: #tls_sec_method } When set to
+  `ftps` will connect immediately with SSL instead of upgrading with STARTTLS.
+  This suboption is ignored unless the suboption `tls` is also set.
+
+  Default is `ftpes`
+
+- **\{tls_ctrl_session_reuse, boolean()\}** - [](){: #tls_ctrl_session_reuse }
+  When set to `true` the client will re-use the TLS session from the control
+  channel on the data channel as enforced by many FTP servers as
+  ([proposed and implemented first by vsftpd](https://scarybeastsecurity.blogspot.com/2009/02/vsftpd-210-released.html)).
+
+  Default is `false`.
+
+- **\{sock_ctrl, SocketCtrls :: \[SocketControl :: gen_tcp:option()]\}** -
+  Passes options from `SocketCtrls` down to the underlying transport layer
+  (tcp).
+
+  `t:gen_tcp:option/0` except for `ipv6_v6only`, `active`, `packet`, `mode`,
+  `packet_size` and `header`.
+
+  Default value is `SocketCtrls = []`.
+
+- **\{sock_data_act, \[SocketControl]\}** - Passes options from
+  `[SocketControl]` down to the underlying transport layer (tcp).
+
+  `sock_data_act` uses the value of `sock_ctrl` as default value.
+
+- **\{sock_data_pass, \[SocketControl]\}** - Passes options from
+  `[SocketControl]` down to the underlying transport layer (tcp).
+
+  `sock_data_pass` uses the value of `sock_ctrl` as default value.
+
+- **\{progress, Progress\}** - [](){: #progress } Progress =
+  `ignore | {Module, Function, InitialData}`
+
+  `Module = atom()`, `Function = atom()`
+
+  `InitialData = term()`
+
+  Default is `ignore`.
+
+  Option `progress` is intended to be used by applications that want to create
+  some type of progress report, such as a progress bar in a GUI. Default for the
+  progress option is `ignore`, that is, the option is not used. When the
+  progress option is specified, the following happens when `ftp:send/[3,4]` or
+  `ftp:recv/[3,4]` are called:
+
+  - Before a file is transferred, the following call is made to indicate the
+    start of the file transfer and how large the file is. The return value of
+    the callback function is to be a new value for the `UserProgressTerm` that
+    will be used as input the next time the callback function is called.
+
+    `Module:Function(InitialData, File, {file_size, FileSize})`
+
+  - Every time a chunk of bytes is transferred the following call is made:
+
+    `Module:Function(UserProgressTerm, File, {transfer_size, TransferSize})`
+
+  - At the end of the file the following call is made to indicate the end of the
+    transfer:
+
+    `Module:Function(UserProgressTerm, File, {transfer_size, 0})`
+
+  The callback function is to be defined as follows:
+
+  `Module:Function(UserProgressTerm, File, Size) -> UserProgressTerm`
+
+  `UserProgressTerm = term()`
+
+  `File = string()`
+
+  `Size = {transfer_size, integer()} | {file_size, integer()} | {file_size, unknown}`
+
+  For remote files, `ftp` cannot determine the file size in a platform
+  independent way. In this case the size becomes `unknown` and it is left to the
+  application to determine the size.
+
+  > #### Note {: .info }
+  >
+  > The callback is made by a middleman process, hence the file transfer is not
+  > affected by the code in the progress callback function. If the callback
+  > crashes, this is detected by the FTP connection process, which then prints
+  > an info-report and goes on as if the progress option was set to `ignore`.
+
+  The file transfer type is set to the default of the FTP server when the
+  session is opened. This is usually ASCII mode.
+
+  The current local working directory (compare [`lpwd/1`](`lpwd/1`)) is set to
+  the value reported by `file:get_cwd/1`, the wanted local directory.
+
+  The return value `Pid` is used as a reference to the newly created FTP client
+  in all other functions, and they are to be called by the process that created
+  the connection. The FTP client process monitors the process that created it
+  and terminates if that process terminates.
+
+[](){: #pwd }
+""".
 -spec open(Host :: string() | inet:ip_address(), Opts) ->
     {'ok', Pid :: pid()} | {'error', Reason :: term()} when
       Opts :: [Opt],
@@ -103,6 +340,11 @@ open(Host, Port) ->
 %%--------------------------------------------------------------------------
 %% Description:  Login with or without a supplied account name.
 %%--------------------------------------------------------------------------
+-doc """
+Performs login of `User` with `Pass`.
+
+[](){: #user4 }
+""".
 -spec user(Pid  :: pid(),
            User :: string(),
            Pass :: string()) ->
@@ -111,6 +353,11 @@ open(Host, Port) ->
 user(Pid, User, Pass) ->
     ftp_internal:user(Pid, User, Pass).
 
+-doc """
+Performs login of `User` with `Pass` to the account specified by `Account`.
+
+[](){: #quote }
+""".
 -spec user(Pid  :: pid(),
            User :: string(),
            Pass :: string(),
@@ -124,6 +371,11 @@ user(Pid, User, Pass, Account) ->
 %% Description:  Set a user Account.
 %%--------------------------------------------------------------------------
 
+-doc """
+Sets the account for an operation, if needed.
+
+[](){: #append } [](){: #append2 } [](){: #append3 }
+""".
 -spec account(Pid :: pid(), Acc :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -134,6 +386,11 @@ account(Pid, Acc) ->
 %% Description:  Get the current working directory at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Returns the current working directory at the remote server.
+
+[](){: #recv } [](){: #recv2 } [](){: #recv3 }
+""".
 -spec pwd(Pid :: pid()) ->
     {'ok', Dir :: string()} |
         {'error', Reason :: term()}.
@@ -145,6 +402,11 @@ pwd(Pid) ->
 %% Description:  Get the current working directory at local server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Returns the current working directory at the local client.
+
+[](){: #ls } [](){: #ls1 } [](){: #ls2 }
+""".
 -spec lpwd(Pid :: pid()) ->
     {'ok', Dir :: string()}.
 
@@ -156,6 +418,11 @@ lpwd(Pid) ->
 %% Description:  Change current working directory at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Changes the working directory at the remote server to `Dir`.
+
+[](){: #close }
+""".
 -spec cd(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -166,6 +433,11 @@ cd(Pid, Dir) ->
 %% Description:  Change current working directory for the local client.
 %%--------------------------------------------------------------------------
 
+-doc """
+Changes the working directory to `Dir` for the local client.
+
+[](){: #lpwd }
+""".
 -spec lcd(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -176,6 +448,7 @@ lcd(Pid, Dir) ->
 %% Description: Returns a list of files in long format.
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => ls/2}).
 -spec ls(Pid :: pid()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
@@ -183,6 +456,18 @@ lcd(Pid, Dir) ->
 ls(Pid) ->
   ls(Pid, "").
 
+-doc """
+Returns a list of files in long format.
+
+`Dir` can be a directory or a file. The `Dir` string can contain wildcards.
+
+[`ls/1`](`ls/1`) implies the current remote directory of the user.
+
+The format of `Listing` depends on the operating system. On UNIX, it is
+typically produced from the output of the `ls -l` shell command.
+
+[](){: #mkdir }
+""".
 -spec ls(Pid :: pid(), Dir :: string()) ->
     {'ok', Listing :: string()} |
         {'error', Reason ::  term()}.
@@ -195,6 +480,7 @@ ls(Pid, Dir) ->
 %% Description:  Returns a list of files in short format
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => nlist/2}).
 -spec nlist(Pid :: pid()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
@@ -202,6 +488,20 @@ ls(Pid, Dir) ->
 nlist(Pid) ->
   nlist(Pid, "").
 
+-doc """
+Returns a list of files in short format.
+
+`Pathname` can be a directory or a file. The `Pathname` string can contain
+wildcards.
+
+[`nlist/1`](`nlist/1`) implies the current remote directory of the user.
+
+The format of `Listing` is a stream of filenames where each filename is
+separated by <CRLF> or <NL>. Contrary to function `ls`, the purpose of `nlist`
+is to enable a program to process filename information automatically.
+
+[](){: #open }
+""".
 -spec nlist(Pid :: pid(), Pathname :: string()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
@@ -213,6 +513,11 @@ nlist(Pid, Dir) ->
 %% Description:  Rename a file at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Renames `Old` to `New` at the remote server.
+
+[](){: #rmdir }
+""".
 -spec rename(Pid :: pid(), Old :: string(), New :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -223,6 +528,11 @@ rename(Pid, Old, New) ->
 %% Description:  Remove file at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Deletes the file `File` at the remote server.
+
+[](){: #append }
+""".
 -spec delete(Pid :: pid(), File :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -233,6 +543,11 @@ delete(Pid, File) ->
 %% Description:  Make directory at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Creates the directory `Dir` at the remote server.
+
+[](){: #nlist } [](){: #nlist1 } [](){: #nlist2 }
+""".
 -spec mkdir(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -243,6 +558,11 @@ mkdir(Pid, Dir) ->
 %% Description:  Remove directory at remote server.
 %%--------------------------------------------------------------------------
 
+-doc """
+Removes directory `Dir` at the remote server.
+
+[](){: #send } [](){: #send2 } [](){: #send3 }
+""".
 -spec rmdir(Pid :: pid(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -253,6 +573,13 @@ rmdir(Pid, Dir) ->
 %% Description:  Set transfer type.
 %%--------------------------------------------------------------------------
 
+-doc """
+Sets the file transfer type to `ascii` or `binary`. When an FTP session is
+opened, the default transfer type of the server is used, most often `ascii`,
+which is default according to [RFC 959](http://www.ietf.org/rfc/rfc959.txt).
+
+[](){: #user3 }
+""".
 -spec type(Pid :: pid(), Type :: ascii | binary) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -264,12 +591,23 @@ type(Pid, Type) ->
 %% Description:  Transfer file from remote server.
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => recv/3}).
 -spec recv(Pid :: pid(), RemoteFileName :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 recv(Pid, RemoteFileName) ->
   ftp_internal:recv(Pid, RemoteFileName).
 
+-doc """
+Transfers the file `RemoteFileName` from the remote server to the file system of
+the local client. If `LocalFileName` is specified, the local file will be
+`LocalFileName`, otherwise `RemoteFileName`.
+
+If the file write fails, the command is aborted and `{error, term()}` is
+returned. However, the file is _not_ removed.
+
+[](){: #recv_bin }
+""".
 -spec recv(Pid            :: pid(),
            RemoteFileName :: string(),
            LocalFileName  :: string()) ->
@@ -283,6 +621,12 @@ recv(Pid, RemoteFileName, LocalFileName) ->
 %% Description:  Transfer file from remote server into binary.
 %%--------------------------------------------------------------------------
 
+-doc """
+Transfers the file `RemoteFile` from the remote server and receives it as a
+binary.
+
+[](){: #recv_chunk_start }
+""".
 -spec recv_bin(Pid        :: pid(),
                RemoteFile :: string()) ->
     {'ok', Bin :: binary()} | {'error', Reason :: term()}.
@@ -295,6 +639,11 @@ recv_bin(Pid, RemoteFile) ->
 %% Description:  Start receive of chunks of remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Starts transfer of the file `RemoteFile` from the remote server.
+
+[](){: #recv_chunk }
+""".
 -spec recv_chunk_start(Pid        :: pid(),
                        RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
@@ -307,6 +656,16 @@ recv_chunk_start(Pid, RemoteFile) ->
 %% Description:  Transfer file from remote server into binary in chunks
 %%--------------------------------------------------------------------------
 
+-doc """
+Receives a chunk of the remote file (`RemoteFile` of `recv_chunk_start`). The
+return values have the following meaning:
+
+- `ok` = the transfer is complete.
+- `{ok, Bin}` = just another chunk of the file.
+- `{error, Reason}` = transfer failed.
+
+[](){: #rename }
+""".
 -spec recv_chunk(Pid :: pid()) ->
     'ok' |
         {'ok', Bin :: binary()} |
@@ -320,12 +679,20 @@ recv_chunk(Pid) ->
 %% Description:  Transfer file to remote server.
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => send/3}).
 -spec send(Pid :: pid(), LocalFileName :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 send(Pid, LocalFileName) ->
   send(Pid, LocalFileName, LocalFileName).
 
+-doc """
+Transfers the file `LocalFileName` to the remote server. If `RemoteFileName` is
+specified, the name of the remote file is set to `RemoteFileName`, otherwise to
+`LocalFileName`.
+
+[](){: #send_bin }
+""".
 -spec send(Pid            :: pid(),
            LocalFileName  :: string(),
            RemoteFileName :: string()) ->
@@ -339,6 +706,11 @@ send(Pid, LocalFileName, RemotFileName) ->
 %% Description:  Transfer a binary to a remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Transfers the binary `Bin` into the file `RemoteFile` at the remote server.
+
+[](){: #send_chunk }
+""".
 -spec send_bin(Pid :: pid(), Bin :: binary(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -350,6 +722,11 @@ send_bin(Pid, Bin, RemoteFile) ->
 %% Description:  Start transfer of chunks to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Starts transfer of chunks into the file `RemoteFile` at the remote server.
+
+[](){: #send_chunk_end }
+""".
 -spec send_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -360,6 +737,12 @@ send_chunk_start(Pid, RemoteFile) ->
 %% Description:  Start append chunks of data to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Starts the transfer of chunks for appending to the file `RemoteFile` at the
+remote server. If the file does not exist, it is created.
+
+[](){: #append_chunk_end }
+""".
 -spec append_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -371,6 +754,15 @@ append_chunk_start(Pid, RemoteFile) ->
 %% Purpose:  Send chunk to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Transfers the chunk `Bin` to the remote server, which writes it into the file
+specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`).
+
+For some errors, for example, file system full, it is necessary to to call
+`send_chunk_end` to get the proper reason.
+
+[](){: #send_chunk_start }
+""".
 -spec send_chunk(Pid :: pid(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -381,6 +773,15 @@ send_chunk(Pid, Bin) ->
 %% Description:  Append chunk to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Transfers the chunk `Bin` to the remote server, which appends it to the file
+specified in the call to [`append_chunk_start/2`](`append_chunk_start/2`).
+
+For some errors, for example, file system full, it is necessary to call
+`append_chunk_end` to get the proper reason.
+
+[](){: #append_chunk_start }
+""".
 -spec append_chunk(Pid :: pid(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -392,6 +793,13 @@ append_chunk(Pid, Bin) ->
 %% Description:  End sending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Stops transfer of chunks to the remote server. The file at the remote server,
+specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`) is closed
+by the server.
+
+[](){: #type }
+""".
 -spec send_chunk_end(Pid :: pid()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -403,6 +811,13 @@ send_chunk_end(Pid) ->
 %% Description:  End appending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Stops transfer of chunks for appending to the remote server. The file at the
+remote server, specified in the call to
+[`append_chunk_start/2`](`append_chunk_start/2`), is closed by the server.
+
+[](){: #cd }
+""".
 -spec append_chunk_end(Pid :: pid()) ->
     'ok' | {'error', Reason :: term()}.
 
@@ -414,12 +829,21 @@ append_chunk_end(Pid) ->
 %% Description:  Append the local file to the remote file
 %%--------------------------------------------------------------------------
 
+-doc(#{equiv => append/3}).
 -spec append(Pid :: pid(), LocalFileName :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 append(Pid, LocalFileName) ->
     append(Pid, LocalFileName, LocalFileName).
 
+-doc """
+Transfers the file `LocalFile` to the remote server. If `RemoteFile` is
+specified, the name of the remote file that the file is appended to is set to
+`RemoteFile`, otherwise to `LocalFile`. If the file does not exists, it is
+created.
+
+[](){: #append_bin }
+""".
 -spec append(Pid            :: pid(),
              LocalFileName  :: string(),
              RemoteFileName :: string()) ->
@@ -433,6 +857,12 @@ append(Pid, LocalFileName, RemotFileName) ->
 %% Purpose:  Append a binary to a remote file.
 %%--------------------------------------------------------------------------
 
+-doc """
+Transfers the binary `Bin` to the remote server and appends it to the file
+`RemoteFile`. If the file does not exist, it is created.
+
+[](){: #append_chunk }
+""".
 -spec append_bin(Pid        :: pid(),
                  Bin        :: binary(),
                  RemoteFile :: string()) ->
@@ -446,6 +876,22 @@ append_bin(Pid, Bin, RemoteFile) ->
 %% Description: Send arbitrary ftp command.
 %%--------------------------------------------------------------------------
 
+-doc """
+> #### Note {: .info }
+>
+> The telnet end of line characters, from the FTP protocol definition, CRLF, for
+> example, "\\\\r\\\\n" has been removed.
+
+Sends an arbitrary FTP command and returns verbatim a list of the lines sent
+back by the FTP server. This function is intended to give application accesses
+to FTP commands that are server-specific or that cannot be provided by this FTP
+client.
+
+> #### Note {: .info }
+>
+> FTP commands requiring a data connection cannot be successfully issued with
+> this function.
+""".
 -spec quote(Pid :: pid(), Cmd :: string()) -> [FTPLine :: string()].
 
 quote(Pid, Cmd) when is_list(Cmd) ->
@@ -456,6 +902,11 @@ quote(Pid, Cmd) when is_list(Cmd) ->
 %% Description:  End the ftp session.
 %%--------------------------------------------------------------------------
 
+-doc """
+Ends an FTP session, created using function [open](`m:ftp#open`).
+
+[](){: #delete }
+""".
 -spec close(Pid :: pid()) -> 'ok'.
 close(Pid) ->
     ftp_internal:close(Pid).
@@ -465,12 +916,19 @@ close(Pid) ->
 %% Description:  Return diagnostics.
 %%--------------------------------------------------------------------------
 
+-doc """
+Given an error return value `{error, AtomReason}`, this function returns a
+readable string describing the error.
+
+[](){: #lcd }
+""".
 -spec formaterror(Tag :: atom() | {error, atom()}) -> string().
 
 formaterror(Tag) ->
   ftp_response:error_string(Tag).
 
 
+-doc false.
 info(Pid) ->
     ftp_internal:info(Pid).
 
@@ -479,6 +937,7 @@ info(Pid) ->
 %% Description:  The latest received response from the server
 %%--------------------------------------------------------------------------
 
+-doc false.
 -spec latest_ctrl_response(Pid :: pid()) -> string().
 
 latest_ctrl_response(Pid) ->

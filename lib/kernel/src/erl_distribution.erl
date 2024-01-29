@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_distribution).
+-moduledoc false.
 
 -behaviour(supervisor).
 

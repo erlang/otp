@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_compile).
+-moduledoc false.
 
 -include("erl_compile.hrl").
 -include("file.hrl").

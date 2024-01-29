@@ -22,6 +22,7 @@
 %%% Purpose : Loads tables from local disc or from remote node
 
 -module(mnesia_loader).
+-moduledoc false.
 
 %% Mnesia internal stuff
 -export([disc_load_table/3,

@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_record).
+-moduledoc false.
 
 -include("ssl_record.hrl").
 -include("ssl_connection.hrl").

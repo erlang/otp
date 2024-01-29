@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(disk_log_1).
+-moduledoc false.
 
 %% Efficient file based log - implementation part
 

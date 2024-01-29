@@ -25,6 +25,7 @@
 %% @doc EUnit server process
 
 -module(eunit_server).
+-moduledoc false.
 
 -export([start/1, stop/1, start_test/4, watch/3, watch_path/3,
 	 watch_regexp/3]).

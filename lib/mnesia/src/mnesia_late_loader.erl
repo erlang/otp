@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_late_loader).
+-moduledoc false.
 
 -export([
 	 async_late_disc_load/3,

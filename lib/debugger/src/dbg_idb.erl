@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_idb).
+-moduledoc false.
 
 %% External exports
 -export([insert/3, lookup/2, match_object/2]).

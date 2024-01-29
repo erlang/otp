@@ -25,6 +25,64 @@
 %%%      - RFC 2818 HTTP Over TLS
 
 -module(httpc).
+-moduledoc """
+An HTTP/1.1 client
+
+This module provides the API to an HTTP/1.1 compatible client according to
+[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt). Caching is not supported.
+
+> #### Note {: .info }
+>
+> When starting the `Inets` application, a manager process for the default
+> profile is started. The functions in this API that do not explicitly use a
+> profile accesses the default profile. A profile keeps track of proxy options,
+> cookies, and other options that can be applied to more than one request.
+>
+> If the scheme `https` is used, the `SSL` application must be started. When
+> `https` links need to go through a proxy, the CONNECT method extension to
+> HTTP-1.1 is used to establish a tunnel and then the connection is upgraded to
+> TLS. However, "TLS upgrade" according to
+> [RFC 2817](http://www.ietf.org/rfc/rfc2817.txt)is not supported.
+>
+> Pipelining is only used if the pipeline time-out is set, otherwise persistent
+> connections without pipelining are used. That is, the client always waits for
+> the previous response before sending the next request.
+
+Some examples are provided in the [Inets User's Guide](http_client.md).
+
+## HTTP CLIENT SERVICE START/STOP
+
+An HTTP client can be configured to start when starting the `Inets` application
+or started dynamically in runtime by calling the `Inets` application API
+`inets:start(httpc, ServiceConfig)` or `inets:start(httpc, ServiceConfig, How)`,
+see `m:inets`. The configuration options are as follows:
+
+- **\{profile, Profile :: atom() | pid()\}** - Name of the profile. This option
+  is mandatory.
+
+- **\{data_dir, Path :: string()\}** - Directory where the profile can save
+  persistent data. If omitted, all cookies are treated as session cookies.
+  `Path` represents a file path or directory path.
+
+The client can be stopped using [`inets:stop(httpc, Pid)`](`inets:stop/2`) or
+[`inets:stop(httpc, Profile)`](`inets:stop/2`).
+
+> #### Warning {: .warning }
+>
+> Please note that `httpc` normalizes input URIs before internal processing and
+> special care shall be taken when the URI has percent ("%") characters. A
+> percent serves as the indicator for percent-encoded octets and it must be
+> percent-encoded as "%25" for that octet to be used as data within the URI.
+>
+> For example, in order to send an `HTTP GET` request with the URI
+> `http://localhost/foo%25bar`, the percent character must be percent-encoded
+> when creating the request: `httpc:request("http://localhost/foo%2525bar").`
+
+## SEE ALSO
+
+[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:gen_tcp`, `m:ssl`
+""".
+-moduledoc(#{since => "OTP R13B04"}).
 
 -behaviour(inets_service).
 
@@ -63,9 +121,11 @@
 %%%  API
 %%%=========================================================================
 
+-doc false.
 default_profile() ->
     ?DEFAULT_PROFILE.
 
+-doc false.
 -spec profile_name(pid()) -> pid();
                   (atom()) -> pid() | atom().
 profile_name(?DEFAULT_PROFILE) ->
@@ -77,12 +137,15 @@ profile_name(Profile) ->
     profile_name(Prefix, Profile).
 
 
+-doc false.
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
 profile_name(_Prefix, Profile) when is_pid(Profile) ->
     Profile.
 
 
+-doc(#{equiv => request/2}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec request(uri_string:uri_string()) -> {ok, Result} | {error, term()} when
       Result :: {StatusLine :: { HttpVersion, StatusCode, string()}
                 , [HttpHeader]
@@ -100,6 +163,8 @@ profile_name(_Prefix, Profile) when is_pid(Profile) ->
 request(Url) ->
     request(Url, default_profile()).
 
+-doc "Equivalent to [`httpc:request(get, {Url, []}, [], [])`](`request/4`).".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec request(Url, Profile) -> {ok, Result} | {error, term()} when
       Url :: uri_string:uri_string(),
       Profile :: atom() | pid(),
@@ -125,6 +190,8 @@ request(Url, Profile) ->
 %% calling process on the format {http, {RequestId, {StatusLine,
 %% Headers, Body}}} or {http, {RequestId, {error, Reason}}}.
 %% Only octects are accepted in header fields and values.
+-doc(#{equiv => request/5}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec request(Method, Request, HttpOptions, Options) -> {ok, Result} | {error, term()} when
       Method :: head | get | put | patch | post | trace | options | delete,
       Request :: { uri_string:uri_string()
@@ -185,6 +252,160 @@ request(Method, Request, HttpOptions, Options) ->
 -define(WITH_BODY, [post, put, patch, delete]).
 -define(WITHOUT_BODY, [get, head, options, trace, put, delete]).
 
+-doc """
+Sends an HTTP request. The function can be both synchronous and asynchronous. In
+the latter case, the function returns `{ok, RequestId}` and then the information
+is delivered to the `receiver` depending on that value.
+
+When `Profile` is `stand_alone` only the pid can be used.
+
+HTTP options:
+
+- **`timeout`** - Time-out time for the request.
+
+  The clock starts ticking when the request is sent.
+
+  Time is in milliseconds.
+
+  Default is `infinity`.
+
+- **`connect_timeout`** - Connection time-out time, used during the initial
+  request, when the client is _connecting_ to the server.
+
+  Time is in milliseconds.
+
+  Default is the value of option `timeout`.
+
+- **`ssl`** - This is the `SSL/TLS` connecting configuration option.
+
+  Default value is obtained by calling
+  [`httpc:ssl_verify_host_options(true)`. ](`ssl_verify_host_options/1`). See
+  [ssl:connect/\[2,3,4]](`m:ssl`) for available options.
+
+- **`autoredirect`** - The client automatically retrieves the information from
+  the new URI and returns that as the result, instead of a 30X-result code.
+
+  For some 30X-result codes, automatic redirect is not allowed. In these cases
+  the 30X-result is always returned.
+
+  Default is `true`.
+
+- **`proxy_auth`** - A proxy-authorization header using a tuple where the first
+  element is the `username` and the second element of the tuple is the
+  `password` added to the request.
+
+- **`version`** - Can be used to make the client act as an `HTTP/1.0` client. By
+  default this is an `HTTP/1.1` client. When using `HTTP/1.0` persistent
+  connections are not used.
+
+  Default is the string `"HTTP/1.1"`.
+
+- **`relaxed`** - If set to `true`, workarounds for known server deviations from
+  the HTTP-standard are enabled.
+
+  Default is `false`.
+
+Options details:
+
+- **`sync`** - Option for the request to be synchronous or asynchronous.
+
+  Default is `true`.
+
+- **`stream`** - Streams the body of a 200 or 206 response to the calling
+  process or to a file. When streaming to the calling process using option
+  `self`, the following stream messages are sent to that process:
+  `{http, {RequestId, stream_start, Headers}}, {http, {RequestId, stream, BinBodyPart}}, and {http, {RequestId, stream_end, Headers}}`.
+
+  When streaming to the calling processes using option `{self, once}`, the first
+  message has an extra element, that is,
+  `{http, {RequestId, stream_start, Headers, Pid}}`. This is the process id to
+  be used as an argument to `httpc:stream_next/1` to trigger the next message to
+  be sent to the calling process.
+
+  Notice that chunked encoding can add headers so that there are more headers in
+  the `stream_end` message than in `stream_start`. When streaming to a file and
+  the request is asynchronous, the message `{http, {RequestId, saved_to_file}}`
+  is sent.
+
+  Default is `none`.
+
+- **`body_format`** - Defines if the body is to be delivered as a string or
+  binary. This option is only valid for the synchronous request.
+
+  Default is `string`.
+
+- **`full_result`** - Defines if a "full result" is to be returned to the caller
+  (that is, the body, the headers, and the entire status line) or not (the body
+  and the status code).
+
+  Default is `true`.
+
+- **`headers_as_is`** - Defines if the headers provided by the user are to be
+  made lower case or to be regarded as case sensitive.
+
+  The HTTP standard requires them to be case insensitive. Use this feature only
+  if there is no other way to communicate with the server or for testing
+  purpose. When this option is used, no headers are automatically added. All
+  necessary headers must be provided by the user.
+
+  Default is `false`.
+
+- **`socket_opts`** - Socket options to be used for this request.
+
+  See the options used by `m:gen_tcp` and `m:ssl`
+
+  Overrides any value set by function [set_options](`set_options/1`).
+
+  The validity of the options is _not_ checked by the HTTP client they are
+  assumed to be correct and passed on to ssl application and inet driver, which
+  may reject them if they are not correct.
+
+  > #### Note {: .info }
+  >
+  > Persistent connections are not supported when setting the `socket_opts`
+  > option. When `socket_opts` is not set the current implementation assumes the
+  > requests to the same host, port combination will use the same socket
+  > options.
+
+  By default the socket options set by function
+  [set_options/\[1,2]](`set_options/1`) are used when establishing a connection.
+
+- **`receiver`** - Defines how the client delivers the result of an asynchronous
+  request (`sync` has the value `false`).
+
+  - **`t:pid/0`** - Messages are sent to this process in the format
+    `{http, ReplyInfo}`.
+
+  - **`function/1`** - Information is delivered to the receiver through calls to
+    the provided fun `Receiver(ReplyInfo)`.
+
+  - **`{Module, Function, Args}`** - Information is delivered to the receiver
+    through calls to the callback function
+    [`apply(Module, Function, [ReplyInfo | Args])`](`apply/3`).
+
+  In all of these cases, `ReplyInfo` has the following structure:
+
+  ```erlang
+   {RequestId, saved_to_file}
+   {RequestId, {error, Reason}}
+   {RequestId, Result}
+   {RequestId, stream_start, Headers}
+   {RequestId, stream_start, Headers, HandlerPid}
+   {RequestId, stream, BinBodyPart}
+   {RequestId, stream_end, Headers}
+  ```
+
+  Default is the `pid` of the process calling the request function (`self/0`).
+
+  [](){: #ipv6_host_with_brackets }
+
+- **`ipv6_host_with_brackets`** - Defines when parsing the Host-Port part of an
+  URI with an IPv6 address with brackets, if those brackets are to be retained
+  (`true`) or stripped (`false`).
+
+  Default is `false`.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec request(Method, Request, HttpOptions, Options, Profile) -> {ok, Result} | {error, term()} when
       Method :: head | get | put | patch | post | trace | options | delete,
       Request :: { uri_string:uri_string()
@@ -287,6 +508,8 @@ check_request(_, _, _Request) ->
 %%
 %% @doc Description: Cancels a HTTP-request.
 %%
+-doc(#{equiv => cancel_request/2}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec cancel_request(RequestId) -> ok when
       RequestId :: any().
 cancel_request(RequestId) ->
@@ -298,6 +521,12 @@ cancel_request(RequestId) ->
 %% asynchronous, the request can already have been completed when the
 %% cancellation arrives.
 %%
+-doc """
+Cancels an asynchronous HTTP request. Notice that this does not guarantee that
+the request response is not delivered. Because it is asynchronous, the request
+can already have been completed when the cancellation arrives.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec cancel_request(RequestId, Profile) -> ok when
       RequestId :: any(),
       Profile :: atom() | pid().
@@ -308,6 +537,8 @@ cancel_request(RequestId, Profile)
 
 %% @doc Sets options to be used for subsequent requests.
 %% @see set_options/2. Informs the httpc_manager of the new settings.
+-doc(#{equiv => set_options/2}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec set_options(Options) -> ok | {error, Reason} when
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
@@ -347,6 +578,89 @@ set_options(Options) ->
     set_options(Options, default_profile()).
 
 %% @doc Sets options to be used for subsequent requests.
+-doc """
+Sets options to be used for subsequent requests.
+
+- **`HostName`** - Example: "localhost" or "foo.bar.se"
+
+- **`DomainDesc`** - Example `"*.Domain"` or `"*.ericsson.se"`
+
+- **`IpAddressDesc`** - Example: "134.138" or "\[FEDC:BA98" (all IP addresses
+  starting with 134.138 or FEDC:BA98), "66.35.250.150" or
+  "[2010:836B:4179::836B:4179]" (a complete IP address). `proxy` defaults to
+  `{undefined, []}`, that is, no proxy is configured and `https_proxy` defaults
+  to the value of `proxy`.
+
+- **`MaxSessions`** - `MaxSessions` Maximum number of persistent connections to
+  a host. Default is `2`.
+
+- **`MaxKeepAlive`** - `MaxKeepAlive` Maximum number of outstanding requests on
+  the same connection to a host. Default is `5`.
+
+- **`KeepAliveTimeout`** - `KeepAliveTimeout` If a persistent connection is idle
+  longer than the `keep_alive_timeout` in milliseconds, the client closes the
+  connection. The server can also have such a time-out but do not take that for
+  granted. Default is `120000` (= 2 min).
+
+- **`MaxPipeline`** - `MaxPipeline` Maximum number of outstanding requests on a
+  pipelined connection to a host. Default is `2`.
+
+- **`PipelineTimeout`** - `PipelineTimeout` If a persistent connection is idle
+  longer than the `pipeline_timeout` in milliseconds, the client closes the
+  connection. Default is `0`, which results in pipelining not being used.
+
+- **`CookieMode`** - If cookies are enabled, all valid cookies are automatically
+  saved in the cookie database of the client manager. If option `verify` is
+  used, function [`store_cookies/2`](`store_cookies/2`) has to be called for the
+  cookies to be saved. Default is `disabled`.
+
+- **`IpFamily`** - Default is `inet`. With `inet6fb4` option, IPv6 will be
+  preferred but if connection fails, an IPv4 fallback connection attempt will be
+  made.
+
+- **`IpAddress`** - If the host has several network interfaces, this option
+  specifies which one to use. See [gen_tcp:connect/3,4](`m:gen_tcp#connect`) for
+  details.
+
+- **`Port`** - Example: `8080`. Local port number to use. See
+  [gen_tcp:connect/3,4](`m:gen_tcp#connect`) for details.
+
+- **`SocketOpts`** - The options are appended to the socket options used by the
+  client. These are the default values when a new request handler is started
+  (for the initial connect). They are passed directly to the underlying
+  transport (`gen_tcp` or `SSL`) without verification.
+
+  See the options used by `m:gen_tcp` and `m:ssl`
+
+- **`VerboseMode`** - Default is `false`. This option is used to switch on (or
+  off) different levels of Erlang trace on the client. It is a debug feature.
+
+- **`Profile`** - When started `stand_alone` only the pid can be used.
+
+- **`UnixSocket`** - Experimental option for sending HTTP requests over a unix
+  domain socket. The value of `unix_socket` shall be the full path to a unix
+  domain socket file with read/write permissions for the erlang process. Default
+  is `undefined`.
+
+> #### Note {: .info }
+>
+> If possible, the client keeps its connections alive and uses persistent
+> connections with or without pipeline depending on configuration and current
+> circumstances. The HTTP/1.1 specification does not provide a guideline for how
+> many requests that are ideal to be sent on a persistent connection. This
+> depends much on the application.
+>
+> A long queue of requests can cause a user-perceived delay, as earlier requests
+> can take a long time to complete. The HTTP/1.1 specification suggests a limit
+> of two persistent connections per server, which is the default value of option
+> `max_sessions`.
+>
+> The current implementation assumes the requests to the same host, port
+> combination will use the same socket options.
+
+[](){: #get_options }
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec set_options(Options, Profile) -> ok | {error, Reason} when
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
@@ -390,10 +704,12 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
 	    {error, Reason}
     end.
 
+-doc false.
 -spec set_option(atom(), term()) -> ok | {error, term()}.
 set_option(Key, Value) ->
     set_option(Key, Value, default_profile()).
 
+-doc false.
 -spec set_option(atom(), term(), atom()) -> ok | {error, term()}.
 set_option(Key, Value, Profile) ->
     set_options([{Key, Value}], Profile).
@@ -406,6 +722,8 @@ get_options() ->
 %%
 %% @doc Retrieves the options currently used by the client.
 %%
+-doc(#{equiv => get_options/2}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
       OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
@@ -419,6 +737,8 @@ get_options(Options) ->
 %%
 %% @doc Retrieves the options currently used by the client.
 %%
+-doc "Retrieves the options currently used by the client.".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
       OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
@@ -447,9 +767,11 @@ get_options(Options, Profile)
 	    {error, {invalid_options, InvalidGetOptions}}
     end.
 
+-doc false.
 get_option(Key) ->
     get_option(Key, default_profile()).
 
+-doc false.
 get_option(Key, Profile) ->
     case get_options([Key], Profile) of
 	{ok, [{Key, Value}]} ->
@@ -463,6 +785,14 @@ get_option(Key, Profile) ->
 %%
 %%  WildcardHostName=true  does wildcard matching on the hostname check
 %%--------------------------------------------------------------------------
+-doc """
+Returns ssl options which can be used to verify the host, uses
+[`public_key:cacerts_get()`](`public_key:cacerts_get/0`) to read CA certicates
+and if `WildcardHostName` is true adds the hostname check from
+[`public_key:public_key:pkix_verify_hostname_match_fun(https)`](`public_key:pkix_verify_hostname_match_fun/1`)
+to the options.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec ssl_verify_host_options(WildcardHostName) -> list() when
       WildcardHostName :: boolean().
 ssl_verify_host_options(WildcardHostName) ->
@@ -476,6 +806,8 @@ ssl_verify_host_options(WildcardHostName) ->
     [{verify, verify_peer}, {cacerts, public_key:cacerts_get()} | WildCard].
 
 
+-doc(#{equiv => store_cookies/3}).
+-doc(#{since => <<"OTP R14B02">>}).
 -spec store_cookies(SetCookieHeaders, Url) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
       HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -488,6 +820,12 @@ store_cookies(SetCookieHeaders, Url) ->
 %% @doc Saves the cookies defined in `SetCookieHeaders; in the client profile
 %% cookie database. Call this function if option `cookies' is set to `verify'. If no
 %% profile is specified, the default profile is used.
+-doc """
+Saves the cookies defined in `SetCookieHeaders` in the client profile cookie
+database. Call this function if option `cookies` is set to `verify`. If no
+profile is specified, the default profile is used.
+""".
+-doc(#{since => <<"OTP R14B02">>}).
 -spec store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
       HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -520,6 +858,8 @@ default_port(https) ->
     443.
 
 
+-doc(#{equiv => cookie_header/2}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec cookie_header(Url) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -527,6 +867,15 @@ default_port(https) ->
 cookie_header(Url) ->
     cookie_header(Url, default_profile()).
 
+-doc """
+Returns the cookie header that would have been sent when making a request to
+`Url` using profile `Profile`. If no profile is specified, the default profile
+is used.
+
+Option `ipv6_host_with_bracket` deals with how to parse IPv6 addresses. For
+details, see argument `Options` of [request/\[4,5]](`request/4`).
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec cookie_header(Url, ProfileOrOpts) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -545,6 +894,15 @@ cookie_header(Url, Opts) when is_list(Opts) ->
 %% request to Url using profile Profile. If no profile is specified, the default
 %% profile is used.
 %%
+-doc """
+Returns the cookie header that would have been sent when making a request to
+`Url` using profile `Profile`. If no profile is specified, the default profile
+is used.
+
+Option `ipv6_host_with_bracket` deals with how to parse IPv6 addresses. For
+details, see argument `Options` of [request/\[4,5]](`request/4`).
+""".
+-doc(#{since => <<"OTP R15B">>}).
 -spec cookie_header(Url, Opts, Profile) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -564,6 +922,8 @@ cookie_header(Url, Opts, Profile)
     end.
     
 
+-doc(#{equiv => which_cookies/1}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec which_cookies() -> [CookieStores] when
       CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
       Cookies :: [term()].
@@ -575,6 +935,11 @@ which_cookies() ->
 %% debugging/testing purposes. If no profile is specified, the default profile
 %% is used.
 %%
+-doc """
+Produces a list of the entire cookie database. Intended for debugging/testing
+purposes. If no profile is specified, the default profile is used.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec which_cookies(Profile) -> [CookieStores] when
       Profile :: atom() | pid(),
       CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
@@ -591,6 +956,8 @@ which_cookies(Profile) ->
     end.
 
 
+-doc(#{equiv => which_sessions/1}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec which_sessions() -> SessionInfo when
       SessionInfo :: {GoodSession, BadSessions, NonSessions},
       GoodSession :: [Session],
@@ -609,6 +976,14 @@ which_sessions() ->
 %% is used. The dumped sessions database is sorted into three groups
 %% (Good-, Bad- and Non-sessions).
 %%
+-doc """
+This function is intended for debugging only. It produces a slightly processed
+dump of the session database. The first list of the session information tuple
+will contain session information on an internal format. The last two lists of
+the session information tuple should always be empty if the code is working as
+intended. If no profile is specified, the default profile is used.
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec which_sessions(Profile) -> SessionInfo when
       Profile :: atom() | pid(),
       SessionInfo :: {GoodSession, BadSessions, NonSessions},
@@ -632,6 +1007,8 @@ which_sessions(Profile) ->
 %% @doc Produces a list of miscellaneous information. Intended for debugging. If
 %% no profile is specified, the default profile is used.
 %%
+-doc(#{equiv => info/1}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec info() -> list() | {error, Reason} when
       Reason :: term().
 info() ->
@@ -641,6 +1018,11 @@ info() ->
 %% @doc Produces a list of miscellaneous information. Intended for debugging. If
 %% no profile is specified, the default profile is used.
 %%
+-doc """
+Produces a list of miscellaneous information. Intended for debugging. If no
+profile is specified, the default profile is used.
+""".
+-doc(#{since => <<"OTP R15B02">>}).
 -spec info(Profile) -> list() | {error, Reason} when
       Reason :: term(),
       Profile :: atom() | pid().
@@ -658,6 +1040,8 @@ info(Profile) ->
 %%
 %% @doc Debug function. Resets (clears) the cookie database for the default profile
 %%
+-doc(#{equiv => reset_cookies/1}).
+-doc(#{since => <<"OTP R13B04">>}).
 -spec reset_cookies() -> Void when
       Void :: term().
 reset_cookies() ->
@@ -667,6 +1051,11 @@ reset_cookies() ->
 %% @doc Debug function. Resets (clears) the cookie database for the specified
 %% `Profile'. If no profile is specified the default profile is used.
 %%
+-doc """
+Resets (clears) the cookie database for the specified `Profile`. If no profile
+is specified the default profile is used.
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec reset_cookies(Profile) -> Void when
       Profile :: atom() | pid(),
       Void :: term().
@@ -685,6 +1074,13 @@ reset_cookies(Profile) ->
 %% @doc Triggers the next message to be streamed, that is, the same behavior as
 %% active ones for sockets.
 %%
+-doc """
+Triggers the next message to be streamed, that is, the same behavior as active
+ones for sockets.
+
+[](){: #verify_cookies } [](){: #store_cookies }
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 -spec stream_next(Pid) -> ok when
       Pid :: pid().
 stream_next(Pid) ->
@@ -694,6 +1090,7 @@ stream_next(Pid) ->
 %%%========================================================================
 %%% Behaviour callbacks
 %%%========================================================================
+-doc false.
 start_standalone(PropList) ->
     case proplists:get_value(profile, PropList) of
 	undefined ->
@@ -704,9 +1101,11 @@ start_standalone(PropList) ->
 	    httpc_manager:start_link(Profile, Dir, stand_alone)
     end.
 
+-doc false.
 start_service(Config) ->
     httpc_profile_sup:start_child(Config).
 
+-doc false.
 stop_service(Profile) when is_atom(Profile) ->
     httpc_profile_sup:stop_child(Profile);
 stop_service(Pid) when is_pid(Pid) ->
@@ -717,9 +1116,11 @@ stop_service(Pid) when is_pid(Pid) ->
 	    Error
     end.
 
+-doc false.
 services() ->
     [{httpc, Pid} || {_, Pid, _, _} <- 
 			 supervisor:which_children(httpc_profile_sup)].
+-doc false.
 service_info(Pid) ->
     try [{ChildName, ChildPid} || 
 	    {ChildName, ChildPid, _, _} <- 

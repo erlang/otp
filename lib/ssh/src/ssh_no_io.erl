@@ -23,6 +23,7 @@
 %%% Description: ssh_io replacement that throws on everything
 
 -module(ssh_no_io).
+-moduledoc false.
 -include("ssh_transport.hrl").
 
 -export([yes_no/2, read_password/2, read_line/2, format/2]).

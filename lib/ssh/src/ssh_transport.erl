@@ -23,6 +23,7 @@
 %%% Description: SSH transport protocol
 
 -module(ssh_transport).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").

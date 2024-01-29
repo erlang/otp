@@ -20,6 +20,7 @@
 
 -module(inet_epmd_socket).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,

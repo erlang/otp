@@ -15,6 +15,7 @@
 %%
 
 -module(docgen_edoc_xml_cb).
+-moduledoc false.
 
 %% This is the EDoc callback module for creating erlref
 %% documents (man pages) in XML format, and also a chapter

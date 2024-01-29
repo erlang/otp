@@ -18,6 +18,177 @@
 %% %CopyrightEnd%
 %%
 -module(gen_fsm).
+-moduledoc """
+Deprecated and replaced by gen_statem
+
+Deprecated and replaced by `m:gen_statem`
+
+[](){: #Migration-to-gen_statem }
+
+## Migration to gen_statem
+
+Here follows a simple example of turning a gen_fsm into a `m:gen_statem`. The
+example comes from the previous Users Guide for `gen_fsm`
+
+```erlang
+-module(code_lock).
+-define(NAME, code_lock).
+%-define(BEFORE_REWRITE, true).
+
+-ifdef(BEFORE_REWRITE).
+-behaviour(gen_fsm).
+-else.
+-behaviour(gen_statem).
+-endif.
+
+-export([start_link/1, button/1, stop/0]).
+
+-ifdef(BEFORE_REWRITE).
+-export([init/1, locked/2, open/2, handle_sync_event/4, handle_event/3,
+	 handle_info/3, terminate/3, code_change/4]).
+-else.
+-export([init/1, callback_mode/0, locked/3, open/3, terminate/3, code_change/4]).
+%% Add callback__mode/0
+%% Change arity of the state functions
+%% Remove handle_info/3
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+start_link(Code) ->
+    gen_fsm:start_link({local, ?NAME}, ?MODULE, Code, []).
+-else.
+start_link(Code) ->
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+button(Digit) ->
+    gen_fsm:send_event(?NAME, {button, Digit}).
+-else.
+button(Digit) ->
+    gen_statem:cast(?NAME, {button,Digit}).
+    %% send_event is asynchronous and becomes a cast
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+stop() ->
+    gen_fsm:sync_send_all_state_event(?NAME, stop).
+-else.
+stop() ->
+    gen_statem:call(?NAME, stop).
+    %% sync_send is synchronous and becomes call
+    %% all_state is handled by callback code in gen_statem
+-endif.
+
+init(Code) ->
+    do_lock(),
+    Data = #{code => Code, remaining => Code},
+    {ok, locked, Data}.
+
+-ifdef(BEFORE_REWRITE).
+-else.
+callback_mode() ->
+    state_functions.
+%% state_functions mode is the mode most similar to
+%% gen_fsm. There is also handle_event mode which is
+%% a fairly different concept.
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+locked({button, Digit}, Data0) ->
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} ->
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} ->
+	    {next_state, StateName, Data}
+    end.
+-else.
+locked(cast, {button,Digit}, Data0) ->
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} ->
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} ->
+	    {next_state, StateName, Data}
+    end;
+locked({call, From}, Msg, Data) ->
+    handle_call(From, Msg, Data);
+locked({info, Msg}, StateName, Data) ->
+    handle_info(Msg, StateName, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above.
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+open(timeout, State) ->
+     do_lock(),
+    {next_state, locked, State};
+open({button,_}, Data) ->
+    {next_state, locked, Data}.
+-else.
+open(timeout, _, Data) ->
+    do_lock(),
+    {next_state, locked, Data};
+open(cast, {button,_}, Data) ->
+    {next_state, locked, Data};
+open({call, From}, Msg, Data) ->
+    handle_call(From, Msg, Data);
+open(info, Msg, Data) ->
+    handle_info(Msg, open, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above.
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+handle_sync_event(stop, _From, _StateName, Data) ->
+    {stop, normal, ok, Data}.
+
+handle_event(Event, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Event, StateName}}, Data}.
+
+handle_info(Info, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}.
+-else.
+-endif.
+
+terminate(_Reason, State, _Data) ->
+    State =/= locked andalso do_lock(),
+    ok.
+code_change(_Vsn, State, Data, _Extra) ->
+    {ok, State, Data}.
+
+%% Internal functions
+-ifdef(BEFORE_REWRITE).
+-else.
+handle_call(From, stop, Data) ->
+     {stop_and_reply, normal,  {reply, From, ok}, Data}.
+
+handle_info(Info, StateName, Data) ->
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}.
+%% These are internal functions for handling all state events
+%% and not behaviour callbacks as in gen_fsm
+-endif.
+
+analyze_lock(Digit, #{code := Code, remaining := Remaining} = Data) ->
+     case Remaining of
+         [Digit] ->
+	     do_unlock(),
+	     {open,  Data#{remaining := Code}};
+         [Digit|Rest] -> % Incomplete
+             {locked, Data#{remaining := Rest}};
+         _Wrong ->
+             {locked, Data#{remaining := Code}}
+     end.
+
+do_lock() ->
+    io:format("Lock~n", []).
+do_unlock() ->
+    io:format("Unlock~n", []).
+```
+""".
 
 %%%-----------------------------------------------------------------
 %%%   
@@ -193,24 +364,31 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% ---------------------------------------------------
+-doc false.
 start(Mod, Args, Options) ->
     gen:start(?MODULE, nolink, Mod, Args, Options).
 
+-doc false.
 start(Name, Mod, Args, Options) ->
     gen:start(?MODULE, nolink, Name, Mod, Args, Options).
 
+-doc false.
 start_link(Mod, Args, Options) ->
     gen:start(?MODULE, link, Mod, Args, Options).
 
+-doc false.
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
 
+-doc false.
 stop(Name) ->
     gen:stop(Name).
 
+-doc false.
 stop(Name, Reason, Timeout) ->
     gen:stop(Name, Reason, Timeout).
 
+-doc false.
 send_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_event', Event}),
     ok;
@@ -221,6 +399,7 @@ send_event(Name, Event) ->
     Name ! {'$gen_event', Event},
     ok.
 
+-doc false.
 sync_send_event(Name, Event) ->
     case catch gen:call(Name, '$gen_sync_event', Event) of
 	{ok,Res} ->
@@ -229,6 +408,7 @@ sync_send_event(Name, Event) ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event]}})
     end.
 
+-doc false.
 sync_send_event(Name, Event, Timeout) ->
     case catch gen:call(Name, '$gen_sync_event', Event, Timeout) of
 	{ok,Res} ->
@@ -237,6 +417,7 @@ sync_send_event(Name, Event, Timeout) ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})
     end.
 
+-doc false.
 send_all_state_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_all_state_event', Event}),
     ok;
@@ -247,6 +428,7 @@ send_all_state_event(Name, Event) ->
     Name ! {'$gen_all_state_event', Event},
     ok.
 
+-doc false.
 sync_send_all_state_event(Name, Event) ->
     case catch gen:call(Name, '$gen_sync_all_state_event', Event) of
 	{ok,Res} ->
@@ -255,6 +437,7 @@ sync_send_all_state_event(Name, Event) ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event, [Name, Event]}})
     end.
 
+-doc false.
 sync_send_all_state_event(Name, Event, Timeout) ->
     case catch gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
 	{ok,Res} ->
@@ -272,15 +455,18 @@ sync_send_all_state_event(Name, Event, Timeout) ->
 
 %% Returns Ref, sends event {timeout,Ref,Msg} after Time 
 %% to the (then) current state.
+-doc false.
 start_timer(Time, Msg) ->
     erlang:start_timer(Time, self(), {'$gen_timer', Msg}).
 
 %% Returns Ref, sends Event after Time to the (then) current state.
+-doc false.
 send_event_after(Time, Event) ->
     erlang:start_timer(Time, self(), {'$gen_event', Event}).
 
 %% Returns the remaining time for the timer if Ref referred to
 %% an active timer/send_event_after, false otherwise.
+-doc false.
 cancel_timer(Ref) ->
     case erlang:cancel_timer(Ref) of
 	false ->
@@ -299,9 +485,11 @@ cancel_timer(Ref) ->
 %% in proc_lib, see proc_lib(3).
 %% The user is responsible for any initialization of the process,
 %% including registering a name for it.
+-doc false.
 enter_loop(Mod, Options, StateName, StateData) ->
     enter_loop(Mod, Options, StateName, StateData, self(), infinity).
 
+-doc false.
 enter_loop(Mod, Options, StateName, StateData, {Scope,_} = ServerName)
   when Scope == local; Scope == global ->
     enter_loop(Mod, Options, StateName, StateData, ServerName,infinity);
@@ -310,6 +498,7 @@ enter_loop(Mod, Options, StateName, StateData, {via,_,_} = ServerName) ->
 enter_loop(Mod, Options, StateName, StateData, Timeout) ->
     enter_loop(Mod, Options, StateName, StateData, self(), Timeout).
 
+-doc false.
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
@@ -324,6 +513,7 @@ enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
 %%% Finally an acknowledge is sent to Parent and the main
 %%% loop is entered.
 %%% ---------------------------------------------------
+-doc false.
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
@@ -376,6 +566,7 @@ loop(Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug
 	  end,
     decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug, false).
 
+-doc false.
 wake_hib(Parent, Name, StateName, StateData, Mod, HibernateAfterTimeout, Debug) ->
     Msg = receive
 	      Input ->
@@ -403,15 +594,18 @@ decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTime
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
+-doc false.
 system_continue(Parent, Debug, [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout]) ->
     loop(Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug).
 
+-doc false.
 -spec system_terminate(term(), _, _, [term(),...]) -> no_return().
 
 system_terminate(Reason, _Parent, Debug,
 		 [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]) ->
     terminate(Reason, Name, undefined, [], Mod, StateName, StateData, Debug).
 
+-doc false.
 system_code_change([Name, StateName, StateData, Mod, Time, HibernateAfterTimeout],
 		   _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
@@ -420,9 +614,11 @@ system_code_change([Name, StateName, StateData, Mod, Time, HibernateAfterTimeout
 	Else -> Else
     end.
 
+-doc false.
 system_get_state([_Name, StateName, StateData, _Mod, _Time, _HibernateAfterTimeout]) ->
     {ok, {StateName, StateData}}.
 
+-doc false.
 system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout]) ->
     Result = {NStateName, NStateData} = StateFun({StateName, StateData}),
     {ok, Result, [Name, NStateName, NStateData, Mod, Time, HibernateAfterTimeout]}.
@@ -560,6 +756,7 @@ from({'$gen_sync_all_state_event', From, _Event}) -> From;
 from(_) -> undefined.
 
 %% Send a reply to the client.
+-doc false.
 reply(From, Reply) ->
     gen:reply(From, Reply).
 
@@ -642,6 +839,7 @@ client_stacktrace(Pid) when is_pid(Pid) ->
 %% legacy error_logger event handlers. This function must always
 %% return {Format,Args} compatible with the arguments in this module's
 %% calls to error_logger prior to OTP-21.0.
+-doc false.
 format_log(Report) ->
     Depth = error_logger:get_format_depth(),
     FormatOpts = #{chars_limit => unlimited,
@@ -677,6 +875,7 @@ limit_client_report(Client, _) ->
 
 %% format_log/2 is the report callback for any Logger handler, except
 %% error_logger.
+-doc false.
 format_log(Report, FormatOpts0) ->
     Default = #{chars_limit => unlimited,
                 depth => unlimited,
@@ -911,6 +1110,7 @@ mod(_) -> "t".
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
+-doc false.
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]] =
 	StatusData,

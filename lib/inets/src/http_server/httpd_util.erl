@@ -19,6 +19,24 @@
 %%
 %%
 -module(httpd_util).
+-moduledoc """
+Miscellaneous utility functions to be used when implementing Erlang web server
+API modules.
+
+This module provides the Erlang web server API module programmer with
+miscellaneous utility functions.
+
+> #### Note {: .info }
+>
+> Note the module is only recommended for using with httpd - for other cases it
+> should be considered as deprecated.
+
+[](){: #convert_request_date }
+
+## SEE ALSO
+
+`m:httpd`
+""".
 -export([ip_address/2,
          lookup/2, 
          lookup/3,
@@ -67,6 +85,7 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("inets/include/httpd.hrl").
 
+-doc false.
 ip_address({_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
 ip_address({_,_,_,_,_,_,_,_} = Address, _IpFamily) ->
@@ -77,9 +96,18 @@ ip_address(Host, IpFamily)
 
 %% lookup
 
+-doc(#{equiv => lookup/3}).
 lookup(Table,Key) ->
     lookup(Table,Key,undefined).
 
+-doc """
+lookup(ETSTable,Key,Undefined) -> Result
+
+`lookup` extracts `{Key,Value}` tuples from `ETSTable` and returns the `Value`
+associated with `Key`. If `ETSTable` is of type `bag`, only the first `Value`
+associated with `Key` is returned. [`lookup/2`](`lookup/2`) returns `undefined`
+and [`lookup/3`](`lookup/3`) returns `Undefined` if no `Value` is found.
+""".
 lookup(Table,Key,Undefined) ->
     case catch ets:lookup(Table,Key) of
 	[{Key,Value}|_] ->
@@ -90,6 +118,12 @@ lookup(Table,Key,Undefined) ->
 
 %% multi_lookup
 
+-doc """
+multi_lookup(ETSTable,Key) -> Result
+
+`multi_lookup` extracts all `{Key,Value}` tuples from an `ETSTable` and returns
+_all_ `Values` associated with `Key` in a list.
+""".
 multi_lookup(Table,Key) ->
     remove_key(ets:lookup(Table,Key)).
 
@@ -100,9 +134,16 @@ remove_key([{_Key, Value}| Rest]) ->
 
 %% lookup_mime
 
+-doc(#{equiv => lookup_mime/3}).
 lookup_mime(ConfigDB,Suffix) ->
     lookup_mime(ConfigDB,Suffix,undefined).
 
+-doc """
+lookup_mime(ConfigDB,Suffix,Undefined) -> MimeType
+
+`lookup_mime` returns the MIME type associated with a specific file suffix as
+specified in the file `mime.types` (located in the config directory).
+""".
 lookup_mime(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -114,9 +155,17 @@ lookup_mime(ConfigDB,Suffix,Undefined) ->
 
 %% lookup_mime_default
 
+-doc(#{equiv => lookup_mime_default/3}).
 lookup_mime_default(ConfigDB,Suffix) ->
     lookup_mime_default(ConfigDB,Suffix,undefined).
 
+-doc """
+lookup_mime_default(ConfigDB,Suffix,Undefined) -> MimeType
+
+`lookup_mime_default` returns the MIME type associated with a specific file
+suffix as specified in the `mime.types` file (located in the config directory).
+If no appropriate association is found, the value of `DefaultType` is returned.
+""".
 lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -139,6 +188,13 @@ lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     end.
 
 %%% RFC 2616, HTTP 1.1 Status codes
+-doc """
+reason_phrase(StatusCode) -> Description
+
+`reason_phrase` returns `Description` of an HTTP 1.1 `StatusCode`, for example,
+200 is "OK" and 201 is "Created". For more information, see
+[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
+""".
 reason_phrase(100) ->   "Continue";
 reason_phrase(101) ->   "Switching Protocols" ;
 reason_phrase(200) ->   "OK" ;
@@ -204,6 +260,24 @@ reason_phrase(_) -> "Internal Server Error".
 
 %% message
 
+-doc """
+message(StatusCode,PhraseArgs,ConfigDB) -> Message
+
+[`message/3`](`message/3`) returns an informative HTTP 1.1 status string in
+HTML. Each `StatusCode` requires a specific `PhraseArgs`:
+
+- **`301`** - `t:string/0`: A URL pointing at the new document position.
+
+- **`400 | 401 | 500`** - `none` (no `PhraseArgs`).
+
+- **`403 | 404`** - `t:string/0`: A `Request-URI` as described in
+  [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
+
+- **`501`** - `{Method,RequestURI,HTTPVersion}`: The HTTP `Method`,
+  `Request-URI`, and `HTTP-Version` as defined in RFC 2616.
+
+- **`504`** - `t:string/0`: A string describing why the service was unavailable.
+""".
 message(301,URL,_) ->
     "The document has moved <A HREF=\""++ html_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
@@ -269,6 +343,13 @@ html_encode(String) ->
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
+-doc """
+convert_request_date(DateString) -> ErlDate|bad_date
+
+[`convert_request_date/1`](`convert_request_date/1`) converts `DateString` to
+the Erlang date format. `DateString` must be in one of the three date formats
+defined in [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
+""".
 convert_request_date([D,A,Y,DateType| Rest])->
     Func=case DateType of
 	     $\, ->
@@ -334,6 +415,7 @@ convert_rfc1123_date([_D,_A,_Y,_C,SP,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
+-doc false.
 convert_netscapecookie_date(Date)->
     case (catch http_util:convert_netscapecookie_date(Date)) of
 	Ret = {ok, _} ->
@@ -345,6 +427,7 @@ convert_netscapecookie_date(Date)->
 
 %% rfc1123_date
 
+-doc(#{equiv => rfc1123_date/1}).
 rfc1123_date() ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = calendar:universal_time(),
     DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
@@ -352,6 +435,12 @@ rfc1123_date() ->
       io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
 		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
 
+-doc """
+rfc1123_date(Date) -> RFC1123Date
+
+`rfc1123_date/0` returns the current date in RFC 1123 format. `rfc_date/1`
+converts the date in the Erlang format to the RFC 1123 date format.
+""".
 rfc1123_date(undefined) ->
     undefined;
 rfc1123_date(LocalTime) ->
@@ -367,6 +456,7 @@ rfc1123_date(LocalTime) ->
       io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
 		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
 
+-doc false.
 custom_date() ->
     LocalTime     = calendar:local_time(),
     UniversalTime = calendar:universal_time(),
@@ -390,6 +480,7 @@ sign(_Minutes) ->
 
 %% uniq
 
+-doc false.
 uniq([]) ->
     [];
 uniq([First,First|Rest]) ->
@@ -400,6 +491,14 @@ uniq([First|Rest]) ->
 
 %% day
 
+-doc """
+day(NthDayOfWeek) -> DayOfWeek
+
+[`day/1`](`day/1`) converts the day of the week (`NthDayOfWeek`) from an integer
+(1-7) to an abbreviated string, that is:
+
+1 = "Mon", 2 = "Tue", ..., 7 = "Sat".
+""".
 day(1) -> "Mon";
 day(2) -> "Tue";
 day(3) -> "Wed";
@@ -410,6 +509,14 @@ day(7) -> "Sun".
 
 %% month
 
+-doc """
+month(NthMonth) -> Month
+
+[`month/1`](`month/1`) converts the month `NthMonth` as an integer (1-12) to an
+abbreviated string, that is:
+
+1 = "Jan", 2 = "Feb", ..., 12 = "Dec".
+""".
 month(1) -> "Jan";
 month(2) -> "Feb";
 month(3) -> "Mar";
@@ -426,6 +533,19 @@ month(12) -> "Dec".
 %% split_path, URI has been decoded once when validate
 %% and should only be decoded once(RFC3986, 2.4).
 
+-doc """
+split_path(RequestLine) -> {Path,QueryStringOrPathInfo}
+
+[`split_path/1`](`split_path/1`) splits `RequestLine` in a file reference
+(`Path`), and a `QueryString` or a `PathInfo` string as specified in
+[RFC 2616](http://www.ietf.org/rfc/rfc2616.txt). A `QueryString` is isolated
+from `Path` with a question mark (`?`) and `PathInfo` with a slash (/). In the
+case of a `QueryString`, everything before `?` is a `Path` and everything after
+`?` is a `QueryString`. In the case of a `PathInfo`, `RequestLine` is scanned
+from left-to-right on the hunt for longest possible `Path` being a file or a
+directory. Everything after the longest possible `Path`, isolated with a `/`, is
+regarded as `PathInfo`
+""".
 split_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := Fragment,
@@ -446,6 +566,14 @@ add_hashmark(Query, Fragment) ->
 %% and should only be decoded once(RFC3986, 2.4).
 
 
+-doc """
+split_script_path(RequestLine) -> Split
+
+[`split_script_path/1`](`split_script_path/1`) is equivalent to
+[`split_path/1`](`split_path/1`) with one exception. If the longest possible
+path is not a regular, accessible, and executable file, then `not_a_script` is
+returned.
+""".
 split_script_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := _Fragment,
@@ -460,6 +588,7 @@ split_script_path(URI) ->
     end.
 
 %% strip_extension_dot
+-doc false.
 strip_extension_dot(Path) ->
     case filename:extension(Path) of
 	[] ->
@@ -470,6 +599,13 @@ strip_extension_dot(Path) ->
 
 %% split
 
+-doc """
+split(String,RegExp,N) -> SplitRes
+
+[`split/3`](`split/3`) splits `String` in `N` chunks using `RegExp`.
+[`split/3`](`split/3`) is equivalent to `re:split/3` with the exception that `N`
+defines the maximum number of fields in `FieldList`.
+""".
 split(String,RegExp,N) ->
     {ok, re:split(String, RegExp, [{parts, N}, {return, list}])}.
 
@@ -489,12 +625,15 @@ split(String,RegExp,N) ->
 %% make_name("httpd","otp.ericsson.se",80) => httpd__otp_ericsson_se__80
 %% make_name("httpd",undefined,8088)       => httpd_8088
 
+-doc false.
 make_name(Prefix,Port) ->
     make_name(Prefix,undefined,Port,"").
 
+-doc false.
 make_name(Prefix,Addr,Port) ->
     make_name(Prefix,Addr,Port,"").
 
+-doc false.
 make_name(Prefix, Addr,Port,Postfix) when is_atom(Postfix)->
     make_name(Prefix, Addr,Port, atom_to_list(Postfix));
 
@@ -533,9 +672,17 @@ search_and_replace(S,A,B) ->
           end,
     lists:map(Fun,S).
 
+-doc """
+create_etag(FileInfo) -> Etag
+
+[`create_etag/1`](`create_etag/1`) calculates the Etag for a file from its size
+and time for last modification. `FileInfo` is a record defined in
+`kernel/include/file.hrl`.
+""".
 create_etag(FileInfo) ->
     create_etag(FileInfo#file_info.mtime,FileInfo#file_info.size).
 
+-doc false.
 create_etag({{Year,Month,Day},{Hour,Min,Sec}},Size)->
     create_part([Year,Month,Day,Hour,Min,Sec])++io_lib:write(Size);
 
@@ -559,12 +706,14 @@ create_part(Values)->
 %%----------------------------------------------------------------------
 %% Validate httpd options
 %%----------------------------------------------------------------------
+-doc false.
 modules_validate([]) ->
     ok;
 modules_validate([Head | Tail]) ->
     ok = module_validate(Head),
     modules_validate(Tail).
 
+-doc false.
 module_validate(Module) when is_atom(Module) ->
     case code:which(Module) of
 	non_existing ->
@@ -576,6 +725,7 @@ module_validate(Module) when is_atom(Module) ->
 module_validate(Module) ->
     throw({module_name_not_atom, Module}).
 
+-doc false.
 dir_validate(ConfDir, Dir) ->
     case filelib:is_dir(Dir) of
 	true ->
@@ -586,6 +736,7 @@ dir_validate(ConfDir, Dir) ->
 	    throw({ConfDir, Dir})
     end.
     
+-doc false.
 file_validate(ConfFile, File) ->
     case filelib:is_file(File) of
 	true ->
@@ -596,6 +747,7 @@ file_validate(ConfFile, File) ->
 	    throw({ConfFile, File})
     end.
 
+-doc false.
 mime_type_validate({Value1, Value2}) 
   when is_list(Value1) andalso is_list(Value2) ->
     ok;
@@ -604,6 +756,7 @@ mime_type_validate({_, _} = Value) ->
 mime_type_validate(MimeFile) ->
     file_validate(mime_types, MimeFile).
 
+-doc false.
 mime_types_validate([{_, _} = Value | Rest]) ->
     ok = mime_types_validate(Value),
     mime_types_validate(Rest);
@@ -613,6 +766,7 @@ mime_types_validate(MimeFile) ->
     mime_type_validate(MimeFile).
 
 
+-doc false.
 valid_options(Debug, AcceptTimeout, Config) ->
     valid_debug(Debug),
     valid_accept_timeout(AcceptTimeout),
@@ -658,6 +812,7 @@ valid_config(_) ->
 %% Enable debugging, 
 %%----------------------------------------------------------------------
 
+-doc false.
 enable_debug([]) ->
     ok;
 enable_debug(Debug) ->
@@ -693,6 +848,7 @@ do_enable_debug([{Level,Modules}|Rest])
     do_enable_debug(Rest).
 
 
+-doc false.
 error_log(ConfigDB, Report) ->
     case lookup(ConfigDB, logger) of
         undefined ->

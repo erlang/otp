@@ -22,6 +22,7 @@
 %%%                from disk (alt. consumes a string), processes it, and
 %%%                exports is using the specified Callback module.
 -module(xmerl_xlate).
+-moduledoc false.
 
 
 -export([file/3,

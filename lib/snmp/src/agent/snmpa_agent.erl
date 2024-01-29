@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_agent).
+-moduledoc false.
 
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").

@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_text_mini_decoder).
+-moduledoc false.
 
 -export([decode_message/2]).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_net_if).
+-moduledoc false.
 
 -behaviour(snmpa_network_interface).
 

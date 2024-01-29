@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpc_manager).
+-moduledoc false.
 
 -behaviour(gen_server).
 

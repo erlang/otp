@@ -25,6 +25,7 @@
 %% @doc Test runner process tree functions
 
 -module(eunit_proc).
+-moduledoc false.
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").

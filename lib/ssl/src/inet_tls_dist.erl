@@ -21,6 +21,7 @@
 %%
 -module(inet_tls_dist).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 -export([childspecs/0]).
 -export([select/1, address/0, is_node_name/1,

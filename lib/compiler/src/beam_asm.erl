@@ -20,6 +20,7 @@
 %% Purpose : Assembler for threaded Beam.
 
 -module(beam_asm).
+-moduledoc false.
 
 -export([module/4]).
 -export([encode/2]).

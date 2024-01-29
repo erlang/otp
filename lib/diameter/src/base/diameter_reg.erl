@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_reg).
+-moduledoc false.
 
 -behaviour(gen_server).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(raw_file_io_deflate).
+-moduledoc false.
 
 -behavior(gen_statem).
 

@@ -25,6 +25,7 @@
 %% @doc Generic listener process for eunit.
 
 -module(eunit_listener).
+-moduledoc false.
 
 -define(NODEBUG, true).
 -include("eunit.hrl").

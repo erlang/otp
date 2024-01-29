@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_stats).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([reg/2, reg/1,

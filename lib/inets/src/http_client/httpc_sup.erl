@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(httpc_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

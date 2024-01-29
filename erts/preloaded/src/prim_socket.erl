@@ -19,6 +19,7 @@
 %%
 
 -module(prim_socket).
+-moduledoc false.
 
 -compile(no_native).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_gethost_native).
+-moduledoc false.
 -behaviour(supervisor_bridge).
 
 %% Supervisor bridge exports

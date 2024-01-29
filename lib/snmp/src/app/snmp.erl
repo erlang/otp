@@ -18,6 +18,15 @@
 %% %CopyrightEnd%
 %%
 -module(snmp).
+-moduledoc """
+Interface functions to the SNMP toolkit
+
+The module `snmp` contains interface functions to the SNMP toolkit.
+
+## See Also
+
+calendar(3)
+""".
 
 
 %%----------------------------------------------------------------------
@@ -122,6 +131,7 @@
 %% Instead it is defined in an internal header file.
 %% So we have to create a "copy" of it here.
 %% Lets hope it never changes...
+-doc "This is basically a copy of the [dlog_size()](`t:disk_log:dlog_size/0`).".
 -type log_size()              :: 'infinity' | pos_integer() |
                                  {MaxNoBytes :: pos_integer(),
                                   MaxNoFiles :: pos_integer()}.
@@ -130,18 +140,42 @@
                                  {local_time, calendar:datetime()} |
                                  {universal_time, calendar:datetime()}.
 
+-doc "The Erlang representation of the SNMP BITS (pseudo) data type.".
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
 -type octet_string()          :: [octet()].
+-doc "Represent an ASN.1 OBJECT IDENTIFIER.".
 -type oid()                   :: [non_neg_integer()].
+-doc """
+Denotes the last part of the OID which specifies the index of the row in the
+table (see RFC1212, 4.1.6 for more information about INDEX).
+""".
 -type row_index()             :: oid().
 
+-doc "The data type DateAndTime, an OCTET STRING, as specified in RFC1903.".
 -type rfc1903_date_and_time() :: octet_string().
 
 -type date_and_time_validator_kind() :: year | month | day |
                                         hour | minute | seconds | deci_seconds |
                                         diff | valid_date.
 
+-doc """
+The input to the validator fun looks like this:
+
+```text
+	  Kind             Data
+	  --------------   ----------------------
+	  year             {Year1, Year2}
+	  month            Month
+	  day              Day
+	  hour             Hour
+	  minute           Minute
+	  seconds          Seconds
+	  deci_seconds     DeciSeconds
+	  diff             [Sign, Hour, Minute]
+	  valid_date       {Year, Month, Day}
+```
+""".
 -type date_and_time_validator() ::
         fun((Kind :: date_and_time_validator_kind(),
              Data :: term()) -> boolean()).
@@ -198,6 +232,7 @@
 -type error_status()  :: atom().
 -type error_index()   :: pos_integer().
 
+-doc "The type is used when a functions return is to be ignored.".
 -type void()          :: term().
 
 
@@ -205,12 +240,20 @@
 %% Application
 %%-----------------------------------------------------------------
 
+-doc(#{equiv => start/1}).
 -spec start() -> ok | {error, Reason} when
       Reason :: term().
 
 start() ->
     application:start(?APPLICATION).
 
+-doc """
+Starts the SNMP application.
+
+See `m:application` for more info.
+
+[](){: #stop }
+""".
 -spec start(Type) -> ok | {error, Reason} when
       Type   :: p  | permanent |
                 tr | transient |
@@ -227,6 +270,13 @@ start(Type) ->
     application:start(?APPLICATION, Type).
 
 
+-doc """
+Stops the SNMP application.
+
+See `m:application` for more info.
+
+[](){: #start_agent }
+""".
 -spec stop() -> ok | {error, Reason} when
       Reason :: term().
 
@@ -234,12 +284,26 @@ stop() ->
     application:stop(?APPLICATION).
 
 
+-doc(#{equiv => start_agent/1}).
 -spec start_agent() -> ok | {error, Reason} when
       Reason :: term().
 
 start_agent() ->
     snmp_app:start_agent().
 
+-doc """
+The SNMP application consists of several entities, of which the agent is one.
+This function starts the agent entity of the application.
+
+Note that the only way to actually start the agent in this way is to add the
+agent related config after starting the application (e.g it cannot be part of
+the normal application config; sys.config). This is done by calling:
+`application:set_env(snmp, agent, Conf)`.
+
+The default value for `Type` is `normal`.
+
+[](){: #start_manager }
+""".
 -spec start_agent(Type) -> ok | {error, Reason} when
       Type   :: application:start_type(),
       Reason :: term().
@@ -248,12 +312,26 @@ start_agent(Type) ->
     snmp_app:start_agent(Type).
 
 
+-doc(#{equiv => start_manager/1}).
 -spec start_manager() -> ok | {error, Reason} when
       Reason :: term().
 
 start_manager() ->
     snmp_app:start_manager().
 
+-doc """
+The SNMP application consists of several entities, of which the manager is one.
+This function starts the manager entity of the application.
+
+Note that the only way to actually start the manager in this way is to add the
+manager related config after starting the application (e.g it cannot be part of
+the normal application config; sys.config). This is done by calling:
+`application:set_env(snmp, manager, Conf)`.
+
+The default value for `Type` is `normal`.
+
+[](){: #dat } [](){: #date_and_time }
+""".
 -spec start_manager(Type) -> ok | {error, Reason} when
       Type   :: application:start_type(),
       Reason :: term().
@@ -264,6 +342,22 @@ start_manager(Type) ->
 
 %%-----------------------------------------------------------------
 
+-doc """
+A simple interactive configuration tool. Simple configuration files can be
+generated, but more complex configurations still have to be edited manually.
+
+The tool is a textual based tool that asks some questions and generates
+`sys.config` and `*.conf` files.
+
+_Note_ that if the application shall support version 3, then the crypto app must
+be started before running this function (password generation).
+
+_Note_ also that some of the configuration files for the agent and manager share
+the same names. This means that they have to be stored in _different_
+directories\!
+
+[](){: #start }
+""".
 -spec config() -> ok | {error, Reason} when
       Reason :: term().
 
@@ -272,6 +366,12 @@ config() -> snmp_config:config().
 
 %%-----------------------------------------------------------------
 
+-doc """
+Starts a dbg tracer that prints trace events to stdout (using plain io:format
+after a minor formatting).
+
+[](){: #disable_trace }
+""".
 -spec enable_trace() -> void().
 
 enable_trace() ->
@@ -279,12 +379,24 @@ enable_trace() ->
     dbg:tracer(process, HandleSpec).
 
 
+-doc """
+Stop the tracer.
+
+[](){: #set_trace1 }
+""".
 -spec disable_trace() -> void().
 
 disable_trace() ->    
     dbg:stop().
 
 
+-doc """
+This function is used to set up default trace on function(s) for the given
+module or modules. The scope of the trace will be all _exported_ functions (both
+the call info and the return value). Timestamp info will also be included.
+
+[](){: #reset_trace }
+""".
 -spec set_trace(Targets) -> void() when
       Targets       :: module() | [module() | {module(), [TargetOpt]}],
       TargetOpt     :: {return_trace, boolean()} | {scope, Scope},
@@ -300,6 +412,11 @@ set_trace(Modules) when is_list(Modules) ->
     set_trace(Modules, Opts).
 
 
+-doc """
+This function is used to reset (disable) trace for the given module(s).
+
+[](){: #set_trace2 }
+""".
 -spec reset_trace(Targets) -> void() when
       Targets :: module() | [module()].
 
@@ -309,6 +426,28 @@ reset_trace(Targets) when is_list(Targets) ->
     set_trace(Targets, disable).
 
 
+-doc """
+This function is used to set up trace on function(s) for the given module or
+modules.
+
+The example below sets up trace on the exported functions (default) of module
+`snmp_generic` and all functions of module `snmp_generic_mnesia`. With return
+values (which is default) and timestamps in both cases (which is also default):
+
+```erlang
+	  snmp:enable_trace(),
+	  snmp:set_trace([snmp_generic,
+                          {snmp_generic_mnesia, [{scope, all_functions}]}]),
+	  .
+	  .
+	  .
+          snmp:set_trace(snmp_generic, disable),
+	  .
+	  .
+	  .
+	  snmp:disable_trace(),
+```
+""".
 -spec set_trace(Targets, TraceOpts) -> void() when
       Targets       :: module() | [module() | {module(), [TargetOpt]}],
       TargetOpt     :: {return_trace, boolean()} | {scope, Scope},
@@ -326,6 +465,7 @@ set_trace(Module, Opts) when is_atom(Module) andalso is_list(Opts) ->
 set_trace(Modules, Opts) when is_list(Modules) ->
     (catch set_trace(all, Modules, Opts)).
 
+-doc false.
 set_trace(Item, Module, Opts) when is_atom(Module) ->
     set_trace(Item, [{Module, []}], Opts);
 set_trace(_Item, Modules, disable) when is_list(Modules) ->
@@ -488,12 +628,26 @@ format_timestamp({_N1, _N2, N3} = Now) ->
 %%-----------------------------------------------------------------
 %% {ok, Vs} = snmp:versions1(), snmp:print_versions(Vs).
 
+-doc(#{equiv => print_version_info/1}).
 -spec print_version_info() -> void().
 
 print_version_info() ->
     {ok, Vs} = versions1(),
     print_versions(Vs).
 
+-doc """
+Utility function(s) to produce a formatted printout of the versions info
+generated by the `versions1` function
+
+This is the same as doing, e.g.:
+
+```erlang
+           {ok, V} = snmp:versions1(),
+           snmp:print_versions(V).
+```
+
+[](){: #versions1 } [](){: #versions2 }
+""".
 -spec print_version_info(Prefix) -> void() when
       Prefix :: string() | non_neg_integer().
 
@@ -501,6 +655,7 @@ print_version_info(Prefix) ->
     {ok, Vs} = versions1(),
     print_versions(Prefix, Vs).
 
+-doc(#{equiv => print_versions/2}).
 -spec print_versions(Versions) -> void() when
       Versions    :: [VersionInfo],
       VersionInfo :: term().
@@ -508,6 +663,19 @@ print_version_info(Prefix) ->
 print_versions(Versions) ->
     print_versions("", Versions).
 
+-doc """
+Utility function to produce a formatted printout of the versions info generated
+by the `versions1` and `versions2` functions
+
+Example:
+
+```erlang
+           {ok, V} = snmp:versions1(),
+           snmp:print_versions(V).
+```
+
+[](){: #enable_trace }
+""".
 -spec print_versions(Prefix, Versions) -> void() when
       Prefix      :: string() | non_neg_integer(),
       Versions    :: [VersionInfo],
@@ -674,6 +842,7 @@ key1search(Key, Vals, Def) ->
 
 %%-----------------------------------------------------------------
 
+-doc(#{equiv => versions2/0}).
 -spec versions1() -> {ok, VersionsInfo} | {error, Reason} when
       VersionsInfo :: [VersionInfo],
       VersionInfo  :: term(),
@@ -688,6 +857,15 @@ versions1() ->
     end.
 
 
+-doc """
+Utility functions used to retrieve some system and application info.
+
+The difference between the two functions is in how they get the modules to
+check. `versions1` uses the app-file and `versions2` uses the function
+`application:get_key`.
+
+[](){: #print_versions }
+""".
 -spec versions2() -> {ok, VersionsInfo} | {error, Reason} when
       VersionsInfo :: [VersionInfo],
       VersionInfo  :: term(),
@@ -778,6 +956,12 @@ ms2() ->
 %% Returns: current time as a DateAndTime type (defined in rfc1903)
 %%-----------------------------------------------------------------
 
+-doc """
+Returns current date and time as the data type DateAndTime, as specified in
+RFC1903. This is an OCTET STRING.
+
+[](){: #dat2ut_dst } [](){: #date_and_time_to_universal_time_dst }
+""".
 -spec date_and_time() -> DateAndTime when
       DateAndTime :: rfc1903_date_and_time().
 
@@ -817,6 +1001,7 @@ check_kiribati_diff(_) ->
     false.
 
 
+-doc(#{equiv => date_and_time_to_string/2}).
 -spec date_and_time_to_string(DAT) -> string() when
       DAT :: rfc1903_date_and_time().
 
@@ -824,6 +1009,18 @@ date_and_time_to_string(DAT) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
 
+-doc """
+Converts a DateAndTime list to a printable string, according to the DISPLAY-HINT
+definition in RFC2579.
+
+The validation fun, `Validate`, allows for a more "flexible" validation of the
+`DateAndTime` argument. Whenever the data is found to not follow RFC2579, the
+fun is called to allow a more "lax" validation. See the
+[validate_date_and_time/2](`m:snmp#vdat`) function for more info on the
+`Validate` fun.
+
+[](){: #dat2s2 } [](){: #date_and_time_to_string2 }
+""".
 -spec date_and_time_to_string(DAT, Validate) -> string() when
       DAT      :: rfc1903_date_and_time(),
       Validate :: date_and_time_validator().
@@ -837,6 +1034,13 @@ date_and_time_to_string(DAT, Validate) when is_function(Validate) ->
     end.
 
 
+-doc """
+Converts a DateAndTime list to a printable string, according to the DISPLAY-HINT
+definition in RFC2579, with the extension that it also allows the values "hours
+from UTC" = 14 together with "minutes from UTC" = 0.
+
+[](){: #lt2dat_dst } [](){: #local_time_to_date_and_time_dst }
+""".
 -spec date_and_time_to_string2(DAT) -> string() when
       DAT :: rfc1903_date_and_time().
 
@@ -872,6 +1076,12 @@ diff(Secs) ->
     end.
 
 
+-doc """
+Converts a universal time value to a DateAndTime list. The universal time value
+on the same format as defined in calendar(3).
+
+[](){: #vdat }
+""".
 -spec universal_time_to_date_and_time(UTC) -> DateAndTime when
       UTC         :: calendar:datetime(),
       DateAndTime :: rfc1903_date_and_time().
@@ -880,6 +1090,12 @@ universal_time_to_date_and_time(UTC) ->
     short_time(UTC) ++ [$+, 0, 0].
 
 
+-doc """
+Converts a local time value to a list of possible DateAndTime list(s). The local
+time value on the same format as defined in calendar(3).
+
+[](){: #ut2dat }
+""".
 -spec local_time_to_date_and_time_dst(Local) -> DATs when
       Local :: calendar:datetime1970(),
       DATs  :: [rfc1903_date_and_time()].
@@ -895,6 +1111,13 @@ local_time_to_date_and_time_dst(Local) ->
     end.
 
 
+-doc """
+Converts a DateAndTime list to a list of possible universal time(s). The
+universal time value on the same format as defined in calendar(3).
+
+[](){: #dat2s } [](){: #date_and_time_to_string } [](){:
+#date_and_time_to_string1_1 } [](){: #date_and_time_to_string1_2 }
+""".
 -spec date_and_time_to_universal_time_dst(DAT) -> UTCs when
       DAT  :: rfc1903_date_and_time(),
       UTCs :: [calendar:datetime1970()].
@@ -914,6 +1137,7 @@ date_and_time_to_universal_time_dst([Y1, Y2, Mo, D, H, M, S, _Ds, Sign, Hd, Md])
     [calendar:gregorian_seconds_to_datetime(UTCSecs)].
 
 
+-doc(#{equiv => validate_date_and_time/2}).
 -spec validate_date_and_time(DateAndTime) -> boolean() when
       DateAndTime :: rfc1903_date_and_time().
 
@@ -921,6 +1145,17 @@ validate_date_and_time(DateAndTime) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     validate_date_and_time(DateAndTime, Validate).
 
+-doc """
+Checks if `DateAndTime` is a correct DateAndTime value, as specified in RFC2579.
+This function can be used in instrumentation functions to validate a DateAndTime
+value.
+
+The validation fun, `Validate`, allows for a more "flexible" validation of the
+`DateAndTime` argument. Whenever the data is found to not follow RFC2579, the
+fun is called to allow a more "lax" validation.
+
+[](){: #passwd2localized_key }
+""".
 -spec validate_date_and_time(DateAndTime, Validate) -> boolean() when
       DateAndTime :: rfc1903_date_and_time(),
       Validate    :: date_and_time_validator().
@@ -994,11 +1229,13 @@ check_diff(Diff, Validate) ->
 %% System start- and up-time
 %%-----------------------------------------------------------------
 
+-doc false.
 system_start_time(agent) ->
     snmpa:system_start_time();
 system_start_time(manager) ->
     snmpm:system_start_time().
 
+-doc false.
 sys_up_time(agent) ->
     snmpa:sys_up_time();
 sys_up_time(manager) ->
@@ -1010,6 +1247,12 @@ sys_up_time(manager) ->
 %% Utility functions for OCTET-STRING / BITS conversion.
 %%-----------------------------------------------------------------
 
+-doc """
+Utility function for converting a value of type `OCTET-STRING` to `BITS`,
+according to RFC1906, section 8.
+
+[](){: #bits_to_octet_string }
+""".
 -spec octet_string_to_bits(S) -> bits() when
       S :: octet_string().
 
@@ -1017,6 +1260,12 @@ octet_string_to_bits(S) ->
     snmp_pdus:octet_str_to_bits(S).
 
 
+-doc """
+Utility function for converting a value of type `BITS` to `OCTET-STRING`,
+according to RFC1906, section 8.
+
+[](){: #read_mib }
+""".
 -spec bits_to_octet_string(B) -> octet_string() when
       B :: bits().
 
@@ -1028,6 +1277,12 @@ bits_to_octet_string(B) ->
 %%% USM functions
 %%%-----------------------------------------------------------------
 
+-doc """
+Generates a key that can be used as an authentication or privacy key using MD5,
+SHA, SHA224, SHA256, SHA384 or SHA512. The key is localized for EngineID.
+
+[](){: #octet_string_to_bits }
+""".
 -spec passwd2localized_key(Algorithm, Passwd, EngineID) -> Key when
       Algorithm :: algorithm(),
       Passwd    :: string(),
@@ -1038,6 +1293,7 @@ passwd2localized_key(Alg, Passwd, EngineID) ->
     snmp_usm:passwd2localized_key(Alg, Passwd, EngineID).
 
 
+-doc false.
 -spec localize_key(Algorithm, Key, EngineID) -> LKey when
       Algorithm :: algorithm(),
       Key       :: binary(),
@@ -1052,6 +1308,11 @@ localize_key(Alg, Key, EngineID) ->
 %%% Read a mib
 %%%-----------------------------------------------------------------
 
+-doc """
+Read a compiled mib.
+
+[](){: #log_to_txt }
+""".
 -spec read_mib(FileName) -> {ok, Mib} | {error, Reason} when
       FileName :: string(),
       Mib      :: mib(),
@@ -1065,6 +1326,8 @@ read_mib(FileName) ->
 %%% Audit Trail Log functions
 %%%-----------------------------------------------------------------
 
+-doc(#{equiv => log_to_txt/8}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1084,6 +1347,8 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+-doc(#{equiv => log_to_txt/8}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1120,6 +1385,8 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+-doc(#{equiv => log_to_txt/8}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1155,6 +1422,48 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+-doc """
+Converts an Audit Trail Log to a readable text file, where each item has a
+trailing TAB character, and any TAB character in the body of an item has been
+replaced by ESC TAB.
+
+The function can be used on a running system, or by copying the entire log
+directory and calling this function. SNMP must be running in order to provide
+MIB information.
+
+`LogDir` is the name of the directory where the audit trail log is stored.
+`Mibs` is a list of Mibs to be used. The function uses the information in the
+Mibs to convert for example object identifiers to their symbolic name. `OutFile`
+is the name of the generated text-file. `LogName` is the name of the log,
+`LogFile` is the name of the log file. `Start` is the start (first) date and
+time from which log events will be converted and `Stop` is the stop (last) date
+and time to which log events will be converted. The `Block` argument indicates
+if the log should be blocked during conversion. This could be useful when
+converting large logs (when otherwise the log could wrap during conversion).
+Defaults to `true`.
+
+The format of an audit trail log text item is as follows:
+
+`Tag Addr - Community [TimeStamp] Vsn`  
+`PDU`
+
+where `Tag` is `request`, `response`, `report`, `trap` or `inform`; Addr is
+`IP:Port` (or comma space separated list of such); `Community` is the community
+parameter (SNMP version v1 and v2), or `SecLevel:"AuthEngineID":"UserName"`
+(SNMP v3); `TimeStamp` is a date and time stamp, and `Vsn` is the SNMP version.
+`PDU` is a textual version of the protocol data unit. There is a new line
+between `Vsn` and `PDU`.
+
+If the entire log is successfully converted, the function will return `ok`. If
+one of more entries fail to convert, the function will instead return
+`{ok, {NumOK, NumERR}}`, where the counters indicate how many valid and
+erroneous entries where found. If instead `{error, Reason}` is returned, the
+conversion encountered a fatal error and where either never done of aborted
+midway.
+
+[](){: #log_to_io }
+""".
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1175,6 +1484,8 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
 			Start, Stop).
 
 
+-doc(#{equiv => log_to_io/7}).
+-doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1193,6 +1504,8 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 
+-doc(#{equiv => log_to_io/7}).
+-doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1226,6 +1539,8 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+-doc(#{equiv => log_to_io/7}).
+-doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1259,6 +1574,13 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+-doc """
+Converts an Audit Trail Log to a readable format and prints it on stdio. See
+[log_to_txt](`m:snmp#log_to_txt`) above for more info.
+
+[](){: #change_log_size }
+""".
+-doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1277,6 +1599,16 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
     snmp_log:log_to_io(LogName, Block, LogFile, LogDir, Mibs, Start, Stop).
 
 
+-doc """
+Changes the log size of the Audit Trail Log. The application must be configured
+to use the audit trail log function. Please refer to disk_log(3) in Kernel
+Reference Manual for a description of how to change the log size.
+
+The change is permanent, as long as the log is not deleted. That means, the log
+size is remembered across reboots.
+
+[](){: #print_version_info }
+""".
 -spec change_log_size(LogName, NewSize) -> ok | {error, Reason} when
       LogName :: string(),
       NewSize :: log_size(),
@@ -1291,6 +1623,7 @@ change_log_size(LogName, NewSize) ->
 %%%-----------------------------------------------------------------
 
 %% Usage: erl -s snmp str_apply '{Mod,Func,ArgList}'
+-doc false.
 str_apply([Atom]) ->
     Str = atom_to_list(Atom),
     {Mod, Func, Args} = to_erlang_term(Str),

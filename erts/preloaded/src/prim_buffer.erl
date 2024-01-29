@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_buffer).
+-moduledoc false.
 
 -export([on_load/0]).
 

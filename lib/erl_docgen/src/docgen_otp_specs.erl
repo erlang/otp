@@ -19,6 +19,7 @@
 %%
 
 -module(docgen_otp_specs).
+-moduledoc false.
 
 -export([module/2, package/2, overview/2, type/1]).
 

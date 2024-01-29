@@ -25,6 +25,7 @@
 %%%-------------------------------------------------------------------
 
 -module(ftp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

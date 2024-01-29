@@ -28,6 +28,7 @@
 
 -feature(maybe_expr, enable).
 -module(beam_ssa_type).
+-moduledoc false.
 -export([opt_start/2, opt_continue/4, opt_finish/3, opt_ranges/1]).
 
 -include("beam_ssa_opt.hrl").

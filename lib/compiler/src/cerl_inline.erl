@@ -29,6 +29,7 @@
 %% TODO: inline single-source-reference operands without size limit.
 
 -module(cerl_inline).
+-moduledoc false.
 
 -export([core_transform/2, transform/1, transform/2]).
 

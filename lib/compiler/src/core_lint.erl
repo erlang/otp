@@ -41,6 +41,7 @@
 %% of variable names and function name/arity pairs.
 
 -module(core_lint).
+-moduledoc false.
 
 -export([module/1,module/2,format_error/1]).
 

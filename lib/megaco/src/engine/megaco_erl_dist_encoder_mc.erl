@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_erl_dist_encoder_mc).
+-moduledoc false.
 
 -behaviour(megaco_edist_compress).
 

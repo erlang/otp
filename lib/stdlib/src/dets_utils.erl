@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dets_utils).
+-moduledoc false.
 
 %% Utility functions common to several dets file formats.
 %% To be used from modules dets and dets_v9 only.

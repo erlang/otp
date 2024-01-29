@@ -19,6 +19,7 @@
 %%
 
 -module(tls_gen_connection_1_3).
+-moduledoc false.
 
 -include("ssl_alert.hrl").
 -include("ssl_connection.hrl").

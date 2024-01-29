@@ -39,6 +39,199 @@
 %%  it also does not redirect console I/O from the peer node.
 %% @end
 -module(peer).
+-moduledoc """
+Start and control linked Erlang nodes.
+
+This module provides functions for starting linked Erlang nodes. The node
+spawning new nodes is called _origin_, and newly started nodes are _peer_ nodes,
+or peers. A peer node automatically terminates when it loses the _control
+connection_ to the origin. This connection could be an Erlang distribution
+connection, or an alternative - TCP or standard I/O. The alternative connection
+provides a way to execute remote procedure calls even when Erlang Distribution
+is not available, allowing to test the distribution itself.
+
+Peer node terminal input/output is relayed through the origin. If a standard I/O
+alternative connection is requested, console output also goes via the origin,
+allowing debugging of node startup and boot script execution (see
+[`-init_debug`](`e:erts:erl_cmd.md#init_debug`)). File I/O is not redirected,
+contrary to `m:slave` behaviour.
+
+The peer node can start on the same or a different host (via `ssh`) or in a
+separate container (for example Docker). When the peer starts on the same host
+as the origin, it inherits the current directory and environment variables from
+the origin.
+
+> #### Note {: .info }
+>
+> This module is designed to facilitate multi-node testing with Common Test. Use
+> the `?CT_PEER()` macro to start a linked peer node according to Common Test
+> conventions: crash dumps written to specific location, node name prefixed with
+> module name, calling function, and origin OS process ID). Use `random_name/1`
+> to create sufficiently unique node names if you need more control.
+>
+> A peer node started without alternative connection behaves similarly to
+> `m:slave`. When an alternative connection is requested, the behaviour is
+> similar to `test_server:start_node(Name, peer, Args).`
+
+## Example
+
+The following example implements a test suite starting extra Erlang nodes. It
+employs a number of techniques to speed up testing and reliably shut down peer
+nodes:
+
+- peers start linked to test runner process. If the test case fails, the peer
+  node is stopped automatically, leaving no rogue nodes running in the
+  background
+- arguments used to start the peer are saved in the control process state for
+  manual analysis. If the test case fails, the CRASH REPORT contains these
+  arguments
+- multiple test cases can run concurrently speeding up overall testing process,
+  peer node names are unique even when there are multiple instances of the same
+  test suite running in parallel
+
+```erlang
+-module(my_SUITE).
+-behaviour(ct_suite).
+-export([all/0, groups/0]).
+-export([basic/1, args/1, named/1, restart_node/1, multi_node/1]).
+
+-include_lib("common_test/include/ct.hrl").
+
+groups() ->
+    [{quick, [parallel],
+        [basic, args, named, restart_node, multi_node]}].
+
+all() ->
+    [{group, quick}].
+
+basic(Config) when is_list(Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(),
+    peer:stop(Peer).
+
+args(Config) when is_list(Config) ->
+    %% specify additional arguments to the new node
+    {ok, Peer, _Node} = ?CT_PEER(["-emu_flavor", "smp"]),
+    peer:stop(Peer).
+
+named(Config) when is_list(Config) ->
+    %% pass test case name down to function starting nodes
+    Peer = start_node_impl(named_test),
+    peer:stop(Peer).
+
+start_node_impl(ActualTestCase) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(ActualTestCase)}),
+    %% extra setup needed for multiple test cases
+    ok = rpc:call(Node, application, set_env, [kernel, key, value]),
+    Peer.
+
+restart_node(Config) when is_list(Config) ->
+    Name = ?CT_PEER_NAME(),
+    {ok, Peer, Node} = ?CT_PEER(#{name => Name}),
+    peer:stop(Peer),
+    %% restart the node with the same name as before
+    {ok, Peer2, Node} = ?CT_PEER(#{name => Name, args => ["+fnl"]}),
+    peer:stop(Peer2).
+```
+
+The next example demonstrates how to start multiple nodes concurrently:
+
+```erlang
+multi_node(Config) when is_list(Config) ->
+    Peers = [?CT_PEER(#{wait_boot => {self(), tag}})
+        || _ <- lists:seq(1, 4)],
+    %% wait for all nodes to complete boot process, get their names:
+    _Nodes = [receive {tag, {started, Node, Peer}} -> Node end
+        || {ok, Peer} <- Peers],
+    [peer:stop(Peer) || {ok, Peer} <- Peers].
+```
+
+Start a peer on a different host. Requires `ssh` key-based authentication set
+up, allowing "another_host" connection without password prompt.
+
+```erlang
+Ssh = os:find_executable("ssh"),
+peer:start_link(#{exec => {Ssh, ["another_host", "erl"]},
+    connection => standard_io}),
+```
+
+The following Common Test case demonstrates Docker integration, starting two
+containers with hostnames "one" and "two". In this example Erlang nodes running
+inside containers form an Erlang cluster.
+
+```erlang
+docker(Config) when is_list(Config) ->
+    Docker = os:find_executable("docker"),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    build_release(PrivDir),
+    build_image(PrivDir),
+
+    %% start two Docker containers
+    {ok, Peer, Node} = peer:start_link(#{name => lambda,
+        connection => standard_io,
+        exec => {Docker, ["run", "-h", "one", "-i", "lambda"]}}),
+    {ok, Peer2, Node2} = peer:start_link(#{name => lambda,
+        connection => standard_io,
+        exec => {Docker, ["run", "-h", "two", "-i", "lambda"]}}),
+
+    %% find IP address of the second node using alternative connection RPC
+    {ok, Ips} = peer:call(Peer2, inet, getifaddrs, []),
+    {"eth0", Eth0} = lists:keyfind("eth0", 1, Ips),
+    {addr, Ip} = lists:keyfind(addr, 1, Eth0),
+
+    %% make first node to discover second one
+    ok = peer:call(Peer, inet_db, set_lookup, [[file]]),
+    ok = peer:call(Peer, inet_db, add_host, [Ip, ["two"]]),
+
+    %% join a cluster
+    true = peer:call(Peer, net_kernel, connect_node, [Node2]),
+    %% verify that second peer node has only the first node visible
+    [Node] = peer:call(Peer2, erlang, nodes, []),
+
+    %% stop peers, causing containers to also stop
+    peer:stop(Peer2),
+    peer:stop(Peer).
+
+build_release(Dir) ->
+    %% load sasl.app file, otherwise application:get_key will fail
+    application:load(sasl),
+    %% create *.rel - release file
+    RelFile = filename:join(Dir, "lambda.rel"),
+    Release = {release, {"lambda", "1.0.0"},
+        {erts, erlang:system_info(version)},
+        [{App, begin {ok, Vsn} = application:get_key(App, vsn), Vsn end}
+            || App <- [kernel, stdlib, sasl]]},
+    ok = file:write_file(RelFile, list_to_binary(lists:flatten(
+        io_lib:format("~tp.", [Release])))),
+    RelFileNoExt = filename:join(Dir, "lambda"),
+
+    %% create boot script
+    {ok, systools_make, []} = systools:make_script(RelFileNoExt,
+        [silent, {outdir, Dir}]),
+    %% package release into *.tar.gz
+    ok = systools:make_tar(RelFileNoExt, [{erts, code:root_dir()}]).
+
+build_image(Dir) ->
+    %% Create Dockerfile example, working only for Ubuntu 20.04
+    %% Expose port 4445, and make Erlang distribution to listen
+    %%  on this port, and connect to it without EPMD
+    %% Set cookie on both nodes to be the same.
+    BuildScript = filename:join(Dir, "Dockerfile"),
+    Dockerfile =
+      "FROM ubuntu:20.04 as runner\n"
+      "EXPOSE 4445\n"
+      "WORKDIR /opt/lambda\n"
+      "COPY lambda.tar.gz /tmp\n"
+      "RUN tar -zxvf /tmp/lambda.tar.gz -C /opt/lambda\n"
+      "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++
+      "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\","
+      " \"-kernel\", \"inet_dist_listen_min\", \"4445\","
+      " \"-erl_epmd_port\", \"4445\","
+      " \"-setcookie\", \"secret\"]\n",
+    ok = file:write_file(BuildScript, Dockerfile),
+    os:cmd("docker build -t lambda " ++ Dir).
+```
+""".
+-moduledoc(#{since => "OTP 25.0"}).
 -author("maximfca@gmail.com").
 
 %% API
@@ -61,6 +254,7 @@
 
 -export_type([server_ref/0]).
 
+-doc "Identifies the controlling process of a peer node.".
 -type server_ref() :: % What stop, get_state, call, cast, send accepts
         pid().
 
@@ -97,22 +291,113 @@
 
 %% Origin node will listen to the specified port (port 0 is auto-select),
 %%  or specified IP/Port, and expect peer node to connect to this port.
+-doc """
+Alternative connection between the origin and the peer. When the connection
+closes, the peer node terminates automatically. If the `peer_down` startup flag
+is set to `crash`, the controlling process on the origin node exits with
+corresponding reason, effectively providing a two-way link.
+
+When `connection` is set to a port number, the origin starts listening on the
+requested TCP port, and the peer node connects to the port. When it is set to an
+`{IP, Port}` tuple, the origin listens only on the specified IP. The port number
+can be set to 0 for automatic selection.
+
+Using the `standard_io` alternative connection starts the peer attached to the
+origin (other connections use `-detached` flag to erl). In this mode peer and
+origin communicate via stdin/stdout.
+""".
 -type connection() ::
         Port :: 0..65535 |
                 {inet:ip_address(), 0..65535} |
                 standard_io.
 
 %% Specification for boot waiting
+-doc """
+Specifies start/start_link timeout in milliseconds. Can be set to `false`,
+allowing the peer to start asynchronously. If `{Pid, Tag}` is specified instead
+of a timeout, the peer will send `Tag` to the requested process. The default is
+`15_000` ms.
+""".
 -type wait_boot() ::
         timeout() |                 %% wait for node to boot (default, 15 sec),
         {pid(), Tag :: term()} |    %% do not wait, send {Tag, {started, node(), pid()}} to Pid when node boots
         false.                      %% don't wait, don't notify
 
+-doc """
+Overrides executable to start peer nodes with. By default it is the path to
+"erl", taken from `init:get_argument(progname)`. If `progname` is not known,
+`peer` makes best guess given the current ERTS version.
+
+When a tuple is passed, the first element is the path to executable, and the
+second element is prepended to the final command line. This can be used to start
+peers on a remote host or in a Docker container. See the examples above.
+
+This option is useful for testing backwards compatibility with previous
+releases, installed at specific paths, or when the Erlang installation location
+is missing from the `PATH`.
+""".
 -type exec() ::
         file:name() |               %% path to "erl" (default is init:get_argument(progname))
         {file:name(), [string()]}.  %% SSH support: {"/usr/bin/ssh", ["account@host_b", "/usr/bin/erl"]}
 
 %% Peer node start options
+-doc """
+Options that can be used when starting a `peer` node through `start/1` and
+[`start_link/0,1`](`start_link/0`).
+
+- **`name`** - Node name (the part before "@"). When `name` is not specified,
+  but `host` is, `peer` follows compatibility behaviour and uses the origin node
+  name.
+
+- **`longnames`** - Use long names to start a node. Default is taken from the
+  origin using `net_kernel:longnames()`. If the origin is not distributed, short
+  names is the default.
+
+- **`host`** - Enforces a specific host name. Can be used to override the
+  default behaviour and start "node@localhost" instead of "node@realhostname".
+
+- **`peer_down`** - Defines the peer control process behaviour when the control
+  connection is closed from the peer node side (for example when the peer
+  crashes or dumps core). When set to `stop` (default), a lost control
+  connection causes the control process to exit normally. Setting `peer_down` to
+  `continue` keeps the control process running, and `crash` will cause the
+  controlling process to exit abnormally.
+
+- **`connection`** - Alternative connection specification. See the
+  [`connection` datatype](`t:connection/0`).
+
+- **`exec`** - Alternative mechanism to start peer nodes with, for example, ssh
+  instead of the default bash.
+
+- **`detached`** - Defines whether to pass the `-detached` flag to the started
+  peer. This option cannot be set to `false` using the `standard_io` alternative
+  connection type. Default is `true`.
+
+- **`args`** - Extra command line arguments to append to the "erl" command.
+  Arguments are passed as is, no escaping or quoting is needed or accepted.
+
+- **`post_process_args`** - Allows the user to change the arguments passed to
+  `exec` before the peer is started. This can for example be useful when the
+  `exec` program wants the arguments to "erl" as a single argument. Example:
+
+  ```erlang
+  peer:start(#{ name => peer:random_name(),
+    exec => {os:find_executable("bash"),["-c","erl"]},
+    post_process_args =>
+       fun(["-c"|Args]) -> ["-c", lists:flatten(lists:join($\s, Args))] end
+    }).
+  ```
+
+- **`env`** - List of environment variables with their values. This list is
+  applied to a locally started executable. If you need to change the environment
+  of the remote peer, adjust `args` to contain `-env ENV_KEY ENV_VALUE`.
+
+- **`wait_boot`** - Specifies the start/start_link timeout. See
+  [`wait_boot` datatype](`t:wait_boot/0`).
+
+- **`shutdown`** - Specifies the peer node stopping behaviour. See
+  [`stop()`](`stop/1`).
+""".
 -type start_options() ::
         #{
           name => atom() | string(),          %% node name (part before @), if not defined, peer
@@ -140,6 +425,7 @@
          }.
 
 %% Peer node states
+-doc "Peer node state.".
 -type peer_state() :: booting | running | {down, Reason :: term()}.
 
 -export_type([
@@ -176,12 +462,15 @@
 %% Default timeout for peer node to boot.
 -define (WAIT_BOOT_TIMEOUT, 15000).
 
+-doc "Disconnect timeout. See [`stop()`](`stop/1`).".
 -type disconnect_timeout() :: ?MIN_DISCONNECT_TIMEOUT..?MAX_INT_TIMEOUT | infinity.
 
 %% Peer supervisor channel connect timeout.
 -define(PEER_SUP_CHANNEL_CONNECT_TIMEOUT, 30000).
 
 %% @doc Creates random node name, using "peer" as prefix.
+-doc "The same as [`random_name(peer)`](`random_name/1`).".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec random_name() -> string().
 random_name() ->
     random_name(?MODULE_STRING).
@@ -189,6 +478,19 @@ random_name() ->
 %% @doc Creates sufficiently random node name,
 %%      using OS process ID for origin VM, resulting name
 %%      looks like prefix-3-7161
+-doc """
+Creates a sufficiently unique node name for the current host, combining a
+prefix, a unique number, and the current OS process ID.
+
+> #### Note {: .info }
+>
+> Use the `?CT_PEER(["erl_arg1"])` macro provided by Common Test
+> `-include_lib("common_test/include/ct.hrl")` for convenience. It starts a new
+> peer using Erlang distribution as the control channel, supplies thes calling
+> module's code path to the peer, and uses the calling function name for the
+> name prefix.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec random_name(Prefix :: string() | atom()) -> string().
 random_name(Prefix) ->
     OsPid = os:getpid(),
@@ -198,6 +500,8 @@ random_name(Prefix) ->
 %% @doc Starts a distributed node with random name, on this host,
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
+-doc "The same as [`start_link(#{name => random_name()})`](`start_link/1`).".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
 start_link() ->
     start_link(#{name => random_name()}).
@@ -205,34 +509,120 @@ start_link() ->
 %% @doc Starts peer node, linked to the calling process.
 %%      Accepts additional command line arguments and
 %%      other important options.
+-doc """
+Starts a peer node in the same way as `start/1`, except that the peer node is
+linked to the currently executing process. If that process terminates, the peer
+node also terminates.
+
+Accepts `t:start_options/0`. Returns the controlling process and the full peer
+node name, unless `wait_boot` is not requested and host name is not known in
+advance.
+
+When the `standard_io` alternative connection is requested, and `wait_boot` is
+not set to `false`, a failed peer boot sequence causes the caller to exit with
+the `{boot_failed, {exit_status, ExitCode}}` reason.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec start_link(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
 start_link(Options) ->
     start_it(Options, start_link).
 
 %% @doc Starts peer node, not linked to the calling process.
+-doc """
+Starts a peer node with the specified `t:start_options/0`. Returns the
+controlling process and the full peer node name, unless `wait_boot` is not
+requested and the host name is not known in advance.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec start(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
 start(Options) ->
     start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
+-doc """
+Stops a peer node. How the node is stopped depends on the
+[`shutdown`](`t:start_options/0`) option passed when starting the peer node.
+Currently the following `shutdown` options are supported:
+
+- **`halt`** - This is the default shutdown behavior. It behaves as `shutdown`
+  option `{halt, DefaultTimeout}` where `DefaultTimeout` currently equals
+  `5000`.
+
+- **`{halt, Timeout :: disconnect_timeout()}`** - Triggers a call to
+  [`erlang:halt()`](`erlang:halt/0`) on the peer node and then waits for the
+  Erlang distribution connection to the peer node to be taken down. If this
+  connection has not been taken down after `Timeout` milliseconds, it will
+  forcefully be taken down by `peer:stop/1`. See the
+  [warning](`m:peer#dist_connection_close`) below for more info about this.
+
+- **`Timeout :: disconnect_timeout()`** - Triggers a call to
+  [`init:stop()`](`init:stop/0`) on the peer node and then waits for the Erlang
+  distribution connection to the peer node to be taken down. If this connection
+  has not been taken down after `Timeout` milliseconds, it will forcefully be
+  taken down by `peer:stop/1`. See the [warning](`m:peer#dist_connection_close`)
+  below for more info about this.
+
+- **`close`** - Close the _control connection_ to the peer node and return. This
+  is the fastest way for the caller of `peer:stop/1` to stop a peer node.
+
+  Note that if the Erlang distribution connection is not used as control
+  connection it might not have been taken down when `peer:stop/1` returns. Also
+  note that the [warning](`m:peer#dist_connection_close`) below applies when the
+  Erlang distribution connection is used as control connection.
+
+[](){: #dist_connection_close }
+
+> #### Warning {: .warning }
+>
+> In the cases where the Erlang distribution connection is taken down by
+> `peer:stop/1`, other code independent of the peer code might react to the
+> connection loss before the peer node is stopped which might cause undesirable
+> effects. For example, [`global`](`m:global#prevent_overlapping_partitions`)
+> might trigger even more Erlang distribution connections to other nodes to be
+> taken down. The potential undesirable effects are, however, not limited to
+> this. It is hard to say what the effects will be since these effects can be
+> caused by any code with links or monitors to something on the origin node, or
+> code monitoring the connection to the origin node.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec stop(Dest :: server_ref()) -> ok.
 stop(Dest) ->
     gen_server:stop(Dest).
 
 %% @doc returns peer node state.
+-doc """
+Returns the peer node state. Th initial state is `booting`; the node stays in
+that state until then boot script is complete, and then the node progresses to
+`running`. If the node stops (gracefully or not), the state changes to `down`.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec get_state(Dest :: server_ref()) -> peer_state().
 get_state(Dest) ->
     gen_server:call(Dest, get_state).
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
+-doc(#{equiv => call/5}).
+-doc(#{since => <<"OTP 25.0">>}).
 -spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()]) -> Result :: term().
 call(Dest, M, F, A) ->
     call(Dest, M, F, A, ?SYNC_RPC_TIMEOUT).
 
 %% @doc Call M:F(A) remotely, timeout is explicitly specified
+-doc """
+Uses the alternative connection to evaluate
+[`apply(Module, Function, Args)`](`apply/3`) on the peer node and returns the
+corresponding value `Result`. `Timeout` is an integer representing the timeout
+in milliseconds or the atom `infinity` which prevents the operation from ever
+timing out.
+
+When an alternative connection is not requested, this function will raise `exit`
+signal with the `noconnection` reason. Use `m:erpc` module to communicate over
+Erlang distribution.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()], Timeout :: timeout()) -> Result :: term().
 call(Dest, M, F, A, Timeout) ->
@@ -246,12 +636,27 @@ call(Dest, M, F, A, Timeout) ->
     end.
 
 %% @doc Cast M:F(A) remotely, don't care about the result
+-doc """
+Uses the alternative connection to evaluate
+[`apply(Module, Function, Args)`](`apply/3`) on the peer node. No response is
+delivered to the calling process.
+
+`peer:cast/4` fails silently when the alternative connection is not configured.
+Use `m:erpc` module to communicate over Erlang distribution.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec cast(Dest :: server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
 cast(Dest, M, F, A) ->
     gen_server:cast(Dest, {cast, M, F, A}).
 
 %% @doc Sends a message to pid or named process on the peer node
 %%  using alternative connection. No delivery guarantee.
+-doc """
+Uses the alternative connection to send Message to a process on the the peer
+node. Silently fails if no alternative connection is configured. The process can
+be referenced by process ID or registered name.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec send(Dest :: server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
 send(Dest, To, Message) ->
     gen_server:cast(Dest, {send, To, Message}).
@@ -287,6 +692,7 @@ send(Dest, To, Message) ->
 
 -type state() :: #peer_state{}.
 
+-doc false.
 -spec init([Name :: atom(), ... ]) -> {ok, state()}.
 init([Notify, Options]) ->
     process_flag(trap_exit, true), %% need this to ensure terminate/2 is called
@@ -336,6 +742,7 @@ init([Notify, Options]) ->
     end.
 
 %% not connected: no alternative connection available
+-doc false.
 handle_call({call, _M, _F, _A}, _From, #peer_state{connection = undefined} = State) ->
     {reply, {error, noconnection}, State};
 
@@ -375,6 +782,7 @@ handle_call(get_state, _From, #peer_state{peer_state = PeerState} = State) ->
 handle_call(group_leader, _From, State) ->
     {reply, group_leader(), State}.
 
+-doc false.
 handle_cast({cast, _M, _F, _A}, #peer_state{connection = undefined} = State) ->
     {noreply, State};
 
@@ -403,6 +811,7 @@ handle_cast({send, Dest, Message}, #peer_state{connection = Socket} = State) ->
 %% alternative connections handling
 
 %% alternative communications - request or response from peer
+-doc false.
 handle_info({tcp, Socket, SocketData},  #peer_state{connection = Socket} = State) ->
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, handle_alternative_data(tcp, binary_to_term(SocketData), State)};
@@ -456,6 +865,7 @@ handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
 %%--------------------------------------------------------------------
 %% cleanup/termination
 
+-doc false.
 -spec terminate(Reason :: term(), state()) -> ok.
 terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node}) ->
     case {maps:get(shutdown, Options, {halt, ?DEFAULT_HALT_DISCONNECT_TIMEOUT}),
@@ -946,6 +1356,7 @@ notify_started(Kind, Port) ->
 %% sure that the peer node is halted if the peer user process crashes...
 %%
 
+-doc false.
 supervision_child_spec() ->
     case init:get_argument(user) of
         {ok, [["peer"]]} ->
@@ -959,6 +1370,7 @@ supervision_child_spec() ->
             none
     end.
 
+-doc false.
 start_supervision() ->
     proc_lib:start_link(?MODULE, init_supervision, [self(), true]).
 
@@ -967,6 +1379,7 @@ start_orphan_supervision() ->
 
 -record(peer_sup_state, {parent, channel, in_sup_tree}).
 
+-doc false.
 -spec init_supervision(term(), term()) -> no_return().
 init_supervision(Parent, InSupTree) ->
     try
@@ -1018,18 +1431,23 @@ loop_supervision(#peer_sup_state{parent = Parent,
     end.
 
 
+-doc false.
 system_continue(_Parent, _, #peer_sup_state{} = State) ->
     loop_supervision(State).
 
+-doc false.
 system_terminate(Reason, _Parent, _Debug, _State) ->
     exit(Reason).
 
+-doc false.
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.
 
+-doc false.
 system_get_state(State) ->
     {ok, State}.
 
+-doc false.
 system_replace_state(StateFun, State) ->
     NState = StateFun(State),
     {ok, NState, NState}.
@@ -1037,6 +1455,7 @@ system_replace_state(StateFun, State) ->
 %% End of peer user supervision
 
 %% I/O redirection: peer side
+-doc false.
 -spec start() -> pid().
 start() ->
     try

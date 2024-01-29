@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_tv_table).
+-moduledoc false.
 
 -export([start_link/2]).
 

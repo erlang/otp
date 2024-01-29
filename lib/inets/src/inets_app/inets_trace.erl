@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(inets_trace).
+-moduledoc false.
 
 %% API
 -export([enable/2, enable/3, 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_debug).
+-moduledoc false.
 
 %% Low-level debugging support. EXPERIMENTAL!
 

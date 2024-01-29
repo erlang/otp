@@ -22,6 +22,7 @@
 
 -module(dialyzer_typesig).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 -export([analyze_scc/7]).
 -export([get_safe_underapprox/2]).

@@ -30,6 +30,19 @@
 %%               [{report,{eunit_surefire,[{dir,"."}]}}]).'''
 
 -module(eunit_surefire).
+-moduledoc """
+Surefire reports for EUnit (Format used by Maven and Atlassian Bamboo for
+example to integrate test results). Based on initial code from Paul Guyot.
+
+Example: Generate XML result file in the current directory:
+
+```text
+     eunit:test([fib, eunit_examples],
+                [{report,{eunit_surefire,[{dir,"."}]}}]).
+```
+
+_See also: _`m:eunit`.
+""".
 
 -behaviour(eunit_listener).
 

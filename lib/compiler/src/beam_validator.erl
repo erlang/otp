@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(beam_validator).
+-moduledoc false.
 
 -include("beam_asm.hrl").
 

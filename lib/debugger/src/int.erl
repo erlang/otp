@@ -18,6 +18,55 @@
 %% %CopyrightEnd%
 %%
 -module(int).
+-moduledoc """
+Interpreter Interface.
+
+The Erlang interpreter provides mechanisms for breakpoints and stepwise
+execution of code. It is primarily intended to be used by Debugger, see the
+User's Guide and `m:debugger`.
+
+The following can be done from the shell:
+
+- Specify the modules to be interpreted.
+- Specify breakpoints.
+- Monitor the current status of all processes executing code in interpreted
+  modules, also processes at other Erlang nodes.
+
+By _attaching to_ a process executing interpreted code, it is possible to
+examine variable bindings and order stepwise execution. This is done by sending
+and receiving information to/from the process through a third process, called
+the meta process. You can implement your own attached process. See `int.erl` for
+available functions and `dbg_wx_trace.erl` for possible messages.
+
+The interpreter depends on the Kernel, STDLIB, and GS applications. This means
+that modules belonging to any of these applications are not allowed to be
+interpreted, as it could lead to a deadlock or emulator crash. This also applies
+to modules belonging to the Debugger application.
+
+[](){: #int_breakpoints }
+
+## Breakpoints
+
+Breakpoints are specified on a line basis. When a process executing code in an
+interpreted module reaches a breakpoint, it stops. This means that a breakpoint
+must be set at an executable line, that is, a code line containing an executable
+expression.
+
+A breakpoint has the following:
+
+- A status, which is _active_ or _inactive_. An inactive breakpoint is ignored.
+- A trigger action. When a breakpoint is reached, the trigger action specifies
+  if the breakpoint is to continue as active (_enable_), or to become inactive
+  (_disable_), or to be removed (_delete_).
+- Optionally an associated condition. A condition is a tuple `{Module,Name}`.
+  When the breakpoint is reached, `Module:Name(Bindings)` is called. If it
+  evaluates to `true`, execution stops. If it evaluates to `false`, the
+  breakpoint is ignored. `Bindings` contains the current variable bindings. To
+  retrieve the value for a specified variable, use `get_binding`.
+
+By default, a breakpoint is active, has trigger action `enable`, and has no
+associated condition. For details about breakpoints, see the User's Guide.
+""".
 
 %% External exports
 -export([i/1, i/2, ni/1, ni/2, n/1, nn/1, interpreted/0, file/1,
@@ -98,6 +147,7 @@
 %%     Mod = atom()
 %%     Options = term() ignored
 %%--------------------------------------------------------------------
+-doc(#{equiv => ni/1}).
 -spec i(AbsModules) -> ok when
       AbsModules :: [AbsModule],
       AbsModule :: Module | File,
@@ -108,8 +158,40 @@
       Module :: module(),
       File :: file:name_all().
 i(AbsMods) -> i2(AbsMods, local, ok).
+-doc false.
 i(AbsMods, _Options) -> i2(AbsMods, local, ok).
 
+-doc """
+ni(AbsModules) -> okni(AbsModule) -> {module,Module} | error
+
+Interprets the specified module(s). [`i/1`](`i/1`) interprets the module only at
+the current node. [`ni/1`](`ni/1`) interprets the module at all known nodes.
+
+A module can be specified by its module name (atom) or filename.
+
+If specified by its module name, the object code `Module.beam` is searched for
+in the current path. The source code `Module.erl` is searched for first in the
+same directory as the object code, then in an `src` directory next to it.
+
+If specified by its filename, the filename can include a path and the `.erl`
+extension can be omitted. The object code `Module.beam` is searched for first in
+the same directory as the source code, then in an `ebin` directory next to it,
+and then in the current path.
+
+> #### Note {: .info }
+>
+> The interpreter requires both the source code and the object code. The object
+> code _must_ include debug information, that is, only modules compiled with
+> option `debug_info` set can be interpreted.
+
+The functions returns `{module,Module}` if the module was interpreted, otherwise
+`error` is returned.
+
+The argument can also be a list of modules or filenames, in which case the
+function tries to interpret each module as specified earlier. The function then
+always returns `ok`, but prints some information to `stdout` if a module cannot
+be interpreted.
+""".
 -spec ni(AbsModules) -> ok when
       AbsModules :: [AbsModule],
       AbsModule :: Module | File,
@@ -120,6 +202,7 @@ i(AbsMods, _Options) -> i2(AbsMods, local, ok).
       Module :: module(),
       File :: file:name_all().
 ni(AbsMods) -> i2(AbsMods, distributed, ok).
+-doc false.
 ni(AbsMods, _Options) -> i2(AbsMods, distributed, ok).
     
 i2([AbsMod|AbsMods], Dist, Acc)
@@ -140,10 +223,21 @@ i2(AbsMod, Dist, _Acc) when is_atom(AbsMod); is_list(AbsMod); is_tuple(AbsMod) -
 %% n(AbsMods) -> ok
 %% nn(AbsMods) -> ok
 %%--------------------------------------------------------------------
+-doc(#{equiv => nn/1}).
 -spec n(AbsModule) -> ok when AbsModule :: Module | File | [Module | File],
     Module :: module(),
     File :: file:name_all().
 n(AbsMods) -> n2(AbsMods, local).
+-doc """
+nn(AbsModule) -> ok
+
+Stops interpreting the specified module. [`n/1`](`n/1`) stops interpreting the
+module only at the current node. [`nn/1`](`nn/1`) stops interpreting the module
+at all known nodes.
+
+As for [`i/1`](`i/1`) and [`ni/1`](`ni/1`), a module can be specified by its
+module name or filename.
+""".
 -spec nn(AbsModule) -> ok when
       AbsModule :: Module | File | [Module | File],
       Module :: module(),
@@ -163,6 +257,11 @@ n2(AbsMod, Dist) when is_atom(AbsMod); is_list(AbsMod) ->
 %%--------------------------------------------------------------------
 %% interpreted() -> [Mod]
 %%--------------------------------------------------------------------
+-doc """
+interpreted() -> [Module]
+
+Returns a list with all interpreted modules.
+""".
 -spec interpreted() -> [Module] when Module :: module().
 interpreted() ->
     dbg_iserver:safe_call(all_interpreted).
@@ -172,6 +271,11 @@ interpreted() ->
 %%   Mod = atom()
 %%   File = string()
 %%--------------------------------------------------------------------
+-doc """
+file(Module) -> File | {error,not_loaded}
+
+Returns the source code filename `File` for an interpreted module `Module`.
+""".
 -spec file(Module) -> File | {error,not_loaded} when Module :: module(),
                                                      File :: file:filename_all().
 file(Mod) when is_atom(Mod) ->
@@ -182,6 +286,47 @@ file(Mod) when is_atom(Mod) ->
 %%   AbsMod = Mod | File
 %%   Reason = no_src | no_beam | no_debug_info | badarg | {app, App}
 %%--------------------------------------------------------------------
+-doc """
+interpretable(AbsModule) -> true | {error,Reason}
+
+Checks if a module can be interpreted. The module can be specified by its module
+name `Module` or its source filename `File`. If specified by a module name, the
+module is searched for in the code path.
+
+The function returns `true` if all of the following apply:
+
+- Both source code and object code for the module is found.
+- The module has been compiled with option `debug_info` set.
+- The module does not belong to any of the applications Kernel, STDLIB, GS, or
+  Debugger.
+
+The function returns `{error,Reason}` if the module cannot be interpreted.
+`Reason` can have the following values:
+
+- **`no_src`** - No source code is found. It is assumed that the source code and
+  object code are located either in the same directory, or in `src` and `ebin`
+  directories next to each other.
+
+- **`no_beam`** - No object code is found. It is assumed that the source code
+  and object code are located either in the same directory, or in `src` and
+  `ebin` directories next to each other.
+
+- **`no_debug_info`** - The module has not been compiled with option
+  `debug_info` set.
+
+- **`badarg`** - `AbsModule` is not found. This could be because the specified
+  file does not exist, or because `code:which/1` does not return a BEAM
+  filename, which is the case not only for non-existing modules but also for
+  modules that are preloaded or cover-compiled.
+
+- **`{app,App}`** - `App` is `kernel`, `stdlib`, `gs`, or `debugger` if
+  `AbsModule` belongs to one of these applications.
+
+Notice that the function can return `true` for a module that in fact is not
+interpretable in the case where the module is marked as sticky or resides in a
+directory marked as sticky. The reason is that this is not discovered until the
+interpreter tries to load the module.
+""".
 -spec interpretable(AbsModule) -> true | {error,Reason} when
       AbsModule :: Module | File,
       Module :: module(),
@@ -205,6 +350,7 @@ interpretable(AbsMod) ->
 %%  spawn(Mod, Func, [Dist, Pid, Meta | Args]) (living process) or
 %%  spawn(Mod, Func, [Dist, Pid, Reason, Info | Args]) (dead process)
 %%--------------------------------------------------------------------
+-doc(#{equiv => auto_attach/2}).
 -spec auto_attach() -> false | {Flags,Function} when Flags :: [init | break | exit],
    Function :: {Module,Name,Args},
     Module :: module(),
@@ -213,10 +359,32 @@ interpretable(AbsMod) ->
 auto_attach() ->
     dbg_iserver:safe_call(get_auto_attach).
 
+-doc(#{equiv => auto_attach/2}).
 -spec auto_attach(false) -> term().
 auto_attach(false) ->
     dbg_iserver:safe_cast({set_auto_attach, false}).
 
+-doc """
+auto_attach(Flags, Function)
+
+Gets and sets when and how to attach automatically to a process executing code
+in interpreted modules. `false` means never attach automatically, this is the
+default. Otherwise automatic attach is defined by a list of flags and a
+function. The following flags can be specified:
+
+- `init` \- Attach when a process for the first time calls an interpreted
+  function.
+- `break` \- Attach whenever a process reaches a breakpoint.
+- `exit` \- Attach when a process terminates.
+
+When the specified event occurs, the function `Function` is called as:
+
+```erlang
+spawn(Module, Name, [Pid | Args])
+```
+
+`Pid` is the pid of the process executing interpreted code.
+""".
 -spec auto_attach(Flags, Function) -> term() when
       Flags :: [init | break | exit],
       Function :: {Module,Name,Args},
@@ -241,10 +409,29 @@ check_flags([]) -> true.
 %% stack_trace(Flag)
 %%   Flag = all | true | no_tail | false
 %%--------------------------------------------------------------------
+-doc(#{equiv => stack_trace/1}).
 -spec stack_trace() -> Flag when Flag :: all | no_tail | false.
 stack_trace() ->
     dbg_iserver:safe_call(get_stack_trace).
 
+-doc """
+stack_trace(Flag)
+
+Gets and sets how to save call frames in the stack. Saving call frames makes it
+possible to inspect the call chain of a process, and is also used to emulate the
+stack trace if an error (an exception of class error) occurs. The following
+flags can be specified:
+
+- **`all`** - Save information about all current calls, that is, function calls
+  that have not yet returned a value.
+
+- **`no_tail`** - Save information about current calls, but discard previous
+  information when a tail recursive call is made. This option consumes less
+  memory and can be necessary to use for processes with long lifetimes and many
+  tail recursive calls. This is the default.
+
+- **`false`** - Save no information about current calls.
+""".
 -spec stack_trace(Flag) -> term() when Flag :: all | no_tail | false.
 stack_trace(true) ->
     stack_trace(all);
@@ -284,17 +471,33 @@ check_flag(false) -> true.
 %%       Status = active | inactive
 %%       Cond = null | Function
 %%--------------------------------------------------------------------
+-doc """
+break(Module, Line) -> ok | {error,break_exists}
+
+Creates a breakpoint at `Line` in `Module`.
+""".
 -spec break(Module, Line) -> ok | {error, break_exists}
                when Module :: module(), Line :: integer().
 break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_call({new_break, {Mod, Line},
 			   [active, enable, null, null]}).
 
+-doc """
+delete_break(Module, Line) -> ok
+
+Deletes the breakpoint at `Line` in `Module`.
+""".
 -spec delete_break(Module, Line) -> ok
                       when Module :: module(), Line :: integer().
 delete_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({delete_break, {Mod, Line}}).
 
+-doc """
+break_in(Module, Name, Arity) -> ok | {error,function_not_found}
+
+Creates a breakpoint at the first line of every clause of function
+`Module:Name/Arity`.
+""".
 -spec break_in(Module, Name, Arity) -> ok | {error, function_not_found}
                   when Module :: module(), Name :: atom(), Arity :: integer().
 break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
@@ -306,6 +509,12 @@ break_in(Mod, Func, Arity) when is_atom(Mod), is_atom(Func), is_integer(Arity) -
 	    {error, function_not_found}
     end.
 
+-doc """
+del_break_in(Module, Name, Arity) -> ok | {error,function_not_found}
+
+Deletes the breakpoints at the first line of every clause of function
+`Module:Name/Arity`.
+""".
 -spec del_break_in(Module, Name, Arity) ->
                       ok | {error, function_not_found}
                       when
@@ -330,24 +539,45 @@ first_line({clause,_L,_Vars,_,Exprs}) ->
 first_line([Expr|_Exprs]) -> % Expr = {Op, Line, ..varying no of args..}
     element(2, Expr).
 
+-doc(#{equiv => no_break/1}).
 -spec no_break() -> ok.
 no_break() ->
     dbg_iserver:safe_cast(no_break).
 
+-doc """
+no_break(Module) -> ok
+
+Deletes all breakpoints, or all breakpoints in `Module`.
+""".
 -spec no_break(Module :: term()) -> ok.
 no_break(Mod) when is_atom(Mod) ->
     dbg_iserver:safe_cast({no_break, Mod}).
 
+-doc """
+disable_break(Module, Line) -> ok
+
+Makes the breakpoint at `Line` in `Module` inactive.
+""".
 -spec disable_break(Module, Line) -> ok
                        when Module :: module(), Line :: integer().
 disable_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({break_option, {Mod, Line}, status, inactive}).
     
+-doc """
+enable_break(Module, Line) -> ok
+
+Makes the breakpoint at `Line` in `Module` active.
+""".
 -spec enable_break(Module, Line) -> ok
                       when Module :: module(), Line :: integer().
 enable_break(Mod, Line) when is_atom(Mod), is_integer(Line) ->
     dbg_iserver:safe_cast({break_option, {Mod, Line}, status, active}).
 
+-doc """
+action_at_break(Module, Line, Action) -> ok
+
+Sets the trigger action of the breakpoint at `Line` in `Module` to `Action`.
+""".
 -spec action_at_break(Module, Line, Action) -> ok
                          when
                              Module :: module(),
@@ -361,6 +591,13 @@ check_action(enable) -> true;
 check_action(disable) -> true;
 check_action(delete) -> true.
 
+-doc """
+test_at_break(Module, Line, Function) -> ok
+
+Sets the conditional test of the breakpoint at `Line` in `Module` to `Function`.
+The function must fulfill the requirements specified in section
+[Breakpoints](`m:int#int_breakpoints`).
+""".
 -spec test_at_break(Module, Line, Function) -> ok when
       Module :: module(),
       Line :: integer(),
@@ -372,12 +609,19 @@ test_at_break(Mod, Line, Function) when is_atom(Mod), is_integer(Line) ->
 
 check_function({Mod, Func}) when is_atom(Mod), is_atom(Func) -> true.
 
+-doc """
+get_binding(Var, Bindings) -> {value,Value} | unbound
+
+Retrieves the binding of `Var`. This function is intended to be used by the
+conditional function of a breakpoint.
+""".
 -spec get_binding(Var, Bindings) -> {value,Value} | unbound when Var :: atom(),
    Bindings :: term(),
    Value :: term().
 get_binding(Var, Bs) ->
     dbg_icmd:get_binding(Var, Bs).
 
+-doc(#{equiv => all_breaks/1}).
 -spec all_breaks() -> [Break] when
       Break :: {Point,Options},
       Point :: {Module,Line},
@@ -392,6 +636,11 @@ get_binding(Var, Bs) ->
 all_breaks() ->
     dbg_iserver:safe_call(all_breaks).
 
+-doc """
+all_breaks(Module) -> [Break]
+
+Gets all breakpoints, or all breakpoints in `Module`.
+""".
 -spec all_breaks(Module) -> [Break] when
       Break :: {Point,Options},
       Point :: {Module,Line},
@@ -416,6 +665,27 @@ all_breaks(Mod) when is_atom(Mod) ->
 %%     Line = integer()
 %%     ExitReason = term()
 %%--------------------------------------------------------------------
+-doc """
+snapshot() -> [Snapshot]
+
+Gets information about all processes executing interpreted code.
+
+- `Pid` \- Process identifier.
+- `Function` \- First interpreted function called by the process.
+- `Status` \- Current status of the process.
+- `Info` \- More information.
+
+`Status` is one of the following:
+
+- `idle` \- The process is no longer executing interpreted code. `Info={}`.
+- `running` \- The process is running. `Info={}`.
+- `waiting` \- The process is waiting at a `receive`. `Info={}`.
+- `break` \- Process execution is stopped, normally at a breakpoint.
+  `Info={Module,Line}`.
+- `exit` \- The process is terminated. `Info=ExitReason`.
+- `no_conn` \- The connection is down to the node where the process is running.
+  `Info={}`.
+""".
 -spec snapshot() -> [Snapshot] when
       Snapshot :: {Pid, Function, Status, Info},
       Pid :: pid(),
@@ -433,6 +703,12 @@ snapshot() ->
 %%--------------------------------------------------------------------
 %% clear()
 %%--------------------------------------------------------------------
+-doc """
+clear() -> ok
+
+Clears information about processes executing interpreted code by removing all
+information about terminated processes.
+""".
 -spec clear() -> ok.
 clear() ->
     dbg_iserver:safe_cast(clear).
@@ -441,6 +717,7 @@ clear() ->
 %% continue(Pid) -> ok | {error, not_interpreted}
 %% continue(X, Y, Z) -> ok | {error, not_interpreted}
 %%--------------------------------------------------------------------
+-doc(#{equiv => continue/3}).
 -spec continue(Pid :: pid()) -> ok | {error,not_interpreted}.
 continue(Pid) when is_pid(Pid) ->
     case dbg_iserver:safe_call({get_meta, Pid}) of
@@ -451,6 +728,11 @@ continue(Pid) when is_pid(Pid) ->
 	    Error
     end.
     
+-doc """
+continue(X,Y,Z) -> ok | {error,not_interpreted}
+
+Resumes process execution for `Pid` or `c:pid(X,Y,Z)`.
+""".
 -spec continue(X,Y,Z) -> ok | {error,not_interpreted} when
       X :: integer(),
       Y :: integer(),
@@ -468,7 +750,9 @@ continue(X, Y, Z) when is_integer(X), is_integer(Y), is_integer(Z) ->
 %% stop()
 %% Functions for starting and stopping dbg_iserver explicitly.
 %%--------------------------------------------------------------------
+-doc false.
 start() -> dbg_iserver:start().
+-doc false.
 stop() ->
     lists:foreach(
       fun(Mod) ->
@@ -496,6 +780,7 @@ stop() ->
 %%   {int, {auto_attach, false|{Flags, Function}}}
 %%   {int, {stack_trace, Flag}}
 %%--------------------------------------------------------------------
+-doc false.
 subscribe() -> dbg_iserver:cast({subscribe, self()}).
 
 %%--------------------------------------------------------------------
@@ -505,6 +790,7 @@ subscribe() -> dbg_iserver:cast({subscribe, self()}).
 %% Tell dbg_iserver to attach to Pid using Function. Will result in:
 %%   spawn(Mod, Func, [Pid, Status | Args])
 %%--------------------------------------------------------------------
+-doc false.
 attach(Pid, {Mod, Func}) ->
     attach(Pid, {Mod, Func, []});
 attach(Pid, Function) ->
@@ -516,12 +802,15 @@ attach(Pid, Function) ->
 %% (continue(Pid))
 %% finish(Pid)
 %%--------------------------------------------------------------------
+-doc false.
 step(Pid) ->
     {ok, Meta} = dbg_iserver:call({get_meta, Pid}),
     dbg_icmd:step(Meta).
+-doc false.
 next(Pid) ->
     {ok, Meta} = dbg_iserver:call({get_meta, Pid}),
     dbg_icmd:next(Meta).
+-doc false.
 finish(Pid) ->
     {ok, Meta} = dbg_iserver:call({get_meta, Pid}),
     dbg_icmd:finish(Meta).
@@ -538,6 +827,7 @@ finish(Pid) ->
 %% the meta process and returns its pid. dbg_iserver may also refuse,
 %% if there already is a process attached to Pid.
 %%--------------------------------------------------------------------
+-doc false.
 attached(Pid) ->
     dbg_iserver:call({attached, self(), Pid}).
 
@@ -555,6 +845,7 @@ attached(Pid) ->
 %%       => {Sp, Mod, {Func, Arity}, Line}
 %%   Cmd = eval        Arg = {Cm, Cmd} | {Cm, Cmd, Sp}
 %%--------------------------------------------------------------------
+-doc false.
 meta(Meta, step) -> dbg_icmd:step(Meta);
 meta(Meta, next) -> dbg_icmd:next(Meta);
 meta(Meta, continue) -> dbg_icmd:continue(Meta);
@@ -564,6 +855,7 @@ meta(Meta, timeout) -> dbg_icmd:timeout(Meta);
 meta(Meta, stop) -> dbg_icmd:stop(Meta);
 meta(Meta, messages) -> dbg_icmd:get(Meta, messages, null).
 
+-doc false.
 meta(Meta, trace, Trace) -> dbg_icmd:set(Meta, trace, Trace);
 meta(Meta, stack_trace, Flag) -> dbg_icmd:set(Meta, stack_trace, Flag);
 meta(Meta, bindings, Stack) -> dbg_icmd:get(Meta, bindings, Stack);
@@ -577,6 +869,7 @@ meta(Meta, eval, Arg) -> dbg_icmd:eval(Meta, Arg).
 %%   Pid = pid() | any
 %% Return the contents of an interpreted module.
 %%--------------------------------------------------------------------
+-doc false.
 contents(Mod, Pid) ->
     {ok, Bin} = dbg_iserver:call({contents, Mod, Pid}),
     binary_to_list(Bin).
@@ -586,6 +879,7 @@ contents(Mod, Pid) ->
 %%   Mod = Name = atom()
 %%   Arity = integer()
 %%--------------------------------------------------------------------
+-doc false.
 functions(Mod) ->
     [F || F <- dbg_iserver:call({functions, Mod}), functions_1(F)].
 
@@ -597,6 +891,7 @@ functions_1(_Func) -> true.
 %% External exports only to be used by error_handler
 %%====================================================================
 
+-doc false.
 eval(Mod, Func, Args) ->
     dbg_debugged:eval(Mod, Func, Args).
 

@@ -22,6 +22,7 @@
 %% Author  : Lennart Öhman <lennart.ohman@st.se>
 
 -module(runtime_tools_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -export([init/1]).

@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(test_server).
+-moduledoc false.
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
 

@@ -26,6 +26,7 @@
 %% https://hexdocs.pm/xmerl_xml_indent/readme.html
 
 -module(xmerl_xml_indent).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

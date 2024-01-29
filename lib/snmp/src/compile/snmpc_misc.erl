@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpc_misc).
+-moduledoc false.
 
 %% need definition of mib record
 -include("snmp_types.hrl").

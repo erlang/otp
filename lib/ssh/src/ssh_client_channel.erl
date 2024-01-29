@@ -21,13 +21,63 @@
 %%
 
 -module(ssh_client_channel).
+-moduledoc """
+\-behaviour(ssh_client_channel). (Replaces ssh_channel)
+
+> #### Note {: .info }
+>
+> This module replaces ssh_channel.
+>
+> The old module is still available for compatibility, but should not be used
+> for new programs. The old module will not be maintained except for some error
+> corrections
+
+SSH services (clients and servers) are implemented as channels that are
+multiplexed over an SSH connection and communicates over the
+[SSH Connection Protocol](http://www.ietf.org/rfc/rfc4254.txt). This module
+provides a callback API that takes care of generic channel aspects for clients,
+such as flow control and close messages. It lets the callback functions take
+care of the service (application) specific parts. This behavior also ensures
+that the channel process honors the principal of an OTP-process so that it can
+be part of a supervisor tree. This is a requirement of channel processes
+implementing a subsystem that will be added to the `ssh` applications supervisor
+tree.
+
+> #### Note {: .info }
+>
+> When implementing a `ssh` subsystem for daemons, use
+> [\-behaviour(ssh_server_channel)](`m:ssh_server_channel`) (Replaces
+> ssh_daemon_channel) instead.
+
+> #### Dont {: .error }
+>
+> Functions in this module are not supposed to be called outside a module
+> implementing this behaviour\!
+""".
+-moduledoc(#{since => "OTP 21.0",
+             titles => [{callback,<<"Callback Functions">>}]}).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
+-doc """
+Makes necessary initializations and returns the initial channel state if the
+initializations succeed.
+
+For more detailed information on time-outs, see Section
+[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
+-doc """
+Handles messages sent by calling [call/\[2,3]](`call/2`)
+
+For more detailed information on time-outs,, see Section
+[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -36,22 +86,84 @@
     {noreply, NewState :: term(), timeout() | hibernate} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
+-doc """
+Handles messages sent by calling [`cast/2`](`cast/2`).
+
+For more detailed information on time-outs, see Section
+[Callback timeouts](`m:ssh_client_channel#cb_timeouts`).
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: term()}.
 
+-doc """
+This function is called by a channel process when it is about to terminate.
+Before this function is called,
+[ssh_connection:close/2 ](`ssh_connection:close/2`)is called, if it has not been
+called earlier. This function does any necessary cleaning up. When it returns,
+the channel process terminates with reason `Reason`. The return value is
+ignored.
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->
     term().
+-doc """
+Converts process state when code is changed.
+
+This function is called by a client-side channel when it is to update its
+internal state during a release upgrade or downgrade, that is, when the
+instruction `{update,Module,Change,...}`, where `Change={advanced,Extra}`, is
+given in the `appup` file. For more information, refer to Section 9.11.6 Release
+Handling Instructions in the
+[System Documentation](`e:system:release_handling.md#instr`).
+
+> #### Note {: .info }
+>
+> Soft upgrade according to the OTP release concept is not straight forward for
+> the server side, as subsystem channel processes are spawned by the `ssh`
+> application and hence added to its supervisor tree. The subsystem channels can
+> be upgraded when upgrading the user application, if the callback functions can
+> handle two versions of the state, but this function cannot be used in the
+> normal way.
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
 
+-doc """
+Handles other messages than SSH Connection Protocol, call, or cast messages sent
+to the channel.
+
+Possible Erlang 'EXIT' messages is to be handled by this function and all
+channels are to handle the following message.
+
+- **`{ssh_channel_up, ``t:ssh:channel_id/0``, ``t:ssh:connection_ref/0``}`** -
+  This is the first message that the channel receives. It is sent just before
+  the `init/1` function returns successfully. This is especially useful if the
+  server wants to send a message to the client without first receiving a message
+  from it. If the message is not useful for your particular scenario, ignore it
+  by immediately returning `{ok, State}`.
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_msg(Msg ::term(), State :: term()) ->
     {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
 
+-doc """
+Handles SSH Connection Protocol messages that may need service-specific
+attention. For details, see `t:ssh_connection:event/0`.
+
+The following message is taken care of by the `ssh_client_channel` behavior.
+
+- **`{closed, ``t:ssh:channel_id/0``}`** - The channel behavior sends a close
+  message to the other side, if such a message has not already been sent. Then
+  it terminates the channel with reason `normal`.
+""".
+-doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback handle_ssh_msg(ssh_connection:event(),
  			 State::term()) -> {ok, State::term()} | 
  					   {stop, ChannelId::ssh:channel_id(), 
@@ -88,9 +200,20 @@
 %% API
 %%====================================================================
 
+-doc(#{equiv => call/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 call(ChannelPid, Msg) ->
     call(ChannelPid, Msg, infinity).
 
+-doc """
+call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason}
+
+Makes a synchronous call to the channel process by sending a message and waiting
+until a reply arrives, or a time-out occurs. The channel calls
+[Module:handle_call/3](`c:handle_call/3`) to handle the message. If the channel
+process does not exist, `{error, closed}` is returned.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 call(ChannelPid, Msg, TimeOute) ->
     try gen_server:call(ChannelPid, Msg, TimeOute) of
 	Result ->
@@ -108,10 +231,30 @@ call(ChannelPid, Msg, TimeOute) ->
  	    {error, timeout}
     end.
 
+-doc """
+cast(ChannelRef, Msg) -> ok
+
+Sends an asynchronous message to the channel process and returns ok immediately,
+ignoring if the destination node or channel process does not exist. The channel
+calls [Module:handle_cast/2](`c:handle_cast/2`) to handle the message.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 cast(ChannelPid, Msg) ->
     gen_server:cast(ChannelPid, Msg).
 
 
+-doc """
+reply(Client, Reply) -> \_
+
+This function can be used by a channel to send a reply to a client that called
+`call/[2,3]` when the reply cannot be defined in the return value of
+[Module:handle_call/3](`c:handle_call/3`).
+
+`Client` must be the `From` argument provided to the callback function
+[`handle_call/3`](`c:handle_call/3`). `Reply` is an arbitrary term, which is
+given back to the client as the return value of [call/\[2,3].](`call/2`)
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 reply(From, Msg) ->
     gen_server:reply(From, Msg).
 
@@ -123,9 +266,12 @@ reply(From, Msg) ->
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
+-doc(#{equiv => start_link/4}).
+-doc(#{since => <<"OTP 21.0">>}).
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
+-doc false.
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
     Options = [{channel_cb, CallBack},
 	       {channel_id, ChannelId},
@@ -134,9 +280,19 @@ start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {exec, Exec}],	  
     gen_server:start(?MODULE, [Options], []).
 
+-doc """
+start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> {ok, ChannelRef}
+| {error, Reason}
+
+Starts a process that handles an SSH channel. It is called internally, by the
+`ssh` daemon, or explicitly by the `ssh` client implementations. The behavior
+sets the `trap_exit` flag to `true`.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
+-doc false.
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
     Options = [{channel_cb, CallBack},
 	       {channel_id, ChannelId},
@@ -145,6 +301,18 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {exec, Exec}],	  
     gen_server:start_link(?MODULE, [Options], []).
 
+-doc """
+enter*loop(State) -> *
+
+Makes an existing process an `ssh_client_channel` (replaces ssh_channel)
+process. Does not return, instead the calling process enters the
+`ssh_client_channel` (replaces ssh_channel) process receive loop and become an
+`ssh_client_channel` process. The process must have been started using one of
+the start functions in `proc_lib`, see the `m:proc_lib` manual page in STDLIB.
+The user is responsible for any initialization of the process and must call
+`init/1`.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 
@@ -159,6 +327,30 @@ enter_loop(State) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
+-doc """
+init(Options) -> {ok, State} | {ok, State, Timeout} | {stop, Reason}
+
+The following options must be present:
+
+- **`{channel_cb, atom()}`** - The module that implements the channel behaviour.
+
+- **`{init_args(), list()}`** - The list of arguments to the `init` function of
+  the callback module.
+
+- **`{cm, ``t:ssh:connection_ref/0``}`** - Reference to the `ssh` connection as
+  returned by `ssh:connect/3`.
+
+- **`{channel_id, ``t:ssh:channel_id/0``}`** - Id of the `ssh` channel as
+  returned by
+  [ssh_connection:session_channel/2,4](`ssh_connection:session_channel/2`).
+
+> #### Note {: .info }
+>
+> This function is normally not called by the user. The user only needs to call
+> if the channel process needs to be started with help of `proc_lib` instead of
+> calling [`start/4`](`start/4`) or [`start_link/4`](`start_link/4`).
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 init([Options]) ->    
     Cb = proplists:get_value(channel_cb, Options),
     ConnectionManager =  proplists:get_value(cm, Options),
@@ -205,6 +397,7 @@ channel_cb_init_args(Options) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+-doc false.
 handle_call(get_print_info, _From, State) ->
     Reply =
 	{{State#state.cm,
@@ -233,6 +426,7 @@ handle_call(Request, From, #state{channel_cb = Module,
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
+-doc false.
 handle_cast(Msg, #state{channel_cb = Module, 
 			channel_state = ChannelState} = State) ->
     
@@ -250,6 +444,7 @@ handle_cast(Msg, #state{channel_cb = Module,
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
+-doc false.
 handle_info({ssh_cm, ConnectionManager, {closed, _ChannelId}},  
 	    #state{cm = ConnectionManager,
 		   close_sent = true} = State) ->
@@ -311,6 +506,7 @@ do_the_close(_Msg,                                _, State) -> {stop, normal, St
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
+-doc false.
 terminate(Reason, #state{cm = ConnectionManager, 
  			 channel_id = ChannelId,
  			 close_sent = false} = State) ->
@@ -324,6 +520,7 @@ terminate(Reason, #state{channel_cb = Cb, channel_state = ChannelState}) ->
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
+-doc false.
 code_change(OldVsn, #state{channel_cb = Module, 
 			   channel_state = ChannelState0} = State, Extra) ->
     {ok, ChannelState} = Module:code_change(OldVsn, ChannelState0, Extra),
@@ -332,9 +529,11 @@ code_change(OldVsn, #state{channel_cb = Module,
 %%====================================================================
 %% Internal application API
 %%====================================================================
+-doc false.
 cache_create() ->
     ets:new(cm_tab, [set,{keypos, #channel.local_id}]).
 
+-doc false.
 cache_lookup(Cache, Key) ->
     case ets:lookup(Cache, Key) of
 	[Channel] ->
@@ -343,21 +542,27 @@ cache_lookup(Cache, Key) ->
 	    undefined
     end.
 
+-doc false.
 cache_update(Cache, #channel{local_id = Id} = Entry) when Id =/= undefined ->
     ets:insert(Cache, Entry).
 
+-doc false.
 cache_delete(Cache, Key) ->
     ets:delete(Cache, Key).
 
+-doc false.
 cache_delete(Cache) ->
     ets:delete(Cache).
 
+-doc false.
 cache_foldl(Fun, Acc, Cache) ->
     ets:foldl(Fun, Acc, Cache).
     
+-doc false.
 cache_info(num_entries, Cache) ->
     proplists:get_value(size, ets:info(Cache)).
 
+-doc false.
 cache_find(ChannelPid, Cache) ->
    case ets:match_object(Cache, #channel{user = ChannelPid}) of
        [] ->
@@ -366,9 +571,11 @@ cache_find(ChannelPid, Cache) ->
 	   Channel
    end.
 
+-doc false.
 get_print_info(Pid) ->
     call(Pid, get_print_info, 1000).
 
+-doc false.
 get_print_info(Pid, Arg) ->
     call(Pid, {get_print_info,Arg}, 1000).
 
@@ -400,12 +607,15 @@ adjust_window(_) ->
 %%%# Tracing
 %%%#
 
+-doc false.
 ssh_dbg_trace_points() -> [terminate, channels, channel_events].
 
+-doc false.
 ssh_dbg_flags(channels) -> [c];
 ssh_dbg_flags(terminate) -> [c];
 ssh_dbg_flags(channel_events) -> [c].
 
+-doc false.
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x);
 ssh_dbg_on(channels) -> dbg:tp(?MODULE,  init, 1, x),
                         ssh_dbg_on(terminate);
@@ -413,6 +623,7 @@ ssh_dbg_on(channel_events) -> dbg:tp(?MODULE,  handle_call, 3, x),
                               dbg:tp(?MODULE,  handle_cast, 2, x),
                               dbg:tp(?MODULE,  handle_info, 2, x).
 
+-doc false.
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2);
 ssh_dbg_off(channels) -> dbg:ctpg(?MODULE, init, 1),
                          ssh_dbg_off(terminate);
@@ -420,6 +631,7 @@ ssh_dbg_off(channel_events) -> dbg:ctpg(?MODULE,  handle_call, 3),
                                dbg:ctpg(?MODULE,  handle_cast, 2),
                                dbg:ctpg(?MODULE,  handle_info, 2).
 
+-doc false.
 ssh_dbg_format(channels, {call, {?MODULE,init, [[KVs]]}}) ->
     ["Server Channel Starting:\n",
      io_lib:format("Connection: ~p, ChannelId: ~p, CallBack: ~p\nCallBack init args = ~p", 

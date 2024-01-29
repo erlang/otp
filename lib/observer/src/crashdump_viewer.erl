@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(crashdump_viewer).
+-moduledoc false.
 
 %%
 %% This module is the main module in the crashdump viewer. It implements

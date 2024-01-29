@@ -18,6 +18,22 @@
 %% %CopyrightEnd%
 %%
 -module(log_mf_h).
+-moduledoc """
+An event handler that logs events to disk.
+
+This module is a `gen_event` handler module that can be installed in any
+`gen_event` process. It logs onto disk all events that are sent to an event
+manager. Each event is written as a binary, which makes the logging very fast.
+However, a tool such as the Report Browser (`m:rb`) must be used to read the
+files. The events are written to multiple files. When all files have been used,
+the first one is reused and overwritten. The directory location, the number of
+files, and the size of each file are configurable. The directory will include
+one file called `index`, and report files `1, 2, ...`.
+
+## See Also
+
+`m:gen_event`, `m:rb`
+""".
 
 -behaviour(gen_event).
 
@@ -69,9 +85,11 @@
 %%              EventMgr = pid() | atom().
 %%-----------------------------------------------------------------
 
+-doc "Term to be sent to `gen_event:add_handler/3`.".
 -opaque args() :: {file:filename(), b(), f(), pred()}.
 
 
+-doc(#{equiv => init/4}).
 -spec init(Dir, MaxBytes, MaxFiles) -> Args when
       Dir :: file:filename(),
       MaxBytes :: non_neg_integer(), % b()
@@ -80,6 +98,15 @@
 
 init(Dir, MaxB, MaxF) -> init(Dir, MaxB, MaxF, fun(_) -> true end).
 
+-doc """
+Initiates the event handler. Returns `Args`, which is to be used in a call to
+`gen_event:add_handler(EventMgr, log_mf_h, Args)`.
+
+`Dir` specifies which directory to use for the log files. `MaxBytes` specifies
+the size of each individual file. `MaxFiles` specifies how many files are used.
+`Pred` is a predicate function used to filter the events. If no predicate
+function is specified, all events are logged.
+""".
 -spec init(Dir, MaxBytes, MaxFiles, Pred) -> Args when
       Dir :: file:filename(),
       MaxBytes :: non_neg_integer(), % b()
@@ -93,6 +120,7 @@ init(Dir, MaxB, MaxF, Pred) -> {Dir, MaxB, MaxF, Pred}.
 %% Call-back functions from gen_event
 %%-----------------------------------------------------------------
 
+-doc false.
 -spec init({file:filename(), non_neg_integer(), f(), pred()}) -> {'ok', #state{}} | {'error', term()}.
 
 init({Dir, MaxB, MaxF, Pred}) when is_integer(MaxF), MaxF > 0, MaxF < 256 -> 
@@ -117,6 +145,7 @@ init({Dir, MaxB, MaxF, Pred}) when is_integer(MaxF), MaxF > 0, MaxF < 256 ->
 %%        {file_exit, Reason} if the current Fd crashes. 
 %%-----------------------------------------------------------------
 
+-doc false.
 -spec handle_event(term(), #state{}) -> {'ok', #state{}}.
 
 handle_event(Event, State) ->
@@ -147,6 +176,7 @@ handle_event(Event, State) ->
 	    {ok, State}
     end.
 
+-doc false.
 -spec handle_info(term(), #state{}) -> {'ok', #state{}}.
 
 handle_info({emulator, GL, Chars}, State) ->
@@ -154,17 +184,20 @@ handle_info({emulator, GL, Chars}, State) ->
 handle_info(_, State) ->
     {ok, State}.
 
+-doc false.
 -spec terminate(term(), #state{}) -> #state{}.
 
 terminate(_, State) ->
     ok = file:close(State#state.cur_fd),
     State.
 
+-doc false.
 -spec handle_call('null', #state{}) -> {'ok', 'null', #state{}}.
 
 handle_call(null, State) ->
     {ok, null, State}.
 
+-doc false.
 -spec code_change(term(), #state{}, term()) -> {'ok', #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->

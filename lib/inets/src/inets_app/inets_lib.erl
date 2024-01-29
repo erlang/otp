@@ -19,6 +19,7 @@
 %%
 
 -module(inets_lib).
+-moduledoc false.
 
 -export([millisec_passed/1, formated_timestamp/0, format_timestamp/1]).
 

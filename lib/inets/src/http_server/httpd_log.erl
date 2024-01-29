@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_log).
+-moduledoc false.
 
 -include("httpd.hrl").
 

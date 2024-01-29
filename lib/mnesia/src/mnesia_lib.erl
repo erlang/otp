@@ -23,6 +23,7 @@
 %% anywhere else. Basically everything is exported.
 
 -module(mnesia_lib).
+-moduledoc false.
 
 -include("mnesia.hrl").
 -include_lib("kernel/include/file.hrl").

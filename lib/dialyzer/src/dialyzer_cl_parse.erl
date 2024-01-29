@@ -11,6 +11,7 @@
 %% limitations under the License.
 
 -module(dialyzer_cl_parse).
+-moduledoc false.
 
 -export([start/0]).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(disk_log_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

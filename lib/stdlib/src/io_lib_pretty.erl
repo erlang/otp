@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(io_lib_pretty).
+-moduledoc false.
 
 %%% Pretty printing Erlang terms
 %%%

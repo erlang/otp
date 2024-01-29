@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_checkpoint).
+-moduledoc false.
 
 %% TM callback interface
 -export([

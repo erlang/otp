@@ -19,6 +19,7 @@
 %% 
 
 -module(snmp_note_store).
+-moduledoc false.
 
 -behaviour(gen_server).
 

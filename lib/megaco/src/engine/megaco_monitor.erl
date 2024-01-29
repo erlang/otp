@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_monitor).
+-moduledoc false.
 
 -behaviour(gen_server).
 

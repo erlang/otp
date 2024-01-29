@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_transport_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

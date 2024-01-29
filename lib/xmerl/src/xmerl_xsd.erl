@@ -26,6 +26,14 @@
 %% An XML structure is validated by xmerl_xsd:validate/[2,3].
 %%%-------------------------------------------------------------------
 -module(xmerl_xsd).
+-moduledoc """
+Interface module for XML Schema validation. It handles the W3.org
+[specifications](http://www.w3.org/XML/Schema#dev) of XML Schema second edition
+28 october 2004. For an introduction to XML Schema study
+[part 0.](http://www.w3.org/TR/xmlschema-0/) An XML structure is validated by
+xmerl_xsd:validate/\[2,3].
+-------------------------------------------------------------------
+""".
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -103,6 +111,11 @@
 
 %% @spec validate(Element,State) -> Result
 %% @equiv validate(Element,State,[])
+-doc """
+validate(Xml,State)
+
+Equivalent to [validate(Element, State, [])](`validate/3`).
+""".
 validate(Xml,State) ->
     validate(Xml,State,[]).
 
@@ -134,6 +147,29 @@ validate(Xml,State) ->
 %% </p>
 %% <p> Observe that E2 may differ from E if for instance there are default
 %% values defined in <code>my_XML_Schema.xsd</code>.</p>
+-doc """
+Validates a parsed well-formed XML element (Element).
+
+A call to validate/2 or validate/3 must provide a well formed parsed XML element
+`#xmlElement{}` and a State, `t:global_state/0`, which holds necessary
+information from an already processed schema. Thus validate enables reuse of the
+schema information and therefore if one shall validate several times towards the
+same schema it reduces time consumption.
+
+The result, ValidElement, is the valid element that conforms to the
+post-schema-validation infoset. When the validator finds an error it tries to
+continue and reports a list of all errors found. In those cases an unexpected
+error is found it may cause a single error reason.
+
+Usage example:
+
+`1>{E,_} = xmerl_scan:file("my_XML_document.xml").`  
+`2>{ok,S} = xmerl_xsd:process_schema("my_XML_Schema.xsd").`  
+`3>{E2,_} = xmerl_xsd:validate(E,S).`
+
+Observe that E2 may differ from E if for instance there are default values
+defined in `my_XML_Schema.xsd`.
+""".
 -spec validate(Element,State,Options) -> Result when
       Element :: #xmlElement{},
       Options :: option_list(),
@@ -152,6 +188,14 @@ validate(Xml,State,Opts) when is_record(State,xsd_state) ->
 %%
 %% The name of the saved file is the same as the name of the
 %% schema, but with <code>.xss</code> extension.
+-doc """
+state2file(S)
+
+Same as state2file(State,SchemaName)
+
+The name of the saved file is the same as the name of the schema, but with
+`.xss` extension.
+""".
 state2file(S=#xsd_state{schema_name=SN}) ->
     state2file(S,filename:rootname(SN)).
 
@@ -162,6 +206,13 @@ state2file(S=#xsd_state{schema_name=SN}) ->
 %% schema in a file. You can provide the file name for the saved
 %% state. FileName is saved with the <code>.xss</code> extension
 %% added.
+-doc """
+state2file(S,FileName)
+
+Saves the schema state with all information of the processed schema in a file.
+You can provide the file name for the saved state. FileName is saved with the
+`.xss` extension added.
+""".
 state2file(S,FileName) when is_record(S,xsd_state) ->
     save_xsd_state(S),
     case catch ets:tab2file(S#xsd_state.table,lists:append(FileName,".xss")) of
@@ -177,6 +228,13 @@ state2file(S,FileName) when is_record(S,xsd_state) ->
 %% schema from a file created with <code>state2file/[1,2]</code>.  The
 %% format of this file is internal. The state can then be used
 %% validating an XML document.
+-doc """
+file2state(FileName)
+
+Reads the schema state with all information of the processed schema from a file
+created with `state2file/[1,2]`. The format of this file is internal. The state
+can then be used validating an XML document.
+""".
 file2state(FileName) ->
     case catch ets:file2tab(FileName) of
 	{ok,Tab} ->
@@ -218,6 +276,11 @@ xmerl_xsd_vsn_check(S=#xsd_state{vsn=MD5_VSN}) ->
 
 %% @spec process_validate(Schema,Element) -> Result
 %% @equiv process_validate(Schema,Xml,[])
+-doc """
+process_validate(Schema,Xml)
+
+Equivalent to [process_validate(Schema, Xml, [])](`process_validate/3`).
+""".
 process_validate(Schema,Xml) ->
     process_validate(Schema,Xml,[]).
 %% @spec process_validate(Schema,Element,Options) -> Result
@@ -237,6 +300,23 @@ process_validate(Schema,Xml) ->
 %% </p>
 %% <p> Observe that E2 may differ from E if for instance there are default
 %% values defined in <code>my_XML_Schema.xsd</code>.</p>
+-doc """
+process_validate(Schema,Xml,Opts)
+
+Validates a parsed well-formed XML element towards an XML schema.
+
+Validates in two steps. First it processes the schema, saves the type and
+structure info in an ets table and then validates the element towards the
+schema.
+
+Usage example:
+
+`1>{E,_} = xmerl_scan:file("my_XML_document.xml").`  
+`2>{E2,_} = xmerl_xsd:validate("my_XML_Schema.xsd",E).`
+
+Observe that E2 may differ from E if for instance there are default values
+defined in `my_XML_Schema.xsd`.
+""".
 process_validate(Schema,Xml,Opts) ->
     TargetNamespace = target_namespace(Xml),
     case Schema of
@@ -298,6 +378,11 @@ validate3(_,_,S) ->
 
 %% @spec process_schema(Schema) -> Result
 %% @equiv process_schema(Schema,[])
+-doc """
+process_schema(Schema)
+
+Equivalent to [process_schema(Schema, [])](`process_schema/2`).
+""".
 process_schema(Schema) ->
     process_schema(Schema,[]).
 %% @spec process_schema(Schema,Options) -> Result
@@ -310,6 +395,13 @@ process_schema(Schema) ->
 %% Returns the <code>global_state()</code> with schema info or an 
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
+-doc """
+process_schema(Schema,Options)
+
+Reads the referenced XML schema and checks that it is valid. Returns the
+`t:global_state/0` with schema info or an error reason. The error reason may be
+a list of several errors or a single error encountered during the processing.
+""".
 process_schema(Schema,Options) when is_list(Options) ->
     State = initiate_state(Options,Schema),
     process_schema(Schema, State);
@@ -340,6 +432,11 @@ process_schema2({SE,_},State,_Schema) ->
 
 %% @spec process_schemas(Schemas) -> Result
 %% @equiv process_schema(Schemas,[])
+-doc """
+process_schemas(Schemas)
+
+Equivalent to [process_schema(Schemas, [])](`process_schema/2`).
+""".
 process_schemas(Schemas) ->
     process_schemas(Schemas,[]).
 %% @spec process_schemas(Schemas,Options) -> Result
@@ -351,6 +448,13 @@ process_schemas(Schemas) ->
 %% Returns the <code>global_state()</code> with schema info or an 
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
+-doc """
+process_schemas(Schemas,Options)
+
+Reads the referenced XML schemas and controls they are valid. Returns the
+`t:global_state/0` with schema info or an error reason. The error reason may be
+a list of several errors or a single error encountered during the processing.
+""".
 process_schemas(Schemas=[{_,Schema}|_],Options) when is_list(Options) ->
     State = initiate_state(Options,Schema),
     process_schemas(Schemas, State);
@@ -4912,6 +5016,7 @@ delete_table(#xsd_state{table=Tab}) ->
     catch ets:delete(Tab).
 
 %% @hidden
+-doc false.
 print_table(#xsd_state{table=Tab}) ->
     case catch ets:tab2list(Tab) of
 	Res when is_list(Res) ->
@@ -5448,6 +5553,11 @@ add_key_once(Key,N,El,L) ->
 %%       Errors     = tuple() | [tuple()]
 %%       Result       = string() | [string()]
 %% @doc Formats error descriptions to human readable strings.
+-doc """
+format_error(L)
+
+Formats error descriptions to human readable strings.
+""".
 format_error(L) when is_list(L) -> 
     [format_error(X)||X<-L];
 format_error({unexpected_rest,UR}) ->

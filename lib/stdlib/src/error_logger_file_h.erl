@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(error_logger_file_h).
+-moduledoc false.
 
 -behaviour(gen_event).
 

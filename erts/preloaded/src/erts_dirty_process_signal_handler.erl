@@ -19,6 +19,7 @@
 %%
 
 -module(erts_dirty_process_signal_handler).
+-moduledoc false.
 
 -export([start/0]).
 

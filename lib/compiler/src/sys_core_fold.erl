@@ -67,6 +67,7 @@
 %% all values where the key contains pattern variables.
 
 -module(sys_core_fold).
+-moduledoc false.
 
 -export([module/2,format_error/1]).
 

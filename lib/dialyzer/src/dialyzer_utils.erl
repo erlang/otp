@@ -20,6 +20,7 @@
 %%% Created :  5 Dec 2006 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_utils).
+-moduledoc false.
 
 -export([
 	 format_sig/1,

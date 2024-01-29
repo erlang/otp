@@ -23,6 +23,25 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_flex_scanner).
+-moduledoc """
+Interface module to the flex scanner linked in driver.
+
+This module contains the public interface to the flex scanner linked in driver.
+The flex scanner performs the scanning phase of text message decoding.
+
+The flex scanner is written using a tool called _flex_. In order to be able to
+compile the flex scanner driver, this tool has to be available.
+
+By default the flex scanner reports line-number of an error. But it can be built
+without line-number reporting. Instead token number is used. This will speed up
+the scanning some 5-10%. Use `--disable-megaco-flex-scanner-lineno` when
+configuring the application.
+
+The scanner will, by default, be built as a reentrant scanner _if_ the flex
+utility supports this (it depends on the version of flex). It is possible to
+explicitly disable this even when flex support this. Use
+`--disable-megaco-reentrant-flex-scanner` when configuring the application.
+""".
 
 -export([is_enabled/0, is_reentrant_enabled/0, is_scanner_port/2]).
 -export([start/0, start/1, stop/1, scan/2]).
@@ -34,6 +53,11 @@
 
 %%----------------------------------------------------------------------
 
+-doc """
+Return value of a successful (flex) scanner start.
+
+[](){: #start }
+""".
 -opaque megaco_ports() :: port() | tuple().
 
 
@@ -65,11 +89,19 @@
 -endif.
 
 -dialyzer({nowarn_function, is_enabled/0}).
+-doc false.
 -spec is_enabled() -> boolean().
 is_enabled() -> 
     (true =:= ?ENABLE_MEGACO_FLEX_SCANNER).
 
 -dialyzer({nowarn_function, is_reentrant_enabled/0}).
+-doc """
+is_reentrant_enabled() -> Boolean
+
+Is the flex scanner reentrant or not.
+
+[](){: #is_scanner_port }
+""".
 -spec is_reentrant_enabled() -> boolean().
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
@@ -77,6 +109,11 @@ is_reentrant_enabled() ->
 
 %%----------------------------------------------------------------------
 
+-doc """
+Checks if a port is a flex scanner port or not (useful when if a port exits).
+
+[](){: #scan }
+""".
 -spec is_scanner_port(Port, PortOrPorts) -> boolean() when
       Port        :: port(),
       PortOrPorts :: megaco_ports().
@@ -106,6 +143,19 @@ is_own_port(Port, N, Ports) when (N > 0) ->
 %% Start the flex scanner
 %%----------------------------------------------------------------------
 
+-doc """
+This function is used to start the flex scanner. It locates the library and
+loads the linked in driver.
+
+On a single core system or if it's a non-reentrant scanner, a single port is
+created. On a multi-core system with a reentrant scanner, several ports will be
+created (one for each scheduler).
+
+Note that the process that calls this function _must_ be permanent. If it dies,
+the port(s) will exit and the driver unload.
+
+[](){: #stop }
+""".
 -spec start() -> {ok, PortOrPorts} | {error, Reason} when
       PortOrPorts :: megaco_ports(),
       Reason      :: term().
@@ -113,6 +163,7 @@ is_own_port(Port, N, Ports) when (N > 0) ->
 start() ->
     start(?SMP_SUPPORT_DEFAULT()).
 
+-doc false.
 start(SMP) when ((SMP =:= true) orelse (SMP =:= false)) ->
     (catch do_start(is_reentrant_enabled() andalso SMP)).
 
@@ -180,6 +231,11 @@ drv_name() ->
 %% Stop the flex scanner
 %%----------------------------------------------------------------------
 
+-doc """
+This function is used to stop the flex scanner. It also unloads the driver.
+
+[](){: #is_reentrant_enabled }
+""".
 -spec stop(PortOrPorts) -> stopped when
       PortOrPorts :: megaco_ports().
 
@@ -199,6 +255,7 @@ stop(Ports) when is_tuple(Ports) ->
 %% Scan a message
 %%----------------------------------------------------------------------
 
+-doc "Scans a megaco message and generates a token list to be passed on the parser.".
 -spec scan(Binary, PortOrPorts) ->
           {ok, Tokens, Version, LatestLine} |
           {error, Reason, LatestLine} when

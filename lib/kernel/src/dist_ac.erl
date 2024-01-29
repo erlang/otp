@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dist_ac).
+-moduledoc false.
 
 -behaviour(gen_server).
 

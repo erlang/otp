@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_port_cb).
+-moduledoc false.
 
 -export([col_to_elem/1,
 	 col_spec/0,

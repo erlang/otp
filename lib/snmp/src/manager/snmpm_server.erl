@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpm_server).
+-moduledoc false.
 
 %%----------------------------------------------------------------------
 %% This module implements a simple SNMP manager for Erlang.

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(raw_file_io_delayed).
+-moduledoc false.
 
 -behavior(gen_statem).
 

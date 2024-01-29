@@ -20,6 +20,7 @@
 
 %%
 -module(inet6_tls_dist).
+-moduledoc false.
 
 -export([childspecs/0]).
 -export([listen/2, accept/1, accept_connection/5,

@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_pretty_text_encoder).
+-moduledoc false.
 
 -behaviour(megaco_encoder).
 

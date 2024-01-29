@@ -19,6 +19,7 @@
 %%
 
 -module(ct_run).
+-moduledoc false.
 
 %% Script interface
 -export([script_start/0,script_usage/0]).

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_posix_msg).
+-moduledoc false.
 
 %% Converts from errno identifiers to error messages.
 

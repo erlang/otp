@@ -20,6 +20,7 @@
 %% Purpose: Core Erlang abstract syntax functions.
 
 -module(core_lib).
+-moduledoc false.
 
 -export([make_values/1]).
 -export([is_var_used/2]).

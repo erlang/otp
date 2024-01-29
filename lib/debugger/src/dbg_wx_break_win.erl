@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_break_win).
+-moduledoc false.
 
 %% External exports
 -export([create_win/5,

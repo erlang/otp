@@ -20,6 +20,7 @@
 %% Purpose: Internal consistency checks for the beam_ssa format.
 
 -module(beam_ssa_lint).
+-moduledoc false.
 
 -export([module/2, format_error/1]).
 

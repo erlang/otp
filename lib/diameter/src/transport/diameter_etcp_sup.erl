@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_etcp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erlsrv).
+-moduledoc false.
 
 %% Purpose : Control the external erlsrv program.
 

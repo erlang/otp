@@ -17,6 +17,7 @@
 %% @doc Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).
+-moduledoc false.
 
 -export([build/1, build_warnings/2, get_default_config_filename/0]).
 

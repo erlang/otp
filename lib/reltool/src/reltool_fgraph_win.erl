@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_fgraph_win).
+-moduledoc false.
 
 -export([
          new/2,

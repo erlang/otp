@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_file).
+-moduledoc false.
 
 -export([handle_error/4]).
 

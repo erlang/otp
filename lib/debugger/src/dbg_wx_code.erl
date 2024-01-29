@@ -19,6 +19,7 @@
 %%
 
 -module(dbg_wx_code).
+-moduledoc false.
 
 -export([code_area/1, 
 	 load_code/2, unload_code/1, 

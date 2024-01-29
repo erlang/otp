@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_auth_mnesia).
+-moduledoc false.
 -export([get_user/2,
 	 list_group_members/2,
 	 add_user/2,

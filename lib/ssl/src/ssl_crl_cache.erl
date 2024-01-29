@@ -22,6 +22,14 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_crl_cache).
+-moduledoc """
+CRL cache
+
+Implements an internal CRL (Certificate Revocation List) cache. In addition to
+implementing the `m:ssl_crl_cache_api` behaviour the following functions are
+available.
+""".
+-moduledoc(#{since => "OTP 18.0",titles => [{type,<<"DATA TYPES">>}]}).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
@@ -29,6 +37,7 @@
 -behaviour(ssl_crl_cache_api).
 
 -export_type([crl_src/0, uri/0]).
+-doc(#{title => <<"DATA TYPES">>}).
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
 -type uri()     :: uri_string:uri_string().
 
@@ -39,6 +48,7 @@
 %% Cache callback API
 %%====================================================================
 
+-doc false.
 lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
        _Issuer,
        CRLDbInfo) ->
@@ -46,6 +56,7 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+-doc false.
 select(GenNames, CRLDbHandle) when is_list(GenNames) ->
     lists:flatmap(fun({directoryName, Issuer}) ->
                           select(Issuer, CRLDbHandle);
@@ -60,6 +71,7 @@ select(Issuer, {{_Cache, Mapping},_}) ->
 	    CRLs
     end.
 
+-doc false.
 fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
@@ -73,6 +85,8 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
+-doc(#{equiv => insert/2}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec insert(CRLSrc) -> ok | {error, Reason} when
       CRLSrc :: crl_src(),
       Reason :: term().
@@ -81,6 +95,11 @@ insert(CRLSrc) ->
     insert(?NO_DIST_POINT, CRLSrc).
 
 %%--------------------------------------------------------------------
+-doc """
+Insert CRLs into the ssl applications local cache, with or without a
+distribution point reference URI
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec insert(DistPointURI, CRLSrc) -> ok | {error, Reason} when
       DistPointURI :: uri_string:uri_string(),
       CRLSrc :: crl_src(),
@@ -100,6 +119,12 @@ insert(DistPointURI, {der, CRLs}) ->
     do_insert(DistPointURI, CRLs).
 
 %%--------------------------------------------------------------------
+-doc """
+delete(Entries) -> ok | {error, Reason}
+
+Delete CRLs from the ssl applications local cache.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec delete(Entries) -> ok | {error, Reason} when
       Entries :: crl_src() | uri_string:uri_string(),
       Reason :: term().

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_iload).
+-moduledoc false.
 
 -export([load_mod/4]).
 

@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_event).
+-moduledoc false.
 
 -behaviour(gen_event).
 %-behaviour(mnesia_event).

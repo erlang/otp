@@ -24,6 +24,7 @@
 %% 
 %%----------------------------------------------------------------------
 -module(ssl_cipher_format).
+-moduledoc false.
 
 -include("ssl_api.hrl").
 -include("ssl_cipher.hrl").

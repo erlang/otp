@@ -25,6 +25,7 @@
 %%
 
 -module(megaco_filter).
+-moduledoc false.
 
 -export([start/0, start/1, filter/1, raw_filter/1,
 	 pretty_error/1, string_to_term/1]).

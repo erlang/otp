@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_authentication_service).
+-moduledoc false.
 
 -export_type([
               acm_data/0

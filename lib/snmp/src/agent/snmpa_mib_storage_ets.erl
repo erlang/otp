@@ -19,6 +19,7 @@
 %%
 
 -module(snmpa_mib_storage_ets).
+-moduledoc false.
 
 -behaviour(snmpa_mib_storage).
 

@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_kernel_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

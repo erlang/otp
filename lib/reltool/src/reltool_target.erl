@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_target).
+-moduledoc false.
 
 %% Public
 -export([

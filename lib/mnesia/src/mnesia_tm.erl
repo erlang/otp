@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_tm).
+-moduledoc false.
 
 -export([
 	 start/0,

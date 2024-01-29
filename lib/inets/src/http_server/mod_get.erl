@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_get).
+-moduledoc false.
 
 -export([do/1]).
 

@@ -25,6 +25,7 @@
 %%
 
 -module(diameter_gen).
+-moduledoc false.
 
 -compile({inline, [incr/8,
                    incr/4,

@@ -26,6 +26,7 @@
 %%
 %%
 -module(beam_bounds).
+-moduledoc false.
 -export([bounds/2, bounds/3, relop/3, infer_relop_types/3,
          is_masking_redundant/2]).
 -export_type([range/0]).

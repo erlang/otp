@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(observer_backend).
+-moduledoc false.
 
 %% General
 -export([vsn/0]).

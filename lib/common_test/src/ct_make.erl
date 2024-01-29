@@ -28,6 +28,7 @@
 %%
 
 -module(ct_make).
+-moduledoc false.
 
 -export([all/0,all/1,files/1,files/2]).
 

@@ -19,6 +19,7 @@
 %%
 
 -module(erl_signal_handler).
+-moduledoc false.
 -behaviour(gen_event).
 -export([start/0, init/1, format_status/2,
          handle_event/2, handle_call/2, handle_info/2,

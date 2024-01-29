@@ -19,6 +19,7 @@
 %%
 -module(eep48_to_markdown).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 %% This module takes care of rendering and normalization of
 %% application/erlang+html style documentation.

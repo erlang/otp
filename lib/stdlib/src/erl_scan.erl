@@ -48,6 +48,39 @@
 %% Must watch using × \327, very close to x \170.
 
 -module(erl_scan).
+-moduledoc """
+The Erlang token scanner.
+
+This module contains functions for tokenizing (scanning) characters into Erlang
+tokens.
+
+[](){: #errorinfo }
+
+## Error Information
+
+`ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
+modules. The format is as follows:
+
+```text
+{ErrorLocation, Module, ErrorDescriptor}
+```
+
+A string describing the error is obtained with the following call:
+
+```text
+Module:format_error(ErrorDescriptor)
+```
+
+## Notes
+
+The continuation of the first call to the re-entrant input functions must be
+`[]`. For a complete description of how the re-entrant input scheme works, see
+Armstrong, Virding and Williams: 'Concurrent Programming in Erlang', Chapter 13.
+
+## See Also
+
+`m:erl_anno`, `m:erl_parse`, `m:io`
+""".
 
 %%% External exports
 
@@ -116,6 +149,12 @@
 
 %%----------------------------------------------------------------------------
 
+-doc """
+Uses an `ErrorDescriptor` and returns a string that describes the error or
+warning. This function is usually called implicitly when an `ErrorInfo`
+structure is processed (see section
+[Error Information](`m:erl_scan#errorinfo`)).
+""".
 -spec format_error(ErrorDescriptor) -> string() when
       ErrorDescriptor :: error_description().
 format_error({unterminated,char}) -> "unterminated character";
@@ -137,6 +176,7 @@ format_error(string_concat) ->
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
+-doc(#{equiv => string/3}).
 -spec string(String) -> Return when
       String :: string(),
       Return :: {'ok', Tokens :: tokens(), EndLocation}
@@ -146,6 +186,7 @@ format_error(Other) ->
 string(String) ->
     string(String, 1, []).
 
+-doc(#{equiv => string/3}).
 -spec string(String, StartLocation) -> Return when
       String :: string(),
       Return :: {'ok', Tokens :: tokens(), EndLocation}
@@ -156,6 +197,79 @@ string(String) ->
 string(String, StartLocation) ->
     string(String, StartLocation, []).
 
+-doc """
+Takes the list of characters `String` and tries to scan (tokenize) them. Returns
+one of the following:
+
+- **`{ok, Tokens, EndLocation}`** - `Tokens` are the Erlang tokens from
+  `String`. `EndLocation` is the first location after the last token.
+
+- **`{error, ErrorInfo, ErrorLocation}`** - An error occurred. `ErrorLocation`
+  is the first location after the erroneous token.
+
+[`string(String)`](`string/1`) is equivalent to
+[`string(String, 1)`](`string/2`), and
+[`string(String, StartLocation)`](`string/2`) is equivalent to
+[`string(String, StartLocation, [])`](`string/3`).
+
+`StartLocation` indicates the initial location when scanning starts. If
+`StartLocation` is a line, `Anno`, `EndLocation`, and `ErrorLocation` are lines.
+If `StartLocation` is a pair of a line and a column, `Anno` takes the form of an
+opaque compound data type, and `EndLocation` and `ErrorLocation` are pairs of a
+line and a column. The _token annotations_ contain information about the column
+and the line where the token begins, as well as the text of the token (if option
+`text` is specified), all of which can be accessed by calling `column/1`,
+`line/1`, `location/1`, and `text/1`.
+
+A _token_ is a tuple containing information about syntactic category, the token
+annotations, and the terminal symbol. For punctuation characters (such as `;`
+and `|`) and reserved words, the category and the symbol coincide, and the token
+is represented by a two-tuple. Three-tuples have one of the following forms:
+
+- `{atom, Anno, atom()}`
+- `{char, Anno, char()}`
+- `{comment, Anno, string()}`
+- `{float, Anno, float()}`
+- `{integer, Anno, integer()}`
+- `{var, Anno, atom()}`
+- `{white_space, Anno, string()}`
+
+Valid options:
+
+- **`{reserved_word_fun, reserved_word_fun()}`** - A callback function that is
+  called when the scanner has found an unquoted atom. If the function returns
+  `true`, the unquoted atom itself becomes the category of the token. If the
+  function returns `false`, `atom` becomes the category of the unquoted atom.
+
+- **`return_comments`** - Return comment tokens.
+
+- **`return_white_spaces`** - Return white space tokens. By convention, a
+  newline character, if present, is always the first character of the text
+  (there cannot be more than one newline in a white space token).
+
+- **`return`** - Short for `[return_comments, return_white_spaces]`.
+
+- **`text`{: #text }** - Include the token text in the token annotation. The
+  text is the part of the input corresponding to the token. See also
+  [`text_fun`](`m:erl_scan#text_fun`).
+
+- **`{text_fun, text_fun()}`{: #text_fun }** - A callback function used to
+  determine whether the full text for the token shall be included in the token
+  annotation. Arguments of the function are the category of the token and the
+  full token string. This is only used when [`text`](`m:erl_scan#text`) is not
+  present. If neither are present the text will not be saved in the token
+  annotation.
+
+- **`{compiler_internal, term()}`{: #compiler_interal }** - Pass
+  compiler-internal options to the scanner. The set of internal options
+  understood by the scanner should be considered experimental and can thus be
+  changed at any time without prior warning.
+
+  The following options are currently understood:
+
+  - **`ssa_checks`** - Tokenizes source code annotations used for encoding tests
+    on the BEAM SSA code produced by the compiler.
+""".
 -spec string(String, StartLocation, Options) -> Return when
       String :: string(),
       Options :: options(),
@@ -185,6 +299,7 @@ string(String, {Line,Column}, Options) when ?STRING(String),
                        | {'error', ErrorInfo :: error_info(),
                           EndLocation :: erl_anno:location()}.
 
+-doc(#{equiv => tokens/4}).
 -spec tokens(Continuation, CharSpec, StartLocation) -> Return when
       Continuation :: return_cont() | [],
       CharSpec :: char_spec(),
@@ -194,6 +309,34 @@ string(String, {Line,Column}, Options) when ?STRING(String),
 tokens(Cont, CharSpec, StartLocation) ->
     tokens(Cont, CharSpec, StartLocation, []).
 
+-doc """
+This is the re-entrant scanner, which scans characters until either a _dot_ ('.'
+followed by a white space) or `eof` is reached. It returns:
+
+- **`{done, Result, LeftOverChars}`** - Indicates that there is sufficient input
+  data to get a result. `Result` is:
+
+  - **`{ok, Tokens, EndLocation}`** - The scanning was successful. `Tokens` is
+    the list of tokens including _dot_.
+
+  - **`{eof, EndLocation}`** - End of file was encountered before any more
+    tokens.
+
+  - **`{error, ErrorInfo, EndLocation}`** - An error occurred. `LeftOverChars`
+    is the remaining characters of the input data, starting from `EndLocation`.
+
+- **`{more, Continuation1}`** - More data is required for building a term.
+  `Continuation1` must be passed in a new call to `tokens/3,4` when more data is
+  available.
+
+The `CharSpec` `eof` signals end of file. `LeftOverChars` then takes the value
+`eof` as well.
+
+[`tokens(Continuation, CharSpec, StartLocation)`](`tokens/3`) is equivalent to
+[`tokens(Continuation, CharSpec, StartLocation, [])`](`tokens/4`).
+
+For a description of the options, see `string/3`.
+""".
 -spec tokens(Continuation, CharSpec, StartLocation, Options) -> Return when
       Continuation :: return_cont() | [],
       CharSpec :: char_spec(),
@@ -210,41 +353,60 @@ tokens({erl_scan_continuation,Cs,Col,Toks,Line,St,Any,Fun},
        CharSpec, _Loc, _Opts) ->
     tokens1(Cs++CharSpec, St, Line, Col, Toks, Fun, Any).
 
+-doc false.
 continuation_location({erl_scan_continuation,_,no_col,_,Line,_,_,_}) ->
     Line;
 continuation_location({erl_scan_continuation,_,Col,_,Line,_,_,_}) ->
     {Line,Col}.
 
+-doc "Returns the column of `Token`'s collection of annotations.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec column(Token) -> erl_anno:column() | 'undefined' when
       Token :: token().
 
 column(Token) ->
     erl_anno:column(element(2, Token)).
 
+-doc """
+Returns the end location of the text of `Token`'s collection of annotations. If
+there is no text, `undefined` is returned.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec end_location(Token) -> erl_anno:location() | 'undefined' when
       Token :: token().
 
 end_location(Token) ->
     erl_anno:end_location(element(2, Token)).
 
+-doc "Returns the line of `Token`'s collection of annotations.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec line(Token) -> erl_anno:line() when
       Token :: token().
 
 line(Token) ->
     erl_anno:line(element(2, Token)).
 
+-doc "Returns the location of `Token`'s collection of annotations.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec location(Token) -> erl_anno:location() when
       Token :: token().
 
 location(Token) ->
     erl_anno:location(element(2, Token)).
 
+-doc """
+Returns the text of `Token`'s collection of annotations. If there is no text,
+`undefined` is returned.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec text(Token) -> erl_anno:text() | 'undefined' when
       Token :: token().
 
 text(Token) ->
     erl_anno:text(element(2, Token)).
 
+-doc "Returns the category of `Token`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec category(Token) -> category() when
       Token :: token().
 
@@ -255,6 +417,8 @@ category({Category,_Anno,_Symbol}) ->
 category(T) ->
     erlang:error(badarg, [T]).
 
+-doc "Returns the symbol of `Token`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec symbol(Token) -> symbol() when
       Token :: token().
 
@@ -1990,6 +2154,7 @@ tabs(10) ->  "\t\t\t\t\t\t\t\t\t\t".
 
 %% Dynamic version of reserved_word that knows about the possibility
 %% that enabled features might change the set of reserved words.
+-doc "Returns `true` if `Atom` is an Erlang reserved word, otherwise `false`.".
 -spec reserved_word(Atom :: atom()) -> boolean().
 reserved_word(Atom) ->
     case f_reserved_word(Atom) of
@@ -2000,6 +2165,7 @@ reserved_word(Atom) ->
 
 %% Static version of reserved_words.  These represent the fixed set of
 %% reserved words.
+-doc false.
 f_reserved_word('after') -> true;
 f_reserved_word('begin') -> true;
 f_reserved_word('case') -> true;

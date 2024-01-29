@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_trap).
+-moduledoc false.
 
 %%%-----------------------------------------------------------------
 %%% This module takes care of all trap(notification handling.

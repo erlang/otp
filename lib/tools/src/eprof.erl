@@ -22,6 +22,17 @@
 %%
 
 -module(eprof).
+-moduledoc """
+A Time Profiling Tool for Erlang
+
+The module `eprof` provides a set of functions for time profiling of Erlang
+programs to find out how the execution time is used. The profiling is done using
+the Erlang trace BIFs. Tracing of local function calls for a specified set of
+processes is enabled when profiling is begun, and disabled when profiling is
+stopped.
+
+When using Eprof, expect a slowdown in program execution.
+""".
 -behaviour(gen_server).
 
 -export([start/0,
@@ -71,16 +82,20 @@
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc "Starts the Eprof server which holds the internal state of the collected data.".
 -spec start() -> {'ok', Pid} | {'error', Reason} when
       Pid :: pid(),
       Reason :: {'already_started', Pid}.
 
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
+-doc "Stops the Eprof server.".
 -spec stop() -> 'stopped'.
 
 stop()  -> gen_server:call(?MODULE, stop, infinity).
 
+-doc(#{equiv => analyze/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec analyze() -> 'ok' | 'nothing_to_analyze'.
 
 analyze() ->
@@ -88,6 +103,8 @@ analyze() ->
 
 -type analyze_type() :: 'procs' | 'total'.
 
+-doc(#{equiv => analyze/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec analyze(Type) -> 'ok' | 'nothing_to_analyze' when
       Type :: analyze_type().
 
@@ -96,6 +113,20 @@ analyze(Type) when is_atom(Type) ->
 analyze(Opts) when is_list(Opts) ->
     analyze(procs, Opts).
 
+-doc """
+Call this function when profiling has been stopped to display the results per
+process, that is:
+
+- how much time has been used by each process, and
+- in which function calls this time has been spent.
+
+Call `analyze` with `total` option when profiling has been stopped to display
+the results per function call, that is in which function calls the time has been
+spent.
+
+Time is shown as percentage of total time and as absolute time.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec analyze(Type, Options) -> 'ok' | 'nothing_to_analyze' when
       Type :: analyze_type(),
       Options :: [Option],
@@ -107,6 +138,8 @@ analyze(Opts) when is_list(Opts) ->
 analyze(Type, Opts) when is_list(Opts) ->
     gen_server:call(?MODULE, {analyze, Type, Opts}, infinity).
 
+-doc(#{equiv => profile/6}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Fun) -> {'ok', Value} | {'error', Reason} when
                   Fun :: fun(() -> term()),
                   Value :: term(),
@@ -122,6 +155,8 @@ profile(Rootset) when is_list(Rootset) ->
 profile(Fun) when is_function(Fun) ->
     profile([], Fun).
 
+-doc(#{equiv => profile/6}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Fun, Options) -> {'ok', Value} | {'error', Reason} when
                   Fun :: fun(() -> term()),
                   Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
@@ -142,6 +177,8 @@ profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
 %% Subtype of erlang:trace_pattern_mfa().
 -type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'}.
 
+-doc(#{equiv => profile/6}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Rootset, Fun, Pattern) -> {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
                   Fun :: fun(() -> term()),
@@ -152,6 +189,8 @@ profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
 profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, Pattern, ?default_options).
 
+-doc(#{equiv => profile/6}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Rootset, Module, Function, Args) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -175,6 +214,8 @@ profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun),
 profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, ?default_pattern).
 
+-doc(#{equiv => profile/6}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Rootset, Module, Function, Args, Pattern) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -188,6 +229,27 @@ profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list
 profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, Pattern, ?default_options).
 
+-doc """
+This function first spawns a process `P` which evaluates `Fun()` or
+[`apply(Module,Function,Args)`](`apply/3`). Then, it starts profiling for `P`
+and the processes in `Rootset` (and any new processes spawned from them).
+Information about activity in any profiled process is stored in the Eprof
+database.
+
+`Rootset` is a list of pids and registered names.
+
+If tracing could be enabled for `P` and all processes in `Rootset`, the function
+returns `{ok,Value}` when `Fun()`/`apply` returns with the value `Value`, or
+`{error,Reason}` if `Fun()`/`apply` fails with exit reason `Reason`. Otherwise
+it returns `{error, Reason}` immediately.
+
+The `set_on_spawn` option will active call time tracing for all processes
+spawned by processes in the rootset. This is the default behaviour.
+
+The programmer must ensure that the function given as argument is truly
+synchronous and that no work continues after the function has returned a value.
+""".
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec profile(Rootset, Module, Function, Args, Pattern, Options) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -204,18 +266,27 @@ profile(Rootset, M, F, A, Pattern, Options) ->
     ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, {M,F,A}, Options}, infinity).
 
+-doc false.
 dump() -> 
     gen_server:call(?MODULE, dump, infinity).
 
+-doc false.
 dump_data() ->
     gen_server:call(?MODULE, dump_data, infinity).
 
+-doc """
+This function ensures that the results displayed by
+[`analyze/0,1,2`](`analyze/0`) are printed both to the file `File` and the
+screen.
+""".
 -spec log(File) -> 'ok' when
       File :: atom() | file:filename().
 
 log(File) ->
     gen_server:call(?MODULE, {logfile, File}, infinity).
 
+-doc(#{equiv => start_profiling/3}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec start_profiling(Rootset) -> 'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
       Reason :: term().
@@ -224,6 +295,8 @@ log(File) ->
 start_profiling(Rootset) ->
     start_profiling(Rootset, ?default_pattern).
 
+-doc(#{equiv => start_profiling/3}).
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec start_profiling(Rootset, Pattern) -> 'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
       Pattern :: trace_pattern_mfa(),
@@ -232,6 +305,24 @@ start_profiling(Rootset) ->
 start_profiling(Rootset, Pattern) ->
     start_profiling(Rootset, Pattern, ?default_options).
 
+-doc """
+Starts profiling for the processes in `Rootset` (and any new processes spawned
+from them). Information about activity in any profiled process is stored in the
+Eprof database.
+
+`Rootset` is a list of pids and registered names.
+
+The function returns `profiling` if tracing could be enabled for all processes
+in `Rootset`, or `error` otherwise.
+
+A pattern can be selected to narrow the profiling. For instance a specific
+module can be selected, and only the code executed in that module will be
+profiled.
+
+The `set_on_spawn` option will active call time tracing for all processes
+spawned by processes in the rootset. This is the default behaviour.
+""".
+-doc(#{since => <<"OTP R14B,OTP R16B01">>}).
 -spec start_profiling(Rootset, Pattern, Options) ->
                              'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
@@ -243,6 +334,7 @@ start_profiling(Rootset, Pattern, Options) ->
     ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, undefined, Options}, infinity).
 
+-doc "Stops profiling started with `start_profiling/1` or `profile/1`.".
 -spec stop_profiling() -> 'profiling_stopped' | 'profiling_already_stopped'.
 
 stop_profiling() ->
@@ -255,6 +347,7 @@ stop_profiling() ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 init([]) ->
     process_flag(trap_exit, true),
     {ok, #state{}}.
@@ -267,6 +360,7 @@ init([]) ->
 
 %% analyze
 
+-doc false.
 handle_call(
   {analyze, _, _}, _,
   #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0 } } = S) ->
@@ -385,6 +479,7 @@ handle_call(stop, _FromTag, S) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -394,6 +489,7 @@ handle_cast(_Msg, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 handle_info({'EXIT', _, normal}, S) ->
     {noreply, S};
 handle_info({'EXIT', _, eprof_kill}, S) ->
@@ -435,6 +531,7 @@ handle_info({_Pid, {answer, Result}}, #state{ reply = {From,_} = FromTag} = S) -
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 terminate(_Reason, #state{ fd = undefined }) ->
     ok = set_pattern_trace(false, ?default_pattern),
     ok;
@@ -449,6 +546,7 @@ terminate(_Reason, #state{ fd = Fd }) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -555,6 +653,7 @@ collect_bpdfp(Mfa, Tree, Data) ->
     end, {0,0, Tree}, Data).
 
 
+-doc false.
 analyze(Fd, procs, Opts, #bpd{ p = Ps, us = Tus }) ->
     lists:foreach(
       fun

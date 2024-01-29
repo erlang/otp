@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_messenger).
+-moduledoc false.
 
 %% Application internal export
 -export([

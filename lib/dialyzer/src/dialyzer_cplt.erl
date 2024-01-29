@@ -27,6 +27,7 @@
 %%% Created : 23 Jul 2004 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_cplt).
+-moduledoc false.
 
 -export([check_plt/3,
 	 compute_md5_from_files/1,

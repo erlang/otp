@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_service).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% towards diameter_service_sup

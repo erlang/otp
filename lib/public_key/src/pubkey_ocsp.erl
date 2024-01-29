@@ -19,6 +19,7 @@
 %%
 
 -module(pubkey_ocsp).
+-moduledoc false.
 -feature(maybe_expr,enable).
 -include("public_key.hrl").
 

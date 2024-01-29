@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(user_sup).
+-moduledoc false.
 
 %% ---------------------------------------------
 %% This is a supervisor bridge hiding the process

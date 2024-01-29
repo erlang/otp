@@ -18,6 +18,27 @@
 %% %CopyrightEnd%
 
 -module(ordsets).
+-moduledoc """
+Functions for manipulating sets as ordered lists.
+
+Sets are collections of elements with no duplicate elements. An `ordset` is a
+representation of a set, where an ordered list is used to store the elements of
+the set. An ordered list is more efficient than an unordered list. Elements are
+ordered according to the _Erlang term order_.
+
+This module provides the same interface as the `m:sets` module but with a
+defined representation. One difference is that while `sets` considers two
+elements as different if they do not match (`=:=`), this module considers two
+elements as different if and only if they do not compare equal (`==`).
+
+See the [Compatibility Section in the `sets` module](`m:sets#compatibility`) for
+more information about the compatibility of the different implementations of
+sets in the Standard Library.
+
+## See Also
+
+`m:gb_sets`, `m:sets`
+""".
 
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
@@ -28,11 +49,13 @@
 
 -export_type([ordset/1]).
 
+-doc "As returned by `new/0`.".
 -type ordset(T) :: [T].
 
 %% new() -> Set.
 %%  Return a new empty ordered set.
 
+-doc "Returns a new empty ordered set.".
 -spec new() -> [].
 
 new() -> [].
@@ -40,6 +63,11 @@ new() -> [].
 %% is_set(Term) -> boolean().
 %%  Return 'true' if Set is an ordered set of elements, else 'false'.
 
+-doc """
+Returns `true` if `Ordset` is an ordered set of elements, otherwise `false`.
+This function will return `true` for any ordered list, even when not constructed
+by the functions in this module.
+""".
 -spec is_set(Ordset) -> boolean() when
       Ordset :: term().
 
@@ -55,6 +83,7 @@ is_set([], _) -> true.
 %% size(OrdSet) -> int().
 %%  Return the number of elements in OrdSet.
 
+-doc "Returns the number of elements in `Ordset`.".
 -spec size(Ordset) -> non_neg_integer() when
       Ordset :: ordset(_).
 
@@ -62,6 +91,8 @@ size(S) -> length(S).
 
 %% is_empty(OrdSet) -> boolean().
 %%  Return 'true' if OrdSet is an empty set, otherwise 'false'.
+-doc "Returns `true` if `Ordset` is an empty set, otherwise `false`.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec is_empty(Ordset) -> boolean() when
       Ordset :: ordset(_).
 
@@ -70,6 +101,11 @@ is_empty(S) -> S=:=[].
 %% is_equal(OrdSet1, OrdSet2) -> boolean().
 %%  Return 'true' if OrdSet1 and OrdSet2 contain the same elements,
 %%  otherwise 'false'.
+-doc """
+Returns `true` if `Ordset1` and `Ordset2` are equal, that is when every element
+of one set is also a member of the respective other set, otherwise `false`.
+""".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec is_equal(Ordset1, Ordset2) -> boolean() when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_).
@@ -80,6 +116,7 @@ is_equal(S1, S2) when is_list(S1), is_list(S2) ->
 %% to_list(OrdSet) -> [Elem].
 %%  Return the elements in OrdSet as a list.
 
+-doc "Returns the elements of `Ordset` as a list.".
 -spec to_list(Ordset) -> List when
       Ordset :: ordset(T),
       List :: [T].
@@ -89,6 +126,7 @@ to_list(S) -> S.
 %% from_list([Elem]) -> Set.
 %%  Build an ordered set from the elements in List.
 
+-doc "Returns an ordered set of the elements in `List`.".
 -spec from_list(List) -> Ordset when
       List :: [T],
       Ordset :: ordset(T).
@@ -99,6 +137,7 @@ from_list(L) ->
 %% is_element(Element, OrdSet) -> boolean().
 %%  Return 'true' if Element is an element of OrdSet, else 'false'.
 
+-doc "Returns `true` if `Element` is an element of `Ordset`, otherwise `false`.".
 -spec is_element(Element, Ordset) -> boolean() when
       Element :: term(),
       Ordset :: ordset(_).
@@ -111,6 +150,7 @@ is_element(_, []) -> false.
 %% add_element(Element, OrdSet) -> OrdSet.
 %%  Return OrdSet with Element inserted in it.
 
+-doc "Returns a new ordered set formed from `Ordset1` with `Element` inserted.".
 -spec add_element(Element, Ordset1) -> Ordset2 when
       Element :: E,
       Ordset1 :: ordset(T),
@@ -126,6 +166,7 @@ add_element(E, []) -> [E].
 %% del_element(Element, OrdSet) -> OrdSet.
 %%  Return OrdSet but with Element removed.
 
+-doc "Returns `Ordset1`, but with `Element` removed.".
 -spec del_element(Element, Ordset1) -> Ordset2 when
       Element :: term(),
       Ordset1 :: ordset(T),
@@ -139,6 +180,7 @@ del_element(_, []) -> [].
 %% union(OrdSet1, OrdSet2) -> OrdSet
 %%  Return the union of OrdSet1 and OrdSet2.
 
+-doc "Returns the merged (union) set of `Ordset1` and `Ordset2`.".
 -spec union(Ordset1, Ordset2) -> Ordset3 when
       Ordset1 :: ordset(T1),
       Ordset2 :: ordset(T2),
@@ -156,6 +198,7 @@ union(Es1, []) -> Es1.
 %% union([OrdSet]) -> OrdSet
 %%  Return the union of the list of ordered sets.
 
+-doc "Returns the merged (union) set of the list of sets.".
 -spec union(OrdsetList) -> Ordset when
       OrdsetList :: [ordset(T)],
       Ordset :: ordset(T).
@@ -166,6 +209,7 @@ union(OrdsetList) ->
 %% intersection(OrdSet1, OrdSet2) -> OrdSet.
 %%  Return the intersection of OrdSet1 and OrdSet2.
 
+-doc "Returns the intersection of `Ordset1` and `Ordset2`.".
 -spec intersection(Ordset1, Ordset2) -> Ordset3 when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_),
@@ -185,6 +229,7 @@ intersection(_, []) ->
 %% intersection([OrdSet]) -> OrdSet.
 %%  Return the intersection of the list of ordered sets.
 
+-doc "Returns the intersection of the non-empty list of sets.".
 -spec intersection(OrdsetList) -> Ordset when
       OrdsetList :: [ordset(_),...],
       Ordset :: ordset(_).
@@ -200,6 +245,10 @@ intersection1(S1, []) -> S1.
 %% is_disjoint(OrdSet1, OrdSet2) -> boolean().
 %%  Check whether OrdSet1 and OrdSet2 are disjoint.
 
+-doc """
+Returns `true` if `Ordset1` and `Ordset2` are disjoint (have no elements in
+common), otherwise `false`.
+""".
 -spec is_disjoint(Ordset1, Ordset2) -> boolean() when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_).
@@ -219,6 +268,7 @@ is_disjoint(_, []) ->
 %%  Return all and only the elements of OrdSet1 which are not also in
 %%  OrdSet2.
 
+-doc "Returns only the elements of `Ordset1` that are not also elements of `Ordset2`.".
 -spec subtract(Ordset1, Ordset2) -> Ordset3 when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_),
@@ -237,6 +287,10 @@ subtract(Es1, []) -> Es1.
 %%  Return 'true' when every element of OrdSet1 is also a member of
 %%  OrdSet2, else 'false'.
 
+-doc """
+Returns `true` when every element of `Ordset1` is also a member of `Ordset2`,
+otherwise `false`.
+""".
 -spec is_subset(Ordset1, Ordset2) -> boolean() when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_).
@@ -253,6 +307,10 @@ is_subset(_, []) -> false.
 %% fold(Fun, Accumulator, OrdSet) -> Accumulator.
 %%  Fold function Fun over all elements in OrdSet and return Accumulator.
 
+-doc """
+Folds `Function` over every element in `Ordset` and returns the final value of
+the accumulator.
+""".
 -spec fold(Function, Acc0, Ordset) -> Acc1 when
       Function :: fun((Element :: T, AccIn :: term()) -> AccOut :: term()),
       Ordset :: ordset(T),
@@ -265,6 +323,7 @@ fold(F, Acc, Set) ->
 %% filter(Fun, OrdSet) -> OrdSet.
 %%  Filter OrdSet with Fun.
 
+-doc "Filters elements in `Ordset1` with boolean function `Pred`.".
 -spec filter(Pred, Ordset1) -> Ordset2 when
       Pred :: fun((Element :: T) -> boolean()),
       Ordset1 :: ordset(T),
@@ -276,6 +335,8 @@ filter(F, Set) ->
 %% map(Fun, OrdSet) -> OrdSet.
 %%  Map OrdSet with Fun.
 
+-doc "Maps elements in `Ordset1` with mapping function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec map(Fun, Ordset1) -> Ordset2 when
     Fun :: fun((Element1 :: T1) -> Element2 :: T2),
     Ordset1 :: ordset(T1),
@@ -286,6 +347,8 @@ map(F, Set) ->
 
 %% filtermap(Fun, OrdSet) -> OrdSet.
 %%  Filter and map Ordset with Fun.
+-doc "Filters and maps elements in `Ordset1` with function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec filtermap(Fun, Ordset1) -> Ordset2 when
       Fun :: fun((Element1 :: T1) -> boolean | ({true, Element2 :: T2})),
       Ordset1 :: ordset(T1),

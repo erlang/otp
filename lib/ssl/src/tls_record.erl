@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_record).
+-moduledoc false.
 
 -include("tls_record.hrl").
 -include("ssl_internal.hrl").

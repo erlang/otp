@@ -20,6 +20,7 @@
 
 
 -module(xmerl_uri).
+-moduledoc false.
 
 
 -export([parse/1,resolve/2

@@ -1,4 +1,5 @@
 -module(crypto_ec_curves).
+-moduledoc false.
 
 -export([curve/1, curves/0, curve_with_name/1]).
 

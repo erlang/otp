@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_icmd).
+-moduledoc false.
 
 %% Internal command receiver/handler
 -export([cmd/3]).

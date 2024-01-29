@@ -46,6 +46,27 @@
 % See also the <a href="xmerl_xs_examples.html">Tutorial</a>.
 %     </p>
 -module(xmerl_xs).
+-moduledoc """
+Erlang has similarities to XSLT since both languages have a functional
+programming approach. Using `xmerl_xpath` it is possible to write XSLT like
+transforms in Erlang.
+
+XSLT stylesheets are often used when transforming XML documents, to other XML
+documents or (X)HTML for presentation. XSLT contains quite many functions and
+learning them all may take some effort. This document assumes a basic level of
+understanding of XSLT.
+
+Since XSLT is based on a functional programming approach with pattern matching
+and recursion it is possible to write similar style sheets in Erlang. At least
+for basic transforms. This document describes how to use the XPath
+implementation together with Erlangs pattern matching and a couple of functions
+to write XSLT like transforms.
+
+This approach is probably easier for an Erlanger but if you need to use real
+XSLT stylesheets in order to "comply to the standard" there is an adapter
+available to the Sablotron XSLT package which is written i C++. See also the
+[Tutorial](xmerl_xs_examples.html).
+""".
 
 -export([xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
 -include("xmerl.hrl").
@@ -70,6 +91,32 @@
 %%    xslapply(fun template/1, E),
 %%    "&lt;/h1>"];
 %% </pre>
+-doc """
+xslapply(Fun,EList)
+
+xslapply is a wrapper to make things look similar to xsl:apply-templates.
+
+Example, original XSLT:
+
+```text
+  <xsl:template match="doc/title">
+    <h1>
+      <xsl:apply-templates/>
+    </h1>
+  </xsl:template>
+
+```
+
+becomes in Erlang:
+
+```text
+  template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
+    ["<h1>",
+     xslapply(fun template/1, E),
+     "</h1>"];
+
+```
+""".
 xslapply(Fun, EList) when is_list(EList) ->
     lists:map(Fun, EList);
 xslapply(Fun, E = #xmlElement{})->
@@ -93,6 +140,31 @@ xslapply(Fun, E = #xmlElement{})->
 %%    ["&lt;div align="center">&lt;h1>", 
 %%      value_of(select(".", E)), "&lt;/h1>&lt;/div>"]
 %% </pre>
+-doc """
+value_of(E)
+
+Concatenates all text nodes within the tree.
+
+Example:
+
+```text
+  <xsl:template match="title">
+    <div align="center">
+      <h1><xsl:value-of select="." /></h1>
+    </div>
+  </xsl:template>
+
+```
+
+becomes:
+
+```text
+   template(E = #xmlElement{name='title'}) ->
+     ["<div align="center"><h1>",
+       value_of(select(".", E)), "</h1></div>"]
+
+```
+""".
 value_of(E)->
     lists:reverse(xmerl_lib:foldxml(fun value_of1/2, [], E)).
 
@@ -105,6 +177,13 @@ value_of1(_, Accu) ->
 %%
 %% @doc Extracts the nodes from the xml tree according to XPath.
 %% @see value_of/1
+-doc """
+select(Str,E)
+
+Extracts the nodes from the xml tree according to XPath.
+
+_See also: _`value_of/1`.
+""".
 select(Str,E)->
     xmerl_xpath:string(Str,E).
 
@@ -112,6 +191,13 @@ select(Str,E)->
 %%
 %% @doc The default fallback behaviour. Template funs should end with:
 %% <br/><code>template(E) -> built_in_rules(fun template/1, E)</code>.
+-doc """
+built_in_rules(Fun,E)
+
+The default fallback behaviour. Template funs should end with:
+
+`template(E) -> built_in_rules(fun template/1, E)`.
+""".
 built_in_rules(Fun, E = #xmlElement{})->
     lists:map(Fun, E#xmlElement.content);
 built_in_rules(_Fun, E = #xmlText{}) ->

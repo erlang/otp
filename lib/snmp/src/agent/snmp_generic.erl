@@ -18,6 +18,134 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_generic).
+-moduledoc """
+Generic Functions for Implementing SNMP Objects in a Database
+
+[](){: #description }
+
+The module `snmp_generic` contains generic functions for implementing tables
+(and variables) using the SNMP built-in database or Mnesia. These default
+functions are used if no instrumentation function is provided for a managed
+object in a MIB. Sometimes, it might be necessary to customize the behaviour of
+the default functions. For example, in some situations a trap should be sent if
+a row is deleted or modified, or some hardware is to be informed, when
+information is changed.
+
+The overall structure is shown in the following figure:
+
+```c
+         +---------------+
+         |   SNMP Agent  |
+         +- - - - - - - -+
+         |      MIB      |
+         +---------------+
+                 |
+         Association file       (associates a MIB object with
+                 |               snmp_generic:table_funct
+                 |               snmp_generic:variable_func)
++--------------------------------------+
+|           snmp_generic               |  Support for get-next,
+|                                      |  RowStatus operations
++----------------------+---------------+
+|    snmpa_local_db    |    Mnesia     |  Database
++--------------+-------+---------------+
+|     dets     |  ets  |
+| (persistent) |       |
++--------------+-------+
+```
+
+Each function takes the argument `NameDb`, which is a tuple `{Name, Db}`, to
+identify which database the functions should use. `Name` is the symbolic name of
+the managed object as defined in the MIB, and `Db` is either `volatile`,
+`persistent`, or `mnesia`. If it is `mnesia`, all variables are stored in the
+Mnesia table `snmp_variables` which must be a table with two attributes (not a
+Mnesia SNMP table). The SNMP tables are stored in Mnesia tables with the same
+names as the SNMP tables. All functions assume that a Mnesia table exists with
+the correct name and attributes. It is the programmer's responsibility to ensure
+this. Specifically, if variables are stored in Mnesia, the table
+`snmp_variables` must be created by the programmer. The record definition for
+this table is defined in the file `snmp/include/snmp_types.hrl`.
+
+If an instrumentation function in the association file for a variable `myVar`
+does not have a name when compiling an MIB, the compiler generates an entry.
+
+```erlang
+{myVar, {snmp_generic, variable_func, [{myVar, Db]}}.
+```
+
+And for a table:
+
+```erlang
+{myTable, {snmp_generic, table_func, [{myTable, Db]}}.
+```
+
+[](){: #data_types }
+
+## DATA TYPES
+
+In the functions defined below, the following types are used:
+
+```erlang
+name_db() = {name(), db()}
+name() = atom()
+db() = volatile | persistent | mnesia
+row_index() = [int()]
+columns() = [column()] | [{column(), value()}]
+column() = int()
+value() = term()
+```
+
+- **`row_index()`** - Denotes the last part of the OID which specifies the index
+  of the row in the table (see RFC1212, 4.1.6 for more information about INDEX).
+
+- **`t:columns/0`** - Is a list of column numbers in the case of a `get`
+  operation, and a list of column numbers and values in the case of a `set`
+  operation.
+
+[](){: #get_status_col2 } [](){: #example }
+
+## Example
+
+The following example shows an implementation of a table which is stored in
+Mnesia, but with some checks performed at set-request operations.
+
+```erlang
+myTable_func(new, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(new, NameDb).
+
+myTable_func(delete, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(delete, NameDb).
+
+%% change row
+myTable_func(is_set_ok, RowIndex, Cols, NameDb) ->
+  case snmp_generic:table_func(is_set_ok, RowIndex,
+                               Cols, NameDb) of
+    {noError, 0} ->
+      myApplication:is_set_ok(RowIndex, Cols);
+    Err ->
+      Err
+  end;
+
+myTable_func(set, RowIndex, Cols, NameDb) ->
+  case snmp_generic:table_func(set, RowIndex, Cols,
+                               NameDb),
+    {noError, 0} ->
+      % Now the row is updated, tell the application
+      myApplication:update(RowIndex, Cols);
+    Err ->
+      Err
+  end;
+
+myTable_func(Op, RowIndex, Cols, NameDb) ->   % pass unchanged
+  snmp_generic:table_func(Op, RowIndex, Cols, NameDb).
+```
+
+The `.funcs` file would look like:
+
+```erlang
+{myTable, {myModule, myTable_func, [{myTable, mnesia}]}}.
+```
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -54,7 +182,57 @@
 
 
 -type column()          :: pos_integer().
+-doc """
+Is a list of column numbers in the case of a get operation, and a list of column
+numbers and values in the case of a set operation.
+""".
 -type columns()         :: [column()] | [{column(), Value :: term()}].
+-doc """
+For an ordinary table, the types will be the following:
+
+- **`nbr_of_cols`** - Number of columns.
+
+  Value type: [pos_integer()](`t:erlang:pos_integer/0`)
+
+- **`defvals`** - A list of default values, ordered by column.
+
+  Value type: [\{Col :: [pos_integer()](`t:erlang:pos_integer/0`), DefVal ::
+  [term()](`t:erlang:term/0`)\}]
+
+- **`status_col`** - Column number of the status column.
+
+  Value type: [pos_integer()](`t:erlang:pos_integer/0`)
+
+- **`not_accessible`** - A sorted list of columns (> first_accessible) that are
+  'not-accessible'.
+
+  Value type: [[pos_integer()](`t:erlang:pos_integer/0`)]
+
+- **`index_types`** - A list of [asn1_type()](`t:snmp:asn1_type/0`) for the
+  index columns, ordered by column number or an "augment"-tuple (see below).
+
+  Value type: [[asn1_type()](`t:snmp:asn1_type/0`)]
+
+- **`first_accessible`** - The first accessible column.
+
+  Value type: [pos_integer()](`t:erlang:pos_integer/0`)
+
+- **`first_own_index`** - Column number of the first own index. Will be `0` if
+  there is no such index for this table.
+
+  Value type: [non_neg_integer()](`t:erlang:non_neg_integer/0`)
+
+For a augmented table, it will instead look like this:
+
+- **`index_types`** - Value type: \{augments, \{[atom()](`t:erlang:atom/0`),
+  [asn1_type()](`t:snmp:asn1_type/0`)\}\}
+
+- **`nbr_of_cols`** - Value type: [pos_integer()](`t:erlang:pos_integer/0`)
+
+- **`not_accessible`** - Value type: [[pos_integer()](`t:erlang:pos_integer/0`)]
+
+- **`first_accessible`** - Value type: [pos_integer()](`t:erlang:pos_integer/0`)
+""".
 -type table_info_item() :: nbr_of_cols |
                            defvals |
                            status_col |
@@ -74,6 +252,11 @@
 %% Access functions to the database.
 %%------------------------------------------------------------------
 
+-doc """
+Gets the value of a variable.
+
+[](){: #variable_set }
+""".
 -spec variable_get(Name) -> {value, Value} | undefined when
       Name  :: snmpa:name() | snmpa:name_db(),
       Value :: term().
@@ -84,6 +267,13 @@ variable_get(Name) ->                   % ret {value, Val} | undefined
     snmpa_local_db:variable_get(Name).
 
 
+-doc """
+Sets a new value to a variable. The variable is created if it does not exist. No
+checks are made on the type of the new value.
+
+Returns `false` if the `NameDb` argument is incorrectly specified, otherwise
+`true`.
+""".
 -spec variable_set(Name, Value) -> boolean() when
       Name  :: snmpa:name() | snmpa:name_db(),
       Value :: term().
@@ -94,6 +284,7 @@ variable_set(Name, Val) ->              % ret true
     snmpa_local_db:variable_set(Name, Val).
 
 
+-doc false.
 variable_inc({Name, mnesia}, N) ->
     snmp_generic_mnesia:variable_inc(Name, N);
 variable_inc(NameDb, N) ->              % ret true
@@ -106,6 +297,7 @@ variable_inc(NameDb, N) ->              % ret true
 %% snmpa_local_db overloads (for performance reasons? (mbj?))
 %%-----------------------------------------------------------------
 
+-doc false.
 table_get_element({Name, volatile}, RowIndex, Col) ->
     snmpa_local_db:table_get_element({Name, volatile}, RowIndex, Col);
 table_get_element({Name, persistent}, RowIndex, Col) ->
@@ -119,6 +311,12 @@ table_get_element(NameDb, RowIndex, Col) ->
     end.
 
 
+-doc """
+Returns a list with values for all columns in `Cols`. If a column is undefined,
+its value is `noinit`.
+
+[](){: #table_next }
+""".
 -spec table_get_elements(NameDb, RowIndex, Cols) -> Values when
       NameDb   :: snmpa:name_db(),
       RowIndex :: snmp:row_index(),
@@ -135,6 +333,7 @@ table_get_elements(NameDb, RowIndex, Cols) ->
 %%----------------------------------------------------------------------
 %% Returns: list of vals | undefined
 %%----------------------------------------------------------------------
+-doc false.
 table_get_elements({Name, mnesia}, RowIndex, Cols, FirstOwnIndex) ->
     ?vtrace("table_get_elements(mnesia) -> entry with"
 	    "~n   Name:          ~p"
@@ -152,21 +351,43 @@ table_get_elements(NameDb, RowIndex, Cols, FirstOwnIndex) ->
 
 
 %% ret true
+-doc false.
 table_set_element({Name,mnesia}, RowIndex, Col, NewVal) -> 
     snmp_generic_mnesia:table_set_elements(Name, RowIndex,
 					   [{Col, NewVal}]);
 table_set_element(NameDb, RowIndex, Col, NewVal) ->
     snmpa_local_db:table_set_elements(NameDb, RowIndex, [{Col, NewVal}]).
 
+-doc """
+table_set_elements(NameDb, RowIndex, Cols) -> bool()
+
+Sets the elements in `Cols` to the row specified by `RowIndex`. No checks are
+performed on the new values.
+
+If the Mnesia database is used, this function calls `mnesia:write` to store the
+values. This means that this function must be called from within a transaction
+(`mnesia:transaction/1` or `mnesia:dirty/1`).
+
+[](){: #variable_func } [](){: #variable_func2 } [](){: #variable_func21 }
+""".
 table_set_elements({Name, mnesia}, RowIndex, Cols) ->
     snmp_generic_mnesia:table_set_elements(Name, RowIndex, Cols);
 table_set_elements(NameDb, RowIndex, Cols) -> % ret true
     snmpa_local_db:table_set_elements(NameDb, RowIndex, Cols).
 
+-doc """
+table_next(NameDb, RestOid) -> RowIndex | endOfTable
+
+Finds the indices of the next row in the table. `RestOid` does not have to
+specify an existing row.
+
+[](){: #table_row_exists }
+""".
 table_next({Name, mnesia}, RestOid) ->
     snmp_generic_mnesia:table_next(Name, RestOid);
 table_next(NameDb, RestOid) ->              % ret RRestOid | endOfTable
     snmpa_local_db:table_next(NameDb, RestOid).
+-doc false.
 table_max_col(NameDb, Col) ->               % ret largest element in Col
                                             % in the table NameDb.
     snmpa_local_db:table_max_col(NameDb, Col).
@@ -190,6 +411,33 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 %% This is the default function for variables.
 %%------------------------------------------------------------------
 
+-doc """
+This is the default instrumentation function for variables.
+
+The `new` function creates a new variable in the database with a default value
+as defined in the MIB, or a zero value (depending on the type).
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_func22 }
+
+This is the default instrumentation function for variables.
+
+The `delete` function does not delete the variable from the database.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_func23 }
+
+This is the default instrumentation function for variables.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_func3 } [](){: #variable_func31 }
+""".
 -spec variable_func(Op :: new, Name) -> Result when
       Name   :: snmpa:name() | snmpa:name_db(),
       Result :: ok | boolean();
@@ -219,6 +467,28 @@ variable_func(get, Name) ->
     end.
 
 
+-doc """
+This is the default instrumentation function for variables.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_func32 }
+
+This is the default instrumentation function for variables.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_func33 }
+
+This is the default instrumentation function for variables.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #variable_get }
+""".
 -spec variable_func(Op :: is_set_ok, Value, Name) -> Result when
       Value  :: term(),
       Name   :: snmpa:name() | snmpa:name_db(),
@@ -258,6 +528,22 @@ variable_func(undo, _Val, _Name) ->
 %% Each database implements its own table_func
 %%------------------------------------------------------------------
 
+-doc """
+This is the default instrumentation function for tables.
+
+- The `new` function creates the table if it does not exist, but only if the
+  database is the SNMP internal db.
+- The `delete` function does not delete the table from the database since
+  unloading an MIB does not necessarily mean that the table should be destroyed.
+
+If it is possible for a manager to create or delete rows in the table, there
+must be a `RowStatus` column for `is_set_ok`, `set` and `undo` to work properly.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #table_func4 }
+""".
 -spec table_func(Op, NameDb) -> Return when
       Op     :: new | delete,
       NameDb :: snmpa:name_db(),
@@ -270,6 +556,26 @@ table_func(Op, NameDb) ->
     snmpa_local_db:table_func(Op, NameDb).
 
 
+-doc """
+This is the default instrumentation function for tables.
+
+- The `is_set_ok` function checks that a row which is to be modified or deleted
+  exists, and that a row which is to be created does not exist.
+- The `undo` function does nothing.
+- The `set` function checks if it has enough information to make the row change
+  its status from `notReady` to `notInService` (when a row has been been set to
+  `createAndWait`). If a row is set to `createAndWait`, columns without a value
+  are set to `noinit`. If Mnesia is used, the set functionality is handled
+  within a transaction.
+
+If it is possible for a manager to create or delete rows in the table, there
+must be a `RowStatus` column for `is_set_ok`, `set` and `undo` to work properly.
+
+The function returns according to the specification of an instrumentation
+function.
+
+[](){: #table_get_elements }
+""".
 -spec table_func(Op, RowIndex, Cols, NameDb) -> Return when
       Op       :: get | next | is_set_ok | set | undo,
       RowIndex :: snmp:row_index(),
@@ -287,6 +593,7 @@ table_func(Op, RowIndex, Cols, NameDb) ->
 %%----------------------------------------------------------------------
 %% DB independent.
 %%----------------------------------------------------------------------
+-doc false.
 handle_table_get(NameDb, RowIndex, Cols, FirstOwnIndex) ->
     case table_get_elements(NameDb, RowIndex, Cols, FirstOwnIndex) of
 	undefined -> 
@@ -310,9 +617,11 @@ validate_get([], []) -> [].
 make_list(N, X) when N > 0 -> [X | make_list(N-1, X)];
 make_list(_, _) -> [].
 
+-doc false.
 table_foreach(Tab, Fun) ->
     ?vdebug("apply fun to all in table ~w",[Tab]),
     table_foreach(Tab, Fun, undefined, []).
+-doc false.
 table_foreach(Tab, Fun, FOI) ->
     ?vdebug("apply fun to all in table ~w",[Tab]),
     table_foreach(Tab, Fun, FOI, []).
@@ -348,6 +657,7 @@ table_foreach(Tab, Fun, FOI, Oid) ->
 %% column FirstCol.
 %% Returns: List of endOfTable | {NextOid, Value}
 %%------------------------------------------------------------------
+-doc false.
 handle_table_next(_NameDb, _RowIndex, [], _FirstCol, _FOI, _LastCol) ->
     [];
 handle_table_next(NameDb, RowIndex, OrgCols, FirstCol, FOI, LastCol) ->
@@ -427,6 +737,7 @@ check_all_initalized([], [], _Name, _RowIndex, _FirstCol, _FOI, _LastCol) ->
 %% 1) Last col is RowStatus - check status
 %% 2) No modification to RowStatus - check that row exists.
 %%------------------------------------------------------------------
+-doc false.
 table_try_row(_NameDb, _TryChangeStatusFunc, _RowIndex, []) -> {noError, 0};
 table_try_row(NameDb, TryChangeStatusFunc, RowIndex, Cols) ->
     #table_info{status_col = StatusCol} = table_info(NameDb),
@@ -460,6 +771,7 @@ table_try_row(NameDb, TryChangeStatusFunc, RowIndex, Cols) ->
 
 %% Try to make the row active. Ok if status != notReady
 %% If it is notReady, make sure no row has value noinit.
+-doc false.
 table_check_status(NameDb, Col, ?'RowStatus_active', RowIndex, Cols) ->
     case table_get_row(NameDb, RowIndex) of
 	Row when is_tuple(Row) andalso 
@@ -570,6 +882,7 @@ is_any_noinit([], _, _) ->
 %%   If it is nofunc, no function will be called after all
 %%   sets.
 %%------------------------------------------------------------------
+-doc false.
 table_set_row(_NameDb, _, _, _RowIndex, []) -> {noError, 0};
 table_set_row(NameDb, ChangedStatusFunc, ConsFunc, RowIndex, Cols) ->
     #table_info{status_col = StatusCol} = table_info(NameDb),
@@ -595,8 +908,10 @@ table_set_status(NameDb,RowIndex, Status, StatusCol, Cols,
 				   Status, StatusCol, Cols, 
 				   ChangedStatusFunc, ConsFunc).
 
+-doc false.
 init_defaults(Defs, InitRow) ->
     table_defaults(InitRow, Defs).
+-doc false.
 init_defaults(Defs, InitRow, StartCol) ->
     table_defaults(InitRow, StartCol, Defs).
 %%-----------------------------------------------------------------
@@ -605,6 +920,7 @@ init_defaults(Defs, InitRow, StartCol) ->
 %% of two elements, and returned from this func is a list of
 %% the last of the two.)
 %%-----------------------------------------------------------------
+-doc false.
 get_own_indexes(0, _Keys) -> [];
 get_own_indexes(1, Keys) -> Keys;
 get_own_indexes(Index, [_Key | Keys]) ->
@@ -620,6 +936,7 @@ get_own_indexes(Index, [_Key | Keys]) ->
 %% 2) If column is not StatusCol, use the provided value
 %% 3) If column is StatusCol, use Status
 %%-----------------------------------------------------------------
+-doc false.
 table_create_rest(Col, Max, _ , _ , [], _NoAcc) when Col > Max -> [];
 table_create_rest(Col,Max,StatusCol,Status,[{Col,_Val}|Defs],[Col|NoAccs]) ->
     % case 0
@@ -678,6 +995,7 @@ table_defaults([Val | T], CurIndex, Defs) ->
 %%------------------------------------------------------------------
 %% mnesia uses its own for performance reasons.
 %% -----------------------------------------------------------------
+-doc false.
 table_set_cols({Name,mnesia}, RowIndex, Cols, ConsFunc) ->
     snmp_generic_mnesia:table_set_cols(Name, RowIndex,Cols,ConsFunc);
 table_set_cols(NameDb, RowIndex, Cols, ConsFunc) ->
@@ -686,6 +1004,7 @@ table_set_cols(NameDb, RowIndex, Cols, ConsFunc) ->
 	Error -> Error
     end.
 
+-doc false.
 table_set_cols(_NameDb, _RowIndex, []) -> 
     {noError, 0};
 table_set_cols(NameDb, RowIndex, [{Col, Val} | Cols]) ->
@@ -706,6 +1025,7 @@ table_set_cols(NameDb, RowIndex, [{Col, Val} | Cols]) ->
 %% and a RowIndex [4,3,5,6,7], will be split into
 %% [4, [5,6,7]].
 %%------------------------------------------------------------------
+-doc false.
 split_index_to_keys(Indexes, RowIndex) ->
     collect_keys(Indexes, RowIndex).
 
@@ -754,6 +1074,13 @@ collect_length(N, [El | Rest], Rts) ->
 %% Checks if a certain row exists.
 %% Returns true or false.
 %%------------------------------------------------------------------
+-doc """
+table_row_exists(NameDb, RowIndex) -> bool()
+
+Checks if a row in a table exists.
+
+[](){: #table_set_elements }
+""".
 table_row_exists(NameDb, RowIndex) ->
     case table_get_element(NameDb, RowIndex, 1) of
 	undefined -> false;
@@ -767,6 +1094,7 @@ table_row_exists(NameDb, RowIndex) ->
 %% Returns the RowIndex of the row, or false
 %% if no row exists.
 %%------------------------------------------------------------------
+-doc false.
 table_find(NameDb, Col, Value) -> table_find(NameDb, Col, Value, []).
 table_find(NameDb, Col, Value, Indexes) ->
     case table_next(NameDb, Indexes) of
@@ -785,6 +1113,7 @@ table_find(NameDb, Col, Value, Indexes) ->
 %%    undefined if a Col for column Col doesn't exist.
 %%    {value, Val} if a Col for Col with value Val exists.
 %%------------------------------------------------------------------
+-doc false.
 find_col(_Col, []) -> undefined;
 find_col(Col, [{Col, Val} | _T]) -> {value, Val};
 find_col(Col, [_H | T]) -> find_col(Col, T).
@@ -803,6 +1132,7 @@ find_col(Col, [_H | T]) -> find_col(Col, T).
 %     check_mandatory_cols([Col | Cols], T).
 
 
+-doc false.
 try_apply(nofunc, _) -> {noError, 0};
 try_apply(F, Args) -> maybe_verbose_apply(F, Args).
 
@@ -818,6 +1148,7 @@ maybe_verbose_apply(M, Args) ->
     end.
 
 
+-doc false.
 table_info({Name, _Db}) ->
     case snmpa_symbolic_store:table_info(Name) of
 	{value, TI} ->
@@ -860,6 +1191,7 @@ variable_info(Name) ->
 %% If it has the information, the status is changed
 %% to notInService.
 %%------------------------------------------------------------------
+-doc false.
 table_try_make_consistent(Name, RowIndex, _Cols) ->
     TableInfo = table_info(Name),
     case TableInfo#table_info.status_col of
@@ -894,11 +1226,13 @@ table_try_make_consistent(Name, RowIndex, ?'RowStatus_notReady', TableInfo) ->
 table_try_make_consistent(_Name, _RowIndex, _StatusVal, _TableInfo) ->
     {noError, 0}.
 
+-doc false.
 table_get_row({Name, mnesia}, RowIndex) ->
     snmp_generic_mnesia:table_get_row(Name, RowIndex);
 table_get_row(NameDb, RowIndex) ->
     snmpa_local_db:table_get_row(NameDb, RowIndex).
 
+-doc false.
 table_get_row(NameDb, RowIndex, undefined) ->
     table_get_row(NameDb, RowIndex);
 table_get_row({Name, mnesia}, RowIndex, FOI) ->
@@ -918,6 +1252,14 @@ table_get_row(NameDb, RowIndex, _FOI) ->
 %% modified.
 %%-----------------------------------------------------------------
 
+-doc """
+Gets the value of the status column from `Cols`.
+
+This function can be used in instrumentation functions for `is_set_ok`, `undo`
+or `set` to check if the status column of a table is modified.
+
+[](){: #get_index_types }
+""".
 -spec get_status_col(Name, Cols) -> false | {value, StatusCol} when
       Name      :: snmpa:name() | snmpa:name_db(),
       Cols      :: columns(),
@@ -938,6 +1280,65 @@ get_status_col(Name, Cols) ->
 %% list of values.
 %%-----------------------------------------------------------------
 
+-doc """
+Get the specific table info item (nbr_of_cols).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_2 }
+
+Get a specific table info item (defvals).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_3 }
+
+Get a specific table info item (status_col).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_4 }
+
+Get a specific table info item (not_accessible).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_5 }
+
+Get a specific table info item (index_types).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_6 }
+
+Get a specific table info item (first_accessible).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_7 }
+
+Get a specific table info item (first_own_index).
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #get_table_info_8 }
+
+Get all table info item(s), a two tuple list (property list) is returned with
+all the items and their respctive values of the given table.
+
+This function can be used in instrumentation functions to retrieve a given part
+of the table info.
+
+[](){: #table_func } [](){: #table_func2 }
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec get_table_info(Name, Item :: nbr_of_cols) -> Result when
       Name   :: snmpa:name() | snmpa:name_db(),
       %% Item   :: nbr_of_cols,
@@ -1003,6 +1404,14 @@ get_table_info(Name, all) ->
 %% Used by user's instrum func to get the index types.
 %%-----------------------------------------------------------------
 
+-doc """
+Gets the index types of `Name`
+
+This function can be used in instrumentation functions to retrieve the index
+types part of the table info.
+
+[](){: #get_table_info } [](){: #get_table_info_1 }
+""".
 -spec get_index_types(Name) -> IndexTypes when
       Name       :: snmpa:name() | snmpa:name_db(),
       IndexTypes :: [snmp:asn1_type()].

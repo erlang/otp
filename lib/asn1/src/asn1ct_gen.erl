@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_gen).
+-moduledoc false.
 
 -include("asn1_records.hrl").
 

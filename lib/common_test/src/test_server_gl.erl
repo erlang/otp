@@ -24,6 +24,7 @@
 %% through the test_server_io module/process.
 
 -module(test_server_gl).
+-moduledoc false.
 -export([start_link/1,stop/1,set_minor_fd/3,unset_minor_fd/1,
 	 get_tc_supervisor/1,print/4,set_props/2,
 	 capture_start/2, capture_stop/1]).

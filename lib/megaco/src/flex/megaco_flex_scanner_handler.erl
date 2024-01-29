@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_flex_scanner_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 

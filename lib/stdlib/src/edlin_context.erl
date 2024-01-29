@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_context).
+-moduledoc false.
 %% description
 %%
 -export([get_context/1, get_context/2, odd_quotes/2]).

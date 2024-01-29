@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(httpd_instance_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

@@ -20,6 +20,7 @@
 %% Purpose: Information about the Erlang built-in functions.
 
 -module(erl_bifs).
+-moduledoc false.
 
 -export([is_pure/3, is_safe/3, is_exit_bif/3]).
 

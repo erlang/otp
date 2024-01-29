@@ -25,6 +25,17 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_mstone1).
+-moduledoc """
+This module implements a simple megaco codec-based performance tool.
+
+This module implements the _mstone1_ tool, a simple megaco codec-based
+performance tool.
+
+The results, the mstone value(s), are written to stdout.
+
+_Note_ that this module is _not_ included in the runtime part of the
+application.
+""".
 
 
 %% API
@@ -69,9 +80,11 @@
 -record(mstone, {id, count, codec, econf, heap_size, reds}).
 
 
+-doc(#{equiv => start/2}).
 start() ->
     start(?DEFAULT_FACTOR).
 
+-doc(#{equiv => start/2}).
 start([Factor]) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start([MessagePackage, Factor]) ->
@@ -81,6 +94,16 @@ start([MessagePackage, RunTime, Factor]) ->
 start(Factor) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
+-doc """
+start(MessagePackage, Factor) -> void()
+
+This function starts the _mstone1_ performance test with all codec configs.
+`Factor` (defaults to `1`) processes are started for every supported codec
+config.
+
+Each process encodes and decodes their messages. The number of messages
+processed in total (for all processes) is the mstone value.
+""".
 start(RunTime, default = _Factor)
   when is_integer(RunTime) ->
     start(?DEFAULT_MESSAGE_PACKAGE, RunTime, ?DEFAULT_FACTOR);
@@ -91,13 +114,16 @@ start(MessagePackage, Factor)
   when is_atom(MessagePackage) andalso is_integer(Factor) ->
     start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
 
+-doc false.
 start(MessagePackage, RunTime, Factor) ->
     do_start(MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE).
 
 
+-doc(#{equiv => start_flex/2}).
 start_flex() ->
     start_flex(?DEFAULT_FACTOR).
 
+-doc(#{equiv => start_flex/2}).
 start_flex([Factor]) ->
     start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_flex([MessagePackage, Factor]) ->
@@ -107,6 +133,15 @@ start_flex([MessagePackage, RunTime, Factor]) ->
 start_flex(Factor) ->
     start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
+-doc """
+start_flex(MessagePackage, Factor) -> void()
+
+This function starts the _mstone1_ performance test with only the flex codec
+configs (i.e. `pretty` and `compact` with `flex`). The same number of processes
+are started as when running the standard test (using the `start/0,1` function).
+Each process encodes and decodes their messages. The number of messages
+processed in total (for all processes) is the mstone value.
+""".
 start_flex(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
 
@@ -114,9 +149,11 @@ start_flex(MessagePackage, RunTime, Factor) ->
     do_start(MessagePackage, RunTime, Factor, flex).
 
 
+-doc(#{equiv => start_only_drv/2}).
 start_only_drv() ->
     start_only_drv(?DEFAULT_FACTOR).
 
+-doc(#{equiv => start_only_drv/2}).
 start_only_drv([Factor]) ->
     start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_only_drv([MessagePackage, Factor]) ->
@@ -126,6 +163,16 @@ start_only_drv([MessagePackage, RunTime, Factor]) ->
 start_only_drv(Factor) ->
     start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
+-doc """
+start_only_drv(MessagePackage, Factor) -> void()
+
+This function starts the _mstone1_ performance test with only the driver using
+codec configs (i.e. `pretty` and `compact` with `flex`, and `ber` and `per` with
+`driver` and `erlang` with `compressed`). The same number of processes are
+started as when running the standard test (using the `start/0,1` function). Each
+process encodes and decodes their messages. The number of messages processed in
+total (for all processes) is the mstone value.
+""".
 start_only_drv(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, only_drv).
 
@@ -133,9 +180,11 @@ start_only_drv(MessagePackage, RunTime, Factor) ->
     do_start(MessagePackage, RunTime, Factor, only_drv).
 
 
+-doc(#{equiv => start_no_drv/2}).
 start_no_drv() ->
     start_no_drv(?DEFAULT_FACTOR).
 
+-doc(#{equiv => start_no_drv/2}).
 start_no_drv([Factor]) ->
     start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_no_drv([MessagePackage, Factor]) ->
@@ -145,6 +194,16 @@ start_no_drv([MessagePackage, RunTime, Factor]) ->
 start_no_drv(Factor) ->
     start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
+-doc """
+start_no_drv(MessagePackage, Factor) -> void()
+
+This function starts the _mstone1_ performance test with codec configs not using
+any drivers (i.e. `pretty` and `compact` without `flex`, `ber` and `per` without
+`driver` and `erlang` without `compressed`). The same number of processes are
+started as when running the standard test (using the `start/0,1` function). Each
+process encodes and decodes their messages. The number of messages processed in
+total (for all processes) is the mstone value.
+""".
 start_no_drv(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
 
@@ -376,6 +435,7 @@ detect_versions(Codec, Conf, [{_Name, Bin}|Bins], Acc) ->
     detect_versions(Codec, Conf, Bins, [Data|Acc]).
 	    
 
+-doc false.
 mstone_runner_init(RunTime, _Codec, Parent, Mod, Conf, Msgs0) ->
     Msgs = detect_versions(Mod, Conf, Msgs0, []),
     warmup(Mod, Conf, Msgs, []),

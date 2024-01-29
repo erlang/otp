@@ -22,6 +22,7 @@
 %% applications when using a lot of dirty read operations.
 
 -module(mnesia_rpc).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([start/0,

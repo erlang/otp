@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_virtual_list_wx).
+-moduledoc false.
 
 -behaviour(wx_object).
 

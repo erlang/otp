@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_log).
+-moduledoc false.
 
 %% Application internal API
 -export([error_log/2, security_log/2, report_error/2]).

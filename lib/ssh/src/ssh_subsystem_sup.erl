@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_subsystem_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

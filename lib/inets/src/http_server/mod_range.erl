@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_range).
+-moduledoc false.
 -export([do/1]).
 -include("httpd.hrl").
 -include("httpd_internal.hrl").

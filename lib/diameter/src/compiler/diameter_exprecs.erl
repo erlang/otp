@@ -102,6 +102,7 @@
 %%
 
 -module(diameter_exprecs).
+-moduledoc false.
 
 -export([parse_transform/2]).
 

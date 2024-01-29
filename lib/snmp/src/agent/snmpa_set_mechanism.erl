@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_set_mechanism).
+-moduledoc false.
 
 %% -export([behaviour_info/1]).
  

@@ -31,6 +31,7 @@
 %% {@link edoc_parse_ref} for more details.
 
 -module(edoc_refs).
+-moduledoc false.
 
 -export([app/1, app/2, module/1, module/2, module/3,
 	 function/2, function/3, function/4, type/1, type/2, type/3,

@@ -28,6 +28,7 @@
 %% =========================================================================
 
 -module(socket_registry).
+-moduledoc false.
 
 -compile({no_auto_import, [monitor/2]}).
 

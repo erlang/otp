@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_mod_win).
+-moduledoc false.
 
 %% Public
 -export([start_link/5, raise/1, refresh/1]).

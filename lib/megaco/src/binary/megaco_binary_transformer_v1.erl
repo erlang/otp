@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_transformer_v1).
+-moduledoc false.
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").

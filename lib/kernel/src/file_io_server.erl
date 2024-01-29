@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(file_io_server).
+-moduledoc false.
 
 %% A simple file server for io to one file instance per server instance.
 

@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_snmp_hook).
+-moduledoc false.
 
 %% Hooks (called from mnesia)
 -export([check_ustruct/1, create_table/3, delete_table/2,

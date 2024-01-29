@@ -24,6 +24,7 @@
 %% Does translation of Erlang XML docs to EEP-48 doc chunks.
 %%----------------------------------------------------------------------
 -module(docgen_xml_to_chunk).
+-moduledoc false.
 -export([main/1, func_to_tuple/1]).
 
 -include_lib("kernel/include/eep48.hrl").

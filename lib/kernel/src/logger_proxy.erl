@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_proxy).
+-moduledoc false.
 
 %% API
 -export([start_link/0, restart/0, log/1, child_spec/0, get_default_config/0]).

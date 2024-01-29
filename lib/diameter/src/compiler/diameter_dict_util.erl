@@ -25,6 +25,7 @@
 %%
 
 -module(diameter_dict_util).
+-moduledoc false.
 
 -export([parse/2,
          format_error/1,

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(kernel_refc).
+-moduledoc false.
 
 -behaviour(gen_server).
 

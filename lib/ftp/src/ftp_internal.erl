@@ -20,6 +20,7 @@
 %%
 
 -module(ftp_internal).
+-moduledoc false.
 
 -behaviour(gen_server).
 

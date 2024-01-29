@@ -21,6 +21,7 @@
 %%
 
 -module(ssl_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

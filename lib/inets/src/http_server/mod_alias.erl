@@ -19,6 +19,14 @@
 %%
 %%
 -module(mod_alias).
+-moduledoc """
+URL aliasing.
+
+Erlang web server internal API for handling of, for example, interaction data
+exported by module `mod_alias`.
+
+[](){: #default_index }
+""".
 
 -export([do/1, 
 	 real_name/3,
@@ -35,6 +43,7 @@
 
 %% do
 
+-doc false.
 do(#mod{data = Data} = Info) ->
     case proplists:get_value(status, Data) of
 	%% A status code has been generated!
@@ -83,6 +92,22 @@ do_alias(#mod{config_db   = ConfigDB,
 
 %% real_name
 
+-doc """
+real_name(ConfigDB, RequestURI, Aliases) -> Ret
+
+[](){: #real_name }
+
+[`real_name/3`](`real_name/3`) traverses `Aliases`, typically extracted from
+`ConfigDB`, and matches each `FakeName` with `RequestURI`. If a match is found,
+`FakeName` is replaced with `RealName` in the match. The resulting path is split
+into two parts, `ShortPath` and `AfterPath`, as defined in
+`httpd_util:split_path/1`. `Path` is generated from `ShortPath`, that is, the
+result from [default_index/2](`m:mod_alias#default_index`) with `ShortPath` as
+an argument. `config_db()` is the server config file in ETS table format as
+described in [Inets User's Guide](http_server.md).
+
+[](){: #real_script_name }
+""".
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
@@ -137,6 +162,20 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 
 %% real_script_name
 
+-doc """
+real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret
+
+[](){: #real_script_name }
+
+[`real_script_name/3`](`real_script_name/3`) traverses `ScriptAliases`,
+typically extracted from `ConfigDB`, and matches each `FakeName` with
+`RequestURI`. If a match is found, `FakeName` is replaced with `RealName` in the
+match. If the resulting match is not an executable script, `not_a_script` is
+returned. If it is a script, the resulting script path is in two parts,
+`ShortPath` and `AfterPath`, as defined in `httpd_util:split_script_path/1`.
+`config_db()` is the server config file in ETS table format as described in
+[Inets User's Guide](http_server.md).
+""".
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
@@ -159,6 +198,21 @@ abs_script_path(_, RelPath) ->
 
 %% default_index
 
+-doc """
+default_index(ConfigDB, Path) -> NewPath
+
+[](){: #default_index }
+
+If `Path` is a directory, [`default_index/2`](`default_index/2`), it starts
+searching for resources or files that are specified in the config directive
+`DirectoryIndex`. If an appropriate resource or file is found, it is appended to
+the end of `Path` and then returned. `Path` is returned unaltered if no
+appropriate file is found or if `Path` is not a directory. `config_db()` is the
+server config file in ETS table format as described in
+[Inets User's Guide](http_server.md).
+
+[](){: #path }
+""".
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
@@ -180,6 +234,20 @@ append_index(RealName, [Index | Rest]) ->
 
 %% path
 
+-doc """
+path(PathData, ConfigDB, RequestURI) -> Path
+
+[](){: #path }
+
+[`path/3`](`path/3`) returns the file `Path` in the `RequestURI` (see
+[RFC 1945](https://www.ietf.org/rfc/rfc1945.txt)). If the interaction data
+`{real_name,{Path,AfterPath}}` has been exported by `mod_alias`, `Path` is
+returned. If no interaction data has been exported, `ServerRoot` is used to
+generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
+[Inets User's Guide](http_server.md).
+
+[](){: #real_name }
+""".
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
@@ -207,6 +275,7 @@ percent_decode_path(InitPath) ->
 %%
 %% Configuration
 %%
+-doc false.
 store({directory_index, Value} = Conf, _) when is_list(Value) ->
     case is_directory_index_list(Value) of
 	true ->

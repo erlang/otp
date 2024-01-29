@@ -21,6 +21,7 @@
 %%
 
 -module(ssl_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

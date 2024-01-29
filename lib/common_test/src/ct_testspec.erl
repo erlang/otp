@@ -19,6 +19,14 @@
 %%
 
 -module(ct_testspec).
+-moduledoc """
+Parsing of test specifications for Common Test.
+
+Parsing of test specifications for `Common Test`.
+
+This module exports help functions for parsing of test specifications.
+""".
+-moduledoc(#{since => "OTP 19.3"}).
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
@@ -47,6 +55,7 @@
 %%% Version 1 - extract and return all tests and skips for Node 
 %%%             (incl all_nodes)
 %%%-------------------------------------------------------------------
+-doc false.
 prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec),
 				  is_atom(Node) ->
     case lists:keysearch(Node,1,prepare_tests(TestSpec)) of
@@ -63,6 +72,7 @@ prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec),
 %%% and the tuples in the Skip list will have the form 
 %%% {Dir,Suites,Comment} or {Dir,Suite,Cases,Comment}. 
 %%%-------------------------------------------------------------------
+-doc false.
 prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
     Tests = TestSpec#testspec.tests,
     %% Sort Tests into "flat" Run and Skip lists (not sorted per node).
@@ -259,9 +269,11 @@ get_skipped_cases1(_,_,_,[]) ->
 
 %%% collect_tests_from_file reads a testspec file and returns a record
 %%% containing the data found.
+-doc false.
 collect_tests_from_file(Specs,Relaxed) ->
     collect_tests_from_file(Specs,[node()],Relaxed).
 
+-doc false.
 collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
     %% [Spec1,Spec2,...] means create one testpec record per Spec file
@@ -409,9 +421,11 @@ create_spec(Terms,TestSpec,JoinedByPrev,Relaxed) ->
     TS#testspec{tests=lists:flatten(Tests),
 		logdir=LogDirs1}.
 
+-doc false.
 collect_tests_from_list(Terms,Relaxed) ->
     collect_tests_from_list(Terms,[node()],Relaxed).
 
+-doc false.
 collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
     {ok,Cwd} = file:get_cwd(),
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
@@ -805,6 +819,22 @@ list_nodes(#testspec{nodes=NodeRefs}) ->
 %%% and tests to run/skip.
 %%% [Spec1,Spec2,...] means create separate tests per spec
 %%% [[Spec1,Spec2,...]] means merge all specs into one
+-doc """
+get_tests(SpecsIn) -> {ok, [{Specs,Tests}]} | {error, Reason}
+
+[](){: #add_nodes-1 }
+
+Parse the given test specification files and return the tests to run and skip.
+
+If `SpecsIn=[Spec1,Spec2,...]`, separate tests will be created per
+specification. If `SpecsIn=[[Spec1,Spec2,...]]`, all specifications will be
+merge into one test.
+
+For each test, a `{Specs,Tests}` element is returned, where `Specs` is a list of
+all included test specifications, and `Tests` specifies actual tests to run/skip
+per node.
+""".
+-doc(#{since => <<"OTP 19.3">>}).
 -spec get_tests(Specs) -> {ok,[{Specs,Tests}]} | {error,Reason} when
       Specs :: [string()] | [[string()]],
       Tests :: {Node,Run,Skip},
@@ -1210,6 +1240,7 @@ per_node([],_,_,_) ->
     [].
 
 %% Change the testspec record "back" to a list of tuples
+-doc false.
 testspec_rec2list(Rec) ->
     {Terms,_} = lists:mapfoldl(fun(unknown, Pos) ->
 				       {element(Pos, Rec),Pos+1};
@@ -1220,6 +1251,7 @@ testspec_rec2list(Rec) ->
 
 %% Extract one or more values from a testspec record and
 %% return the result as a list of tuples
+-doc false.
 testspec_rec2list(Field, Rec) when is_atom(Field) ->
     [Term] = testspec_rec2list([Field], Rec),
     Term;

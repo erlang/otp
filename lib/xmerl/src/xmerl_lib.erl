@@ -22,6 +22,7 @@
 %%%----------------------------------------------------------------------
 
 -module(xmerl_lib).
+-moduledoc false.
 
 -export([normalize_content/1, normalize_content/3, expand_content/1,
 	 expand_content/3, normalize_element/1, normalize_element/3,

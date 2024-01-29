@@ -19,6 +19,7 @@
 %%
 
 -module(snmpm_user_old).
+-moduledoc false.
 
 -export([behaviour_info/1]).
 

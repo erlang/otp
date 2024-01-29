@@ -19,6 +19,7 @@
 %%
 
 -module(http_transport).
+-moduledoc false.
 
 % Internal application API
 -export([

@@ -20,6 +20,7 @@
 %%
 
 -module(beam_ssa_alias).
+-moduledoc false.
 
 -export([opt/2]).
 

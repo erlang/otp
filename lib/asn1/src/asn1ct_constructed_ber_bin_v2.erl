@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_constructed_ber_bin_v2).
+-moduledoc false.
 
 -export([gen_encode_sequence/3]).
 -export([gen_decode_sequence/3]).

@@ -20,6 +20,7 @@
 %%% Purpose : Optimise jumps and remove unreachable code.
 
 -module(beam_jump).
+-moduledoc false.
 
 -export([module/2,
 	 remove_unused_labels/1]).

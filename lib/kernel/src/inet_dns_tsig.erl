@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_dns_tsig).
+-moduledoc false.
 
 %% DNS TSIG handling
 %%

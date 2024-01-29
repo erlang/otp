@@ -130,6 +130,32 @@
 %%   as T and the new set of values V'.
 
 -module(gb_trees).
+-moduledoc """
+General balanced trees.
+
+This module provides Prof. Arne Andersson's General Balanced Trees. These have
+no storage overhead compared to unbalanced binary trees, and their performance
+is better than AVL trees.
+
+This module considers two keys as different if and only if they do not compare
+equal (`==`).
+
+## Data Structure
+
+Trees and iterators are built using opaque data structures that should not be
+pattern-matched from outside this module.
+
+There is no attempt to balance trees after deletions. As deletions do not
+increase the height of a tree, this should be OK.
+
+The original balance condition _h(T) <= ceil(c _ log(|T|))* has been changed to
+the similar (but not quite equivalent) condition *2 ^ h(T) <= |T| ^ c\*. This
+should also be OK.
+
+## See Also
+
+`m:dict`, `m:gb_sets`
+""".
 
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
@@ -176,18 +202,22 @@
 
 -type gb_tree_node(K, V) :: 'nil'
                           | {K, V, gb_tree_node(K, V), gb_tree_node(K, V)}.
+-doc "A general balanced tree.".
 -opaque tree(Key, Value) :: {non_neg_integer(), gb_tree_node(Key, Value)}.
 -type tree() :: tree(_, _).
+-doc "A general balanced tree iterator.".
 -opaque iter(Key, Value) :: {ordered | reversed, [gb_tree_node(Key, Value)]}.
 -type iter() :: iter(_, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc "Returns a new empty tree.".
 -spec empty() -> tree(none(), none()).
 
 empty() ->
     {0, nil}.
 
+-doc "Returns `true` if `Tree` is an empty tree, othwewise `false`.".
 -spec is_empty(Tree) -> boolean() when
       Tree :: tree().
 
@@ -196,6 +226,7 @@ is_empty({0, nil}) ->
 is_empty(_) ->
     false.
 
+-doc "Returns the number of nodes in `Tree`.".
 -spec size(Tree) -> non_neg_integer() when
       Tree :: tree().
 
@@ -204,6 +235,10 @@ size({Size, _}) when is_integer(Size), Size >= 0 ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Looks up `Key` in `Tree`. Returns `{value, Value}`, or `none` if `Key` is not
+present.
+""".
 -spec lookup(Key, Tree) -> 'none' | {'value', Value} when
       Tree :: tree(Key, Value).
 
@@ -230,6 +265,7 @@ lookup_1(_, nil) ->
 
 %% This is a specialized version of `lookup'.
 
+-doc "Returns `true` if `Key` is present in `Tree`, otherwise `false`.".
 -spec is_defined(Key, Tree) -> boolean() when
       Tree :: tree(Key, Value :: term()).
 
@@ -249,6 +285,10 @@ is_defined_1(_, nil) ->
 
 %% This is a specialized version of `lookup'.
 
+-doc """
+Retrieves the value stored with `Key` in `Tree`. Assumes that the key is present
+in the tree, crashes otherwise.
+""".
 -spec get(Key, Tree) -> Value when
       Tree :: tree(Key, Value).
 
@@ -264,6 +304,10 @@ get_1(_, {_, Value, _, _}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Updates `Key` to value `Value` in `Tree1` and returns the new tree. Assumes that
+the key is present in the tree.
+""".
 -spec update(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -283,6 +327,10 @@ update_1(Key, Value, {_, _, Smaller, Bigger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Inserts `Key` with value `Value` into `Tree1` and returns the new tree. Assumes
+that the key is not present in the tree, crashes otherwise.
+""".
 -spec insert(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -334,6 +382,10 @@ insert_1(Key, _, _, _) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Inserts `Key` with value `Value` into `Tree1` if the key is not present in the
+tree, otherwise updates `Key` to value `Value` in `Tree1`. Returns the new tree.
+""".
 -spec enter(Key, Value, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -359,6 +411,12 @@ count(nil) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Rebalances `Tree1`. Notice that this is rarely necessary, but can be motivated
+when many nodes have been deleted from the tree without further insertions.
+Rebalancing can then be forced to minimize lookup times, as deletion does not
+rebalance the tree.
+""".
 -spec balance(Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -386,6 +444,10 @@ balance_list_1([{Key, Val} | L], 1) ->
 balance_list_1(L, 0) ->
     {nil, L}.
 
+-doc """
+Turns an ordered list `List` of key-value tuples into a tree. The list must not
+contain duplicate keys.
+""".
 -spec from_orddict(List) -> Tree when
       List :: [{Key, Value}],
       Tree :: tree(Key, Value).
@@ -396,6 +458,10 @@ from_orddict(L) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Removes the node with key `Key` from `Tree1` if the key is present in the tree,
+otherwise does nothing. Returns the new tree.
+""".
 -spec delete_any(Key, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -410,6 +476,10 @@ delete_any(Key, T) ->
 
 %%% delete. Assumes that key is present.
 
+-doc """
+Removes the node with key `Key` from `Tree1` and returns the new tree. Assumes
+that the key is present in the tree, crashes otherwise.
+""".
 -spec delete(Key, Tree1) -> Tree2 when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -438,6 +508,12 @@ merge(Smaller, Larger) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns a value `Value` from node with key `Key` and new `Tree2` without the
+node with this value. Returns `error` if the node with the key is not present in
+the tree.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec take_any(Key, Tree1) -> {Value, Tree2} | 'error' when
       Tree1 :: tree(Key, _),
       Tree2 :: tree(Key, _),
@@ -452,6 +528,12 @@ take_any(Key, Tree) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns a value `Value` from node with key `Key` and new `Tree2` without the
+node with this value. Assumes that the node with key is present in the tree,
+crashes otherwise.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec take(Key, Tree1) -> {Value, Tree2} when
       Tree1 :: tree(Key, _),
       Tree2 :: tree(Key, _),
@@ -473,6 +555,11 @@ take_1(_, {_Key, Value, Smaller, Larger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns `{Key, Value, Tree2}`, where `Key` is the smallest key in `Tree1`,
+`Value` is the value associated with this key, and `Tree2` is this tree with the
+corresponding node deleted. Assumes that the tree is not empty.
+""".
 -spec take_smallest(Tree1) -> {Key, Value, Tree2} when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -487,6 +574,10 @@ take_smallest1({Key, Value, Smaller, Larger}) ->
     {Key1, Value1, Smaller1} = take_smallest1(Smaller),
     {Key1, Value1, {Key, Value, Smaller1, Larger}}.
 
+-doc """
+Returns `{Key, Value}`, where `Key` is the smallest key in `Tree`, and `Value`
+is the value associated with this key. Assumes that the tree is not empty.
+""".
 -spec smallest(Tree) -> {Key, Value} when
       Tree :: tree(Key, Value).
 
@@ -498,6 +589,11 @@ smallest_1({Key, Value, nil, _Larger}) ->
 smallest_1({_Key, _Value, Smaller, _Larger}) ->
     smallest_1(Smaller).
 
+-doc """
+Returns `{Key, Value, Tree2}`, where `Key` is the largest key in `Tree1`,
+`Value` is the value associated with this key, and `Tree2` is this tree with the
+corresponding node deleted. Assumes that the tree is not empty.
+""".
 -spec take_largest(Tree1) -> {Key, Value, Tree2} when
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
@@ -512,6 +608,10 @@ take_largest1({Key, Value, Smaller, Larger}) ->
     {Key1, Value1, Larger1} = take_largest1(Larger),
     {Key1, Value1, {Key, Value, Smaller, Larger1}}.
 
+-doc """
+Returns `{Key, Value}`, where `Key` is the largest key in `Tree`, and `Value` is
+the value associated with this key. Assumes that the tree is not empty.
+""".
 -spec largest(Tree) -> {Key, Value} when
       Tree :: tree(Key, Value).
 
@@ -525,6 +625,12 @@ largest_1({_Key, _Value, _Smaller, Larger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns `{Key2, Value}`, where `Key2` is the greatest key strictly less than
+`Key1`, `Value` is the value associated with this key.
+
+Returns `none` if no such pair exists.
+""".
 -spec smaller(Key1, Tree) -> none | {Key2, Value} when
     Key1 :: Key,
     Key2 :: Key,
@@ -544,6 +650,12 @@ smaller_1(Key, {Key1, Value, _Smaller, Larger}) when Key > Key1 ->
 smaller_1(Key, {_Key, _Value, Smaller, _Larger}) ->
     smaller_1(Key, Smaller).
 
+-doc """
+Returns `{Key2, Value}`, where `Key2` is the least key strictly greater than
+`Key1`, `Value` is the value associated with this key.
+
+Returns `none` if no such pair exists.
+""".
 -spec larger(Key1, Tree) -> none | {Key2, Value} when
     Key1 :: Key,
     Key2 :: Key,
@@ -565,6 +677,7 @@ larger_1(Key, {_Key, _Value, _Smaller, Larger}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc "Converts a tree into an ordered list of key-value tuples.".
 -spec to_list(Tree) -> [{Key, Value}] when
       Tree :: tree(Key, Value).
 			   
@@ -579,6 +692,7 @@ to_list(nil, L) -> L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc "Returns the keys in `Tree` as an ordered list.".
 -spec keys(Tree) -> [Key] when
       Tree :: tree(Key, Value :: term()).
 
@@ -591,6 +705,10 @@ keys(nil, L) -> L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns the values in `Tree` as an ordered list, sorted by their corresponding
+keys. Duplicates are not removed.
+""".
 -spec values(Tree) -> [Value] when
       Tree :: tree(Key :: term(), Value).
 
@@ -603,6 +721,12 @@ values(nil, L) -> L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns an iterator that can be used for traversing the entries of `Tree`; see
+`next/1`.
+
+Equivalent to [`iterator(Tree, ordered)`](`iterator/2`).
+""".
 -spec iterator(Tree) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value).
@@ -610,6 +734,14 @@ values(nil, L) -> L.
 iterator(Tree) ->
     iterator(Tree, ordered).
 
+-doc """
+Returns an iterator that can be used for traversing the entries of `Tree` in
+either `ordered` or `reversed` direction; see `next/1`. The implementation of
+this is very efficient; traversing the whole tree using [`next/1`](`next/1`) is
+only slightly slower than getting the list of all elements using `to_list/1` and
+traversing that. The main advantage of the iterator approach is that it does not
+require the complete list of all elements to be built in memory at one time.
+""".
 -spec iterator(Tree, Order) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value),
@@ -639,6 +771,14 @@ iterator_r(nil, As) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns an iterator that can be used for traversing the entries of `Tree`; see
+`next/1`. The difference as compared to the iterator returned by `iterator/1` is
+that the iterator starts with the first key greater than or equal to `Key`.
+
+Equivalent to [`iterator_from(Key, Tree, ordered)`](`iterator_from/3`).
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec iterator_from(Key, Tree) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value).
@@ -646,6 +786,12 @@ iterator_r(nil, As) ->
 iterator_from(Key, Tree) ->
     iterator_from(Key, Tree, ordered).
 
+-doc """
+Returns an iterator that can be used for traversing the entries of `Tree` in
+either `ordered` or `reversed` direction; see `next/1`. The difference as
+compared to the iterator returned by `iterator/2` is that the iterator starts
+with the first key next to or equal to `Key`.
+""".
 -spec iterator_from(Key, Tree, Order) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value),
@@ -676,6 +822,11 @@ iterator_from_r(_, nil, As) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Returns `{Key, Value, Iter2}`, where `Key` is the next key referred to by
+iterator `Iter1`, and `Iter2` is the new iterator to be used for traversing the
+remaining nodes, or the atom `none` if no nodes remain.
+""".
 -spec next(Iter1) -> 'none' | {Key, Value, Iter2} when
       Iter1 :: iter(Key, Value),
       Iter2 :: iter(Key, Value).
@@ -689,6 +840,11 @@ next({_, []}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Maps function F(K, V1) -> V2 to all key-value pairs of tree `Tree1`. Returns a
+new tree `Tree2` with the same set of keys as `Tree1` and the new set of values
+`V2`.
+""".
 -spec map(Function, Tree1) -> Tree2 when
       Function :: fun((K :: Key, V1 :: Value1) -> V2 :: Value2),
       Tree1 :: tree(Key, Value1),

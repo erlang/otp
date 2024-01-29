@@ -20,6 +20,7 @@
 %%
 
 -module(inets_service).
+-moduledoc false.
 
 
 %% Starts service stand-alone

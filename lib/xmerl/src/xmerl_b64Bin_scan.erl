@@ -19,6 +19,7 @@
 %%
 
 -module(xmerl_b64Bin_scan).
+-moduledoc false.
 
 -export([scan/1]).
 

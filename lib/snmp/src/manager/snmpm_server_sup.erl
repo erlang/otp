@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpm_server_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

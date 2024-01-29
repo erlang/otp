@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_service_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

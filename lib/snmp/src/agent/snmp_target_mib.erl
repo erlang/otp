@@ -18,6 +18,26 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_target_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-TARGET-MIB
+
+The module `snmp_target_mib` implements the instrumentation functions for the
+SNMP-TARGET-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+
+Legacy API functions [`add_addr/10`](`add_addr/10`) that does not specify
+transport domain, and `add_addr/11` that has got separate `IpAddr` and
+`PortNumber` arguments still work as before for backwards compatibility reasons.
+
+[](){: #types }
+
+## DATA TYPES
+
+See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
+
+[](){: #configure }
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -48,6 +68,14 @@
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
+-doc """
+> #### Note {: .info }
+>
+> "An octet string containing a tag value. Tag values are preferably in
+> human-readable form."
+
+`OCTET STRING (SIZE (0..255))`
+""".
 -type tag_value() :: string().
 
 
@@ -66,6 +94,7 @@
 
 %%-----------------------------------------------------------------
 
+-doc false.
 default_domain() ->
     snmpUDPDomain.
 
@@ -81,6 +110,28 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+configure(ConfDir) -> void()
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration files read are: `target_addr.conf` and `target_params.conf`.
+
+[](){: #reconfigure }
+""".
 configure(Dir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
@@ -112,6 +163,29 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+reconfigure(ConfDir) -> void()
+
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-TARGET-MIB, after this function has been called, is
+the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the , and the function fails with the reason
+`configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration files read are: `target_addr.conf` and `target_params.conf`.
+
+[](){: #set_target_engine_id }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -166,6 +240,7 @@ read_target_config_files(Dir) ->
 %%   TMask, MMS}
 %%-----------------------------------------------------------------
 
+-doc false.
 check_target_addr(
   {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList, Params,
    EngineId, TMask, MMS}) -> % Arity 11
@@ -339,6 +414,7 @@ check_mask(Domain, Mask) ->
 %%  TargetParams
 %%  {Name, MPModel, SecurityModel, SecurityName, SecurityLevel}
 %%-----------------------------------------------------------------
+-doc false.
 check_target_params({Name, MPModel, SecModel, SecName, SecLevel}) ->
     snmp_conf:check_string(Name,{gt,0}),
     {ok, MP} = snmp_conf:check_atom(MPModel, [{v1,  ?MP_V1},
@@ -385,6 +461,15 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask,
+MMS) -> Ret
+
+Adds a target address definition to the agent config. Equivalent to one line in
+the `target_addr.conf` file.
+
+[](){: #delete_addr }
+""".
 add_addr(
   Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -392,6 +477,7 @@ add_addr(
       {Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
        EngineId, TMask, MMS}).
 %%
+-doc false.
 add_addr(
   Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -415,6 +501,13 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
+-doc """
+delete_addr(Key) -> Ret
+
+Delete a target address definition from the agent config.
+
+[](){: #add_params }
+""".
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->
@@ -424,6 +517,14 @@ delete_addr(Key) ->
     end.
 
 
+-doc """
+add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret
+
+Adds a target parameter definition to the agent config. Equivalent to one line
+in the `target_params.conf` file.
+
+[](){: #delete_params }
+""".
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
     case (catch check_target_params(Params)) of
@@ -441,6 +542,11 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	    {error, Error}
     end.
 
+-doc """
+delete_params(Key) -> Ret
+
+Delete a target parameter definition from the agent config.
+""".
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
 	true ->
@@ -487,6 +593,7 @@ vars() ->
 %%-----------------------------------------------------------------
 %% API functions
 %%-----------------------------------------------------------------
+-doc false.
 is_valid_tag("", _TDomain, _TAddress) ->
     true;
 is_valid_tag(Tag, TDomain, TAddress) ->
@@ -564,6 +671,7 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 %% TargAddrs =
 %%     [{TagList, TargetAddr, TargetAddrName, TargetParams, Timeout, Retry}]
 %%   TargetAddr = {TDomain, TAddr}; e.g. {?snmpUDPDomain, IpAndUdpPortAsList}
+-doc false.
 get_target_addrs() ->
     get_target_addrs([], db(snmpTargetAddrTable), []).
 
@@ -646,6 +754,7 @@ get_target_params(Params) ->
 	    undefined
     end.
 
+-doc false.
 get_target_engine_id(TargetAddrName) ->
     case db(snmpTargetAddrTable) of
         {_, mnesia} ->
@@ -666,6 +775,15 @@ get_target_engine_id(TargetAddrName) ->
 	    end
     end.
 				    
+-doc """
+set_target_engine_id(TargetAddrName, EngineId) -> boolean()
+
+Changes the engine id for a target in the `snmpTargetAddrTable`. If
+notifications are sent as Inform requests to a target, its engine id must be
+set.
+
+[](){: #add_addr }
+""".
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
@@ -674,6 +792,7 @@ set_target_engine_id(TargetAddrName, EngineId) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+-doc false.
 snmpTargetSpinLock(print) ->
     VarAndValue = [{snmpTargetSpinLock, snmpTargetSpinLock(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -694,6 +813,7 @@ snmpTargetSpinLock(delete) ->
 snmpTargetSpinLock(get) ->
     snmp_generic:variable_func(get, {snmpTargetSpinLock, volatile}).
 
+-doc false.
 snmpTargetSpinLock(is_set_ok, NewVal) ->
     case snmp_generic:variable_func(get, {snmpTargetSpinLock, volatile}) of
 	{value, NewVal} -> noError;
@@ -705,6 +825,7 @@ snmpTargetSpinLock(set, NewVal) ->
 
 
 %% Op = print - Used for debugging purposes
+-doc false.
 snmpTargetAddrTable(print) ->
     Table = snmpTargetAddrTable, 
     DB    = db(Table),
@@ -774,6 +895,7 @@ snmpTargetAddrTable(Op) ->
     snmp_generic:table_func(Op, db(snmpTargetAddrTable)).
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 snmpTargetAddrTable(get, RowIndex, Cols) ->
     get(snmpTargetAddrTable, RowIndex, Cols);
 snmpTargetAddrTable(get_next, RowIndex, Cols) ->
@@ -897,6 +1019,7 @@ verify_targetAddrTable_col(_, Val, _) ->
     
 
 %% Op = print - Used for debugging purposes
+-doc false.
 snmpTargetParamsTable(print) ->
     Table = snmpTargetParamsTable, 
     DB    = db(Table),
@@ -968,6 +1091,7 @@ snmpTargetParamsTable(Op) ->
     snmp_generic:table_func(Op, db(snmpTargetParamsTable)).
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 snmpTargetParamsTable(get, RowIndex, Cols) ->
     %% BMK BMK BMK
     get(snmpTargetParamsTable, RowIndex, Cols);
@@ -1058,10 +1182,12 @@ next(Name, RowIndex, Cols) ->
     snmp_generic:handle_table_next(db(Name), RowIndex, Cols,
                                    fa(Name), foi(Name), noc(Name)).
 
+-doc false.
 table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
 
  
+-doc false.
 get(Name, RowIndex, Cols) ->
     snmp_generic:handle_table_get(db(Name), RowIndex, Cols, foi(Name)).
 

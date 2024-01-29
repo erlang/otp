@@ -27,6 +27,7 @@
 %header_doc_include
 
 -module(mnesia_frag).
+-moduledoc false.
 
 %% Callback functions when accessed within an activity
 -export([

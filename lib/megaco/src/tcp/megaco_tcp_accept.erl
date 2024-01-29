@@ -23,6 +23,7 @@
 %% Purpose: Waiting in accept for new connections.
 %%-----------------------------------------------------------------
 -module(megaco_tcp_accept).
+-moduledoc false.
 
 %%-----------------------------------------------------------------
 %% Include files

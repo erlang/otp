@@ -19,6 +19,14 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPaletteChangedEvent).
+-moduledoc """
+Functions for wxPaletteChangedEvent class
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs:
+[wxPaletteChangedEvent](https://docs.wxwidgets.org/3.1/classwx_palette_changed_event.html)
+""".
 -include("wxe.hrl").
 -export([getChangedWindow/1,setChangedWindow/2]).
 
@@ -31,6 +39,7 @@
 -type wxPaletteChangedEventType() :: 'palette_changed'.
 -export_type([wxPaletteChangedEvent/0, wxPaletteChanged/0, wxPaletteChangedEventType/0]).
 %% @hidden
+-doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
@@ -52,20 +61,29 @@ getChangedWindow(#wx_ref{type=ThisT}=This) ->
 
  %% From wxEvent
 %% @hidden
+-doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden
+-doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
 %% @hidden
+-doc false.
 skip(This) -> wxEvent:skip(This).
 %% @hidden
+-doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
 %% @hidden
+-doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
 %% @hidden
+-doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
 %% @hidden
+-doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
 %% @hidden
+-doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
+-doc false.
 getId(This) -> wxEvent:getId(This).

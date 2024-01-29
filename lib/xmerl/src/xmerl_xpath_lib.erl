@@ -20,6 +20,7 @@
 
 %%
 -module(xmerl_xpath_lib).
+-moduledoc false.
 
 -include("xmerl.hrl").
 

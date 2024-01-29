@@ -59,6 +59,15 @@
 %% watch using × \327, very close to x \170
 
 -module(io_lib).
+-moduledoc """
+I/O library functions.
+
+This module contains functions for converting to and from strings (lists of
+characters). They are used for implementing the functions in the `m:io` module.
+There is no guarantee that the character lists returned from some of the
+functions are flat, they can be deep lists. Function `lists:flatten/1` can be
+used for flattening deep lists.
+""".
 
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
@@ -98,6 +107,7 @@
 -type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
 
+-doc "A continuation as returned by `fread/3`.".
 -opaque continuation() :: {Format :: string(),
                            Stack :: chars(),
                            Nchars :: non_neg_integer(),
@@ -115,6 +125,21 @@
 
 -type fread_item() :: string() | atom() | integer() | float().
 
+-doc """
+Where:
+
+- `control_char` is the type of control sequence: `$P`, `$w`, and so on.
+- `args` is a list of the arguments used by the control sequence, or an empty
+  list if the control sequence does not take any arguments.
+- `width` is the field width.
+- `adjust` is the adjustment.
+- `precision` is the precision of the printed argument.
+- `pad_char` is the padding character.
+- `encoding` is set to `true` if translation modifier `t` is present.
+- `strings` is set to `false` if modifier `l` is present.
+- `maps_order` is set to `undefined` by default, `ordered` if modifier `k` is
+  present, or `reversed` or `CmpFun` if modifier `K` is present.
+""".
 -type format_spec() ::
         #{
            control_char := char(),
@@ -133,6 +158,18 @@
 
 %% Interface calls to sub-modules.
 
+-doc """
+Returns a character list that represents `Data` formatted in accordance with
+`Format`. For a detailed description of the available formatting options, see
+[`io:fwrite/1,2,3`](`io:fwrite/1`). If the format string or argument list
+contains an error, a fault is generated.
+
+If and only if the Unicode translation modifier is used in the format string
+(that is, `~ts` or `~tc`), the resulting list can contain characters beyond the
+ISO Latin-1 character range (that is, numbers > 255). If so, the result is still
+an ordinary Erlang `t:string/0`, and can well be used in any context where
+Unicode data is allowed.
+""".
 -spec fwrite(Format, Data) -> chars() when
       Format :: io:format(),
       Data :: [term()].
@@ -142,6 +179,19 @@ fwrite(Format, Args) ->
 
 -type chars_limit() :: integer().
 
+-doc """
+Returns a character list that represents `Data` formatted in accordance with
+`Format` in the same way as `fwrite/2` and `format/2`, but takes an extra
+argument, a list of options.
+
+Valid option:
+
+- **`{chars_limit, CharsLimit}`** - A soft limit on the number of characters
+  returned. When the number of characters is reached, remaining structures are
+  replaced by "`...`". `CharsLimit` defaults to -1, which means no limit on the
+  number of characters returned.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec fwrite(Format, Data, Options) -> chars() when
       Format :: io:format(),
       Data :: [term()],
@@ -152,6 +202,32 @@ fwrite(Format, Args) ->
 fwrite(Format, Args, Options) ->
     format(Format, Args, Options).
 
+-doc """
+Tries to read `String` in accordance with the control sequences in `Format`. For
+a detailed description of the available formatting options, see `io:fread/3`. It
+is assumed that `String` contains whole lines.
+
+The function returns:
+
+- **`{ok, InputList, LeftOverChars}`** - The string was read. `InputList` is the
+  list of successfully matched and read items, and `LeftOverChars` are the input
+  characters not used.
+
+- **`{more, RestFormat, Nchars, InputStack}`** - The string was read, but more
+  input is needed to complete the original format string. `RestFormat` is the
+  remaining format string, `Nchars` is the number of characters scanned, and
+  `InputStack` is the reversed list of inputs matched up to that point.
+
+- **`{error, What}`** - The read operation failed and parameter `What` gives a
+  hint about the error.
+
+_Example:_
+
+```erlang
+3> io_lib:fread("~f~f~f", "15.6 17.3e-6 24.5").
+{ok,[15.6,1.73e-5,24.5],[]}
+```
+""".
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
@@ -164,6 +240,31 @@ fwrite(Format, Args, Options) ->
 fread(Chars, Format) ->
     io_lib_fread:fread(Chars, Format).
 
+-doc """
+This is the re-entrant formatted reader. The continuation of the first call to
+the functions must be `[]`. For a complete description of how the re-entrant
+input scheme works, see Armstrong, Virding, Williams: 'Concurrent Programming in
+Erlang', Chapter 13.
+
+The function returns:
+
+- **`{done, Result, LeftOverChars}`** - The input is complete. The result is one
+  of the following:
+
+  - **`{ok, InputList}`** - The string was read. `InputList` is the list of
+    successfully matched and read items, and `LeftOverChars` are the remaining
+    characters.
+
+  - **`eof`** - End of file was encountered. `LeftOverChars` are the input
+    characters not used.
+
+  - **`{error, What}`** - An error occurred and parameter `What` gives a hint
+    about the error.
+
+- **`{more, Continuation}`** - More data is required to build a term.
+  `Continuation` must be passed to [`fread/3`](`fread/3`) when more data becomes
+  available.
+""".
 -spec fread(Continuation, CharSpec, Format) -> Return when
       Continuation :: continuation() | [],
       CharSpec :: string() | 'eof',
@@ -177,6 +278,7 @@ fread(Chars, Format) ->
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).
 
+-doc(#{equiv => fwrite/2}).
 -spec format(Format, Data) -> chars() when
       Format :: io:format(),
       Data :: [term()].
@@ -189,6 +291,8 @@ format(Format, Args) ->
             erlang:error(badarg, [Format, Args])
     end.
 
+-doc(#{equiv => fwrite/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec format(Format, Data, Options) -> chars() when
       Format :: io:format(),
       Data :: [term()],
@@ -204,6 +308,20 @@ format(Format, Args, Options) ->
             erlang:error(badarg, [Format, Args])
     end.
 
+-doc """
+Returns a list corresponding to the specified format string, where control
+sequences have been replaced with corresponding tuples. This list can be passed
+to:
+
+- `build_text/1` to have the same effect as [`format(Format, Args)`](`format/2`)
+- `unscan_format/1` to get the corresponding pair of `Format` and `Args` (with
+  every `*` and corresponding argument expanded to numeric values)
+
+A typical use of this function is to replace unbounded-size control sequences
+like `~w` and `~p` with the depth-limited variants `~W` and `~P` before
+formatting to text in, for example, a logger.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec scan_format(Format, Data) -> FormatList when
       Format :: io:format(),
       Data :: [term()],
@@ -217,6 +335,8 @@ scan_format(Format, Args) ->
             erlang:error(badarg, [Format, Args])
     end.
 
+-doc "For details, see `scan_format/2`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec unscan_format(FormatList) -> {Format, Data} when
       FormatList :: [char() | format_spec()],
       Format :: io:format(),
@@ -225,6 +345,8 @@ scan_format(Format, Args) ->
 unscan_format(FormatList) ->
     io_lib_format:unscan(FormatList).
 
+-doc "For details, see `scan_format/2`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec build_text(FormatList) -> chars() when
       FormatList :: [char() | format_spec()].
 
@@ -236,6 +358,7 @@ build_text(FormatList) ->
             erlang:error(badarg, [FormatList])
     end.
 
+-doc false.
 -spec build_text(FormatList, Options) -> chars() when
       FormatList :: [char() | format_spec()],
       Options :: [Option],
@@ -261,12 +384,22 @@ test_modules_loaded(_C, _R, _S) ->
         Error -> erlang:error(Error)
     end.
 
+-doc(#{equiv => print/4}).
 -spec print(Term) -> chars() when
       Term :: term().
 
 print(Term) ->
     io_lib_pretty:print(Term).
 
+-doc """
+Returns a list of characters that represents `Term`, but breaks representations
+longer than one line into many lines and indents each line sensibly. Also tries
+to detect and output lists of printable characters as strings.
+
+- `Column` is the starting column; defaults to 1.
+- `LineLength` is the maximum line length; defaults to 80.
+- `Depth` is the maximum print depth; defaults to -1, which means no limitation.
+""".
 -spec print(Term, Column, LineLength, Depth) -> chars() when
       Term :: term(),
       Column :: non_neg_integer(),
@@ -276,6 +409,7 @@ print(Term) ->
 print(Term, Column, LineLength, Depth) ->
     io_lib_pretty:print(Term, Column, LineLength, Depth).
 
+-doc "Returns the indentation if `String` has been printed, starting at `StartIndent`.".
 -spec indentation(String, StartIndent) -> integer() when
       String :: string(),
       StartIndent :: integer().
@@ -288,11 +422,13 @@ indentation(Chars, Current) ->
 %% Atoms, binaries, and iolists (or unicode:charlist()) can be used
 %% as-is, and will be printed without any additional quotes.
 
+-doc false.
 -spec format_prompt(term()) -> chars().
 
 format_prompt(Prompt) ->
     format_prompt(Prompt, latin1).
 
+-doc false.
 -spec format_prompt(term(), atom()) -> chars().
 
 format_prompt({format,Format,Args}, _Encoding) ->
@@ -320,12 +456,15 @@ add_modifier(_, C) ->
 %%  Return a (non-flattened) list of characters giving a printed
 %%  representation of the term. write/3 is for backward compatibility.
 
+-doc(#{equiv => write/2}).
+-doc(#{since => <<"OTP 20.0">>}).
 -spec write(Term) -> chars() when
       Term :: term().
 
 write(Term) ->
     write1(Term, -1, latin1, undefined).
 
+-doc false.
 -spec write(term(), depth(), boolean()) -> chars().
 
 write(Term, D, true) ->
@@ -333,6 +472,27 @@ write(Term, D, true) ->
 write(Term, D, false) ->
     write(Term, D).
 
+-doc """
+Returns a character list that represents `Term`. Option `Depth` controls the
+depth of the structures written. When the specified depth is reached, everything
+below this level is replaced by "`...`". `Depth` defaults to -1, which means no
+limitation. Option `CharsLimit` puts a soft limit on the number of characters
+returned. When the number of characters is reached, remaining structures are
+replaced by "`...`". `CharsLimit` defaults to -1, which means no limit on the
+number of characters returned.
+
+_Example:_
+
+```erlang
+1> lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9})).
+"{1,[2],[3],[4,5],6,7,8,9}"
+2> lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5)).
+"{1,[2],[3],[...],...}"
+3> lists:flatten(io_lib:write({[1,2,3],[4,5],6,7,8,9}, [{chars_limit,20}])).
+"{[1,2|...],[4|...],...}"
+```
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec write(Term, Depth) -> chars() when
       Term :: term(),
       Depth :: depth();
@@ -442,6 +602,7 @@ write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
     S.
 
+-doc false.
 write_binary(B, D, T) when is_integer(T) ->
     {S, Rest} = write_binary_body(B, D, tsub(T, 4), []),
     {[$<,$<,lists:reverse(S),$>,$>], Rest}.
@@ -480,12 +641,18 @@ get_option(Key, TupleList, Default) ->
 %% write_atom(Atom) -> [Char]
 %%  Generate the list of characters needed to print an atom.
 
+-doc "Returns the list of characters needed to print atom `Atom`.".
 -spec write_atom(Atom) -> chars() when
       Atom :: atom().
 
 write_atom(Atom) ->
     write_possibly_quoted_atom(Atom, fun write_string/2).
 
+-doc """
+Returns the list of characters needed to print atom `Atom`. Non-Latin-1
+characters are escaped.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec write_atom_as_latin1(Atom) -> latin1_string() when
       Atom :: atom().
 
@@ -505,6 +672,7 @@ write_possibly_quoted_atom(Atom, PFun) ->
 %%  Return 'true' if atom with chars in CharList needs to be quoted, else
 %%  return 'false'. Notice that characters >= 160 are always quoted.
 
+-doc false.
 -spec quote_atom(atom(), chars()) -> boolean().
 
 quote_atom(Atom, Cs0) ->
@@ -545,38 +713,50 @@ name_char(_) -> false.
 %% write_string([Char]) -> [Char]
 %%  Generate the list of characters needed to print a string.
 
+-doc "Returns the list of characters needed to print `String` as a string.".
 -spec write_string(String) -> chars() when
       String :: string().
 
 write_string(S) ->
     write_string(S, $").   %"
 
+-doc false.
 -spec write_string(string(), char()) -> chars().
 
 write_string(S, Q) ->
     [Q|write_string1(unicode_as_unicode, S, Q)].
 
 %% Backwards compatibility.
+-doc false.
 write_unicode_string(S) ->
     write_string(S).
 
+-doc "Returns the list of characters needed to print `Latin1String` as a string.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec write_latin1_string(Latin1String) -> latin1_string() when
       Latin1String :: latin1_string().
 
 write_latin1_string(S) ->
     write_latin1_string(S, $").   %"
 
+-doc false.
 -spec write_latin1_string(latin1_string(), char()) -> latin1_string().
 
 write_latin1_string(S, Q) ->
     [Q|write_string1(latin1, S, Q)].
 
+-doc """
+Returns the list of characters needed to print `String` as a string. Non-Latin-1
+characters are escaped.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec write_string_as_latin1(String) -> latin1_string() when
       String :: string().
 
 write_string_as_latin1(S) ->
     write_string_as_latin1(S, $").   %"
 
+-doc false.
 -spec write_string_as_latin1(string(), char()) -> latin1_string().
 
 write_string_as_latin1(S, Q) ->
@@ -622,6 +802,10 @@ string_char(_,C, _, Tail) when C < $\240->	%Other control characters.
 %%  Generate the list of characters needed to print a character constant.
 %%  Must special case SPACE, $\s, here.
 
+-doc """
+Returns the list of characters needed to print a character constant in the
+Unicode character set.
+""".
 -spec write_char(Char) -> chars() when
       Char :: char().
 
@@ -630,15 +814,26 @@ write_char(C) when is_integer(C), C >= $\000 ->
     [$$|string_char(unicode_as_unicode, C, -1, [])].
 
 %% Backwards compatibility.
+-doc false.
 write_unicode_char(C) ->
     write_char(C).
 
+-doc """
+Returns the list of characters needed to print a character constant in the ISO
+Latin-1 character set.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec write_latin1_char(Latin1Char) -> latin1_string() when
       Latin1Char :: unicode:latin1_char().
 
 write_latin1_char(Lat1) when is_integer(Lat1), Lat1 >= $\000, Lat1 =< $\377  ->
     [$$|string_char(latin1, Lat1, -1, [])].
 
+-doc """
+Returns the list of characters needed to print a character constant in the
+Unicode character set. Non-Latin-1 characters are escaped.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec write_char_as_latin1(Char) -> latin1_string() when
       Char :: char().
 
@@ -650,6 +845,11 @@ write_char_as_latin1(Uni) when is_integer(Uni), Uni >= $\000 ->
 %%  Return true if CharList is a (possibly deep) list of Latin-1
 %%  characters, else false.
 
+-doc """
+Returns `true` if `Term` is a flat list of characters in the ISO Latin-1 range,
+otherwise `false`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec latin1_char_list(Term) -> boolean() when
       Term :: term().
 
@@ -658,6 +858,10 @@ latin1_char_list([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
 latin1_char_list([]) -> true;
 latin1_char_list(_) -> false.			%Everything else is false
 
+-doc """
+Returns `true` if `Term` is a flat list of characters in the Unicode range,
+otherwise `false`.
+""".
 -spec char_list(Term) -> boolean() when
       Term :: term().
 
@@ -668,6 +872,11 @@ char_list([C|Cs]) when is_integer(C), C >= 0, C < 16#D800;
 char_list([]) -> true;
 char_list(_) -> false.			%Everything else is false
 
+-doc """
+Returns `true` if `Term` is a, possibly deep, list of characters in the ISO
+Latin-1 range, otherwise `false`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec deep_latin1_char_list(Term) -> boolean() when
       Term :: term().
 
@@ -684,6 +893,10 @@ deep_latin1_char_list([], []) -> true;
 deep_latin1_char_list(_, _More) ->			%Everything else is false
     false.
 
+-doc """
+Returns `true` if `Term` is a, possibly deep, list of characters in the Unicode
+range, otherwise `false`.
+""".
 -spec deep_char_list(Term) -> boolean() when
       Term :: term().
 
@@ -703,6 +916,7 @@ deep_char_list([], []) -> true;
 deep_char_list(_, _More) ->		%Everything else is false
     false.
 
+-doc false.
 deep_unicode_char_list(Term) ->
     deep_char_list(Term).
 
@@ -710,6 +924,11 @@ deep_unicode_char_list(Term) ->
 %%  Return true if CharList is a list of printable Latin1 characters, else
 %%  false.
 
+-doc """
+Returns `true` if `Term` is a flat list of printable ISO Latin-1 characters,
+otherwise `false`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec printable_latin1_list(Term) -> boolean() when
       Term :: term().
 
@@ -738,6 +957,14 @@ printable_latin1_list(_) -> false.			%Everything else is false
 %%  if on the other hand +pc unicode is given, all characters in the Unicode
 %%  character set are deemed printable. latin1 is default.
 
+-doc """
+Returns `true` if `Term` is a flat list of printable characters, otherwise
+`false`.
+
+What is a printable character in this case is determined by startup flag `+pc`
+to the Erlang VM; see `io:printable_range/0` and
+[`erl(1)`](`e:erts:erl_cmd.md`).
+""".
 -spec printable_list(Term) -> boolean() when
       Term :: term().
 
@@ -751,6 +978,11 @@ printable_list(L) ->
 	    printable_unicode_list(L)
     end.
 
+-doc """
+Returns `true` if `Term` is a flat list of printable Unicode characters,
+otherwise `false`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec printable_unicode_list(Term) -> boolean() when
       Term :: term().
 
@@ -774,6 +1006,7 @@ printable_unicode_list(_) -> false.		%Everything else is false
 %% List = nl()
 %%  Return a list of characters to generate a newline.
 
+-doc "Returns a character list that represents a new line character.".
 -spec nl() -> string().
 
 nl() ->
@@ -803,10 +1036,12 @@ cafu(_Other,_N,Count,_ByteCount,SavePos) -> % Non Utf8 character at end
 %%      {stop,Result,RestData}
 %%      NewState
 %%% BC (with pre-R13).
+-doc false.
 collect_chars(Tag, Data, N) ->
     collect_chars(Tag, Data, latin1, N).
 
 %% Now we are aware of encoding...    
+-doc false.
 collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
     if Size > N ->
@@ -895,10 +1130,12 @@ collect_chars_list(Stack,N, [H|T]) ->
 %%	{stop,Result,RestData}
 %%	NewState
 %%% BC (with pre-R13).
+-doc false.
 collect_line(Tag, Data, Any) -> 
     collect_line(Tag, Data, latin1, Any).
 
 %% Now we are aware of encoding...    
+-doc false.
 collect_line(start, Data, Encoding, _) when is_binary(Data) ->
     collect_line_bin(Data, Data, [], Encoding);
 collect_line(start, Data, _, _) when is_list(Data) ->
@@ -955,10 +1192,12 @@ collect_line_list([], Stack) ->
 %% Implements a middleman that is get_until server and get_chars client.
 
 %%% BC (with pre-R13).
+-doc false.
 get_until(Any,Data,Arg) ->
     get_until(Any,Data,latin1,Arg).
 
 %% Now we are aware of encoding...    
+-doc false.
 get_until(start, Data, Encoding, XtraArg) ->
     %% We use the type of the initial data as an indicator of what
     %% the final result should be cast to. We cannot use the final
@@ -1003,6 +1242,7 @@ binrev(L) ->
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
 
+-doc false.
 -spec limit_term(term(), depth()) -> term().
 
 %% The intention is to mimic the depth limitation of io_lib:write()
@@ -1132,6 +1372,7 @@ test_limit_map_assoc(K, V, D) ->
 
 test_limit_bitstring(_, _) -> ok.
 
+-doc false.
 -spec chars_length(chars()) -> non_neg_integer().
 %% Optimized for deep lists S such that deep_latin1_char_list(S) is
 %% true. No binaries allowed! It is assumed that $\r is never followed

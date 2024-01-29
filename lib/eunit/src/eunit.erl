@@ -26,6 +26,7 @@
 %% @doc This module is the main EUnit user interface.
 
 -module(eunit).
+-moduledoc "This module is the main EUnit user interface.".
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -45,69 +46,94 @@
 
 %% @doc Starts the EUnit server. Normally, you don't need to call this
 %% function; it is started automatically.
+-doc """
+start()
+
+Starts the EUnit server. Normally, you don't need to call this function; it is
+started automatically.
+""".
 start() ->
     start(?SERVER).
 
 %% @private
 %% @doc See {@link start/0}.
+-doc false.
 start(Server) ->
     eunit_server:start(Server).
 
 %% @doc Stops the EUnit server. Normally, you don't need to call this
 %% function.
+-doc """
+stop()
+
+Stops the EUnit server. Normally, you don't need to call this function.
+""".
 stop() ->
     stop(?SERVER).
 
 %% @private
 %% @doc See {@link stop/0}.
+-doc false.
 stop(Server) ->
     eunit_server:stop(Server).
 
 %% @private
+-doc false.
 watch(Target) ->
     watch(Target, []).
 
 %% @private
+-doc false.
 watch(Target, Options) ->
     watch(?SERVER, Target, Options).
 
 %% @private
+-doc false.
 watch(Server, Target, Options) ->
     eunit_server:watch(Server, Target, Options).
 
 %% @private
+-doc false.
 watch_path(Target) ->
     watch_path(Target, []).
 
 %% @private
+-doc false.
 watch_path(Target, Options) ->
     watch_path(?SERVER, Target, Options).
 
 %% @private
+-doc false.
 watch_path(Server, Target, Options) ->
     eunit_server:watch_path(Server, Target, Options).
 
 %% @private
+-doc false.
 watch_regexp(Target) ->
     watch_regexp(Target, []).
 
 %% @private
+-doc false.
 watch_regexp(Target, Options) ->
     watch_regexp(?SERVER, Target, Options).
 
 %% @private
+-doc false.
 watch_regexp(Server, Target, Options) ->
     eunit_server:watch_regexp(Server, Target, Options).
 
 %% @private
+-doc false.
 watch_app(Name) ->
     watch_app(Name, []).
 
 %% @private
+-doc false.
 watch_app(Name, Options) ->
     watch_app(?SERVER, Name, Options).
 
 %% @private
+-doc false.
 watch_app(Server, Name, Options) ->
     case code:lib_dir(Name) of
 	Path when is_list(Path) ->
@@ -117,6 +143,11 @@ watch_app(Server, Name, Options) ->
     end.
 
 %% @equiv test(Tests, [])
+-doc """
+test(Tests)
+
+Equivalent to [test(Tests, [])](`test/2`).
+""".
 test(Tests) ->
     test(Tests, []).
 
@@ -150,11 +181,49 @@ test(Tests) ->
 %% Options in the environment variable EUNIT are also included last in
 %% the option list, i.e., have lower precedence than those in `Options'.
 %% @see test/1
+-doc """
+test(Tests,Options)
+
+Runs a set of tests. The format of `Tests` is described in the section
+[EUnit test representation](chapter.md#EUnit_test_representation) of the
+overview.
+
+Example:
+
+```text
+  eunit:test(fred)
+```
+
+runs all tests in the module `fred` and also any tests in the module
+`fred_tests`, if that module exists.
+
+Options:
+
+- **`verbose`** - Displays more details about the running tests.
+
+- **`print_depth`** - Maximum depth to which terms are printed in case of error.
+
+- **`exact_execution`** - If this boolean flag is set to `true` framework will
+  not automatically execute tests found in related module suffixed with
+  "\_tests". This behaviour might be unwanted if execution of modules found in a
+  folder is ordered while it contains both source and test modules.
+
+- **`scale_timeouts`** - If this numeric value is set, timeouts will get scaled
+  accordingly. It may be useful when running a set of tests on a slower host.
+  Examples: `{scale_timeouts,10}` make the timeouts 10 times longer, while
+  `{scale_timeouts,0.1}` would shorten them by a factor of 10.
+
+Options in the environment variable EUNIT are also included last in the option
+list, i.e., have lower precedence than those in `Options`.
+
+_See also: _`test/1`.
+""".
 test(Tests, Options) ->
     test(?SERVER, Tests, all_options(Options)).
 
 %% @private
 %% @doc See {@link test/2}.
+-doc false.
 test(Server, Tests, Options) ->
     Listeners = listeners(Options),
     Serial = eunit_serial:start(Listeners),
@@ -198,14 +267,17 @@ wait_until_listeners_have_terminated([]) ->
 %% TODO: some synchronous but completely quiet interface function
 
 %% @private
+-doc false.
 submit(T) ->
     submit(T, []).
 
 %% @private
+-doc false.
 submit(T, Options) ->
     submit(?SERVER, T, Options).
 
 %% @private
+-doc false.
 submit(Server, T, Options) ->
     Dummy = spawn(fun devnull/0),
     eunit_server:start_test(Server, Dummy, T, Options).

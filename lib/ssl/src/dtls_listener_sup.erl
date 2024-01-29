@@ -24,6 +24,7 @@
 %% correct DTLS handler 
 %%----------------------------------------------------------------------
 -module(dtls_listener_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

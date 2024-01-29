@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGraphicsContext).
+-moduledoc """
+Functions for wxGraphicsContext class
+
+A `m:wxGraphicsContext` instance is the object that is drawn upon. It is created
+by a renderer using `wxGraphicsRenderer:createContext/2`. This can be either
+directly using a renderer instance, or indirectly using the static convenience
+`create/1` functions of `m:wxGraphicsContext` that always delegate the task to
+the default renderer.
+
+Remark: For some renderers (like Direct2D or Cairo) processing of drawing
+operations may be deferred (Direct2D render target normally builds up a batch of
+rendering commands but defers processing of these commands, Cairo operates on a
+separate surface) so to make drawing results visible you need to update the
+content of the context by calling `wxGraphicsContext::Flush()` (not implemented
+in wx) or by destroying the context.
+
+See: `wxGraphicsRenderer:createContext/2`, `m:wxGCDC`, `m:wxDC`
+
+This class is derived (and can use functions) from: `m:wxGraphicsObject`
+
+wxWidgets docs:
+[wxGraphicsContext](https://docs.wxwidgets.org/3.1/classwx_graphics_context.html)
+""".
 -include("wxe.hrl").
 -export([clip/2,clip/5,concatTransform/2,create/0,create/1,createBrush/2,createFont/2,
   createFont/3,createFont/4,createLinearGradientBrush/6,createLinearGradientBrush/7,
@@ -36,16 +59,23 @@
 -type wxGraphicsContext() :: wx:wx_object().
 -export_type([wxGraphicsContext/0]).
 %% @hidden
+-doc false.
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreate">external documentation</a>.
+-doc "Create a lightweight context that can be used only for measuring text.".
 -spec create() -> wxGraphicsContext().
 create() ->
   wxe_util:queue_cmd(?get_env(), ?wxGraphicsContext_Create_STAT_0),
   wxe_util:rec(?wxGraphicsContext_Create_STAT_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreate">external documentation</a>.
+-doc """
+Creates a `m:wxGraphicsContext` from a `m:wxWindowDC`.
+
+See: `wxGraphicsRenderer:createContext/2`
+""".
 -spec create(WindowDC) -> wxGraphicsContext() when
 	WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC() | wxImage:wxImage().
 create(#wx_ref{type=WindowDCT}=WindowDC) ->
@@ -64,6 +94,13 @@ create(#wx_ref{type=WindowDCT}=WindowDC) ->
   wxe_util:rec(?wxGraphicsContext_Create_STAT_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatepen">external documentation</a>.
+-doc """
+Creates a native pen from a `m:wxPen`.
+
+Prefer to use the overload taking `wxGraphicsPenInfo` (not implemented in wx)
+unless you already have a `m:wxPen` as constructing one only to pass it to this
+method is wasteful.
+""".
 -spec createPen(This, Pen) -> wxGraphicsPen:wxGraphicsPen() when
 	This::wxGraphicsContext(), Pen::wxPen:wxPen().
 createPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
@@ -73,6 +110,7 @@ createPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
   wxe_util:rec(?wxGraphicsContext_CreatePen).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatebrush">external documentation</a>.
+-doc "Creates a native brush from a `m:wxBrush`.".
 -spec createBrush(This, Brush) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), Brush::wxBrush:wxBrush().
 createBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
@@ -82,6 +120,10 @@ createBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   wxe_util:rec(?wxGraphicsContext_CreateBrush).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreateradialgradientbrush">external documentation</a>.
+-doc """
+This is an overloaded member function, provided for convenience. It differs from
+the above function only in what argument(s) it accepts.
+""".
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,#wx_ref{type=StopsT}=Stops)
@@ -92,6 +134,11 @@ createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radiu
   wxe_util:rec(?wxGraphicsContext_CreateRadialGradientBrush_6).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreateradialgradientbrush">external documentation</a>.
+-doc """
+`Creates a native brush with a radial gradient. The brush originates at (@a startX, @a startY) and ends on a circle around (@a endX, @a endY) with the given @a radius. The gradient may be specified either by its start and end colours @a oColor and @a cColor or by a full set of gradient @a stops. The version taking wxGraphicsGradientStops is new in wxWidgets 2.9.1.`
+
+The ability to apply a transformation matrix to the gradient was added in 3.1.3
+""".
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, OColor, CColor) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,OColor,CColor)
@@ -101,6 +148,10 @@ createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radiu
   wxe_util:rec(?wxGraphicsContext_CreateRadialGradientBrush_7).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatelineargradientbrush">external documentation</a>.
+-doc """
+This is an overloaded member function, provided for convenience. It differs from
+the above function only in what argument(s) it accepts.
+""".
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=StopsT}=Stops)
@@ -111,6 +162,11 @@ createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=Stop
   wxe_util:rec(?wxGraphicsContext_CreateLinearGradientBrush_5).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatelineargradientbrush">external documentation</a>.
+-doc """
+`Creates a native brush with a linear gradient. The brush starts at (@a x1, @a y1) and ends at (@a x2, @a y2). Either just the start and end gradient colours (@a c1 and @a c2) or full set of gradient @a stops can be specified. The version taking wxGraphicsGradientStops is new in wxWidgets 2.9.1.`
+
+The `matrix` parameter was added in wxWidgets 3.1.3
+""".
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, C1, C2) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), C1::wx:wx_colour(), C2::wx:wx_colour().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,C1,C2)
@@ -133,6 +189,11 @@ createFont(This,Font)
 %% 	This::wxGraphicsContext(), Font::wxFont:wxFont(),<br />
 %% 	Option :: {'col', wx:wx_colour()}.<br />
 %% 
+-doc """
+Creates a native graphics font from a `m:wxFont` and a text colour.
+
+Remark: For Direct2D graphics fonts can be created from TrueType fonts only.
+""".
 -spec createFont(This, SizeInPixels, Facename) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsContext(), SizeInPixels::number(), Facename::unicode:chardata();
       (This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
@@ -153,6 +214,16 @@ createFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font, Options)
   wxe_util:rec(?wxGraphicsContext_CreateFont_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatefont">external documentation</a>.
+-doc """
+Creates a font object with the specified attributes.
+
+The use of overload taking `m:wxFont` is preferred, see
+`wxGraphicsRenderer:createFont/4` for more details.
+
+Remark: For Direct2D graphics fonts can be created from TrueType fonts only.
+
+Since: 2.9.3
+""".
 -spec createFont(This, SizeInPixels, Facename, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsContext(), SizeInPixels::number(), Facename::unicode:chardata(),
 	Option :: {'flags', integer()}
@@ -177,6 +248,11 @@ createMatrix(This)
   createMatrix(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatematrix">external documentation</a>.
+-doc """
+Creates a native affine transformation matrix from the passed in values.
+
+The default parameters result in an identity matrix.
+""".
 -spec createMatrix(This, [Option]) -> wxGraphicsMatrix:wxGraphicsMatrix() when
 	This::wxGraphicsContext(),
 	Option :: {'a', number()}
@@ -200,6 +276,7 @@ createMatrix(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxGraphicsContext_CreateMatrix).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextcreatepath">external documentation</a>.
+-doc "Creates a native graphics path which is initially empty.".
 -spec createPath(This) -> wxGraphicsPath:wxGraphicsPath() when
 	This::wxGraphicsContext().
 createPath(#wx_ref{type=ThisT}=This) ->
@@ -208,6 +285,14 @@ createPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGraphicsContext_CreatePath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextclip">external documentation</a>.
+-doc """
+Sets the clipping region to the intersection of the given region and the
+previously set clipping region.
+
+The clipping region is an area to which drawing is restricted.
+
+Remark:
+""".
 -spec clip(This, Region) -> 'ok' when
 	This::wxGraphicsContext(), Region::wxRegion:wxRegion().
 clip(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
@@ -216,6 +301,10 @@ clip(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   wxe_util:queue_cmd(This,Region,?get_env(),?wxGraphicsContext_Clip_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextclip">external documentation</a>.
+-doc """
+This is an overloaded member function, provided for convenience. It differs from
+the above function only in what argument(s) it accepts.
+""".
 -spec clip(This, X, Y, W, H) -> 'ok' when
 	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 clip(#wx_ref{type=ThisT}=This,X,Y,W,H)
@@ -224,6 +313,7 @@ clip(#wx_ref{type=ThisT}=This,X,Y,W,H)
   wxe_util:queue_cmd(This,X,Y,W,H,?get_env(),?wxGraphicsContext_Clip_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextresetclip">external documentation</a>.
+-doc "Resets the clipping to original shape.".
 -spec resetClip(This) -> 'ok' when
 	This::wxGraphicsContext().
 resetClip(#wx_ref{type=ThisT}=This) ->
@@ -231,6 +321,12 @@ resetClip(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsContext_ResetClip).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawbitmap">external documentation</a>.
+-doc """
+Draws the bitmap.
+
+In case of a mono bitmap, this is treated as a mask and the current brushed is
+used for filling.
+""".
 -spec drawBitmap(This, Bmp, X, Y, W, H) -> 'ok' when
 	This::wxGraphicsContext(), Bmp::wxBitmap:wxBitmap(), X::number(), Y::number(), W::number(), H::number().
 drawBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp,X,Y,W,H)
@@ -240,6 +336,7 @@ drawBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp,X,Y,W,H)
   wxe_util:queue_cmd(This,Bmp,X,Y,W,H,?get_env(),?wxGraphicsContext_DrawBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawellipse">external documentation</a>.
+-doc "Draws an ellipse.".
 -spec drawEllipse(This, X, Y, W, H) -> 'ok' when
 	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 drawEllipse(#wx_ref{type=ThisT}=This,X,Y,W,H)
@@ -248,6 +345,7 @@ drawEllipse(#wx_ref{type=ThisT}=This,X,Y,W,H)
   wxe_util:queue_cmd(This,X,Y,W,H,?get_env(),?wxGraphicsContext_DrawEllipse).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawicon">external documentation</a>.
+-doc "Draws the icon.".
 -spec drawIcon(This, Icon, X, Y, W, H) -> 'ok' when
 	This::wxGraphicsContext(), Icon::wxIcon:wxIcon(), X::number(), Y::number(), W::number(), H::number().
 drawIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon,X,Y,W,H)
@@ -266,6 +364,7 @@ drawLines(This,Points)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawlines">external documentation</a>.
 %%<br /> FillStyle = ?wxODDEVEN_RULE | ?wxWINDING_RULE
+-doc "Draws a polygon.".
 -spec drawLines(This, Points, [Option]) -> 'ok' when
 	This::wxGraphicsContext(), Points::[{X::float(), Y::float()}],
 	Option :: {'fillStyle', wx:wx_enum()}.
@@ -287,6 +386,7 @@ drawPath(This,Path)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawpath">external documentation</a>.
 %%<br /> FillStyle = ?wxODDEVEN_RULE | ?wxWINDING_RULE
+-doc "Draws the path by first filling and then stroking.".
 -spec drawPath(This, Path, [Option]) -> 'ok' when
 	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath(),
 	Option :: {'fillStyle', wx:wx_enum()}.
@@ -300,6 +400,7 @@ drawPath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path, Options)
   wxe_util:queue_cmd(This,Path, Opts,?get_env(),?wxGraphicsContext_DrawPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawrectangle">external documentation</a>.
+-doc "Draws a rectangle.".
 -spec drawRectangle(This, X, Y, W, H) -> 'ok' when
 	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number().
 drawRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H)
@@ -308,6 +409,7 @@ drawRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H)
   wxe_util:queue_cmd(This,X,Y,W,H,?get_env(),?wxGraphicsContext_DrawRectangle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawroundedrectangle">external documentation</a>.
+-doc "Draws a rounded rectangle.".
 -spec drawRoundedRectangle(This, X, Y, W, H, Radius) -> 'ok' when
 	This::wxGraphicsContext(), X::number(), Y::number(), W::number(), H::number(), Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H,Radius)
@@ -316,6 +418,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT}=This,X,Y,W,H,Radius)
   wxe_util:queue_cmd(This,X,Y,W,H,Radius,?get_env(),?wxGraphicsContext_DrawRoundedRectangle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
+-doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number().
 drawText(#wx_ref{type=ThisT}=This,Str,X,Y)
@@ -329,6 +432,7 @@ drawText(#wx_ref{type=ThisT}=This,Str,X,Y)
 %% drawText(This, Str, X, Y, BackgroundBrush) -> 'ok' when<br />
 %% 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().<br />
 %% 
+-doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y, Angle) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number();
       (This, Str, X, Y, BackgroundBrush) -> 'ok' when
@@ -346,6 +450,7 @@ drawText(#wx_ref{type=ThisT}=This,Str,X,Y,#wx_ref{type=BackgroundBrushT}=Backgro
   wxe_util:queue_cmd(This,Str_UC,X,Y,BackgroundBrush,?get_env(),?wxGraphicsContext_DrawText_4_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
+-doc "Draws text at the defined position.".
 -spec drawText(This, Str, X, Y, Angle, BackgroundBrush) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT}=This,Str,X,Y,Angle,#wx_ref{type=BackgroundBrushT}=BackgroundBrush)
@@ -365,6 +470,7 @@ fillPath(This,Path)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextfillpath">external documentation</a>.
 %%<br /> FillStyle = ?wxODDEVEN_RULE | ?wxWINDING_RULE
+-doc "Fills the path with the current brush.".
 -spec fillPath(This, Path, [Option]) -> 'ok' when
 	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath(),
 	Option :: {'fillStyle', wx:wx_enum()}.
@@ -378,6 +484,7 @@ fillPath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path, Options)
   wxe_util:queue_cmd(This,Path, Opts,?get_env(),?wxGraphicsContext_FillPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextstrokepath">external documentation</a>.
+-doc "Strokes along a path with the current pen.".
 -spec strokePath(This, Path) -> 'ok' when
 	This::wxGraphicsContext(), Path::wxGraphicsPath:wxGraphicsPath().
 strokePath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path) ->
@@ -386,6 +493,10 @@ strokePath(#wx_ref{type=ThisT}=This,#wx_ref{type=PathT}=Path) ->
   wxe_util:queue_cmd(This,Path,?get_env(),?wxGraphicsContext_StrokePath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextgetpartialtextextents">external documentation</a>.
+-doc """
+Fills the `widths` array with the widths from the beginning of `text` to the
+corresponding character of `text`.
+""".
 -spec getPartialTextExtents(This, Text) -> [number()] when
 	This::wxGraphicsContext(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT}=This,Text)
@@ -396,6 +507,7 @@ getPartialTextExtents(#wx_ref{type=ThisT}=This,Text)
   wxe_util:rec(?wxGraphicsContext_GetPartialTextExtents).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextgettextextent">external documentation</a>.
+-doc "Gets the dimensions of the string using the currently selected font.".
 -spec getTextExtent(This, Text) -> Result when
 	Result ::{Width::number(), Height::number(), Descent::number(), ExternalLeading::number()},
 	This::wxGraphicsContext(), Text::unicode:chardata().
@@ -407,6 +519,7 @@ getTextExtent(#wx_ref{type=ThisT}=This,Text)
   wxe_util:rec(?wxGraphicsContext_GetTextExtent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextrotate">external documentation</a>.
+-doc "Rotates the current transformation matrix (in radians).".
 -spec rotate(This, Angle) -> 'ok' when
 	This::wxGraphicsContext(), Angle::number().
 rotate(#wx_ref{type=ThisT}=This,Angle)
@@ -415,6 +528,7 @@ rotate(#wx_ref{type=ThisT}=This,Angle)
   wxe_util:queue_cmd(This,Angle,?get_env(),?wxGraphicsContext_Rotate).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextscale">external documentation</a>.
+-doc "Scales the current transformation matrix.".
 -spec scale(This, XScale, YScale) -> 'ok' when
 	This::wxGraphicsContext(), XScale::number(), YScale::number().
 scale(#wx_ref{type=ThisT}=This,XScale,YScale)
@@ -423,6 +537,7 @@ scale(#wx_ref{type=ThisT}=This,XScale,YScale)
   wxe_util:queue_cmd(This,XScale,YScale,?get_env(),?wxGraphicsContext_Scale).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontexttranslate">external documentation</a>.
+-doc "Translates the current transformation matrix.".
 -spec translate(This, Dx, Dy) -> 'ok' when
 	This::wxGraphicsContext(), Dx::number(), Dy::number().
 translate(#wx_ref{type=ThisT}=This,Dx,Dy)
@@ -431,6 +546,7 @@ translate(#wx_ref{type=ThisT}=This,Dx,Dy)
   wxe_util:queue_cmd(This,Dx,Dy,?get_env(),?wxGraphicsContext_Translate).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextgettransform">external documentation</a>.
+-doc "Gets the current transformation matrix of this context.".
 -spec getTransform(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
 	This::wxGraphicsContext().
 getTransform(#wx_ref{type=ThisT}=This) ->
@@ -439,6 +555,7 @@ getTransform(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGraphicsContext_GetTransform).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextsettransform">external documentation</a>.
+-doc "Sets the current transformation matrix of this context.".
 -spec setTransform(This, Matrix) -> 'ok' when
 	This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
 setTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
@@ -447,6 +564,7 @@ setTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
   wxe_util:queue_cmd(This,Matrix,?get_env(),?wxGraphicsContext_SetTransform).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextconcattransform">external documentation</a>.
+-doc "Concatenates the passed in transform with the current transform of this context.".
 -spec concatTransform(This, Matrix) -> 'ok' when
 	This::wxGraphicsContext(), Matrix::wxGraphicsMatrix:wxGraphicsMatrix().
 concatTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
@@ -455,6 +573,7 @@ concatTransform(#wx_ref{type=ThisT}=This,#wx_ref{type=MatrixT}=Matrix) ->
   wxe_util:queue_cmd(This,Matrix,?get_env(),?wxGraphicsContext_ConcatTransform).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextsetbrush">external documentation</a>.
+-doc "Sets the brush for filling paths.".
 -spec setBrush(This, Brush) -> 'ok' when
 	This::wxGraphicsContext(), Brush::wxGraphicsBrush:wxGraphicsBrush() | wxBrush:wxBrush().
 setBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
@@ -469,6 +588,7 @@ setBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   wxe_util:queue_cmd(This,wx:typeCast(Brush, BrushType),?get_env(),?wxGraphicsContext_SetBrush).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextsetfont">external documentation</a>.
+-doc "Sets the font for drawing text.".
 -spec setFont(This, Font) -> 'ok' when
 	This::wxGraphicsContext(), Font::wxGraphicsFont:wxGraphicsFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
@@ -477,6 +597,11 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   wxe_util:queue_cmd(This,Font,?get_env(),?wxGraphicsContext_SetFont_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextsetfont">external documentation</a>.
+-doc """
+Sets the font for drawing text.
+
+Remark: For Direct2D only TrueType fonts can be used.
+""".
 -spec setFont(This, Font, Colour) -> 'ok' when
 	This::wxGraphicsContext(), Font::wxFont:wxFont(), Colour::wx:wx_colour().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font,Colour)
@@ -486,6 +611,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font,Colour)
   wxe_util:queue_cmd(This,Font,wxe_util:color(Colour),?get_env(),?wxGraphicsContext_SetFont_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextsetpen">external documentation</a>.
+-doc "Sets the pen used for stroking.".
 -spec setPen(This, Pen) -> 'ok' when
 	This::wxGraphicsContext(), Pen::wxPen:wxPen() | wxGraphicsPen:wxGraphicsPen().
 setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
@@ -500,6 +626,7 @@ setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
   wxe_util:queue_cmd(This,wx:typeCast(Pen, PenType),?get_env(),?wxGraphicsContext_SetPen).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextstrokeline">external documentation</a>.
+-doc "Strokes a single line.".
 -spec strokeLine(This, X1, Y1, X2, Y2) -> 'ok' when
 	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number().
 strokeLine(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2)
@@ -508,6 +635,12 @@ strokeLine(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2)
   wxe_util:queue_cmd(This,X1,Y1,X2,Y2,?get_env(),?wxGraphicsContext_StrokeLine).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicscontext.html#wxgraphicscontextstrokelines">external documentation</a>.
+-doc """
+Stroke lines connecting all the points.
+
+Unlike the other overload of this function, this method draws a single polyline
+and not a number of disconnected lines.
+""".
 -spec strokeLines(This, Points) -> 'ok' when
 	This::wxGraphicsContext(), Points::[{X::float(), Y::float()}].
 strokeLines(#wx_ref{type=ThisT}=This,Points)
@@ -516,6 +649,11 @@ strokeLines(#wx_ref{type=ThisT}=This,Points)
   wxe_util:queue_cmd(This,Points,?get_env(),?wxGraphicsContext_StrokeLines).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Creates a `m:wxGraphicsContext` from a `m:wxWindow`.
+
+See: `wxGraphicsRenderer:createContext/2`
+""".
 -spec destroy(This::wxGraphicsContext()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGraphicsContext),
@@ -523,6 +661,8 @@ destroy(Obj=#wx_ref{type=Type}) ->
   ok.
  %% From wxGraphicsObject
 %% @hidden
+-doc false.
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden
+-doc false.
 getRenderer(This) -> wxGraphicsObject:getRenderer(This).

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
+-moduledoc false.
 -compile(r24).
 
 %% Test Controller interface

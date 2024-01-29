@@ -24,6 +24,7 @@
 %%=======================================================================
 
 -module(beam_disasm).
+-moduledoc false.
 
 -export([file/1]). %% the main function
 -export([function__code/1, format_error/1]).

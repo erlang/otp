@@ -47,6 +47,7 @@
 %%
 
 -module(diameter_capx).
+-moduledoc false.
 
 -export([build_CER/2,
          recv_CER/3,

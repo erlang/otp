@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_lib).
+-moduledoc false.
 
 -export([get_wx_parent/1,
 	 display_info_dialog/2, display_yes_no_dialog/1,

@@ -21,6 +21,7 @@
 %%
 
 -module(pubkey_os_cacerts).
+-moduledoc false.
 
 -include("public_key.hrl").
 -include_lib("kernel/include/file.hrl").

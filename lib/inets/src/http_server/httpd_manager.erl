@@ -20,6 +20,7 @@
 %%
 
 -module(httpd_manager).
+-moduledoc false.
 
 -include("httpd.hrl").
 

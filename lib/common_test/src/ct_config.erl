@@ -24,6 +24,7 @@
 %% Created : 15 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config).
+-moduledoc false.
 -compile([{nowarn_deprecated_function,{crypto,block_decrypt,4}},
           {nowarn_deprecated_function,{crypto,block_encrypt,4}}]).
 

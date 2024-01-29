@@ -19,6 +19,37 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDropFilesEvent).
+-moduledoc """
+Functions for wxDropFilesEvent class
+
+This class is used for drop files events, that is, when files have been dropped
+onto the window.
+
+The window must have previously been enabled for dropping by calling
+`wxWindow:dragAcceptFiles/2`.
+
+Important note: this is a separate implementation to the more general drag and
+drop implementation documented in the overview_dnd. It uses the older, Windows
+message-based approach of dropping files.
+
+Remark: Windows only until version 2.8.9, available on all platforms since
+2.8.10.
+
+See:
+[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events),
+`wxWindow:dragAcceptFiles/2`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs:
+[wxDropFilesEvent](https://docs.wxwidgets.org/3.1/classwx_drop_files_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with
+[`wxDropFilesEventType`](`t:wxDropFilesEventType/0`) to subscribe to events of
+this type.
+""".
 -include("wxe.hrl").
 -export([getFiles/1,getNumberOfFiles/1,getPosition/1]).
 
@@ -31,10 +62,16 @@
 -type wxDropFilesEventType() :: 'drop_files'.
 -export_type([wxDropFilesEvent/0, wxDropFiles/0, wxDropFilesEventType/0]).
 %% @hidden
+-doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetposition">external documentation</a>.
+-doc """
+Returns the position at which the files were dropped.
+
+Returns an array of filenames.
+""".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxDropFilesEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
@@ -43,6 +80,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDropFilesEvent_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetnumberoffiles">external documentation</a>.
+-doc "Returns the number of files dropped.".
 -spec getNumberOfFiles(This) -> integer() when
 	This::wxDropFilesEvent().
 getNumberOfFiles(#wx_ref{type=ThisT}=This) ->
@@ -51,6 +89,7 @@ getNumberOfFiles(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDropFilesEvent_GetNumberOfFiles).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetfiles">external documentation</a>.
+-doc "Returns an array of filenames.".
 -spec getFiles(This) -> [unicode:charlist()] when
 	This::wxDropFilesEvent().
 getFiles(#wx_ref{type=ThisT}=This) ->
@@ -60,20 +99,29 @@ getFiles(#wx_ref{type=ThisT}=This) ->
 
  %% From wxEvent
 %% @hidden
+-doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden
+-doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
 %% @hidden
+-doc false.
 skip(This) -> wxEvent:skip(This).
 %% @hidden
+-doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
 %% @hidden
+-doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
 %% @hidden
+-doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
 %% @hidden
+-doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
 %% @hidden
+-doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
+-doc false.
 getId(This) -> wxEvent:getId(This).

@@ -23,6 +23,7 @@
 %% 
 
 -module(ssh_lib).
+-moduledoc false.
 
 -export([
          format_address_port/2, format_address_port/1,

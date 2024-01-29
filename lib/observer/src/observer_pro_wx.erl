@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_pro_wx).
+-moduledoc false.
 
 -behaviour(wx_object).
 

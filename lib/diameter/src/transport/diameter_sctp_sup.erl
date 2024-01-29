@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_sctp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

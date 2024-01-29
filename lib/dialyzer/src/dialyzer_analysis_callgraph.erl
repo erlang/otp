@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_analysis_callgraph).
+-moduledoc false.
 
 -export([start/3]).
 

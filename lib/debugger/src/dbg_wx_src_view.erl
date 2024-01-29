@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_wx_src_view).
+-moduledoc false.
 
 -export([code_area/2]).
 -include_lib("wx/include/wx.hrl").

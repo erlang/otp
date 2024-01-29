@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_ssa_pp).
+-moduledoc false.
 
 -export([format_function/1,format_instr/1,format_var/1,format_type/1]).
 

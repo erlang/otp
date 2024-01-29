@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_wx_filedialog_win).
+-moduledoc false.
 
 -behaviour(wx_object).
 

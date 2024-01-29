@@ -27,6 +27,7 @@
 %% ----------------------------------------------------------------------
 
 -module(tls_dyn_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

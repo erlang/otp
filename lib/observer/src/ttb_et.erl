@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ttb_et).
+-moduledoc false.
 -author('siri@erix.ericsson.se').
 
 -include("et.hrl").

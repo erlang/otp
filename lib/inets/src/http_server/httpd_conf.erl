@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_conf).
+-moduledoc false.
 
 %% Application internal API
 -export([load_mime_types/1, store/1, store/2,

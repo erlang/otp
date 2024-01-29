@@ -25,6 +25,7 @@
 %%
 
 -module(beam_digraph).
+-moduledoc false.
 
 -export([new/0,
          add_vertex/2, add_vertex/3, add_edge/3, add_edge/4,

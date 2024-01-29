@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_cgi).
+-moduledoc false.
 
 -export([parse_headers/1, handle_headers/1]).
 

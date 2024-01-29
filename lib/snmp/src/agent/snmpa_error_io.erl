@@ -18,6 +18,20 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_error_io).
+-moduledoc """
+Functions for Reporting SNMP Errors on stdio
+
+The module `snmpa_error_io` implements the `snmp_error_report` behaviour (see
+`m:snmpa_error_report`) containing two callback functions which are called in
+order to report SNMP errors.
+
+This module provides a simple mechanism for reporting SNMP errors. Errors are
+written to stdout using the `io` module. It is provided as an simple example.
+
+This module needs to be explicitly configured, see
+[snmpa_error](`m:snmpa_error#desc`) and
+[configuration parameters](snmp_config.md#configuration_params).
+""".
 
 -behaviour(snmpa_error_report).
 
@@ -32,6 +46,14 @@
 %% This function is called when there is an error in a user
 %% supplied item, e.g. instrumentation function.
 %%-----------------------------------------------------------------
+-doc """
+user_err(Format, Args) -> void()
+
+The function is called if a user related error occurs at run-time, for example
+if a user defined instrumentation function returns erroneous.
+
+`Format` and `Args` are as in `io:format(Format, Args)`.
+""".
 user_err(F, A) -> 
     error_msg("User error", F, A).
 
@@ -41,6 +63,14 @@ user_err(F, A) ->
 %% either at startup (in a conf-file) or at run-time (e.g. when 
 %% information in the configuration tables are inconsistent.)
 %%-----------------------------------------------------------------
+-doc """
+config_err(Format, Args) -> void()
+
+The function is called if an error occurs during the configuration phase, for
+example if a syntax error is found in a configuration file.
+
+`Format` and `Args` are as in `io:format(Format, Args)`.
+""".
 config_err(F, A) ->
     error_msg("Configuration error", F, A).
 

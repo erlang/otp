@@ -20,6 +20,7 @@
 
 %%
 -module(xmerl_regexp).
+-moduledoc false.
 
 %% This module provides a basic set of regular expression functions
 %% for strings. The functions provided are taken from AWK.

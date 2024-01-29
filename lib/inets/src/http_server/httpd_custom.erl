@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_custom).
+-moduledoc false.
 
 -export([response_header/1, request_header/1, response_default_headers/0]).
 -export([customize_headers/3, response_default_headers/1]).

@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_user_default).
+-moduledoc false.
 
 -behaviour(megaco_user).
 

@@ -19,6 +19,20 @@
 %%
 %%
 -module(httpd_socket).
+-moduledoc """
+Communication utility functions to be used by the Erlang web server API
+programmer.
+
+This module provides the Erlang web server API module programmer with utility
+functions for generic sockets communication. The appropriate communication
+mechanism is transparently used, that is, `ip_comm` or `ssl`.
+
+[](){: #deliver } [](){: #see_also }
+
+## SEE ALSO
+
+`m:httpd`
+""".
 
 %% API  (document close ?)
 -export([deliver/3,  peername/2, resolve/0,  close/2]).
@@ -28,6 +42,17 @@
 -define(VMODULE,"SOCKET").
 -include_lib("kernel/include/inet.hrl").
 
+-doc """
+deliver(SocketType, Socket, Data) -> Result
+
+[](){: #deliver }
+
+[`deliver/3`](`deliver/3`) sends `Data` over `Socket` using the specified
+`SocketType`. `Socket` and `SocketType` is to be the socket and the
+`socket_type` form the `mod` record as defined in `httpd.hrl`
+
+[](){: #peername }
+""".
 deliver(SocketType, Socket, IOListOrBinary)  ->
     case http_transport:send(SocketType, Socket, IOListOrBinary) of
 	{error, _Reason} ->
@@ -37,12 +62,30 @@ deliver(SocketType, Socket, IOListOrBinary)  ->
 	    ok
     end.
 
+-doc """
+peername(SocketType,Socket) -> {Port,IPAddress}
+
+[](){: #peername }
+
+[`peername/2`](`peername/2`) returns the `Port` and `IPAddress` of the remote
+`Socket`.
+
+[](){: #resolve }
+""".
 peername(SocketType, Socket) ->
     http_transport:peername(SocketType, Socket).
 
+-doc """
+resolve() -> HostName
+
+[](){: #resolve }
+
+`resolve/0` returns the official `HostName` of the current host.
+""".
 resolve() ->
    http_transport:resolve().
 
+-doc false.
 close(SocketType, Socket) ->
     close_sleep(SocketType, 1000),
     Res = 

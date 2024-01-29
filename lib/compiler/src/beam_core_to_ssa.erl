@@ -58,6 +58,7 @@
 %%
 
 -module(beam_core_to_ssa).
+-moduledoc false.
 
 -export([module/2,format_error/1]).
 

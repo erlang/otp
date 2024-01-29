@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_ets_cb).
+-moduledoc false.
 
 -export([col_to_elem/1,
 	 col_spec/0,

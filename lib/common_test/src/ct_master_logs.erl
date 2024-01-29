@@ -23,6 +23,7 @@
 %%% This module implements a logger for the master
 %%% node.
 -module(ct_master_logs).
+-moduledoc false.
 
 -export([start/2, make_all_runs_index/0, log/3, nodedir/2,
 	 stop/0]).

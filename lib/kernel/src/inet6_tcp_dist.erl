@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet6_tcp_dist).
+-moduledoc false.
 
 %% Handles the connection setup phase with other Erlang nodes.
 

@@ -24,6 +24,7 @@
 %%% as a suite_callback.
 
 -module(cth_surefire).
+-moduledoc false.
 
 %% Suite Callbacks
 -export([id/1, init/2]).

@@ -61,6 +61,7 @@
 %% ----------------------------------------------------------------------
 
 -module(ssl_certificate).
+-moduledoc false.
 
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").

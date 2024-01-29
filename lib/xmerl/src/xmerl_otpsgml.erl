@@ -21,6 +21,7 @@
 %%% Description  : Callback module for exporting XHTML to OTP-SGML.
 
 -module(xmerl_otpsgml).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_symbolic_store).
+-moduledoc false.
 
 %%----------------------------------------------------------------------
 %% This module implements a multipurpose symbolic store.

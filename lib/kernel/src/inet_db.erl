@@ -19,6 +19,7 @@
 %%
 
 -module(inet_db).
+-moduledoc false.
 
 %% Store info about ip addresses, names, aliases host files resolver
 %% options.

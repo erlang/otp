@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_session).
+-moduledoc false.
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").

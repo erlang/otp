@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_channel).
+-moduledoc false.
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").

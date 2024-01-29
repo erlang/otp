@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_gen_statem).
+-moduledoc false.
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").

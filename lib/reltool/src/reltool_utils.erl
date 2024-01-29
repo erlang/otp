@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_utils).
+-moduledoc false.
 
 %% Public
 -export([root_dir/0, erl_libs/0, lib_dirs/1,

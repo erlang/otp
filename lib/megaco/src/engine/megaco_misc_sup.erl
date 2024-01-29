@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_misc_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

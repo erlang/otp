@@ -32,6 +32,7 @@
 %%---------------------------------------------------------------
 
 -module(ct_telnet_client).
+-moduledoc false.
 
 %%-define(debug, true).
 

@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_break).
+-moduledoc false.
 
 %% External exports
 -export([start/3, start/4, start/5]).

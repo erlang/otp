@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_trace_wx).
+-moduledoc false.
 
 -export([start_link/3, add_processes/1, add_ports/1]).
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,

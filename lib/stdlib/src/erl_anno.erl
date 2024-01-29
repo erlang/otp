@@ -19,6 +19,57 @@
 %%
 
 -module(erl_anno).
+-moduledoc """
+Abstract datatype for the annotations of the Erlang Compiler.
+
+This module provides an abstract type that is used by the Erlang Compiler and
+its helper modules for holding data such as column, line number, and text. The
+data type is a collection of _annotations_{: #annotations } as described in the
+following.
+
+The Erlang Token Scanner returns tokens with a subset of the following
+annotations, depending on the options:
+
+- **`column`** - The column where the token begins.
+
+- **`location`** - The line and column where the token begins, or just the line
+  if the column is unknown.
+
+- **`text`** - The token's text.
+
+From this, the following annotation is derived:
+
+- **`line`** - The line where the token begins.
+
+This module also supports the following annotations, which are used by various
+modules:
+
+- **`file`** - A filename.
+
+- **`generated`** - A Boolean indicating if the abstract code is
+  compiler-generated. The Erlang Compiler does not emit warnings for such code.
+
+- **`record`** - A Boolean indicating if the origin of the abstract code is a
+  record. Used by [Dialyzer](`m:dialyzer`) to assign types to tuple elements.
+
+The functions [`column()`](`erl_scan:column/1`),
+[`end_location()`](`erl_scan:end_location/1`), [`line()`](`erl_scan:line/1`),
+[`location()`](`erl_scan:location/1`), and [`text()`](`erl_scan:text/1`) in the
+`erl_scan` module can be used for inspecting annotations in tokens.
+
+The functions [`anno_from_term()`](`erl_parse:anno_from_term/1`),
+[`anno_to_term()`](`erl_parse:anno_to_term/1`),
+[`fold_anno()`](`erl_parse:fold_anno/3`),
+[`map_anno()`](`erl_parse:map_anno/2`),
+[`mapfold_anno()`](`erl_parse:mapfold_anno/3`), and
+[`new_anno()`](`erl_parse:new_anno/1`), in the `erl_parse` module can be used
+for manipulating annotations in abstract code.
+
+## See Also
+
+`m:erl_parse`, `m:erl_scan`
+""".
+-moduledoc(#{since => "OTP 18.0"}).
 
 -export([new/1, is_anno/1]).
 -export([column/1, end_location/1, file/1, generated/1,
@@ -55,8 +106,13 @@
 -ifdef(DEBUG).
 -opaque anno() :: [annotation(), ...].
 -else.
+-doc "A collection of annotations.".
 -opaque anno() :: location() | [annotation(), ...].
 -endif.
+-doc """
+The term representing a collection of annotations. It is either a `t:location/0`
+or a list of key-value pairs.
+""".
 -type anno_term() :: term().
 
 -type column() :: pos_integer().
@@ -76,6 +132,12 @@
 -define(ACOLUMN(C), ?COL(C)).
 -endif.
 
+-doc """
+Returns the term representing the annotations Anno.
+
+See also [from_term()](`from_term/1`).
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec to_term(Anno) -> anno_term() when
       Anno :: anno().
 
@@ -87,6 +149,12 @@ to_term(Anno) ->
     Anno.
 -endif.
 
+-doc """
+Returns annotations with representation Term.
+
+See also [to_term()](`to_term/1`).
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec from_term(Term) -> Anno when
       Term :: anno_term(),
       Anno :: anno().
@@ -105,6 +173,8 @@ from_term(Term) ->
     Term.
 -endif.
 
+-doc "Creates a new collection of annotations given a location.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec new(Location) -> anno() when
       Location :: location().
 
@@ -123,6 +193,8 @@ new_location(Location) ->
     Location.
 -endif.
 
+-doc "Returns `true` if Term is a collection of annotations, otherwise `false`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec is_anno(Term) -> boolean() when
       Term :: any().
 
@@ -161,6 +233,8 @@ is_filename(T) ->
 is_string(T) ->
     is_list(T).
 
+-doc "Returns the column of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec column(Anno) -> column() | 'undefined' when
       Anno :: anno().
 
@@ -176,6 +250,11 @@ column(Anno) ->
             undefined
     end.
 
+-doc """
+Returns the end location of the text of the annotations Anno. If there is no
+text, `undefined` is returned.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec end_location(Anno) -> location() | 'undefined' when
       Anno :: anno().
 
@@ -192,6 +271,11 @@ end_location(Anno) ->
             end
     end.
 
+-doc """
+Returns the filename of the annotations Anno. If there is no filename,
+`undefined` is returned.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec file(Anno) -> filename() | 'undefined' when
       Anno :: anno().
 
@@ -202,6 +286,11 @@ file({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
 file(Anno) ->
     anno_info(Anno, file).
 
+-doc """
+Returns `true` if annotations Anno is marked as generated. The default is to
+return `false`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec generated(Anno) -> generated() when
       Anno :: anno().
 
@@ -212,6 +301,8 @@ generated({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
 generated(Anno) ->
     anno_info(Anno, generated, false).
 
+-doc "Returns the line of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec line(Anno) -> line() when
       Anno :: anno().
 
@@ -223,6 +314,8 @@ line(Anno) ->
             Line
     end.
 
+-doc "Returns the location of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec location(Anno) -> location() when
       Anno :: anno().
 
@@ -233,6 +326,7 @@ location({Line, Column}=Location) when ?ALINE(Line), ?ACOLUMN(Column) ->
 location(Anno) ->
     anno_info(Anno, location).
 
+-doc false.
 -spec record(Anno) -> record() when
       Anno :: anno().
 
@@ -243,6 +337,11 @@ record({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
 record(Anno) ->
     anno_info(Anno, record, false).
 
+-doc """
+Returns the text of the annotations Anno. If there is no text, `undefined` is
+returned.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec text(Anno) -> text() | 'undefined' when
       Anno :: anno().
 
@@ -253,6 +352,8 @@ text({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
 text(Anno) ->
     anno_info(Anno, text).
 
+-doc "Modifies the filename of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_file(File, Anno) -> Anno when
       File :: filename(),
       Anno :: anno().
@@ -260,6 +361,8 @@ text(Anno) ->
 set_file(File, Anno) ->
     set(file, File, Anno).
 
+-doc "Modifies the generated marker of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_generated(Generated, Anno) -> Anno when
       Generated :: generated(),
       Anno :: anno().
@@ -267,6 +370,8 @@ set_file(File, Anno) ->
 set_generated(Generated, Anno) ->
     set(generated, Generated, Anno).
 
+-doc "Modifies the line of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_line(Line, Anno) -> Anno when
       Line :: line(),
       Anno :: anno().
@@ -279,6 +384,8 @@ set_line(Line, Anno) ->
             set_location(Line, Anno)
     end.
 
+-doc "Modifies the location of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_location(Location, Anno) -> Anno when
       Location :: location(),
       Anno :: anno().
@@ -296,6 +403,8 @@ set_location({L, C}=Loc, {Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column),
 set_location(Location, Anno) ->
     set(location, Location, Anno).
 
+-doc "Modifies the record marker of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_record(Record, Anno) -> Anno when
       Record :: record(),
       Anno :: anno().
@@ -303,6 +412,8 @@ set_location(Location, Anno) ->
 set_record(Record, Anno) ->
     set(record, Record, Anno).
 
+-doc "Modifies the text of the annotations Anno.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec set_text(Text, Anno) -> Anno when
       Text :: text(),
       Anno :: anno().

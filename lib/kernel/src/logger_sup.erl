@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

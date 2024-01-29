@@ -18,6 +18,23 @@
 %% %CopyrightEnd%
 %%
 -module(http_uri).
+-moduledoc """
+Old URI utility module, use uri_string instead
+
+This module is deprecated since OTP 23. Use the module `m:uri_string` to
+properly handle URIs, this is the recommended module since OTP 21.
+
+## DATA TYPES
+
+Type definitions that are related to URI:
+
+- **`uri_part() = [byte()] | binary()`** - Syntax according to the URI
+  definition in RFC 3986, for example, "http://www.erlang.org/"
+
+For more information about URI, see
+[RFC 3986](http://www.ietf.org/rfc/rfc3986.txt).
+""".
+-moduledoc(#{since => "OTP R15B01"}).
 
 -export([encode/1, decode/1]).
 
@@ -44,6 +61,18 @@ reserved() ->
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
+-doc """
+encode(DecodedPart) -> EncodedPart
+
+> #### Warning {: .warning }
+>
+> Do not use will be removed use `uri_string:quote/1` instead
+
+Performes prrcent encoding.
+
+[](){: #decode }
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
@@ -51,6 +80,16 @@ encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
     << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
+-doc """
+decode(EncodedPart) -> DecodePart
+
+> #### Warning {: .warning }
+>
+> Do not use will be removed use `uri_string:unquote/1` instead
+
+Decodes a possibly percent encoded URI part
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 decode(String) when is_list(String) ->
     do_decode(String);
 decode(String) when is_binary(String) ->

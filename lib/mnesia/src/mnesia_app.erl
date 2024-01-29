@@ -19,6 +19,7 @@
 %%
 
 -module(mnesia_app).
+-moduledoc false.
 
 -behaviour(application).
 

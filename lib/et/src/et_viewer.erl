@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_viewer).
+-moduledoc "Displays a sequence chart for trace events (messages/actions)".
 
 
 %% External exports
@@ -73,6 +74,12 @@
 %% ViewerPid = pid()
 %% Reason = term()
 %%----------------------------------------------------------------------
+-doc """
+file(FileName) -> {ok, ViewerPid} | {error, Reason}
+
+Start a new event viewer and a corresponding collector and load them with trace
+events from a trace file.
+""".
 -spec file(FileName::file:filename()) -> {ok, pid()} | {error, term()}.
 file(FileName) ->
     start_link([{trace_client, {file, FileName}}], default).
@@ -88,6 +95,13 @@ file(FileName) ->
 %% processes are unlinked from the calling process.
 %%----------------------------------------------------------------------
 
+-doc """
+start() -> ok
+
+Simplified start of a sequence chart viewer with global tracing activated.
+
+Convenient to be used from the command line (erl -s et_viewer).
+""".
 -spec start() -> {ok, pid()} | {error, term()}.
 start() ->
     start([{trace_global, true}], default).
@@ -95,6 +109,11 @@ start() ->
 %%----------------------------------------------------------------------
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
+-doc """
+start(Options) -> ok
+
+Start of a sequence chart viewer without linking to the parent process.
+""".
 -spec start(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
       GUIorOptions :: wx | default | Options,
       Options :: [option() | et_collector:option()].
@@ -103,6 +122,7 @@ start(GUI) when GUI =:= wx; GUI =:= default ->
 start(Options) ->
     start_link([{parent_pid, undefined} | Options], default).
 
+-doc false.
 -spec start(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
       GUI :: wx | default,
       Options :: [option() | et_collector:option()].
@@ -164,6 +184,39 @@ start(Options, GUI) ->
 %% A filter_fun() takes an event record as sole argument
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
+-doc """
+start_link(Options) -> {ok, ViewerPid} | {error, Reason}
+
+Start a sequence chart viewer for trace events (messages/actions)
+
+A filter_fun() takes an event record as sole argument and returns false | true |
+\{true, NewEvent\}.
+
+If the `collector_pid` is `undefined` a new `et_collector` will be started with
+the following parameter settings: `parent_pid`, `event_order`, `trace_global`,
+`trace_pattern`, `trace_port`, `trace_max_queue`, `trace_client`, `dict_insert`
+and `dict_delete`. The new `et_viewer` will register itself as an `et_collector`
+subscriber.
+
+Default values:
+
+- parent_pid - self().
+- title - "et_viewer".
+- detail_level - max.
+- is_suspended - false.
+- scale - 2.
+- width - 800.
+- height - 600.
+- collector_pid - undefined.
+- event_order - trace_ts.
+- active_filter - collector.
+- max_actors - 5.
+- actors - \["UNKNOWN"].
+- first_event - first.
+- hide_unknown - false.
+- hide_actions - false.
+- display_mode - all.
+""".
 -spec start_link(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
       GUIorOptions :: wx | default | Options,
       Options :: [option() | et_collector:option()].
@@ -172,6 +225,7 @@ start_link(GUI) when GUI =:= wx; GUI =:= default ->
 start_link(Options) ->
     start_link(Options, default).
 
+-doc false.
 -spec start_link(Options, GUI) -> {ok, Viewer::pid()} | {error, term()} when
       GUI :: wx | default,
       Options :: [option() | et_collector:option()].
@@ -185,6 +239,11 @@ start_link(Options, GUI) ->
 
 which_gui() -> wx.
 
+-doc """
+get_collector_pid(ViewerPid) -> CollectorPid
+
+Returns the identifier of the collector process.
+""".
 -spec get_collector_pid(ViewerPid::pid()) -> pid().
 get_collector_pid(ViewerPid) ->
     call(ViewerPid, get_collector_pid).
@@ -196,6 +255,11 @@ get_collector_pid(ViewerPid) ->
 %% 
 %% ViewerPid = pid()
 %%----------------------------------------------------------------------
+-doc """
+stop(ViewerPid) -> ok
+
+Stops a viewer process.
+""".
 -spec stop(ViewerPid::pid()) -> ok.
 stop(ViewerPid) ->
     call(ViewerPid, stop).
@@ -203,6 +267,7 @@ stop(ViewerPid) ->
 
 %%----------------------------------------------------------------------
 
+-doc false.
 open_event(ViewerPid, N) ->
     call(ViewerPid, {open_event, N}).
 
