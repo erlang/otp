@@ -7500,275 +7500,299 @@ Process message queue data configuration. For more information, see
 	off_heap | on_heap.
 
 -doc """
-[](){: #process_flag_async_dist }
-
-Enable or disable _fully asynchronous distributed signaling_ for the calling
-process. When disabled, which is the default, the process sending a distributed
-signal will block in the send operation if the buffer for the distribution
-channel reach the [distribution buffer busy limit](erl_cmd.md#%2Bzdbbl). The
-process will remain blocked until the buffer shrinks enough. This might in some
-cases take a substantial amount of time. When `async_dist` is enabled, send
-operations of distributed signals will always buffer the signal on the outgoing
-distribution channel and then immediately return. That is, these send operations
-will _never_ block the sending process.
-
-> #### Note {: .info }
->
-> Since no flow control is enforced by the runtime system when `async_dist`
-> process flag is enabled, you need to make sure that flow control for such data
-> is implemented, or that the amount of such data is known to always be limited.
-> Unlimited signaling with `async_dist` enabled in the absence of flow control
-> will typically cause the sending runtime system to crash on an out of memory
-> condition.
-
-Blocking due to disabled `async_dist` can be monitored by
-[`erlang:system_monitor()`](`system_monitor/2`) using the
-[`busy_dist_port`](`m:erlang#busy_dist_port`) option. Only data buffered by
-processes which (at the time of sending a signal) have disabled `async_dist`
-will be counted when determining whether or not an operation should block the
-caller.
-
-The `async_dist` flag can also be set on a new process when spawning it using
-the [`spawn_opt()`](`spawn_opt/4`) BIF with the option
-[`{async_dist, Enable}`](`m:erlang#spawn_opt_async_dist`). The default
-`async_dist` flag to use on newly spawned processes can be set by passing the
-command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad) when starting the
-runtime system. If the `+pad <boolean>` command line argument is not passed, the
-default value of the `async_dist` flag will be `false`.
-
-You can inspect the state of the `async_dist` process flag of a process by
-calling [`process_info(Pid, async_dist)`](`m:erlang#process_info_async_dist`).
-
-Returns the old value of the `async_dist` flag.
-
-[](){: #process_flag_trap_exit }
-
-When `trap_exit` is set to `true`, exit signals arriving to a process are
-converted to `{'EXIT', From, Reason}` messages, which can be received as
-ordinary messages. If `trap_exit` is set to `false`, the process exits if it
-receives an exit signal other than `normal` and the exit signal is propagated to
-its linked processes. Application processes are normally not to trap exits.
-
-Returns the old value of the flag.
-
-See also `exit/2`.
-
-Used by a process to redefine the error handler for undefined function calls and
-undefined registered processes. Use this flag with substantial caution, as code
-auto-loading depends on the correct operation of the error handling module.
-
-Returns the old value of the flag.
-
-Changes the maximum number of generational collections before forcing a
-fullsweep for the calling process.
-
-Returns the old value of the flag.
-
-[](){: #process_flag_min_heap_size }
-
-Changes the minimum heap size for the calling process.
-
-Returns the old value of the flag.
-
-Changes the minimum binary virtual heap size for the calling process.
-
-Returns the old value of the flag.
-
-[](){: #process_flag_max_heap_size }
-
-This flag sets the maximum heap size for the calling process. If `MaxHeapSize`
-is an integer, the system default values for `kill` and `error_logger` are used.
-
-For details on how the heap grows, see
-[Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
-documentation.
-
-- **`size`** - The maximum size in words of the process. If set to zero, the
-  heap size limit is disabled. `badarg` is be thrown if the value is smaller
-  than [`min_heap_size`](`m:erlang#process_flag_min_heap_size`). The size check
-  is only done when a garbage collection is triggered.
-
-  `size` is the entire heap of the process when garbage collection is triggered.
-  This includes all generational heaps, the process stack, any
-  [messages that are considered to be part of the heap](`m:erlang#process_flag_message_queue_data`),
-  and any extra memory that the garbage collector needs during collection.
-
-  `size` is the same as can be retrieved using
-  [`erlang:process_info(Pid, total_heap_size)`](`m:erlang#process_info_total_heap_size`),
-  or by adding `heap_block_size`, `old_heap_block_size` and `mbuf_size` from
-  [`erlang:process_info(Pid, garbage_collection_info)`](`m:erlang#process_info_garbage_collection_info`).
-
-- **`kill`** - When set to `true`, the runtime system sends an untrappable exit
-  signal with reason `kill` to the process if the maximum heap size is reached.
-  The garbage collection that triggered the `kill` is not completed, instead the
-  process exits as soon as possible. When set to `false`, no exit signal is sent
-  to the process, instead it continues executing.
-
-  If `kill` is not defined in the map, the system default will be used. The
-  default system default is `true`. It can be changed by either option
-  [\+hmaxk](erl_cmd.md#%2Bhmaxk) in [erl](erl_cmd.md), or
-  [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
-
-- **`error_logger`** - When set to `true`, the runtime system logs an error
-  event via `m:logger`, containing details about the process when the maximum
-  heap size is reached. One log event is sent each time the limit is reached.
-
-  If `error_logger` is not defined in the map, the system default is used. The
-  default system default is `true`. It can be changed by either the option
-  [\+hmaxel](erl_cmd.md#%2Bhmaxel) int [erl](erl_cmd.md), or
-  [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
-
-- **`include_shared_binaries`** - When set to `true`, off-heap binaries are
-  included in the total sum compared against the `size` limit. Off-heap binaries
-  are typically larger binaries that may be shared between processes. The size
-  of a shared binary is included by all processes that are referring it. Also,
-  the entire size of a large binary may be included even if only a smaller part
-  of it is referred by the process.
-
-  If `include_shared_binaries` is not defined in the map, the system default is
-  used. The default system default is `false`. It can be changed by either the
-  option [\+hmaxib](erl_cmd.md#%2Bhmaxib) in [erl](erl_cmd.md), or
-  [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
-
-The heap size of a process is quite hard to predict, especially the amount of
-memory that is used during the garbage collection. When contemplating using this
-option, it is recommended to first run it in production with `kill` set to
-`false` and inspect the log events to see what the normal peak sizes of the
-processes in the system is and then tune the value accordingly.
-
-[](){: #process_flag_message_queue_data }
-
-Determines how messages in the message queue are stored, as follows:
-
-- **`off_heap`** - _All_ messages in the message queue will be stored outside
-  the process heap. This implies that _no_ messages in the message queue will be
-  part of a garbage collection of the process.
-
-- **`on_heap`** - All messages in the message queue will eventually be placed on
-  the process heap. They can, however, be temporarily stored off the heap. This
-  is how messages have always been stored up until ERTS 8.0.
-
-The default value of the `message_queue_data` process flag is determined by the
-command-line argument [`+hmqd`](erl_cmd.md#%2Bhmqd) in [erl](erl_cmd.md).
-
-If the process may potentially accumulate a large number of messages in its
-queue it is recommended to set the flag value to `off_heap`. This is due to the
-fact that the garbage collection of a process that has a large number of
-messages stored on the heap can become extremely expensive and the process can
-consume large amounts of memory. The performance of the actual message passing
-is, however, generally better when the flag value is `on_heap`.
-
-Changing the flag value causes any existing messages to be moved. The move
-operation is initiated, but not necessarily completed, by the time the function
-returns.
-
-Returns the old value of the flag.
-
-[](){: #process_flag_priority }
-
-Sets the process priority. `Level` is an atom. Four priority levels exist:
-`low`, `normal`, `high`, and `max`. Default is `normal`.
-
-> #### Note {: .info }
->
-> Priority level `max` is reserved for internal use in the Erlang runtime
-> system, and is _not_ to be used by others.
-
-Internally in each priority level, processes are scheduled in a round robin
-fashion.
-
-Execution of processes on priority `normal` and `low` are interleaved. Processes
-on priority `low` are selected for execution less frequently than processes on
-priority `normal`.
-
-When runnable processes on priority `high` exist, no processes on priority `low`
-or `normal` are selected for execution. Notice however that this does _not_ mean
-that no processes on priority `low` or `normal` can run when processes are
-running on priority `high`. When using multiple schedulers, more processes can
-be running in parallel than processes on priority `high`. That is, a `low` and a
-`high` priority process can execute at the same time.
-
-When runnable processes on priority `max` exist, no processes on priority `low`,
-`normal`, or `high` are selected for execution. As with priority `high`,
-processes on lower priorities can execute in parallel with processes on priority
-`max`.
-
-Scheduling is pre-emptive. Regardless of priority, a process is pre-empted when
-it has consumed more than a certain number of reductions since the last time it
-was selected for execution.
-
-> #### Note {: .info }
->
-> Do not depend on the scheduling to remain exactly as it is today. Scheduling
-> is likely to be changed in a future release to use available processor cores
-> better.
-
-There is _no_ automatic mechanism for avoiding priority inversion, such as
-priority inheritance or priority ceilings. When using priorities, take this into
-account and handle such scenarios by yourself.
-
-Making calls from a `high` priority process into code that you has no control
-over can cause the `high` priority process to wait for a process with lower
-priority. That is, effectively decreasing the priority of the `high` priority
-process during the call. Even if this is not the case with one version of the
-code that you have no control over, it can be the case in a future version of
-it. This can, for example, occur if a `high` priority process triggers code
-loading, as the code server runs on priority `normal`.
-
-Other priorities than `normal` are normally not needed. When other priorities
-are used, use them with care, _especially_ priority `high`. A process on
-priority `high` is only to perform work for short periods. Busy looping for long
-periods in a `high` priority process causes most likely problems, as important
-OTP servers run on priority `normal`.
-
-Returns the old value of the flag.
-
-`N` must be an integer in the interval 0..10000. If `N` > 0, call saving is made
-active for the process. This means that information about the `N` most recent
-global function calls, BIF calls, sends, and receives made by the process are
-saved in a list, which can be retrieved with
-[`process_info(Pid, last_calls)`](`process_info/2`). A global function call is
-one in which the module of the function is explicitly mentioned. Only a fixed
-amount of information is saved, as follows:
-
-- A tuple `{Module, Function, Arity}` for function calls
-- The atoms `send`, `'receive'`, and `timeout` for sends and receives
-  (`'receive'` when a message is received and `timeout` when a receive times
-  out)
-
-If `N` = 0, call saving is disabled for the process, which is the default.
-Whenever the size of the call saving list is set, its contents are reset.
-
-Returns the old value of the flag.
-
-Sets or clears flag `sensitive` for the current process. When a process has been
-marked as sensitive by calling
-[`process_flag(sensitive, true)`](`process_flag/2`), features in the runtime
-system that can be used for examining the data or inner working of the process
-are silently disabled.
-
-Features that are disabled include (but are not limited to) the following:
-
-- Tracing. Trace flags can still be set for the process, but no trace messages
-  of any kind are generated. (If flag `sensitive` is turned off, trace messages
-  are again generated if any trace flags are set.)
-- Sequential tracing. The sequential trace token is propagated as usual, but no
-  sequential trace messages are generated.
-
-`process_info/1,2` cannot be used to read out the message queue or the process
-dictionary (both are returned as empty lists).
-
-Stack back-traces cannot be displayed for the process.
-
-In crash dumps, the stack, messages, and the process dictionary are omitted.
-
-If `{save_calls,N}` has been set for the process, no function calls are saved to
-the call saving list. (The call saving list is not cleared. Also, send, receive,
-and time-out events are still added to the list.)
-
-Returns the old value of the flag.
+process_flag(Flag, Value)
+
+Sets the process flag indicated to the specified value. Returns the previous value
+of the flag.
+
+`Flag` is one of the following:
+
+- ```erlang
+  process_flag(async_dist, boolean())
+  ```
+  {: #process_flag_async_dist }
+  
+  Enable or disable _fully asynchronous distributed signaling_ for the calling
+  process. When disabled, which is the default, the process sending a distributed
+  signal will block in the send operation if the buffer for the distribution
+  channel reach the [distribution buffer busy limit](erl_cmd.md#%2Bzdbbl). The
+  process will remain blocked until the buffer shrinks enough. This might in some
+  cases take a substantial amount of time. When `async_dist` is enabled, send
+  operations of distributed signals will always buffer the signal on the outgoing
+  distribution channel and then immediately return. That is, these send operations
+  will _never_ block the sending process.
+  
+  > #### Note {: .info }
+  >
+  > Since no flow control is enforced by the runtime system when `async_dist`
+  > process flag is enabled, you need to make sure that flow control for such data
+  > is implemented, or that the amount of such data is known to always be limited.
+  > Unlimited signaling with `async_dist` enabled in the absence of flow control
+  > will typically cause the sending runtime system to crash on an out of memory
+  > condition.
+  
+  Blocking due to disabled `async_dist` can be monitored by
+  [`erlang:system_monitor()`](`system_monitor/2`) using the
+  [`busy_dist_port`](`m:erlang#busy_dist_port`) option. Only data buffered by
+  processes which (at the time of sending a signal) have disabled `async_dist`
+  will be counted when determining whether or not an operation should block the
+  caller.
+  
+  The `async_dist` flag can also be set on a new process when spawning it using
+  the [`spawn_opt()`](`spawn_opt/4`) BIF with the option
+  [`{async_dist, Enable}`](`m:erlang#spawn_opt_async_dist`). The default
+  `async_dist` flag to use on newly spawned processes can be set by passing the
+  command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad) when starting the
+  runtime system. If the `+pad <boolean>` command line argument is not passed, the
+  default value of the `async_dist` flag will be `false`.
+  
+  You can inspect the state of the `async_dist` process flag of a process by
+  calling [`process_info(Pid, async_dist)`](`m:erlang#process_info_async_dist`).
+  
+- ```erlang
+  process_flag(trap_exit, boolean())
+  ```
+  {: #process_flag_trap_exit }
+  
+  When `trap_exit` is set to `true`, exit signals arriving to a process are
+  converted to `{'EXIT', From, Reason}` messages, which can be received as
+  ordinary messages. If `trap_exit` is set to `false`, the process exits if it
+  receives an exit signal other than `normal` and the exit signal is propagated to
+  its linked processes. Application processes are normally not to trap exits.
+  
+  See also `exit/2`.
+  
+- ```erlang
+  process_flag(error_handler, module())
+  ```
+  
+  Used by a process to redefine the error handler for undefined function calls and
+  undefined registered processes. Use this flag with substantial caution, as code
+  auto-loading depends on the correct operation of the error handling module.
+  
+- ```erlang
+  process_flag(fullsweep_after,  non_neg_integer())
+  ```
+  
+  Changes the maximum number of generational collections before forcing a
+  fullsweep for the calling process.
+  
+- ```erlang
+  process_flag(min_heap_size, non_neg_integer())
+  ```
+  {: #process_flag_min_heap_size }
+  
+  Changes the minimum heap size for the calling process.
+  
+- ```erlang
+  process_flag(min_bin_vheap_size, non_neg_integer())
+  ```
+  
+  Changes the minimum binary virtual heap size for the calling process.
+  
+- ```erlang
+  process_flag(max_heap_size, max_heap_size())
+  ```
+  {: #process_flag_max_heap_size }
+  
+  This flag sets the maximum heap size for the calling process. If `MaxHeapSize`
+  is an integer, the system default values for `kill` and `error_logger` are used.
+  
+  For details on how the heap grows, see
+  [Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
+  documentation.
+  
+  - **`size`** - The maximum size in words of the process. If set to zero, the
+    heap size limit is disabled. `badarg` is be thrown if the value is smaller
+    than [`min_heap_size`](`m:erlang#process_flag_min_heap_size`). The size check
+    is only done when a garbage collection is triggered.
+  
+    `size` is the entire heap of the process when garbage collection is triggered.
+    This includes all generational heaps, the process stack, any
+    [messages that are considered to be part of the heap](`m:erlang#process_flag_message_queue_data`),
+    and any extra memory that the garbage collector needs during collection.
+  
+    `size` is the same as can be retrieved using
+    [`erlang:process_info(Pid, total_heap_size)`](`m:erlang#process_info_total_heap_size`),
+    or by adding `heap_block_size`, `old_heap_block_size` and `mbuf_size` from
+    [`erlang:process_info(Pid, garbage_collection_info)`](`m:erlang#process_info_garbage_collection_info`).
+  
+  - **`kill`** - When set to `true`, the runtime system sends an untrappable exit
+    signal with reason `kill` to the process if the maximum heap size is reached.
+    The garbage collection that triggered the `kill` is not completed, instead the
+    process exits as soon as possible. When set to `false`, no exit signal is sent
+    to the process, instead it continues executing.
+  
+    If `kill` is not defined in the map, the system default will be used. The
+    default system default is `true`. It can be changed by either option
+    [\+hmaxk](erl_cmd.md#%2Bhmaxk) in [erl](erl_cmd.md), or
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+  
+  - **`error_logger`** - When set to `true`, the runtime system logs an error
+    event via `m:logger`, containing details about the process when the maximum
+    heap size is reached. One log event is sent each time the limit is reached.
+  
+    If `error_logger` is not defined in the map, the system default is used. The
+    default system default is `true`. It can be changed by either the option
+    [\+hmaxel](erl_cmd.md#%2Bhmaxel) int [erl](erl_cmd.md), or
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+  
+  - **`include_shared_binaries`** - When set to `true`, off-heap binaries are
+    included in the total sum compared against the `size` limit. Off-heap binaries
+    are typically larger binaries that may be shared between processes. The size
+    of a shared binary is included by all processes that are referring it. Also,
+    the entire size of a large binary may be included even if only a smaller part
+    of it is referred by the process.
+  
+    If `include_shared_binaries` is not defined in the map, the system default is
+    used. The default system default is `false`. It can be changed by either the
+    option [\+hmaxib](erl_cmd.md#%2Bhmaxib) in [erl](erl_cmd.md), or
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+  
+  The heap size of a process is quite hard to predict, especially the amount of
+  memory that is used during the garbage collection. When contemplating using this
+  option, it is recommended to first run it in production with `kill` set to
+  `false` and inspect the log events to see what the normal peak sizes of the
+  processes in the system is and then tune the value accordingly.
+  
+- ```erlang
+  process_flag(message_queue_data, message_queue_data())
+  ```
+  {: #process_flag_message_queue_data }
+  
+  Determines how messages in the message queue are stored, as follows:
+  
+  - **`off_heap`** - _All_ messages in the message queue will be stored outside
+    the process heap. This implies that _no_ messages in the message queue will be
+    part of a garbage collection of the process.
+  
+  - **`on_heap`** - All messages in the message queue will eventually be placed on
+    the process heap. They can, however, be temporarily stored off the heap. This
+    is how messages have always been stored up until ERTS 8.0.
+  
+  The default value of the `message_queue_data` process flag is determined by the
+  command-line argument [`+hmqd`](erl_cmd.md#%2Bhmqd) in [erl](erl_cmd.md).
+  
+  If the process may potentially accumulate a large number of messages in its
+  queue it is recommended to set the flag value to `off_heap`. This is due to the
+  fact that the garbage collection of a process that has a large number of
+  messages stored on the heap can become extremely expensive and the process can
+  consume large amounts of memory. The performance of the actual message passing
+  is, however, generally better when the flag value is `on_heap`.
+  
+  Changing the flag value causes any existing messages to be moved. The move
+  operation is initiated, but not necessarily completed, by the time the function
+  returns.
+  
+- ```erlang
+  process_flag(priority, priority_level())
+  ```
+  {: #process_flag_priority }
+  
+  Sets the process priority. `Level` is an atom. Four priority levels exist:
+  `low`, `normal`, `high`, and `max`. Default is `normal`.
+  
+  > #### Note {: .info }
+  >
+  > Priority level `max` is reserved for internal use in the Erlang runtime
+  > system, and is _not_ to be used by others.
+  
+  Internally in each priority level, processes are scheduled in a round robin
+  fashion.
+  
+  Execution of processes on priority `normal` and `low` are interleaved. Processes
+  on priority `low` are selected for execution less frequently than processes on
+  priority `normal`.
+  
+  When runnable processes on priority `high` exist, no processes on priority `low`
+  or `normal` are selected for execution. Notice however that this does _not_ mean
+  that no processes on priority `low` or `normal` can run when processes are
+  running on priority `high`. When using multiple schedulers, more processes can
+  be running in parallel than processes on priority `high`. That is, a `low` and a
+  `high` priority process can execute at the same time.
+  
+  When runnable processes on priority `max` exist, no processes on priority `low`,
+  `normal`, or `high` are selected for execution. As with priority `high`,
+  processes on lower priorities can execute in parallel with processes on priority
+  `max`.
+  
+  Scheduling is pre-emptive. Regardless of priority, a process is pre-empted when
+  it has consumed more than a certain number of reductions since the last time it
+  was selected for execution.
+  
+  > #### Note {: .info }
+  >
+  > Do not depend on the scheduling to remain exactly as it is today. Scheduling
+  > is likely to be changed in a future release to use available processor cores
+  > better.
+  
+  There is _no_ automatic mechanism for avoiding priority inversion, such as
+  priority inheritance or priority ceilings. When using priorities, take this into
+  account and handle such scenarios by yourself.
+  
+  Making calls from a `high` priority process into code that you has no control
+  over can cause the `high` priority process to wait for a process with lower
+  priority. That is, effectively decreasing the priority of the `high` priority
+  process during the call. Even if this is not the case with one version of the
+  code that you have no control over, it can be the case in a future version of
+  it. This can, for example, occur if a `high` priority process triggers code
+  loading, as the code server runs on priority `normal`.
+  
+  Other priorities than `normal` are normally not needed. When other priorities
+  are used, use them with care, _especially_ priority `high`. A process on
+  priority `high` is only to perform work for short periods. Busy looping for long
+  periods in a `high` priority process causes most likely problems, as important
+  OTP servers run on priority `normal`.
+  
+- ```erlang
+  process_flag(save_calls, 0..10000)
+  ```
+  
+  `N` must be an integer in the interval 0..10000. If `N` > 0, call saving is made
+  active for the process. This means that information about the `N` most recent
+  global function calls, BIF calls, sends, and receives made by the process are
+  saved in a list, which can be retrieved with
+  [`process_info(Pid, last_calls)`](`process_info/2`). A global function call is
+  one in which the module of the function is explicitly mentioned. Only a fixed
+  amount of information is saved, as follows:
+  
+  - A tuple `{Module, Function, Arity}` for function calls
+  - The atoms `send`, `'receive'`, and `timeout` for sends and receives
+    (`'receive'` when a message is received and `timeout` when a receive times
+    out)
+  
+  If `N` = 0, call saving is disabled for the process, which is the default.
+  Whenever the size of the call saving list is set, its contents are reset.
+  
+- ```erlang
+  process_flag(sensitive, boolean())
+  ```
+  
+  Sets or clears flag `sensitive` for the current process. When a process has been
+  marked as sensitive by calling
+  [`process_flag(sensitive, true)`](`process_flag/2`), features in the runtime
+  system that can be used for examining the data or inner working of the process
+  are silently disabled.
+  
+  Features that are disabled include (but are not limited to) the following:
+  
+  - Tracing. Trace flags can still be set for the process, but no trace messages
+    of any kind are generated. (If flag `sensitive` is turned off, trace messages
+    are again generated if any trace flags are set.)
+  - Sequential tracing. The sequential trace token is propagated as usual, but no
+    sequential trace messages are generated.
+  
+  `process_info/1,2` cannot be used to read out the message queue or the process
+  dictionary (both are returned as empty lists).
+  
+  Stack back-traces cannot be displayed for the process.
+  
+  In crash dumps, the stack, messages, and the process dictionary are omitted.
+  
+  If `{save_calls,N}` has been set for the process, no function calls are saved to
+  the call saving list. (The call saving list is not cleared. Also, send, receive,
+  and time-out events are still added to the list.)
 """.
--doc(#{since => <<"OTP 19.0, OTP 24.0, OTP 25.3, OTP R13B04">>}).
 -spec process_flag(async_dist, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
