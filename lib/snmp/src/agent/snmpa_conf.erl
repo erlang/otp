@@ -1166,6 +1166,10 @@ do_write_notify_conf(_Fd, Crap) ->
 %% ------ usm.conf ------
 %%
 
+-spec usm_entry(EngineID) -> UsmEntry when
+      EngineID :: snmp_framework_mib:engine_id(),
+      UsmEntry :: usm_entry().
+
 usm_entry(EngineID) ->
     UserName    = "initial", 
     SecName     = "initial", 
@@ -1183,6 +1187,27 @@ usm_entry(EngineID) ->
 	      AuthP, AuthKeyC, OwnAuthKeyC,
               PrivP, PrivKeyC, OwnPrivKeyC,
               Public, AuthKey, PrivKey).
+
+-spec usm_entry(EngineID,
+                UserName, SecName,
+                Clone,
+                AuthP, AuthKeyC, OwnAuthKeyC,
+                PrivP, PrivKeyC, OwnPrivKeyC,
+                Public, AuthKey, PrivKey) -> UsmEntry when
+      EngineID    :: snmp_framework_mib:engine_id(),
+      UserName    :: snmp_user_based_sm_mib:name(),
+      SecName     :: snmp_framework_mib:admin_string(),
+      Clone       :: snmp_user_based_sm_mib:clone_from(), 
+      AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
+      AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
+      OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
+      PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
+      PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
+      OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
+      Public      :: snmp_user_based_sm_mib:public(),
+      AuthKey     :: snmp_user_based_sm_mib:auth_key(),
+      PrivKey     :: snmp_user_based_sm_mib:priv_key(),
+      UsmEntry    :: usm_entry().
 
 usm_entry(EngineID, UserName, SecName, Clone, 
 	  AuthP, AuthKeyC, OwnAuthKeyC,

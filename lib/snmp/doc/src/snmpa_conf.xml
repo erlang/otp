@@ -1142,30 +1142,19 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">usm_entry(EngineId) -> usm_entry()</name>
-      <name since="">usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry()</name>
+      <name name="usm_entry" arity="1" clause_i="1" since=""/>
+      <name name="usm_entry" arity="13" clause_i="1" since=""/>
       <fsummary>Create an usm entry</fsummary>
-      <type>
-        <v>EngineId = string()</v>
-        <v>UserName = string()</v>
-        <v>SecName = string()</v>
-        <v>Clone = zeroDotZero | [integer()]</v>
-        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol</v>
-        <v>AuthKeyC = string()</v>
-        <v>OwnAuthKeyC = string()</v>
-        <v>PrivP = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol</v>
-        <v>PrivKeyC = string()</v>
-        <v>OwnPrivKeyC = string()</v>
-        <v>Public = string()</v>
-        <v>AuthKey = [integer()]</v>
-        <v>PrivKey = [integer()]</v>
-        <v>usm_entry() = term()</v>
-      </type>
       <desc>
-        <p>Create an entry for the agent vacm config file, 
-          <c>vacm.conf</c>. </p>
-        <p><c>usm_entry/1</c> translates to the following call:
-          <c>usm_entry("initial", "initial", zeroDotZero, usmNoAuthProtocol, "", "", usmNoPrivProtocol, "", "", "", "", "")</c>. </p>
+        <p>Create an entry for the agent vacm config file, <c>vacm.conf</c>.</p>
+	<p><c>usm_entry/1</c> translates to the following call: </p>
+	<pre>
+	  usm_entry(EngineID,
+	            "initial", "initial", zeroDotZero,
+		    usmNoAuthProtocol, "", "",
+		    usmNoPrivProtocol, "", "",
+		    "", "", "").
+	</pre>
         <p>See 
           <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
