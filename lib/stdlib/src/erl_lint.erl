@@ -316,6 +316,8 @@ format_error({obsolete_guard_overridden,Test}) ->
 format_error({too_many_arguments,Arity}) ->
     io_lib:format("too many arguments (~w) - "
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
+format_error(update_literal) ->
+    "expression updates a literal";
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
 format_error(illegal_map_key) -> "illegal map key in pattern";
@@ -682,6 +684,9 @@ start(File, Opts) ->
                       true, Opts)},
          {match_float_zero,
           bool_option(warn_match_float_zero, nowarn_match_float_zero,
+                      true, Opts)},
+         {update_literal,
+          bool_option(warn_update_literal, nowarn_update_literal,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -2429,10 +2434,10 @@ expr({tuple,_Anno,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
 expr({map,_Anno,Es}, Vt, St) ->
     map_fields(Es, Vt, check_assoc_fields(Es, St), fun expr_list/3);
-expr({map,_Anno,Src,Es}, Vt, St) ->
+expr({map,Anno,Src,Es}, Vt, St) ->
     {Svt,St1} = expr(Src, Vt, St),
     {Fvt,St2} = map_fields(Es, Vt, St1, fun expr_list/3),
-    {vtupdate(Svt, Fvt),St2};
+    {vtupdate(Svt, Fvt), warn_if_literal_update(Anno, Src, St2)};
 expr({record_index,Anno,Name,Field}, _Vt, St) ->
     check_record(Anno, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
@@ -2455,7 +2460,7 @@ expr({record,Anno,Rec,Name,Upds}, Vt, St0) ->
                                   update_fields(Upds, Name, Dfs, Vt, St)
                           end ),
     case has_wildcard_field(Upds) of
-        no -> {vtmerge(Rvt, Usvt),St2};
+        no -> {vtmerge(Rvt, Usvt), warn_if_literal_update(Anno, Rec, St2)};
         WildAnno -> {[],add_error(WildAnno, {wildcard_in_update,Name}, St2)}
     end;
 expr({bin,_Anno,Fs}, Vt, St) ->
@@ -4150,6 +4155,38 @@ check_record_info_call(Anno,_Aa,_As,St) ->
 has_wildcard_field([{record_field,_Af,{var,Aa,'_'},_Val}|_Fs]) -> Aa;
 has_wildcard_field([_|Fs]) -> has_wildcard_field(Fs);
 has_wildcard_field([]) -> no.
+
+%% Raises a warning when updating a (map, record) literal, as that is most
+%% likely unintentional. For example, if we forget a comma in a list like the
+%% following:
+%%
+%%    -record(foo, {bar}).
+%%
+%%    list() ->
+%%        [
+%%            #foo{bar = foo} %% MISSING COMMA!
+%%            #foo{bar = bar}
+%%        ].
+%%
+%% We only raise a warning when the expression-to-be-updated is a map or a
+%% record, as better warnings will be raised elsewhere for other funny
+%% constructs.
+warn_if_literal_update(Anno, Expr, St) ->
+    case is_literal_update(Expr) andalso is_warn_enabled(update_literal, St) of
+        true -> add_warning(Anno, update_literal, St);
+        false -> St
+    end.
+
+is_literal_update({record, _, Inner, _, _}) ->
+    is_literal_update(Inner);
+is_literal_update({record, _, _, _}) ->
+    true;
+is_literal_update({map, _, Inner, _}) ->
+    is_literal_update(Inner);
+is_literal_update({map, _, _}) ->
+    true;
+is_literal_update(_Expr) ->
+    false.
 
 %% check_remote_function(Anno, ModuleName, FuncName, [Arg], State) -> State.
 %%  Perform checks on known remote calls.
