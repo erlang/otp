@@ -80,7 +80,7 @@ init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
-    Db = ets:new(?moddb, [named_table, protected]),
+    Db = ets:whereis(ets:new(?moddb, [named_table, protected])),
     foreach(fun (M) ->
 		    %% Pre-loaded modules are always sticky.
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
@@ -772,7 +772,7 @@ set_path(NewPath, OldPath, Cache, NameDb, Root) ->
 %% The priv_dir/1 and lib_dir/1 functions will have
 %% an O(1) lookup.
 create_namedb(Path, Root) ->
-    Db = ets:new(code_names,[named_table, public]),
+    Db = ets:new(code_names,[]),
     init_namedb(lists:reverse(Path), Db),
 
     case lookup_name("erts", Db) of
