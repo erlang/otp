@@ -230,7 +230,7 @@ set_path(Paths) when is_list(Paths) ->
     request({set_path,Paths}).
 
 -doc """
-_Use of this function is deprecated in favor of `code:get_path/1`._
+_Use of this function is deprecated in favor of `code:get_path/0`._
 
 Gets the path set in the loader. The path is set by the `m:init` process
 according to information found in the start script.
