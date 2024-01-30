@@ -1123,6 +1123,10 @@ notify_entry(Name, Tag, Type) ->
     {Name, Tag, Type}.
 
 
+-spec write_notify_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [notify_entry()].
+
 write_notify_config(Dir, Conf) ->
     Comment =
 "%% This file defines the notification parameters.\n"
@@ -1137,6 +1141,11 @@ write_notify_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_notify_config(Dir, Hdr, Conf).
+
+-spec write_notify_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [notify_entry()].
 
 write_notify_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

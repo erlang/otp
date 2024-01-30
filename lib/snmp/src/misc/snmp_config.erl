@@ -2245,7 +2245,7 @@ write_agent_snmp_notify_conf(Dir, NotifyType) ->
 "%% {\"standard inform\", \"std_inform\", inform}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment, 
-    Conf = [{"standard trap", "std_trap", NotifyType}],
+    Conf = [snmpa_conf:notify_entry("standard trap", "std_trap", NotifyType)],
     write_agent_notify_config(Dir, Hdr, Conf).
 
 write_agent_notify_config(Dir, Hdr, Conf) ->
