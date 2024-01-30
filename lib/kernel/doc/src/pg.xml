@@ -37,8 +37,8 @@
   <module since="OTP 23.0">pg</module>
   <modulesummary>Distributed named process groups.</modulesummary>
   <description>
-    <p>This module implements process groups. A message can be sent
-      to one, some, or all group members.</p>
+    <p>This module implements a distributed eventual consistent process group
+      registry.</p>
 
     <p>Up until OTP 17 there used to exist an experimental <c>pg</c>
       module in <c>stdlib</c>. This <c>pg</c> module is not the same
@@ -84,6 +84,35 @@
       is configured to do so.
     </p>
 
+    <p>If the <seeapp marker="kernel_app#pg_shards_and_metadata">
+      <c>shards_and_metadata</c></seeapp> <c>kernel</c> application
+      parameter is enabled when starting the scope, the server will start with
+      the <c>shards_and_metadata</c> feature enabled. When enabled
+      a member on the form <c>{pid(), Metadata :: any()}</c> can also join
+      or leave the groups.</p>
+
+    <p>In addition, when the feature is enabled, besides the singleton group
+      defined above, `pg` can also join or leave to a range of shards
+      for a sharded group. For example, assume we did <c>join([{1, 5}], group,
+      [Pid1])</c> and then <c>join([{4, 8}], group, [{Pid2, Metadata2}])</c>.
+      If we do <c>get_all_members(4, group)</c> it will return <c>[Pid1, {Pid2,
+      Metadata2}]</c>, and if we do <c>get_all_members(2, group)</c> it will
+      return <c>[Pid1]</c>.
+      This is especially useful for service discovery on sharded services.
+      Servers can publish the shard ranges that it serves, and client can get
+      the server pid without explicitly knowing the shard map.</p>
+
+    <p>`pg` server prior to OTP 26 will crash if any other node has enabled
+      <c>shards_and_metadata</c> feature in the cluster. `pg` server at OTP 26
+      will only send or receive singleton group updates with only <c>pid</c>
+      type members. `pg` server at OTP 27 or above without
+      <c>shards_and_metadata</c> enabled will only receive singleton group
+      updates with only <c>pid</c> from other nodes, but it can join/leave
+      sharded group with metadata in members locally, and only servers with
+      <c>shards_and_metadata</c> enabled can receive these updates. `pg` server
+      with <c>shards_and_metadata</c> enabled will have the full
+      functionalities.</p>
+
     <note><p>
       Scope name is used to register process locally, and to name an ETS table.
       If there is another process registered under this name, or another ETS table
@@ -93,9 +122,9 @@
       <p>A scope can be kept local-only by using a scope name that is unique
         cluster-wide, e.g. the node name:</p>
       <taglist>
-	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
-	<tag></tag>
-	<item><c>pg:start_link(node()).</c></item>
+        <!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+        <tag></tag>
+        <item><c>pg:start_link(node()).</c></item>
       </taglist>
     </note>
 
@@ -103,8 +132,72 @@
 
   <datatypes>
     <datatype>
+      <name name="scope"/>
+      <desc><p>The identifier of the scope gen_server and ETS table.</p></desc>
+    </datatype>
+    <datatype>
       <name name="group"/>
       <desc><p>The identifier of a process group.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="metadata"/>
+      <desc><p>The metadata of a process.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="member_metadata"/>
+      <desc><p>The tuple of a process identifier and its metadata.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="member"/>
+      <desc><p>A member that can join or leave the groups.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="members"/>
+      <desc><p>A list of members that can join or leave the groups.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="shard"/>
+      <desc><p>A non-negative integer shard id.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="shard_range"/>
+      <desc><p>A shard range (both sides inclusive).</p></desc>
+    </datatype>
+    <datatype>
+      <name name="shard_ranges"/>
+      <desc><p>A list of shard ranges.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="update"/>
+      <desc><p>An update request.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="updates"/>
+      <desc><p>A list of update requests.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="leave_error_singleton"/>
+      <desc><p>Error when doing a single leave request for a singleton group</p></desc>
+    </datatype>
+    <datatype>
+      <name name="features"/>
+      <desc><p>A map of enabled features.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="monitor_scope_return_singleton"/>
+      <desc><p>A monitor scope reply for singleton group.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="monitor_group_return_singleton"/>
+      <desc><p>A monitor group reply for singleton group.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="monitor_message_singleton"/>
+      <desc><p>Group membership update message without shards and metadata.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="monitor_message"/>
+      <desc><p>Group membership update message.</p></desc>
     </datatype>
   </datatypes>
 
@@ -133,54 +226,103 @@
     <func>
       <name name="join" arity="2" since="OTP 23.0"/>
       <name name="join" arity="3" since="OTP 23.0"/>
-      <fsummary>Join a process or a list of processes to a group.</fsummary>
+      <name name="join" arity="4" since="OTP 27.0"/>
+      <fsummary>Join a member or a list of members to a group.</fsummary>
       <desc>
-        <p>Joins single process or multiple processes to the
-          group <c>Group</c>. A process can join a group many times and
+        <p>If <c>ShardRanges</c> is not specified, joins single member or
+          multiple members <c>MemberOrMembers</c> to the singleton group
+          <c>Group</c>. If <c>ShardRanges</c> is specified, joins
+          <c>MemberOrMembers</c> to the <c>ShardRanges</c> of the sharded
+          group <c>Group</c>. A member can join a group many times and
           must then leave the group the same number of times.</p>
-        <p><c>PidOrPids</c> may contain the same process multiple times.</p>
+        <p><c>MemberOrMembers</c> may contain the same member multiple times.
+          </p>
       </desc>
     </func>
 
     <func>
       <name name="leave" arity="2" since="OTP 23.0"/>
       <name name="leave" arity="3" since="OTP 23.0"/>
-      <fsummary>Make a process leave a group.</fsummary>
+      <name name="leave" arity="4" since="OTP 27.0"/>
+      <fsummary>Make a member or a list of members leave a group.</fsummary>
       <desc>
-        <p>Makes the process <c>PidOrPids</c> leave the group <c>Group</c>.
-	  If the process is not a member of the group, <c>not_joined</c> is
-	  returned.</p>
-        <p>When list of processes is passed as <c>PidOrPids</c>, function
-        returns <c>not_joined</c> only when all processes of the list
-        are not joined.</p>
+        <p>If <c>ShardRanges</c> is not specified, makes the member or multiple
+          members <c>MemberOrMembers</c> leave the singleton group
+          <c>Group</c>. If <c>ShardRanges</c> is specified, makes
+          <c>MemberOrMembers</c> leave the <c>ShardRanges</c> of the sharded
+          group <c>Group</c>.</p>
+        <p>Leaving one or more members of a singleton group will success and
+          return atom <c>ok</c> even if some members are not joined, but if the
+          entire leave result in a non-op, an atom <c>not_joined</c> will be
+          returned. This is specially for backward compatibility</p>
+        <p>For sharded groups, leaving a member that has not joined the entire
+          requested shard ranges will silently work as a non-op for not joined
+          portion. The function will return the actual acted updates.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update" arity="1" since="OTP 27.0"/>
+      <name name="update" arity="2" since="OTP 27.0"/>
+      <fsummary>Make updates to a group.</fsummary>
+      <desc>
+        <p>Makes group membership updates, each update is a tuple
+          <c>update() :: {Group, Position, RemovedMembers, AddedMembers}</c>
+          where <c>Position</c> is either an atom <c>singleton</c> or a list of
+          shard ranges, indicating whether this operation is on a singleton
+          group or specified ranges of a sharded group. <c>AddedMembers</c> is
+          the list of members to be added, and <c>RemovedMembers</c> is the
+          list of members to be removed.</p>
+        <p>The algorithm promises that an <c>update()</c> looks like an
+          'atomic' operation by a single shard's view if the input shard ranges
+          are disjoint. It means that a <c>get_members</c> query will either
+          return the expected member list before an update, or after an update.
+          It won't return with anything else like an intermediate step.</p>
+        <p>Removing a member that has not joined will silently work as a non-op
+          for not joined portion. The function will return the actual acted
+          updates.</p>
       </desc>
     </func>
 
     <func>
       <name name="monitor_scope" arity="0" since="OTP 25.1"/>
       <name name="monitor_scope" arity="1" since="OTP 25.1"/>
+      <name name="monitor_scope" arity="2" since="OTP 27.0"/>
       <fsummary>Starts group membership monitoring for a scope.</fsummary>
       <desc>
         <p>Subscribes the caller to updates from the specified scope. Returns
-        content of the entire scope and a reference to match the upcoming
-        notifications.</p>
+          content of the entire scope and a reference to match the upcoming
+          notifications. The content is a map by default; or <c>updates()</c>
+          if <c>shards_and_metadata</c> is true in <c>Features</c>, the same
+          as the input in <seemfa marker="#update/2"><c>update/2</c></seemfa>.
+          </p>
 
         <p>Whenever any group membership changes, an update message is sent
-          to the subscriber:</p>
+          to the subscriber. If feature <c>shards_and_metadata</c> is not
+          enabled, the messages will be:</p>
           <code type="none">{Ref, join, Group, [JoinPid1, JoinPid2]}</code>
           <code type="none">{Ref, leave, Group, [LeavePid1]}</code>
+        <p>If feature <c>shards_and_metadata</c> is enabled, the messages will
+          be:</p>
+          <code type="none">{Ref, [{Group, Position, RemovedMembers,
+          AddedMembers}]}</code>
+        <p>See <seemfa marker="#update/2"><c>update/2</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
       <name name="monitor" arity="1" since="OTP 25.1"/>
       <name name="monitor" arity="2" since="OTP 25.1"/>
+      <name name="monitor" arity="3" since="OTP 27.0"/>
       <fsummary>Starts membership monitoring for a specified group.</fsummary>
       <desc>
         <p>Subscribes the caller to updates for the specified group. Returns
-          list of processes currently in the group, and a reference to match
-          the upcoming notifications.</p>
-          <p>See <seemfa marker="#monitor_scope/0"><c>monitor_scope/0</c></seemfa>
+          content currently in the group, and a reference to match the upcoming
+          notifications. The content is a list of processes by default; or
+          <c>updates()</c> if <c>shards_and_metadata</c> is true in
+          <c>Features</c>, the same as the input in
+          <seemfa marker="#update/2"><c>update/2</c></seemfa>.</p>
+        <p>See<seemfa marker="#monitor_scope/0"><c>monitor_scope/0</c></seemfa>
           for the update message structure.</p>
       </desc>
     </func>
@@ -197,34 +339,119 @@
     </func>
 
     <func>
-      <name name="get_local_members" arity="1" since="OTP 23.0"/>
-      <name name="get_local_members" arity="2" since="OTP 23.0"/>
-      <fsummary>Return all local processes in a group.</fsummary>
+      <name name="get_all_members" arity="1" since="OTP 23.0"/>
+      <name name="get_all_members" arity="2" since="OTP 23.0"/>
+      <name name="get_all_members" arity="3" since="OTP 27.0"/>
+      <fsummary>Return all members in a group.</fsummary>
       <desc>
-        <p>Returns all processes running on the local node in the
-          group <c>Group</c>. Processes are returned in no specific order.
-          This function is optimised for speed.
-        </p>
+        <p>Read members in singleton group <c>Group</c>, or <c>Shard</c> of
+          sharded group <c>Group</c>, depending on if <c>Shard</c> is specified
+          in the input. Members are returned in no specific order.
+          This function is optimised for speed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_all_local_members" arity="1" since="OTP 23.0"/>
+      <name name="get_all_local_members" arity="2" since="OTP 23.0"/>
+      <name name="get_all_local_members" arity="3" since="OTP 27.0"/>
+      <fsummary>Return all local members in a group.</fsummary>
+      <desc>
+        <p>Read members in singleton group <c>Group</c>, or <c>Shard</c> of
+          sharded group <c>Group</c>, depending on if <c>Shard</c> is specified
+          in the input. Only members running on the local node are returned,
+          and members are returned in no specific order.
+          This function is optimised for speed.</p>
       </desc>
     </func>
 
     <func>
       <name name="get_members" arity="1" since="OTP 23.0"/>
       <name name="get_members" arity="2" since="OTP 23.0"/>
-      <fsummary>Return all processes in a group.</fsummary>
+      <name name="get_members" arity="3" since="OTP 27.0"/>
+      <fsummary>Return all pid members in a group.</fsummary>
       <desc>
-        <p>Returns all processes in the group <c>Group</c>.
-          Processes are returned in no specific order.
-          This function is optimised for speed.</p>
+        <p>Read members in singleton group <c>Group</c>, or <c>Shard</c> of
+          sharded group <c>Group</c>, depending on if <c>Shard</c> is specified
+          in the input. Only <c>pid()</c> type members are returned, and
+          members are returned in no specific order. This function is for
+          backward compatibility.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_local_members" arity="1" since="OTP 23.0"/>
+      <name name="get_local_members" arity="2" since="OTP 23.0"/>
+      <name name="get_local_members" arity="3" since="OTP 27.0"/>
+      <fsummary>Return all local pid members in a group.</fsummary>
+      <desc>
+        <p>Read members in singleton group <c>Group</c>, or <c>Shard</c> of
+          sharded group <c>Group</c>, depending on if <c>Shard</c> is specified
+          in the input. Only <c>pid()</c> type members which are also running
+          on the local node are returned, and members are returned in no
+          specific order. This function is for backward compatibility.</p>
       </desc>
     </func>
 
     <func>
       <name name="which_groups" arity="0" since="OTP 23.0"/>
       <name name="which_groups" arity="1" since="OTP 23.0"/>
-      <fsummary>Return a list of all known groups.</fsummary>
+      <fsummary>Returns a list of all known singleton groups.</fsummary>
       <desc>
-        <p>Returns a list of all known groups.</p>
+        <p>Returns a list of all known singleton groups.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_local_groups" arity="0" since="OTP 23.0"/>
+      <name name="which_local_groups" arity="1" since="OTP 23.0"/>
+      <fsummary>Returns a list of singleton groups that have any local member
+        joined.</fsummary>
+      <desc>
+        <p>Returns a list of singleton groups that have any local member
+          joined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_sharded_groups" arity="0" since="OTP 27.0"/>
+      <name name="which_sharded_groups" arity="1" since="OTP 27.0"/>
+      <fsummary>Returns a list of all known sharded groups.
+        </fsummary>
+      <desc>
+        <p>Returns a list of all known sharded groups.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_sharded_local_groups" arity="0" since="OTP 27.0"/>
+      <name name="which_sharded_local_groups" arity="1" since="OTP 27.0"/>
+      <fsummary>Returns a list of all known sharded groups that have any local
+        member joined</fsummary>
+      <desc>
+        <p>Returns a list of all known sharded groups that have any local
+          member joined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_shard_ranges" arity="1" since="OTP 27.0"/>
+      <name name="which_shard_ranges" arity="2" since="OTP 27.0"/>
+      <fsummary>Returns a list of all known shard ranges of a sharded group.
+        </fsummary>
+      <desc>
+        <p>Returns a list of all known shard ranges of a sharded group.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_local_shard_ranges" arity="1" since="OTP 27.0"/>
+      <name name="which_local_shard_ranges" arity="2" since="OTP 27.0"/>
+      <fsummary>Returns a list of shard ranges of a sharded group that have
+        any local member joined.</fsummary>
+      <desc>
+        <p>Returns a list of shard ranges of a sharded group that have any
+          local member joined.</p>
       </desc>
     </func>
 
