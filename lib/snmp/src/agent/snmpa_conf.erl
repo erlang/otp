@@ -522,6 +522,10 @@ community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
     {CommIndex, CommName, SecName, CtxName, TransportTag}.
 
 
+-spec write_community_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [community_entry()].
+
 write_community_config(Dir, Conf) ->
     Comment =
 "%% This file defines the community info which maps to VACM parameters.\n"
@@ -536,6 +540,11 @@ write_community_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_community_config(Dir, Hdr, Conf).
+
+-spec write_community_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [community_entry()].
 
 write_community_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

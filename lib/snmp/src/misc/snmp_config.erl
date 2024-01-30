@@ -2045,9 +2045,12 @@ write_agent_snmp_community_conf(Dir) ->
 "%% {\"3\", \"bridge1\", \"initial\", \"bridge1\", \"\"}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{"public", "public", "initial", "", ""}, 
-	    {"all-rights", "all-rights", "all-rights", "", ""}, 
-	    {"standard trap", "standard trap", "initial", "", ""}], 
+    Conf = [snmpa_conf:community_entry("public",
+                                       "public", "initial", "", ""),
+	    snmpa_conf:community_entry("all-rights",
+                                       "all-rights", "all-rights", "", ""), 
+	    snmpa_conf:community_entry("standard trap",
+                                       "standard trap", "initial", "", "")], 
     write_agent_community_config(Dir, Hdr, Conf).
 
 write_agent_community_config(Dir, Hdr, Conf) ->
