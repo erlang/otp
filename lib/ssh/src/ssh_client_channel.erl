@@ -185,7 +185,7 @@ The following message is taken care of by the `ssh_client_channel` behavior.
 	 terminate/2, code_change/3]).
 
 %% Internal application API
--export([cache_create/0, cache_lookup/2, cache_update/2, 
+-export([cache_create/0, cache_lookup/2, cache_update/2,
 	 cache_delete/1, cache_delete/2, cache_foldl/3,
 	 cache_info/2, get_print_info/1, get_print_info/2
         ]).
