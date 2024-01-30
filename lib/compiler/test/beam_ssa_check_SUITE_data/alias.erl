@@ -103,7 +103,8 @@
 
          live_past_call_triggers_aliasing/1,
 
-         fuzz0/0, fuzz0/1]).
+         fuzz0/0, fuzz0/1,
+         alias_after_phi/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1102,3 +1103,21 @@ fuzz0(_V0)  ->
 
 fuzz0()  ->
     fuzz0(ok).
+
+alias_after_phi() ->
+    alias_after_phi({e:f(),e:f()}).
+
+alias_after_phi(X) ->
+%% Check that X is aliased after the Phi.
+%ssa% (Arg0) when post_ssa_opt ->
+%ssa% Phi = phi({_,_}, {Arg0,_}, ...),
+%ssa% _ = get_tuple_element(Arg0, 0) {aliased => [Arg0]}.
+    {A,B} = X,
+    T = case e:f() of
+	    1 ->
+		X;
+	    2 ->
+		{e:f(),e:f()}
+	end,
+    {A,B} = T,
+    {A,B,X}.

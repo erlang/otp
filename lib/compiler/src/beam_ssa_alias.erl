@@ -139,21 +139,19 @@ killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
     LiveIns = LiveIns0#{Lbl=>Live},
     {LiveIns, Kills}.
 
-killsets_is([#b_set{op=phi,dst=Dst}|Is], Live, Kills, Lbl) ->
-    %% The Phi uses are logically located in the predecessors.
+killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl) ->
+    %% The Phi uses are logically located in the predecessors, so we
+    %% don't want them live in to this block. But to correctly
+    %% calculate the aliasing of the arguments to the Phi in this
+    %% block, we need to know if the arguments live past the Phi. The
+    %% kill set is stored with the key {phi,Dst}.
+    Uses = beam_ssa:used(I),
+    {_,LastUses} = killsets_update_live_and_last_use(Live, Uses),
+    Kills = killsets_add_kills({phi,Dst}, LastUses, Kills0),
     killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl);
 killsets_is([I|Is], Live0, Kills0, Lbl) ->
     Uses = beam_ssa:used(I),
-    {Live,LastUses} =
-        foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
-                      case sets:is_element(Use, LiveAcc) of
-                          true ->
-                              Acc;
-                          false ->
-                              {sets:add_element(Use, LiveAcc),
-                               sets:add_element(Use, LastAcc)}
-                      end
-              end, {Live0,sets:new([{version,2}])}, Uses),
+    {Live,LastUses} = killsets_update_live_and_last_use(Live0, Uses),
     case I of
         #b_set{dst=Dst} ->
             killsets_is(Is, sets:del_element(Dst, Live),
@@ -165,6 +163,17 @@ killsets_is([I|Is], Live0, Kills0, Lbl) ->
     end;
 killsets_is([], Live, Kills, _) ->
     {Live,Kills}.
+
+killsets_update_live_and_last_use(Live0, Uses) ->
+    foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
+                  case sets:is_element(Use, LiveAcc) of
+                      true ->
+                          Acc;
+                      false ->
+                          {sets:add_element(Use, LiveAcc),
+                           sets:add_element(Use, LastAcc)}
+                  end
+          end, {Live0,sets:new([{version,2}])}, Uses).
 
 killsets_add_kills(Dst, LastUses, Kills) ->
     Kills#{Dst=>LastUses}.
@@ -325,8 +334,9 @@ aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
     AAS1 = AAS0#aas{caller=F},
     ?DP("-= ~p/~p =-~n", [_N, _A]),
     St = #opt_st{ssa=_Is} = map_get(F, StMap),
+    ?DP("code:~n~p.~n", [_Is]),
     AAS = aa_fun(F, St, AAS1),
-    ?DP("Done ~p/~p~ncode ~p.~n", [_N, _A, _Is]),
+    ?DP("Done ~p/~p~n", [_N, _A]),
     aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
 aa_fixpoint([], Order, OldAliasMap, OldCallArgs,
             #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
@@ -459,7 +469,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             peek_message ->
                 {aa_set_aliased(Dst, SS1), AAS0};
             phi ->
-                {aa_phi(Dst, Args, SS1), AAS0};
+                {aa_phi(Dst, Args, Anno0, SS1, AAS0), AAS0};
             put_list ->
                 Types =
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
@@ -1040,8 +1050,9 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             aa_set_aliased([Dst|Args], SS)
     end.
 
-aa_phi(Dst, Args0, SS) ->
+aa_phi(Dst, Args0, Anno, SS0, AAS) ->
     Args = [V || {V,_} <- Args0],
+    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, Anno, AAS),
     aa_derive_from(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
