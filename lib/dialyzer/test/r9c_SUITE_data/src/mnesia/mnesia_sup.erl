@@ -23,7 +23,7 @@
 -behaviour(application).
 -behaviour(supervisor).
 
--export([start/0, start/2, init/1, stop/1, start_event/0, kill/0]).
+-export([start/0, start/2, init/1, start_event/0, kill/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% application and suprvisor callback functions
@@ -42,9 +42,6 @@ start(_, _) ->
 start() ->
     SupName = {local,?MODULE},
     supervisor:start_link(SupName, ?MODULE, []).
-
-stop(_StartArgs) ->
-    ok.
 
 init([]) -> % Supervisor
     init();

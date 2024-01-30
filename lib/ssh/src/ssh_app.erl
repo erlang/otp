@@ -41,7 +41,7 @@
 -behaviour(supervisor).
 
 %% 'application' export:
--export([start/2, stop/1]).
+-export([start/2]).
 
 %% 'supervisor' export:
 -export([init/1]).
@@ -52,9 +52,6 @@
 %%%=========================================================================
 start(_Type, _State) ->
     supervisor:start_link({local,ssh_sup}, ?MODULE, [ssh_sup]).
-
-stop(_State) ->
-    ok.
 
 %%%=========================================================================
 %%%  Supervisor callback

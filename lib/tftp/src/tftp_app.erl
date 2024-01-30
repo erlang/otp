@@ -29,7 +29,7 @@
 -behaviour(application).
 
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2]).
 
 %%====================================================================
 %% API
@@ -38,10 +38,6 @@
 start(_StartType, _StartArgs) ->
     Config = get_configuration(),
     tftp_sup:start_link(Config).
-
-%%--------------------------------------------------------------------
-stop(_State) ->
-    ok.
 
 %%====================================================================
 %% Internal functions

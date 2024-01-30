@@ -23,7 +23,7 @@
 -behaviour(application).
 
 %% application callbacks
--export([start/2, stop/1]).
+-export([start/2]).
 
 -include_lib("diameter/include/diameter.hrl").
 
@@ -109,8 +109,3 @@
 
 start(_Type, _Args) ->
     diameter_sup:start_link().
-
-%% stop/1
-
-stop(_) ->
-    ok.

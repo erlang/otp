@@ -10,10 +10,6 @@
 start(_StartType, _StartArgs) ->
     supervisor:start_link({local, ?SUP}, ?MODULE, [sup]).
 
-stop(_State) ->
-    ok.
-
-
 
 %%%-----------------------------------------------------------------
 %%% supervisor callbacks

@@ -22,10 +22,7 @@
 
 -behaviour(application).
 
--export([start/2, stop/1]).
+-export([start/2]).
 
 start(_Type, _State) ->
     inets_sup:start_link().
-
-stop(_State) ->
-    ok.

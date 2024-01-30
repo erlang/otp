@@ -3438,8 +3438,7 @@ behaviour_basic(Config) when is_list(Config) ->
            <<"-behaviour(application).
              ">>,
            [],
-	   {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}},
-		      {{1,22},erl_lint,{undefined_behaviour_func,{stop,1},application}}]}},
+	   {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}}]}},
 
 	  {behaviour2,
            <<"-behaviour(application).
@@ -3451,9 +3450,8 @@ behaviour_basic(Config) when is_list(Config) ->
 	  
 	  {behaviour3,
            <<"-behavior(application).  %% Test American spelling.
-              -export([start/2,stop/1]).
+              -export([start/2]).
               start(_, _) -> ok.
-              stop(_) -> ok.
              ">>,
            [],
            []},
@@ -3461,10 +3459,10 @@ behaviour_basic(Config) when is_list(Config) ->
           {behaviour4,
            <<"-behavior(application).  %% Test callbacks with export_all
               -compile([export_all, nowarn_export_all]).
-              stop(_) -> ok.
+              start(_, _) -> ok.
              ">>,
            [],
-           {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
+           []}
 	 ],
     [] = run(Config, Ts),
     ok.
@@ -3477,15 +3475,13 @@ behaviour_multiple(Config) when is_list(Config) ->
              ">>,
            [],
 	   {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}},
-		      {{1,22},erl_lint,{undefined_behaviour_func,{stop,1},application}},
 		      {{2,16},erl_lint,{undefined_behaviour_func,{init,1},supervisor}}]}},
 
 	  {behaviour2,
            <<"-behaviour(application).
               -behaviour(supervisor).
-              -export([start/2,stop/1,init/1]).
+              -export([start/2,init/1]).
               start(_, _) -> ok.
-              stop(_) -> ok.
               init(_) -> ok.
              ">>,
            [],
@@ -3494,9 +3490,8 @@ behaviour_multiple(Config) when is_list(Config) ->
 	  {american_behavior2,
            <<"-behavior(application).
               -behavior(supervisor).
-              -export([start/2,stop/1,init/1]).
+              -export([start/2,init/1]).
               start(_, _) -> ok.
-              stop(_) -> ok.
               init(_) -> ok.
              ">>,
            [],

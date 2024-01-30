@@ -23,17 +23,10 @@
 
 -behaviour(application).
 
--export([start/2, stop/1]).
+-export([start/2]).
 
 %% start/2(Type, StartArgs) -> {ok, Pid} | {ok, Pid, State} | 
 %%                             {error, Reason}
 %%
 start(_Type, _StartArgs) ->
     {ok, self()}.
-
-%% stop(State)
-%%
-stop(_State) ->
-    ok.
-
-
