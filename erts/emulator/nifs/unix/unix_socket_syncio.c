@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -6975,6 +6975,8 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_byte, &descP->readByteCnt, read);
 
+    descP->rNumCnt = 0;
+
     descP->readPkgMaxCnt += read;
     if (descP->readPkgMaxCnt > descP->readPkgMax)
         descP->readPkgMax = descP->readPkgMaxCnt;
@@ -7010,6 +7012,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
     FREE_BIN(buf1P);
     if (buf2P != NULL) FREE_BIN(buf2P);
+
+    descP->rNumCnt = 0;
 
     if (saveErrno == ECONNRESET)  {
 
@@ -7173,13 +7177,15 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
+    descP->rNumCnt = 0;
+
     if ((toRead == 0) ||
         (descP->type != SOCK_STREAM) ||
         (COMPARE(recvRef, esock_atom_zero) == 0)) {
 
         /* +++ We got it all, but since we      +++
          * +++ did not fill the buffer, we      +++
-         * +++ must split it into a sub-binary. +++
+         * +++ must deliver part of the binary. +++
          */
 
         SSDBG( descP,
