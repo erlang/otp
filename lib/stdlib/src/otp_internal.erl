@@ -72,28 +72,6 @@ obsolete(wxCalendarCtrl, enableYearChange, 1) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxCalendarCtrl, enableYearChange, 2) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(zlib, adler32, 2) ->
-    {deprecated, "use erlang:adler32/1 instead", "OTP 27"};
-obsolete(zlib, adler32, 3) ->
-    {deprecated, "use erlang:adler32/2 instead", "OTP 27"};
-obsolete(zlib, adler32_combine, 4) ->
-    {deprecated, "use erlang:adler_combine/3 instead", "OTP 27"};
-obsolete(zlib, crc32, 1) ->
-    {deprecated, "use erlang:crc32/1 on the uncompressed data instead", "OTP 27"};
-obsolete(zlib, crc32, 2) ->
-    {deprecated, "use erlang:crc32/1 instead", "OTP 27"};
-obsolete(zlib, crc32, 3) ->
-    {deprecated, "use erlang:crc32/2 instead", "OTP 27"};
-obsolete(zlib, crc32_combine, 4) ->
-    {deprecated, "use erlang:crc32_combine/3 instead", "OTP 27"};
-obsolete(zlib, getBufSize, 1) ->
-    {deprecated, "this function will be removed in a future release", "OTP 27"};
-obsolete(zlib, inflateChunk, 1) ->
-    {deprecated, "use safeInflate/2 instead", "OTP 27"};
-obsolete(zlib, inflateChunk, 2) ->
-    {deprecated, "use safeInflate/2 instead", "OTP 27"};
-obsolete(zlib, setBufSize, 2) ->
-    {deprecated, "this function will be removed in a future release", "OTP 27"};
 obsolete(code, is_module_native, 1) ->
     {removed, "HiPE has been removed"};
 obsolete(code, rehash, 0) ->
@@ -218,6 +196,28 @@ obsolete(ssl, connection_info, 1) ->
     {removed, "use ssl:connection_information/[1,2] instead"};
 obsolete(ssl, negotiated_next_protocol, 1) ->
     {removed, "use ssl:negotiated_protocol/1 instead"};
+obsolete(zlib, adler32, 2) ->
+    {removed, "use erlang:adler32/1 instead"};
+obsolete(zlib, adler32, 3) ->
+    {removed, "use erlang:adler32/2 instead"};
+obsolete(zlib, adler32_combine, 4) ->
+    {removed, "use erlang:adler_combine/3 instead"};
+obsolete(zlib, crc32, 1) ->
+    {removed, "use erlang:crc32/1 on the uncompressed data instead"};
+obsolete(zlib, crc32, 2) ->
+    {removed, "use erlang:crc32/1 instead"};
+obsolete(zlib, crc32, 3) ->
+    {removed, "use erlang:crc32/2 instead"};
+obsolete(zlib, crc32_combine, 4) ->
+    {removed, "use erlang:crc32_combine/3 instead"};
+obsolete(zlib, getBufSize, 1) ->
+    {removed, "this function has been removed"};
+obsolete(zlib, inflateChunk, 1) ->
+    {removed, "use safeInflate/2 instead"};
+obsolete(zlib, inflateChunk, 2) ->
+    {removed, "use safeInflate/2 instead"};
+obsolete(zlib, setBufSize, 2) ->
+    {removed, "this function has been removed"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(asn1ct, decode, _) ->

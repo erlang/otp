@@ -134,14 +134,9 @@ static ERL_NIF_TERM zlib_inflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TE
 static ERL_NIF_TERM zlib_inflateEnd(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM zlib_crc32(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-
 static ERL_NIF_TERM zlib_clearStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_setStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_getStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-
-static ERL_NIF_TERM zlib_getBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM zlib_setBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM zlib_enqueue_input(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
@@ -167,19 +162,12 @@ static ErlNifFunc nif_funcs[] = {
     {"inflateEnd_nif", 1, zlib_inflateEnd},
     {"inflate_nif", 4, zlib_inflate},
 
-    /* running checksum */
-    {"crc32_nif", 1, zlib_crc32},
-
     /* The stash keeps a single term alive across calls, and is used in
      * exception_on_need_dict/1 to retain the old error behavior, and for
      * saving data flushed through deflateParams/3. */
     {"getStash_nif", 1, zlib_getStash},
     {"clearStash_nif", 1, zlib_clearStash},
     {"setStash_nif", 2, zlib_setStash},
-
-    /* DEPRECATED: buffer size for inflateChunk */
-    {"getBufSize_nif", 1, zlib_getBufSize},
-    {"setBufSize_nif", 2, zlib_setBufSize},
 
     {"enqueue_nif", 2, zlib_enqueue_input},
 };
@@ -974,52 +962,6 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
     }
 
     return zlib_codec(&inflate, env, d, input_chunk_size, output_chunk_size, flush);
-}
-
-static ERL_NIF_TERM zlib_crc32(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    zlib_data_t *d;
-
-    if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
-        return enif_make_badarg(env);
-    } else if(!zlib_process_check(env, d)) {
-        return enif_raise_exception(env, am_not_on_controlling_process);
-    }
-
-    if(d->state == ST_DEFLATE) {
-        return enif_make_ulong(env, d->input_crc);
-    } else if(d->state == ST_INFLATE) {
-        return enif_make_ulong(env, d->output_crc);
-    }
-
-    return enif_raise_exception(env, am_not_initialized);
-}
-
-static ERL_NIF_TERM zlib_getBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    zlib_data_t *d;
-
-    if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
-        return enif_make_badarg(env);
-    } else if(!zlib_process_check(env, d)) {
-        return enif_raise_exception(env, am_not_on_controlling_process);
-    }
-
-    return enif_make_int(env, d->inflateChunk_buffer_size);
-}
-
-static ERL_NIF_TERM zlib_setBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    zlib_data_t *d;
-
-    if(argc != 2 || !get_zlib_data(env, argv[0], &d)) {
-        return enif_make_badarg(env);
-    } else if(!zlib_process_check(env, d)) {
-        return enif_raise_exception(env, am_not_on_controlling_process);
-    }
-
-    if(!enif_get_int(env, argv[1], &d->inflateChunk_buffer_size)) {
-        return enif_make_badarg(env);
-    }
-
-    return am_ok;
 }
 
 static ERL_NIF_TERM zlib_enqueue_input(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
