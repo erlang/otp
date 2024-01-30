@@ -322,6 +322,10 @@ agent_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-spec write_agent_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
+
 write_agent_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the Agent local configuration info\n"
@@ -339,6 +343,11 @@ write_agent_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment, 
     write_agent_config(Dir, Hdr, Conf).
+
+-spec write_agent_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [agent_entry()].
 
 write_agent_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

@@ -490,23 +490,18 @@ word() = 0..65535
     </func>
 
     <func>
-      <name since="">write_agent_config(Dir, Conf) -> ok</name>
-      <name since="">write_agent_config(Dir, Hdr, Conf) -> ok</name>
+      <name name="write_agent_config" arity="2" clause_i="1" since=""/>
+      <name name="write_agent_config" arity="3" clause_i="1" since=""/>
       <fsummary>Write the agent config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Hdr = string()</v>
-        <v>Conf = [agent_entry()]</v>
-      </type>
       <desc>
         <p>Write the agent config to the agent config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p><c>Hdr</c> is an optional file header (note that this text is
-          written to the file as is). </p>
+	written to the file as is). </p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
+	for more info. </p>
 
         <marker id="append_agent_config"></marker>
       </desc>

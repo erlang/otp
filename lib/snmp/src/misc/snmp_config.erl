@@ -1927,28 +1927,50 @@ write_agent_snmp_files(
 
 write_agent_snmp_conf(Dir, Transports, EngineID, MMS) ->
     Conf =
-	[{intAgentTransports,       Transports},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       Transports),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf).
 
 write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS)
   when is_atom(Domain) ->
-    {AgentIP, AgentUDP} = AgentAddr,
+    Transport =
+        case Domain of
+            snmpUDPDomain ->
+                {transportDomainUdpIpv4, AgentAddr};
+            _ ->
+                {Domain, AgentAddr}
+        end,
     Conf =
-	[{intAgentTransportDomain,  Domain},
-	 {intAgentUDPPort,          AgentUDP},
-	 {intAgentIpAddress,        AgentIP},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       [Transport]),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf);
 write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
   when is_integer(AgentUDP) ->
+    AgentAddr = {AgentIP, AgentUDP},
+    Domain =
+        if
+            is_tuple(AgentIP) ->
+                case tuple_size(AgentIP) of
+                    4 ->
+                        transportDomainUdpIpv4;
+                    8 ->
+                        transportDomainUdpIpv6
+                end;
+            is_list(AgentIP) ->
+                case length(AgentIP) of
+                    4 ->
+                        transportDomainUdpIpv4;
+                    _ ->
+                        transportDomainUdpIpv6
+                end
+        end,
+    Transport = {Domain, AgentAddr},
     Conf =
-	[{intAgentUDPPort,          AgentUDP},
-	 {intAgentIpAddress,        AgentIP},
-	 {snmpEngineID,             EngineID},
-	 {snmpEngineMaxMessageSize, MMS}],
+	[snmpa_conf:agent_entry(intAgentTransports,       [Transport]),
+	 snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+	 snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
     do_write_agent_snmp_conf(Dir, Conf);
 write_agent_snmp_conf(_Dir, Domain, AgentAddr, _EngineID, _MMS) ->
     error({bad_address, {Domain, AgentAddr}}).
