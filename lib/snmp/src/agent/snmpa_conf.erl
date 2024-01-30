@@ -628,6 +628,10 @@ standard_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-spec write_standard_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [standard_entry()].
+
 write_standard_config(Dir, Conf) ->
     Comment =
 "%% This file defines the STANDARD-MIB info.\n"
@@ -644,6 +648,11 @@ write_standard_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_standard_config(Dir, Hdr, Conf).
+
+-spec write_standard_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [standard_entry()].
 
 write_standard_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

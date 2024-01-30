@@ -2079,13 +2079,22 @@ write_agent_snmp_standard_conf(Dir, SysName) ->
 "%% {snmpEnableAuthenTraps, enabled}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{sysDescr,              "Erlang SNMP agent"},
-	    {sysObjectID,           [1,2,3]},
-	    {sysContact,            "{mbj,eklas}@erlang.ericsson.se"},
-	    {sysLocation,           "erlang"}, 
-	    {sysServices,           72}, 
-	    {snmpEnableAuthenTraps, enabled},
-	    {sysName,               SysName}],
+    Conf =
+        [
+         snmpa_conf:standard_entry(
+           sysDescr,              "Erlang SNMP agent"),
+         snmpa_conf:standard_entry(
+           sysObjectID,           [1,2,3]),
+         snmpa_conf:standard_entry(
+           sysContact,            "{mbj,eklas}@erlang.ericsson.se"),
+         snmpa_conf:standard_entry(
+           sysLocation,           "erlang"),
+         snmpa_conf:standard_entry(
+           sysServices,           72),
+         snmpa_conf:standard_entry(
+           snmpEnableAuthenTraps, enabled),
+         snmpa_conf:standard_entry(
+           sysName,               SysName)],
     write_agent_standard_config(Dir, Hdr, Conf).
 
 write_agent_standard_config(Dir, Hdr, Conf) ->
