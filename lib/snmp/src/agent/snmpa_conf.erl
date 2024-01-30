@@ -974,10 +974,23 @@ do_write_target_addr_conf(_Fd, Crap) ->
 %% ------ target_params.conf ------
 %%
 
+-spec target_params_entry(Name, Vsn) -> TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      Vsn               :: snmp:version(),
+      TargetParamsEntry :: target_params_entry().
+
 target_params_entry(Name, Vsn) ->
     SecName  = "initial",
     SecLevel = noAuthNoPriv,
     target_params_entry(Name, Vsn, SecName, SecLevel).
+
+-spec target_params_entry(Name, Vsn, SecName, SecLevel) ->
+          TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      Vsn               :: snmp:version(),
+      SecName           :: snmp_framework_mib:admin_string(),
+      SecLevel          :: snmp_framework_mib:security_level(),
+      TargetParamsEntry :: target_params_entry().
 
 target_params_entry(Name, Vsn, SecName, SecLevel) ->
     MPModel = if Vsn =:= v1 -> v1;
@@ -989,6 +1002,15 @@ target_params_entry(Name, Vsn, SecName, SecLevel) ->
 		  Vsn =:= v3 -> usm
 	       end,
     target_params_entry(Name, MPModel, SecModel, SecName, SecLevel).
+
+-spec target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
+          TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      MPModel           :: snmp_framework_mib:message_processing_model(),
+      SecModel          :: snmp_framework_mib:security_model(),
+      SecName           :: snmp_framework_mib:admin_string(),
+      SecLevel          :: snmp_framework_mib:security_level(),
+      TargetParamsEntry :: target_params_entry().
 
 target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
     {Name, MPModel, SecModel, SecName, SecLevel}.

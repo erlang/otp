@@ -940,41 +940,53 @@ word() = 0..65535
 	for more info. </p>
 
         <marker id="target_params_entry"></marker>
+        <marker id="target_params_entry_1"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">target_params_entry(Name, Vsn) -> target_params_entry()</name>
-      <name since="">target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry()</name>
-      <name since="">target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry()</name>
+      <name name="target_params_entry" arity="2" clause_i="1" since=""/>
+      <name name="target_params_entry" arity="4" clause_i="1" since=""/>
       <fsummary>Create an target_params entry</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Vsn = v1 | v2 | v3</v>
-        <v>MPModel = v1 | v2c | v3</v>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
-        <v>target_params_entry() = term()</v>
-      </type>
+      <desc>
+        <p>Create an entry for the agent target_params config file, 
+	<c>target_params.conf</c>. </p>
+        <p><c>Name</c> must be a <em>non-empty</em> string. </p>
+        <p><c>Vsn</c> translates into <c>MPModel</c> and <c>SecModel</c> as follows:</p>
+        <pre>
+	  Vsn = v1 => MPModel = v1,  SecModel = v1
+	  Vsn = v2 => MPModel = v2c, SecModel = v2c
+	  Vsn = v3 => MPModel = v3,  SecModel = usm
+        </pre>
+        <p><c>target_params_entry/2</c> translates to the following call:</p>
+	<pre>
+	  target_params_entry(Name, Vsn, "initial", noAuthNoPriv)
+	</pre>
+	<p><c>target_params_entry/4</c> translates to the following call: </p>
+	<pre>
+	  target_params_entry(Name, MPModel, SecModel, SecName, SecLevel)
+	</pre>
+	<p>Where <c>MPModel</c> and <c>SecModel</c> is mapped from <c>Vsn</c>,
+	see above. </p>
+        <p>See 
+	<seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
+	for more info. </p>
+
+        <marker id="target_params_entry_2"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name name="target_params_entry" arity="5" clause_i="1" since=""/>
+      <fsummary>Create an target_params entry</fsummary>
       <desc>
         <p>Create an entry for the agent target_params config file, 
           <c>target_params.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
-        <p><c>Vsn</c> translates into <c>MPModel</c> and <c>SecModel</c> as follows:</p>
-        <pre>
-\011  Vsn = v1 => MPModel = v1,  SecModel = v1
-\011  Vsn = v2 => MPModel = v2c, SecModel = v2c
-\011  Vsn = v3 => MPModel = v3,  SecModel = usm
-        </pre>
-        <p><c>target_params_entry/2</c> translates to the following call:
-          <c>target_params_entry(Name, Vsn, "initial", noAuthNoPriv)</c>. </p>
-        <p><c>target_params_entry/4</c> translates to the following
-          call: <c>target_params_entry(Name, MPModel, SecModel, SecName, SecLevel)</c> where <c>MPModel</c> and
-          <c>SecModel</c> is mapped from <c>Vsn</c>, see above. </p>
-        <p>See 
-          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
-          for more info. </p>
+	<p>See 
+	<seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide>
+	for more info. </p>
 
         <marker id="write_target_params_config"></marker>
       </desc>
