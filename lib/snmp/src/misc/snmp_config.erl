@@ -23,6 +23,7 @@
 -include_lib("kernel/include/file.hrl").
 -include("snmp_types.hrl").
 -include("snmp_usm.hrl").
+-include("snmp_internal.hrl").
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -2139,45 +2140,119 @@ write_agent_snmp_target_addr_conf(
 "%%  [127,0,0,0],  2048}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf =
-	lists:foldl(
-	  fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
-		  lists:foldl(
-		    fun(v1 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048}| Acc];
-		       (v2 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048},
-			       {lists:flatten(
-				  io_lib:format(
-				    "~s.2", [mk_name(Address, Vsn)])),
-				Domain_or_Ip, Addr_or_Port,
-				Timeout, RetryCount,
-				"std_inform", mk_param(Vsn), "",
-				[], 2048}| Acc];
-		       (v3 = Vsn, Acc) ->
-			    [{mk_name(Address, Vsn),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_trap", mk_param(Vsn), "",
-			      [], 2048},
-			     {lists:flatten(
-				io_lib:format(
-				  "~s.3", [mk_name(Address, Vsn)])),
-			      Domain_or_Ip, Addr_or_Port,
-			      Timeout, RetryCount,
-			      "std_inform", mk_param(Vsn), "mgrEngine",
-			      [], 2048} | Acc]
-		    end, OuterAcc, Vsns)
-	  end, [], Addresses),
+    %% Conf =
+    %%     lists:foldl(
+    %%       fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
+    %%     	  lists:foldl(
+    %%     	    fun(v1 = Vsn, Acc) ->
+    %%     		    [{mk_name(Address, Vsn),
+    %%     		      Domain_or_Ip, Addr_or_Port,
+    %%     		      Timeout, RetryCount,
+    %%     		      "std_trap", mk_param(Vsn), "",
+    %%     		      [], 2048}| Acc];
+    %%     	       (v2 = Vsn, Acc) ->
+    %%     		    [{mk_name(Address, Vsn),
+    %%     		      Domain_or_Ip, Addr_or_Port,
+    %%     		      Timeout, RetryCount,
+    %%     		      "std_trap", mk_param(Vsn), "",
+    %%     		      [], 2048},
+    %%                          {lists:flatten(
+    %%                             io_lib:format(
+    %%                               "~s.2", [mk_name(Address, Vsn)])),
+    %%                           Domain_or_Ip, Addr_or_Port,
+    %%                           Timeout, RetryCount,
+    %%                           "std_inform", mk_param(Vsn), "",
+    %%                           [], 2048}| Acc];
+    %%     	       (v3 = Vsn, Acc) ->
+    %%     		    [{mk_name(Address, Vsn),
+    %%     		      Domain_or_Ip, Addr_or_Port,
+    %%     		      Timeout, RetryCount,
+    %%     		      "std_trap", mk_param(Vsn), "",
+    %%     		      [], 2048},
+    %%     		     {lists:flatten(
+    %%     			io_lib:format(
+    %%     			  "~s.3", [mk_name(Address, Vsn)])),
+    %%     		      Domain_or_Ip, Addr_or_Port,
+    %%     		      Timeout, RetryCount,
+    %%     		      "std_inform", mk_param(Vsn), "mgrEngine",
+    %%     		      [], 2048} | Acc]
+    %%     	    end, OuterAcc, Vsns)
+    %%       end, [], Addresses),
+    Conf = process_ata_addresses(Addresses, Timeout, RetryCount, Vsns),
     write_agent_target_addr_config(Dir, Hdr, Conf).
+
+process_ata_addresses(Addresses, Timeout, RetryCount, Vsns) ->
+    process_ata_addresses(Addresses, Timeout, RetryCount, Vsns, []).
+
+process_ata_addresses([], _Timeout, _RetryCount, _Vsns, Acc) ->
+    lists:reverse(lists:flatten(Acc));
+process_ata_addresses([Address|Addresses], Timeout, RetryCount, Vsns, Acc) ->
+    VAddrs = process_ata_vsns(Address, Timeout, RetryCount, Vsns),
+    process_ata_addresses(Addresses, Timeout, RetryCount, Vsns, [VAddrs | Acc]).
+
+process_ata_vsns(Address, Timeout, RetryCount, Vsns) ->
+    process_ata_vsns(Address, Timeout, RetryCount, Vsns, []).
+
+process_ata_vsns(_Address, _Timeout, _RetryCount, [], Acc) ->
+    lists:reverse(Acc);
+process_ata_vsns(Address, Timeout, RetryCount, [v1 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048) | Acc]);
+process_ata_vsns(Address, Timeout, RetryCount, [v2 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048),
+       snmpa_conf:target_addr_entry(f("~s.2", [Name]),
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_inform", ParamsName, "",
+                                    [], 2048) | Acc]);
+process_ata_vsns(Address, Timeout, RetryCount, [v3 = Vsn|Vsns], Acc) ->
+    {Domain, Addr} = process_ata_address(Address),
+    Name           = mk_name(Address, Vsn),
+    ParamsName     = mk_param(Vsn),
+    process_ata_vsns(
+      Address, Timeout, RetryCount, Vsns,
+      [snmpa_conf:target_addr_entry(Name,
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_trap", ParamsName, "",
+                                    [], 2048),
+       snmpa_conf:target_addr_entry(f("~s.3", [Name]),
+                                    Domain, Addr,
+                                    Timeout, RetryCount,
+                                    "std_inform", ParamsName, "mgrEngine",
+                                    [], 2048) | Acc]).
+
+process_ata_address(Address) ->
+    case Address of
+        {D, _} when is_atom(D) ->
+            Address;
+        {A, P} when ?ip4(A) andalso ?port(P) ->
+            {transportDomainUdpIpv4, Address};
+        {A, P} when ?ip6(A) andalso ?port(P) ->
+            {transportDomainUdpIpv6, Address};
+        _ when ?ip4(Address) ->
+            {transportDomainUdpIpv4, Address};
+        _ when ?ip6(Address) ->
+            {transportDomainUdpIpv6, Address}
+    end.
+    
 
 write_agent_snmp_target_addr_conf(
   Dir, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, Vsns) ->

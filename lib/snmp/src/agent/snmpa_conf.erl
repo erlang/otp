@@ -20,6 +20,9 @@
 
 -module(snmpa_conf).
 
+-include("snmp_internal.hrl").
+
+
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 -export([
@@ -269,31 +272,6 @@
         {transportDomain(), extended_transport_address(), snmpa:transport_kind()} |
         {transportDomain(), extended_transport_address(), transport_opts()} |
         {transportDomain(), extended_transport_address(), snmpa:transport_kind(), transport_opts()}.
-
-
-%% Nicked from the inet_int.hrl (kernel internal) include file:
-
-%% macro for guards only that checks IP address {A,B,C,D}
-%% that returns true for an IP address, but returns false
-%% or crashes for other terms
--define(ip4(A,B,C,D),
-        (((A) bor (B) bor (C) bor (D)) band (bnot 16#ff)) =:= 0).
-%% d:o for IP address as one term
--define(ip4(Addr),
-        (tuple_size(Addr) =:= 4 andalso
-         ?ip4(element(1, (Addr)), element(2, (Addr)),
-              element(3, (Addr)), element(4, (Addr))))).
-%% d:o IPv6 address
--define(ip6(A,B,C,D,E,F,G,H), 
-        (((A) bor (B) bor (C) bor (D) bor (E) bor (F) bor (G) bor (H)) 
-         band (bnot 16#ffff)) =:= 0).
--define(ip6(Addr),
-        (tuple_size(Addr) =:= 8 andalso
-         ?ip6(element(1, (Addr)), element(2, (Addr)),
-              element(3, (Addr)), element(4, (Addr)),
-              element(5, (Addr)), element(6, (Addr)),
-              element(7, (Addr)), element(8, (Addr))))).
--define(port(P), (((P) band bnot 16#ffff) =:= 0)).
 
 
 -ifndef(version).
@@ -894,6 +872,9 @@ ip_and_port_to_taddr(IP, Port)
     {TDomain, TAddr}.
 
 
+-spec write_target_addr_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_addr_entry()].
 
 write_target_addr_config(Dir, Conf) ->
     Comment = 
@@ -920,6 +901,11 @@ write_target_addr_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_target_addr_config(Dir, Hdr, Conf).
+
+-spec write_target_addr_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [target_addr_entry()].
 
 write_target_addr_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
