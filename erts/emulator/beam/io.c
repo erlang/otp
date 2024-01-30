@@ -6345,7 +6345,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
                                 conn_id,
 				(byte*) hbuf, hlen,
                                 ErlDrvBinary2Binary(bin),
-				(byte*) (bin->orig_bytes+offs), len);
+				(byte*) (bin->orig_bytes+offs), len, NULL);
     }
     else
 	deliver_bin_message(prt, ERTS_PORT_GET_CONNECTED(prt), 
@@ -6391,14 +6391,14 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
                                     conn_id,
 				    NULL, 0,
                                     NULL,
-				    (byte*) hbuf, hlen);
+				    (byte*) hbuf, hlen, NULL);
 	else
 	    return erts_net_message(prt,
 				    dep,
                                     conn_id,
 				    (byte*) hbuf, hlen,
                                     NULL,
-				    (byte*) buf, len);
+				    (byte*) buf, len, NULL);
     }
     else if (state & ERTS_PORT_SFLG_LINEBUF_IO)
 	deliver_linebuf_message(prt, state, ERTS_PORT_GET_CONNECTED(prt),

@@ -468,6 +468,7 @@ atom more
 atom multi_scheduling
 atom multiline
 atom multisend
+atom multisend_yield
 atom nano_seconds
 atom nanosecond
 atom name
