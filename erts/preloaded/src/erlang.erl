@@ -28,8 +28,8 @@ _auto-imported_. Thus, it is not necessary to specify the module name. For
 example, the calls [`atom_to_list(erlang)`](`atom_to_list/1`) and
 [`erlang:atom_to_list(erlang)`](`atom_to_list/1`) are identical.
 
-Auto-imported BIFs are listed without module prefix. BIFs listed with module
-prefix are not auto-imported.
+Auto-imported BIFs have an annotation saying that they are `auto-imported`
+and predefined types that they are `predefined`.
 
 Predefined types are listed in the
 [Predefined datatypes](`m:erlang#predefined-datatypes`) section of this
@@ -639,7 +639,7 @@ A list of binaries. This datatype is useful to use together with
 %% Specs and stubs
 %% adler32/1
 -doc "Computes and returns the adler32 checksum for `Data`.".
--spec erlang:adler32(Data) -> non_neg_integer() when
+-spec adler32(Data) -> non_neg_integer() when
       Data :: iodata().
 adler32(_Data) ->
     erlang:nif_error(undefined).
@@ -662,7 +662,7 @@ assigns the same value to `Y` as this:
 Y = erlang:adler32([Data1,Data2]).
 ```
 """.
--spec erlang:adler32(OldAdler, Data) -> non_neg_integer() when
+-spec adler32(OldAdler, Data) -> non_neg_integer() when
       OldAdler :: non_neg_integer(),
       Data :: iodata().
 adler32(_OldAdler, _Data) ->
@@ -688,7 +688,7 @@ Y = erlang:adler32(Data2),
 Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
 ```
 """.
--spec erlang:adler32_combine(FirstAdler, SecondAdler, SecondSize) -> non_neg_integer() when
+-spec adler32_combine(FirstAdler, SecondAdler, SecondSize) -> non_neg_integer() when
       FirstAdler :: non_neg_integer(),
       SecondAdler :: non_neg_integer(),
       SecondSize :: non_neg_integer().
@@ -708,7 +708,7 @@ faster. Example:
 {one,two,three}
 ```
 """.
--spec erlang:append_element(Tuple1, Term) -> Tuple2 when
+-spec append_element(Tuple1, Term) -> Tuple2 when
       Tuple1 :: tuple(),
       Tuple2 :: tuple(),
       Term :: term().
@@ -1331,7 +1331,7 @@ reductions in Erlang/OTP 19.2 and later).
 > This BIF can be removed in a future version of the Beam machine without prior
 > warning. It is unlikely to be implemented in other Erlang implementations.
 """.
--spec erlang:bump_reductions(Reductions) -> true when
+-spec bump_reductions(Reductions) -> true when
       Reductions :: pos_integer().
 bump_reductions(_Reductions) ->
     erlang:nif_error(undefined).
@@ -1359,7 +1359,7 @@ byte_size(_Bitstring) ->
 
 %% call_on_load_function/1
 -doc false.
--spec erlang:call_on_load_function(P1) -> term() when
+-spec call_on_load_function(P1) -> term() when
       P1 :: atom().
 call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
@@ -1369,7 +1369,7 @@ call_on_load_function(_P1) ->
 Cancels a timer. The same as calling
 [`erlang:cancel_timer(TimerRef, [])`](`cancel_timer/2`).
 """.
--spec erlang:cancel_timer(TimerRef) -> Result when
+-spec cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
       Time :: non_neg_integer(),
       Result :: Time | false.
@@ -1429,7 +1429,7 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:read_timer/2`](`read_timer/2`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:cancel_timer(TimerRef, Options) -> Result | ok when
+-spec cancel_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
       Async :: boolean(),
       Info :: boolean(),
@@ -1570,7 +1570,7 @@ check_process_code(Pid, Module, OptionList)  ->
 
 %% crc32/1
 -doc "Computes and returns the crc32 (IEEE 802.3 style) checksum for `Data`.".
--spec erlang:crc32(Data) -> non_neg_integer() when
+-spec crc32(Data) -> non_neg_integer() when
       Data :: iodata().
 crc32(_Data) ->
     erlang:nif_error(undefined).
@@ -1593,7 +1593,7 @@ assigns the same value to `Y` as this:
 Y = erlang:crc32([Data1,Data2]).
 ```
 """.
--spec erlang:crc32(OldCrc, Data) -> non_neg_integer() when
+-spec crc32(OldCrc, Data) -> non_neg_integer() when
       OldCrc :: non_neg_integer(),
       Data :: iodata().
 crc32(_OldCrc, _Data) ->
@@ -1619,7 +1619,7 @@ Y = erlang:crc32(Data2),
 Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
 ```
 """.
--spec erlang:crc32_combine(FirstCrc, SecondCrc, SecondSize) -> non_neg_integer() when
+-spec crc32_combine(FirstCrc, SecondCrc, SecondSize) -> non_neg_integer() when
       FirstCrc :: non_neg_integer(),
       SecondCrc :: non_neg_integer(),
       SecondSize :: non_neg_integer().
@@ -1736,7 +1736,7 @@ Examples:
 {more,6}
 ```
 """.
--spec erlang:decode_packet(Type, Bin, Options) ->
+-spec decode_packet(Type, Bin, Options) ->
                                   {ok, Packet, Rest} |
                                   {more, Length} |
                                   {error, Reason} when
@@ -1843,7 +1843,7 @@ example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--spec erlang:delete_element(Index, Tuple1) -> Tuple2 when
+-spec delete_element(Index, Tuple1) -> Tuple2 when
       Index  :: pos_integer(),
       Tuple1 :: tuple(),
       Tuple2 :: tuple().
@@ -2062,14 +2062,14 @@ Prints a text representation of `Term` on the standard output.
 > contain internal details that do not match the high-level representation of
 > the term in Erlang.
 """.
--spec erlang:display(Term) -> true when
+-spec display(Term) -> true when
       Term :: term().
 display(_Term) ->
     erlang:nif_error(undefined).
 
 %% display_string/1
 -doc false.
--spec erlang:display_string(P1) -> true when
+-spec display_string(P1) -> true when
       P1 :: string() | binary().
 display_string(String) ->
     try erlang:display_string(stderr, String)
@@ -2080,7 +2080,7 @@ display_string(String) ->
 
 %% display_string/2
 -doc false.
--spec erlang:display_string(Device, P1) -> true when
+-spec display_string(Device, P1) -> true when
       Device :: stdin | stdout | stderr,
       P1 :: string().
 display_string(_Stream,_P1) ->
@@ -2088,7 +2088,7 @@ display_string(_Stream,_P1) ->
 
 %% dt_append_vm_tag_data/1
 -doc false.
--spec erlang:dt_append_vm_tag_data(IoData) -> IoDataRet when
+-spec dt_append_vm_tag_data(IoData) -> IoDataRet when
       IoData :: iodata(),
       IoDataRet :: iodata().
 dt_append_vm_tag_data(_IoData) ->
@@ -2096,19 +2096,19 @@ dt_append_vm_tag_data(_IoData) ->
 
 %% dt_get_tag/0
 -doc false.
--spec erlang:dt_get_tag() -> binary() | undefined.
+-spec dt_get_tag() -> binary() | undefined.
 dt_get_tag() ->
     erlang:nif_error(undefined).
 
 %%  dt_get_tag_data/0
 -doc false.
--spec erlang:dt_get_tag_data() -> binary() | undefined.
+-spec dt_get_tag_data() -> binary() | undefined.
 dt_get_tag_data() ->
     erlang:nif_error(undefined).
 
 %% dt_prepend_vm_tag_data/1
 -doc false.
--spec erlang:dt_prepend_vm_tag_data(IoData) -> IoDataRet when
+-spec dt_prepend_vm_tag_data(IoData) -> IoDataRet when
       IoData :: iodata(),
       IoDataRet :: iodata().
 dt_prepend_vm_tag_data(_IoData) ->
@@ -2116,21 +2116,21 @@ dt_prepend_vm_tag_data(_IoData) ->
 
 %% dt_put_tag/1
 -doc false.
--spec erlang:dt_put_tag(IoData) -> binary() | undefined when
+-spec dt_put_tag(IoData) -> binary() | undefined when
       IoData :: iodata().
 dt_put_tag(_IoData) ->
     erlang:nif_error(undefined).
 
 %% dt_restore_tag/1
 -doc false.
--spec erlang:dt_restore_tag(TagData) -> true when
+-spec dt_restore_tag(TagData) -> true when
       TagData :: term().
 dt_restore_tag(_TagData) ->
     erlang:nif_error(undefined).
     
 %% dt_spread_tag/1
 -doc false.
--spec erlang:dt_spread_tag(boolean()) -> TagData when
+-spec dt_spread_tag(boolean()) -> TagData when
       TagData :: term().
 dt_spread_tag(_Bool) ->   
     erlang:nif_error(undefined).
@@ -2392,7 +2392,7 @@ exit(_Pid, _Reason) ->
 
 %% exit_signal/2
 -doc false.
--spec erlang:exit_signal(Pid, Reason) -> true when
+-spec exit_signal(Pid, Reason) -> true when
       Pid :: pid() | port(),
       Reason :: term().
 exit_signal(_Pid, _Reason) ->
@@ -2417,7 +2417,7 @@ erlang:external_size(Term, [])
 ```
 """.
 -doc(#{since => <<"OTP R14B04">>}).
--spec erlang:external_size(Term) -> non_neg_integer() when
+-spec external_size(Term) -> non_neg_integer() when
       Term :: term().
 external_size(_Term) ->
     erlang:nif_error(undefined).
@@ -2438,7 +2438,7 @@ Option `{minor_version, Version}` specifies how floats are encoded. For a
 detailed description, see `term_to_binary/2`.
 """.
 -doc(#{since => <<"OTP R14B04">>}).
--spec erlang:external_size(Term, Options) -> non_neg_integer() when
+-spec external_size(Term, Options) -> non_neg_integer() when
       Term :: term(),
       Options :: [compressed |
          {compressed, Level :: 0..9} |
@@ -2450,7 +2450,7 @@ external_size(_Term, _Options) ->
 
 %% finish_loading/2
 -doc false.
--spec erlang:finish_loading(PreparedCodeList) -> ok | Error when
+-spec finish_loading(PreparedCodeList) -> ok | Error when
       PreparedCodeList :: [PreparedCode],
       PreparedCode :: prepared_code(),
       ModuleList :: [module()],
@@ -2460,7 +2460,7 @@ finish_loading(_List) ->
 
 %% finish_after_on_load/2
 -doc false.
--spec erlang:finish_after_on_load(P1, P2) -> true when
+-spec finish_after_on_load(P1, P2) -> true when
       P1 :: atom(),
       P2 :: boolean().
 finish_after_on_load(_P1, _P2) ->
@@ -2625,7 +2625,7 @@ items is always the atom `undefined`.
 
 See [`erlang:fun_info/1`](`fun_info/1`).
 """.
--spec erlang:fun_info(Fun, Item) -> {Item, Info} when
+-spec fun_info(Fun, Item) -> {Item, Info} when
       Fun :: function(),
       Item :: fun_info_item(),
       Info :: term().
@@ -2634,7 +2634,7 @@ fun_info(_Fun, _Item) ->
 
 %% fun_info_mfa/1
 -doc false.
--spec erlang:fun_info_mfa(Fun) -> {Mod, Name, Arity} when
+-spec fun_info_mfa(Fun) -> {Mod, Name, Arity} when
       Fun :: function(),
       Mod :: atom(),
       Name :: atom(),
@@ -2720,7 +2720,7 @@ Explanation: All funs created from fun expressions of this form in uncompiled
 code with the same arity are mapped to the same list by
 [`fun_to_list/1`](`fun_to_list/1`).
 """.
--spec erlang:fun_to_list(Fun) -> String :: string() when
+-spec fun_to_list(Fun) -> String :: string() when
       Fun :: function().
 fun_to_list(_Fun) ->
     erlang:nif_error(undefined).
@@ -2732,7 +2732,7 @@ Returns `true` if the module `Module` is
 function `Function/Arity`, or if there is a BIF (a built-in function implemented
 in C) with the specified name, otherwise returns `false`.
 """.
--spec erlang:function_exported(Module, Function, Arity) -> boolean() when
+-spec function_exported(Module, Function, Arity) -> boolean() when
       Module :: module(),
       Function :: atom(),
       Arity :: arity().
@@ -2857,7 +2857,7 @@ get_gc_opts(_, _) ->
 
 %% garbage_collect_message_area/0
 -doc false.
--spec erlang:garbage_collect_message_area() -> boolean().
+-spec garbage_collect_message_area() -> boolean().
 garbage_collect_message_area() ->
     erlang:nif_error(undefined).
 
@@ -2945,7 +2945,7 @@ get_keys(_Val) ->
 
 %% get_module_info/1
 -doc false.
--spec erlang:get_module_info(Module) -> [{Item, term()}] when
+-spec get_module_info(Module) -> [{Item, term()}] when
       Item :: module | exports | attributes | compile | native | md5,
       Module :: atom().
 get_module_info(_Module) ->
@@ -3141,7 +3141,7 @@ halt(_, _) ->
 
 %% has_prepared_code_on_load/1
 -doc false.
--spec erlang:has_prepared_code_on_load(PreparedCode) -> boolean() when
+-spec has_prepared_code_on_load(PreparedCode) -> boolean() when
       PreparedCode :: prepared_code().
 has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
@@ -3178,7 +3178,7 @@ processes started using `proc_lib` (also indirectly, such as `gen_server`
 processes), are to use `proc_lib:hibernate/3` instead, to ensure that the
 exception handler continues to work when the process wakes up.
 """.
--spec erlang:hibernate(Module, Function, Args) -> no_return() when
+-spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
       Function :: atom(),
       Args :: [term()].
@@ -3197,7 +3197,7 @@ higher in the new tuple `Tuple2`. Example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--spec erlang:insert_element(Index, Tuple1, Term) -> Tuple2 when
+-spec insert_element(Index, Tuple1, Term) -> Tuple2 when
       Index  :: pos_integer(),
       Tuple1 :: tuple(),
       Tuple2 :: tuple(),
@@ -3303,7 +3303,7 @@ more efficient message passing. The advantage of using this function over
 ```
 """.
 -doc(#{since => <<"OTP 20.1">>}).
--spec erlang:iolist_to_iovec(IoListOrBinary) -> iovec() when
+-spec iolist_to_iovec(IoListOrBinary) -> iovec() when
       IoListOrBinary :: iolist() | binary().
 iolist_to_iovec(_IoListOrBinary) ->
     erlang:nif_error(undefined).
@@ -3330,7 +3330,7 @@ This BIF is useful for builders of cross-reference tools.
 Returns `true` if `Module:Function/Arity` is a BIF implemented in C, otherwise
 `false`.
 """.
--spec erlang:is_builtin(Module, Function, Arity) -> boolean() when
+-spec is_builtin(Module, Function, Arity) -> boolean() when
       Module :: module(),
       Function :: atom(),
       Arity :: arity().
@@ -3789,7 +3789,7 @@ preloaded modules.
 
 See also `m:code`.
 """.
--spec erlang:loaded() -> [Module] when
+-spec loaded() -> [Module] when
       Module :: module().
 loaded() ->
     erlang:nif_error(undefined).
@@ -3808,7 +3808,7 @@ The time zone and Daylight Saving Time correction depend on the underlying OS.
 The return value is based on the
 [OS System Time](time_correction.md#os-system-time).
 """.
--spec erlang:localtime() -> DateTime when
+-spec localtime() -> DateTime when
       DateTime :: calendar:datetime().
 localtime() ->
     erlang:nif_error(undefined).
@@ -3902,7 +3902,7 @@ match specifications.
 See also `ets:test_ms/2`.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
--spec erlang:match_spec_test(MatchAgainst, MatchSpec, Type) -> TestResult when
+-spec match_spec_test(MatchAgainst, MatchSpec, Type) -> TestResult when
       MatchAgainst :: [term()] | tuple(),
       MatchSpec :: term(),
       Type :: table | trace,
@@ -3924,7 +3924,7 @@ For more information about MD5, see
 > The MD5 Message-Digest Algorithm is _not_ considered safe for code-signing or
 > software-integrity purposes.
 """.
--spec erlang:md5(Data) -> Digest when
+-spec md5(Data) -> Digest when
       Data :: iodata(),
       Digest :: binary().
 md5(_Data) ->
@@ -3935,7 +3935,7 @@ md5(_Data) ->
 Finishes the update of an MD5 `Context` and returns the computed `MD5` message
 digest.
 """.
--spec erlang:md5_final(Context) -> Digest when
+-spec md5_final(Context) -> Digest when
       Context :: binary(),
       Digest :: binary().
 md5_final(_Context) ->
@@ -3946,14 +3946,14 @@ md5_final(_Context) ->
 Creates an MD5 context, to be used in the following calls to
 [`md5_update/2`](`md5_update/2`).
 """.
--spec erlang:md5_init() -> Context when
+-spec md5_init() -> Context when
       Context :: binary().
 md5_init() ->
     erlang:nif_error(undefined).
 
 %% md5_update/2
 -doc "Update an MD5 `Context` with `Data` and returns a `NewContext`.".
--spec erlang:md5_update(Context, Data) -> NewContext when
+-spec md5_update(Context, Data) -> NewContext when
       Context :: binary(),
       Data :: iodata(),
       NewContext :: binary().
@@ -4304,7 +4304,7 @@ Kernel option `dist_auto_connect once`. If that option is not used, option
 Failure: `badarg` if the local node is not alive or the option list is
 malformed.
 """.
--spec erlang:monitor_node(Node, Flag, Options) -> true when
+-spec monitor_node(Node, Flag, Options) -> true when
       Node :: node(),
       Flag :: boolean(),
       Options :: [Option],
@@ -4320,7 +4320,7 @@ arbitrary term. When used in a stub function for a NIF to generate an exception
 when the NIF library is not loaded, Dialyzer does not generate false warnings.
 """.
 -doc(#{since => <<"OTP R14B">>}).
--spec erlang:nif_error(Reason) -> no_return() when
+-spec nif_error(Reason) -> no_return() when
       Reason :: term().
 nif_error(_Reason) ->
     erlang:nif_error(undefined).
@@ -4333,7 +4333,7 @@ arbitrary term. When used in a stub function for a NIF to generate an exception
 when the NIF library is not loaded, Dialyzer does not generate false warnings.
 """.
 -doc(#{since => <<"OTP R14B">>}).
--spec erlang:nif_error(Reason, Args) -> no_return() when
+-spec nif_error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()].
 nif_error(_Reason, _Args) ->
@@ -4407,7 +4407,7 @@ regardless of machine architecture and ERTS version (the BIF was introduced in
 ERTS 4.9.1.1). The function returns a hash value for `Term` within the range
 `1..Range`. The maximum value for `Range` is 2^32.
 """.
--spec erlang:phash(Term, Range) -> Hash when
+-spec phash(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
       Hash :: pos_integer().
@@ -4416,7 +4416,7 @@ phash(_Term, _Range) ->
 
 %% phash2/1
 -doc(#{equiv => phash2/2}).
--spec erlang:phash2(Term) -> Hash when
+-spec phash2(Term) -> Hash when
       Term :: term(),
       Hash :: non_neg_integer().
 phash2(_Term) ->
@@ -4436,7 +4436,7 @@ better than [`phash/2`](`phash/2`), and it is faster for bignums and binaries.
 Notice that the range `0..Range-1` is different from the range of
 [`phash/2`](`phash/2`), which is `1..Range`.
 """.
--spec erlang:phash2(Term, Range) -> Hash when
+-spec phash2(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
       Hash :: non_neg_integer().
@@ -4480,13 +4480,13 @@ the local node.
 
 Notice that an exiting port exists, but is not open.
 """.
--spec erlang:ports() -> [port()].
+-spec ports() -> [port()].
 ports() ->
     erlang:nif_error(undefined).
 
 %% posixtime_to_universaltime/1
 -doc false.
--spec erlang:posixtime_to_universaltime(P1) -> {calendar:date(), calendar:time()} when
+-spec posixtime_to_universaltime(P1) -> {calendar:date(), calendar:time()} when
       P1 :: integer().
 posixtime_to_universaltime(_P1) ->
     erlang:nif_error(undefined).
@@ -4549,7 +4549,7 @@ Failures:
 - **`badarg`** - if `Modifier` is not a valid modifier.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:unique_integer(ModifierList) -> integer() when
+-spec unique_integer(ModifierList) -> integer() when
       ModifierList :: [Modifier],
       Modifier :: positive | monotonic.
 
@@ -4562,7 +4562,7 @@ Generates and returns an
 The same as calling [`erlang:unique_integer([])`](`unique_integer/1`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:unique_integer() -> integer().
+-spec unique_integer() -> integer().
 
 unique_integer() ->
     erlang:nif_error(undefined).
@@ -4593,7 +4593,7 @@ since some unspecified point in time.
 > [`erlang:system_info(start_time)`](`m:erlang#system_info_start_time`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:monotonic_time() -> integer().
+-spec monotonic_time() -> integer().
 
 monotonic_time() ->
     erlang:nif_error(undefined).
@@ -4608,7 +4608,7 @@ Same as calling
 however optimized for commonly used `Unit`s.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:monotonic_time(Unit) -> integer() when
+-spec monotonic_time(Unit) -> integer() when
       Unit :: time_unit().
 
 monotonic_time(_Unit) ->
@@ -4628,7 +4628,7 @@ Calling `erlang:system_time()` is equivalent to
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:system_time() -> integer().
+-spec system_time() -> integer().
 
 system_time() ->
     erlang:nif_error(undefined).
@@ -4647,7 +4647,7 @@ Calling `erlang:system_time(Unit)` is equivalent to
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:system_time(Unit) -> integer() when
+-spec system_time(Unit) -> integer() when
       Unit :: time_unit().
 
 system_time(_Unit) ->
@@ -4665,7 +4665,7 @@ floor function.
 > conversion on the end result.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:convert_time_unit(Time, FromUnit, ToUnit) -> ConvertedTime when
+-spec convert_time_unit(Time, FromUnit, ToUnit) -> ConvertedTime when
       Time :: integer(),
       ConvertedTime :: integer(),
       FromUnit :: time_unit(),
@@ -4739,7 +4739,7 @@ The time offset may or may not change during operation depending on the
 > heavy load it can take longer time.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:time_offset() -> integer().
+-spec time_offset() -> integer().
 
 time_offset() ->
     erlang:nif_error(undefined).
@@ -4755,7 +4755,7 @@ Same as calling
 however optimized for commonly used `Unit`s.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:time_offset(Unit) -> integer() when
+-spec time_offset(Unit) -> integer() when
       Unit :: time_unit().
 
 time_offset(_Unit) ->
@@ -4791,7 +4791,7 @@ heap and with slightly better performance.
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:timestamp() -> Timestamp when
+-spec timestamp() -> Timestamp when
       Timestamp :: timestamp().
 
 timestamp() ->
@@ -4799,7 +4799,7 @@ timestamp() ->
 
 %% prepare_loading/2
 -doc false.
--spec erlang:prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
+-spec prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
       Module :: module(),
       Code :: binary(),
       PreparedCode :: prepared_code(),
@@ -4850,7 +4850,7 @@ allowed value for the atom `Type` is `backtrace`, which shows the contents of
 the call stack, including information about the call chain, with the current
 function printed first. The format of the output is not further defined.
 """.
--spec erlang:process_display(Pid, Type) -> true when
+-spec process_display(Pid, Type) -> true when
       Pid :: pid(),
       Type :: backtrace.
 process_display(Pid, Type) ->
@@ -5064,7 +5064,7 @@ distinguish exceptions later.
 See the reference manual about [errors and error handling](`e:system:errors.md`)
 for more information about exception classes and how to catch exceptions.
 """.
--spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
+-spec raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
       Stacktrace :: raise_stacktrace() | stacktrace().
@@ -5076,7 +5076,7 @@ raise(_Class, _Reason, _Stacktrace) ->
 Reads the state of a timer. The same as calling
 [`erlang:read_timer(TimerRef, [])`](`read_timer/2`).
 """.
--spec erlang:read_timer(TimerRef) -> Result when
+-spec read_timer(TimerRef) -> Result when
       TimerRef :: reference(),
       Time :: non_neg_integer(),
       Result :: Time | false.
@@ -5126,7 +5126,7 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:cancel_timer/2`](`cancel_timer/2`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:read_timer(TimerRef, Options) -> Result | ok when
+-spec read_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
       Async :: boolean(),
       Option :: {async, Async},
@@ -5225,7 +5225,7 @@ Failures:
 
 - **`badarg`** - If the process identified by `Suspendee` is not alive.
 """.
--spec erlang:resume_process(Suspendee) -> true when
+-spec resume_process(Suspendee) -> true when
       Suspendee :: pid().
 resume_process(_Suspendee) ->
     erlang:nif_error(undefined).
@@ -5291,7 +5291,7 @@ self() ->
 Starts a timer. The same as calling
 [`erlang:send_after(Time, Dest, Msg, [])`](`send_after/4`).
 """.
--spec erlang:send_after(Time, Dest, Msg) -> TimerRef when
+-spec send_after(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
       Dest :: pid() | atom(),
       Msg :: term(),
@@ -5307,7 +5307,7 @@ identified by `Dest`. Apart from the format of the time-out message, this
 function works exactly as [`erlang:start_timer/4`](`start_timer/4`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:send_after(Time, Dest, Msg, Options) -> TimerRef when
+-spec send_after(Time, Dest, Msg, Options) -> TimerRef when
       Time :: integer(),
       Dest :: pid() | atom(),
       Msg :: term(),
@@ -5321,7 +5321,7 @@ send_after(_Time, _Dest, _Msg, _Options) ->
 
 %% seq_trace/2
 -doc false.
--spec erlang:seq_trace(P1, P2) -> seq_trace_info_returns() | {term(), term(), term(), term(), term()} when
+-spec seq_trace(P1, P2) -> seq_trace_info_returns() | {term(), term(), term(), term(), term()} when
       P1 :: atom(),
       P2 :: term().
 seq_trace(_P1, _P2) ->
@@ -5329,14 +5329,14 @@ seq_trace(_P1, _P2) ->
 
 %% seq_trace_print/1
 -doc false.
--spec erlang:seq_trace_print(P1) -> boolean() when
+-spec seq_trace_print(P1) -> boolean() when
       P1 :: term().
 seq_trace_print(_P1) ->
     erlang:nif_error(undefined).
 
 %% seq_trace_print/2
 -doc false.
--spec erlang:seq_trace_print(P1, P2) -> boolean() when
+-spec seq_trace_print(P1, P2) -> boolean() when
       P1 :: atom() | integer(),
       P2 :: term().
 seq_trace_print(_P1, _P2) ->
@@ -5344,7 +5344,7 @@ seq_trace_print(_P1, _P2) ->
 
 %% setnode/2
 -doc false.
--spec erlang:setnode(P1, P2) -> true when
+-spec setnode(P1, P2) -> true when
       P1 :: atom(),
       P2 :: integer().
 setnode(_P1, _P2) ->
@@ -5352,7 +5352,7 @@ setnode(_P1, _P2) ->
 
 %% setnode/3
 -doc false.
--spec erlang:setnode(Node, DistCtrlr, Opts) -> dist_handle() when
+-spec setnode(Node, DistCtrlr, Opts) -> dist_handle() when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
       Opts :: {integer(), pos_integer()}.
@@ -5466,7 +5466,7 @@ split_binary(_Bin, _Pos) ->
 Starts a timer. The same as calling
 [`erlang:start_timer(Time, Dest, Msg, [])`](`start_timer/4`).
 """.
--spec erlang:start_timer(Time, Dest, Msg) -> TimerRef when
+-spec start_timer(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
       Dest :: pid() | atom(),
       Msg :: term(),
@@ -5515,7 +5515,7 @@ Failure: `badarg` if the arguments do not satisfy the requirements specified
 here.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec erlang:start_timer(Time, Dest, Msg, Options) -> TimerRef when
+-spec start_timer(Time, Dest, Msg, Options) -> TimerRef when
       Time :: integer(),
       Dest :: pid() | atom(),
       Msg :: term(),
@@ -5610,7 +5610,7 @@ Failures:
   currently used internal data structures. The system limit is greater than
   2,000,000,000 suspends and will never be lower.
 """.
--spec erlang:suspend_process(Suspendee, OptList) -> boolean() when
+-spec suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
       OptList :: [Opt],
       Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
@@ -5634,7 +5634,7 @@ Suspends the process identified by `Suspendee`. The same as calling
 >
 > This BIF is intended for debugging only.
 """.
--spec erlang:suspend_process(Suspendee) -> 'true' when
+-spec suspend_process(Suspendee) -> 'true' when
       Suspendee :: pid().
 suspend_process(Suspendee) ->
     case case erts_internal:suspend_process(Suspendee, []) of
@@ -5655,7 +5655,7 @@ Returns the current system monitoring settings set by
 `undefined` if no settings exist. The order of the options can be different from
 the one that was set.
 """.
--spec erlang:system_monitor() -> MonSettings when
+-spec system_monitor() -> MonSettings when
       MonSettings :: undefined | { MonitorPid, Options },
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ].
@@ -5673,7 +5673,7 @@ calling [`erlang:system_monitor(MonitorPid, Options)`](`system_monitor/2`).
 Returns the previous system monitor settings just like
 [`erlang:system_monitor/0`](`system_monitor/0`).
 """.
--spec erlang:system_monitor(Arg) -> MonSettings when
+-spec system_monitor(Arg) -> MonSettings when
       Arg :: undefined | { MonitorPid, Options },
       MonSettings :: undefined | { MonitorPid, Options },
       MonitorPid :: pid(),
@@ -5809,7 +5809,7 @@ Failures:
 
 - **`badarg`** - If `MonitorPid` is not a local process.
 """.
--spec erlang:system_monitor(MonitorPid, Options) -> MonSettings when
+-spec system_monitor(MonitorPid, Options) -> MonSettings when
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ],
       MonSettings :: undefined | { OldMonitorPid, OldOptions },
@@ -5825,7 +5825,7 @@ Returns the current system profiling settings set by
 `undefined` if there are no settings. The order of the options can be different
 from the one that was set.
 """.
--spec erlang:system_profile() -> ProfilerSettings when
+-spec system_profile() -> ProfilerSettings when
       ProfilerSettings :: undefined | { ProfilerPid, Options},
       ProfilerPid :: pid() | port(),
       Options :: [ system_profile_option() ].
@@ -5875,7 +5875,7 @@ profiling. The second argument is a list of profiling options:
 >
 > `erlang:system_profile` behavior can change in a future release.
 """.
--spec erlang:system_profile(ProfilerPid, Options) -> ProfilerSettings when
+-spec system_profile(ProfilerPid, Options) -> ProfilerSettings when
       ProfilerPid :: pid() | port() | undefined,
       Options :: [ system_profile_option() ],
       ProfilerSettings :: undefined | { pid() | port(), [ system_profile_option() ]}.
@@ -6342,7 +6342,7 @@ processes running. If `PidPortSpec` is `new`, the return value is `0`.
 Failure: `badarg` if the specified arguments are not supported. For example,
 `cpu_timestamp` is not supported on all platforms.
 """.
--spec erlang:trace(PidPortSpec, How, FlagList) -> integer() when
+-spec trace(PidPortSpec, How, FlagList) -> integer() when
       PidPortSpec :: pid() | port()
                    | all | processes | ports
                    | existing | existing_processes | existing_ports
@@ -6393,7 +6393,7 @@ and wait for message `{trace_delivered, A, Ref}` before closing `B`.
 Failure: `badarg` if `Tracee` does not refer to a process (dead or alive) on the
 same node as the caller of `erlang:trace_delivered(Tracee)` resides on.
 """.
--spec erlang:trace_delivered(Tracee) -> Ref when
+-spec trace_delivered(Tracee) -> Ref when
       Tracee :: pid() | all,
       Ref :: reference().
 trace_delivered(_Tracee) ->
@@ -6489,7 +6489,7 @@ The return value is `{Item, Value}`, where `Value` is the requested information
 as described earlier. If a pid for a dead process was specified, or the name of
 a non-existing function, `Value` is `undefined`.
 """.
--spec erlang:trace_info(PidPortFuncEvent, Item) -> Res when
+-spec trace_info(PidPortFuncEvent, Item) -> Res when
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
                      | {Module, Function, Arity} | on_load | send | 'receive',
       Module :: module(),
@@ -6571,14 +6571,14 @@ underlying OS. Otherwise `erlang:universaltime()` is equivalent to
 {{1996,11,6},{14,18,43}}
 ```
 """.
--spec erlang:universaltime() -> DateTime when
+-spec universaltime() -> DateTime when
       DateTime :: calendar:datetime().
 universaltime() ->
     erlang:nif_error(undefined).
 
 %% universaltime_to_posixtime/1
 -doc false.
--spec erlang:universaltime_to_posixtime(P1) -> integer() when
+-spec universaltime_to_posixtime(P1) -> integer() when
       P1 :: {calendar:date(), calendar:time()}.
 universaltime_to_posixtime(_P1) ->
     erlang:nif_error(undefined).
@@ -6710,7 +6710,7 @@ abs(_Number) ->
 %% Not documented
 %% Shadowed by erl_bif_types: erlang:append/2
 -doc false.
--spec erlang:append(List,Tail) -> maybe_improper_list() when
+-spec append(List,Tail) -> maybe_improper_list() when
       List :: [term()],
       Tail :: term().
 append(_List,_Tail) ->
@@ -6737,7 +6737,7 @@ element(_N, _Tuple) ->
 -type module_info_key() :: attributes | compile | exports | functions | md5
                          | module | native | native_addresses | nifs.
 -doc false.
--spec erlang:get_module_info(Module, Item) -> ModuleInfo when
+-spec get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
       Item :: module_info_key(),
       ModuleInfo :: term().
@@ -7080,7 +7080,7 @@ dynamic library. This allows a target independent Erlang file to contain
 fallback implementations for functions that may lack NIF support depending on
 target OS/hardware platform.
 """.
--spec erlang:load_nif(Path, LoadInfo) ->  ok | Error when
+-spec load_nif(Path, LoadInfo) ->  ok | Error when
       Path :: string(),
       LoadInfo :: term(),
       Error :: {error, {Reason, Text :: string()}},
@@ -7111,7 +7111,7 @@ Examples:
 
 Failure: `badarg` if `Localtime` denotes an invalid date and time.
 """.
--spec erlang:localtime_to_universaltime(Localtime, IsDst) -> Universaltime when
+-spec localtime_to_universaltime(Localtime, IsDst) -> Universaltime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime(),
       IsDst :: true | false | undefined.
@@ -7123,7 +7123,7 @@ localtime_to_universaltime(_Localtime, _IsDst) ->
 %% Not documented
 %% Shadowed by erl_bif_types: erlang:make_fun/3
 -doc false.
--spec erlang:make_fun(Module, Function, Arity) -> function() when
+-spec make_fun(Module, Function, Arity) -> function() when
       Module :: atom(),
       Function :: atom(),
       Arity :: arity().
@@ -7140,7 +7140,7 @@ Creates a new tuple of the specified `Arity`, where all elements are
 {[],[],[],[]}
 ```
 """.
--spec erlang:make_tuple(Arity, InitialValue) -> tuple() when
+-spec make_tuple(Arity, InitialValue) -> tuple() when
       Arity :: arity(),
       InitialValue :: term().
 make_tuple(_Arity,_InitialValue) ->
@@ -7159,7 +7159,7 @@ list, the term corresponding to the last occurrence is used. Example:
 {[],aa,[],[],zz}
 ```
 """.
--spec erlang:make_tuple(Arity, DefaultValue, InitList) -> tuple() when
+-spec make_tuple(Arity, DefaultValue, InitList) -> tuple() when
       Arity :: arity(),
       DefaultValue :: term(),
       InitList :: [{Position :: pos_integer(), term()}].
@@ -8178,7 +8178,7 @@ unreachable destination `Dest` (of correct type).
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--spec erlang:send(Dest, Msg) -> Msg when
+-spec send(Dest, Msg) -> Msg when
       Dest :: send_destination(),
       Msg :: term().
 send(_Dest,_Msg) ->
@@ -8208,7 +8208,7 @@ Options:
 >
 > As with `erlang:send_nosuspend/2,3`: use with extreme care.
 """.
--spec erlang:send(Dest, Msg, Options) -> Res when
+-spec send(Dest, Msg, Options) -> Res when
       Dest :: send_destination(),
       Msg :: term(),
       Options :: [nosuspend | noconnect],
@@ -8218,7 +8218,7 @@ send(_Dest,_Msg,_Options) ->
 
 %% Not documented
 -doc false.
--spec erlang:seq_trace_info(send) -> {send, boolean()};
+-spec seq_trace_info(send) -> {send, boolean()};
                     ('receive') -> {'receive', boolean()};
                     (print) -> {print, boolean()};
                     (timestamp) -> {timestamp, boolean()};
@@ -8769,7 +8769,7 @@ statistics(_Item) ->
 %% Not documented
 %% Shadowed by erl_bif_types: erlang:subtract/2
 -doc false.
--spec erlang:subtract([term()], [term()]) -> [term()].
+-spec subtract([term()], [term()]) -> [term()].
 subtract(_,_) ->
     erlang:nif_error(undefined).
 
@@ -9161,7 +9161,7 @@ Returns the old state identifier, that is:
 """.
 -doc(#{since =>
            <<"OTP 17.0, OTP 18.0, OTP 19.0, OTP 20.2.3, OTP 21.3, OTP 24.2, OTP R13B04, OTP R15B01">>}).
--spec erlang:system_flag(backtrace_depth, Depth) -> OldDepth when
+-spec system_flag(backtrace_depth, Depth) -> OldDepth when
       Depth :: non_neg_integer(),
       OldDepth :: non_neg_integer();
                         (cpu_topology, CpuTopology) -> OldCpuTopology when
@@ -9489,7 +9489,7 @@ tl(_List) ->
 The same as [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
 retained for backward compatibility.
 """.
--spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
+-spec trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
       MFA :: trace_pattern_mfa() | send | 'receive',
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
@@ -9791,7 +9791,7 @@ Fails by raising an error exception with an error reason of:
   when starting the runtime system.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
--spec erlang:trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
+-spec trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
 			  ('receive', MatchSpec, []) -> non_neg_integer() when
@@ -9869,7 +9869,7 @@ the `CpuTopology` type to change.
 
 %% Note: changing the ordering number of a clause will change the docs!
 %% Shadowed by erl_bif_types: erlang:system_info/1
--spec erlang:system_info
+-spec system_info
          (allocated_areas) -> [ tuple() ];
          (allocator) ->
                  {Allocator, Version, Features, Settings} when
@@ -9987,7 +9987,7 @@ Example:
 
 Failure: `badarg` if `Universaltime` denotes an invalid date and time.
 """.
--spec erlang:universaltime_to_localtime(Universaltime) ->  Localtime when
+-spec universaltime_to_localtime(Universaltime) ->  Localtime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime().
 universaltime_to_localtime(_Universaltime) ->
@@ -10945,7 +10945,7 @@ the current process sleep for a specific number of milliseconds.
 > the current scheduler's queue for processes of the same priority as the
 > current process.
 """.
--spec erlang:yield() -> 'true'.
+-spec yield() -> 'true'.
 yield() ->
     % This is not an infinite loop because erlang:yield() is
     % translated to an instruction by the loader
@@ -11159,7 +11159,7 @@ The following elements are only present in the list if `Fun` is local:
   entire module. Before Erlang/OTP R15, this integer was based on only the body
   of the fun.
 """.
--spec erlang:fun_info(Fun) -> [{Item, Info}] when
+-spec fun_info(Fun) -> [{Item, Info}] when
       Fun :: function(),
       Item :: arity | env | index | name
             | module | new_index | new_uniq | pid | type | uniq,
@@ -11229,7 +11229,7 @@ the function returns `false` are application- and hardware-specific.
 >
 > Use with extreme care.
 """.
--spec erlang:send_nosuspend(Dest, Msg) -> boolean() when
+-spec send_nosuspend(Dest, Msg) -> boolean() when
       Dest :: send_destination(),
       Msg :: term().
 send_nosuspend(Pid, Msg) ->
@@ -11261,7 +11261,7 @@ is guaranteed _not_ to have been sent.
 >
 > Use with extreme care.
 """.
--spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
+-spec send_nosuspend(Dest, Msg, Options) -> boolean() when
       Dest :: send_destination(),
       Msg :: term(),
       Options :: [noconnect].
@@ -11286,7 +11286,7 @@ returned. Example:
 
 Failure: `badarg` if `Localtime` denotes an invalid date and time.
 """.
--spec erlang:localtime_to_universaltime(Localtime) -> Universaltime when
+-spec localtime_to_universaltime(Localtime) -> Universaltime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime().
 localtime_to_universaltime(Localtime) ->
@@ -11567,7 +11567,7 @@ port_control(Port, Operation, Data) ->
     end.
 
 -doc false.
--spec erlang:port_call(Port, Data) -> term() when
+-spec port_call(Port, Data) -> term() when
       Port :: port() | atom(),
       Data :: term().
 
@@ -11616,7 +11616,7 @@ Failures:
   > `badarg` exception. Any undefined behavior is possible (including node
   > crash) depending on how the port driver interprets the supplied arguments.
 """.
--spec erlang:port_call(Port, Operation, Data) -> term() when
+-spec port_call(Port, Operation, Data) -> term() when
       Port :: port() | atom(),
       Operation :: integer(),
       Data :: term().
@@ -11651,7 +11651,7 @@ For more information about the different `Item`s, see `port_info/2`.
 
 Failure: `badarg` if `Port` is not a local port identifier, or an atom.
 """.
--spec erlang:port_info(Port) -> Result when
+-spec port_info(Port) -> Result when
       Port :: port() | atom(),
       ResultItem :: {registered_name, RegisteredName :: atom()}
 		  | {id, Index :: non_neg_integer()}
@@ -11672,7 +11672,7 @@ port_info(Port) ->
 	Result -> Result
     end.
 
--spec erlang:port_info(Port, Item :: connected) -> {connected, Pid} | 'undefined' when
+-spec port_info(Port, Item :: connected) -> {connected, Pid} | 'undefined' when
       Port :: port() | atom(),
       Pid :: pid();
 		      (Port, Item :: id) -> {id, Index} | 'undefined' when
@@ -11727,7 +11727,7 @@ port_info(Port, Item) ->
     end.
 
 -doc false.
--spec erlang:port_set_data(Port, Data) -> 'true' when
+-spec port_set_data(Port, Data) -> 'true' when
       Port :: port() | atom(),
       Data :: term().
     
@@ -11735,7 +11735,7 @@ port_set_data(_Port, _Data) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:port_get_data(Port) -> term() when
+-spec port_get_data(Port) -> term() when
       Port :: port() | atom().
 
 port_get_data(_Port) ->
@@ -11769,7 +11769,7 @@ information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec erlang:dist_ctrl_input_handler(DHandle, InputHandler) -> 'ok' when
+-spec dist_ctrl_input_handler(DHandle, InputHandler) -> 'ok' when
       DHandle :: dist_handle(),
       InputHandler :: pid().
 
@@ -11795,7 +11795,7 @@ information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec erlang:dist_ctrl_put_data(DHandle, Data) -> 'ok' when
+-spec dist_ctrl_put_data(DHandle, Data) -> 'ok' when
       DHandle :: dist_handle(),
       Data :: iodata().
 
@@ -11826,7 +11826,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec erlang:dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
+-spec dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
       Size :: non_neg_integer(),
       DHandle :: dist_handle(),
       Data :: iovec().
@@ -11855,7 +11855,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec erlang:dist_ctrl_get_data_notification(DHandle) -> 'ok' when
+-spec dist_ctrl_get_data_notification(DHandle) -> 'ok' when
       DHandle :: dist_handle().
 
 dist_ctrl_get_data_notification(_DHandle) ->
@@ -11890,7 +11890,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
--spec erlang:dist_ctrl_set_opt(DHandle, 'get_size', Value) -> OldValue when
+-spec dist_ctrl_set_opt(DHandle, 'get_size', Value) -> OldValue when
       DHandle :: dist_handle(),
       Value :: boolean(),
       OldValue :: boolean().
@@ -11916,7 +11916,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
--spec erlang:dist_ctrl_get_opt(DHandle, 'get_size') -> Value when
+-spec dist_ctrl_get_opt(DHandle, 'get_size') -> Value when
       DHandle :: dist_handle(),
       Value :: boolean().
 
@@ -11924,7 +11924,7 @@ dist_ctrl_get_opt(_DHandle, _Opt) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:dist_get_stat(DHandle) -> Res when
+-spec dist_get_stat(DHandle) -> Res when
       DHandle :: dist_handle(),
       InputPackets :: non_neg_integer(),
       OutputPackets :: non_neg_integer(),
@@ -11956,7 +11956,7 @@ dmonitor_node(Node, Flag, Opts) ->
 %%
 
 -doc false.
--spec erlang:delay_trap(Result, timeout()) -> Result.
+-spec delay_trap(Result, timeout()) -> Result.
 delay_trap(Result, 0) -> erlang:yield(), Result;
 delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 
@@ -11972,7 +11972,7 @@ You can get this value using `get_cookie/0`.
 Failure: `function_clause` if the local node is not alive.
 """.
 -doc(#{since => <<"OTP 24.1">>}).
--spec erlang:set_cookie(Cookie) -> true when
+-spec set_cookie(Cookie) -> true when
       Cookie :: atom().
 set_cookie(C) when erlang:is_atom(C) ->
     auth:set_cookie(C);
@@ -11990,7 +11990,7 @@ You can get this value using `get_cookie/1`.
 
 Failure: `function_clause` if the local node is not alive.
 """.
--spec erlang:set_cookie(Node, Cookie) -> true when
+-spec set_cookie(Node, Cookie) -> true when
       Node :: node(),
       Cookie :: atom().
 set_cookie(Node, C)
@@ -12004,7 +12004,7 @@ set_cookie(Node, C) ->
 Returns the magic cookie of the local node if the node is alive, otherwise the
 atom `nocookie`. This value is set by `set_cookie/1`.
 """.
--spec erlang:get_cookie() -> Cookie | nocookie when
+-spec get_cookie() -> Cookie | nocookie when
       Cookie :: atom().
 get_cookie() ->
     auth:get_cookie().
@@ -12014,7 +12014,7 @@ Returns the magic cookie for node `Node` if the local node is alive, otherwise
 the atom `nocookie`. This value is set by `set_cookie/2`.
 """.
 -doc(#{since => <<"OTP 24.1">>}).
--spec erlang:get_cookie(Node) -> Cookie | nocookie when
+-spec get_cookie(Node) -> Cookie | nocookie when
       Node :: node(),
       Cookie :: atom().
 get_cookie(Node) when erlang:is_atom(Node) ->
@@ -12410,7 +12410,7 @@ More tuples in the returned list can be added in a future release.
 Failure: `notsup` if an [`erts_alloc(3)`](erts_alloc.md) allocator has been
 disabled.
 """.
--spec erlang:memory() -> [{Type, Size}] when
+-spec memory() -> [{Type, Size}] when
       Type :: memory_type(),
       Size :: non_neg_integer().
 memory() ->
@@ -12453,7 +12453,7 @@ Failures:
 
 See also [`erlang:memory/0`](`memory/0`).
 """.
--spec erlang:memory(Type :: memory_type()) -> non_neg_integer();
+-spec memory(Type :: memory_type()) -> non_neg_integer();
                    (TypeList :: [memory_type()]) -> [{memory_type(), non_neg_integer()}].
 memory(Type) when erlang:is_atom(Type) ->
     try
@@ -12720,7 +12720,7 @@ receive_allocator(Ref, N, Acc) ->
     end.
 
 -doc false.
--spec erlang:gather_gc_info_result(Ref) ->
+-spec gather_gc_info_result(Ref) ->
    {number(),number(),0} when Ref :: reference().
 
 gather_gc_info_result(Ref) when erlang:is_reference(Ref) ->
@@ -12737,124 +12737,124 @@ gc_info(Ref, N, {OrigColls,OrigRecl}) ->
 %% Operators
 
 -doc false.
--spec erlang:'=='(term(), term()) -> boolean().
+-spec '=='(term(), term()) -> boolean().
 '=='(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'=:='(term(), term()) -> boolean().
+-spec '=:='(term(), term()) -> boolean().
 '=:='(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'/='(term(), term()) -> boolean().
+-spec '/='(term(), term()) -> boolean().
 '/='(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'=/='(term(), term()) -> boolean().
+-spec '=/='(term(), term()) -> boolean().
 '=/='(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'=<'(term(), term()) -> boolean().
+-spec '=<'(term(), term()) -> boolean().
 '=<'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'>='(term(), term()) -> boolean().
+-spec '>='(term(), term()) -> boolean().
 '>='(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'<'(term(), term()) -> boolean().
+-spec '<'(term(), term()) -> boolean().
 '<'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'>'(term(), term()) -> boolean().
+-spec '>'(term(), term()) -> boolean().
 '>'(_A, _B) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:'-'(number()) -> number().
+-spec '-'(number()) -> number().
 '-'(_A) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'+'(number()) -> number().
+-spec '+'(number()) -> number().
 '+'(_A) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'-'(number(), number()) -> number().
+-spec '-'(number(), number()) -> number().
 '-'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'+'(number(), number()) -> number().
+-spec '+'(number(), number()) -> number().
 '+'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'/'(number(), number()) -> float().
+-spec '/'(number(), number()) -> float().
 '/'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'*'(number(), number()) -> number().
+-spec '*'(number(), number()) -> number().
 '*'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'div'(integer(), integer()) -> integer().
+-spec 'div'(integer(), integer()) -> integer().
 'div'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'rem'(integer(), integer()) -> integer().
+-spec 'rem'(integer(), integer()) -> integer().
 'rem'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'bsl'(integer(), integer()) -> integer().
+-spec 'bsl'(integer(), integer()) -> integer().
 'bsl'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'bsr'(integer(), integer()) -> integer().
+-spec 'bsr'(integer(), integer()) -> integer().
 'bsr'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'bor'(integer(), integer()) -> integer().
+-spec 'bor'(integer(), integer()) -> integer().
 'bor'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'band'(integer(), integer()) -> integer().
+-spec 'band'(integer(), integer()) -> integer().
 'band'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'bxor'(integer(), integer()) -> integer().
+-spec 'bxor'(integer(), integer()) -> integer().
 'bxor'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'bnot'(integer()) -> integer().
+-spec 'bnot'(integer()) -> integer().
 'bnot'(_A) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:'--'(list(), list()) -> list().
+-spec '--'(list(), list()) -> list().
 '--'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'++'(list(), term()) -> term().
+-spec '++'(list(), term()) -> term().
 '++'(_A, _B) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:'and'(boolean(), boolean()) -> boolean().
+-spec 'and'(boolean(), boolean()) -> boolean().
 'and'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'or'(boolean(), boolean()) -> boolean().
+-spec 'or'(boolean(), boolean()) -> boolean().
 'or'(_A, _B) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:'xor'(boolean(), boolean()) -> boolean().
+-spec 'xor'(boolean(), boolean()) -> boolean().
 'xor'(_A, _B) ->
     erlang:nif_error(undefined).
 -doc false.
--spec erlang:'not'(boolean()) -> boolean().
+-spec 'not'(boolean()) -> boolean().
 'not'(_A) ->
     erlang:nif_error(undefined).
 
 -doc false.
--spec erlang:'!'(send_destination(), term()) -> term().
+-spec '!'(send_destination(), term()) -> term().
 '!'(_Dst, _Msg) ->
     erlang:nif_error(undefined).
 

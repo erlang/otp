@@ -144,6 +144,8 @@ extras =
      Path.wildcard("*.md") ++ Path.wildcard("{guides,references,internal_docs}/*.md"))
   |> Enum.uniq()
 
+annotations = Access.get(local_config, :annotations_for_docs, fn _ -> [] end)
+
 config = [
   proglang: :erlang,
   source_url_pattern: source_url_pattern,
@@ -155,9 +157,9 @@ config = [
   end,
   annotations_for_docs: fn md ->
     if Map.has_key?(md, :exported) && not md.exported do
-      ["not exported"]
+      ["not exported"] ++ annotations.(md)
     else
-      []
+      annotations.(md)
     end
   end,
   groups_for_extras:

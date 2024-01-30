@@ -1,4 +1,20 @@
 [
+  annotations_for_docs: fn
+    %{module: :erlang} = md ->
+      cond do
+        md.kind == :function && :erl_internal.bif(md.name, md.arity) ->
+          ["auto-imported"]
+
+        md.kind == :type && :erl_internal.is_type(md.name, md.arity) ->
+          ["predefined"]
+
+        true ->
+          []
+      end
+
+    _ ->
+      []
+  end,
   groups_for_docs: [
     {"Predefined datatypes",
      fn a ->
