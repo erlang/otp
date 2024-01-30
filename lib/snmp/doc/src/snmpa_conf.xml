@@ -1044,42 +1044,52 @@ word() = 0..65535
 	for more info. </p>
 
         <marker id="vacm_entry"></marker>
+        <marker id="vacm_acc_entry"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry()</name>
-      <name since="">vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry()</name>
-      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry()</name>
-      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry()</name>
+      <name name="vacm_acc_entry" arity="8" clause_i="1" since=""/>
       <fsummary>Create an vacm entry</fsummary>
-      <type>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>GroupName = string()</v>
-        <v>Prefix = string()</v>
-        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
-        <v>Match = prefix | exact</v>
-        <v>ReadView = string()</v>
-        <v>WriteView = string()</v>
-        <v>NotifyView = string()</v>
-        <v>ViewIndex = integer()</v>
-        <v>ViewSubtree = [integer()]</v>
-        <v>ViewStatus = included | excluded</v>
-        <v>ViewMask = null | [zero_or_one()]</v>
-        <v>zero_or_one() = 0 | 1</v>
-        <v>vacm_s2g_entry() = term()</v>
-        <v>vacm_acc_entry() = term()</v>
-        <v>vacm_vtf_entry() = term()</v>
-      </type>
       <desc>
-        <p>Create an entry for the agent vacm config file, 
-          <c>vacm.conf</c>. </p>
-        <p><c>vacm_vtf_entry/2</c> translates to the following call:
-          <c>vacm_vtf_entry(ViewIndex, ViewSubtree, included, null)</c>. </p>
+	<p>Create an (access) entry for the agent vacm config file,
+	<c>vacm.conf</c>.</p>
         <p>See 
-          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
-          for more info. </p>
+	<seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
+	for more info. </p>
+
+        <marker id="vacm_s2g_entry"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="vacm_s2g_entry" arity="3" clause_i="1" since=""/>
+      <fsummary>Create an vacm entry</fsummary>
+      <desc>
+	<p>Create an (security to group) entry for the agent vacm config file,
+	<c>vacm.conf</c>.</p>
+        <p>See 
+	<seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
+	for more info. </p>
+
+        <marker id="vacm_vtf_entry"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name name="vacm_vtf_entry" arity="2" clause_i="1" since=""/>
+      <name name="vacm_vtf_entry" arity="4" clause_i="1" since=""/>
+      <fsummary>Create an vacm entry</fsummary>
+      <desc>
+	<p>Create an (view tree family) entry for the agent vacm config file,
+	<c>vacm.conf</c>.</p>
+	<p><c>vacm_vtf_entry/2</c> translates to the following call: </p>
+	<pre>
+	  vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+	</pre>
+        <p>See 
+	<seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
+	for more info. </p>
 
         <marker id="write_vacm_config"></marker>
       </desc>

@@ -224,13 +224,6 @@
 -type vacm_entry() :: vacm_s2g_entry() |
                       vacm_acc_entry() |
                       vacm_vtf_entry().
--opaque vacm_s2g_entry() ::
-          {
-           vacmSecurityToGroup,
-           SecModel  :: snmp_framework_mib:security_model(),
-           SecName   :: snmp_view_based_acm_mib:security_name(),
-           GroupName :: snmp_framework_mib:admin_string()
-          }.
 -opaque vacm_acc_entry() ::
           {
            vacmAccess,
@@ -242,6 +235,13 @@
            RV        :: snmp_framework_mib:admin_string(),
            WV        :: snmp_framework_mib:admin_string(),
            NV        :: snmp_framework_mib:admin_string()
+          }.
+-opaque vacm_s2g_entry() ::
+          {
+           vacmSecurityToGroup,
+           SecModel  :: snmp_framework_mib:security_model(),
+           SecName   :: snmp_view_based_acm_mib:security_name(),
+           GroupName :: snmp_framework_mib:admin_string()
           }.
 -opaque vacm_vtf_entry() ::
           {
@@ -1315,14 +1315,46 @@ do_write_usm2(Fd, X, P) ->
 %% ------ vacm.conf ------
 %%
 
-vacm_s2g_entry(SecModel, SecName, GroupName) ->
-    {vacmSecurityToGroup, SecModel, SecName, GroupName}.
-
+-spec vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match,
+                     RV, WV, NV) -> VacmAccEntry when
+      GroupName    :: snmp_framework_mib:admin_string(),
+      Prefix       :: snmp_view_based_acm_mib:context_prefix(),
+      SecModel     :: snmp_framework_mib:security_model(),
+      SecLevel     :: snmp_framework_mib:security_level(),
+      Match        :: snmp_view_based_acm_mib:context_match(),
+      RV           :: snmp_framework_mib:admin_string(),
+      WV           :: snmp_framework_mib:admin_string(),
+      NV           :: snmp_framework_mib:admin_string(),
+      VacmAccEntry :: vacm_acc_entry().
+      
 vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     {vacmAccess, GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV}.
 
+-spec vacm_s2g_entry(SecModel, SecName, GroupName) -> VacmS2GEntry when
+      SecModel     :: snmp_framework_mib:security_model(),
+      SecName      :: snmp_view_based_acm_mib:security_name(),
+      GroupName    :: snmp_framework_mib:admin_string(),
+      VacmS2GEntry :: vacm_s2g_entry().
+
+vacm_s2g_entry(SecModel, SecName, GroupName) ->
+    {vacmSecurityToGroup, SecModel, SecName, GroupName}.
+
+-spec vacm_vtf_entry(ViewIndex, ViewSubtree) -> VacmVtfEntry when
+      ViewIndex    :: integer(),
+      ViewSubtree  :: snmp:oid(),
+      VacmVtfEntry :: VacmVtfEntry.
+
 vacm_vtf_entry(ViewIndex, ViewSubtree) ->
     vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+
+-spec vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
+          VacmVtfEntry when
+      ViewIndex    :: integer(),
+      ViewSubtree  :: snmp:oid(),
+      ViewStatus   :: snmp_view_based_acm_mib:view_type(),
+      ViewMask     :: null | snmp_view_based_acm_mib:view_mask(),
+      VacmVtfEntry :: VacmVtfEntry.
+
 vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
     {vacmViewTreeFamily, ViewIndex, ViewSubtree, ViewStatus, ViewMask}.
 
