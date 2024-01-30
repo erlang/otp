@@ -792,10 +792,10 @@ render_meta(M) ->
             [[{dl,[],Meta}]]
     end.
 render_meta_(#{ since := Vsn } = M) ->
-    [{dt,[],<<"Since">>},{dd,[],[Vsn]}
+    [{dt,[],<<"Since">>},{dd,[],[unicode:characters_to_binary(Vsn)]}
     | render_meta_(maps:remove(since, M))];
 render_meta_(#{ deprecated := Depr } = M) ->
-    [{dt,[],<<"Deprecated">>},{dd,[],[Depr]}
+    [{dt,[],<<"Deprecated">>},{dd,[],[unicode:characters_to_binary(Depr)]}
     | render_meta_(maps:remove(deprecated, M))];
 render_meta_(_) ->
     [].

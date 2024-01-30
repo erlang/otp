@@ -179,7 +179,7 @@ render_prop(Config) ->
 
 links(_Config) ->
     docsmap(
-      fun(Mod, #docs_v1{ module_doc = MDoc, docs = Docs }) ->
+      fun(Mod, #docs_v1{ module_doc = MDoc, docs = Docs, format = ?NATIVE_FORMAT }) ->
               try
                   [check_links(Mod, maps:get(<<"en">>,MDoc)) || MDoc =/= none, MDoc =/= hidden]
               catch _E1:R1:ST1 ->
@@ -193,7 +193,10 @@ links(_Config) ->
                        io:format("Failed to render ~p:~p~n~p:~p~n~p~n",
                                  [Mod,Kind,R,ST,D]),
                        erlang:raise(error,R,ST)
-               end || {Kind,_Anno,_Sig,#{ <<"en">> := D },_MD} <- Docs]
+               end || {Kind,_Anno,_Sig,#{ <<"en">> := D },_MD} <- Docs];
+         (Mod, #docs_v1{ format = Fmt }) ->
+              io:format("Skipping ~p because format is ~ts~n",
+                        [Mod, Fmt])
       end).
 
 check_links(Mod, [{a,Attr,C}|T]) ->
