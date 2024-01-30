@@ -81,6 +81,13 @@ pred.never_fails(Bif) {
     return 0;
 }
 
+pred.consecutive_xregs(A1, A2) {
+    /* The following value must be the same as in beam_asm.hpp. */
+    const Uint num_register_backed_xregs = 6;
+    return A1.type == TAG_x && A2.type == TAG_x &&
+        A1.val + 1 == A2.val && A1.val >= num_register_backed_xregs;
+}
+
 pred.consecutive_words(A1, A2) {
     return A1.type == A2.type && A1.val + 1 == A2.val;
 }

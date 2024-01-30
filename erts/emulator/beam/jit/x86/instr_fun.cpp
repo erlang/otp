@@ -195,9 +195,11 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     mov_arg(RET, Lambda);
 
     comment("Create fun thing");
-    a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, thing_word)),
-          imm(MAKE_FUN_HEADER(Arity.get(), NumFree.get(), 0)));
-    a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, entry.fun)), RET);
+    preserve_cache([&]() {
+        a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, thing_word)),
+              imm(MAKE_FUN_HEADER(Arity.get(), NumFree.get(), 0)));
+        a.mov(x86::qword_ptr(HTOP, offsetof(ErlFunThing, entry.fun)), RET);
+    });
 
     comment("Move fun environment");
     for (Uint i = 0; i < env.size(); i++) {
@@ -210,8 +212,10 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                                 offsetof(ErlFunThing, env) +
                                                         i * sizeof(Eterm));
             comment("(moving two items)");
-            vmovups(x86::xmm0, src_ptr);
-            vmovups(dst_ptr, x86::xmm0);
+            preserve_cache([&]() {
+                vmovups(x86::xmm0, src_ptr);
+                vmovups(dst_ptr, x86::xmm0);
+            });
             i++;
             break;
         }
@@ -224,8 +228,10 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                                 offsetof(ErlFunThing, env) +
                                                         i * sizeof(Eterm));
             comment("(moving and swapping two items)");
-            a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
-            a.vmovups(dst_ptr, x86::xmm0);
+            preserve_cache([&]() {
+                a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+                a.vmovups(dst_ptr, x86::xmm0);
+            });
             i++;
             break;
         }
@@ -240,8 +246,13 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     }
 
     comment("Create boxed ptr");
-    a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
-    a.add(HTOP, imm((ERL_FUN_SIZE + env.size()) * sizeof(Eterm)));
+    preserve_cache(
+            [&]() {
+                a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
+                a.add(HTOP, imm((ERL_FUN_SIZE + env.size()) * sizeof(Eterm)));
+            },
+            RET,
+            HTOP);
     mov_arg(Dst, RET);
 }
 

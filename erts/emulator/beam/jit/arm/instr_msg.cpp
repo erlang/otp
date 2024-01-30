@@ -43,8 +43,10 @@ void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
 
 void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
                                                 const ArgRegister &Reference) {
-    mov_arg(ARG2, Marker);
-    mov_arg(ARG3, Reference);
+    auto [marker, reference] = load_sources(Marker, ARG2, Reference, ARG3);
+
+    mov_var(ARG2, marker);
+    mov_var(ARG3, reference);
 
     emit_enter_runtime();
 

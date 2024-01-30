@@ -333,7 +333,7 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     current_label = rawLabels[Label.get()];
     a.bind(current_label);
 
-    last_movarg_offset = ~0;
+    reg_cache.invalidate();
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,

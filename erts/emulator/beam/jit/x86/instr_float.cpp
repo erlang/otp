@@ -100,7 +100,11 @@ void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
     a.lea(ARG1, x86::qword_ptr(HTOP, make_float(0)));
     mov_arg(Dst, ARG1);
 
-    a.add(HTOP, imm(FLOAT_SIZE_OBJECT * sizeof(Eterm)));
+    preserve_cache(
+            [&]() {
+                a.add(HTOP, imm(FLOAT_SIZE_OBJECT * sizeof(Eterm)));
+            },
+            HTOP);
 }
 
 /* ARG2 = source term */

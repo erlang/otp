@@ -272,29 +272,31 @@ void BeamModuleAssembler::emit_continue_exit() {
 void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
                                         const ArgRegister &Hd,
                                         const ArgRegister &Tl) {
-    auto src = load_source(Src, TMP1);
-    auto hd = init_destination(Hd, TMP2);
-    auto tl = init_destination(Tl, TMP3);
-    a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
+    auto src = load_source(Src);
 
     /* The `ldp` instruction does not accept a negative offset, so we
-     * will need subtract the LIST tag beforehand. (This also nicely
-     * take care of the potential overwriting issue when Src == Hd.) */
-    a.sub(TMP1, cons_ptr, imm(TAG_PRIMARY_LIST));
+     * need to get rid of tag bits beforehand. */
+    untag_ptr_preserve_cache(TMP1, src.reg);
+
+    auto hd = init_destination(Hd, TMP2);
+    auto tl = init_destination(Tl, TMP3);
+
     if (hd.reg == tl.reg) {
         /* ldp with two identical registers is an illegal
-         * instruction. Produce the same result at the interpreter. */
+         * instruction. Produce the same result as the interpreter. */
         a.ldr(tl.reg, arm::Mem(TMP1, sizeof(Eterm)));
         flush_var(tl);
     } else {
-        a.ldp(hd.reg, tl.reg, arm::Mem(TMP1));
+        preserve_cache([&]() {
+            a.ldp(hd.reg, tl.reg, arm::Mem(TMP1));
+        });
         flush_vars(hd, tl);
     }
 }
 
 void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
                                       const ArgRegister &Hd) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
     auto hd = init_destination(Hd, TMP2);
     a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
 
@@ -304,7 +306,7 @@ void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
 
 void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
                                       const ArgRegister &Tl) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
     auto tl = init_destination(Tl, TMP2);
     a64::Gp cons_ptr = emit_ptr_val(TMP1, src.reg);
 
@@ -344,8 +346,9 @@ void BeamModuleAssembler::emit_i_get_hash(const ArgConstant &Src,
 
 /* Store the untagged pointer to a tuple in ARG1. */
 void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
-    auto src = load_source(Src, ARG1);
-    emit_untag_ptr(ARG1, src.reg);
+    auto src = load_source(Src);
+
+    untag_ptr_preserve_cache(ARG1, src.reg);
 }
 
 #ifdef DEBUG
@@ -504,11 +507,7 @@ void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
 
 void BeamModuleAssembler::emit_trim(const ArgWord &Words,
                                     const ArgWord &Remaining) {
-    ASSERT(Words.get() <= 1023);
-
-    if (Words.get() > 0) {
-        add(E, E, Words.get() * sizeof(Eterm));
-    }
+    trim_preserve_cache(Words);
 }
 
 void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
@@ -558,10 +557,7 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
         } else {
             flush_vars(dst1, dst2);
 
-            ASSERT(Words.get() <= 1023);
-            if (Words.get() > 0) {
-                add(E, E, Words.get() * sizeof(Eterm));
-            }
+            trim_preserve_cache(Words);
         }
     }
 }
@@ -597,30 +593,34 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
 
     /* Fallback. */
     mov_arg(Dst, Src);
-    if (Words.get() > 0) {
-        add(E, E, trim);
-    }
+    trim_preserve_cache(Words);
 }
 
 void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
-                                                const ArgYRegister &Dst1,
+                                                const ArgRegister &Dst1,
                                                 const ArgSource &Src2,
-                                                const ArgYRegister &Dst2) {
+                                                const ArgRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto dst1 = init_destination(Dst1, src1.reg);
     auto dst2 = init_destination(Dst2, src2.reg);
 
+    ASSERT(!isRegisterBacked(Dst1));
+    ASSERT(!isRegisterBacked(Dst2));
+
     flush_vars(dst1, dst2);
 }
 
-void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
+void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
                                               const ArgXRegister &Dst1,
-                                              const ArgYRegister &Src2,
+                                              const ArgRegister &Src2,
                                               const ArgXRegister &Dst2) {
     ASSERT(ArgVal::memory_relation(Src1, Src2) ==
            ArgVal::Relation::consecutive);
     auto dst1 = init_destination(Dst1, TMP1);
     auto dst2 = init_destination(Dst2, TMP2);
+
+    ASSERT(!isRegisterBacked(Src1));
+    ASSERT(!isRegisterBacked(Src2));
 
     safe_ldp(dst1.reg, dst2.reg, Src1, Src2);
     flush_vars(dst1, dst2);
@@ -705,10 +705,14 @@ void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
                                         const ArgSource &Tl,
                                         const ArgRegister &Dst) {
     auto [hd, tl] = load_sources(Hd, TMP1, Tl, TMP2);
+    auto hd_reg = hd.reg;
+    auto tl_reg = tl.reg;
     auto dst = init_destination(Dst, TMP3);
 
-    a.stp(hd.reg, tl.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
-    a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+    preserve_cache([&]() {
+        a.stp(hd_reg, tl_reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        a.sub(dst.reg, HTOP, imm(sizeof(Eterm[2]) - TAG_PRIMARY_LIST));
+    });
 
     flush_var(dst);
 }
@@ -1000,7 +1004,7 @@ void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
 
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
                                                 const ArgRegister &Src) {
-    auto list_ptr = load_source(Src, TMP1);
+    auto list_ptr = load_source(Src);
     emit_is_cons(resolve_beam_label(Fail, dispUnknown), list_ptr.reg);
 }
 
@@ -1011,11 +1015,15 @@ void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
-    a.and_(TMP1, src.reg, imm(_TAG_IMMED2_MASK));
-    a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
+    preserve_cache(
+            [&]() {
+                a.and_(TMP1, src.reg, imm(_TAG_IMMED2_MASK));
+                a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+            },
+            TMP1);
 }
 
 void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
@@ -1231,17 +1239,14 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
                                        const ArgSource &Src) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
-    a.tst(src.reg, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-    a.mov(TMP2, NIL);
-    a.ccmp(src.reg, TMP2, imm(NZCV::kEqual), imm(arm::CondCode::kNE));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
+    emit_is_list(resolve_beam_label(Fail, dispUnknown), src.reg);
 }
 
 void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
                                       const ArgSource &Src) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
@@ -1250,23 +1255,29 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
         comment("skipped header test since we know it's a map when boxed");
     } else {
-        a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-        a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-        a.cmp(TMP1, imm(_TAG_HEADER_MAP));
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+        preserve_cache(
+                [&]() {
+                    a64::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);
+                    a.ldur(TMP3, emit_boxed_val(boxed_ptr));
+                    a.and_(TMP3, TMP3, imm(_TAG_HEADER_MASK));
+                    a.cmp(TMP3, imm(_TAG_HEADER_MAP));
+                    a.b_ne(resolve_beam_label(Fail, disp1MB));
+                },
+                TMP3);
     }
 }
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
-    auto src = load_source(Src, TMP1);
+    auto src = load_source(Src);
 
     if (always_one_of<BeamTypeId::List>(Src)) {
         emit_is_not_cons(resolve_beam_label(Fail, dispUnknown), src.reg);
     } else {
-        a.cmp(src.reg, imm(NIL));
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+        preserve_cache([&]() {
+            a.cmp(src.reg, imm(NIL));
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        });
     }
 }
 
@@ -1717,8 +1728,10 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             comment("simplified check since one argument is an immediate");
         }
 
-        cmp_arg(x.reg, Y);
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+        preserve_cache([&]() {
+            cmp_arg(x.reg, Y);
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        });
 
         return;
     }
@@ -1869,8 +1882,10 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
             comment("simplified check since one argument is an immediate");
         }
 
-        cmp_arg(x.reg, Y);
-        a.b_eq(resolve_beam_label(Fail, disp1MB));
+        preserve_cache([&]() {
+            cmp_arg(x.reg, Y);
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
+        });
 
         return;
     }
@@ -2562,23 +2577,27 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
     mov_arg(ARG2, A);
     mov_arg(ARG3, B);
 
-    a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.b_ne(generic);
+    preserve_cache(
+            [&]() {
+                a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.b_ne(generic);
 
-    a.cmp(src.reg, ARG2);
-    a.b_lt(resolve_beam_label(Fail1, disp1MB));
-    a.cmp(ARG3, src.reg);
-    a.b_ge(resolve_beam_label(Fail2, disp1MB));
-    a.b(next);
+                a.cmp(src.reg, ARG2);
+                a.b_lt(resolve_beam_label(Fail1, disp1MB));
+                a.cmp(ARG3, src.reg);
+                a.b_ge(resolve_beam_label(Fail2, disp1MB));
+                a.b(next);
 
-    a.bind(generic);
-    mov_var(ARG1, src);
-    fragment_call(ga->get_is_ge_lt_shared());
-    a.b_lt(resolve_beam_label(Fail1, disp1MB));
-    a.b_gt(resolve_beam_label(Fail2, disp1MB));
+                a.bind(generic);
+                mov_var(ARG1, src);
+                fragment_call(ga->get_is_ge_lt_shared());
+                a.b_lt(resolve_beam_label(Fail1, disp1MB));
+                a.b_gt(resolve_beam_label(Fail2, disp1MB));
 
-    a.bind(next);
+                a.bind(next);
+            },
+            TMP1);
 }
 
 /*
@@ -2598,10 +2617,15 @@ void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
     }
 
     auto src = load_source(Src, ARG1);
-    subs(TMP1, src.reg, A.as<ArgImmed>().get());
-    a.b_lt(resolve_beam_label(Fail1, disp1MB));
-    cmp(TMP1, B.as<ArgImmed>().get() - A.as<ArgImmed>().get());
-    a.b_lo(resolve_beam_label(Fail2, disp1MB));
+
+    preserve_cache(
+            [&]() {
+                subs(TMP1, src.reg, A.as<ArgImmed>().get());
+                a.b_lt(resolve_beam_label(Fail1, disp1MB));
+                cmp(TMP1, B.as<ArgImmed>().get() - A.as<ArgImmed>().get());
+                a.b_lo(resolve_beam_label(Fail2, disp1MB));
+            },
+            TMP1);
 }
 
 /*
@@ -2618,16 +2642,20 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
                                                ArgConstant const &Max) {
     auto src = load_source(Src, ARG1);
 
-    sub(TMP1, src.reg, Min.as<ArgImmed>().get());
+    preserve_cache(
+            [&]() {
+                sub(TMP1, src.reg, Min.as<ArgImmed>().get());
 
-    /* Since we have subtracted the (tagged) lower bound, the
-     * tag bits of the difference is 0 if and only if Src is
-     * a small. */
-    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-    a.tst(TMP1, imm(_TAG_IMMED1_MASK));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
-    cmp(TMP1, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
-    a.b_hi(resolve_beam_label(Fail, disp1MB));
+                /* Since we have subtracted the (tagged) lower bound, the tag
+                 * bits of the difference is 0 if and only if Src is a
+                 * small. */
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.tst(TMP1, imm(_TAG_IMMED1_MASK));
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+                cmp(TMP1, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+                a.b_hi(resolve_beam_label(Fail, disp1MB));
+            },
+            TMP1);
 }
 
 /*
@@ -2643,25 +2671,33 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
         comment("simplified small test since all other types are boxed");
         emit_is_boxed(small, Src, src.reg);
     } else {
-        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
-        a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-        a.b_eq(small);
+        preserve_cache(
+                [&]() {
+                    a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+                    a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+                    a.b_eq(small);
+                },
+                TMP2);
 
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
 
-    a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
-    a.b(next);
+    preserve_cache(
+            [&]() {
+                a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+                a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+                a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+                a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+                a.b(next);
 
-    a.bind(small);
-    cmp(src.reg, Min.as<ArgImmed>().get());
-    a.b_lt(resolve_beam_label(Fail, disp1MB));
+                a.bind(small);
+                cmp(src.reg, Min.as<ArgImmed>().get());
+                a.b_lt(resolve_beam_label(Fail, disp1MB));
 
-    a.bind(next);
+                a.bind(next);
+            },
+            TMP1);
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {

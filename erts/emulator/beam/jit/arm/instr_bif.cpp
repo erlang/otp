@@ -109,7 +109,7 @@ void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
                                       const ArgLabel &Fail,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
-    auto src1 = load_source(Src1, TMP1);
+    auto src1 = load_source(Src1);
 
     a.str(src1.reg, getXRef(0));
 
@@ -169,7 +169,7 @@ void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
-    auto src1 = load_source(Src1, TMP1);
+    auto src1 = load_source(Src1);
 
     a.str(src1.reg, getXRef(0));
 
