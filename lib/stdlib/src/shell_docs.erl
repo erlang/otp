@@ -195,7 +195,8 @@ validate_docs([],_) ->
       NormalizedDocs :: chunk_elements().
 normalize(Docs) ->
     Trimmed = normalize_trim(Docs,true),
-    normalize_space(Trimmed).
+    Space = normalize_space(Trimmed),
+    normalize_paragraph(Space).
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
@@ -340,6 +341,26 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
     end;
 trim_last([],_What) ->
     {[],false}.
+
+%% Any non-block elements at top level are wrapped in a p so that tools
+%% don't have to deal with that.
+normalize_paragraph([{Tag,_,_} = Block | T]) when ?IS_BLOCK(Tag) ->
+    [Block | normalize_paragraph(T)];
+normalize_paragraph([{_,_,[]} = NoContent | T]) ->
+    %% If an inline tag has no content we don't wrap it in a <p>. This is
+    %% aimed at fixing <a id=""/> tags at top-level.
+    [NoContent | normalize_paragraph(T)];
+normalize_paragraph([]) ->
+    [];
+normalize_paragraph(Elems) ->
+    case lists:splitwith(
+           fun(E) ->
+                   is_binary(E) orelse
+                     (?IS_INLINE(element(1, E)) andalso element(3, E) =/= [])
+           end, Elems) of
+        {NotP, P} ->
+            [{p,[],NotP} | normalize_paragraph(P)]
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
