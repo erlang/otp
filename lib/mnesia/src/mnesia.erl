@@ -35,6 +35,7 @@
 	 abort/1, transaction/1, transaction/2, transaction/3,
 	 sync_transaction/1, sync_transaction/2, sync_transaction/3,
 	 async_dirty/1, async_dirty/2, sync_dirty/1, sync_dirty/2, ets/1, ets/2,
+     async_ec/1, async_ec/2, sync_ec/1, sync_ec/2,
 	 activity/2, activity/3, activity/4, % Not for public use
 	 is_transaction/0,
 
@@ -132,6 +133,8 @@
 	 remote_dirty_match_object/2,           % Not for public use
 	 remote_dirty_select/2                  % Not for public use
 	]).
+
+-export_type([table/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -326,9 +329,11 @@ ms() ->
      mnesia_app,
      mnesia_backup,
      mnesia_bup,
+     mnesia_causal,
      mnesia_checkpoint,
      mnesia_controller,
      mnesia_dumper,
+     mnesia_ec,
      mnesia_loader,
      mnesia_frag,
      mnesia_frag_hash,
@@ -336,6 +341,7 @@ ms() ->
      mnesia_late_loader,
      mnesia_lib,
      mnesia_log,
+     mnesia_pawset,
      mnesia_registry,
      mnesia_schema,
      mnesia_snmp_hook,
@@ -441,6 +447,16 @@ async_dirty(Fun) ->
 async_dirty(Fun, Args) ->
     non_transaction(get(mnesia_activity_state), Fun, Args, async_dirty, ?DEFAULT_ACCESS).
 
+-spec async_ec(Fun) -> Res | no_return() when
+      Fun :: fun(() -> Res).
+async_ec(Fun) ->
+    async_ec(Fun, []).
+
+-spec async_ec(Fun, [Arg::_]) -> Res | no_return() when
+      Fun :: fun((...) -> Res).
+async_ec(Fun, Args) ->
+    non_transaction(get(mnesia_activity_state), Fun, Args, async_ec, mnesia_ec).
+
 -spec sync_dirty(Fun) -> Res | no_return() when
       Fun :: fun(() -> Res).
 sync_dirty(Fun) ->
@@ -450,6 +466,16 @@ sync_dirty(Fun) ->
       Fun :: fun((...) -> Res).
 sync_dirty(Fun, Args) ->
     non_transaction(get(mnesia_activity_state), Fun, Args, sync_dirty, ?DEFAULT_ACCESS).
+
+-spec sync_ec(Fun) -> Res | no_return() when
+      Fun :: fun(() -> Res).
+sync_ec(Fun) ->
+    sync_ec(Fun, []).
+
+-spec sync_ec(Fun, [Arg::_]) -> Res | no_return() when
+      Fun :: fun((...) -> Res).
+sync_ec(Fun, Args) ->
+    non_transaction(get(mnesia_activity_state), Fun, Args, sync_ec, mnesia_ec).
 
 -spec ets(Fun) -> Res | no_return() when
       Fun :: fun(() -> Res).
@@ -491,6 +517,8 @@ activity(Kind, Fun, Args, Mod) ->
 	ets ->                    non_transaction(State, Fun, Args, Kind, Mod);
 	async_dirty ->            non_transaction(State, Fun, Args, Kind, Mod);
 	sync_dirty ->             non_transaction(State, Fun, Args, Kind, Mod);
+    async_ec ->               non_transaction(State, Fun, Args, Kind, mnesia_ec);
+    sync_ec ->                non_transaction(State, Fun, Args, Kind, mnesia_ec);
 	transaction ->            wrap_trans(State, Fun, Args, infinity, Mod, async);
 	{transaction, Retries} -> wrap_trans(State, Fun, Args, Retries, Mod, async);
 	sync_transaction ->            wrap_trans(State, Fun, Args, infinity, Mod, sync);
