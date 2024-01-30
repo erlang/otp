@@ -422,6 +422,10 @@ context_entry(Ctx) ->
     Ctx.
 
 
+-spec write_context_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [context_entry()].
+
 write_context_config(Dir, Conf) ->
     Comment =
 "%% This file defines the contexts known to the agent.\n"
@@ -437,6 +441,11 @@ write_context_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_context_config(Dir, Hdr, Conf).
+
+-spec write_context_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [context_entry()].
 
 write_context_config(Dir, Hdr, Conf) 
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

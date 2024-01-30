@@ -2018,7 +2018,7 @@ write_agent_snmp_context_conf(Dir) ->
 "%% \"bridge2\".\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [""],
+    Conf = [snmpa_conf:context_entry("")],
     write_agent_context_config(Dir, Hdr, Conf).
 
 write_agent_context_config(Dir, Hdr, Conf) ->
