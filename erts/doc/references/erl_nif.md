@@ -894,8 +894,8 @@ Returns pointer to the new environment.
 ## enif_alloc_resource()
 
 ```c
-void * enif_alloc_resource(ErlNifResourceType*
-        type, unsigned size);
+void * enif_alloc_resource(ErlNifResourceType* type,
+                           unsigned size);
 ```
 
 Allocates a memory-managed resource object of type `type` and size `size` bytes.
@@ -904,8 +904,10 @@ Allocates a memory-managed resource object of type `type` and size `size` bytes.
 
 ```c
 size_t enif_binary_to_term(ErlNifEnv *env,
-        const unsigned char* data, size_t size, ERL_NIF_TERM *term,
-        unsigned int opts);
+                           const unsigned char* data,
+			   size_t size,
+			   ERL_NIF_TERM *term,
+                           unsigned int opts);
 ```
 
 Creates a term that is the result of decoding the binary data at `data`, which
@@ -3164,7 +3166,11 @@ int enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...);
 Set an option. On success, zero will be returned. On failure, a non zero value
 will be returned. Currently the following options can be set:
 
-- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)`)`**{: #delay_halt } -
+- **[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)**{: #delay_halt }
+  ```c
+  enif_set_option(env, ERL_NIF_OPT_DELAY_HALT)
+  ```
+
   Enable delay of
   runtime system halt with flushing enabled until all calls to NIFs in the NIF
   library have returned. If the _delay halt_ feature has not been enabled, a
@@ -3203,7 +3209,10 @@ will be returned. Currently the following options can be set:
   Such NIFs should be dirty NIFs, since ordinary NIFs should never block for a
   long time.
 
-- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)`, `[`ErlNifOnHaltCallback`](erl_nif.md#ErlNifOnHaltCallback)` *on_halt)`**{: #on_halt } -
+- **[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)**{: #on_halt }
+  ```c
+  enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt)
+  ```
 
   Install a callback that will be called when the runtime system halts with
   flushing enabled.
@@ -3220,8 +3229,10 @@ will be returned. Currently the following options can be set:
   [`load()`](erl_nif.md#load) or [`upgrade()`](erl_nif.md#upgrade) call, and
   will fail if called somewhere else. The `env` argument _must_ be the callback
   environment passed to the `load()` or the `upgrade()` call. The `on_halt`
-  argument should be a function pointer to the callback to install. The _on
-  halt_ callback will be tied to the module instance with which the NIF library
+  argument should be a function pointer to the callback to install.
+
+  The [`on_halt`](erl_nif.md#ErlNifOnHaltCallback) callback will be tied to the
+  module instance with which the NIF library
   instance has been loaded. That is, in case both a new and old version of a
   module using the NIF library are loaded, they can both have different, none,
   or the same _on halt_ callbacks installed. When unloading the NIF library
