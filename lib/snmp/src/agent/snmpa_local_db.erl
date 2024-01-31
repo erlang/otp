@@ -123,6 +123,9 @@ unregister_notify_client(Client) ->
 backup(BackupDir) ->
     call({backup, BackupDir}).
 
+-spec dump() -> ok | {error, Reason} when
+      Reason :: term().
+
 dump() ->
     call(dump).
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -86,16 +86,14 @@
   </section>
   <funcs>
     <func>
-      <name since="">dump() -> ok | {error, Reason}</name>
+      <name name="dump" arity="0" clause_i="1" since=""/>
       <fsummary>Dump the database to disk</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>This function can be used to manually dump the database 
-          to file.</p>
+	to file.</p>
       </desc>
     </func>
+
     <func>
       <name since="">match(NameDb, Pattern)</name>
       <fsummary>Perform a match on the table</fsummary>
