@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 ARGS=("$@")
 
@@ -22,6 +22,7 @@ else
         chmod +x $ERL_TOP/bin/ex_doc
         echo "Downloaded ex_doc ${EX_DOC_VSN} to $ERL_TOP/bin/ex_doc"
         read -p "Press any key to continue..." -n 1 -r
+        echo "continuing"
         exec ex_doc "${ARGS[@]}"
     else
         exit 1
