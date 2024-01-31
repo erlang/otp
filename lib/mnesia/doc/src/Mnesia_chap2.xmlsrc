@@ -132,7 +132,7 @@
     </section>
     <p>This example shows how to create a database called <c>Company</c>
       and the relationships shown in the following diagram:</p>
-    <image file="company.gif">
+    <image file="company.png" width="80%">
       <icaption>Company Entity-Relation Diagram</icaption>
     </image>
     <p>The database model is as follows:</p>

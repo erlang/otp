@@ -1,0 +1,34 @@
+// Build with:
+// unflatten -f -l 2 company.dot | dot -T png > company.png
+graph {
+  size = 10
+  ratio = compress
+  node [fontname="monospace"]
+  {
+    // Tables
+    node [shape=box]
+    {dept employee project}
+    // Relationships
+    node [shape=diamond]
+    {manager at_dep in_proj}
+  }
+  {id name}
+  {emp_no salary sex phone room_no}
+  employee_name [label=name]
+  {name number}
+  project_name [label=name]
+
+  {
+    {id name} -- dept
+    {emp_no employee_name salary sex phone room_no} -- employee
+    {project_name number} -- project
+  }
+
+  {
+    edge [minlen=2.8]
+    {manager at_dep in_proj}
+    dept -- {manager, at_dep}
+    employee -- {manager, at_dep, in_proj}
+    project -- in_proj
+  }
+}
