@@ -1,4 +1,4 @@
--module(md_to_html_SUITE).
+-module(doc_html_SUITE).
 
 %% callbacks
 -export([all/0, groups/0, init_per_group/2, end_per_group/2]).
@@ -199,7 +199,7 @@ convert_erlang_html(_Conf) ->
     Functions = [{{function, foo, 0}, [], [], Doc, #{}}],
 
     Docs = create_eep48(erlang, ?ERLANG_HTML, none, #{}, Functions),
-    Docs = beam_doc:markdown_to_shelldoc(Docs),
+    Docs = doc_html:markdown_to_shelldoc(Docs),
     ok = shell_docs:validate(Docs),
     ok.
 
@@ -208,7 +208,7 @@ convert_unknown_format(_Conf) ->
     Functions = create_fun(Doc),
 
     Docs = create_eep48(erlang, <<"xml">>, Doc, #{},Functions),
-    Docs = beam_doc:markdown_to_shelldoc(Docs),
+    Docs = doc_html:markdown_to_shelldoc(Docs),
     ok.
 
 non_existing_moduledoc(_Conf) ->
@@ -231,20 +231,20 @@ existing_moduledoc(_Conf) ->
 
 non_existing_doc(_Conf) ->
     Docs = create_eep48(erlang, <<"text/markdown">>, none, #{}, create_fun(none)),
-    HtmlDocs = beam_doc:markdown_to_shelldoc(Docs),
+    HtmlDocs = doc_html:markdown_to_shelldoc(Docs),
     ok = shell_docs:validate(HtmlDocs),
     ok.
 
 hidden_doc(_Conf) ->
     Docs = create_eep48(erlang, <<"text/markdown">>, none, #{}, create_fun(hidden)),
-    HtmlDocs = beam_doc:markdown_to_shelldoc(Docs),
+    HtmlDocs = doc_html:markdown_to_shelldoc(Docs),
     ok = shell_docs:validate(HtmlDocs),
     ok.
 
 existing_doc(_Conf) ->
     Docs = create_eep48(erlang, <<"text/markdown">>, none, #{},
                         create_fun(#{<<"en">> => <<"Test">>})),
-    HtmlDocs = beam_doc:markdown_to_shelldoc(Docs),
+    HtmlDocs = doc_html:markdown_to_shelldoc(Docs),
     ok = shell_docs:validate(HtmlDocs),
     ok.
 
@@ -912,7 +912,7 @@ expected(X) when is_tuple(X) ->
     expected([X]).
 
 compile(Docs) ->
-    HtmlDocs = beam_doc:markdown_to_shelldoc(Docs),
+    HtmlDocs = doc_html:markdown_to_shelldoc(Docs),
     ok = shell_docs:validate(HtmlDocs),
     ?NATIVE_FORMAT = extract_format(HtmlDocs),
     HtmlDocs.

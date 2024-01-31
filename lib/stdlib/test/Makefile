@@ -57,6 +57,7 @@ MODULES= \
 	lists_property_test_SUITE \
 	log_mf_h_SUITE \
 	math_SUITE \
+	doc_html_SUITE \
 	ms_transform_SUITE \
 	peer_SUITE \
 	pool_SUITE \

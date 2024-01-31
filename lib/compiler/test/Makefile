@@ -42,7 +42,6 @@ MODULES= \
 	map_SUITE \
 	match_SUITE \
 	maybe_SUITE \
-	md_to_html_SUITE \
 	mc_SUITE \
 	misc_SUITE \
 	overridden_bif_SUITE \
