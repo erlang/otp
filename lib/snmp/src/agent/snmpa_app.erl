@@ -32,6 +32,7 @@
 %%-----------------------------------------------------------------
 
 -module(snmpa_app).
+-moduledoc false.
 
 -include("snmp_debug.hrl").
 

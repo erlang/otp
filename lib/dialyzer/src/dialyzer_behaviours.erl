@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_behaviours).
+-moduledoc false.
 
 -export([check_callbacks/5, get_behaviours/1]).
 

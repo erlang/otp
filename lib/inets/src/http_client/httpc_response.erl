@@ -19,6 +19,7 @@
 %%
 
 -module(httpc_response).
+-moduledoc false.
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").

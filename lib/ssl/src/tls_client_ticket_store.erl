@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_client_ticket_store).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").

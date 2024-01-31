@@ -19,6 +19,7 @@
 %%
 
 -module(erl_stdlib_errors).
+-moduledoc false.
 -export([format_error/2]).
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when

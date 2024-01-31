@@ -20,6 +20,7 @@
 %%
 
 -module(httpd_script_env).
+-moduledoc false.
 
 -export([create_env/3]).
 

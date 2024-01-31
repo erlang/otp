@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct_parser2).
+-moduledoc false.
 
 -export([parse/2,format_error/1]).
 -include("asn1_records.hrl").

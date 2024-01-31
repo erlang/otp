@@ -23,6 +23,7 @@
 %% Purpose: Supervisor of DTLS connection.
 %%----------------------------------------------------------------------
 -module(dtls_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

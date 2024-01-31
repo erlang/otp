@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_session).
+-moduledoc false.
 
 -export([sequence/0,
          sequence/1,

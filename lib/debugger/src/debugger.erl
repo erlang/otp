@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(debugger).
+-moduledoc """
+Erlang Debugger.
+
+Erlang Debugger for debugging and testing of Erlang programs.
+""".
 
 %% External exports
 -export([start/0, start/1, start/2, stop/0, quick/3, auto_attach/1]).
@@ -69,9 +74,11 @@
 %% GUI specific functionality used by more than one window type.
 %%
 %%====================================================================
+-doc(#{equiv => start/2}).
 -spec start() -> term().
 start() ->
     start(global, default, default).
+-doc(#{equiv => start/2}).
 -spec start(Mode) -> term() when Mode :: local | global | wx;
            (File) -> term() when File :: string().
 start(Mode) when Mode==local; Mode==global ->
@@ -81,6 +88,18 @@ start(Gui) when Gui==wx ->
 start(SFile) when is_list(SFile), is_integer(hd(SFile)) ->
     start(global, SFile, default).
 
+-doc """
+start(Mode, File)
+
+Starts Debugger.
+
+If a filename is specified as argument, Debugger tries to load its settings from
+this file. For details about settings, see the User's Guide.
+
+If `local` is specified as argument, Debugger interprets code only at the
+current node. If `global` is specified as argument, Debugger interprets code at
+all known nodes, this is the default.
+""".
 -spec start(Mode, File) -> term() when Mode :: local | global,
    File :: string().
 start(Mode, SFile) ->
@@ -92,9 +111,17 @@ start(Mode, SFile, default) ->
     Gui = which_gui(),
     start(Mode, SFile, Gui).
 
+-doc false.
 stop() ->
     dbg_wx_mon:stop().
 
+-doc """
+quick(Module, Name, Args)
+
+Debugs a single process. The module `Module` is interpreted and
+[`apply(Module,Name,Args)`](`apply/3`) is called. This opens an Attach Process
+window. For details, see the User's Guide.
+""".
 -spec quick(Module, Name, Args) -> term() when Module :: atom(),
    Name :: atom(),
    Args :: [term()].
@@ -103,6 +130,7 @@ quick(M, F, A) ->
     auto_attach([init]),
     apply(M, F, A).
 
+-doc false.
 auto_attach(Flags) ->    
     case which_gui() of
 	wx -> int:auto_attach(Flags, {dbg_wx_trace, start, []})

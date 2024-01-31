@@ -28,6 +28,7 @@
 %% cleaned up the type representation and added spec declarations.
 
 -module(erl_types).
+-moduledoc false.
 
 -export([any_none/1,
 	 any_none_or_unit/1,

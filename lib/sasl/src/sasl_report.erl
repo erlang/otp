@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(sasl_report).
+-moduledoc false.
 
 -export([write_report/3, format_report/3]).
 

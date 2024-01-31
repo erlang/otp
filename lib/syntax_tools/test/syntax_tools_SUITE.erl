@@ -115,8 +115,13 @@ revert_file(File, Path) ->
             Fs2 = erl_syntax_lib:map(fun (Node) -> Node end, Fs1),
             Fs3 = erl_syntax:form_list_elements(Fs2),
             Fs4 = [ erl_syntax:revert(Form) || Form <- Fs3 ],
-            {ok,_} = compile:forms(Fs4, [report,strong_validation]),
-            ok
+            case compile:forms(Fs4, [report,return,strong_validation]) of
+                {ok,_,_} -> ok;
+                {error, [{_, [{_, epp, {moduledoc, file, _}}]}],[]} ->
+                    ok;
+                {error, [{_, [{_, epp, {doc, file, _}}]}],[]} ->
+                    ok
+            end
     end.
 
 %% Testing bug fix for reverting map_field_assoc

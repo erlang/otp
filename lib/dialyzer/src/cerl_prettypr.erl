@@ -21,6 +21,7 @@
 %% TODO: add printing of comments for `comment'-annotations?
 
 -module(cerl_prettypr).
+-moduledoc false.
 
 -define(NO_UNUSED, true).
 

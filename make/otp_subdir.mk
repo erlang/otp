@@ -25,7 +25,7 @@
 #
 # Targets that don't affect documentation directories
 #
-$(TYPES) release docs release_docs tests release_tests clean depend static_lib xmllint:
+$(TYPES) release docs release_docs tests release_tests clean depend static_lib:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\

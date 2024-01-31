@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1rt_nif).
+-moduledoc false.
 
 %% Nif interface for asn1
 

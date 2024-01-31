@@ -19,6 +19,7 @@
 %% %CopyrightEnd%
 
 -module(sys_messages).
+-moduledoc false.
 
 -export([format_messages/4, list_errors/3]).
 

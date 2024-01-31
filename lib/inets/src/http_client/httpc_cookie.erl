@@ -39,6 +39,7 @@
 %% (catch httpc:request("http://www.expedia.com")).
 
 -module(httpc_cookie).
+-moduledoc false.
 
 -include("httpc_internal.hrl").
 

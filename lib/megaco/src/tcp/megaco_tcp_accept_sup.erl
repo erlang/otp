@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for the tcp "accept" processes.
 %%-----------------------------------------------------------------
 -module(megaco_tcp_accept_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(tls_record_1_3).
+-moduledoc false.
 
 -include("tls_record.hrl").
 -include("tls_record_1_3.hrl").

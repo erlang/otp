@@ -1529,6 +1529,7 @@ safeToken2           -> 'ServiceChangeIncompleteToken'  : '$1' .
 
 
 Erlang code.
+-moduledoc false.
 
 -include("megaco_text_parser_v2.hrl").
 

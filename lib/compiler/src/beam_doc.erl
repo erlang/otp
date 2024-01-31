@@ -27,8 +27,8 @@
 %%
 
 -module(beam_doc).
-
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 -export([main/4, format_error/1]).
 
@@ -96,11 +96,11 @@
                % keeps track of `-compile(export_all)`
                export_all         = false :: boolean(),
 
-               %% slogans: used to create slogans from it.
-               slogans = #{} :: #{{FunName    :: atom(), Arity      :: non_neg_integer()}
-                                  => {FunName    :: atom(),
-                                      ListOfVars :: [atom()],
-                                      Arity      :: non_neg_integer()}},
+               %% signatures: used to create signatures from it.
+               signatures = #{} :: #{{FunName    :: atom(), Arity      :: non_neg_integer()}
+                                     => {FunName    :: atom(),
+                                         ListOfVars :: [atom()],
+                                         Arity      :: non_neg_integer()}},
 
                %% populates all function / types, callbacks. it is updated on an ongoing basis
                %% since a doc attribute `doc ...` is not known in a first pass to be attached
@@ -271,7 +271,7 @@ preprocessing(AST, State) ->
                              Funs = [% Order matters
                                      fun extract_deprecated/2,
                                      fun extract_exported_types0/2, % done
-                                     fun extract_slogan_from_spec0/2,%done
+                                     fun extract_signature_from_spec0/2,%done
                                      fun track_documentation/2,      %must be before upsert_documentation_from_terminal_item/2
                                      fun upsert_documentation_from_terminal_item/2,
                                      fun extract_docformat0/2, %done
@@ -309,7 +309,7 @@ extract_exported_types0({attribute,_ANNO,compile, export_all}, State) ->
 extract_exported_types0(_AST, State) ->
    State.
 
-extract_slogan_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= spec; Tag =:= callback ->
+extract_signature_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= spec; Tag =:= callback ->
    maybe
       {Name, Arity, Args} = extract_args_from_spec(Form),
       true ?= is_list(Args),
@@ -322,16 +322,16 @@ extract_slogan_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= spec
 
       true ?= is_list(Vars),
       Arity ?= length(Vars),
-      update_slogan0(State, Anno, {Name, reverse(Vars), Arity})
+      update_signature0(State, Anno, {Name, reverse(Vars), Arity})
    else
       _ ->
          State
    end;
-extract_slogan_from_spec0(_, State) ->
+extract_signature_from_spec0(_, State) ->
    State.
 
 %%
-%% extract arguments for the slogan from the spec.
+%% extract arguments for the signature from the spec.
 %% does not accept multi-clause callbacks / specs due to the ambiguity
 %% of which spec clause to choose.
 %%
@@ -347,9 +347,9 @@ extract_args_from_spec({{Name, Arity}, Types}) ->
 extract_args_from_spec({{_Mod, Name, Arity}, Types}) ->
    extract_args_from_spec({{Name, Arity}, Types}).
 
-update_slogan0(#docs{slogans = Slogans}=State, _Anno, {FunName, Vars, Arity}=Slogan)
+update_signature0(#docs{signatures = Signatures}=State, _Anno, {FunName, Vars, Arity}=Signature)
   when is_atom(FunName) andalso is_list(Vars) andalso is_number(Arity) ->
-   State#docs{slogans = Slogans#{{FunName, Arity} => Slogan}}.
+   State#docs{signatures = Signatures#{{FunName, Arity} => Signature}}.
 
 
 %% Documentation tracking is a two-step (stateful phase).
@@ -665,7 +665,7 @@ extract_documentation(AST, State) ->
 %% types of hidden functions may exist in the reachable type graph
 %% and they should be ignored unless reachable from
 purge_types_not_used_from_exported_functions(#docs{user_defined_types = UserDefinedTypes}=State) ->
-   AstTypes = filter(fun ({{_, F, A}, _Anno, _Slogan, _Doc, #{exported := Exported}}) ->
+   AstTypes = filter(fun ({{_, F, A}, _Anno, _Signature, _Doc, #{exported := Exported}}) ->
                                   sets:is_element({F, A}, UserDefinedTypes) orelse Exported
                             end, State#docs.ast_types),
    State#docs{ast_types = AstTypes }.
@@ -676,7 +676,7 @@ purge_unreachable_types(#docs{types_from_exported_funs = TypesFromExportedFuns,
    SetTypes = sets:union(SetTypesFromExportedFns, State#docs.exported_types),
    ReachableTypes = digraph_utils:reachable(sets:to_list(SetTypes), TypeDependency),
    ReachableSet = sets:from_list(ReachableTypes),
-   AstTypes = filter(fun ({{_, F, A}, _Anno, _Slogan, _Doc, #{exported := Exported}}) ->
+   AstTypes = filter(fun ({{_, F, A}, _Anno, _Signature, _Doc, #{exported := Exported}}) ->
                            sets:is_element({F, A}, ReachableSet) orelse Exported
                      end, State#docs.ast_types),
    State#docs{ast_types = AstTypes }.
@@ -877,10 +877,10 @@ extract_documentation_from_type({attribute, Anno, TypeOrOpaque, {TypeName, _Type
 
    Docs1 = maps:update(Key, {Status, Doc, Meta#{exported := sets:is_element(Type, ExpTypes)}}, Docs),
    State2 = State0#docs {docs = Docs1},
-   State3 = gen_doc_with_slogan({type, Anno, TypeName, length(Args), Args}, State2),
+   State3 = gen_doc_with_signature({type, Anno, TypeName, length(Args), Args}, State2),
    add_type_defs(Type, State3).
 
-add_type_defs(Type, #docs{type_defs = TypeDefs, ast_types = [{_KFA, Anno, _Slogan, _Doc, _Meta} | _]}=State) ->
+add_type_defs(Type, #docs{type_defs = TypeDefs, ast_types = [{_KFA, Anno, _Signature, _Doc, _Meta} | _]}=State) ->
    State#docs{type_defs = TypeDefs#{Type => Anno}}.
 
 
@@ -895,7 +895,7 @@ extract_documentation_from_funs({function, Anno, F, A, [{clause, _, ClauseArgs, 
                       #docs{exported_functions = ExpFuns}=State) ->
     case (sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all) of
        true ->
-          gen_doc_with_slogan({function, Anno, F, A, ClauseArgs}, State);
+          gen_doc_with_signature({function, Anno, F, A, ClauseArgs}, State);
        false ->
           reset_state(State)
     end;
@@ -904,9 +904,9 @@ extract_documentation_from_funs({function, _Anno0, F, A, _Body}=AST,
    {Doc1, Anno1} = fetch_doc_and_anno(State, AST),
    case sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all of
       true ->
-         {Slogan, DocsWithoutSlogan} = extract_slogan(Doc1, State, F, A),
+         {Signature, DocsWithoutSignature} = extract_signature(Doc1, State, F, A),
          AttrBody = {function, F, A},
-         gen_doc(Anno1, AttrBody, Slogan, DocsWithoutSlogan, State);
+         gen_doc(Anno1, AttrBody, Signature, DocsWithoutSignature, State);
       false ->
          reset_state(State)
    end.
@@ -920,21 +920,21 @@ extract_documentation_from_cb({attribute, Anno, callback, {{CB, A}, Form}}, Stat
               _ -> %% multi-clause
                   Form
           end,
-   gen_doc_with_slogan({callback, Anno, CB, A, Args}, State2).
+   gen_doc_with_signature({callback, Anno, CB, A, Args}, State2).
 
 %% Generates documentation
--spec gen_doc(Anno, AttrBody, Slogan, Docs, State) -> Response when
+-spec gen_doc(Anno, AttrBody, Signature, Docs, State) -> Response when
       Anno      :: erl_anno:anno(),
       AttrBody  :: {function | type | callback, term(), integer()},
-      Slogan    :: unicode:chardata(),
+      Signature    :: unicode:chardata(),
       Docs      :: none | hidden | unicode:chardata() | #{ <<_:16>> => unicode:chardata() },
       State     :: internal_docs(),
       Response  :: internal_docs().
-gen_doc(Anno, AttrBody, Slogan, Docs, State) when not is_atom(Docs), not is_map(Docs) ->
-    gen_doc(Anno, AttrBody, Slogan, #{ <<"en">> => unicode:characters_to_binary(string:trim(Docs)) }, State);
-gen_doc(Anno, {Attr, _F, _A}=AttrBody, Slogan, Docs, #docs{docs=DocsMap}=State) ->
+gen_doc(Anno, AttrBody, Signature, Docs, State) when not is_atom(Docs), not is_map(Docs) ->
+    gen_doc(Anno, AttrBody, Signature, #{ <<"en">> => unicode:characters_to_binary(string:trim(Docs)) }, State);
+gen_doc(Anno, {Attr, _F, _A}=AttrBody, Signature, Docs, #docs{docs=DocsMap}=State) ->
    {_Status, _Doc, Meta} = maps:get(AttrBody, DocsMap),
-   Result = {AttrBody, Anno, [unicode:characters_to_binary(Slogan)], Docs,
+   Result = {AttrBody, Anno, [unicode:characters_to_binary(Signature)], Docs,
              maybe_add_deprecation(AttrBody, Meta, State)},
    State1 = update_user_defined_types(AttrBody, State),
    reset_state(update_ast(Attr, State1, Result)).
@@ -984,12 +984,12 @@ info_string(eventually) ->
 info_string(String) when is_list(String) ->
     String.
 
-%% Generates the documentation inferring the slogan from the documentation.
-gen_doc_with_slogan({Attr, _Anno0, F, A, Args}=AST, State) ->
+%% Generates the documentation inferring the signature from the documentation.
+gen_doc_with_signature({Attr, _Anno0, F, A, Args}=AST, State) ->
     {Doc1, Anno1} = fetch_doc_and_anno(State, AST),
-    {Slogan, DocsWithoutSlogan} = extract_slogan(Doc1, State, F, A, Args),
+    {Signature, DocsWithoutSignature} = extract_signature(Doc1, State, F, A, Args),
     AttrBody = {Attr, F, A},
-    gen_doc(Anno1, AttrBody, Slogan, DocsWithoutSlogan, State).
+    gen_doc(Anno1, AttrBody, Signature, DocsWithoutSignature, State).
 
 fetch_doc_and_anno(#docs{docs = DocsMap}=State, {Attr, Anno0, F, A, _Args}) ->
     %% a first pass guarantees that DocsMap cannot be empty
@@ -1012,55 +1012,55 @@ fun_to_varargs({var,_,_} = Name) ->
 fun_to_varargs(Else) ->
    Else.
 
-extract_slogan(Doc, State, F, A) ->
-   extract_slogan(Doc, State, F, A, [invalid]).
-extract_slogan(Doc, State, F, A, Args) ->
+extract_signature(Doc, State, F, A) ->
+   extract_signature(Doc, State, F, A, [invalid]).
+extract_signature(Doc, State, F, A, Args) ->
    %% order of the strategy matters
-   StrategyOrder = [fun slogan_strategy_doc_attr/5,
-                    fun slogan_strategy_spec/5,
-                    fun slogan_strategy_args/5,
-                    fun slogan_strategy_default/5],
+   StrategyOrder = [fun signature_strategy_doc_attr/5,
+                    fun signature_strategy_spec/5,
+                    fun signature_strategy_args/5,
+                    fun signature_strategy_default/5],
 
    %% selection alg. tries strategy until one strategy
    %% returns value =/= false
-   SloganSelection = fun (Fun, false) -> Fun(Doc, State, F, A, Args);
+   SignatureSelection = fun (Fun, false) -> Fun(Doc, State, F, A, Args);
                          (_F, Acc) -> Acc
                      end,
-   foldl(SloganSelection, false, StrategyOrder).
+   foldl(SignatureSelection, false, StrategyOrder).
 
 
-slogan_strategy_doc_attr(Doc, _State, F, A, _Args) ->
+signature_strategy_doc_attr(Doc, _State, F, A, _Args) ->
    maybe
       false ?= Doc =:= none orelse Doc =:= hidden,
-      [MaybeSlogan | Rest] = string:split(Doc, "\n"),
-      {ok, Toks, _} ?= erl_scan:string(unicode:characters_to_list([MaybeSlogan,"."])),
-      {ok, [{call,_,{atom,_,F},SloganArgs}]} ?= erl_parse:parse_exprs(Toks),
-      A ?= length(SloganArgs),
-      {MaybeSlogan, Rest}
+      [MaybeSignature | Rest] = string:split(Doc, "\n"),
+      {ok, Toks, _} ?= erl_scan:string(unicode:characters_to_list([MaybeSignature,"."])),
+      {ok, [{call,_,{atom,_,F},SignatureArgs}]} ?= erl_parse:parse_exprs(Toks),
+      A ?= length(SignatureArgs),
+      {MaybeSignature, Rest}
    else
       _ ->
          false
    end.
 
-slogan_strategy_spec(Doc, State, F, A, _Args) ->
-   case maps:get({F, A}, State#docs.slogans, none) of
+signature_strategy_spec(Doc, State, F, A, _Args) ->
+   case maps:get({F, A}, State#docs.signatures, none) of
       {F, Vars, A} ->
          VarString = join(", ",[atom_to_list(Var) || Var <- Vars]),
-         Slogan = unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString])),
-         {Slogan, Doc};
+         Signature = unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString])),
+         {Signature, Doc};
       none ->
          false
    end.
 
-slogan_strategy_args(Doc, _State, F, _A, Args) ->
+signature_strategy_args(Doc, _State, F, _A, Args) ->
    case all(fun is_var_without_underscore/1, Args)  of
       true ->
-         {extract_slogan_from_args(F, Args), Doc};
+         {extract_signature_from_args(F, Args), Doc};
       false ->
          false
    end.
 
-slogan_strategy_default(Doc, _State, F, A, _Args) ->
+signature_strategy_default(Doc, _State, F, A, _Args) ->
    {io_lib:format("~p/~p",[F,A]), Doc}.
 
 
@@ -1069,5 +1069,5 @@ is_var_without_underscore({var, _, N}) ->
 is_var_without_underscore(_) ->
    false.
 
-extract_slogan_from_args(F, Args) ->
+extract_signature_from_args(F, Args) ->
    io_lib:format("~p(~ts)",[F, join(", ",[string:trim(atom_to_list(Arg),leading,"_") || {var, _, Arg} <- Args])]).

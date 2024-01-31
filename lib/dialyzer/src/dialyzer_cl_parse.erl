@@ -11,6 +11,7 @@
 %% limitations under the License.
 
 -module(dialyzer_cl_parse).
+-moduledoc false.
 
 -export([start/0]).
 
@@ -50,14 +51,6 @@ start() ->
 parse_app(AppOrDir) ->
     case code:lib_dir(list_to_atom(AppOrDir)) of
         {error, bad_name} -> AppOrDir;
-        LibDir when AppOrDir =:= "erts" -> % hack for including erts in an un-installed system
-            EbinDir = filename:join([LibDir, "ebin"]),
-            case file:read_file_info(EbinDir) of
-                {error, enoent} ->
-                    filename:join([LibDir, "preloaded", "ebin"]);
-                _ ->
-                    EbinDir
-            end;
         LibDir -> filename:join(LibDir, "ebin")
     end.
 

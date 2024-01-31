@@ -548,7 +548,9 @@ format_element(#xmlElement{} = E, Opts) ->
 	    format_content(Content, Opts);
 	{_, false} ->
 	    edoc_report:warning(0, source_file(Opts), "'~s' is not allowed - skipping tag, extracting content", [Name]),
-	    format_content(Content, Opts);
+            [<<"<",(atom_to_binary(Name))/binary,">">>,
+             format_content(Content, Opts),
+             <<"</",(atom_to_binary(Name))/binary,">">>];
 	_ ->
 	    [{Name, format_attributes(Attributes), format_content(Content, Opts)}]
     end.

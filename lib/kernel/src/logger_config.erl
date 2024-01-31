@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_config).
+-moduledoc false.
 
 -export([new/1,delete/2,
          exist/2,

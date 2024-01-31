@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpm_net_if_filter).
+-moduledoc false.
 
 -export([accept_recv/2, 
 	 accept_send/2,

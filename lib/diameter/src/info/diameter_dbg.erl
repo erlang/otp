@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_dbg).
+-moduledoc false.
 
 -export([table/1,
          tables/0,

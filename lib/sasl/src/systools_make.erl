@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_make).
+-moduledoc false.
 
 %% Purpose : Create start script. RelName.rel --> RelName.{script,boot}.
 %%           and create a tar file of a release (RelName.tar.gz)

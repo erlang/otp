@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_checkpoint_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

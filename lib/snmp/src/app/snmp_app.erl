@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_app).
+-moduledoc false.
 
 -behaviour(application).
 

@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1_db).
+-moduledoc false.
 
 -export([dbstart/1,dbnew/3,dbload/1,dbload/4,dbsave/2,dbput/2,
 	 dbput/3,dbget/2]).

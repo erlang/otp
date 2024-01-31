@@ -21,5 +21,6 @@
 %%
 
 -module(erts_alloc_config).
+-moduledoc false.
 
 -removed({'_','_', "this module has as of OTP 26.0 been removed"}).

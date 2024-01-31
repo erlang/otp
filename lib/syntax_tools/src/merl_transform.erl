@@ -30,6 +30,15 @@
 %% transform, unless the macro `MERL_NO_TRANSFORM' is defined first.
 
 -module(merl_transform).
+-moduledoc """
+Parse transform for merl. Enables the use of automatic metavariables and using
+quasi-quotes in matches and case switches. Also optimizes calls to functions in
+`merl` by partially evaluating them, turning strings to templates, etc., at
+compile-time.
+
+Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform,
+unless the macro `MERL_NO_TRANSFORM` is defined first.
+""".
 
 -export([parse_transform/2]).
 

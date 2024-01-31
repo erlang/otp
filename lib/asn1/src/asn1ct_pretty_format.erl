@@ -40,6 +40,7 @@
 %%  data structures
 
 -module(asn1ct_pretty_format).
+-moduledoc false.
 
 -export([term/1]).
 

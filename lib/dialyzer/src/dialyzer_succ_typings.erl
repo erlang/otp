@@ -18,6 +18,7 @@
 %%
 
 -module(dialyzer_succ_typings).
+-moduledoc false.
 
 %% Main entry points.
 -export([analyze_callgraph/5,

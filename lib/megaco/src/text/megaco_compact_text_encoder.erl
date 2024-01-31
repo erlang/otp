@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_compact_text_encoder).
+-moduledoc false.
 
 -behaviour(megaco_encoder).
 

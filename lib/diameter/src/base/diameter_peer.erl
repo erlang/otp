@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_peer).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Interface towards transport modules ...

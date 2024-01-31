@@ -19,6 +19,7 @@
 %%
 %%
 -module(http_util).
+-moduledoc false.
 
 -export([
 	 to_upper/1, to_lower/1, 

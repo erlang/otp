@@ -19,6 +19,53 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxAuiNotebook).
+-moduledoc """
+Functions for wxAuiNotebook class
+
+`m:wxAuiNotebook` is part of the wxAUI class framework, which represents a
+notebook control, managing multiple windows with associated tabs.
+
+See also overview_aui.
+
+`m:wxAuiNotebook` is a notebook control which implements many features common in
+applications with dockable panes. Specifically, `m:wxAuiNotebook` implements
+functionality which allows the user to rearrange tab order via drag-and-drop,
+split the tab window into many different splitter configurations, and toggle
+through different themes to customize the control's look and feel.
+
+The default theme that is used is `wxAuiDefaultTabArt` (not implemented in wx),
+which provides a modern, glossy look and feel. The theme can be changed by
+calling `setArtProvider/2`.
+
+Styles
+
+This class supports the following styles:
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow`
+`m:wxEvtHandler`
+
+wxWidgets docs:
+[wxAuiNotebook](https://docs.wxwidgets.org/3.1/classwx_aui_notebook.html)
+
+## Events
+
+Event types emitted from this class:
+[`command_auinotebook_page_close`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_page_closed`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_page_changed`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_page_changing`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_button`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_begin_drag`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_end_drag`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_drag_motion`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_allow_dnd`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_drag_done`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_tab_middle_down`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_tab_middle_up`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_tab_right_down`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_tab_right_up`](`m:wxAuiNotebookEvent`),
+[`command_auinotebook_bg_dclick`](`m:wxAuiNotebookEvent`)
+""".
 -include("wxe.hrl").
 -export([addPage/3,addPage/4,addPage/5,create/2,create/3,create/4,deletePage/2,
   destroy/1,getArtProvider/1,getPage/2,getPageBitmap/2,getPageCount/1,
@@ -69,12 +116,14 @@
 -type wxAuiNotebook() :: wx:wx_object().
 -export_type([wxAuiNotebook/0]).
 %% @hidden
+-doc false.
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxAuiNotebook().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxAuiNotebook_new_0),
@@ -89,6 +138,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-doc """
+Constructor.
+
+Creates a wxAuiNotebok control.
+""".
 -spec new(Parent, [Option]) -> wxAuiNotebook() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -116,6 +170,12 @@ addPage(This,Page,Caption)
   addPage(This,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
+-doc """
+Adds a page.
+
+If the `select` parameter is true, calling this will generate a page change
+event.
+""".
 -spec addPage(This, Page, Caption, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {'select', boolean()}
@@ -133,6 +193,22 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Caption, Options)
   wxe_util:rec(?wxAuiNotebook_AddPage_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
+-doc """
+Adds a new page.
+
+The page must have the book control itself as the parent and must not have been
+added to this control previously.
+
+The call to this function may generate the page changing events.
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `insertPage/6`
+
+Since: 2.9.3
+""".
 -spec addPage(This, Page, Text, Select, ImageId) -> boolean() when
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
@@ -160,6 +236,7 @@ create(This,Parent)
 %% 		 | {'size', {W::integer(), H::integer()}}<br />
 %% 		 | {'style', integer()}.<br />
 %% 
+-doc "Creates the notebook window.".
 -spec create(This, Parent, Winid) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer();
       (This, Parent, [Option]) -> boolean() when
@@ -186,6 +263,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxAuiNotebook_Create_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookcreate">external documentation</a>.
+-doc "Constructs the book control with the given parameters.".
 -spec create(This, Parent, Winid, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -204,6 +282,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Winid, Options)
   wxe_util:rec(?wxAuiNotebook_Create_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookdeletepage">external documentation</a>.
+-doc """
+Deletes a page at the given index.
+
+Calling this method will generate a page change event.
+""".
 -spec deletePage(This, Page) -> boolean() when
 	This::wxAuiNotebook(), Page::integer().
 deletePage(#wx_ref{type=ThisT}=This,Page)
@@ -213,6 +296,7 @@ deletePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_DeletePage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetartprovider">external documentation</a>.
+-doc "Returns the associated art provider.".
 -spec getArtProvider(This) -> wxAuiTabArt:wxAuiTabArt() when
 	This::wxAuiNotebook().
 getArtProvider(#wx_ref{type=ThisT}=This) ->
@@ -221,6 +305,7 @@ getArtProvider(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiNotebook_GetArtProvider).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpage">external documentation</a>.
+-doc "Returns the page specified by the given index.".
 -spec getPage(This, Page_idx) -> wxWindow:wxWindow() when
 	This::wxAuiNotebook(), Page_idx::integer().
 getPage(#wx_ref{type=ThisT}=This,Page_idx)
@@ -230,6 +315,7 @@ getPage(#wx_ref{type=ThisT}=This,Page_idx)
   wxe_util:rec(?wxAuiNotebook_GetPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagebitmap">external documentation</a>.
+-doc "Returns the tab bitmap for the page.".
 -spec getPageBitmap(This, Page) -> wxBitmap:wxBitmap() when
 	This::wxAuiNotebook(), Page::integer().
 getPageBitmap(#wx_ref{type=ThisT}=This,Page)
@@ -239,6 +325,7 @@ getPageBitmap(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_GetPageBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagecount">external documentation</a>.
+-doc "Returns the number of pages in the notebook.".
 -spec getPageCount(This) -> integer() when
 	This::wxAuiNotebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
@@ -247,6 +334,11 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiNotebook_GetPageCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpageindex">external documentation</a>.
+-doc """
+Returns the page index for the specified window.
+
+If the window is not found in the notebook, wxNOT_FOUND is returned.
+""".
 -spec getPageIndex(This, Page_wnd) -> integer() when
 	This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow().
 getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
@@ -256,6 +348,7 @@ getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
   wxe_util:rec(?wxAuiNotebook_GetPageIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagetext">external documentation</a>.
+-doc "Returns the tab label for the page.".
 -spec getPageText(This, Page) -> unicode:charlist() when
 	This::wxAuiNotebook(), Page::integer().
 getPageText(#wx_ref{type=ThisT}=This,Page)
@@ -265,6 +358,7 @@ getPageText(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_GetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetselection">external documentation</a>.
+-doc "Returns the currently selected page.".
 -spec getSelection(This) -> integer() when
 	This::wxAuiNotebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -281,6 +375,13 @@ insertPage(This,Page_idx,Page,Caption)
   insertPage(This,Page_idx,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
+-doc """
+`insertPage/6` is similar to AddPage, but allows the ability to specify the
+insert location.
+
+If the `select` parameter is true, calling this will generate a page change
+event.
+""".
 -spec insertPage(This, Page_idx, Page, Caption, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {'select', boolean()}
@@ -298,6 +399,17 @@ insertPage(#wx_ref{type=ThisT}=This,Page_idx,#wx_ref{type=PageT}=Page,Caption, O
   wxe_util:rec(?wxAuiNotebook_InsertPage_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
+-doc """
+Inserts a new page at the specified position.
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `addPage/5`
+
+Since: 2.9.3
+""".
 -spec insertPage(This, Index, Page, Text, Select, ImageId) -> boolean() when
 	This::wxAuiNotebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
@@ -309,6 +421,7 @@ insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,I
   wxe_util:rec(?wxAuiNotebook_InsertPage_5).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookremovepage">external documentation</a>.
+-doc "Removes a page, without deleting the window pointer.".
 -spec removePage(This, Page) -> boolean() when
 	This::wxAuiNotebook(), Page::integer().
 removePage(#wx_ref{type=ThisT}=This,Page)
@@ -318,6 +431,7 @@ removePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_RemovePage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetartprovider">external documentation</a>.
+-doc "Sets the art provider to be used by the notebook.".
 -spec setArtProvider(This, Art) -> 'ok' when
 	This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt().
 setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=ArtT}=Art) ->
@@ -326,6 +440,10 @@ setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=ArtT}=Art) ->
   wxe_util:queue_cmd(This,Art,?get_env(),?wxAuiNotebook_SetArtProvider).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetfont">external documentation</a>.
+-doc """
+Sets the font for drawing the tab labels, using a bold version of the font for
+selected tab labels.
+""".
 -spec setFont(This, Font) -> boolean() when
 	This::wxAuiNotebook(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
@@ -335,6 +453,11 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   wxe_util:rec(?wxAuiNotebook_SetFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetpagebitmap">external documentation</a>.
+-doc """
+Sets the bitmap for the page.
+
+To remove a bitmap from the tab caption, pass wxNullBitmap.
+""".
 -spec setPageBitmap(This, Page, Bitmap) -> boolean() when
 	This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap().
 setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
@@ -345,6 +468,7 @@ setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
   wxe_util:rec(?wxAuiNotebook_SetPageBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetpagetext">external documentation</a>.
+-doc "Sets the tab label for the page.".
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
@@ -355,6 +479,11 @@ setPageText(#wx_ref{type=ThisT}=This,Page,Text)
   wxe_util:rec(?wxAuiNotebook_SetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetselection">external documentation</a>.
+-doc """
+Sets the page selection.
+
+Calling this method will generate a page change event.
+""".
 -spec setSelection(This, New_page) -> integer() when
 	This::wxAuiNotebook(), New_page::integer().
 setSelection(#wx_ref{type=ThisT}=This,New_page)
@@ -364,6 +493,17 @@ setSelection(#wx_ref{type=ThisT}=This,New_page)
   wxe_util:rec(?wxAuiNotebook_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksettabctrlheight">external documentation</a>.
+-doc """
+Sets the tab height.
+
+By default, the tab control height is calculated by measuring the text height
+and bitmap sizes on the tab captions. Calling this method will override that
+calculation and set the tab control to the specified height parameter. A call to
+this method will override any call to `setUniformBitmapSize/2`.
+
+Specifying -1 as the height will return the control to its default auto-sizing
+behaviour.
+""".
 -spec setTabCtrlHeight(This, Height) -> 'ok' when
 	This::wxAuiNotebook(), Height::integer().
 setTabCtrlHeight(#wx_ref{type=ThisT}=This,Height)
@@ -372,6 +512,13 @@ setTabCtrlHeight(#wx_ref{type=ThisT}=This,Height)
   wxe_util:queue_cmd(This,Height,?get_env(),?wxAuiNotebook_SetTabCtrlHeight).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetuniformbitmapsize">external documentation</a>.
+-doc """
+Ensure that all tabs have the same height, even if some of them don't have
+bitmaps.
+
+Passing ?wxDefaultSize as `size` undoes the effect of a previous call to this
+function and instructs the control to use dynamic tab height.
+""".
 -spec setUniformBitmapSize(This, Size) -> 'ok' when
 	This::wxAuiNotebook(), Size::{W::integer(), H::integer()}.
 setUniformBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -380,6 +527,7 @@ setUniformBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxAuiNotebook_SetUniformBitmapSize).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxAuiNotebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiNotebook),
@@ -387,368 +535,550 @@ destroy(Obj=#wx_ref{type=Type}) ->
   ok.
  %% From wxControl
 %% @hidden
+-doc false.
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
+-doc false.
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
 %% @hidden
+-doc false.
 getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
+-doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
+-doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
+-doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
 %% @hidden
+-doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
 %% @hidden
+-doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
+-doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
+-doc false.
 validate(This) -> wxWindow:validate(This).
 %% @hidden
+-doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
 %% @hidden
+-doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
 %% @hidden
+-doc false.
 update(This) -> wxWindow:update(This).
 %% @hidden
+-doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
 %% @hidden
+-doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
 %% @hidden
+-doc false.
 thaw(This) -> wxWindow:thaw(This).
 %% @hidden
+-doc false.
 show(This, Options) -> wxWindow:show(This, Options).
 %% @hidden
+-doc false.
 show(This) -> wxWindow:show(This).
 %% @hidden
+-doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
 %% @hidden
+-doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
 %% @hidden
+-doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
+-doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
+-doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
+-doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
+-doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
+-doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
+-doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
+-doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
 %% @hidden
+-doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
 %% @hidden
+-doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
 %% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
 %% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
 %% @hidden
+-doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
 %% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
 %% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
 %% @hidden
+-doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
+-doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
+-doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
+-doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
 %% @hidden
+-doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
+-doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
+-doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
+-doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
 %% @hidden
+-doc false.
 setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
+-doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
+-doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
+-doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
+-doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
+-doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
+-doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
+-doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
+-doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
+-doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
 %% @hidden
+-doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
 %% @hidden
+-doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
 %% @hidden
+-doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
 %% @hidden
+-doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
 %% @hidden
+-doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
 %% @hidden
+-doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
 %% @hidden
+-doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
 %% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
 %% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
 %% @hidden
+-doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 %% @hidden
+-doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 %% @hidden
+-doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 %% @hidden
+-doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
 %% @hidden
+-doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 %% @hidden
+-doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
 %% @hidden
+-doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
 %% @hidden
+-doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
 %% @hidden
+-doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
 %% @hidden
+-doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
 %% @hidden
+-doc false.
 refresh(This) -> wxWindow:refresh(This).
 %% @hidden
+-doc false.
 raise(This) -> wxWindow:raise(This).
 %% @hidden
+-doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
 %% @hidden
+-doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
 %% @hidden
+-doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
 %% @hidden
+-doc false.
 pageUp(This) -> wxWindow:pageUp(This).
 %% @hidden
+-doc false.
 pageDown(This) -> wxWindow:pageDown(This).
 %% @hidden
+-doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
 %% @hidden
+-doc false.
 navigate(This) -> wxWindow:navigate(This).
 %% @hidden
+-doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
 %% @hidden
+-doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
 %% @hidden
+-doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
 %% @hidden
+-doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
+-doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
+-doc false.
 lower(This) -> wxWindow:lower(This).
 %% @hidden
+-doc false.
 lineUp(This) -> wxWindow:lineUp(This).
 %% @hidden
+-doc false.
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
+-doc false.
 layout(This) -> wxWindow:layout(This).
 %% @hidden
+-doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
+-doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden
+-doc false.
 isShown(This) -> wxWindow:isShown(This).
 %% @hidden
+-doc false.
 isRetained(This) -> wxWindow:isRetained(This).
 %% @hidden
+-doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
 %% @hidden
+-doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
 %% @hidden
+-doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
 %% @hidden
+-doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
 %% @hidden
+-doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
 %% @hidden
+-doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
 %% @hidden
+-doc false.
 initDialog(This) -> wxWindow:initDialog(This).
 %% @hidden
+-doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
 %% @hidden
+-doc false.
 hide(This) -> wxWindow:hide(This).
 %% @hidden
+-doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
 %% @hidden
+-doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
 %% @hidden
+-doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
 %% @hidden
+-doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
 %% @hidden
+-doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
 %% @hidden
+-doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
 %% @hidden
+-doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
 %% @hidden
+-doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
 %% @hidden
+-doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
 %% @hidden
+-doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
 %% @hidden
+-doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
 %% @hidden
+-doc false.
 getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
+-doc false.
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
+-doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
+-doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
+-doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
+-doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
+-doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
 %% @hidden
+-doc false.
 getRect(This) -> wxWindow:getRect(This).
 %% @hidden
+-doc false.
 getPosition(This) -> wxWindow:getPosition(This).
 %% @hidden
+-doc false.
 getParent(This) -> wxWindow:getParent(This).
 %% @hidden
+-doc false.
 getName(This) -> wxWindow:getName(This).
 %% @hidden
+-doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
 %% @hidden
+-doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
 %% @hidden
+-doc false.
 getId(This) -> wxWindow:getId(This).
 %% @hidden
+-doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
 %% @hidden
+-doc false.
 getHandle(This) -> wxWindow:getHandle(This).
 %% @hidden
+-doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
 %% @hidden
+-doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
 %% @hidden
+-doc false.
 getFont(This) -> wxWindow:getFont(This).
 %% @hidden
+-doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
 %% @hidden
+-doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
 %% @hidden
+-doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
 %% @hidden
+-doc false.
 getCursor(This) -> wxWindow:getCursor(This).
 %% @hidden
+-doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
 %% @hidden
+-doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
 %% @hidden
+-doc false.
 getChildren(This) -> wxWindow:getChildren(This).
 %% @hidden
+-doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
 %% @hidden
+-doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
 %% @hidden
+-doc false.
 getCaret(This) -> wxWindow:getCaret(This).
 %% @hidden
+-doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
 %% @hidden
+-doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
 %% @hidden
+-doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
 %% @hidden
+-doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
 %% @hidden
+-doc false.
 freeze(This) -> wxWindow:freeze(This).
 %% @hidden
+-doc false.
 fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
+-doc false.
 fit(This) -> wxWindow:fit(This).
 %% @hidden
+-doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
+-doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
+-doc false.
 enable(This) -> wxWindow:enable(This).
 %% @hidden
+-doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
+-doc false.
 disable(This) -> wxWindow:disable(This).
 %% @hidden
+-doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
 %% @hidden
+-doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
 %% @hidden
+-doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
 %% @hidden
+-doc false.
 close(This, Options) -> wxWindow:close(This, Options).
 %% @hidden
+-doc false.
 close(This) -> wxWindow:close(This).
 %% @hidden
+-doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
 %% @hidden
+-doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
 %% @hidden
+-doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
+-doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
+-doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
 %% @hidden
+-doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
 %% @hidden
+-doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+-doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
 %% @hidden
+-doc false.
 center(This, Options) -> wxWindow:center(This, Options).
 %% @hidden
+-doc false.
 centre(This) -> wxWindow:centre(This).
 %% @hidden
+-doc false.
 center(This) -> wxWindow:center(This).
 %% @hidden
+-doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
+-doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
 %% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
 %% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
 %% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

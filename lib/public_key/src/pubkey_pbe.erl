@@ -20,6 +20,7 @@
 %% Description: Implements Password Based Encryption PKCS-5, RFC-2898
 
 -module(pubkey_pbe).
+-moduledoc false.
 
 -include("public_key.hrl").
 

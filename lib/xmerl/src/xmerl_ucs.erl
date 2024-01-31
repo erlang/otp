@@ -19,6 +19,7 @@
 %%
 
 -module(xmerl_ucs).
+-moduledoc false.
 
 -compile([verbose,report_warnings,warn_unused_vars]).
 

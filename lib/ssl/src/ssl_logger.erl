@@ -19,6 +19,7 @@
 %%
 
 -module(ssl_logger).
+-moduledoc false.
 
 -export([log/4, 
          debug/4,

@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_crl).
+-moduledoc false.
 
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").

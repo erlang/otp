@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(misc_supp).
+-moduledoc false.
 
 %%%---------------------------------------------------------------------
 %%% Description:

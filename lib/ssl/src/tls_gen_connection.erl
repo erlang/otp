@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_gen_connection).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/logger.hrl").

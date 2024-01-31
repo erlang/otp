@@ -95,6 +95,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_connection).
+-moduledoc false.
 
 -behaviour(gen_statem).
 

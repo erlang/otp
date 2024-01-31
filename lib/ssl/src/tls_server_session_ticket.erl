@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_server_session_ticket).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("tls_handshake_1_3.hrl").

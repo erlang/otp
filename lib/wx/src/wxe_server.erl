@@ -27,6 +27,7 @@
 
 %% @hidden
 -module(wxe_server).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% API

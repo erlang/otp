@@ -25,6 +25,7 @@
 %%%-------------------------------------------------------------------
 
 -module(tftp_app).
+-moduledoc false.
 
 -behaviour(application).
 

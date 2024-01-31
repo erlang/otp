@@ -66,6 +66,7 @@ token -> ':' : {':', anno_of('$1')}.   % manner, because they are also
                                        % special symbols of the metagrammar
 
 Erlang code.
+-moduledoc false.
 
 -record(symbol, {anno, name}).
 

@@ -13,6 +13,7 @@
 %% limitations under the License.
 
 -module(dialyzer_contracts).
+-moduledoc false.
 
 -export([check_contract/2,
 	 check_contracts/4,

@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_gen).
+-moduledoc false.
 
 -include("asn1_records.hrl").
 
@@ -1321,6 +1322,7 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
           "%% Purpose: Encoding and decoding of the types in ",
           Mod,".",nl,nl,
           "-module('",Mod,"').",nl,
+          "-moduledoc false.",nl,
           "-compile(nowarn_unused_vars).",nl,
           "-dialyzer(no_improper_lists).",nl,
           "-dialyzer(no_match).",nl

@@ -56,6 +56,11 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_digit_map).
+-moduledoc """
+Digit Map utility module.
+
+This is a Digit Map utility module (types).
+""".
 
 -export([parse/1, eval/1, eval/2, report/2, test/2]). % Public
 -export([test_eval/2]).                               % Internal
@@ -78,10 +83,14 @@
 -type value()           :: #'DigitMapValue'{}.
 -type kind()            :: full | unambiguous.
 -type event()           :: letter() | pause() | cancel().
+-doc "`$0..$9 | $a..$k | $A..$K`".
 -type letter()          :: $0 .. $9 | $a .. $k | $A .. $K.
 -type pause()           :: one_second() | ten_seconds().
+-doc "`$s | $S`".
 -type one_second()      :: $s | $S.
+-doc "`$l | $L`".
 -type ten_seconds()     :: $l | $L.
+-doc "`$z | $Z | cancel`".
 -type cancel()          :: $z | $Z | cancel.
 
 -record(state_transition, {mode, next, cont}).
@@ -102,6 +111,7 @@
 %% 
 %%----------------------------------------------------------------------
 
+-doc false.
 parse(DigitMapBody) when is_list(DigitMapBody) ->
     ?d("parse -> entry with"
        "~n   DigitMapBody: ~p", [DigitMapBody]),
@@ -297,6 +307,7 @@ parse_digit_letter([], _DL, _DS) ->
 %% Returns {ok, Letters} | {error, Reason}
 %%----------------------------------------------------------------------
      
+-doc false.
 eval(DMV) when is_record(DMV, 'DigitMapValue') ->
     case parse(DMV#'DigitMapValue'.digitMapBody) of
 	{ok, DigitMapBody} ->
@@ -307,6 +318,7 @@ eval(DMV) when is_record(DMV, 'DigitMapValue') ->
 eval(STL) when is_list(STL) ->
      eval(STL, #timers{}).
 	
+-doc false.
 eval(STL, #'DigitMapValue'{startTimer    = Start,
 			   shortTimer    = Short,
 			   longTimer     = Long,
@@ -810,6 +822,7 @@ make_cont(Mode, Next, Cont) ->
 %% Returns ok | {error, Reason}
 %%----------------------------------------------------------------------
 
+-doc false.
 report(Pid, [H | T])->
     case report(Pid, H) of
 	ok ->
@@ -859,6 +872,7 @@ cast(Pid, Event) ->
 %% Returns: {ok, Letters} | {error, Reason}
 %%----------------------------------------------------------------------
 
+-doc false.
 test(DigitMap, Events) ->
     Self = self(),
     Pid = spawn_link(?MODULE, test_eval, [DigitMap, Self]),
@@ -870,6 +884,7 @@ test(DigitMap, Events) ->
 	    {error, {'EXIT', Reason}}
     end.
 
+-doc false.
 test_eval(DigitMap, Parent) ->
     Res = eval(DigitMap),
     unlink(Parent),

@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_timer).
+-moduledoc false.
 
 %% Application internal export
 -export([

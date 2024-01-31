@@ -19,6 +19,7 @@
 %%
 
 -module(snmpc_mib_to_hrl).
+-moduledoc false.
 
 -include_lib("stdlib/include/erl_compile.hrl").
 -include("snmp_types.hrl").

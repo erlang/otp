@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_auth).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 

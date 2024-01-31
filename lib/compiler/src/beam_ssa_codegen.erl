@@ -20,6 +20,7 @@
 %% Purpose: Generate BEAM assembly code from the SSA format.
 
 -module(beam_ssa_codegen).
+-moduledoc false.
 
 -export([module/2]).
 -export([classify_heap_need/2]).    %Called from beam_ssa_pre_codegen.

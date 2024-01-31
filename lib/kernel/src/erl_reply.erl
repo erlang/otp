@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_reply).
+-moduledoc false.
 
 %% Syncronisation with erl_start (erl_interface)
 

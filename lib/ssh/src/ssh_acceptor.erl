@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_acceptor).
+-moduledoc false.
 
 -include("ssh.hrl").
 

@@ -33,6 +33,7 @@
 %%
 
 -module(beam_ssa_share).
+-moduledoc false.
 -export([module/2,block/2]).
 
 -include("beam_ssa.hrl").

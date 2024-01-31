@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_tcp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

@@ -23,6 +23,7 @@
 %% at IDT Corp. Adapted by the OTP team at Ericsson AB.
 %%
 -module(prim_inet).
+-moduledoc false.
 
 %% Primitive inet_drv interface
 

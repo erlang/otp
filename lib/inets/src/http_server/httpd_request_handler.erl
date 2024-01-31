@@ -22,6 +22,7 @@
 %% 
 
 -module(httpd_request_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 

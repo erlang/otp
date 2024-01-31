@@ -18,6 +18,43 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_local_db).
+-moduledoc """
+The SNMP built-in database
+
+The module `snmpa_local_db` contains functions for implementing tables (and
+variables) using the SNMP built-in database. The database exists in two
+instances, one volatile and one persistent. The volatile database is implemented
+with ets. The persistent database is implemented with dets.
+
+There is a scaling problem with this database.
+
+- Insertions and deletions are inefficient for large tables.
+
+This problem is best solved by using Mnesia instead.
+
+The following functions describe the interface to `snmpa_local_db`. Each
+function has a Mnesia equivalent. The argument `NameDb` is a tuple `{Name, Db}`
+where `Name` is the symbolic name of the managed object (as defined in the MIB),
+and `Db` is either `volatile` or `persistent`. `mnesia` is not possible since
+all these functions are `snmpa_local_db` specific.
+
+## Common Data Types
+
+In the functions defined below, the following types are used:
+
+- `NameDb = {Name, Db}`
+- `Name = atom(), Db = volatile | persistent`
+- `RowIndex = [int()]`
+- `Cols = [Col] | [{Col, Value}], Col = int(), Value = term()`
+
+where `RowIndex` denotes the last part of the OID, that specifies the index of
+the row in the table. `Cols` is a list of column numbers in case of a get
+operation, and a list of column numbers and values in case of a set operation.
+
+## See Also
+
+ets(3), dets(3), snmp_generic(3)
+""".
 
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").
@@ -99,9 +136,11 @@
 %%% Opt = {auto_repair, false | true | true_verbose} |
 %%%       {verbosity,silence | log | debug}
 %%%-----------------------------------------------------------------
+-doc false.
 start_link(Prio, DbDir, Opts) when is_list(Opts) ->
     start_link(Prio, DbDir, terminate, Opts).
 
+-doc false.
 start_link(Prio, DbDir, DbInitError, Opts) when is_list(Opts) ->
     ?d("start_link -> entry with"
 	"~n   Prio:        ~p"
@@ -110,31 +149,43 @@ start_link(Prio, DbDir, DbInitError, Opts) when is_list(Opts) ->
 	"~n   Opts:        ~p", [Prio, DbDir, DbInitError, Opts]),
     ?GS_START_LINK(Prio, DbDir, DbInitError, Opts).
 
+-doc false.
 stop() ->
     call(stop).
 
+-doc false.
 register_notify_client(Client,Module) ->
     call({register_notify_client,Client,Module}).
 
 
+-doc false.
 unregister_notify_client(Client) ->
     call({unregister_notify_client,Client}).
 
+-doc false.
 backup(BackupDir) ->
     call({backup, BackupDir}).
 
+-doc """
+dump() -> ok | {error, Reason}
+
+This function can be used to manually dump the database to file.
+""".
 dump() ->
     call(dump).
 
+-doc false.
 info() ->
     call(info).
 
+-doc false.
 verbosity(Verbosity) ->
     cast({verbosity,Verbosity}).
 
 
 %%%-----------------------------------------------------------------
 
+-doc false.
 init([Prio, DbDir, DbInitError, Opts]) ->
     ?d("init -> entry with"
 	"~n   Prio:        ~p"
@@ -246,90 +297,152 @@ dets_filename1(Dir) -> Dir.
 %%-----------------------------------------------------------------
 %% Functions for debugging.
 %%-----------------------------------------------------------------
+-doc(#{equiv => print/2}).
 print()          -> call(print).
+-doc(#{equiv => print/2}).
 print(Table)     -> call({print,Table,volatile}).
+-doc """
+print(TableName, Db)
+
+Prints the contents of the database on screen. This is useful for debugging
+since the `STANDARD-MIB` and `OTP-SNMPEA-MIB` (and maybe your own MIBs) are
+stored in `snmpa_local_db`.
+
+`TableName` is an atom for a table in the database. When no name is supplied,
+the whole database is shown.
+""".
 print(Table, Db) -> call({print,Table,Db}).
 
+-doc false.
 variable_get({Name, Db}) ->
     call({variable_get, Name, Db});
 variable_get(Name) ->
     call({variable_get, Name, volatile}).
 
+-doc false.
 variable_set({Name, Db}, Val) ->
     call({variable_set, Name, Db, Val});
 variable_set(Name, Val) ->
     call({variable_set, Name, volatile, Val}).
 
+-doc false.
 variable_inc({Name, Db}, N) ->
     cast({variable_inc, Name, Db, N});
 variable_inc(Name, N) ->
     cast({variable_inc, Name, volatile, N}).
 
+-doc false.
 variable_delete({Name, Db}) ->
     call({variable_delete, Name, Db});
 variable_delete(Name) ->
     call({variable_delete, Name, volatile}).
 
 
+-doc """
+table_create(NameDb) -> bool()
+
+Creates a table. If the table already exist, the old copy is destroyed.
+
+Returns `false` if the `NameDb` argument is incorrectly specified, `true`
+otherwise.
+""".
 table_create({Name, Db}) ->
     call({table_create, Name, Db});
 table_create(Name) ->
     call({table_create, Name, volatile}).
 
+-doc """
+table_exists(NameDb) -> bool()
+
+Checks if a table exists.
+""".
 table_exists({Name, Db}) ->
     call({table_exists, Name, Db});
 table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
+-doc """
+table_delete(NameDb) -> void()
+
+Deletes a table.
+""".
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
 table_delete(Name) ->
     call({table_delete, Name, volatile}).
 
+-doc """
+table_delete_row(NameDb, RowIndex) -> bool()
+
+Deletes the row in the table.
+""".
 table_delete_row({Name, Db}, RowIndex) ->
     call({table_delete_row, Name, Db, RowIndex});
 table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
+-doc """
+table_get_row(NameDb, RowIndex) -> Row | undefined
+
+`Row` is a tuple with values for all columns, including the index columns.
+""".
 table_get_row({Name, Db}, RowIndex) ->
     call({table_get_row, Name, Db, RowIndex});
 table_get_row(Name, RowIndex) ->
     call({table_get_row, Name, volatile, RowIndex}).
 
+-doc false.
 table_get_element({Name, Db}, RowIndex, Col) ->
     call({table_get_element, Name, Db, RowIndex, Col});
 table_get_element(Name, RowIndex, Col) ->
     call({table_get_element, Name, volatile, RowIndex, Col}).
 
+-doc false.
 table_set_elements({Name, Db}, RowIndex, Cols) ->
     call({table_set_elements, Name, Db, RowIndex, Cols});
 table_set_elements(Name, RowIndex, Cols) ->
     call({table_set_elements, Name, volatile, RowIndex, Cols}).
 
+-doc false.
 table_next({Name, Db}, RestOid) ->
     call({table_next, Name, Db, RestOid});
 table_next(Name, RestOid) ->
     call({table_next, Name, volatile, RestOid}).
 
+-doc false.
 table_max_col({Name, Db}, Col) ->
     call({table_max_col, Name, Db, Col});
 table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
+-doc """
+table_create_row(NameDb, RowIndex, Row) -> bool()
+
+Creates a row in a table. `Row` is a tuple with values for all columns,
+including the index columns.
+""".
 table_create_row({Name, Db}, RowIndex, Row) ->
     call({table_create_row, Name, Db,RowIndex, Row});
 table_create_row(Name, RowIndex, Row) ->
     call({table_create_row, Name, volatile, RowIndex, Row}).
+-doc false.
 table_create_row(NameDb, RowIndex, Status, Cols) ->
     Row = table_construct_row(NameDb, RowIndex, Status, Cols),
     table_create_row(NameDb, RowIndex, Row).
 
+-doc """
+match(NameDb, Pattern)
+
+Performs an ets/dets matching on the table. See Stdlib documentation, module
+ets, for a description of `Pattern` and the return values.
+""".
 match({Name, Db}, Pattern) ->
     call({match, Name, Db, Pattern});    
 match(Name, Pattern) ->
     call({match, Name, volatile, Pattern}).
 
 
+-doc false.
 table_get(Table) ->
     table_get(Table, [], []).
 
@@ -351,6 +464,7 @@ table_get(Table, Idx, Acc) ->
 %%-----------------------------------------------------------------
 %% Implements the variable functions.
 %%-----------------------------------------------------------------
+-doc false.
 handle_call({variable_get, Name, Db}, _From, State) -> 
     ?vlog("variable get: ~p [~p]",[Name, Db]),
     {reply, lookup(Db, Name, State), State};
@@ -593,6 +707,7 @@ handle_call(Req, _From, State) ->
     {reply, Reply, State}.
 
 
+-doc false.
 handle_cast({variable_inc, Name, Db, N}, State) ->
     ?vlog("variable ~p inc"
 	  "~n   N: ~p", [Name, N]),
@@ -613,6 +728,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
     
 
+-doc false.
 handle_info({'EXIT', Pid, Reason}, #state{backup = {Pid, From}} = S) ->
     ?vlog("backup server (~p) exited for reason ~n~p", [Pid, Reason]),
     gen_server:reply(From, {error, Reason}),
@@ -634,6 +750,7 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 
+-doc false.
 terminate(Reason, State) ->
     ?vlog("terminate: ~p", [Reason]),
     close(State).
@@ -645,6 +762,7 @@ terminate(Reason, State) ->
 
 %% downgrade
 %% 
+-doc false.
 code_change({down, _Vsn}, S1, downgrade_to_pre_4_11) ->
     #state{dets = D} = S1,
     #dets{tab = Dets, shadow = Shadow} = D, 
@@ -1017,6 +1135,7 @@ notify_client({Client,Module}, Event) ->
 %%  isn't specified in the Col list, then the
 %%  corresponding value will be noinit.
 %%------------------------------------------------------------------
+-doc false.
 table_construct_row(Name, RowIndex, Status, Cols) ->
     #table_info{nbr_of_cols = LastCol, index_types = Indexes,
 		defvals = Defs, status_col = StatusCol,
@@ -1035,9 +1154,11 @@ table_construct_row(Name, RowIndex, Status, Cols) ->
     list_to_tuple(L).
 
 
+-doc false.
 table_get_elements(NameDb, RowIndex, Cols, _FirstOwnIndex) ->
     get_elements(Cols, table_get_row(NameDb, RowIndex)).
 
+-doc false.
 get_elements(_Cols, undefined) -> 
     undefined;
 get_elements([Col | Cols], Row) when tuple_size(Row) >= Col ->
@@ -1053,6 +1174,7 @@ get_elements(Cols, Row) ->
 %% its own and this version still is local_db dependent, it's not generic yet.
 %%----------------------------------------------------------------------
 %% createAndGo
+-doc false.
 table_set_status(NameDb, RowIndex, ?'RowStatus_createAndGo', StatusCol, Cols, 
 		 ChangedStatusFunc, _ConsFunc) ->
     case table_create_row(NameDb, RowIndex, ?'RowStatus_active', Cols) of
@@ -1098,6 +1220,7 @@ table_set_status(NameDb, RowIndex, Val, _StatusCol, Cols,
     snmp_generic:table_set_cols(NameDb, RowIndex, Cols, ConsFunc),
     snmp_generic:try_apply(ChangedStatusFunc, [NameDb, Val, RowIndex, Cols]).
 
+-doc false.
 table_func(new, NameDb) ->
     case table_exists(NameDb) of
 	true -> ok;
@@ -1107,6 +1230,7 @@ table_func(new, NameDb) ->
 table_func(delete, _NameDb) ->
     ok.
 
+-doc false.
 table_func(get, RowIndex, Cols, NameDb) ->
     TableInfo = snmp_generic:table_info(NameDb),
     snmp_generic:handle_table_get(NameDb, RowIndex, Cols,

@@ -19,6 +19,20 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGridCellAttr).
+-moduledoc """
+Functions for wxGridCellAttr class
+
+This class can be used to alter the cells' appearance in the grid by changing
+their attributes from the defaults. An object of this class may be returned by
+`wxGridTableBase::GetAttr()` (not implemented in wx).
+
+Note that objects of this class are reference-counted and it's recommended to
+use wxGridCellAttrPtr smart pointer class when working with them to avoid memory
+leaks.
+
+wxWidgets docs:
+[wxGridCellAttr](https://docs.wxwidgets.org/3.1/classwx_grid_cell_attr.html)
+""".
 -include("wxe.hrl").
 -export([getAlignment/1,getBackgroundColour/1,getEditor/4,getFont/1,getRenderer/4,
   getTextColour/1,hasAlignment/1,hasBackgroundColour/1,hasEditor/1,
@@ -32,9 +46,11 @@
 -type wxGridCellAttr() :: wx:wx_object().
 -export_type([wxGridCellAttr/0]).
 %% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsettextcolour">external documentation</a>.
+-doc "Sets the text colour.".
 -spec setTextColour(This, ColText) -> 'ok' when
 	This::wxGridCellAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
@@ -43,6 +59,7 @@ setTextColour(#wx_ref{type=ThisT}=This,ColText)
   wxe_util:queue_cmd(This,wxe_util:color(ColText),?get_env(),?wxGridCellAttr_SetTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetbackgroundcolour">external documentation</a>.
+-doc "Sets the background colour.".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxGridCellAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
@@ -51,6 +68,7 @@ setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
   wxe_util:queue_cmd(This,wxe_util:color(ColBack),?get_env(),?wxGridCellAttr_SetBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetfont">external documentation</a>.
+-doc "Sets the font.".
 -spec setFont(This, Font) -> 'ok' when
 	This::wxGridCellAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
@@ -59,6 +77,12 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   wxe_util:queue_cmd(This,Font,?get_env(),?wxGridCellAttr_SetFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetalignment">external documentation</a>.
+-doc """
+Sets the alignment.
+
+`hAlign` can be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALIGN_RIGHT` and
+`vAlign` can be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
+""".
 -spec setAlignment(This, HAlign, VAlign) -> 'ok' when
 	This::wxGridCellAttr(), HAlign::integer(), VAlign::integer().
 setAlignment(#wx_ref{type=ThisT}=This,HAlign,VAlign)
@@ -75,6 +99,7 @@ setReadOnly(This)
   setReadOnly(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetreadonly">external documentation</a>.
+-doc "Sets the cell as read-only.".
 -spec setReadOnly(This, [Option]) -> 'ok' when
 	This::wxGridCellAttr(),
 	Option :: {'isReadOnly', boolean()}.
@@ -87,6 +112,11 @@ setReadOnly(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxGridCellAttr_SetReadOnly).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetrenderer">external documentation</a>.
+-doc """
+Sets the renderer to be used for cells with this attribute.
+
+Takes ownership of the pointer.
+""".
 -spec setRenderer(This, Renderer) -> 'ok' when
 	This::wxGridCellAttr(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
 setRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
@@ -95,6 +125,7 @@ setRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
   wxe_util:queue_cmd(This,Renderer,?get_env(),?wxGridCellAttr_SetRenderer).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrseteditor">external documentation</a>.
+-doc "Sets the editor to be used with the cells with this attribute.".
 -spec setEditor(This, Editor) -> 'ok' when
 	This::wxGridCellAttr(), Editor::wxGridCellEditor:wxGridCellEditor().
 setEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=EditorT}=Editor) ->
@@ -103,6 +134,7 @@ setEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=EditorT}=Editor) ->
   wxe_util:queue_cmd(This,Editor,?get_env(),?wxGridCellAttr_SetEditor).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhastextcolour">external documentation</a>.
+-doc "Returns true if this attribute has a valid text colour set.".
 -spec hasTextColour(This) -> boolean() when
 	This::wxGridCellAttr().
 hasTextColour(#wx_ref{type=ThisT}=This) ->
@@ -111,6 +143,7 @@ hasTextColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhasbackgroundcolour">external documentation</a>.
+-doc "Returns true if this attribute has a valid background colour set.".
 -spec hasBackgroundColour(This) -> boolean() when
 	This::wxGridCellAttr().
 hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
@@ -119,6 +152,7 @@ hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhasfont">external documentation</a>.
+-doc "Returns true if this attribute has a valid font set.".
 -spec hasFont(This) -> boolean() when
 	This::wxGridCellAttr().
 hasFont(#wx_ref{type=ThisT}=This) ->
@@ -127,6 +161,7 @@ hasFont(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhasalignment">external documentation</a>.
+-doc "Returns true if this attribute has a valid alignment set.".
 -spec hasAlignment(This) -> boolean() when
 	This::wxGridCellAttr().
 hasAlignment(#wx_ref{type=ThisT}=This) ->
@@ -135,6 +170,7 @@ hasAlignment(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasAlignment).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhasrenderer">external documentation</a>.
+-doc "Returns true if this attribute has a valid cell renderer set.".
 -spec hasRenderer(This) -> boolean() when
 	This::wxGridCellAttr().
 hasRenderer(#wx_ref{type=ThisT}=This) ->
@@ -143,6 +179,7 @@ hasRenderer(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasRenderer).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrhaseditor">external documentation</a>.
+-doc "Returns true if this attribute has a valid cell editor set.".
 -spec hasEditor(This) -> boolean() when
 	This::wxGridCellAttr().
 hasEditor(#wx_ref{type=ThisT}=This) ->
@@ -151,6 +188,7 @@ hasEditor(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_HasEditor).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgettextcolour">external documentation</a>.
+-doc "Returns the text colour.".
 -spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxGridCellAttr().
 getTextColour(#wx_ref{type=ThisT}=This) ->
@@ -159,6 +197,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_GetTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgetbackgroundcolour">external documentation</a>.
+-doc "Returns the background colour.".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxGridCellAttr().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
@@ -167,6 +206,7 @@ getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_GetBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgetfont">external documentation</a>.
+-doc "Returns the font.".
 -spec getFont(This) -> wxFont:wxFont() when
 	This::wxGridCellAttr().
 getFont(#wx_ref{type=ThisT}=This) ->
@@ -175,6 +215,17 @@ getFont(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_GetFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgetalignment">external documentation</a>.
+-doc """
+Get the alignment to use for the cell with the given attribute.
+
+If this attribute doesn't specify any alignment, the default attribute alignment
+is used (which can be changed using `wxGrid:setDefaultCellAlignment/3` but is
+left and top by default).
+
+Notice that `hAlign` and `vAlign` values are always overwritten by this
+function, use `GetNonDefaultAlignment()` (not implemented in wx) if this is not
+desirable.
+""".
 -spec getAlignment(This) -> {HAlign::integer(), VAlign::integer()} when
 	This::wxGridCellAttr().
 getAlignment(#wx_ref{type=ThisT}=This) ->
@@ -183,6 +234,13 @@ getAlignment(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellAttr_GetAlignment).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgetrenderer">external documentation</a>.
+-doc """
+Returns the cell renderer.
+
+The caller is responsible for calling `DecRef()` (not implemented in wx) on the
+returned pointer, use `GetRendererPtr()` (not implemented in wx) to do it
+automatically.
+""".
 -spec getRenderer(This, Grid, Row, Col) -> wxGridCellRenderer:wxGridCellRenderer() when
 	This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
 getRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
@@ -193,6 +251,13 @@ getRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
   wxe_util:rec(?wxGridCellAttr_GetRenderer).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrgeteditor">external documentation</a>.
+-doc """
+Returns the cell editor.
+
+The caller is responsible for calling `DecRef()` (not implemented in wx) on the
+returned pointer, use `GetEditorPtr()` (not implemented in wx) to do it
+automatically.
+""".
 -spec getEditor(This, Grid, Row, Col) -> wxGridCellEditor:wxGridCellEditor() when
 	This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
 getEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
@@ -203,6 +268,7 @@ getEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
   wxe_util:rec(?wxGridCellAttr_GetEditor).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrisreadonly">external documentation</a>.
+-doc "Returns true if this cell is set as read-only.".
 -spec isReadOnly(This) -> boolean() when
 	This::wxGridCellAttr().
 isReadOnly(#wx_ref{type=ThisT}=This) ->

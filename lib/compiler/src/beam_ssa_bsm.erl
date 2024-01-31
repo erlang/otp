@@ -53,6 +53,7 @@
 %%%
 
 -module(beam_ssa_bsm).
+-moduledoc false.
 
 -export([module/2, format_error/1]).
 

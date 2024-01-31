@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(user_drv).
+-moduledoc false.
 
 %% Basic interface to stdin/stdout.
 %%

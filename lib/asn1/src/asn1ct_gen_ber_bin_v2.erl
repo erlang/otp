@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_gen_ber_bin_v2).
+-moduledoc false.
 
 %% Generate erlang module which handles (PER) encode and decode for
 %% all types in an ASN.1 module

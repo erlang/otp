@@ -19,6 +19,7 @@
 %% 
 
 -module(snmp_verbosity).
+-moduledoc false.
 
 -include_lib("stdlib/include/erl_compile.hrl").
 

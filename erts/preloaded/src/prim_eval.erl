@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_eval).
+-moduledoc false.
 
 %% This module is simply a stub which abstract code gets included in the result
 %% of compilation of prim_eval.S, to keep Dialyzer happy.

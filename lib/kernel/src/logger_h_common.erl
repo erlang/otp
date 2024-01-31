@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_h_common).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("logger_h_common.hrl").

@@ -19,6 +19,7 @@
 %% %CopyrightEnd%
 %%
 -module(eval_bits).
+-moduledoc false.
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).

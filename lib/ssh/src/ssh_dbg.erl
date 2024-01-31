@@ -47,6 +47,7 @@
 %%%
 
 -module(ssh_dbg).
+-moduledoc false.
 
 -export([start/0, start/1, 
          stop/0,

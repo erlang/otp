@@ -22,6 +22,7 @@
 %%% Created : 23 Jul 2004 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_plt).
+-moduledoc false.
 
 -export([contains_mfa/2,
 	 all_modules/1,

@@ -23,6 +23,7 @@
 %%% Description: user interaction for SSH
 
 -module(ssh_io).
+-moduledoc false.
 
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
 -include("ssh.hrl").

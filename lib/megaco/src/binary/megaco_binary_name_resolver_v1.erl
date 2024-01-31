@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_name_resolver_v1).
+-moduledoc false.
 
 -include_lib("megaco/src/engine/megaco_message_internal.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").

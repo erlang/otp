@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_dir).
+-moduledoc false.
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").

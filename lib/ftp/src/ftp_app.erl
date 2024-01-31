@@ -25,6 +25,7 @@
 %%%-------------------------------------------------------------------
 
 -module(ftp_app).
+-moduledoc false.
 
 -behaviour(application).
 

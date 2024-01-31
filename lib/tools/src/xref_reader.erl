@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(xref_reader).
+-moduledoc false.
 
 -export([module/5]).
 

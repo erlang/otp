@@ -25,6 +25,7 @@
 %% @doc External tests for eunit.erl
 
 -module(eunit_tests).
+-moduledoc false.
 
 -include("eunit.hrl").
 

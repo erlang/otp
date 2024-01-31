@@ -27,6 +27,7 @@
 %% ----------------------------------------------------------------------
 
 -module(ssh_fsm_userauth_server).
+-moduledoc false.
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").

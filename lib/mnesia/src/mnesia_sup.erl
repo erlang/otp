@@ -22,6 +22,7 @@
 %% Supervisor for the entire Mnesia application
 
 -module(mnesia_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

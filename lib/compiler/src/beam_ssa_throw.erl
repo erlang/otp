@@ -29,6 +29,7 @@
 %%%
 
 -module(beam_ssa_throw).
+-moduledoc false.
 
 -export([module/2]).
 

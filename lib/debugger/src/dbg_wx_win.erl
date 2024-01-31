@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_win).
+-moduledoc false.
 
 %% External exports
 -export([init/0,

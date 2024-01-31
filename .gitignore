@@ -139,6 +139,7 @@ JAVADOC-GENERATED
 /Makefile
 
 /release
+/doc
 
 /make/output.mk
 /make/emd2exml
@@ -164,20 +165,7 @@ JAVADOC-GENERATED
 /lib/*/SKIP
 /lib/SKIP-APPLICATIONS
 
-/lib/*/doc/html/*.html
-/lib/*/doc/html/*.css
-/lib/*/doc/html/js
-/lib/*/doc/html/*.gif
-/lib/*/doc/html/*.jpg
-/lib/*/doc/html/*.png
-/lib/*/doc/html/*.eix
-/lib/*/doc/man[0-9]/*.[0-9]
-/lib/*/doc/pdf/*.fo
-/lib/*/doc/pdf/*.pdf
-/lib/*/doc/src/*.fo
-/lib/*/doc/xml/*.xml
-/lib/*/doc/xml/*.ent
-/lib/*/doc/chunks/*.chunk
+/lib/*/doc/html
 
 /lib/config.log
 /lib/config.status
@@ -260,18 +248,7 @@ JAVADOC-GENERATED
 # erts
 
 /erts/info
-/erts/doc/html/*.html
-/erts/doc/html/*.gif
-/erts/doc/html/*.jpg
-/erts/doc/html/*.eix
-/erts/doc/pdf/*.fo
-/erts/doc/pdf/*.pdf
-/erts/doc/src/*.fo
-/erts/doc/xml/*.xml
-/erts/doc/xml/figures/*.png
-/erts/doc/xml/figures/*.svg
-/erts/doc/chunks/*.chunk
-/erts/doc/man[0-9]/*.[0-9]
+/erts/doc/html/
 /erts/doc/CONF_INFO
 
 # et

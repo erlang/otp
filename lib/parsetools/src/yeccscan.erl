@@ -19,6 +19,7 @@
 %%
 
 -module(yeccscan).
+-moduledoc false.
 -export([scan/1, scan/3]).
 
 scan(Inport) ->

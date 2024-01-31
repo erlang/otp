@@ -30,6 +30,44 @@
 %%
 
 -module(erl_prim_loader).
+-moduledoc """
+Low-level Erlang loader.
+
+This module is used to load all Erlang modules into the system. The start script
+is also fetched with this low-level loader.
+
+`erl_prim_loader` knows about the environment and how to fetch modules.
+
+Command-line flag `-loader Loader` can be used to choose the method used by
+`erl_prim_loader`. Two `Loader` methods are supported by the Erlang runtime
+system: `efile` and `inet`.
+
+## Command-Line Flags
+
+The `erl_prim_loader` module interprets the following command-line flags:
+
+- **`-loader Loader`** - Specifies the name of the loader used by
+  `erl_prim_loader`. `Loader` can be `efile` (use the local file system) or
+  `inet` (load using the `boot_server` on another Erlang node).
+
+  If flag `-loader` is omitted, it defaults to `efile`.
+
+- **`-loader_debug`** - Makes the `efile` loader write some debug information,
+  such as the reason for failures, while it handles files.
+
+- **`-hosts Hosts`** - Specifies which other Erlang nodes the `inet` loader can
+  use. This flag is mandatory if flag `-loader inet` is present. On each host,
+  there must be on Erlang node with the `m:erl_boot_server`, which handles the
+  load requests. `Hosts` is a list of IP addresses (hostnames are not
+  acceptable).
+
+- **`-setcookie Cookie`** - Specifies the cookie of the Erlang runtime system.
+  This flag is mandatory if flag `-loader inet` is present.
+
+## See Also
+
+`m:init`, `m:erl_boot_server`
+""".
 
 %% If the macro DEBUG is defined during compilation, 
 %% debug printouts are done through erlang:display/1.
@@ -105,6 +143,7 @@ debug(#prim_state{debug = Deb}, Term) ->
 %%% Interface Functions. 
 %%% --------------------------------------------------------
 
+-doc false.
 -spec start() ->
 	    {'ok', Pid} | {'error', What} when
       Pid :: pid(),
@@ -181,16 +220,39 @@ set_loader_config(Value) ->
 get_loader_config() ->
     persistent_term:get(?MODULE).
 
+-doc """
+Sets the path of the loader if `m:init` interprets a `path` command in the start
+script.
+""".
 -spec set_path(Path) -> 'ok' when
       Path :: [Dir :: string()].
 set_path(Paths) when is_list(Paths) ->
     request({set_path,Paths}).
 
+-doc """
+_Use of this function is deprecated in favor of `code:get_path/0`._
+
+Gets the path set in the loader. The path is set by the `m:init` process
+according to information found in the start script.
+""".
 -spec get_path() -> {'ok', Path} when
       Path :: [Dir :: string()].
 get_path() ->
     request({get_path,[]}).
 
+-doc """
+_Use of this function is deprecated in favor of [`read_file/1`](`read_file/1`)._
+
+Fetches a file using the low-level loader. `Filename` is either an absolute
+filename or only the name of the file, for example, `"lists.beam"`. If an
+internal path is set to the loader, this path is used to find the file.
+`FullName` is the complete name of the fetched file. `Bin` is the contents of
+the file as a binary.
+
+`Filename` can also be a file in an archive, for example,
+`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+information about archive files, see `m:code`.
+""".
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
       Filename :: atom() | string(),
       Bin :: binary(),
@@ -200,30 +262,76 @@ get_file(File) when is_atom(File) ->
 get_file(File) ->
     check_file_result(get_file, File, request({get_file,File})).
 
+-doc """
+Lists all the files in a directory. Returns `{ok, Filenames}` if successful,
+otherwise `error`. `Filenames` is a list of the names of all the files in the
+directory. The names are not sorted.
+
+`Dir` can also be a directory in an archive, for example,
+`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
+archive files, see `m:code`.
+""".
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
       Dir :: string(),
       Filenames :: [Filename :: string()].
 list_dir(Dir) ->
     check_file_result(list_dir, Dir, client_or_request(list_dir, Dir)).
 
+-doc """
+Reads a file using the low-level loader. Returns `{ok, Bin}` if successful,
+otherwise `error`. `Bin` is the contents of the file as a binary.
+
+`Filename` can also be a file in an archive, for example,
+`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+information about archive files, see `m:code`.
+""".
+-doc(#{since => <<"OTP 27.0.0">>}).
 -spec read_file(Filename) -> {'ok', Bin} | 'error' when
       Filename :: string(),
       Bin :: binary().
 read_file(File) ->
     check_file_result(read_file, File, client_or_request(read_file, File)).
 
+-doc """
+Retrieves information about a file. Returns `{ok, FileInfo}` if successful,
+otherwise `error`. `FileInfo` is a record `file_info`, defined in the Kernel
+include file `file.hrl`. Include the following directive in the module from
+which the function is called:
+
+```erlang
+-include_lib("kernel/include/file.hrl").
+```
+
+For more information about the record `file_info`, see `m:file`.
+
+`Filename` can also be a file in an archive, for example,
+`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia`. For information
+about archive files, see `m:code`.
+""".
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
       FileInfo :: file:file_info().
 read_file_info(File) ->
     check_file_result(read_file_info, File, client_or_request(read_file_info, File)).
 
+-doc """
+Works like `read_file_info/1` except that if `Filename` is a symbolic link,
+information about the link is returned in the `file_info` record and the `type`
+field of the record is set to `symlink`.
+
+If `Filename` is not a symbolic link, this function returns exactly the same
+result as [`read_file_info/1`](`read_file_info/1`). On platforms that do not
+support symbolic links, this function is always equivalent to
+[`read_file_info/1`](`read_file_info/1`).
+""".
+-doc(#{since => <<"OTP 17.1.2">>}).
 -spec read_link_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
       FileInfo :: file:file_info().
 read_link_info(File) ->
     check_file_result(read_link_info, File, client_or_request(read_link_info, File)).
 
+-doc false.
 -spec get_cwd() -> {'ok', string()} | 'error'.
 get_cwd() ->
     Res =
@@ -233,6 +341,7 @@ get_cwd() ->
         end,
     check_file_result(get_cwd, [], Res).
 
+-doc false.
 -spec get_cwd(string()) -> {'ok', string()} | 'error'.
 get_cwd(Drive) ->
     Res =
@@ -242,6 +351,7 @@ get_cwd(Drive) ->
         end,
     check_file_result(get_cwd, Drive, Res).
 
+-doc false.
 -spec set_primary_archive(File :: string() | 'undefined', 
 			  ArchiveBin :: binary() | 'undefined',
 			  FileInfo :: #file_info{} | 'undefined',
@@ -258,10 +368,12 @@ set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
 %% open zip files kept in the cache. Should be called before an archive
 %% file is to be removed (for example in the test suites).
 
+-doc false.
 -spec purge_archive_cache() -> 'ok' | {'error', _}.
 purge_archive_cache() ->
     request(purge_archive_cache).
 
+-doc false.
 -spec get_modules([module()],
 		  fun((atom(), string(), binary()) ->
 			     {'ok',any()} | {'error',any()})) ->
@@ -270,6 +382,7 @@ purge_archive_cache() ->
 get_modules(Modules, Fun) ->
     request({get_modules,{Modules,Fun}}).
 
+-doc false.
 -spec get_modules([module()],
 		  fun((atom(), string(), binary()) ->
 			     {'ok',any()} | {'error',any()}),
@@ -908,6 +1021,7 @@ port_error(S, Error) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc false.
 -spec prim_init() -> prim_state().
 prim_init() ->
     Deb =
@@ -977,6 +1091,7 @@ prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin,
     debug(PS3, {return, Res3}),
     {Res3, PS3}.
 
+-doc false.
 -spec prim_read_file(prim_state(), file:filename() | archive()) -> {_, prim_state()}.
 prim_read_file(PS, File) ->
     debug(PS, {read_file, File}),
@@ -1002,6 +1117,7 @@ prim_read_file(PS, File) ->
     debug(PS, {return, Res2}),
     {Res2, PS2}.    
 
+-doc false.
 -spec prim_list_dir(prim_state(), file:filename() | archive()) ->
 	 {{'ok', [file:filename()]}, prim_state()}
        | {{'error', term()}, prim_state()}.
@@ -1055,6 +1171,7 @@ prim_list_dir(PS, Dir) ->
     debug(PS, {return, Res2}),
     {Res2, PS3}.
 
+-doc false.
 -spec prim_read_file_info(prim_state(), file:filename() | archive(), boolean()) ->
 	{{'ok', #file_info{}}, prim_state()}
       | {{'error', term()}, prim_state()}.
@@ -1098,6 +1215,7 @@ prim_read_file_info(PS, File, FollowLinks) ->
     debug(PS2, {return, Res2}),
     {Res2, PS2}.
 
+-doc false.
 -spec prim_get_cwd(prim_state(), [file:filename()]) ->
         {{'error', term()} | {'ok', _}, prim_state()}.
 prim_get_cwd(PS, []) ->
@@ -1272,6 +1390,7 @@ clear_cache(Archive, Cache) ->
 %%% --------------------------------------------------------
 
 %%% Look for directory separators
+-doc false.
 is_basename(File) ->
     case deep_member($/, File) of
         true -> 

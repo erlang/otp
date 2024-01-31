@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(rb_format_supp).
+-moduledoc false.
 
 %% user interface
 -export([print/3]).

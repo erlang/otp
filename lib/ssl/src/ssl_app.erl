@@ -23,6 +23,7 @@
 %%% Purpose : Application master for SSL.
 
 -module(ssl_app).
+-moduledoc false.
 
 -behaviour(application).
 

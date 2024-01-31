@@ -38,6 +38,83 @@
 %% reorder keys within in a bucket.
 
 -module(sets).
+-moduledoc """
+Functions for set manipulation.
+
+Sets are collections of elements with no duplicate elements.
+
+The data representing a set as used by this module is to be regarded as opaque
+by other modules. In abstract terms, the representation is a composite type of
+existing Erlang terms. See note on
+[data types](`e:system:data_types.md#no_user_types`). Any code assuming
+knowledge of the format is running on thin ice.
+
+This module provides the same interface as the `m:ordsets` module but with an
+undefined representation. One difference is that while this module considers two
+elements as different if they do not match (`=:=`), `ordsets` considers two
+elements as different if and only if they do not compare equal (`==`).
+
+Erlang/OTP 24.0 introduced a new internal representation for sets which is more
+performant. Developers can use this new representation by passing the
+`{version, 2}` flag to `new/1` and `from_list/2`, such as
+`sets:new([{version, 2}])`. This new representation will become the default in
+future Erlang/OTP versions. Functions that work on two sets, such as `union/2`
+and similar, will work with sets of different versions. In such cases, there is
+no guarantee about the version of the returned set. Explicit conversion from the
+old version to the new one can be done with
+`sets:from_list(sets:to_list(Old), [{version,2}])`.
+
+## Compatibility
+
+The following functions in this module also exist and provide the same
+functionality in the `m:gb_sets` and `m:ordsets` modules. That is, by only
+changing the module name for each call, you can try out different set
+representations.
+
+- `add_element/2`
+- `del_element/2`
+- `filter/2`
+- `filtermap/2`
+- `fold/3`
+- `from_list/1`
+- `intersection/1`
+- `intersection/2`
+- `is_element/2`
+- `is_empty/1`
+- `is_equal/2`
+- `is_set/1`
+- `is_subset/2`
+- `map/2`
+- `new/0`
+- `size/1`
+- `subtract/2`
+- `to_list/1`
+- `union/1`
+- `union/2`
+
+> #### Note {: .info }
+>
+> While the three set implementations offer the same _functionality_ with
+> respect to the aforementioned functions, their overall _behavior_ may differ.
+> As mentioned, this module considers elements as different if and only if they
+> do not match (`=:=`), while both `m:ordsets` and `m:gb_sets` consider elements
+> as different if and only if they do not compare equal (`==`).
+>
+> _Example:_
+>
+> ```erlang
+> 1> sets:is_element(1.0, sets:from_list([1])).
+> false
+> 2> ordsets:is_element(1.0, ordsets:from_list([1])).
+> true
+> 2> gb_sets:is_element(1.0, gb_sets:from_list([1])).
+> true
+> ```
+
+## See Also
+
+`m:gb_sets`, `m:ordsets`
+""".
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
@@ -84,16 +161,20 @@
 
 -type set() :: set(_).
 
+-doc "As returned by `new/0`.".
 -opaque set(Element) :: #set{segs :: segs(Element)} | #{Element => ?VALUE}.
 
 %%------------------------------------------------------------------------------
 
 %% new() -> Set
+-doc "Returns a new empty set.".
 -spec new() -> set(none()).
 new() ->
     Empty = mk_seg(?seg_size),
     #set{empty = Empty, segs = {Empty}}.
 
+-doc "Returns a new empty set at the given version.".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec new([{version, 1..2}]) -> set(none()).
 new([{version, 2}]) ->
     #{};
@@ -105,12 +186,15 @@ new(Opts) ->
 
 %% from_list([Elem]) -> Set.
 %%  Build a set from the elements in List.
+-doc "Returns a set of the elements in `List`.".
 -spec from_list(List) -> Set when
       List :: [Element],
       Set :: set(Element).
 from_list(Ls) ->
     lists:foldl(fun (E, S) -> add_element(E, S) end, new(), Ls).
 
+-doc "Returns a set of the elements in `List` at the given version.".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec from_list(List, [{version, 1..2}]) -> Set when
       List :: [Element],
       Set :: set(Element).
@@ -126,6 +210,12 @@ from_list(Ls, Opts) ->
 
 %% is_set(Set) -> boolean().
 %%  Return 'true' if Set is a set of elements, else 'false'.
+-doc """
+Returns `true` if `Set` appears to be a set of elements, otherwise `false`. Note
+that the test is shallow and will return `true` for any term that coincides with
+the possible representations of a set. See also note on
+[data types](`e:system:data_types.md#no_user_types`).
+""".
 -spec is_set(Set) -> boolean() when
       Set :: term().
 is_set(#{}) -> true;
@@ -134,6 +224,7 @@ is_set(_) -> false.
 
 %% size(Set) -> int().
 %%  Return the number of elements in Set.
+-doc "Returns the number of elements in `Set`.".
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
 size(#{}=S) -> map_size(S);
@@ -141,6 +232,8 @@ size(#set{size=Size}) -> Size.
 
 %% is_empty(Set) -> boolean().
 %%  Return 'true' if Set is an empty set, otherwise 'false'.
+-doc "Returns `true` if `Set` is an empty set, otherwise `false`.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec is_empty(Set) -> boolean() when
       Set :: set().
 is_empty(#{}=S) -> map_size(S)=:=0;
@@ -149,6 +242,11 @@ is_empty(#set{size=Size}) -> Size=:=0.
 %% is_equal(Set1, Set2) -> boolean().
 %%  Return 'true' if Set1 and Set2 contain the same elements,
 %%  otherwise 'false'.
+-doc """
+Returns `true` if `Set1` and `Set2` are equal, that is when every element of one
+set is also a member of the respective other set, otherwise `false`.
+""".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec is_equal(Set1, Set2) -> boolean() when
       Set1 :: set(),
       Set2 :: set().
@@ -167,6 +265,10 @@ canonicalize_v2(S) ->
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
+-doc """
+Returns the elements of `Set` as a list. The order of the returned elements is
+undefined.
+""".
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
@@ -177,6 +279,7 @@ to_list(#set{} = S) ->
 
 %% is_element(Element, Set) -> boolean().
 %%  Return 'true' if Element is an element of Set, else 'false'.
+-doc "Returns `true` if `Element` is an element of `Set`, otherwise `false`.".
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 is_element(E, #{}=S) ->
@@ -191,6 +294,7 @@ is_element(E, #set{}=S) ->
 
 %% add_element(Element, Set) -> Set.
 %%  Return Set with Element inserted in it.
+-doc "Returns a new set formed from `Set1` with `Element` inserted.".
 -spec add_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -209,6 +313,7 @@ add_element(E, #set{}=S0) ->
 
 %% del_element(Element, Set) -> Set.
 %%  Return Set but with Element removed.
+-doc "Returns `Set1`, but with `Element` removed.".
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -241,6 +346,7 @@ update_bucket(Set, Slot, NewBucket) ->
 
 %% union(Set1, Set2) -> Set
 %%  Return the union of Set1 and Set2.
+-doc "Returns the merged (union) set of `Set1` and `Set2`.".
 -spec union(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -257,6 +363,7 @@ union(S1, S2) ->
 
 %% union([Set]) -> Set
 %%  Return the union of the list of sets.
+-doc "Returns the merged (union) set of the list of sets.".
 -spec union(SetList) -> Set when
       SetList :: [set(Element)],
       Set :: set(Element).
@@ -272,6 +379,7 @@ union1(S1, []) -> S1.
 
 %% intersection(Set1, Set2) -> Set.
 %%  Return the intersection of Set1 and Set2.
+-doc "Returns the intersection of `Set1` and `Set2`.".
 -spec intersection(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -322,6 +430,7 @@ remove_keys([], Map) -> Map.
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
+-doc "Returns the intersection of the non-empty list of sets.".
 -spec intersection(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -336,6 +445,10 @@ intersection1(S1, []) -> S1.
 
 %% is_disjoint(Set1, Set2) -> boolean().
 %%  Check whether Set1 and Set2 are disjoint.
+-doc """
+Returns `true` if `Set1` and `Set2` are disjoint (have no elements in common),
+otherwise `false`.
+""".
 -spec is_disjoint(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -372,6 +485,7 @@ is_disjoint_1(Set, Iter) ->
 %% subtract(Set1, Set2) -> Set.
 %%  Return all and only the elements of Set1 which are not also in
 %%  Set2.
+-doc "Returns only the elements of `Set1` that are not also elements of `Set2`.".
 -spec subtract(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -431,6 +545,10 @@ subtract_decided(none, Acc, _Reference) ->
 %% is_subset(Set1, Set2) -> boolean().
 %%  Return 'true' when every element of Set1 is also a member of
 %%  Set2, else 'false'.
+-doc """
+Returns `true` when every element of `Set1` is also a member of `Set2`,
+otherwise `false`.
+""".
 -spec is_subset(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -458,6 +576,10 @@ is_subset_1(Set, Iter) ->
 
 %% fold(Fun, Accumulator, Set) -> Accumulator.
 %%  Fold function Fun over all elements in Set and return Accumulator.
+-doc """
+Folds `Function` over every element in `Set` and returns the final value of the
+accumulator. The evaluation order is undefined.
+""".
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),
       Set :: set(Element),
@@ -480,6 +602,7 @@ fold_1(Fun, Acc, Iter) ->
 
 %% filter(Fun, Set) -> Set.
 %%  Filter Set with Fun.
+-doc "Filters elements in `Set1` with boolean function `Pred`.".
 -spec filter(Pred, Set1) -> Set2 when
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
@@ -493,6 +616,8 @@ filter(F, #set{}=D) when is_function(F, 1)->
 
 %% map(Fun, Set) -> Set.
 %%  Map Set with Map.
+-doc "Maps elements in `Set1` with mapping function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec map(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> Element2),
       Set1 :: set(Element1),
@@ -508,6 +633,8 @@ map(F, #set{}=D) when is_function(F, 1) ->
 
 %% filtermap(Fun, Set) -> Set.
 %%  Filter and map Set with Fun.
+-doc "Filters and maps elements in `Set1` with function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec filtermap(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> boolean() | {true, Element2}),
       Set1 :: set(Element1),

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(gen).
+-moduledoc false.
 -compile({inline,[get_node/1]}).
 
 %%%-----------------------------------------------------------------

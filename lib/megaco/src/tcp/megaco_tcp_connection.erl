@@ -25,6 +25,7 @@
 %%
 %%-----------------------------------------------------------------
 -module(megaco_tcp_connection).
+-moduledoc false.
 
 -behaviour(gen_server).
 

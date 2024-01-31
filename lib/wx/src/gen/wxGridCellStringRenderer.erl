@@ -19,6 +19,22 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGridCellStringRenderer).
+-moduledoc """
+Functions for wxGridCellStringRenderer class
+
+This class may be used to format string data in a cell; it is the default for
+string cells.
+
+See: `m:wxGridCellRenderer`, `wxGridCellAutoWrapStringRenderer` (not implemented
+in wx), `m:wxGridCellBoolRenderer`, `wxGridCellDateTimeRenderer` (not
+implemented in wx), `wxGridCellEnumRenderer` (not implemented in wx),
+`m:wxGridCellFloatRenderer`, `m:wxGridCellNumberRenderer`
+
+This class is derived (and can use functions) from: `m:wxGridCellRenderer`
+
+wxWidgets docs:
+[wxGridCellStringRenderer](https://docs.wxwidgets.org/3.1/classwx_grid_cell_string_renderer.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
 
@@ -28,6 +44,7 @@
 -type wxGridCellStringRenderer() :: wx:wx_object().
 -export_type([wxGridCellStringRenderer/0]).
 %% @hidden
+-doc false.
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
@@ -38,6 +55,7 @@ new() ->
   wxe_util:rec(?wxGridCellStringRenderer_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxGridCellStringRenderer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellStringRenderer),
@@ -45,6 +63,8 @@ destroy(Obj=#wx_ref{type=Type}) ->
   ok.
  %% From wxGridCellRenderer
 %% @hidden
+-doc false.
 getBestSize(This,Grid,Attr,Dc,Row,Col) -> wxGridCellRenderer:getBestSize(This,Grid,Attr,Dc,Row,Col).
 %% @hidden
+-doc false.
 draw(This,Grid,Attr,Dc,Rect,Row,Col,IsSelected) -> wxGridCellRenderer:draw(This,Grid,Attr,Dc,Rect,Row,Col,IsSelected).

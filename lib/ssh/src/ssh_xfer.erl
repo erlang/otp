@@ -23,6 +23,7 @@
 %%% Description: SFTP functions
 
 -module(ssh_xfer).
+-moduledoc false.
 
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,

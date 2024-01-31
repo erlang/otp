@@ -86,14 +86,12 @@ also find the utilities needed for building the documentation.
 
 ### Building Documentation ###
 
-*   `xsltproc` -- A command line XSLT processor.
-
-    A tool for applying XSLT stylesheets
-    to XML documents. Download xsltproc from
-    <http://xmlsoft.org/XSLT/xsltproc2.html>.
-
-*   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded
-    from <http://xmlgraphics.apache.org/fop>.
+*   `ex_doc` -- [ExDoc](https://hexdocs.pm/ex_doc/readme.html) is a tool to
+  generate documentation for Erlang and Elixir projects.
+  
+  Download as an [escript from github](https://github.com/elixir-lang/ex_doc/releases/latest)
+  or get it from GitHub: <https://github.com/elixir-lang/ex_doc> and build
+  your self.
 
 How to Build and Install Erlang/OTP
 -----------------------------------
@@ -170,6 +168,8 @@ The following command will install the release on your system.
 
 You should now have a working release of Erlang/OTP!
 Jump to [System Principles][] for instructions on running Erlang/OTP.
+
+[](){: #How-to-Build-and-Install-Erlang-OTP_How-to-Build-the-Documentation }
 
 ### How to Build the Documentation ###
 
@@ -287,6 +287,8 @@ Advanced configuration and build of Erlang/OTP
 If you want to tailor your Erlang/OTP build and installation, please read
 on for detailed information about the individual steps.
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP }
+
 ### make and $ERL\_TOP ###
 
 All the makefiles in the entire directory tree use the environment
@@ -312,6 +314,8 @@ script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
 `otp_build` is easier since it involves fewer steps, but the `otp_build` build
 procedure is not as flexible as the `configure`/`make` build procedure. The binary
 releases for Windows that we deliver are built using `otp_build`.
+
+[]() {: #advanced-configuration-and-build-of-erlang-otp_configuring }
 
 ### Configuring ###
 
@@ -418,6 +422,8 @@ Some of the available `configure` options are:
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_Configuring_Important-Variables-Inspected-by-configure }
+
 #### Important Variables Inspected by configure ####
 
 ##### Compiler and Linker #####
@@ -478,6 +484,8 @@ ensure that you have GNU `autoconf` of version 2.69 in your path. Then execute
 `otp_build` script will verify that `autoconf` is of correct version and will
 refuse to update the `configure` scripts if it is of any other version.
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_configuring_atomic-memory-operations-and-the-vm }
+
 #### Atomic Memory Operations and the VM ####
 
 The VM with SMP support makes quite a heavy use of atomic memory operations.
@@ -529,9 +537,13 @@ Make sure to read the [Pre-built Source Release][] section below before doing a 
 Other useful information can be found at our GitHub wiki:
 * <https://github.com/erlang/otp/wiki>
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git }
+
 #### Within Git ####
 
 Build the same way as when building the unpacked tar file.
+
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin }
 
 #### macOS (Darwin) ####
 
@@ -546,6 +558,8 @@ suffix.
 
 If you have Xcode 4.3, or later, you will also need to download
 "Command Line Tools" via the Downloads preference pane in Xcode.
+
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-wxErlang }
 
 #### Building with wxErlang ####
 
@@ -598,6 +612,8 @@ working run the following command:
     $ erl -run wx demo
 
 
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Prebuilt-Source-Release }
+
 #### Pre-built Source Release ####
 
 The source release is delivered with a lot of platform independent
@@ -619,6 +635,8 @@ as before, but the build process will take a much longer time.
 > If you need to verify the bootstrap beam files match the provided
 > source files, use `./otp_build update_primary` to create a new commit that
 > contains differences, if any exist.
+
+[](){: #advanced-configuration-and-build-of-erlang-otp_building_how-to-build-a-debug-enabled-erlang-runtime-system }
 
 #### How to Build a Debug Enabled Erlang RunTime System ####
 
@@ -770,21 +788,21 @@ Operating system
 * Ubuntu 10.04 - 20.04
 * Windows 10, Windows Server 2019
 
-   [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
-   [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
-   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [Building in Git]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Within-Git
-   [Advanced Configure]: #Advanced-configuration-and-build-of-ErlangOTP_Configuring
-   [Pre-built Source Release]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Prebuilt-Source-Release
-   [make and $ERL_TOP]: #Advanced-configuration-and-build-of-ErlangOTP_make-and-ERLTOP
-   [html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
-   [man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
-   [the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
-   [System Principles]: system/system_principles:system_principles
-   [native build]: #How-to-Build-and-Install-ErlangOTP
-   [cross build]: INSTALL-CROSS.md
-   [Required Utilities]: #Required-Utilities
-   [Optional Utilities]: #Optional-Utilities
-   [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_macOS-Darwin
-   [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
-   [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
+[$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
+[$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
+[DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+[Building in Git]: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git
+[Advanced Configure]: #advanced-configuration-and-build-of-erlang-otp_Configuring
+[Pre-built Source Release]: #advanced-configuration-and-build-of-erlang-otp_Building_Prebuilt-Source-Release
+[make and $ERL_TOP]: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP
+[html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
+[man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
+[the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
+[System Principles]: `e:system:system_principles.md`
+[native build]: #how-to-build-and-install-erlang-otp
+[cross build]: INSTALL-CROSS.md
+[Required Utilities]: #Required-Utilities
+[Optional Utilities]: #Optional-Utilities
+[Building on a Mac]: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin
+[Building with wxErlang]: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-wxErlang
+[libatomic_ops]: https://github.com/ivmai/libatomic_ops/

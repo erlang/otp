@@ -25,6 +25,7 @@
 %%
 
 -module(snmpa_get_lib).
+-moduledoc false.
 
 -export([
          split_vbs/1, split_vbs/3,

@@ -37,6 +37,7 @@
 %% be part of the literal pool.
 
 -module(sys_core_alias).
+-moduledoc false.
 
 -export([module/2]).
 

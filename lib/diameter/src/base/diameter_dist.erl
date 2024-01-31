@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_dist).
+-moduledoc false.
 
 -behaviour(gen_server).
 

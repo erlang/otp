@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_types).
+-moduledoc false.
 
 %%
 %% Encode/decode of RFC 3588 Data Formats, Basic (section 4.2) and

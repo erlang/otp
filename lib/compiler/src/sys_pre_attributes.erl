@@ -20,6 +20,7 @@
 %% Purpose : Transform Erlang compiler attributes
 
 -module(sys_pre_attributes).
+-moduledoc false.
 
 -export([parse_transform/2]).
 

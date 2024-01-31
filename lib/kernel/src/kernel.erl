@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(kernel).
+-moduledoc false.
 
 -behaviour(supervisor).
 

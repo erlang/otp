@@ -20,6 +20,7 @@
 %% after adding an attribute.
 %%
 -module(otp_internal).
+-moduledoc false.
 -include("otp_internal.hrl").
 %%
 -dialyzer({no_match, obsolete/3}).

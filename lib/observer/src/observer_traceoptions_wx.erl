@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_traceoptions_wx).
+-moduledoc false.
 
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").

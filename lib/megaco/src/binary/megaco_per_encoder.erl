@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_per_encoder).
+-moduledoc false.
 
 -behaviour(megaco_encoder).
 

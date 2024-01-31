@@ -36,6 +36,7 @@
 %% `bs_create_bin`.
 
 -module(beam_ssa_private_append).
+-moduledoc false.
 
 -export([opt/2]).
 

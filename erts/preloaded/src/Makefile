@@ -24,9 +24,8 @@
 # to the ../ebin directory by using the copy target.
 
 include $(ERL_TOP)/make/target.mk
+EBIN=../../ebin
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-
-EBIN=.
 
 STATIC_EBIN=../ebin
 
@@ -76,7 +75,7 @@ STATIC_TARGET_FILES = $(PRE_LOADED_MODULES:%=$(STATIC_EBIN)/%.$(EMULATOR))
 
 APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
-APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
+APP_TARGET= $(EBIN)/$(APP_FILE)
 APP_ESOCK_MODS= prim_net, prim_socket, socket_registry,
 
 
@@ -84,7 +83,7 @@ KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
-ERL_COMPILE_FLAGS += +debug_info +no_docs -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+ERL_COMPILE_FLAGS += -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 ifeq ($(ERL_DETERMINISTIC),yes)
 	ERL_COMPILE_FLAGS += deterministic
@@ -102,25 +101,30 @@ ifeq ($(DIAW_UR),true)
 DIA_WARNINGS += -Wunmatched_returns
 endif
 
+debug opt: $(TARGET_FILES)
 
-debug opt: $(TARGET_FILES) 
+$(EBIN):
+	$(V_at)mkdir "$@"
+
+$(TARGET_FILES): | $(EBIN)
 
 clean:
-	rm -f $(TARGET_FILES)
+	rm -rf $(EBIN)
 
 copy:
-	cp *.beam $(STATIC_EBIN)
+	cp $(EBIN)/*.beam $(STATIC_EBIN)
+	$(V_ERL) -noshell -eval "[begin {ok, Bin} = file:read_file(File), {ok, {_, Stripped}} = beam_lib:strip(Bin), ok = file:write_file(File, zlib:gunzip(Stripped)) end || File <- filelib:wildcard(\"$(STATIC_EBIN)/*.beam\")]." -s init stop
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/erts/vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' -e 's;%ESOCK_MODS%;$(APP_ESOCK_MODS);' $< > $@
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec: $(APP_TARGET)
+release_spec: $(TARGET_FILES)
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(ERL_FILES) $(BEAM_FILES) $(STUBS_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(STATIC_TARGET_FILES) $(APP_TARGET) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
 
@@ -171,4 +175,4 @@ $(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file
 $(EBIN)/prim_file.beam: $(KERNEL_SRC)/file_int.hrl $(KERNEL_INCLUDE)/file.hrl
 $(EBIN)/prim_inet.beam: $(KERNEL_SRC)/inet_int.hrl $(KERNEL_INCLUDE)/inet_sctp.hrl
 $(EBIN)/prim_zip.beam: zip_internal.hrl $(KERNEL_INCLUDE)/file.hrl $(STDLIB_INCLUDE)/zip.hrl
-$(EBIN)/init.erl: $(KERNEL_INCLUDE)/file.hrl
+$(EBIN)/init.beam: $(KERNEL_INCLUDE)/file.hrl

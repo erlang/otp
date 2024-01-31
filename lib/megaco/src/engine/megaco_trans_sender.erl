@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_trans_sender).
+-moduledoc false.
 
 -export([start_link/5, 
 	 stop/1,

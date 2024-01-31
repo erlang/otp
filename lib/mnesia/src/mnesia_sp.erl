@@ -25,6 +25,7 @@
 %% And hence this a simple module.
 
 -module(mnesia_sp).
+-moduledoc false.
 
 -export([init_proc/4]).
 

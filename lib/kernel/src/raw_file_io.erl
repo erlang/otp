@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(raw_file_io).
+-moduledoc false.
 
 -export([open/2]).
 

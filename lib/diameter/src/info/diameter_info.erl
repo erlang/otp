@@ -24,6 +24,7 @@
 %%
 
 -module(diameter_info).
+-moduledoc false.
 
 -export([usage/1,
          format/1,

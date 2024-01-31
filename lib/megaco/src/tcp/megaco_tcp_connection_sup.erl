@@ -25,6 +25,7 @@
 %%-----------------------------------------------------------------
 
 -module(megaco_tcp_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

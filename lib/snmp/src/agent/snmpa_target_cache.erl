@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_target_cache).
+-moduledoc false.
 
 -behaviour(gen_server).
 

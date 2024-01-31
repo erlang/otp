@@ -40,6 +40,7 @@
 %% follow the last line.
 
 -module(pubkey_pem).
+-moduledoc false.
 
 -include("public_key.hrl").
 

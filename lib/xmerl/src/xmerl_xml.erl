@@ -22,6 +22,7 @@
 %%		   complete or simple forms to XML.
 
 -module(xmerl_xml).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

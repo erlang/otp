@@ -172,7 +172,7 @@ if [ -n "${ARCHIVE}" ]; then
 
         echo "::group::{Run ${i}: docs}"
         ### If any of the doc generating tools change, we need to re-compile the docs
-        if grep "lib/\(xmerl\|erl_docgen\|edoc\)" "${CHANGES}"; then
+        if grep "lib/\(xmerl\|edoc\)" "${CHANGES}"; then
             echo "Deleting all docs as documentation tools have changed" >&2
             rm -rf "${CACHE_DIR}"/lib/*/doc/ "${CACHE_DIR}/erts/doc/" "${CACHE_DIR}/system/"
         fi

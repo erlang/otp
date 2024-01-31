@@ -19,6 +19,7 @@
 %%
 
 -module(beam_call_types).
+-moduledoc false.
 
 -include("beam_types.hrl").
 

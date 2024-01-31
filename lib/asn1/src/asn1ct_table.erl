@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_table).
+-moduledoc false.
 
 %% Table abstraction module for ASN.1 compiler
 

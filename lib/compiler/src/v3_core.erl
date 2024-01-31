@@ -78,6 +78,7 @@
 %% fun is not a safe
 
 -module(v3_core).
+-moduledoc false.
 
 -export([module/2,format_error/1]).
 

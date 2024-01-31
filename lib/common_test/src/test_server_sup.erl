@@ -22,6 +22,7 @@
 %%% Purpose: Test server support functions.
 %%%-------------------------------------------------------------------
 -module(test_server_sup).
+-moduledoc false.
 -export([timetrap/2, timetrap/3, timetrap/4,
 	 timetrap_cancel/1, capture_get/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,

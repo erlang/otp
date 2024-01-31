@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(application_controller).
+-moduledoc false.
 
 %% External exports
 -export([start/1, 

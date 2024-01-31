@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_ctrl).
+-moduledoc false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
 %%                      The Erlang Test Server                      %%

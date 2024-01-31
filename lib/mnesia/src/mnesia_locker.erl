@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_locker).
+-moduledoc false.
 
 -export([
 	 get_held_locks/0, get_held_locks/1,

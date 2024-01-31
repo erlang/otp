@@ -21,6 +21,7 @@
 %% zip functions that are used by code_server
 
 -module(prim_zip).
+-moduledoc false.
 
 %% unzipping piecemeal
 -export([

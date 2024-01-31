@@ -23,6 +23,7 @@
 %% Purpose: Functions for handling statistic counters
 %%-----------------------------------------------------------------
 -module(megaco_stats).
+-moduledoc false.
 
 
 %%-----------------------------------------------------------------

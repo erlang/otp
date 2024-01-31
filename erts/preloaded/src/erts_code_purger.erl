@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_code_purger).
+-moduledoc false.
 
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.

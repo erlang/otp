@@ -12,6 +12,7 @@
 %% limitations under the License.
 
 -module(dialyzer_incremental).
+-moduledoc false.
 
 -export([start/1, start_report_modules_analyzed/1, start_report_modules_changed_and_analyzed/1]).
 

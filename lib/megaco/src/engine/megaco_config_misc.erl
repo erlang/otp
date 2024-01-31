@@ -25,6 +25,7 @@
 %% 
 
 -module(megaco_config_misc).
+-moduledoc false.
 
 %% Application internal exports
 -export([

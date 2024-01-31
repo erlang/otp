@@ -22,6 +22,7 @@
 
 %%------------------------------------------------------------------
 -module(ssh_message).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 

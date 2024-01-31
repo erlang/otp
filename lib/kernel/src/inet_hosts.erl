@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_hosts).
+-moduledoc false.
 
 %% Implement gethostbyname gethostbyaddr for inet_hosts table
 

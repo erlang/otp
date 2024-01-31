@@ -28,7 +28,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential &
           sed -i "s:deb http:deb [arch=$BUILD_ARCH,$HOST_ARCH] http:g" /etc/apt/sources.list; \
         fi && \
         apt-get update && \
-        apt-get install -y build-essential m4 autoconf fop xsltproc default-jdk libxml2-utils \
+        apt-get install -y build-essential m4 autoconf default-jdk \
           $INSTALL_LIBS && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
           apt-get install -y -f \

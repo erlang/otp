@@ -27,6 +27,7 @@
 %% ----------------------------------------------------------------------
 
 -module(ssh_connection_handler).
+-moduledoc false.
 
 -behaviour(gen_statem).
 

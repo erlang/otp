@@ -23,6 +23,7 @@
 %%% Description: Default Callback module for ssh_sftpd
 
 -module(ssh_sftpd_file).
+-moduledoc false.
 
 -behaviour(ssh_sftpd_file_api).
 

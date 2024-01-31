@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_simple_h).
+-moduledoc false.
 
 -export([adding_handler/1, removing_handler/1, log/2]).
 

@@ -26,6 +26,7 @@
 %%% Compilation of test results into index pages on several levels
 
 -module(ct_logs).
+-moduledoc false.
 
 -export([init/3, close/3, init_tc/1, end_tc/1]).
 -export([register_groupleader/2, unregister_groupleader/1]).

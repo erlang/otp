@@ -24,7 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src c_src doc/src
+SUB_DIRECTORIES = src c_src doc
 static_lib: SUB_DIRECTORIES = c_src
 
 include vsn.mk

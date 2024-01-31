@@ -19,6 +19,7 @@
 %%
 
 -module(erl_bits).
+-moduledoc false.
 
 -export([system_bittypes/0, 
 	 system_bitdefault/0,

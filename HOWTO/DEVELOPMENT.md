@@ -63,7 +63,6 @@ make            # Rebuid application
 make test       # Run application tests
 make dialyzer   # Run dialyzer
 make docs       # Build the docs
-make xmllint    # Run xmllint on the docs
 ```
 
 Then enable [Github Actions](#github-actions) and push the changes to your fork
@@ -189,13 +188,6 @@ make stdlib_test ARGS="-suite lists_SUITE -case member"
 See [ct_run](https://www.erlang.org/doc/man/ct_run.html#) for a list of all options
 that you can pass to ARGS.
 
-You can run static analysis test:
-
-```bash
-make dialyzer            # Checks all of Erlang/OTP source code
-make xmllint             # Checks all documentation for xmllint errors
-```
-
 Most of the above targets also works for a "phony" target called `emulator` that
 represents erts and all its tools. So you can do this:
 
@@ -212,6 +204,14 @@ for all process you would do this:
 ```bash
 ERL_ARGS="+hmqd off_heap" make emulator_test
 ```
+
+You can run static analysis test:
+
+```bash
+./otp_build check
+```
+
+See `./otp_build check --help` for details on how to use it and what it does.
 
 ### Build and test a specific application
 
@@ -230,17 +230,9 @@ make test ARGS="-suite lists_SUITE" # run the lists_SUITE tests
 make dialyzer                       # run dialyzer for this application
 make docs                           # build all docs for this application
 make docs DOC_TARGETS="html"        # build html docs for this application
-make xmllint                        # run xmllint on the docs for this application
 ```
 
-If you want to view what the documentation looks like for only your application
-you can do this:
-
-```bash
-(cd doc/src && make local_docs)
-```
-
-and then view `doc/html/index.html`.
+Open `doc/html/index.html` in your favorite web browser to view the documentation.
 
 ### Preloaded and Primary Bootstrap
 
@@ -382,14 +374,11 @@ the emulator start script. Instead you need to use the approach described in
 From the top level of Erlang/OTP you can run:
 
 ```bash
-make xmllint
-make dialyzer
-make format-check
+./otp_build check
 ```
 
-This will check that the documentation is correct and that there are no
-dialyzer errors. See also [Validating documentation](#validating-documentation)
-for more details.
+This will check that the documentation is correct, that there are no
+dialyzer errors and many more things.
 
 ## Running test cases
 
@@ -397,36 +386,32 @@ There is a detailed description about how to run tests in [TESTING.md](TESTING.m
 
 ## Writing and building documentation
 
-Most of the Erlang/OTP documentation is written in XML files located in
-`lib/$APPLICATION_NAME/doc/src`. The format of the XML is described in the
-[ErlDocgen User's Guide](https://www.erlang.org/doc/apps/erl_docgen/users_guide.html).
+Most of the Erlang/OTP documentation is written using markdown, either directly
+in the module implementing the functionality, or as `.md` files located in
+`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see [Documentation](`../system/doc/reference_manual/documentation.md`) and [Documentation HOWTO](DOCUMENTATION.md).
 
 There is also some documentation that is written using [edoc](https://www.erlang.org/doc/man/edoc.html).
 
-To view the documentation the simplest way is to release it. *NOTE*: The Erlang/OTP
+In order to build the documentation you need to have [ex_doc](https://hexdocs.pm/ex_doc/readme.html)
+installed and available in your path. The simplest way to do that is to download
+the [escript for the latest release](https://github.com/elixir-lang/ex_doc/releases/latest) available on github.
+
+To view the documentation you need to build it. *NOTE*: The Erlang/OTP
 repository needs to have been [built](#building-and-testing) before you can build
 the documentation.
 
 ```bash
-make release_docs
+make docs
 ```
 
-and then you can view `release/*/doc/index.html` in your favourite browser and
+and then you can view `doc/index.html` in your favourite browser and
 make sure that it looks nice.
 
-This takes a while though and to speed up the edit-view cycle you can either
-limit what parts of the documentation is built using `DOC_TARGETS`. For example:
+This takes a while though and to speed up the edit-view cycle you can build the
+docs only for a single application. For example:
 
 ```bash
-make release_docs DOC_TARGETS=html
-```
-
-The different `DOC_TARGETS` built are `html`, `man`, `pdf` and `chunks`.
-
-You can also build the docs only for a single application. For example:
-
-```bash
-cd lib/stdlib/doc/src && make local_docs DOC_TARGETS=html
+cd lib/stdlib/doc/src && make docs
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
@@ -435,50 +420,17 @@ and then view the results at `lib/stdlib/doc/html/index.html`.
 
 In order to make sure that the documentation is correct you need to also
 validate it. Just building the documentation does not mean that it is
-correct. There are two steps that you need to do in order to validate
-the docs.
+correct.
 
-First run the `xmllint`. This makes sure that the xml follows the
-[Erlang/OTP dtd](https://www.erlang.org/doc/apps/erl_docgen/overview.html)
-and does some extra checks to make sure all links are correct.
+You need to make sure that there are no broken links in the documentation.
+This is done by running `./otp_build check`.
 
-You run the xmllint like this:
-
-```bash
-make xmllint                    # Run it at the top level
-cd lib/stdlib && make xmllint   # Run it for only a single application
-```
-
-When the xml has been verified you also need to make sure that there
-are no broken links in the documentation. This is done by running
-[`otp_html_check`](https://github.com/erlang/otp/blob/master/scripts/otp_html_check).
-
-You run `otp_html_check` like this:
-
-```bash
-make release_docs DOC_TARGETS="html pdf"  # First we need to release the pdf+html docs
-$ERL_TOP/scripts/otp_html_check $(pwd)/release/$($ERL_TOP/erts/autoconf/config.guess) doc/index.html
-```
-
-The output of `otp_html_check` will print a list of broken links and anchors, for example:
+The output of `./otp_build check` will print a list of broken links and anchors, for example:
 
 ```text
-**** Files not used (that I can see)
-....
-
-**** Broken links
-
-Broken Link: /lib/kernel-8.3.1/doc/html/inet.html -> "/lib/kernel-8.3.1/doc/html/files.html"
-
-**** References to missing anchors
-
-Missing Anchor: "/lib/kernel-8.3.1/doc/html/files.html#native_name_encoding-0" from /lib/kernel-8.3.1/doc/html/inet.html
-Missing Anchor: "/lib/kernel-8.3.1/doc/html/inet.html#type-ip_addres" from /lib/kernel-8.3.1/doc/html/inet.html
+lib/kernel/doc/html/eep48_chapter.html: Found duplicate anchor see-also
+lib/kernel/doc/html/eep48_chapter.html: could not find lib/stdlib/doc/html/shell_docs.html#contents, should it be #content?
 ```
-
-The `Files not used` section is mostly used to debug the documentation build
-process, so it can be ignored most of the time. The other to sections should
-however be empty for the documentation to be correct.
 
 All this validation is also done by [Github Actions](#github-actions).
 

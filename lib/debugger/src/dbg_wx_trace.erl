@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_trace).
+-moduledoc false.
 
 %% External exports
 -export([start/1, start/3, start/4]).

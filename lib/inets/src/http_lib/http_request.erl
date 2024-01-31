@@ -19,6 +19,7 @@
 %%
 
 -module(http_request).
+-moduledoc false.
 
 -include("http_internal.hrl").
 

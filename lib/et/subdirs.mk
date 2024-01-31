@@ -17,5 +17,5 @@
 # 
 # %CopyrightEnd%
 
-SUB_DIRECTORIES = src examples doc/src
+SUB_DIRECTORIES = src examples doc
 

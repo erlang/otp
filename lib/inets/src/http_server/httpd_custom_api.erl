@@ -19,12 +19,34 @@
 %%
 %%
 -module(httpd_custom_api).
+-moduledoc """
+Behaviour with optional callbacks to customize the inets HTTP server.
 
+The module implementing this behaviour shall be supplied to to the servers
+configuration with the option [customize](`m:httpd#prop_customize`)
+""".
+-moduledoc(#{since => "OTP 17.5.6"}).
+
+-doc """
+Provide default headers for the HTTP servers responses. Note that this option
+may override built-in defaults.
+""".
+-doc(#{since => <<"OTP 18.1.1">>}).
 -callback response_default_headers() -> 
     [{Key::string(), Value::string()}].
+-doc """
+Filter and possible alter HTTP response headers before they are sent to the
+client.
+""".
+-doc(#{since => <<"OTP 17.5.6">>}).
 -callback response_header({Key::string(), Value::string()}) -> 
     {true, {Key::string(), Value::string()}} | false |
     {true, string()}. %% Used internally to avoid traversing headers twice 
+-doc """
+Filter and possible alter HTTP request headers before they are processed by the
+server.
+""".
+-doc(#{since => <<"OTP 17.5.6">>}).
 -callback request_header({Key::string(), Value::string()}) -> 
     {true, {Key::string(), Value::string()}} | false.
 

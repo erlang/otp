@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_sftpd_file_api).
+-moduledoc false.
 
 %% To be further specified later
 -callback close(file:io_device(), State::term()) ->

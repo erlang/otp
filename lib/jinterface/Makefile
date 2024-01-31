@@ -30,7 +30,7 @@ VSN=$(JINTERFACE_VSN)
 # Common Macros
 # ----------------------------------------------------
 
-SUB_DIRECTORIES = java_src doc/src
+SUB_DIRECTORIES = java_src doc
 
 SPECIAL_TARGETS = 
 

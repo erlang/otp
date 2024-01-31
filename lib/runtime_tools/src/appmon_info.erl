@@ -96,6 +96,7 @@
 %%
 %%----------------------------------------------------------------------
 -module(appmon_info).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Exported functions

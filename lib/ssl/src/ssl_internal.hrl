@@ -31,6 +31,7 @@
 
 -define(SECRET_PRINTOUT, "***").
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type reason()            :: any().
 -type reply()             :: any().
 -type msg()               :: any().

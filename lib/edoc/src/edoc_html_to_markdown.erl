@@ -17,34 +17,23 @@
 %%
 %% %CopyrightEnd%
 
+%% @doc This module can convert application/html+erlang style documentation to markdown.
+
 %% Does translation of Erlang XML docs to EEP-48 doc chunks and
 %% EEP-48 doc chunks to ex_doc markdown.
 %%----------------------------------------------------------------------
 -module(edoc_html_to_markdown).
 -feature(maybe_expr, enable).
 
--if(?OTP_RELEASE < 27).
--define(NO_DOCS, true).
--endif.
-
--ifndef(NO_DOCS).
--moduledoc """
-This module can convert application/html+erlang style documentation to markdown.
-""".
--endif.
-
 -include_lib("kernel/include/eep48.hrl").
 
 -export([convert_html/2, convert_xml/2, convert_html/3, convert_xml/3]).
 
--ifndef(NO_DOCS).
--doc """
-Convert [`application/html+erlang`](`t:shell_docs:chunk_element/0`) to Markdown
-suitable for usage with ExDoc.
-
-The `Application` and `Module` argument are used to correctly generate links.
-""".
--endif.
+%% @doc
+%% Convert `application/html+erlang' ({@type shell_docs:chunk_element()}) to Markdown
+%% suitable for usage with ExDoc.
+%% 
+%% The `Application' and `Module' argument are used to correctly generate links.
 -spec convert_html(Application :: atom(),
                    Module :: module(),
                    Html :: shell_docs:chunk_elements()) ->
@@ -53,24 +42,16 @@ convert_html(Application, Module, Html) when is_atom(Module), is_atom(Applicatio
     put(module, Module),
     put(application, atom_to_binary(Application)),
     render_docs(shell_docs:normalize(Html)).
-
-%% Internal functions
--ifndef(NO_DOCS).
--doc false.
--endif.
+%% @hidden
 convert_html(Application, Html) when is_atom(Application) ->
     put(module, ''),
     put(application, atom_to_binary(Application)),
     render_docs(shell_docs:normalize(Html)).
 
--ifndef(NO_DOCS).
--doc false.
--endif.
+%% @hidden
 convert_xml(Application, Binary) when is_atom(Application) ->
     convert_xml(Application, '', Binary).
--ifndef(NO_DOCS).
--doc false.
--endif.
+%% @hidden
 convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module) ->
     put(application, atom_to_binary(Application)),
     case xmerl_sax_parser:stream(Binary, [{event_fun, fun event/3},

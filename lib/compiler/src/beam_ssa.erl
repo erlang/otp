@@ -20,6 +20,7 @@
 %% Purpose: Type definitions and utilities for the SSA format.
 
 -module(beam_ssa).
+-moduledoc false.
 -export([add_anno/3,get_anno/2,get_anno/3,
          between/4,
          clobbers_xregs/1,def/2,def_unused/3,

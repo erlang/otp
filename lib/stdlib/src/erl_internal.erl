@@ -18,6 +18,12 @@
 %% %CopyrightEnd%
 %%
 -module(erl_internal).
+-moduledoc """
+Internal Erlang definitions.
+
+This module defines Erlang BIFs, guard tests, and operators. This module is only
+of interest to programmers who manipulate Erlang code.
+""".
 
 %% Define Erlang bifs, guard tests and other internal stuff.
 %%
@@ -59,6 +65,10 @@
 %%---------------------------------------------------------------------------
 
 %%  Erlang builtin functions allowed in guards.
+-doc """
+Returns `true` if `Name/Arity` is an Erlang BIF that is allowed in guards,
+otherwise `false`.
+""".
 -spec guard_bif(Name, Arity) -> boolean() when
       Name :: atom(),
       Arity :: arity().
@@ -91,6 +101,7 @@ guard_bif(tuple_size, 1) -> true;
 guard_bif(Name, A) -> new_type_test(Name, A).
 
 %%  Erlang type tests.
+-doc "Returns `true` if `Name/Arity` is a valid Erlang type test, otherwise `false`.".
 -spec type_test(Name, Arity) -> boolean() when
       Name :: atom(),
       Arity :: arity().
@@ -99,6 +110,7 @@ type_test(Name, Arity) ->
     new_type_test(Name, Arity) orelse old_type_test(Name, Arity).
 
 %%  Erlang new-style type tests.
+-doc false.
 -spec new_type_test(Name::atom(), Arity::arity()) -> boolean().
 
 %% Please keep the alphabetical order.
@@ -122,6 +134,7 @@ new_type_test(is_tuple, 1) -> true;
 new_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang old-style type tests.
+-doc false.
 -spec old_type_test(Name::atom(), Arity::arity()) -> boolean().
 
 old_type_test(integer, 1) -> true;
@@ -138,6 +151,7 @@ old_type_test(record, 2) -> true;
 old_type_test(function, 1) -> true;
 old_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
+-doc "Returns `true` if `OpName/Arity` is an arithmetic operator, otherwise `false`.".
 -spec arith_op(OpName, Arity) -> boolean() when
       OpName :: atom(),
       Arity :: arity().
@@ -158,6 +172,7 @@ arith_op('bsl', 2) -> true;
 arith_op('bsr', 2) -> true;
 arith_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
+-doc "Returns `true` if `OpName/Arity` is a Boolean operator, otherwise `false`.".
 -spec bool_op(OpName, Arity) -> boolean() when
       OpName :: atom(),
       Arity :: arity().
@@ -168,6 +183,7 @@ bool_op('or', 2) -> true;
 bool_op('xor', 2) -> true;
 bool_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
+-doc "Returns `true` if `OpName/Arity` is a comparison operator, otherwise `false`.".
 -spec comp_op(OpName, Arity) -> boolean() when
       OpName :: atom(),
       Arity :: arity().
@@ -182,6 +198,7 @@ comp_op('=:=', 2) -> true;
 comp_op('=/=', 2) -> true;
 comp_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
+-doc "Returns `true` if `OpName/Arity` is a list operator, otherwise `false`.".
 -spec list_op(OpName, Arity) -> boolean() when
       OpName :: atom(),
       Arity :: arity().
@@ -190,6 +207,7 @@ list_op('++', 2) -> true;
 list_op('--', 2) -> true;
 list_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
+-doc "Returns `true` if `OpName/Arity` is a send operator, otherwise `false`.".
 -spec send_op(OpName, Arity) -> boolean() when
       OpName :: atom(),
       Arity :: arity().
@@ -197,6 +215,10 @@ list_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 send_op('!', 2) -> true;
 send_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
+-doc """
+Returns the `Type` of operator that `OpName/Arity` belongs to, or generates a
+`function_clause` error if it is not an operator.
+""".
 -spec op_type(OpName, Arity) -> Type when
       OpName :: atom(),
       Arity :: arity(),
@@ -232,11 +254,16 @@ op_type('++', 2) -> list;
 op_type('--', 2) -> list;
 op_type('!', 2) -> send.
 
+-doc false.
 -spec bif(Mod::atom(), Name::atom(), Arity::arity()) -> boolean().
 
 bif(erlang, Name, Arity) -> bif(Name, Arity);
 bif(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 
+-doc """
+Returns `true` if `Name/Arity` is an Erlang BIF that is automatically recognized
+by the compiler, otherwise `false`.
+""".
 -spec bif(Name, Arity) -> boolean() when
       Name :: atom(),
       Arity::arity().
@@ -423,6 +450,7 @@ bif(unregister, 1) -> true;
 bif(whereis, 1) -> true;
 bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
+-doc false.
 -spec old_bif(Name::atom(), Arity::arity()) -> boolean().
 %%   Returns true if erlang:Name/Arity is an old (pre R14) auto-imported BIF, false otherwise.
 %%   Use erlang:is_bultin(Mod, Name, Arity) to find whether a function is a BIF
@@ -552,6 +580,7 @@ old_bif(unregister, 1) -> true;
 old_bif(whereis, 1) -> true;
 old_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
+-doc false.
 -spec is_type(Name, NumberOfTypeVariables) -> boolean() when
       Name :: atom(),
       NumberOfTypeVariables :: non_neg_integer().
@@ -613,6 +642,11 @@ is_type(_, _) -> false.
 %%%   behaviour_info/1 (optional)
 %%%
 
+-doc """
+Adds to `Forms` the code for the standard pre-defined functions (such as
+`module_info/0`) that are to be included in every module.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec add_predefined_functions(Forms) -> UpdatedForms when
       Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       UpdatedForms :: [erl_parse:abstract_form() | erl_parse:form_info()].

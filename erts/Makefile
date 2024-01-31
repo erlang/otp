@@ -38,7 +38,7 @@ all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 
 .PHONY: docs
 docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
+	$(V_at)( cd doc && $(MAKE) $@ )
 
 .PHONY: debug opt lcnt clean test
 $(TYPES) clean:
@@ -47,7 +47,7 @@ $(TYPES) clean:
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
 		fi ; \
 	done
-	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
+	(cd preloaded/src && $(MAKE) ../../ebin/erts.app)
 
 
 .PHONY: test
@@ -167,8 +167,4 @@ endif
 
 .PHONY: release_docs
 release_docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
-
-.PHONY: xmllint
-xmllint:
-	$(MAKE) -C doc/src $@
+	$(V_at)( cd doc && $(MAKE) $@ )

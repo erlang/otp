@@ -1,1 +1,0 @@
-ERL_DOCGEN_VSN = 1.5.2

@@ -19,6 +19,7 @@
 %%
 
 -module(ssh_tcpip_forward_client).
+-moduledoc false.
 
 -behaviour(ssh_client_channel).
 

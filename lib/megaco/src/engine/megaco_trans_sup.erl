@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_trans_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

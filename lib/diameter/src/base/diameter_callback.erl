@@ -69,6 +69,7 @@
 %%
 
 -module(diameter_callback).
+-moduledoc false.
 
 %% Default callbacks when no alternate is specified.
 -export([peer_up/3,

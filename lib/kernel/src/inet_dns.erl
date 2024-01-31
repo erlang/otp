@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_dns).
+-moduledoc false.
 
 %% Dns record encode/decode
 %%

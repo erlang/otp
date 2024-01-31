@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_example).
+-moduledoc false.
 
 -export([print/3, 
          get/3, 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_key).
+-moduledoc false.
 -export([get_key_map/0, get_valid_escape_key/2]).
 -import(lists, [reverse/1, reverse/2]).
 get_key_map() ->

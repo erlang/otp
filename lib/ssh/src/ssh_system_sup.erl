@@ -26,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_system_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

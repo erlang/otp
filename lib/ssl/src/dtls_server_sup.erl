@@ -21,6 +21,7 @@
 %%
 
 -module(dtls_server_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

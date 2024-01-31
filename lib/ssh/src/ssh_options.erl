@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_options).
+-moduledoc false.
 
 -include("ssh.hrl").
 -include_lib("kernel/include/file.hrl").

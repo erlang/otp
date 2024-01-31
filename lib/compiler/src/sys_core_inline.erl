@@ -41,6 +41,7 @@
 %% It is not clear that inlining will give you very much.
 
 -module(sys_core_inline).
+-moduledoc false.
 
 -export([module/2]).
 

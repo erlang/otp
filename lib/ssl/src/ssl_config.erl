@@ -21,6 +21,7 @@
 %%
 
 -module(ssl_config).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").

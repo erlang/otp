@@ -24,6 +24,7 @@
 %% over SSH
 
 -module(ssh_cli).
+-moduledoc false.
 
 -behaviour(ssh_server_channel).
 

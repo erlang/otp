@@ -20,6 +20,7 @@
 %% Purpose : Core Erlang (naive) prettyprinter
 
 -module(core_pp).
+-moduledoc false.
 
 -export([format/1,format_all/1]).
 

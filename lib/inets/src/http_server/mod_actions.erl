@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_actions).
+-moduledoc false.
 -export([do/1, store/2]).
 
 -include("httpd.hrl").

@@ -16,7 +16,7 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-
+%% @private
 %% @doc EDoc interface to Erlang specifications and types.
 
 -module(edoc_specs).

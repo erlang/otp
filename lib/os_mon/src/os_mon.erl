@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(os_mon).
+-moduledoc false.
 
 -behaviour(application).
 -behaviour(supervisor).

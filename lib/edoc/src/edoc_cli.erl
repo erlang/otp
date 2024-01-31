@@ -1,3 +1,4 @@
+%% @private
 %% @doc EDoc command line interface
 -module(edoc_cli).
 -export([main/1]).

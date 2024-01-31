@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_v1).
+-moduledoc false.
 
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").

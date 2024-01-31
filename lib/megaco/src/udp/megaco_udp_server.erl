@@ -26,6 +26,7 @@
 %%
 %%-----------------------------------------------------------------
 -module(megaco_udp_server).
+-moduledoc false.
 
 -behaviour(gen_server).
 

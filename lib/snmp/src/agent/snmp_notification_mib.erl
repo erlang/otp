@@ -18,6 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_notification_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-NOTIFICATION-MIB
+
+The module `snmp_notification_mib` implements the instrumentation functions for
+the SNMP-NOTIFICATION-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -47,6 +55,7 @@
 -endif.
 
 
+-doc "`SnmpAdminString (SIZE(1..32))`".
 -type notify_name() :: snmp_framework_mib:admin_string().
 -type notify_tag()  :: snmp_target_mib:tag_value().
 -type notify_type() :: trap | inform.
@@ -64,6 +73,24 @@
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
 
+-doc """
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old rows with StorageType `volatile`. The rows created from the configuration
+file will have StorageType `nonVolatile`.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `notify.conf`.
+
+[](){: #reconfigure }
+""".
 -spec configure(ConfDir) -> snmp:void() when
       ConfDir :: string().
 
@@ -96,6 +123,25 @@ configure(ConfDir) ->
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
 
+-doc """
+Inserts all data in the configuration files into the database and destroys all
+old data, including the rows with StorageType `nonVolatile`. The rows created
+from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-NOTIFICATION-MIB, after this function has been
+called, is from the configuration files.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `notify.conf`.
+
+[](){: #add_notify }
+""".
 -spec reconfigure(ConfDir) -> snmp:void() when
       ConfDir :: string().
 
@@ -141,6 +187,7 @@ read_notify_config_files(Dir) ->
 	snmp_conf:read_files(Dir, [{FileName, Gen, Order, Check, Filter}]),
     Notifs.
 
+-doc false.
 check_notify({Name, Tag, Type}) ->
     snmp_conf:check_string(Name, {gt, 0}),
     snmp_conf:check_string(Tag),
@@ -172,6 +219,12 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+Adds a notify definition to the agent config. Equivalent to one line in the
+`notify.conf` file.
+
+[](){: #delete_notify }
+""".
 -spec add_notify(Name, Tag, Type) -> {ok, Key} | {error, Reason} when
       Name   :: notify_name(),
       Tag    :: notify_tag(),
@@ -198,6 +251,7 @@ add_notify(Name, Tag, Type) ->
     end.
 
 
+-doc "Delete a notify definition from the agent config.".
 -spec delete_notify(Key) -> ok | {error, Reason} when
       Key    :: term(),
       Reason :: term().
@@ -233,10 +287,12 @@ gc_tabs() ->
 %%          If a NotifyName is specified, the targets for that
 %%          name is returned.
 %%-----------------------------------------------------------------
+-doc false.
 get_targets() ->
     TargetsFun = fun find_targets/0,
     snmpa_target_cache:targets(TargetsFun).
 
+-doc false.
 get_targets(NotifyName) ->
     TargetsFun = fun find_targets/0,
     snmpa_target_cache:targets(TargetsFun, NotifyName).
@@ -248,6 +304,7 @@ get_targets(NotifyName) ->
 %% targetAddr, targetParams) is modified, the cache is invalidated.
 %%-----------------------------------------------------------------
 
+-doc false.
 invalidate_cache() ->
     snmpa_target_cache:invalidate().
     
@@ -336,6 +393,7 @@ type(2,      Timeout, Retry) -> {inform, Timeout, Retry}.  %% OTP-4329
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
 %% Op = print - Used for debugging purposes
+-doc false.
 snmpNotifyTable(print) ->
     Table = snmpNotifyTable, 
     DB    = db(Table),
@@ -382,6 +440,7 @@ snmpNotifyTable(Op) ->
     snmp_generic:table_func(Op, db(snmpNotifyTable)).
 
 %% Op == get | is_set_ok | set | get_next
+-doc false.
 snmpNotifyTable(get, RowIndex, Cols) ->
     %% BMK BMK BMK BMK
     get(snmpNotifyTable, RowIndex, Cols);
@@ -447,6 +506,7 @@ verify_snmpNotifyTable_col(_, Val) ->
 %% In this version of the agent, we don't support notification
 %% filters.
 %%-----------------------------------------------------------------
+-doc false.
 snmpNotifyFilterTable(get, _RowIndex, Cols) ->
     lists:map(fun(_Col) -> {noValue, noSuchObject} end, Cols);
 snmpNotifyFilterTable(get_next, _RowIndex, Cols) ->
@@ -454,6 +514,7 @@ snmpNotifyFilterTable(get_next, _RowIndex, Cols) ->
 snmpNotifyFilterTable(is_set_ok, _RowIndex, Cols) ->
     {notWritable, element(1, hd(Cols))}.
 
+-doc false.
 snmpNotifyFilterProfileTable(get, _RowIndex, Cols) ->
     lists:map(fun(_Col) -> {noValue, noSuchObject} end, Cols);
 snmpNotifyFilterProfileTable(get_next, _RowIndex, Cols) ->

@@ -19,6 +19,12 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxListItemAttr).
+-moduledoc """
+Functions for wxListItemAttr class
+
+wxWidgets docs:
+[wxListItemAttr](https://docs.wxwidgets.org/3.1/classwx_list_item_attr.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getBackgroundColour/1,getFont/1,getTextColour/1,hasBackgroundColour/1,
   hasFont/1,hasTextColour/1,new/0,new/3,setBackgroundColour/2,setFont/2,
@@ -30,6 +36,7 @@
 -type wxListItemAttr() :: wx:wx_object().
 -export_type([wxListItemAttr/0]).
 %% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitemattr.html#wxlistitemattrwxlistitemattr">external documentation</a>.
@@ -120,6 +127,7 @@ setTextColour(#wx_ref{type=ThisT}=This,ColText)
   wxe_util:queue_cmd(This,wxe_util:color(ColText),?get_env(),?wxListItemAttr_SetTextColour).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxListItemAttr()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItemAttr),

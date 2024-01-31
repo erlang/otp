@@ -22,6 +22,7 @@
 %% Purpose: Handle DTLS record protocol. (Parts that are not shared with SSL/TLS)
 %%----------------------------------------------------------------------
 -module(dtls_record).
+-moduledoc false.
 
 -include("dtls_record.hrl").
 -include("ssl_internal.hrl").

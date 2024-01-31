@@ -21,6 +21,7 @@
 %%
 
 -module(tls_dist_server_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

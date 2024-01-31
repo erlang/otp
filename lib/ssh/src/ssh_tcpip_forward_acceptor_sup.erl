@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_tcpip_forward_acceptor_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -include("ssh.hrl").

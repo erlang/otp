@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_subscr).
+-moduledoc false.
 
 -behaviour(gen_server).
 

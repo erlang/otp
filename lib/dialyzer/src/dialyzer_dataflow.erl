@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_dataflow).
+-moduledoc false.
 
 -export([get_fun_types/5, get_warnings/5, format_args/3]).
 

@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpc_handler_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

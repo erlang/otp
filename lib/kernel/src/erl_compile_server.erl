@@ -19,6 +19,7 @@
 %%
 
 -module(erl_compile_server).
+-moduledoc false.
 -behaviour(gen_server).
 -export([start_link/0, compile/1]).
 

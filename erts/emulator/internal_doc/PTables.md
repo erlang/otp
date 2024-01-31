@@ -262,7 +262,7 @@ references to the process structure.
 
 ### BIF Iterating Over the Table ###
 
-The `erlang:processes/1` and `erlang:port/1` BIFs iterate over the
+The `erlang:processes/0` and `erlang:ports/0` BIFs iterate over the
 tables and return corresponding identifiers. These BIF should return a
 consistent snapshot of the table content during some time when the BIF
 is executing. In order to implement this we use locking in a strange

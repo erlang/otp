@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(sasl).
+-moduledoc false.
 
 %% External exports
 -export([start/2, stop/1]).

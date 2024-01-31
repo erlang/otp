@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(standard_error).
+-moduledoc false.
 -behaviour(supervisor_bridge).
 
 %% Basic standard i/o server for user interface port.

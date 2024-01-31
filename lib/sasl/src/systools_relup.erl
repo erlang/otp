@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_relup).
+-moduledoc false.
 
 %%
 %% GENERATING A RELUP FILE

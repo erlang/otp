@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ram_file).
+-moduledoc false.
 
 %% Binary RAM file interface
 

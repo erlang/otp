@@ -476,10 +476,10 @@ When a variable has been set, no warning will be issued.
     should not use position independent executable.
 
 
-   [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
-   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP
-   [How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation
-   [Important Variables Inspected by configure]: INSTALL.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Important-Variables-Inspected-by-configure
-   [cross configuration variables]: #Currently-Used-Configuration-Variables
-   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [?TOC]: true
+[$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
+[Building in Git]: INSTALL.md#how-to-build-and-install-erlang-otp
+[How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-Erlang-OTP_How-to-Build-the-Documentation
+[Important Variables Inspected by configure]: INSTALL.md#advanced-configuration-and-build-of-erlang-otp_Configuring_Important-Variables-Inspected-by-configure
+[cross configuration variables]: #currently-used-configuration-variables
+[DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+[?TOC]: true

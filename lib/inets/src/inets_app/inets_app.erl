@@ -19,6 +19,7 @@
 %%
 %%
 -module(inets_app).
+-moduledoc false.
 
 -behaviour(application).
 

@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(group_history).
+-moduledoc false.
 -export([load/0, add/1]).
 
 -include_lib("kernel/include/logger.hrl").

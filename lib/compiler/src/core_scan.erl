@@ -44,6 +44,7 @@
 %% watch using × \327, bvery close to x \170
 
 -module(core_scan).
+-moduledoc false.
 
 -export([string/1, string/2, format_error/1]).
 

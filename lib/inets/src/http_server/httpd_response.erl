@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_response).
+-moduledoc false.
 -export([generate_and_send_response/1, send_status/3, send_status/4, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, send_final_chunk/3, 
 	 split_header/2, is_disable_chunked_send/1, cache_headers/2, handle_continuation/1]).

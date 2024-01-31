@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet_parse).
+-moduledoc false.
 
 %% Parser for all kinds of ineternet configuration files
 

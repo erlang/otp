@@ -58,14 +58,14 @@ open_port({spawn, ExtPrg}, [{packet, 2}])</pre>
     <pre>
 open_port({spawn, ExtPrg}, [{packet, 2}, binary])</pre>
     <p>And:</p>
-    <pre>
+    <pre type="erl">
 Port ! {self(), {command, encode(Msg)}},
 receive
   {Port, {data, Data}} ->
     Caller ! {complex, decode(Data)}
 end</pre>
     <p>is replaced with:</p>
-    <pre>
+    <pre type="erl">
 Port ! {self(), {command, term_to_binary(Msg)}},
 receive
   {Port, {data, Data}} ->
@@ -122,7 +122,7 @@ Eshell V4.9.1.2 (abort with ^G)
 1> <input>c(complex2).</input>
 {ok,complex2}</pre>
     <p><em>Step 3.</em> Run the example:</p>
-    <pre>
+    <pre type="erl">
 2> <input>complex2:start("./extprg").</input>
 &lt;0.34.0>
 3> <input>complex2:foo(3).</input>

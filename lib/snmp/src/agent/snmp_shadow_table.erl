@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_shadow_table).
+-moduledoc false.
 
 -export([table_func/2, table_func/4]).
 

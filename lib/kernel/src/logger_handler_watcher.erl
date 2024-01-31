@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_handler_watcher).
+-moduledoc false.
 
 -behaviour(gen_server).
 

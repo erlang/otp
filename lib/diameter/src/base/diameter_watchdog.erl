@@ -24,6 +24,7 @@
 %%
 
 -module(diameter_watchdog).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% towards diameter_service

@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_port_wx).
+-moduledoc false.
 
 -export([start_link/3]).
 

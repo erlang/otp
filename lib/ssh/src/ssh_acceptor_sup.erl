@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_acceptor_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -include("ssh.hrl").

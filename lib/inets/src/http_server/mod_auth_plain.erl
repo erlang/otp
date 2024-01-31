@@ -19,6 +19,7 @@
 %%
 %%
 -module(mod_auth_plain).
+-moduledoc false.
 
 -include("httpd.hrl").
 -include("mod_auth.hrl").

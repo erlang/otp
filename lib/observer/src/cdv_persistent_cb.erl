@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(cdv_persistent_cb).
+-moduledoc false.
 
 -export([get_info/0]).
 

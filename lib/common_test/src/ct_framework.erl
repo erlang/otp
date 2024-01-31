@@ -24,6 +24,7 @@
 %%% called from the test_server.
 
 -module(ct_framework).
+-moduledoc false.
 
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
 -export([report/2, warn/1, error_notification/4]).

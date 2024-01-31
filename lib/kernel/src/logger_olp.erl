@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_olp).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("logger_olp.hrl").

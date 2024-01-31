@@ -19,6 +19,66 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxButton).
+-moduledoc """
+Functions for wxButton class
+
+A button is a control that contains a text string, and is one of the most common
+elements of a GUI.
+
+It may be placed on a `m:wxDialog` or on a `m:wxPanel` panel, or indeed on
+almost any other window.
+
+By default, i.e. if none of the alignment styles are specified, the label is
+centered both horizontally and vertically. If the button has both a label and a
+bitmap, the alignment styles above specify the location of the rectangle
+combining both the label and the bitmap and the bitmap position set with
+`wxButton::SetBitmapPosition()` (not implemented in wx) defines the relative
+position of the bitmap with respect to the label (however currently non-default
+alignment combinations are not implemented on all platforms).
+
+Since version 2.9.1 `m:wxButton` supports showing both text and an image
+(currently only when using wxMSW, wxGTK or wxOSX/Cocoa ports), see `SetBitmap()`
+(not implemented in wx) and `setBitmapLabel/2`, `setBitmapDisabled/2` &c
+methods. In the previous wxWidgets versions this functionality was only
+available in (the now trivial) `m:wxBitmapButton` class which was only capable
+of showing an image without text.
+
+A button may have either a single image for all states or different images for
+the following states (different images are not currently supported under macOS
+where the normal image is used for all states):
+
+All of the bitmaps must be of the same size and the normal bitmap must be set
+first (to a valid bitmap), before setting any other ones. Also, if the size of
+the bitmaps is changed later, you need to change the size of the normal bitmap
+before setting any other bitmaps with the new size (and you do need to reset all
+of them as their original values can be lost when the normal bitmap size
+changes).
+
+The position of the image inside the button be configured using
+`SetBitmapPosition()` (not implemented in wx). By default the image is on the
+left of the text.
+
+Please also notice that GTK+ uses a global setting called `gtk-button-images` to
+determine if the images should be shown in the buttons at all. If it is off
+(which is the case in e.g. Gnome 2.28 by default), no images will be shown,
+consistently with the native behaviour.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxBitmapButton`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow`
+`m:wxEvtHandler`
+
+wxWidgets docs: [wxButton](https://docs.wxwidgets.org/3.1/classwx_button.html)
+
+## Events
+
+Event types emitted from this class:
+[`command_button_clicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getBitmapDisabled/1,getBitmapFocus/1,getBitmapLabel/1,
   getDefaultSize/0,getDefaultSize/1,new/0,new/2,new/3,setBitmapDisabled/2,
@@ -67,12 +127,14 @@
 -type wxButton() :: wx:wx_object().
 -export_type([wxButton/0]).
 %% @hidden
+-doc false.
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxButton_new_0),
@@ -87,6 +149,22 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a button.
+
+The preferred way to create standard buttons is to use default value of `label`.
+If no label is supplied and `id` is one of standard IDs from this list, a
+standard label will be used. In other words, if you use a predefined `wxID_XXX`
+constant, just omit the label completely rather than specifying it. In
+particular, help buttons (the ones with `id` of `wxID_HELP`) under macOS can't
+display any label at all and while `m:wxButton` will detect if the standard
+"Help" label is used and ignore it, using any other label will prevent the
+button from correctly appearing as a help button and so should be avoided.
+
+In addition to that, the button will be decorated with stock icons under GTK+ 2.
+
+See: `create/4`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, [Option]) -> wxButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'label', unicode:chardata()}
@@ -116,6 +194,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
+-doc """
+Button creation function for two-step creation.
+
+For more details, see `new/3`.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'label', unicode:chardata()}
@@ -138,6 +221,16 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+-doc """
+Returns the default size for the buttons.
+
+It is advised to make all the dialog buttons of the same size and this function
+allows retrieving the (platform, and current font dependent) size which should
+be the best suited for this.
+
+The optional `win` argument is new since wxWidgets 3.1.3 and allows to get a
+per-monitor DPI specific size.
+""".
 -spec getDefaultSize() -> {W::integer(), H::integer()}.
 getDefaultSize() ->
   wxe_util:queue_cmd(?get_env(), ?wxButton_GetDefaultSize_STAT_0),
@@ -152,6 +245,22 @@ getDefaultSize(#wx_ref{type=WinT}=Win) ->
   wxe_util:rec(?wxButton_GetDefaultSize_STAT_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
+-doc """
+This sets the button to be the default item in its top-level window (e.g.
+
+the panel or the dialog box containing it).
+
+As normal, pressing return causes the default button to be depressed when the
+return key is pressed.
+
+See also `wxWindow:setFocus/1` which sets the keyboard focus for windows and
+text panel items, and `wxTopLevelWindow::SetDefaultItem()` (not implemented in
+wx).
+
+Remark: Under Windows, only dialog box buttons respond to this function.
+
+Return: the old default item (possibly NULL)
+""".
 -spec setDefault(This) -> wxWindow:wxWindow() when
 	This::wxButton().
 setDefault(#wx_ref{type=ThisT}=This) ->
@@ -160,6 +269,7 @@ setDefault(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_SetDefault).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
+-doc "Sets the string label for the button.".
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
@@ -169,6 +279,13 @@ setLabel(#wx_ref{type=ThisT}=This,Label)
   wxe_util:queue_cmd(This,Label_UC,?get_env(),?wxButton_SetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapdisabled">external documentation</a>.
+-doc """
+Returns the bitmap for the disabled state, which may be invalid.
+
+See: `setBitmapDisabled/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapDisabled(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
@@ -177,6 +294,13 @@ getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapDisabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapfocus">external documentation</a>.
+-doc """
+Returns the bitmap for the focused state, which may be invalid.
+
+See: `setBitmapFocus/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapFocus(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapFocus(#wx_ref{type=ThisT}=This) ->
@@ -185,6 +309,16 @@ getBitmapFocus(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapFocus).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmaplabel">external documentation</a>.
+-doc """
+Returns the bitmap for the normal state.
+
+This is exactly the same as `GetBitmap()` (not implemented in wx) but uses a
+name backwards-compatible with `m:wxBitmapButton`.
+
+See: `SetBitmap()` (not implemented in wx), `setBitmapLabel/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapLabel(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapLabel(#wx_ref{type=ThisT}=This) ->
@@ -193,6 +327,20 @@ getBitmapLabel(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapdisabled">external documentation</a>.
+-doc """
+Sets the bitmap for the disabled button appearance.
+
+If `bitmap` is invalid, the disabled bitmap is set to the automatically
+generated greyed out version of the normal bitmap, i.e. the same bitmap as is
+used by default if this method is not called at all. Use `SetBitmap()` (not
+implemented in wx) with an invalid bitmap to remove the bitmap completely (for
+all states).
+
+See: `getBitmapDisabled/1`, `setBitmapLabel/2`, `SetBitmapPressed()` (not
+implemented in wx), `setBitmapFocus/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapDisabled(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -201,6 +349,16 @@ setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapDisabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapfocus">external documentation</a>.
+-doc """
+Sets the bitmap for the button appearance when it has the keyboard focus.
+
+If `bitmap` is invalid, the normal bitmap will be used in the focused state.
+
+See: `getBitmapFocus/1`, `setBitmapLabel/2`, `SetBitmapPressed()` (not
+implemented in wx), `setBitmapDisabled/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapFocus(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -209,6 +367,16 @@ setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapFocus).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmaplabel">external documentation</a>.
+-doc """
+Sets the bitmap label for the button.
+
+Remark: This is the bitmap used for the unselected state, and for all other
+states if no other bitmaps are provided.
+
+See: `SetBitmap()` (not implemented in wx), `getBitmapLabel/1`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapLabel(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -217,6 +385,7 @@ setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapLabel).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxButton),
@@ -224,368 +393,550 @@ destroy(Obj=#wx_ref{type=Type}) ->
   ok.
  %% From wxControl
 %% @hidden
+-doc false.
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
 %% @hidden
+-doc false.
 getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
+-doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
+-doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
+-doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
 %% @hidden
+-doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
 %% @hidden
+-doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
+-doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
+-doc false.
 validate(This) -> wxWindow:validate(This).
 %% @hidden
+-doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
 %% @hidden
+-doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
 %% @hidden
+-doc false.
 update(This) -> wxWindow:update(This).
 %% @hidden
+-doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
 %% @hidden
+-doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
 %% @hidden
+-doc false.
 thaw(This) -> wxWindow:thaw(This).
 %% @hidden
+-doc false.
 show(This, Options) -> wxWindow:show(This, Options).
 %% @hidden
+-doc false.
 show(This) -> wxWindow:show(This).
 %% @hidden
+-doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
 %% @hidden
+-doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
 %% @hidden
+-doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
+-doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
+-doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
+-doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
+-doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
+-doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
+-doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
+-doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
 %% @hidden
+-doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
 %% @hidden
+-doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
 %% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
 %% @hidden
+-doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
 %% @hidden
+-doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
 %% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
 %% @hidden
+-doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
 %% @hidden
+-doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
+-doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
+-doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
+-doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
+-doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
+-doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
 %% @hidden
+-doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
+-doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
+-doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
+-doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
 %% @hidden
+-doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
 %% @hidden
+-doc false.
 setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
+-doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
+-doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
+-doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
+-doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
+-doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
+-doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
+-doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
+-doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
+-doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
 %% @hidden
+-doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
 %% @hidden
+-doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
 %% @hidden
+-doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
 %% @hidden
+-doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
 %% @hidden
+-doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
 %% @hidden
+-doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
 %% @hidden
+-doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
 %% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
 %% @hidden
+-doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
 %% @hidden
+-doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 %% @hidden
+-doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 %% @hidden
+-doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 %% @hidden
+-doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
 %% @hidden
+-doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 %% @hidden
+-doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
 %% @hidden
+-doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
 %% @hidden
+-doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
 %% @hidden
+-doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
 %% @hidden
+-doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
 %% @hidden
+-doc false.
 refresh(This) -> wxWindow:refresh(This).
 %% @hidden
+-doc false.
 raise(This) -> wxWindow:raise(This).
 %% @hidden
+-doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
 %% @hidden
+-doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
 %% @hidden
+-doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
 %% @hidden
+-doc false.
 pageUp(This) -> wxWindow:pageUp(This).
 %% @hidden
+-doc false.
 pageDown(This) -> wxWindow:pageDown(This).
 %% @hidden
+-doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
 %% @hidden
+-doc false.
 navigate(This) -> wxWindow:navigate(This).
 %% @hidden
+-doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
 %% @hidden
+-doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
 %% @hidden
+-doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
 %% @hidden
+-doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
+-doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
+-doc false.
 lower(This) -> wxWindow:lower(This).
 %% @hidden
+-doc false.
 lineUp(This) -> wxWindow:lineUp(This).
 %% @hidden
+-doc false.
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
+-doc false.
 layout(This) -> wxWindow:layout(This).
 %% @hidden
+-doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
+-doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden
+-doc false.
 isShown(This) -> wxWindow:isShown(This).
 %% @hidden
+-doc false.
 isRetained(This) -> wxWindow:isRetained(This).
 %% @hidden
+-doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
 %% @hidden
+-doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
 %% @hidden
+-doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
 %% @hidden
+-doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
 %% @hidden
+-doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
 %% @hidden
+-doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
 %% @hidden
+-doc false.
 initDialog(This) -> wxWindow:initDialog(This).
 %% @hidden
+-doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
 %% @hidden
+-doc false.
 hide(This) -> wxWindow:hide(This).
 %% @hidden
+-doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
 %% @hidden
+-doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
 %% @hidden
+-doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
 %% @hidden
+-doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
 %% @hidden
+-doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
 %% @hidden
+-doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
 %% @hidden
+-doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
 %% @hidden
+-doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
 %% @hidden
+-doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
 %% @hidden
+-doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
 %% @hidden
+-doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
 %% @hidden
+-doc false.
 getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
+-doc false.
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
+-doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
+-doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
+-doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
+-doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
+-doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
 %% @hidden
+-doc false.
 getRect(This) -> wxWindow:getRect(This).
 %% @hidden
+-doc false.
 getPosition(This) -> wxWindow:getPosition(This).
 %% @hidden
+-doc false.
 getParent(This) -> wxWindow:getParent(This).
 %% @hidden
+-doc false.
 getName(This) -> wxWindow:getName(This).
 %% @hidden
+-doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
 %% @hidden
+-doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
 %% @hidden
+-doc false.
 getId(This) -> wxWindow:getId(This).
 %% @hidden
+-doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
 %% @hidden
+-doc false.
 getHandle(This) -> wxWindow:getHandle(This).
 %% @hidden
+-doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
 %% @hidden
+-doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
 %% @hidden
+-doc false.
 getFont(This) -> wxWindow:getFont(This).
 %% @hidden
+-doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
 %% @hidden
+-doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
 %% @hidden
+-doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
 %% @hidden
+-doc false.
 getCursor(This) -> wxWindow:getCursor(This).
 %% @hidden
+-doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
 %% @hidden
+-doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
 %% @hidden
+-doc false.
 getChildren(This) -> wxWindow:getChildren(This).
 %% @hidden
+-doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
 %% @hidden
+-doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
 %% @hidden
+-doc false.
 getCaret(This) -> wxWindow:getCaret(This).
 %% @hidden
+-doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
 %% @hidden
+-doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
 %% @hidden
+-doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
 %% @hidden
+-doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
 %% @hidden
+-doc false.
 freeze(This) -> wxWindow:freeze(This).
 %% @hidden
+-doc false.
 fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
+-doc false.
 fit(This) -> wxWindow:fit(This).
 %% @hidden
+-doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
+-doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
+-doc false.
 enable(This) -> wxWindow:enable(This).
 %% @hidden
+-doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
+-doc false.
 disable(This) -> wxWindow:disable(This).
 %% @hidden
+-doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
 %% @hidden
+-doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
 %% @hidden
+-doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
 %% @hidden
+-doc false.
 close(This, Options) -> wxWindow:close(This, Options).
 %% @hidden
+-doc false.
 close(This) -> wxWindow:close(This).
 %% @hidden
+-doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
 %% @hidden
+-doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
 %% @hidden
+-doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
+-doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
+-doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
 %% @hidden
+-doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
 %% @hidden
+-doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+-doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
 %% @hidden
+-doc false.
 center(This, Options) -> wxWindow:center(This, Options).
 %% @hidden
+-doc false.
 centre(This) -> wxWindow:centre(This).
 %% @hidden
+-doc false.
 center(This) -> wxWindow:center(This).
 %% @hidden
+-doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
+-doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
 %% @hidden
+-doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden
+-doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
 %% @hidden
+-doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
 %% @hidden
+-doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
+-doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

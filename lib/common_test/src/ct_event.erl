@@ -27,6 +27,7 @@
 %%% module may be used as a template for other event handlers
 %%% that can be plugged in to handle local logging and reporting.
 -module(ct_event).
+-moduledoc false.
 
 -behaviour(gen_event).
 

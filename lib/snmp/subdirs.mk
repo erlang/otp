@@ -18,5 +18,5 @@
 # 
 # %CopyrightEnd%
 
-SUB_DIRECTORIES = src/compile mibs src examples priv/conf doc/src
+SUB_DIRECTORIES = src/compile mibs src examples priv/conf doc
 

@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_mon).
+-moduledoc false.
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").

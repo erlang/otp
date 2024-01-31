@@ -19,6 +19,53 @@
 %%
 
 -module(zlib).
+-moduledoc """
+zlib compression interface.
+
+This module provides an API for the zlib library
+([www.zlib.net](http://www.zlib.net)). It is used to compress and decompress
+data. The data format is described by
+[RFC 1950](https://www.ietf.org/rfc/rfc1950.txt),
+[RFC 1951](https://www.ietf.org/rfc/rfc1951.txt), and
+[RFC 1952](https://www.ietf.org/rfc/rfc1952.txt).
+
+A typical (compress) usage is as follows:
+
+```erlang
+Z = zlib:open(),
+ok = zlib:deflateInit(Z,default),
+
+Compress = fun(end_of_data, _Cont) -> [];
+              (Data, Cont) ->
+                 [zlib:deflate(Z, Data)|Cont(Read(),Cont)]
+           end,
+Compressed = Compress(Read(),Compress),
+Last = zlib:deflate(Z, [], finish),
+ok = zlib:deflateEnd(Z),
+zlib:close(Z),
+list_to_binary([Compressed|Last])
+```
+
+In all functions errors, `{'EXIT',{Reason,Backtrace}}`, can be thrown, where
+`Reason` describes the error.
+
+Typical `Reason`s:
+
+- **`badarg`** - Bad argument.
+
+- **`not_initialized`** - The stream hasn't been initialized, eg. if
+  `inflateInit/1` wasn't called prior to a call to `inflate/2`.
+
+- **`not_on_controlling_process`** - The stream was used by a process that
+  doesn't control it. Use `set_controlling_process/2` if you need to transfer a
+  stream to a different process.
+
+- **`data_error`** - The data contains errors.
+
+- **`stream_error`** - Inconsistent stream state.
+
+- **`{need_dictionary,Adler32}`** - See `inflate/2`.
+""".
 
 -export([open/0,close/1,set_controlling_process/2,
          deflateInit/1,deflateInit/2,deflateInit/6,
@@ -101,6 +148,7 @@
 %%------------------------------------------------------------------------
 
 %% Public data types.
+-doc "A zlib stream, see `open/0`.".
 -type zstream() :: reference().
 -type zflush() :: 'none' | 'sync' | 'full' | 'finish'.
 
@@ -109,6 +157,7 @@
 -type zstrategy() :: 'default' | 'filtered' | 'huffman_only' | 'rle'.
 
 -type zmemlevel() :: 1..9.
+-doc "Normally in the range `-15..-8 | 8..15`.".
 -type zwindowbits() :: -15..-8 | 8..47.
 
 %% Private data types.
@@ -125,17 +174,20 @@
 
 %%------------------------------------------------------------------------
 
+-doc false.
 on_load() ->
     case erlang:load_nif(atom_to_list(?MODULE), 0) of
         ok -> ok
     end.
 
+-doc "Opens a zlib stream.".
 -spec open() -> zstream().
 open() ->
     open_nif().
 open_nif() ->
     erlang:nif_error(undef).
 
+-doc "Closes the stream referenced by `Z`.".
 -spec close(Z) -> 'ok' when
       Z :: zstream().
 close(Z) ->
@@ -143,6 +195,8 @@ close(Z) ->
 close_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc "Changes the controlling process of `Z` to `Pid`, which must be a local process.".
+-doc(#{since => <<"OTP 20.1.3">>}).
 -spec set_controlling_process(Z, Pid) -> 'ok' when
       Z :: zstream(),
       Pid :: pid().
@@ -151,17 +205,82 @@ set_controlling_process(Z, Pid) ->
 set_controller_nif(_Z, _Pid) ->
     erlang:nif_error(undef).
 
+-doc "Same as `zlib:deflateInit(Z, default)`.".
 -spec deflateInit(Z) -> 'ok' when
       Z :: zstream().
 deflateInit(Z) ->
     deflateInit(Z, default).
 
+-doc """
+Initializes a zlib stream for compression.
+
+`Level` decides the compression level to be used:
+
+- `default` gives default compromise between speed and compression
+- `none` (0) gives no compression
+- `best_speed` (1) gives best speed
+- `best_compression` (9) gives best compression
+""".
 -spec deflateInit(Z, Level) -> 'ok' when
       Z :: zstream(),
       Level :: zlevel().
 deflateInit(Z, Level) ->
     deflateInit(Z, Level, deflated, ?DEFAULT_WBITS, ?DEFAULT_MEMLEVEL, default).
 
+-doc """
+Initiates a zlib stream for compression.
+
+- **`Level`** - Compression level to use:
+
+  - `default` gives default compromise between speed and compression
+  - `none` (0) gives no compression
+  - `best_speed` (1) gives best speed
+  - `best_compression` (9) gives best compression
+
+- **`Method`** - Compression method to use, currently the only supported method
+  is `deflated`.
+
+- **`WindowBits`** - The base two logarithm of the window size (the size of the
+  history buffer). It is to be in the range 8 through 15. Larger values result
+  in better compression at the expense of memory usage. Defaults to 15 if
+  `deflateInit/2` is used. A negative `WindowBits` value suppresses the zlib
+  header (and checksum) from the stream. Notice that the zlib source mentions
+  this only as a undocumented feature.
+
+  > #### Warning {: .warning }
+  >
+  > Due to a known bug in the underlying zlib library, `WindowBits` values 8 and
+  > -8 do not work as expected. In zlib versions before 1.2.9 values 8 and -8
+  > are automatically changed to 9 and -9. _From zlib version 1.2.9 value -8 is
+  > rejected_ causing `zlib:deflateInit/6` to fail (8 is still changed to 9). It
+  > also seem possible that future versions of zlib may fix this bug and start
+  > accepting 8 and -8 as is.
+  >
+  > Conclusion: Avoid values 8 and -8 unless you know your zlib version supports
+  > them.
+
+- **`MemLevel`** - Specifies how much memory is to be allocated for the internal
+  compression state: `MemLevel`=1 uses minimum memory but is slow and reduces
+  compression ratio; `MemLevel`=9 uses maximum memory for optimal speed.
+  Defaults to 8.
+
+- **`Strategy`** - Tunes the compression algorithm. Use the following values:
+
+  - `default` for normal data
+  - `filtered` for data produced by a filter (or predictor)
+  - `huffman_only` to force Huffman encoding only (no string match)
+  - `rle` to limit match distances to one (run-length encoding)
+
+  Filtered data consists mostly of small values with a somewhat random
+  distribution. In this case, the compression algorithm is tuned to compress
+  them better. The effect of `filtered` is to force more Huffman coding and less
+  string matching; it is somewhat intermediate between `default` and
+  `huffman_only`. `rle` is designed to be almost as fast as `huffman_only`, but
+  gives better compression for PNG image data.
+
+  `Strategy` affects only the compression ratio, but not the correctness of the
+  compressed output even if it is not set appropriately.
+""".
 -spec deflateInit(Z, Level, Method, WindowBits, MemLevel, Strategy) -> 'ok' when
       Z :: zstream(),
       Level :: zlevel(),
@@ -179,6 +298,19 @@ deflateInit(Z, Level, Method, WindowBits, MemLevel, Strategy) ->
 deflateInit_nif(_Z, _Level, _Method, _WindowBits, _MemLevel, _Strategy) ->
     erlang:nif_error(undef).
 
+-doc """
+Initializes the compression dictionary from the specified byte sequence without
+producing any compressed output.
+
+This function must be called immediately after
+[`deflateInit/1,2,6`](`deflateInit/1`) or `deflateReset/1`, before any call of
+`deflate/3`.
+
+The compressor and decompressor must use the same dictionary (see
+`inflateSetDictionary/2`).
+
+The Adler checksum of the dictionary is returned.
+""".
 -spec deflateSetDictionary(Z, Dictionary) -> Adler32 when
       Z :: zstream(),
       Dictionary :: iodata(),
@@ -188,6 +320,11 @@ deflateSetDictionary(Z, Dictionary) ->
 deflateSetDictionary_nif(_Z, _Dictionary) ->
     erlang:nif_error(undef).
 
+-doc """
+Equivalent to `deflateEnd/1` followed by [`deflateInit/1,2,6`](`deflateInit/1`),
+but does not free and reallocate all the internal compression state. The stream
+keeps the same compression level and any other attributes.
+""".
 -spec deflateReset(Z) -> 'ok' when
       Z :: zstream().
 deflateReset(Z) ->
@@ -195,6 +332,19 @@ deflateReset(Z) ->
 deflateReset_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc """
+Dynamically updates the compression level and compression strategy. The
+interpretation of `Level` and `Strategy` is as in `deflateInit/6`. This can be
+used to switch between compression and straight copy of the input data, or to
+switch to a different kind of input data requiring a different strategy. If the
+compression level is changed, the input available so far is compressed with the
+old level (and can be flushed); the new level takes effect only at the next call
+of `deflate/3`.
+
+Before the call of `deflateParams`, the stream state must be set as for a call
+of [`deflate/3`](`deflate/3`), as the currently available input may have to be
+compressed and flushed.
+""".
 -spec deflateParams(Z, Level, Strategy) -> ok when
       Z :: zstream(),
       Level :: zlevel(),
@@ -213,6 +363,7 @@ deflateParams(Z, Level0, Strategy0) ->
 deflateParams_nif(_Z, _Level, _Strategy) ->
     erlang:nif_error(undef).
 
+-doc "Same as [`deflate(Z, Data, none)`](`deflate/3`).".
 -spec deflate(Z, Data) -> Compressed when
       Z :: zstream(),
       Data :: iodata(),
@@ -220,6 +371,38 @@ deflateParams_nif(_Z, _Level, _Strategy) ->
 deflate(Z, Data) ->
     deflate(Z, Data, none).
 
+-doc """
+Compresses as much data as possible, and stops when the input buffer becomes
+empty. It can introduce some output latency (reading input without producing any
+output) except when forced to flush.
+
+If `Flush` is set to `sync`, all pending output is flushed to the output buffer
+and the output is aligned on a byte boundary, so that the decompressor can get
+all input data available so far. Flushing can degrade compression for some
+compression algorithms; thus, use it only when necessary.
+
+If `Flush` is set to `full`, all output is flushed as with `sync`, and the
+compression state is reset so that decompression can restart from this point if
+previous compressed data has been damaged or if random access is desired. Using
+`full` too often can seriously degrade the compression.
+
+If `Flush` is set to `finish`, pending input is processed, pending output is
+flushed, and [`deflate/3`](`deflate/3`) returns. Afterwards the only possible
+operations on the stream are `deflateReset/1` or `deflateEnd/1`.
+
+`Flush` can be set to `finish` immediately after
+[`deflateInit`](`deflateInit/1`) if all compression is to be done in one step.
+
+Example:
+
+```erlang
+zlib:deflateInit(Z),
+B1 = zlib:deflate(Z,Data),
+B2 = zlib:deflate(Z,<< >>,finish),
+zlib:deflateEnd(Z),
+list_to_binary([B1,B2])
+```
+""".
 -spec deflate(Z, Data, Flush) -> Compressed when
       Z :: zstream(),
       Data :: iodata(),
@@ -241,6 +424,11 @@ deflate_opts(Flush) ->
 deflate_nif(_Z, _InputChSize, _OutputChSize, _Flush) ->
     erlang:nif_error(undef).
 
+-doc """
+Ends the deflate session and cleans all data used. Notice that this function
+throws a `data_error` exception if the last call to `deflate/3` was not called
+with `Flush` set to `finish`.
+""".
 -spec deflateEnd(Z) -> 'ok' when
       Z :: zstream().
 deflateEnd(Z) ->
@@ -248,17 +436,33 @@ deflateEnd(Z) ->
 deflateEnd_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc "Initializes a zlib stream for decompression.".
 -spec inflateInit(Z) -> 'ok' when
       Z :: zstream().
 inflateInit(Z) ->
     inflateInit(Z, ?DEFAULT_WBITS).
 
+-doc """
+Initializes a decompression session on zlib stream.
+
+`WindowBits` is the base two logarithm of the maximum window size (the size of
+the history buffer). It is to be in the range 8 through 15. Default to 15 if
+`inflateInit/1` is used.
+
+If a compressed stream with a larger window size is specified as input,
+`inflate/2` throws the `data_error` exception.
+
+A negative `WindowBits` value makes zlib ignore the zlib header (and checksum)
+from the stream. Notice that the zlib source mentions this only as a
+undocumented feature.
+""".
 -spec inflateInit(Z, WindowBits) -> 'ok' when
       Z :: zstream(),
       WindowBits :: zwindowbits().
 inflateInit(Z, WindowBits) ->
     inflateInit(Z, WindowBits, cut).
 
+-doc false.
 -spec inflateInit(Z, WindowBits, EoSBehavior) -> 'ok' when
       Z :: zstream(),
       WindowBits :: zwindowbits(),
@@ -268,6 +472,42 @@ inflateInit(Z, WindowBits, EoSBehavior) ->
 inflateInit_nif(_Z, _WindowBits, _EoSBehavior) ->
     erlang:nif_error(undef).
 
+-doc """
+Initializes the decompression dictionary from the specified uncompressed byte
+sequence. This function must be called as a response to an inflate operation
+(eg. `safeInflate/2`) returning `{need_dictionary,Adler,Output}` or in the case
+of deprecated functions, throwing an
+`{'EXIT',{{need_dictionary,Adler},_StackTrace}}` exception.
+
+The dictionary chosen by the compressor can be determined from the Adler value
+returned or thrown by the call to the inflate function. The compressor and
+decompressor must use the same dictionary (See `deflateSetDictionary/2`).
+
+After setting the dictionary the inflate operation should be retried without new
+input.
+
+Example:
+
+```erlang
+deprecated_unpack(Z, Compressed, Dict) ->
+     case catch zlib:inflate(Z, Compressed) of
+          {'EXIT',{{need_dictionary,_DictID},_}} ->
+                 ok = zlib:inflateSetDictionary(Z, Dict),
+                 Uncompressed = zlib:inflate(Z, []);
+          Uncompressed ->
+                 Uncompressed
+     end.
+
+new_unpack(Z, Compressed, Dict) ->
+    case zlib:inflate(Z, Compressed, [{exception_on_need_dict, false}]) of
+        {need_dictionary, _DictId, Output} ->
+            ok = zlib:inflateSetDictionary(Z, Dict),
+            [Output | zlib:inflate(Z, [])];
+        Uncompressed ->
+            Uncompressed
+    end.
+```
+""".
 -spec inflateSetDictionary(Z, Dictionary) -> 'ok' when
       Z :: zstream(),
       Dictionary :: iodata().
@@ -276,6 +516,14 @@ inflateSetDictionary(Z, Dictionary) ->
 inflateSetDictionary_nif(_Z, _Dictionary) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns the decompression dictionary currently in use by the stream. This
+function must be called between [`inflateInit/1,2`](`inflateInit/1`) and
+[`inflateEnd`](`inflateEnd/1`).
+
+Only supported if ERTS was compiled with zlib >= 1.2.8.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec inflateGetDictionary(Z) -> Dictionary when
       Z :: zstream(),
       Dictionary :: binary().
@@ -289,6 +537,11 @@ inflateGetDictionary(Z) ->
 inflateGetDictionary_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc """
+Equivalent to `inflateEnd/1` followed by `inflateInit/1`, but does not free and
+reallocate all the internal decompression state. The stream will keep attributes
+that could have been set by `inflateInit/1,2`.
+""".
 -spec inflateReset(Z) -> 'ok' when
       Z :: zstream().
 inflateReset(Z) ->
@@ -296,6 +549,7 @@ inflateReset(Z) ->
 inflateReset_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc "Equivalent to [`inflate(Z, Data, [])`](`inflate/3`)".
 -spec inflate(Z, Data) -> Decompressed when
       Z :: zstream(),
       Data :: iodata(),
@@ -303,6 +557,23 @@ inflateReset_nif(_Z) ->
 inflate(Z, Data) ->
     inflate(Z, Data, []).
 
+-doc """
+Decompresses as much data as possible. It can introduce some output latency
+(reading input without producing any output).
+
+Currently the only available option is `{exception_on_need_dict,boolean()}`
+which controls whether the function should throw an exception when a preset
+dictionary is required for decompression. When set to false, a `need_dictionary`
+tuple will be returned instead. See `inflateSetDictionary/2` for details.
+
+> #### Warning {: .warning }
+>
+> This option defaults to `true` for backwards compatibility but we intend to
+> remove the exception behavior in a future release. New code that needs to
+> handle dictionaries manually should always specify
+> `{exception_on_need_dict,false}`.
+""".
+-doc(#{since => <<"OTP 20.1">>}).
 -spec inflate(Z, Data, Options) -> Decompressed when
       Z :: zstream(),
       Data :: iodata(),
@@ -330,6 +601,46 @@ inflate_opts() ->
         flush = arg_flush(none)
     }.
 
+-doc """
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> [`safeInflate/2` ](`safeInflate/2`)instead.
+
+Like `inflate/2`, but decompresses no more data than will fit in the buffer
+configured through [`setBufSize/2` ](`setBufSize/2`). Is is useful when
+decompressing a stream with a high compression ratio, such that a small amount
+of compressed input can expand up to 1000 times.
+
+This function returns `{more, Decompressed}`, when there is more output
+available, and `inflateChunk/1` is to be used to read it.
+
+This function can introduce some output latency (reading input without producing
+any output).
+
+An exception will be thrown if a preset dictionary is required for further
+decompression. See `inflateSetDictionary/2` for details.
+
+Example:
+
+```erlang
+walk(Compressed, Handler) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    % Limit single uncompressed chunk size to 512kb
+    zlib:setBufSize(Z, 512 * 1024),
+    loop(Z, Handler, zlib:inflateChunk(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {more, Uncompressed}) ->
+    Handler(Uncompressed),
+    loop(Z, Handler, zlib:inflateChunk(Z));
+loop(Z, Handler, Uncompressed) ->
+    Handler(Uncompressed).
+```
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec inflateChunk(Z, Data) -> Decompressed | {more, Decompressed} when
       Z :: zstream(),
       Data :: iodata(),
@@ -338,6 +649,18 @@ inflateChunk(Z, Data) ->
     enqueue_input(Z, Data),
     inflateChunk(Z).
 
+-doc """
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> [`safeInflate/2` ](`safeInflate/2`)instead.
+
+Reads the next chunk of uncompressed data, initialized by `inflateChunk/2`.
+
+This function is to be repeatedly called, while it returns
+`{more, Decompressed}`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec inflateChunk(Z) -> Decompressed | {more, Decompressed} when
       Z :: zstream(),
       Decompressed :: iolist().
@@ -365,6 +688,41 @@ exception_on_need_dict(Z, Output) when is_list(Output); is_binary(Output) ->
     Progress = restore_progress(Z, inflate),
     append_iolist(Progress, Output).
 
+-doc """
+Like `inflate/2`, but returns once it has expanded beyond a small
+implementation-defined threshold. It's useful when decompressing untrusted input
+which could have been maliciously crafted to expand until the system runs out of
+memory.
+
+This function returns `{continue | finished, Output}`, where Output is the data
+that was decompressed in this call. New input can be queued up on each call if
+desired, and the function will return `{finished, Output}` once all queued data
+has been decompressed.
+
+This function can introduce some output latency (reading input without producing
+any output).
+
+If a preset dictionary is required for further decompression, this function
+returns a `need_dictionary` tuple. See `inflateSetDictionary/2`) for details.
+
+Example:
+
+```erlang
+walk(Compressed, Handler) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    loop(Z, Handler, zlib:safeInflate(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {continue, Output}) ->
+    Handler(Output),
+    loop(Z, Handler, zlib:safeInflate(Z, []));
+loop(Z, Handler, {finished, Output}) ->
+    Handler(Output).
+```
+""".
+-doc(#{since => <<"OTP 20.1">>}).
 -spec safeInflate(Z, Data) -> Result when
       Z :: zstream(),
       Data :: iodata(),
@@ -377,6 +735,11 @@ safeInflate(Z, Data) ->
     enqueue_input(Z, Data),
     dequeue_next_chunk(Z, inflate_opts()).
 
+-doc """
+Ends the inflate session and cleans all data used. Notice that this function
+throws a `data_error` exception if no end of stream was found (meaning that not
+all data has been uncompressed).
+""".
 -spec inflateEnd(Z) -> 'ok' when
       Z :: zstream().
 inflateEnd(Z) ->
@@ -384,6 +747,13 @@ inflateEnd(Z) ->
 inflateEnd_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc """
+Sets the intermediate buffer size.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release.
+""".
 -spec setBufSize(Z, Size) -> 'ok' when
       Z :: zstream(),
       Size :: non_neg_integer().
@@ -394,6 +764,13 @@ setBufSize(_Z, _Size) ->
 setBufSize_nif(_Z, _Size) ->
     erlang:nif_error(undef).
 
+-doc """
+Gets the size of the intermediate buffer.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release.
+""".
 -spec getBufSize(Z) -> non_neg_integer() when
       Z :: zstream().
 getBufSize(Z) ->
@@ -401,6 +778,14 @@ getBufSize(Z) ->
 getBufSize_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc """
+Gets the current calculated CRC checksum.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:crc32/1` on the uncompressed data instead.
+""".
 -spec crc32(Z) -> CRC when
       Z :: zstream(),
       CRC :: non_neg_integer().
@@ -409,6 +794,14 @@ crc32(Z) ->
 crc32_nif(_Z) ->
     erlang:nif_error(undef).
 
+-doc """
+Calculates the CRC checksum for `Data`.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:crc32/1` instead.
+""".
 -spec crc32(Z, Data) -> CRC when
       Z :: zstream(),
       Data :: iodata(),
@@ -418,6 +811,23 @@ crc32(Z, Data) when is_reference(Z) ->
 crc32(_Z, _Data) ->
     erlang:error(badarg).
 
+-doc """
+Updates a running CRC checksum for `Data`. If `Data` is the empty binary or the
+empty iolist, this function returns the required initial value for the CRC.
+
+Example:
+
+```erlang
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:crc32(Z, Crc0, Data),
+                  end, zlib:crc32(Z,<< >>), Datas)
+```
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:crc32/2` instead.
+""".
 -spec crc32(Z, PrevCRC, Data) -> CRC when
       Z :: zstream(),
       PrevCRC :: non_neg_integer(),
@@ -428,6 +838,18 @@ crc32(Z, CRC, Data) when is_reference(Z) ->
 crc32(_Z, _CRC, _Data) ->
     erlang:error(badarg).
 
+-doc """
+Combines two CRC checksums into one. For two binaries or iolists, `Data1` and
+`Data2` with sizes of `Size1` and `Size2`, with CRC checksums `CRC1` and `CRC2`.
+
+This function returns the `CRC` checksum of `[Data1,Data2]`, requiring only
+`CRC1`, `CRC2`, and `Size2`.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:crc32_combine/3` instead.
+""".
 -spec crc32_combine(Z, CRC1, CRC2, Size2) -> CRC when
       Z :: zstream(),
       CRC :: non_neg_integer(),
@@ -439,6 +861,14 @@ crc32_combine(Z, CRC1, CRC2, Size2) when is_reference(Z) ->
 crc32_combine(_Z, _CRC1, _CRC2, _Size2) ->
     erlang:error(badarg).
 
+-doc """
+Calculates the Adler-32 checksum for `Data`.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:adler32/1` instead.
+""".
 -spec adler32(Z, Data) -> CheckSum when
       Z :: zstream(),
       Data :: iodata(),
@@ -448,6 +878,24 @@ adler32(Z, Data) when is_reference(Z) ->
 adler32(_Z, _Data) ->
     erlang:error(badarg).
 
+-doc """
+Updates a running Adler-32 checksum for `Data`. If `Data` is the empty binary or
+the empty iolist, this function returns the required initial value for the
+checksum.
+
+Example:
+
+```erlang
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:adler32(Z, Crc0, Data),
+                  end, zlib:adler32(Z,<< >>), Datas)
+```
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:adler32/2` instead.
+""".
 -spec adler32(Z, PrevAdler, Data) -> CheckSum when
       Z :: zstream(),
       PrevAdler :: non_neg_integer(),
@@ -458,6 +906,19 @@ adler32(Z, Adler, Data) when is_reference(Z) ->
 adler32(_Z, _Adler, _Data) ->
     erlang:error(badarg).
 
+-doc """
+Combines two Adler-32 checksums into one. For two binaries or iolists, `Data1`
+and `Data2` with sizes of `Size1` and `Size2`, with Adler-32 checksums `Adler1`
+and `Adler2`.
+
+This function returns the `Adler` checksum of `[Data1,Data2]`, requiring only
+`Adler1`, `Adler2`, and `Size2`.
+
+> #### Warning {: .warning }
+>
+> This function is deprecated and will be removed in a future release. Use
+> `erlang:adler32_combine/3` instead.
+""".
 -spec adler32_combine(Z, Adler1, Adler2, Size2) -> Adler when
       Z :: zstream(),
       Adler :: non_neg_integer(),
@@ -470,6 +931,7 @@ adler32_combine(_Z, _Adler1, _Adler2, _Size2) ->
     erlang:error(badarg).
 
 %% compress/uncompress zlib with header
+-doc "Compresses data with zlib headers and checksum.".
 -spec compress(Data) -> Compressed when
       Data :: iodata(),
       Compressed :: binary().
@@ -485,6 +947,7 @@ compress(Data) ->
          end,
     iolist_to_binary(Bs).
 
+-doc "Uncompresses data with zlib headers and checksum.".
 -spec uncompress(Data) -> Decompressed when
       Data  :: iodata(),
       Decompressed :: binary().
@@ -512,6 +975,7 @@ uncompress(Data) ->
     end.
 
 %% unzip/zip zlib without header (zip members)
+-doc "Compresses data without zlib headers and checksum.".
 -spec zip(Data) -> Compressed when
       Data :: iodata(),
       Compressed :: binary().
@@ -527,6 +991,7 @@ zip(Data) ->
          end,
     iolist_to_binary(Bs).
 
+-doc "Uncompresses data without zlib headers and checksum.".
 -spec unzip(Data) -> Decompressed when
       Data :: iodata(),
       Decompressed :: binary().
@@ -542,6 +1007,7 @@ unzip(Data) ->
          end,
     iolist_to_binary(Bs).
 
+-doc "Compresses data with gz headers and checksum.".
 -spec gzip(Data) -> Compressed when
       Data :: iodata(),
       Compressed :: binary().
@@ -557,6 +1023,7 @@ gzip(Data) ->
          end,
     iolist_to_binary(Bs).
 
+-doc "Uncompresses data with gz headers and checksum.".
 -spec gunzip(Data) -> Decompressed when
       Data :: iodata(),
       Decompressed :: binary().

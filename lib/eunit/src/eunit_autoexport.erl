@@ -25,6 +25,7 @@
 %% @doc Parse transform for automatic exporting of test functions.
 
 -module(eunit_autoexport).
+-moduledoc false.
 
 -include("eunit_internal.hrl").
 

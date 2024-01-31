@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_value).
+-moduledoc false.
 
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints

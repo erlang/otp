@@ -25,6 +25,7 @@
 %% @doc Text-based frontend for EUnit
 
 -module(eunit_tty).
+-moduledoc false.
 
 -behaviour(eunit_listener).
 

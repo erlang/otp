@@ -390,6 +390,7 @@ safeToken2           -> 'V91Token'              : '$1' .
 safeToken2           -> 'VersionToken'          : '$1' .
 
 Erlang code.
+-moduledoc false.
 
 -include("megaco_text_mini_parser.hrl").
 

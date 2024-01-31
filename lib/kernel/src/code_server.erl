@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(code_server).
+-moduledoc false.
 
 %% This file holds the server part of the code_server.
 

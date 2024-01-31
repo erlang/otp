@@ -21,6 +21,7 @@
 %%
 
 -module(beam_utils).
+-moduledoc false.
 -export([replace_labels/4,split_even/1]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).

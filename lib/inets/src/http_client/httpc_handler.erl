@@ -20,6 +20,7 @@
 %%
 
 -module(httpc_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 

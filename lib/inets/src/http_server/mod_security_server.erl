@@ -43,6 +43,7 @@
 
 
 -module(mod_security_server).
+-moduledoc false.
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").

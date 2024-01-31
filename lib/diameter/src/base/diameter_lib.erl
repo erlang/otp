@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_lib).
+-moduledoc false.
 -compile({no_auto_import, [now/0]}).
 
 -export([info_report/2,

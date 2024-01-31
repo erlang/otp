@@ -21,6 +21,7 @@
 %%          (Mandatory.)
 
 -module(beam_z).
+-moduledoc false.
 
 -export([module/2]).
 

@@ -19,6 +19,7 @@
 %%
 
 -module(diameter_codegen).
+-moduledoc false.
 
 %%
 %% This module generates erl/hrl files for encode/decode modules from

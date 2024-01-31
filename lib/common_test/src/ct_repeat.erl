@@ -28,6 +28,7 @@
 %%% -repeat <N>, N = integer()
 
 -module(ct_repeat).
+-moduledoc false.
 
 %% Script interface
 -export([loop_test/2]).

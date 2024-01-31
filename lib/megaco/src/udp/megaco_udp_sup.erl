@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for all active UDP port servers
 %%-----------------------------------------------------------------
 -module(megaco_udp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

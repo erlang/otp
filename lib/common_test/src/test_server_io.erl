@@ -30,6 +30,7 @@
 %%
 
 -module(test_server_io).
+-moduledoc false.
 -export([start_link/0,stop/1,get_gl/1,set_fd/2,
 	 start_transaction/0,end_transaction/0,
 	 print_buffered/1,print/3,print_unexpected/1,

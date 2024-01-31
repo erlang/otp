@@ -369,6 +369,5 @@ fi
 ERL_DED
 
 AC_CONFIG_FILES([../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in])
-AC_CONFIG_FILES([emd2exml], [chmod +x emd2exml])
 
 AC_OUTPUT

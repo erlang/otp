@@ -24,6 +24,7 @@
 %%%----------------------------------------------------------------------
 
 -module(dist_util).
+-moduledoc false.
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,

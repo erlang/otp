@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for a SSL/TLS connection
 %%----------------------------------------------------------------------
 -module(tls_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

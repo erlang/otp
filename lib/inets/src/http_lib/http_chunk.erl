@@ -21,6 +21,7 @@
 %%              3.6.1
 
 -module(http_chunk).
+-moduledoc false.
 
 -include("http_internal.hrl").
 

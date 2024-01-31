@@ -21,6 +21,7 @@
 %%
 
 -module(dtls_packet_demux).
+-moduledoc false.
 
 -behaviour(gen_server).
 

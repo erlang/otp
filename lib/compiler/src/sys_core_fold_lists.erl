@@ -20,6 +20,7 @@
 %% Purpose : Inline high order lists functions from the lists module.
 
 -module(sys_core_fold_lists).
+-moduledoc false.
 
 -export([call/4]).
 

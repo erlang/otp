@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(observer_html_lib).
+-moduledoc false.
 
 %% 
 %% This module implements the HTML generation for the crashdump

@@ -22,6 +22,7 @@
 %% This module implements a supervisor for external (plug-in) processes
 
 -module(mnesia_ext_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -export([start/0,

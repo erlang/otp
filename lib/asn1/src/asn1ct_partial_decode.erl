@@ -19,6 +19,7 @@
 %%
 
 -module(asn1ct_partial_decode).
+-moduledoc false.
 -export([prepare/2,format_error/1]).
 
 -include("asn1_records.hrl").

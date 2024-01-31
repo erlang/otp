@@ -116,6 +116,7 @@
 %%     check_connection_closed(State).
 %%-----------------------------------------------------------------
 -module(ct_release_test).
+-moduledoc false.
 
 -export([init/1, upgrade/4, cleanup/1, get_app_vsns/2, get_appup/2]).
 

@@ -33,16 +33,16 @@
   <section>
     <title>map</title>
     <p>The following function, <c>double</c>, doubles every element in a list:</p>
-    <code type="none">
+    <code type="erl">
 double([H|T]) -> [2*H|double(T)];
 double([])    -> [].</code>
     <p>Hence, the argument entered as input is doubled as follows:</p>
-    <pre>
+    <pre type="erl">
 > <input>double([1,2,3,4]).</input>
 [2,4,6,8]</pre>
     <p>The following function, <c>add_one</c>, adds one to every
       element in a list:</p>
-    <code type="none">
+    <code type="erl">
 add_one([H|T]) -> [H+1|add_one(T)];
 add_one([])    -> [].</code>
     <p>The functions <c>double</c> and <c>add_one</c> have a
@@ -51,7 +51,7 @@ add_one([])    -> [].</code>
     <codeinclude file="funs1.erl" tag="%1" type="erl"></codeinclude>
     <p>The functions <c>double</c> and <c>add_one</c> can now be expressed
     in terms of <c>map</c> as follows:</p>
-    <code type="none">
+    <code type="erl">
 double(L)  -> map(fun(X) -> 2*X end, L).
 add_one(L) -> map(fun(X) -> 1 + X end, L).</code>
     <p><c>map(F, List)</c> is a function that takes a function
@@ -77,14 +77,14 @@ add_one(L) -> map(fun(X) -> 1 + X end, L).</code>
     the following two examples are written as conventional
       functions.</p>
       <p>This function prints all elements of a list onto a stream:</p>
-    <code type="none">
+    <code type="erl">
 print_list(Stream, [H|T]) ->
     io:format(Stream, "~p~n", [H]),
     print_list(Stream, T);
 print_list(Stream, []) ->
     true.</code>
      <p>This function broadcasts a message to a list of processes:</p>
-    <code type="none">
+    <code type="erl">
 broadcast(Msg, [Pid|Pids]) ->
     Pid ! Msg,
     broadcast(Msg, Pids);
@@ -97,7 +97,7 @@ broadcast(_, []) ->
     <p>The function <c>foreach</c> expresses this similarity:</p>
     <codeinclude file="funs1.erl" tag="%2" type="erl"></codeinclude>
     <p>Using the function <c>foreach</c>, the function <c>print_list</c> becomes:</p>
-    <code type="none">
+    <code type="erl">
 foreach(fun(H) -> io:format(S, "~p~n",[H]) end, L)</code>
      <p>Using the function <c>foreach</c>, the function <c>broadcast</c> becomes:</p>
     <code type="none">
@@ -115,7 +115,7 @@ foreach(fun(Pid) -> Pid ! M end, L)</code>
     <p>Funs are written with the following syntax (see <seeguide
       marker="system/reference_manual:expressions#funs">Fun Expressions
       </seeguide> for full description):</p>
-    <code type="none">
+    <code type="erl">
 F = fun (Arg1, Arg2, ... ArgN) ->
         ...
     end</code>
@@ -142,7 +142,7 @@ F(Arg1, Arg2, ..., Argn)</code>
     <p>To check whether a term is a fun, use the test
       <c>is_function/1</c> in a guard.</p>
       <p><em>Example:</em></p>
-    <code type="none">
+    <code type="erl">
 f(F, Args) when is_function(F) ->
    apply(F, Args);
 f(N, _) when is_integer(N) ->
@@ -167,7 +167,7 @@ f(N, _) when is_integer(N) ->
       <item>Variables cannot be exported from a fun.</item>
     </list>
     <p>The following examples illustrate these rules:</p>
-    <code type="none">
+    <code type="erl">
 print_list(File, List) ->
     {ok, Stream} = file:open(File, write),
     foreach(fun(X) -> io:format(Stream,"~p~n",[X]) end, List),
@@ -179,7 +179,7 @@ print_list(File, List) ->
     <p>As any variable that occurs in the head of a fun is
       considered a new variable, it is equally valid to write
       as follows:</p>
-    <code type="none">
+    <code type="erl">
 print_list(File, List) ->
     {ok, Stream} = file:open(File, write),
     foreach(fun(File) -> 
@@ -203,7 +203,7 @@ print_list(File, List) ->
       For example, you might write the following code if you intend
       the first clause of <c>F</c> to be evaluated when the value of
       its argument is <c>Y</c>:</p>
-    <code type="none">
+    <code type="erl">
 f(...) ->
     Y = ...
     map(fun(X) when X == Y ->
@@ -213,7 +213,7 @@ f(...) ->
         end, ...)
     ...</code>
     <p>instead of writing the following code:</p>
-    <code type="none">
+    <code type="erl">
 f(...) ->
     Y = ...
     map(fun(Y) ->
@@ -238,7 +238,7 @@ f(...) ->
         to every argument in the list.</p>
 	<p>When a new fun is defined in the shell, the value of the fun
         is printed as <c><![CDATA[Fun#<erl_eval>]]></c>:</p>
-      <pre>
+      <pre type="erl">
 > <input>Double = fun(X) -> 2 * X end.</input>
 #Fun&lt;erl_eval.6.72228031&gt;
 > <input>lists:map(Double, [1,2,3,4,5]).</input>
@@ -256,7 +256,7 @@ f(...) ->
       <c>P(X)</c> is <c>true</c>.</p>
       <p>A predicate <c>Big(X)</c> is defined, which is <c>true</c> if
         its argument is greater that 10:</p>
-      <pre>
+      <pre type="erl">
 > <input>Big =  fun(X) -> if X > 10 -> true; true -> false end end.</input>
 #Fun&lt;erl_eval.6.72228031&gt;
 > <input>lists:any(Big, [1,2,3,4]).</input>
@@ -271,7 +271,7 @@ true</pre>
       <codeinclude file="funs1.erl" tag="%3" type="erl"></codeinclude>
       <p>It is <c>true</c>
         if the predicate applied to all elements in the list is <c>true</c>.</p>
-      <pre>
+      <pre type="erl">
 > <input>lists:all(Big, [1,2,3,4,12,6]).</input>   
 false
 > <input>lists:all(Big, [12,13,14,15]).</input>       
@@ -286,7 +286,7 @@ true</pre>
       <p>The function is applied to each argument in the list.
         <c>foreach</c> returns <c>ok</c>. It is only used for its
         side-effect:</p>
-      <pre>
+      <pre type="erl">
 > <input>lists:foreach(fun(X) -> io:format("~w~n",[X]) end, [1,2,3,4]).</input> 
 1
 2
@@ -308,14 +308,14 @@ ok</pre>
       <p>If you have a list of lists <c>L = ["I","like","Erlang"]</c>,
         then you can sum the lengths of all the strings in <c>L</c> as
         follows:</p>
-      <pre>
+      <pre type="erl">
 > <input>L = ["I","like","Erlang"].</input>
 ["I","like","Erlang"]
 10> <input>lists:foldl(fun(X, Sum) -> length(X) + Sum end, 0, L).</input>                    
 11</pre>
       <p><c>foldl</c> works like a <c>while</c> loop in an imperative
         language:</p>
-      <code type="none">
+      <code type="erl">
 L =  ["I","like","Erlang"],
 Sum = 0,
 while( L != []){
@@ -331,7 +331,7 @@ end</code>
       <p>The following example shows how to change all letters in
         <c>L</c> to upper case and then count them.</p>
       <p>First the change to upper case:</p>
-      <pre>
+      <pre type="erl">
 > <input>Upcase =  fun(X) when $a =&lt; X,  X =&lt; $z -> X + $A - $a;</input>
 <input>(X) -> X</input> 
 <input>end.</input>
@@ -346,7 +346,7 @@ end</code>
 > <input>lists:map(Upcase_word, L).</input>
 ["I","LIKE","ERLANG"]</pre>
       <p>Now, the fold and the map can be done at the same time:</p>
-      <pre>
+      <pre type="erl">
 > <input>lists:mapfoldl(fun(Word, Sum) -></input>
 <input>{Upcase_word(Word), Sum + length(Word)}</input>
 <input>end, 0, L).</input>
@@ -359,7 +359,7 @@ end</code>
         and returns all elements in the list that satisfy
         the predicate:</p>
       <codeinclude file="funs1.erl" tag="%9" type="erl"></codeinclude>
-      <pre>
+      <pre type="erl">
 > <input>lists:filter(Big, [500,12,2,45,6,7]).</input>
 [500,12,45]</pre>
       <p>Combining maps and filters enables writing of very succinct
@@ -367,14 +367,14 @@ end</code>
         function <c>diff(L1, L2)</c> to be
         the difference between the lists <c>L1</c> and <c>L2</c>,
         the code can be written as follows:</p>
-      <code type="none">
+      <code type="erl">
 diff(L1, L2) -> 
     filter(fun(X) -> not member(X, L2) end, L1).</code>
       <p>This gives the list of all elements in L1 that are not contained
         in L2.</p>
 	<p> The AND intersection of the list <c>L1</c> and <c>L2</c> is
         also easily defined:</p>
-      <code type="none">
+      <code type="erl">
 intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
     </section>
 
@@ -383,7 +383,7 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
       <p><c>takewhile(P, L)</c> takes elements <c>X</c> from a list
         <c>L</c> as long as the predicate <c>P(X)</c> is true:</p>
       <codeinclude file="funs1.erl" tag="%5" type="erl"></codeinclude>
-      <pre>
+      <pre type="erl">
 > <input>lists:takewhile(Big, [200,500,45,5,3,45,6]).</input>  
 [200,500,45]</pre>
     </section>
@@ -392,7 +392,7 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
       <title>dropwhile</title>
       <p><c>dropwhile</c> is the complement of <c>takewhile</c>:</p>
       <codeinclude file="funs1.erl" tag="%6" type="erl"></codeinclude>
-      <pre>
+      <pre type="erl">
 > <input>lists:dropwhile(Big, [200,500,45,5,3,45,6]).</input>
 [5,3,45,6]</pre>
     </section>
@@ -403,7 +403,7 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
         sublists <c>{L1, L2}</c>, where <c>L = takewhile(P, L)</c>
         and <c>L2 = dropwhile(P, L)</c>:</p>
       <codeinclude file="funs1.erl" tag="%7" type="erl"></codeinclude>
-      <pre>
+      <pre type="erl">
 > <input>lists:splitwith(Big, [200,500,45,5,3,45,6]).</input>
 {[200,500,45],[5,3,45,6]}</pre>
     </section>
@@ -421,7 +421,7 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
       <p><c>Adder(X)</c> is a function that given <c>X</c>, returns
         a new function <c>G</c> such that <c>G(K)</c> returns
         <c>K + X</c>:</p>
-      <pre>
+      <pre type="erl">
 > <input>Adder = fun(X) -> fun(Y) -> X + Y end end.</input>
 #Fun&lt;erl_eval.6.72228031&gt;
 > <input>Add6 = Adder(6).</input>
@@ -433,7 +433,7 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).</code>
     <section>
       <title>Infinite Lists</title>
       <p>The idea is to write something like:</p>
-      <code type="none">
+      <code type="erl">
 -module(lazy).
 -export([ints_from/1]).
 ints_from(N) ->
@@ -441,7 +441,7 @@ ints_from(N) ->
             [N|ints_from(N+1)]
     end.</code>
       <p>Then proceed as follows:</p>
-      <pre>
+      <pre type="erl">
 > <input>XX = lazy:ints_from(1).</input>
 #Fun&lt;lazy.0.29874839&gt;
 > <input>XX().</input>
@@ -458,7 +458,7 @@ ints_from(N) ->
     <section>
       <title>Parsing</title>
       <p>The following examples show parsers of the following type:</p>
-      <pre>
+      <pre type="erl">
 Parser(Toks) -> {ok, Tree, Toks1} | fail</pre>
       <p><c>Toks</c> is the list of tokens to be parsed. A successful
         parse returns <c>{ok, Tree, Toks1}</c>.</p>
@@ -478,7 +478,7 @@ Parser(Toks) -> {ok, Tree, Toks1} | fail</pre>
         list of tokens:</p>
       <codeinclude file="funparse.erl" tag="%14" type="erl"></codeinclude>
       <p>This function can be used as follows:</p>
-      <pre>
+      <pre type="erl">
 > <input>P1 = funparse:pconst(a).</input>
 #Fun&lt;funparse.0.22674075&gt;
 > <input>P1([a,b,c]).</input>
@@ -505,7 +505,7 @@ fail</pre>
       <p>The following code adds a parser interface to the grammar:</p>
       <codeinclude file="funparse.erl" tag="%12" type="erl"></codeinclude>
       <p>The parser can be tested as follows:</p>
-      <pre>
+      <pre type="erl">
 > <input>funparse:parse([a,c]).</input>
 {ok,{'and',{'or',1,{const,a}},{'or',1,{const,c}}}}
 > <input>funparse:parse([a,d]).</input> 

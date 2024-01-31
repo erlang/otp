@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpc_profile_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

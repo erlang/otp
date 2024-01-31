@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_init).
+-moduledoc false.
 
 %% Initial process of an Erlang system.
 

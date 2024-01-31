@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(etop_txt).
+-moduledoc false.
 -author('siri@erix.ericsson.se').
 
 %%-compile(export_all).

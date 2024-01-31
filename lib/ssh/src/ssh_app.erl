@@ -36,6 +36,7 @@
 %%%                                         +--> "system sup" (etc)
 
 -module(ssh_app).
+-moduledoc false.
 
 -behaviour(application).
 -behaviour(supervisor).

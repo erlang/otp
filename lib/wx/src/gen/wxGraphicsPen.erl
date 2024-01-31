@@ -19,6 +19,20 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGraphicsPen).
+-moduledoc """
+Functions for wxGraphicsPen class
+
+A `m:wxGraphicsPen` is a native representation of a pen. The contents are
+specific and private to the respective renderer. Instances are ref counted and
+can therefore be assigned as usual. The only way to get a valid instance is via
+`wxGraphicsContext:createPen/2` or `wxGraphicsRenderer::CreatePen()` (not
+implemented in wx).
+
+This class is derived (and can use functions) from: `m:wxGraphicsObject`
+
+wxWidgets docs:
+[wxGraphicsPen](https://docs.wxwidgets.org/3.1/classwx_graphics_pen.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -28,11 +42,14 @@
 -type wxGraphicsPen() :: wx:wx_object().
 -export_type([wxGraphicsPen/0]).
 %% @hidden
+-doc false.
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxGraphicsObject
 %% @hidden
+-doc false.
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden
+-doc false.
 getRenderer(This) -> wxGraphicsObject:getRenderer(This).

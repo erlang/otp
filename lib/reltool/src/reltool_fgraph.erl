@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_fgraph).
+-moduledoc false.
 
 -export([
 	step/2,

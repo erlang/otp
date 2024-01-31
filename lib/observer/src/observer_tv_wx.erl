@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_tv_wx).
+-moduledoc false.
 
 -export([start_link/3, display_table_info/4]).
 

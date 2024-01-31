@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(observer_sock_wx).
+-moduledoc false.
 
 %% {ok, S1} = socket:open(inet,  stream,    tcp).
 %% {ok, S2} = socket:open(inet6, stream,    tcp).

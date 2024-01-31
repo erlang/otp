@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_iserver).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% External exports

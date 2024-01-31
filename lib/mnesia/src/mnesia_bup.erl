@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_bup).
+-moduledoc false.
 -export([
          %% Public interface
          iterate/4,

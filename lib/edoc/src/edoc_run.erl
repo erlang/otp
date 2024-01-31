@@ -98,6 +98,7 @@ files(Args) ->
     run(F).
 
 %% @hidden Not official yet
+-doc false.
 -spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->

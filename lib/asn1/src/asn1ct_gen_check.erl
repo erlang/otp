@@ -21,6 +21,7 @@
 %%
 
 -module(asn1ct_gen_check).
+-moduledoc false.
 -export([emit/4]).
 
 -import(asn1ct_gen, [emit/1]).

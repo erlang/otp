@@ -24,6 +24,7 @@
 %%
 
 -module(beam_ssa_dead).
+-moduledoc false.
 -export([opt/1]).
 
 -include("beam_ssa.hrl").

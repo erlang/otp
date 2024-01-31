@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_acm).
+-moduledoc false.
 
 -behaviour(snmpa_authentication_service).
 

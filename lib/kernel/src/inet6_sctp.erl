@@ -21,6 +21,7 @@
 %% See also: $ERL_TOP/lib/kernel/AUTHORS
 %%
 -module(inet6_sctp).
+-moduledoc false.
 
 %% This module provides functions for communicating with
 %% sockets using the SCTP protocol.  The implementation assumes that

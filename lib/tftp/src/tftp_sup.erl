@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(tftp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

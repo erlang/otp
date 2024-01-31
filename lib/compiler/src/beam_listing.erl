@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_listing).
+-moduledoc false.
 
 -export([module/2]).
 

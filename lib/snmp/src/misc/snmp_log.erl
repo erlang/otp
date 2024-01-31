@@ -19,6 +19,7 @@
 %% 
 
 -module(snmp_log).
+-moduledoc false.
 
 
 -export([

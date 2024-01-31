@@ -39,6 +39,7 @@
 %% We processes the load request queue as a "background" job..
 
 -module(mnesia_controller).
+-moduledoc false.
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 -behaviour(gen_server).

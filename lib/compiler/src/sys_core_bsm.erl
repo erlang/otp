@@ -21,6 +21,7 @@
 
 
 -module(sys_core_bsm).
+-moduledoc false.
 -export([module/2]).
 
 -include("core_parse.hrl").

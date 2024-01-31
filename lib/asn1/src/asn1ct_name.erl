@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_name).
+-moduledoc false.
 
 -export([start/0,
 	 curr/1,

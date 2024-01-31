@@ -20,6 +20,7 @@
 
 -module(inet_epmd_dist).
 -feature(maybe_expr, enable).
+-moduledoc false.
 
 %% DistMod API - own inet_tcp_dist equivalence implementation
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,

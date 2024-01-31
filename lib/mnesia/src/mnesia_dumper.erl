@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_dumper).
+-moduledoc false.
 
 %% The InitBy arg may be one of the following:
 %% scan_decisions     Initial scan for decisions

@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_tok).
+-moduledoc false.
 
 %% Tokenize ASN.1 code (input to parser generated with yecc)   
 

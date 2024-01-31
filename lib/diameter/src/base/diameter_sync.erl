@@ -26,6 +26,7 @@
 %%
 
 -module(diameter_sync).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([call/4, call/5,

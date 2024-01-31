@@ -20,6 +20,7 @@
 %%% -define(DEBUG, true).
 
 -module(rec_env).
+-moduledoc false.
 
 -export([bind/3, bind_list/3, bind_recursive/4, delete/2, empty/0,
 	 get/2, is_defined/2, is_empty/1, keys/1, lookup/2, new_key/1,

@@ -30,7 +30,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src doc/src
+SUB_DIRECTORIES = src doc
 
 include vsn.mk
 VSN = $(DIALYZER_VSN)

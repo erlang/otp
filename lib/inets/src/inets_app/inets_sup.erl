@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(inets_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

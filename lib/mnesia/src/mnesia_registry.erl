@@ -20,6 +20,29 @@
 
 %%
 -module(mnesia_registry).
+-moduledoc """
+Dump support for registries in erl_interface.
+
+This module is usually part of the `erl_interface` application, but is currently
+part of the Mnesia application.
+
+This module is mainly intended for internal use within OTP, but it has two
+functions that are exported for public use.
+
+On C-nodes, `erl_interface` has support for registry tables. These tables reside
+in RAM on the C-node, but can also be dumped into Mnesia tables. By default, the
+dumping of registry tables through `erl_interface` causes a corresponding Mnesia
+table to be created with `mnesia_registry:create_table/1`, if necessary.
+
+Tables that are created with these functions can be administered as all other
+Mnesia tables. They can be included in backups, replicas can be added, and so
+on. The tables are normal Mnesia tables owned by the user of the corresponding
+`erl_interface` registries.
+
+## See Also
+
+[erl_interface(3)](`e:erl_interface:index.html`), `m:mnesia`
+""".
 
 %%%----------------------------------------------------------------------
 %%% File    : mnesia_registry.erl
@@ -118,6 +141,7 @@ start(Type, Tab, LinkTo) ->
 %% and it is up to he LinkTo process to act properly when it receives an exit
 %% signal.
 
+-doc false.
 start_dump(Tab, LinkTo) ->
     start(dump, Tab, LinkTo).
 
@@ -140,9 +164,21 @@ start_dump(Tab, LinkTo) ->
 %% and it is up to he LinkTo process to act properly when it receives an
 %% exit signal.
 
+-doc false.
 start_restore(Tab, LinkTo) ->
     start(restore, Tab, LinkTo).
 
+-doc """
+create_table(Tab) -> ok | exit(Reason)
+
+A wrapper function for `mnesia:create_table/2`, which creates a table (if there
+is no existing table) with an appropriate set of `attributes`. The table only
+resides on the local node and its storage type is the same as the `schema` table
+on the local node, that is, `{ram_copies,[node()]}` or `{disc_copies,[node()]}`.
+
+This function is used by `erl_interface` to create the Mnesia table if it does
+not already exist.
+""".
 -spec create_table(Tab :: atom()) -> 'ok'.
 %% Optionally creates the Mnesia table Tab with suitable default values.
 %% Returns ok or EXIT's
@@ -150,6 +186,19 @@ create_table(Tab) ->
     Storage = mnesia:table_info(schema, storage_type),
     create_table(Tab, [{Storage, [node()]}]).
 
+-doc """
+create_table(Tab, TabDef) -> ok | exit(Reason)
+
+A wrapper function for `mnesia:create_table/2`, which creates a table (if there
+is no existing table) with an appropriate set of `attributes`. The attributes
+and `TabDef` are forwarded to `mnesia:create_table/2`. For example, if the table
+is to reside as `disc_only_copies` on all nodes, a call looks as follows:
+
+```erlang
+          TabDef = [{{disc_only_copies, node()|nodes()]}],
+          mnesia_registry:create_table(my_reg, TabDef)
+```
+""".
 -spec create_table(Tab :: atom(), Opt :: [{atom(), term()}]) -> ok.
 create_table(Tab, TabDef) ->
     Attrs = record_info(fields, registry_entry),
@@ -166,6 +215,7 @@ create_table(Tab, TabDef) ->
 %%% Server
 %%%----------------------------------------------------------------------
 
+-doc false.
 init(Type, Starter, LinkTo, Tab) ->
     if
 	LinkTo /= Starter ->

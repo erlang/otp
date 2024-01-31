@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_misc_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

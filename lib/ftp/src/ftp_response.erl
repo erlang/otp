@@ -21,6 +21,7 @@
 %% Description: This module implements handling of ftp server responses.
 
 -module(ftp_response).
+-moduledoc false.
 
 %% Internal API
 -export([parse_lines/3, interpret/1, error_string/1]).

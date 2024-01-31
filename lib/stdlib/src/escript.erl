@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(escript).
+-moduledoc false.
 
 %% Useful functions that can be called from scripts.
 -export([script_name/0, create/2, extract/2]).

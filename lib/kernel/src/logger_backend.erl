@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_backend).
+-moduledoc false.
 
 -export([log_allowed/3]).
 

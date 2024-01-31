@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_literal_area_collector).
+-moduledoc false.
 
 -export([start/0, send_copy_request/3, release_area_switch/0]).
 

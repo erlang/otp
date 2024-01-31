@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(pubkey_policy_tree).
+-moduledoc false.
 
 -include("../include/public_key.hrl").
 

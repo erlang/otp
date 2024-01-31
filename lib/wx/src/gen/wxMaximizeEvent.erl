@@ -19,6 +19,32 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMaximizeEvent).
+-moduledoc """
+Functions for wxMaximizeEvent class
+
+An event being sent when a top level window is maximized. Notice that it is not
+sent when the window is restored to its original size after it had been
+maximized, only a normal `m:wxSizeEvent` is generated in this case.
+
+Currently this event is only generated in wxMSW, wxGTK and wxOSX/Cocoa ports so
+portable programs should only rely on receiving `wxEVT_SIZE` and not necessarily
+this event when the window is maximized.
+
+See:
+[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events),
+`wxTopLevelWindow:maximize/2`, `wxTopLevelWindow:isMaximized/1`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs:
+[wxMaximizeEvent](https://docs.wxwidgets.org/3.1/classwx_maximize_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with
+[`wxMaximizeEventType`](`t:wxMaximizeEventType/0`) to subscribe to events of
+this type.
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -31,25 +57,35 @@
 -type wxMaximizeEventType() :: 'maximize'.
 -export_type([wxMaximizeEvent/0, wxMaximize/0, wxMaximizeEventType/0]).
 %% @hidden
+-doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxEvent
 %% @hidden
+-doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden
+-doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
 %% @hidden
+-doc false.
 skip(This) -> wxEvent:skip(This).
 %% @hidden
+-doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
 %% @hidden
+-doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
 %% @hidden
+-doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
 %% @hidden
+-doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
 %% @hidden
+-doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
+-doc false.
 getId(This) -> wxEvent:getId(This).

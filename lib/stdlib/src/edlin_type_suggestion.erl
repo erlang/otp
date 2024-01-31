@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_type_suggestion).
+-moduledoc false.
 -include_lib("kernel/include/eep48.hrl").
 -export([type_tree/4, get_arity/3, get_atoms/3, get_types/3, get_types/4, get_function_type/4, print_type/3]).
 

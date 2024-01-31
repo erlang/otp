@@ -20,6 +20,7 @@
 %% Purpose: Partition BEAM instructions into basic blocks.
 
 -module(beam_block).
+-moduledoc false.
 
 -include("beam_asm.hrl").
 

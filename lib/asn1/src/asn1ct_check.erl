@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct_check).
+-moduledoc false.
 
 %% Main Module for ASN.1 compile time functions
 

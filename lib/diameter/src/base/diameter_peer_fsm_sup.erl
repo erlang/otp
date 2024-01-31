@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_peer_fsm_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

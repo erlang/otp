@@ -20,6 +20,7 @@
 %% Purpose : Clean up, such as removing unused labels and unused functions.
 
 -module(beam_clean).
+-moduledoc false.
 
 -export([module/2]).
 

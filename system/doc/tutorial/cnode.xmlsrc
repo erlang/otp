@@ -124,7 +124,7 @@ erl_connect_xinit("idril", "cnode", "cnode@idril.ericsson.se",
          the Erlang-C communication. If it acts as a client, it
          connects to an Erlang node by calling <c>erl_connect()</c>,
          which returns an open file descriptor at success:</p>
-      <pre>
+      <pre type="erl">
 fd = erl_connect("e1@idril");</pre>
       <p>If the C node acts as a server, it must first create a socket
         (call <c>bind()</c> and <c>listen()</c>) listening to a
@@ -159,7 +159,7 @@ fd = erl_accept(listen, &amp;conn);</pre>
         (alive check from other node, is to be ignored). Other
         possible types indicate process events such as link, unlink,
         and exit:</p>
-      <pre>
+      <pre type="c">
   while (loop) {
 
     got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
@@ -179,7 +179,7 @@ fd = erl_accept(listen, &amp;conn);</pre>
         <c>ETERM</c> struct as well and sent back to Erlang using
         <c>erl_send()</c>, which takes the open file descriptor, a
         pid, and a term as arguments:</p>
-      <pre>
+      <pre type="c">
         fromp = erl_element(2, emsg.msg);
         tuplep = erl_element(3, emsg.msg);
         fnp = erl_element(1, tuplep);
@@ -196,7 +196,7 @@ fd = erl_accept(listen, &amp;conn);</pre>
       <p>Finally, the memory allocated by the <c>ETERM</c> creating
         functions (including <c>erl_receive_msg()</c> must be
         freed:</p>
-      <pre>
+      <pre type="c">
         erl_free_term(emsg.from); erl_free_term(emsg.msg);
         erl_free_term(fromp); erl_free_term(tuplep);
         erl_free_term(fnp); erl_free_term(argp);
@@ -257,7 +257,7 @@ unix> <input>erl -compile complex3 complex4</input></pre>
        and must be set to use the same magic cookie as the C node,
        <c>secretcookie</c>:</item>
      </list>
-    <pre>
+    <pre type="erl">
 unix> <input>cserver 3456</input>
 
 unix> <input>erl -sname e1 -setcookie secretcookie</input>
@@ -271,7 +271,7 @@ Eshell V4.9.1.2  (abort with ^G)
     <p><em>Step 4.</em> Run the C node client example. Terminate
       <c>cserver</c>, but not Erlang, and start <c>cclient</c>. The
       Erlang node must be started before the C node client:</p>
-    <pre>
+    <pre type="erl">
 unix> <input>cclient</input>
 
 (e1@idril)3> <input>complex3:foo(3).</input>

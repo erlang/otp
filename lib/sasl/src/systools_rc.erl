@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_rc).
+-moduledoc false.
 -export([translate_scripts/3, translate_scripts/4, format_error/1]).
 
 -include("systools.hrl").

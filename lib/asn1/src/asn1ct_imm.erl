@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_imm).
+-moduledoc false.
 -export([per_dec_raw_bitstring/2,
 	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,

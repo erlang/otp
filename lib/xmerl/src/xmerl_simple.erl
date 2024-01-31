@@ -23,6 +23,7 @@
 
 
 -module(xmerl_simple).
+-moduledoc false.
 
 -export([file/2,
 	 string/2]).

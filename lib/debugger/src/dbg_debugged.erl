@@ -17,6 +17,7 @@
 %% 
 %% %CopyrightEnd%
 -module(dbg_debugged).
+-moduledoc false.
 
 %% External exports
 -export([eval/3]).

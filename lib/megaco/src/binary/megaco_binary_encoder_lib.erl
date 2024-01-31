@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_encoder_lib).
+-moduledoc false.
 
 %% API
 -export([

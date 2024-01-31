@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(cth_log_redirect).
+-moduledoc false.
 
 %%% Common Test Framework functions handling test specifications.
 %%%

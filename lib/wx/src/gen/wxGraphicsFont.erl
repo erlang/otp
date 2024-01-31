@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGraphicsFont).
+-moduledoc """
+Functions for wxGraphicsFont class
+
+A `m:wxGraphicsFont` is a native representation of a font. The contents are
+specific and private to the respective renderer. Instances are ref counted and
+can therefore be assigned as usual. The only way to get a valid instance is via
+`wxGraphicsContext:createFont/4` or `wxGraphicsRenderer:createFont/4`.
+
+This class is derived (and can use functions) from: `m:wxGraphicsObject`
+
+wxWidgets docs:
+[wxGraphicsFont](https://docs.wxwidgets.org/3.1/classwx_graphics_font.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -28,11 +41,14 @@
 -type wxGraphicsFont() :: wx:wx_object().
 -export_type([wxGraphicsFont/0]).
 %% @hidden
+-doc false.
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxGraphicsObject
 %% @hidden
+-doc false.
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden
+-doc false.
 getRenderer(This) -> wxGraphicsObject:getRenderer(This).

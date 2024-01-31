@@ -15,6 +15,7 @@
 %% Purpose: Run individual jobs in separate processes.
 
 -module(dialyzer_worker).
+-moduledoc false.
 
 -export([launch/4]).
 

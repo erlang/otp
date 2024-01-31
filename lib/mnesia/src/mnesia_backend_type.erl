@@ -25,6 +25,7 @@
 %%%header_doc_include
 
 -module(mnesia_backend_type).
+-moduledoc false.
 
 -export([behaviour_info/1]).
 

@@ -32,6 +32,7 @@
 %% no further events will arrive whose identifiers have Id as prefix.
 
 -module(eunit_serial).
+-moduledoc false.
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").

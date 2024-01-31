@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for a listen options tracker
 %%----------------------------------------------------------------------
 -module(dtls_server_session_cache_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

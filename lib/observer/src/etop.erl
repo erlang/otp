@@ -18,6 +18,71 @@
 %% %CopyrightEnd%
 %%
 -module(etop).
+-moduledoc """
+Erlang Top is a tool for presenting information about Erlang processes similar
+to the information presented by "top" in UNIX.
+
+Start Erlang Top with the provided scripts `etop`. This starts a hidden Erlang
+node that connects to the node to be measured. The measured node is specified
+with option `-node`. If the measured node has a different cookie than the
+default cookie for the user who invokes the script, the cookie must be
+explicitly specified with option `-setcookie`.
+
+Under Windows, batch file `etop.bat` can be used.
+
+When executing the `etop` script, configuration parameters can be specified as
+command-line options, for example,
+`etop -node testnode@myhost -setcookie MyCookie`. The following configuration
+parameters exist for the tool:
+
+- **`node`** - The measured node.
+
+  Value: `t:atom/0`
+
+  Mandatory
+
+- **`setcookie`** - Cookie to use for the `etop` node. Must be same as the
+  cookie on the measured node.
+
+  Value: `t:atom/0`
+
+- **`lines`** - Number of lines (processes) to display.
+
+  Value: `t:integer/0`
+
+  Default: `10`
+
+- **`interval`** - Time interval (in seconds) between each update of the
+  display.
+
+  Value: `t:integer/0`
+
+  Default: `5`
+
+- **`accumulate`** - If `true`, the execution time and reductions are
+  accumulated.
+
+  Value: `t:boolean/0`
+
+  Default: `false`
+
+- **`sort`** - Identifies what information to sort by.
+
+  Value: `runtime | reductions | memory | msg_q`
+
+  Default: `runtime` (`reductions` if `tracing=off`)
+
+- **`tracing`** - `etop` uses the Erlang trace facility, and thus no other
+  tracing is possible on the measured node while `etop` is running, unless this
+  option is set to `off`. Also helpful if the `etop` tracing causes too high
+  load on the measured node. With tracing off, runtime is not measured.
+
+  Value: `on | off`
+
+  Default: `on`
+
+For details about Erlang Top, see the [User's Guide](etop_ug.md).
+""".
 -author('siri@erix.ericsson.se').
 
 -export([start/0, start/1, config/2, stop/0, dump/1, help/0]).
@@ -30,6 +95,12 @@
 
 -define(change_at_runtime_config,[lines,interval,sort,accumulate]).
 
+-doc """
+help() -> ok
+
+Displays the help of `etop` and its options.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec help() -> ok.
 help() ->
     io:format(
@@ -58,6 +129,11 @@ help() ->
       "                         This is not an etop parameter~n"
      ).
 
+-doc """
+stop() -> stop
+
+Terminates `etop`.
+""".
 -spec stop() -> stop | not_started.
 stop() ->
     case whereis(etop_server) of
@@ -65,6 +141,12 @@ stop() ->
 	Pid when is_pid(Pid) -> etop_server ! stop
     end.
 
+-doc """
+config(Key,Value) -> Result
+
+Changes the configuration parameters of the tool during runtime. Allowed
+parameters are `lines`, `interval`, `accumulate`, and `sort`.
+""".
 -spec config(Key,Value) -> ok | {error, Reason} when
       Key :: 'lines' | 'interval' | 'accumulate' | 'sort',
       Value :: term(),
@@ -86,6 +168,11 @@ check_runtime_config(sort,S) when S=:=runtime;
 check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
+-doc """
+dump(File) -> Result
+
+Dumps the current display to a text file.
+""".
 -spec dump(File) -> ok | {error, Reason} when
       File   :: file:filename_all(),
       Reason :: term().
@@ -95,10 +182,22 @@ dump(File) ->
 	Error -> Error
     end.
 
+-doc """
+start() -> ok
+
+Starts `etop`. Notice that `etop` is preferably started with the `etop` script.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec start() -> ok.
 start() ->
     start([]).
 
+-doc """
+start(Options) -> ok
+
+Starts `etop`. To view the possible options, use `help/0`.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec start(Options) -> ok when
       Options :: [{Key,Value}],
       Key :: atom(),
@@ -194,6 +293,7 @@ stop(Opts) ->
     end,
     unregister(etop_server).
     
+-doc false.
 update(#opts{store=Store,node=Node,tracing=Tracing,intv=Interval}=Opts) ->
     Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),
     Info = receive {Pid,I} -> I 
@@ -260,6 +360,7 @@ get_tag(msg_q) -> #etop_proc_info.mq.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Configuration Management
 
+-doc false.
 getopt(What, Config) when is_record(Config, opts) ->
     case What of 
 	node  -> Config#opts.node;
@@ -339,6 +440,7 @@ output(graphical) -> exit({deprecated, "Use observer instead"});
 output(text) -> etop_txt.
 
 
+-doc false.
 loadinfo(SysI,Prev) ->
     #etop_info{n_procs = Procs, 
 	       run_queue = RQ, 
@@ -385,6 +487,7 @@ calculate_cpu_utilization(_,RTInfo,PrevRTInfo) ->
 	    round(100*Active/Total)
     end.
 
+-doc false.
 meminfo(MemI, [Tag|Tags]) -> 
     [round(get_mem(Tag, MemI)/1024)|meminfo(MemI, Tags)];
 meminfo(_MemI, []) -> [].

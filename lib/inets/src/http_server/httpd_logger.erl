@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_logger).
+-moduledoc false.
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("inets/include/httpd.hrl").

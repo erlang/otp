@@ -23,6 +23,7 @@
 %%
 
 -module(diameter_watchdog_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

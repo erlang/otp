@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_winman).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% External exports

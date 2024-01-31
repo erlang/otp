@@ -19,6 +19,14 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxQueryNewPaletteEvent).
+-moduledoc """
+Functions for wxQueryNewPaletteEvent class
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs:
+[wxQueryNewPaletteEvent](https://docs.wxwidgets.org/3.1/classwx_query_new_palette_event.html)
+""".
 -include("wxe.hrl").
 -export([getPaletteRealized/1,setPaletteRealized/2]).
 
@@ -31,6 +39,7 @@
 -type wxQueryNewPaletteEventType() :: 'query_new_palette'.
 -export_type([wxQueryNewPaletteEvent/0, wxQueryNewPalette/0, wxQueryNewPaletteEventType/0]).
 %% @hidden
+-doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
@@ -52,20 +61,29 @@ getPaletteRealized(#wx_ref{type=ThisT}=This) ->
 
  %% From wxEvent
 %% @hidden
+-doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden
+-doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
 %% @hidden
+-doc false.
 skip(This) -> wxEvent:skip(This).
 %% @hidden
+-doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
 %% @hidden
+-doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
 %% @hidden
+-doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
 %% @hidden
+-doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
 %% @hidden
+-doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
+-doc false.
 getId(This) -> wxEvent:getId(This).

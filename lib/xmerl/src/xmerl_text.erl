@@ -22,6 +22,7 @@
 
 
 -module(xmerl_text).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

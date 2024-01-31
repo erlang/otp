@@ -21,6 +21,7 @@
 %% Purpose: Basic module for reading and verifying config files
 %%----------------------------------------------------------------------
 -module(snmp_conf).
+-moduledoc false.
 
 
 %% External exports

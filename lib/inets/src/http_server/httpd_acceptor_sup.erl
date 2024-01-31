@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(httpd_acceptor_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

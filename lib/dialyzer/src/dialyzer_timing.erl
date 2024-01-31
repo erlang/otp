@@ -19,6 +19,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_timing).
+-moduledoc false.
 
 -export([init/1, start_stamp/2, send_size_info/3, end_stamp/1, stop/1]).
 

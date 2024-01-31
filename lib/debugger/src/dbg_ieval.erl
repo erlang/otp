@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_ieval).
+-moduledoc false.
 
 -export([eval/3,exit_info/5]).
 -export([eval_expr/3]).

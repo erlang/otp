@@ -55,6 +55,16 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_transform).
+-moduledoc """
+Megaco message transformation utility.
+
+This module implements a simple megaco message transformation utility.
+
+_Note_ that this module is _not_ included in the runtime part of the
+application.
+
+[](){: #export_messages }
+""".
 
 -include_lib("kernel/include/file.hrl").
 
@@ -69,15 +79,19 @@
 -define(ALL_CODECS, [pretty, compact, per, ber, erlang]).
 -define(V3, v3).
 
+-doc false.
 codecs() ->
     ?ALL_CODECS.
 
+-doc false.
 default_message_package() ->
     ?DEFAULT_MESSAGE_PACKAGE.
 
+-doc false.
 messages() ->
     messages(?DEFAULT_MESSAGE_PACKAGE).
 
+-doc false.
 messages(MessagePackage) when is_atom(MessagePackage) ->
     %% Try the CWD first, and if that does not work try the installation directory
     case load_messages(".", MessagePackage) of
@@ -121,9 +135,26 @@ messages(BaseCodec, Msgs) ->
     transform_messages(BaseCodec, Msgs, OutCodecs).
     
 
+-doc(#{equiv => export_messages/1}).
 export_messages() ->
     export_messages(?DEFAULT_MESSAGE_PACKAGE).
 
+-doc """
+export_messages(MessagePackage) -> void()
+
+Export the messages in the `MessagePackage` (default is `time_test`).
+
+The output produced by this function is a directory structure with the following
+structure:
+
+```text
+<message package>/pretty/<message-files>
+                  compact/<message-files>
+                  per/<message-files>
+                  ber/<message-files>
+                  erlang/<message-files>
+```
+""".
 export_messages(MessagePackage) when is_atom(MessagePackage) ->
     case messages(MessagePackage) of
 	TMsgs when is_list(TMsgs) ->

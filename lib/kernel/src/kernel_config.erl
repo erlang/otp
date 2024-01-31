@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(kernel_config).
+-moduledoc false.
 
 -behaviour(gen_server).
 

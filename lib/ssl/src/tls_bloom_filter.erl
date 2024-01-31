@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_bloom_filter).
+-moduledoc false.
 
 -export([add_elem/2,
          contains/2,

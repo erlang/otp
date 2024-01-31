@@ -50,6 +50,7 @@
 %%%      ssl_trace:start(IoFmt, [file, {budget, 1000}])
 %%%
 -module(ssl_trace).
+-moduledoc false.
 
 -export([start/0, start/1, start/2, stop/0, on/0,  on/1, off/0, off/1, is_on/0,
          is_off/0, write/2]).

@@ -20,6 +20,7 @@
 %%
 
 -module(asn1ct_func).
+-moduledoc false.
 -export([start_link/0,need/1,call/3,call_gen/3,call_gen/4,
 	 generate/1,is_used/1]).
 -export([init/1,handle_call/3,handle_cast/2,terminate/2]).

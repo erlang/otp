@@ -19,6 +19,13 @@
 %%
 %%
 -module(tftp_logger).
+-moduledoc """
+Trivial FTP logger.
+
+A `tftp_logger` callback module is to be implemented as a `tftp_logger` behavior
+and export the following functions:
+""".
+-moduledoc(#{since => "OTP 18.1"}).
 
 %%-------------------------------------------------------------------
 %% Interface
@@ -31,8 +38,14 @@
 	 info_msg/2
 	]).
 
+-doc "Logs a warning message. See `error_logger:warning_msg/2` for details.".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback warning_msg(Format :: string(), Data :: [term()]) -> ok.
+-doc "Logs an info message. See `error_logger:info_msg/2` for details.".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback info_msg(Format :: string(), Data :: [term()]) -> ok.
+-doc "Logs an error message. See `error_logger:error_msg/2` for details.".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback error_msg(Format :: string(), Data :: [term()]) -> ok.
 
 -optional_callbacks([warning_msg/2, error_msg/2, info_msg/2]).
@@ -47,6 +60,7 @@
 %% Log an error message
 %%-------------------------------------------------------------------
 
+-doc false.
 error_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
     error_logger:error_msg(Format2, Data2).
@@ -61,6 +75,7 @@ error_msg(Format, Data) ->
 %% Log a warning message
 %%-------------------------------------------------------------------
 
+-doc false.
 warning_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
     error_logger:warning_msg(Format2, Data2).
@@ -75,6 +90,7 @@ warning_msg(Format, Data) ->
 %% Log an info message
 %%-------------------------------------------------------------------
 
+-doc false.
 info_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
     io:format(Format2, Data2).

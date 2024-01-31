@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 
 -module(beam_ssa_check).
+-moduledoc false.
 
 -export([module/2, format_error/1]).
 

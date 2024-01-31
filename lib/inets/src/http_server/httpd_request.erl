@@ -19,6 +19,7 @@
 %%
 
 -module(httpd_request).
+-moduledoc false.
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpd.hrl").

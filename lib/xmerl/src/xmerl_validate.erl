@@ -19,6 +19,7 @@
 %%
 
 -module(xmerl_validate).
+-moduledoc false.
 
 -export([validate/2]).
 

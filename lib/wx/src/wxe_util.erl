@@ -25,6 +25,7 @@
 %%%-------------------------------------------------------------------
 %% @hidden
 -module(wxe_util).
+-moduledoc false.
 
 -export([register_pid/1,rec/1,
 	 connect_cb/2,disconnect_cb/2,

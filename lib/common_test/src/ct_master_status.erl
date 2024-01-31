@@ -25,6 +25,7 @@
 %%% a snapshot of the test status. The module is an event
 %%% handler for the master event manager.
 -module(ct_master_status).
+-moduledoc false.
 
 -behaviour(gen_event).
 

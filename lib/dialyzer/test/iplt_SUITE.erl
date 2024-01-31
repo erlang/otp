@@ -173,7 +173,7 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
     ErlangBeam = case code:where_is_file("erlang.beam") of
                      non_existing ->
                          filename:join([code:root_dir(),
-                                        "erts", "preloaded", "ebin",
+                                        "erts", "ebin",
                                         "erlang.beam"]);
                      EBeam ->
                          EBeam

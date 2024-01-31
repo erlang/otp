@@ -23,6 +23,7 @@
 %% Created : 16 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config_xml).
+-moduledoc false.
 -export([read_config/1, check_parameter/1]).
 
 % read config file

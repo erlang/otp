@@ -19,6 +19,7 @@
 %%
 
 -module(beam_types).
+-moduledoc false.
 
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").

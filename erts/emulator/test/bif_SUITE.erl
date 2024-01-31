@@ -28,7 +28,7 @@
 -export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
-	 specs/1,improper_bif_stubs/1,auto_imports/1,
+	 specs/1,improper_bif_stubs/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
 	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
@@ -52,7 +52,7 @@ suite() ->
 
 all() -> 
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
-     specs, improper_bif_stubs, auto_imports,
+     specs, improper_bif_stubs,
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
@@ -324,35 +324,6 @@ improper_bif_stubs(_) ->
     FuncRel = sofs:restriction(FuncRel0, BifSet),
     [check_stub(MFA, Body) || {MFA,Body} <- sofs:to_external(FuncRel)],
     ok.
-
-auto_imports(_Config) ->
-    Path = get_code_path(),
-    {erlang,Abstr} = extract_abstract(erlang, Path),
-    SpecFuns = [Name || {attribute,_,spec,{Name,_}} <- Abstr],
-    auto_imports(SpecFuns, 0).
-
-auto_imports([{F,A}|T], Errors) ->
-    case erl_internal:bif(F, A) of
-	false ->
-	    io:format("~p/~p: not auto-imported, but spec claims it "
-		      "is auto-imported", [F,A]),
-	    auto_imports(T, Errors+1);
-	true ->
-	    auto_imports(T, Errors)
-    end;
-auto_imports([{erlang,F,A}|T], Errors) ->
-    case erl_internal:bif(F, A) of
-	false ->
-	    auto_imports(T, Errors);
-	true ->
-	    io:format("~p/~p: auto-imported, but "
-		      "spec claims it is *not* auto-imported", [F,A]),
-	    auto_imports(T, Errors+1)
-    end;
-auto_imports([], 0) ->
-    ok;
-auto_imports([], Errors) ->
-    ct:fail({Errors,inconsistencies}).
 
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].

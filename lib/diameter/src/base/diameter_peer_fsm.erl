@@ -26,6 +26,7 @@
 %%
 
 -module(diameter_peer_fsm).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Interface towards diameter_watchdog.

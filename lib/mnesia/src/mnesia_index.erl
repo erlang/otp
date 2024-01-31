@@ -22,6 +22,7 @@
 %% Purpose: Handles index functionality in mnesia
 
 -module(mnesia_index).
+-moduledoc false.
 -export([read/5,
 	 add_index/6,
 	 delete_index/4,

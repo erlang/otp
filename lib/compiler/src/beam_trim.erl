@@ -19,6 +19,7 @@
 %%
 
 -module(beam_trim).
+-moduledoc false.
 -export([module/2]).
 
 -import(lists, [any/2,reverse/1,reverse/2,seq/2,sort/1]).

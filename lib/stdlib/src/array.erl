@@ -73,6 +73,83 @@
 %% arrays cannot be directly compared for equality.
 
 -module(array).
+-moduledoc """
+Functional, extendible arrays.
+
+Functional, extendible arrays. Arrays can have fixed size, or can grow
+automatically as needed. A default value is used for entries that have not been
+explicitly set.
+
+Arrays uses _zero_\-based indexing. This is a deliberate design choice and
+differs from other Erlang data structures, for example, tuples.
+
+Unless specified by the user when the array is created, the default value is the
+atom `undefined`. There is no difference between an unset entry and an entry
+that has been explicitly set to the same value as the default one (compare
+`reset/2`). If you need to differentiate between unset and set entries, ensure
+that the default value cannot be confused with the values of set entries.
+
+The array never shrinks automatically. If an index `I` has been used to set an
+entry successfully, all indices in the range [0,`I`] stay accessible unless the
+array size is explicitly changed by calling `resize/2`.
+
+_Examples:_
+
+Create a fixed-size array with entries 0-9 set to `undefined`:
+
+```erlang
+A0 = array:new(10).
+10 = array:size(A0).
+```
+
+Create an extendible array and set entry 17 to `true`, causing the array to grow
+automatically:
+
+```erlang
+A1 = array:set(17, true, array:new()).
+18 = array:size(A1).
+```
+
+Read back a stored value:
+
+```text
+true = array:get(17, A1).
+```
+
+Accessing an unset entry returns default value:
+
+```text
+undefined = array:get(3, A1)
+```
+
+Accessing an entry beyond the last set entry also returns the default value, if
+the array does not have fixed size:
+
+```text
+undefined = array:get(18, A1).
+```
+
+"Sparse" functions ignore default-valued entries:
+
+```erlang
+A2 = array:set(4, false, A1).
+[{4, false}, {17, true}] = array:sparse_to_orddict(A2).
+```
+
+An extendible array can be made fixed-size later:
+
+```text
+A3 = array:fix(A2).
+```
+
+A fixed-size array does not grow automatically and does not allow accesses
+beyond the last set entry:
+
+```erlang
+{'EXIT',{badarg,_}} = (catch array:set(18, true, A3)).
+{'EXIT',{badarg,_}} = (catch array:get(18, A3)).
+```
+""".
 
 -export([new/0, new/1, new/2, is_array/1, set/3, get/2, size/1,
 	 sparse_size/1, default/1, reset/2, to_list/1, sparse_to_list/1,
@@ -162,6 +239,11 @@
 
 -type array() :: array(term()).
 
+-doc """
+A functional, extendible array. The representation is not documented and is
+subject to change without notice. Notice that arrays cannot be directly compared
+for equality.
+""".
 -opaque array(Type) ::
           #array{default :: Type, elements :: elements(Type)}.
 
@@ -188,6 +270,11 @@
 %% @see new/1
 %% @see new/2
 
+-doc """
+Creates a new, extendible array with initial size zero.
+
+See also `new/1`, `new/2`.
+""".
 -spec new() -> array().
 
 new() ->
@@ -231,6 +318,50 @@ new() ->
 %% @see from_list/2
 %% @see fix/1
 
+-doc """
+Creates a new array according to the specified options. By default, the array is
+extendible and has initial size zero. Array indices start at `0`.
+
+`Options` is a single term or a list of terms, selected from the following:
+
+- **`N::integer() >= 0` or `{size, N::integer() >= 0}`** - Specifies the initial
+  array size; this also implies `{fixed, true}`. If `N` is not a non-negative
+  integer, the call fails with reason `badarg`.
+
+- **`fixed` or `{fixed, true}`** - Creates a fixed-size array. See also `fix/1`.
+
+- **`{fixed, false}`** - Creates an extendible (non-fixed-size) array.
+
+- **`{default, Value}`** - Sets the default value for the array to `Value`.
+
+Options are processed in the order they occur in the list, that is, later
+options have higher precedence.
+
+The default value is used as the value of uninitialized entries, and cannot be
+changed once the array has been created.
+
+_Examples:_
+
+```text
+array:new(100)
+```
+
+creates a fixed-size array of size 100.
+
+```erlang
+array:new({default,0})
+```
+
+creates an empty, extendible array whose default value is `0`.
+
+```erlang
+array:new([{size,10},{fixed,false},{default,-1}])
+```
+
+creates an extendible array with initial size 10 whose default value is `-1`.
+
+See also `fix/1`, `from_list/2`, `get/2`, `new/0`, `new/2`, `set/3`.
+""".
 -spec new(Options :: array_opts()) -> array().
 
 new(Options) ->
@@ -251,6 +382,27 @@ new(Options) ->
 %%
 %% @see new/1
 
+-doc """
+Creates a new array according to the specified size and options. If `Size` is
+not a non-negative integer, the call fails with reason `badarg`. By default, the
+array has fixed size. Notice that any size specifications in `Options` override
+parameter `Size`.
+
+If `Options` is a list, this is equivalent to
+[`new([{size, Size} | Options])`](`new/1`), otherwise it is equivalent to
+[`new([{size, Size} | [Options]])`](`new/1`). However, using this function
+directly is more efficient.
+
+_Example:_
+
+```erlang
+array:new(100, {default,0})
+```
+
+creates a fixed-size array of size 100, whose default value is `0`.
+
+See also `new/1`.
+""".
 -spec new(Size :: non_neg_integer(), Options :: array_opts()) -> array().
 
 new(Size, Options) when is_integer(Size), Size >= 0 ->
@@ -304,6 +456,11 @@ find_max(_I, M) ->
 %% is a well-formed array representation even if this function returns
 %% `true'.
 
+-doc """
+Returns `true` if `X` is an array, otherwise `false`. Notice that the check is
+only shallow, as there is no guarantee that `X` is a well-formed array
+representation even if this function returns `true`.
+""".
 -spec is_array(X :: term()) -> boolean().
 
 is_array(#array{size = Size, max = Max})
@@ -319,6 +476,13 @@ is_array(_) ->
 %% @see set/3
 %% @see sparse_size/1
 
+-doc """
+Gets the number of entries in the array. Entries are numbered from `0` to
+`size(Array)-1`. Hence, this is also the index of the first entry that is
+guaranteed to not have been previously set.
+
+See also `set/3`, `sparse_size/1`.
+""".
 -spec size(Array :: array()) -> non_neg_integer().
 
 size(#array{size = N}) -> N;
@@ -329,6 +493,11 @@ size(_) -> erlang:error(badarg).
 %%
 %% @see new/2
 
+-doc """
+Gets the value used for uninitialized entries.
+
+See also `new/2`.
+""".
 -spec default(Array :: array(Type)) -> Value :: Type.
 
 default(#array{default = D}) -> D;
@@ -412,6 +581,12 @@ new_test_() ->
 %% automatically upon insertion; see also {@link set/3}.
 %% @see relax/1
 
+-doc """
+Fixes the array size. This prevents it from growing automatically upon
+insertion.
+
+See also `set/3` and `relax/1`.
+""".
 -spec fix(Array :: array(Type)) -> array(Type).
 
 fix(#array{}=A) ->
@@ -422,6 +597,12 @@ fix(#array{}=A) ->
 %% Returns `true' if the array is fixed, otherwise `false'.
 %% @see fix/1
 
+-doc """
+Checks if the array has fixed size. Returns `true` if the array is fixed,
+otherwise `false`.
+
+See also `fix/1`.
+""".
 -spec is_fix(Array :: array()) -> boolean().
 
 is_fix(#array{max = 0}) -> true;
@@ -460,6 +641,11 @@ fix_test_() ->
 %% fix/1}.)
 %% @see fix/1
 
+-doc """
+Makes the array resizable. (Reverses the effects of `fix/1`.)
+
+See also `fix/1`.
+""".
 -spec relax(Array :: array(Type)) -> array(Type).
 
 relax(#array{size = N}=A) when is_integer(N), N >= 0 ->
@@ -485,6 +671,11 @@ relax_test_() ->
 %% integer, the call fails with reason `badarg'. If the given array has
 %% fixed size, the resulting array will also have fixed size.
 
+-doc """
+Change the array size. If `Size` is not a non-negative integer, the call fails
+with reason `badarg`. If the specified array has fixed size, also the resulting
+array has fixed size.
+""".
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
@@ -519,6 +710,12 @@ resize(_Size, _) ->
 %% @see resize/2
 %% @see sparse_size/1
 
+-doc """
+Changes the array size to that reported by `sparse_size/1`. If the specified
+array has fixed size, also the resulting array has fixed size.
+
+See also `resize/2`, `sparse_size/1`.
+""".
 -spec resize(Array :: array(Type)) -> array(Type).
 
 resize(Array) ->
@@ -569,6 +766,16 @@ resize_test_() ->
 %% @see get/2
 %% @see reset/2
 
+-doc """
+Sets entry `I` of the array to `Value`. If `I` is not a non-negative integer, or
+if the array has fixed size and `I` is larger than the maximum index, the call
+fails with reason `badarg`.
+
+If the array does not have fixed size, and `I` is greater than `size(Array)-1`,
+the array grows to size `I+1`.
+
+See also `get/2`, `reset/2`.
+""".
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
 set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
@@ -632,6 +839,16 @@ expand(I, _S, X, D) ->
  
 %% @see set/3
 
+-doc """
+Gets the value of entry `I`. If `I` is not a non-negative integer, or if the
+array has fixed size and `I` is larger than the maximum index, the call fails
+with reason `badarg`.
+
+If the array does not have fixed size, the default value for any index `I`
+greater than `size(Array)-1` is returned.
+
+See also `set/3`.
+""".
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
 get(I, #array{size = N, max = M, elements = E, default = D})
@@ -672,6 +889,17 @@ get_1(I, E, _D) ->
 
 %% TODO: a reset_range function
 
+-doc """
+Resets entry `I` to the default value for the array. If the value of entry `I`
+is the default value, the array is returned unchanged. Reset never changes the
+array size. Shrinking can be done explicitly by calling `resize/2`.
+
+If `I` is not a non-negative integer, or if the array has fixed size and `I` is
+larger than the maximum index, the call fails with reason `badarg`; compare
+`set/3`
+
+See also `new/2`, `set/3`.
+""".
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
 reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
@@ -758,6 +986,11 @@ set_get_test_() ->
 %% @see from_list/2
 %% @see sparse_to_list/1
 
+-doc """
+Converts the array to a list.
+
+See also `from_list/2`, `sparse_to_list/1`.
+""".
 -spec to_list(Array :: array(Type)) -> list(Value :: Type).
 
 to_list(#array{size = 0}) ->
@@ -831,6 +1064,11 @@ to_list_test_() ->
 %%
 %% @see to_list/1
 
+-doc """
+Converts the array to a list, skipping default-valued entries.
+
+See also `to_list/1`.
+""".
 -spec sparse_to_list(Array :: array(Type)) -> list(Value :: Type).
 
 sparse_to_list(#array{size = 0}) ->
@@ -898,6 +1136,7 @@ sparse_to_list_test_() ->
 
 %% @equiv from_list(List, undefined)
 
+-doc "Equivalent to [`from_list(List, undefined)`](`from_list/2`).".
 -spec from_list(List :: list(Value :: Type)) -> array(Type).
 
 from_list(List) ->
@@ -910,6 +1149,13 @@ from_list(List) ->
 %% @see new/2
 %% @see to_list/1
 
+-doc """
+Converts a list to an extendible array. `Default` is used as the value for
+uninitialized entries of the array. If `List` is not a proper list, the call
+fails with reason `badarg`.
+
+See also `new/2`, `to_list/1`.
+""".
 -spec from_list(List :: list(Value :: Type), Default :: term()) -> array(Type).
 
 from_list([], Default) ->
@@ -1009,6 +1255,11 @@ from_list_test_() ->
 %% @see from_orddict/2
 %% @see sparse_to_orddict/1
 
+-doc """
+Converts the array to an ordered list of pairs `{Index, Value}`.
+
+See also `from_orddict/2`, `sparse_to_orddict/1`.
+""".
 -spec to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
 to_orddict(#array{size = 0}) ->
@@ -1101,6 +1352,12 @@ to_orddict_test_() ->
 %% 
 %% @see to_orddict/1
 
+-doc """
+Converts the array to an ordered list of pairs `{Index, Value}`, skipping
+default-valued entries.
+
+See also `to_orddict/1`.
+""".
 -spec sparse_to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
 sparse_to_orddict(#array{size = 0}) ->
@@ -1182,6 +1439,7 @@ sparse_to_orddict_test_() ->
 
 %% @equiv from_orddict(Orddict, undefined)
 
+-doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
 
 from_orddict(Orddict) ->
@@ -1196,6 +1454,14 @@ from_orddict(Orddict) ->
 %% @see new/2
 %% @see to_orddict/1
 
+-doc """
+Converts an ordered list of pairs `{Index, Value}` to a corresponding extendible
+array. `Default` is used as the value for uninitialized entries of the array. If
+`Orddict` is not a proper, ordered list of pairs whose first elements are
+non-negative integers, the call fails with reason `badarg`.
+
+See also `new/2`, `to_orddict/1`.
+""".
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type), Default :: Type) ->
                           array(Type).
 
@@ -1392,6 +1658,13 @@ from_orddict_test_() ->
 %% @see foldr/3
 %% @see sparse_map/2
 
+-doc """
+Maps the specified function onto each array element. The elements are visited in
+order from the lowest index to the highest. If `Function` is not a function, the
+call fails with reason `badarg`.
+
+See also `foldl/3`, `foldr/3`, `sparse_map/2`.
+""".
 -spec map(Function, Array :: array(Type1)) -> array(Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
@@ -1484,6 +1757,13 @@ map_test_() ->
 %%
 %% @see map/2
 
+-doc """
+Maps the specified function onto each array element, skipping default-valued
+entries. The elements are visited in order from the lowest index to the highest.
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `map/2`.
+""".
 -spec sparse_map(Function, Array :: array(Type1)) -> array(Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
@@ -1580,6 +1860,13 @@ sparse_map_test_() ->
 %% @see map/2
 %% @see sparse_foldl/3
 
+-doc """
+Folds the array elements using the specified function and initial accumulator
+value. The elements are visited in order from the lowest index to the highest.
+If `Function` is not a function, the call fails with reason `badarg`.
+
+See also `foldr/3`, `map/2`, `sparse_foldl/3`.
+""".
 -spec foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
@@ -1652,6 +1939,14 @@ foldl_test_() ->
 %% @see foldl/3
 %% @see sparse_foldr/3
 
+-doc """
+Folds the array elements using the specified function and initial accumulator
+value, skipping default-valued entries. The elements are visited in order from
+the lowest index to the highest. If `Function` is not a function, the call fails
+with reason `badarg`.
+
+See also `foldl/3`, `sparse_foldr/3`.
+""".
 -spec sparse_foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
@@ -1729,6 +2024,14 @@ sparse_foldl_test_() ->
 %% @see foldl/3
 %% @see map/2
 
+-doc """
+Folds the array elements right-to-left using the specified function and initial
+accumulator value. The elements are visited in order from the highest index to
+the lowest. If `Function` is not a function, the call fails with reason
+`badarg`.
+
+See also `foldl/3`, `map/2`.
+""".
 -spec foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
@@ -1807,6 +2110,14 @@ foldr_test_() ->
 %% @see foldr/3
 %% @see sparse_foldl/3
 
+-doc """
+Folds the array elements right-to-left using the specified function and initial
+accumulator value, skipping default-valued entries. The elements are visited in
+order from the highest index to the lowest. If `Function` is not a function, the
+call fails with reason `badarg`.
+
+See also `foldr/3`, `sparse_foldl/3`.
+""".
 -spec sparse_foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
@@ -1858,6 +2169,13 @@ sparse_foldr_3(I, T, Ix, A, F, D) ->
 %% @see size/1
 %% @see resize/1
 
+-doc """
+Gets the number of entries in the array up until the last non-default-valued
+entry. That is, returns `I+1` if `I` is the last non-default-valued entry in the
+array, or zero if no such entry exists.
+
+See also `resize/1`, `size/1`.
+""".
 -spec sparse_size(Array :: array()) -> non_neg_integer().
 
 sparse_size(A) ->

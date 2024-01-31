@@ -23,6 +23,7 @@
 %% Purpose: Supervisor for a listen options tracker
 %%----------------------------------------------------------------------
 -module(tls_server_session_ticket_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

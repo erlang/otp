@@ -64,7 +64,7 @@ There are exceptions, for example corrections to bugs that have been introduced 
 * TIP: Write the test case **before** fixing the bug so that you can know that it catches the bug.
 
 * For applications without a test suite in the git repository, it would be appreciated if you provide a
-small code sample in the commit message or email a module that will provoke the failure.
+small code sample in the commit message or attach a module to the PR that will provoke the failure.
 
 ### Adding a new feature
 
@@ -100,8 +100,7 @@ a discussion on the mailing list.
 
 * Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
 but you should at least run the tests for the application you have changed.
-* Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
-* Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
+* Make sure all static checks pass by calling `./otp_build check`. Call `./otp_build check --help` for details on what `./otp_build check` does.
 * Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
 
 See the [Testing](https://github.com/erlang/otp/blob/master/HOWTO/TESTING.md) and

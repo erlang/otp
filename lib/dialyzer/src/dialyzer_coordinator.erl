@@ -17,6 +17,7 @@
 %% Purpose: Spawn and coordinate parallel jobs.
 
 -module(dialyzer_coordinator).
+-moduledoc false.
 
 %%% Export for dialyzer main process
 -export([parallel_job/4]).

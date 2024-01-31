@@ -21,6 +21,7 @@
 %%% Description  : Callback module for exporting XHTML to HTML.
 
 -module(xmerl_html).
+-moduledoc false.
 
 -export(['#xml-inheritance#'/0]).
 

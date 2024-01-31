@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(io_lib_fread).
+-moduledoc false.
 
 %% Formatted input functions of io library.
 

@@ -36,6 +36,7 @@
 %%
 
 -module(diameter_config).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([start_service/2,

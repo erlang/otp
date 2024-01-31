@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(raw_file_io_compressed).
+-moduledoc false.
 
 -export([close/1, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          position/2, write/2, pwrite/2, pwrite/3,

@@ -19,6 +19,7 @@
 %%
 
 -module(xref_scanner).
+-moduledoc false.
 
 -include("xref.hrl").
 

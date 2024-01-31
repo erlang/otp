@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(release_handler_1).
+-moduledoc false.
 
 %% External exports
 -export([eval_script/1, eval_script/5,

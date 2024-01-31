@@ -25,6 +25,7 @@
 %% ----------------------------------------------------------------------
 
 -module(application_starter).
+-moduledoc false.
 
 -export([start/3]).
 

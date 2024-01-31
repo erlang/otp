@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_tty).
+-moduledoc false.
 
 %% Todo:
 %%  * Try to move buffer handling logic to Erlang

@@ -24,7 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_mstone_lib).
-
+-moduledoc false.
 
 %% API
 %% Avoid warning for local function error/1 clashing with autoimported BIF.

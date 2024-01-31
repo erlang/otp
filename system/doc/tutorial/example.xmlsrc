@@ -42,7 +42,7 @@
     <p>From an Erlang perspective, it is preferable to be able to call
       <c>foo</c> and <c>bar</c> without having to bother about that
       they are C functions:</p>
-    <pre>
+    <pre type="erl">
 % Erlang code
 ...
 Res = complex:foo(X),

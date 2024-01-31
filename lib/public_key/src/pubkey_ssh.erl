@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(pubkey_ssh).
+-moduledoc false.
 
 -include("pubkey_moduli.hrl").
 

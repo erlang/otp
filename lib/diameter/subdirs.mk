@@ -18,4 +18,4 @@
 #
 # %CopyrightEnd%
 
-SUB_DIRS = src doc/src
+SUB_DIRS = src doc

@@ -24,6 +24,21 @@
 %%% SSL is a legacy name.
 
 -module(ssl).
+-moduledoc """
+Interface Functions for Secure Socket Layer
+
+This module contains interface functions for the TLS/DTLS protocol. For detailed
+information about the supported standards see [ssl(6)](ssl_app.md).
+
+## SEE ALSO
+
+`m:inet` and `m:gen_tcp` `m:gen_udp`
+""".
+-moduledoc(#{titles =>
+                 [{type,<<"Types used in TLS/DTLS">>},
+                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>},
+                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>},
+                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}]}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -150,26 +165,78 @@
 
 %% -------------------------------------------------------------------------------------------------------
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type socket()                   :: gen_tcp:socket(). % exported
+-doc """
+The default socket options are
+`[{mode,list},{packet, 0},{header, 0},{active, true}]`.
+
+For valid options, see the `m:inet`, `m:gen_tcp` and [gen_udp(3)](`m:gen_tcp`)
+manual pages in Kernel. Note that stream oriented options such as packet are
+only relevant for TLS and not DTLS
+""".
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type socket_option()            :: gen_tcp:connect_option() | gen_tcp:listen_option() | gen_udp:option(). % exported
+-doc """
+An opaque reference to the TLS/DTLS connection, may be used for equality
+matching.
+""".
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sslsocket()                :: any(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_option()               :: tls_client_option() | tls_server_option(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_client_option()        :: client_option() | common_option() | socket_option() |  transport_option(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_server_option()        :: server_option() | common_option() | socket_option() | transport_option(). % exported
+-doc """
+When a TLS/DTLS socket is in active mode (the default), data from the socket is
+delivered to the owner of the socket in the form of messages as described above.
+
+The `ssl_passive` message is sent only when the socket is in `{active, N}` mode
+and the counter dropped to 0. It indicates that the socket has transitioned to
+passive (`{active, false}`) mode.
+""".
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
                                     {ssl_error, sslsocket(), Reason::any()} | {ssl_passive, sslsocket()}. % exported
+-doc """
+Defaults to `{gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}` for TLS (for
+backward compatibility a four tuple will be converted to a five tuple with the
+last element "second_element"\_passive) and
+`{gen_udp, udp, udp_closed, udp_error}` for DTLS (might also be changed to five
+tuple in the future). Can be used to customize the transport layer. The tag
+values should be the values used by the underlying transport in its active mode
+messages. For TLS the callback module must implement a reliable transport
+protocol, behave as `gen_tcp`, and have functions corresponding to
+`inet:setopts/2`, `inet:getopts/2`, `inet:peername/1`, `inet:sockname/1`, and
+`inet:port/1`. The callback `gen_tcp` is treated specially and calls `inet`
+directly. For DTLS this feature must be considered experimental.
+""".
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type transport_option()         :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom()}} |  
                                     {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type host()                     :: inet:hostname() | inet:ip_address(). % exported
+-doc "Identifies a TLS session.".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type session_id()               :: binary(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' .
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type dtls_legacy_version()      :: 'dtlsv1'.
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type verify_type()              :: verify_none | verify_peer.
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type cipher()                   :: aes_128_cbc |
                                     aes_256_cbc |
                                     aes_128_gcm |
@@ -180,23 +247,53 @@
                                     aes_256_ccm_8 |                                    
                                     chacha20_poly1305 |
                                     legacy_cipher(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type legacy_cipher()            ::  rc4_128 |
                                      des_cbc |
                                      '3des_ede_cbc'.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type hash()                     :: sha2() |
                                     legacy_hash(). % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sha2()                    :: sha256 |
                                    sha384 |
                                    sha512.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type legacy_hash()             :: sha224 | sha | md5.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sign_algo()               :: rsa | rsa_pss_pss | dsa | ecdsa | eddsa. % exported
 
+-doc """
+Explicitly list acceptable signature schemes (algorithms) in the preferred
+order. Overrides the algorithms supplied in
+[`signature_algs`](`t:signature_algs/0`) option for certificates.
+
+In addition to the `signature_algorithms` extension from TLS 1.2,
+[TLS 1.3 (RFC 5246 Section 4.2.3)](http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3)
+adds the `signature_algorithms_cert` extension which enables having special
+requirements on the signatures used in the certificates that differs from the
+requirements on digital signatures as a whole. If this is not required this
+extension is not need.
+
+The client will send a `signature_algorithms_cert` extension (in the client
+hello message), if TLS version 1.2 (back-ported to TLS 1.2 in 24.1) or later is
+used, and the signature_algs_cert option is explicitly specified. By default,
+only the [signature_algs](`t:signature_algs/0`) extension is sent.
+
+> #### Note {: .info }
+>
+> Note that supported signature schemes for TLS-1.2 are `t:sign_scheme_legacy/0`
+> and `t:rsassa_pss_scheme/0`
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type sign_schemes()            :: [sign_scheme()].
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sign_scheme()             :: eddsa_ed25519
                                  | eddsa_ed448
                                  | ecdsa_secp256r1_sha256
@@ -205,6 +302,7 @@
                                  | rsassa_pss_scheme()
                                  | sign_scheme_legacy() . % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type rsassa_pss_scheme()       :: rsa_pss_rsae_sha256
                                  | rsa_pss_rsae_sha384
                                  | rsa_pss_rsae_sha512
@@ -212,6 +310,7 @@
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha512.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sign_scheme_legacy()      :: rsa_pkcs1_sha256
                                  | rsa_pkcs1_sha384
                                  | rsa_pkcs1_sha512
@@ -219,6 +318,7 @@
                                  | ecdsa_sha1.
 
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type kex_algo()                :: rsa |
                                    dhe_rsa | dhe_dss |
                                    ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
@@ -226,16 +326,19 @@
                                    psk | dhe_psk | rsa_psk |
                                    dh_anon | ecdh_anon | srp_anon |
                                    any. %% TLS 1.3 , exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
                                     prf    := hash() | default_prf %% Old cipher suites, version dependent
                                    }.  
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type old_cipher_suite() :: {kex_algo(), cipher(), hash()} % Pre TLS 1.2 
                             %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
                           | {kex_algo(), cipher(), hash() | aead, hash()}.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type named_curve()           :: sect571r1 |
                                  sect571k1 |
                                  secp521r1 |
@@ -251,6 +354,7 @@
                                  secp256r1 |
                                  legacy_named_curve(). % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type legacy_named_curve()  ::   sect239k1 |
                                  sect233k1 |
                                  sect233r1 |
@@ -267,9 +371,11 @@
                                  secp160r1 |
                                  secp160r2.
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type group() :: x25519 | x448 | secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
                  ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type srp_param_type()        :: srp_1024 |
                                  srp_1536 |
                                  srp_2048 |
@@ -278,8 +384,10 @@
                                  srp_6144 |
                                  srp_8192. % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}. % exported
 
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type tls_alert()             :: close_notify | 
                                  unexpected_message | 
                                  bad_record_mac | 
@@ -311,6 +419,8 @@
                                  no_application_protocol. % exported
 
 %% -------------------------------------------------------------------------------------------------------
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type common_option()        :: {protocol, protocol()} |
                                 {handshake, handshake_completion()} |
                                 {cert, cert() | [cert()]} |
@@ -345,10 +455,64 @@
                                 {receiver_spawn_opts, spawn_opts()} |
                                 {sender_spawn_opts, spawn_opts()}.
 
+-doc """
+Choose TLS or DTLS protocol for the transport layer security. Defaults to `tls`.
+For DTLS other transports than UDP are not yet supported.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type protocol()                  :: tls | dtls.
+-doc """
+Defaults to `full`. If hello is specified the handshake will pause after the
+hello message and give the user a possibility make decisions based on hello
+extensions before continuing or aborting the handshake by calling
+`handshake_continue/3` or `handshake_cancel/1`
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type handshake_completion()      :: hello | full.
+-doc """
+The DER-encoded user certificate. Note that the cert option may also be a list
+of DER-encoded certificates where the first one is the user certificate, and the
+rest of the certificates constitutes the certificate chain. For maximum
+interoperability the certificates in the chain should be in the correct order,
+the chain will be sent as is to the peer. If chain certificates are not
+provided, certificates from `t:client_cacerts/0`, `t:server_cacerts/0`, or
+`t:client_cafile/0`, `t:server_cafile/0` are used to construct the chain. If
+this option is supplied, it overrides option `certfile`.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type cert()                      :: public_key:der_encoded().
+-doc """
+Path to a file containing the user certificate on PEM format or possible several
+certificates where the first one is the user certificate and the rest of the
+certificates constitutes the certificate chain. For more details see `t:cert/0`,
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type cert_pem()                  :: file:filename().
+-doc """
+The user's private key. Either the key can be provided directly as DER encoded
+entity, or indirectly using a crypto engine/provider (with key reference
+information) or an Erlang fun (with possible custom options). The latter two
+options can both be used for customized signing with for instance hardware
+security modules (HSM) or trusted platform modules (TPM).
+
+- A DER encoded key will need to specify the ASN-1 type used to create the
+  encoding.
+- An engine/provider needs to specify specific information to support this
+  concept and can optionally be password protected, see also
+  [crypto:engine_load/3 ](`crypto:engine_load/3`)and
+  [Crypto's Users Guide](`e:crypto:engine_load.md`).
+- A fun option should include a fun that mimics `public_key:sign/4` and possibly
+  [public_key:private_encrypt/4](`public_key:encrypt_private/3`) if legacy
+  versions TLS-1.0 and TLS-1.1 should be supported.
+
+If this option is supplied, it overrides option `keyfile`.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type key()                       :: {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo', 
                                       public_key:der_encoded()} |
                                      #{algorithm := sign_algo(),
@@ -361,61 +525,768 @@
                                        encrypt_fun => fun(), %% Only TLS-1.0, TLS-1.1 and rsa-key
                                        encrypt_opts => list()
                                       }. % exported
+-doc """
+Path to the file containing the user's private PEM-encoded key. As PEM-files can
+contain several entries, this option defaults to the same file as given by
+option `certfile`.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type key_pem()                   :: file:filename().
+-doc """
+String containing the user's password or a function returning same type. Only
+used if the private keyfile is password-protected.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type key_pem_password()          :: iodata() | fun(() -> iodata()).
+-doc """
+A list of a certificate (or possible a certificate and its chain) and the
+associated key of the certificate, that may be used to authenticate the client
+or the server. The certificate key pair that is considered best and matches
+negotiated parameters for the connection will be selected. Different signature
+algorithms are prioritized in the order
+`eddsa, ecdsa, rsa_pss_pss, rsa and dsa `. If more than one key is supplied for
+the same signing algorithm (which is probably an unusual use case) they will
+prioritized by strength unless it is a so called `engine key` that will be
+favoured over other keys. As engine keys cannot be inspected, supplying more
+than one engine key will make no sense. This offers flexibility to for instance
+configure a newer certificate that is expected to be used in most cases and an
+older but acceptable certificate that will only be used to communicate with
+legacy systems. Note that there is a trade off between the induced overhead and
+the flexibility so alternatives should be chosen for good reasons. If the
+`certs_keys` option is specified it overrides all single certificate and key
+options. For examples see [the Users Guide](using_ssl.md)
+
+> #### Note {: .info }
+>
+> `eddsa` certificates are only supported by TLS-1.3 that does not support `dsa`
+> certificates. `rsa_pss_pss` (RSA certificates using Probabilistic Signature
+> Scheme) are supported in TLS-1.2 and TLS-1.3, but some TLS-1.2 implementations
+> may not support `rsa_pss_pss`.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type certs_keys()                :: [cert_key_conf()].
+-doc """
+A certificate (or possibly a certificate and its chain) and its associated key
+on one of the possible formats. For the PEM file format there may also be a
+password associated with the file containg the key.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type cert_key_conf()             :: #{cert => cert(),
                                        key => key(),
                                        certfile => cert_pem(),
                                        keyfile => key_pem(),
                                        password => key_pem_password()}.
+-doc """
+A list of cipher suites that should be supported
+
+The function [ssl:cipher_suites/2 ](`cipher_suites/2`)can be used to find all
+cipher suites that are supported by default and all cipher suites that may be
+configured.
+
+If you compose your own `t:cipher_suites/0` make sure they are filtered for
+cryptolib support
+[ssl:filter_cipher_suites/2 ](`filter_cipher_suites/2`)Additionally the
+functions [ssl:append_cipher_suites/2 ](`append_cipher_suites/2`),
+[ssl:prepend_cipher_suites/2](`prepend_cipher_suites/2`),
+[ssl:suite_to_str/1](`suite_to_str/1`), [ssl:str_to_suite/1](`str_to_suite/1`),
+and [ssl:suite_to_openssl_str/1](`suite_to_openssl_str/1`) also exist to help
+creating customized cipher suite lists.
+
+> #### Note {: .info }
+>
+> Note that TLS-1.3 and TLS-1.2 cipher suites are not overlapping sets of cipher
+> suites so to support both these versions cipher suites from both versions need
+> to be included. Also if the supplied list does not comply with the configured
+> versions or cryptolib so that the list becomes empty, this option will
+> fallback on its appropriate default value for the configured versions.
+
+Non-default cipher suites including anonymous cipher suites (PRE TLS-1.3) are
+supported for interop/testing purposes and may be used by adding them to your
+cipher suite list. Note that they must also be supported/enabled by the peer to
+actually be used.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type cipher_suites()             :: ciphers().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type ciphers()                   :: [erl_cipher_suite()] |
                                      string(). % (according to old API) exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type cipher_filters()            :: list({key_exchange | cipher | mac | prf,
                                            algo_filter()}). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type algo_filter()               :: fun((kex_algo()|cipher()|hash()|aead|default_prf) -> true | false).
+-doc """
+Configures a TLS 1.3 connection for keylogging
+
+In order to retrieve keylog information on a TLS 1.3 connection, it must be
+configured in advance to keep the client_random and various handshake secrets.
+
+The keep_secrets functionality is disabled (`false`) by default.
+
+Added in OTP 23.2
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type keep_secrets()              :: boolean().
+-doc """
+Specifies if to reject renegotiation attempt that does not live up to
+[RFC 5746](http://www.ietf.org/rfc/rfc5746.txt). By default `secure_renegotiate`
+is set to `true`, that is, secure renegotiation is enforced. If set to `false`
+secure renegotiation will still be used if possible, but it falls back to
+insecure renegotiation if the peer does not support
+[RFC 5746](http://www.ietf.org/rfc/rfc5746.txt).
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type secure_renegotiation()      :: boolean(). 
+-doc """
+Maximum number of non-self-issued intermediate certificates that can follow the
+peer certificate in a valid certification path. So, if depth is 0 the PEER must
+be signed by the trusted ROOT-CA directly; if 1 the path can be PEER, CA,
+ROOT-CA; if 2 the path can be PEER, CA, CA, ROOT-CA, and so on. The default
+value is 10.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type allowed_cert_chain_length() :: integer().
+-doc """
+The verification fun is to be defined as follows:
+
+```erlang
+fun(OtpCert :: #'OTPCertificate'{},
+    Event, InitialUserState :: term()) ->
+	{valid, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+fun(OtpCert :: #'OTPCertificate'{}, DerCert :: public_key:der_encoded(),
+    Event, InitialUserState :: term()) ->
+	{valid, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+Types:
+      Event = {bad_cert, Reason :: atom() |
+              {revoked, atom()}} |
+	      {extension, #'Extension'{}} |
+              valid |
+              valid_peer
+```
+
+The verification fun is called during the X509-path validation when an error or
+an extension unknown to the SSL application is encountered. It is also called
+when a certificate is considered valid by the path validation to allow access to
+each certificate in the path to the user application. It differentiates between
+the peer certificate and the CA certificates by using `valid_peer` or `valid` as
+`Event` argument to the verification fun. See the
+[public_key User's Guide](`e:public_key:public_key_records.md`) for definition
+of `#'OTPCertificate'{}` and `#'Extension'{}`.
+
+- If the verify callback fun returns `{fail, Reason}`, the verification process
+  is immediately stopped, an alert is sent to the peer, and the TLS/DTLS
+  handshake terminates.
+- If the verify callback fun returns `{valid, UserState}`, the verification
+  process continues.
+- If the verify callback fun always returns `{valid, UserState}`, the TLS/DTLS
+  handshake does not terminate regarding verification failures and the
+  connection is established.
+- If called with an extension unknown to the user application, return value
+  `{unknown, UserState}` is to be used.
+
+  Note that if the fun returns `unknown` for an extension marked as critical,
+  validation will fail.
+
+Default option `verify_fun` in `verify_peer mode`:
+
+```erlang
+{fun(_,{bad_cert, _} = Reason, _) ->
+	 {fail, Reason};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+```
+
+Default option `verify_fun` in mode `verify_none`:
+
+```erlang
+{fun(_,{bad_cert, _}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, #'Extension'{critical = true}}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
+ end, []}
+```
+
+The possible path validation errors are given on form `{bad_cert, Reason}` where
+`Reason` is:
+
+- **`unknown_ca`** - No trusted CA was found in the trusted store. The trusted
+  CA is normally a so called ROOT CA, which is a self-signed certificate. Trust
+  can be claimed for an intermediate CA (trusted anchor does not have to be
+  self-signed according to X-509) by using option `partial_chain`.
+
+- **`selfsigned_peer`** - The chain consisted only of one self-signed
+  certificate.
+
+- **`PKIX X-509-path validation error`** - For possible reasons, see
+  `public_key:pkix_path_validation/3`
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
+-doc """
+Perform CRL (Certificate Revocation List) verification
+[(public_key:pkix_crls_validate/3)](`public_key:pkix_crls_validate/3`) on all
+the certificates during the path validation
+[(public_key:pkix_path_validation/3) ](`public_key:pkix_path_validation/3`)of
+the certificate chain. Defaults to `false`.
+
+- **`peer`** - check is only performed on the peer certificate.
+
+- **`best_effort`** - if certificate revocation status cannot be determined it
+  will be accepted as valid.
+
+The CA certificates specified for the connection will be used to construct the
+certificate chain validating the CRLs.
+
+The CRLs will be fetched from a local or external cache. See
+`m:ssl_crl_cache_api`.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type crl_check()                :: boolean() | peer | best_effort.
+-doc """
+Specify how to perform lookup and caching of certificate revocation lists.
+`Module` defaults to `m:ssl_crl_cache` with `DbHandle `being `internal` and an
+empty argument list.
+
+There are two implementations available:
+
+- **`ssl_crl_cache`** - This module maintains a cache of CRLs. CRLs can be added
+  to the cache using the function `ssl_crl_cache:insert/1`, and optionally
+  automatically fetched through HTTP if the following argument is specified:
+
+  - **`{http, timeout()}`** - Enables fetching of CRLs specified as http URIs
+    in[X509 certificate extensions](`e:public_key:public_key_records.md`).
+    Requires the OTP inets application.
+
+- **`ssl_crl_hash_dir`** - This module makes use of a directory where CRLs are
+  stored in files named by the hash of the issuer name.
+
+  The file names consist of eight hexadecimal digits followed by `.rN`, where
+  `N` is an integer, e.g. `1a2b3c4d.r0`. For the first version of the CRL, `N`
+  starts at zero, and for each new version, `N` is incremented by one. The
+  OpenSSL utility `c_rehash` creates symlinks according to this pattern.
+
+  For a given hash value, this module finds all consecutive `.r*` files starting
+  from zero, and those files taken together make up the revocation list. CRL
+  files whose `nextUpdate` fields are in the past, or that are issued by a
+  different CA that happens to have the same name hash, are excluded.
+
+  The following argument is required:
+
+  - **`{dir, string()}`** - Specifies the directory in which the CRLs can be
+    found.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type crl_cache_opts()           :: {Module :: atom(),
                                      {DbHandle :: internal | term(),
                                       Args :: list()}}.
+-doc """
+Integer (24 bits unsigned). Used to limit the size of valid TLS handshake
+packets to avoid DoS attacks. Defaults to 256\*1024.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type handshake_size()           :: integer().
+-doc """
+When an integer-value is specified, `TLS/DTLS-connection` goes into hibernation
+after the specified number of milliseconds of inactivity, thus reducing its
+memory footprint. When `undefined` is specified (this is the default), the
+process never goes into hibernation.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type hibernate_after()          :: timeout().
+-doc """
+```erlang
+fun(Chain::[public_key:der_encoded()]) ->
+	{trusted_ca, DerCert::public_key:der_encoded()} | unknown_ca.
+```
+
+Claim an intermediate CA in the chain as trusted. TLS then performs
+`public_key:pkix_path_validation/3` with the selected CA as trusted anchor and
+the rest of the chain.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type root_fun()                 ::  fun().
+-doc """
+TLS protocol versions supported by started clients and servers. This option
+overrides the application environment option `protocol_version` and
+`dtls_protocol_version`. If the environment option is not set, it defaults to
+all versions, supported by the SSL application. See also [ssl(6).](ssl_app.md)
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type protocol_versions()        ::  [protocol_version()].
+-doc """
+Explicitly list acceptable signature algorithms for certificates and handshake
+messages in the preferred order. The client will send its list as the client
+hello `signature_algorithm` extension introduced in TLS-1.2, see
+[Section 7.4.1.4.1 in RFC 5246](http://www.ietf.org/rfc/rfc5246.txt). Previously
+these algorithms where implicitly chosen and partly derived from the cipher
+suite.
+
+In TLS-1.2 a somewhat more explicit negotiation is made possible using a list of
+\{`t:hash/0`, [sign_algo()](`t:signature_algs/0`)\} pairs.
+
+In TLS-1.3 these algorithm pairs are replaced by so called signature schemes
+`t:sign_scheme/0` and completely decoupled from the cipher suite.
+
+Signature algorithms used for certificates may be overridden by the
+[signature schemes](`t:sign_schemes/0`) (algorithms) supplied by the
+`signature_algs_cert` option.
+
+TLS-1.2 default is Default_TLS_12_Alg_Pairs interleaved with rsa_pss_schemes
+since ssl-11.0 (OTP-25) pss_pss is prefered over pss_rsae that is prefered over
+rsa
+
+`Default_TLS_12_Alg_Pairs =`
+
+```erlang
+[
+%% SHA2
+{sha512, ecdsa},
+{sha512, rsa},
+{sha384, ecdsa},
+{sha384, rsa},
+{sha256, ecdsa},
+{sha256, rsa}
+]
+```
+
+Support for \{md5, rsa\} was removed from the the TLS-1.2 default in ssl-8.0
+(OTP-22) and support for SHA1 \{sha, _\} and SHA224 \{sha224, _\} was removed in
+ssl-11.0 (OTP-26)
+
+`rsa_pss_schemes =`
+
+```text
+[rsa_pss_pss_sha512,
+rsa_pss_pss_sha384,
+rsa_pss_pss_sha256,
+rsa_pss_rsae_sha512,
+rsa_pss_rsae_sha384,
+rsa_pss_rsae_sha256]
+```
+
+`TLS_13_Legacy_Schemes =`
+
+```erlang
+ [
+ %% Legacy algorithms only applicable to certificate signatures
+rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
+rsa_pkcs1_sha384, %% Corresponds to {sha384, rsa}
+rsa_pkcs1_sha256, %% Corresponds to {sha256, rsa}
+]
+```
+
+`Default_TLS_13_Schemes =`
+
+```text
+ [
+ %% EDDSA
+eddsa_ed25519,
+eddsa_ed448
+
+%% ECDSA
+ecdsa_secp521r1_sha512,
+ecdsa_secp384r1_sha384,
+ecdsa_secp256r1_sha256] ++
+
+%% RSASSA-PSS
+rsa_pss_schemes()
+```
+
+EDDSA was made highest priority in ssl-10.8 (OTP-25)
+
+TLS-1.3 default is
+
+```text
+Default_TLS_13_Schemes
+```
+
+If both TLS-1.3 and TLS-1.2 are supported the default will be
+
+```text
+Default_TLS_13_Schemes ++ TLS_13_Legacy_Schemes ++ Default_TLS_12_Alg_Pairs (not represented in TLS_13_Legacy_Schemes)
+```
+
+so appropriate algorithms can be chosen for the negotiated version.
+
+> #### Note {: .info }
+>
+> TLS-1.2 algorithms will not be negotiated for TLS-1.3, but TLS-1.3 RSASSA-PSS
+> `t:rsassa_pss_scheme/0` signature schemes may be negotiated also for TLS-1.2
+> from 24.1 (fully working from 24.1.3). However if TLS-1.3 is negotiated when
+> both TLS-1.3 and TLS-1.2 is supported using defaults, the corresponding
+> TLS-1.2 algorithms to the TLS-1.3 legacy signature schemes will be considered
+> as the legacy schemes and applied only to certificate signatures.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type signature_algs()           ::  [{hash(), sign_algo()} | sign_scheme()].
+-doc """
+TLS 1.3 introduces the "supported_groups" extension that is used for negotiating
+the Diffie-Hellman parameters in a TLS 1.3 handshake. Both client and server can
+specify a list of parameters that they are willing to use.
+
+If it is not specified it will use a default list (\[x25519, x448, secp256r1,
+secp384r1]) that is filtered based on the installed crypto library version.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type supported_groups()         ::  [group()].
+-doc """
+The lookup fun is to defined as follows:
+
+```erlang
+fun(psk, PSKIdentity :: binary(), UserState :: term()) ->
+	{ok, SharedSecret :: binary()} | error;
+fun(srp, Username :: binary(), UserState :: term()) ->
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(),
+	      DerivedKey :: binary()}} | error.
+```
+
+For Pre-Shared Key (PSK) cipher suites, the lookup fun is called by the client
+and server to determine the shared secret. When called by the client,
+`PSKIdentity` is set to the hint presented by the server or to undefined. When
+called by the server, `PSKIdentity` is the identity presented by the client.
+
+For Secure Remote Password (SRP), the fun is only used by the server to obtain
+parameters that it uses to generate its session keys. `DerivedKey` is to be
+derived according to [RFC 2945](http://tools.ietf.org/html/rfc2945#section/3)
+and [RFC 5054](http://tools.ietf.org/html/rfc5054#section-2.4):
+`crypto:sha([Salt, crypto:sha([Username, <<$:>>, Password])])`
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: any()}.
+-doc """
+Affects TLS-1.0 connections only. If set to `false`, it disables the block
+cipher padding check to be able to interoperate with legacy software.
+
+> #### Warning {: .warning }
+>
+> Using `{padding_check, boolean()}` makes TLS vulnerable to the Poodle attack.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type padding_check()            :: boolean(). 
+-doc """
+Affects TLS-1.0 connections only. Used to change the BEAST mitigation strategy
+to interoperate with legacy software. Defaults to `one_n_minus_one`.
+
+`one_n_minus_one` \- Perform 1/n-1 BEAST mitigation.
+
+`zero_n` \- Perform 0/n BEAST mitigation.
+
+`disabled` \- Disable BEAST mitigation.
+
+> #### Warning {: .warning }
+>
+> Using `{beast_mitigation, disabled}` makes TLS-1.0 vulnerable to the BEAST
+> attack.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type beast_mitigation()         :: one_n_minus_one | zero_n | disabled.
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type srp_identity()             :: {Username :: string(), Password :: string()}.
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type psk_identity()             :: string().
+-doc """
+If set to `false`, TLS/DTLS Alert reports are not displayed. Deprecated in OTP
+22, use \{log_level, `t:logging_level/0`\} instead.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type log_alert()                :: boolean().
+-doc """
+Specifies the log level for a TLS/DTLS connection. Alerts are logged on `notice`
+level, which is the default level. The level `debug` triggers verbose logging of
+TLS/DTLS protocol messages. See also [ssl(6)](ssl_app.md)
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type logging_level()            :: logger:level() | none | all.
+-doc """
+Configures the session ticket functionality. Allowed values are `disabled`,
+`manual` and `auto`. If it is set to `manual` the client will send the ticket
+information to user process in a 3-tuple:
+
+`{ssl, session_ticket, {SNI, TicketData}}`
+
+where `SNI` is the ServerNameIndication and `TicketData` is the extended ticket
+data that can be used in subsequent session resumptions.
+
+If it is set to `auto`, the client automatically handles received tickets and
+tries to use them when making new TLS connections (session resumption with
+pre-shared keys).
+
+> #### Note {: .info }
+>
+> This option is supported by TLS 1.3 and above. See also
+> [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_session_tickets()   :: disabled | manual | auto.
+-doc """
+Configures the session ticket functionality. Allowed values are `disabled`,
+`stateful`, `stateless`, `stateful_with_cert`, `stateless_with_cert`.
+
+If it is not set to `disabled`, session resumption with pre-shared keys is
+enabled and the server will send stateful or stateless session tickets to the
+client after successful connections.
+
+> #### Note {: .info }
+>
+> Pre-shared key session ticket resumption does not include any certificate
+> exchange, hence the function [ssl:peercert/1](`peercert/1`) will not be able
+> to return the peer certificate as it is only communicated in the initial
+> handshake. The server options `stateful_with_cert` or `stateless_with_cert`
+> may be used to make a server associate the client certificate from the
+> original handshake with the tickets it issues.
+
+A stateful session ticket is a database reference to internal state information.
+A stateless session ticket is a self-encrypted binary that contains both
+cryptographic keying material and state data.
+
+> #### Warning {: .warning }
+>
+> If it is set to `stateful_with_cert` the client certificate is stored with the
+> internal state information, increasing memory consumption. If it is set to
+> `stateless_with_cert` the client certificate is encoded in the self-encrypted
+> binary that is sent to the client, increasing the payload size.
+
+> #### Note {: .info }
+>
+> This option is supported by TLS 1.3 and above. See also
+> [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_session_tickets()   :: disabled | stateful | stateless | stateful_with_cert | stateless_with_cert.
+-doc "Configures the session ticket functionality in TLS 1.3 client and server.".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type session_tickets()          :: client_session_tickets() | server_session_tickets().
+-doc """
+Configures the maximum amount of bytes that can be sent on a TLS 1.3 connection
+before an automatic key update is performed.
+
+There are cryptographic limits on the amount of plaintext which can be safely
+encrypted under a given set of keys. The current default ensures that data
+integrity will not be breached with probability greater than 1/2^57. For more
+information see
+[Limits on Authenticated Encryption Use in TLS](http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf).
+
+> #### Warning {: .warning }
+>
+> The default value of this option shall provide the above mentioned security
+> guarantees and it shall be reasonable for most applications (~353 TB).
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type key_update_at()            :: pos_integer().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type bloom_filter_window_size()    :: integer().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type bloom_filter_hash_functions() :: integer().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type bloom_filter_bits()           :: integer().
+-doc """
+Configures the server's built-in anti replay feature based on Bloom filters.
+
+Allowed values are the pre-defined `'10k'`, `'100k'` or a custom 3-tuple that
+defines the properties of the bloom filters:
+`{WindowSize, HashFunctions, Bits}`. `WindowSize` is the number of seconds after
+the current Bloom filter is rotated and also the window size used for freshness
+checks of ClientHello. `HashFunctions` is the number hash functions and `Bits`
+is the number of bits in the bit vector. `'10k'` and `'100k'` are simple
+defaults with the following properties:
+
+- `'10k'`: Bloom filters can hold 10000 elements with 3% probability of false
+  positives. `WindowSize`: 10, `HashFunctions`: 5, `Bits:` 72985 (8.91 KiB).
+- `'100k'`: Bloom filters can hold 100000 elements with 3% probability of false
+  positives. `WindowSize`: 10, `HashFunctions`: 5, `Bits`: 729845 (89.09 KiB).
+
+> #### Note {: .info }
+>
+> This option is supported by TLS 1.3 and above and only with stateless session
+> tickets. Ticket lifetime, the number of tickets sent by the server and the
+> maximum number of tickets stored by the server in stateful mode are configured
+> by [application variables](ssl_app.md#configuration). See also
+> [SSL's Users Guide, Anti-Replay Protection in TLS 1.3](using_ssl.md#anti-replay-protection-in-tls-1-3)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type anti_replay()              :: '10k' | '100k' |
                                     {bloom_filter_window_size(),    %% number of seconds in time window
                                      bloom_filter_hash_functions(), %% k - number of hash functions
                                      bloom_filter_bits()}.          %% m - number of bits in bit vector
+-doc """
+Configures the session tickets to be used for session resumption. It is a
+mandatory option in `manual` mode (`session_tickets = manual`).
+
+> #### Note {: .info }
+>
+> Session tickets are only sent to user if option _session_tickets_ is set to
+> `manual`
+>
+> This option is supported by TLS 1.3 and above. See also
+> [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type use_ticket()               :: [binary()].
+-doc """
+Configures the middlebox compatibility mode on a TLS 1.3 connection.
+
+A significant number of middleboxes misbehave when a TLS 1.3 connection is
+negotiated. Implementations can increase the chance of making connections
+through those middleboxes by making the TLS 1.3 handshake more like a TLS 1.2
+handshake.
+
+The middlebox compatibility mode is enabled (`true`) by default.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type middlebox_comp_mode()      :: boolean().
+-doc """
+Configures the early data to be sent by the client.
+
+In order to be able to verify that the server has the intention to process the
+early data, the following 3-tuple is sent to the user process:
+
+`{ssl, SslSocket, {early_data, Result}}`
+
+where `Result` is either `accepted` or `rejected`.
+
+> #### Warning {: .warning }
+>
+> It is the responsibility of the user to handle a rejected Early Data and to
+> resend when it is appropriate.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_early_data()        :: binary().
+-doc """
+Configures if the server accepts (`enabled`) or rejects (`rejects`) early data
+sent by a client. The default value is `disabled`.
+
+> #### Warning {: .warning }
+>
+> This option is a placeholder, early data is not yet implemented on the server
+> side.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_early_data()        :: disabled | enabled.
+-doc """
+Configures the `use_srtp` DTLS hello extension.
+
+In order to negotiate the use of SRTP data protection, clients include an
+extension of type "use_srtp" in the DTLS extended client hello. This extension
+MUST only be used when the data being transported is RTP or RTCP.
+
+The value is a map with a mandatory `protection_profiles` and an optional `mki`
+parameters.
+
+`protection_profiles` configures the list of the client's acceptable SRTP
+Protection Profiles. Each profile is a 2-byte binary. Example:
+`#{protection_profiles => [<<0,2>>, <<0,5>>]}`
+
+`mki` configures the SRTP Master Key Identifier chosen by the client.
+
+The srtp_mki field contains the value of the SRTP MKI which is associated with
+the SRTP master keys derived from this handshake. Each SRTP session MUST have
+exactly one master key that is used to protect packets at any given time. The
+client MUST choose the MKI value so that it is distinct from the last MKI value
+that was used, and it SHOULD make these values unique for the duration of the
+TLS session.
+
+> #### Note {: .info }
+>
+> This extension MUST only be used with DTLS, and not with TLS.
+
+> #### Note {: .info }
+>
+> OTP does not handle SRTP, so an external implementations of SRTP
+> encoder/decoder and a packet demultiplexer are needed to make use of the
+> `use_srtp` extension. See also [cb_info](`t:transport_option/0`) option.
+
+Configures the `use_srtp` DTLS hello extension.
+
+Servers that receive an extended hello containing a "use_srtp" extension can
+agree to use SRTP by including an extension of type "use_srtp", with the chosen
+protection profile in the extended server hello. This extension MUST only be
+used when the data being transported is RTP or RTCP.
+
+The value is a map with a mandatory `protection_profiles` and an optional `mki`
+parameters.
+
+- `protection_profiles` configures the list of the server's chosen SRTP
+  Protection Profile as a list of a single 2-byte binary. Example:
+  `#{protection_profiles => [<<0,5>>]}`
+- `mki` configures the server's SRTP Master Key Identifier.
+
+  Upon receipt of a "use_srtp" extension containing a "srtp_mki" field, the
+  server MUST either (assuming it accepts the extension at all):
+
+  - include a matching "srtp_mki" value in its "use_srtp" extension to indicate
+    that it will make use of the MKI, or
+  - return an empty "srtp_mki" value to indicate that it cannot make use of the
+    MKI (default).
+
+> #### Note {: .info }
+>
+> This extension MUST only be used with DTLS, and not with TLS.
+
+> #### Note {: .info }
+>
+> OTP does not handle SRTP, so an external implementations of SRTP
+> encoder/decoder and a packet demultiplexer are needed to make use of the
+> `use_srtp` extension. See also [cb_info](`t:transport_option/0`) option.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type use_srtp()                 :: #{protection_profiles := [binary()], mki => binary()}.
+-doc """
+Configures spawn options of TLS sender and receiver processes.
+
+Setting up garbage collection options can be helpful for trade-offs between CPU
+usage and Memory usage. See `erlang:spawn_opt/2`.
+
+For dist connections, default sender option is `[...{priority, max}]`, this
+priority option cannot be changed. For all connections, `...link` is added to
+receiver and cannot be changed.
+""".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
 
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_option()        :: {verify, client_verify_type()} |
                                 {reuse_session, client_reuse_session()} |
                                 {reuse_sessions, client_reuse_sessions()} |
@@ -437,30 +1308,189 @@
                                 {use_srtp, use_srtp()} |
                                 {stapling, stapling()}.
 
+-doc """
+Defaults to `verify_none` as additional options are needed to be able to perform
+the certificate verification. A warning will be emitted unless `verify_none` is
+explicitly configured. Usually the applications will want to configure
+`verify_peer` together with an appropriate `cacert` or `cacertfile` option. For
+example an `HTTPS` client would normally use the option
+`{cacerts, public_key:cacerts_get()}` (available since OTP-25) to access the CA
+certificates provided by the OS. Using verify_none means that all
+x509-certificate path validation errors will be ignored. See also option
+[verify_fun](`t:custom_verify/0`).
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_verify_type()       :: verify_type().
+-doc """
+Reuses a specific session. The session should be referred by its session id if
+it is earlier saved with the option `{reuse_sessions, save}` since OTP-21.3 or
+explicitly specified by its session id and associated data since OTP-22.3. See
+also
+[SSL's Users Guide, Session Reuse pre TLS 1.3.](using_ssl.md#session-reuse-pre-tls-1-3)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_reuse_session()     :: session_id() | {session_id(), SessionData::binary()}.
+-doc """
+When `save` is specified a new connection will be negotiated and saved for later
+reuse. The session ID can be fetched with `connection_information/2` and used
+with the client option [reuse_session](`t:client_reuse_session/0`) The boolean
+value true specifies that if possible, automated session reuse will be
+performed. If a new session is created, and is unique in regard to previous
+stored sessions, it will be saved for possible later reuse. Since OTP-21.3.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_reuse_sessions()    :: boolean() | save.
+-doc """
+If set to true, sends the certificate authorities extension in TLS-1.3 client
+hello. The default is false. Note that setting it to true may result in a big
+overhead if you have many trusted CA certificates. Since OTP-24.3.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_certificate_authorities()  :: boolean().
+-doc """
+The DER-encoded trusted certificates. If this option is supplied it overrides
+option `cacertfile`.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
+-doc """
+Path to a file containing PEM-encoded CA certificates. The CA certificates are
+used during server authentication and when building the client certificate
+chain.
+
+> #### Note {: .info }
+>
+> When PEM caching is enabled, files provided with this option will be checked
+> for updates at fixed time intervals specified by the
+> [ssl_pem_cache_clean](ssl_app.md#configuration) environment parameter.
+
+> #### Note {: .info }
+>
+> Alternatively, CA certificates can be provided as a DER-encoded binary with
+> [client_cacerts](`t:client_cacerts/0`) option.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_cafile()            :: file:filename().
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type app_level_protocol()       :: binary().
+-doc """
+The list of protocols supported by the client to be sent to the server to be
+used for an Application-Layer Protocol Negotiation (ALPN). If the server
+supports ALPN then it will choose a protocol from this list; otherwise it will
+fail the connection with a "no_application_protocol" alert. A server that does
+not support ALPN will ignore this value.
+
+The list of protocols must not contain an empty binary.
+
+The negotiated protocol can be retrieved using the
+[`negotiated_protocol/1`](`negotiated_protocol/1`) function.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_alpn()              :: [app_level_protocol()].
+-doc """
+Indicates that the client is to try to perform Next Protocol Negotiation.
+
+If precedence is server, the negotiated protocol is the first protocol to be
+shown on the server advertised list, which is also on the client preference
+list.
+
+If precedence is client, the negotiated protocol is the first protocol to be
+shown on the client preference list, which is also on the server advertised
+list.
+
+If the client does not support any of the server advertised protocols or the
+server does not advertise any protocols, the client falls back to the first
+protocol in its list or to the default protocol (if a default is supplied). If
+the server does not support Next Protocol Negotiation, the connection terminates
+if no default protocol is supplied.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_preferred_next_protocols() :: {Precedence :: server | client, 
                                             ClientPrefs :: [app_level_protocol()]} |
                                            {Precedence :: server | client, 
                                             ClientPrefs :: [app_level_protocol()], 
                                             Default::app_level_protocol()}.
+-doc """
+Specifies the identity the client presents to the server. The matching secret is
+found by calling `user_lookup_fun`
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_psk_identity()             :: psk_identity().
+-doc "Specifies the username and password to use to authenticate to the server.".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_srp_identity()             :: srp_identity().
+-doc """
+Customizes the hostname verification of the peer certificate, as different
+protocols that use TLS such as HTTP or LDAP may want to do it differently. For
+example the get standard HTTPS handling provide the already implememnted fun
+from the public_key application for HTTPS.
+`{customize_hostname_check, [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]}`
+For futher description of customize options see
+`public_key:pkix_verify_hostname/3`
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type customize_hostname_check() :: list().
+-doc """
+Specify the hostname to be used in TLS Server Name Indication extension. If not
+specified it will default to the `Host` argument of
+[connect/\[3,4]](`connect/3`) unless it is of type inet:ipaddress().
+
+The `HostName` will also be used in the hostname verification of the peer
+certificate using `public_key:pkix_verify_hostname/2`.
+
+The special value `disable` prevents the Server Name Indication extension from
+being sent and disables the hostname verification check
+`public_key:pkix_verify_hostname/2`
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type sni()                      :: inet:hostname() | disable. 
+-doc """
+Specifies the maximum fragment length the client is prepared to accept from the
+server. See [RFC 6066](http://www.ietf.org/rfc/rfc6066.txt)
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type max_fragment_length()      :: undefined | 512 | 1024 | 2048 | 4096.
+-doc """
+Send special cipher suite TLS_FALLBACK_SCSV to avoid undesired TLS version
+downgrade. Defaults to false
+
+> #### Warning {: .warning }
+>
+> Note this option is not needed in normal TLS usage and should not be used to
+> implement new clients. But legacy clients that retries connections in the
+> following manner
+>
+> `ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1']}])`
+>
+> `ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1']}, {fallback, true}])`
+>
+> `ssl:connect(Host, Port, [...{versions, ['tlsv1']}, {fallback, true}])`
+>
+> may use it to avoid undesired TLS version downgrade. Note that
+> TLS_FALLBACK_SCSV must also be supported by the server for the prevention to
+> work.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type fallback()                 :: boolean().
+-doc "Deprecated since OTP-17, has no effect.".
+-doc(#{title =>
+           <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type ssl_imp()                  :: new | old.
+-doc """
+If `staple` or a map, OCSP stapling will be enabled, an extension of type
+"status_request" will be included in the client hello to indicate the desire to
+receive certificate status information. If `no_staple` (the default), OCSP
+stapling will be disabled.
+
+When map is used, boolean ocsp_nonce key may indicate if OCSP nonce should be
+requested by the client (default is `true`).
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type stapling()                 :: staple | no_staple | map().
 
 %% -------------------------------------------------------------------------------------------------------
 
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_option()        :: {cacerts, server_cacerts()} |
                                 {cacertfile, server_cafile()} |
                                 {dh, dh_der()} |
@@ -485,27 +1515,216 @@
                                 {early_data, server_early_data()} |
                                 {use_srtp, use_srtp()}.
 
+-doc """
+The DER-encoded trusted certificates. If this option is supplied it overrides
+option `cacertfile`.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
+-doc """
+Path to a file containing PEM-encoded CA certificates. The CA certificates are
+used to build the server certificate chain and for client authentication. The
+CAs are also used in the list of acceptable client CAs passed to the client when
+a certificate is requested. Can be omitted if there is no need to verify the
+client and if there are no intermediate CAs for the server certificate.
+
+> #### Note {: .info }
+>
+> When PEM caching is enabled, files provided with this option will be checked
+> for updates at fixed time intervals specified by the
+> [ssl_pem_cache_clean](ssl_app.md#configuration) environment parameter.
+
+> #### Note {: .info }
+>
+> Alternatively, CA certificates can be provided as a DER-encoded binary with
+> [server_cacerts](`t:server_cacerts/0`) option.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_cafile()            :: file:filename().
+-doc """
+Indicates the server will try to perform Application-Layer Protocol Negotiation
+(ALPN).
+
+The list of protocols is in order of preference. The protocol negotiated will be
+the first in the list that matches one of the protocols advertised by the
+client. If no protocol matches, the server will fail the connection with a
+"no_application_protocol" alert.
+
+The negotiated protocol can be retrieved using the
+[`negotiated_protocol/1`](`negotiated_protocol/1`) function.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_alpn()              :: [app_level_protocol()].
+-doc """
+List of protocols to send to the client if the client indicates that it supports
+the Next Protocol extension. The client can select a protocol that is not on
+this list. The list of protocols must not contain an empty binary. If the server
+negotiates a Next Protocol, it can be accessed using the
+`negotiated_next_protocol/1` method.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_next_protocol()     :: [app_level_protocol()].
+-doc "Specifies the server identity hint, which the server presents to the client.".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_psk_identity()      :: psk_identity().
+-doc """
+The DER-encoded Diffie-Hellman parameters. If specified, it overrides option
+`dhfile`.
+
+> #### Warning {: .warning }
+>
+> The `dh_der` option is not supported by TLS 1.3. Use the `supported_groups`
+> option instead.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type dh_der()                   :: binary().
+-doc """
+Path to a file containing PEM-encoded Diffie Hellman parameters to be used by
+the server if a cipher suite using Diffie Hellman key exchange is negotiated. If
+not specified, default parameters are used.
+
+> #### Warning {: .warning }
+>
+> The `dh_file` option is not supported by TLS 1.3. Use the `supported_groups`
+> option instead.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type dh_file()                  :: file:filename().
+-doc """
+Client certificates are an optional part of the TLS protocol. A server only does
+x509-certificate path validation in mode `verify_peer`. By default the server is
+in `verify_none` mode an hence will not send an certificate request to the
+client. When using `verify_peer` you may also want to specify the options
+[fail_if_no_peer_cert](`t:fail_if_no_peer_cert/0`) and
+[certificate_authorities](`t:server_certificate_authorities/0`).
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_verify_type()       :: verify_type().
+-doc """
+Used together with `{verify, verify_peer}` by an TLS/DTLS server. If set to
+`true`, the server fails if the client does not have a certificate to send, that
+is, sends an empty certificate. If set to `false`, it fails only if the client
+sends an invalid certificate (an empty certificate is considered valid).
+Defaults to false.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type fail_if_no_peer_cert()     :: boolean().
+-doc """
+Enables the TLS/DTLS server to have a local policy for deciding if a session is
+to be reused or not. Meaningful only if `reuse_sessions` is set to `true`.
+`SuggestedSessionId` is a `t:binary/0`, `PeerCert` is a DER-encoded certificate,
+`Compression` is an enumeration integer, and `CipherSuite` is of type
+`ciphersuite()`.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_reuse_session()     :: fun().
+-doc """
+The boolean value true specifies that the server will agree to reuse sessions.
+Setting it to false will result in an empty session table, that is no sessions
+will be reused. See also option [reuse_session](`t:server_reuse_session/0`).
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_reuse_sessions()    :: boolean().
+-doc """
+If the server receives a SNI (Server Name Indication) from the client matching a
+host listed in the `sni_hosts` option, the specific options for that host will
+override previously specified options. The option `sni_fun`, and `sni_hosts` are
+mutually exclusive.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type sni_hosts()                :: [{inet:hostname(), [server_option() | common_option()]}].
+-doc """
+If the server receives a SNI (Server Name Indication) from the client, the given
+function will be called to retrieve [\[server_option()]
+](`t:server_option/0`)for the indicated server. These options will be merged
+into predefined [\[server_option()] ](`t:server_option/0`)list. The function
+should be defined as: fun(ServerName :: string()) -> [\[server_option()]
+](`t:server_option/0`)and can be specified as a fun or as named
+`fun module:function/1` The option `sni_fun`, and `sni_hosts` are mutually
+exclusive.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type sni_fun()                  :: fun((string()) -> [] | undefined).
+-doc """
+If set to `true`, use the server preference for cipher selection. If set to
+`false` (the default), use the client preference.
+
+If true, use the server's preference for cipher selection. If false (the
+default), use the client's preference.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type honor_cipher_order()       :: boolean().
+-doc """
+If true, use the server's preference for ECC curve selection. If false (the
+default), use the client's preference.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type honor_ecc_order()          :: boolean().
+-doc """
+In protocols that support client-initiated renegotiation, the cost of resources
+of such an operation is higher for the server than the client. This can act as a
+vector for denial of service attacks. The SSL application already takes measures
+to counter-act such attempts, but client-initiated renegotiation can be strictly
+disabled by setting this option to `false`. The default value is `true`. Note
+that disabling renegotiation can result in long-lived connections becoming
+unusable due to limits on the number of messages the underlying cipher suite can
+encipher.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type client_renegotiation()     :: boolean().
+-doc """
+Configures the seed used for the encryption of stateless session tickets.
+Allowed values are any randomly generated `t:binary/0`. If this option is not
+configured, an encryption seed will be randomly generated.
+
+> #### Warning {: .warning }
+>
+> Reusing the ticket encryption seed between multiple server instances enables
+> stateless session tickets to work across multiple server instances, but it
+> breaks anti-replay protection across instances.
+>
+> Inaccurate time synchronization between server instances can also affect
+> session ticket freshness checks, potentially causing false negatives as well
+> as false positives.
+
+> #### Note {: .info }
+>
+> This option is supported by TLS 1.3 and above and only with stateless session
+> tickets.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type stateless_tickets_seed()   :: binary().
+-doc """
+If `true` (default), the server sends a cookie extension in its
+HelloRetryRequest messages.
+
+> #### Note {: .info }
+>
+> The cookie extension has two main purposes. It allows the server to force the
+> client to demonstrate reachability at their apparent network address (thus
+> providing a measure of DoS protection). This is primarily useful for
+> non-connection-oriented transports. It also allows to offload the server's
+> state to the client. The cookie extension is enabled by default as it is a
+> mandatory extension in RFC8446.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type cookie()                   :: boolean().
+-doc """
+Determines if a TLS-1.3 server should include the authorities extension in its
+certificate request message that will be sent if the option `verify` is set to
+`verify_peer`. Defaults to `true`.
+
+A reason to exclude the extension would be if the server wants to communicate
+with clients incapable of sending complete certificate chains that adhere to the
+extension, but the server still has the capability to recreate a chain that it
+can verify.
+""".
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type server_certificate_authorities() :: boolean().
 %% -------------------------------------------------------------------------------------------------------
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type prf_random() :: client_random | server_random. % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type protocol_extensions()  :: #{renegotiation_info => binary(),
                                   signature_algs => signature_algs(),
                                   alpn =>  app_level_protocol(),
@@ -516,19 +1735,26 @@
                                   elliptic_curves => [public_key:oid()],
                                   sni => inet:hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type connection_info() :: [common_info() | curve_info() | ssl_options_info() | security_info()].
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type common_info() :: {protocol, protocol_version()} |
                        {session_id, session_id()} |
                        {session_resumption, boolean()} |
                        {selected_cipher_suite, erl_cipher_suite()} |
                        {sni_hostname, term()} |
                        {srp_username, term()}.
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type curve_info() :: {ecc, {named_curve, term()}}.
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type ssl_options_info() :: tls_option().
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type security_info() :: {client_random, binary()} |
                          {server_random, binary()} |
                          {master_secret, binary()}.
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type connection_info_items() :: [connection_info_item()].
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type connection_info_item() :: protocol |
                                 session_id |
                                 session_resumption |
@@ -541,6 +1767,7 @@
                                 master_secret |
                                 keylog |
                                 tls_options_name().
+-doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}).
 -type tls_options_name() :: atom().
 %% -------------------------------------------------------------------------------------------------------
 
@@ -554,9 +1781,13 @@
 %% that it depends on.
 %% see application(3)
 %%--------------------------------------------------------------------
+-doc(#{equiv => start/1}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec start() -> ok  | {error, reason()}.
 start() ->
     start(temporary).
+-doc "Starts the SSL application. Default type is `temporary`.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
 start(Type) ->
     case application:ensure_all_started(ssl, Type) of
@@ -566,6 +1797,8 @@ start(Type) ->
 	    Other
     end.
 %%--------------------------------------------------------------------
+-doc "Stops the SSL application.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec stop() -> ok.
 %%
 %% Description: Stops the ssl application.
@@ -578,6 +1811,8 @@ stop() ->
 %% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
 
+-doc(#{equiv => connect/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
           {ok, sslsocket()} |
           {error, reason()} |
@@ -588,6 +1823,28 @@ stop() ->
 connect(Socket, SslOptions) ->
     connect(Socket, SslOptions, infinity).
 
+-doc """
+Upgrades a `gen_tcp`, or equivalent, connected socket to a TLS socket, that is,
+performs the client-side TLS handshake.
+
+> #### Note {: .info }
+>
+> If the option `verify` is set to `verify_peer` the option
+> `server_name_indication` shall also be specified, if it is not no Server Name
+> Indication extension will be sent, and `public_key:pkix_verify_hostname/2`
+> will be called with the IP-address of the connection as `ReferenceID`, which
+> is probably not what you want.
+
+If the option `{handshake, hello}` is used the handshake is paused after
+receiving the server hello message and the success response is
+`{ok, SslSocket, Ext}` instead of `{ok, SslSocket}`. Thereafter the handshake is
+continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
+
+If the option `active` is set to `once`, `true` or an integer value, the process
+owning the sslsocket will receive messages of type `t:active_msgs/0`
+""".
+-doc(#{since => <<"OTP R14B">>}).
+-doc(#{equiv => connect/4}).
 -spec connect(TCPSocket, TLSOptions, Timeout) ->
           {ok, sslsocket()} | {error, reason()} when
       TCPSocket :: socket(),
@@ -617,6 +1874,38 @@ connect(Socket, SslOptions0, Timeout) when is_list(SslOptions0) andalso
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
+-doc """
+Opens a TLS/DTLS connection to `Host`, `Port`.
+
+When the option `verify` is set to `verify_peer` the check
+`public_key:pkix_verify_hostname/2` will be performed in addition to the usual
+x509-path validation checks. If the check fails the error \{bad_cert,
+hostname_check_failed\} will be propagated to the path validation fun
+[verify_fun](`t:custom_verify/0`), where it is possible to do customized checks
+by using the full possibilities of the `public_key:pkix_verify_hostname/3` API.
+When the option `server_name_indication` is provided, its value (the DNS name)
+will be used as `ReferenceID` to `public_key:pkix_verify_hostname/2`. When no
+`server_name_indication` option is given, the `Host` argument will be used as
+Server Name Indication extension. The `Host` argument will also be used for the
+`public_key:pkix_verify_hostname/2` check and if the `Host` argument is an
+[`inet:ip_address()`](`t:inet:ip_address/0`) the `ReferenceID` used for the
+check will be `{ip, Host}` otherwise `dns_id` will be assumed with a fallback to
+`ip` if that fails.
+
+> #### Note {: .info }
+>
+> According to good practices certificates should not use IP-addresses as
+> "server names". It would be very surprising if this happened outside a closed
+> network.
+
+If the option `{handshake, hello}` is used the handshake is paused after
+receiving the server hello message and the success response is
+`{ok, SslSocket, Ext}` instead of `{ok, SslSocket}`. Thereafter the handshake is
+continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
+
+If the option `active` is set to `once`, `true` or an integer value, the process
+owning the sslsocket will receive messages of type `t:active_msgs/0`
+""".
 -spec connect(Host, Port, TLSOptions, Timeout) ->
           {ok, sslsocket()} |
           {ok, sslsocket(),Ext :: protocol_extensions()} |
@@ -642,6 +1931,7 @@ connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout 
     end.
 
 %%--------------------------------------------------------------------
+-doc "Creates an SSL listen socket.".
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, reason()} when
       Port::inet:port_number(),
       Options::[tls_server_option()],
@@ -664,6 +1954,7 @@ listen(Port, Options0) ->
 %%
 %% Description: Performs transport accept on an ssl listen socket
 %%--------------------------------------------------------------------
+-doc(#{equiv => transport_accept/2}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
           {error, reason()} when
       ListenSocket :: sslsocket(),
@@ -672,6 +1963,22 @@ listen(Port, Options0) ->
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
+-doc """
+Accepts an incoming connection request on a listen socket. `ListenSocket` must
+be a socket returned from `listen/2`. The socket returned is to be passed to
+[handshake/\[2,3]](`handshake/2`) to complete handshaking, that is, establishing
+the TLS/DTLS connection.
+
+> #### Warning {: .warning }
+>
+> Most API functions require that the TLS/DTLS connection is established to work
+> as expected.
+
+The accepted socket inherits the options set for `ListenSocket` in `listen/2`.
+
+The default value for `Timeout` is `infinity`. If `Timeout` is specified and no
+connection is accepted within the given time, `{error, timeout}` is returned.
+""".
 -spec transport_accept(ListenSocket, Timeout) -> {ok, SslSocket} |
           {error, reason()} when
       ListenSocket :: sslsocket(),
@@ -695,6 +2002,8 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 %%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
+-doc(#{equiv => handshake/2}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       SslSocket :: sslsocket(),
@@ -704,6 +2013,21 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
+-doc """
+Performs the TLS/DTLS server-side handshake.
+
+Returns a new TLS/DTLS socket if the handshake is successful.
+
+If the option `active` is set to `once`, `true` or an integer value, the process
+owning the sslsocket will receive messages of type `t:active_msgs/0`
+
+> #### Warning {: .warning }
+>
+> Not setting the timeout makes the server more vulnerable to DoS attacks.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
+-doc(#{equiv => handshake/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       Timeout :: timeout(),
@@ -729,6 +2053,35 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
 %% specified in ssl:listen/2 and then performs the SSL/TLS/DTLS handshake.
 handshake(ListenSocket, SslOptions) ->
     handshake(ListenSocket, SslOptions, infinity).
+-doc """
+If `Socket` is a ordinary `t:socket/0`: upgrades a `gen_tcp`, or equivalent,
+socket to an SSL socket, that is, performs the TLS server-side handshake and
+returns a TLS socket.
+
+> #### Warning {: .warning }
+>
+> The ordinary `Socket` shall be in passive mode (\{active, false\}) before
+> calling this function, and before the client tries to connect with TLS, or
+> else the behavior of this function is undefined. The best way to ensure this
+> is to create the ordinary listen socket in passive mode.
+
+If `Socket` is an [sslsocket() ](`t:sslsocket/0`): provides extra TLS/DTLS
+options to those specified in `listen/2` and then performs the TLS/DTLS
+handshake. Returns a new TLS/DTLS socket if the handshake is successful.
+
+> #### Warning {: .warning }
+>
+> Not setting the timeout makes the server more vulnerable to DoS attacks.
+
+If option `{handshake, hello}` is specified the handshake is paused after
+receiving the client hello message and the success response is
+`{ok, SslSocket, Ext}` instead of `{ok, SslSocket}`. Thereafter the handshake is
+continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
+
+If the option `active` is set to `once`, `true` or an integer value, the process
+owning the sslsocket will receive messages of type `t:active_msgs/0`
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
           {ok, SslSocket} |
           {ok, SslSocket, Ext} |
@@ -782,6 +2135,8 @@ handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout
     end.   
 
 %%--------------------------------------------------------------------
+-doc(#{equiv => handshake_continue/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -795,6 +2150,8 @@ handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout
 handshake_continue(Socket, SSLOptions) ->
     handshake_continue(Socket, SSLOptions, infinity).
 %%--------------------------------------------------------------------
+-doc "Continue the TLS handshake, possibly with new, additional or changed options.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -809,6 +2166,8 @@ handshake_continue(Socket, SSLOptions) ->
 handshake_continue(Socket, SSLOptions, Timeout) ->
     ssl_gen_statem:handshake_continue(Socket, SSLOptions, Timeout).
 %%--------------------------------------------------------------------
+-doc "Cancel the handshake with a fatal `USER_CANCELED` alert.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
 %%
 %% Description: Cancels the handshakes sending a close alert.
@@ -817,6 +2176,7 @@ handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
+-doc "Closes a TLS/DTLS connection.".
 -spec  close(SslSocket) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
       Reason :: any().
@@ -831,6 +2191,17 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
+-doc """
+Closes or downgrades a TLS connection. In the latter case the transport
+connection will be handed over to the `NewController` process after receiving
+the TLS close alert from the peer. The returned transport socket will have the
+following options set: `[{active, false}, {packet, 0}, {mode, binary}]`.
+
+In case of downgrade, the close function might return some binary data that
+should be treated by the user as the first bytes received on the downgraded
+connection.
+""".
+-doc(#{since => <<"OTP 18.1">>}).
 -spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
       How :: timeout() | {NewController::pid(), timeout()},
@@ -859,6 +2230,12 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
+-doc """
+Writes `Data` to `SslSocket`.
+
+A notable return value is `{error, closed}` indicating that the socket is
+closed.
+""".
 -spec send(SslSocket, Data) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Data :: iodata().
@@ -881,6 +2258,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 %%
 %% Description: Receives data when active = false
 %%--------------------------------------------------------------------
+-doc(#{equiv => recv/3}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -890,6 +2268,19 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
+-doc """
+Receives a packet from a socket in passive mode. A closed socket is indicated by
+return value `{error, closed}`.
+
+Argument `Length` is meaningful only when the socket is in mode `raw` and
+denotes the number of bytes to read. If `Length` = 0, all available bytes are
+returned. If `Length` > 0, exactly `Length` bytes are returned, or an error;
+possibly discarding less than `Length` bytes of data when the socket gets closed
+from the other side.
+
+Optional argument `Timeout` specifies a time-out in milliseconds. The default
+value is `infinity`.
+""".
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -910,6 +2301,10 @@ recv(#sslsocket{pid = {Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
+-doc """
+Assigns a new controlling process to the SSL socket. A controlling process is
+the owner of an SSL socket, and receives all messages from the socket.
+""".
 -spec controlling_process(SslSocket, NewOwner) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
       NewOwner :: pid(),
@@ -930,6 +2325,19 @@ controlling_process(#sslsocket{pid = {Listen,
     Transport:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
+-doc """
+Returns the most relevant information about the connection, ssl options that are
+undefined will be filtered out. Note that values that affect the security of the
+connection will only be returned if explicitly requested by
+connection_information/2.
+
+> #### Note {: .info }
+>
+> The legacy `Item = cipher_suite` was removed in OTP-23. Previously it returned
+> the cipher suite on its (undocumented) legacy format. It is replaced by
+> `selected_cipher_suite`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec connection_information(SslSocket) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
       Result :: connection_info().
@@ -946,6 +2354,23 @@ connection_information(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
 connection_information(#sslsocket{pid = {_Listen, #config{}}}) ->
     {error, enotconn}.
 %%--------------------------------------------------------------------
+-doc """
+Returns the requested information items about the connection, if they are
+defined.
+
+Note that client_random, server_random, master_secret and keylog are values that
+affect the security of connection. Meaningful atoms, not specified above, are
+the ssl option names.
+
+In order to retrieve keylog and other secret information from a TLS 1.3
+connection, [keep_secrets](`t:keep_secrets/0`) must be configured in advance and
+set to `true`.
+
+> #### Note {: .info }
+>
+> If only undefined options are requested the resulting list can be empty.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
       Items :: connection_info_items(),
@@ -963,6 +2388,7 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items) when is_pid(Pid) ->
     end.
 
 %%--------------------------------------------------------------------
+-doc "Returns the address and port number of the peer.".
 -spec peername(SslSocket) -> {ok, {Address, Port}} |
           {error, reason()} when
       SslSocket :: sslsocket(),
@@ -983,6 +2409,12 @@ peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
 
 %%--------------------------------------------------------------------
+-doc """
+The peer certificate is returned as a DER-encoded binary. The certificate can be
+decoded with `public_key:pkix_decode_cert/2` Suggested further reading about
+certificates is [public_key User's Guide](`e:public_key:public_key_records.md`)
+and [ssl User's Guide](standards_compliance.md)
+""".
 -spec peercert(SslSocket) -> {ok, Cert} | {error, reason()} when
       SslSocket :: sslsocket(),
       Cert :: public_key:der_encoded().
@@ -1002,6 +2434,8 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
+-doc "Returns the protocol negotiated through ALPN or NPN extensions.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
       Protocol :: binary(),
@@ -1014,6 +2448,31 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:negotiated_protocol(Pid).
 
 %%--------------------------------------------------------------------
+-doc """
+Lists all possible cipher suites corresponding to `Description` that are
+available. The `exclusive` and `exclusive_anonymous` option will exclusively
+list cipher suites first supported in `Version` whereas the other options are
+inclusive from the lowest possible version to `Version`. The `all` options
+includes all suites except the anonymous and no anonymous suites are supported
+by default.
+
+> #### Note {: .info }
+>
+> TLS-1.3 has no overlapping cipher suites with previous TLS versions, that is
+> the result of `cipher_suites(all, 'tlsv1.3').` contains a separate set of
+> suites that can be used with TLS-1.3 an other set that can be used if a lower
+> version is negotiated. PRE TLS-1.3 so called `PSK` and `SRP` suites need extra
+> configuration to work see [user lookup function](`t:custom_user_lookup/0`). No
+> anonymous suites are supported by TLS-1.3.
+>
+> Also note that the cipher suites returned by this function are the cipher
+> suites that the OTP ssl application can support provided that they are
+> supported by the cryptolib linked with the OTP crypto application. Use
+> [ssl:filter_cipher_suites(Suites, []).](`filter_cipher_suites/2`) to filter
+> the list for the current cryptolib. Note that cipher suites may be filtered
+> out because they are too old or too new depending on the cryptolib
+""".
+-doc(#{since => <<"OTP 20.3">>}).
 -spec cipher_suites(Description, Version) -> ciphers() when
       Description :: default | all | exclusive | anonymous | exclusive_anonymous,
       Version :: protocol_version() | ssl_record:ssl_version().
@@ -1033,6 +2492,11 @@ cipher_suites(Description, Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
+-doc """
+Same as `cipher_suites/2` but lists RFC or OpenSSL string names instead of
+`t:erl_cipher_suite/0`
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
       Description :: default | all | exclusive | anonymous,
       Version :: protocol_version() | ssl_record:ssl_version().
@@ -1056,6 +2520,18 @@ cipher_suites(Description, Version, openssl) ->
      || Suite <- supported_suites(Description, Version)].
 
 %%--------------------------------------------------------------------
+-doc """
+Removes cipher suites if any of the filter functions returns false for any part
+of the cipher suite. If no filter function is supplied for some part the default
+behaviour regards it as if there was a filter function that returned true. For
+examples see
+[Customizing cipher suites ](using_ssl.md#customizing-cipher-suites)Additionally,
+this function also filters the cipher suites to exclude cipher suites not
+supported by the cryptolib used by the OTP crypto application. That is calling
+ssl:filter_cipher_suites(Suites, []) will be equivalent to only applying the
+filters for cryptolib support.
+""".
+-doc(#{since => <<"OTP 20.3">>}).
 -spec filter_cipher_suites(Suites, Filters) -> Ciphers when
       Suites :: ciphers(),
       Filters :: cipher_filters(),
@@ -1077,6 +2553,13 @@ filter_cipher_suites(Suites, Filters0) ->
                 prf_filters => add_filter(proplists:get_value(prf, Filters0), PrfF)},
     ssl_cipher:filter_suites(Suites, Filters).
 %%--------------------------------------------------------------------
+-doc """
+Make `Preferred` suites become the most preferred suites that is put them at the
+head of the cipher suite list `Suites` after removing them from `Suites` if
+present. `Preferred` may be a list of cipher suites or a list of filters in
+which case the filters are use on `Suites` to extract the preferred cipher list.
+""".
+-doc(#{since => <<"OTP 20.3">>}).
 -spec prepend_cipher_suites(Preferred, Suites) -> ciphers() when
       Preferred :: ciphers() | cipher_filters(),
       Suites :: ciphers().
@@ -1095,6 +2578,13 @@ prepend_cipher_suites(Filters, Suites) ->
     Preferred = filter_cipher_suites(Suites, Filters), 
     Preferred ++ (Suites -- Preferred).
 %%--------------------------------------------------------------------
+-doc """
+Make `Deferred` suites become the least preferred suites, that is put them at
+the end of the cipher suite list `Suites` after removing them from `Suites` if
+present. `Deferred` may be a list of cipher suites or a list of filters in which
+case the filters are use on `Suites` to extract the Deferred cipher list.
+""".
+-doc(#{since => <<"OTP 20.3">>}).
 -spec append_cipher_suites(Deferred, Suites) -> ciphers() when
       Deferred :: ciphers() | cipher_filters(),
       Suites :: ciphers().
@@ -1112,6 +2602,55 @@ append_cipher_suites(Filters, Suites) ->
     (Suites -- Deferred) ++  Deferred.
 
 %%--------------------------------------------------------------------
+-doc """
+Lists all possible signature algorithms corresponding to `Description` that are
+available. The `exclusive` option will exclusively list algorithms/schemes for
+that protocol version, whereas the `default` and `all` options lists the
+combined list to support the range of protocols from (D)TLS-1.2, the first
+version to support configuration of the signature algorithms, to `Version`.
+
+Example:
+
+```erlang
+      1> ssl:signature_algs(default, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
+      rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+      {sha512,ecdsa},
+      {sha384,ecdsa},
+      {sha256,ecdsa}]
+
+      2>ssl:signature_algs(all, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
+      rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+      {sha512,ecdsa},
+      {sha384,ecdsa},
+      {sha256,ecdsa},
+      {sha224,ecdsa},
+      {sha224,rsa},
+      {sha,rsa},
+      {sha,dsa}]
+
+      3> ssl:signature_algs(exclusive, 'tlsv1.3').
+      [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
+      ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+      rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
+      rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
+```
+
+> #### Note {: .info }
+>
+> Some TLS-1-3 scheme names overlap with TLS-1.2 algorithm-tuple-pair-names and
+> then TLS-1.3 names will be used, for example `rsa_pkcs1_sha256` instead of
+> `{sha256, rsa}` these are legacy algorithms in TLS-1.3 that apply only to
+> certificate signatures in this version of the protocol.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
       Version :: protocol_version().
@@ -1147,6 +2686,8 @@ signature_algs(Description, Version) ->
     erlang:error(badarg, [Description, Version]).
 
 %%--------------------------------------------------------------------
+-doc(#{equiv => eccs/1}).
+-doc(#{since => <<"OTP 19.2">>}).
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
 
@@ -1157,6 +2698,12 @@ eccs() ->
     eccs_filter_supported(Curves).
 
 %%--------------------------------------------------------------------
+-doc """
+Returns a list of supported ECCs. `eccs/0` is equivalent to calling
+[`eccs(Protocol)`](`eccs/1`) with all supported protocols and then deduplicating
+the output.
+""".
+-doc(#{since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
       Version :: protocol_version(),
       NamedCurves :: [named_curve()].
@@ -1180,6 +2727,7 @@ eccs_filter_supported(Curves) ->
                  Curves).
 
 %%--------------------------------------------------------------------
+-doc false.
 -spec groups() -> [group()].
 %% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
@@ -1187,6 +2735,7 @@ groups() ->
     tls_v1:groups().
 
 %%--------------------------------------------------------------------
+-doc false.
 -spec groups(default) -> [group()].
 %% Description: returns the default groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
@@ -1194,6 +2743,7 @@ groups(default) ->
     tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
+-doc "Gets the values of the specified socket options.".
 -spec getopts(SslSocket, OptionNames) ->
           {ok, [gen_tcp:option()]} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -1228,6 +2778,7 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
+-doc "Sets options according to `Options` for socket `SslSocket`.".
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
@@ -1286,6 +2837,8 @@ setopts(#sslsocket{}, Options) ->
     {error, {options,{not_a_proplist, Options}}}.
 
 %%---------------------------------------------------------------
+-doc(#{equiv => getstat/2}).
+-doc(#{since => <<"OTP 19.0">>}).
 -spec getstat(SslSocket) ->
           {ok, OptionValues} | {error, inet:posix()} when
       SslSocket :: sslsocket(),
@@ -1297,6 +2850,12 @@ getstat(Socket) ->
     getstat(Socket, inet:stats()).
 
 %%---------------------------------------------------------------
+-doc """
+Gets one or more statistic options for the underlying TCP socket.
+
+See inet:getstat/2 for statistic options description.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec getstat(SslSocket, Options) ->
           {ok, OptionValues} | {error, inet:posix()} when
       SslSocket :: sslsocket(),
@@ -1322,6 +2881,16 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
+-doc """
+Immediately closes a socket in one or two directions.
+
+`How == write` means closing the socket for writing, reading from it is still
+possible.
+
+To be able to handle that the peer has done a shutdown on the write side, option
+`{exit_on_close, false}` is useful.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
       SslSocket :: sslsocket(),
       How :: read | write | read_write.
@@ -1350,6 +2919,7 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
     ssl_gen_statem:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
+-doc "Returns the local address and port number of socket `SslSocket`.".
 -spec sockname(SslSocket) ->
           {ok, {Address, Port}} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -1369,6 +2939,36 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
+-doc """
+Lists information, mainly concerning TLS/DTLS versions, in runtime for debugging
+and testing purposes.
+
+- **`app_vsn`** - The application version of the SSL application.
+
+- **`supported`** - TLS versions supported with current application environment
+  and crypto library configuration. Overridden by a version option on
+  [connect/\[2,3,4]](`connect/2`), `listen/2`, and
+  [handshake/\[2,3]](`handshake/2`). For the negotiated TLS version, see
+  [connection_information/1 ](`connection_information/1`).
+
+- **`supported_dtls`** - DTLS versions supported with current application
+  environment and crypto library configuration. Overridden by a version option
+  on [connect/\[2,3,4]](`connect/2`), `listen/2`, and
+  [handshake/\[2,3]](`handshake/2`). For the negotiated DTLS version, see
+  [connection_information/1 ](`connection_information/1`).
+
+- **`available`** - All TLS versions supported with the linked crypto library.
+
+- **`available_dtls`** - All DTLS versions supported with the linked crypto
+  library.
+
+- **`implemented`** - All TLS versions supported by the SSL application if
+  linked with a crypto library with the necessary support.
+
+- **`implemented_dtls`** - All DTLS versions supported by the SSL application if
+  linked with a crypto library with the necessary support.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec versions() -> [VersionInfo] when
       VersionInfo :: {ssl_app, string()} |
                      {supported | available | implemented, [tls_version()]} |
@@ -1404,6 +3004,19 @@ versions() ->
     ].
 
 %%---------------------------------------------------------------
+-doc """
+Initiates a new handshake. A notable return value is
+`{error, renegotiation_rejected}` indicating that the peer refused to go through
+with the renegotiation, but the connection is still active using the previously
+negotiated session.
+
+TLS-1.3 has removed the renegotiate feature of earlier TLS versions and instead
+adds a new feature called key update that replaces the most important part of
+renegotiate, that is the refreshing of session keys. This is triggered
+automatically after reaching a plaintext limit and can be configured by option
+[key_update_at](`t:key_update_at/0`).
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec renegotiate(SslSocket) -> ok | {error, reason()} when
       SslSocket :: sslsocket().
 %%
@@ -1430,6 +3043,18 @@ renegotiate(#sslsocket{pid = {_Listen, #config{}}}) ->
     {error, enotconn}.
 
 %%---------------------------------------------------------------
+-doc """
+There are cryptographic limits on the amount of plaintext which can be safely
+encrypted under a given set of keys. If the amount of data surpasses those
+limits, a key update is triggered and a new set of keys are installed. See also
+the option [key_update_at](`t:key_update_at/0`).
+
+This function can be used to explicitly start a key update on a TLS 1.3
+connection. There are two types of the key update: if _Type_ is set to _write_,
+only the writing key is updated; if _Type_ is set to _read_write_, both the
+reading and writing keys are updated.
+""".
+-doc(#{since => <<"OTP 22.3">>}).
 -spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Type :: write | read_write.
@@ -1451,6 +3076,18 @@ update_keys(_, Type) ->
     {error, {illegal_parameter, Type}}.
 
 %%--------------------------------------------------------------------
+-doc """
+Equivalent to
+`export_key_materials(TLSSocket, Labels, Contexts, WantedLengths, true).`
+
+> #### Note {: .info }
+>
+> For pre TLS-1.3 connection calling this function as
+> [`export_key_materials(TLSSocket, [Label], [Context], [WantedLength])`](`export_key_materials/4`)
+> is equivalent to legacy function `prf/5` as
+> [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`)
+""".
+-doc(#{since => <<"OTP 26.3">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
                  {ok, ExportKeyMaterials} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -1465,6 +3102,16 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
+-doc """
+Uses the Pseudo-Random Function, PRF (pre TLS-1.3) or HKDF (TLS-1.3), for a TLS
+connection to generate and export keying materials. In TLS-1.3 using
+`no_context` is equivalent to specifying an empty context, that is an empty
+binary, pre TLS-1.3 these will render different results. The last argument is
+relevant only in TLS-1.3 and it causes the TLS-1.3 exporter_master_secret to be
+consumed that is it will no longer be available, to increase security, and
+further attempts to call this function will fail.
+""".
+-doc(#{since => <<"OTP 26.3">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
                  {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
       SslSocket :: sslsocket(),
@@ -1480,6 +3127,21 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
+-doc """
+Uses the Pseudo-Random Function (PRF) of a TLS session to generate extra key
+material. It either takes user-generated values for `Secret` and `Seed` or atoms
+directing it to use a specific value from the session security parameters.
+
+> #### Note {: .info }
+>
+> This function is replaced by `export_key_materials/4`, since OTP-26.3, which
+> is equivalent to
+> [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`)
+> Other ways of calling this function was for testing purposes only and has no
+> use case. Called in TLS-1.3 context it will now behave as
+> [`export_key_materials(TLSSocket, [Label], [Context], [WantedLength])`](`export_key_materials/4`)
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
           {ok, binary()} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -1516,6 +3178,15 @@ prf(Socket, Secret, Label, Context, WantedLength) ->
     {ok, tls_v1:prf(PRFAlg, Secret, Label, erlang:iolist_to_binary(Context), WantedLength)}.
 
 %%--------------------------------------------------------------------
+-doc """
+PEM files, used by ssl API-functions, are cached for performance reasons. The
+cache is automatically checked at regular intervals to see if any cache entries
+should be invalidated.
+
+This function provides a way to unconditionally clear the entire cache, thereby
+forcing a reload of previously cached PEM files.
+""".
+-doc(#{since => <<"OTP 17.5">>}).
 -spec clear_pem_cache() -> ok.
 %%
 %% Description: Clear the PEM cache
@@ -1524,6 +3195,7 @@ clear_pem_cache() ->
     ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
+-doc "Presents the error returned by an SSL function as a printable string.".
 -spec format_error(Reason | {error, Reason}) -> string() when
       Reason :: any().
 %%
@@ -1534,12 +3206,15 @@ format_error({error, Reason}) ->
 format_error(Reason) ->
     do_format_error(Reason).
 
+-doc false.
 tls_version(Version) when ?TLS_1_X(Version) ->
     Version;
 tls_version(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
 %%--------------------------------------------------------------------
+-doc "Converts `t:erl_cipher_suite/0` to RFC name string.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec suite_to_str(CipherSuite) -> string() when
       CipherSuite :: erl_cipher_suite();
                   (CipherSuite) -> string() when
@@ -1555,6 +3230,12 @@ suite_to_str(Cipher) ->
     ssl_cipher_format:suite_map_to_str(Cipher).
 
 %%--------------------------------------------------------------------
+-doc """
+Converts `t:erl_cipher_suite/0` to OpenSSL name string.
+
+PRE TLS-1.3 these names differ for RFC names
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec suite_to_openssl_str(CipherSuite) -> string() when
       CipherSuite :: erl_cipher_suite().                
 %%
@@ -1565,6 +3246,12 @@ suite_to_openssl_str(Cipher) ->
 
 %%
 %%--------------------------------------------------------------------
+-doc """
+Converts an RFC or OpenSSL name string to an `t:erl_cipher_suite/0` Returns an
+error if the cipher suite is not supported or the name is not a valid cipher
+suite name.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
       CipherSuiteName :: string().
 %%
@@ -1669,6 +3356,7 @@ ssl_options() ->
     ].
 
 %% Handle ssl options at handshake, handshake_continue
+-doc false.
 -spec update_options([any()], client | server, map()) -> map().
 update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
     {UserSslOpts, _} = split_options(Opts, ssl_options()),
@@ -1701,6 +3389,7 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     validate_server_cert_opts(SslOpts, Env),
     SslOpts.
 
+-doc false.
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
 handle_options(Opts, Role, Host) ->
     handle_options(undefined, undefined, Opts, Role, Host).
@@ -3043,6 +4732,7 @@ unambiguous_path(Value) ->
 %%%#
 %%%# Tracing
 %%%#
+-doc false.
 handle_trace(csp, {call, {?MODULE, opt_stapling, [UserOpts | _]}}, Stack) ->
     {format_ocsp_params(UserOpts), Stack};
 handle_trace(csp, {return_from, {?MODULE, opt_stapling, 3}, Return}, Stack) ->

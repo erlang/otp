@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_wx_contents_viewer).
+-moduledoc false.
 
 -behaviour(wx_object).
 

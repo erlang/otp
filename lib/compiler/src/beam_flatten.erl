@@ -20,6 +20,7 @@
 %% Purpose : Converts intermediate assembly code to final format.
 
 -module(beam_flatten).
+-moduledoc false.
 
 -export([module/2]).
 

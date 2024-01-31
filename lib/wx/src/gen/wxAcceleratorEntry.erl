@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxAcceleratorEntry).
+-moduledoc """
+Functions for wxAcceleratorEntry class
+
+An object used by an application wishing to create an accelerator table (see
+`m:wxAcceleratorTable`).
+
+See: `m:wxAcceleratorTable`, `wxWindow:setAcceleratorTable/2`
+
+wxWidgets docs:
+[wxAcceleratorEntry](https://docs.wxwidgets.org/3.1/classwx_accelerator_entry.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getCommand/1,getFlags/1,getKeyCode/1,new/0,new/1,set/4,set/5]).
 
@@ -28,6 +39,7 @@
 -type wxAcceleratorEntry() :: wx:wx_object().
 -export_type([wxAcceleratorEntry/0]).
 %% @hidden
+-doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new([])
@@ -41,6 +53,7 @@ new() ->
 %% new(Entry) -> wxAcceleratorEntry() when<br />
 %% 	Entry::wxAcceleratorEntry().<br />
 %% 
+-doc "Copy ctor.".
 -spec new([Option]) -> wxAcceleratorEntry() when
 	Option :: {'flags', integer()}
 		 | {'keyCode', integer()}
@@ -64,6 +77,7 @@ new(#wx_ref{type=EntryT}=Entry) ->
   wxe_util:rec(?wxAcceleratorEntry_new_1_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratorentry.html#wxacceleratorentrygetcommand">external documentation</a>.
+-doc "Returns the command identifier for the accelerator table entry.".
 -spec getCommand(This) -> integer() when
 	This::wxAcceleratorEntry().
 getCommand(#wx_ref{type=ThisT}=This) ->
@@ -72,6 +86,7 @@ getCommand(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAcceleratorEntry_GetCommand).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratorentry.html#wxacceleratorentrygetflags">external documentation</a>.
+-doc "Returns the flags for the accelerator table entry.".
 -spec getFlags(This) -> integer() when
 	This::wxAcceleratorEntry().
 getFlags(#wx_ref{type=ThisT}=This) ->
@@ -80,6 +95,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAcceleratorEntry_GetFlags).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratorentry.html#wxacceleratorentrygetkeycode">external documentation</a>.
+-doc "Returns the keycode for the accelerator table entry.".
 -spec getKeyCode(This) -> integer() when
 	This::wxAcceleratorEntry().
 getKeyCode(#wx_ref{type=ThisT}=This) ->
@@ -96,6 +112,7 @@ set(This,Flags,KeyCode,Cmd)
   set(This,Flags,KeyCode,Cmd, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratorentry.html#wxacceleratorentryset">external documentation</a>.
+-doc "Sets the accelerator entry parameters.".
 -spec set(This, Flags, KeyCode, Cmd, [Option]) -> 'ok' when
 	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer(),
 	Option :: {'item', wxMenuItem:wxMenuItem()}.
@@ -108,6 +125,7 @@ set(#wx_ref{type=ThisT}=This,Flags,KeyCode,Cmd, Options)
   wxe_util:queue_cmd(This,Flags,KeyCode,Cmd, Opts,?get_env(),?wxAcceleratorEntry_Set).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxAcceleratorEntry()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAcceleratorEntry),

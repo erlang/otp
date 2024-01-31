@@ -18,6 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_expand).
+-moduledoc """
+Shell expansion and formatting of expansion suggestions.
+
+This module provides an expand_fun for the erlang shell
+[`expand/1,2`](`expand/1`). It is possible to override this expand_fun
+[`io:setopts/1,2`](`io:setopts/1`).
+""".
+-moduledoc(#{since => "OTP 26.0"}).
 %% a default expand function for edlin, expanding modules, functions
 %% filepaths, variable binding, record names, function parameter values,
 %% record fields and map keys and record field values.
@@ -31,6 +39,8 @@
                      functions = []
                     }).
 
+-doc(#{equiv => expand/2}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec expand(Bef0) -> {Res, Completion, Matches} when
       Bef0 :: string(), %% a line of erlang expressions in reverse
       Res :: 'yes' | 'no',
@@ -48,6 +58,79 @@
 expand(Bef0) ->
     expand(Bef0, [{legacy_output, true}]).
 
+-doc """
+The standard expansion function is able to expand strings to valid erlang terms.
+This includes module names:
+
+```text
+1> erla
+modules
+erlang:
+```
+
+function names:
+
+```text
+1> is_ato
+functions
+is_atom(
+2> erlang:is_ato
+functions
+is_atom(
+```
+
+function types:
+
+```text
+1> erlang:is_atom(
+typespecs
+erlang:is_atom(Term)
+any()
+```
+
+and automatically add , or closing parenthesis when no other valid expansion is
+possible. The expand function also completes: shell bindings, record names,
+record fields and map keys.
+
+As seen below, function headers are grouped together if they've got the same
+expansion suggestion, in this case all had the same suggestions, that is '\}'.
+There is also limited support for filtering out function typespecs that that
+does not match the types on the terms on the prompt. Only 4 suggestions are
+shown below but there exists plenty more typespecs for `erlang:system_info`.
+
+```text
+1> erlang:system_info({allocator, my_allocator
+typespecs
+erlang:system_info(wordsize | {wordsize, ...} | {wordsize, ...})
+erlang:system_info({allocator, ...})
+erlang:system_info({allocator_sizes, ...})
+erlang:system_info({cpu_topology, ...})
+}
+```
+
+The return type of `expand` function specifies either a list of `Element` tuples
+or a list of `Section` maps. The section concept was introduced to enable more
+formatting options for the expansion results. For example, the shell expansion
+has support to highlight text and hide suggestions. There are also a
+`{highlight, Text}` that highlights all occurances of `Text` in the title, and a
+`highlight_all` for simplicity which highlights the whole title, as can be seen
+above for `functions` and `typespecs`.
+
+By setting the `{hide, result}` or `{hide, title}` options you may hide
+suggestions. Sometimes the title isn't useful and just produces text noise, in
+the example above the `t:any/0` result is part of a section with title `Types`.
+Hiding results is currently not in use, but the idea is that a section can be
+selected in the expand area and all the other section entries should be
+collapsed.
+
+Its possible to set a custom separator between the title and the results. This
+can be done with `{separator, Separator}`. By default its set to be `\n`, some
+results display a `type_name() :: `followed by all types that define
+`type_name()`.
+
+The `{ending, Text}` ElementOption just appends Text to the `Element`.
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec expand(Bef0, Opts) -> {Res, Completion, Matches} when
       Bef0 :: string(), %% a line of erlang expressions in reverse
       Opts :: [Option],
@@ -75,6 +158,7 @@ expand(Bef0, Opts) ->
     expand(Bef0, Opts, ShellState).
 
 %% Only used for testing
+-doc false.
 expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
     LegacyOutput = proplists:get_value(legacy_output, Opts, false),
     {_Bef1, Word} = over_word(Bef0),
@@ -173,6 +257,7 @@ expand_map(Word, Bs, Binding, Keys) ->
         _ -> {no, [], []}
     end.
 
+-doc false.
 over_word(Bef) ->
     {Bef1,_,_} = over_white(Bef, [], 0),
     {Bef2, Word, _} = edlin:over_word(Bef1, [], 0),
@@ -255,6 +340,7 @@ match_arguments({function, {{parameters, Ps}, _}, Cs}, As) ->
     match_arguments1(Ps, Cs, As);
 match_arguments({{parameters, Ps}, _}, As) ->
     match_arguments1(Ps, [], As).
+-doc false.
 match_arguments1(_,_,[]) -> true;
 %% Just assume that it will evaluate to the correct type.
 match_arguments1([_|Ps], Cs, [{parenthesis, _}|As]) ->
@@ -283,6 +369,7 @@ match_arguments1([P|Ps], Cs, [{_, String}|As]) ->
         false -> false
     end.
 
+-doc false.
 is_type(Type, Cs, String) ->
     {ok, A, _} = erl_scan:string(String++"."),
     Types = [T || T <- edlin_type_suggestion:get_types(Cs, Type, [], [no_print]) ],
@@ -640,12 +727,14 @@ shell(Fun) ->
         false -> "user_defined"
     end.
 
+-doc false.
 shell_default_or_bif(Fun) ->
     {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
     case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
         true -> "shell_default";
         _ -> bif(Fun)
     end.
+-doc false.
 bif(Fun) ->
     {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
     case lists:member(Fun1, [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
@@ -825,6 +914,7 @@ get_arities(ModStr, FuncStr) ->
             {no, [], []}
     end.
 
+-doc false.
 get_exports(Mod) ->
     case erlang:module_loaded(Mod) of
         true ->
@@ -966,6 +1056,7 @@ to_legacy_format([#{title:=Title, elems:=_Elems}|Rest]) ->
 to_legacy_format([{Val, _}|Rest]) ->
     [{Val, ""}] ++ to_legacy_format(Rest).
 
+-doc false.
 format_matches([], _LineWidth) -> [];
 format_matches([#{}|_]=FF, LineWidth) ->
     %% Group function head that have the exact same Type suggestion
@@ -1120,6 +1211,7 @@ field_width([], W, LL) when W < LL ->
 field_width([], _, LL) ->
     LL.
 
+-doc false.
 number_matches([#{ elems := Matches }|T]) ->
     number_matches(Matches) + number_matches(T);
 number_matches([_|T]) ->

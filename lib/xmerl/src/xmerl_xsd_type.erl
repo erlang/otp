@@ -19,6 +19,7 @@
 %%
 
 -module(xmerl_xsd_type).
+-moduledoc false.
 
 -export([check_simpleType/3,facet_fun/2,compare_floats/2,
 	 replace_ws/2,collapse_ws/1]).

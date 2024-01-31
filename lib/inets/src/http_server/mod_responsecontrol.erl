@@ -20,6 +20,7 @@
 %%
 
 -module(mod_responsecontrol).
+-moduledoc false.
 -export([do/1]).
 
 -include("httpd.hrl").

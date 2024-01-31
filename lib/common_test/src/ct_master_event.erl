@@ -26,6 +26,7 @@
 %%% template for other event handlers that can be plugged in to 
 %%% handle logging and reporting on the master node.
 -module(ct_master_event).
+-moduledoc false.
 
 -behaviour(gen_event).
 

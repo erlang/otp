@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_manager).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Internal application API

@@ -18,6 +18,34 @@
 %% %CopyrightEnd%
 %%
 -module(cprof).
+-moduledoc """
+A simple Call Count Profiling Tool using breakpoints for minimal runtime
+performance impact.
+
+The `cprof` module is used to profile a program to find out how many times
+different functions are called. Breakpoints similar to local call trace, but
+containing a counter, are used to minimise runtime performance impact.
+
+Since breakpoints are used there is no need for special compilation of any
+module to be profiled. For now these breakpoints can only be set on BEAM code so
+BIFs cannot be call count traced.
+
+The size of the call counters is the host machine word size. One bit is used
+when pausing the counter, so the maximum counter value for a 32-bit host
+is 2147483647.
+
+The profiling result is delivered as a term containing a sorted list of entries,
+one per module. Each module entry contains a sorted list of functions. The
+sorting order in both cases is of decreasing call count.
+
+Call count tracing is very lightweight compared to other forms of tracing since
+no trace message has to be generated. Some measurements indicates performance
+degradation in the vicinity of 10 percent.
+
+## See Also
+
+`m:eprof`(3), `m:fprof`(3), erlang(3), [User's Guide](cprof_chapter.md)
+""".
 
 %% Call count profiling tool.
 
@@ -30,11 +58,19 @@
 
 
 
+-doc """
+Start call count tracing for all functions in all modules, and also for all
+functions in modules to be loaded. This is the same as
+`(start({'_','_','_'})+start({on_load}))`.
+
+See also [`start/1..3`](`start/1`) below.
+""".
 -spec start() -> non_neg_integer().
 
 start() ->
     tr({'_','_','_'}, true) + tr(on_load, true).
 
+-doc(#{equiv => start/3}).
 -spec start(FuncSpec) -> non_neg_integer() when
       FuncSpec :: (Mod :: module()) | mfa() | {FS :: term()}.
 
@@ -45,6 +81,7 @@ start({FuncSpec}) ->
 start(M) ->
     tr({M,'_','_'}, true).
 
+-doc(#{equiv => start/3}).
 -spec start(Mod, Func) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom().
@@ -52,6 +89,17 @@ start(M) ->
 start(M,F) ->
     tr({M,F,'_'}, true).
 
+-doc """
+Start call count tracing for matching functions in matching modules. The `FS`
+argument can be used to specify the first argument to `erlang:trace_pattern/3`,
+for example `on_load`.
+
+Set call count breakpoints on the matching functions that has no call count
+breakpoints. Call counters are set to zero and running for all matching
+functions.
+
+Return the number of matching functions that has got call count breakpoints.
+""".
 -spec start(Mod, Func, Arity) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom(),
@@ -62,11 +110,19 @@ start(M,F,A) ->
 
 
 
+-doc """
+Stop call count tracing for all functions in all modules, and also for all
+functions in modules to be loaded. This is the same as
+`(stop({'_','_','_'})+stop({on_load}))`.
+
+See also [`stop/1..3`](`stop/1`) below.
+""".
 -spec stop() -> non_neg_integer().
 
 stop() ->
     tr({'_','_','_'}, false) + tr(on_load, false).
 
+-doc(#{equiv => stop/3}).
 -spec stop(FuncSpec) -> non_neg_integer() when
       FuncSpec :: (Mod :: module()) | mfa() | {FS :: term()}.
 
@@ -77,6 +133,7 @@ stop({FuncSpec}) ->
 stop(M) ->
     tr({M,'_','_'}, false).
 
+-doc(#{equiv => stop/3}).
 -spec stop(Mod, Func) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom().
@@ -84,6 +141,18 @@ stop(M) ->
 stop(M,F) ->
     tr({M,F,'_'}, false).
 
+-doc """
+Stop call count tracing for matching functions in matching modules. The `FS`
+argument can be used to specify the first argument to `erlang:trace_pattern/3`,
+for example `on_load`.
+
+Remove call count breakpoints from the matching functions that has call count
+breakpoints.
+
+Return the number of matching functions that can have call count breakpoints,
+the same as [`start/0..3`](`start/0`) with the same arguments would have
+returned.
+""".
 -spec stop(Mod, Func, Arity) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom(),
@@ -93,11 +162,13 @@ stop(M,F,A) ->
     tr({M,F,A}, false).
 
 
+-doc(#{equiv => restart/3}).
 -spec restart() -> non_neg_integer().
 
 restart() ->
     tr({'_','_','_'}, restart).
 
+-doc(#{equiv => restart/3}).
 -spec restart(FuncSpec) -> non_neg_integer() when
       FuncSpec :: (Mod :: module()) | mfa() | {FS :: term()}.
 
@@ -108,6 +179,7 @@ restart({FuncSpec}) ->
 restart(M) ->
     tr({M,'_','_'}, restart).
 
+-doc(#{equiv => restart/3}).
 -spec restart(Mod, Func) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom().
@@ -115,6 +187,18 @@ restart(M) ->
 restart(M,F) ->
     tr({M,F,'_'}, restart).
 
+-doc """
+Restart call counters for the matching functions in matching modules that are
+call count traced. The `FS` argument can be used to specify the first argument
+to `erlang:trace_pattern/3`.
+
+The call counters for all matching functions that has got call count breakpoints
+are set to zero and running.
+
+Return the number of matching functions that can have call count breakpoints,
+the same as [`start/0..3`](`start/0`) with the same arguments would have
+returned.
+""".
 -spec restart(Mod, Func, Arity) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom(),
@@ -124,11 +208,19 @@ restart(M,F,A) ->
     tr({M,F,A}, restart).
 
 
+-doc """
+Pause call count tracing for all functions in all modules and stop it for all
+functions in modules to be loaded. This is the same as
+`(pause({'_','_','_'})+stop({on_load}))`.
+
+See also [`pause/1..3`](`pause/1`) below.
+""".
 -spec pause() -> non_neg_integer().
 
 pause() ->
     tr({'_','_','_'}, pause) + tr(on_load, false).
 
+-doc(#{equiv => pause/3}).
 -spec pause(FuncSpec) -> non_neg_integer() when
       FuncSpec :: (Mod :: module()) | mfa() | {FS :: term()}.
 
@@ -139,6 +231,7 @@ pause({FuncSpec}) ->
 pause(M) ->
     tr({M,'_','_'}, pause).
 
+-doc(#{equiv => pause/3}).
 -spec pause(Mod, Func) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom().
@@ -146,6 +239,17 @@ pause(M) ->
 pause(M,F) ->
     tr({M,F,'_'}, pause).
 
+-doc """
+Pause call counters for matching functions in matching modules. The `FS`
+argument can be used to specify the first argument to `erlang:trace_pattern/3`.
+
+The call counters for all matching functions that has got call count breakpoints
+are paused at their current count.
+
+Return the number of matching functions that can have call count breakpoints,
+the same as [`start/0..3`](`start/0`) with the same arguments would have
+returned.
+""".
 -spec pause(Mod, Func, Arity) -> non_neg_integer() when
       Mod :: module(),
       Func :: atom(),
@@ -162,12 +266,14 @@ pause(M,F,A) ->
                          FuncAnalysisList :: func_analysis_list()}.
 -type func_analysis_list() :: [{mfa(), FuncCallCount :: non_neg_integer()}].
 
+-doc(#{equiv => analyse/2}).
 -spec analyse() -> {AllCallCount :: non_neg_integer(),
                     ModAnalysisList :: mod_analysis_list()}.
 
 analyse() ->
     analyse(1).
 
+-doc(#{equiv => analyse/2}).
 -spec analyse(Limit) -> {AllCallCount :: non_neg_integer(),
                          ModAnalysisList :: mod_analysis_list()} when
                   Limit :: non_neg_integer();
@@ -183,6 +289,37 @@ analyse(Limit) when is_integer(Limit) ->
 analyse(M) when is_atom(M) ->
     analyse(M, 1).
 
+-doc """
+Collects and analyses the call counters presently in the node for either module
+`Mod`, or for all modules (except `cprof` itself), and returns:
+
+- **`FuncAnalysisList`** - A list of tuples, one for each function in a module,
+  in decreasing `FuncCallCount` order.
+
+- **`ModCallCount`** - The sum of `FuncCallCount` values for all functions in
+  module `Mod`.
+
+- **`AllCallCount`** - The sum of `ModCallCount` values for all modules
+  concerned in `ModAnalysisList`.
+
+- **`ModAnalysisList`** - A list of tuples, one for each module except `cprof`,
+  in decreasing `ModCallCount` order.
+
+If call counters are still running while `analyse/0..2` is executing, you might
+get an inconsistent result. This happens if the process executing `analyse/0..2`
+gets scheduled out so some other process can increment the counters that are
+being analysed, Calling [`pause()`](`pause/0`) before analysing takes care of
+the problem.
+
+If the `Mod` argument is given, the result contains a `ModAnalysis` tuple for
+module `Mod` only, otherwise the result contains one `ModAnalysis` tuple for all
+modules returned from [`code:all_loaded()`](`code:all_loaded/0`) except `cprof`
+itself.
+
+All functions with a `FuncCallCount` lower than `Limit` are excluded from
+`FuncAnalysisList`. They are still included in `ModCallCount`, though. The
+default value for `Limit` is `1`.
+""".
 -spec analyse(Mod, Limit) -> ModAnalysis :: mod_analysis() when
       Mod :: module(),
       Limit :: non_neg_integer().
@@ -202,12 +339,15 @@ analyse(M, Limit) when is_atom(M), is_integer(Limit) ->
 
 
 
+-doc false.
 analyze() ->
     analyse().
 
+-doc false.
 analyze(X) ->
     analyse(X).
 
+-doc false.
 analyze(X, Y) ->
     analyse(X, Y).
 

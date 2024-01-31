@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_procinfo).
+-moduledoc false.
 
 -behaviour(wx_object).
 

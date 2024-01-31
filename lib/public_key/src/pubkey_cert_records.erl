@@ -21,6 +21,7 @@
 %%
 
 -module(pubkey_cert_records).
+-moduledoc false.
 
 -include("public_key.hrl").
 
