@@ -1259,6 +1259,10 @@ usm_entry(EngineID, UserName, SecName, Clone,
      Public, AuthKey, PrivKey}.
     
 
+-spec write_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [usm_entry()].
+
 write_usm_config(Dir, Conf) ->
     Comment =
 "%% This file defines the security parameters for the user-based\n"
@@ -1275,6 +1279,11 @@ write_usm_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
+
+-spec write_usm_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [usm_entry()].
 
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

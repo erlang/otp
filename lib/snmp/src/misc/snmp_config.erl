@@ -2369,10 +2369,10 @@ write_agent_snmp_usm_conf(Dir, EngineID, SecType, Passwd) ->
     write_agent_usm_config(Dir, Hdr, Conf).
 
 write_agent_snmp_usm_conf2(EngineID, none, _Passwd) ->
-    [{EngineID, "initial", "initial", zeroDotZero, 
-      usmNoAuthProtocol, "", "", 
-      usmNoPrivProtocol, "", "", 
-      "", "", ""}];
+    [snmpa_conf:usm_entry(EngineID, "initial", "initial", zeroDotZero,
+                          usmNoAuthProtocol, "", "", 
+                          usmNoPrivProtocol, "", "", 
+                          "", "", "")];
 write_agent_snmp_usm_conf2(EngineID, SecType, Passwd) ->
     Secret16 = agent_snmp_mk_secret(md5, Passwd, EngineID),
     Secret20 = agent_snmp_mk_secret(sha, Passwd, EngineID),
@@ -2385,20 +2385,20 @@ write_agent_snmp_usm_conf2(EngineID, SecType, Passwd) ->
 	    {semi, aes} ->
 		{usmAesCfb128Protocol, Secret16}
 	end,
-    [{EngineID, "initial", "initial", zeroDotZero, 
-      usmHMACMD5AuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret16, PrivSecret},
+    [snmpa_conf:usm_entry(EngineID, "initial", "initial", zeroDotZero, 
+                          usmHMACMD5AuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret16, PrivSecret),
      
-     {EngineID, "templateMD5", "templateMD5", zeroDotZero, 
-      usmHMACMD5AuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret16, PrivSecret}, 
+     snmpa_conf:usm_entry(EngineID, "templateMD5", "templateMD5", zeroDotZero, 
+                          usmHMACMD5AuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret16, PrivSecret), 
 
-     {EngineID, "templateSHA", "templateSHA", zeroDotZero, 
-      usmHMACSHAAuthProtocol, "", "", 
-      PrivProt, "", "", 
-      "", Secret20, PrivSecret}].
+     snmpa_conf:usm_entry(EngineID, "templateSHA", "templateSHA", zeroDotZero, 
+                          usmHMACSHAAuthProtocol, "", "", 
+                          PrivProt, "", "", 
+                          "", Secret20, PrivSecret)].
 
 write_agent_usm_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_usm_config(Dir, Hdr, Conf).
