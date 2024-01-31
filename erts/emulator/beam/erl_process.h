@@ -868,9 +868,10 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_PENDING_SUSPEND                9 /* keep last... */
+#define ERTS_PSD_TS_EVENT                       9
+#define ERTS_PSD_PENDING_SUSPEND                10 /* keep last... */
 
-#define ERTS_PSD_SIZE				10
+#define ERTS_PSD_SIZE				11
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -905,6 +906,9 @@ typedef struct {
 
 #define ERTS_PSD_DIST_ENTRY_GET_LOCKS ERTS_LC_PSD_ANY_LOCK
 #define ERTS_PSD_DIST_ENTRY_SET_LOCKS ERTS_PROC_LOCKS_ALL
+
+#define ERTS_PSD_TS_EVENT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_TS_EVENT_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_PENDING_SUSPEND_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_PENDING_SUSPEND_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -2281,6 +2285,11 @@ erts_psd_set(Process *p, int ix, void *data)
     ((DistEntry *) erts_psd_get((P), ERTS_PSD_DIST_ENTRY))
 #define ERTS_PROC_SET_DIST_ENTRY(P, DE) \
     ((DistEntry *) erts_psd_set((P), ERTS_PSD_DIST_ENTRY, (void *) (DE)))
+
+#define ERTS_PROC_GET_TS_EVENT(P) \
+    ((erts_tse_t *) erts_psd_get((P), ERTS_PSD_TS_EVENT))
+#define ERTS_PROC_SET_TS_EVENT(P, TSE) \
+    ((erts_tse_t *) erts_psd_set((P), ERTS_PSD_TS_EVENT, (void *) (TSE)))
 
 #define ERTS_PROC_GET_PENDING_SUSPEND(P) \
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
