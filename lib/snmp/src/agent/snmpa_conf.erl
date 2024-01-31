@@ -1038,6 +1038,10 @@ target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
     {Name, MPModel, SecModel, SecName, SecLevel}.
     
 
+-spec write_target_params_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_params_entry()].
+
 write_target_params_config(Dir, Conf) ->
     Comment =
 "%% This file defines the target parameters.\n"
@@ -1050,6 +1054,11 @@ write_target_params_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_target_params_config(Dir, Hdr, Conf).
+
+-spec write_target_params_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [target_params_entry()].
 
 write_target_params_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

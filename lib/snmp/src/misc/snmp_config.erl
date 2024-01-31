@@ -2301,7 +2301,8 @@ write_agent_snmp_target_params_conf(Dir, Vsns) ->
 			 end,
 		    Name = lists:flatten(
 			     io_lib:format("target_~w", [V])),
-		    {Name, MP, SM, "initial", noAuthNoPriv}
+		    snmpa_conf:target_params_entry(Name, MP, SM,
+                                                   "initial", noAuthNoPriv)
 	    end(Vsn) || Vsn <- Vsns],
     write_agent_target_params_config(Dir, Hdr, Conf).
 
