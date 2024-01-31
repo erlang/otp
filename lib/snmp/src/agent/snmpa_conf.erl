@@ -1388,25 +1388,29 @@ vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
 vacm_s2g_entry(SecModel, SecName, GroupName) ->
     {vacmSecurityToGroup, SecModel, SecName, GroupName}.
 
--spec vacm_vtf_entry(ViewIndex, ViewSubtree) -> VacmVtfEntry when
-      ViewIndex    :: integer(),
+-spec vacm_vtf_entry(ViewName, ViewSubtree) -> VacmVtfEntry when
+      ViewName     :: snmp_framework_mib:admin_string(),
       ViewSubtree  :: snmp:oid(),
       VacmVtfEntry :: VacmVtfEntry.
 
-vacm_vtf_entry(ViewIndex, ViewSubtree) ->
-    vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+vacm_vtf_entry(ViewName, ViewSubtree) ->
+    vacm_vtf_entry(ViewName, ViewSubtree, included, null).
 
--spec vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
+-spec vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
           VacmVtfEntry when
-      ViewIndex    :: integer(),
+      ViewName     :: snmp_framework_mib:admin_string(),
       ViewSubtree  :: snmp:oid(),
-      ViewStatus   :: snmp_view_based_acm_mib:view_type(),
+      ViewType     :: snmp_view_based_acm_mib:view_type(),
       ViewMask     :: null | snmp_view_based_acm_mib:view_mask(),
       VacmVtfEntry :: VacmVtfEntry.
 
-vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
-    {vacmViewTreeFamily, ViewIndex, ViewSubtree, ViewStatus, ViewMask}.
+vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
+    {vacmViewTreeFamily, ViewName, ViewSubtree, ViewType, ViewMask}.
 
+
+-spec write_vacm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [vacm_entry()].
 
 write_vacm_config(Dir, Conf) ->
     Comment =
@@ -1430,6 +1434,11 @@ write_vacm_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_vacm_config(Dir, Hdr, Conf).
+
+-spec write_vacm_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [vacm_entry()].
 
 write_vacm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->

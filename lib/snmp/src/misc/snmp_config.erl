@@ -2140,44 +2140,6 @@ write_agent_snmp_target_addr_conf(
 "%%  [127,0,0,0],  2048}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    %% Conf =
-    %%     lists:foldl(
-    %%       fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
-    %%     	  lists:foldl(
-    %%     	    fun(v1 = Vsn, Acc) ->
-    %%     		    [{mk_name(Address, Vsn),
-    %%     		      Domain_or_Ip, Addr_or_Port,
-    %%     		      Timeout, RetryCount,
-    %%     		      "std_trap", mk_param(Vsn), "",
-    %%     		      [], 2048}| Acc];
-    %%     	       (v2 = Vsn, Acc) ->
-    %%     		    [{mk_name(Address, Vsn),
-    %%     		      Domain_or_Ip, Addr_or_Port,
-    %%     		      Timeout, RetryCount,
-    %%     		      "std_trap", mk_param(Vsn), "",
-    %%     		      [], 2048},
-    %%                          {lists:flatten(
-    %%                             io_lib:format(
-    %%                               "~s.2", [mk_name(Address, Vsn)])),
-    %%                           Domain_or_Ip, Addr_or_Port,
-    %%                           Timeout, RetryCount,
-    %%                           "std_inform", mk_param(Vsn), "",
-    %%                           [], 2048}| Acc];
-    %%     	       (v3 = Vsn, Acc) ->
-    %%     		    [{mk_name(Address, Vsn),
-    %%     		      Domain_or_Ip, Addr_or_Port,
-    %%     		      Timeout, RetryCount,
-    %%     		      "std_trap", mk_param(Vsn), "",
-    %%     		      [], 2048},
-    %%     		     {lists:flatten(
-    %%     			io_lib:format(
-    %%     			  "~s.3", [mk_name(Address, Vsn)])),
-    %%     		      Domain_or_Ip, Addr_or_Port,
-    %%     		      Timeout, RetryCount,
-    %%     		      "std_inform", mk_param(Vsn), "mgrEngine",
-    %%     		      [], 2048} | Acc]
-    %%     	    end, OuterAcc, Vsns)
-    %%       end, [], Addresses),
     Conf = process_ata_addresses(Addresses, Timeout, RetryCount, Vsns),
     write_agent_target_addr_config(Dir, Hdr, Conf).
 
@@ -2432,45 +2394,42 @@ write_agent_snmp_vacm_conf(Dir, Vsns, SecType) ->
 "%% {vacmViewTreeFamily, \"internet\", [1,3,6,1], included, null}.\n"
 "%%\n\n",
     Hdr = lists:flatten(header()) ++ Comment,
+    S2GF = fun(SM, SN, GN) -> snmpa_conf:vacm_s2g_entry(SM, SN, GN) end,
+    ACCF = fun(GN, P, SM, SL, M, RV, WV, NV) ->
+                   snmpa_conf:vacm_acc_entry(GN, P, SM, SL, M, RV, WV, NV)
+           end,
+    VTFF = fun(VN, VS, VT, VM) ->
+                   snmpa_conf:vacm_vtf_entry(VN, VS, VT, VM)
+           end,
     Groups = 
 	lists:foldl(
 	  fun(V, Acc) ->
-		  [{vacmSecurityToGroup, vacm_ver(V), 
-		    "initial",    "initial"},
-		   {vacmSecurityToGroup, vacm_ver(V), 
-		    "all-rights", "all-rights"}|
-		   Acc]
+		  [S2GF(vacm_ver(V), "initial",    "initial"),
+		   S2GF(vacm_ver(V), "all-rights", "all-rights") | Acc]
 	  end, [], Vsns),
     Acc = 
-	[{vacmAccess, "initial", "", any, noAuthNoPriv, exact, 
-	  "restricted", "", "restricted"}, 
-	 {vacmAccess, "initial", "", usm, authNoPriv, exact, 
-	  "internet", "internet", "internet"}, 
-	 {vacmAccess, "initial", "", usm, authPriv, exact, 
-	  "internet", "internet", "internet"}, 
-	 {vacmAccess, "all-rights", "", any, noAuthNoPriv, exact, 
-	  "internet", "internet", "internet"}],
+	[ACCF("initial", "", any, noAuthNoPriv, exact,
+              "restricted", "", "restricted"),
+	 ACCF("initial", "", usm, authNoPriv, exact,
+              "internet", "internet", "internet"),
+	 ACCF("initial", "", usm, authPriv, exact,
+              "internet", "internet", "internet"),
+	 ACCF("all-rights", "", any, noAuthNoPriv, exact, 
+              "internet", "internet", "internet")],
     VTF0 = 
 	case SecType of
 	    none ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1], included, null}];
+		[VTFF("restricted", [1,3,6,1], included, null)];
 	    minimum ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1], included, null}];
+		[VTFF("restricted", [1,3,6,1], included, null)];
 	    {semi, _} ->
-		[{vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,2,1,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,2,1,11], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,10,2,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,11,2,1], included, null},
-		 {vacmViewTreeFamily, 
-		  "restricted", [1,3,6,1,6,3,15,1,1], included, null}]
+		[VTFF("restricted", [1,3,6,1,2,1,1],      included, null),
+		 VTFF("restricted", [1,3,6,1,2,1,11],     included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,10,2,1], included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,11,2,1], included, null),
+		 VTFF("restricted", [1,3,6,1,6,3,15,1,1], included, null)]
 	end,
-    VTF = VTF0 ++ [{vacmViewTreeFamily,"internet",[1,3,6,1],included,null}],
+    VTF = VTF0 ++ [VTFF("internet",[1,3,6,1],included,null)],
     write_agent_vacm_config(Dir, Hdr, Groups ++ Acc ++ VTF).
 
 vacm_ver(v1) -> v1;
