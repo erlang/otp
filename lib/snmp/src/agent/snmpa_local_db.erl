@@ -249,8 +249,20 @@ dets_filename1(Dir) -> Dir.
 %%-----------------------------------------------------------------
 %% Functions for debugging.
 %%-----------------------------------------------------------------
+
+-spec print() -> term().
+
 print()          -> call(print).
+
+-spec print(Table) -> term() when
+      Table :: atom().
+
 print(Table)     -> call({print,Table,volatile}).
+
+-spec print(Table, Db) -> term() when
+      Table :: atom(),
+      Db    :: volatile | persistent.
+
 print(Table, Db) -> call({print,Table,Db}).
 
 variable_get({Name, Db}) ->

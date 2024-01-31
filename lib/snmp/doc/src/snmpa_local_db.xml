@@ -105,21 +105,27 @@
       </desc>
     </func>
     <func>
-      <name since="">print()</name>
-      <name since="">print(TableName)</name>
-      <name since="">print(TableName, Db)</name>
+      <name name="print" arity="0" clause_i="1" since=""/>
+      <name name="print" arity="1" clause_i="1" since=""/>
+      <name name="print" arity="2" clause_i="1" since=""/>
       <fsummary>Print the database to screen</fsummary>
-      <type>
-        <v>TableName = atom()</v>
-      </type>
       <desc>
         <p>Prints the contents of the database on
-          screen. This is useful for debugging since the 
-          <c>STANDARD-MIB</c> and <c>OTP-SNMPEA-MIB</c> 
-          (and maybe your own MIBs) are stored in <c>snmpa_local_db</c>.
-          </p>
-        <p><c>TableName</c> is an atom for a table in the database. 
-          When no name is supplied, the whole database is shown.</p>
+	screen. This is useful for debugging since the 
+	<c>STANDARD-MIB</c> and <c>OTP-SNMPEA-MIB</c> 
+	(and maybe your own MIBs) are stored in <c>snmpa_local_db</c>. </p>
+
+	<p><c>TableName</c> is an atom for a table in the database. 
+	When no name is supplied, the whole database is shown.</p>
+
+	<p>Note that these functions does not actually print, using
+	io:format/2, Instead they (just) returns the information.
+	If executed in a shell, the information will then be displayed
+	(probably truncated) there. </p>
+	<p>A better use would be: </p>
+	<pre>
+	  io:format("~p~n", [snmpa_local_db:print()]).
+	</pre>
       </desc>
     </func>
     <func>
