@@ -20,6 +20,4 @@ for APP_VSN in ${APP_VSNS}; do
     fi
 done
 
-set -x
-
-sed -i $FIXUP "$@"
+sed $FIXUP -i -- "$@"
