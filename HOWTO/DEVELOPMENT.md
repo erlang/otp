@@ -374,7 +374,7 @@ If you want to run tests using `cerl` (for example if you want to run asan on
 the nif_SUITE in emulator) you cannot use the `make test` approach to testing
 as that uses `ct_run` under the hood and `ct_run` does not support customizing
 the emulator start script. Instead you need to use the approach described in
-[Run tests with Address Sanitizer](INSTALL.md#run-tests-with-address-sanitizer).
+[Run tests with Address Sanitizer](TESTING.md#run-tests-with-address-sanitizer).
 
 
 ### Static analysis
