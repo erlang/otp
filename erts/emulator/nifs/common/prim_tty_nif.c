@@ -41,9 +41,17 @@
 #include <stdio.h>
 #include <signal.h>
 #include <locale.h>
-#ifdef HAVE_TERMCAP
+#if defined(HAVE_TERMCAP) && (defined(HAVE_TERMCAP_H) || (defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)))
 #include <termios.h>
+#ifdef HAVE_TERMCAP_H
 #include <termcap.h>
+#else /* !HAVE_TERMCAP_H */
+#include <curses.h>
+#include <term.h>
+#endif
+#else
+/* We detected TERMCAP support, but could not find the correct headers to include */
+#undef HAVE_TERMCAP
 #endif
 #ifndef __WIN32__
 #include <unistd.h>
