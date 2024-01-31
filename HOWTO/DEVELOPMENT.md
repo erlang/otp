@@ -334,7 +334,7 @@ above.
 ### cerl
 
 `cerl` is a program available in `$ERL_TOP/bin/` that has a number of features
-useful when developing the Erlang run-time system. It work just as normal `erl`,
+useful when developing the Erlang run-time system. It works just as normal `erl`,
 but accepts a couple of extra command line switches. Any other command line arguments
 passed to `cerl` will be passed on the Erlang as normal. The extra command line
 switches are:
