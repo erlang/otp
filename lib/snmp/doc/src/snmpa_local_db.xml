@@ -95,12 +95,13 @@
     </func>
 
     <func>
-      <name since="">match(NameDb, Pattern)</name>
+      <name name="match" arity="2" clause_i="1" since=""/>
       <fsummary>Perform a match on the table</fsummary>
       <desc>
-        <p>Performs an ets/dets matching on the table. 
-          See Stdlib documentation, module ets, for a description of 
-          <c>Pattern</c> and the return values.</p>
+        <p>Performs an ets/dets matching on the table. </p>
+	<p>See <seemfa marker="stdlib:ets#match/2">ets:match/2</seemfa>
+	for a description of <c>Pattern</c> and the return values.</p>
+	
       </desc>
     </func>
     <func>

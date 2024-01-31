@@ -327,6 +327,12 @@ table_create_row(NameDb, RowIndex, Status, Cols) ->
     Row = table_construct_row(NameDb, RowIndex, Status, Cols),
     table_create_row(NameDb, RowIndex, Row).
 
+
+-spec match(NameDb, Pattern) -> [Match] when
+      NameDb  :: snmpa:name_db(),
+      Pattern :: ets:match_pattern(),
+      Match   :: term().
+
 match({Name, Db}, Pattern) ->
     call({match, Name, Db, Pattern});    
 match(Name, Pattern) ->
