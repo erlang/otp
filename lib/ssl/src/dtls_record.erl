@@ -409,9 +409,9 @@ initial_connection_state(ConnectionEnd) ->
       replay_window => init_replay_window(),
       cipher_state  => undefined,
       mac_secret  => undefined,
-      secure_renegotiation => undefined,
-      client_verify_data => undefined,
-      server_verify_data => undefined
+      reneg => #{secure_renegotiation => undefined,
+                 client_verify_data => undefined,
+                 server_verify_data => undefined}
      }.
 
 get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo,

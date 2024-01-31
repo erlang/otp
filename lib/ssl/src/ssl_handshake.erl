@@ -3609,31 +3609,26 @@ max_frag_enum(undefined) ->
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
-    ConnectionState  = ssl_record:current_connection_state(ConnectionStates, read),
-    case maps:get(secure_renegotiation, ConnectionState) of
-	true ->
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true}} ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
-	false ->
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 renegotiation_info(_RecordCB, client, ConnectionStates, true) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case  maps:get(secure_renegotiation, ConnectionState) of
-	true ->
-	    Data = maps:get(client_verify_data, ConnectionState),
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true, client_verify_data := Data}} ->
 	    #renegotiation_info{renegotiated_connection = Data};
-	false ->
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
-
 renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case maps:get(secure_renegotiation, ConnectionState) of
-	true ->
-	    CData = maps:get(client_verify_data, ConnectionState),
-	    SData = maps:get(server_verify_data, ConnectionState),
-	    #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
-	false ->
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true,
+                     client_verify_data := CData,
+                     server_verify_data := SData}} ->
+                #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end.
 
@@ -3654,9 +3649,8 @@ handle_renegotiation_info(_, _RecordCB, _, undefined, ConnectionStates, false, _
 
 handle_renegotiation_info(_, _RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    CData = maps:get(client_verify_data, ConnectionState),
-    SData = maps:get(server_verify_data, ConnectionState),
+    #{reneg := ReNeg} = ssl_record:current_connection_state(ConnectionStates, read),
+    #{client_verify_data := CData, server_verify_data := SData} = ReNeg,
     case <<CData/binary, SData/binary>> == ClientServerVerify of
 	true ->
 	    {ok, ConnectionStates};
@@ -3670,12 +3664,10 @@ handle_renegotiation_info(_, _RecordCB, server, #renegotiation_info{renegotiated
 	  true ->
               throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {server_renegotiation, empty_renegotiation_info_scsv}));
 	  false ->
-	      ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-	      Data =  maps:get(client_verify_data, ConnectionState),
-	      case Data == ClientVerify of
-		  true ->
+	      case ssl_record:current_connection_state(ConnectionStates, read) of
+		  #{reneg := #{client_verify_data := ClientVerify}} ->
 		      {ok, ConnectionStates};
-		  false ->
+		  _ ->
                       throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, server_renegotiation))
 	      end
       end;
@@ -3691,8 +3683,8 @@ handle_renegotiation_info(_, RecordCB, server, undefined, ConnectionStates, true
      end.
 
 handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case {SecureRenegotation, maps:get(secure_renegotiation, ConnectionState)} of
+    #{reneg := #{secure_renegotiation := SR}} = ssl_record:current_connection_state(ConnectionStates, read),
+    case {SecureRenegotation, SR} of
 	{_, true} ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, already_secure));
 	{true, false} ->

@@ -461,12 +461,12 @@ initial_connection_state(ConnectionEnd, MaxEarlyDataSize) ->
       sequence_number => 0,
       cipher_state  => undefined,
       mac_secret  => undefined,
-      secure_renegotiation => undefined,
-      client_verify_data => undefined,
-      server_verify_data => undefined,
       pending_early_data_size => MaxEarlyDataSize,
       trial_decryption => false,
-      early_data_expected => false
+      early_data_expected => false,
+      reneg => #{secure_renegotiation => undefined,
+                 client_verify_data => undefined,
+                 server_verify_data => undefined}
      }.
 
 %% Used by logging to recreate the received bytes
