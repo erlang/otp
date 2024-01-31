@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -52,37 +52,29 @@
       <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
   </description>
+
   <funcs>
     <func>
-      <name since="">config_err(Format, Args) -> void()</name>
+      <name name="config_err" arity="2" clause_i="1" since=""/>
       <fsummary>Called if a configuration error occurs</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Args = list()</v>
-      </type>
       <desc>
         <p>The function is called if an error occurs during the
-          configuration phase, for example if a syntax error is found in
-          a configuration file.
-          </p>
+	configuration phase, for example if a syntax error is found in
+	a configuration file. </p>
         <p><c>Format</c> and <c>Args</c> are as in
-          <c>io:format(Format, Args)</c>.</p>
+	<c>io:format(Format, Args)</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">user_err(Format, Args) -> void()</name>
+      <name name="user_err" arity="2" clause_i="1" since=""/>
       <fsummary>Called if a user related error occurs</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Args = list()</v>
-      </type>
       <desc>
         <p>The function is called if a user related error occurs at
-          run-time, for example if a user defined instrumentation
-          function returns erroneous.
-          </p>
+	run-time, for example if a user defined instrumentation
+	function returns erroneous. </p>
         <p><c>Format</c> and <c>Args</c> are as in
-          <c>io:format(Format, Args)</c>.</p>
+	<c>io:format(Format, Args)</c>.</p>
       </desc>
     </func>
   </funcs>
