@@ -71,6 +71,7 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmpa.xml \
 	$(SPECDIR)/specs_snmpa_conf.xml \
 	$(SPECDIR)/specs_snmpa_error.xml \
+	$(SPECDIR)/specs_snmpa_error_io.xml \
 	$(SPECDIR)/specs_snmpa_notification_delivery_info_receiver.xml
 
 TOP_SPECS_FILE = specs.xml
