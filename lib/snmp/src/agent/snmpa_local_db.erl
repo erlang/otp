@@ -265,6 +265,7 @@ print(Table)     -> call({print,Table,volatile}).
 
 print(Table, Db) -> call({print,Table,Db}).
 
+
 variable_get({Name, Db}) ->
     call({variable_get, Name, Db});
 variable_get(Name) ->
@@ -285,6 +286,9 @@ variable_delete({Name, Db}) ->
 variable_delete(Name) ->
     call({variable_delete, Name, volatile}).
 
+
+-spec table_create(NameDb) -> boolean() when
+      NameDb :: snmpa:name_db().
 
 table_create({Name, Db}) ->
     call({table_create, Name, Db});

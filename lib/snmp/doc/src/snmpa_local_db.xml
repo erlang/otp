@@ -128,15 +128,16 @@
 	</pre>
       </desc>
     </func>
+
     <func>
-      <name since="">table_create(NameDb) -> bool()</name>
+      <name name="table_create" arity="1" clause_i="1" since=""/>
       <fsummary>Create a table</fsummary>
       <desc>
-        <p>Creates a table. If the table already exist, the old copy
-          is destroyed.
-          </p>
-        <p>Returns <c>false</c> if the <c>NameDb</c> argument is
-          incorrectly specified, <c>true</c> otherwise.</p>
+	<p>Creates a table. If the table already exist, the old copy
+	is destroyed. </p>
+
+	<p>Returns <c>false</c> if the <c>NameDb</c> argument is
+	incorrectly specified, <c>true</c> otherwise. </p>
       </desc>
     </func>
     <func>
