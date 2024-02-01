@@ -807,9 +807,11 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+            {ok,{_,ResWordFun0}} =
+                erl_features:keyword_fun([], fun erl_scan:f_reserved_word/1),
             ResWordFun =
                 proplists:get_value(reserved_word_fun, Options,
-                                    fun erl_scan:f_reserved_word/1),
+                                    ResWordFun0),
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
 

@@ -21,7 +21,6 @@
 %% Do necessary checking of Erlang code.
 
 -module(erl_lint).
--feature(maybe_expr, enable).
 -moduledoc """
 The Erlang code linter.
 

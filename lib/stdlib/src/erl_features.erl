@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
--feature(maybe_expr, enable).
 -moduledoc """
 Feature support.
 
@@ -72,8 +71,9 @@ feature_specs() ->
             description =>
                 "Implementation of the maybe expression proposed in EEP49 -- "
             "Value based error handling.",
-            status => experimental,
+            status => approved,
             experimental => 25,
+            approved => 27,
             keywords => ['maybe', 'else'],
             type => extension}}.
 

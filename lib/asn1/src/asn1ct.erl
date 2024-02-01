@@ -20,7 +20,6 @@
 %%
 %%
 -module(asn1ct).
--feature(maybe_expr, enable).
 -moduledoc """
 ASN.1 compiler and compile-time support functions
 

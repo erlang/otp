@@ -23,7 +23,6 @@
 %% the cookie as a shared secret
 %%
 -module(cryptcookie).
--feature(maybe_expr, enable).
 
 -export([supported/0, start_keypair_server/0, init/1, init/2,
          encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2]).

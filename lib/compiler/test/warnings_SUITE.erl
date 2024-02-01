@@ -325,7 +325,7 @@ bool_cases(Config) when is_list(Config) ->
 
             h(Bool) ->
                case not Bool of
-                 maybe -> strange;
+                 'maybe' -> strange;
                  false -> ok;
                  true -> error
                end.

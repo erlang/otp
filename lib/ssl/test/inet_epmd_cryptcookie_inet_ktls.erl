@@ -23,7 +23,6 @@
 %% with cryptcookie over inet_tcp with kTLS offloading
 %%
 -module(inet_epmd_cryptcookie_inet_ktls).
--feature(maybe_expr, enable).
 
 %% DistMod API
 -export([net_address/0, listen_open/2, listen_port/3, listen_close/1,

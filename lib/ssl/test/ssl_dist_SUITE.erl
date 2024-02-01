@@ -19,7 +19,6 @@
 %%
 
 -module(ssl_dist_SUITE).
--feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 

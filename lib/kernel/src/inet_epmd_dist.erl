@@ -19,7 +19,6 @@
 %%
 
 -module(inet_epmd_dist).
--feature(maybe_expr, enable).
 -moduledoc false.
 
 %% DistMod API - own inet_tcp_dist equivalence implementation

@@ -23,7 +23,6 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_handshake).
--feature(maybe_expr,enable).
 -moduledoc false.
 
 -include("ssl_handshake.hrl").

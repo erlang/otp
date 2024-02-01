@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(ssl_dist_bench_SUITE).
--feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
